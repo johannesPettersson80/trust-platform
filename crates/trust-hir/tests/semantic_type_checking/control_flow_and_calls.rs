@@ -851,7 +851,8 @@ END_PROGRAM
 }
 
 #[test]
-// IEC 61131-3 Ed.3 Table 45 (counter function blocks)
+// IEC 61131-3 Ed.3 Table 45 (counter function blocks): `CTU`, `CTD` and `CTUD` are the INT
+// counters (1a, 2a, 3a); a DINT counter is `CTU_DINT` and its kin (1b, 2b, 3b).
 fn test_standard_counter_function_blocks() {
     check_no_errors(
         r#"
@@ -861,6 +862,8 @@ PROGRAM Test
         ctd : CTD;
         ctud : CTUD;
         ctu_int : CTU_INT;
+        ctu_dint : CTU_DINT;
+        ctud_dint : CTUD_DINT;
         pv_dint : DINT;
         cv_dint : DINT;
         pv_int : INT;
@@ -869,12 +872,61 @@ PROGRAM Test
         qd : BOOL;
         q : BOOL;
     END_VAR
-    ctu(CU := TRUE, R := FALSE, PV := pv_dint, Q => q, CV => cv_dint);
-    ctd(CD := TRUE, LD := FALSE, PV := pv_dint, Q => q, CV => cv_dint);
-    ctud(CU := TRUE, CD := FALSE, R := FALSE, LD := FALSE, PV := pv_dint, QU => qu, QD => qd, CV => cv_dint);
+    ctu(CU := TRUE, R := FALSE, PV := pv_int, Q => q, CV => cv_int);
+    ctd(CD := TRUE, LD := FALSE, PV := pv_int, Q => q, CV => cv_int);
+    ctud(CU := TRUE, CD := FALSE, R := FALSE, LD := FALSE, PV := pv_int, QU => qu, QD => qd, CV => cv_int);
     ctu_int(CU := TRUE, R := FALSE, PV := pv_int, Q => q, CV => cv_int);
+    ctu_dint(CU := TRUE, R := FALSE, PV := pv_dint, Q => q, CV => cv_dint);
+    ctud_dint(CU := TRUE, CD := FALSE, R := FALSE, LD := FALSE, PV := pv_dint, QU => qu, QD => qd, CV => cv_dint);
 END_PROGRAM
 "#,
+    );
+}
+
+#[test]
+// Specification 08 §4: an untyped integer literal for a plain counter's PV is an INT, as for any
+// INT input. Catches the literal typed by its smallest fit (SINT) and refused as a counter type.
+fn test_plain_counter_takes_an_untyped_literal_preset() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR ctu : CTU; ctd : CTD; ctud : CTUD; q : BOOL; qu : BOOL; qd : BOOL; cv : INT; END_VAR
+    ctu(CU := TRUE, R := FALSE, PV := 10, Q => q, CV => cv);
+    ctd(CD := TRUE, LD := FALSE, PV := 10, Q => q, CV => cv);
+    ctud(CU := TRUE, CD := FALSE, R := FALSE, LD := FALSE, PV := 32767, QU => qu, QD => qd, CV => cv);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+// Specification 08 §4: a plain `CTU` counts in INT, so a DINT preset is refused. Catches a DINT
+// preset accepted and then run as INT (a preset of 100000 ran as 0).
+fn test_plain_counter_refuses_a_dint_preset() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR ctu : CTU; q : BOOL; cv : INT; pv : DINT := DINT#100000; END_VAR
+    ctu(CU := TRUE, R := FALSE, PV := pv, Q => q, CV => cv);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+// Specification 08 §4 and `docs/IEC_DECISIONS.md` (numeric conversions): an untyped literal takes
+// INT only when INT can represent it, so 40000 is a DINT argument for an INT input. Catches 40000
+// accepted for an INT preset.
+fn test_plain_counter_refuses_a_literal_preset_beyond_int() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR ctu : CTU; q : BOOL; cv : INT; END_VAR
+    ctu(CU := TRUE, R := FALSE, PV := 40000, Q => q, CV => cv);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
     );
 }
 

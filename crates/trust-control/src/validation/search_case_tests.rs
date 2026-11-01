@@ -6,7 +6,7 @@ use crate::tuning::search::{SearchBounds, SearchCandidate, SearchTrial};
 
 /// Lesson 89's control loop: the finite search over the notch's frequency and quality (C5).
 const LESSON_89_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
+    "../../../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
 );
 
 /// Lesson 89's chosen trial as a search candidate: 2 Hz at a quality of 3 (C5, lesson 89's grid).

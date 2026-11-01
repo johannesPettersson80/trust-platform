@@ -16,7 +16,7 @@ use crate::tuning::texts;
 /// Lesson 90 as the shipped file declares it: the drum axis, served by its program's trajectory-feedforward PID.
 fn lesson_90() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../../editors/vscode/media/examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
+        "../../../../../examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
     ))
     .expect("lesson 90 decodes")
 }

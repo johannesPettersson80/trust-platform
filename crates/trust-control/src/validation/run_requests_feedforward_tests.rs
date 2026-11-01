@@ -13,7 +13,7 @@ use crate::tuning::structure::{ParallelGains, Structure};
 /// Lesson 90 as the shipped file declares it: the drum axis, whose seed names `P1.RateGain` and `P1.AccelerationGain`.
 fn lesson_90() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
+        "../../../../examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
     ))
     .expect("lesson 90 decodes")
 }

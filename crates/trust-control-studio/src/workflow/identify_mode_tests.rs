@@ -31,8 +31,8 @@ use trust_control::model::general::decode_general_model;
 use trust_control::validation::engineer_verification_plan::engineer_requirements;
 
 use super::test_support::{
-    pid_tank_loop, run_with_transfers, LoggedReport, LoggedStudy, ModeRuntime, TransferFake,
-    MODE_SIGNAL,
+    pid_tank_loop, run_with_transfers, Cancel, LoggedReport, LoggedStudy, ModeClock, ModeRuntime,
+    TransferFake, MODE_SIGNAL,
 };
 use super::IdentificationMode;
 use crate::journal::{Journal, JournalEntry};
@@ -101,8 +101,10 @@ fn entering_manual_journals_the_mode_found_and_the_transfers_owner_before_its_ap
     let transfers = TransferFake::start(true);
     transfers.watch_journal(&folder);
     let loop_definition = pid_tank_loop("rev-1", false);
-    let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-        .expect("the tank transfers");
+    let clock = ModeClock::default();
+    let mut mode =
+        IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+            .expect("the tank transfers");
     mode.enter(true).expect("the loop enters Manual");
 
     assert!(!transfers.auto(), "the loop is in Manual");
@@ -163,8 +165,10 @@ fn the_return_writes_the_setpoint_back_in_manual_and_enters_auto_from_the_output
     let journal = journal_in(&folder);
     let transfers = TransferFake::start(true);
     let loop_definition = pid_tank_loop("rev-1", false);
-    let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-        .expect("the tank transfers");
+    let clock = ModeClock::default();
+    let mut mode =
+        IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+            .expect("the tank transfers");
     mode.enter(true).expect("the loop enters Manual");
     mode.set_process_noise(0.05);
     mode.restore().expect("the loop returns to Auto");
@@ -201,6 +205,42 @@ fn the_return_writes_the_setpoint_back_in_manual_and_enters_auto_from_the_output
     let _ = fs::remove_dir_all(&folder);
 }
 
+#[test]
+fn the_return_waits_until_the_output_has_reached_the_restored_command() {
+    // The acceptance run of 31 October 2026 on the 0.27.0 package: a step's restored Manual command brought the output back at
+    // the loop's 25 %/s, 2.5 % per 100 ms scan; the return read 14.166 % and met 11.666 % at the next scan, and the runtime refused
+    // the write-back as stale (B3.4 step 5, annex E6.4). Here the output reads 14.166, 11.666, 9.166 and then 6.666 %, one value
+    // per status read: the write-back is reviewed on 6.666 % once two reads of different scans show it alike, and the loop returns
+    // to Auto. Without the wait it would be reviewed on 9.166 %, the third read. Catches a return that reviews a moving output.
+    let folder = folder("mode-return-ramp");
+    let journal = journal_in(&folder);
+    let transfers = TransferFake::start(true);
+    let mut loop_definition = pid_tank_loop("rev-1", false);
+    loop_definition.limits.rate_up_per_s = Some(25.0);
+    loop_definition.limits.rate_down_per_s = Some(25.0);
+    let output = mode_binding(&loop_definition)
+        .expect("the tank's mode binding")
+        .output
+        .symbol;
+    let clock = ModeClock::default();
+    let mut mode =
+        IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+            .expect("the tank transfers");
+    mode.enter(true).expect("the loop enters Manual");
+    transfers.ramp(&output, &[14.166, 11.666, 9.166, 6.666]);
+    mode.restore().expect("the loop returns to Auto");
+
+    assert!(transfers.auto(), "the loop is back in Auto");
+    assert_eq!(transfers.events(), [ENTER_MANUAL, COMMANDS, ENTER_AUTO]);
+    let applies = transfers.applies();
+    assert_eq!(
+        applies[1]["expected_values"][&output].as_f64(),
+        Some(6.666),
+        "the write-back is reviewed on the output that arrived"
+    );
+    let _ = fs::remove_dir_all(&folder);
+}
+
 /// B3.4 step 1: a loop already in the mode the method needs is left as it is, in Manual and in Auto: no transfer, no journal
 /// entry, and nothing to return.
 #[test]
@@ -210,8 +250,10 @@ fn a_loop_already_in_the_wanted_mode_has_no_transfer_and_no_journal_entry() {
     let loop_definition = pid_tank_loop("rev-1", false);
     for (auto, manual) in [(false, true), (true, false)] {
         let transfers = TransferFake::start(auto);
-        let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-            .expect("the tank transfers");
+        let clock = ModeClock::default();
+        let mut mode =
+            IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+                .expect("the tank transfers");
         mode.enter(manual).expect("nothing to change");
         mode.restore().expect("nothing to return");
         assert_eq!(transfers.applies(), Vec::<Value>::new(), "no transfer");
@@ -257,8 +299,10 @@ fn an_owned_transfer_of_an_interrupted_mode_change_is_cancelled_and_never_applie
         })
         .expect("the checkpoint is journaled");
     let journal = journal_in(&folder);
-    let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-        .expect("the tank transfers");
+    let clock = ModeClock::default();
+    let mut mode =
+        IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+            .expect("the tank transfers");
     mode.restore().expect("the loop returns to Auto");
 
     assert_eq!(
@@ -290,8 +334,10 @@ fn a_reloaded_program_refuses_the_return_and_keeps_the_checkpoint() {
     let journal = journal_in(&folder);
     let transfers = TransferFake::start(true);
     let loop_definition = pid_tank_loop("rev-1", false);
-    let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-        .expect("the tank transfers");
+    let clock = ModeClock::default();
+    let mut mode =
+        IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+            .expect("the tank transfers");
     mode.enter(true).expect("the loop enters Manual");
     transfers.reload("program-2");
     let failure = mode.restore().expect_err("the program changed");
@@ -322,7 +368,13 @@ fn identify_enters_manual_for_a_plant_input_step_and_returns_to_auto_when_the_ca
     let journal = journal_in(&folder);
     let loop_definition = pid_tank_loop("rev-1", true);
     // The campaign's own outcome, the fit of its record, is the long-campaign tests'; the mode returns whatever it gave.
-    let _ = run_with_transfers(&state, &transfers, &journal, &loop_definition, false);
+    let _ = run_with_transfers(
+        &state,
+        &transfers,
+        &journal,
+        &loop_definition,
+        Cancel::Never,
+    );
 
     assert_eq!(
         transfers.events(),
@@ -398,7 +450,13 @@ fn a_cancelled_campaign_returns_the_loop_to_the_mode_it_was_found_in() {
     let folder = folder("mode-cancelled");
     let journal = journal_in(&folder);
     let loop_definition = pid_tank_loop("rev-1", false);
-    let outcome = run_with_transfers(&state, &transfers, &journal, &loop_definition, true);
+    let outcome = run_with_transfers(
+        &state,
+        &transfers,
+        &journal,
+        &loop_definition,
+        Cancel::OnceInManual,
+    );
 
     assert_eq!(outcome.err(), Some(identification_cancelled()));
     assert_eq!(transfers.events(), [ENTER_MANUAL, COMMANDS, ENTER_AUTO]);
@@ -409,6 +467,72 @@ fn a_cancelled_campaign_returns_the_loop_to_the_mode_it_was_found_in() {
     );
     assert!(transfers.auto(), "the loop is back in Auto");
     assert_eq!(reopened(&folder), Vec::<JournalEntry>::new());
+    let _ = fs::remove_dir_all(&folder);
+}
+
+/// B3.4 step 1: a loop found in Auto rests before Identify changes its mode, and a Cancel during that wait writes nothing. The
+/// loop stays in Auto with no transfer, nothing is recorded or journaled, and the wait's progress was shown. Catches a Cancel
+/// that changes the mode first, and a mode change before the loop rests.
+#[test]
+fn a_campaign_cancelled_while_the_loop_rests_in_auto_writes_nothing() {
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let transfers = TransferFake::start(true);
+    let folder = folder("mode-cancelled-at-rest");
+    let journal = journal_in(&folder);
+    let loop_definition = pid_tank_loop("rev-1", false);
+    let outcome = run_with_transfers(
+        &state,
+        &transfers,
+        &journal,
+        &loop_definition,
+        Cancel::FromTheStart,
+    );
+
+    assert_eq!(outcome.err(), Some(identification_cancelled()));
+    assert_eq!(transfers.events(), Vec::<String>::new(), "no transfer");
+    assert_eq!(
+        state.calls(),
+        Vec::<String>::new(),
+        "nothing is recorded or started"
+    );
+    assert!(transfers.auto(), "the loop stays in Auto");
+    assert_eq!(reopened(&folder), Vec::<JournalEntry>::new());
+    let _ = fs::remove_dir_all(&folder);
+}
+
+/// B3.4 step 1: Identify reads a loop found in Auto until it rests, and only then enters Manual. The tank at rest (45 degC,
+/// 30 %) is read until one baseline window of the 600 s maximum is full, 30 s of the runtime's process time read every 100 ms;
+/// the wait's progress at 0 s, 10 s and 20 s says the same, so it is shown once, before the mode change. Catches a mode change
+/// before the loop has been read at rest.
+#[test]
+fn a_loop_found_in_auto_is_read_until_it_rests_before_the_mode_change() {
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let transfers = TransferFake::start(true);
+    let folder = folder("mode-rests-first");
+    let journal = journal_in(&folder);
+    let loop_definition = pid_tank_loop("rev-1", false);
+    let _ = run_with_transfers(
+        &state,
+        &transfers,
+        &journal,
+        &loop_definition,
+        Cancel::Never,
+    );
+
+    let log = transfers.log();
+    let first_entry = log
+        .iter()
+        .position(|entry| entry == ENTER_MANUAL)
+        .expect("Identify enters Manual");
+    let waits: Vec<&String> = log[..first_entry]
+        .iter()
+        .filter(|entry| entry.starts_with("progress Waiting for the loop to settle in Auto"))
+        .collect();
+    assert_eq!(
+        waits,
+        ["progress Waiting for the loop to settle in Auto (Main.TT101.Value changing 0 degC/min)…"],
+        "the wait shows its progress before the mode change: {log:?}"
+    );
     let _ = fs::remove_dir_all(&folder);
 }
 
@@ -423,8 +547,13 @@ fn a_failed_campaign_keeps_its_recording_and_returns_the_mode() {
     let folder = folder("mode-failed");
     let journal = journal_in(&folder);
     let loop_definition = pid_tank_loop("rev-1", false);
-    let Err(failure) = run_with_transfers(&state, &transfers, &journal, &loop_definition, false)
-    else {
+    let Err(failure) = run_with_transfers(
+        &state,
+        &transfers,
+        &journal,
+        &loop_definition,
+        Cancel::Never,
+    ) else {
         panic!("the runtime sends no samples");
     };
 
@@ -460,7 +589,13 @@ fn a_start_reconciled_by_its_identity_returns_the_mode_once_nothing_is_left_runn
         let folder = folder(&format!("mode-start-{behaviour:?}"));
         let journal = journal_in(&folder);
         let loop_definition = pid_tank_loop("rev-1", false);
-        let _ = run_with_transfers(&state, &transfers, &journal, &loop_definition, false);
+        let _ = run_with_transfers(
+            &state,
+            &transfers,
+            &journal,
+            &loop_definition,
+            Cancel::Never,
+        );
 
         assert_eq!(
             transfers.events(),
@@ -503,7 +638,13 @@ fn an_experiment_whose_state_is_unknown_keeps_the_mode_and_its_checkpoint() {
     let folder = folder("mode-unresolved");
     let journal = journal_in(&folder);
     let loop_definition = pid_tank_loop("rev-1", false);
-    let outcome = run_with_transfers(&state, &transfers, &journal, &loop_definition, false);
+    let outcome = run_with_transfers(
+        &state,
+        &transfers,
+        &journal,
+        &loop_definition,
+        Cancel::Never,
+    );
 
     assert!(outcome.is_err(), "the start cannot be reconciled");
     assert_eq!(transfers.events(), [ENTER_MANUAL, "recording.start"]);
@@ -526,8 +667,10 @@ fn after_a_restart_the_cancel_of_the_journaled_mode_returns_the_loop_to_auto() {
     let loop_definition = pid_tank_loop("rev-1", false);
     {
         let journal = journal_in(&folder);
-        let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-            .expect("the tank transfers");
+        let clock = ModeClock::default();
+        let mut mode =
+            IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+                .expect("the tank transfers");
         mode.enter(true).expect("the loop enters Manual");
     }
     let journal = journal_in(&folder);
@@ -562,15 +705,17 @@ fn reopening_follows_the_experiment_returns_the_mode_and_then_fits() {
     let loop_definition = pid_tank_loop("rev-1", false);
     let journal = journaled_step(&folder, &plan("experiment-1", 540_000), 30.0, 0);
     {
-        let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-            .expect("the tank transfers");
+        let clock = ModeClock::default();
+        let mut mode =
+            IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+                .expect("the tank transfers");
         mode.enter(false)
             .expect("the loop enters Auto for its setpoint step");
     }
     let state = FakeState::new(StartBehaviour::Acknowledged, 30_000);
     state.restart("experiment-1", 30_000, 540_000, 2.0);
     let runtime = ModeRuntime::new(&state, &transfers);
-    let report = LoggedReport::new(&transfers, false);
+    let report = LoggedReport::new(&transfers, Cancel::Never);
     let mut study = LoggedStudy::new(&state, &transfers);
     let request = IdentifyRequest {
         loop_definition: &loop_definition,
@@ -623,14 +768,16 @@ fn reopening_an_identification_whose_experiment_never_started_returns_the_mode()
     let loop_definition = pid_tank_loop("rev-1", false);
     let journal = journaled_step(&folder, &plan("experiment-1", 540_000), 30.0, 0);
     {
-        let mut mode = IdentificationMode::new(&loop_definition, transfers.connection(), &journal)
-            .expect("the tank transfers");
+        let clock = ModeClock::default();
+        let mut mode =
+            IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+                .expect("the tank transfers");
         mode.enter(false)
             .expect("the loop enters Auto for its setpoint step");
     }
     let state = FakeState::new(StartBehaviour::Absent, 30_000);
     let runtime = ModeRuntime::new(&state, &transfers);
-    let report = LoggedReport::new(&transfers, false);
+    let report = LoggedReport::new(&transfers, Cancel::Never);
     let mut study = LoggedStudy::new(&state, &transfers);
     let request = IdentifyRequest {
         loop_definition: &loop_definition,

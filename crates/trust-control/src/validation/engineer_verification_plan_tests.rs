@@ -757,13 +757,15 @@ fn a_model_that_is_not_one_input_and_one_output_is_refused_without_channel_bindi
 /// runs with.
 fn lesson_84() -> (LoopDefinition, GeneralModel, BTreeMap<String, f64>) {
     let loop_definition = LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84 decodes");
-    let model = decode_general_model(&serde_json::from_str(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/provided-model.json"
+    let model = decode_general_model(
+        &serde_json::from_str(include_str!(
+        "../../../../examples/control/14-integrated-capstones/84-independent/provided-model.json"
     ))
-    .expect("the supplied model is JSON"))
+        .expect("the supplied model is JSON"),
+    )
     .expect("the supplied model decodes");
     let values = BTreeMap::from([
         ("P1.Parameters.ProportionalGain".to_owned(), 2.0),

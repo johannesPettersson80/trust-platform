@@ -19,7 +19,7 @@ use crate::runtime_client::runtime_recording::PendingReleases;
 
 /// The loop of lesson 26: a project-scripted experiment of the simulator, whose Configured method is the project test.
 const PROJECT_SCRIPTED_LOOP: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/05-experiments-identification-and-validation/26-independent-model-validation/control-loop.json"
+    "../../../examples/control/05-experiments-identification-and-validation/26-independent-model-validation/control-loop.json"
 );
 
 /// The text of a saved Control Studio recording file (schema 4, B10.2) of the step record `name`, of the project loop's revision: the

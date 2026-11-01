@@ -182,6 +182,12 @@ does not read this section yet.
 | `path` | string | only for `file` | none | Required when `mode = "file"`. |
 | `save_interval_ms` | integer | yes | none | Must be `>= 1`. |
 
+A function block instance in a `RETAIN` variable keeps its whole state, a library block's own
+memory included: after a warm restart or a power loss a `TOF`'s running off-delay and a `TP`'s
+running pulse go on, and a counter or an `R_TRIG`/`F_TRIG` whose input is TRUE counts no new edge.
+Only a timer's time base starts over, so its first call after the restart adds no time
+(specification 10 §4.8).
+
 On an ESP32-C6 chip, `mode = "file"` saves the retained values into the chip's checkpoint flash, so
 `path` is not used there. The chip saves at `save_interval_ms` and at stop or shutdown, and a reset or
 a warm restart restores the newest complete save. An interrupted save loses at most the save in

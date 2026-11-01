@@ -11,6 +11,7 @@ pub mod identify_campaign;
 pub mod identify_mode;
 pub mod identify_reattach;
 pub mod identify_recovery;
+pub mod identify_rest;
 pub mod keep;
 pub mod reconcile;
 pub mod restore;

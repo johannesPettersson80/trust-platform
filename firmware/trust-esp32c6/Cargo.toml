@@ -2,7 +2,7 @@
 name = "trust-esp32c6"
 # The truST release: the application descriptor carries it, and `firmware.install` reports it
 # (specification 34 TARGET-04, TARGET-05).
-version = "0.26.0"
+version = "0.27.0"
 edition = "2024"
 rust-version = "1.99"
 publish = false

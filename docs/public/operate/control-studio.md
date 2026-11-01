@@ -66,7 +66,12 @@ the project declares its own test. **Limits…** sets the permitted input and
 output ranges and the longest experiment.
 
 **Identify plant** runs the experiment on the live plant and fits a model.
-**Open recording…** fits a saved recording instead. The model shows its
+A method that steps the plant input switches the loop to Manual for the step.
+A loop it finds in Auto is first read until it has settled, the measured value
+and the controller's output both steady, so the step starts from the output at
+which the controller holds the loop; the wait shows its progress, writes
+nothing and can be cancelled. **Open recording…** fits a saved recording
+instead. The model shows its
 equation and stays **Provisional** until Validate checks it against a fresh
 recording.
 
@@ -95,8 +100,11 @@ supports.
 ## Validate and apply
 
 **Validate controller** first checks the model against a fresh recording. It
-then runs your actual ST program with the tuned settings against a simulated
-plant built from the model, including the scenarios the project declares. The
+then runs your actual ST program with the current and the tuned settings, each
+starting the controller from its seeded state at the operating point, against
+the project's simulated plant when that plant drives the loop's signals, and
+otherwise against a plant built from the model, including the scenarios the
+project declares. The
 table lists each requirement with its measured value, limit and **Pass**,
 **Fail** or **Inconclusive**. Passing generated checks of ranges, controller
 states and the controller transfer are counted in one row; every failure keeps

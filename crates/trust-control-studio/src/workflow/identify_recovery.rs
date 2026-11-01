@@ -206,7 +206,7 @@ pub fn cancel_identification_recovery<K: RecordingRetention>(
         &loop_definition.project_id,
         &loop_definition.id,
     )?);
-    return_found_mode(&runtime, &journal, loop_definition)
+    return_found_mode(&runtime, &clock, &journal, loop_definition)
 }
 
 /// Cancels the journaled operation `operation_id` of the loop (§0.1b `cancel`, E5.5, E11.6), by what the operation is: an
@@ -295,7 +295,7 @@ where
             | JournalEntry::IdentificationMode { .. },
         ) => {
             cancel_journaled(runtime, clock, journal, loop_definition, retention)?;
-            return_found_mode(runtime, journal, loop_definition)
+            return_found_mode(runtime, clock, journal, loop_definition)
         }
         // An Apply is ended by Restore previous settings, which returns the settings and the mode found before it (B6.4).
         Some(JournalEntry::Commissioning { checkpoint }) => Err(Failure::new(
@@ -473,7 +473,7 @@ where
     clear_entries(journal, &journaled)?;
     // The loop's original mode returns here, once the experiment has ended and before the fit (A6.2, A8.6). A failed return
     // replaces only a record that succeeded; its checkpoint stays journaled for the next reconciliation.
-    let returned = return_found_mode(runtime, journal, loop_definition);
+    let returned = return_found_mode(runtime, clock, journal, loop_definition);
     let record = record?;
     returned?;
     let result = fit_records(loop_definition, report, std::slice::from_ref(&record))?;
@@ -604,13 +604,20 @@ where
 /// [`IdentificationMode::restore`]); the checkpoint then stays journaled.
 fn return_found_mode<T: IdentifyRuntime>(
     runtime: &T,
+    clock: &dyn CampaignClock,
     journal: &Mutex<Journal>,
     loop_definition: &LoopDefinition,
 ) -> Result<(), Failure> {
     if !mode_journaled(&journal.lock()) {
         return Ok(());
     }
-    IdentificationMode::new(loop_definition, runtime.transfer_connection()?, journal)?.restore()
+    IdentificationMode::new(
+        loop_definition,
+        runtime.transfer_connection()?,
+        journal,
+        clock,
+    )?
+    .restore()
 }
 
 /// The identification campaign the journal holds, when it holds one.

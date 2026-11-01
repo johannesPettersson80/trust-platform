@@ -220,76 +220,28 @@ def workspace_version_at(repo: Path, revision: str) -> str | None:
     return match.group(1) if match else None
 
 
-def release_sensitive_push(repo: Path, local_ref: str, local_oid: str, remote_ref: str) -> bool:
+def validate_push(*, remote_ref: str) -> list[str]:
+    """The pushes the workflow refuses (specification 22, "Change and release workflow"): `main` changes only through a
+    merged pull request, and a release tag only through the Release workflow, so neither is pushed nor deleted from here.
+    Every other push goes through; CI is the gate."""
     if remote_ref in {"refs/heads/main", "refs/heads/master"}:
-        return True
-    branch = remote_ref.removeprefix("refs/heads/")
-    if branch.startswith(("integrate/", "release/")):
-        return True
+        branch = remote_ref.removeprefix("refs/heads/")
+        return [f"{branch} changes only through a merged pull request; push a branch and open one"]
     if remote_ref.startswith("refs/tags/v"):
-        return True
-    if not SHA_RE.fullmatch(local_oid):
-        return False
-    base_version = workspace_version_at(repo, "origin/main")
-    pushed_version = workspace_version_at(repo, local_oid)
-    return base_version is None or pushed_version is None or base_version != pushed_version
+        tag = remote_ref.removeprefix("refs/tags/")
+        return [f"the release tag {tag} is made by the Release workflow after main's CI; never push it"]
+    return []
 
 
-def validate_tag_push(repo: Path, local_ref: str, local_oid: str) -> list[str]:
-    failures: list[str] = []
-    tag = local_ref.removeprefix("refs/tags/")
-    if git(repo, "cat-file", "-t", local_ref, check=False).strip() != "tag":
-        failures.append(f"release tag {tag} must be annotated")
-        return failures
-    commit = git(repo, "rev-parse", f"{local_ref}^{{commit}}", check=False).strip()
-    main = git(repo, "rev-parse", "origin/main", check=False).strip()
-    if commit != main:
-        failures.append(f"release tag {tag} must point at current origin/main {main}, found {commit}")
-    version = workspace_version_at(repo, commit) if SHA_RE.fullmatch(commit) else None
-    if tag != f"v{version}":
-        failures.append(f"release tag {tag} does not match workspace version {version}")
-    return failures
-
-
-def validate_push_candidate(
-    repo: Path,
-    *,
-    local_ref: str,
-    local_oid: str,
-    remote_ref: str,
-    artifact: dict[str, Any] | None,
-) -> list[str]:
-    if local_oid == ZERO_SHA:
-        return []
-    if remote_ref.startswith("refs/tags/v"):
-        return validate_tag_push(repo, local_ref, local_oid)
-    if not release_sensitive_push(repo, local_ref, local_oid, remote_ref):
-        return []
-    if artifact is None:
-        return [
-            f"missing exact-SHA release-candidate artifact for {local_oid}; run release_candidate_guard.py prepare"
-        ]
-    return validate_artifact(repo, artifact, local_oid)
-
-
-def check_push_lines(repo: Path, lines: Iterable[str]) -> list[str]:
+def check_push_lines(lines: Iterable[str]) -> list[str]:
     failures: list[str] = []
     for line in lines:
         fields = line.split()
         if len(fields) != 4:
             failures.append(f"invalid pre-push input line: {line!r}")
             continue
-        local_ref, local_oid, remote_ref, _remote_oid = fields
-        artifact = load_artifact(repo, local_oid)
-        failures.extend(
-            validate_push_candidate(
-                repo,
-                local_ref=local_ref,
-                local_oid=local_oid,
-                remote_ref=remote_ref,
-                artifact=artifact,
-            )
-        )
+        _local_ref, _local_oid, remote_ref, _remote_oid = fields
+        failures.extend(validate_push(remote_ref=remote_ref))
     return failures
 
 
@@ -470,12 +422,7 @@ def collect_failures(args: argparse.Namespace) -> int:
 def check_merge(args: argparse.Namespace) -> int:
     repo = repo_root(Path(args.repo))
     head = git(repo, "rev-parse", "HEAD").strip()
-    artifact = load_artifact(repo, head)
-    failures = (
-        ["missing exact-SHA release-candidate artifact"]
-        if artifact is None
-        else validate_artifact(repo, artifact, head)
-    )
+    failures: list[str] = []
     result = run(
         [
             "gh",
@@ -624,10 +571,9 @@ def audit_post_merge_command(args: argparse.Namespace) -> int:
 
 
 def check_push_command(args: argparse.Namespace) -> int:
-    repo = repo_root(Path(args.repo))
-    failures = check_push_lines(repo, sys.stdin.read().splitlines())
+    failures = check_push_lines(sys.stdin.read().splitlines())
     if failures:
-        print("Release-candidate push blocked:", file=sys.stderr)
+        print("Push blocked:", file=sys.stderr)
         print("\n".join(f"- {failure}" for failure in failures), file=sys.stderr)
         return 1
     return 0

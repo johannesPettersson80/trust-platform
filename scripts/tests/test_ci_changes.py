@@ -84,6 +84,28 @@ class ChangeDetectionTests(unittest.TestCase):
             self.assertEqual(ci_changes.decide("push", before, after, ["docs/**"], cwd=repo), (False, []))
             self.assertEqual(ci_changes.decide("push", before, after, ["*.rs"], cwd=repo), (True, ["src.rs"]))
 
+    def test_a_merge_group_compares_with_the_main_it_was_built_on(self) -> None:
+        # Specification 22, "Change and release workflow": the merge queue builds the pull request on
+        # top of the current main. Catches a merge group that runs every check whatever it changes
+        # (each queued pull request would wait for every workflow), and one that counts main's own
+        # newer commits as its change.
+        holder, repo = repository()
+        with holder:
+            git(repo, "checkout", "-q", "-b", "pr")
+            (repo / "docs").mkdir()
+            (repo / "docs" / "a.md").write_text("a\n")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-q", "-m", "docs")
+            git(repo, "checkout", "-q", "main")
+            (repo / "src.rs").write_text("fn main() {}\n")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-q", "-m", "code on main")
+            main = git(repo, "rev-parse", "HEAD")
+            git(repo, "merge", "-q", "--no-ff", "-m", "merge group", "pr")
+            group = git(repo, "rev-parse", "HEAD")
+            self.assertEqual(ci_changes.decide("merge_group", main, group, ["docs/**"], cwd=repo), (True, ["docs/a.md"]))
+            self.assertEqual(ci_changes.decide("merge_group", main, group, ["*.rs"], cwd=repo), (False, []))
+
     def test_a_file_moved_out_of_a_watched_tree_still_counts(self) -> None:
         # Catches rename detection reporting only the new path: moving docs/public/a.md to archive/a.md
         # matched no docs path, so the site kept the old page (Codex's review of #146).

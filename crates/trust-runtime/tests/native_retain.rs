@@ -203,7 +203,8 @@ fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
 
     // One payload, byte for byte: the same keys in the same order, the values encoded alike
     // (specification 11 §6.7): the globals, the program's retained variables, and then the
-    // variables of its instances, the timer's inputs and outputs (it is declared `RETAIN`) and the
+    // variables of its instances: the timer's inputs, outputs and edge memory `__PREV_IN` (it is
+    // declared `RETAIN`, so it is kept as a whole with its own state, specification 10 §4.8) and the
     // `RETAIN` variable of `Cal`. Catches a key, an order or an encoding of the kernel's own.
     let mut capture = RetainCapture::new();
     program
@@ -232,6 +233,7 @@ fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
             "@program-instance/Main/Timer/PT",
             "@program-instance/Main/Timer/Q",
             "@program-instance/Main/Timer/ET",
+            "@program-instance/Main/Timer/__PREV_IN",
             "@program-instance/Main/Cal/Offset",
         ]
     );

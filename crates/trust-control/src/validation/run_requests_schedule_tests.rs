@@ -28,7 +28,7 @@ use crate::validation::smith_case;
 
 /// Lesson 84 as the shipped file declares it: the heater with its draw-off fed forward through a lead and a lag.
 const LESSON_84: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+    "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
 );
 
 fn scope() -> LoopScope {

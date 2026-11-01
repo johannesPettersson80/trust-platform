@@ -6,7 +6,7 @@ use crate::stages::StageEvidence;
 
 /// Lesson 89's loop file: its search law is the grid that these tests read.
 const LESSON_89_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
+    "../../../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
 );
 
 fn lesson_89() -> Value {

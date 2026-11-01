@@ -47,8 +47,14 @@ fn a_chart_becomes_a_function_block_with_events_timers_guards_and_actions() {
     // rounded (1500.4 ms is T#1500ms), the guard rewritten (`==`, `!=`, `&&`, `true`, `false`),
     // exit + transition + entry actions in that order, an entry-less missing target as a
     // comment, and the target `""` skipped. `Q out` is no variable, so it is an invalid target
-    // and no global; a LOG text that holds `*)` cannot end the comment. Catches a changed order
-    // of the actions, a lost event input, a timer without its reset line.
+    // and no global; a LOG text that holds `*)` cannot end the comment. The timer runs once per
+    // scan while its state, Closed (0), is active; each transition that leaves Closed resets it
+    // after the exit actions, and each that enters Closed (TICK and Opening's STOP) starts it once
+    // the state has changed, so it counts from the scan that enters Closed and the self-transition
+    // TICK starts it again. Catches a changed order of the actions, a lost event input, a timer
+    // reset in every scan before it runs, which never reached its delay (a transition with
+    // `after` never fired), and a timer that starts only in the scan after its state was entered,
+    // which fired one task interval late (Codex's review of #147, 31 October 2026).
     let generated = generate(&parse(DOOR), "door").expect("a statechart");
     assert_eq!(generated.function_block, DOOR_COMPANION);
     assert_eq!(
@@ -98,24 +104,27 @@ IF NOT _initialized THEN
   _initialized := TRUE;
 END_IF;
 
-sc_timer_Closed_TICK_1(IN := FALSE, PT := T#1500ms);
+sc_timer_Closed_TICK_1(IN := (_state = 0), PT := T#1500ms);
 
 CASE _state OF
   0:
-    sc_timer_Closed_TICK_1(IN := TRUE, PT := T#1500ms);
     IF (EV_OPEN) AND (enabled = TRUE  AND  !(fault <> FALSE)) THEN
       (* Invalid WRITE_OUTPUT target for action lockOff: Q out *)
+      sc_timer_Closed_TICK_1(IN := FALSE, PT := T#1500ms);
       (* LOG: door's * ) opening *)
       _state := 1;
     ELSIF sc_timer_Closed_TICK_1.Q THEN
       (* Invalid WRITE_OUTPUT target for action lockOff: Q out *)
+      sc_timer_Closed_TICK_1(IN := FALSE, PT := T#1500ms);
       ld_io_QX0_1 := TRUE;
       _state := 0;
+      sc_timer_Closed_TICK_1(IN := TRUE, PT := T#1500ms);
     END_IF;
   1:
     IF EV_STOP THEN
       ld_io_QX0_1 := TRUE;
       _state := 0;
+      sc_timer_Closed_TICK_1(IN := TRUE, PT := T#1500ms);
     ELSIF EV_OPEN_1 THEN
       (* Invalid transition target: Nowhere *)
     END_IF;
@@ -225,9 +234,11 @@ fn example(name: &str) -> String {
 
 #[test]
 fn the_checked_in_statechart_examples_are_reproduced_exactly() {
-    // examples/statecharts holds the companion and runtime entry the TypeScript wrote for three
-    // charts; no decision of the move changes them. Catches any drift of the lowering, the
-    // layout, or the globals of the runtime entry.
+    // examples/statecharts holds the companion and runtime entry of three charts, as the
+    // TypeScript wrote them before the move, except the timers of ethercat-snake, which run once
+    // per scan while their state is active since 30 October 2026 and start in the transition that
+    // enters their state since 31 October 2026 (specification 17 §3.2).
+    // Catches any drift of the lowering, the layout, or the globals of the runtime entry.
     for base in ["ethercat-snake-simple", "ethercat-snake", "traffic-light"] {
         let source = format!("{base}.statechart.json");
         let files = companion(&source, &example(&source)).expect("companion");

@@ -52,7 +52,7 @@ fn power_on_runs_the_program_and_scans_on_the_cycle_beat() {
     assert_eq!(
         fixture.wait.take_deadlines(),
         [ms(10), ms(10), ms(20), ms(30)],
-        "each pass waits for the next scan, which is due one cycle interval after the last started"
+        "each pass waits for the next scan, which is due at the next boundary of the cycle grid"
     );
 }
 

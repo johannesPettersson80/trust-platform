@@ -6,8 +6,10 @@ the title a palette step types, `` `Ctrl/Cmd+Shift+P` -> `truST: Compile` ``, an
 its key in backticks, `` `trust.runtime.mode` ``. Every such name in the README, the Marketplace
 page (`editors/vscode/README.md`), the pages of `docs/public` and the examples' READMEs must be a
 command title or a setting key that `editors/vscode/package.json` contributes, so a renamed
-command or setting fails here instead of leaving the page behind. Other text, such as the status bar's `truST: Simulator running` in
-backticks, is not a command and is not checked.
+command or setting fails here instead of leaving the page behind. The titles of the **Start from example** gallery
+(`examples/catalog.json`) are named the same way, `**Control Studio: PID loop**`, and pass as well; a renamed example fails
+like a renamed command. Other text, such as the status bar's `truST: Simulator running` in backticks, is not a command and is
+not checked.
 
 Names the extension retired fail wherever a page uses them: the command category `Structured
 Text:` (its commands are `truST:` ones now) in bold or backticks, and the Runtime Panel and the
@@ -44,6 +46,14 @@ def palette_titles(package: dict) -> set[str]:
     return titles
 
 
+def gallery_titles(root: Path) -> set[str]:
+    """The titles the Start from example gallery shows, which pages name in bold like commands."""
+    catalog = root / "examples" / "catalog.json"
+    if not catalog.is_file():
+        return set()
+    return {entry["title"] for entry in json.loads(catalog.read_text(encoding="utf-8"))}
+
+
 def setting_keys(package: dict) -> set[str]:
     configuration = package.get("contributes", {}).get("configuration", [])
     blocks = configuration if isinstance(configuration, list) else [configuration]
@@ -63,7 +73,7 @@ def pages(root: Path) -> list[Path]:
 
 def findings(root: Path) -> list[str]:
     package = json.loads((root / "editors" / "vscode" / "package.json").read_text(encoding="utf-8"))
-    titles = palette_titles(package)
+    titles = palette_titles(package) | gallery_titles(root)
     settings = setting_keys(package)
     found = []
     for page in pages(root):

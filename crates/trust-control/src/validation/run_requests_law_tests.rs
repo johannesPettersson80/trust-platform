@@ -16,11 +16,11 @@ use crate::tuning::state_controller::StateControllerFamily;
 
 /// Lesson 68's control loop: the state-feedback law `K1, K2, N` on the two-tank cascade.
 const LESSON_68_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
 );
 /// Lesson 89's control loop: the finite search over the notch's two axes.
 const LESSON_89_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
+    "../../../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
 );
 
 /// A loop file decoded as the engine reads it.
@@ -288,7 +288,7 @@ fn the_current_settings_of_lesson_89_write_both_bound_parameters() {
 #[test]
 fn lesson_68_supplied_model_decodes_with_two_measured_outputs() {
     let value: Value = serde_json::from_str(include_str!(
-        "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json"
+        "../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json"
     ))
     .expect("the model file is JSON");
     let model = decode_general_model(&value).expect("the model decodes");

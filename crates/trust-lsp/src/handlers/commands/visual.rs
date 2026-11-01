@@ -573,3 +573,7 @@ mod sfc_tests;
 #[cfg(test)]
 #[path = "visual_sfc_run_tests.rs"]
 mod sfc_run_tests;
+
+#[cfg(test)]
+#[path = "visual_statechart_run_tests.rs"]
+mod statechart_run_tests;
