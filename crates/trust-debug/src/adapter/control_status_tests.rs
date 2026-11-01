@@ -73,6 +73,24 @@ fn program_status(addr: SocketAddr, auth: &str) -> Value {
     }
 }
 
+/// The control server's `status` once it names the program a reload installed. The reload answers when
+/// the runtime has committed the new program, and `status` names the program as its last scan published
+/// it (specification 44 §5.2, §5.5), so until the new program's first scan ends it lists no tasks and no
+/// program revision; on a busy computer the next request can come before that (CI, 31 October 2026:
+/// `running`, no revision, no tasks). The new program's revision differs from `before`'s, because a
+/// reload ends the session that the revision is made from (annex E1.1).
+fn changed_program_status(addr: SocketAddr, auth: &str, before: &Value) -> Value {
+    let deadline = Instant::now() + WaitTime::from_secs(10);
+    loop {
+        let status = control_status(addr, auth);
+        let revision = &status["program_revision"];
+        if (revision.is_string() && revision != &before["program_revision"]) || Instant::now() >= deadline {
+            return status;
+        }
+        std::thread::sleep(WaitTime::from_millis(20));
+    }
+}
+
 /// The `(name, interval_ms)` pairs of the task list in `status`, ordered by name. The names are in lower case, because a task
 /// name matches without regard to case (annex E4.2).
 fn listed_tasks(status: &Value) -> Vec<(String, i64)> {
@@ -170,7 +188,7 @@ fn a_reload_updates_the_tasks_and_keeps_the_cycle_that_status_reports() {
     fs::write(&main, TWO_TASKS).unwrap();
     reload(&mut adapter, &main);
 
-    let after = control_status(addr, auth);
+    let after = changed_program_status(addr, auth, &before);
     assert_eq!(
         listed_tasks(&after),
         vec![("fasttask".to_string(), 40), ("slowtask".to_string(), 250)],
