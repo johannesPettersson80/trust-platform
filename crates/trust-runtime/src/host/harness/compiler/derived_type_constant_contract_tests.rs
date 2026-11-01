@@ -1,6 +1,4 @@
-use crate::harness::build::lower_application_with;
-use crate::harness::{lower_application, CompileSession, SourceFile};
-use crate::stdlib::conversions::ConversionProfile;
+use crate::harness::{lower_application, SourceFile};
 use crate::RuntimeBuilder;
 use trust_hir::{Type, TypeId};
 
@@ -16,33 +14,6 @@ fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
         .and_then(|lowered| lowered.construct(&[]))
         .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("derived-type constant fixture must compile: {error}"))
-}
-
-/// The runtime of `files` built under the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033).
-fn codesys_runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
-    lower_application_with(
-        &source_files(files),
-        files.len() > 1,
-        ConversionProfile::Codesys,
-    )
-    .and_then(|lowered| lowered.construct(&[]))
-    .map(|(builder, _)| builder)
-    .unwrap_or_else(|error| panic!("the CODESYS profile must build the fixture: {error}"))
-}
-
-/// The error of building `files` under the IEC rules.
-fn iec_build_error(files: &[(&str, &str)]) -> String {
-    match lower_application(&source_files(files), files.len() > 1) {
-        Ok(_) => panic!("the IEC rules must refuse the fixture"),
-        Err(error) => error.to_string(),
-    }
-}
-
-fn compile_error(files: &[(&str, &str)]) -> String {
-    match CompileSession::from_sources(source_files(files)).declarations() {
-        Ok(_) => panic!("derived-type constant fixture must fail"),
-        Err(error) => error.to_string(),
-    }
 }
 
 fn type_id(runtime: &RuntimeBuilder, name: &str) -> TypeId {

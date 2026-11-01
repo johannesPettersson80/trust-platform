@@ -11,13 +11,6 @@ fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
         .collect()
 }
 
-fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
-    lower_application(&source_files(files), files.len() > 1)
-        .and_then(|lowered| lowered.construct(&[]))
-        .map(|(builder, _)| builder)
-        .unwrap_or_else(|error| panic!("derived-type constant fixture must compile: {error}"))
-}
-
 /// The runtime of `files` built under the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033).
 fn codesys_runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
     lower_application_with(
@@ -80,23 +73,6 @@ fn string_capacity(runtime: &RuntimeBuilder, name: &str) -> u32 {
     match resolved_type(runtime, name) {
         Type::String { max_len: Some(len) } | Type::WString { max_len: Some(len) } => *len,
         other => panic!("expected bounded string type {name}, got {other:?}"),
-    }
-}
-
-fn subrange_bounds(runtime: &RuntimeBuilder, name: &str) -> (i64, i64) {
-    match resolved_type(runtime, name) {
-        Type::Subrange { lower, upper, .. } => (*lower, *upper),
-        other => panic!("expected subrange type {name}, got {other:?}"),
-    }
-}
-
-fn enum_values(runtime: &RuntimeBuilder, name: &str) -> Vec<(String, i64)> {
-    match resolved_type(runtime, name) {
-        Type::Enum { values, .. } => values
-            .iter()
-            .map(|(name, value)| (name.to_string(), *value))
-            .collect(),
-        other => panic!("expected enumeration type {name}, got {other:?}"),
     }
 }
 
