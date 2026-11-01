@@ -26,6 +26,15 @@ pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Va
         Value::LWord(v) => Some(v.to_string()),
         Value::Real(v) => Some(crate::value::float_text::real(f64::from(*v))),
         Value::LReal(v) => Some(crate::value::float_text::real(*v)),
+        Value::Bool(v) => {
+            if *v {
+                Some("TRUE".to_string())
+            } else {
+                Some("FALSE".to_string())
+            }
+        }
+        Value::Time(_) | Value::LTime(_) => Some(crate::value::format_user_value(value)),
+        Value::Enum(v) => Some(v.variant_name().to_string()),
         _ => None,
     };
 

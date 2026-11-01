@@ -1,4 +1,53 @@
+fn bit_string_magnitude(value: &Value) -> Option<u64> {
+    match value {
+        Value::Byte(v) => Some(u64::from(*v)),
+        Value::Word(v) => Some(u64::from(*v)),
+        Value::DWord(v) => Some(u64::from(*v)),
+        Value::LWord(v) => Some(*v),
+        _ => None,
+    }
+}
+
 fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, RuntimeError> {
+    // CODESYS parity (IEC_DEVIATIONS 2026-10-28): bit-string operands
+    // participate in Add/Sub/Mul/Div/Mod as unsigned magnitudes; the
+    // result carries the wider operand's width and wraps like the vendor
+    // toolchain. Pow stays rejected for bit-strings.
+    if let (Some(a), Some(b)) = (bit_string_magnitude(&left), bit_string_magnitude(&right)) {
+        let width_bits = if matches!(left, Value::LWord(_)) || matches!(right, Value::LWord(_)) {
+            64
+        } else if matches!(left, Value::DWord(_)) || matches!(right, Value::DWord(_)) {
+            32
+        } else if matches!(left, Value::Word(_)) || matches!(right, Value::Word(_)) {
+            16
+        } else {
+            8
+        };
+        let result = match op {
+            BinaryOp::Add => a.wrapping_add(b),
+            BinaryOp::Sub => a.wrapping_sub(b),
+            BinaryOp::Mul => a.wrapping_mul(b),
+            BinaryOp::Div => {
+                if b == 0 {
+                    return Err(RuntimeError::DivisionByZero);
+                }
+                a / b
+            }
+            BinaryOp::Mod => {
+                if b == 0 {
+                    return Err(RuntimeError::ModuloByZero);
+                }
+                a % b
+            }
+            _ => return Err(RuntimeError::TypeMismatch),
+        };
+        return Ok(match width_bits {
+            8 => Value::Byte(result as u8),
+            16 => Value::Word(result as u16),
+            32 => Value::DWord(result as u32),
+            _ => Value::LWord(result),
+        });
+    }
     let left_kind = numeric_kind(&left).ok_or_else(|| RuntimeError::TypeMismatch)?;
     let right_kind = numeric_kind(&right).ok_or_else(|| RuntimeError::TypeMismatch)?;
     let target = wider_numeric(left_kind, right_kind).ok_or_else(|| RuntimeError::TypeMismatch)?;

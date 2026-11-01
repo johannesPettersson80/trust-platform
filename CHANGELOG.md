@@ -38,6 +38,69 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   referenced only through qualified cross-file uses (expressions,
   `STRING[GVals.Len]` sizes) were falsely reported as `W001` unused
   constants. Genuinely unreferenced constants still warn.
+- PLCopen GVL import: members that a dropped same-named `constant="true"`
+  mirror list re-declares keep constant-ness — the merged list renders a
+  separate `VAR_GLOBAL CONSTANT` section for them (`PLCO226` info)
+  instead of flattening them to plain variables, so mirror semantics
+  match the vendor project (PLCOPEN_DECISIONS 2026-10-26).
+- Enumerated values convert to their declared integer base in assignments,
+  comparisons, call arguments, and CASE labels — including base-less
+  enums (`INT` base) — and dotted enum member access accepts any namespace
+  depth (`WagoTypesLog.eSysLogPriority.LOG_ERR`), closing the E202
+  "cannot be used as a value" class on real CODESYS projects. Integer
+  assignment into base-less ("closed") enums, cross-enum assignment, and
+  unknown members stay rejected (IEC_DEVIATIONS 2026-10-26).
+- Qualified type references resolve case-insensitively through the
+  cross-file project type catalog: a consumer spelling a namespace-
+  qualified function-block type with different casing than the declaring
+  file (`WagoAppJSON.FB_JSON_Writer_02` over a stub declaring
+  `Fb_JSON_Writer_02`) now resolves the type and can invoke the instance
+  (`fbInst(...)`), instead of silently failing the type lookup and
+  reporting "not callable" at the call site. ST identifiers are
+  case-insensitive; the catalog now keys and matches like the symbol
+  table.
+- Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
+  string family only), matching CODESYS and the vendor buffer idiom of a
+  `STRING(1)` formal whose real capacity arrives in a separate size argument
+  (`WagoAppString.StrAppend`). The previous capacity-equality rule rejected
+  vendor-library calls that compile clean in the vendor toolchain; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Integer/bit-string narrowing (assignments and call arguments) becomes a
+  warning instead of an error under `[project] vendor_profile = "codesys"`,
+  matching the CODESYS compiler warning, and `SIZEOF` yields its natural
+  unsigned magnitude (`UDINT`) there so vendor `udiSize` parameters bind
+  directly. Other profiles keep the error and the signed result;
+  non-integer mismatches keep their errors under every profile; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Comparisons and bit-string arithmetic match CODESYS: under
+  `[project] vendor_profile = "codesys"` signed/unsigned integer pairs,
+  integer/bit-string pairs, and two bit-string operands in `+ - * /` are
+  admitted and evaluate through a common magnitude (the runtime promotes;
+  bit-string results carry the wider width and wrap). MOD on bit-strings,
+  mixed integer/bit-string arithmetic, integer/REAL accuracy-loss
+  combinations, and all of these shapes under other profiles keep the
+  strict IEC rejections (IEC_DEVIATIONS 2026-10-28).
+- Standard conversions, under a CODESYS `vendor_profile`: vendor-extension
+  entries match the CODESYS/TwinCAT toolchain (the IEC dialect keeps
+  rejecting them) — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
+  name), `BOOL` (`'TRUE'`/`'FALSE'`), `TIME`/`LTIME` (`T#`/`LT#` text), and
+  same-family strings (identity); `TIME_TO_<int>`/`LTIME_TO_<int>` and
+  `TOD_TO_DWORD`/`LTOD_TO_DWORD` duration magnitudes. Implemented in the
+  compiler accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Standard conversion extension round: `REAL_TO_TIME`/`UINT_TO_TIME` (the
+  value is the millisecond magnitude of the duration), `DWORD_TO_TOD` (the
+  raw ms-of-day magnitude), and `STRING`/`WSTRING` to bit-string targets
+  parse the text as an unsigned integer literal and yield `0` when it is
+  not one. Other integer-to-`TIME` pairs, string-to-`BOOL`, and
+  REAL-to-bit-string conversions stay rejected; implemented in the compiler
+  accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28 extension round).
+- Pointer-target lenient bindings match CODESYS: `POINTER TO CHAR` and
+  `POINTER TO BYTE` pointees bind each other with a warning, and
+  `ADR(STRING[n])` binds against a `POINTER TO ARRAY OF BYTE` formal (the
+  vendor MemCopy and JSON-buffer idioms). All other pointee mismatches
+  stay errors; see `IEC_DEVIATIONS.md` (2026-10-29, DEV-039).
 
 ## [0.27.0] - 2026-10-31
 

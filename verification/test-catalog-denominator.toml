@@ -47371,6 +47371,96 @@ name = "reliability_test_project_configs_are_loadable"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+[[reviews]]
+discovery_id = "DISC_7ED08FC2C6176CF9E691"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/semantic_import_contract.rs"
+name = "semantic_codesys_method_in_out_vars_import_as_by_reference_parameters"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+[[reviews]]
+discovery_id = "DISC_03EB4242243E5ECC1513"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/method_in_out_parameter_writes.rs"
+name = "method_in_out_parameter_write_is_accepted"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+[[reviews]]
+discovery_id = "DISC_BC68D035F131290A5EFE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/method_in_out_parameter_writes.rs"
+name = "method_input_parameter_write_stays_rejected"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+discovery_id = "DISC_041FB0B20452C27149D2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/pointer_target_lenient_bindings.rs"
+name = "string_to_int_array_pointer_parameter_stays_error"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
+[[reviews]]
+discovery_id = "DISC_05FA53C613ACD7E23A95"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/pointer_target_lenient_bindings.rs"
+name = "char_pointer_to_byte_target_assignment_warns"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
+[[reviews]]
+discovery_id = "DISC_2448C052C782E5A718FB"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/pointer_target_lenient_bindings.rs"
+name = "char_pointer_source_binds_byte_parameter_as_warning"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
+[[reviews]]
+discovery_id = "DISC_5F9CB851CADDBD424692"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/pointer_target_lenient_bindings.rs"
+name = "int_pointer_to_byte_pointer_parameter_stays_error"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
+[[reviews]]
+discovery_id = "DISC_DA51CBD3C25C3E5DBA4F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/pointer_target_lenient_bindings.rs"
+name = "byte_pointer_argument_binds_char_parameter_as_warning"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
+[[reviews]]
+discovery_id = "DISC_DF1F62798ABAA1ACA4C7"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/pointer_target_lenient_bindings.rs"
+name = "string_adr_binds_byte_array_pointer_parameter_as_warning"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-29"
 discovery_id = "DISC_A87344A21EA489B37B2A"
 discovery_source_kind = "rust_unit_test"

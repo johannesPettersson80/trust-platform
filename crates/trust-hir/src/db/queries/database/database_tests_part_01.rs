@@ -1,4 +1,5 @@
     use super::*;
+    use crate::dialect::Dialect;
     use parking_lot::RwLock;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -287,8 +288,12 @@
     }
 
     #[test]
-    fn analyze_salsa_rejects_mismatched_cross_file_constant_string_capacity() {
+    fn analyze_salsa_binds_mismatched_cross_file_constant_string_capacity_on_in_out() {
+        // IEC_DEVIATIONS 2026-10-28: in-out strings bind across declared
+        // capacities (CODESYS parity); the constant capacity still resolves
+        // across files, it just no longer rejects the call.
         let mut db = Database::new();
+        db.set_dialect(Dialect::Codesys);
         let file_globals = FileId(35);
         let file_library = FileId(36);
         let file_main = FileId(37);
@@ -315,8 +320,8 @@
                 .iter()
                 .filter(|diagnostic| diagnostic.code == DiagnosticCode::InvalidArgumentType)
                 .count(),
-            1,
-            "mismatched cross-file string capacities must still be rejected: {:?}",
+            0,
+            "in-out string capacity mismatch binds across files (IEC_DEVIATIONS 2026-10-28): {:?}",
             analysis.diagnostics
         );
     }

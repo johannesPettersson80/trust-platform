@@ -128,10 +128,15 @@ IntVar := REAL_TO_INT(RealVar);
 
 Typed operands do not promote by a total “widest type” ordering. They must be
 identical or have one accuracy-preserving widening direction defined by the
-matrix in `docs/IEC_DECISIONS.md`. Signed/unsigned cross-family arithmetic and
-integer/real combinations that can lose accuracy require explicit conversion.
-Representable untyped numeric literals are contextualized to the other typed
-operand.
+matrix in `docs/IEC_DECISIONS.md`. Arithmetic and comparisons add two
+CODESYS-parity exceptions (`docs/IEC_DEVIATIONS.md` 2026-10-28): signed/unsigned
+integer pairs and integer/bit-string pairs compare through a common
+magnitude, and two bit-string operands participate in `+ - * /` as unsigned
+magnitudes whose result carries the wider operand's width (wrapping like the
+vendor toolchain). Integer/real combinations that can lose accuracy, mixed
+integer/bit-string *arithmetic* (`INT + UINT`, `WORD + INT`), and MOD on
+bit-strings still require explicit conversion. Representable untyped numeric
+literals are contextualized to the other typed operand.
 
 ## 4. Operator Categories
 
