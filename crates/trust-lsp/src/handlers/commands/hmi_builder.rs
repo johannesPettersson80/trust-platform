@@ -9,6 +9,8 @@
 //! - `trust-lsp.hmiFiles`: new page and panel files, and the references a renamed file keeps
 //!   (§3.1, §8.7).
 //! - `trust-lsp.hmiNewScreen`: a screen layout and its first page from a template (§4.10).
+//! - `trust-lsp.hmiScreenColour`: a project colour chosen or reset in `hmi/screen.toml` (§14.1
+//!   item 2).
 //! - `trust-lsp.hmiImportSymbol`: a project symbol from an SVG drawing (§14.4 item 5).
 //! - `trust-lsp.hmiTranslation`: a text's translation in its language file (§14.5).
 //! - `trust-lsp.hmiPidSync`: a page and its P&ID kept one, and a process screen from a P&ID (§18
@@ -30,6 +32,7 @@ use serde_json::{json, Value};
 
 mod checks;
 mod clipboard;
+mod colours;
 mod deploy;
 mod equipment;
 mod files;
@@ -54,6 +57,8 @@ pub const HMI_PAGES_COMMAND: &str = "trust-lsp.hmiPages";
 pub const HMI_FILES_COMMAND: &str = "trust-lsp.hmiFiles";
 /// New HMI Screen.
 pub const HMI_NEW_SCREEN_COMMAND: &str = "trust-lsp.hmiNewScreen";
+/// A project colour.
+pub const HMI_SCREEN_COLOUR_COMMAND: &str = "trust-lsp.hmiScreenColour";
 /// Import Symbol.
 pub const HMI_IMPORT_SYMBOL_COMMAND: &str = "trust-lsp.hmiImportSymbol";
 /// A translation.
@@ -76,12 +81,13 @@ pub const HMI_LIBRARIES_COMMAND: &str = "trust-lsp.hmiLibraries";
 /// The HMI Builder's commands, in the order the server advertises them. Each name is one
 /// camel-case segment after `trust-lsp.`, so it never collides with an extension command such as
 /// `trust-lsp.hmiBuilder.newPage`.
-pub const HMI_BUILDER_COMMANDS: [&str; 14] = [
+pub const HMI_BUILDER_COMMANDS: [&str; 15] = [
     HMI_WRITE_RULES_COMMAND,
     HMI_USERS_COMMAND,
     HMI_PAGES_COMMAND,
     HMI_FILES_COMMAND,
     HMI_NEW_SCREEN_COMMAND,
+    HMI_SCREEN_COLOUR_COMMAND,
     HMI_IMPORT_SYMBOL_COMMAND,
     HMI_TRANSLATION_COMMAND,
     HMI_PID_SYNC_COMMAND,
@@ -112,6 +118,7 @@ pub(super) fn execute(command: &str, arguments: Vec<Value>) -> Value {
         HMI_PAGES_COMMAND => pages::answer(argument),
         HMI_FILES_COMMAND => files::answer(argument),
         HMI_NEW_SCREEN_COMMAND => screens::answer(argument),
+        HMI_SCREEN_COLOUR_COMMAND => colours::answer(argument),
         HMI_IMPORT_SYMBOL_COMMAND => symbols::answer(argument),
         HMI_TRANSLATION_COMMAND => translations::answer(argument),
         HMI_PID_SYNC_COMMAND => pid::answer(argument),

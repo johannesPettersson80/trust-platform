@@ -1767,8 +1767,11 @@ on a trip, equipment alarms, and own detection by extending the base.
    inspector's Colours section, shown when no object is selected, lists the tokens of the
    screen's theme in groups (surfaces, text, data, states, alarms), each with its colour. Choosing
    a colour writes it to `[colors.<theme>]` of `hmi/screen.toml`; Reset removes the project's
-   colour, so the default applies again. The section shows the colour warnings of item 4 beside
-   their tokens.
+   colour, so the default applies again, and a theme table left empty is not written. The
+   language server writes the change (`trust-lsp.hmiScreenColour`) with the runtime's own
+   writing of the screen, which must load again: an unknown token or a value that is not a hex
+   colour is refused, and the file stays as it was. The section shows the colour warnings of
+   item 4 beside their tokens.
 3. **Modern look:** a dark-first design with a near-black page, a step-lighter surface for
    cards and rounded shapes, and a clean light theme. Live values are drawn in one vivid accent
    (gradients and a soft glow allowed); "on" states light up. Warnings, stale or unknown data and
