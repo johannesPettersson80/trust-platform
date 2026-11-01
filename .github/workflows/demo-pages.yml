@@ -1,10 +1,13 @@
 name: Docs Pages
 
-# A push to main starts this workflow; its `changes` job decides whether the site must be built and
-# deployed, comparing the whole push (specification 22, "Pull-request checks and change detection").
-# A Docs Captures run of main that rendered screenshots starts it too: the site is built with the
-# newest screenshots of main, and nothing commits them (specification 22, "Docs Captures").
+# A pull request and a push to main start this workflow; its `changes` job decides whether the site
+# must be built, comparing the whole change (specification 22, "Pull-request checks and change
+# detection"). A pull request's run builds and checks the site as the deploy does and publishes
+# nothing; a push to main deploys it. A Docs Captures run of main that rendered screenshots starts it
+# too: the site is built with the newest screenshots of main, and nothing commits them
+# (specification 22, "Docs Captures").
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_run:
@@ -20,7 +23,9 @@ permissions:
   id-token: write
 
 concurrency:
-  group: docs-pages
+  # A pull request's newer push cancels its older run; the deploys of main share one group, so a pull
+  # request never cancels a deploy.
+  group: ${{ github.event_name == 'pull_request' && format('docs-pages-pr-{0}', github.event.pull_request.number) || 'docs-pages' }}
   cancel-in-progress: true
 
 jobs:
@@ -44,13 +49,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compare the push with the documentation paths
+      - name: Compare the change with the documentation paths
         if: github.event_name != 'workflow_run'
         id: changes
         env:
           EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/docs-pages.txt
 
       - name: Whether the Docs Captures run rendered screenshots
@@ -88,6 +93,7 @@ jobs:
         run: |
           python scripts/generate_public_docs_media.py
       - uses: actions/configure-pages@v6
+        if: github.event_name != 'pull_request'
         with:
           enablement: true
       - name: Check docs links
@@ -109,12 +115,14 @@ jobs:
           test -f site/public/reference/agent-api/v1/index.html
           touch site/public/.nojekyll
       - uses: actions/upload-pages-artifact@v5
+        if: github.event_name != 'pull_request'
         with:
           path: site/public
 
   deploy:
     name: Deploy to GitHub Pages
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -129,3 +137,15 @@ jobs:
       - name: Verify deployed pages
         run: |
           python scripts/verify_public_docs_deploy.py --base-url "${{ steps.deployment.outputs.page_url }}"
+
+  conclusion:
+    name: Docs Pages Conclusion
+    # A pull request's site check: it fails when the build or one of its checks failed.
+    needs: [changes, build]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job succeeded or was skipped
+        env:
+          RESULTS: ${{ toJson(needs) }}
+        run: jq --exit-status 'all(.result == "success" or .result == "skipped")' <<< "$RESULTS"

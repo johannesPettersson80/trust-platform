@@ -1,4 +1,5 @@
-# The paths whose change on main deploys the documentation site (specification 22, change detection).
+# The paths whose change builds and checks the documentation site on a pull request and deploys it from
+# main (specification 22, change detection).
 .github/paths/docs-pages.txt
 scripts/ci_changes.py
 docs/public/**

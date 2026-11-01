@@ -488,6 +488,14 @@ adds a capture commits its first image, and nobody commits refreshed ones. The
 refresh pull request of earlier releases, which had to be merged into each
 release by hand, is gone.
 
+A pull request that changes the site's paths runs the Docs Pages build too, with
+the newest screenshots of `main`: the media, the link, catalogue and database
+example checks, `mkdocs build --strict`, and the asset and search checks. It
+publishes nothing, and its run never cancels a deploy of `main`. Its conclusion,
+Docs Pages Conclusion, fails when a check failed, so a broken page fails the pull
+request instead of the deploy after the merge (the retired release guard ran
+these checks before each push; Codex's review of #153, 1 November 2026).
+
 ### Release-candidate discovery parity
 
 The exact-SHA prepare command includes the existing MP-001 test-discovery and

@@ -107,6 +107,31 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
             build["steps"][take]["run"],
         )
 
+    def test_a_pull_request_builds_and_checks_the_site_and_publishes_nothing(self) -> None:
+        # Specification 22, "Docs Captures": a pull request that changes the site runs the deploy's own
+        # checks and publishes nothing. Catches the site checks running only after the merge (the retired
+        # release guard ran them before each push; Codex's review of #153), a pull request's run that
+        # deploys, and one that cancels a deploy of main.
+        pages = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(pages["on"]["pull_request"], "")
+        self.assertIn("github.event.pull_request.number", pages["concurrency"]["group"])
+        self.assertIn("|| 'docs-pages' }}", pages["concurrency"]["group"])
+
+        compare = next(step for step in pages["jobs"]["changes"]["steps"] if step.get("id") == "changes")
+        self.assertEqual(compare["env"]["BASE"], "${{ github.event.pull_request.base.sha || github.event.before }}")
+        self.assertEqual(compare["env"]["HEAD_SHA"], "${{ github.event.pull_request.head.sha || github.sha }}")
+
+        steps = pages["jobs"]["build"]["steps"]
+        publishing = [step for step in steps if step.get("uses", "").startswith(("actions/configure-pages", "actions/upload-pages-artifact"))]
+        self.assertEqual(len(publishing), 2)
+        for step in publishing:
+            self.assertEqual(step["if"], "github.event_name != 'pull_request'", step["uses"])
+        for name in ("Take the newest screenshots of main", "Generate docs media", "Check docs links", "Build docs site"):
+            step = next(step for step in steps if step.get("name") == name)
+            self.assertNotIn("if", step, name)
+        self.assertEqual(pages["jobs"]["deploy"]["if"], "github.event_name != 'pull_request'")
+        self.assertEqual(pages["jobs"]["conclusion"]["name"], "Docs Pages Conclusion")
+
     def test_captures_build_programs_with_the_toolchain_the_job_builds(self) -> None:
         # The browser IDE and the terminal captures build Structured Text programs. Without a
         # toolchain a build downloads its version's, which does not exist before that version is
