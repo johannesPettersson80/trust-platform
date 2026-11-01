@@ -6,6 +6,7 @@ Release Gate Report
 Release Conclusion
 Render Diagrams Conclusion
 Docs Captures Conclusion
+Docs Pages Conclusion
 Verification strict report
 Memory Regression Gate
 Fuzz Smoke

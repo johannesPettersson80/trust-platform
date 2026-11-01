@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "docs-captures.yml"
 PAGES = ROOT / ".github" / "workflows" / "demo-pages.yml"
 PATHS = ROOT / ".github" / "paths" / "docs-captures.txt"
+# The condition of the steps and jobs that publish the site: neither a pull request nor a merge group does.
+PUBLISHING = "github.event_name != 'pull_request' && github.event_name != 'merge_group'"
 
 
 class DocsCapturesWorkflowContractTests(unittest.TestCase):
@@ -108,26 +110,31 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         )
 
     def test_a_pull_request_builds_and_checks_the_site_and_publishes_nothing(self) -> None:
-        # Specification 22, "Docs Captures": a pull request that changes the site runs the deploy's own
-        # checks and publishes nothing. Catches the site checks running only after the merge (the retired
+        # Specification 22, "Docs Captures": a pull request or a merge group that changes the site runs the
+        # deploy's own checks and publishes nothing. Catches the site checks running only after the merge (the retired
         # release guard ran them before each push; Codex's review of #153), a pull request's run that
         # deploys, and one that cancels a deploy of main.
         pages = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)
         self.assertEqual(pages["on"]["pull_request"], "")
+        self.assertEqual(pages["on"]["merge_group"], "")
         self.assertIn("github.event.pull_request.number", pages["concurrency"]["group"])
+        self.assertIn("format('docs-pages-queue-{0}', github.run_id)", pages["concurrency"]["group"])
         self.assertIn("|| 'docs-pages' }}", pages["concurrency"]["group"])
 
         compare = next(step for step in pages["jobs"]["changes"]["steps"] if step.get("id") == "changes")
-        self.assertEqual(compare["env"]["BASE"], "${{ github.event.pull_request.base.sha || github.event.before }}")
+        self.assertEqual(
+            compare["env"]["BASE"],
+            "${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}",
+        )
         self.assertEqual(compare["env"]["HEAD_SHA"], "${{ github.event.pull_request.head.sha || github.sha }}")
 
         steps = pages["jobs"]["build"]["steps"]
         upload = next(step for step in steps if step.get("uses", "").startswith("actions/upload-pages-artifact"))
-        self.assertEqual(upload["if"], "github.event_name != 'pull_request'")
+        self.assertEqual(upload["if"], PUBLISHING)
         for name in ("Take the newest screenshots of main", "Generate docs media", "Check docs links", "Build docs site"):
             step = next(step for step in steps if step.get("name") == name)
             self.assertNotIn("if", step, name)
-        self.assertEqual(pages["jobs"]["deploy"]["if"], "github.event_name != 'pull_request'")
+        self.assertEqual(pages["jobs"]["deploy"]["if"], PUBLISHING)
         self.assertEqual(pages["jobs"]["conclusion"]["name"], "Docs Pages Conclusion")
 
     def test_only_the_deploy_writes_to_pages_or_requests_an_oidc_token(self) -> None:
@@ -141,7 +148,7 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
             writes = {name for name, level in granted.items() if level == "write"}
             if job_id == "deploy":
                 self.assertEqual(writes, {"pages", "id-token"})
-                self.assertIn("github.event_name != 'pull_request'", job["if"])
+                self.assertEqual(job["if"], PUBLISHING)
             else:
                 self.assertEqual(writes, set(), job_id)
         deploy_steps = [step.get("uses", "") for step in pages["jobs"]["deploy"]["steps"]]

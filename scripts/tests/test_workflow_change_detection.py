@@ -10,6 +10,11 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+# The conditions of a job that a pull request's run skips, so that its conclusion does not need it (Docs Pages' deploy).
+SKIPPED_FOR_PULL_REQUESTS = {
+    "github.event_name != 'pull_request'",
+    "github.event_name != 'pull_request' && github.event_name != 'merge_group'",
+}
 
 
 def load(path: Path) -> dict:
@@ -44,7 +49,7 @@ class WorkflowChangeDetectionTests(unittest.TestCase):
             needs = conclusion["needs"]
             needs = [needs] if isinstance(needs, str) else needs
             checks = {name for name in jobs if name not in {"conclusion"}}
-            checks -= {name for name, job in jobs.items() if job.get("if") == "github.event_name != 'pull_request'"}
+            checks -= {name for name, job in jobs.items() if job.get("if") in SKIPPED_FOR_PULL_REQUESTS}
             self.assertEqual(set(needs), checks, f"{path.name}'s conclusion must need every check")
             self.assertEqual(conclusion["if"], "${{ !cancelled() }}", path.name)
             self.assertIn("all(.result == \"success\" or .result == \"skipped\")", conclusion["steps"][0]["run"])

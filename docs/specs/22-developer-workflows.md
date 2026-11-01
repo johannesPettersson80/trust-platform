@@ -419,7 +419,9 @@ each workflow, so that no runner works on a head that nobody will merge; the
 run of a merge group, of a push to `main` and a scheduled or manual run are
 never cancelled by another (1 November 2026: three pushes to #151 ran three
 full CI runs side by side while `main`'s CI, which the release waits for,
-queued for runners).
+queued for runners). Docs Pages' deploys of `main` share one group: the running
+deploy finishes, and a newer deploy replaces one that still waits, so the site
+skips the commits between (GitHub's Pages workflows do the same).
 
 ### Documentation that follows the product
 
@@ -512,16 +514,16 @@ adds a capture commits its first image, and nobody commits refreshed ones. The
 refresh pull request of earlier releases, which had to be merged into each
 release by hand, is gone.
 
-A pull request that changes the site's paths runs the Docs Pages build too, with
-the newest screenshots of `main`: the media, the link, catalogue and database
-example checks, `mkdocs build --strict`, and the asset and search checks. It
-publishes nothing, and its run never cancels a deploy of `main`. Every job but
-the deploy runs with a read-only token, since a pull request's run executes the
-pull request's own scripts; only the deploy may write to Pages and request an
-OIDC token. Its conclusion,
-Docs Pages Conclusion, fails when a check failed, so a broken page fails the pull
-request instead of the deploy after the merge (the retired release guard ran
-these checks before each push; Codex's review of #153, 1 November 2026).
+A pull request or a merge group that changes the site's paths runs the Docs
+Pages build too, with the newest screenshots of `main`: the media, the link,
+catalogue and database example checks, `mkdocs build --strict`, and the asset
+and search checks. It publishes nothing, and its run never cancels a deploy of
+`main`. Every job but the deploy runs with a read-only token, since a pull
+request's run executes the pull request's own scripts; only the deploy may write
+to Pages and request an OIDC token. Its conclusion, Docs Pages Conclusion, fails
+when a check failed, so a broken page fails the pull request instead of the
+deploy after the merge (the retired release guard ran these checks before each
+push; Codex's review of #153, 1 November 2026).
 
 ### Release-candidate discovery parity
 
