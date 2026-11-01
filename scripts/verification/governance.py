@@ -150,6 +150,7 @@ def validate_current_governance(
     changed_files: Sequence[str] = (),
     specifications: Sequence[str] = (),
     root: Path = ROOT,
+    version_bump: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     maximum_age = document["staleness"]["maximum_active_age_days"]
@@ -196,7 +197,7 @@ def validate_current_governance(
         completed = date.fromisoformat(row["last_completed"])
         if (today - completed).days > row["interval_days"]:
             failures.append(f"review cadence {row['id']} is overdue")
-    failures.extend(validate_changed_files(document, changed_files, specifications, root))
+    failures.extend(validate_changed_files(document, changed_files, specifications, root, version_bump))
     return sorted(set(failures))
 
 
@@ -205,9 +206,10 @@ def validate_changed_files(
     changed_files: Sequence[str],
     specifications: Sequence[str] = (),
     root: Path = ROOT,
+    version_bump: bool = False,
 ) -> list[str]:
     del document
-    return validate_direct_change_contract(changed_files, specifications, root)
+    return validate_direct_change_contract(changed_files, specifications, root, version_bump)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -222,9 +224,16 @@ def main(argv: list[str] | None = None) -> int:
         help="the value of a `Specification: <specification> <section>` commit trailer of the change",
     )
     parser.add_argument("--direct-change-contract-only", action="store_true")
+    parser.add_argument(
+        "--version-bump",
+        action="store_true",
+        help="the change moves the workspace version (specification 30, \"Owning-spec companion contract\")",
+    )
     args = parser.parse_args(argv)
     if args.direct_change_contract_only:
-        failures = validate_direct_change_contract(args.changed_file, args.specification, args.root)
+        failures = validate_direct_change_contract(
+            args.changed_file, args.specification, args.root, args.version_bump
+        )
         if failures:
             for failure in failures:
                 print(f"direct change contract: FAIL: {failure}", file=sys.stderr)
@@ -252,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
             changed_files=args.changed_file,
             specifications=args.specification,
             root=args.root,
+            version_bump=args.version_bump,
         ))
     except (OSError, ValueError, tomllib.TOMLDecodeError) as exc:
         print(f"verification governance: FAIL: {exc}", file=sys.stderr)
