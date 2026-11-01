@@ -4,6 +4,7 @@
 //! names the wrong behaviour it catches.
 
 mod edits;
+mod elements;
 mod lowering;
 
 use super::*;

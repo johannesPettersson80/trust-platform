@@ -134,7 +134,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken
+      {} as vscode.CancellationToken,
     );
     const webview = panel.webview;
 
@@ -149,7 +149,7 @@ suite("Ladder editor wiring", function () {
     const program = JSON.parse(String(routed.programText)) as ProgramShape;
     assert.deepStrictEqual(
       program.networks[0].edges.map((edge) => edge.id),
-      ["edge_rung_1_0"]
+      ["edge_rung_1_0"],
     );
 
     webview.send({ type: "save", program });
@@ -174,7 +174,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken
+      {} as vscode.CancellationToken,
     );
     const webview = panel.webview;
     const field = { op: "setNumber", programText: JSON.stringify(PROGRAM), rungIndex: 0, elementIndex: 0, field: "x" };
@@ -194,6 +194,55 @@ suite("Ladder editor wiring", function () {
     assert.strictEqual(refused.requestId, 12);
     assert.strictEqual(refused.ok, false);
     assert.deepStrictEqual(refused.errors, [{ message: "Position X must be a number." }]);
+    panel.dispose();
+  });
+
+  // Catches an editor that deletes, toggles or stores a field itself: the host forwards each edit
+  // and the language server answers the program (the contact gone, its wires and implicit locals
+  // with it), the toggled type, or why a field's value is not stored.
+  test("deleting, toggling and a field go to the language server", async () => {
+    const file = path.join(folder, "elements.ladder.json");
+    fs.writeFileSync(file, JSON.stringify(PROGRAM, null, 2));
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+    const provider = new LadderEditorProvider({ extensionPath: process.cwd() } as vscode.ExtensionContext);
+    const panel = new FakeWebviewPanel();
+    await provider.resolveCustomTextEditor(
+      document,
+      panel as unknown as vscode.WebviewPanel,
+      {} as vscode.CancellationToken,
+    );
+    const webview = panel.webview;
+    const edit = { programText: JSON.stringify(PROGRAM), rungIndex: 0 };
+
+    webview.send({ type: "edit", requestId: 21, op: "removeElement", ...edit, elementIndex: 0 });
+    const removed = await webview.next("editResult");
+    assert.strictEqual(removed.requestId, 21);
+    assert.strictEqual(removed.ok, true, JSON.stringify(removed.errors));
+    const program = JSON.parse(String(removed.programText)) as {
+      networks: Array<{ nodes: Array<{ id: string }> }>;
+    };
+    assert.deepStrictEqual(
+      program.networks[0].nodes.map((node) => node.id),
+      ["q1"],
+    );
+
+    webview.send({ type: "edit", requestId: 22, op: "toggleContactType", ...edit, elementIndex: 0 });
+    const toggled = await webview.next("editResult");
+    assert.strictEqual(toggled.contactType, "NC");
+
+    webview.send({
+      type: "edit",
+      requestId: 23,
+      op: "setField",
+      ...edit,
+      elementIndex: 1,
+      field: "coilType",
+      value: "PULSE",
+    });
+    const refused = await webview.next("editResult");
+    assert.strictEqual(refused.requestId, 23);
+    assert.strictEqual(refused.ok, false);
+    assert.deepStrictEqual(refused.errors, [{ message: "coilType must be one of NORMAL, SET, RESET, NEGATED." }]);
     panel.dispose();
   });
 });

@@ -2066,6 +2066,21 @@ these commands and show the answers:
   half up; a position snaps to the 20-unit grid. Blank, non-numeric or
   non-finite text is refused with a message under the field, and nothing is
   stored. Dragging an element snaps it in the editor.
+- The text and choice fields of the Ladder properties panel (an operand, a
+  type, a timer's or counter's instance and connections, a block's operator)
+  are stored by the language server (`setField`): a choice field takes only
+  the values of specification 16 §3, and any other value is refused with a
+  message under the field. A changed operand reconciles the implicit locals
+  (specification 16 §5). Toggling a contact (`toggleContactType`) turns NO
+  into NC and back.
+- Deleting a Ladder element (`removeElement`; 1 November 2026) takes its term
+  out of the rung's logic, as CODESYS and TwinCAT do: its wires go with it,
+  and each node that fed it is wired to each node it fed unless another path
+  still joins the two. A series element closes the gap (`A AND X` without `X`
+  is `A`), and an element that was a parallel leg on its own leaves the other
+  legs (`A OR X` without `X` is `A`). Its implicit locals that no element
+  names any more are removed. Clear wiring (`clearWiring`) removes every wire
+  of the rung, which then runs as one series chain from left to right.
 - Blockly lowering preserves connected statement order, control-input slots,
   variable identity, and deterministic inference for supported untyped numeric
   variables.

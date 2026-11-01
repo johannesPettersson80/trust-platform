@@ -23,12 +23,12 @@ pub const ELEMENT_TYPES: [&str; 9] = [
 /// The variable types a Ladder program may declare (specification 16 §2).
 pub const VARIABLE_TYPES: [&str; 6] = ["BOOL", "INT", "REAL", "TIME", "DINT", "LREAL"];
 
-const CONTACT_TYPES: [&str; 2] = ["NO", "NC"];
-const COIL_TYPES: [&str; 4] = ["NORMAL", "SET", "RESET", "NEGATED"];
-const TIMER_TYPES: [&str; 3] = ["TON", "TOF", "TP"];
-const COUNTER_TYPES: [&str; 3] = ["CTU", "CTD", "CTUD"];
-const COMPARE_OPS: [&str; 3] = ["GT", "LT", "EQ"];
-const MATH_OPS: [&str; 4] = ["ADD", "SUB", "MUL", "DIV"];
+pub(super) const CONTACT_TYPES: [&str; 2] = ["NO", "NC"];
+pub(super) const COIL_TYPES: [&str; 4] = ["NORMAL", "SET", "RESET", "NEGATED"];
+pub(super) const TIMER_TYPES: [&str; 3] = ["TON", "TOF", "TP"];
+pub(super) const COUNTER_TYPES: [&str; 3] = ["CTU", "CTD", "CTUD"];
+pub(super) const COMPARE_OPS: [&str; 3] = ["GT", "LT", "EQ"];
+pub(super) const MATH_OPS: [&str; 4] = ["ADD", "SUB", "MUL", "DIV"];
 
 /// Checks that `program` is a schema-v2 Ladder program.
 ///

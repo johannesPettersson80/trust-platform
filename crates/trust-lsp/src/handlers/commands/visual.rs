@@ -424,6 +424,20 @@ fn ladder_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
             extra.insert("insertedIndex".to_owned(), json!(index));
         }
         "removeRung" => ladder_edit::remove_rung(&mut program, index_arg(args, "index")?)?,
+        "removeElement" => ladder_edit::remove_element(
+            &mut program,
+            index_arg(args, "rungIndex")?,
+            index_arg(args, "elementIndex")?,
+        )?,
+        "clearWiring" => ladder_edit::clear_wiring(&mut program, index_arg(args, "rungIndex")?)?,
+        "toggleContactType" => {
+            let contact_type = ladder_edit::toggle_contact_type(
+                &mut program,
+                index_arg(args, "rungIndex")?,
+                index_arg(args, "elementIndex")?,
+            )?;
+            extra.insert("contactType".to_owned(), json!(contact_type));
+        }
         "connect" => {
             let wire = ladder_edit::connect(
                 &mut program,
@@ -434,6 +448,7 @@ fn ladder_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
             extra.insert("wire".to_owned(), json!(wire.name()));
         }
         "setNumber" => return ladder_number_answer(&mut program, args),
+        "setField" => return ladder_field_answer(&mut program, args),
         _ => return Err(format!("The Ladder editor has no edit \"{op}\".")),
     }
     let mut answer = serde_json::Map::new();
@@ -441,6 +456,24 @@ fn ladder_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
     answer.insert("programText".to_owned(), json!(program.to_compact()));
     answer.extend(extra);
     Ok(Value::Object(answer))
+}
+
+/// The Ladder `setField` edit: the text or choice `value` of the member `field` of the element
+/// `elementIndex` of the rung `rungIndex`, typed or chosen in the properties panel, answered with
+/// the program. A value the field does not take is refused with the reason, and nothing is stored.
+fn ladder_field_answer(program: &mut Json, args: &Json) -> Result<Value, String> {
+    Ok(
+        match ladder_edit::set_field(
+            program,
+            index_arg(args, "rungIndex")?,
+            index_arg(args, "elementIndex")?,
+            text_arg(args, "field")?,
+            text_arg(args, "value")?,
+        ) {
+            Ok(()) => json!({ "ok": true, "programText": program.to_compact() }),
+            Err(message) => edit_refused("refused", &message),
+        },
+    )
 }
 
 /// The Ladder `setNumber` edit: the text typed into a number field of the properties panel
