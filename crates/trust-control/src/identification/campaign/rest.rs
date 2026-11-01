@@ -276,12 +276,21 @@ impl RestTracker {
             ));
         }
         let newest = points.last().map_or(0.0, |last| last.seconds);
+        // A rate from fewer readings than the window's floor reads a moving signal as still (B3.4 step 2).
+        let measured = trailing_window(&moving.points, window).len() >= MINIMUM_WINDOW_SAMPLES;
         let progress = if progress_due(newest, self.reported_seconds) {
             self.reported_seconds = newest;
-            Some(format!(
-                "Waiting for the loop to settle in Auto ({} changing {rate})…",
-                moving.symbol
-            ))
+            Some(if measured {
+                format!(
+                    "Waiting for the loop to settle in Auto ({} changing {rate})…",
+                    moving.symbol
+                )
+            } else {
+                format!(
+                    "Waiting for the loop to settle in Auto (measuring the rate of {})…",
+                    moving.symbol
+                )
+            })
         } else {
             None
         };

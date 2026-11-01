@@ -642,6 +642,44 @@ fn a_drifting_output_is_refused_with_its_rate_and_the_setpoint_step_offer() {
 }
 
 #[test]
+fn the_baseline_progress_names_no_rate_until_twenty_samples_measure_it() {
+    // B3.4 step 2 (checklist G25): a first page of five samples 1 s apart holds too few to measure the rate, so the progress
+    // says it is measuring; the next progress is due at 30 s, with thirty-one samples, and names the drift of 0.01 degC/s,
+    // 0.6 degC/min. Catches a rate read from fewer samples than the window's floor of twenty.
+    let drifting = |seconds: f64| plant(45.0, 0.01, 0.0, 0.0, f64::INFINITY, seconds);
+    let mut tracker = BaselineTracker::new(
+        &tank_loop().signals.process_variable,
+        6_000_000,
+        100.0,
+        None,
+        false,
+    );
+    let mut watch = Watch::new();
+    let first = tracker
+        .feed(&mut watch, &seconds_from(0, 4, drifting), 4_000.0)
+        .expect("the budget is not spent");
+    assert_eq!(
+        first,
+        BaselineStep::Waiting {
+            progress: Some(
+                "Waiting for Main.TT101.Value to settle (measuring its rate)…".to_string()
+            )
+        }
+    );
+    let measured = tracker
+        .feed(&mut watch, &seconds_from(5, 30, drifting), 30_000.0)
+        .expect("still waiting");
+    assert_eq!(
+        measured,
+        BaselineStep::Waiting {
+            progress: Some(
+                "Waiting for Main.TT101.Value to settle (changing 0.6 degC/min)…".to_string()
+            )
+        }
+    );
+}
+
+#[test]
 fn the_baseline_progress_is_reported_when_due_and_names_the_rate() {
     let drifting = |seconds: f64| plant(45.0, 0.01, 0.0, 0.0, f64::INFINITY, seconds);
     let mut tracker = BaselineTracker::new(

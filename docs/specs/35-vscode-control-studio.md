@@ -1353,7 +1353,11 @@ clears the manual section (B3.7).
    one whole window. A window here takes the maximum duration and the expected settling time, but not the twenty-sample
    floor, which the recording holds within the wait at the record period of A4.2 while one task execution is at most a
    twentieth of the wait. It then stops with the rate still observed, offering to wait or, for a loop in Auto, a
-   setpoint step. A project-scripted experiment that declares a baseline waits for none of this (C12): the project owns its
+   setpoint step. While it waits, it shows the rate at which the output still changes, measured over the window's
+   readings once they number twenty, the samples its trend is judged on; with fewer it says that it is measuring the
+   rate, since one reading has no slope and a few read noise (1 November 2026: the first progress said "changing
+   0 °C/min" while the output rose 1.5 °C in 2.4 s). A project-scripted experiment that declares a baseline waits for
+   none of this (C12): the project owns its
    scenario and qualifies its own measurements before it actuates, so Identify starts the recording and the plan together, and
    the baseline that the project declares is the one its plan records. A project-scripted experiment that declares no baseline
    waits for the steady baseline as above, so that its fit has the samples before the first input change that it takes its

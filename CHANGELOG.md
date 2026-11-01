@@ -14,6 +14,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Identify's wait for a loop in Auto to settle keeps the readings its window judges and fewer older ones than those, so
   a long wait no longer grows the engine's memory: a 24-hour campaign of a 16-member PID group held about 84 MiB
   (specification 35, B3.4).
+- Identify's waits for a steady output and for a loop in Auto to settle say that they are measuring the rate until twenty
+  readings measure it. Before, their first progress said "changing 0 °C/min" while the temperature rose (specification
+  35, B3.4).
 
 ## [0.27.0] - 2026-10-31
 
