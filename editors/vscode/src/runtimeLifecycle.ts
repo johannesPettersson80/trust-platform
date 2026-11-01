@@ -6,6 +6,7 @@ import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 import { getControlAuthToken } from "./runtimeAuth";
 import { resolveProjectConnection, resolveRuntimeConnection } from "./runtimeConnection";
 import {
+  classifyIoStateFailure,
   classifyRuntimeStartFailure,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
   type NetworkCanvasRuntimeFailureKind as RuntimeStartFailureKind,
@@ -254,13 +255,7 @@ class RuntimeLifecycleService {
   async requestIoState(options: { readonly persistFailure?: boolean; readonly afterScan?: number } = {}): Promise<RuntimeLifecycleResult> {
     const session = this.getStructuredTextSession();
     if (!session) {
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: "No active Structured Text debug session.",
-        },
-      };
+      return { ok: false, failure: await classifyIoStateFailure() };
     }
     try {
       await withTimeout(
@@ -273,11 +268,7 @@ class RuntimeLifecycleService {
       );
       return { ok: true, message: "I/O state requested." };
     } catch (err) {
-      const failure = await classifyRuntimeStartFailure(err);
-      const ioFailure = {
-        ...failure,
-        message: `I/O state request failed: ${failure.message}`,
-      };
+      const ioFailure = await classifyIoStateFailure(err);
       if (options.persistFailure) {
         this.failure = ioFailure;
         this.emitChanged();

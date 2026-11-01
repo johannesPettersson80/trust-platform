@@ -1,4 +1,4 @@
-//! A Connect, and the kind of a lifecycle failure (specification 25 §5.1, §5.10 and §6.4).
+//! A Connect, and the kind of a lifecycle failure (specification 25 §4.4, §5.1, §5.10 and §6.4).
 //!
 //! - `connect` `{ endpoint, authToken?, problem?, targetLabel? }`: Connect changes nothing until it
 //!   succeeds. The runtime must accept a connection at its endpoint and answer `status` with the
@@ -13,6 +13,9 @@
 //! - `failure` `{ detail }`: the kind of the failure that the text `detail` of a start, a stop or an
 //!   attach names, with the message the extension shows: a missing executable, a port in use, a
 //!   folder that cannot be written, a stale runtime or session, else a failed start.
+//! - `failure` `{ request: "ioState", detail? }`: the kind of a failed I/O state request of Live
+//!   Values (§4.4), `detail` its text, none when there is no session to ask: no session, a lost
+//!   connection, else a failed request.
 
 use std::time::Duration;
 
@@ -34,6 +37,30 @@ const OPEN_DEVICES: &str = "openDevices";
 const SET_AUTH_TOKEN: &str = "setAuthToken";
 /// What Live Values and the graph say of a runtime that keeps debugging disabled.
 pub(super) const DEBUG_DISABLED: &str = "Remote debugging is disabled for this runtime. Set debug_enabled = true under [runtime.control] in its runtime.toml, restart the runtime, then connect again.";
+/// The request whose failure `failure` reads as Live Values' I/O state request.
+const IO_STATE: &str = "ioState";
+/// The message of an I/O state request with no session to ask, or whose session is gone.
+const NO_SESSION: &str = "No active Structured Text debug session.";
+/// What Live Values says when the connection under its I/O state request failed.
+const CONNECTION_LOST: &str =
+    "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.";
+/// The words of a connection that failed under an I/O state request, in lower case.
+const TRANSPORT_WORDS: [&str; 14] = [
+    "cancelled",
+    "connection",
+    "socket",
+    "econnreset",
+    "econnrefused",
+    "epipe",
+    "closed",
+    "terminated",
+    "timeout",
+    "time out",
+    "timed out",
+    "timedout",
+    "not connected",
+    "disconnected",
+];
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,14 +79,24 @@ struct ConnectArgs {
 struct FailureArgs {
     #[serde(default)]
     detail: Option<String>,
+    #[serde(default)]
+    request: Option<String>,
 }
 
 /// The answer of the action `action`.
 pub(super) fn answer(action: &str, argument: Value) -> Result<Value, String> {
     if action == "failure" {
         let args: FailureArgs = decode(argument)?;
-        let detail = args.detail.unwrap_or_default();
-        return Ok(json!({ "ok": true, "failure": classify(&detail) }));
+        let failure = match args.request.as_deref() {
+            None => classify(args.detail.as_deref().unwrap_or_default()),
+            Some(IO_STATE) => io_state_failure(args.detail.as_deref()),
+            Some(other) => {
+                return Err(format!(
+                    "A failure is read for a start or for the request {IO_STATE}, not {other}."
+                ))
+            }
+        };
+        return Ok(json!({ "ok": true, "failure": failure }));
     }
     let args: ConnectArgs = decode(argument)?;
     Ok(connect(&args, &Network))
@@ -252,6 +289,44 @@ fn classify(detail: &str) -> Value {
         ("failed_spawn", "Runtime failed to start.".to_owned())
     } else {
         ("failed_spawn", detail.to_owned())
+    };
+    failure_json(kind, &message, Some(detail), None)
+}
+
+/// The kind of a failed I/O state request of Live Values from its text `detail`, none when there
+/// was no session to ask (specification 25 §4.4). `no_session`: no session, or one that is gone,
+/// which VS Code says as `No debugger available`, `Can not send 'stIoState'`, or `Canceled` (one
+/// `l`) for the requests of a session that ends, and the debug adapter as `no program runs: launch
+/// or attach first` (trust-debug's `NOT_CONNECTED`). `connection_lost`: the connection under the
+/// request failed. `request_failed`: any other failure, with its text.
+fn io_state_failure(detail: Option<&str>) -> Value {
+    let Some(detail) = detail else {
+        return failure_json("no_session", NO_SESSION, None, None);
+    };
+    // Lower case, without quotes and with single spaces, so that every quoting and spacing of the
+    // request's name reads the same.
+    let text = detail
+        .to_lowercase()
+        .replace(['\'', '"'], "")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let (kind, message) = if text.starts_with("canceled")
+        || text.contains("no active structured text debug session")
+        || text.contains("no debugger available")
+        || text.contains("can not send stiostate")
+        || text.contains("no program runs")
+    {
+        ("no_session", NO_SESSION.to_owned())
+    } else if TRANSPORT_WORDS.iter().any(|word| text.contains(word)) {
+        ("connection_lost", CONNECTION_LOST.to_owned())
+    } else if text.is_empty() {
+        ("request_failed", "I/O state request failed.".to_owned())
+    } else {
+        (
+            "request_failed",
+            format!("I/O state request failed: {}", detail.trim()),
+        )
     };
     failure_json(kind, &message, Some(detail), None)
 }
