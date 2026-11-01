@@ -145,6 +145,22 @@ pub fn library_dependency_issues(config: &ProjectConfig) -> Vec<LibraryIssue> {
     issues.extend(missing_issues);
     issues.extend(mismatch_issues);
     issues.extend(cycle_issues);
+    // A library whose folder is the project root, or contains it, would turn every project file
+    // into library surface for the unused-symbol warnings (specification 14 §7.6): it is refused
+    // and exempts nothing.
+    for library in config.root_swallowing_libraries() {
+        issues.push(LibraryIssue {
+            code: "L008",
+            message: format!(
+                "Library '{}' folder '{}' is the project root or contains it; it is not treated as \
+                 library surface, and every project file keeps its warnings",
+                library.name,
+                library.path.display()
+            ),
+            subject: library.name.clone(),
+            dependency: None,
+        });
+    }
     issues
 }
 
@@ -298,6 +314,37 @@ dependencies = [{ name = "A" }]
         assert!(issues
             .iter()
             .any(|issue| issue.message.contains("A -> B -> A")));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn library_dependency_issues_refuse_a_library_folder_that_swallows_the_project() {
+        let root = temp_dir("trustlsp-library-root");
+        let config = ProjectConfig::from_contents(
+            &root,
+            Some(root.join("trust-lsp.toml")),
+            r#"
+[[libraries]]
+name = "Whole"
+path = "."
+
+[[libraries]]
+name = "Vendor"
+path = "libs/vendor"
+"#,
+        );
+        let issues = library_dependency_issues(&config);
+        let whole = issues
+            .iter()
+            .find(|issue| issue.code == "L008")
+            .expect("the project-root library is refused");
+        assert!(whole.message.contains("Whole"), "{}", whole.message);
+        // The sound entry is not touched, and the refused entry exempts nothing: a file of the
+        // project is its own file everywhere.
+        assert!(issues
+            .iter()
+            .all(|issue| issue.subject != "Vendor" || issue.code != "L008"));
+        assert!(!config.is_library_surface(&root.join("src/main.st")));
         fs::remove_dir_all(root).ok();
     }
 }

@@ -119,6 +119,10 @@ handlers::tests::hmi_pair_diagnostics::a_member_of_a_kind_its_field_does_not_tak
 handlers::tests::hmi_rename_handlers::find_all_references_of_a_bound_member_includes_the_binding: test
 handlers::tests::hmi_rename_handlers::renaming_a_bound_member_also_edits_the_binding: test
 handlers::tests::hmi_rename_handlers::renaming_a_bound_variable_of_a_project_with_dependencies_also_edits_the_binding: test
+handlers::tests::library_surface_diagnostics::a_library_folder_that_is_the_project_root_exempts_nothing_and_reports_l008: test
+handlers::tests::library_surface_diagnostics::a_library_inside_the_project_folder_is_spared_unused_warnings: test
+handlers::tests::library_surface_diagnostics::a_library_is_spared_unused_warnings_without_include_paths: test
+handlers::tests::library_surface_diagnostics::a_resolved_dependency_package_is_library_surface: test
 handlers::tests::lsp_trace_cases::lsp_delivery_trace_cases: test
 handlers::tests::lsp_trace_cases::lsp_diagnostic_cancellation_trace_cases: test
 handlers::tests::lsp_trace_cases::lsp_document_close_trace_cases: test
