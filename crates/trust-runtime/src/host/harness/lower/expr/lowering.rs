@@ -66,7 +66,7 @@ pub(in crate::harness) fn lower_expr_with_context(
         if let Some(value) = ctx.lookup_compile_time_const(&name) {
             return Ok(Expr::Literal(value));
         }
-        // IEC_DEVIATIONS DEV-030: a dotted name that resolves as a
+        // IEC_DEVIATIONS DEV-041: a dotted name that resolves as a
         // qualified enum member folds to that enum value.
         if name.contains('.')
             && let Some((type_id, member, _)) = ctx.registry.resolve_qualified_enum_member(&name)
@@ -889,7 +889,7 @@ fn lower_call_arg(
         .find(|child| child.kind() == SyntaxKind::Name)
         .map(|name| node_text(&name).into());
     let Some(expr_node) = first_expr_child(node) else {
-        // CODESYS parity (IEC_DEVIATIONS DEV-029): a named binding with
+        // CODESYS parity (IEC_DEVIATIONS DEV-040): a named binding with
         // an empty right-hand side (`xRst := ,` / `Q =>`) omits the
         // argument — inputs retain their value or take the declared
         // default, unconnected outputs stay unbound — exactly what the

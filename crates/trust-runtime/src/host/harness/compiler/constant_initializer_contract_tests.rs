@@ -625,7 +625,7 @@ END_PROGRAM
 
 #[test]
 fn constant_initializer_contract_qualified_enum_member_initializes_global() {
-    // IEC_DEVIATIONS DEV-030: a dotted reference whose prefix names one
+    // IEC_DEVIATIONS DEV-041: a dotted reference whose prefix names one
     // registered enum type resolves — the CODESYS fully qualified
     // `Namespace.EnumType.Member` form over a library-namespace enum, in
     // a namespace-level global initializer (the analyzer accepts the
@@ -673,7 +673,7 @@ END_PROGRAM
 #[test]
 #[ignore = "pins the analyzer unique-leaf tolerance, which lands in the declared-size PR; the harness half is in place"]
 fn constant_initializer_contract_flattened_gvl_leaf_resolves_in_capacity() {
-    // IEC_DEVIATIONS DEV-030: a dotted reference naming a container level
+    // IEC_DEVIATIONS DEV-041: a dotted reference naming a container level
     // the library stub flattened away (`LogParameter.MAX_LOG_MSG_LEN`
     // over namespace-level constants) resolves in declaration-capacity
     // lowering when exactly one registered constant carries the leaf.

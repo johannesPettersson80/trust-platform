@@ -324,7 +324,7 @@ impl LoweringContext<'_> {
         self.lookup_compile_time_const(name).or_else(|| {
             // A dotted reference resolves as a qualified enum member when
             // its prefix names exactly one registered enum type
-            // (IEC_DEVIATIONS DEV-030); the bare-member fallback below
+            // (IEC_DEVIATIONS DEV-041); the bare-member fallback below
             // covers the unqualified form.
             let numeric = if name.contains('.') {
                 self.registry

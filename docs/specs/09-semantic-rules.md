@@ -176,7 +176,7 @@ requirements apply uniformly to functions, function blocks, and methods.
 An incomplete formal call stays admitted for input and output formals: a named
 binding with an empty right-hand side (`RST := ,`, `Q => ` without a target)
 omits that argument — inputs take the retained/default contract and unbound
-outputs stay unconnected (`IEC_DEVIATIONS.md` DEV-029). The VAR_IN_OUT
+outputs stay unconnected (`IEC_DEVIATIONS.md` DEV-040). The VAR_IN_OUT
 missing-binding rule above keeps applying to in-out formals, a positional
 empty slot stays rejected (it has no name to bind), and `?=` reference
 assignments always require their target.

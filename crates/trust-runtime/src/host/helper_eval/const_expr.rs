@@ -86,7 +86,7 @@ fn eval_const_expr_with_types(
         Expr::Binary { op, left, right } => {
             let left = eval_const_expr_with_types(left, profile, registry, resolve_name)?;
             let right = eval_const_expr_with_types(right, profile, registry, resolve_name)?;
-            // CODESYS-parity constant evaluation (IEC_DEVIATIONS DEV-027):
+            // CODESYS-parity constant evaluation (IEC_DEVIATIONS DEV-038):
             // mixed-sign integer constants evaluate exactly in i128 —
             // compile-time math is exact, so `SIZEOF(x) - 1` with an
             // unsigned SIZEOF cannot fault. Same-sign pairs and every
@@ -117,7 +117,7 @@ fn eval_const_expr_with_types(
     }
 }
 
-/// CODESYS-parity constant arithmetic (IEC_DEVIATIONS DEV-027): a true
+/// CODESYS-parity constant arithmetic (IEC_DEVIATIONS DEV-038): a true
 /// mixed signed×unsigned integer pair evaluates exactly in i128 and
 /// materializes as LINT (negative) or ULINT (non-negative), so bounds and
 /// initializers like `SIZEOF(x) - 1` keep working when SIZEOF carries its
@@ -199,7 +199,7 @@ fn eval_mixed_sign_integer_binary(
     }
 }
 
-/// CODESYS-parity constant folding (IEC_DEVIATIONS DEV-027): retry a
+/// CODESYS-parity constant folding (IEC_DEVIATIONS DEV-038): retry a
 /// narrow-typed same-sign integer pair that faulted on materialization,
 /// exactly in i128, so a representable magnitude cannot fail at compile
 /// time. Untyped literals materialize as the narrowest fitting tag, so
@@ -207,7 +207,7 @@ fn eval_mixed_sign_integer_binary(
 /// on the arithmetic; the exact fold materializes as LINT (negative) or
 /// ULINT (non-negative) like the mixed-sign helper. Returns `None` for
 /// anything but the narrow tags (SInt/Int/USInt/UInt): typed DINT/LINT
-/// pairs keep their fault contract, bit-string tags keep DEV-027's
+/// pairs keep their fault contract, bit-string tags keep DEV-038's
 /// wrapping arithmetic, and `Pow` stays out of the exact-folding set.
 fn exact_narrow_integer_binary(
     op: BinaryOp,
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn narrow_same_sign_folds_materialize_wide_instead_of_faulting() {
-        // IEC_DEVIATIONS DEV-027: untyped literals materialize narrowest
+        // IEC_DEVIATIONS DEV-038: untyped literals materialize narrowest
         // fitting, so `16 * 8` arrives as SInt * SInt and faults on the
         // i8 narrowing. The compile-time exact fold keeps a representable
         // magnitude (the CODESYS syslog `N * 8` idiom).

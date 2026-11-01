@@ -248,7 +248,7 @@ CONST_VAL := 3.14159 * 2.0;     // Compile-time constant
 ARRAY_SIZE := 10 + 5;            // Used in declarations
 ```
 
-Integer constant arithmetic folds exactly (`IEC_DEVIATIONS.md` DEV-027):
+Integer constant arithmetic folds exactly (`IEC_DEVIATIONS.md` DEV-038):
 mixed signed×unsigned pairs and narrow-typed same-sign pairs evaluate in
 exact wide math, so a representable magnitude — including values beyond
 the operands' own width, such as `16 * 8` over narrow-fitting untyped
@@ -323,7 +323,7 @@ validation remain semantic checks.
 A named binding with an empty right-hand side (`F(A := 1, RST := , Q => )`)
 parses to an `Arg` with a name but no expression operand: the argument is
 omitted (input retains its value or takes the declared default; an
-untargeted output stays unconnected) per `IEC_DEVIATIONS.md` DEV-029. A
+untargeted output stays unconnected) per `IEC_DEVIATIONS.md` DEV-040. A
 `?=` reference assignment always requires its target, and a positional
 empty slot stays rejected.
 
