@@ -286,9 +286,10 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   version change, the release rehearsal) run in CI on every push;
 - the acceptance journeys of the shipped user paths (the PID walkthrough,
   Identify from Auto, the walkthrough's experiments and F23's runtime
-  connection) run on the packaged extension: in CI on the package that the
-  pull request built, once CI packages every pull request, and until then on
-  the package of a release pull request's rehearsal before it merges;
+  connection) run in CI on the packaged extension: on the linux-x64 package
+  that a pull request changing the packages builds, and on the rehearsal's and
+  the release's package before anything is published (specification 24,
+  "Release rehearsal on pull requests");
 - a pull request merges when every required check is green and the review has
   no open finding, through a merge queue that tests it on top of the current
   `main`, so that `main` is always releasable; until the queue runs every
@@ -307,9 +308,8 @@ tag; every other push goes through. The release guard
 (`release_candidate_guard.py prepare`) is retired from the workflow: CI runs
 every stage it ran, and `git diff --check`; the sections below on release
 candidates (failure reporting, discovery parity, build parallelism and target
-storage) describe the tool until its code is removed. Until the acceptance
-journeys run in CI, they run on a release pull request's rehearsal package
-before it merges. `verify-release` and the post-merge audit stay as tools.
+storage) describe the tool until its code is removed. `verify-release` and the
+post-merge audit stay as tools.
 
 ### Acceptance journeys on the packaged extension
 
