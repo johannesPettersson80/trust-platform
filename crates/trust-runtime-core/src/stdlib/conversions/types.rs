@@ -88,6 +88,9 @@ pub enum ConversionType {
     Char,
     /// IEC `WCHAR` conversion category.
     WChar,
+    /// Project enumeration conversion category (CODESYS `TO_STRING` parity;
+    /// produced by runtime enum values, never by a built-in conversion name).
+    Enum,
 }
 
 impl ConversionType {

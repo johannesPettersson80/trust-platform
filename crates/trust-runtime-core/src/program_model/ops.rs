@@ -302,6 +302,86 @@ mod tests {
     }
 
     #[test]
+    fn mixed_sign_and_bit_string_comparisons_promote_to_common_magnitude() {
+        // IEC_DEVIATIONS 2026-10-28: signed, unsigned, and bit-string integers
+        // compare through one mathematical magnitude across families.
+        let profile = DateTimeProfile::default();
+        assert_eq!(
+            apply_binary(BinaryOp::Lt, Value::DInt(-1), Value::UDInt(1), &profile),
+            Ok(Value::Bool(true))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Gt, Value::Int(-1), Value::UInt(0), &profile),
+            Ok(Value::Bool(false))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Eq, Value::UInt(0), Value::UDInt(0), &profile),
+            Ok(Value::Bool(true))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Eq, Value::DWord(7), Value::UDInt(7), &profile),
+            Ok(Value::Bool(true))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Le, Value::Byte(3), Value::Word(300), &profile),
+            Ok(Value::Bool(true))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Ne, Value::LWord(1), Value::SInt(1), &profile),
+            Ok(Value::Bool(false))
+        );
+    }
+
+    #[test]
+    fn bit_string_arithmetic_carries_the_wider_width() {
+        // IEC_DEVIATIONS 2026-10-28: bit-string operands arithmetize as
+        // unsigned magnitudes of the wider operand's width and wrap like
+        // the vendor toolchain.
+        let profile = DateTimeProfile::default();
+        assert_eq!(
+            apply_binary(BinaryOp::Sub, Value::DWord(7), Value::DWord(5), &profile),
+            Ok(Value::DWord(2))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Add, Value::Byte(200), Value::Byte(100), &profile),
+            Ok(Value::Byte(44))
+        );
+        assert_eq!(
+            apply_binary(
+                BinaryOp::Add,
+                Value::Word(65_000),
+                Value::Word(10_000),
+                &profile,
+            ),
+            Ok(Value::Word(9_464))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Add, Value::Byte(1), Value::DWord(4), &profile),
+            Ok(Value::DWord(5))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Div, Value::Word(9), Value::Word(2), &profile),
+            Ok(Value::Word(4))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Mod, Value::Word(9), Value::Word(2), &profile),
+            Ok(Value::Word(1))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Div, Value::DWord(1), Value::DWord(0), &profile),
+            Err(RuntimeError::DivisionByZero)
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Mod, Value::DWord(1), Value::DWord(0), &profile),
+            Err(RuntimeError::ModuloByZero)
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Pow, Value::DWord(2), Value::DWord(3), &profile),
+            Err(RuntimeError::TypeMismatch)
+        );
+    }
+
+    #[test]
     fn non_numeric_comparisons_preserve_runtime_contract() {
         let profile = DateTimeProfile::default();
 

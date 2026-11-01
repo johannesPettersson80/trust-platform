@@ -51,6 +51,22 @@ pub(super) fn convert_to_int(
         Value::Byte(_) | Value::Word(_) | Value::DWord(_) | Value::LWord(_) => {
             bit_string_to_int(value, dst)
         }
+        // CODESYS duration conversions yield the ms (TIME) / ns (LTIME)
+        // magnitude truncated into the destination integer; negative
+        // durations reject like the vendor DWORD path (IEC_DEVIATIONS
+        // 2026-10-28).
+        Value::Time(duration) => {
+            if duration.as_nanos() < 0 {
+                return Err(RuntimeError::Overflow);
+            }
+            signed_int_from_i128(i128::from(duration.as_millis()), dst)
+        }
+        Value::LTime(duration) => {
+            if duration.as_nanos() < 0 {
+                return Err(RuntimeError::Overflow);
+            }
+            signed_int_from_i128(i128::from(duration.as_nanos()), dst)
+        }
         Value::String(_) | Value::WString(_) => {
             let text = string_input(value)?;
             let parsed = parse_int_text(text)?;
