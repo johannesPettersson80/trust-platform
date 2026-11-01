@@ -12,11 +12,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   binds the terminal's type to: `%ID0` for a `TIME`, `%IW0` for a `WCHAR` and the byte address `%IB0` for a `STRING`.
   Before, it suggested a long-word address such as `%IL0`, which the runtime refuses for these types, and it did the
   same for a `DATE` or a structure, which now get the advice without an example (HMI component catalogue §8.1).
-- A runtime that keeps debugging disabled keeps the name Connect gave it, such as `Cpu`, in the status bar, in the side
-  panel's Target and in HMI Live. Before, the status bar and the side panel named it by its address
-  (`127.0.0.1:<port>`) and HMI Live by its whole endpoint (`tcp://127.0.0.1:<port>`). HMI Live now names every runtime
-  as the status bar does, the project's own runtime as `This project's runtime` (specification 25 §6.9, specification
-  39 §11 item 6).
 - Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
   Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
   returned afterwards (specification 35, B3.4).
