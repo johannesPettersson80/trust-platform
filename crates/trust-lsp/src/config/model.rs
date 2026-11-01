@@ -1,7 +1,7 @@
 //! Config domain models for trust-lsp.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::DiagnosticSeverity;
 
 /// Project configuration loaded from `trust-lsp.toml`.
@@ -78,6 +78,85 @@ impl ProjectConfig {
             dir.to_string_lossy().as_ref(),
         ))
     }
+
+    /// Whether `path` lies inside one of the configured library folders and so is library API
+    /// surface for the unused-symbol warnings (specification 14 §7.6, specification 28 §1): a
+    /// library is judged in its own project, where its files are that project's own sources and
+    /// every warning is on, and the application is only one of the library's users. Every other
+    /// diagnostic is a property of the code itself and stays on. A library entry whose folder is
+    /// the project root, or contains it, would make every project file library surface; the
+    /// configuration reports it as `L008` and it exempts nothing.
+    pub(crate) fn is_library_surface(&self, path: &Path) -> bool {
+        let file = normalize_match_path(path);
+        self.libraries
+            .iter()
+            .filter(|library| !library_folder_swallows_project(&self.root, &library.path))
+            .any(|library| file.starts_with(normalize_match_path(&library.path)))
+    }
+
+    /// The configured libraries whose folder is the project root or contains it: refused with
+    /// `L008`, and exempting nothing (specification 14 §7.6).
+    pub(crate) fn root_swallowing_libraries(&self) -> Vec<&LibrarySpec> {
+        self.libraries
+            .iter()
+            .filter(|library| library_folder_swallows_project(&self.root, &library.path))
+            .collect()
+    }
+}
+
+/// Whether `library`'s folder is the project `root` itself or an ancestor of it, so that treating
+/// the library's files as library surface would silence the whole project.
+fn library_folder_swallows_project(root: &Path, library: &Path) -> bool {
+    let project = normalize_match_path(root);
+    let folder = normalize_match_path(library);
+    folder == project || project.starts_with(&folder)
+}
+
+/// A path as a component-wise prefix-match key: on Windows the device prefixes (`\\?\C:\…`,
+/// `\\?\UNC\…`) are stripped, because canonicalized library and dependency paths carry them while
+/// a file URI's path never does, and `.`/`..` are resolved. Component-wise, so that `libs` does
+/// not match `libs-other` (the same matching the HMI's own-equipment rule relies on).
+fn normalize_match_path(path: &Path) -> PathBuf {
+    #[cfg(windows)]
+    let path = strip_windows_device_prefix(path);
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            _ => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
+}
+
+/// `\\?\C:\dir` is `C:\dir` and `\\?\UNC\server\share` is `\\server\share`; other verbatim and
+/// device paths have no plain form and are kept.
+#[cfg(windows)]
+fn strip_windows_device_prefix(path: &Path) -> PathBuf {
+    let raw = match path.to_str() {
+        Some(raw) => raw,
+        None => return path.to_path_buf(),
+    };
+    if let Some(rest) = raw
+        .strip_prefix("\\\\?\\UNC\\")
+        .or_else(|| raw.strip_prefix("\\?\\UNC\\"))
+        .or_else(|| raw.strip_prefix("\\\\.\\UNC\\"))
+        .or_else(|| raw.strip_prefix("\\??\\UNC\\"))
+    {
+        return PathBuf::from(format!("\\\\{rest}"));
+    }
+    if let Some(rest) = raw
+        .strip_prefix("\\\\?\\")
+        .or_else(|| raw.strip_prefix("\\?\\"))
+        .or_else(|| raw.strip_prefix("\\\\.\\"))
+        .or_else(|| raw.strip_prefix("\\??\\"))
+    {
+        return PathBuf::from(rest);
+    }
+    path.to_path_buf()
 }
 
 /// Standard library selection settings.

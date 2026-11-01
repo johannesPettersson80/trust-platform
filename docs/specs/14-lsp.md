@@ -765,7 +765,7 @@ identity, bracketed IPv6 hosts are parsed as one host, credentials are never
 copied into diagnostics or cache names, and unknown URL schemes are `L005`.
 Trust rejection happens before clone, fetch, cache creation, or lock mutation.
 
-The stable resolver codes are:
+The stable library and resolver codes are:
 
 - `L001`: missing/unreadable source, manifest, or source operation;
 - `L002`: package-version mismatch;
@@ -773,10 +773,12 @@ The stable resolver codes are:
 - `L004`: dependency cycle;
 - `L005`: malformed dependency entry or rejected source policy;
 - `L006`: lock schema, identity, content, or publication failure; and
-- `L007`: offline cache or revision unavailable.
+- `L007`: offline cache or revision unavailable;
+- `L008`: a library folder that is the project root, or contains it — the entry is refused and exempts nothing (specification 28 §1).
 
 - `[[libraries]]` can declare `dependencies` (array of `{ name, version? }`) to model library graphs; missing dependencies or version mismatches are reported as config diagnostics.
 - Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
+- A file inside a `[[libraries]]` folder or a resolved `[dependencies]` package is library API surface: it never receives the unused-symbol warnings W001, W002, or W009, in the editor and in `trust-lsp check` alike, while every other diagnostic stays on (specification 28 §1). A library is judged in its own project, where its files are that project's own sources and every warning is on. A library entry whose folder is the project root, or contains it, would turn every file of the project into library surface; it is refused with the configuration diagnostic `L008` and exempts nothing.
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
 - `[workspace]` controls multi-root federation: `priority` orders root results for workspace symbol search, and `visibility` (`public`, `private`, `hidden`) filters which roots participate when querying (private roots only appear for non-empty queries) (tooling behavior, non-IEC).
 - `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults. `debug` (a Boolean, `true` when absent) chooses the native program image that `trust-runtime build --target` compiles: `false` builds a release image without debug hooks (specification 44 §13.2); `profile` does not choose the image. The language server reads no other meaning into `debug`.

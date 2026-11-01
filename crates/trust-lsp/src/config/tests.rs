@@ -544,3 +544,104 @@ Vendor = { git = "https://github.com/example/vendor.git", rev = "deadbeef" }
 
     fs::remove_dir_all(root).ok();
 }
+
+#[test]
+fn library_surface_follows_configured_library_folders() {
+    let root = temp_dir("trustlsp-config-library-surface");
+    let inside = root.join("libs/vendor");
+    let outside = temp_dir("trustlsp-config-library-surface-outside");
+    fs::create_dir_all(&inside).expect("create inside library");
+    fs::write(
+        root.join("trust-lsp.toml"),
+        format!(
+            r#"
+[[libraries]]
+name = "Vendor"
+path = "libs/vendor"
+
+[[libraries]]
+name = "Shared"
+path = '{}'
+"#,
+            outside.display()
+        ),
+    )
+    .expect("write config");
+
+    let config = ProjectConfig::load(&root);
+    // A library's files are library surface, inside the project folder or outside it.
+    assert!(config.is_library_surface(&inside.join("string.st")));
+    assert!(config.is_library_surface(&outside.join("util.st")));
+    // The project's own files are not: under the root and in no library folder.
+    assert!(!config.is_library_surface(&root.join("src/main.st")));
+    assert!(!config.is_library_surface(&root.join("trust-lsp.toml")));
+    // Component-wise matching: a sibling folder that only shares a prefix is not the library.
+    assert!(!config.is_library_surface(&root.join("libs/vendor-other/x.st")));
+
+    fs::remove_dir_all(root).ok();
+    fs::remove_dir_all(outside).ok();
+}
+
+#[test]
+fn project_without_libraries_has_no_library_surface() {
+    let root = temp_dir("trustlsp-config-no-libraries");
+    let config = ProjectConfig::load(&root);
+    assert!(!config.is_library_surface(&root.join("src/main.st")));
+    assert!(config.root_swallowing_libraries().is_empty());
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn a_library_folder_that_swallows_the_project_exempts_nothing() {
+    let root = temp_dir("trustlsp-config-library-root");
+    fs::write(
+        root.join("trust-lsp.toml"),
+        r#"
+[[libraries]]
+name = "Whole"
+path = "."
+
+[[libraries]]
+name = "Parent"
+path = '..'
+"#,
+    )
+    .expect("write config");
+
+    let config = ProjectConfig::load(&root);
+    let swallowing = config.root_swallowing_libraries();
+    let names: Vec<_> = swallowing
+        .iter()
+        .map(|library| library.name.as_str())
+        .collect();
+    assert_eq!(names, vec!["Whole", "Parent"]);
+    // The refused entries shield nothing: every project file keeps its warnings.
+    assert!(!config.is_library_surface(&root.join("src/main.st")));
+    assert!(!config.is_library_surface(&root.join("libs/vendor/x.st")));
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn library_surface_matches_canonicalized_dependency_paths() {
+    // A `[dependencies]` package's path is canonicalized, which on Windows adds the verbatim
+    // `\\?\` device prefix; a file URI's path never carries one. The two must still match.
+    let root = temp_dir("trustlsp-config-library-prefix");
+    let library = root.join("libs/vendor");
+    fs::create_dir_all(&library).expect("create library folder");
+    let canonical = library.canonicalize().expect("canonicalize library");
+    let config = ProjectConfig::from_contents(
+        &root,
+        Some(root.join("trust-lsp.toml")),
+        &format!(
+            "[[libraries]]\nname = 'Vendor'\npath = '{}'\n",
+            canonical.display()
+        ),
+    );
+
+    assert!(config.is_library_surface(&library.join("string.st")));
+    assert!(!config.is_library_surface(&root.join("src/main.st")));
+
+    fs::remove_dir_all(root).ok();
+}

@@ -75,6 +75,7 @@ mod core;
 mod formatting_and_navigation;
 mod hmi_pair_diagnostics;
 mod hmi_rename_handlers;
+mod library_surface_diagnostics;
 mod lsp_trace_cases;
 mod rename_trace_cases;
 mod trace_support;
