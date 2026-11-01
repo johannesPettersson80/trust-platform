@@ -52,8 +52,10 @@ release workflow").
   toolchain (for example CODESYS) applies only under that `vendor_profile` and is recorded in
   `docs/IEC_DEVIATIONS.md`; PLCopen choices go in `docs/PLCOPEN_DECISIONS.md`.
 - **All logic is in Rust.** The VS Code extension only presents and wires; it keeps no copy of a rule.
-- **Changelog**: a user-visible change adds an entry under `## [Unreleased]` in `CHANGELOG.md`. Never
-  edit or remove the entries of released versions.
+- **Changelog**: a user-visible change adds a fragment, `changelog.d/<topic>.md`, with its Keep a
+  Changelog sections and entries (`changelog.d/README.md`); `## [Unreleased]` in `CHANGELOG.md` stays
+  empty, so that open pull requests never conflict over it. Never edit or remove the entries of released
+  versions.
 - **Before pushing**, run `cargo fmt`, Clippy with `-D warnings` and the tests of what you changed. CI
   runs the full suites on Linux, macOS and Windows; a pull request merges when its required checks are
   green and the review has no open finding.
