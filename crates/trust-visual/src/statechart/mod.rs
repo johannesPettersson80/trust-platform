@@ -18,7 +18,7 @@ mod values;
 
 pub use generate::generate;
 pub use graph::{action_report, file, graph, keep_identity, ActionReport};
-pub use values::{after_delay, mapping_value};
+pub use values::{add_mapping, after_delay, mapping_value};
 
 use crate::Json;
 

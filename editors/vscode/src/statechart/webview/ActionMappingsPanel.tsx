@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { ActionMapping, ReadValue } from "./types";
+import { ActionMapping, AskDialog, ReadValue } from "./types";
 
 type ActionMappings = Record<string, ActionMapping>;
 
@@ -14,6 +14,8 @@ interface ActionMappingsPanelProps {
   ) => void;
   /** Asks the language server for the value of typed text (a mapping's value). */
   readValue: ReadValue;
+  /** Asks the host for a new mapping's name or a deletion's confirmation, in VS Code's dialogs. */
+  askDialog: AskDialog;
 }
 
 export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
@@ -22,38 +24,27 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
   unusedMappings,
   onUpdateActionMappings,
   readValue,
+  askDialog,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
 
-  const handleAddMapping = () => {
-    const name = prompt("Enter action name:");
-    if (!name || name.trim() === "") return;
-    
-    const trimmedName = name.trim();
-    if (actionMappings[trimmedName]) {
-      alert("An action with this name already exists");
-      return;
-    }
-
-    const newMapping: ActionMapping = {
-      action: "WRITE_OUTPUT",
-      address: "%QX0.0",
-      value: true,
-    };
-
-    onUpdateActionMappings({
-      ...actionMappings,
-      [trimmedName]: newMapping,
-    });
-    setSelectedAction(trimmedName);
+  // The host asks for the name in VS Code and the language server adds the mapping or says why not
+  // (specification 25 §11.4).
+  const handleAddMapping = async () => {
+    const answer = await askDialog({ dialog: "addActionMapping", mappings: actionMappings });
+    if (!answer.mappings || !answer.name) return;
+    onUpdateActionMappings(answer.mappings);
+    setSelectedAction(answer.name);
   };
 
-  const handleDeleteMapping = (name: string) => {
-    if (!confirm(`Delete action mapping "${name}"?`)) return;
-    
-    const { [name]: _, ...rest } = actionMappings;
-    onUpdateActionMappings(rest);
+  const handleDeleteMapping = async (name: string) => {
+    const answer = await askDialog({ dialog: "deleteActionMapping", name });
+    if (!answer.confirmed) return;
+    onUpdateActionMappings((current) => {
+      const { [name]: _, ...rest } = current;
+      return rest;
+    });
     if (selectedAction === name) {
       setSelectedAction(null);
     }
@@ -125,7 +116,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleAddMapping();
+            void handleAddMapping();
           }}
           style={{
             padding: "4px 8px",
@@ -238,7 +229,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
                 onUpdate={(updates) =>
                   handleUpdateMapping(selectedAction, updates)
                 }
-                onDelete={() => handleDeleteMapping(selectedAction)}
+                onDelete={() => void handleDeleteMapping(selectedAction)}
                 readValue={readValue}
               />
             ) : (

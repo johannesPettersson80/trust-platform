@@ -403,3 +403,36 @@ fn a_typed_delay_or_mapping_value_answers_what_the_statechart_stores() {
     );
     assert_eq!(ask("explode", "1")["ok"], json!(false));
 }
+
+#[test]
+fn a_new_action_mapping_is_added_or_refused_as_the_statechart_stores_it() {
+    // Specification 25 §11.4: the Add dialog's name goes to the language server with the panel's
+    // mappings; the answer is the mappings with the new action and its name, or the reason.
+    // Catches the mappings answered in another shape, which the panel would not store.
+    let add = |name: &str| {
+        execute(
+            VISUAL_EDIT_COMMAND,
+            vec![json!({
+                "kind": "statechart",
+                "op": "addMapping",
+                "mappings": { "START_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.1", "value": true } },
+                "name": name,
+            })],
+        )
+    };
+    assert_eq!(
+        add(" STOP_MOTOR "),
+        json!({
+            "ok": true,
+            "name": "STOP_MOTOR",
+            "mappings": {
+                "START_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.1", "value": true },
+                "STOP_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.0", "value": true },
+            },
+        })
+    );
+    assert_eq!(
+        add("START_MOTOR"),
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "An action with this name already exists." }] })
+    );
+}

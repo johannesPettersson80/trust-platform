@@ -210,6 +210,71 @@ suite("StateChart editor lifecycle", function () {
     panel.fireDidDispose();
   });
 
+  // G28: the webview's sandbox ignores window.prompt and window.confirm, so the action-mapping
+  // panel's Add asks for the name in VS Code's input box and the language server adds the mapping
+  // (`addMapping`), and Delete asks in a modal warning. Catches an Add or Delete that never happens,
+  // a name in use added twice, and a refusal nobody sees.
+  test("adds and deletes an action mapping through VS Code's dialogs", async () => {
+    const document = {
+      uri: vscode.Uri.parse("untitled:/statechart-dialogs.statechart.json"),
+      getText: () => '{"id":"dialogs","states":{"Idle":{}}}',
+      lineCount: 1,
+    } as unknown as vscode.TextDocument;
+    const panel = new FakeWebviewPanel();
+    await openProvider().resolveCustomTextEditor(
+      document,
+      panel as unknown as vscode.WebviewPanel,
+      {} as vscode.CancellationToken
+    );
+    const answerTo = async (requestId: number): Promise<Record<string, unknown>> => {
+      const found = () =>
+        panel.webview.posted.find(
+          (message) => message.type === "dialogResult" && message.requestId === requestId
+        );
+      await waitFor(() => found() !== undefined, `the answer to dialog ${requestId}`);
+      return found() as Record<string, unknown>;
+    };
+    const window = vscode.window as unknown as {
+      showInputBox: typeof vscode.window.showInputBox;
+      showWarningMessage: typeof vscode.window.showWarningMessage;
+      showErrorMessage: typeof vscode.window.showErrorMessage;
+    };
+    const original = {
+      showInputBox: window.showInputBox,
+      showWarningMessage: window.showWarningMessage,
+      showErrorMessage: window.showErrorMessage,
+    };
+    const names = [" STOP_MOTOR ", "START_MOTOR"];
+    const errors: string[] = [];
+    window.showInputBox = (async () => names.shift()) as typeof vscode.window.showInputBox;
+    window.showErrorMessage = (async (message: string) => {
+      errors.push(message);
+      return undefined;
+    }) as typeof vscode.window.showErrorMessage;
+    window.showWarningMessage = (async () => "Delete") as unknown as typeof vscode.window.showWarningMessage;
+    try {
+      const mappings = { START_MOTOR: { action: "WRITE_OUTPUT", address: "%QX0.1", value: true } };
+      panel.webview.send({ type: "dialog", requestId: 1, dialog: "addActionMapping", mappings });
+      const added = await answerTo(1);
+      assert.strictEqual(added.name, "STOP_MOTOR");
+      assert.deepStrictEqual(added.mappings, {
+        ...mappings,
+        STOP_MOTOR: { action: "WRITE_OUTPUT", address: "%QX0.0", value: true },
+      });
+
+      panel.webview.send({ type: "dialog", requestId: 2, dialog: "addActionMapping", mappings });
+      const refused = await answerTo(2);
+      assert.strictEqual(refused.mappings, undefined);
+      assert.deepStrictEqual(errors, ["An action with this name already exists."]);
+
+      panel.webview.send({ type: "dialog", requestId: 3, dialog: "deleteActionMapping", name: "START_MOTOR" });
+      assert.strictEqual((await answerTo(3)).confirmed, true);
+    } finally {
+      Object.assign(window, original);
+      panel.fireDidDispose();
+    }
+  });
+
   test("stops listening to the webview when the panel is closed", async () => {
     const document = {
       uri: vscode.Uri.parse("untitled:/statechart-closed.statechart.json"),

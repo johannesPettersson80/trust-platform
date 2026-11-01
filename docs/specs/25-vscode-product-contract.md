@@ -2115,6 +2115,15 @@ these commands and show the answers:
   transition keeps its delay. A mapping value of exactly `true` or `false` is
   a Boolean, text that reads as a finite number is that number, and any other
   text, blank text included, is kept as text.
+- A webview asks its host for every dialog, since VS Code's webview sandbox
+  ignores `alert`, `confirm` and `prompt`. The Statechart's Add action mapping
+  asks for the name in VS Code's input box; the language server refuses a
+  blank name or one that a mapping already has, and gives the new action a
+  mapping that writes `TRUE` to `%QX0.0` (`trust-lsp.visualEdit`
+  `addMapping`). Deleting a mapping asks in a modal VS Code warning. Ladder's
+  Find and replace asks for the symbol or address and its replacement in VS
+  Code's input boxes, Escape on either asking nothing more, and says how many
+  it replaced.
 - SFC Validate checks the chart on the canvas and refuses a chart its
   companion cannot be made of (`sfc-profile.md`, "What Validate refuses");
   saving, Preview ST and Generate ST show those findings instead of a

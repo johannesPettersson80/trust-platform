@@ -1,6 +1,6 @@
 //! The values the Statechart editor's panels read from typed text (specification 25 §11.4): a
-//! transition's auto-transition timer and an action mapping's value. The panels send the text as
-//! typed and store the value answered here.
+//! transition's auto-transition timer, an action mapping's value, and the name of a new action
+//! mapping. The panels send the text as typed and store the value answered here.
 
 use crate::js;
 use crate::Json;
@@ -8,6 +8,10 @@ use crate::Json;
 /// The message when the timer field holds no delay.
 const AFTER_MESSAGE: &str =
     "Auto-transition timer must be a number of milliseconds from 0, or empty for none.";
+/// The message when the new action's name is blank.
+const NAME_MESSAGE: &str = "Enter an action name.";
+/// The message when a mapping already has the new action's name.
+const NAME_IN_USE_MESSAGE: &str = "An action with this name already exists.";
 
 /// The `after` delay of a transition for the text typed into its timer field: none for blank
 /// text, so the transition waits for its event; otherwise the milliseconds the text reads as
@@ -44,9 +48,67 @@ pub fn mapping_value(text: &str) -> Json {
     }
 }
 
+/// The action mappings `mappings` with a new mapping under `name`, the text typed into the Add
+/// dialog without its surrounding blanks, and that name. The new action writes `TRUE` to
+/// `%QX0.0`, the mapping the panel gives a new action, which the user then edits; it comes after
+/// the others.
+///
+/// # Errors
+/// The name is blank, or a mapping already has it; the mappings stay as they are then.
+pub fn add_mapping(mappings: &Json, name: &str) -> Result<(Json, String), String> {
+    let name = js::trim(name);
+    if name.is_empty() {
+        return Err(NAME_MESSAGE.to_owned());
+    }
+    if mappings.get(name).is_some() {
+        return Err(NAME_IN_USE_MESSAGE.to_owned());
+    }
+    let mut next = match mappings {
+        Json::Object(_) => mappings.clone(),
+        _ => Json::object(),
+    };
+    let mut mapping = Json::object();
+    mapping.set("action", Json::str("WRITE_OUTPUT"));
+    mapping.set("address", Json::str("%QX0.0"));
+    mapping.set("value", Json::Bool(true));
+    next.set(name, mapping);
+    Ok((next, name.to_owned()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_action_writes_true_to_the_first_output_after_the_others() {
+        // Specification 25 §11.4: the name without its blanks, the panel's mapping for a new
+        // action, after the existing ones, which stay as they were. Catches a name stored with its
+        // blanks and an existing mapping replaced or reordered.
+        let mappings = Json::parse(
+            r#"{"START_MOTOR":{"action":"WRITE_OUTPUT","address":"%QX0.1","value":true}}"#,
+        )
+        .expect("mappings");
+        let (next, name) = add_mapping(&mappings, "  STOP_MOTOR ").expect("added");
+        assert_eq!(name, "STOP_MOTOR");
+        assert_eq!(
+            next.to_compact(),
+            r#"{"START_MOTOR":{"action":"WRITE_OUTPUT","address":"%QX0.1","value":true},"STOP_MOTOR":{"action":"WRITE_OUTPUT","address":"%QX0.0","value":true}}"#
+        );
+    }
+
+    #[test]
+    fn a_blank_name_or_one_in_use_adds_nothing() {
+        // The panel's check before: blank names were dropped and a name in use was refused.
+        // Catches a second mapping under one name, which replaced the first one's action.
+        let mappings =
+            Json::parse(r#"{"START_MOTOR":{"action":"WRITE_OUTPUT"}}"#).expect("mappings");
+        assert_eq!(add_mapping(&mappings, "   "), Err(NAME_MESSAGE.to_owned()));
+        assert_eq!(add_mapping(&mappings, ""), Err(NAME_MESSAGE.to_owned()));
+        assert_eq!(
+            add_mapping(&mappings, " START_MOTOR "),
+            Err(NAME_IN_USE_MESSAGE.to_owned())
+        );
+    }
 
     #[test]
     fn a_blank_timer_removes_the_delay_and_a_number_is_whole_milliseconds() {

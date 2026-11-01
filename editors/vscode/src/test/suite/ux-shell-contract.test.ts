@@ -2839,6 +2839,33 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     "blockly/webview/BlocklyEditor.tsx",
   ];
 
+  // G28: VS Code's webview sandbox has no `allow-modals`, so Chromium ignores `alert`, `confirm` and
+  // `prompt` there (microsoft/vscode#67109) and a feature that asks through them does nothing. A
+  // webview asks its host, which shows VS Code's dialogs. Catches a webview dialog that silently
+  // never opens, as Ladder's Find and replace and the Statechart's action mappings did.
+  test("no webview asks through a browser dialog", () => {
+    const sources: string[] = [];
+    const walk = (folder: string): void => {
+      for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+        const full = path.join(folder, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (/\.(ts|tsx|js)$/.test(entry.name) && full.split(path.sep).includes("webview")) {
+          sources.push(full);
+        }
+      }
+    };
+    walk(path.join(extensionRoot(), "src"));
+    assert.ok(sources.length > 20, `the webview sources were found: ${sources.length}`);
+    const dialog = /(?:^|[^.\w])(?:window\.)?(?:alert|confirm|prompt)\(/m;
+    const offenders = sources.filter((file) => dialog.test(fs.readFileSync(file, "utf8")));
+    assert.deepStrictEqual(
+      offenders.map((file) => path.relative(extensionRoot(), file)),
+      [],
+      "a webview asks its host for a dialog instead"
+    );
+  });
+
   test("visual editors do not render the legacy embedded runtime/I/O panel", () => {
     for (const file of visualEditorFiles) {
       const src = readSrc(file);

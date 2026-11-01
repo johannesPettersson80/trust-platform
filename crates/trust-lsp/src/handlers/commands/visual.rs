@@ -322,7 +322,8 @@ fn edit_answer(args: &Json) -> Result<Value, String> {
 /// A Statechart request: `actionReport` (`graphText`), the actions named without a mapping and
 /// the mappings nothing names; `afterDelay` (`text`), the delay typed into a transition's timer
 /// field (`after`, `null` for none); `mappingValue` (`text`), the value typed into an action
-/// mapping (`value`).
+/// mapping (`value`); `addMapping` (`mappings`, `name`), the mappings with a new action under the
+/// name typed into the Add dialog (`mappings`, `name`), or why not.
 fn statechart_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
     match op {
         "actionReport" => {
@@ -341,6 +342,17 @@ fn statechart_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
         "mappingValue" => {
             let value = trust_visual::statechart::mapping_value(text_arg(args, "text")?);
             Ok(json!({ "ok": true, "value": value.to_serde() }))
+        }
+        "addMapping" => {
+            let mappings = args.get("mappings").cloned().unwrap_or_else(Json::object);
+            Ok(
+                match trust_visual::statechart::add_mapping(&mappings, text_arg(args, "name")?) {
+                    Ok((mappings, name)) => {
+                        json!({ "ok": true, "mappings": mappings.to_serde(), "name": name })
+                    }
+                    Err(message) => edit_refused("refused", &message),
+                },
+            )
         }
         _ => Err(format!("The Statechart editor has no edit \"{op}\".")),
     }

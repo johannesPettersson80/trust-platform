@@ -951,27 +951,33 @@ export function LadderEditor() {
     pasteIntoRung(targetRungIndex);
   };
 
+  // Find and replace asks for the symbol or address and its replacement in VS Code's input boxes,
+  // since the webview's sandbox ignores window.prompt and window.alert; the host answers with
+  // `findReplaceInput` and shows the outcome that `notify` sends.
   const handleSearchReplace = () => {
-    const findValue = window.prompt("Find symbol/address", "");
-    if (!findValue) {
-      return;
-    }
+    vscodeApi?.postMessage({ type: "findReplace" });
+  };
 
-    const replaceValue = window.prompt("Replace with", "") ?? "";
+  const replaceSymbol = (findValue: string, replaceValue: string) => {
     void runEdit(
       "replaceSymbol",
       { find: findValue, replace: replaceValue },
       { apply: (answer) => (answer.replacements ?? 0) > 0 }
     ).then(({ answer }) => {
+      const notify = (level: "info" | "error", text: string) =>
+        vscodeApi?.postMessage({ type: "notify", level, text });
       if (!answer.ok) {
-        window.alert(answer.errors?.[0]?.message ?? "Find and replace failed.");
+        notify("error", answer.errors?.[0]?.message ?? "Find and replace failed.");
       } else if ((answer.replacements ?? 0) === 0) {
-        window.alert(`No matches for '${findValue}'.`);
+        notify("info", `No matches for '${findValue}'.`);
       } else {
-        window.alert(`Updated ${answer.replacements} occurrence(s).`);
+        notify("info", `Updated ${answer.replacements} occurrence(s).`);
       }
     });
   };
+  // The message listener is registered once; it reaches the replace of the current render.
+  const replaceSymbolRef = useRef(replaceSymbol);
+  replaceSymbolRef.current = replaceSymbol;
 
   const openElementContextMenu = (
     rungIndex: number,
@@ -1909,6 +1915,12 @@ export function LadderEditor() {
           if (resolve) {
             pendingEditsRef.current.delete(message.requestId);
             resolve(message as LadderEditAnswer);
+          }
+          break;
+        }
+        case "findReplaceInput": {
+          if (typeof message.find === "string" && typeof message.replace === "string") {
+            replaceSymbolRef.current(message.find, message.replace);
           }
           break;
         }
