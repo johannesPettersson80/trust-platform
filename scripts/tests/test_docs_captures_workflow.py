@@ -122,15 +122,32 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(compare["env"]["HEAD_SHA"], "${{ github.event.pull_request.head.sha || github.sha }}")
 
         steps = pages["jobs"]["build"]["steps"]
-        publishing = [step for step in steps if step.get("uses", "").startswith(("actions/configure-pages", "actions/upload-pages-artifact"))]
-        self.assertEqual(len(publishing), 2)
-        for step in publishing:
-            self.assertEqual(step["if"], "github.event_name != 'pull_request'", step["uses"])
+        upload = next(step for step in steps if step.get("uses", "").startswith("actions/upload-pages-artifact"))
+        self.assertEqual(upload["if"], "github.event_name != 'pull_request'")
         for name in ("Take the newest screenshots of main", "Generate docs media", "Check docs links", "Build docs site"):
             step = next(step for step in steps if step.get("name") == name)
             self.assertNotIn("if", step, name)
         self.assertEqual(pages["jobs"]["deploy"]["if"], "github.event_name != 'pull_request'")
         self.assertEqual(pages["jobs"]["conclusion"]["name"], "Docs Pages Conclusion")
+
+    def test_only_the_deploy_writes_to_pages_or_requests_an_oidc_token(self) -> None:
+        # A pull request's run executes the pull request's own scripts, so its token must not publish the site or request an
+        # OIDC token (Codex's review of #153). Catches write access granted to the whole workflow or to a job that a pull
+        # request runs.
+        pages = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(pages["permissions"], {"contents": "read", "actions": "read"})
+        for job_id, job in pages["jobs"].items():
+            granted = job.get("permissions", {})
+            writes = {name for name, level in granted.items() if level == "write"}
+            if job_id == "deploy":
+                self.assertEqual(writes, {"pages", "id-token"})
+                self.assertIn("github.event_name != 'pull_request'", job["if"])
+            else:
+                self.assertEqual(writes, set(), job_id)
+        deploy_steps = [step.get("uses", "") for step in pages["jobs"]["deploy"]["steps"]]
+        self.assertLess(
+            deploy_steps.index("actions/configure-pages@v6"), deploy_steps.index("actions/deploy-pages@v5")
+        )
 
     def test_captures_build_programs_with_the_toolchain_the_job_builds(self) -> None:
         # The browser IDE and the terminal captures build Structured Text programs. Without a

@@ -491,7 +491,10 @@ release by hand, is gone.
 A pull request that changes the site's paths runs the Docs Pages build too, with
 the newest screenshots of `main`: the media, the link, catalogue and database
 example checks, `mkdocs build --strict`, and the asset and search checks. It
-publishes nothing, and its run never cancels a deploy of `main`. Its conclusion,
+publishes nothing, and its run never cancels a deploy of `main`. Every job but
+the deploy runs with a read-only token, since a pull request's run executes the
+pull request's own scripts; only the deploy may write to Pages and request an
+OIDC token. Its conclusion,
 Docs Pages Conclusion, fails when a check failed, so a broken page fails the pull
 request instead of the deploy after the merge (the retired release guard ran
 these checks before each push; Codex's review of #153, 1 November 2026).

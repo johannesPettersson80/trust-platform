@@ -16,11 +16,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Read-only for every job: a pull request's run executes the pull request's own scripts. Only the deploy, which no pull
+# request runs, may write to Pages and request an OIDC token.
 permissions:
   contents: read
   actions: read
-  pages: write
-  id-token: write
 
 concurrency:
   # A pull request's newer push cancels its older run; the deploys of main share one group, so a pull
@@ -92,10 +92,6 @@ jobs:
       - name: Generate docs media
         run: |
           python scripts/generate_public_docs_media.py
-      - uses: actions/configure-pages@v6
-        if: github.event_name != 'pull_request'
-        with:
-          enablement: true
       - name: Check docs links
         run: |
           python scripts/check_public_docs_ia.py
@@ -124,6 +120,11 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -132,6 +133,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12.15"
+      - uses: actions/configure-pages@v6
+        with:
+          enablement: true
       - id: deployment
         uses: actions/deploy-pages@v5
       - name: Verify deployed pages
