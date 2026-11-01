@@ -76,7 +76,7 @@ fn var_and_stmt_coverage() {
 
 #[test]
 fn time_tod_interchange_in_function_and_binary_arithmetic() {
-    // IEC_DEVIATIONS DEV-031: a TIME literal binds to a TIME formal, and
+    // IEC_DEVIATIONS DEV-042: a TIME literal binds to a TIME formal, and
     // `TOD + TIME` arithmetic (the vendor clock-adjust idiom
     // `sunset + T#1h`) keeps the mixed pair to the runtime, which
     // promotes natively — the TIME literal is not converted to TOD.

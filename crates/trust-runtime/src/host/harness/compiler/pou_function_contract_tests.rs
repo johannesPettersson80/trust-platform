@@ -26,6 +26,18 @@ fn run(source: &str) -> TestHarness {
     harness
 }
 
+/// [`run`] under the CODESYS profile, whose language rules admit an empty named argument
+/// (docs/IEC_DEVIATIONS.md DEV-040).
+fn codesys_run(source: &str) -> TestHarness {
+    let session =
+        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session)
+        .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"));
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    harness
+}
+
 fn compile_error(source: &str) -> String {
     match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("POU fixture must fail"),
@@ -253,10 +265,12 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_empty_named_input_uses_initializer() {
-    // IEC_DEVIATIONS DEV-029: `value := ` omits the input; a function
-    // parameter has no instance storage, so the declared initializer
-    // applies (same as the zero-argument call above).
-    let harness = run(r#"
+    // IEC_DEVIATIONS DEV-040: under the CODESYS profile `value := ` omits the
+    // input; a function parameter has no instance storage, so the declared
+    // initializer applies (same as the zero-argument call above). The IEC
+    // rules refuse the empty binding. Catches the CODESYS form leaking into
+    // the IEC rules.
+    let source = r#"
 FUNCTION Defaulted : INT
 VAR_INPUT
     value : INT := INT#7;
@@ -269,8 +283,11 @@ VAR
 END_VAR
 result := Defaulted(value := );
 END_PROGRAM
-"#);
+"#;
+    let harness = codesys_run(source);
     assert_eq!(harness.get_output("result"), Some(Value::Int(7)));
+    let error = compile_error(source);
+    assert!(error.contains("expected expression"), "{error}");
 }
 
 #[test]

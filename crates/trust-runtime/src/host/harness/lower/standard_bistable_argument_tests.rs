@@ -66,7 +66,7 @@ END_PROGRAM
 
 #[test]
 fn empty_named_arguments_drop_from_the_lowered_call() {
-    // IEC_DEVIATIONS DEV-029: an empty right-hand side on a named binding
+    // IEC_DEVIATIONS DEV-040: an empty right-hand side on a named binding
     // omits the argument — `RESET := ` leaves the input unbound and an
     // untargeted `Q1 =>` drops the output connection (the s4 project
     // writes TOF calls exactly this way).

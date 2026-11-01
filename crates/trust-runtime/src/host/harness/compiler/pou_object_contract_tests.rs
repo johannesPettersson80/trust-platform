@@ -27,6 +27,18 @@ fn run(source: &str) -> TestHarness {
     harness
 }
 
+/// [`run`] under the CODESYS profile, whose language rules admit an empty named argument
+/// (docs/IEC_DEVIATIONS.md DEV-040).
+fn codesys_run(source: &str) -> TestHarness {
+    let session =
+        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session)
+        .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"));
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    harness
+}
+
 fn compile_error(source: &str) -> String {
     match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("POU fixture must fail"),
@@ -186,10 +198,11 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_empty_named_fb_input_retains_last_stored_value() {
-    // IEC_DEVIATIONS DEV-029: `value := ` omits the input; the FB retains
-    // the last stored value (7), it does NOT re-apply the declared
-    // default (2) — same contract as positional omission.
-    let harness = run(r#"
+    // IEC_DEVIATIONS DEV-040: under the CODESYS profile `value := ` omits
+    // the input; the FB retains the last stored value (7), it does NOT
+    // re-apply the declared default (2) — same contract as positional
+    // omission.
+    let harness = codesys_run(r#"
 FUNCTION_BLOCK Echo
 VAR_INPUT
     value : INT := INT#2;
@@ -217,9 +230,10 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_empty_named_fb_output_compiles_unconnected() {
-    // The s4 form `Q => )`: an output named without a target compiles and
-    // the value stays reachable through the instance member.
-    let harness = run(r#"
+    // The s4 form `Q => )` under the CODESYS profile (DEV-040): an output
+    // named without a target compiles and the value stays reachable through
+    // the instance member.
+    let harness = codesys_run(r#"
 FUNCTION_BLOCK Echo
 VAR_INPUT
     value : INT := INT#4;
