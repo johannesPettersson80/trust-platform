@@ -6,7 +6,7 @@
 // Usage, under a display (`xvfb-run -a -s "-screen 0 1920x1080x24"` where there is none):
 //   node out/acceptance/runAcceptance.js --vsix <file> --out <folder> [--journey <session>]...
 // E2E_VSCODE names the VS Code executable to use; otherwise the stable VS Code (TRUST_VSCODE_TEST_VERSION, when set) is
-// downloaded. The journal and screenshots of each session go to <folder>/<session>, and <folder>/summary.json lists each
+// downloaded. The journal and screenshots of each session replace <folder>/<session>, and <folder>/summary.json lists each
 // session's result. Every session runs, and the run fails when one of them failed.
 import * as child from "child_process";
 import * as crypto from "crypto";
@@ -204,7 +204,6 @@ async function main(): Promise<number> {
   // machine that never ran truST.
   const data = path.join(scratch, "data");
   fs.mkdirSync(data);
-  fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   console.log(`acceptance: ${path.basename(installed)} in ${vscodeExecutable}; rustc: none`);
 
@@ -221,6 +220,8 @@ async function main(): Promise<number> {
       session.setup?.(project);
       fs.mkdirSync(path.join(profile, "User"), { recursive: true });
       fs.writeFileSync(path.join(profile, "User", "settings.json"), JSON.stringify(SETTINGS, null, 2));
+      // Only the session's own folder is replaced: the output folder may hold other files.
+      fs.rmSync(shots, { recursive: true, force: true });
       fs.mkdirSync(shots, { recursive: true });
       if (session.runtime) {
         runtime = await startRuntime(bin, project, path.join(out, `${session.name}-runtime.log`));
