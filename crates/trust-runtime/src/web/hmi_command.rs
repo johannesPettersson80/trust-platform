@@ -226,7 +226,6 @@ impl Commands {
                 .hmi_exchange()
                 .remote_operations
                 .write(session, &plan.path, &plan.action, id, plan.pulse)
-                .map(|outcome| outcome.map_err(WriteRefused::from))
         } else if let Some(pulse) = plan.pulse {
             // The end is scheduled with the pulse's start, in the runtime (§21.5 item 1).
             let (report, wait) = pulse::end_report(self, session, request, id, &plan);

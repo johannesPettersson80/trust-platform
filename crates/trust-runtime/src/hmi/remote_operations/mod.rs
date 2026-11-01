@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use super::access::sessions::SessionInfo;
-use super::commands::write::{path_text, WriteAction, Written};
+use super::commands::write::{path_text, WriteAction, WriteRefused, Written};
 use super::member_paths::MemberPath;
 use super::remote_values::remote_path;
 use crate::value::Value;
@@ -177,11 +177,11 @@ impl RemoteOperations {
         action: &WriteAction,
         id: &str,
         pulse: Option<Duration>,
-    ) -> Option<Result<Written, String>> {
+    ) -> Option<Result<Written, WriteRefused>> {
         let (peer, target) = remote_path(path)?;
         let token = self.owner_token(local, &peer);
         let Some(token) = token else {
-            return Some(Err(format!("owner-login:{peer}")));
+            return Some(Err(WriteRefused::owner_login(&peer)));
         };
         let action = match action {
             WriteAction::Set(value) => json!({"set":value}),
@@ -191,13 +191,13 @@ impl RemoteOperations {
         let request = json!({"action":"write","token":token,"id":id,"path":path_text(&target),"write":action,"pulse_ms":pulse.map(|duration|duration.as_millis() as u64)});
         match self.call(&peer, &request) {
             Err(reason) if reason.starts_with("unknown:") => None,
-            Err(reason) => Some(Err(reason)),
+            Err(reason) => Some(Err(reason.into())),
             Ok(answer) => {
                 if answer["login_required"] == true {
                     if let Ok(mut sessions) = self.sessions.lock() {
                         sessions.remove(&(local.id.to_string(), peer.clone()));
                     }
-                    return Some(Err(format!("owner-login:{peer}")));
+                    return Some(Err(WriteRefused::owner_login(&peer)));
                 }
                 if answer["unknown"] == true {
                     return None;
@@ -206,7 +206,7 @@ impl RemoteOperations {
                     return Some(Err(answer["error"]
                         .as_str()
                         .unwrap_or("the owner refused the command")
-                        .to_string()));
+                        .into()));
                 }
                 Some(
                     match (scalar(&answer["old"]), scalar(&answer["readback"])) {
@@ -250,11 +250,14 @@ mod tests {
     fn owner_login_is_explicit_tokens_stay_private_and_logout_removes_authority() {
         let hub = RemoteOperations::default();
         let path = MemberPath::parse("Owner:Main.Setpoint").unwrap();
-        assert!(hub
+        // Specification 39: the refusal names the runtime to log in to as its own field, and the
+        // audit's reason keeps `owner-login:<runtime>`. Catches a display left to parse the reason.
+        let refused = hub
             .write(&local(), &path, &WriteAction::Set(json!(5)), "one", None)
             .unwrap()
-            .unwrap_err()
-            .contains("owner-login:Owner"));
+            .unwrap_err();
+        assert_eq!(refused.login.as_deref(), Some("Owner"));
+        assert_eq!(refused.reason, "owner-login:Owner");
         hub.transport(Arc::new(|_, request| {
             if request["action"] == "login" {
                 Ok(json!({"token":"private-owner-token","user":"owner-user","role":"operator"}))
