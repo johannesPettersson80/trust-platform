@@ -183,7 +183,7 @@ fn a_trajectory_seed_is_written_back_with_its_kind_and_its_feedforward_variables
 #[test]
 fn the_shipped_lesson_90_file_opens_on_the_engine_as_a_trajectory_law() {
     let text = include_str!(
-        "../../../../editors/vscode/media/examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
+        "../../../../examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
     );
     let loop_definition = LoopDefinition::decode(text).expect("lesson 90 decodes");
     loop_definition

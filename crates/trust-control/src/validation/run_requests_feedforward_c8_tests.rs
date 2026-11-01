@@ -16,7 +16,7 @@ use crate::validation::engineer_verification_campaign::engineer_verification_cam
 /// Lesson 84 as the shipped file declares it: the heater with its draw-off fed forward through a lead and a lag.
 fn lesson_84() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84 decodes")
 }

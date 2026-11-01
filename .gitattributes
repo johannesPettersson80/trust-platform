@@ -23,22 +23,12 @@ docs/notes/runtime-portability/b-r3-evidence/** -whitespace
 # Preserve byte-exact B-R4 validation evidence.
 docs/notes/runtime-portability/b-r4-evidence/** -whitespace
 
-# esbuild preserves Konva's StackBlur MIT license comment, including its blank-line spaces.
-# Keep the reviewed generated bundle byte-exact; retain all other whitespace checks.
-editors/vscode/media/ladderWebview.js whitespace=-blank-at-eol
-
 # Retained publication proof is copied byte-for-byte with recorded digests.
 docs/notes/runtime-portability/publication-evidence/** -whitespace
 
 # Lesson figure data is RFC 4180 CSV (CRLF record ends), written and byte-compared by the lessons'
 # runtime tests; a carriage return before the line end is part of the record terminator.
 examples/control/**/figures/*.csv -text whitespace=cr-at-eol
-editors/vscode/media/examples/control/**/figures/*.csv -text whitespace=cr-at-eol
-
-# esbuild keeps tslib's license comment, with its blank-line spaces, in the Control Studio webview
-# bundles. Keep the generated bundles byte-exact; retain all other whitespace checks.
-editors/vscode/media/controlStudioChart.js whitespace=-blank-at-eol
-editors/vscode/media/controlStudioWorkflow.js whitespace=-blank-at-eol
 
 # The Noto CJK font license ships verbatim.
 crates/trust-runtime/src/web/ui/assets/fonts/LICENSE-NOTO-CJK.txt whitespace=-blank-at-eol

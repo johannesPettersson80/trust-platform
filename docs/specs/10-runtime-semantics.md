@@ -1036,7 +1036,7 @@ pub struct Runtime {
     /// Task configurations
     tasks: Vec<TaskConfig>,
 
-    /// Task scheduling state (last SINGLE value, last run time)
+    /// Task scheduling state (last SINGLE value, last nominal deadline)
     task_state: IndexMap<SmolStr, TaskState>,
 
     /// Standard library
@@ -1545,7 +1545,12 @@ restart:
   enclosing instance is kept as a whole; declared `NON_RETAIN`, it is not
   (IEC leaves the unqualified case to the implementer; truST keeps a `RETAIN`
   instance's whole tree, so a counter or timer inside a retained block keeps
-  counting);
+  counting). A library block kept as a whole keeps its own state with its
+  inputs and outputs: its edge memories, and a `TOF`'s running delay or a
+  `TP`'s running pulse, so that the restart fabricates no edge (IEC 61131-3
+  Ed.3 §6.5.2.2) and a running timer keeps counting. Only a timer's time
+  baseline starts over, so its first call after the restart counts no time
+  (`docs/IEC_DECISIONS.md`, 2026-07-12);
 - a variable its type declares in a `RETAIN` section, whether a local
   (`VAR`), an input (`VAR_INPUT`) or an output (`VAR_OUTPUT`), keeps its value in
   every instance, and one it declares `NON_RETAIN` starts over even in an

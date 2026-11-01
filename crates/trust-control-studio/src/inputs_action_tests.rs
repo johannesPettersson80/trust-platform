@@ -26,7 +26,7 @@ use crate::storage;
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
 /// Lesson 69's state-feedback loop, the LQR law of the course.
 const LESSON_69_LOOP: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
+    "../../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
 );
 
 struct Ignore;

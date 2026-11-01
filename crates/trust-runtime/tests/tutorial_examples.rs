@@ -232,16 +232,27 @@ fn tutorial_blinker_ton_timing_behavior() {
     cycle_without_errors(&mut harness, "blinker reset");
     harness.assert_eq("Lamp", true);
 
+    // The timer was off for one scan, so this scan samples the rising edge and starts at ET 0
+    // (specification 08 §5): the lamp holds until 250 ms after it.
+    harness.advance_time(Duration::from_millis(250));
+    cycle_without_errors(&mut harness, "blinker timer restart");
+    harness.assert_eq("Lamp", true);
+
     harness.advance_time(Duration::from_millis(250));
     cycle_without_errors(&mut harness, "blinker second interval");
     harness.assert_eq("Lamp", false);
 }
 
+/// One phase: the timer, started at ET 0 on the previous scan, reaches its 500 ms and the program
+/// moves on; the next scan shows the new phase while the timer is off, and the scan after it
+/// samples the rising edge and starts the next phase's timer at ET 0 (specification 08 §5).
 fn advance_traffic_phase(harness: &mut TestHarness) {
     harness.advance_time(Duration::from_millis(500));
     cycle_without_errors(harness, "traffic phase threshold");
     harness.advance_time(Duration::from_millis(1));
     cycle_without_errors(harness, "traffic phase transition");
+    harness.advance_time(Duration::from_millis(1));
+    cycle_without_errors(harness, "traffic phase timer start");
 }
 
 fn traffic_state(harness: &TestHarness) -> (Option<Value>, Option<Value>, Option<Value>) {

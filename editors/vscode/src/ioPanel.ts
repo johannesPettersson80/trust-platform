@@ -515,6 +515,10 @@ async function sendRuntimeStatus(): Promise<void> {
     return;
   }
   const status = await runtimeStatusPayload();
+  // The panel can close while the status is read.
+  if (!panel) {
+    return;
+  }
   // Connect can learn that the runtime keeps debugging disabled while this panel is open: say so now.
   const debugDisabled = debugDisabledFailureOf(status);
   panel.webview.postMessage({

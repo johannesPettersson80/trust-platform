@@ -124,9 +124,10 @@ pub(crate) fn requirements_with(
 /// The requirements the study's current model needs now, as Tune designs to them (B4.3; the answers name them): the values the
 /// study records as given, the method and the declared response its inputs name (the request that the automatic run's Tune is
 /// given from the same inputs), and Automatic's values for the rest, listed in `automaticCriteria`. `None` when Automatic cannot
-/// form the record or the record breaks its rules: Tune then names the missing prerequisite when it runs (B4.7).
+/// form the record or the record breaks its rules: Tune then names the missing prerequisite when it runs (B4.7). Before the engineer
+/// has changed any requirement, this is the record the page shows, which a first change is compared with (`keep_generated_fields`).
 #[must_use]
-pub(crate) fn study_requirements(
+pub fn study_requirements(
     loop_definition: &LoopDefinition,
     current: &CurrentModel,
     previous: Option<&TuneSection>,

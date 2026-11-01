@@ -73,6 +73,7 @@ use trust_control::runtime::RuntimeConnection;
 use trust_control_studio::commands::{self, ControlStudio};
 use trust_control_studio::journal::Journal;
 use trust_control_studio::operation::UpdateSink;
+use trust_control_studio::workflow::identify_campaign::SystemClock;
 use trust_control_studio::workflow::identify_mode::{mode_journaled, IdentificationMode};
 
 use common::engine::{close, journal_of, read_text, same_values, Findings, Lab, RUNTIME_ID};
@@ -856,8 +857,14 @@ fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime()
         )
         .expect("the loop's journal opens"),
     );
-    let mut mode = IdentificationMode::new(&lab.loop_definition, lab.connection.clone(), &journal)
-        .expect("the group's mode change is built");
+    let clock = SystemClock::new();
+    let mut mode = IdentificationMode::new(
+        &lab.loop_definition,
+        lab.connection.clone(),
+        &journal,
+        &clock,
+    )
+    .expect("the group's mode change is built");
 
     // Auto to Manual: one transfer of the group's binding. The runtime accepts its tracking only when it names the second member's
     // setpoint, Manual command and output, and every state once (`validate_declared_states`).

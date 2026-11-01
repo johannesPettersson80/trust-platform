@@ -462,7 +462,7 @@ fn the_operating_point_reads_zero_where_the_model_has_no_coordinate_and_the_stat
 
 /// Lesson 84's control loop as the shipped file holds it: the measured-disturbance feedforward (C8).
 const LESSON_84: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+    "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
 );
 
 #[test]

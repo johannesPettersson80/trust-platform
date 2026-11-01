@@ -1,3 +1,0 @@
-[project]
-include_paths = ["src"]
-stdlib = "iec"

@@ -50,7 +50,7 @@ use trust_control::validation::initialization_case::{
 use trust_control::validation::isolated_run_protocol::{
     IsolatedRunRecord, IsolatedRunRequest, IsolatedRunStatus,
 };
-use trust_control::validation::model_route::{model_route, ModelRoute};
+use trust_control::validation::model_route::{controller_initial_values, model_route, ModelRoute};
 use trust_control::validation::model_validation_session::maximum_normalized_error;
 use trust_control::validation::plant_choice::model_replacement;
 use trust_control::validation::run_requests::law_coefficients;
@@ -250,13 +250,7 @@ fn run_campaign(
     let plant = configured_plant_of(&mut client, loop_definition);
     let model = &current.model;
     // The campaign on the configured plant is built first: its refusals (B5.5) hold whichever plant the runs take.
-    let configured = campaign_of(
-        loop_definition,
-        model,
-        &tune.requirements,
-        &observed,
-        &BTreeMap::new(),
-    )?;
+    let configured = configured_campaign(loop_definition, model, &tune.requirements, &observed)?;
     // The noise of the Manual-to-Auto entry case is read before the runs, and its failure ends the validation (`entry_noise`). The case
     // itself is planned after the runs, from the point its plant starts at (B5.3), so a refusal of its plan is the case's own (B5.4, C1).
     let noise = entry_noise(work, loop_definition, current)?;
@@ -586,6 +580,23 @@ fn campaign_of(
     initial: &BTreeMap<String, f64>,
 ) -> Result<Vec<CampaignCase>, Failure> {
     engineer_verification_campaign(loop_definition, model, requirements, observed, initial)
+}
+
+/// The campaign of one Validate on the configured plant (B5.3). Its runs start the controller at the selected model's operating point
+/// with its declared states, as the runs on the model do (B6.2, C1): the startup-done flag starts TRUE, so the program's startup code
+/// cannot initialize the controller at the stepped reference, where a velocity-form PID would take the step without its proportional
+/// action (checklist F29b).
+///
+/// # Errors
+/// The controller's initial values cannot be computed (`controller_initial_values`), or the campaign refuses (B5.5).
+fn configured_campaign(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    requirements: &TuningRequirements,
+    observed: &BTreeMap<String, f64>,
+) -> Result<Vec<CampaignCase>, Failure> {
+    let initial = controller_initial_values(loop_definition, model, observed)?;
+    campaign_of(loop_definition, model, requirements, observed, &initial)
 }
 
 /// The runs of every case of a fresh campaign on the selected model (B5.3): the model's inline plant, and the controller's initial

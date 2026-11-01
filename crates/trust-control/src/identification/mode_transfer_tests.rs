@@ -616,3 +616,64 @@ fn a_program_p_law_adds_no_pid_response_on_its_connected_p_entry() {
         "a proportional law has no PID response"
     );
 }
+
+/// The status of [`status_of`] for the library PID fixture's mode binding with its output at `output`, read at `runtime_ms` of
+/// the runtime's clock.
+fn output_reading(binding: &TransferBinding, output: f64, runtime_ms: u64) -> TransferStatus {
+    let symbol = binding.output.symbol.clone();
+    let mut status = status_of(binding, false, &|name| {
+        if name == symbol {
+            output
+        } else {
+            1.0
+        }
+    });
+    status.runtime_time_ns = Some(runtime_ms * 1_000_000);
+    status
+}
+
+#[test]
+fn held_outputs_rest_only_when_two_scans_read_them_alike() {
+    // The acceptance run of 31 October 2026 on the 0.27.0 package: the step's restored command brought the output back at 25 %/s,
+    // 2.5 % per 100 ms scan, and the return read 14.166 % and met 11.666 % at the next scan. Catches a return judged on a moving
+    // output, on two readings of one scan, and on readings without the runtime's clock.
+    let binding = mode_binding(&library_pid_loop()).expect("the library PID's mode binding");
+    let moving = (
+        output_reading(&binding, 14.166, 1_000),
+        output_reading(&binding, 11.666, 1_100),
+    );
+    assert!(!held_outputs_at_rest(&binding, &moving.0, &moving.1));
+    let arrived = (
+        output_reading(&binding, 6.666, 1_400),
+        output_reading(&binding, 6.666, 1_500),
+    );
+    assert!(held_outputs_at_rest(&binding, &arrived.0, &arrived.1));
+    let one_scan = (
+        output_reading(&binding, 6.666, 1_500),
+        output_reading(&binding, 6.666, 1_500),
+    );
+    assert!(!held_outputs_at_rest(&binding, &one_scan.0, &one_scan.1));
+    let mut unclocked = arrived.clone();
+    unclocked.1.runtime_time_ns = None;
+    assert!(!held_outputs_at_rest(&binding, &unclocked.0, &unclocked.1));
+}
+
+#[test]
+fn the_wait_for_held_outputs_is_their_range_at_the_slower_rate_and_three_executions() {
+    // Worked by hand: the fixture's output runs from 0 to 100 % on a 10 ms task. At 25 %/s both ways the whole range takes 4 s, and
+    // the restoration is confirmed by the third execution (A7): 4,030 ms. At 50 %/s up and 20 %/s down the slower rate gives 5 s:
+    // 5,030 ms. Without rate limits the output follows at once: 30 ms. Catches the faster rate taken and a missing confirmation.
+    let mut loop_definition = library_pid_loop();
+    let binding = mode_binding(&loop_definition).expect("the library PID's mode binding");
+    assert_eq!(
+        (binding.output.minimum, binding.output.maximum),
+        (0.0, 100.0)
+    );
+    assert_eq!(held_outputs_arrival_ms(&loop_definition, &binding), 30.0);
+    loop_definition.limits.rate_up_per_s = Some(25.0);
+    loop_definition.limits.rate_down_per_s = Some(25.0);
+    assert_eq!(held_outputs_arrival_ms(&loop_definition, &binding), 4_030.0);
+    loop_definition.limits.rate_up_per_s = Some(50.0);
+    loop_definition.limits.rate_down_per_s = Some(20.0);
+    assert_eq!(held_outputs_arrival_ms(&loop_definition, &binding), 5_030.0);
+}

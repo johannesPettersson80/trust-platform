@@ -22,6 +22,7 @@ use trust_control::study::inputs::{
     held_scenarios, invalidation, stage_evidence_of, HeldTest, InputsSection, Invalidation,
 };
 use trust_control::study::inputs_change::apply_change;
+use trust_control::study::tune::requirements::study_requirements;
 use trust_control::study::tune::state;
 use trust_control::study::tune::TuneSection;
 use trust_control::study::validate::ValidateSection;
@@ -96,7 +97,7 @@ pub fn answer(claims: &LoopClaims, request: InputsRequest) -> Result<Value, Fail
     };
     // The tuning method is the `method` input alone: a requirement record keeps no copy of it (A8.1).
     let mut inputs = inputs.without_requirement_method();
-    keep_automatic_requirements(&mut inputs, before.as_ref());
+    keep_automatic_requirements(&study, &loop_definition, &mut inputs)?;
     let before_scenarios = held_scenarios(&loop_definition, before.as_ref());
     let after_scenarios = held_scenarios(&loop_definition, Some(&inputs));
     let invalidated = invalidation(
@@ -198,15 +199,37 @@ fn journal_without_waiting_checkpoint(
     Ok(journal)
 }
 
-/// Keeps each generated requirement of `inputs` Automatic only while the change leaves its value as `before` held it (B4.3): the engine
-/// decides which.
-fn keep_automatic_requirements(inputs: &mut InputsSection, before: Option<&InputsSection>) {
-    if let (Some(requirements), Some(previous)) = (
-        inputs.requirements.as_mut(),
-        before.and_then(|section| section.requirements.as_ref()),
-    ) {
-        keep_generated_fields(previous, requirements);
+/// Keeps each generated requirement of `inputs` Automatic only while the change leaves its value as the page showed it (B4.3): the
+/// engine decides which. The page showed the record the study holds, or, while it holds none, the record that the answers carry for the
+/// current model, every value of it Automatic's (`study_requirements`). Compared with nothing, a first change would keep every field
+/// Automatic, and Tune would replace the values the engineer typed (checklist F29a).
+///
+/// # Errors
+/// A section of the study or its model cannot be read (B10.4).
+fn keep_automatic_requirements(
+    study: &trust_control::study::Study,
+    loop_definition: &LoopDefinition,
+    inputs: &mut InputsSection,
+) -> Result<(), Failure> {
+    let Some(requirements) = inputs.requirements.as_mut() else {
+        return Ok(());
+    };
+    let before = study.section::<InputsSection>()?;
+    let mut shown = before
+        .as_ref()
+        .and_then(|section| section.requirements.clone());
+    if shown.is_none() {
+        let tune = study.section::<TuneSection>()?;
+        shown = current_model(study)?
+            .filter(|current| current.is_current_for(loop_definition))
+            .and_then(|current| {
+                study_requirements(loop_definition, &current, tune.as_ref(), before.as_ref())
+            });
     }
+    if let Some(shown) = shown {
+        keep_generated_fields(&shown, requirements);
+    }
+    Ok(())
 }
 
 /// The folder of the operation journals that the request names (A8.3), or the engine's journal folder, the one the command line uses,

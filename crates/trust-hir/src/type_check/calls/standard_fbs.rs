@@ -35,10 +35,6 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 self.check_standard_fb_fixed_params(&params, node, &aliases);
                 true
             }
-            "CTU" | "CTD" | "CTUD" => {
-                self.check_counter_function_block_call(&upper, node);
-                true
-            }
             "TP" | "TON" | "TOF" => {
                 self.check_timer_function_block_call(None, node);
                 true
@@ -68,102 +64,6 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         self.checker
             .calls()
             .check_bound_call_argument_types(params, &bound);
-    }
-
-    pub(in crate::type_check) fn check_counter_function_block_call(
-        &mut self,
-        name: &str,
-        node: &SyntaxNode,
-    ) {
-        let param = |name: &str, type_id: TypeId, direction: ParamDirection| ParamInfo {
-            name: SmolStr::new(name),
-            type_id,
-            direction,
-        };
-
-        let (mut params, pv_index, cv_index) = match name {
-            "CTU" => (
-                vec![
-                    param("CU", TypeId::BOOL, ParamDirection::In),
-                    param("R", TypeId::BOOL, ParamDirection::In),
-                    param("PV", TypeId::ANY_INT, ParamDirection::In),
-                    param("Q", TypeId::BOOL, ParamDirection::Out),
-                    param("CV", TypeId::ANY_INT, ParamDirection::Out),
-                ],
-                2,
-                4,
-            ),
-            "CTD" => (
-                vec![
-                    param("CD", TypeId::BOOL, ParamDirection::In),
-                    param("LD", TypeId::BOOL, ParamDirection::In),
-                    param("PV", TypeId::ANY_INT, ParamDirection::In),
-                    param("Q", TypeId::BOOL, ParamDirection::Out),
-                    param("CV", TypeId::ANY_INT, ParamDirection::Out),
-                ],
-                2,
-                4,
-            ),
-            "CTUD" => (
-                vec![
-                    param("CU", TypeId::BOOL, ParamDirection::In),
-                    param("CD", TypeId::BOOL, ParamDirection::In),
-                    param("R", TypeId::BOOL, ParamDirection::In),
-                    param("LD", TypeId::BOOL, ParamDirection::In),
-                    param("PV", TypeId::ANY_INT, ParamDirection::In),
-                    param("QU", TypeId::BOOL, ParamDirection::Out),
-                    param("QD", TypeId::BOOL, ParamDirection::Out),
-                    param("CV", TypeId::ANY_INT, ParamDirection::Out),
-                ],
-                4,
-                7,
-            ),
-            _ => return,
-        };
-
-        let (_bound, typed) = self.checker.calls().collect_builtin_args(&params, node);
-
-        let pv_type =
-            self.counter_value_type(typed.get(pv_index).and_then(|arg| arg.as_ref()), "PV");
-        let cv_type =
-            self.counter_value_type(typed.get(cv_index).and_then(|arg| arg.as_ref()), "CV");
-
-        let expected = pv_type.or(cv_type).unwrap_or(LEGACY_UNKNOWN_TYPE_ID);
-        params[pv_index].type_id = expected;
-        params[cv_index].type_id = expected;
-
-        self.checker
-            .calls()
-            .check_typed_args_against_params(&params, &typed);
-    }
-
-    pub(in crate::type_check) fn counter_value_type(
-        &mut self,
-        arg: Option<&(CallArg, TypeId)>,
-        param_name: &str,
-    ) -> Option<TypeId> {
-        let (arg, arg_type) = arg?;
-        let base = self.base_type_id(*arg_type);
-        if base == TypeId::UNKNOWN {
-            return None;
-        }
-
-        if !matches!(
-            base,
-            TypeId::INT | TypeId::DINT | TypeId::LINT | TypeId::UDINT | TypeId::ULINT
-        ) {
-            self.checker.diagnostics.error(
-                DiagnosticCode::InvalidArgumentType,
-                arg.range,
-                format!(
-                    "expected INT, DINT, LINT, UDINT, or ULINT for parameter '{}'",
-                    param_name
-                ),
-            );
-            return None;
-        }
-
-        Some(base)
     }
 
     pub(in crate::type_check) fn check_timer_function_block_call(

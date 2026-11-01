@@ -4,7 +4,7 @@ In this lesson, you will probe two valves that both move in steps and tell them 
 
 ## The problem
 
-Lesson 32 measured where the valve settles: with the fixed supply the flow rose from 1.421 kg/s at 70 % to 1.650 kg/s at 85 %, and the second 75 % point reproduced the first, 1.501 kg/s, so the steady characteristic showed no hysteresis. A real valve can still misbehave on the way: it may ignore a small request, or the valve sticks and jumps when the request has grown. In a temperature loop that looks like a badly tuned controller, and the flow alone cannot tell why.
+Lesson 32 measured where the valve settles: with the fixed supply the flow rose from 1.421 kg/s at 70 % to 1.650 kg/s at 85 %, and the second 75 % point reproduced the first, 1.500 kg/s, so the steady characteristic showed no hysteresis. A real valve can still misbehave on the way: it may ignore a small request, or the valve sticks and jumps when the request has grown. In a temperature loop that looks like a badly tuned controller, and the flow alone cannot tell why.
 
 We will probe two valves with the same small steps and find the cause of their steps from the request, the stem position, the force and the flow.
 

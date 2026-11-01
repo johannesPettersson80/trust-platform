@@ -75,8 +75,9 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
         ),
     ];
 
+    // IEC 61131-3 Ed.3 Table 45, 1a, 2a and 3a: `CTU`, `CTD` and `CTUD` are the INT counters.
     let counter_types = [
-        ("", TypeId::ANY_INT),
+        ("", TypeId::INT),
         ("_INT", TypeId::INT),
         ("_DINT", TypeId::DINT),
         ("_LINT", TypeId::LINT),

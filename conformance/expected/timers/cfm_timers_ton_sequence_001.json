@@ -27,7 +27,7 @@
       "errors": [],
       "globals": {
         "et_ton": {
-          "nanos": 5000000,
+          "nanos": 0,
           "type": "TIME"
         },
         "q_ton": {
@@ -43,12 +43,12 @@
       "errors": [],
       "globals": {
         "et_ton": {
-          "nanos": 10000000,
+          "nanos": 5000000,
           "type": "TIME"
         },
         "q_ton": {
           "type": "BOOL",
-          "value": true
+          "value": false
         }
       },
       "runtime_time_nanos": 10000000

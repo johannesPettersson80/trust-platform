@@ -342,9 +342,9 @@ Runtime assertion note:
 - [x] F_TRIG
 
 ## Table 45 - Counter Function Blocks
-- [x] CTU
-- [x] CTD
-- [x] CTUD
+- [x] CTU (row 1a: the INT counter `CTU_INT`; an untyped literal PV is an INT)
+- [x] CTD (row 2a: the INT counter `CTD_INT`)
+- [x] CTUD (row 3a: the INT counter `CTUD_INT`)
 - [x] CTU_INT
 - [x] CTD_INT
 - [x] CTUD_INT

@@ -54,8 +54,8 @@ and Polish (`L`, `T#1500ms`). Each action switches its output with its flag
 | Time | Active Steps | Notes |
 |------|--------------|-------|
 | 0.02 s | TaskA, TaskB | Start's transition enters both branches |
-| 1.02 s | TaskA, TaskB | ExecuteTaskA has ended; the join waits for TaskB |
-| 2.02 s | End | ExecuteTaskB has ended; the join enters End |
+| 1.04 s | TaskA, TaskB | ExecuteTaskA has ended; the join waits for TaskB |
+| 2.04 s | End | ExecuteTaskB has ended; the join enters End |
 
 ### Parallel Process Example
 
@@ -63,11 +63,12 @@ and Polish (`L`, `T#1500ms`). Each action switches its output with its flag
 |------|--------------|-------|
 | 0.02 s | Prepare | Init done |
 | 0.04 s | Heat, Mix, Polish | The split enters three branches |
-| 1.54 s | Heat, Mix, Polish | Polish has ended |
-| 2.04 s | Heat, Mix, Polish | Heat has ended |
-| 3.04 s | Finish | Mix has ended; the join enters Finish |
+| 1.56 s | Heat, Mix, Polish | Polish has ended |
+| 2.06 s | Heat, Mix, Polish | Heat has ended |
+| 3.06 s | Finish | Mix has ended; the join enters Finish |
 
-The times are those of the 20 ms task, whose timers count the scan in which they start;
+The times are those of the 20 ms task, whose timers start at 0 in the first scan of their step
+(specification 08 §5);
 `crates/trust-lsp/src/handlers/commands/visual_sfc_run_tests.rs` runs both examples scan by scan.
 
 ## How to Use

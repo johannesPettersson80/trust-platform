@@ -1,5 +1,0 @@
-version = 1
-
-[dependencies.Control]
-source = "path"
-path = "/home/johannes/projects/trust-platform-pid-core-spec/examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/libraries/control"

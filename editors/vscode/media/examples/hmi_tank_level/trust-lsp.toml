@@ -1,9 +1,0 @@
-[project]
-include_paths = ["src"]
-
-# The Control, Alarm and HMI libraries, copied unchanged into this example so it stands on its
-# own.
-[dependencies]
-Control = { path = "libraries/control", version = "0.1.0" }
-Alarm = { path = "libraries/alarm", version = "0.1.0" }
-Hmi = { path = "libraries/hmi", version = "0.1.0" }

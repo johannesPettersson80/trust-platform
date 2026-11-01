@@ -187,7 +187,7 @@ fn a_loop_without_an_output_limit_has_no_model_binding() {
 /// Lesson 84's loop as its file declares it: a controller output and a measured draw-off, bound to the heater model's two inputs.
 fn lesson_84_loop() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84 decodes")
 }
@@ -195,7 +195,7 @@ fn lesson_84_loop() -> LoopDefinition {
 /// Lesson 84's supplied heater model (`provided-model.json`): two inputs, the heater command and the draw-off, and one output.
 fn lesson_84_model() -> GeneralModel {
     let value: Value = serde_json::from_str(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/provided-model.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/provided-model.json"
     ))
     .expect("the supplied model is JSON");
     decode_general_model(&value).expect("the supplied model decodes")

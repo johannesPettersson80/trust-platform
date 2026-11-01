@@ -1,6 +1,0 @@
-# Starter for a Beckhoff TwinCAT (ADS) device. Runs in the Simulator out of the box.
-# ADS is configured as a CONNECTION (written to ads.toml), NOT an [io] driver — wire it in
-# Devices & Connections ("Set up runtime…" → connect/add a device), which writes ads.toml for you.
-[io]
-driver = "simulated"
-params = {}
