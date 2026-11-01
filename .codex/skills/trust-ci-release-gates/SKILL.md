@@ -182,8 +182,8 @@ stage they ran, and `git diff --check`. They stay until checklist W8 removes the
 - **Script style**: gate scripts fail fast and pass shellcheck (`set -euo pipefail`). With `set -u`,
   do not expand arrays that may be empty.
 - **Regression tests for gate tooling**: name the focused test so that
-  `scripts/check_regression_test_first.py` finds it (`test_*.py`, `tests.py`, or a `test` or `tests`
-  directory). When it proves an existing failing command, add a `Regression-test-first:` line to the
+  `scripts/check_regression_test_first.py` finds it (`*_tests.py`, `test_*.py`, `*_tests.rs`, `*_test.rs`,
+  `tests.rs`, `tests.py`, or a `test` or `tests` directory). When it proves an existing failing command, add a `Regression-test-first:` line to the
   commit or PR.
 - **Verification report**: pull requests and candidates run
   `scripts/verification_report_gate.py --strict --smoke`. The exhaustive verification tooling runs
