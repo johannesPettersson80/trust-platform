@@ -47371,6 +47371,8 @@ name = "reliability_test_project_configs_are_loadable"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
 [[reviews]]
 discovery_id = "DISC_7ED08FC2C6176CF9E691"
 discovery_source_kind = "rust_unit_test"
@@ -47382,7 +47384,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-28"
 
 [[reviews]]
-[[reviews]]
 discovery_id = "DISC_03EB4242243E5ECC1513"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/method_in_out_parameter_writes.rs"
@@ -47392,7 +47393,6 @@ disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-28"
 
-[[reviews]]
 [[reviews]]
 discovery_id = "DISC_BC68D035F131290A5EFE"
 discovery_source_kind = "rust_integration_test"
@@ -47462,6 +47462,8 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-29"
+
+[[reviews]]
 discovery_id = "DISC_A87344A21EA489B37B2A"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/tests/semantic_type_definitions.rs"
@@ -47490,6 +47492,7 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-28"
+
 [[reviews]]
 discovery_id = "DISC_D6117A3E28B950F3ADCF"
 discovery_source_kind = "rust_integration_test"
