@@ -159,6 +159,26 @@ fn a_cancel_ends_the_wait_before_any_reading() {
 }
 
 #[test]
+fn a_cancel_during_the_last_reading_ends_the_wait_before_the_transfer() {
+    // Codex's review of #147 (F30): the 101st reading fills the 10 s window of a loop at rest, and a Cancel arrives while it
+    // is read. The wait ends cancelled after that reading instead of answering the rest, so no transfer to Manual follows.
+    // Catches a rest returned without checking Cancel again.
+    let report = Report::default();
+    let clock = clock();
+    let (result, reads) = wait_on(&report, &clock, |index| {
+        if index == 100 {
+            report.cancel();
+        }
+        reading(Some(5.0), Some(2.0), Some(runtime_ns(index, 100)))
+    });
+    assert_eq!(
+        result.expect_err("cancelled").message,
+        "Identification cancelled."
+    );
+    assert_eq!(reads, 101);
+}
+
+#[test]
 fn a_reading_without_the_runtimes_clock_or_a_value_ends_the_wait() {
     let clock = clock();
     for (script, text) in [
