@@ -1,13 +1,14 @@
 name: Docs Pages
 
-# A pull request and a push to main start this workflow; its `changes` job decides whether the site
-# must be built, comparing the whole change (specification 22, "Pull-request checks and change
-# detection"). A pull request's run builds and checks the site as the deploy does and publishes
-# nothing; a push to main deploys it. A Docs Captures run of main that rendered screenshots starts it
+# A pull request, a merge group and a push to main start this workflow; its `changes` job decides
+# whether the site must be built, comparing the whole change (specification 22, "Pull-request checks
+# and change detection"). A pull request's or a merge group's run builds and checks the site as the
+# deploy does and publishes nothing; a push to main deploys it. A Docs Captures run of main that rendered screenshots starts it
 # too: the site is built with the newest screenshots of main, and nothing commits them
 # (specification 22, "Docs Captures").
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
   workflow_run:
@@ -23,10 +24,11 @@ permissions:
   actions: read
 
 concurrency:
-  # A pull request's newer push cancels its older run; the deploys of main share one group, so a pull
-  # request never cancels a deploy.
-  group: ${{ github.event_name == 'pull_request' && format('docs-pages-pr-{0}', github.event.pull_request.number) || 'docs-pages' }}
-  cancel-in-progress: true
+  # A pull request's newer push cancels its older run, and a merge group's run has a group of its own.
+  # The deploys of main share one group and are never cancelled: the running deploy finishes and the
+  # newest waiting one follows, as GitHub's Pages workflows do.
+  group: ${{ github.event_name == 'pull_request' && format('docs-pages-pr-{0}', github.event.pull_request.number) || github.event_name == 'merge_group' && format('docs-pages-queue-{0}', github.run_id) || 'docs-pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -54,7 +56,7 @@ jobs:
         id: changes
         env:
           EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/docs-pages.txt
 
@@ -111,14 +113,14 @@ jobs:
           test -f site/public/reference/agent-api/v1/index.html
           touch site/public/.nojekyll
       - uses: actions/upload-pages-artifact@v5
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         with:
           path: site/public
 
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -144,7 +146,8 @@ jobs:
 
   conclusion:
     name: Docs Pages Conclusion
-    # A pull request's site check: it fails when the build or one of its checks failed.
+    # The site check of a pull request and a merge group: it fails when the build or one of its checks
+    # failed.
     needs: [changes, build]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
