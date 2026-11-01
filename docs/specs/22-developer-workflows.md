@@ -311,6 +311,44 @@ storage) describe the tool until its code is removed. Until the acceptance
 journeys run in CI, they run on a release pull request's rehearsal package
 before it merges. `verify-release` and the post-merge audit stay as tools.
 
+### Acceptance journeys on the packaged extension
+
+The acceptance journeys prove the shipped user paths on the package that a
+user installs, not on the development build that the VS Code suites test.
+`editors/vscode/src/acceptance/runAcceptance.ts` (`npm run acceptance --
+--vsix <file> --out <folder>`, under a display) installs the VSIX into an empty
+extensions folder of a VS Code that has never run truST (the stable release,
+or the executable that `E2E_VSCODE` names) and runs each session in its own
+window, with its own profile and Control Studio state folder, one truST data
+folder that is empty at the start, and no Rust toolchain: the runner removes
+Cargo and rustup from `PATH` and fails when a Rust compiler is still found.
+Each session copies its project from the checkout's `examples/` and runs at
+1×:
+
+- `pid-commissioning`: the walkthrough of `control-pid-commissioning` on the
+  unmodified example: Start, Identify plant, Tune PI to the README's
+  requirements, Validate, Apply with the response read from Live Values, and
+  Restore previous settings (specification 35, B3 to B7);
+- `pid-try`: the walkthrough's settling times of 6 s and 30 s;
+- `pid-slow`: the slower heater, `time_constant_s` 8.0;
+- `identify-auto-rest`: Identify from Auto waits for the loop to settle before
+  the transfer (specification 35, B3.4 step 5); the copy starts in Auto at a
+  30 °C setpoint;
+- `f23-local` and `f23-tcp`: the tank example's runtime, built and started
+  with the installed `trust-runtime` as its README says, on the default
+  control endpoint and on a TCP endpoint with a control token generated for
+  the run; the Target picker offers it, connects to it, and shows it stopped
+  (specification 25, section 5.1).
+
+Each step records its outcome, the question and notifications on screen, the
+truST items of the status bar and a screenshot in `<folder>/<session>/`. A
+step that fails is recorded and the journey goes on, so that one run shows
+every failing step, and the session fails. Every session runs,
+`<folder>/summary.json` lists each result, and the run fails when a session
+failed. A session whose edit of its copy finds the example changed, so that
+the text it replaces is not there exactly once, fails instead of running on
+the unmodified project.
+
 ### CI reliability and release-gate artifact contract
 
 The reviewed native CI support surfaces preserve the following executable
