@@ -18,6 +18,14 @@ examples/statecharts/*.mp4
 examples/blockly/*.mp4
 CHANGELOG.md
 scripts/check_public_docs_links.py
+scripts/check_public_docs_ia.py
+scripts/check_openot_database_examples.py
+# What check_openot_database_examples.py reads besides the pages and specifications.
+examples/openot_database/**
+examples/openot_multi_program/**
+scripts/openot_database_runner_prepare.sh
+scripts/openot_real_database_gate.sh
+crates/trust-runtime/src/host/openot_persistence/**
 scripts/check_example_catalog_links.py
 scripts/check_public_docs_assets.py
 scripts/check_public_docs_search.py

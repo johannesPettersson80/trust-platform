@@ -149,6 +149,36 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
             deploy_steps.index("actions/configure-pages@v6"), deploy_steps.index("actions/deploy-pages@v5")
         )
 
+    def test_every_check_of_the_site_build_runs_when_it_or_what_it_reads_changes(self) -> None:
+        # The Docs Pages build is the only run of its checks, so a pull request that changes a checker or what it reads
+        # must run it. Catches a checker missing from the path list, and the inputs of the database-example checker
+        # (Codex's review of #153: examples/openot_database/sqlite/runtime.toml or the runner script merged unchecked).
+        import sys
+
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import ci_changes
+
+        patterns = ci_changes.read_patterns((ROOT / ".github" / "paths" / "docs-pages.txt").read_text())
+        regexes = [ci_changes.pattern_regex(pattern) for pattern in patterns]
+        listed = lambda path: any(regex.match(path) for regex in regexes)
+        build = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)["jobs"]["build"]
+        scripts = sorted({
+            word for step in build["steps"] for word in step.get("run", "").split()
+            if word.startswith("scripts/") and word.endswith(".py")
+        })
+        self.assertGreaterEqual(len(scripts), 8, scripts)
+        for script in scripts:
+            self.assertTrue(listed(script), f"{script} runs in the site build but its change does not run it")
+        for read in (
+            "examples/openot_database/sqlite/runtime.toml",
+            "examples/openot_database/workload/Main.st",
+            "examples/openot_multi_program/runtime.toml",
+            "scripts/openot_database_runner_prepare.sh",
+            "scripts/openot_real_database_gate.sh",
+            "crates/trust-runtime/src/host/openot_persistence/mod.rs",
+        ):
+            self.assertTrue(listed(read), f"check_openot_database_examples.py reads {read}, whose change does not run it")
+
     def test_captures_build_programs_with_the_toolchain_the_job_builds(self) -> None:
         # The browser IDE and the terminal captures build Structured Text programs. Without a
         # toolchain a build downloads its version's, which does not exist before that version is
