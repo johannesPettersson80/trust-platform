@@ -33,7 +33,10 @@ assertions directly shows that a specification or test is missing.
 
 1. Read the owning specification. If the behaviour is missing, ambiguous or contradictory there,
    write or update the specification first. When the choice belongs to the user, ask. Do not invent
-   behaviour.
+   behaviour. When it already states the behaviour (a bug fix that brings the code back to it), name
+   the section in a `Specification: <number or path> <section>` trailer of a commit of the change;
+   the Verification Gate accepts it in place of a changed specification (specification 30). Never
+   edit a specification only to satisfy the gate.
 2. Read the current native assertions near the behaviour. A test name, catalog entry or report is
    not coverage.
 3. Classify the behaviour as one of:

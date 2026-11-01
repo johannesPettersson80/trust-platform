@@ -148,6 +148,8 @@ def validate_current_governance(
     invariants: Mapping[str, Mapping[str, Any]] | None = None,
     spec_sources: Mapping[str, Mapping[str, Any]] | None = None,
     changed_files: Sequence[str] = (),
+    specifications: Sequence[str] = (),
+    root: Path = ROOT,
 ) -> list[str]:
     failures: list[str] = []
     maximum_age = document["staleness"]["maximum_active_age_days"]
@@ -194,13 +196,18 @@ def validate_current_governance(
         completed = date.fromisoformat(row["last_completed"])
         if (today - completed).days > row["interval_days"]:
             failures.append(f"review cadence {row['id']} is overdue")
-    failures.extend(validate_changed_files(document, changed_files))
+    failures.extend(validate_changed_files(document, changed_files, specifications, root))
     return sorted(set(failures))
 
 
-def validate_changed_files(document: Mapping[str, Any], changed_files: Sequence[str]) -> list[str]:
+def validate_changed_files(
+    document: Mapping[str, Any],
+    changed_files: Sequence[str],
+    specifications: Sequence[str] = (),
+    root: Path = ROOT,
+) -> list[str]:
     del document
-    return validate_direct_change_contract(changed_files)
+    return validate_direct_change_contract(changed_files, specifications, root)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -208,10 +215,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--today", type=date.fromisoformat, default=date.today())
     parser.add_argument("--changed-file", action="append", default=[])
+    parser.add_argument(
+        "--specification",
+        action="append",
+        default=[],
+        help="the value of a `Specification: <specification> <section>` commit trailer of the change",
+    )
     parser.add_argument("--direct-change-contract-only", action="store_true")
     args = parser.parse_args(argv)
     if args.direct_change_contract_only:
-        failures = validate_direct_change_contract(args.changed_file)
+        failures = validate_direct_change_contract(args.changed_file, args.specification, args.root)
         if failures:
             for failure in failures:
                 print(f"direct change contract: FAIL: {failure}", file=sys.stderr)
@@ -237,6 +250,8 @@ def main(argv: list[str] | None = None) -> int:
             invariants=validator.invariants,
             spec_sources=validator.spec_sources,
             changed_files=args.changed_file,
+            specifications=args.specification,
+            root=args.root,
         ))
     except (OSError, ValueError, tomllib.TOMLDecodeError) as exc:
         print(f"verification governance: FAIL: {exc}", file=sys.stderr)

@@ -116,7 +116,9 @@ separately.
   not just change the complete plan and spec".)
 - **Specification first.** `docs/specs` defines product behaviour. If the behaviour you need is
   missing, ambiguous or contradictory in the written specification, update it (or ask) before
-  writing code.
+  writing code. A change that follows a section without changing it names that section in a commit
+  trailer, `Specification: <number or path> <section>` (for example `Specification: 35 B3.4`); the
+  Verification Gate accepts it in place of a changed specification (specification 30).
   A native executable test then pins the behaviour. Verification metadata cannot create product
   work or block it; that includes catalogs, planners, proof levels and mutation reports. Details are
   in the `trust-test-authoring` skill.

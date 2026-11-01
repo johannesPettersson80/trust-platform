@@ -228,11 +228,39 @@ conformance, or adequate standard-library behavior.
 
 ### Owning-spec companion contract
 
-A changed written specification satisfies the direct-change companion rule only
-for production paths that it owns. Path-level ownership is a minimum routing
-guard, not proof that the prose and assertion are semantically adequate.
+A change to production paths (workflows, crates, the extension's sources,
+scripts, `xtask`, the workspace manifests and the `justfile`) has two
+companions: a native executable test that the change adds or changes, and the
+written specification that the change follows. The change either changes that
+specification or, when it follows a section that it does not change (a bug fix
+that brings the code back to its specification), names the section in a
+`Specification:` trailer of one of its commits, for example
+`Specification: 35 B3.4` or
+`Specification: docs/specs/32-mqtt-io.md Scope and ownership`.
 
-Protocol-specific production changes must name their protocol specification.
+The trailer names the specification by its number, which must be the number of
+exactly one file `docs/specs/<number>-*.md`, or by the path of a written
+specification: a file below `docs/specs/`, an IEC or PLCopen decision or
+deviation record, the conformance contract or the verification program
+checklist. A path may not leave its directory. The section follows: text that
+the specification holds, such as a section label or a heading. The gate reads
+the trailers of the commits that are in the change and not in its base. A
+trailer that names no written specification, names no section, or names a
+section that the specification does not hold fails the gate, also when the
+change changes a specification as well. A named section is a reference, not a
+review: the review of the change still judges whether the specification states
+the behaviour, and a specification that does not is changed in the same change.
+Verification cannot deny a specification-and-test pair that agrees
+(specification 24, "Behavior-Locked Claims"); this contract only checks that the
+pair is named.
+
+A changed or named written specification satisfies the direct-change companion
+rule only for production paths that it owns. Path-level ownership is a minimum
+routing guard, not proof that the prose and assertion are semantically
+adequate.
+
+Protocol-specific production changes must name their protocol specification,
+changed or in a trailer.
 In particular, changes below `crates/trust-runtime/src/io/mqtt/` or to the MQTT
 tag-lowering adapter require the MQTT protocol specification; the generic
 runtime-engine specification cannot satisfy that companion by itself. The same
