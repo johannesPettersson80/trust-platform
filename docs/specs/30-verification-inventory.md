@@ -231,7 +231,14 @@ conformance, or adequate standard-library behavior.
 A change to production paths (workflows, crates, the extension's sources,
 scripts, `xtask`, the workspace manifests and the `justfile`) has two
 companions: a native executable test that the change adds or changes, and the
-written specification that the change follows. The change either changes that
+written specification that the change follows. A version bump has none: a
+change that moves `[workspace.package].version` of `Cargo.toml` between its
+base and its head, and changes only what the bump changes (the workspace and
+ESP32-C6 manifests, the three Cargo lockfiles, the VS Code package and its
+lockfile, `CHANGELOG.md` and `changelog.d/`), changes no behaviour
+(specification 22, "Change and release workflow"). A lockfile changed without
+the version moving, or a bump that carries anything else, keeps both
+companions. The change either changes that
 specification or, when it follows a section that it does not change (a bug fix
 that brings the code back to its specification), names the section in a
 `Specification:` trailer of one of its commits, for example
