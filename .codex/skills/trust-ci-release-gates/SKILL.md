@@ -1,6 +1,6 @@
 ---
 name: trust-ci-release-gates
-description: Ships truST changes the professional way - small pull requests to main, CI as the only gate, Codex review, the merge queue, changelog and versions, version-bump releases and release verification. Use for commits, pushes, pull requests, CI workflow or gate-script changes, version bumps, merges, GitHub releases and VS Code Marketplace checks.
+description: Ships truST changes the professional way - small pull requests to main, CI as the only gate, Codex review, merging, changelog and versions, version-bump releases and release verification. Use for commits, pushes, pull requests, CI workflow or gate-script changes, version bumps, merges, GitHub releases and VS Code Marketplace checks.
 ---
 
 # Changes, CI and releases
@@ -32,11 +32,13 @@ can, so a finding costs a fix in its own pull request, never another release rou
    request, push. A failure without a code cause is a flake: record it with its log on the
    checklist and fix it as its own item; re-run a job only when its log shows an infrastructure
    cause, and say so in the pull request.
-4. **Merge** when every required check is green and Codex has no open finding, through the merge
-   queue, which tests the change on top of the current `main`. `main` is always releasable.
-   Until the queue is enabled (checklist W5), merge at the exact head with
+4. **Merge** when every required check is green and Codex has no open finding, at the exact head:
    `gh pr merge <number> --merge --match-head-commit <sha>`; branch protection refuses it while a
-   required check is not green.
+   required check is not green. There is no merge queue (owner, 1 November 2026: the repository
+   stays under the personal account, and GitHub gives the queue only to organizations), and the
+   branch need not hold the newest `main`. `main`'s CI checks every merge: when `main` is red,
+   fixing it comes before any other merge, and a release comes only from a `main` commit whose CI
+   passed. The required checks are those of `.github/required-checks.txt`.
 5. **Release** with a pull request that only bumps the version and moves the changelog section
    (Releasing, below). It merges like any other.
 6. **Release blockers** are regressions and severe bugs: safety, data loss, a broken user journey.
@@ -104,10 +106,9 @@ Check it once, before the first push:
    run keeps its release text and evidence as the artifact `release-rehearsal-v<version>`. A fork's
    pull request is not rehearsed on the project's runners; rehearse its head with
    `gh workflow run release.yml --ref <branch>`.
-3. **Merge** it when CI, the rehearsal and Codex are green. Until the merge queue is on (checklist
-   W5), merge with `release_candidate_guard.py check-merge --pr <number> --execute`: it requires a
-   clean merge state, green checks on the exact head and, for a version change, the passed rehearsal
-   that kept `release-rehearsal-v<version>`.
+3. **Merge** it when CI, the rehearsal and Codex are green, at its exact head with
+   `gh pr merge <number> --merge --match-head-commit <sha>`. For a version change the required
+   Release Conclusion is green only when the rehearsal passed.
 4. **The release follows `main`'s CI.** When `main`'s CI passes on the merge commit, the Release
    workflow tags that commit `v<version>`, creates the GitHub release with the version's changelog
    section, publishes every target to the Marketplace and verifies the tag, the release, Latest and
@@ -126,8 +127,8 @@ Check it once, before the first push:
    with prune and rerun the audit until it reports `clean`.
 
 Readiness words: **verified locally** (compile check and focused tests), **CI green** (every required
-check on the exact head), **merge-ready** (CI green, Codex without open findings, the merge queue
-accepts it), **released** (`verify-release` passes). An earlier head's results prove nothing about a
+check on the exact head), **merge-ready** (CI green and Codex without open
+findings), **released** (`verify-release` passes). An earlier head's results prove nothing about a
 later one.
 
 In PR text, `Closes`, `Fixes` and `Resolves` close an issue on merge; `Addresses` does not. Check

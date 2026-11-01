@@ -133,10 +133,13 @@ separately.
     change, the release rehearsal) run in CI on every push; never run them as a local batch.
   - A red check: read its log, fix the cause in the same pull request and push. A failure without
     a code cause is a flake: record it with its log on the checklist and fix it as its own item.
-  - A pull request merges when its required checks are green and Codex has no open finding,
-    through the merge queue. `main` is always releasable. Until the queue is enabled (checklist
-    W5), merge with `gh pr merge <number> --merge --match-head-commit <sha>`; branch protection
-    refuses it while a required check is not green.
+  - A pull request merges at its exact head when its required checks are green and Codex has no
+    open finding: `gh pr merge <number> --merge --match-head-commit <sha>`; branch protection
+    refuses it while a required check is not green. There is no merge queue, and the branch need
+    not hold the newest `main` (owner, 1 November 2026: the repository stays under the personal
+    account, and GitHub gives the queue only to organizations). `main`'s CI checks every merge: a
+    red `main` is fixed before anything else merges, and a release comes only from a `main` commit
+    whose CI passed.
 - **Review your diff before each push**: tests, imports, feature gates and the callers and
   lifecycle paths that the change reaches. Review does not prove compilation.
 - **Compile check before reporting** (owner, 17 October 2026: "proposal a approved"). Before an
@@ -194,7 +197,7 @@ separately.
 - **Stop** means stop: launch nothing new, safely stop what you started, and record where you
   stopped.
 - Commit, push and open pull requests as the workflow needs them (owner, 30 October 2026: "you may
-  push, you never need to ask that"); merge through the merge queue when the checks are green. Tags
+  push, you never need to ask that"); merge when the checks are green. Tags
   and releases come only from the Release workflow.
 
 ## Working in several checkouts
@@ -289,7 +292,7 @@ For control work, also copy `docs/specs/control-platform-purpose.md` when it is 
 | --- | --- |
 | `trust-test-authoring` | any behaviour change, bug fix or test work: from specification to native test |
 | `trust-remote-builder` | builder sync, cargo target leases, disk, toolchain parity, reporting proof |
-| `trust-ci-release-gates` | the workflow: pull requests, CI, merge queue, changelog, versions, releases |
+| `trust-ci-release-gates` | the workflow: pull requests, CI, merging, changelog, versions, releases |
 | `trust-lsp-iec` | IEC language behaviour, the standard library, IEC decisions and deviations |
 | `st-lsp-solid` | refactors, module boundaries, runtime/LSP/CLI structure, architecture tooling |
 | `trust-vscode-quality` | VS Code extension work, extension tests, screenshots, UI acceptance |
