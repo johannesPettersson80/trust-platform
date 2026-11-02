@@ -336,7 +336,9 @@ fn edit_answer(args: &Json) -> Result<Value, String> {
 /// the mappings nothing names; `afterDelay` (`text`), the delay typed into a transition's timer
 /// field (`after`, `null` for none); `mappingValue` (`text`), the value typed into an action
 /// mapping (`value`); `addMapping` (`mappings`, `name`), the mappings with a new action under the
-/// name typed into the Add dialog (`mappings`, `name`), or why not.
+/// name typed into the Add dialog (`mappings`, `name`), or why not; `addState` (`graphText`,
+/// `stateType`), a new state of that kind under the first free `State<n>` name (`state`), or why
+/// not.
 fn statechart_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
     match op {
         "actionReport" => {
