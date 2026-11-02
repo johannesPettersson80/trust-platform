@@ -4,7 +4,6 @@
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::collections::VecDeque;
-use std::net::TcpListener;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -208,26 +207,19 @@ fn control_state(
     })
 }
 
-fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("local addr").port();
-    drop(listener);
-    port
-}
-
 fn start_test_server(state: Arc<ControlState>, auth: WebAuthMode) -> String {
-    let port = reserve_loopback_port();
-    let listen = format!("127.0.0.1:{port}");
+    // Port 0: the server binds a free port itself and names it in `listen`, so no other test
+    // can take the port between choosing and binding it (checklist W21).
     let config = WebConfig {
         enabled: true,
-        listen: SmolStr::new(listen.clone()),
+        listen: SmolStr::new("127.0.0.1:0"),
         auth,
         tls: false,
         hmi: Default::default(),
     };
-    let _server =
+    let server =
         start_web_server(&config, state, None, None, None, None).expect("start web server");
-    let base = format!("http://{listen}");
+    let base = format!("http://{}", server.listen);
     for _ in 0..80 {
         if ureq::get(&format!("{base}/")).call().is_ok() {
             return base;
