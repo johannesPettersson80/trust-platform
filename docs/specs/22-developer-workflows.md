@@ -387,17 +387,24 @@ and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
 
-Each native test job also checks `trust-runtime` with all its targets and
-warnings denied (`RUSTFLAGS=-Dwarnings`). The changed compiler flags rebuild
-the crate and its dependencies outside the job's warm cache, so this step has
-its own time limit of one hour, which `CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS` may
-change. On a macOS runner without a warm cache it took longer than the earlier
-20 minutes (`main`, 28 October 2026). The limit stops a hung check; it is not a
-build-time budget, and a check that exceeds it fails the job.
+Each native test job builds every crate with all its targets and warnings
+denied (`RUSTFLAGS=-Dwarnings` for the whole job), in the one build its tests
+use, so a warning on any of the three systems fails the job. Until 2 November
+2026 a separate step checked only `trust-runtime` that way, and its changed
+compiler flags compiled the crate and its dependencies a second time (4 to 13
+minutes per system on #186's run).
 
 The full test suite has two hours on macOS and Windows and one hour on Linux, which
-`CI_FULL_TEST_TIMEOUT_SECONDS` may change: Windows runs one test at a time, and a macOS
-runner took longer than an hour (28 October 2026). An attempt that exceeds its limit fails.
+`CI_FULL_TEST_TIMEOUT_SECONDS` may change: their runners are slower than Linux ones, and a
+macOS runner took longer than an hour (28 October 2026). An attempt that exceeds its limit
+fails. All three systems run their tests in parallel. Windows ran one test at a time from
+February 2026 until 2 November 2026, with no recorded reason, which made its suite the
+slowest step of CI (55 minutes on #186's run).
+
+Conformance captures the syntax corpus scan benchmark (`runtime_vm_bench_gate.sh`, quick
+profile) on a push to `main` only. It is evidence, not a check: the script fails only on a
+wrong profile, and the Test jobs build the benchmark. On #186's run it took 17 of
+Conformance's 35 minutes.
 
 Every job that builds Structured Text programs provisions the toolchain of
 specification 44 §4.6 itself and names it in `TRUST_TOOLCHAIN`, the release's
