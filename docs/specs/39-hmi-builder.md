@@ -2101,7 +2101,12 @@ the binding list and the page permissions. Its version is the hash of its conten
    the runtime's administrator access (its control token). Problems stop it and are listed. The
    simulator has no web server, so Deploy says to use Live mode or start a runtime. Deploy saves
    the project's unsaved HMI files first, since the bundle is built from the saved files. After a
-   deployment the editor offers Roll back (`POST /api/hmi/rollback`).
+   deployment the editor offers Roll back (`POST /api/hmi/rollback`). The language server carries
+   out both (`trust-lsp.hmiDeploy`, 1 November 2026): it builds and checks the bundle for Deploy,
+   asks the runtime for its topology, sends the request and reads the runtime's answer. It follows
+   no redirect, so the token reaches only the runtime's web server, as in Live mode (§11). The
+   editor saves the files, passes the selected run target with its control token, and shows the
+   outcome.
 
 ### 16.3 Program changes
 
