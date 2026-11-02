@@ -83,33 +83,31 @@ suite("StateChart editor lifecycle", function () {
   test("draws the graph the language server reads from the file", async () => {
     const document = {
       uri: vscode.Uri.parse("untitled:/statechart-lifecycle.statechart.json"),
-      getText: () => '{"id":"lifecycle","initial":"Idle","states":{"Idle":{"on":{"GO":"Run"}},"Run":{"type":"final"}}}',
+      getText: () =>
+        '{"id":"lifecycle","initial":"Idle","states":{"Idle":{"on":{"GO":"Run"}},"Run":{"type":"final"}}}',
       lineCount: 1,
     } as unknown as vscode.TextDocument;
     const panel = new FakeWebviewPanel();
     await openProvider().resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
 
     await waitFor(
       () => panel.webview.posted.some((message) => message.type === "update" && message.graph),
-      "the graph",
+      "the graph"
     );
     const update = panel.webview.posted.find((message) => message.graph) as {
-      graph: {
-        states: Array<{ id: string; type: string }>;
-        transitions: Array<{ source: string; target: string; event: string }>;
-      };
+      graph: { states: Array<{ id: string; type: string }>; transitions: Array<{ source: string; target: string; event: string }> };
     };
     assert.deepStrictEqual(
       update.graph.states.map((state) => `${state.id} ${state.type}`),
-      ["state_Idle initial", "state_Run final"],
+      ["state_Idle initial", "state_Run final"]
     );
     assert.deepStrictEqual(
       update.graph.transitions.map((edge) => `${edge.source} -${edge.event}-> ${edge.target}`),
-      ["state_Idle -GO-> state_Run"],
+      ["state_Idle -GO-> state_Run"]
     );
     panel.fireDidDispose();
   });
@@ -124,7 +122,7 @@ suite("StateChart editor lifecycle", function () {
       await openProvider().resolveCustomTextEditor(
         document,
         panel as unknown as vscode.WebviewPanel,
-        {} as vscode.CancellationToken,
+        {} as vscode.CancellationToken
       );
       panel.webview.send({
         type: "save",
@@ -178,15 +176,18 @@ suite("StateChart editor lifecycle", function () {
     await openProvider().resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const answerTo = async (requestId: number): Promise<Record<string, unknown>> => {
       await waitFor(
-        () => panel.webview.posted.some((message) => message.type === "valueResult" && message.requestId === requestId),
-        `the answer to request ${requestId}`,
+        () =>
+          panel.webview.posted.some(
+            (message) => message.type === "valueResult" && message.requestId === requestId
+          ),
+        `the answer to request ${requestId}`
       );
       return panel.webview.posted.find(
-        (message) => message.type === "valueResult" && message.requestId === requestId,
+        (message) => message.type === "valueResult" && message.requestId === requestId
       ) as Record<string, unknown>;
     };
 
@@ -221,7 +222,7 @@ suite("StateChart editor lifecycle", function () {
     await openProvider().resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const graph = {
       states: [{ id: "state_State1", label: "State1", type: "initial" }],
@@ -230,11 +231,14 @@ suite("StateChart editor lifecycle", function () {
     };
     const answerTo = async (requestId: number): Promise<Record<string, unknown>> => {
       await waitFor(
-        () => panel.webview.posted.some((message) => message.type === "stateAdded" && message.requestId === requestId),
-        `the answer to request ${requestId}`,
+        () =>
+          panel.webview.posted.some(
+            (message) => message.type === "stateAdded" && message.requestId === requestId
+          ),
+        `the answer to request ${requestId}`
       );
       return panel.webview.posted.find(
-        (message) => message.type === "stateAdded" && message.requestId === requestId,
+        (message) => message.type === "stateAdded" && message.requestId === requestId
       ) as Record<string, unknown>;
     };
 
@@ -265,7 +269,7 @@ suite("StateChart editor lifecycle", function () {
     await openProvider().resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     assert.strictEqual(panel.webview.messageListeners.length, 1);
     panel.fireDidDispose();

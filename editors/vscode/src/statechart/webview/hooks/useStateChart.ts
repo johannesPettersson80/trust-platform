@@ -46,7 +46,7 @@ function stateGridColumns(count: number): number {
 
 function transitionHandles(
   sourcePosition: { x: number; y: number },
-  targetPosition: { x: number; y: number },
+  targetPosition: { x: number; y: number }
 ): Pick<StateChartEdge, "sourceHandle" | "targetHandle"> {
   const sameRow = Math.abs(sourcePosition.y - targetPosition.y) < STATE_GRID_Y / 2;
   if (sameRow && targetPosition.x > sourcePosition.x) {
@@ -68,36 +68,52 @@ export const useStateChart = (requestAddState: RequestAddState) => {
 
   // Handle node changes (position, selection, etc.)
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds) as StateChartNode[]),
-    [],
+    (changes: NodeChange[]) =>
+      setNodes((nds) => applyNodeChanges(changes, nds) as StateChartNode[]),
+    []
   );
 
   // Handle edge changes
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as StateChartEdge[]),
-    [],
+    (changes: EdgeChange[]) =>
+      setEdges((eds) => applyEdgeChanges(changes, eds) as StateChartEdge[]),
+    []
   );
 
   // Handle new connections
   const onConnect = useCallback(
     (connection: Connection) =>
-      setEdges((eds) => addEdge({ ...connection, type: STATE_TRANSITION_EDGE, data: {} }, eds) as StateChartEdge[]),
-    [],
+      setEdges(
+        (eds) =>
+          addEdge({ ...connection, type: STATE_TRANSITION_EDGE, data: {} }, eds) as StateChartEdge[]
+      ),
+    []
   );
 
   /**
    * Update data for a specific node
    */
   const updateNodeData = useCallback((nodeId: string, data: Partial<StateNodeData>) => {
-    setNodes((nds) => nds.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node)));
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
+      )
+    );
   }, []);
 
   /**
    * Update data for a specific edge
    */
-  const updateEdgeData = useCallback((edgeId: string, data: StateChartEdge["data"]) => {
-    setEdges((eds) => eds.map((edge) => (edge.id === edgeId ? { ...edge, data: { ...edge.data, ...data } } : edge)));
-  }, []);
+  const updateEdgeData = useCallback(
+    (edgeId: string, data: StateChartEdge["data"]) => {
+      setEdges((eds) =>
+        eds.map((edge) =>
+          edge.id === edgeId ? { ...edge, data: { ...edge.data, ...data } } : edge
+        )
+      );
+    },
+    []
+  );
 
   /**
    * Delete selected nodes and edges
@@ -117,7 +133,7 @@ export const useStateChart = (requestAddState: RequestAddState) => {
       nds.map((node, index) => ({
         ...node,
         position: stateGridPosition(index, COLS),
-      })),
+      }))
     );
   }, [nodes.length]);
 
@@ -145,7 +161,7 @@ export const useStateChart = (requestAddState: RequestAddState) => {
       })),
       actionMappings,
     }),
-    [nodes, edges, actionMappings],
+    [nodes, edges, actionMappings]
   );
 
   /**
@@ -172,7 +188,7 @@ export const useStateChart = (requestAddState: RequestAddState) => {
       });
       return state.id;
     },
-    [exportGraph, requestAddState],
+    [exportGraph, requestAddState]
   );
 
   /**
@@ -205,7 +221,7 @@ export const useStateChart = (requestAddState: RequestAddState) => {
       type: STATE_TRANSITION_EDGE,
       ...transitionHandles(
         positions.get(transition.source) || { x: 0, y: 0 },
-        positions.get(transition.target) || { x: 0, y: 0 },
+        positions.get(transition.target) || { x: 0, y: 0 }
       ),
       label: transition.event,
       data: {
@@ -227,11 +243,12 @@ export const useStateChart = (requestAddState: RequestAddState) => {
   const updateActionMappings = useCallback(
     (
       mappings:
-        Record<string, ActionMapping> | ((current: Record<string, ActionMapping>) => Record<string, ActionMapping>),
+        | Record<string, ActionMapping>
+        | ((current: Record<string, ActionMapping>) => Record<string, ActionMapping>)
     ) => {
       setActionMappings(mappings);
     },
-    [],
+    []
   );
 
   return {
