@@ -1862,7 +1862,16 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   and the managed logs (`managed`, `managedOutcome`, `managedLogs`).
 - The status bar names a runtime connected while a debug session is attached
   to it, or while the extension is online with a runtime that answers, such as
-  one started outside the extension.
+  one started outside the extension. The language server gives the name
+  (`selection`'s `connectedLabel`): the project's own runtime by that name;
+  else the name the extension gave the runtime, which is the debug session's
+  target name or, for a runtime that answered Connect but keeps debugging
+  disabled, the name Connect was given; else `runtime` for a local control
+  socket, else the endpoint without its scheme. The runtime's entry in the
+  side panel's list has the same name, and HMI Live names its run target the
+  same way (specification 39 §11 item 6). `connectedDebuggingDisabled` says
+  that the runtime keeps debugging disabled, so that the bar reads
+  `<runtime> · debugging disabled` (§4.4).
 
 ## 7. Libraries
 

@@ -742,12 +742,18 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     assert.ok(connected.ok, "the runtime answers Connect");
     // As the node's Connect does after a successful Connect.
     await setSelectedRuntimeId(fake.endpoint);
-    // The fake keeps debugging disabled, so Connect holds no session: the runtime answers online and is named by its
-    // endpoint (specification 39, section 11 item 6).
+    // The fake keeps debugging disabled, so Connect holds no session: the runtime answers online. It is the project's
+    // own, so HMI Live names it as the status bar and the side panel do (specification 25, section 6.9; specification
+    // 39, section 11 item 6). Catches HMI Live naming it "tcp://..." (G26).
     assert.deepStrictEqual(
       await resolveHmiRunTarget(await runtimeLifecycleService.snapshot()),
-      { endpoint: fake.endpoint, label: fake.endpoint, simulator: false },
-      "after Connect HMI Live operates the runtime",
+      { endpoint: fake.endpoint, label: PROJECT_LABEL, simulator: false },
+      "after Connect HMI Live operates the runtime under the status bar's name",
+    );
+    assert.strictEqual(
+      (await statusText(STATUS_CONTEXT, await runtimeLifecycleService.snapshot())).text,
+      `$(plug) truST: ${PROJECT_LABEL} · debugging disabled`,
+      "the status bar gives the runtime the same name",
     );
 
     await sidebar.select(SIMULATOR_RUNTIME_ID);

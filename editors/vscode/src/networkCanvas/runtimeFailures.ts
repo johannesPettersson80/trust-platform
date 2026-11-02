@@ -18,6 +18,8 @@ export type NetworkCanvasRuntimeFailure = {
   readonly endpoint?: string;
   // What the sidebar offers after a failed Connect, as the language server names it (§5.1).
   readonly remedy?: "openDevices" | "setAuthToken";
+  // The name Connect was given to a runtime that keeps debugging disabled, which names it without a session (§6.9).
+  readonly label?: string;
 };
 
 /** The kind of the failure `error` names, with the message the extension shows: the language server reads the failure's

@@ -20,7 +20,7 @@ export async function resolveHmiRunTarget(
 ): Promise<RunTarget | undefined> {
   const answer = await projectRequest<{ target: RunTarget | null }>(
     "trust-lsp.runTargets",
-    { action: "hmiTarget", snapshot: toModelSnapshot(snapshot), targetLabel: snapshot.status.targetLabel },
+    { action: "hmiTarget", snapshot: toModelSnapshot(snapshot) },
     options,
   );
   if (!answer.ok) throw new Error(answer.error);
