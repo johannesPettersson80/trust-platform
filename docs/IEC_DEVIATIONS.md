@@ -982,35 +982,3 @@ re-check them against this rule when touched.
   ambiguity stays unresolved, and the bare-name strictness documented
   for the size view carries over; the unqualified-member ambiguity rule
   of `resolve_enum_value_by_name` is unchanged.
-
-## 2026-10-30 - TIME/TOD literal interchange at expected-type coercion
-
-- ID: DEV-043
-- Area: typed-literal lowering where the expected type comes from the
-  context (binary operands, formal-call arguments): a `TIME` literal in
-  a `TOD`-typed position and the reverse (long forms included).
-- Normative IEC requirement: IEC 61131-3 Ed.3 keeps `TIME` and
-  `TIME_OF_DAY` as distinct types (`§6.4.2`); no implicit conversion
-  between them is listed, although `TOD + TIME` duration arithmetic is
-  the standard clock-adjustment idiom. The standard text was unavailable
-  on the authoring machine; the clause mirrors the citation style
-  already used in `docs/specs/05-expressions.md`.
-- truST behavior and conflict: the type-checker accepts the mixed
-  pairs (the downstream tree's clock-adjust function
-  `fUtcTodToLocalTod(UTC_TOD := ..., OFFSET := T#1h)` and its
-  `UTC_TOD + OFFSET + T#1H` body are written exactly this way), but
-  literal lowering eagerly coerced the literal into the expected tag and
-  rejected `TIME`-in-`TOD` positions with a positionless "expected TOD
-  initializer". The lowering now leaves the literal tag intact in those
-  positions: the runtime arithmetic promotes the mixed pair natively
-  (`TOD + TIME` and `TIME + TOD` yield `TOD`), so no runtime change is
-  involved.
-- Impact: the vendor clock-adjust idiom lowers and executes —
-  `Adjust(base := TOD#12:00:00, offset := T#30M)` with the body
-  `base + offset + T#1H` returns `TOD#13:30:00`.
-- Mitigation: the interchange is tag-preserving, not converting — the
-  literal keeps its `TIME` tag and the mixed-pair arithmetic arms do the
-  promotion, so initializer contexts (which the type-checker still
-  rejects with its typed-literal diagnostic, e.g. the downstream
-  C0032-style `T#` in a `TOD` slot rule) are unaffected, and no storage
-  tag changes.

@@ -9,4 +9,4 @@
   - a qualified enumeration member in a global initializer (`Namespace.EnumType.Member`, `EnumType.Member`) and,
     under the CODESYS profile, a constant named through a library container its stub flattened
     (`LogParameter.MAX_LOG_MSG_LEN` in a string capacity) (DEV-042);
-  - a `TIME` value added to a `TIME_OF_DAY` (`base + T#1H`), which IEC 61131-3 Table 35 defines (DEV-043).
+  - a `TIME` value added to a `TIME_OF_DAY` (`base + T#1H`), which IEC 61131-3 Table 35 defines (item 2b).
