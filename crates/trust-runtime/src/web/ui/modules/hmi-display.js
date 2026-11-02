@@ -269,6 +269,9 @@
   function translate(text2) {
     return spoken(current.texts[text2] ?? text2);
   }
+  function tabled(text2) {
+    return current.texts[text2] ?? text2;
+  }
   function spoken(text2) {
     return heard(current.longest ? lengthen(text2) : text2);
   }
@@ -323,7 +326,7 @@
       }
       if (!Array.isArray(message.events ?? [])) return;
       for (const record of message.events ?? []) {
-        if (!this.records.some((known2) => known2.seq === record.seq)) this.records.push(record);
+        if (!this.records.some((known) => known.seq === record.seq)) this.records.push(record);
       }
       this.records.sort((a, b) => a.seq - b.seq);
       if (this.records.length > MAX_RECORDS) this.records.splice(0, this.records.length - MAX_RECORDS);
@@ -850,10 +853,10 @@
     seed(path, samples) {
       const spanMs = this.trendSpansMs[path];
       if (spanMs === void 0) return;
-      const known2 = this.history.get(path) ?? [];
-      const first = known2[0]?.[0] ?? Number.POSITIVE_INFINITY;
+      const known = this.history.get(path) ?? [];
+      const first = known[0]?.[0] ?? Number.POSITIVE_INFINITY;
       const older = samples.filter(([time, value]) => Number.isFinite(time) && Number.isFinite(value) && time < first);
-      const merged = [...older, ...known2];
+      const merged = [...older, ...known];
       const newest = merged[merged.length - 1]?.[0] ?? 0;
       while (merged.length > 1 && (merged[1][0] < newest - spanMs || merged.length > MAX_SAMPLES)) merged.shift();
       this.history.set(path, merged);
@@ -1199,20 +1202,20 @@
       }
       for (const part of turning) {
         const place = placeOf(part);
-        const known2 = this.lifted.get(part);
-        if (known2 && known2.place === place) {
-          if (known2.drawing !== part.innerHTML) {
-            copyDrawing(known2.element, part);
-            known2.drawing = part.innerHTML;
+        const known = this.lifted.get(part);
+        if (known && known.place === place) {
+          if (known.drawing !== part.innerHTML) {
+            copyDrawing(known.element, part);
+            known.drawing = part.innerHTML;
           }
           continue;
         }
         const placement = this.measure(part);
         if (!placement) {
-          if (known2) this.giveBack(part, known2);
+          if (known) this.giveBack(part, known);
           continue;
         }
-        const element2 = known2?.element ?? this.created(part);
+        const element2 = known?.element ?? this.created(part);
         copyDrawing(element2, part);
         position(element2, part, placement);
         this.lifted.set(part, { element: element2, drawing: part.innerHTML, place });
@@ -1346,7 +1349,7 @@
     const said = reason.trim();
     if (outcome !== "refused") return said;
     if (said === "" || said.toLowerCase() === NOT_ACCEPTED) return say("Not accepted");
-    return say("Not accepted: {reason}", { reason: said });
+    return say("Not accepted: {reason}", { reason: tabled(said) });
   }
 
   // src/hmiBuilder/drawing/components/controls.ts
@@ -1380,24 +1383,18 @@
   }
 
   // src/hmiBuilder/display/gestures.ts
-  var NOT_KNOWN = () => say("The value of this control is not known, so it sends nothing.");
-  function known(object, property, context) {
+  function shownValue(object, property, context) {
     const live = context.live(object, property);
-    if (!live || live.state === "unknown" || live.staleMs !== void 0 || live.value === null) {
-      context.notice(NOT_KNOWN());
-      return void 0;
-    }
-    return live;
+    if (!live || live.state === "unknown" || live.staleMs !== void 0) return null;
+    return live.value;
   }
   function toggleSwitch(object, context) {
-    const live = known(object, "value", context);
-    if (live) context.write(object, live.value !== true);
+    context.toggle(object, shownValue(object, "value", context));
   }
   function openSelector(object, context) {
-    const live = known(object, "value", context);
-    if (!live) return;
+    const shown = shownValue(object, "value", context);
     const options = object.options ?? [];
-    const current2 = typeof live.value === "number" ? options[live.value] : String(live.value);
+    const current2 = typeof shown === "number" ? options[shown] : shown === null ? void 0 : String(shown);
     const dialog = context.dialog("choices");
     const document2 = dialog.ownerDocument;
     const heading = document2.createElement("h2");
@@ -1413,7 +1410,7 @@
       choice.setAttribute("aria-pressed", String(chosen));
       choice.addEventListener("click", () => {
         context.closeDialog();
-        if (!chosen) context.write(object, option);
+        if (!chosen) context.write(object, option, shown);
       });
       list.append(choice);
     }
@@ -1429,19 +1426,21 @@
   }
   function chooseMode(object, mode, context) {
     if (mode === void 0) return;
-    const live = known(object, "mode", context);
-    if (live && String(live.value).toLowerCase() !== mode.toLowerCase()) context.write(object, mode);
+    const shown = shownValue(object, "mode", context);
+    if (shown !== null && String(shown).toLowerCase() === mode.toLowerCase()) return;
+    context.write(object, mode, shown);
   }
   var SliderDrag = class _SliderDrag {
-    constructor(object, context, at) {
+    constructor(object, context, at, shown) {
       this.object = object;
       this.context = context;
+      this.shown = shown;
       this.value = sliderValueAt(object, at.x, at.y);
       context.draft(object, this.value);
     }
-    /** A drag that starts at a point of the page, or none while the value is not known. */
+    /** A drag that starts at a point of the page. */
     static start(object, at, context) {
-      return known(object, "value", context) ? new _SliderDrag(object, context, at) : void 0;
+      return new _SliderDrag(object, context, at, shownValue(object, "value", context));
     }
     move(at) {
       this.value = sliderValueAt(this.object, at.x, at.y);
@@ -1449,7 +1448,7 @@
     }
     end(at) {
       this.move(at);
-      this.context.write(this.object, this.value);
+      this.context.write(this.object, this.value, this.shown);
     }
   };
 
@@ -1617,12 +1616,12 @@
           const value = this.liveAt(binding?.path ?? "");
           return binding?.quality ? withQuality(value, this.liveAt(binding.quality)) : value;
         },
-        write: (object, value) => this.asked(
+        write: (object, value, shown) => this.asked(
           object,
-          () => void this.send(object, "write", value),
+          () => void this.send(object, "write", value, shown),
           () => this.dropDraft(object.id)
         ),
-        notice: (text2) => this.overlay.notice(text2),
+        toggle: (object, shown) => this.asked(object, () => void this.send(object, "toggle", void 0, shown)),
         dialog: (part) => this.overlay.dialog("div", part),
         closeDialog: () => this.overlay.closeDialog(),
         draft: (object, value) => {
@@ -1757,7 +1756,7 @@
       actions.append(cancel, yes);
       dialog.append(actions);
     }
-    async send(object, action, value) {
+    async send(object, action, value, shown) {
       const id = commandId();
       this.sentFrom.add(id, object.id);
       this.setOutcome(object.id, { outcome: "pending" });
@@ -1770,6 +1769,7 @@
         action: object.command ? "invoke" : action
       };
       if (value !== void 0) body.value = value;
+      if (shown !== void 0) body.shown = shown;
       let answer;
       try {
         answer = await this.host.postJson("/api/hmi/command", body);
