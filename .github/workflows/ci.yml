@@ -174,6 +174,20 @@ jobs:
           "${RUNNER_TEMP}/actionlint" -color
       - name: Guard the release text from the changelog
         run: python3 -m unittest scripts.tests.test_extract_changelog_section -v
+      - name: Guard the changelog fragments
+        # A user-visible change adds a fragment under changelog.d/; `## [Unreleased]` stays empty, and a released
+        # section stays as released, compared with the pull request's base or main's previous commit (specification 22).
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          python3 -m unittest scripts.tests.test_changelog_fragments -v
+          if [[ -n "${BASE_SHA}" && "${BASE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
+            git fetch --no-tags --depth=1 origin "${BASE_SHA}"
+            git show "${BASE_SHA}:CHANGELOG.md" > "${RUNNER_TEMP}/base-changelog.md"
+            python3 scripts/changelog_fragments.py check --base-changelog "${RUNNER_TEMP}/base-changelog.md"
+          else
+            python3 scripts/changelog_fragments.py check
+          fi
       - name: Guard the release workflow
         run: python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan -v
       - name: Guard the docs' command and setting names
