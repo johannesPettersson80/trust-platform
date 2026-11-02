@@ -218,141 +218,56 @@ suite("Plant service projection", () => {
     ]);
   });
 
-  test("asks the status with the read's project identity, then Rust's projection with that status", async () => {
+  // Specification 47 §20.6: Rust's projection names the project, the status is asked with that
+  // project identity, and Rust projects the plants again with the status as it came. Catches the
+  // extension reading the saved plants itself, or deciding on the status before Rust does.
+  test("asks Rust's projection, the status with its project identity, then the projection with that status", async () => {
     const calls: string[] = [];
-    const read = {
-      contract: "trust.plant",
-      schema_version: 1,
-      operation: "plant.read",
-      project_id: "project:sha256:ordered",
-      configuration_revision: "sha256:saved",
-      saved_configuration: {},
-      restart_required: false,
-      plants: [],
-    } as PlantContractMessage;
-    const status = {
-      contract: "trust.plant",
-      schema_version: 1,
-      operation: "plant.status",
-      project_id: read.project_id,
-      available: true,
-      active_configuration_revision: "sha256:saved",
-      simulation_time_ns: "0",
-      effective_seed: "1",
-      random_algorithm: "chacha8",
-      random_algorithm_version: 1,
-      runtime_version: "0.24.64",
-      time_scale: 1,
-      restart_policy: "manual",
-      plants: [],
-    } as PlantContractMessage;
-
-    let projected: PlantContractMessage | null | undefined;
-    await loadPlantTopology({
-      async read() {
-        calls.push("read");
-        return read;
+    const status = { contract: "trust.plant", operation: "plant.status", available: false, reason_code: "x" };
+    let projected: unknown;
+    const plants = await loadPlantTopology({
+      async topology(given) {
+        calls.push(given === null ? "topology" : "topology:status");
+        projected = given;
+        return topologyAnswer("project:sha256:ordered", [{ id: given === null ? "first" : "second" }]);
       },
       async status(projectId) {
         calls.push(`status:${projectId}`);
         return status;
       },
-      async topology(projectId, given) {
-        calls.push(`topology:${projectId}`);
-        projected = given;
-        return topologyAnswer(projectId, []);
+    });
+
+    assert.deepStrictEqual(calls, ["topology", "status:project:sha256:ordered", "topology:status"]);
+    assert.strictEqual(projected, status, "the status reaches Rust as it came, not decoded first");
+    assert.deepStrictEqual(plants, [{ id: "second" }], "the canvas shows Rust's projection with the status");
+  });
+
+  // Catches a failed status hiding the saved plants, and a second projection asked for nothing.
+  test("shows Rust's first projection when the runtime gives no status", async () => {
+    const calls: string[] = [];
+    const plants = await loadPlantTopology({
+      async topology(given) {
+        calls.push(given === null ? "topology" : "topology:status");
+        return topologyAnswer("project:sha256:offline", [{ id: "tank", states: ["Status unavailable"] }]);
+      },
+      async status() {
+        calls.push("status");
+        throw new Error("runtime stopped");
       },
     });
 
-    assert.deepStrictEqual(calls, [
-      "read",
-      "status:project:sha256:ordered",
-      "topology:project:sha256:ordered",
-    ]);
-    assert.strictEqual(projected, status, "Rust projects the runtime's own status answer");
+    assert.deepStrictEqual(calls, ["topology", "status"]);
+    assert.deepStrictEqual(plants, [{ id: "tank", states: ["Status unavailable"] }]);
   });
 
-  test("hands Rust no status when the runtime gives none, and shows Rust's plants", async () => {
-    const read = {
-      contract: "trust.plant",
-      schema_version: 1,
-      operation: "plant.read",
-      project_id: "project:sha256:offline",
-      configuration_revision: "sha256:saved",
-      saved_configuration: {},
-      restart_required: false,
-      plants: [
-        {
-          id: "tank",
-          display_name: "Tank",
-          description: null,
-          model: "first_order",
-          enabled: true,
-          command_sources: ["%QW0"],
-          feedback_targets: ["%IW0"],
-          saved_order: 0,
-        },
-      ],
-    } as PlantContractMessage;
-    const rustPlants = [{ id: "tank", statusAvailability: "unavailable", states: ["Status unavailable"] }];
-    let rejected: unknown;
-    let plants;
-    let projected: PlantContractMessage | null | undefined;
-    try {
-      plants = await loadPlantTopology({
-        async read() {
-          return read;
-        },
-        async status() {
-          throw new Error("runtime stopped");
-        },
-        async topology(projectId, given) {
-          projected = given;
-          return topologyAnswer(projectId, rustPlants);
-        },
-      });
-    } catch (error) {
-      rejected = error;
-    }
-
-    assert.strictEqual(rejected, undefined, "status failure must not remove saved topology");
-    assert.strictEqual(projected, null, "a failed status reaches Rust as none");
-    assert.deepStrictEqual(plants, rustPlants, "the canvas shows the plants Rust projects");
-  });
-
-  test("adapts stopped reads and live status behind one typed service", async () => {
+  test("adapts stopped projections and live status behind one typed service", async () => {
     const requests: Array<{ source: string; operation: string; params: unknown }> = [];
-    const read = {
-      contract: "trust.plant",
-      schema_version: 1,
-      operation: "plant.read",
-      project_id: "project:sha256:service",
-      configuration_revision: "sha256:saved",
-      saved_configuration: {},
-      restart_required: false,
-      plants: [],
-    } as PlantContractMessage;
-    const status = {
-      contract: "trust.plant",
-      schema_version: 1,
-      operation: "plant.status",
-      project_id: read.project_id,
-      available: true,
-      active_configuration_revision: "sha256:saved",
-      simulation_time_ns: "0",
-      effective_seed: "1",
-      random_algorithm: "chacha8",
-      random_algorithm_version: 1,
-      runtime_version: "0.24.64",
-      time_scale: 1,
-      restart_policy: "manual",
-      plants: [],
-    };
+    const status = { contract: "trust.plant", schema_version: 1, operation: "plant.status", available: true };
     const service = new ProjectPlantTopologyService(
       {
         async request(operation, params) {
           requests.push({ source: "stopped", operation, params });
-          return operation === "plant.topology" ? topologyAnswer(read.project_id, []) : read;
+          return topologyAnswer("project:sha256:service", []);
         },
       },
       async (operation, params) => {
@@ -366,27 +281,18 @@ suite("Plant service projection", () => {
     assert.deepStrictEqual(requests, [
       {
         source: "stopped",
-        operation: "plant.read",
-        params: { contract: "trust.plant", schema_version: 1 },
+        operation: "plant.topology",
+        params: { contract: "trust.plant", schema_version: 1, status: null },
       },
       {
         source: "live",
         operation: "plant.status",
-        params: {
-          contract: "trust.plant",
-          schema_version: 1,
-          project_id: "project:sha256:service",
-        },
+        params: { contract: "trust.plant", schema_version: 1, project_id: "project:sha256:service" },
       },
       {
         source: "stopped",
         operation: "plant.topology",
-        params: {
-          contract: "trust.plant",
-          schema_version: 1,
-          project_id: "project:sha256:service",
-          status,
-        },
+        params: { contract: "trust.plant", schema_version: 1, status },
       },
     ]);
   });
@@ -525,9 +431,9 @@ suite("Plant service projection", () => {
     } as PlantContractMessage;
 
     await populatePlantTopology(graph as never, "runtime:local", {
-      async read() { return read; },
       async status() { throw new Error("stopped"); },
-      async topology(projectId) {
+      async topology() {
+        const projectId = read.project_id;
         return topologyAnswer(projectId, [{
           id: "tank",
           projectId,

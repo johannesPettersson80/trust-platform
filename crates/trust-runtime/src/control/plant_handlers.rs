@@ -215,6 +215,40 @@ pub(super) fn handle_plant_read(
     }
 }
 
+/// The common checks of a plant request: the contract and schema, a project root, and, when the
+/// request names one, the producer's project ID; the project ID on success.
+pub(super) fn admit(
+    id: u64,
+    contract: &str,
+    schema_version: u64,
+    project_id: Option<&str>,
+    context: &PlantHandlerContext<'_>,
+) -> Result<String, ControlResponse> {
+    if contract != CONTRACT || schema_version != SCHEMA_VERSION {
+        return Err(ControlResponse::error_with_code(
+            id,
+            "unsupported plant contract schema".to_string(),
+            "unsupported_schema",
+        ));
+    }
+    let Some(project_root) = context.project_root else {
+        return Err(ControlResponse::error_with_code(
+            id,
+            "plant project root is unavailable".to_string(),
+            "io_failure",
+        ));
+    };
+    let expected = project_identity(project_root);
+    if project_id.is_some_and(|project_id| project_id != expected) {
+        return Err(ControlResponse::error_with_code(
+            id,
+            "plant request belongs to a different project".to_string(),
+            "malformed_request",
+        ));
+    }
+    Ok(expected)
+}
+
 /// The `plant.read` answer for the project at `project_root`: the saved configuration, its
 /// revision and the saved plants (specification 47 §20.2). `plant.topology` projects the same
 /// answer.

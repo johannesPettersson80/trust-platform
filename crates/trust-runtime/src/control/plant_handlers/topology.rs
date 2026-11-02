@@ -1,13 +1,17 @@
 //! `plant.topology`: the simulated plants the Devices & Connections canvas shows (specification 47
 //! §20.6). The saved plants of `plant.read` are joined with the owning runtime's `plant.status`
-//! answer. A plant's live status, operating state and live sample come only from a current status
-//! of the same project that names the same plant. Its configuration is the saved table as the plant
-//! editor opens it, and its states are every true state of Section 5.2, primary first.
+//! answer: the stopped-project session takes the answer the extension got, as it came; the runtime
+//! itself takes its own. Live values come only from a current status of the same project, and a
+//! plant's operating state and live sample only from its own entry there. Its configuration is the
+//! saved table as the plant editor opens it, and its states are those of Section 5.2 that hold,
+//! primary first.
 
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
-use super::{project_identity, saved_plants, PlantHandlerContext, CONTRACT, SCHEMA_VERSION};
+use super::{
+    admit, handle_plant_status, saved_plants, PlantHandlerContext, CONTRACT, SCHEMA_VERSION,
+};
 use crate::control::ControlResponse;
 
 #[cfg(test)]
@@ -18,9 +22,12 @@ mod tests;
 struct PlantTopologyParams {
     contract: String,
     schema_version: u64,
-    project_id: String,
-    /// The owning runtime's `plant.status` answer; absent or null when the runtime could not be
-    /// asked or gave no answer. Any other value is a status that is not current.
+    /// Optional, as for `plant.read`: the request may establish the producer's project ID.
+    #[serde(default)]
+    project_id: Option<String>,
+    /// The owning runtime's `plant.status` answer as the extension got it; absent or null when no
+    /// runtime answered. Any other value is a status that is not current. The runtime itself takes
+    /// no status: it projects its own.
     #[serde(default)]
     status: Option<Value>,
 }
@@ -41,13 +48,16 @@ pub(super) fn handle_plant_topology(
             );
         }
     };
-    if params.contract != CONTRACT || params.schema_version != SCHEMA_VERSION {
-        return ControlResponse::error_with_code(
-            id,
-            "unsupported plant contract schema".to_string(),
-            "unsupported_schema",
-        );
-    }
+    let project_id = match admit(
+        id,
+        &params.contract,
+        params.schema_version,
+        params.project_id.as_deref(),
+        context,
+    ) {
+        Ok(project_id) => project_id,
+        Err(response) => return response,
+    };
     let Some(project_root) = context.project_root else {
         return ControlResponse::error_with_code(
             id,
@@ -55,14 +65,32 @@ pub(super) fn handle_plant_topology(
             "io_failure",
         );
     };
-    let project_id = project_identity(project_root);
-    if params.project_id != project_id {
-        return ControlResponse::error_with_code(
+    // The runtime control surface projects the runtime's own `plant.status` (§20.6).
+    let status = if context.resource.is_some() {
+        if params.status.is_some() {
+            return ControlResponse::error_with_code(
+                id,
+                "plant.topology on a runtime projects the runtime's own status".to_string(),
+                "malformed_request",
+            );
+        }
+        let own = handle_plant_status(
             id,
-            "plant request belongs to a different project".to_string(),
-            "malformed_request",
+            Some(json!({
+                "contract": CONTRACT,
+                "schema_version": SCHEMA_VERSION,
+                "project_id": project_id,
+            })),
+            context,
         );
-    }
+        if own.ok {
+            own.result
+        } else {
+            None
+        }
+    } else {
+        params.status
+    };
     let read = match saved_plants(id, project_root, &project_id) {
         Ok(read) => read,
         Err(response) => return response,
@@ -75,7 +103,7 @@ pub(super) fn handle_plant_topology(
             "operation": "plant.topology",
             "project_id": project_id,
             "configuration_revision": read["configuration_revision"],
-            "plants": project(&read, params.status.as_ref()),
+            "plants": project(&read, status.as_ref()),
         }),
     )
 }
@@ -108,7 +136,9 @@ fn project(read: &Value, status: Option<&Value>) -> Vec<Value> {
             projected.insert("enabled".into(), json!(plant.enabled));
             projected.insert("commandSources".into(), json!(plant.command_sources));
             projected.insert("feedbackTargets".into(), json!(plant.feedback_targets));
-            let available = live.is_some();
+            // A current status answers for every saved plant: one it does not name (disabled, or
+            // saved after the runtime started) is not running, not unknown.
+            let available = current.is_some();
             projected.insert(
                 "statusAvailability".into(),
                 json!(if available {
@@ -137,7 +167,7 @@ fn project(read: &Value, status: Option<&Value>) -> Vec<Value> {
             if let Some(state) = operating_state {
                 projected.insert("activeOperatingState".into(), json!(state));
             }
-            let sample = live.and_then(|live| {
+            let sample = live.filter(|live| advanced(live)).and_then(|live| {
                 Some((
                     number_list(live.get("command"))?,
                     number_list(live.get("published_feedback"))?,
@@ -166,6 +196,16 @@ fn project(read: &Value, status: Option<&Value>) -> Vec<Value> {
         .collect()
 }
 
+/// Whether a plant's simulation has advanced, so that its status entry holds a completed sample:
+/// its `simulation_time_ns`, a decimal string, is above zero. Before its first step a plant holds
+/// its starting values, which are not a sample (specification 47 §5.2, §5.3).
+fn advanced(live: &Map<String, Value>) -> bool {
+    live.get("simulation_time_ns")
+        .and_then(Value::as_str)
+        .and_then(|nanoseconds| nanoseconds.parse::<u128>().ok())
+        .is_some_and(|nanoseconds| nanoseconds > 0)
+}
+
 /// A status counts only when it is an available `plant.status` answer of this contract and this
 /// project; a missing, refused, malformed or wrong-project status marks every plant unavailable.
 fn is_current(status: &Value, project_id: &str) -> bool {
@@ -176,7 +216,9 @@ fn is_current(status: &Value, project_id: &str) -> bool {
         && status.get("available").and_then(Value::as_bool) == Some(true)
 }
 
-/// A saved plant's descriptor as the canvas needs it: one that lacks a field is not shown.
+/// A saved plant's descriptor as the canvas needs it: one that lacks a field, or names an empty
+/// ID, display name or model, is not shown (specification 47 §20.1: an empty identifier is
+/// invalid).
 struct SavedPlant<'a> {
     id: &'a str,
     display_name: &'a str,
@@ -189,9 +231,9 @@ struct SavedPlant<'a> {
 impl<'a> SavedPlant<'a> {
     fn read(descriptor: &'a Map<String, Value>) -> Option<Self> {
         Some(Self {
-            id: descriptor.get("id")?.as_str()?,
-            display_name: descriptor.get("display_name")?.as_str()?,
-            model: descriptor.get("model")?.as_str()?,
+            id: named_text(descriptor, "id")?,
+            display_name: named_text(descriptor, "display_name")?,
+            model: named_text(descriptor, "model")?,
             enabled: descriptor.get("enabled")?.as_bool()?,
             command_sources: text_list(descriptor.get("command_sources"))?,
             feedback_targets: text_list(descriptor.get("feedback_targets"))?,
@@ -366,6 +408,14 @@ fn scenario_events(saved_configuration: Option<&Value>, plant_id: &str) -> Vec<V
 
 fn text<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Value::as_str)
+}
+
+/// A non-empty text of a table.
+fn named_text<'a>(table: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
+    table
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
 }
 
 /// The tables of a list; entries that are not tables are skipped.

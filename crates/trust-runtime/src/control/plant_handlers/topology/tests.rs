@@ -73,8 +73,8 @@ fn a_current_status_joins_only_the_saved_plant_it_names() {
     let status = current_status(
         revision,
         json!([
-            { "id": "ghost", "operating_state": "running", "command": [9.0], "published_feedback": [9.0] },
-            { "id": "tank", "operating_state": "running", "command": [1.5], "published_feedback": [2.25] },
+            { "id": "ghost", "operating_state": "running", "simulation_time_ns": "2000000", "command": [9.0], "published_feedback": [9.0] },
+            { "id": "tank", "operating_state": "running", "simulation_time_ns": "2000000", "command": [1.5], "published_feedback": [2.25] },
         ]),
     );
 
@@ -107,9 +107,10 @@ fn a_current_status_joins_only_the_saved_plant_it_names() {
     );
     assert_eq!(tank["states"], json!(["Running"]));
 
+    // The current status answers for the pump too: not running, so neither unknown nor live.
     let pump = plant(&plants, "pump");
-    assert_eq!(pump["statusAvailability"], "unavailable");
-    assert_eq!(pump["states"], json!(["Status unavailable"]));
+    assert_eq!(pump["statusAvailability"], "available");
+    assert_eq!(pump["states"], json!(["Configured"]));
     for live in ["activeOperatingState", "hasCompletedSample", "liveSample"] {
         assert!(pump.get(live).is_none(), "pump has no {live}");
     }
@@ -133,11 +134,14 @@ fn a_status_that_is_not_current_marks_every_plant_unavailable() {
     other_operation["operation"] = json!("plant.trace.read");
     let mut other_schema = current.clone();
     other_schema["schema_version"] = json!(2);
+    let mut other_contract = current.clone();
+    other_contract["contract"] = json!("trust.other");
     let statuses = [
         ("another project", Some(other_project)),
         ("not available", Some(not_available)),
         ("another operation", Some(other_operation)),
         ("another schema", Some(other_schema)),
+        ("another contract", Some(other_contract)),
         ("not an answer", Some(json!("timeout"))),
         ("none", None),
     ];
@@ -156,6 +160,70 @@ fn a_status_that_is_not_current_marks_every_plant_unavailable() {
             assert!(tank.get(live).is_none(), "{case}: no {live}");
         }
     }
+}
+
+// Catches a plant's starting values shown as live values, and `Waiting for samples` never shown:
+// a plant whose simulation has not advanced holds no completed sample (specification 47 §5.2,
+// §5.3).
+#[test]
+fn a_plant_before_its_first_step_is_waiting_for_samples() {
+    let read = read_of("first-step", TANK_AND_PUMP);
+    let revision = read["configuration_revision"]
+        .as_str()
+        .expect("saved revision");
+    let at = |nanoseconds: &str| {
+        let status = current_status(
+            revision,
+            json!([
+                { "id": "tank", "operating_state": "running", "simulation_time_ns": nanoseconds, "command": [0.0], "published_feedback": [0.0] },
+            ]),
+        );
+        project(&read, Some(&status))
+    };
+
+    let before = at("0");
+    let tank = plant(&before, "tank");
+    assert_eq!(tank["states"], json!(["Waiting for samples"]));
+    assert_eq!(tank["activeOperatingState"], "running");
+    for live in ["hasCompletedSample", "liveSample"] {
+        assert!(tank.get(live).is_none(), "no {live} before the first step");
+    }
+
+    let after = at("1");
+    let tank = plant(&after, "tank");
+    assert_eq!(tank["states"], json!(["Running"]));
+    assert_eq!(
+        tank["liveSample"],
+        json!({ "command": [0.0], "feedback": [0.0] })
+    );
+}
+
+// Catches a plant that the runtime does not run reported as `Status unavailable` although the
+// runtime answered: a disabled plant is `Disabled`, and one saved after the runtime started waits
+// for a restart (specification 47 §5.2).
+#[test]
+fn a_plant_the_current_status_does_not_run_is_not_unknown() {
+    let simulation = format!("{TANK_AND_PUMP}\n[[plants]]\nid = \"valve\"\nmodel = \"static_gain\"\nenabled = false\ncommand_sources = [\"%QL16\"]\nfeedback_targets = [\"%IL16\"]\n\n[plants.parameters]\ngain = 1.0\n");
+    let read = read_of("not-running", &simulation);
+    let revision = read["configuration_revision"]
+        .as_str()
+        .expect("saved revision");
+
+    let same = current_status(revision, json!([]));
+    let plants = project(&read, Some(&same));
+    assert_eq!(plant(&plants, "valve")["states"], json!(["Disabled"]));
+    assert_eq!(plant(&plants, "pump")["states"], json!(["Configured"]));
+
+    let older = current_status("sha256:older", json!([]));
+    let plants = project(&read, Some(&older));
+    assert_eq!(
+        plant(&plants, "valve")["states"],
+        json!(["Restart required", "Disabled"])
+    );
+    assert_eq!(
+        plant(&plants, "pump")["states"],
+        json!(["Restart required"])
+    );
 }
 
 fn evidence() -> PlantEvidence<'static> {
@@ -234,6 +302,16 @@ fn a_plants_states_follow_the_specified_order() {
                 ..evidence()
             },
             vec!["Running"],
+        ),
+        (
+            "a disabled plant that the current status does not run",
+            PlantEvidence {
+                enabled: false,
+                operating_state: None,
+                completed_sample: false,
+                ..evidence()
+            },
+            vec!["Disabled"],
         ),
         (
             "nothing else holds",
@@ -427,8 +505,9 @@ fn only_an_omitted_initial_state_reaches_the_editor_as_omitted() {
     );
 }
 
-// Catches a node for a saved plant the canvas cannot draw, and an editor opened on model values
-// that are not numbers.
+// Catches a node for a saved plant the canvas cannot draw (a missing model, an empty ID, name or
+// model: specification 47 §20.1, an empty identifier is invalid), and an editor opened on model
+// values that are not numbers.
 #[test]
 fn an_incomplete_saved_plant_is_left_out_and_wordy_values_open_no_editor() {
     let read = read_of(
@@ -450,6 +529,25 @@ feedback_targets = ["%IL0"]
 
 [plants.parameters]
 gain = "two"
+
+[[plants]]
+id = ""
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+
+[[plants]]
+id = "unnamed"
+name = ""
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+
+[[plants]]
+id = "modelless"
+model = ""
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
 "#,
     );
 
