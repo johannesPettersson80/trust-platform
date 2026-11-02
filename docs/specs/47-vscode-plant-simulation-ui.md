@@ -1127,10 +1127,12 @@ as a field inside `[[plants]]`.
 owning saved plant when constructing an edit draft. It shall never attach an
 event belonging to another plant or silently reorder equal-time entries.
 
-Validation shall complete before the revision-guarded write. A successful save
-shall be atomic: readers observe either the complete prior file or the complete
-new file. Existing comments, unrelated sections, and ordering shall be
-preserved except where the requested plant or its ordered events must change.
+Validation shall complete before the revision-guarded write, inside
+`plant.save`, so the editor's Save is one `plant.save` without a
+`plant.validate` before it. A successful save shall be atomic: readers
+observe either the complete prior file or the complete new file. Existing
+comments, unrelated sections, and ordering shall be preserved except where
+the requested plant or its ordered events must change.
 An invalid or failed save shall leave the exact prior bytes unchanged.
 
 A successful remove shall delete exactly the persisted `[[plants]]` entry
