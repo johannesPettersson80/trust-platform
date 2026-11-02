@@ -74,9 +74,7 @@ const WEBVIEW_HTML_TEMPLATE = `<!DOCTYPE html>
  * Custom Editor Provider for StateChart JSON files
  * Provides a visual editor for .statechart.json files
  */
-export class StateChartEditorProvider
-  implements vscode.CustomTextEditorProvider
-{
+export class StateChartEditorProvider implements vscode.CustomTextEditorProvider {
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new StateChartEditorProvider(context);
     const providerRegistration = vscode.window.registerCustomEditorProvider(
@@ -87,7 +85,7 @@ export class StateChartEditorProvider
           retainContextWhenHidden: true,
         },
         supportsMultipleEditorsPerDocument: false,
-      }
+      },
     );
     return providerRegistration;
   }
@@ -102,13 +100,11 @@ export class StateChartEditorProvider
   public async resolveCustomTextEditor(
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel,
-    _token: vscode.CancellationToken
+    _token: vscode.CancellationToken,
   ): Promise<void> {
     webviewPanel.webview.options = {
       enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.file(path.join(this.context.extensionPath, "media")),
-      ],
+      localResourceRoots: [vscode.Uri.file(path.join(this.context.extensionPath, "media"))],
     };
 
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
@@ -136,52 +132,47 @@ export class StateChartEditorProvider
       void vscode.window.showErrorMessage(`Could not open this statechart: ${detail}`);
     };
 
-    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(
-      (e) => {
-        if (e.document.uri.toString() === document.uri.toString()) {
+    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
+      if (e.document.uri.toString() === document.uri.toString()) {
+        void updateWebview();
+      }
+    });
+
+    const messageSubscription = webviewPanel.webview.onDidReceiveMessage((message) => {
+      switch (message.type) {
+        case "save":
+          void this.saveGraph(document, message.graph);
+          return;
+
+        case "validate":
+          void this.validateGraph(document, message.graph);
+          return;
+
+        case "generateST":
+          void this.generateStructuredTextCompanion(document, message.graph);
+          return;
+
+        case "ready":
           void updateWebview();
-        }
+          return;
+
+        case "actionReport":
+          void this.postActionReport(webviewPanel, message.requestId, message.graph);
+          return;
+
+        case "readValue":
+          void this.postValue(webviewPanel, message);
+          return;
+
+        case "addState":
+          void this.postAddedState(webviewPanel, message);
+          return;
+
+        case "openAsText":
+          void vscode.commands.executeCommand("vscode.openWith", document.uri, "default", { preview: false });
+          return;
       }
-    );
-
-    const messageSubscription = webviewPanel.webview.onDidReceiveMessage(
-      (message) => {
-        switch (message.type) {
-          case "save":
-            void this.saveGraph(document, message.graph);
-            return;
-
-          case "validate":
-            void this.validateGraph(document, message.graph);
-            return;
-
-          case "generateST":
-            void this.generateStructuredTextCompanion(document, message.graph);
-            return;
-
-          case "ready":
-            void updateWebview();
-            return;
-
-          case "actionReport":
-            void this.postActionReport(webviewPanel, message.requestId, message.graph);
-            return;
-
-          case "readValue":
-            void this.postValue(webviewPanel, message);
-            return;
-
-          case "openAsText":
-            void vscode.commands.executeCommand(
-              "vscode.openWith",
-              document.uri,
-              "default",
-              { preview: false }
-            );
-            return;
-        }
-      }
-    );
+    });
 
     webviewPanel.onDidDispose(() => {
       changeDocumentSubscription.dispose();
@@ -196,15 +187,11 @@ export class StateChartEditorProvider
    */
   private getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.file(
-        path.join(this.context.extensionPath, "media", "stateChartWebview.js")
-      )
+      vscode.Uri.file(path.join(this.context.extensionPath, "media", "stateChartWebview.js")),
     );
 
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.file(
-        path.join(this.context.extensionPath, "media", "stateChartWebview.css")
-      )
+      vscode.Uri.file(path.join(this.context.extensionPath, "media", "stateChartWebview.css")),
     );
 
     let html = WEBVIEW_HTML_TEMPLATE;
@@ -218,11 +205,7 @@ export class StateChartEditorProvider
   }
 
   /** Answers which actions the webview's graph names without a mapping and which it maps unused. */
-  private async postActionReport(
-    webviewPanel: vscode.WebviewPanel,
-    requestId: unknown,
-    graph: unknown
-  ): Promise<void> {
+  private async postActionReport(webviewPanel: vscode.WebviewPanel, requestId: unknown, graph: unknown): Promise<void> {
     const answer = await visualRequest<ActionReportAnswer>("trust-lsp.visualEdit", {
       kind: "statechart",
       op: "actionReport",
@@ -231,8 +214,8 @@ export class StateChartEditorProvider
     void webviewPanel.webview.postMessage({
       type: "actionReport",
       requestId,
-      unmapped: answer.ok ? answer.unmapped ?? [] : [],
-      unused: answer.ok ? answer.unused ?? [] : [],
+      unmapped: answer.ok ? (answer.unmapped ?? []) : [],
+      unused: answer.ok ? (answer.unused ?? []) : [],
     });
   }
 
@@ -242,7 +225,7 @@ export class StateChartEditorProvider
    */
   private async postValue(
     webviewPanel: vscode.WebviewPanel,
-    message: { requestId?: unknown; field?: unknown; text?: unknown }
+    message: { requestId?: unknown; field?: unknown; text?: unknown },
   ): Promise<void> {
     const answer = await visualRequest("trust-lsp.visualEdit", {
       kind: "statechart",
@@ -252,6 +235,24 @@ export class StateChartEditorProvider
     void webviewPanel.webview.postMessage({
       ...answer,
       type: "valueResult",
+      requestId: message.requestId,
+    });
+  }
+
+  /** Answers the new state the language server gives the webview's graph (`addState`). */
+  private async postAddedState(
+    webviewPanel: vscode.WebviewPanel,
+    message: { requestId?: unknown; graph?: unknown; stateType?: unknown },
+  ): Promise<void> {
+    const answer = await visualRequest("trust-lsp.visualEdit", {
+      kind: "statechart",
+      op: "addState",
+      graphText: JSON.stringify(message.graph ?? null),
+      stateType: message.stateType,
+    });
+    void webviewPanel.webview.postMessage({
+      ...answer,
+      type: "stateAdded",
       requestId: message.requestId,
     });
   }
@@ -278,19 +279,12 @@ export class StateChartEditorProvider
     const edit = new vscode.WorkspaceEdit();
 
     // Replace entire document
-    edit.replace(
-      document.uri,
-      new vscode.Range(0, 0, document.lineCount, 0),
-      content
-    );
+    edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), content);
 
     return vscode.workspace.applyEdit(edit);
   }
 
-  private async saveDocument(
-    document: vscode.TextDocument,
-    content: string
-  ): Promise<void> {
+  private async saveDocument(document: vscode.TextDocument, content: string): Promise<void> {
     await this.updateTextDocument(document, content);
     await document.save();
   }
@@ -319,10 +313,7 @@ export class StateChartEditorProvider
     }
   }
 
-  private async generateStructuredTextCompanion(
-    document: vscode.TextDocument,
-    graph: unknown
-  ): Promise<void> {
+  private async generateStructuredTextCompanion(document: vscode.TextDocument, graph: unknown): Promise<void> {
     const text = await this.formatGraph(graph, document.getText());
     if (text === undefined) {
       return;
@@ -334,9 +325,7 @@ export class StateChartEditorProvider
       sourceText: text,
     });
     if (companion) {
-      void vscode.window.showInformationMessage(
-        `Generated ST companion: ${path.basename(companion.fsPath)}`
-      );
+      void vscode.window.showInformationMessage(`Generated ST companion: ${path.basename(companion.fsPath)}`);
     }
   }
 }

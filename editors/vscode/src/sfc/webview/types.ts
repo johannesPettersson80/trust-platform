@@ -15,12 +15,12 @@ export type SfcNodeType = "step" | "parallelSplit" | "parallelJoin";
  * (`sfc-profile.md`, "Execution of a visual SFC").
  */
 export type ActionQualifier =
-  | "N"  // Non-stored (normal)
-  | "S"  // Set (stored)
-  | "R"  // Reset
-  | "L"  // Time limited
-  | "D"  // Time delayed
-  | "P"  // Pulse
+  | "N" // Non-stored (normal)
+  | "S" // Set (stored)
+  | "R" // Reset
+  | "L" // Time limited
+  | "D" // Time delayed
+  | "P" // Pulse
   | "SD" // Stored and time delayed
   | "DS" // Delayed and stored
   | "SL" // Stored and time limited
@@ -138,7 +138,8 @@ export type SfcEdit =
       position: { x: number; y: number };
       wire: boolean;
       stamp: string;
-    };
+    }
+  | { op: "deleteSelection"; nodeIds: string[]; edgeIds: string[] };
 
 /**
  * The answer to an edit.
@@ -149,6 +150,7 @@ export interface SfcEditAnswer {
   edge?: SfcTransitionEdge | null;
   node?: SfcNode;
   branchCount?: number;
+  removedNodeIds?: string[];
   removedEdgeIds?: string[];
 }
 

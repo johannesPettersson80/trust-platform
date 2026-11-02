@@ -326,3 +326,24 @@ fn only_a_toolbar_step_is_wired() {
     );
     assert_eq!(NodeType::from_name("transition"), None);
 }
+
+/// Deleting the split removes it with every transition into or out of it (e1 into it, e2 out of
+/// it), and a selected transition goes too (e3); an id the graph does not have is left out.
+/// Catches a transition left with an end that is gone, which the chart would then reach through.
+#[test]
+fn deleting_a_node_removes_its_transitions() {
+    let canvas = json(CANVAS);
+    let deleted = delete_selection(
+        &canvas,
+        &["sp".to_owned(), "ghost".to_owned()],
+        &["e3".to_owned()],
+    )
+    .expect("delete");
+    assert_eq!(deleted.node_ids, ["sp"]);
+    assert_eq!(deleted.edge_ids, ["e1", "e2", "e3"]);
+    let only_edge = delete_selection(&canvas, &[], &["e2".to_owned()]).expect("delete");
+    assert_eq!(
+        (only_edge.node_ids.len(), only_edge.edge_ids),
+        (0, vec!["e2".to_owned()])
+    );
+}

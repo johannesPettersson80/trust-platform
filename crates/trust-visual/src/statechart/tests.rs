@@ -4,7 +4,9 @@
 //! `graph.rs`; the example texts are the ones the TypeScript wrote before the move.
 
 use super::generate::normalize_guard;
-use super::{action_report, check_format, file, generate, graph, keep_identity, validate};
+use super::{
+    action_report, add_state, check_format, file, generate, graph, keep_identity, validate,
+};
 use crate::companion::companion;
 use crate::{Global, Json};
 
@@ -430,4 +432,63 @@ fn an_address_the_runtime_refuses_makes_the_chart_untranslatable() {
             "Action mapping \"lockOff\": '%QX0.9' is not a valid direct address."
         )]
     );
+}
+
+/// A new state is named `State<n>` with the smallest n no state's name or id uses, and its id is
+/// the one the editor gives that name. Worked by hand: State1 and State3 exist, so the new state
+/// is State2; with State2's id taken by a renamed state it is State4. Catches the count-based name
+/// (State3 again after State2 was deleted), which the file would write over the other State3.
+#[test]
+fn a_new_state_gets_the_smallest_free_name() {
+    let with = |states: &str| parse(&format!(r#"{{"states":[{states}],"transitions":[]}}"#));
+    let graph = with(
+        r#"{"id":"state_State1","label":"State1","type":"initial"},{"id":"state_State3","label":"State3","type":"normal"}"#,
+    );
+    let added = add_state(&graph, "normal").expect("state");
+    assert_eq!(
+        added,
+        parse(r#"{"id":"state_State2","label":"State2","type":"normal","entry":[],"exit":[]}"#)
+    );
+    let renamed = with(
+        r#"{"id":"state_State1","label":"State1","type":"initial"},{"id":"state_State2","label":"Filling","type":"normal"},{"id":"state_State3","label":"State3","type":"normal"}"#,
+    );
+    assert_eq!(
+        add_state(&renamed, "final").expect("state").str_at("label"),
+        Some("State4")
+    );
+    assert_eq!(
+        add_state(&graph, "initial"),
+        Err("The statechart starts in \"State1\" already; it starts in one state.".to_owned())
+    );
+    assert_eq!(
+        add_state(&graph, "parallel"),
+        Err("A state is normal, initial, final or compound, not \"parallel\".".to_owned())
+    );
+}
+
+/// The file names each state once and starts in one, so a graph with two states of one name or
+/// two initial states is refused and nothing is written. Catches the second state written over
+/// the first (its transitions lost), and the first initial state quietly made normal.
+#[test]
+fn a_graph_with_two_states_of_one_name_or_two_starts_is_not_written() {
+    let with = |states: &str| parse(&format!(r#"{{"states":[{states}],"transitions":[]}}"#));
+    assert_eq!(
+        file(&with(
+            r#"{"id":"a","label":"Fill","type":"initial"},{"id":"b","label":"Fill","type":"normal"}"#
+        )),
+        Err("Two states are named \"Fill\"; give each state its own name.".to_owned())
+    );
+    assert_eq!(
+        file(&with(
+            r#"{"id":"a","label":"Fill","type":"initial"},{"id":"b","label":"Drain","type":"initial"}"#
+        )),
+        Err(
+            "The states \"Fill\", \"Drain\" are all initial; a statechart starts in one state."
+                .to_owned()
+        )
+    );
+    assert!(file(&with(
+        r#"{"id":"a","label":"Fill","type":"initial"},{"id":"b","label":"fill","type":"normal"}"#
+    ))
+    .is_ok());
 }

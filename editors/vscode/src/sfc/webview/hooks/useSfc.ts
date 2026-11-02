@@ -66,7 +66,7 @@ const DEFAULT_NODE_VERTICAL_GAP = 150;
 function nextNodePosition(nodes: SfcNode[]): XYPosition {
   const maxY = nodes.reduce(
     (current, node) => Math.max(current, node.position.y),
-    DEFAULT_NODE_Y - DEFAULT_NODE_VERTICAL_GAP
+    DEFAULT_NODE_Y - DEFAULT_NODE_VERTICAL_GAP,
   );
 
   return {
@@ -79,7 +79,7 @@ function nextNodePosition(nodes: SfcNode[]): XYPosition {
 // when it goes back up or skips steps, so it does not run through other transitions' labels.
 function stepConnectionHandles(
   sourceNode: SfcNode,
-  targetNode: SfcNode
+  targetNode: SfcNode,
 ): Pick<Connection, "sourceHandle" | "targetHandle"> {
   if (!isSfcStepNode(sourceNode) || !isSfcStepNode(targetNode)) {
     return {
@@ -200,14 +200,14 @@ export function useSfc() {
             targetHandle: fallback.targetHandle ?? null,
           },
           stamp: stamp(),
-        }
+        },
       );
       const edge = answer.edge;
       if (answer.ok && edge) {
         setEdges((eds) => [...eds, withArrow(edge)]);
       }
     },
-    [edges, nodes]
+    [edges, nodes],
   );
 
   /**
@@ -224,7 +224,7 @@ export function useSfc() {
           position: position ?? nextNodePosition(nodes),
           wire: !position,
           stamp: stamp(),
-        }
+        },
       );
       const node = answer.node;
       if (!answer.ok || !node) {
@@ -236,39 +236,25 @@ export function useSfc() {
         setEdges((eds) => [...eds, drawnEdge(edge, [...nodes, node])]);
       }
     },
-    [edges, nodes]
+    [edges, nodes],
   );
 
-  const addNewStep = useCallback(
-    (position?: XYPosition) => addNode("step", position),
-    [addNode]
-  );
+  const addNewStep = useCallback((position?: XYPosition) => addNode("step", position), [addNode]);
 
-  const addParallelSplit = useCallback(
-    (position?: XYPosition) => addNode("parallelSplit", position),
-    [addNode]
-  );
+  const addParallelSplit = useCallback((position?: XYPosition) => addNode("parallelSplit", position), [addNode]);
 
-  const addParallelJoin = useCallback(
-    (position?: XYPosition) => addNode("parallelJoin", position),
-    [addNode]
-  );
+  const addParallelJoin = useCallback((position?: XYPosition) => addNode("parallelJoin", position), [addNode]);
 
   /**
    * Update node data
    */
-  const updateStepNodeData = useCallback(
-    (nodeId: string, updates: Partial<StepNodeData>) => {
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === nodeId && isSfcStepNode(node)
-            ? { ...node, data: { ...node.data, ...updates } }
-            : node
-        )
-      );
-    },
-    []
-  );
+  const updateStepNodeData = useCallback((nodeId: string, updates: Partial<StepNodeData>) => {
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId && isSfcStepNode(node) ? { ...node, data: { ...node.data, ...updates } } : node,
+      ),
+    );
+  }, []);
 
   /**
    * Update parallel split/join node data; a new branch count is the language server's.
@@ -279,10 +265,8 @@ export function useSfc() {
       const setData = (data: Partial<ParallelNodeData>) =>
         setNodes((nds) =>
           nds.map((node) =>
-            node.id === nodeId && isSfcParallelNode(node)
-              ? { ...node, data: { ...node.data, ...data } }
-              : node
-          )
+            node.id === nodeId && isSfcParallelNode(node) ? { ...node, data: { ...node.data, ...data } } : node,
+          ),
         );
       if (Object.keys(rest).length > 0) {
         setData(rest);
@@ -290,10 +274,7 @@ export function useSfc() {
       if (branchCount === undefined) {
         return;
       }
-      const answer = await requestEdit(
-        { nodes, edges },
-        { op: "setBranchCount", nodeId, branchCount }
-      );
+      const answer = await requestEdit({ nodes, edges }, { op: "setBranchCount", nodeId, branchCount });
       if (!answer.ok || answer.branchCount === undefined) {
         return;
       }
@@ -303,31 +284,28 @@ export function useSfc() {
         setEdges((eds) => eds.filter((edge) => !removed.has(edge.id)));
       }
     },
-    [edges, nodes]
+    [edges, nodes],
   );
 
   /**
    * Update edge (transition) data
    */
-  const updateEdgeData = useCallback(
-    (edgeId: string, updates: Partial<TransitionData>) => {
-      setEdges((eds) =>
-        eds.map((edge) => {
-          if (edge.id !== edgeId) {
-            return edge;
-          }
+  const updateEdgeData = useCallback((edgeId: string, updates: Partial<TransitionData>) => {
+    setEdges((eds) =>
+      eds.map((edge) => {
+        if (edge.id !== edgeId) {
+          return edge;
+        }
 
-          const data = { ...edge.data, ...updates };
-          return {
-            ...edge,
-            data,
-            label: data.label,
-          };
-        })
-      );
-    },
-    []
-  );
+        const data = { ...edge.data, ...updates };
+        return {
+          ...edge,
+          data,
+          label: data.label,
+        };
+      }),
+    );
+  }, []);
 
   /**
    * Add action to a step
@@ -347,38 +325,33 @@ export function useSfc() {
             actions: [...currentActions, action],
           },
         };
-      })
+      }),
     );
   }, []);
 
   /**
    * Update action in a step
    */
-  const updateAction = useCallback(
-    (stepId: string, actionId: string, updates: Partial<SfcAction>) => {
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (!(node.id === stepId && isSfcStepNode(node))) {
-            return node;
-          }
+  const updateAction = useCallback((stepId: string, actionId: string, updates: Partial<SfcAction>) => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (!(node.id === stepId && isSfcStepNode(node))) {
+          return node;
+        }
 
-          const updatedActions =
-            node.data.actions?.map((action) =>
-              action.id === actionId ? { ...action, ...updates } : action
-            ) || [];
+        const updatedActions =
+          node.data.actions?.map((action) => (action.id === actionId ? { ...action, ...updates } : action)) || [];
 
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              actions: updatedActions,
-            },
-          };
-        })
-      );
-    },
-    []
-  );
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            actions: updatedActions,
+          },
+        };
+      }),
+    );
+  }, []);
 
   /**
    * Delete action from a step
@@ -390,8 +363,7 @@ export function useSfc() {
           return node;
         }
 
-        const filteredActions =
-          node.data.actions?.filter((action) => action.id !== actionId) || [];
+        const filteredActions = node.data.actions?.filter((action) => action.id !== actionId) || [];
 
         return {
           ...node,
@@ -400,41 +372,37 @@ export function useSfc() {
             actions: filteredActions,
           },
         };
-      })
+      }),
     );
   }, []);
 
   /**
-   * Delete selected nodes and edges
+   * Deletes the selected nodes and transitions: the language server answers what goes
+   * (`deleteSelection`), every transition into or out of a deleted node with it.
    */
   const deleteSelected = useCallback(
-    (selection?: { nodeIds?: string[]; edgeIds?: string[] }) => {
-      const selectedNodeIds = new Set(
+    async (selection?: { nodeIds?: string[]; edgeIds?: string[] }) => {
+      const nodeIds =
         selection?.nodeIds && selection.nodeIds.length > 0
           ? selection.nodeIds
-          : nodes.filter((node) => node.selected).map((node) => node.id)
-      );
-      const selectedEdgeIds = new Set(
+          : nodes.filter((node) => node.selected).map((node) => node.id);
+      const edgeIds =
         selection?.edgeIds && selection.edgeIds.length > 0
           ? selection.edgeIds
-          : edges.filter((edge) => edge.selected).map((edge) => edge.id)
-      );
-
-      if (selectedNodeIds.size === 0 && selectedEdgeIds.size === 0) {
+          : edges.filter((edge) => edge.selected).map((edge) => edge.id);
+      if (nodeIds.length === 0 && edgeIds.length === 0) {
         return;
       }
-
-      setNodes((nds) => nds.filter((node) => !selectedNodeIds.has(node.id)));
-      setEdges((eds) =>
-        eds.filter(
-          (edge) =>
-            !selectedEdgeIds.has(edge.id) &&
-            !selectedNodeIds.has(edge.source) &&
-            !selectedNodeIds.has(edge.target)
-        )
-      );
+      const answer = await requestEdit({ nodes, edges }, { op: "deleteSelection", nodeIds, edgeIds });
+      if (!answer.ok) {
+        return;
+      }
+      const removedNodes = new Set(answer.removedNodeIds ?? []);
+      const removedEdges = new Set(answer.removedEdgeIds ?? []);
+      setNodes((nds) => nds.filter((node) => !removedNodes.has(node.id)));
+      setEdges((eds) => eds.filter((edge) => !removedEdges.has(edge.id)));
     },
-    [edges, nodes]
+    [edges, nodes],
   );
 
   /**
@@ -444,8 +412,7 @@ export function useSfc() {
     setNodes((nds) => {
       const sorted = [...nds].sort((left, right) => {
         const leftInitial = isSfcStepNode(left) && left.data.type === "initial";
-        const rightInitial =
-          isSfcStepNode(right) && right.data.type === "initial";
+        const rightInitial = isSfcStepNode(right) && right.data.type === "initial";
 
         if (leftInitial && !rightInitial) {
           return -1;
@@ -475,10 +442,7 @@ export function useSfc() {
   /**
    * The canvas graph, for the language server to save, check or translate.
    */
-  const currentGraph = useCallback(
-    (): SfcGraph => ({ nodes, edges, variables }),
-    [nodes, edges, variables]
-  );
+  const currentGraph = useCallback((): SfcGraph => ({ nodes, edges, variables }), [nodes, edges, variables]);
 
   /**
    * Update variables

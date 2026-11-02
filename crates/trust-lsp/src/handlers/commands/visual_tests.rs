@@ -368,6 +368,29 @@ fn a_typed_number_answers_the_program_with_the_stored_value_or_the_reason() {
 }
 
 #[test]
+fn a_new_statechart_state_is_named_by_the_language_server() {
+    // addState: the new state with the smallest free name, or `refused` with the reason. The
+    // rule is trust-visual's test; a wrong argument name would leave the toolbar adding nothing.
+    let graph = r#"{"states":[{"id":"state_State1","label":"State1","type":"initial"}],"transitions":[],"actionMappings":{}}"#;
+    let add = |state_type: &str| {
+        execute(
+            VISUAL_EDIT_COMMAND,
+            vec![
+                json!({ "kind": "statechart", "op": "addState", "graphText": graph, "stateType": state_type }),
+            ],
+        )
+    };
+    assert_eq!(
+        add("normal"),
+        json!({ "ok": true, "state": { "id": "state_State2", "label": "State2", "type": "normal", "entry": [], "exit": [] } })
+    );
+    assert_eq!(
+        add("initial"),
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "The statechart starts in \"State1\" already; it starts in one state." }] })
+    );
+}
+
+#[test]
 fn a_typed_delay_or_mapping_value_answers_what_the_statechart_stores() {
     // The Statechart panels send the text of the timer and of a mapping value; `after` is null for
     // no delay and a refused delay names the rule. A wrong shape would store the text unread.

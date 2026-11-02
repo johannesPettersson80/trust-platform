@@ -2126,6 +2126,16 @@ these commands and show the answers:
 - Saving a Statechart keeps the chart's `id`; saving an SFC keeps its `name`
   and metadata (`author`, `description`, `created`, `version`) and sets
   `metadata.modified` to the time of the save.
+- A Statechart file names each state once and starts in one state. A new
+  state (`trust-lsp.visualEdit` `addState`; 2 November 2026) gets the smallest
+  free name `State<n>` and the id `state_<name>`; adding an initial state
+  while one exists is refused with the reason. Saving a chart in which two
+  states share a name, or more than one state is initial, is refused with the
+  reason and writes nothing, since the file would keep only one of the two
+  states or one start.
+- Deleting SFC nodes and transitions (`deleteSelection`) deletes the selected
+  ones and every transition into or out of a deleted node, as the language
+  server answers them.
 - The runtime entry runs the companion in one task with
   `INTERVAL := T#20ms` and `PRIORITY := 1`.
 - Ladder division is Structured Text division: a zero divisor faults as it

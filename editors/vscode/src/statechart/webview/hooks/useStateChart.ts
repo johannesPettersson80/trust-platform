@@ -16,6 +16,7 @@ import {
   StatechartGraph,
   StateType,
   ActionMapping,
+  RequestAddState,
 } from "../types";
 import {
   STATE_SOURCE_BOTTOM,
@@ -45,7 +46,7 @@ function stateGridColumns(count: number): number {
 
 function transitionHandles(
   sourcePosition: { x: number; y: number },
-  targetPosition: { x: number; y: number }
+  targetPosition: { x: number; y: number },
 ): Pick<StateChartEdge, "sourceHandle" | "targetHandle"> {
   const sameRow = Math.abs(sourcePosition.y - targetPosition.y) < STATE_GRID_Y / 2;
   if (sameRow && targetPosition.x > sourcePosition.x) {
@@ -60,86 +61,43 @@ function transitionHandles(
 /**
  * Custom hook for managing StateChart editor state and operations
  */
-export const useStateChart = () => {
+export const useStateChart = (requestAddState: RequestAddState) => {
   const [nodes, setNodes] = useState<StateChartNode[]>([]);
   const [edges, setEdges] = useState<StateChartEdge[]>([]);
   const [actionMappings, setActionMappings] = useState<Record<string, ActionMapping>>({});
 
   // Handle node changes (position, selection, etc.)
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) =>
-      setNodes((nds) => applyNodeChanges(changes, nds) as StateChartNode[]),
-    []
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds) as StateChartNode[]),
+    [],
   );
 
   // Handle edge changes
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) =>
-      setEdges((eds) => applyEdgeChanges(changes, eds) as StateChartEdge[]),
-    []
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as StateChartEdge[]),
+    [],
   );
 
   // Handle new connections
   const onConnect = useCallback(
     (connection: Connection) =>
-      setEdges(
-        (eds) =>
-          addEdge({ ...connection, type: STATE_TRANSITION_EDGE, data: {} }, eds) as StateChartEdge[]
-      ),
-    []
-  );
-
-  /**
-   * Add a new state node to the diagram
-   */
-  const addNewState = useCallback(
-    (type: StateType = "normal", position?: { x: number; y: number }) => {
-      const id = `state_${Date.now()}`;
-      const stateCount = nodes.length;
-      const columns = stateGridColumns(stateCount + 1);
-
-      const newNode: StateChartNode = {
-        id,
-        type: "stateNode",
-        position: position || stateGridPosition(stateCount, columns),
-        data: {
-          label: `State${stateCount + 1}`,
-          type,
-          entry: [],
-          exit: [],
-        },
-      };
-
-      setNodes((nds) => [...nds, newNode]);
-      return id;
-    },
-    [nodes.length]
+      setEdges((eds) => addEdge({ ...connection, type: STATE_TRANSITION_EDGE, data: {} }, eds) as StateChartEdge[]),
+    [],
   );
 
   /**
    * Update data for a specific node
    */
   const updateNodeData = useCallback((nodeId: string, data: Partial<StateNodeData>) => {
-    setNodes((nds) =>
-      nds.map((node) =>
-        node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
-      )
-    );
+    setNodes((nds) => nds.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node)));
   }, []);
 
   /**
    * Update data for a specific edge
    */
-  const updateEdgeData = useCallback(
-    (edgeId: string, data: StateChartEdge["data"]) => {
-      setEdges((eds) =>
-        eds.map((edge) =>
-          edge.id === edgeId ? { ...edge, data: { ...edge.data, ...data } } : edge
-        )
-      );
-    },
-    []
-  );
+  const updateEdgeData = useCallback((edgeId: string, data: StateChartEdge["data"]) => {
+    setEdges((eds) => eds.map((edge) => (edge.id === edgeId ? { ...edge, data: { ...edge.data, ...data } } : edge)));
+  }, []);
 
   /**
    * Delete selected nodes and edges
@@ -159,7 +117,7 @@ export const useStateChart = () => {
       nds.map((node, index) => ({
         ...node,
         position: stateGridPosition(index, COLS),
-      }))
+      })),
     );
   }, [nodes.length]);
 
@@ -187,7 +145,34 @@ export const useStateChart = () => {
       })),
       actionMappings,
     }),
-    [nodes, edges, actionMappings]
+    [nodes, edges, actionMappings],
+  );
+
+  /**
+   * Adds a state of `type`: the language server names it (`addState`, the smallest free name
+   * `State<n>`) or answers why it adds none, and the editor places it on the grid.
+   */
+  const addNewState = useCallback(
+    async (type: StateType = "normal", position?: { x: number; y: number }) => {
+      const answer = await requestAddState(exportGraph(), type);
+      const state = answer.state;
+      if (!answer.ok || !state) {
+        console.warn(answer.errors?.[0]?.message ?? "The state was not added.");
+        return undefined;
+      }
+      setNodes((nds) => {
+        const columns = stateGridColumns(nds.length + 1);
+        const newNode: StateChartNode = {
+          id: state.id,
+          type: "stateNode",
+          position: position || stateGridPosition(nds.length, columns),
+          data: { label: state.label, type: state.type, entry: [], exit: [] },
+        };
+        return [...nds, newNode];
+      });
+      return state.id;
+    },
+    [exportGraph, requestAddState],
   );
 
   /**
@@ -220,7 +205,7 @@ export const useStateChart = () => {
       type: STATE_TRANSITION_EDGE,
       ...transitionHandles(
         positions.get(transition.source) || { x: 0, y: 0 },
-        positions.get(transition.target) || { x: 0, y: 0 }
+        positions.get(transition.target) || { x: 0, y: 0 },
       ),
       label: transition.event,
       data: {
@@ -242,12 +227,11 @@ export const useStateChart = () => {
   const updateActionMappings = useCallback(
     (
       mappings:
-        | Record<string, ActionMapping>
-        | ((current: Record<string, ActionMapping>) => Record<string, ActionMapping>)
+        Record<string, ActionMapping> | ((current: Record<string, ActionMapping>) => Record<string, ActionMapping>),
     ) => {
       setActionMappings(mappings);
     },
-    []
+    [],
   );
 
   return {

@@ -10,12 +10,14 @@
 //! graph back as the file are `graph` and `file`. The delay and the mapping value typed into the
 //! editor's panels are read by [`after_delay`] and [`mapping_value`].
 
+mod edit;
 mod generate;
 mod graph;
 #[cfg(test)]
 mod tests;
 mod values;
 
+pub use edit::add_state;
 pub use generate::generate;
 pub use graph::{action_report, file, graph, keep_identity, ActionReport};
 pub use values::{after_delay, mapping_value};
