@@ -55,7 +55,7 @@ fn declare(variables: &mut Vec<Json>, operand: &str) {
 }
 
 /// The members of an element that may name a symbol.
-const OPERAND_MEMBERS: [&str; 8] = [
+pub(super) const OPERAND_MEMBERS: [&str; 8] = [
     "variable", "input", "qOutput", "etOutput", "cvOutput", "left", "right", "output",
 ];
 

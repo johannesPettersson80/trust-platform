@@ -685,6 +685,24 @@ README that passes fails the check until it is taken off the list.
 - A simulator with no session tells the user to Start. A selected unattached
   remote tells the user to Connect. Raw adapter no-session errors are
   normalized to those product states.
+- The language server reads a failed I/O state request of Live Values
+  (`trust-lsp.runTargets`, action `failure` with `request: "ioState"`, §6.9)
+  as one of three kinds, and the panel acts on the kind:
+  - `no_session`, `No active Structured Text debug session.`: there is no
+    session to ask, or the session is gone. VS Code says
+    `No debugger available`, `Can not send 'stIoState'`, or `Canceled` (one
+    `l`) for the requests of a session that ends; the debug adapter says
+    `no program runs: launch or attach first`. Live Values takes the
+    unavailable route with the guidance above; a Start whose first request
+    fails so, and Devices & Connections, show the message.
+  - `connection_lost`: the connection under the request failed: its text
+    names a connection, a socket, `ECONNRESET`, `ECONNREFUSED` or `EPIPE`, a
+    timeout, or something `cancelled`, `closed`, `terminated`, `not connected`
+    or `disconnected`. Live Values takes the unavailable route with
+    `Live Values lost connection to the runtime. Restart or reconnect the
+    runtime, then retry.`
+  - `request_failed`: any other failure, `I/O state request failed: <its
+    text>`, shown as the panel's status; the rows stay.
 - An attached session is `Connected`; its endpoint comes from the debug
   session. A reachable online target without an attached session is
   `Not connected`, not `Running`. When that runtime answered Connect but keeps
@@ -1862,7 +1880,16 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   and the managed logs (`managed`, `managedOutcome`, `managedLogs`).
 - The status bar names a runtime connected while a debug session is attached
   to it, or while the extension is online with a runtime that answers, such as
-  one started outside the extension.
+  one started outside the extension. The language server gives the name
+  (`selection`'s `connectedLabel`): the project's own runtime by that name;
+  else the name the extension gave the runtime, which is the debug session's
+  target name or, for a runtime that answered Connect but keeps debugging
+  disabled, the name Connect was given; else `runtime` for a local control
+  socket, else the endpoint without its scheme. The runtime's entry in the
+  side panel's list has the same name, and HMI Live names its run target the
+  same way (specification 39 §11 item 6). `connectedDebuggingDisabled` says
+  that the runtime keeps debugging disabled, so that the bar reads
+  `<runtime> · debugging disabled` (§4.4).
 
 ## 7. Libraries
 
@@ -2066,6 +2093,21 @@ these commands and show the answers:
   half up; a position snaps to the 20-unit grid. Blank, non-numeric or
   non-finite text is refused with a message under the field, and nothing is
   stored. Dragging an element snaps it in the editor.
+- The text and choice fields of the Ladder properties panel (an operand, a
+  type, a timer's or counter's instance and connections, a block's operator)
+  are stored by the language server (`setField`): a choice field takes only
+  the values of specification 16 §3, and any other value is refused with a
+  message under the field. A changed operand reconciles the implicit locals
+  (specification 16 §5). Toggling a contact (`toggleContactType`) turns NO
+  into NC and back.
+- Deleting a Ladder element (`removeElement`; 1 November 2026) takes its term
+  out of the rung's logic, as CODESYS and TwinCAT do: its wires go with it,
+  and each node that fed it is wired to each node it fed unless another path
+  still joins the two. A series element closes the gap (`A AND X` without `X`
+  is `A`), and an element that was a parallel leg on its own leaves the other
+  legs (`A OR X` without `X` is `A`). Its implicit locals that no element
+  names any more are removed. Clear wiring (`clearWiring`) removes every wire
+  of the rung, which then runs as one series chain from left to right.
 - Blockly lowering preserves connected statement order, control-input slots,
   variable identity, and deterministic inference for supported untyped numeric
   variables.
@@ -2126,6 +2168,16 @@ these commands and show the answers:
 - Saving a Statechart keeps the chart's `id`; saving an SFC keeps its `name`
   and metadata (`author`, `description`, `created`, `version`) and sets
   `metadata.modified` to the time of the save.
+- A Statechart file names each state once and starts in one state. A new
+  state (`trust-lsp.visualEdit` `addState`; 2 November 2026) gets the smallest
+  free name `State<n>` and the id `state_<name>`; adding an initial state
+  while one exists is refused with the reason. Saving a chart in which two
+  states share a name, or more than one state is initial, is refused with the
+  reason and writes nothing, since the file would keep only one of the two
+  states or one start.
+- Deleting SFC nodes and transitions (`deleteSelection`) deletes the selected
+  ones and every transition into or out of a deleted node, as the language
+  server answers them.
 - The runtime entry runs the companion in one task with
   `INTERVAL := T#20ms` and `PRIORITY := 1`.
 - Ladder division is Structured Text division: a zero divisor faults as it

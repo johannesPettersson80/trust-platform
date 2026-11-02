@@ -210,6 +210,55 @@ suite("StateChart editor lifecycle", function () {
     panel.fireDidDispose();
   });
 
+  // Catches a toolbar that names a new state itself: the host forwards the graph and the state's
+  // type, and hands back the language server's state with the request id, or why it adds none.
+  test("asks the language server for a new state", async () => {
+    const document = {
+      uri: vscode.Uri.parse("untitled:/statechart-add.statechart.json"),
+      getText: () => '{"id":"add","initial":"State1","states":{"State1":{}}}',
+      lineCount: 1,
+    } as unknown as vscode.TextDocument;
+    const panel = new FakeWebviewPanel();
+    await openProvider().resolveCustomTextEditor(
+      document,
+      panel as unknown as vscode.WebviewPanel,
+      {} as vscode.CancellationToken
+    );
+    const graph = {
+      states: [{ id: "state_State1", label: "State1", type: "initial" }],
+      transitions: [],
+      actionMappings: {},
+    };
+    const answerTo = async (requestId: number): Promise<Record<string, unknown>> => {
+      await waitFor(
+        () =>
+          panel.webview.posted.some(
+            (message) => message.type === "stateAdded" && message.requestId === requestId
+          ),
+        `the answer to request ${requestId}`
+      );
+      return panel.webview.posted.find(
+        (message) => message.type === "stateAdded" && message.requestId === requestId
+      ) as Record<string, unknown>;
+    };
+
+    panel.webview.send({ type: "addState", requestId: 1, graph, stateType: "normal" });
+    const added = await answerTo(1);
+    assert.strictEqual(added.ok, true, JSON.stringify(added.errors));
+    assert.deepStrictEqual(added.state, {
+      id: "state_State2",
+      label: "State2",
+      type: "normal",
+      entry: [],
+      exit: [],
+    });
+
+    panel.webview.send({ type: "addState", requestId: 2, graph, stateType: "initial" });
+    const refused = await answerTo(2);
+    assert.strictEqual(refused.ok, false);
+    panel.fireDidDispose();
+  });
+
   test("stops listening to the webview when the panel is closed", async () => {
     const document = {
       uri: vscode.Uri.parse("untitled:/statechart-closed.statechart.json"),

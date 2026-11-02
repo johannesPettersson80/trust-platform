@@ -13,16 +13,16 @@ use serde_json::Value;
 type Responder = dyn Fn(&Value) -> Option<String> + Send + Sync;
 
 /// A fake runtime listening on a loopback port.
-pub(super) struct FakeRuntime {
+pub(in crate::handlers::commands) struct FakeRuntime {
     /// Its control endpoint, `tcp://127.0.0.1:<port>`.
-    pub(super) endpoint: String,
+    pub(in crate::handlers::commands) endpoint: String,
     connections: Arc<Mutex<usize>>,
     requests: Arc<Mutex<Vec<Value>>>,
 }
 
 impl FakeRuntime {
     /// A runtime that answers each request with `respond`.
-    pub(super) fn start(
+    pub(in crate::handlers::commands) fn start(
         respond: impl Fn(&Value) -> Option<String> + Send + Sync + 'static,
     ) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").expect("a loopback port");
@@ -68,7 +68,7 @@ impl FakeRuntime {
     }
 
     /// A runtime that answers every request `ok` with `result`.
-    pub(super) fn answering(result: Value) -> Self {
+    pub(in crate::handlers::commands) fn answering(result: Value) -> Self {
         Self::start(move |request| {
             Some(
                 serde_json::json!({ "id": request["id"], "ok": true, "result": result })
@@ -78,18 +78,18 @@ impl FakeRuntime {
     }
 
     /// The connections it accepted so far.
-    pub(super) fn connections(&self) -> usize {
+    pub(in crate::handlers::commands) fn connections(&self) -> usize {
         *self.connections.lock().expect("the count")
     }
 
     /// The request lines it read so far.
-    pub(super) fn requests(&self) -> Vec<Value> {
+    pub(in crate::handlers::commands) fn requests(&self) -> Vec<Value> {
         self.requests.lock().expect("the requests").clone()
     }
 }
 
 /// An endpoint where nothing listens: a loopback port that was free a moment ago.
-pub(super) fn closed_endpoint() -> String {
+pub(in crate::handlers::commands) fn closed_endpoint() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").expect("a loopback port");
     let address = listener.local_addr().expect("the listener's address");
     drop(listener);

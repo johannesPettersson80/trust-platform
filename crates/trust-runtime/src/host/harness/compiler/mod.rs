@@ -93,6 +93,10 @@ mod default_initializer_dependency_contract_tests;
 mod derived_type_constant_contract_tests;
 
 #[cfg(test)]
+#[path = "derived_type_constant_declared_size_contract_tests.rs"]
+mod derived_type_constant_declared_size_contract_tests;
+
+#[cfg(test)]
 #[path = "type_contract_tests.rs"]
 mod type_contract_tests;
 

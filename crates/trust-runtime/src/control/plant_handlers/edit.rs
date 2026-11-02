@@ -9,8 +9,7 @@ use serde_json::{json, Value};
 
 use super::editor;
 use super::{
-    project_identity, render_candidate, ControlResponse, PlantHandlerContext, CONTRACT,
-    SCHEMA_VERSION,
+    admit, render_candidate, ControlResponse, PlantHandlerContext, CONTRACT, SCHEMA_VERSION,
 };
 
 #[derive(Debug, Deserialize)]
@@ -41,40 +40,6 @@ struct PlantSignalsParams {
     communication_topology: Option<Value>,
 }
 
-/// The common checks of an editor request: the contract and schema, a project root, and the
-/// producer's project ID; the project ID on success.
-fn admit(
-    id: u64,
-    contract: &str,
-    schema_version: u64,
-    project_id: &str,
-    context: &PlantHandlerContext<'_>,
-) -> Result<String, ControlResponse> {
-    if contract != CONTRACT || schema_version != SCHEMA_VERSION {
-        return Err(ControlResponse::error_with_code(
-            id,
-            "unsupported plant contract schema".to_string(),
-            "unsupported_schema",
-        ));
-    }
-    let Some(project_root) = context.project_root else {
-        return Err(ControlResponse::error_with_code(
-            id,
-            "plant project root is unavailable".to_string(),
-            "io_failure",
-        ));
-    };
-    let expected = project_identity(project_root);
-    if project_id != expected {
-        return Err(ControlResponse::error_with_code(
-            id,
-            "plant request belongs to a different project".to_string(),
-            "malformed_request",
-        ));
-    }
-    Ok(expected)
-}
-
 /// `plant.edit`: the draft after the requested edit, with every validation issue, what the editor
 /// shows, and the candidate it saves as. When the editor's checks find nothing, the runtime's own
 /// validation of the complete resulting `simulation.toml` judges the candidate too.
@@ -97,7 +62,7 @@ pub(super) fn handle_plant_edit(
         id,
         &params.contract,
         params.schema_version,
-        &params.project_id,
+        Some(&params.project_id),
         context,
     ) {
         Ok(project_id) => project_id,
@@ -176,7 +141,7 @@ pub(super) fn handle_plant_signals(
         id,
         &params.contract,
         params.schema_version,
-        &params.project_id,
+        Some(&params.project_id),
         context,
     ) {
         Ok(project_id) => project_id,

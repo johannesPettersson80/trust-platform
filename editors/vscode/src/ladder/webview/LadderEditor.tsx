@@ -27,9 +27,7 @@ import {
   type VariableDisplay,
 } from "./nodeDrawing";
 import type {
-  Coil as CoilType,
   CompareNode,
-  Contact as ContactType,
   Counter as CounterType,
   LadderElement,
   LadderProgram,
@@ -242,6 +240,7 @@ export function LadderEditor() {
   const nextRequestIdRef = useRef(1);
   // The latest text typed into a number field: only its answer is stored or shown.
   const numberEditRef = useRef(0);
+  const fieldEditRef = useRef(0);
   const edgeLinkSourceRef = useRef<EdgeLinkSource | null>(null);
 
   const variableDisplayByReference = useMemo(() => {
@@ -610,25 +609,12 @@ export function LadderEditor() {
     removeRungAt(targetIndex);
   };
 
+  /** Removes every wire of the active rung (`trust-lsp.visualEdit` `clearWiring`). */
   const clearActiveRungWiring = () => {
     if (activeRungIndex === null) {
       return;
     }
-    applyProgramChange((previous) => {
-      const networks = [...previous.networks];
-      const rung = networks[activeRungIndex];
-      if (!rung || rung.edges.length === 0) {
-        return previous;
-      }
-      networks[activeRungIndex] = {
-        ...rung,
-        edges: [],
-      };
-      return {
-        ...previous,
-        networks,
-      };
-    });
+    void runEdit("clearWiring", { rungIndex: activeRungIndex });
     setEdgeLinkSourceState(null);
   };
 
@@ -671,25 +657,12 @@ export function LadderEditor() {
     );
   };
 
+  /**
+   * Deletes an element with its wires (`trust-lsp.visualEdit` `removeElement`), which takes its
+   * term out of the rung's logic.
+   */
   const removeElementAt = (rungIndex: number, elementIndex: number) => {
-    applyProgramChange((previous) => {
-      const networks = [...previous.networks];
-      const rung = networks[rungIndex];
-      if (!rung || !rung.nodes[elementIndex]) {
-        return previous;
-      }
-
-      const nextNetwork = {
-        ...rung,
-        nodes: rung.nodes.filter((_, index) => index !== elementIndex),
-      };
-      networks[rungIndex] = nextNetwork;
-
-      return {
-        ...previous,
-        networks,
-      };
-    });
+    void runEdit("removeElement", { rungIndex, elementIndex });
   };
 
   const removeSelectedElement = () => {
@@ -702,51 +675,30 @@ export function LadderEditor() {
     setSelectedElement(null);
   };
 
-  const updateElementAt = (
-    rungIndex: number,
-    elementIndex: number,
-    updater: (element: LadderElement) => LadderElement
-  ) => {
-    applyProgramChange((previous) => {
-      const networks = [...previous.networks];
-      const rung = networks[rungIndex];
-      if (!rung || !rung.nodes[elementIndex]) {
-        return previous;
+  /**
+   * Stores a text or choice field of an element (`trust-lsp.visualEdit` `setField`), which also
+   * reconciles the declarations of a changed operand. Only the answer to the latest change is
+   * stored; a value the field does not take is refused with the reason.
+   */
+  const setElementField = (rungIndex: number, elementIndex: number, field: string, value: string) => {
+    fieldEditRef.current += 1;
+    const request = fieldEditRef.current;
+    void runEdit(
+      "setField",
+      { rungIndex, elementIndex, field, value },
+      { apply: () => request === fieldEditRef.current }
+    ).then(({ answer }) => {
+      if (request === fieldEditRef.current && !answer.ok) {
+        setLinkFeedback(answer.errors?.[0]?.message ?? "The value was not stored.");
       }
-
-      const nodes = [...rung.nodes];
-      const updatedElement = updater(nodes[elementIndex]);
-      nodes[elementIndex] = updatedElement;
-      const nextNetwork = {
-        ...rung,
-        nodes,
-      };
-
-      networks[rungIndex] = nextNetwork;
-
-      return {
-        ...previous,
-        networks,
-        variables: previous.variables,
-      };
     });
-    // A contact or coil operand declares its symbol; the language server reconciles the
-    // declarations as part of the same change.
-    const element = program.networks[rungIndex]?.nodes[elementIndex];
-    if (element && (element.type === "contact" || element.type === "coil")) {
-      void runEdit("reconcileDeclarations", {}, { trackHistory: false });
-    }
   };
 
-  const updateSelectedElement = (
-    updater: (element: LadderElement) => LadderElement
-  ) => {
+  const setSelectedField = (field: string, value: string) => {
     if (!selectedElement) {
       return;
     }
-
-    const { rungIndex, elementIndex } = selectedElement;
-    updateElementAt(rungIndex, elementIndex, updater);
+    setElementField(selectedElement.rungIndex, selectedElement.elementIndex, field, value);
   };
 
   /**
@@ -1043,21 +995,11 @@ export function LadderEditor() {
       return;
     }
     if (action === "toggle-contact-type" && node.type === "contact") {
-      updateElementAt(rungIndex, elementIndex, (element) => {
-        const contact = element as ContactType;
-        return {
-          ...contact,
-          contactType: contact.contactType === "NO" ? "NC" : "NO",
-        };
-      });
+      void runEdit("toggleContactType", { rungIndex, elementIndex });
       return;
     }
     if (action.startsWith("set-coil-type:") && node.type === "coil") {
-      const coilType = action.split(":")[1] as CoilType["coilType"];
-      updateElementAt(rungIndex, elementIndex, (element) => ({
-        ...(element as CoilType),
-        coilType,
-      }));
+      setElementField(rungIndex, elementIndex, "coilType", action.split(":")[1]);
     }
   };
 
@@ -2062,7 +2004,7 @@ export function LadderEditor() {
             selectedElementData={selectedElementData}
             onSetNumber={setSelectedNumber}
             numberFieldError={numberFieldError}
-            onUpdateSelectedElement={updateSelectedElement}
+            onSetField={setSelectedField}
             onRemoveSelectedElement={removeSelectedElement}
           />
         </div>

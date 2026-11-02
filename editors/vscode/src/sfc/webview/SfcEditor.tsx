@@ -249,7 +249,7 @@ export const SfcEditor: React.FC = () => {
   }, [addNodeAtPosition, requestFitView]);
 
   const handleDelete = useCallback(() => {
-    deleteSelected({
+    void deleteSelected({
       nodeIds: selectedNodeIds,
       edgeIds: selectedEdgeIds,
     });
@@ -317,7 +317,7 @@ export const SfcEditor: React.FC = () => {
         (selectedNodeIds.length > 0 || selectedEdgeIds.length > 0)
       ) {
         event.preventDefault();
-        deleteSelected({
+        void deleteSelected({
           nodeIds: selectedNodeIds,
           edgeIds: selectedEdgeIds,
         });

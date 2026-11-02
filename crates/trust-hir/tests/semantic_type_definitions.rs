@@ -316,7 +316,7 @@ END_CLASS
 CLASS Derived EXTENDS Base
 END_CLASS
 "#,
-        DiagnosticCode::InvalidOperation,
+        DiagnosticCode::InterfaceConformance,
     );
 }
 

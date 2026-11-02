@@ -24,6 +24,11 @@ pub(crate) struct CompileTimeConsts {
     /// compile-time-constant evaluation; only declaration-size lowering
     /// builds the size-evaluation view that merges them in.
     declared_sizes: IndexMap<SmolStr, Value>,
+    /// Last-segment index over the size view's merged values, built only by
+    /// `size_evaluation_view` (IEC_DEVIATIONS 2026-10-25): a reference that
+    /// fails exact lookup may still match one unique leaf table-wide.
+    /// `None` marks an ambiguous leaf; ordinary const sets never build it.
+    size_view_leaf_index: Option<std::collections::HashMap<SmolStr, Option<SmolStr>>>,
 }
 
 impl CompileTimeConsts {
@@ -51,8 +56,13 @@ impl CompileTimeConsts {
         self.declared_sizes.insert(Self::key(name), value);
     }
 
-    pub(crate) fn declared_sizes_is_empty(&self) -> bool {
-        self.declared_sizes.is_empty()
+    /// Whether the size-evaluation view can resolve anything the strict set
+    /// cannot: declared sizes exist, or namespace-qualified constants are
+    /// present whose leaves the dotted-reference tolerance may match
+    /// (IEC_DEVIATIONS 2026-10-25). Projects with neither keep the strict
+    /// error without building a view.
+    pub(crate) fn size_fallback_applicable(&self) -> bool {
+        !self.declared_sizes.is_empty() || self.global_values.keys().any(|key| key.contains('.'))
     }
 
     pub(crate) fn absorb_declared_sizes(&mut self, declared: Self) {
@@ -62,10 +72,30 @@ impl CompileTimeConsts {
     }
 
     /// The view declaration-size lowering evaluates against: true constants
-    /// plus the declared initial values of plain variables.
+    /// plus the declared initial values of plain variables, indexed by
+    /// unique leaf for the flattened-library tolerance of dotted size
+    /// references (IEC_DEVIATIONS 2026-10-25).
     pub(crate) fn size_evaluation_view(&self) -> Self {
         let mut view = self.clone();
         view.global_values.extend(self.declared_sizes.clone());
+        let mut index: std::collections::HashMap<SmolStr, Option<SmolStr>> = Default::default();
+        for key in view.global_values.keys() {
+            let leaf = match key.rsplit_once('.') {
+                Some((_, leaf)) => leaf,
+                None => key.as_str(),
+            };
+            match index.entry(SmolStr::new(leaf)) {
+                std::collections::hash_map::Entry::Vacant(slot) => {
+                    slot.insert(Some(key.clone()));
+                }
+                std::collections::hash_map::Entry::Occupied(mut slot) => {
+                    if slot.get().is_some() {
+                        slot.insert(None);
+                    }
+                }
+            }
+        }
+        view.size_view_leaf_index = Some(index);
         view
     }
 
@@ -75,7 +105,11 @@ impl CompileTimeConsts {
             return self.local_values.get(&key).cloned();
         }
         if name.contains('.') {
-            return self.global_values.get(&key).cloned();
+            return self
+                .global_values
+                .get(&key)
+                .cloned()
+                .or_else(|| self.lookup_unique_leaf(&key));
         }
         for namespace in using {
             let qualified = Self::key(&format!("{namespace}.{name}"));
@@ -84,6 +118,29 @@ impl CompileTimeConsts {
             }
         }
         self.global_values.get(&key).cloned()
+    }
+
+    /// Unique-leaf fallback for dotted size references in the size view
+    /// (IEC_DEVIATIONS 2026-10-25): a reference naming a GVL level a
+    /// library stub flattened away (`LogParameter.MAX_LOG_MSG_LEN` over
+    /// namespace-level constants, or the fully qualified
+    /// `WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) resolves when exactly
+    /// one entry carries the reference's last segment. Bare names never
+    /// fall back — an unimported namespace's operand must stay unimported;
+    /// ambiguous leaves stay unresolved.
+    fn lookup_unique_leaf(&self, key: &SmolStr) -> Option<Value> {
+        if !key.contains('.') {
+            return None;
+        }
+        let index = self.size_view_leaf_index.as_ref()?;
+        let leaf = match key.rsplit_once('.') {
+            Some((_, leaf)) => leaf,
+            None => key.as_str(),
+        };
+        let resolved = index.get(leaf)?;
+        resolved
+            .as_ref()
+            .and_then(|full_key| self.global_values.get(full_key).cloned())
     }
 }
 

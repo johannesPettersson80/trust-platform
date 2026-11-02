@@ -174,6 +174,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     ),
     operation("plant.status", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation(
+        "plant.topology",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
         "plant.signals",
         RolePolicy::Fixed(AccessRole::Viewer),
         false,

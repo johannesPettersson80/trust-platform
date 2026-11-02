@@ -623,6 +623,46 @@ re-check them against this rule when touched.
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
 
+
+## 2026-10-25 - Dotted declaration sizes over flattened library containers
+- Area: `STRING`/`WSTRING` declared lengths and array dimension bounds whose
+  size expression is a dotted constant reference, under the CODESYS language
+  profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`).
+- Normative IEC requirement: IEC 61131-3 Ed.3 resolves qualified symbolic
+  variables through their declared namespace/containers (§6.2.2.2); a dotted
+  reference must name an existing container path. The standard text was
+  unavailable on the authoring machine; the clause numbers mirror the
+  citations already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - Library documentation routinely qualifies constants through a GVL level
+    (`WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) while vendor stubs flatten
+    that level into namespace-level constants. In the two declaration-size
+    contexts only, a dotted reference that fails strict container resolution
+    falls back to a unique-leaf match: the reference's last segment must
+    match exactly one constant or initializer-backed declared value
+    table-wide. More than one match keeps the strict diagnostic; none keeps
+    `undefined constant`.
+  - Bare (non-dotted) names never take this tolerance: a constant visible
+    only inside a namespace stays unimported for callers without `USING`
+    (matching the unimported-namespace no-leak rule).
+- Impact: documentation-faithful sizes (128/20/40-class stub constants)
+  compile at their declared values instead of failing or being rewritten to
+  a numeric fallback downstream.
+- Mitigation: the tolerance is confined to the CODESYS profile and to the two
+  declaration-size contexts (string capacities, array bounds); under the IEC
+  rules a dotted size reference must name an existing container path, so a
+  flattened one stays `undefined constant`. Ordinary initializers and other
+  constant-expression contexts keep the strict rule, references whose root
+  names a scope-local value (FB instance member access) are excluded, and
+  ambiguity is rejected rather than silently bound.
+
+
+- PLCopen import/export (trust-plcopen): `<string length>` /
+  `<wstring maxLength>` attributes and `STRING[…]` export expressions pass
+  symbolic lengths through verbatim, mirroring the array-dimension
+  lower/upper pass-through; the analyzer owns resolution and validation, so
+  numeric-only length filtering no longer fails POUs closed at import.
+
 ## 2026-10-26 - Enum values as their base integer, and fully qualified member access
 
 - Area: enumerated values in assignments, comparisons, call arguments, and
@@ -816,3 +856,32 @@ re-check them against this rule when touched.
   `VAR_OUT`/`VAR_IN_OUT` pointer arms and variable initializers are not
   wired (mirroring the narrowing record's scoping (DEV-037)) and keep the error until a
   downstream need appears.
+
+- ID: DEV-040
+- Area: call-argument bindings between a concrete array and a
+  bound-agnostic `ARRAY[*]` formal (`W005` `ImplicitConversion`), all
+  parameter directions (input, output, in-out — both arms of an in-out
+  binding pair).
+- Normative IEC requirement: IEC 61131-3 Ed.3 varying arrays — a
+  fixed-length array of the same element type binds to a varying-length
+  formal as a view over the argument's storage; `§6.6.1.6`'s implicit
+  conversions for elementary types do not apply, because no value
+  conversion takes place. The standard text was unavailable on the
+  authoring machine; the clause mirrors the citation style already used
+  in `docs/specs/09-semantic-rules.md`.
+- truST behavior and conflict: the binding itself was accepted
+  (compatibility's wildcard arms) but each binding arm raised the
+  fidelity warning. The warning is now suppressed for the wildcard pair,
+  matching CODESYS, which admits concrete arrays for `ARRAY[*]` formals
+  silently in every parameter direction.
+- Impact: the downstream tree's 9 remaining binding sites (MQTT subscribe
+  payload/parameter buffers and JSON writer parameter arrays binding
+  through `VAR_IN_OUT`/`VAR_OUTPUT` stub formals) lose their per-arm
+  warnings. No runtime mirror is needed: the binding copies no elements —
+  the formal aliases the argument's storage for the call.
+- Mitigation: the suppression is shape-scoped — same element type and at
+  least one wildcard side. Element mismatches keep
+  `InvalidArgumentType` (pinned in
+  `array_wildcard_compatibility.rs`) and concrete-to-concrete bound
+  mismatches keep their rejection (pinned alongside), so the error
+  channel stays exactly as loud as before.
