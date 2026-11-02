@@ -27,7 +27,7 @@ fn run(source: &str) -> TestHarness {
 }
 
 /// [`run`] under the CODESYS profile, whose language rules admit an empty named argument
-/// (docs/IEC_DEVIATIONS.md DEV-040).
+/// (docs/IEC_DEVIATIONS.md DEV-041).
 fn codesys_run(source: &str) -> TestHarness {
     let session =
         CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
@@ -265,7 +265,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_empty_named_input_uses_initializer() {
-    // IEC_DEVIATIONS DEV-040: under the CODESYS profile `value := ` omits the
+    // IEC_DEVIATIONS DEV-041: under the CODESYS profile `value := ` omits the
     // input; a function parameter has no instance storage, so the declared
     // initializer applies (same as the zero-argument call above). The IEC
     // rules refuse the empty binding. Catches the CODESYS form leaking into

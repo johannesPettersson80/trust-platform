@@ -96,7 +96,7 @@ impl CompileTimeConsts {
     }
 
     /// The unique-leaf tolerance for dotted references (IEC_DEVIATIONS
-    /// DEV-041 and 2026-10-25), one rule for ordinary constant evaluation and
+    /// DEV-042 and 2026-10-25), one rule for ordinary constant evaluation and
     /// the size view: a reference naming a container level that a library
     /// stub flattened away (`LogParameter.MAX_LOG_MSG_LEN` over
     /// namespace-level constants, or the fully qualified
@@ -327,7 +327,7 @@ impl LoweringContext<'_> {
         self.lookup_compile_time_const(name).or_else(|| {
             // A dotted reference resolves as a qualified enum member when
             // its prefix names exactly one registered enum type
-            // (IEC_DEVIATIONS DEV-041); the bare-member fallback below
+            // (IEC_DEVIATIONS DEV-042); the bare-member fallback below
             // covers the unqualified form.
             let numeric = if name.contains('.') {
                 self.registry

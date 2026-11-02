@@ -28,7 +28,7 @@ fn run(source: &str) -> TestHarness {
 }
 
 /// [`run`] under the CODESYS profile, whose language rules admit an empty named argument
-/// (docs/IEC_DEVIATIONS.md DEV-040).
+/// (docs/IEC_DEVIATIONS.md DEV-041).
 fn codesys_run(source: &str) -> TestHarness {
     let session =
         CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
@@ -198,7 +198,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_empty_named_fb_input_retains_last_stored_value() {
-    // IEC_DEVIATIONS DEV-040: under the CODESYS profile `value := ` omits
+    // IEC_DEVIATIONS DEV-041: under the CODESYS profile `value := ` omits
     // the input; the FB retains the last stored value (7), it does NOT
     // re-apply the declared default (2) — same contract as positional
     // omission.
@@ -232,7 +232,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_empty_named_fb_output_compiles_unconnected() {
-    // The s4 form `Q => )` under the CODESYS profile (DEV-040): an output
+    // The s4 form `Q => )` under the CODESYS profile (DEV-041): an output
     // named without a target compiles and the value stays reachable through
     // the instance member.
     let harness = codesys_run(

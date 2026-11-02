@@ -149,7 +149,10 @@ suite("Plant service projection", () => {
     });
   });
 
-  test("validates then saves one plant through the existing project session", async () => {
+  // plant.save validates the candidate itself (specification 47 §20; the Rust test
+  // plant_save_refuses_a_candidate_the_simulation_refuses_without_writing), so Save sends no
+  // plant.validate first. Catches the extension running a validation of its own before saving.
+  test("saves one plant through the existing project session with one plant.save", async () => {
     const requests: Array<{ operation: string; params: Record<string, unknown> }> = [];
     const candidate = {
       id: "tank",
@@ -171,17 +174,6 @@ suite("Plant service projection", () => {
             operation,
             project_id: "project:sha256:save",
             configuration_revision: "sha256:before",
-          } as PlantContractMessage;
-        }
-        if (operation === "plant.validate") {
-          return {
-            contract: "trust.plant",
-            schema_version: 1,
-            operation,
-            project_id: "project:sha256:save",
-            valid: true,
-            issues: [],
-            candidate_revision: "sha256:candidate",
           } as PlantContractMessage;
         }
         return {
@@ -222,15 +214,6 @@ suite("Plant service projection", () => {
       {
         operation: "plant.read",
         params: { contract: "trust.plant", schema_version: 1 },
-      },
-      {
-        operation: "plant.validate",
-        params: {
-          contract: "trust.plant",
-          schema_version: 1,
-          project_id: "project:sha256:save",
-          plant: candidate,
-        },
       },
       {
         operation: "plant.save",

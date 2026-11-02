@@ -180,7 +180,7 @@ fn string_family(registry: &TypeRegistry, type_id: TypeId) -> Option<TypeId> {
     None
 }
 
-/// CODESYS TIME/TOD interchange (IEC_DEVIATIONS 2026-10-30, DEV-042): a
+/// CODESYS TIME/TOD interchange (IEC_DEVIATIONS 2026-10-30, DEV-043): a
 /// TIME literal expected as TOD (and the reverse) keeps its tag — the
 /// runtime arithmetic handles the mixed pair natively (`TOD + TIME`, the
 /// vendor clock-adjust idiom `sunset + T#1h`), so an eager tag conversion

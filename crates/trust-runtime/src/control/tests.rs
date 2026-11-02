@@ -39,6 +39,7 @@ include!("tests/identify.rs");
 include!("tests/control_studio_experiment.rs");
 include!("tests/control_studio_pid_apply.rs");
 include!("tests/plant_contract.rs");
+include!("tests/plant_save_validation_contract.rs");
 include!("tests/plant_remove_contract.rs");
 include!("tests/plant_scenario_contract.rs");
 include!("tests/plant_metadata_contract.rs");
