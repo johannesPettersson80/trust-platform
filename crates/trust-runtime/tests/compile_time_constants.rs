@@ -5,6 +5,32 @@
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
+/// The four strings after a cycle, for a failure's message. On 1 November 2026 a macOS run read
+/// `out_s` as "HELLO\0" (checklist W19) and 400 repeat runs did not; which of the four carries the
+/// extra byte tells the assignment of the literal from the copy.
+fn strings(harness: &TestHarness) -> String {
+    ["s", "out_s", "ws", "out_ws"]
+        .iter()
+        .map(|name| format!("{name} = {:?}", harness.get_output(name)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// `out_s` is "HELLO" and `out_ws` is "WIDE", with the four strings in the message otherwise.
+fn assert_copied(harness: &TestHarness) {
+    let seen = strings(harness);
+    assert_eq!(
+        harness.get_output("out_s"),
+        Some(Value::String("HELLO".into())),
+        "{seen}"
+    );
+    assert_eq!(
+        harness.get_output("out_ws"),
+        Some(Value::WString("WIDE".to_string())),
+        "{seen}"
+    );
+}
+
 #[test]
 fn named_constants_drive_parenthesized_string_lengths() {
     let source = r#"
@@ -34,8 +60,7 @@ fn named_constants_drive_parenthesized_string_lengths() {
         "runtime execution failed: {:?}",
         cycle.errors
     );
-    harness.assert_eq("out_s", Value::String("HELLO".into()));
-    harness.assert_eq("out_ws", Value::WString("WIDE".to_string()));
+    assert_copied(&harness);
 }
 
 #[test]
@@ -69,6 +94,5 @@ fn cross_file_global_constants_drive_string_lengths() {
         "runtime execution failed: {:?}",
         cycle.errors
     );
-    harness.assert_eq("out_s", Value::String("HELLO".into()));
-    harness.assert_eq("out_ws", Value::WString("WIDE".to_string()));
+    assert_copied(&harness);
 }
