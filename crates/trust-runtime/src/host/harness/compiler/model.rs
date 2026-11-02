@@ -24,11 +24,6 @@ pub(crate) struct CompileTimeConsts {
     /// compile-time-constant evaluation; only declaration-size lowering
     /// builds the size-evaluation view that merges them in.
     declared_sizes: IndexMap<SmolStr, Value>,
-    /// Last-segment index over the size view's merged values, built only by
-    /// `size_evaluation_view` (IEC_DEVIATIONS 2026-10-25): a reference that
-    /// fails exact lookup may still match one unique leaf table-wide.
-    /// `None` marks an ambiguous leaf; ordinary const sets never build it.
-    size_view_leaf_index: Option<std::collections::HashMap<SmolStr, Option<SmolStr>>>,
 }
 
 impl CompileTimeConsts {
@@ -57,12 +52,12 @@ impl CompileTimeConsts {
     }
 
     /// Whether the size-evaluation view can resolve anything the strict set
-    /// cannot: declared sizes exist, or namespace-qualified constants are
-    /// present whose leaves the dotted-reference tolerance may match
-    /// (IEC_DEVIATIONS 2026-10-25). Projects with neither keep the strict
-    /// error without building a view.
+    /// cannot: it adds the declared initial values of plain variables
+    /// (DEV-033), so a project without them keeps the strict error without
+    /// building a view. Dotted references take the same unique-leaf
+    /// tolerance in both.
     pub(crate) fn size_fallback_applicable(&self) -> bool {
-        !self.declared_sizes.is_empty() || self.global_values.keys().any(|key| key.contains('.'))
+        !self.declared_sizes.is_empty()
     }
 
     pub(crate) fn absorb_declared_sizes(&mut self, declared: Self) {
@@ -72,30 +67,10 @@ impl CompileTimeConsts {
     }
 
     /// The view declaration-size lowering evaluates against: true constants
-    /// plus the declared initial values of plain variables, indexed by
-    /// unique leaf for the flattened-library tolerance of dotted size
-    /// references (IEC_DEVIATIONS 2026-10-25).
+    /// plus the declared initial values of plain variables (DEV-033).
     pub(crate) fn size_evaluation_view(&self) -> Self {
         let mut view = self.clone();
         view.global_values.extend(self.declared_sizes.clone());
-        let mut index: std::collections::HashMap<SmolStr, Option<SmolStr>> = Default::default();
-        for key in view.global_values.keys() {
-            let leaf = match key.rsplit_once('.') {
-                Some((_, leaf)) => leaf,
-                None => key.as_str(),
-            };
-            match index.entry(SmolStr::new(leaf)) {
-                std::collections::hash_map::Entry::Vacant(slot) => {
-                    slot.insert(Some(key.clone()));
-                }
-                std::collections::hash_map::Entry::Occupied(mut slot) => {
-                    if slot.get().is_some() {
-                        slot.insert(None);
-                    }
-                }
-            }
-        }
-        view.size_view_leaf_index = Some(index);
         view
     }
 
@@ -120,27 +95,26 @@ impl CompileTimeConsts {
         self.global_values.get(&key).cloned()
     }
 
-    /// Unique-leaf fallback for dotted size references in the size view
-    /// (IEC_DEVIATIONS 2026-10-25): a reference naming a GVL level a
-    /// library stub flattened away (`LogParameter.MAX_LOG_MSG_LEN` over
+    /// The unique-leaf tolerance for dotted references (IEC_DEVIATIONS
+    /// DEV-042 and 2026-10-25), one rule for ordinary constant evaluation and
+    /// the size view: a reference naming a container level that a library
+    /// stub flattened away (`LogParameter.MAX_LOG_MSG_LEN` over
     /// namespace-level constants, or the fully qualified
-    /// `WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) resolves when exactly
-    /// one entry carries the reference's last segment. Bare names never
-    /// fall back — an unimported namespace's operand must stay unimported;
-    /// ambiguous leaves stay unresolved.
+    /// `WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) resolves when exactly one
+    /// entry carries its last segment: a registered constant, and in the size
+    /// view also a declared size. Bare names never fall back, so an
+    /// unimported namespace's operand stays unimported, and an ambiguous leaf
+    /// stays unresolved.
     fn lookup_unique_leaf(&self, key: &SmolStr) -> Option<Value> {
-        if !key.contains('.') {
-            return None;
-        }
-        let index = self.size_view_leaf_index.as_ref()?;
-        let leaf = match key.rsplit_once('.') {
-            Some((_, leaf)) => leaf,
-            None => key.as_str(),
-        };
-        let resolved = index.get(leaf)?;
-        resolved
-            .as_ref()
-            .and_then(|full_key| self.global_values.get(full_key).cloned())
+        let (_, leaf) = key.rsplit_once('.')?;
+        let mut matches = self.global_values.iter().filter(|(registered, _)| {
+            registered
+                .rsplit_once('.')
+                .map_or(registered.as_str(), |(_, own)| own)
+                == leaf
+        });
+        let (_, value) = matches.next()?;
+        matches.next().is_none().then(|| value.clone())
     }
 }
 
@@ -349,15 +323,24 @@ impl LoweringContext<'_> {
         self.compile_time_consts.lookup(name, &self.using)
     }
 
-    fn lookup_compile_time_value(&self, name: &str) -> Option<Value> {
+    pub(crate) fn lookup_compile_time_value(&self, name: &str) -> Option<Value> {
         self.lookup_compile_time_const(name).or_else(|| {
-            match self.registry.resolve_enum_value_by_name(name) {
-                trust_hir::symbols::EnumValueResolution::Resolved(value) => {
-                    Some(Value::LInt(value))
+            // A dotted reference resolves as a qualified enum member when
+            // its prefix names exactly one registered enum type
+            // (IEC_DEVIATIONS DEV-042); the bare-member fallback below
+            // covers the unqualified form.
+            let numeric = if name.contains('.') {
+                self.registry
+                    .resolve_qualified_enum_member(name)
+                    .map(|(_, _, value)| value)
+            } else {
+                match self.registry.resolve_enum_value_by_name(name) {
+                    trust_hir::symbols::EnumValueResolution::Resolved(value) => Some(value),
+                    trust_hir::symbols::EnumValueResolution::NotFound
+                    | trust_hir::symbols::EnumValueResolution::Ambiguous => None,
                 }
-                trust_hir::symbols::EnumValueResolution::NotFound
-                | trust_hir::symbols::EnumValueResolution::Ambiguous => None,
-            }
+            };
+            numeric.map(Value::LInt)
         })
     }
 
