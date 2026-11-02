@@ -623,6 +623,46 @@ re-check them against this rule when touched.
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
 
+
+## 2026-10-25 - Dotted declaration sizes over flattened library containers
+- Area: `STRING`/`WSTRING` declared lengths and array dimension bounds whose
+  size expression is a dotted constant reference, under the CODESYS language
+  profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`).
+- Normative IEC requirement: IEC 61131-3 Ed.3 resolves qualified symbolic
+  variables through their declared namespace/containers (§6.2.2.2); a dotted
+  reference must name an existing container path. The standard text was
+  unavailable on the authoring machine; the clause numbers mirror the
+  citations already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - Library documentation routinely qualifies constants through a GVL level
+    (`WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) while vendor stubs flatten
+    that level into namespace-level constants. In the two declaration-size
+    contexts only, a dotted reference that fails strict container resolution
+    falls back to a unique-leaf match: the reference's last segment must
+    match exactly one constant or initializer-backed declared value
+    table-wide. More than one match keeps the strict diagnostic; none keeps
+    `undefined constant`.
+  - Bare (non-dotted) names never take this tolerance: a constant visible
+    only inside a namespace stays unimported for callers without `USING`
+    (matching the unimported-namespace no-leak rule).
+- Impact: documentation-faithful sizes (128/20/40-class stub constants)
+  compile at their declared values instead of failing or being rewritten to
+  a numeric fallback downstream.
+- Mitigation: the tolerance is confined to the CODESYS profile and to the two
+  declaration-size contexts (string capacities, array bounds); under the IEC
+  rules a dotted size reference must name an existing container path, so a
+  flattened one stays `undefined constant`. Ordinary initializers and other
+  constant-expression contexts keep the strict rule, references whose root
+  names a scope-local value (FB instance member access) are excluded, and
+  ambiguity is rejected rather than silently bound.
+
+
+- PLCopen import/export (trust-plcopen): `<string length>` /
+  `<wstring maxLength>` attributes and `STRING[…]` export expressions pass
+  symbolic lengths through verbatim, mirroring the array-dimension
+  lower/upper pass-through; the analyzer owns resolution and validation, so
+  numeric-only length filtering no longer fails POUs closed at import.
+
 ## 2026-10-26 - Enum values as their base integer, and fully qualified member access
 
 - Area: enumerated values in assignments, comparisons, call arguments, and

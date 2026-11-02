@@ -230,9 +230,20 @@ fn semantic_export_string_types_map_lengths_and_unbounded_forms() {
     }
 }
 
+// IEC_DEVIATIONS 2026-10-21/2026-10-25: symbolic lengths export verbatim
+// (the analyzer owns validation); only an empty length expression is
+// rejected.
 #[test]
-fn semantic_export_string_types_reject_invalid_lengths() {
-    for source in ["STRING[]", "STRING[0]", "STRING[-1]", "STRING[many]"] {
+fn semantic_export_string_types_pass_lengths_through_verbatim() {
+    assert_eq!(
+        type_expression_to_plcopen_base_type_xml("STRING[0]"),
+        Some(r#"<string length="0"/>"#.to_string())
+    );
+    assert_eq!(
+        type_expression_to_plcopen_base_type_xml("STRING[GVLMqtt.uiLenMsgState]"),
+        Some(r#"<string length="GVLMqtt.uiLenMsgState"/>"#.to_string())
+    );
+    for source in ["STRING[]", "WSTRING[]"] {
         assert_eq!(
             type_expression_to_plcopen_base_type_xml(source),
             None,
