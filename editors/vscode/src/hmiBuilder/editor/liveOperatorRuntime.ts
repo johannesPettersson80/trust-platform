@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import { sendRuntimeControlRequest } from "../../runtimeControlClient";
 import { runtimeDeployDeps } from "./deployRuntime";
 import { openLiveSocket, requestLive } from "./liveNetwork";
-import type { LiveOperatorDeps } from "./liveOperator";
+import type { LiveGateFacts, LiveGateVerdict, LiveOperatorDeps } from "./liveOperator";
 import type { LiveEndpoint } from "./liveSession";
 import { remoteVariableContext } from "./remoteVariables";
 
@@ -32,6 +32,17 @@ export async function webServerAddress(controlEndpoint: string, topology: unknow
   return answer?.ok === true && typeof answer.url === "string" ? answer.url : undefined;
 }
 
+/** Live mode's operating gate as the language server decides it (`trust-lsp.hmiLiveGate`, §11 item 6). */
+export async function liveGate(facts: LiveGateFacts): Promise<LiveGateVerdict> {
+  const answer = await vscode.commands.executeCommand<
+    { ok?: boolean; verdict?: LiveGateVerdict; error?: string } | undefined
+  >("trust-lsp.hmiLiveGate", facts);
+  if (answer?.ok !== true || !answer.verdict) {
+    throw new Error(answer?.error ?? "trust-lsp.hmiLiveGate gave no verdict");
+  }
+  return answer.verdict;
+}
+
 export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): LiveOperatorDeps {
   let cached: { identity: string; target: LiveEndpoint } | undefined;
   return {
@@ -44,6 +55,7 @@ export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): L
       ),
     bundle: () => projectBundle(root),
     runTarget: () => runtimeDeployDeps.target(),
+    liveGate,
     session: {
       async target() {
         const selected = await runtimeDeployDeps.target();
