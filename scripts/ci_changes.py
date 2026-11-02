@@ -55,12 +55,26 @@ def pattern_regex(pattern: str) -> re.Pattern[str]:
 
 
 def read_patterns(text: str) -> list[str]:
-    """One glob per line; blank lines and `#` comments are ignored."""
+    """One glob per line; blank lines and `#` comments are ignored. A line that starts with `!`
+    excludes the paths it matches (see `on_list`)."""
     return [
         line.strip()
         for line in text.splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
+
+
+def on_list(path: str, patterns: Sequence[str]) -> bool:
+    """Whether `path` is on a path list: the last line that matches it decides, as in GitHub's own
+    path filters, and a `!` line takes the paths it matches off the list. So `**` then
+    `!editors/vscode/**` then `editors/vscode/package.json` lists everything but the extension,
+    except its manifest."""
+    listed = False
+    for pattern in patterns:
+        excluded = pattern.startswith("!")
+        if pattern_regex(pattern[1:] if excluded else pattern).match(path):
+            listed = not excluded
+    return listed
 
 
 def changed_files(event: str, base: str, head: str, cwd: Path | None = None) -> list[str]:
@@ -79,19 +93,21 @@ def changed_files(event: str, base: str, head: str, cwd: Path | None = None) -> 
 
 
 def decide(
-    event: str, base: str, head: str, patterns: Sequence[str], cwd: Path | None = None
+    event: str,
+    base: str,
+    head: str,
+    patterns: Sequence[str],
+    cwd: Path | None = None,
+    pull_requests_only: bool = False,
 ) -> tuple[bool, list[str]]:
-    """Whether the workflow's checks must run, and the changed files that made them run."""
-    if event not in CHANGE_EVENTS:
+    """Whether the workflow's checks must run, and the changed files that made them run. With
+    `pull_requests_only`, only a pull request skips: CI's own jobs check everything on a push to
+    `main`, whose runs go one at a time, so that a replaced run cannot leave a merge unchecked."""
+    if event not in CHANGE_EVENTS or (pull_requests_only and event != "pull_request"):
         return True, []
     if not base or base == NULL_SHA:
         return True, []
-    regexes = [pattern_regex(pattern) for pattern in patterns]
-    matched = [
-        path
-        for path in changed_files(event, base, head, cwd)
-        if any(regex.match(path) for regex in regexes)
-    ]
+    matched = [path for path in changed_files(event, base, head, cwd) if on_list(path, patterns)]
     return bool(matched), matched
 
 
@@ -101,14 +117,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--base", default="")
     parser.add_argument("--head", required=True)
     parser.add_argument("--paths-file", required=True, type=Path)
+    parser.add_argument("--pull-requests-only", action="store_true")
     args = parser.parse_args(argv)
 
     patterns = read_patterns(args.paths_file.read_text(encoding="utf-8"))
     if not patterns:
         print("ci_changes: the path list is empty", file=sys.stderr)
         return 2
-    relevant, matched = decide(args.event, args.base.strip(), args.head.strip(), patterns)
-    if args.event not in CHANGE_EVENTS:
+    relevant, matched = decide(
+        args.event,
+        args.base.strip(),
+        args.head.strip(),
+        patterns,
+        pull_requests_only=args.pull_requests_only,
+    )
+    if args.event not in CHANGE_EVENTS or (args.pull_requests_only and args.event != "pull_request"):
         print(f"ci_changes: a {args.event} run checks everything")
     elif not args.base.strip() or args.base.strip() == NULL_SHA:
         print("ci_changes: the previous commit is unknown, so everything is checked")

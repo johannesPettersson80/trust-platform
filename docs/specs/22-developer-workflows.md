@@ -445,6 +445,20 @@ workflow instead of skipping its checks. GitHub's own path filters compare only 
 0.25.0's 10,252-file pull request ran no documentation workflow, and the site
 broke on `main` (28 October 2026).
 
+CI's own jobs (`ci.yml`) skip on a pull request only. The three Test jobs and
+Conformance build the whole workspace and run every Rust test, and those tests
+read files across the repository: specifications, examples, libraries and
+fixtures. Their path list, `.github/paths/ci-rust-tests.txt`, therefore names
+everything except the paths that no Rust build, test or conformance script
+reads, each excluded with its evidence. A line that starts with `!` takes paths
+off a list, and the last line that matches a path decides. These jobs run when
+a changed file is on that list. Every other event runs every job, a push to
+`main` included: `main`'s runs go one at a time and a newer push replaces a
+waiting run, so a comparison with the previous commit could leave a merged
+change unchecked. Release Gate Report accepts a job that the detection skipped,
+with the status `skipped` and without its gate markers, and no other missing
+job or marker (2 November 2026, checklist W9).
+
 The merge queue is not enabled (above), but the workflows are ready for it, so
 that it can be turned on if the repository moves to an organization. The queue
 tests each pull request again as a merge group: the pull request merged onto

@@ -1,0 +1,22 @@
+# The paths whose change runs CI's Test (three systems) and Conformance jobs on a pull request
+# (specification 22, change detection). They build the whole workspace and run every Rust test, and
+# the tests read files across the repository (specifications, examples, libraries, fixtures), so the
+# list is everything except the paths that no Rust build, test or conformance script reads. A path is
+# excluded only with evidence (2 November 2026):
+**
+# The agent rules: Rust reads them only in `xtask portability freeze-source/check-source`, which no
+# CI job runs, and in unit tests that write their own copies.
+!AGENTS.md
+!CLAUDE.md
+!.codex/**
+# The changelog: no Rust source names it.
+!CHANGELOG.md
+!changelog.d/**
+# The extension: Rust reads only these of its files.
+!editors/vscode/**
+# Fixture projects of the Control Studio, debug-adapter and control-engineering tests.
+editors/vscode/src/test/fixtures/**
+# `include_str!` in trust-lsp's command tests.
+editors/vscode/package.json
+# A source-identity record of `xtask portability`.
+editors/vscode/src/extension.ts

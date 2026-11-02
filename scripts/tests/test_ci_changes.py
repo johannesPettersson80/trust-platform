@@ -84,6 +84,23 @@ class ChangeDetectionTests(unittest.TestCase):
             self.assertEqual(ci_changes.decide("push", before, after, ["docs/**"], cwd=repo), (False, []))
             self.assertEqual(ci_changes.decide("push", before, after, ["*.rs"], cwd=repo), (True, ["src.rs"]))
 
+    def test_with_pull_requests_only_a_push_checks_everything(self) -> None:
+        # Catches CI's own jobs skipped on a push to main: main's runs go one at a time and a newer
+        # push replaces a waiting run, so a skip against the previous commit could leave a merged
+        # change unchecked (specification 22, change detection).
+        holder, repo = repository()
+        with holder:
+            before = git(repo, "rev-parse", "HEAD")
+            (repo / "docs").mkdir()
+            (repo / "docs" / "a.md").write_text("a\n")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-q", "-m", "docs")
+            after = git(repo, "rev-parse", "HEAD")
+            only = {"cwd": repo, "pull_requests_only": True}
+            self.assertEqual(ci_changes.decide("push", before, after, ["*.rs"], **only), (True, []))
+            self.assertEqual(ci_changes.decide("merge_group", before, after, ["*.rs"], **only), (True, []))
+            self.assertEqual(ci_changes.decide("pull_request", before, after, ["*.rs"], **only), (False, []))
+
     def test_a_merge_group_compares_with_the_main_it_was_built_on(self) -> None:
         # Specification 22, "Change and release workflow": the merge queue builds the pull request on
         # top of the current main. Catches a merge group that runs every check whatever it changes
@@ -144,6 +161,49 @@ class ChangeDetectionTests(unittest.TestCase):
             ci_changes.read_patterns("# area\n\ndocs/**\n  scripts/*.py  \n"),
             ["docs/**", "scripts/*.py"],
         )
+
+
+    def test_the_last_matching_line_decides_and_an_exclamation_line_excludes(self) -> None:
+        # Catches an exclusion that ignores the order of the lines, which would either run the
+        # checks on an excluded path or skip them on a path a later line puts back on the list.
+        lines = ["**", "!editors/vscode/**", "editors/vscode/package.json"]
+        self.assertTrue(ci_changes.on_list("crates/trust-lsp/src/main.rs", lines))
+        self.assertFalse(ci_changes.on_list("editors/vscode/src/extension.ts", lines))
+        self.assertTrue(ci_changes.on_list("editors/vscode/package.json", lines))
+        self.assertFalse(ci_changes.on_list("editors/vscode/package.json", lines + ["!**"]))
+        self.assertFalse(ci_changes.on_list("README.md", ["!README.md"]))
+
+    def test_the_rust_test_list_skips_only_what_no_rust_test_reads(self) -> None:
+        # Catches a TypeScript-only change running the three Test jobs and Conformance, and an
+        # extension file that Rust reads (a fixture project, the manifest that trust-lsp's tests
+        # include) skipping them (specification 22, change detection).
+        lines = ci_changes.read_patterns(
+            (ROOT / ".github/paths/ci-rust-tests.txt").read_text(encoding="utf-8")
+        )
+        for path in [
+            "crates/trust-lsp/src/main.rs",
+            "Cargo.lock",
+            "docs/specs/47-vscode-plant-simulation-ui.md",
+            "examples/tank/src/main.st",
+            ".github/workflows/ci.yml",
+            ".github/paths/ci-rust-tests.txt",
+            "scripts/ci_changes.py",
+            "editors/vscode/src/test/fixtures/control-studio-engineer/control-loop.json",
+            "editors/vscode/package.json",
+            "editors/vscode/src/extension.ts",
+        ]:
+            self.assertTrue(ci_changes.on_list(path, lines), path)
+        for path in [
+            "editors/vscode/src/networkCanvas/plant/projection.ts",
+            "editors/vscode/src/test/suite/plant-service.test.ts",
+            "editors/vscode/package-lock.json",
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".codex/skills/trust-test-authoring/SKILL.md",
+            "CHANGELOG.md",
+            "changelog.d/plant-topology-in-rust.md",
+        ]:
+            self.assertFalse(ci_changes.on_list(path, lines), path)
 
 
 if __name__ == "__main__":

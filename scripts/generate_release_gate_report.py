@@ -70,6 +70,7 @@ def write_markdown(
     failed_jobs: list[str],
     checklist_statuses: dict[str, dict[str, int] | str],
     verdict: str,
+    skipped_gates: list[str],
 ) -> None:
     lines: list[str] = []
     lines.append("# Release Gate Report")
@@ -84,6 +85,12 @@ def write_markdown(
             lines.append(f"- [x] `{gate}`")
     else:
         lines.append("- [ ] No gate artifacts found")
+    if skipped_gates:
+        lines.append("")
+        lines.append("### Skipped by Change Detection")
+        lines.append("")
+        for gate in skipped_gates:
+            lines.append(f"- [x] `{gate}`: the change touches nothing its job reads")
     if missing_gates:
         lines.append("")
         lines.append("### Missing Required Gate Artifacts")
@@ -96,7 +103,7 @@ def write_markdown(
     lines.append("")
     for name in sorted(job_statuses):
         value = job_statuses[name]
-        marker = "x" if value == "success" else " "
+        marker = "x" if value == "success" or name not in failed_jobs else " "
         lines.append(f"- [{marker}] `{name}`: `{value}`")
     if failed_jobs:
         lines.append("")
@@ -131,6 +138,10 @@ def main() -> int:
     parser.add_argument("--required-gate", action="append", default=[])
     parser.add_argument("--job-status", action="append", default=[])
     parser.add_argument("--checklist", action="append", default=[])
+    # Specification 22, change detection: a job that the change detection skipped passes as
+    # `skipped`, and the gate markers it would have uploaded are not required.
+    parser.add_argument("--skipped-job", action="append", default=[])
+    parser.add_argument("--skipped-gate", action="append", default=[])
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -144,10 +155,15 @@ def main() -> int:
         return 2
 
     gate_artifacts_present = discover_gate_artifacts(gate_artifacts_dir)
-    missing_gates = sorted(set(args.required_gate) - set(gate_artifacts_present))
+    skipped_gates = sorted(set(args.skipped_gate))
+    missing_gates = sorted(
+        set(args.required_gate) - set(gate_artifacts_present) - set(skipped_gates)
+    )
 
     failed_jobs = sorted(
-        name for name, status in job_statuses.items() if status != "success"
+        name
+        for name, status in job_statuses.items()
+        if status != "success" and not (name in args.skipped_job and status == "skipped")
     )
 
     checklist_statuses: dict[str, dict[str, int] | str] = {}
@@ -173,6 +189,10 @@ def main() -> int:
         "required_gate_artifacts": sorted(args.required_gate),
         "gate_artifacts_present": gate_artifacts_present,
         "missing_required_gate_artifacts": missing_gates,
+        "skipped_by_change_detection": {
+            "jobs": sorted(set(args.skipped_job)),
+            "gates": skipped_gates,
+        },
         "job_statuses": job_statuses,
         "failed_jobs": failed_jobs,
         "checklists": checklist_statuses,
@@ -191,6 +211,7 @@ def main() -> int:
         failed_jobs=failed_jobs,
         checklist_statuses=checklist_statuses,
         verdict=verdict,
+        skipped_gates=skipped_gates,
     )
 
     if verdict == "FAIL":
