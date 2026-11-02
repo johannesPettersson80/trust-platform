@@ -296,10 +296,19 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   queue only to organizations), and the pull request need not hold the newest
   `main`: `main`'s CI checks every merge, a red `main` is fixed before any other
   merge, and the release follows only a `main` commit whose CI passed;
+- a user-visible change adds a changelog fragment, `changelog.d/<topic>.md`,
+  with Keep a Changelog sections and their entries, and leaves
+  `## [Unreleased]` in `CHANGELOG.md` empty, so that open pull requests never
+  conflict over the changelog. A released section is its GitHub release's
+  text and never changes: an entry written before a release, appended to the
+  old `## [Unreleased]`, would otherwise merge cleanly into the section the
+  release made of it. `scripts/changelog_fragments.py check` runs in CI and
+  compares the released sections with the pull request's base;
 - a release is a pull request that only bumps the version and moves the
-  changelog section; it merges like any other, and the release follows
-  `main`'s CI (specification 24, "Release after main CI"), publishing the
-  packages built and tested for that commit;
+  changelog: `scripts/bump_version.py` gathers the fragments into the
+  version's section, the newest first; it merges like any other, and the
+  release follows `main`'s CI (specification 24, "Release after main CI"),
+  publishing the packages built and tested for that commit;
 - release blockers are regressions and severe bugs (safety, data loss, a
   broken user journey); any other finding goes on the checklist for the next
   release.
