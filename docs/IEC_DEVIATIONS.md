@@ -623,6 +623,54 @@ re-check them against this rule when touched.
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
 
+
+## 2026-10-25 - Dotted declaration sizes over flattened library containers
+- Area: `STRING`/`WSTRING` declared lengths and array dimension bounds whose
+  size expression is a dotted constant reference, under the CODESYS language
+  profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`).
+- Normative IEC requirement: IEC 61131-3 Ed.3 resolves qualified symbolic
+  variables through their declared namespace/containers (§6.2.2.2); a dotted
+  reference must name an existing container path. The standard text was
+  unavailable on the authoring machine; the clause numbers mirror the
+  citations already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - Library documentation routinely qualifies constants through a GVL level
+    (`WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) while vendor stubs flatten
+    that level into namespace-level constants. In the two declaration-size
+    contexts only, a dotted reference that fails strict container resolution
+    falls back to a unique-leaf match: the reference's last segment must
+    match exactly one constant or initializer-backed declared value
+    table-wide. More than one match keeps the strict diagnostic; none keeps
+    `undefined constant`.
+  - Bare (non-dotted) names never take this tolerance: a constant visible
+    only inside a namespace stays unimported for callers without `USING`
+    (matching the unimported-namespace no-leak rule).
+  - The compiler's lowering resolves a dotted reference with one lookup in
+    every constant context, declaration sizes and ordinary constant
+    initializers alike (DEV-042): exactly one registered constant, and in a
+    declaration size also a declared initial value (DEV-033), must carry the
+    reference's last segment. The analyzer admits a flattened container only
+    in the two declaration-size contexts, so an ordinary initializer that
+    names one keeps `undefined constant`.
+- Impact: documentation-faithful sizes (128/20/40-class stub constants)
+  compile at their declared values instead of failing or being rewritten to
+  a numeric fallback downstream.
+- Mitigation: the tolerance is confined to the CODESYS profile and to the two
+  declaration-size contexts (string capacities, array bounds); under the IEC
+  rules a dotted size reference must name an existing container path, so a
+  flattened one stays `undefined constant`. The analyzer keeps the strict
+  rule for ordinary initializers and the other constant-expression contexts,
+  so the lowering's lookup resolves there only what the analyzer admitted;
+  references whose root names a scope-local value (FB instance member
+  access) are excluded, and ambiguity is rejected rather than silently bound.
+
+
+- PLCopen import/export (trust-plcopen): `<string length>` /
+  `<wstring maxLength>` attributes and `STRING[…]` export expressions pass
+  symbolic lengths through verbatim, mirroring the array-dimension
+  lower/upper pass-through; the analyzer owns resolution and validation, so
+  numeric-only length filtering no longer fails POUs closed at import.
+
 ## 2026-10-26 - Enum values as their base integer, and fully qualified member access
 
 - Area: enumerated values in assignments, comparisons, call arguments, and
@@ -772,14 +820,27 @@ re-check them against this rule when touched.
   their diagnostics. The compile-time constant evaluator promotes true
   mixed signed×unsigned pairs the same way (exact i128 math, materialized
   LINT/ULINT) so array bounds and initializers like
-  `ARRAY[0..SIZEOF(x)-1]` keep working with an unsigned SIZEOF; the VM
-  execution path keeps its stricter contract.
+  `ARRAY[0..SIZEOF(x)-1]` keep working with an unsigned SIZEOF; narrow
+  same-sign pairs (`SINT`/`INT`/`USINT`/`UINT` operands) that fault only
+  on the narrow materialization — untyped literals materialize
+  narrowest-fitting, so the vendor syslog idiom `LOG_LOCAL0 := 16 * 8`
+  arrives as an i8 multiply — are retried exactly in i128 and materialize
+  LINT/ULINT as well, while typed `DINT`/`LINT` pairs keep their
+  fault-on-overflow contract; the VM execution path keeps its stricter
+  contract.
 - Mitigation: admission is silent (matches the vendor toolchain and the
   existing logical-operator precedent) but type-class-scoped — BOOL and
   non-scalar pairs, REAL accuracy-loss pairs, and mixed-family
   arithmetic keep their errors; the runtime promotion lives in the
   compare/arithmetic paths, leaving the value-helper rejection pins
   intact.
+- Open note (2026-10-30): the narrow same-sign exact fold was added
+  after the downstream dialect-parity rounds produced the first compile
+  to reach bytecode lowering, unmasking a positionless arithmetic
+  overflow on `WagoTypesLog.eSysLogFacility` members written as `N * 8`
+  (`LOG_LOCAL0..LOG_LOCAL7`). Untyped-literal constant folding is exact;
+  a representable magnitude cannot fail at compile time, and typed
+  `DINT`/`LINT` overflow keeps its fault.
 
 ## 2026-10-29 - Pointer-target lenient bindings
 
@@ -845,3 +906,79 @@ re-check them against this rule when touched.
   `array_wildcard_compatibility.rs`) and concrete-to-concrete bound
   mismatches keep their rejection (pinned alongside), so the error
   channel stays exactly as loud as before.
+
+## 2026-10-30 - Empty named call arguments bind nothing
+
+- ID: DEV-041
+- Area: formal call arguments in the bytecode lowerer — a named binding
+  with an empty right-hand side (`RST := ,` for inputs, `Q => ` or
+  `Q => ,` for outputs).
+- Normative IEC requirement: IEC 61131-3 Ed.3 §6.6.1.4.1 and Table 50
+  distinguish complete from incomplete formal calls; an input/output
+  mapping may be absent (the formal keeps its default or, for
+  function-block instances, its stored value), while a VAR_IN_OUT mapping
+  must always be present. The standard text was unavailable on the
+  authoring machine; the clause mirrors the citation style already used
+  in `docs/specs/09-semantic-rules.md`.
+- truST behavior and conflict: the parser already accepted the empty
+  form (CODESYS parity — vendor projects write `RST := , Q => )` to
+  document explicitly-defaulted inputs and unconnected outputs) and the
+  type-checker already dropped expression-less arguments, but the
+  bytecode lowerer required an expression child and rejected the
+  positionless "missing call argument". The lowerer now drops those
+  arguments the same way: an unbound input takes the function-block
+  retained value or the declared default (function parameters use the
+  declared initializer), and an unbound output simply stays unconnected.
+  The downstream s4 tree carries 40 such call sites across five POUs
+  (TOF/RTRIG/DEBOUNCE/dimmer calls written `RST := , Q => )`).
+- Impact: those call sites pass the compile gate and execute with the
+  same not-passed contract positional omission already uses — the VM's
+  binding paths have complete default/retain/Null arms for missing
+  arguments, so no uninitialized storage is reachable.
+- Mitigation: the admission is name-scoped — an empty binding must carry
+  a parameter name to bind nothing (a positional empty slot stays
+  rejected); `?=` reference assignments always require a target;
+  VAR_IN_OUT formals keep their missing-binding diagnostic (analyzer
+  first, runtime trap behind it); struct-initializer
+  `(field := value)` aggregates are a different product form and keep
+  their value requirement.
+
+## 2026-10-30 - Qualified compile-time constant and enum-member references
+
+- ID: DEV-042
+- Area: dotted references inside compile-time constant evaluation -
+  qualified enum members (`Namespace.EnumType.Member`,
+  `EnumType.Member`) and flattened-library constant references
+  (`LogParameter.MAX_LOG_MSG_LEN` over namespace-level constants).
+- Normative IEC requirement: IEC 61131-3 Ed.3 scopes symbolic constants
+  to their declaring namespace/POU with explicit qualification for
+  out-of-scope references; the flattened library form names a container
+  level (GVL list or documentation section) that carries no IEC scoping
+  role. The standard text was unavailable on the authoring machine; the
+  clause mirrors the citation style already used in
+  `docs/specs/09-semantic-rules.md`.
+- truST behavior and conflict: the type-checker already accepts both
+  forms where they occur in the s4 tree - qualified enum members as
+  global initializers (runtime-evaluated, resolved through the symbol
+  table's suffix matching over registered type names) and flattened
+  constants in declared-size positions (the unique-leaf tolerance
+  documented for declared sizes, IEC_DEVIATIONS 2026-10-25) - but the
+  bytecode lowerer's constant evaluation resolved only exact dotted
+  keys and bare members, rejecting the downstream s4 tree's initializers
+  with a positionless "expression is not a compile-time constant"
+  (`WagoTypesLog.eSysLogPriority.LOG_INFO` log-level globals,
+  `LogParameter.MAX_LOG_MSG_LEN` interface-method capacities, and
+  project-enum members such as `eDayPhase.Night`).
+- Impact: those initializers lower - qualified enum members resolve
+  through exact or unique-suffix enum-name matching with ambiguity kept
+  unresolved, and flattened constant references resolve when exactly one
+  registered constant carries the reference's last segment. Bare names
+  never take the leaf fallback (an unimported namespace's operand stays
+  unimported) and ambiguous matches keep the strict error. Evaluating
+  qualified references inside declared `VAR_CONSTANT` initializers
+  (which requires extending the type-checker's constant evaluator
+  itself) stays out of scope and keeps its diagnostic.
+- Mitigation: the tolerance is shape-scoped - dotted references only,
+  ambiguity stays unresolved, and the bare-name strictness documented
+  for the size view carries over; the unqualified-member ambiguity rule
+  of `resolve_enum_value_by_name` is unchanged.

@@ -58,6 +58,7 @@ const VIEWER: &[&str] = &[
     "plant.read",
     "plant.signals",
     "plant.status",
+    "plant.topology",
     "plant.trace.read",
     "program.active",
     "status",
