@@ -114,6 +114,28 @@ export interface AddStateAnswer {
 export type RequestAddState = (graph: StatechartGraph, stateType: StateType) => Promise<AddStateAnswer>;
 
 /**
+ * A dialog of the action-mapping panel, which the host shows in VS Code, since the webview's sandbox
+ * ignores `window.prompt` and `window.confirm`: the name of a new mapping, or the confirmation of a
+ * deletion.
+ */
+export type DialogRequest =
+  | { dialog: "addActionMapping"; mappings: Record<string, ActionMapping> }
+  | { dialog: "deleteActionMapping"; name: string };
+
+/**
+ * The host's answer to a dialog: the mappings with the new one and its name, or whether the deletion
+ * is confirmed; nothing when the user cancelled or the language server refused, which the host says.
+ */
+export interface DialogAnswer {
+  mappings?: Record<string, ActionMapping>;
+  name?: string;
+  confirmed?: boolean;
+}
+
+/** Asks the host to show a dialog of the action-mapping panel. */
+export type AskDialog = (request: DialogRequest) => Promise<DialogAnswer>;
+
+/**
  * Messages sent from webview to extension
  */
 export type WebviewToExtensionMessage =
@@ -122,6 +144,7 @@ export type WebviewToExtensionMessage =
   | { type: "generateST"; graph: StatechartGraph }
   | { type: "actionReport"; requestId: number; graph: StatechartGraph }
   | { type: "readValue"; requestId: number; field: ValueField; text: string }
+  | ({ type: "dialog"; requestId: number } & DialogRequest)
   | { type: "addState"; requestId: number; graph: StatechartGraph; stateType: StateType }
   | { type: "ready" }
   | { type: "openAsText" };
@@ -147,6 +170,11 @@ export type ExtensionToWebviewMessage =
       type: "valueResult";
       requestId: number;
     } & ValueAnswer)
+  | ({
+      /** The answer to the dialog of request `requestId`. */
+      type: "dialogResult";
+      requestId: number;
+    } & DialogAnswer)
   | ({
       /** The language server's new state for request `requestId`. */
       type: "stateAdded";
