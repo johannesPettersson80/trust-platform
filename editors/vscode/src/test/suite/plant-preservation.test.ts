@@ -1,10 +1,9 @@
 import * as assert from "assert";
-import { normalizePlantTopology } from "../../networkCanvas/plant/projection";
 import { createPlantEditDraft } from "../../networkCanvas/plant/addFlow";
-import type { PlantContractMessage } from "../../networkCanvas/plant/contract";
 
 // Rust builds the candidate from the draft and carries the saved fields the editor does not manage
-// (specification 47 §13.2); the projection hands it the saved plant as it was read.
+// (specification 47 §13.2). Rust's `plant.topology` hands the editor the saved table (trust-runtime
+// test `a_saved_plant_opens_with_its_whole_saved_table`); the draft keeps a copy of it.
 suite("Plant configuration preservation", () => {
   test("a saved plant reopens with its whole saved table, copied, for Rust to carry", () => {
     const validity = { state_minimum: [-10, -20], state_maximum: [10, 20] };
@@ -17,21 +16,23 @@ suite("Plant configuration preservation", () => {
       input_scale: [1, 2], input_offset: [0, 3], output_scale: [4, 5], output_offset: [6, 7],
       validity,
     };
-    const response: PlantContractMessage = {
-      contract: "trust.plant", schema_version: 1, operation: "plant.read", project_id: "project:test",
-      configuration_revision: "sha256:saved", saved_configuration: { plants: [saved] },
-      plants: [{ id: saved.id, display_name: saved.name, model: saved.model,
-        enabled: true, command_sources: saved.command_sources, feedback_targets: saved.feedback_targets }],
+    const configuration = {
+      description: saved.description,
+      parameters: saved.parameters,
+      initialState: saved.initial_state,
+      initialInput: saved.initial_input,
+      inputScale: saved.input_scale,
+      inputOffset: saved.input_offset,
+      outputScale: saved.output_scale,
+      outputOffset: saved.output_offset,
+      preservedConfiguration: saved,
     };
-    const projected = normalizePlantTopology(response)[0];
-    assert.ok(projected.configuration);
-    assert.deepStrictEqual(projected.configuration.preservedConfiguration, saved);
     const draft = createPlantEditDraft({
-      ...projected.configuration, id: "plant:custom", projectId: "project:test",
+      ...configuration, id: "plant:custom", projectId: "project:test",
       uncertainties: undefined, scenarioEvents: [],
       runtimeId: "simulator", runtimeName: "Simulator", plantId: saved.id,
       displayName: "Renamed model", enabled: true, model: "state_space",
-      commandSources: projected.commandSources, feedbackTargets: projected.feedbackTargets,
+      commandSources: saved.command_sources, feedbackTargets: saved.feedback_targets,
       savedConfigurationRevision: "sha256:saved",
     });
     assert.deepStrictEqual(draft.preservedConfiguration, saved);
