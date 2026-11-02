@@ -685,6 +685,24 @@ README that passes fails the check until it is taken off the list.
 - A simulator with no session tells the user to Start. A selected unattached
   remote tells the user to Connect. Raw adapter no-session errors are
   normalized to those product states.
+- The language server reads a failed I/O state request of Live Values
+  (`trust-lsp.runTargets`, action `failure` with `request: "ioState"`, §6.9)
+  as one of three kinds, and the panel acts on the kind:
+  - `no_session`, `No active Structured Text debug session.`: there is no
+    session to ask, or the session is gone. VS Code says
+    `No debugger available`, `Can not send 'stIoState'`, or `Canceled` (one
+    `l`) for the requests of a session that ends; the debug adapter says
+    `no program runs: launch or attach first`. Live Values takes the
+    unavailable route with the guidance above; a Start whose first request
+    fails so, and Devices & Connections, show the message.
+  - `connection_lost`: the connection under the request failed: its text
+    names a connection, a socket, `ECONNRESET`, `ECONNREFUSED` or `EPIPE`, a
+    timeout, or something `cancelled`, `closed`, `terminated`, `not connected`
+    or `disconnected`. Live Values takes the unavailable route with
+    `Live Values lost connection to the runtime. Restart or reconnect the
+    runtime, then retry.`
+  - `request_failed`: any other failure, `I/O state request failed: <its
+    text>`, shown as the panel's status; the rows stay.
 - An attached session is `Connected`; its endpoint comes from the debug
   session. A reachable online target without an attached session is
   `Not connected`, not `Running`. When that runtime answered Connect but keeps

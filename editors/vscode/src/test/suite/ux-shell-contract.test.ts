@@ -1572,8 +1572,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "Live Values must not display the raw debug-adapter no-session message"
     );
     assert.ok(
-      /No debugger available/i.test(host) && /stIoState/i.test(host),
-      "Live Values must map disconnected attach-mode stIoState failures to the same beginner-facing empty state"
+      requestIoStateBody.includes('result.failure.kind === "no_session"') &&
+        !/No debugger available/i.test(host),
+      "Live Values must show an I/O state request whose session is gone, as the language server reads it, as the same beginner-facing empty state"
     );
     assert.ok(
       host.includes("Connect to the selected runtime to see live values."),
@@ -1672,8 +1673,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "terminated sessions must also clear stale rows and replace stale role/success banners with the correct unavailable message"
     );
     assert.ok(
-      host.includes("/I\\/O state request failed:\\s*Canceled/i.test(message)"),
-      "a canceled I/O request during Stop must clear stale Live Values instead of leaving old LIVE rows"
+      host.includes('if (result.failure.kind === "no_session") {') &&
+        !host.includes("Canceled"),
+      "a canceled I/O request during Stop, which the language server reads as no session, must clear stale Live Values instead of leaving old LIVE rows"
     );
     assert.ok(
       !terminateBody.includes("sendRuntimeStatus()"),
