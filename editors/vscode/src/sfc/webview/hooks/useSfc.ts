@@ -405,34 +405,33 @@ export function useSfc() {
   }, []);
 
   /**
-   * Delete selected nodes and edges
+   * Deletes the selected nodes and transitions: the language server answers what goes
+   * (`deleteSelection`), every transition into or out of a deleted node with it.
    */
   const deleteSelected = useCallback(
-    (selection?: { nodeIds?: string[]; edgeIds?: string[] }) => {
-      const selectedNodeIds = new Set(
+    async (selection?: { nodeIds?: string[]; edgeIds?: string[] }) => {
+      const nodeIds =
         selection?.nodeIds && selection.nodeIds.length > 0
           ? selection.nodeIds
-          : nodes.filter((node) => node.selected).map((node) => node.id)
-      );
-      const selectedEdgeIds = new Set(
+          : nodes.filter((node) => node.selected).map((node) => node.id);
+      const edgeIds =
         selection?.edgeIds && selection.edgeIds.length > 0
           ? selection.edgeIds
-          : edges.filter((edge) => edge.selected).map((edge) => edge.id)
-      );
-
-      if (selectedNodeIds.size === 0 && selectedEdgeIds.size === 0) {
+          : edges.filter((edge) => edge.selected).map((edge) => edge.id);
+      if (nodeIds.length === 0 && edgeIds.length === 0) {
         return;
       }
-
-      setNodes((nds) => nds.filter((node) => !selectedNodeIds.has(node.id)));
-      setEdges((eds) =>
-        eds.filter(
-          (edge) =>
-            !selectedEdgeIds.has(edge.id) &&
-            !selectedNodeIds.has(edge.source) &&
-            !selectedNodeIds.has(edge.target)
-        )
+      const answer = await requestEdit(
+        { nodes, edges },
+        { op: "deleteSelection", nodeIds, edgeIds }
       );
+      if (!answer.ok) {
+        return;
+      }
+      const removedNodes = new Set(answer.removedNodeIds ?? []);
+      const removedEdges = new Set(answer.removedEdgeIds ?? []);
+      setNodes((nds) => nds.filter((node) => !removedNodes.has(node.id)));
+      setEdges((eds) => eds.filter((edge) => !removedEdges.has(edge.id)));
     },
     [edges, nodes]
   );

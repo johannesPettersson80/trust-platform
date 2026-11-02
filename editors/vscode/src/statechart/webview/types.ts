@@ -103,6 +103,16 @@ export interface ValueAnswer {
 /** Asks the language server for the value of the text typed into `field`. */
 export type ReadValue = (field: ValueField, text: string) => Promise<ValueAnswer>;
 
+/** The language server's new state for a graph (`addState`), or why it adds none. */
+export interface AddStateAnswer {
+  ok: boolean;
+  state?: StatechartGraph["states"][number];
+  errors?: Array<{ message: string }>;
+}
+
+/** Asks the language server for a new state of `stateType` in `graph`. */
+export type RequestAddState = (graph: StatechartGraph, stateType: StateType) => Promise<AddStateAnswer>;
+
 /**
  * A dialog of the action-mapping panel, which the host shows in VS Code, since the webview's sandbox
  * ignores `window.prompt` and `window.confirm`: the name of a new mapping, or the confirmation of a
@@ -135,6 +145,7 @@ export type WebviewToExtensionMessage =
   | { type: "actionReport"; requestId: number; graph: StatechartGraph }
   | { type: "readValue"; requestId: number; field: ValueField; text: string }
   | ({ type: "dialog"; requestId: number } & DialogRequest)
+  | { type: "addState"; requestId: number; graph: StatechartGraph; stateType: StateType }
   | { type: "ready" }
   | { type: "openAsText" };
 
@@ -163,7 +174,12 @@ export type ExtensionToWebviewMessage =
       /** The answer to the dialog of request `requestId`. */
       type: "dialogResult";
       requestId: number;
-    } & DialogAnswer);
+    } & DialogAnswer)
+  | ({
+      /** The language server's new state for request `requestId`. */
+      type: "stateAdded";
+      requestId: number;
+    } & AddStateAnswer);
 
 /**
  * Action mapping for hardware I/O

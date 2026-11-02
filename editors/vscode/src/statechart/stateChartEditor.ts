@@ -181,6 +181,10 @@ export class StateChartEditorProvider
             void this.answerDialog(webviewPanel, message);
             return;
 
+          case "addState":
+            void this.postAddedState(webviewPanel, message);
+            return;
+
           case "openAsText":
             void vscode.commands.executeCommand(
               "vscode.openWith",
@@ -310,6 +314,24 @@ export class StateChartEditorProvider
       );
       answer({ confirmed: choice === "Delete" });
     }
+  }
+
+  /** Answers the new state the language server gives the webview's graph (`addState`). */
+  private async postAddedState(
+    webviewPanel: vscode.WebviewPanel,
+    message: { requestId?: unknown; graph?: unknown; stateType?: unknown }
+  ): Promise<void> {
+    const answer = await visualRequest("trust-lsp.visualEdit", {
+      kind: "statechart",
+      op: "addState",
+      graphText: JSON.stringify(message.graph ?? null),
+      stateType: message.stateType,
+    });
+    void webviewPanel.webview.postMessage({
+      ...answer,
+      type: "stateAdded",
+      requestId: message.requestId,
+    });
   }
 
   /** The file text of the webview's graph, as the language server writes it. */

@@ -290,15 +290,25 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   that a pull request changing the packages builds, and on the rehearsal's and
   the release's package before anything is published (specification 24,
   "Release rehearsal on pull requests");
-- a pull request merges when every required check is green and the review has
-  no open finding, through a merge queue that tests it on top of the current
-  `main`, so that `main` is always releasable; until the queue runs every
-  required workflow and is enabled, the pull request merges at its exact head
-  once branch protection finds its required checks green;
+- a pull request merges at its exact head when every required check is green
+  and the review has no open finding. There is no merge queue (owner, 1 November
+  2026: the repository stays under the personal account, and GitHub gives the
+  queue only to organizations), and the pull request need not hold the newest
+  `main`: `main`'s CI checks every merge, a red `main` is fixed before any other
+  merge, and the release follows only a `main` commit whose CI passed;
+- a user-visible change adds a changelog fragment, `changelog.d/<topic>.md`,
+  with Keep a Changelog sections and their entries, and leaves
+  `## [Unreleased]` in `CHANGELOG.md` empty, so that open pull requests never
+  conflict over the changelog. A released section is its GitHub release's
+  text and never changes: an entry written before a release, appended to the
+  old `## [Unreleased]`, would otherwise merge cleanly into the section the
+  release made of it. `scripts/changelog_fragments.py check` runs in CI and
+  compares the released sections with the pull request's base;
 - a release is a pull request that only bumps the version and moves the
-  changelog section; it merges like any other, and the release follows
-  `main`'s CI (specification 24, "Release after main CI"), publishing the
-  packages built and tested for that commit;
+  changelog: `scripts/bump_version.py` gathers the fragments into the
+  version's section, the newest first; it merges like any other, and the
+  release follows `main`'s CI (specification 24, "Release after main CI"),
+  publishing the packages built and tested for that commit;
 - release blockers are regressions and severe bugs (safety, data loss, a
   broken user journey); any other finding goes on the checklist for the next
   release.
@@ -435,8 +445,10 @@ workflow instead of skipping its checks. GitHub's own path filters compare only 
 0.25.0's 10,252-file pull request ran no documentation workflow, and the site
 broke on `main` (28 October 2026).
 
-The merge queue tests each pull request again as a merge group: the pull
-request merged onto the current `main`, or onto the groups queued ahead of it.
+The merge queue is not enabled (above), but the workflows are ready for it, so
+that it can be turned on if the repository moves to an organization. The queue
+tests each pull request again as a merge group: the pull request merged onto
+the current `main`, or onto the groups queued ahead of it.
 Every workflow that checks pull requests runs for a merge group (event
 `merge_group`), and every job and step that runs for a pull request runs for a
 merge group too. The detection compares the group's commit with the commit it
@@ -454,12 +466,18 @@ workflow (Render Diagrams and Docs Captures both named their last job
 
 A new push to a pull request cancels the pull request's unfinished run of
 each workflow, so that no runner works on a head that nobody will merge; the
-run of a merge group, of a push to `main` and a scheduled or manual run are
-never cancelled by another (1 November 2026: three pushes to #151 ran three
-full CI runs side by side while `main`'s CI, which the release waits for,
-queued for runners). Docs Pages' deploys of `main` share one group: the running
-deploy finishes, and a newer deploy replaces one that still waits, so the site
-skips the commits between (GitHub's Pages workflows do the same).
+run of a merge group and a scheduled or manual run are never cancelled by
+another (1 November 2026: three pushes to #151 ran three full CI runs side by
+side while `main`'s CI, which the release waits for, queued for runners). CI,
+Render Diagrams and Docs Captures run the pushes to `main` one at a time: the
+running run finishes, and a newer push replaces a run that still waits, so a
+series of merges is checked twice, not once per merge (1 November 2026: six
+merges in two hours queued about 120 CI jobs ahead of the release pull
+request). The newest run checks the code of the merges it replaced, and the
+release follows the passed run of any commit whose version has no release yet
+(specification 24, "Release after main CI"). Docs Pages' deploys of `main`
+share one group the same way, so the site skips the commits between (GitHub's
+Pages workflows do the same).
 
 ### Documentation that follows the product
 

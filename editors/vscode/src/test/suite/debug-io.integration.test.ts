@@ -9,8 +9,9 @@ import {
 import {
   __testApplySettingsUpdate,
   __testCollectSettingsSnapshot,
-  __testUserFacingIoStatus,
 } from "../../ioPanel";
+import { classifyIoStateFailure } from "../../networkCanvas/runtimeFailures";
+import { runtimeLifecycleService } from "../../runtimeLifecycle";
 
 /**
  * Null once the language server lets Debug start (specification 25 §6.6: no project error in
@@ -320,19 +321,24 @@ suite("Debug/IO DRY flows", function () {
     ]);
   });
 
-  test("unit: Live Values transport errors use recovery text, not raw socket copy", () => {
-    assert.strictEqual(
-      __testUserFacingIoStatus("I/O state request failed: Canceled"),
-      "Start the runtime to see live values."
-    );
-    assert.strictEqual(
-      __testUserFacingIoStatus("I/O state request failed: socket hang up"),
-      "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry."
-    );
-    assert.strictEqual(
-      __testUserFacingIoStatus("I/O state request failed: read ECONNRESET"),
-      "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry."
-    );
+  // The language server reads a failed I/O state request (specification 25 §4.4); its kinds are proven by
+  // crates/trust-lsp/src/handlers/commands/run_targets/connect_tests.rs. Catches the extension reading the failure's
+  // text itself, or a failure that does not reach the server.
+  test("integration: a failed I/O state request takes its kind from the language server", async () => {
+    await ensureNoStructuredTextSession();
+    const result = await runtimeLifecycleService.requestIoState();
+    if (result.ok) {
+      assert.fail("an I/O state request without a session fails");
+    }
+    assert.deepStrictEqual(result.failure, {
+      kind: "no_session",
+      message: "No active Structured Text debug session.",
+    });
+    assert.deepStrictEqual(await classifyIoStateFailure(new Error("I/O state request timed out.")), {
+      kind: "connection_lost",
+      message: "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.",
+      detail: "I/O state request timed out.",
+    });
   });
 
   test("integration: VM debug session returns non-empty stackTrace at stopOnEntry", async () => {

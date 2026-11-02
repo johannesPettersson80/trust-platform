@@ -44,6 +44,9 @@ trust-runtime.workspace = true
 trust-runtime-client.workspace = true
 thiserror.workspace = true
 getrandom = "0.4"
+# HMI Deploy sends the bundle to the runtime's web server (specification 39 §16.2 item 8); the same
+# HTTP client as trust-runtime's.
+ureq = "3.4.2"
 
 [dev-dependencies]
 expect-test.workspace = true
