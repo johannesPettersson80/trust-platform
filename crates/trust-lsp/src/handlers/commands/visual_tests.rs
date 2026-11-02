@@ -368,6 +368,44 @@ fn a_typed_number_answers_the_program_with_the_stored_value_or_the_reason() {
 }
 
 #[test]
+fn the_ladder_element_edits_answer_the_program_or_the_reason() {
+    // Deleting an element, clearing a rung's wires, toggling a contact and a field of the
+    // properties panel reach trust-visual with their arguments; a refused field names the rule.
+    // The rules are trust-visual's tests; a wrong argument name would leave the panel's change
+    // unstored.
+    let program = r#"{"schemaVersion":2,"networks":[{"id":"rung_1","order":0,"layout":{"y":100},"nodes":[{"id":"a","type":"contact","contactType":"NO","variable":"A","position":{"x":100,"y":100}},{"id":"x","type":"contact","contactType":"NO","variable":"X","position":{"x":200,"y":100}},{"id":"q","type":"coil","coilType":"NORMAL","variable":"Q","position":{"x":300,"y":100}}],"edges":[{"id":"edge_rung_1_0","fromNodeId":"a","toNodeId":"x"},{"id":"edge_rung_1_1","fromNodeId":"x","toNodeId":"q"}]}],"variables":[{"name":"A","type":"BOOL"},{"name":"X","type":"BOOL"},{"name":"Q","type":"BOOL"}],"metadata":{"name":"n","description":""}}"#;
+    let edit = |arguments: Value| {
+        let mut arguments = arguments;
+        arguments["kind"] = json!("ladder");
+        arguments["programText"] = json!(program);
+        execute(VISUAL_EDIT_COMMAND, vec![arguments])
+    };
+    let text = |answer: &Value| answer["programText"].as_str().expect("program").to_owned();
+    let removed = edit(json!({ "op": "removeElement", "rungIndex": 0, "elementIndex": 1 }));
+    assert_eq!(removed["ok"], json!(true), "{removed}");
+    assert!(!text(&removed).contains("\"id\":\"x\""), "{removed}");
+    assert!(
+        text(&removed).contains("\"fromNodeId\":\"a\",\"toNodeId\":\"q\""),
+        "{removed}"
+    );
+    let cleared = edit(json!({ "op": "clearWiring", "rungIndex": 0 }));
+    assert!(text(&cleared).contains("\"edges\":[]"), "{cleared}");
+    let toggled = edit(json!({ "op": "toggleContactType", "rungIndex": 0, "elementIndex": 0 }));
+    assert_eq!(toggled["contactType"], json!("NC"), "{toggled}");
+    let set = edit(
+        json!({ "op": "setField", "rungIndex": 0, "elementIndex": 2, "field": "coilType", "value": "RESET" }),
+    );
+    assert!(text(&set).contains("\"coilType\":\"RESET\""), "{set}");
+    let refused = edit(
+        json!({ "op": "setField", "rungIndex": 0, "elementIndex": 2, "field": "coilType", "value": "PULSE" }),
+    );
+    assert_eq!(
+        refused,
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "coilType must be one of NORMAL, SET, RESET, NEGATED." }] })
+    );
+}
+
+#[test]
 fn a_typed_delay_or_mapping_value_answers_what_the_statechart_stores() {
     // The Statechart panels send the text of the timer and of a mapping value; `after` is null for
     // no delay and a refused delay names the rule. A wrong shape would store the text unread.
