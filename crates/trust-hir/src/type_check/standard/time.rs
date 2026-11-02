@@ -456,6 +456,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         TypeId::INT
     }
 
+    /// The result of `ADD` with temporal inputs (IEC 61131-3 Ed.3 Table 35, items 1a, 2a and
+    /// 3a): the time of day or the date and time first and the duration second, as the `+`
+    /// operator takes them (specification 05); the duration first is no combination.
     pub(in crate::type_check) fn time_add_result(
         &self,
         lhs: TypeId,
@@ -466,10 +469,10 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         match (lhs, rhs) {
             (TypeId::TIME, TypeId::TIME) => Some(TypeId::TIME),
             (TypeId::LTIME, TypeId::LTIME) => Some(TypeId::LTIME),
-            (TypeId::TOD, TypeId::TIME) | (TypeId::TIME, TypeId::TOD) => Some(TypeId::TOD),
-            (TypeId::LTOD, TypeId::LTIME) | (TypeId::LTIME, TypeId::LTOD) => Some(TypeId::LTOD),
-            (TypeId::DT, TypeId::TIME) | (TypeId::TIME, TypeId::DT) => Some(TypeId::DT),
-            (TypeId::LDT, TypeId::LTIME) | (TypeId::LTIME, TypeId::LDT) => Some(TypeId::LDT),
+            (TypeId::TOD, TypeId::TIME) => Some(TypeId::TOD),
+            (TypeId::LTOD, TypeId::LTIME) => Some(TypeId::LTOD),
+            (TypeId::DT, TypeId::TIME) => Some(TypeId::DT),
+            (TypeId::LDT, TypeId::LTIME) => Some(TypeId::LDT),
             _ => None,
         }
     }

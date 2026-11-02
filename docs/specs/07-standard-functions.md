@@ -685,7 +685,7 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 
 | Function | Description |
 |----------|-------------|
-| `ADD` | Overloaded time/date addition (see Table 35) |
+| `ADD` | Overloaded time/date addition (see Table 35): the time of day or date and time first, the duration second, as the `+` operator (specification 05); the duration first is `InvalidArgumentType` |
 | `ADD_TIME` | TIME + TIME → TIME |
 | `ADD_LTIME` | LTIME + LTIME → LTIME |
 | `ADD_TOD_TIME` | TOD + TIME → TOD |

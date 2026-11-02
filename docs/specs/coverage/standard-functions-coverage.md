@@ -275,7 +275,7 @@ Runtime note:
 - A result longer than the implementer maximum of 65,535 bytes (`STRING`) or UTF-16 code units (`WSTRING`) is the error `runtime_string_capacity_exceeded` (§6.6.2.5.11; `docs/IEC_DECISIONS.md` 2026-10-17), asserted for `CONCAT`, `INSERT` and `REPLACE` and for `WSTRING_TO_STRING` (Table 27). The assignment helper `__TRUST_LIMIT_STRING` cuts to a capacity in bytes or code units.
 
 ## Table 35 - Time/Duration Arithmetic Functions
-- [x] ADD (overloaded)
+- [x] ADD (overloaded): the time of day or date and time first, the duration second (items 2a, 3a); the duration first is `InvalidArgumentType` (2 November 2026, `add_takes_the_duration_second_as_table_35_lists`)
 - [x] ADD_TIME
 - [x] ADD_LTIME
 - [x] ADD_TOD_TIME
