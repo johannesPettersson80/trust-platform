@@ -134,7 +134,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const webview = panel.webview;
 
@@ -149,7 +149,7 @@ suite("Ladder editor wiring", function () {
     const program = JSON.parse(String(routed.programText)) as ProgramShape;
     assert.deepStrictEqual(
       program.networks[0].edges.map((edge) => edge.id),
-      ["edge_rung_1_0"],
+      ["edge_rung_1_0"]
     );
 
     webview.send({ type: "save", program });
@@ -174,7 +174,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const webview = panel.webview;
     const field = { op: "setNumber", programText: JSON.stringify(PROGRAM), rungIndex: 0, elementIndex: 0, field: "x" };
@@ -209,7 +209,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const webview = panel.webview;
     const edit = { programText: JSON.stringify(PROGRAM), rungIndex: 0 };
@@ -221,10 +221,7 @@ suite("Ladder editor wiring", function () {
     const program = JSON.parse(String(removed.programText)) as {
       networks: Array<{ nodes: Array<{ id: string }> }>;
     };
-    assert.deepStrictEqual(
-      program.networks[0].nodes.map((node) => node.id),
-      ["q1"],
-    );
+    assert.deepStrictEqual(program.networks[0].nodes.map((node) => node.id), ["q1"]);
 
     webview.send({ type: "edit", requestId: 22, op: "toggleContactType", ...edit, elementIndex: 0 });
     const toggled = await webview.next("editResult");
