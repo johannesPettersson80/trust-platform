@@ -14,9 +14,11 @@ import { ActionMappingsPanel } from "./ActionMappingsPanel";
 import { StatechartToolsPanel } from "./StatechartToolsPanel";
 import { useStateChart } from "./hooks/useStateChart";
 import {
+  AddStateAnswer,
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
   ReadValue,
+  RequestAddState,
   StateChartNode,
   StateChartEdge,
   ValueAnswer,
@@ -44,6 +46,20 @@ const STATECHART_FIT_VIEW_OPTIONS = {
  * Main StateChart Editor Component
  */
 export const StateChartEditor: React.FC = () => {
+  // Asks the language server for a new state's name and id (forwarded by the editor's host to
+  // `trust-lsp.visualEdit` `addState`).
+  const pendingStates = useRef(new Map<number, (answer: AddStateAnswer) => void>());
+  const nextStateRequest = useRef(1);
+  const requestAddState = useCallback<RequestAddState>(
+    (graph, stateType) =>
+      new Promise((resolve) => {
+        const requestId = nextStateRequest.current;
+        nextStateRequest.current += 1;
+        pendingStates.current.set(requestId, resolve);
+        vscode.postMessage({ type: "addState", requestId, graph, stateType } as WebviewToExtensionMessage);
+      }),
+    []
+  );
   const {
     nodes,
     edges,
@@ -59,7 +75,7 @@ export const StateChartEditor: React.FC = () => {
     autoLayout,
     exportGraph,
     importFromXState,
-  } = useStateChart();
+  } = useStateChart(requestAddState);
 
   const [selectedNode, setSelectedNode] = useState<StateChartNode | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<StateChartEdge | null>(null);
@@ -139,6 +155,14 @@ export const StateChartEditor: React.FC = () => {
         }
         return;
       }
+      if (message.type === "stateAdded") {
+        const resolve = pendingStates.current.get(message.requestId);
+        if (resolve) {
+          pendingStates.current.delete(message.requestId);
+          resolve(message);
+        }
+        return;
+      }
       if (message.type !== "update") {
         return;
       }
@@ -206,17 +230,17 @@ export const StateChartEditor: React.FC = () => {
 
   // Toolbar actions
   const handleAddState = useCallback(() => {
-    addNewState("normal");
+    void addNewState("normal");
     requestFitView();
   }, [addNewState, requestFitView]);
 
   const handleAddInitialState = useCallback(() => {
-    addNewState("initial");
+    void addNewState("initial");
     requestFitView();
   }, [addNewState, requestFitView]);
 
   const handleAddFinalState = useCallback(() => {
-    addNewState("final");
+    void addNewState("final");
     requestFitView();
   }, [addNewState, requestFitView]);
 

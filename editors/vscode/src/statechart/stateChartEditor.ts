@@ -171,6 +171,10 @@ export class StateChartEditorProvider
             void this.postValue(webviewPanel, message);
             return;
 
+          case "addState":
+            void this.postAddedState(webviewPanel, message);
+            return;
+
           case "openAsText":
             void vscode.commands.executeCommand(
               "vscode.openWith",
@@ -252,6 +256,24 @@ export class StateChartEditorProvider
     void webviewPanel.webview.postMessage({
       ...answer,
       type: "valueResult",
+      requestId: message.requestId,
+    });
+  }
+
+  /** Answers the new state the language server gives the webview's graph (`addState`). */
+  private async postAddedState(
+    webviewPanel: vscode.WebviewPanel,
+    message: { requestId?: unknown; graph?: unknown; stateType?: unknown }
+  ): Promise<void> {
+    const answer = await visualRequest("trust-lsp.visualEdit", {
+      kind: "statechart",
+      op: "addState",
+      graphText: JSON.stringify(message.graph ?? null),
+      stateType: message.stateType,
+    });
+    void webviewPanel.webview.postMessage({
+      ...answer,
+      type: "stateAdded",
       requestId: message.requestId,
     });
   }

@@ -103,6 +103,16 @@ export interface ValueAnswer {
 /** Asks the language server for the value of the text typed into `field`. */
 export type ReadValue = (field: ValueField, text: string) => Promise<ValueAnswer>;
 
+/** The language server's new state for a graph (`addState`), or why it adds none. */
+export interface AddStateAnswer {
+  ok: boolean;
+  state?: StatechartGraph["states"][number];
+  errors?: Array<{ message: string }>;
+}
+
+/** Asks the language server for a new state of `stateType` in `graph`. */
+export type RequestAddState = (graph: StatechartGraph, stateType: StateType) => Promise<AddStateAnswer>;
+
 /**
  * Messages sent from webview to extension
  */
@@ -112,6 +122,7 @@ export type WebviewToExtensionMessage =
   | { type: "generateST"; graph: StatechartGraph }
   | { type: "actionReport"; requestId: number; graph: StatechartGraph }
   | { type: "readValue"; requestId: number; field: ValueField; text: string }
+  | { type: "addState"; requestId: number; graph: StatechartGraph; stateType: StateType }
   | { type: "ready" }
   | { type: "openAsText" };
 
@@ -135,7 +146,12 @@ export type ExtensionToWebviewMessage =
       /** The language server's value for the text of request `requestId`. */
       type: "valueResult";
       requestId: number;
-    } & ValueAnswer);
+    } & ValueAnswer)
+  | ({
+      /** The language server's new state for request `requestId`. */
+      type: "stateAdded";
+      requestId: number;
+    } & AddStateAnswer);
 
 /**
  * Action mapping for hardware I/O

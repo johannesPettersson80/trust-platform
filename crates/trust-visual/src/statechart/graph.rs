@@ -183,11 +183,42 @@ pub fn keep_identity(saved: &mut Json, previous: &Json) {
     }
 }
 
+/// Whether the file can hold `states`: it names each state once and starts in one.
+///
+/// # Errors
+/// Two states share a name, or more than one is initial.
+fn one_name_each_and_one_start(states: &[Json]) -> Result<(), String> {
+    let mut names: Vec<String> = Vec::new();
+    for state in states {
+        let name = js::string(state.get("label"));
+        if names.contains(&name) {
+            return Err(format!(
+                "Two states are named \"{name}\"; give each state its own name."
+            ));
+        }
+        names.push(name);
+    }
+    let initial_names: Vec<String> = states
+        .iter()
+        .filter(|state| state.str_at("type") == Some("initial"))
+        .map(|state| js::string(state.get("label")))
+        .collect();
+    if initial_names.len() > 1 {
+        return Err(format!(
+            "The states \"{}\" are all initial; a statechart starts in one state.",
+            initial_names.join("\", \"")
+        ));
+    }
+    Ok(())
+}
+
 /// The statechart file of the editor graph `graph`, with its members in the order JavaScript
 /// writes them.
 ///
 /// # Errors
-/// The graph has no list of states or of transitions, or a state or transition is no object.
+/// The graph has no list of states or of transitions, or a state or transition is no object; or
+/// two states share a name or more than one is initial. The file names each state once and starts
+/// in one, so writing such a graph would silently drop a state or change which state starts.
 pub fn file(graph: &Json) -> Result<Json, String> {
     let states = graph
         .get("states")
@@ -200,6 +231,7 @@ pub fn file(graph: &Json) -> Result<Json, String> {
     if !states.iter().chain(transitions).all(Json::is_object) {
         return Err(GRAPH_MESSAGE.to_owned());
     }
+    one_name_each_and_one_start(states)?;
     let mut written = Json::object();
     let mut initial: Option<&Json> = None;
     for state in states {

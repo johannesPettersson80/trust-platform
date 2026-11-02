@@ -115,6 +115,28 @@ fn canvas_edits_answer_what_changes() {
 }
 
 #[test]
+fn deleting_a_selection_answers_the_nodes_and_transitions_that_go() {
+    // deleteSelection: the selected nodes and every transition into or out of them, by id; a
+    // wrong argument shape is refused. The rule is trust-visual's test.
+    let graph = graph_text();
+    let deleted = edit(json!({
+        "kind": "sfc", "op": "deleteSelection", "graphText": graph, "nodeIds": ["sp"], "edgeIds": []
+    }));
+    assert_eq!(deleted["ok"], json!(true), "{deleted}");
+    assert_eq!(deleted["removedNodeIds"], json!(["sp"]));
+    assert!(
+        deleted["removedEdgeIds"]
+            .as_array()
+            .is_some_and(|ids| !ids.is_empty()),
+        "{deleted}"
+    );
+    let shapeless = edit(json!({
+        "kind": "sfc", "op": "deleteSelection", "graphText": graph, "nodeIds": "sp", "edgeIds": []
+    }));
+    assert_eq!(shapeless["ok"], json!(false), "{shapeless}");
+}
+
+#[test]
 fn validate_answers_the_findings_the_editor_lists() {
     // The split has one branch and never reaches it: two findings, each with the editor's
     // `id`, `type`, `message` and `elementId`, and the same messages as `errors`.
