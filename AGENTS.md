@@ -128,6 +128,9 @@ separately.
   - One lane is one pull request of a few hours' work, never days. Push it with its pull request
     from the first commit; Codex reviews it when it opens, and its findings are fixed in the same
     pull request.
+  - About three pull requests run CI at once (owner, 2 November 2026). The account's runners are
+    the limit, so more at once only make every run, and `main`'s, wait longer. A further lane waits
+    as a pushed branch, which starts no CI, until a run finishes (`trust-ci-release-gates`).
   - Before each push, run the compile check below and the focused tests of what changed and of
     what uses it. The full suites (`just test-all`, VS Code, the documentation and, for a version
     change, the release rehearsal) run in CI on every push; never run them as a local batch.
@@ -202,17 +205,20 @@ separately.
 
 ## Working in several checkouts
 
-The primary checkout `/home/johannes/projects/trust-platform` holds the current `AGENTS.md` and
-`.codex/skills/`. Other worktrees may carry older copies from their branch point. Before working in
-another checkout, copy them from the primary checkout, folder to folder. `CLAUDE.md` contains only
+`main` holds the current `AGENTS.md`, `CLAUDE.md` and `.codex/skills/`: they are tracked, and a rule
+changes through a pull request like any other change. A worktree made from the newest `main` has
+them. A checkout on an older branch, the primary checkout `/home/johannes/projects/trust-platform`
+among them, takes them from `main` before work starts and again after a rule change merges, and
+never commits them; never copy them from another checkout, whose copies may be older (2 November
+2026: the primary checkout still described the merge queue). `CLAUDE.md` contains only
 `@AGENTS.md`, so that Claude Code loads these rules in every session:
 
 ```bash
-cp /home/johannes/projects/trust-platform/AGENTS.md /home/johannes/projects/trust-platform/CLAUDE.md .
-rsync -a --delete /home/johannes/projects/trust-platform/.codex/skills/ .codex/skills/
+git fetch origin && git archive origin/main AGENTS.md CLAUDE.md .codex/skills | tar -x
 ```
 
-For control work, also copy `docs/specs/control-platform-purpose.md` when it is missing.
+For control work on an older branch, take `docs/specs/control-platform-purpose.md` from `main` the
+same way when it is missing.
 
 ## IEC 61131-3
 
