@@ -33,6 +33,7 @@ plant_optional --> plant_drawer : summaries from the plant.edit view\nno seconda
 component "trust-runtime plant serve\nstopped-project producer" as offline_transport
 component "Shared plant handler\nPlantHandlerContext" as plant_operations
 component "Plant editor rules\nplant.edit / plant.signals:\nchecks, defaults, edits, view, candidate" as plant_editor_rules
+component "Plant topology projection\nplant.topology: saved plants joined with a\ncurrent status, states, editor configuration" as plant_topology_rules
 component "PlantControlService\nrevision + idempotency" as plant_service
 component "Scheduler command boundary\nstatus / trace / scoped clear" as scheduler_boundary
 component "config.set\nsimulation.time_scale\nrefused without simulation" as config_speed
@@ -81,7 +82,7 @@ equations. A zero cycle interval reads the scaled wall clock.
 end note
 
 safety --> simulation : permits nonphysical drivers only
-plant_contract --> device_graph : typed topology state
+plant_contract --> device_graph : plant.topology plants\n(states, live sample, configuration)
 plant_contract --> plant_drawer : decoded plant.edit answer\n(draft, issues, view, candidate)
 plant_drawer --> plant_sections : one draft and validation state
 plant_sections --> plant_example : explicit example choice and replacement review
@@ -89,11 +90,12 @@ plant_example --> plant_drawer : same canonical draft; no browser physics
 plant_drawer --> plant_repo : plant.edit per draft change or rule-bearing edit\nvalidate / atomic save or remove
 device_graph --> plant_client : current status request
 plant_client --> live_transport : bounded typed request
-plant_repo --> offline_client : stopped-project read / edit / signals /\nvalidate / save / remove
+plant_repo --> offline_client : stopped-project read / topology / edit /\nsignals / validate / save / remove
 offline_client --> offline_transport : correlated JSON lines
 live_transport --> plant_operations : runtime context
 offline_transport --> plant_operations : project context
 plant_operations --> plant_editor_rules : plant.edit / plant.signals\n(no file write, no runtime state)
+plant_operations --> plant_topology_rules : plant.topology\n(saved plants + the runtime's status answer)
 plant_editor_rules --> plant_operations : candidate judged by the runtime's\nplant-configuration validation
 plant_operations --> plant_service : serialize project mutation
 plant_operations --> scheduler_boundary : immutable query / explicit clear

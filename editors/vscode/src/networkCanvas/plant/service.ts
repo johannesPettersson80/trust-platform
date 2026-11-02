@@ -244,4 +244,13 @@ export class ProjectPlantTopologyService implements PlantTopologyService {
     }
     return decoded.message;
   }
+
+  async topology(projectId: string, status: PlantContractMessage | null): Promise<PlantContractMessage> {
+    return await this.stopped.request("plant.topology", {
+      contract: "trust.plant",
+      schema_version: 1,
+      project_id: projectId,
+      status,
+    });
+  }
 }

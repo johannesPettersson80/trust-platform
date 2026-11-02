@@ -214,6 +214,10 @@ detail. In particular, a current fault shall not be hidden by a saved/active
 revision mismatch, and saving `enabled = false` while an older enabled revision
 is still active shall show `Restart required`, not `Disabled`.
 
+`plant.topology` (Section 20.6) answers every true state of a saved plant in
+this order, so the node shows the first and the inspector the others. Only the
+add flow's unsaved plant is `Draft`.
+
 Saving a change while an older revision remains active shall not make the new
 values appear live. The node shall show `Restart required`, while the inspector
 shall distinguish **Saved configuration** from **Running configuration**.
@@ -961,6 +965,7 @@ The contract shall expose these operations:
 | `plant.trace.clear` | Operator | Clear retained trace rows for one active plant without resetting or advancing simulation state. |
 | `plant.edit` | Engineer | Apply one plant-editor edit to a draft and check the draft, without writing files or changing runtime state. |
 | `plant.signals` | Viewer | Build the PLC signals a plant can bind to from compiled bindings, live values and the communication setup, without writing anything. |
+| `plant.topology` | Viewer | Project the saved plants and the owning runtime's status into the plants Devices & Connections shows (Section 20.6), without writing anything. |
 
 Authentication failure and insufficient role shall be rejected before request
 payload processing. A stopped-project command shall apply the same validation,
@@ -1016,6 +1021,7 @@ The version-1 request variants are:
 | `plant.trace.clear` | `project_id`, `operation_id`, `plant_id`, `active_configuration_revision` | none |
 | `plant.edit` | `project_id`, `draft` | `action`, `signals` |
 | `plant.signals` | `project_id`, `compiled` | `live`, `communication_schema`, `communication_topology` |
+| `plant.topology` | `project_id` | `status` |
 
 Every variant also requires the common `contract` and `schema_version` fields.
 An omitted `plant_id` on `plant.status` requests all active plants. An empty
@@ -1219,19 +1225,51 @@ save against a newer revision automatically and shall never convert simulation
 evidence into physical-plant evidence.
 
 The extension host shall own a typed plant service boundary. It shall obtain
-saved topology from `plant.read` even when the project runtime is stopped. When
-the owning runtime is reachable, it may additionally request `plant.status`
-using the project identity established by the read response. The webview shall
-receive only the normalized plant projection, never a runtime socket, command
-process, filesystem path, or undecoded service payload.
+the project identity from `plant.read` even when the project runtime is
+stopped. When the owning runtime is reachable, it may additionally request
+`plant.status` using that identity. It then asks the stopped-project session's
+`plant.topology` with that status answer, or without one when the runtime could
+not be asked or gave no accepted answer (`status_unavailable`, a timeout, an
+answer the decoder rejects). The webview shall receive only the `plants` of
+that answer, never a runtime socket, command process, filesystem path, or
+undecoded service payload.
 
-Normalization shall preserve the saved descriptor and configuration revision
-as the node's identity source. Current status may augment a saved plant only
-when the project ID and plant ID match. A missing, rejected, malformed, stale,
-or wrong-project status shall leave the saved plant visible, clear all prior
-live samples, and mark live status unavailable; it shall not remove the saved
-node or invent a running state. A runtime status entry without a matching saved
-descriptor shall not create a canvas plant node.
+`plant.topology` projects the saved plants of `plant.read`. It takes
+`project_id` and the optional `status`, and answers `configuration_revision` and
+`plants`. Each plant carries the webview's fields: `id`, `projectId`,
+`displayName`, `model`, `enabled`, `commandSources`, `feedbackTargets`,
+`statusAvailability`, `savedConfigurationRevision`, and, when they apply,
+`activeConfigurationRevision`, `activeOperatingState`, `hasCompletedSample`,
+`liveSample` (`command`, `feedback`), `configuration`, and `states`. The
+projection shall preserve the saved descriptor and configuration revision as
+the node's identity source:
+
+- A saved plant is shown when its descriptor has an ID, a display name, a
+  model, `enabled`, and lists of command sources and feedback targets. A
+  runtime status entry without a matching saved descriptor shall not create a
+  canvas plant node.
+- A status is current when it is an available `plant.status` answer of this
+  contract, schema version, and project. Current status may augment a saved
+  plant only when the plant ID matches. The plant's live status is then
+  `available`, with its operating state (`running` or `faulted`) and, when the
+  status entry holds the command and the published feedback as lists of
+  numbers, a completed live sample.
+- A missing, rejected, malformed, stale, or wrong-project status shall leave the
+  saved plant visible, clear all prior live samples, and mark live status
+  `unavailable`; it shall not remove the saved node or invent a running state.
+  The active configuration revision comes only from a current status.
+- `configuration` is the saved plant table as the plant editor opens it
+  (Section 6). It holds the description, the model values, and the initial
+  state. It sets `enabledDefaulted` when the file omits `enabled`, and
+  `initialStateDefaulted` when the file omits `initial_state`; an omitted
+  initial state is an empty list, which Rust's `open` edit sizes. It also holds
+  the step, the conversions, and the actuator values the file sets; the
+  uncertainties, each enabled; and the plant's scenario events (Section 12),
+  each enabled, with a time that is not a number as `null`. Its
+  `preservedConfiguration` is the whole saved table, which Save carries
+  (Section 13.2). A plant whose model values are not numbers, or whose
+  initial state is not a list of numbers, has no `configuration`.
+- `states` lists every true state of Section 5.2, primary first.
 
 ### 20.7 Stopped-project command session
 
@@ -1256,8 +1294,8 @@ the runtime control surface. `plant.status`, `plant.trace.read`, and
 `plant.trace.clear` shall return structured `status_unavailable` without live
 values or side effects. EOF shall terminate the session normally. The extension
 sends the plant editor's requests (`plant.capabilities`, `plant.edit` and
-`plant.signals`) through this session, so the editor works while the runtime is
-stopped.
+`plant.signals`) and the canvas's `plant.topology` through this session, so the
+editor and the canvas work while the runtime is stopped.
 
 ## 21. Saved-brick removal interaction
 

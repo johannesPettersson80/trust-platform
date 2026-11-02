@@ -82,6 +82,27 @@ suite("Plant service contract decoder", () => {
     );
   });
 
+  // Specification 47 §20.6: the canvas renders the plants Rust projects. Catches a topology answer
+  // with a field the contract does not have, or without its revision or its list of plants,
+  // reaching the canvas.
+  test("accepts Rust's plant topology and fails closed on a malformed one", () => {
+    const topology = {
+      contract: "trust.plant",
+      schema_version: 1,
+      operation: "plant.topology",
+      project_id: "project:sha256:abc",
+      configuration_revision: "sha256:saved",
+      plants: [{ id: "tank", statusAvailability: "unavailable", states: ["Status unavailable"] }],
+    };
+    assert.strictEqual(decodePlantContractResponse(topology).kind, "accepted");
+    const malformed = { kind: "status_unavailable", reason: "malformed_payload" };
+    assert.deepStrictEqual(decodePlantContractResponse({ ...topology, label: "extra" }), malformed);
+    assert.deepStrictEqual(decodePlantContractResponse({ ...topology, plants: {} }), malformed);
+    assert.deepStrictEqual(decodePlantContractResponse({ ...topology, plants: ["tank"] }), malformed);
+    const { configuration_revision: _revision, ...withoutRevision } = topology;
+    assert.deepStrictEqual(decodePlantContractResponse(withoutRevision), malformed);
+  });
+
   test("fails closed for unsupported schemas and wrong project identities", () => {
     assert.deepStrictEqual(
       decodePlantContractResponse({

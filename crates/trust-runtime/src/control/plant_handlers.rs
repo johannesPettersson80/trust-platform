@@ -14,6 +14,7 @@ mod edit;
 mod editor;
 mod remove;
 mod status;
+mod topology;
 mod trace;
 pub(super) use status::handle_plant_status;
 pub(super) use trace::{handle_plant_trace_clear, handle_plant_trace_read};
@@ -63,6 +64,7 @@ pub(super) fn dispatch(
         "plant.validate" => handle_plant_validate(id, params, context),
         "plant.edit" => edit::handle_plant_edit(id, params, context),
         "plant.signals" => edit::handle_plant_signals(id, params, context),
+        "plant.topology" => topology::handle_plant_topology(id, params, context),
         _ => return None,
     })
 }
@@ -159,6 +161,7 @@ pub(super) fn handle_plant_capabilities(
                 "plant.trace.clear",
                 "plant.edit",
                 "plant.signals",
+                "plant.topology",
             ],
             "editor": editor::editor_tables(),
         }),
@@ -206,16 +209,30 @@ pub(super) fn handle_plant_read(
             "malformed_request",
         );
     }
+    match saved_plants(id, project_root, &project_id) {
+        Ok(read) => ControlResponse::ok(id, read),
+        Err(response) => response,
+    }
+}
+
+/// The `plant.read` answer for the project at `project_root`: the saved configuration, its
+/// revision and the saved plants (specification 47 §20.2). `plant.topology` projects the same
+/// answer.
+pub(super) fn saved_plants(
+    id: u64,
+    project_root: &Path,
+    project_id: &str,
+) -> Result<Value, ControlResponse> {
     let path = project_root.join("simulation.toml");
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
         Err(error) => {
-            return ControlResponse::error_with_code(
+            return Err(ControlResponse::error_with_code(
                 id,
                 format!("failed to read simulation.toml: {error}"),
                 "io_failure",
-            );
+            ));
         }
     };
     let document = if bytes.is_empty() {
@@ -224,29 +241,26 @@ pub(super) fn handle_plant_read(
         match toml::from_str::<toml::Value>(&String::from_utf8_lossy(&bytes)) {
             Ok(document) => document,
             Err(error) => {
-                return ControlResponse::error_with_code(
+                return Err(ControlResponse::error_with_code(
                     id,
                     format!("invalid saved simulation.toml: {error}"),
                     "validation_failed",
-                );
+                ));
             }
         }
     };
     let saved_configuration = serde_json::to_value(&document).unwrap_or_else(|_| json!({}));
     let plants = saved_plant_descriptors(&document);
-    ControlResponse::ok(
-        id,
-        json!({
-            "contract": CONTRACT,
-            "schema_version": SCHEMA_VERSION,
-            "operation": "plant.read",
-            "project_id": project_id,
-            "configuration_revision": content_revision(&bytes),
-            "saved_configuration": saved_configuration,
-            "plants": plants,
-            "restart_required": false,
-        }),
-    )
+    Ok(json!({
+        "contract": CONTRACT,
+        "schema_version": SCHEMA_VERSION,
+        "operation": "plant.read",
+        "project_id": project_id,
+        "configuration_revision": content_revision(&bytes),
+        "saved_configuration": saved_configuration,
+        "plants": plants,
+        "restart_required": false,
+    }))
 }
 
 pub(super) fn handle_plant_save(
