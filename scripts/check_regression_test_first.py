@@ -8,7 +8,13 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+# A version bump changes only what `scripts/bump_version.py` changes; the direct-change contract
+# holds that list, so both checks judge a release pull request alike (specification 22).
+sys.path.insert(0, str(Path(__file__).resolve().parent / "verification"))
+from direct_change_contract import CHANGELOG_FRAGMENTS, VERSION_BUMP_PATHS  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -224,13 +230,36 @@ def has_inline_test_addition(base: str, head: str, files: list[str]) -> bool:
     return any(INLINE_TEST_ADDITION.search(line) for line in result.stdout.splitlines())
 
 
+def parse_workspace_version(manifest: str) -> str | None:
+    """The `[workspace.package]` version of a `Cargo.toml` text, none without one."""
+    if "[workspace.package]" not in manifest:
+        return None
+    section = manifest.split("[workspace.package]", 1)[1].split("\n[", 1)[0]
+    match = re.search(r'^version\s*=\s*"([^"]+)"', section, re.MULTILINE)
+    return match.group(1) if match else None
+
+
+def workspace_version(ref: str) -> str | None:
+    result = run_git(["show", f"{ref}:Cargo.toml"], check=False)
+    return parse_workspace_version(result.stdout) if result.returncode == 0 else None
+
+
+def is_version_bump_file(path: str) -> bool:
+    return path in VERSION_BUMP_PATHS or path.startswith(CHANGELOG_FRAGMENTS)
+
+
 def findings_for_inputs(
     *,
     changed: list[str],
     text: str,
     inline_test_added: bool,
+    version_bump: bool = False,
 ) -> list[str]:
     if not has_bugfix_signal(text):
+        return []
+    # A release pull request names the fixes it releases, but changes no behavior of its own: the
+    # workspace version moves and every file it changes is one the bump changes.
+    if version_bump and changed and all(is_version_bump_file(path) for path in changed):
         return []
 
     behavior_files = [path for path in changed if is_behavior_file(path)]
@@ -266,7 +295,14 @@ def check_range(base: str | None, head: str | None) -> int:
         if part
     )
     inline_test_added = has_inline_test_addition(resolved_base, resolved_head, changed)
-    findings = findings_for_inputs(changed=changed, text=text, inline_test_added=inline_test_added)
+    base_version = workspace_version(resolved_base)
+    version_bump = base_version is not None and base_version != workspace_version(resolved_head)
+    findings = findings_for_inputs(
+        changed=changed,
+        text=text,
+        inline_test_added=inline_test_added,
+        version_bump=version_bump,
+    )
     if findings:
         print("regression-test-first check: failed")
         print(f"range: {resolved_base}..{resolved_head}")
@@ -338,6 +374,36 @@ def run_self_test() -> int:
             "want_findings": True,
         },
         {
+            "name": "a version bump that names the fixes it releases passes",
+            "changed": [
+                "CHANGELOG.md",
+                "Cargo.lock",
+                "Cargo.toml",
+                "changelog.d/actuator-kind-kept.md",
+                "editors/vscode/package.json",
+            ],
+            "text": "Release 0.29.0\n\n0.28.0 deletes the actuator ..., fixed by #202",
+            "inline": False,
+            "version_bump": True,
+            "want_findings": False,
+        },
+        {
+            "name": "a version bump that also changes code still needs a test",
+            "changed": ["Cargo.toml", "Cargo.lock", "crates/trust-lsp/src/check.rs"],
+            "text": "Release 0.29.1, fixed by #208",
+            "inline": False,
+            "version_bump": True,
+            "want_findings": True,
+        },
+        {
+            "name": "a manifest fix without a version move still needs a test",
+            "changed": ["Cargo.toml", "Cargo.lock"],
+            "text": "fix: pin the parser dependency",
+            "inline": False,
+            "version_bump": False,
+            "want_findings": True,
+        },
+        {
             "name": "non-bug behavior change passes",
             "changed": ["crates/trust-runtime/src/lib.rs"],
             "text": "refactor: split runtime host modules",
@@ -351,6 +417,7 @@ def run_self_test() -> int:
             changed=case["changed"],
             text=case["text"],
             inline_test_added=case["inline"],
+            version_bump=case.get("version_bump", False),
         )
         got_findings = bool(findings)
         if got_findings != case["want_findings"]:
