@@ -1,13 +1,19 @@
-fn apply_diagnostic_filters(state: &ServerState, uri: &Url, diagnostics: &mut Vec<Diagnostic>) {
-    let Some(config) = state.workspace_config_for_uri(uri) else {
+/// Drops the diagnostics that `config`'s `[diagnostics]` settings switch off, and for a file that
+/// is library surface (`ServerState::diagnostic_scope_for_uri`) the unused-symbol warnings too.
+fn apply_diagnostic_filters(
+    config: Option<&ProjectConfig>,
+    library_surface: bool,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(config) = config else {
         return;
     };
-    let settings = config.diagnostics;
-    diagnostics.retain(|diagnostic| diagnostic_allowed(&settings, diagnostic));
+    let settings = &config.diagnostics;
+    diagnostics.retain(|diagnostic| diagnostic_allowed(settings, diagnostic, library_surface));
 }
 
-fn apply_diagnostic_overrides(state: &ServerState, uri: &Url, diagnostics: &mut [Diagnostic]) {
-    let Some(config) = state.workspace_config_for_uri(uri) else {
+fn apply_diagnostic_overrides(config: Option<&ProjectConfig>, diagnostics: &mut [Diagnostic]) {
+    let Some(config) = config else {
         return;
     };
     let overrides = &config.diagnostics.severity_overrides;
@@ -24,12 +30,19 @@ fn apply_diagnostic_overrides(state: &ServerState, uri: &Url, diagnostics: &mut 
     }
 }
 
-fn diagnostic_allowed(settings: &DiagnosticSettings, diagnostic: &Diagnostic) -> bool {
+fn diagnostic_allowed(
+    settings: &DiagnosticSettings,
+    diagnostic: &Diagnostic,
+    library_surface: bool,
+) -> bool {
     let Some(code) = diagnostic_code(diagnostic) else {
         return true;
     };
     match code.as_str() {
-        "W001" | "W002" | "W009" => settings.warn_unused,
+        // Library files are API surface (specifications 14 §7.6, 28 §1): an application is only
+        // one of a library's users, so "unused" is never claimed there. Every other warning is a
+        // property of the code itself and stays on.
+        "W001" | "W002" | "W009" => settings.warn_unused && !library_surface,
         "W003" => settings.warn_unreachable,
         "W004" => settings.warn_missing_else,
         "W005" => settings.warn_implicit_conversion,
@@ -212,12 +225,30 @@ mod collection_filter_tests {
             ..DiagnosticSettings::default()
         };
 
-        assert!(!diagnostic_allowed(&settings, &warning("W013")));
-        assert!(!diagnostic_allowed(&settings, &warning("W014")));
+        assert!(!diagnostic_allowed(&settings, &warning("W013"), false));
+        assert!(!diagnostic_allowed(&settings, &warning("W014"), false));
 
         settings.warn_numeric_hazards = true;
-        assert!(diagnostic_allowed(&settings, &warning("W013")));
-        assert!(diagnostic_allowed(&settings, &warning("W014")));
+        assert!(diagnostic_allowed(&settings, &warning("W013"), false));
+        assert!(diagnostic_allowed(&settings, &warning("W014"), false));
+    }
+
+    /// Specification 28 §1: a library file loses W001, W002 and W009 and nothing else. Catches an
+    /// exemption that silences a library's other warnings or errors as well, and one that drops
+    /// the unused warnings of the project's own files.
+    #[test]
+    fn library_surface_shields_unused_warnings_and_nothing_else() {
+        let settings = DiagnosticSettings::default();
+
+        for code in ["W001", "W002", "W009"] {
+            assert!(diagnostic_allowed(&settings, &warning(code), false));
+            assert!(!diagnostic_allowed(&settings, &warning(code), true));
+        }
+
+        // Every other warning is a property of the code itself and stays on for library files.
+        for code in ["W003", "W005", "W008", "W010", "W013", "E201"] {
+            assert!(diagnostic_allowed(&settings, &warning(code), true));
+        }
     }
 }
 

@@ -40,8 +40,8 @@ control_endpoint = "unix:///path/to/project/.trust-runtime/control.sock"
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `include_paths` | string array | `[]` | Additional project source roots to index. |
-| `library_paths` | string array | `[]` | Legacy/index-only library roots. |
+| `include_paths` | string array | `[]` | The project's own source folders; when set, they replace the project folder. |
+| `library_paths` | string array | `[]` | Library folders, indexed like `[[libraries]]` entries named after their folder; see [Library files](#library-files). |
 | `vendor_profile` | string | none | Controls formatting and diagnostic defaults. |
 | `stdlib` | string or string array | `full` | String = profile; array = allowlist of names. |
 
@@ -88,6 +88,9 @@ Dependency rules:
 | git locator | set at most one of `rev`, `tag`, or `branch` |
 | locked/offline behavior | configure from `[build]` |
 
+The folder of every resolved dependency, transitive ones included, is a library
+folder: see [Library files](#library-files).
+
 ## `[[libraries]]`
 
 Use this for index-only packs, vendor stubs, or attached docs that should not
@@ -108,6 +111,31 @@ docs = ["docs/vendor.md"]
 | `version` | string | no | Informational or resolver hint. |
 | `dependencies` | array of tables | no | Index-only dependency metadata. |
 | `docs` | string array | no | Attached docs paths. |
+
+## Library files
+
+A library is judged in its own project, as CODESYS and TwinCAT judge it: an
+application is only one of a library's users, so the unused-symbol warnings
+`W001`, `W002`, and `W009` are never reported for a library's files, in the
+editor and in `trust-lsp check` alike. Every other diagnostic stays on for them.
+
+The library folders are the `[[libraries]]` paths, the `library_paths` of
+`[project]`, and the folders of resolved `[dependencies]` packages, transitive
+ones included. The project's own source folders are its `include_paths`, or the
+project folder when none are set. For each file, the deepest folder that holds
+it decides, and an own folder wins over an equally deep library folder:
+
+| Layout | Library files |
+| --- | --- |
+| `[[libraries]] path = "libs/vendor"` | the files under `libs/vendor` |
+| `include_paths = ["src"]` and a library at `src/vendor` | the files under `src/vendor` only |
+| a library at an own source folder (`path = "."` without `include_paths`, or an include path) | none |
+| `Plant = { path = "../.." }` in an example that lies inside the library | the library's files, not the example's own sources |
+| `OscatOop = { path = "../../../../libraries/oscat/oop" }`, outside the project folder | the package's files, diagnosed with this project's `[diagnostics]` settings |
+
+Folders are compared after resolving symbolic links, junctions, and short
+names. To see a library's own unused declarations, open the library as its own
+project.
 
 ## `[build]`
 
@@ -142,7 +170,7 @@ docs = ["docs/vendor.md"]
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `warn_unused` | bool | profile default | Toggle unused diagnostics. |
+| `warn_unused` | bool | profile default | Toggle the unused-symbol warnings `W001`, `W002`, and `W009`; [library files](#library-files) never receive them. |
 | `warn_unreachable` | bool | profile default | Toggle unreachable-code warnings. |
 | `warn_missing_else` | bool | profile default | Toggle missing-ELSE warnings. |
 | `warn_implicit_conversion` | bool | profile default | Toggle implicit-conversion warnings. |

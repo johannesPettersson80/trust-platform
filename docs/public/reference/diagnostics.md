@@ -71,20 +71,25 @@ language specifications.
 
 | Code | Default severity | Cause | User-visible symptom | Typical first fix |
 | --- | --- | --- | --- | --- |
-| `W001` | warning | A declared variable is never read. | The declaration is highlighted as unused. | Remove it or use it intentionally. |
-| `W002` | warning | A declared parameter is never read. | The parameter list shows an unused-parameter warning. | Remove it, use it, or document why it is intentionally reserved. |
+| `W001` | warning | A declared variable is never read. | The declaration is highlighted as unused. | Remove it or use it intentionally. Library files never receive it. |
+| `W002` | warning | A declared parameter is never read. | The parameter list shows an unused-parameter warning. | Remove it, use it, or document why it is intentionally reserved. Library files never receive it. |
 | `W003` | warning | The compiler proved that a code path can never execute. | The dead block is marked unreachable. | Remove the dead block or simplify the surrounding control flow. |
 | `W004` | warning | A conditional branch has no fallback path. | The conditional is flagged as missing `ELSE`. | Add an `ELSE` if the branch should be exhaustive, or override severity if the omission is deliberate. |
 | `W005` | warning | The compiler inserted a conversion you did not write explicitly. | The expression is valid but marked with an implicit-conversion warning. | Replace it with an explicit conversion if you want the intent to be obvious and stable. |
 | `W006` | warning | An inner declaration hides another symbol with the same name. | The declaration is flagged as shadowing an existing symbol. | Rename the inner or outer symbol to avoid ambiguity. |
 | `W007` | warning | The construct is still supported but scheduled for migration away from it. | The feature works, but the editor warns that it is deprecated. | Move to the recommended replacement before it becomes a harder migration. |
 | `W008` | warning | The code exceeds the configured complexity threshold. | The POU or routine is flagged as hard to maintain. | Split the logic into smaller POUs or simplify the control flow. |
-| `W009` | warning | A program, function, or function block is declared but not referenced. | The POU is flagged as unused. | Remove it, wire it into the project, or keep it intentionally with a clear package boundary. |
+| `W009` | warning | A program, function, or function block is declared but not referenced. | The POU is flagged as unused. | Remove it or wire it into the project. Library files never receive it: a library's unused POUs show in the library's own project. |
 | `W010` | warning | The code uses time/date access patterns that reduce reproducibility. | Deterministic tests or replay flows may become harder to trust. | Prefer deterministic harness or runtime inputs when testability matters. |
 | `W011` | warning | A function block, function, method or class declares a direct I/O address (`%I`/`%Q`). | Every instance is tied to one channel and to the I/O image's timing, so the block cannot be reused or tested on its own. | Declare the address in the program's I/O list and pass the value to the block as an input or output. |
 | `W012` | warning | Multiple tasks coordinate through shared globals unsafely. | The shared global access is flagged as a task hazard. | Reduce shared mutable state or make task ownership explicit. |
 | `W013` | warning | The code compares floating-point values for exact equality. | The comparison is highlighted as numerically fragile. | Replace direct equality with a tolerance or epsilon comparison when appropriate. |
 | `W014` | warning | The denominator is provably zero at compile time. | The division or modulo expression is flagged before runtime. | Fix the literal or guard the operation before it is executed. |
+
+`W001`, `W002`, and `W009` are not reported for library files: the files whose
+deepest holding folder is a `[[libraries]]` path, a `library_paths` entry, or a
+resolved `[dependencies]` package rather than one of the project's own source
+folders. See [Library files](config/trust-lsp-toml.md#library-files).
 
 ## Hints
 

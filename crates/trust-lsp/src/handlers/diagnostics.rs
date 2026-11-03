@@ -352,8 +352,9 @@ pub(crate) fn collect_diagnostics_with_ticket(
     if is_config_uri(uri) {
         let diagnostics = collect_config_diagnostics(state, uri, content, None);
         let mut diagnostics = diagnostics;
-        apply_diagnostic_filters(state, uri, &mut diagnostics);
-        apply_diagnostic_overrides(state, uri, &mut diagnostics);
+        let config = state.workspace_config_for_uri(uri);
+        apply_diagnostic_filters(config.as_ref(), false, &mut diagnostics);
+        apply_diagnostic_overrides(config.as_ref(), &mut diagnostics);
         attach_explainers(state, uri, content, None, &mut diagnostics);
         return diagnostics;
     }
@@ -457,15 +458,18 @@ pub(crate) fn collect_diagnostics_with_ticket(
         });
     }
 
-    if let Some(config) = state.workspace_config_for_uri(uri) {
-        diagnostics.extend(collect_external_diagnostics(&config, uri));
+    let scope = state.diagnostic_scope_for_uri(uri);
+    let config = scope.as_ref().map(|scope| &scope.config);
+    if let Some(config) = config {
+        diagnostics.extend(collect_external_diagnostics(config, uri));
     }
     // A block that lacks a member its pair's faceplate needs (specification 39, §8.6).
     diagnostics.extend(hmi_pair_diagnostics(state, uri, content, file_id));
 
     let learner_context = build_learner_context(state, file_id);
-    apply_diagnostic_filters(state, uri, &mut diagnostics);
-    apply_diagnostic_overrides(state, uri, &mut diagnostics);
+    let library_surface = scope.as_ref().is_some_and(|scope| scope.library_surface);
+    apply_diagnostic_filters(config, library_surface, &mut diagnostics);
+    apply_diagnostic_overrides(config, &mut diagnostics);
     attach_explainers(
         state,
         uri,

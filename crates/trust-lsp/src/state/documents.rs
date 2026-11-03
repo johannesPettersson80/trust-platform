@@ -4,7 +4,10 @@ use tower_lsp::lsp_types::Url;
 use crate::config::ProjectConfig;
 use trust_hir::{db::FileId, Project, SourceDatabase, SourceKey};
 
-use super::path::{canonicalize_path, path_to_uri, source_key_for_uri, uri_to_path};
+use super::path::{
+    canonicalize_path, canonicalize_through_existing_ancestor, path_to_uri, source_key_for_uri,
+    uri_to_path,
+};
 use super::{Document, ServerState};
 
 /// Text is evictable; the URI-to-source registration survives until deletion.
@@ -240,16 +243,7 @@ pub(super) fn remove_document_tree(state: &ServerState, uri: &Url) -> usize {
         return usize::from(remove_document(state, uri).is_some());
     };
     // Registered URI membership remains authoritative if an alias itself vanished.
-    let canonical = path
-        .ancestors()
-        .find_map(|ancestor| {
-            ancestor.canonicalize().ok().and_then(|_| {
-                path.strip_prefix(ancestor)
-                    .ok()
-                    .map(|tail| canonicalize_path(ancestor.to_path_buf()).join(tail))
-            })
-        })
-        .unwrap_or_else(|| path.clone());
+    let canonical = canonicalize_through_existing_ancestor(&path);
     let deleted_path_is_missing = path_is_missing(&path);
     remove_sources(state, |project, docs| {
         let mut ids = docs

@@ -41,9 +41,10 @@ pub struct ProjectConfig {
     pub telemetry: TelemetryConfig,
 }
 impl ProjectConfig {
-    pub fn indexing_roots(&self) -> Vec<PathBuf> {
-        let mut roots = Vec::new();
-        // `include_paths` is meant to scope what the indexer walks — when set,
+    /// The project's own source folders: its `include_paths`, or its root when none are set
+    /// (specification 14 §7.6).
+    pub fn source_folders(&self) -> Vec<PathBuf> {
+        // `include_paths` is meant to scope the project's sources — when set,
         // it replaces the workspace root rather than extending it. Otherwise a
         // user with `include_paths = ["src"]` still gets the entire workspace
         // root scanned, which on a multi-project tree (e.g. trust-platform/
@@ -51,10 +52,16 @@ impl ProjectConfig {
         // spurious E104 duplicate-import diagnostics. Falling back to the root
         // when `include_paths` is empty preserves the unconfigured-project case.
         if self.include_paths.is_empty() {
-            roots.push(self.root.clone());
+            vec![self.root.clone()]
         } else {
-            roots.extend(self.include_paths.iter().cloned());
+            self.include_paths.clone()
         }
+    }
+
+    /// The folders the indexer walks: the project's own source folders, then each library
+    /// folder once.
+    pub fn indexing_roots(&self) -> Vec<PathBuf> {
+        let mut roots = self.source_folders();
         for lib in &self.libraries {
             if !roots.contains(&lib.path) {
                 roots.push(lib.path.clone());

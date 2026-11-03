@@ -4,6 +4,7 @@ use percent_encoding::percent_decode_str;
 use tower_lsp::lsp_types::Url;
 
 use crate::config::ProjectConfig;
+use trust_hir::project::strip_windows_device_prefix;
 use trust_hir::SourceKey;
 
 use super::ServerState;
@@ -254,41 +255,6 @@ fn normalize_match_path(path: PathBuf) -> PathBuf {
     normalized
 }
 
-#[cfg(windows)]
-fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
-    let raw = match path.to_str() {
-        Some(raw) => raw,
-        None => return path,
-    };
-
-    if let Some(rest) = raw
-        .strip_prefix("\\\\?\\UNC\\")
-        .or_else(|| raw.strip_prefix("\\?\\UNC\\"))
-        .or_else(|| raw.strip_prefix("\\\\.\\UNC\\"))
-        .or_else(|| raw.strip_prefix("\\??\\UNC\\"))
-    {
-        let mut unc = String::from("\\\\");
-        unc.push_str(rest);
-        return PathBuf::from(unc);
-    }
-
-    if let Some(rest) = raw
-        .strip_prefix("\\\\?\\")
-        .or_else(|| raw.strip_prefix("\\?\\"))
-        .or_else(|| raw.strip_prefix("\\\\.\\"))
-        .or_else(|| raw.strip_prefix("\\??\\"))
-    {
-        return PathBuf::from(rest);
-    }
-
-    path
-}
-
-#[cfg(not(windows))]
-fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
-    path
-}
-
 pub(super) fn canonicalize_path(path: PathBuf) -> PathBuf {
     if path_debug_enabled() {
         tracing::info!(target: "trust_lsp::path", "canonicalize_path input: {}", path.display());
@@ -301,4 +267,21 @@ pub(super) fn canonicalize_path(path: PathBuf) -> PathBuf {
         return canon;
     }
     path
+}
+
+/// `path` as the filesystem resolves it, even when it does not exist (yet, or any more): its
+/// deepest existing ancestor resolved through links and short names, without the Windows device
+/// prefix, with the names below that ancestor kept as written. `path` itself when no ancestor
+/// exists.
+pub(crate) fn canonicalize_through_existing_ancestor(path: &Path) -> PathBuf {
+    for ancestor in path.ancestors() {
+        if let Ok(canonical) = ancestor.canonicalize() {
+            let canonical = strip_windows_device_prefix(canonical);
+            return match path.strip_prefix(ancestor) {
+                Ok(tail) if !tail.as_os_str().is_empty() => canonical.join(tail),
+                _ => canonical,
+            };
+        }
+    }
+    path.to_path_buf()
 }
