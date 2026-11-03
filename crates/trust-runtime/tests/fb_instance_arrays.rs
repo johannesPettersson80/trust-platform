@@ -2,7 +2,8 @@
 //! elements) and 6.6.3.4.1 example e) (FB call using an instance array); docs/specs/02-data-types.md §3.4 and
 //! docs/specs/04-pou-declarations.md (Table 41 and Table 42).
 
-use trust_runtime::harness::TestHarness;
+use trust_runtime::harness::{CompileSession, TestHarness};
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
 const ACCUMULATOR: &str = r#"
@@ -911,4 +912,129 @@ END_PROGRAM
     assert_eq!(harness.get_output("SpareTotal"), Some(Value::DInt(0)));
     assert_eq!(harness.get_output("Level"), Some(Value::Int(3)));
     assert_eq!(harness.get_output("SpareLevel"), Some(Value::Int(7)));
+}
+
+// The segmented paths of #163 item 1: an instance array reached through members, a namespace or another
+// program, as vendor projects keep per-zone and per-device function block tables. Each call must reach its own
+// element; expected values over two cycles, worked by hand.
+
+#[test]
+fn an_instance_array_inside_a_structure_array_is_called_through_its_path() {
+    // Zones[I].Sums[J] adds I * 10 + J each cycle: after two cycles Zones[0].Sums[1] holds 2 * 1 = 2 and
+    // Zones[1].Sums[2] holds 2 * 12 = 24. Catches a path call that reaches another element or no element.
+    let source = format!(
+        "{ACCUMULATOR}
+TYPE Zone : STRUCT Sums : ARRAY[0..2] OF Accumulator; END_STRUCT END_TYPE
+PROGRAM Main
+VAR
+    Zones : ARRAY[0..1] OF Zone;
+    I : DINT;
+    J : DINT;
+    ZeroOne : DINT;
+    OneTwo : DINT;
+END_VAR
+FOR I := 0 TO 1 DO
+    FOR J := 0 TO 2 DO
+        Zones[I].Sums[J](Increment := I * 10 + J);
+    END_FOR;
+END_FOR;
+ZeroOne := Zones[0].Sums[1].Total;
+OneTwo := Zones[1].Sums[2].Total;
+END_PROGRAM
+"
+    );
+    let harness = run(&source, 2);
+    assert_eq!(harness.get_output("ZeroOne"), Some(Value::DInt(2)));
+    assert_eq!(harness.get_output("OneTwo"), Some(Value::DInt(24)));
+}
+
+#[test]
+fn an_instance_array_of_a_namespaced_global_list_is_called_by_subscript() {
+    // GVL.Devices[I] adds I + 1 each cycle: after two cycles element 0 holds 2 and element 3 holds 8. Catches a
+    // qualified global path that calls a copy or misses the subscript.
+    let source = format!(
+        "{ACCUMULATOR}
+NAMESPACE GVL
+VAR_GLOBAL
+    Devices : ARRAY[0..3] OF Accumulator;
+END_VAR
+END_NAMESPACE
+PROGRAM Main
+VAR
+    I : DINT;
+    First : DINT;
+    Last : DINT;
+END_VAR
+FOR I := 0 TO 3 DO
+    GVL.Devices[I](Increment := I + 1);
+END_FOR;
+First := GVL.Devices[0].Total;
+Last := GVL.Devices[3].Total;
+END_PROGRAM
+"
+    );
+    let harness = run(&source, 2);
+    assert_eq!(harness.get_output("First"), Some(Value::DInt(2)));
+    assert_eq!(harness.get_output("Last"), Some(Value::DInt(8)));
+}
+
+#[test]
+fn a_function_block_member_of_a_structure_array_element_is_called() {
+    // Cells[I].Ctrl adds Cells[I].Gain (1, 2, 3) each cycle: after two cycles Cells[1].Ctrl holds 4. Catches the
+    // member call reaching the wrong element's instance or reading another element's input.
+    let source = format!(
+        "{ACCUMULATOR}
+TYPE Cell : STRUCT Ctrl : Accumulator; Gain : DINT; END_STRUCT END_TYPE
+PROGRAM Main
+VAR
+    Cells : ARRAY[0..2] OF Cell;
+    I : DINT;
+    Second : DINT;
+END_VAR
+Cells[0].Gain := 1;
+Cells[1].Gain := 2;
+Cells[2].Gain := 3;
+FOR I := 0 TO 2 DO
+    Cells[I].Ctrl(Increment := Cells[I].Gain);
+END_FOR;
+Second := Cells[1].Ctrl.Total;
+END_PROGRAM
+"
+    );
+    let harness = run(&source, 2);
+    assert_eq!(harness.get_output("Second"), Some(Value::DInt(4)));
+}
+
+#[test]
+fn another_programs_instance_array_is_called_under_the_codesys_profile() {
+    // DEV-030: under the CODESYS profile a program's name qualifies its members, so Main calls Producer's
+    // elements. Each call adds 5: after two cycles Producer.Sums[1] holds 10. Catches the qualified path calling
+    // a copy (Producer's own element staying 0) or refused by the build.
+    let source = format!(
+        "{ACCUMULATOR}
+PROGRAM Producer
+VAR
+    Sums : ARRAY[0..1] OF Accumulator;
+END_VAR
+END_PROGRAM
+PROGRAM Main
+VAR
+    I : DINT;
+    Seen : DINT;
+END_VAR
+FOR I := 0 TO 1 DO
+    Producer.Sums[I](Increment := 5);
+END_FOR;
+Seen := Producer.Sums[1].Total;
+END_PROGRAM
+"
+    );
+    let session =
+        CompileSession::from_source(&source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session).expect("the CODESYS profile builds it");
+    for _ in 0..2 {
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    }
+    assert_eq!(harness.get_output("Main.Seen"), Some(Value::DInt(10)));
 }
