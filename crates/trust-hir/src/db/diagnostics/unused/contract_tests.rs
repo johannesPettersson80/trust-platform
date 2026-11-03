@@ -552,6 +552,45 @@ END_PROGRAM
 }
 
 #[test]
+fn a_local_named_like_the_list_hides_a_longer_chain_too() {
+    // A local `GVals` hides the namespace for a chain of any length (specification 09 §1.3):
+    // `GVals.Inner.X` is a member of the local, so the nested namespace's constant, used nowhere
+    // else, keeps its warning. Catches a longer chain sent to the namespace walk past the local.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+NAMESPACE Inner
+VAR_GLOBAL CONSTANT
+    X : INT := 5;
+END_VAR
+END_NAMESPACE
+END_NAMESPACE
+"#,
+            r#"
+TYPE InnerT : STRUCT X : INT; END_STRUCT END_TYPE
+TYPE Shadow : STRUCT Inner : InnerT; END_STRUCT END_TYPE
+PROGRAM Main
+VAR
+    GVals : Shadow;
+    v : INT;
+END_VAR
+v := GVals.Inner.X;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    assert!(
+        diagnostics.iter().any(
+            |diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable
+                && diagnostic.message.contains("'X'")
+        ),
+        "the hidden nested namespace's constant stays unused: {diagnostics:?}"
+    );
+}
+
+#[test]
 fn a_local_named_like_the_list_leaves_its_constant_unused() {
     // Issue #203: a local named like the namespace hides it, so `GVals.UsedCrossFile` reads the
     // local, and the namespace's constant, used nowhere else, keeps its warning (specification 09
