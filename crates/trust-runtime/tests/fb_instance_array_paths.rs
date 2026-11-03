@@ -152,3 +152,101 @@ END_PROGRAM
     }
     assert_eq!(harness.get_output("Main.Seen"), Some(Value::DInt(10)));
 }
+
+// The vendor case of #163 item 1 (mikolaj-kow, from the lighting project's mirror): the subscript is itself a
+// member read, `afbDim[pE.uiDriverIdx](...)`, with an output written into an array element. A Dimmer counts its
+// calls and passes its level out.
+const DIMMER: &str = r#"
+TYPE Entity : STRUCT uiDriverIdx : INT; END_STRUCT END_TYPE
+
+FUNCTION_BLOCK Dimmer
+VAR_INPUT
+    Level : INT;
+END_VAR
+VAR_OUTPUT
+    Out : INT;
+    Calls : INT;
+END_VAR
+Out := Level;
+Calls := Calls + 1;
+END_FUNCTION_BLOCK
+"#;
+
+#[test]
+fn a_member_read_subscript_selects_the_element_it_names() {
+    // entities[0] names driver 2 and entities[1] driver 3; each cycle calls afbDim[2] with level 10 and
+    // afbDim[3] with level 20, so after two cycles each holds 2 calls, driver 3's output is 20 and results[3]
+    // took it through `Out =>`. Catches a member-read subscript evaluated as another element (or element 0).
+    let source = format!(
+        "{DIMMER}
+PROGRAM Main
+VAR
+    afbDim : ARRAY[0..3] OF Dimmer;
+    entities : ARRAY[0..1] OF Entity;
+    results : ARRAY[0..3] OF INT;
+    i : INT;
+    callsAt0 : INT;
+    callsAt2 : INT;
+    callsAt3 : INT;
+    resultAt3 : INT;
+END_VAR
+entities[0].uiDriverIdx := 2;
+entities[1].uiDriverIdx := 3;
+FOR i := 0 TO 1 DO
+    afbDim[entities[i].uiDriverIdx](Level := 10 * (i + 1), Out => results[entities[i].uiDriverIdx]);
+END_FOR;
+callsAt0 := afbDim[0].Calls;
+callsAt2 := afbDim[2].Calls;
+callsAt3 := afbDim[3].Calls;
+resultAt3 := results[3];
+END_PROGRAM
+"
+    );
+    let harness = run(&source, 2);
+    assert_eq!(harness.get_output("callsAt0"), Some(Value::Int(0)));
+    assert_eq!(harness.get_output("callsAt2"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("callsAt3"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("resultAt3"), Some(Value::Int(20)));
+}
+
+#[test]
+fn a_subscript_read_through_a_reference_selects_the_element_under_the_codesys_profile() {
+    // The vendor spelling: pE is a REFERENCE TO the current entity, so `pE.uiDriverIdx` reads through the reference.
+    // Same plan as above: after two cycles afbDim[2] and afbDim[3] hold 2 calls each and results[3] is 20. Catches
+    // the reference read as the reference itself, or bound to a stale entity.
+    let source = format!(
+        "{DIMMER}
+PROGRAM Main
+VAR
+    afbDim : ARRAY[0..3] OF Dimmer;
+    entities : ARRAY[0..1] OF Entity;
+    results : ARRAY[0..3] OF INT;
+    pE : REFERENCE TO Entity;
+    i : INT;
+    callsAt2 : INT;
+    callsAt3 : INT;
+    resultAt3 : INT;
+END_VAR
+entities[0].uiDriverIdx := 2;
+entities[1].uiDriverIdx := 3;
+FOR i := 0 TO 1 DO
+    pE REF= entities[i];
+    afbDim[pE.uiDriverIdx](Level := 10 * (i + 1), Out => results[pE.uiDriverIdx]);
+END_FOR;
+callsAt2 := afbDim[2].Calls;
+callsAt3 := afbDim[3].Calls;
+resultAt3 := results[3];
+END_PROGRAM
+"
+    );
+    let session =
+        CompileSession::from_source(&source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session).expect("the CODESYS profile builds it");
+    for _ in 0..2 {
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    }
+    assert_eq!(harness.get_output("callsAt2"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("callsAt3"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("resultAt3"), Some(Value::Int(20)));
+}
