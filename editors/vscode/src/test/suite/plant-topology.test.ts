@@ -130,50 +130,47 @@ suite("Plant topology projection", () => {
     assert.strictEqual(plant.data.activeConfigurationRevision, "sha256:active");
   });
 
-  test("derives every specified primary state from saved and current runtime evidence", () => {
+  // The states are Rust's (`plant.topology`; trust-runtime test
+  // `a_plants_states_follow_the_specified_order`). Catches the canvas showing another state than
+  // the first one Rust answers, or the add flow's draft as a saved plant.
+  test("shows the first state Rust answers as the node's state, and a draft as Draft", () => {
     const cases: Array<{
       id: string;
       draft?: boolean;
       enabled?: boolean;
       statusAvailability: string;
-      activeOperatingState?: string;
-      hasCompletedSample?: boolean;
-      activeConfigurationRevision?: string;
+      states?: string[];
       expected: string;
     }> = [
       { id: "draft", draft: true, statusAvailability: "not_requested", expected: "Draft" },
-      { id: "configured", statusAvailability: "not_requested", expected: "Configured" },
-      { id: "disabled", enabled: false, statusAvailability: "not_requested", expected: "Disabled" },
+      { id: "configured", statusAvailability: "available", states: ["Configured"], expected: "Configured" },
+      {
+        id: "disabled",
+        enabled: false,
+        statusAvailability: "available",
+        states: ["Disabled"],
+        expected: "Disabled",
+      },
       {
         id: "waiting",
         statusAvailability: "available",
-        activeOperatingState: "running",
-        hasCompletedSample: false,
+        states: ["Waiting for samples"],
         expected: "Waiting for samples",
       },
-      {
-        id: "running",
-        statusAvailability: "available",
-        activeOperatingState: "running",
-        hasCompletedSample: true,
-        expected: "Running",
-      },
+      { id: "running", statusAvailability: "available", states: ["Running"], expected: "Running" },
       {
         id: "restart",
         statusAvailability: "available",
-        activeOperatingState: "running",
-        hasCompletedSample: true,
-        activeConfigurationRevision: "sha256:active",
+        states: ["Restart required", "Running"],
         expected: "Restart required",
       },
+      { id: "faulted", statusAvailability: "available", states: ["Faulted"], expected: "Faulted" },
       {
-        id: "faulted",
-        statusAvailability: "available",
-        activeOperatingState: "faulted",
-        hasCompletedSample: true,
-        expected: "Faulted",
+        id: "unavailable",
+        statusAvailability: "unavailable",
+        states: ["Status unavailable"],
+        expected: "Status unavailable",
       },
-      { id: "unavailable", statusAvailability: "unavailable", expected: "Status unavailable" },
     ];
     const graph = {
       kind: "graph",
@@ -224,7 +221,8 @@ suite("Plant topology projection", () => {
     }
   });
 
-  test("keeps lower-priority simultaneous conditions as inspector details", () => {
+  // Catches the inspector dropping the states after the first one Rust answers.
+  test("keeps the other states Rust answers as inspector details", () => {
     const graph = {
       kind: "graph",
       title: "Devices & Connections",
@@ -257,6 +255,7 @@ suite("Plant topology projection", () => {
                   hasCompletedSample: true,
                   savedConfigurationRevision: "sha256:saved",
                   activeConfigurationRevision: "sha256:active",
+                  states: ["Faulted", "Restart required", "Disabled"],
                 },
               ],
             },
@@ -275,8 +274,12 @@ suite("Plant topology projection", () => {
     assert.deepStrictEqual(plant?.data.secondaryStates, ["Restart required", "Disabled"]);
   });
 
-  test("admits live values only from current available runtime evidence", () => {
-    const staleSample = { command: [75], feedback: [61.5] };
+  // Rust gives a live sample only from current runtime evidence (trust-runtime tests
+  // `a_current_status_joins_only_the_saved_plant_it_names` and
+  // `a_status_that_is_not_current_marks_every_plant_unavailable`). Catches the canvas drawing values
+  // Rust did not give, or dropping the ones it did.
+  test("shows a live sample only when Rust gives one", () => {
+    const sample = { command: [75], feedback: [61.5] };
     const graph = {
       kind: "graph",
       title: "Devices & Connections",
@@ -298,25 +301,17 @@ suite("Plant topology projection", () => {
               endpoints: [],
               plants: [
                 {
-                  id: "offline",
-                  statusAvailability: "not_requested",
-                  activeOperatingState: "running",
-                  hasCompletedSample: true,
-                  liveSample: staleSample,
-                },
-                {
                   id: "unavailable",
                   statusAvailability: "unavailable",
-                  activeOperatingState: "running",
-                  hasCompletedSample: true,
-                  liveSample: staleSample,
+                  states: ["Status unavailable"],
                 },
                 {
                   id: "current",
                   statusAvailability: "available",
                   activeOperatingState: "running",
                   hasCompletedSample: true,
-                  liveSample: staleSample,
+                  liveSample: sample,
+                  states: ["Running"],
                 },
               ].map((plant) => ({
                 displayName: plant.id,
@@ -325,7 +320,6 @@ suite("Plant topology projection", () => {
                 commandSources: ["%QL0"],
                 feedbackTargets: ["%IL0"],
                 savedConfigurationRevision: "sha256:saved",
-                activeConfigurationRevision: "sha256:saved",
                 ...plant,
               })),
             },
@@ -340,12 +334,10 @@ suite("Plant topology projection", () => {
     const plants = buildGraph(graph).nodes.filter((node) => node.data.kind === "plant");
     const data = (id: string) => plants.find((node) => node.id.endsWith(`:${id}`))?.data;
 
-    assert.strictEqual(data("offline")?.state, "Configured");
-    assert.strictEqual(data("offline")?.liveSample, undefined);
     assert.strictEqual(data("unavailable")?.state, "Status unavailable");
     assert.strictEqual(data("unavailable")?.liveSample, undefined);
     assert.strictEqual(data("current")?.state, "Running");
-    assert.deepStrictEqual(data("current")?.liveSample, staleSample);
+    assert.deepStrictEqual(data("current")?.liveSample, sample);
   });
 
   test("counts plants separately and names the truly empty runtime", () => {
@@ -443,6 +435,7 @@ suite("Plant topology projection", () => {
                   hasCompletedSample: true,
                   savedConfigurationRevision: "sha256:saved",
                   activeConfigurationRevision: "sha256:saved",
+                  states: ["Running"],
                 },
                 {
                   id: "faulted_motor",
@@ -456,6 +449,7 @@ suite("Plant topology projection", () => {
                   hasCompletedSample: true,
                   savedConfigurationRevision: "sha256:saved",
                   activeConfigurationRevision: "sha256:saved",
+                  states: ["Faulted"],
                 },
               ],
             },

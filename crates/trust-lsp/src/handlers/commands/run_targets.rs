@@ -25,7 +25,8 @@ mod endpoint;
 mod hmi_target;
 mod live_values;
 mod managed;
-mod request;
+// One control request to a runtime; HMI Deploy asks its runtime's topology through it.
+pub(super) mod request;
 mod selection;
 mod target;
 
@@ -101,6 +102,6 @@ fn non_blank(value: Option<&str>) -> Option<String> {
 }
 
 #[cfg(test)]
-mod fake_runtime;
+pub(super) mod fake_runtime;
 #[cfg(test)]
 mod tests;

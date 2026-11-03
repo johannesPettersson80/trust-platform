@@ -1572,8 +1572,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "Live Values must not display the raw debug-adapter no-session message"
     );
     assert.ok(
-      /No debugger available/i.test(host) && /stIoState/i.test(host),
-      "Live Values must map disconnected attach-mode stIoState failures to the same beginner-facing empty state"
+      requestIoStateBody.includes('result.failure.kind === "no_session"') &&
+        !/No debugger available/i.test(host),
+      "Live Values must show an I/O state request whose session is gone, as the language server reads it, as the same beginner-facing empty state"
     );
     assert.ok(
       host.includes("Connect to the selected runtime to see live values."),
@@ -1672,8 +1673,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "terminated sessions must also clear stale rows and replace stale role/success banners with the correct unavailable message"
     );
     assert.ok(
-      host.includes("/I\\/O state request failed:\\s*Canceled/i.test(message)"),
-      "a canceled I/O request during Stop must clear stale Live Values instead of leaving old LIVE rows"
+      host.includes('if (result.failure.kind === "no_session") {') &&
+        !host.includes("Canceled"),
+      "a canceled I/O request during Stop, which the language server reads as no session, must clear stale Live Values instead of leaving old LIVE rows"
     );
     assert.ok(
       !terminateBody.includes("sendRuntimeStatus()"),
@@ -2838,6 +2840,33 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     "ladder/webview/LadderEditor.tsx",
     "blockly/webview/BlocklyEditor.tsx",
   ];
+
+  // G28: VS Code's webview sandbox has no `allow-modals`, so Chromium ignores `alert`, `confirm` and
+  // `prompt` there (microsoft/vscode#67109) and a feature that asks through them does nothing. A
+  // webview asks its host, which shows VS Code's dialogs. Catches a webview dialog that silently
+  // never opens, as Ladder's Find and replace and the Statechart's action mappings did.
+  test("no webview asks through a browser dialog", () => {
+    const sources: string[] = [];
+    const walk = (folder: string): void => {
+      for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+        const full = path.join(folder, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (/\.(ts|tsx|js)$/.test(entry.name) && full.split(path.sep).includes("webview")) {
+          sources.push(full);
+        }
+      }
+    };
+    walk(path.join(extensionRoot(), "src"));
+    assert.ok(sources.length > 20, `the webview sources were found: ${sources.length}`);
+    const dialog = /(?:^|[^.\w])(?:window\.)?(?:alert|confirm|prompt)\(/m;
+    const offenders = sources.filter((file) => dialog.test(fs.readFileSync(file, "utf8")));
+    assert.deepStrictEqual(
+      offenders.map((file) => path.relative(extensionRoot(), file)),
+      [],
+      "a webview asks its host for a dialog instead"
+    );
+  });
 
   test("visual editors do not render the legacy embedded runtime/I/O panel", () => {
     for (const file of visualEditorFiles) {

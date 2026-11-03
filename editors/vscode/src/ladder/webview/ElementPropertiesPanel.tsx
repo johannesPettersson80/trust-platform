@@ -1,13 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type {
-  Coil as CoilType,
-  CompareNode,
-  Contact as ContactType,
-  Counter as CounterType,
-  LadderElement,
-  MathNode,
-  Timer as TimerType,
-} from "../ladderProgram.types";
+import type { LadderElement } from "../ladderProgram.types";
 
 interface SelectedElementRef {
   rungIndex: number;
@@ -29,9 +21,8 @@ interface ElementPropertiesPanelProps {
   /** Sends the text typed into a number field to the language server (`setNumber`). */
   onSetNumber: (field: LadderNumberField, text: string) => void;
   numberFieldError: NumberFieldError | null;
-  onUpdateSelectedElement: (
-    updater: (element: LadderElement) => LadderElement
-  ) => void;
+  /** Sends a text typed or a choice made in a field to the language server (`setField`). */
+  onSetField: (field: string, value: string) => void;
   onRemoveSelectedElement: () => void;
 }
 
@@ -68,12 +59,43 @@ function NumberTextInput({
   );
 }
 
+/**
+ * A text field: it shows the stored text, and the text as typed while it is being typed, since
+ * the language server stores each text (`setField`) and the stored one comes back after it.
+ */
+function TextFieldInput({
+  id,
+  stored,
+  inputRef,
+  onText,
+}: {
+  id: string;
+  stored: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  onText: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      id={id}
+      ref={inputRef}
+      type="text"
+      value={draft ?? stored}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onText(event.target.value);
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  );
+}
+
 export function ElementPropertiesPanel({
   selectedElement,
   selectedElementData,
   onSetNumber,
   numberFieldError,
-  onUpdateSelectedElement,
+  onSetField,
   onRemoveSelectedElement,
 }: ElementPropertiesPanelProps) {
   const errorOf = (field: LadderNumberField): string | undefined =>
@@ -103,18 +125,12 @@ export function ElementPropertiesPanel({
             {"variable" in selectedElementData && (
               <div className="property-row">
                 <label htmlFor="ladder-variable">Variable</label>
-                <input
+                <TextFieldInput
+                  key={`${selectedElementData.id}:variable`}
                   id="ladder-variable"
-                  ref={variableInputRef}
-                  type="text"
-                  value={selectedElementData.variable}
-                  onChange={(event) => {
-                    const nextVariable = event.target.value;
-                    onUpdateSelectedElement((element) => ({
-                      ...element,
-                      variable: nextVariable,
-                    }));
-                  }}
+                  inputRef={variableInputRef}
+                  stored={selectedElementData.variable}
+                  onText={(text) => onSetField("variable", text)}
                 />
                 {selectedElementData.variable.trim().length === 0 && (
                   <p className="property-warning">Variable required.</p>
@@ -128,13 +144,7 @@ export function ElementPropertiesPanel({
                 <select
                   id="ladder-contact-type"
                   value={selectedElementData.contactType}
-                  onChange={(event) => {
-                    const nextType = event.target.value as ContactType["contactType"];
-                    onUpdateSelectedElement((element) => ({
-                      ...(element as ContactType),
-                      contactType: nextType,
-                    }));
-                  }}
+                  onChange={(event) => onSetField("contactType", event.target.value)}
                 >
                   <option value="NO">NO</option>
                   <option value="NC">NC</option>
@@ -148,13 +158,7 @@ export function ElementPropertiesPanel({
                 <select
                   id="ladder-coil-type"
                   value={selectedElementData.coilType}
-                  onChange={(event) => {
-                    const nextType = event.target.value as CoilType["coilType"];
-                    onUpdateSelectedElement((element) => ({
-                      ...(element as CoilType),
-                      coilType: nextType,
-                    }));
-                  }}
+                  onChange={(event) => onSetField("coilType", event.target.value)}
                 >
                   <option value="NORMAL">NORMAL</option>
                   <option value="SET">SET</option>
@@ -171,13 +175,7 @@ export function ElementPropertiesPanel({
                   <select
                     id="ladder-timer-type"
                     value={selectedElementData.timerType}
-                    onChange={(event) => {
-                      const nextType = event.target.value as TimerType["timerType"];
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as TimerType),
-                        timerType: nextType,
-                      }));
-                    }}
+                    onChange={(event) => onSetField("timerType", event.target.value)}
                   >
                     <option value="TON">TON</option>
                     <option value="TOF">TOF</option>
@@ -186,62 +184,38 @@ export function ElementPropertiesPanel({
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-timer-instance">Instance</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:instance`}
                     id="ladder-timer-instance"
-                    type="text"
-                    value={selectedElementData.instance}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as TimerType),
-                        instance: next,
-                      }));
-                    }}
+                    stored={selectedElementData.instance}
+                    onText={(text) => onSetField("instance", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-timer-input">Input Address</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:input`}
                     id="ladder-timer-input"
-                    type="text"
-                    value={selectedElementData.input ?? ""}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as TimerType),
-                        input: next,
-                      }));
-                    }}
+                    stored={selectedElementData.input ?? ""}
+                    onText={(text) => onSetField("input", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-timer-q-output">Q Output</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:qOutput`}
                     id="ladder-timer-q-output"
-                    type="text"
-                    value={selectedElementData.qOutput}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as TimerType),
-                        qOutput: next,
-                      }));
-                    }}
+                    stored={selectedElementData.qOutput}
+                    onText={(text) => onSetField("qOutput", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-timer-et-output">ET Output</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:etOutput`}
                     id="ladder-timer-et-output"
-                    type="text"
-                    value={selectedElementData.etOutput}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as TimerType),
-                        etOutput: next,
-                      }));
-                    }}
+                    stored={selectedElementData.etOutput}
+                    onText={(text) => onSetField("etOutput", text)}
                   />
                 </div>
                 <div className="property-row">
@@ -264,13 +238,7 @@ export function ElementPropertiesPanel({
                   <select
                     id="ladder-counter-type"
                     value={selectedElementData.counterType}
-                    onChange={(event) => {
-                      const nextType = event.target.value as CounterType["counterType"];
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CounterType),
-                        counterType: nextType,
-                      }));
-                    }}
+                    onChange={(event) => onSetField("counterType", event.target.value)}
                   >
                     <option value="CTU">CTU</option>
                     <option value="CTD">CTD</option>
@@ -279,62 +247,38 @@ export function ElementPropertiesPanel({
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-counter-instance">Instance</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:instance`}
                     id="ladder-counter-instance"
-                    type="text"
-                    value={selectedElementData.instance}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CounterType),
-                        instance: next,
-                      }));
-                    }}
+                    stored={selectedElementData.instance}
+                    onText={(text) => onSetField("instance", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-counter-input">Input Address</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:input`}
                     id="ladder-counter-input"
-                    type="text"
-                    value={selectedElementData.input ?? ""}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CounterType),
-                        input: next,
-                      }));
-                    }}
+                    stored={selectedElementData.input ?? ""}
+                    onText={(text) => onSetField("input", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-counter-q-output">Q Output</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:qOutput`}
                     id="ladder-counter-q-output"
-                    type="text"
-                    value={selectedElementData.qOutput}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CounterType),
-                        qOutput: next,
-                      }));
-                    }}
+                    stored={selectedElementData.qOutput}
+                    onText={(text) => onSetField("qOutput", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-counter-cv-output">CV Output</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:cvOutput`}
                     id="ladder-counter-cv-output"
-                    type="text"
-                    value={selectedElementData.cvOutput}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CounterType),
-                        cvOutput: next,
-                      }));
-                    }}
+                    stored={selectedElementData.cvOutput}
+                    onText={(text) => onSetField("cvOutput", text)}
                   />
                 </div>
                 <div className="property-row">
@@ -357,13 +301,7 @@ export function ElementPropertiesPanel({
                   <select
                     id="ladder-compare-op"
                     value={selectedElementData.op}
-                    onChange={(event) => {
-                      const nextOp = event.target.value as CompareNode["op"];
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CompareNode),
-                        op: nextOp,
-                      }));
-                    }}
+                    onChange={(event) => onSetField("op", event.target.value)}
                   >
                     <option value="GT">GT</option>
                     <option value="LT">LT</option>
@@ -372,32 +310,20 @@ export function ElementPropertiesPanel({
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-compare-left">IN1</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:left`}
                     id="ladder-compare-left"
-                    type="text"
-                    value={selectedElementData.left}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CompareNode),
-                        left: next,
-                      }));
-                    }}
+                    stored={selectedElementData.left}
+                    onText={(text) => onSetField("left", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-compare-right">IN2</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:right`}
                     id="ladder-compare-right"
-                    type="text"
-                    value={selectedElementData.right}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CompareNode),
-                        right: next,
-                      }));
-                    }}
+                    stored={selectedElementData.right}
+                    onText={(text) => onSetField("right", text)}
                   />
                 </div>
               </>
@@ -410,13 +336,7 @@ export function ElementPropertiesPanel({
                   <select
                     id="ladder-math-op"
                     value={selectedElementData.op}
-                    onChange={(event) => {
-                      const nextOp = event.target.value as MathNode["op"];
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as MathNode),
-                        op: nextOp,
-                      }));
-                    }}
+                    onChange={(event) => onSetField("op", event.target.value)}
                   >
                     <option value="ADD">ADD</option>
                     <option value="SUB">SUB</option>
@@ -426,47 +346,29 @@ export function ElementPropertiesPanel({
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-math-left">IN1</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:left`}
                     id="ladder-math-left"
-                    type="text"
-                    value={selectedElementData.left}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as MathNode),
-                        left: next,
-                      }));
-                    }}
+                    stored={selectedElementData.left}
+                    onText={(text) => onSetField("left", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-math-right">IN2</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:right`}
                     id="ladder-math-right"
-                    type="text"
-                    value={selectedElementData.right}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as MathNode),
-                        right: next,
-                      }));
-                    }}
+                    stored={selectedElementData.right}
+                    onText={(text) => onSetField("right", text)}
                   />
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-math-output">Output Address</label>
-                  <input
+                  <TextFieldInput
+                    key={`${selectedElementData.id}:output`}
                     id="ladder-math-output"
-                    type="text"
-                    value={selectedElementData.output}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as MathNode),
-                        output: next,
-                      }));
-                    }}
+                    stored={selectedElementData.output}
+                    onText={(text) => onSetField("output", text)}
                   />
                 </div>
               </>

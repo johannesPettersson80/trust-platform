@@ -368,6 +368,67 @@ fn a_typed_number_answers_the_program_with_the_stored_value_or_the_reason() {
 }
 
 #[test]
+fn a_new_statechart_state_is_named_by_the_language_server() {
+    // addState: the new state with the smallest free name, or `refused` with the reason. The
+    // rule is trust-visual's test; a wrong argument name would leave the toolbar adding nothing.
+    let graph = r#"{"states":[{"id":"state_State1","label":"State1","type":"initial"}],"transitions":[],"actionMappings":{}}"#;
+    let add = |state_type: &str| {
+        execute(
+            VISUAL_EDIT_COMMAND,
+            vec![
+                json!({ "kind": "statechart", "op": "addState", "graphText": graph, "stateType": state_type }),
+            ],
+        )
+    };
+    assert_eq!(
+        add("normal"),
+        json!({ "ok": true, "state": { "id": "state_State2", "label": "State2", "type": "normal", "entry": [], "exit": [] } })
+    );
+    assert_eq!(
+        add("initial"),
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "The statechart starts in \"State1\" already; it starts in one state." }] })
+    );
+}
+
+#[test]
+fn the_ladder_element_edits_answer_the_program_or_the_reason() {
+    // Deleting an element, clearing a rung's wires, toggling a contact and a field of the
+    // properties panel reach trust-visual with their arguments; a refused field names the rule.
+    // The rules are trust-visual's tests; a wrong argument name would leave the panel's change
+    // unstored.
+    let program = r#"{"schemaVersion":2,"networks":[{"id":"rung_1","order":0,"layout":{"y":100},"nodes":[{"id":"a","type":"contact","contactType":"NO","variable":"A","position":{"x":100,"y":100}},{"id":"x","type":"contact","contactType":"NO","variable":"X","position":{"x":200,"y":100}},{"id":"q","type":"coil","coilType":"NORMAL","variable":"Q","position":{"x":300,"y":100}}],"edges":[{"id":"edge_rung_1_0","fromNodeId":"a","toNodeId":"x"},{"id":"edge_rung_1_1","fromNodeId":"x","toNodeId":"q"}]}],"variables":[{"name":"A","type":"BOOL"},{"name":"X","type":"BOOL"},{"name":"Q","type":"BOOL"}],"metadata":{"name":"n","description":""}}"#;
+    let edit = |arguments: Value| {
+        let mut arguments = arguments;
+        arguments["kind"] = json!("ladder");
+        arguments["programText"] = json!(program);
+        execute(VISUAL_EDIT_COMMAND, vec![arguments])
+    };
+    let text = |answer: &Value| answer["programText"].as_str().expect("program").to_owned();
+    let removed = edit(json!({ "op": "removeElement", "rungIndex": 0, "elementIndex": 1 }));
+    assert_eq!(removed["ok"], json!(true), "{removed}");
+    assert!(!text(&removed).contains("\"id\":\"x\""), "{removed}");
+    assert!(
+        text(&removed).contains("\"fromNodeId\":\"a\",\"toNodeId\":\"q\""),
+        "{removed}"
+    );
+    let cleared = edit(json!({ "op": "clearWiring", "rungIndex": 0 }));
+    assert!(text(&cleared).contains("\"edges\":[]"), "{cleared}");
+    let toggled = edit(json!({ "op": "toggleContactType", "rungIndex": 0, "elementIndex": 0 }));
+    assert_eq!(toggled["contactType"], json!("NC"), "{toggled}");
+    let set = edit(
+        json!({ "op": "setField", "rungIndex": 0, "elementIndex": 2, "field": "coilType", "value": "RESET" }),
+    );
+    assert!(text(&set).contains("\"coilType\":\"RESET\""), "{set}");
+    let refused = edit(
+        json!({ "op": "setField", "rungIndex": 0, "elementIndex": 2, "field": "coilType", "value": "PULSE" }),
+    );
+    assert_eq!(
+        refused,
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "coilType must be one of NORMAL, SET, RESET, NEGATED." }] })
+    );
+}
+
+#[test]
 fn a_typed_delay_or_mapping_value_answers_what_the_statechart_stores() {
     // The Statechart panels send the text of the timer and of a mapping value; `after` is null for
     // no delay and a refused delay names the rule. A wrong shape would store the text unread.
@@ -402,4 +463,37 @@ fn a_typed_delay_or_mapping_value_answers_what_the_statechart_stores() {
         json!({ "ok": true, "value": "on" })
     );
     assert_eq!(ask("explode", "1")["ok"], json!(false));
+}
+
+#[test]
+fn a_new_action_mapping_is_added_or_refused_as_the_statechart_stores_it() {
+    // Specification 25 §11.4: the Add dialog's name goes to the language server with the panel's
+    // mappings; the answer is the mappings with the new action and its name, or the reason.
+    // Catches the mappings answered in another shape, which the panel would not store.
+    let add = |name: &str| {
+        execute(
+            VISUAL_EDIT_COMMAND,
+            vec![json!({
+                "kind": "statechart",
+                "op": "addMapping",
+                "mappings": { "START_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.1", "value": true } },
+                "name": name,
+            })],
+        )
+    };
+    assert_eq!(
+        add(" STOP_MOTOR "),
+        json!({
+            "ok": true,
+            "name": "STOP_MOTOR",
+            "mappings": {
+                "START_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.1", "value": true },
+                "STOP_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.0", "value": true },
+            },
+        })
+    );
+    assert_eq!(
+        add("START_MOTOR"),
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "An action with this name already exists." }] })
+    );
 }

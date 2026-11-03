@@ -6,7 +6,6 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { languageServerReady, openBuilder, postedOfType, until } from "./hmiBuilderHost";
-import { runtimeDeployDeps } from "../../hmiBuilder/editor/deployRuntime";
 
 // Specification 39, §7.6: the binding problems of page and popup files are errors in the Problems
 // view, checked when a file opens or changes and when a source file of its project is saved.
@@ -533,49 +532,3 @@ suite("HMI Builder editor: Live mode on the host", function () {
 function lastOf<T>(items: T[]): T | undefined {
   return items[items.length - 1];
 }
-
-suite("HMI Builder editor: Deploy on the host", function () {
-  this.timeout(60000);
-
-  teardown(async () => {
-    for (const root of fixtureProjects.splice(0)) await disposeFixtureProject(root);
-  });
-
-  test("Deploy saves the page, checks and sends the bundle, and reports the outcome", async () => {
-    await languageServerReady();
-    const page = path.join(project(), "hmi", "pages", "overview.toml");
-    const asked: string[] = [];
-    const { document, webview, panel } = await openBuilder(page, undefined, undefined, {
-      bundle: async (root) => {
-        asked.push(root);
-        return { ok: true, bundle: { format: 1, files: {} }, version: "abc123", problems: [] };
-      },
-      target: async () => ({ endpoint: "tcp://127.0.0.1:9000", token: "secret", label: "Line 1", simulator: false }),
-      control: async () => ({
-        hosts: [
-          {
-            runtimes: [
-              { endpoints: [{ protocol: "web", source: "self", params: { listen: "127.0.0.1:8080", tls: false } }] },
-            ],
-          },
-        ],
-      }),
-      post: async () => ({ status: 200, body: { ok: true, active: "abc123", previous: "old999" } }),
-      // The address the language server gives for the topology above.
-      address: runtimeDeployDeps.address,
-    });
-    const edit = new vscode.WorkspaceEdit();
-    edit.insert(document.uri, new vscode.Position(0, 0), "# unsaved\n");
-    assert.ok(await vscode.workspace.applyEdit(edit));
-    webview.send({ type: "deploy" });
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    assert.strictEqual(document.isDirty, false, "the page was saved first");
-    assert.deepStrictEqual(asked, [path.dirname(path.dirname(path.dirname(page)))], "the project's bundle");
-    assert.deepStrictEqual(postedOfType(webview, "deployed")[0]?.outcome, {
-      ok: true,
-      version: "abc123",
-      target: "Line 1",
-    });
-    panel.dispose();
-  });
-});

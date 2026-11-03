@@ -62,6 +62,8 @@ pub enum DiagnosticCode {
     MissingReturn,
     /// Invalid return type.
     InvalidReturnType,
+    /// Declared type does not satisfy an interface or abstract-method contract.
+    InterfaceConformance,
 
     // Semantic errors (E300-E399)
     /// Invalid assignment target.
@@ -146,6 +148,7 @@ impl DiagnosticCode {
             Self::InvalidArgumentType => "E205",
             Self::MissingReturn => "E206",
             Self::InvalidReturnType => "E207",
+            Self::InterfaceConformance => "E208",
             // Semantic
             Self::InvalidAssignmentTarget => "E301",
             Self::ConstantModification => "E302",
@@ -200,6 +203,7 @@ impl DiagnosticCode {
             | Self::InvalidArgumentType
             | Self::MissingReturn
             | Self::InvalidReturnType
+            | Self::InterfaceConformance
             | Self::InvalidAssignmentTarget
             | Self::ConstantModification
             | Self::InvalidArrayIndex

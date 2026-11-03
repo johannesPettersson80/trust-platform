@@ -1349,8 +1349,9 @@ declaration's real values.
    - **Source:** the run target the extension has selected, the simulator or a runtime, reached
      through its control endpoint: the simulator or runtime whose debug session the extension
      holds, launched or attached, or the configured online runtime while it answers without one.
-     Without a control endpoint there is none. It is named by its session's target name, else
-     `Simulator` for the simulator and its endpoint for a runtime. The language server decides it
+     Without a control endpoint there is none. It has the name the status bar gives it
+     (specification 25 §6.9), and the simulator without a name the extension gave it is
+     `Simulator`. The language server decides it
      (`trust-lsp.runTargets`, action `hmiTarget`, specification 25 §6.9), and Deploy (§16.2
      item 8) sends to the same target. Live mode reads the page's bound paths with the control
      request `hmi.read` (`{ "paths": […] }`, Viewer role, at most 1 000 paths) every 250 ms; the
@@ -2114,7 +2115,12 @@ the binding list and the page permissions. Its version is the hash of its conten
    the runtime's administrator access (its control token). Problems stop it and are listed. The
    simulator has no web server, so Deploy says to use Live mode or start a runtime. Deploy saves
    the project's unsaved HMI files first, since the bundle is built from the saved files. After a
-   deployment the editor offers Roll back (`POST /api/hmi/rollback`).
+   deployment the editor offers Roll back (`POST /api/hmi/rollback`). The language server carries
+   out both (`trust-lsp.hmiDeploy`, 1 November 2026): it builds and checks the bundle for Deploy,
+   asks the runtime for its topology, sends the request and reads the runtime's answer. It follows
+   no redirect, so the token reaches only the runtime's web server, as in Live mode (§11). The
+   editor saves the files, passes the selected run target with its control token, and shows the
+   outcome.
 
 ### 16.3 Program changes
 

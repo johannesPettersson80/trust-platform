@@ -19,7 +19,7 @@ import { buildGraph } from "../../networkCanvas/webview/layout";
 import type { NCGraph, NCRuntime } from "../../networkCanvas/webview/types";
 import { getControlAuthToken, setControlAuthToken } from "../../runtimeAuth";
 import { statusText } from "../../runtimeControls";
-import { runtimeLifecycleService } from "../../runtimeLifecycle";
+import { OnlineStatusReport, runtimeLifecycleService } from "../../runtimeLifecycle";
 import { getSelectedRuntimeId, setSelectedRuntimeId } from "../../selectedRuntime";
 import { SIMULATOR_RUNTIME_ID } from "../../trustHomeModel";
 
@@ -709,6 +709,20 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     assert.strictEqual(stopped.selected.primary.enabled, false, "Connect waits for the runtime to run again");
   });
 
+  test("the online watch tells the surfaces its first read, so a runtime that stopped before it is not shown answering", () => {
+    // Catches a watch that keeps its first read after arming to itself: a project runtime that stopped between the side
+    // panel's last read and that first read stayed shown as answering, and the test above waited in vain (CI of the
+    // 0.28.0 release pull request, 1 November 2026, checklist W18; specification 25, section 5.1).
+    const report = new OnlineStatusReport();
+    const answering = { endpoint: "", endpointReachable: false, projectEndpoint: "tcp://127.0.0.1:1", projectReachable: true };
+    const stopped = { ...answering, projectReachable: false };
+    assert.strictEqual(report.changed(stopped), true, "the first read after arming is news");
+    assert.strictEqual(report.changed(stopped), false, "the same status again is not");
+    assert.strictEqual(report.changed(answering), true, "a runtime that answers again is");
+    report.reset();
+    assert.strictEqual(report.changed(answering), true, "after a rest the first read is news again");
+  });
+
   test("a runtime no probe asked is not connected, not unreachable", async () => {
     // Catches the side panel calling a runtime not reachable, with Connect disabled, when Live Values did not probe it
     // because its endpoint is switched off, and an extension that does not pass on whether it probed (specification 25,
@@ -742,12 +756,18 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     assert.ok(connected.ok, "the runtime answers Connect");
     // As the node's Connect does after a successful Connect.
     await setSelectedRuntimeId(fake.endpoint);
-    // The fake keeps debugging disabled, so Connect holds no session: the runtime answers online and is named by its
-    // endpoint (specification 39, section 11 item 6).
+    // The fake keeps debugging disabled, so Connect holds no session: the runtime answers online. It is the project's
+    // own, so HMI Live names it as the status bar and the side panel do (specification 25, section 6.9; specification
+    // 39, section 11 item 6). Catches HMI Live naming it "tcp://..." (G26).
     assert.deepStrictEqual(
       await resolveHmiRunTarget(await runtimeLifecycleService.snapshot()),
-      { endpoint: fake.endpoint, label: fake.endpoint, simulator: false },
-      "after Connect HMI Live operates the runtime",
+      { endpoint: fake.endpoint, label: PROJECT_LABEL, simulator: false },
+      "after Connect HMI Live operates the runtime under the status bar's name",
+    );
+    assert.strictEqual(
+      (await statusText(STATUS_CONTEXT, await runtimeLifecycleService.snapshot())).text,
+      `$(plug) truST: ${PROJECT_LABEL} · debugging disabled`,
+      "the status bar gives the runtime the same name",
     );
 
     await sidebar.select(SIMULATOR_RUNTIME_ID);

@@ -15,7 +15,7 @@
 - [ ] The specification describes the behaviour, and this pull request changed it where it was missing or wrong.
 - [ ] Native tests prove it; every expected value is worked out from the specification.
 - [ ] No logic added or grown in TypeScript.
-- [ ] `CHANGELOG.md` has an entry under `## [Unreleased]` for a user-visible change.
+- [ ] A user-visible change has a changelog fragment under `changelog.d/` (`changelog.d/README.md`).
 - [ ] Docs, READMEs and screenshots describe the new behaviour.
 - [ ] The compile check and the focused tests passed before the push; CI runs the full suites.
 - [ ] Codex's findings are fixed or answered in this pull request.

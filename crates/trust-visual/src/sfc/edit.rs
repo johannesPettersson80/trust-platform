@@ -1,5 +1,6 @@
 //! The edits the SFC editor stores in the file (specification 25 §11.4): a transition the user
-//! draws on the canvas, the branch count of a parallel split or join, and a new node.
+//! draws on the canvas, the branch count of a parallel split or join, a new node, and deleting
+//! nodes and transitions.
 //!
 //! The editor sends its canvas graph (`nodes`, `edges`); each edit answers what changes. A
 //! connection that the rules refuse changes nothing, and the editor draws nothing. Where a new node
@@ -361,6 +362,46 @@ fn parallel_data(label: &str, node_type: &str) -> Vec<(String, Json)> {
             Json::Number(MIN_PARALLEL_BRANCHES),
         ),
     ]
+}
+
+/// What deleting a selection removes: the ids of the nodes and transitions that go.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Deleted {
+    /// The selected nodes the graph has.
+    pub node_ids: Vec<String>,
+    /// The selected transitions and every transition into or out of a deleted node: a transition
+    /// joins two nodes, so none is left without one of its ends.
+    pub edge_ids: Vec<String>,
+}
+
+/// What deleting the nodes `node_ids` and the transitions `edge_ids` of `graph` removes, in the
+/// graph's order; ids the graph does not have are left out.
+///
+/// # Errors
+/// The graph has no `nodes` or `edges` array.
+pub fn delete_selection(
+    graph: &Json,
+    node_ids: &[String],
+    edge_ids: &[String],
+) -> Result<Deleted, String> {
+    let (nodes, edges) = graph_parts(graph)?;
+    let selected =
+        |ids: &[String], id: Option<&str>| id.is_some_and(|id| ids.iter().any(|known| known == id));
+    let node_ids: Vec<String> = nodes
+        .iter()
+        .filter(|node| selected(node_ids, node.str_at("id")))
+        .filter_map(|node| node.str_at("id").map(str::to_owned))
+        .collect();
+    let edge_ids = edges
+        .iter()
+        .filter(|edge| {
+            selected(edge_ids, edge.str_at("id"))
+                || selected(&node_ids, edge.str_at("source"))
+                || selected(&node_ids, edge.str_at("target"))
+        })
+        .filter_map(|edge| edge.str_at("id").map(str::to_owned))
+        .collect();
+    Ok(Deleted { node_ids, edge_ids })
 }
 
 #[cfg(test)]

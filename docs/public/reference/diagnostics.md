@@ -53,6 +53,7 @@ language specifications.
 | `E205` | error | One or more argument types do not match the declared parameter types. | The call shape looks correct but the arguments are flagged individually. | Check parameter types and add explicit conversions where intended. |
 | `E206` | error | A function or method control-flow path does not produce the required result value. | The declaration reports a missing-return error even when some paths assign the result. | Ensure every control-flow path assigns the implicit result or returns correctly. |
 | `E207` | error | The returned value does not match the declared result type. | The return expression or implicit result assignment is flagged. | Align the returned expression with the declared return type. |
+| `E208` | error | A class or function block does not satisfy an interface it implements, or an abstract base's method contract. | The declaration is flagged for each missing or mismatching interface method or property. | Implement the missing members with matching signatures and PUBLIC/INTERNAL visibility. |
 
 ## Semantic errors
 
