@@ -14,12 +14,16 @@ import { ActionMappingsPanel } from "./ActionMappingsPanel";
 import { StatechartToolsPanel } from "./StatechartToolsPanel";
 import { useStateChart } from "./hooks/useStateChart";
 import {
+  AddStateAnswer,
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
   ReadValue,
+  RequestAddState,
   StateChartNode,
   StateChartEdge,
   ValueAnswer,
+  AskDialog,
+  DialogAnswer,
 } from "./types";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
@@ -44,6 +48,20 @@ const STATECHART_FIT_VIEW_OPTIONS = {
  * Main StateChart Editor Component
  */
 export const StateChartEditor: React.FC = () => {
+  // Asks the language server for a new state's name and id (forwarded by the editor's host to
+  // `trust-lsp.visualEdit` `addState`).
+  const pendingStates = useRef(new Map<number, (answer: AddStateAnswer) => void>());
+  const nextStateRequest = useRef(1);
+  const requestAddState = useCallback<RequestAddState>(
+    (graph, stateType) =>
+      new Promise((resolve) => {
+        const requestId = nextStateRequest.current;
+        nextStateRequest.current += 1;
+        pendingStates.current.set(requestId, resolve);
+        vscode.postMessage({ type: "addState", requestId, graph, stateType } as WebviewToExtensionMessage);
+      }),
+    []
+  );
   const {
     nodes,
     edges,
@@ -59,7 +77,7 @@ export const StateChartEditor: React.FC = () => {
     autoLayout,
     exportGraph,
     importFromXState,
-  } = useStateChart();
+  } = useStateChart(requestAddState);
 
   const [selectedNode, setSelectedNode] = useState<StateChartNode | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<StateChartEdge | null>(null);
@@ -78,6 +96,9 @@ export const StateChartEditor: React.FC = () => {
   // The value requests waiting for the language server's answer, by request id.
   const pendingValues = useRef(new Map<number, (answer: ValueAnswer) => void>());
   const nextValueRequest = useRef(1);
+  // The dialogs waiting for the host's answer, by request id.
+  const pendingDialogs = useRef(new Map<number, (answer: DialogAnswer) => void>());
+  const nextDialogRequest = useRef(1);
   const {
     rightPaneStyle,
     resizeHandleClassName,
@@ -102,6 +123,19 @@ export const StateChartEditor: React.FC = () => {
           field,
           text,
         } as WebviewToExtensionMessage);
+      }),
+    []
+  );
+
+  // Asks the host to show a dialog of the action-mapping panel in VS Code: the webview's sandbox
+  // ignores window.prompt and window.confirm.
+  const askDialog = useCallback<AskDialog>(
+    (request) =>
+      new Promise((resolve) => {
+        const requestId = nextDialogRequest.current;
+        nextDialogRequest.current += 1;
+        pendingDialogs.current.set(requestId, resolve);
+        vscode.postMessage({ type: "dialog", requestId, ...request } as WebviewToExtensionMessage);
       }),
     []
   );
@@ -135,6 +169,22 @@ export const StateChartEditor: React.FC = () => {
         const resolve = pendingValues.current.get(message.requestId);
         if (resolve) {
           pendingValues.current.delete(message.requestId);
+          resolve(message);
+        }
+        return;
+      }
+      if (message.type === "dialogResult") {
+        const resolve = pendingDialogs.current.get(message.requestId);
+        if (resolve) {
+          pendingDialogs.current.delete(message.requestId);
+          resolve(message);
+        }
+        return;
+      }
+      if (message.type === "stateAdded") {
+        const resolve = pendingStates.current.get(message.requestId);
+        if (resolve) {
+          pendingStates.current.delete(message.requestId);
           resolve(message);
         }
         return;
@@ -206,17 +256,17 @@ export const StateChartEditor: React.FC = () => {
 
   // Toolbar actions
   const handleAddState = useCallback(() => {
-    addNewState("normal");
+    void addNewState("normal");
     requestFitView();
   }, [addNewState, requestFitView]);
 
   const handleAddInitialState = useCallback(() => {
-    addNewState("initial");
+    void addNewState("initial");
     requestFitView();
   }, [addNewState, requestFitView]);
 
   const handleAddFinalState = useCallback(() => {
-    addNewState("final");
+    void addNewState("final");
     requestFitView();
   }, [addNewState, requestFitView]);
 
@@ -389,6 +439,7 @@ export const StateChartEditor: React.FC = () => {
               unusedMappings={actionReport.unused}
               onUpdateActionMappings={updateActionMappings}
               readValue={readValue}
+              askDialog={askDialog}
             />
           </div>
         </>

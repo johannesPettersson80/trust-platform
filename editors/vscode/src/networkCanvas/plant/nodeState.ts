@@ -5,27 +5,14 @@ export interface PlantStatePresentation {
   secondary: NCPlantState[];
 }
 
-/** Preserves every true condition while selecting the specification's one primary label. */
+/**
+ * A plant's states as Rust answers them (`plant.topology`, specification 47 §5.2): the first is the
+ * node's state and the others are the inspector's details. The add flow's unsaved plant is a draft.
+ */
 export function plantStatePresentation(plant: NCPlant): PlantStatePresentation {
   if (plant.draft) return { primary: "Draft", secondary: [] };
-  const states: NCPlantState[] = [];
-  if (plant.statusAvailability === "available" && plant.activeOperatingState === "faulted") {
-    states.push("Faulted");
-  }
-  if (
-    plant.activeConfigurationRevision &&
-    plant.savedConfigurationRevision &&
-    plant.activeConfigurationRevision !== plant.savedConfigurationRevision
-  ) {
-    states.push("Restart required");
-  }
-  if (!plant.enabled) states.push("Disabled");
-  if (plant.statusAvailability === "unavailable") states.push("Status unavailable");
-  if (plant.statusAvailability === "available" && plant.activeOperatingState === "running") {
-    states.push(plant.hasCompletedSample ? "Running" : "Waiting for samples");
-  }
-  if (states.length === 0) states.push("Configured");
-  return { primary: states[0], secondary: states.slice(1) };
+  const [primary = "Configured", ...secondary] = plant.states ?? [];
+  return { primary, secondary };
 }
 
 export function primaryPlantState(plant: NCPlant): NCPlantState {

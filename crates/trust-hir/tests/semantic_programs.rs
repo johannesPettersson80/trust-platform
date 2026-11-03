@@ -510,3 +510,36 @@ END_PROGRAM
 "#,
     );
 }
+
+// Catches a CODESYS program-qualified name whose first name is a local named like the program
+// resolved among the program's members: local names shadow global names (specification 09 §1.3;
+// issue #203).
+#[test]
+fn a_local_named_like_a_program_hides_it_from_a_dotted_name() {
+    let errors = check_errors_in(
+        Dialect::Codesys,
+        r#"
+PROGRAM Producer
+    VAR
+        counter : INT;
+    END_VAR
+END_PROGRAM
+TYPE Shadow :
+STRUCT
+    counter : STRING;
+END_STRUCT
+END_TYPE
+PROGRAM Main
+    VAR
+        Producer : Shadow;
+        seen : INT;
+    END_VAR
+    seen := Producer.counter;
+END_PROGRAM
+"#,
+    );
+    assert!(
+        errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "the local's STRING member cannot go into an INT: {errors:?}"
+    );
+}

@@ -1,6 +1,7 @@
 //! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
-use trust_runtime::harness::TestHarness;
+use trust_runtime::harness::{CompileSession, TestHarness};
+use trust_runtime::stdlib::conversions::ConversionProfile;
 
 #[test]
 fn function_call_expr() {
@@ -167,8 +168,11 @@ fn function_in_out_with_conversion_expression_regression_issue_13() {
 
     // A USINT in-out takes the caller's variable (IEC §6.6.1.2.2): i = 100, countDown FALSE, so
     // the call adds 4 and subtracts 0, leaving 104 after one cycle. A copy that is not written back
-    // would leave 100; an increment in the wrong type would fault.
-    let mut harness = TestHarness::from_source(source).expect("the in-out program compiles");
+    // would leave 100; an increment in the wrong type would fault. The function declares no
+    // result, which the CODESYS profile admits (docs/IEC_DEVIATIONS.md DEV-043).
+    let session =
+        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session).expect("the in-out program compiles");
     let cycle = harness.cycle();
     assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
     assert_eq!(
@@ -207,8 +211,11 @@ fn function_in_out_without_conversion_expression_baseline() {
 
     // A USINT in-out takes the caller's variable (IEC §6.6.1.2.2): i = 100, countDown FALSE, so
     // the call adds 4 and subtracts 0, leaving 104 after one cycle. A copy that is not written back
-    // would leave 100; an increment in the wrong type would fault.
-    let mut harness = TestHarness::from_source(source).expect("the in-out program compiles");
+    // would leave 100; an increment in the wrong type would fault. The function declares no
+    // result, which the CODESYS profile admits (docs/IEC_DEVIATIONS.md DEV-043).
+    let session =
+        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session).expect("the in-out program compiles");
     let cycle = harness.cycle();
     assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
     assert_eq!(

@@ -66,6 +66,8 @@ mod standard_block_collisions;
 mod string_index_contract;
 #[path = "semantic_type_checking/string_length_contract.rs"]
 mod string_length_contract;
+#[path = "semantic_type_checking/string_size_qualified_references.rs"]
+mod string_size_qualified_references;
 #[path = "semantic_type_checking/struct_initializers.rs"]
 mod struct_initializers;
 #[path = "semantic_type_checking/types_and_references.rs"]
@@ -80,6 +82,8 @@ mod variable_initializer_constant_expression;
 mod variable_section_qualifier_acceptance;
 #[path = "semantic_type_checking/variable_section_qualifier_rejection.rs"]
 mod variable_section_qualifier_rejection;
+#[path = "semantic_type_checking/varying_array_parameter_binding.rs"]
+mod varying_array_parameter_binding;
 #[path = "semantic_type_checking/vendor_conversion_extensions.rs"]
 mod vendor_conversion_extensions;
 #[path = "semantic_type_checking/wrong_kind_resolution.rs"]

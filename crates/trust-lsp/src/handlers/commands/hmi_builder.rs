@@ -21,7 +21,8 @@
 //!   (§7.1).
 //! - `trust-lsp.hmiClipboard`: copy and paste of objects (§3.3 item 8).
 //! - `trust-lsp.hmiChecks`: the small checks of new pages, the PLC cycle, languages and settings.
-//! - `trust-lsp.hmiDeployTarget`: the web server a deployment goes to (§16.2 item 8).
+//! - `trust-lsp.hmiDeployTarget`: the web server of the selected runtime, which Live mode talks to
+//!   (§11) and a deployment goes to (§16.2 item 8).
 //! - `trust-lsp.hmiLibraries`: the bundled libraries an HMI needs, installed into the project.
 //!
 //! Each command takes one argument object and answers an object with `ok`; a refused request
@@ -33,7 +34,8 @@ use serde_json::{json, Value};
 mod checks;
 mod clipboard;
 mod colours;
-mod deploy;
+// The web server address rule; HMI Deploy (`super::hmi_deploy`) reads it too.
+pub(super) mod deploy;
 mod equipment;
 mod files;
 mod libraries;

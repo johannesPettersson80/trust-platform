@@ -4,15 +4,18 @@
 //! change it stores goes through these edits. Each edit changes the program in place and keeps
 //! the member order of the file. New elements, rungs and wires get the smallest free numbered id
 //! of their kind (`contact_1`, `rung_2`, `edge_rung_2_0`), so an edit is deterministic. The
-//! number typed into a field of the properties panel is read here too ([`set_number`]).
+//! fields of the properties panel are stored here too ([`set_number`], [`set_field`]), and
+//! deleting an element takes its term out of the rung's logic ([`remove_element`]).
 
 mod branch;
 mod declarations;
+mod elements;
 mod geometry;
 mod numbers;
 
 pub use branch::{add_parallel_contact, EditError, Leg};
 pub use declarations::reconcile_declarations;
+pub use elements::{clear_wiring, remove_element, set_field, toggle_contact_type};
 pub use numbers::{set_number, NumberField};
 
 use crate::js;

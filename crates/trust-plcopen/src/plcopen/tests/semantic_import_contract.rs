@@ -125,12 +125,26 @@ fn semantic_string_types_preserve_positive_declared_length() {
     );
 }
 
+// IEC_DEVIATIONS 2026-10-21/2026-10-25: symbolic lengths pass through
+// verbatim (the analyzer owns resolution and validation, mirroring the
+// array-dimension lower/upper pass-through); only an absent length keeps
+// the unbounded form.
 #[test]
-fn semantic_string_types_reject_zero_negative_and_nonnumeric_lengths() {
-    for length in ["0", "-1", "many", "1 + 1"] {
-        let xml = format!(r#"<type><string length="{length}"/></type>"#);
-        assert_eq!(parse_type_fixture(&xml), None, "{length}");
-    }
+fn semantic_string_types_pass_symbolic_lengths_through_verbatim() {
+    assert_eq!(
+        parse_type_fixture(r#"<type><string length="uiLenMsgAutoDiscovery"/></type>"#),
+        Some("STRING[uiLenMsgAutoDiscovery]".to_string())
+    );
+    assert_eq!(
+        parse_type_fixture(
+            r#"<type><string length="WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN"/></type>"#
+        ),
+        Some("STRING[WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN]".to_string())
+    );
+    assert_eq!(
+        parse_type_fixture(r#"<type><string length=" 1 + 1 "/></type>"#),
+        Some("STRING[1 + 1]".to_string())
+    );
 }
 
 #[test]

@@ -1181,6 +1181,28 @@ impl SymbolCollector<'_> {
             .map(|type_ref| self.resolve_type_from_ref(&type_ref))
     }
 
+    /// Reports a `FUNCTION ... : VOID` declaration unless the project uses the CODESYS profile.
+    /// A function declares the data type of its result (IEC 61131-3 Ed.3 §6.6.1.2) and IEC knows
+    /// no `VOID` data type (§6.3); CODESYS reads the declaration as a function without a result
+    /// (docs/IEC_DEVIATIONS.md DEV-043). The declared type stays what the source says, so the
+    /// error is the report's only effect: the compile fails on it either way.
+    pub(super) fn reject_iec_void_function_return(
+        &mut self,
+        node: &SyntaxNode,
+        return_type: TypeId,
+    ) {
+        if return_type != TypeId::VOID || self.table.dialect().is_codesys() {
+            return;
+        }
+        if let Some(type_ref) = node.children().find(|n| n.kind() == SyntaxKind::TypeRef) {
+            self.diagnostics.error(
+                DiagnosticCode::InvalidReturnType,
+                type_ref.text_range(),
+                "the VOID return type is a CODESYS-profile extension",
+            );
+        }
+    }
+
     pub(super) fn property_accessors(&self, node: &SyntaxNode) -> (bool, bool) {
         let mut has_get = false;
         let mut has_set = false;

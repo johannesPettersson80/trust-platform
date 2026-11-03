@@ -204,7 +204,7 @@ fn command(mut request: Request, ctx: &HmiOperateContext<'_>) {
         return respond(
             request,
             400,
-            &json!({ "ok": false, "error": "send { \"id\", \"bundle\", \"page\", \"object\", \"action\", \"value\"? }" }),
+            &json!({ "ok": false, "error": "send { \"id\", \"bundle\", \"page\", \"object\", \"action\", \"value\"?, \"shown\"? }" }),
             None,
         );
     };

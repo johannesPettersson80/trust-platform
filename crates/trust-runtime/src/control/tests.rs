@@ -39,12 +39,14 @@ include!("tests/identify.rs");
 include!("tests/control_studio_experiment.rs");
 include!("tests/control_studio_pid_apply.rs");
 include!("tests/plant_contract.rs");
+include!("tests/plant_save_validation_contract.rs");
 include!("tests/plant_remove_contract.rs");
 include!("tests/plant_scenario_contract.rs");
 include!("tests/plant_metadata_contract.rs");
 include!("tests/plant_trace_contract.rs");
 include!("tests/plant_authorization_contract.rs");
 include!("tests/plant_offline_contract.rs");
+include!("tests/plant_topology_contract.rs");
 include!("tests/plant_full_roundtrip_contract.rs");
 
 include!("tests/control_studio_recording.rs");

@@ -138,7 +138,8 @@ export type SfcEdit =
       position: { x: number; y: number };
       wire: boolean;
       stamp: string;
-    };
+    }
+  | { op: "deleteSelection"; nodeIds: string[]; edgeIds: string[] };
 
 /**
  * The answer to an edit.
@@ -149,6 +150,7 @@ export interface SfcEditAnswer {
   edge?: SfcTransitionEdge | null;
   node?: SfcNode;
   branchCount?: number;
+  removedNodeIds?: string[];
   removedEdgeIds?: string[];
 }
 

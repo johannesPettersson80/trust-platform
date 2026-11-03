@@ -83,6 +83,12 @@ pub(in crate::db) fn collect_used_symbols(
             continue;
         }
         let context = expression_context(symbols, &node);
+        // A local, a parameter or a member of the POU named like a namespace hides it: the chain is
+        // a member access on that declaration, which the name pass above marks used
+        // (specification 09 §1.3).
+        if symbols.hides_global_head(&segments[0], context.scope_id) {
+            continue;
+        }
         let resolved = symbols.resolve_qualified(&segments).or_else(|| {
             // non-namespace chains: Enum.Member, Struct.Field - resolve the
             // head through the remaining segments, then the terminal as its

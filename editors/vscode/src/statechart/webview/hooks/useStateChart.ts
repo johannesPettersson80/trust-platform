@@ -16,6 +16,7 @@ import {
   StatechartGraph,
   StateType,
   ActionMapping,
+  RequestAddState,
 } from "../types";
 import {
   STATE_SOURCE_BOTTOM,
@@ -60,7 +61,7 @@ function transitionHandles(
 /**
  * Custom hook for managing StateChart editor state and operations
  */
-export const useStateChart = () => {
+export const useStateChart = (requestAddState: RequestAddState) => {
   const [nodes, setNodes] = useState<StateChartNode[]>([]);
   const [edges, setEdges] = useState<StateChartEdge[]>([]);
   const [actionMappings, setActionMappings] = useState<Record<string, ActionMapping>>({});
@@ -87,33 +88,6 @@ export const useStateChart = () => {
           addEdge({ ...connection, type: STATE_TRANSITION_EDGE, data: {} }, eds) as StateChartEdge[]
       ),
     []
-  );
-
-  /**
-   * Add a new state node to the diagram
-   */
-  const addNewState = useCallback(
-    (type: StateType = "normal", position?: { x: number; y: number }) => {
-      const id = `state_${Date.now()}`;
-      const stateCount = nodes.length;
-      const columns = stateGridColumns(stateCount + 1);
-
-      const newNode: StateChartNode = {
-        id,
-        type: "stateNode",
-        position: position || stateGridPosition(stateCount, columns),
-        data: {
-          label: `State${stateCount + 1}`,
-          type,
-          entry: [],
-          exit: [],
-        },
-      };
-
-      setNodes((nds) => [...nds, newNode]);
-      return id;
-    },
-    [nodes.length]
   );
 
   /**
@@ -188,6 +162,33 @@ export const useStateChart = () => {
       actionMappings,
     }),
     [nodes, edges, actionMappings]
+  );
+
+  /**
+   * Adds a state of `type`: the language server names it (`addState`, the smallest free name
+   * `State<n>`) or answers why it adds none, and the editor places it on the grid.
+   */
+  const addNewState = useCallback(
+    async (type: StateType = "normal", position?: { x: number; y: number }) => {
+      const answer = await requestAddState(exportGraph(), type);
+      const state = answer.state;
+      if (!answer.ok || !state) {
+        console.warn(answer.errors?.[0]?.message ?? "The state was not added.");
+        return undefined;
+      }
+      setNodes((nds) => {
+        const columns = stateGridColumns(nds.length + 1);
+        const newNode: StateChartNode = {
+          id: state.id,
+          type: "stateNode",
+          position: position || stateGridPosition(nds.length, columns),
+          data: { label: state.label, type: state.type, entry: [], exit: [] },
+        };
+        return [...nds, newNode];
+      });
+      return state.id;
+    },
+    [exportGraph, requestAddState]
   );
 
   /**

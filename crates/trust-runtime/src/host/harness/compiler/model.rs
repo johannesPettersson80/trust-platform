@@ -51,8 +51,13 @@ impl CompileTimeConsts {
         self.declared_sizes.insert(Self::key(name), value);
     }
 
-    pub(crate) fn declared_sizes_is_empty(&self) -> bool {
-        self.declared_sizes.is_empty()
+    /// Whether the size-evaluation view can resolve anything the strict set
+    /// cannot: it adds the declared initial values of plain variables
+    /// (DEV-033), so a project without them keeps the strict error without
+    /// building a view. Dotted references take the same unique-leaf
+    /// tolerance in both.
+    pub(crate) fn size_fallback_applicable(&self) -> bool {
+        !self.declared_sizes.is_empty()
     }
 
     pub(crate) fn absorb_declared_sizes(&mut self, declared: Self) {
@@ -62,7 +67,7 @@ impl CompileTimeConsts {
     }
 
     /// The view declaration-size lowering evaluates against: true constants
-    /// plus the declared initial values of plain variables.
+    /// plus the declared initial values of plain variables (DEV-033).
     pub(crate) fn size_evaluation_view(&self) -> Self {
         let mut view = self.clone();
         view.global_values.extend(self.declared_sizes.clone());
@@ -75,7 +80,11 @@ impl CompileTimeConsts {
             return self.local_values.get(&key).cloned();
         }
         if name.contains('.') {
-            return self.global_values.get(&key).cloned();
+            return self
+                .global_values
+                .get(&key)
+                .cloned()
+                .or_else(|| self.lookup_unique_leaf(&key));
         }
         for namespace in using {
             let qualified = Self::key(&format!("{namespace}.{name}"));
@@ -84,6 +93,28 @@ impl CompileTimeConsts {
             }
         }
         self.global_values.get(&key).cloned()
+    }
+
+    /// The unique-leaf tolerance for dotted references (IEC_DEVIATIONS
+    /// DEV-042 and 2026-10-25), one rule for ordinary constant evaluation and
+    /// the size view: a reference naming a container level that a library
+    /// stub flattened away (`LogParameter.MAX_LOG_MSG_LEN` over
+    /// namespace-level constants, or the fully qualified
+    /// `WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) resolves when exactly one
+    /// entry carries its last segment: a registered constant, and in the size
+    /// view also a declared size. Bare names never fall back, so an
+    /// unimported namespace's operand stays unimported, and an ambiguous leaf
+    /// stays unresolved.
+    fn lookup_unique_leaf(&self, key: &SmolStr) -> Option<Value> {
+        let (_, leaf) = key.rsplit_once('.')?;
+        let mut matches = self.global_values.iter().filter(|(registered, _)| {
+            registered
+                .rsplit_once('.')
+                .map_or(registered.as_str(), |(_, own)| own)
+                == leaf
+        });
+        let (_, value) = matches.next()?;
+        matches.next().is_none().then(|| value.clone())
     }
 }
 
@@ -292,15 +323,24 @@ impl LoweringContext<'_> {
         self.compile_time_consts.lookup(name, &self.using)
     }
 
-    fn lookup_compile_time_value(&self, name: &str) -> Option<Value> {
+    pub(crate) fn lookup_compile_time_value(&self, name: &str) -> Option<Value> {
         self.lookup_compile_time_const(name).or_else(|| {
-            match self.registry.resolve_enum_value_by_name(name) {
-                trust_hir::symbols::EnumValueResolution::Resolved(value) => {
-                    Some(Value::LInt(value))
+            // A dotted reference resolves as a qualified enum member when
+            // its prefix names exactly one registered enum type
+            // (IEC_DEVIATIONS DEV-042); the bare-member fallback below
+            // covers the unqualified form.
+            let numeric = if name.contains('.') {
+                self.registry
+                    .resolve_qualified_enum_member(name)
+                    .map(|(_, _, value)| value)
+            } else {
+                match self.registry.resolve_enum_value_by_name(name) {
+                    trust_hir::symbols::EnumValueResolution::Resolved(value) => Some(value),
+                    trust_hir::symbols::EnumValueResolution::NotFound
+                    | trust_hir::symbols::EnumValueResolution::Ambiguous => None,
                 }
-                trust_hir::symbols::EnumValueResolution::NotFound
-                | trust_hir::symbols::EnumValueResolution::Ambiguous => None,
-            }
+            };
+            numeric.map(Value::LInt)
         })
     }
 

@@ -16,8 +16,8 @@ import { LiveOperator, LiveOperatorDeps } from "./liveOperator";
 import { runtimeLiveOperatorDeps } from "./liveOperatorRuntime";
 import type { QualityWarning } from "./quality";
 import { isPid, syncLinked } from "./pidSync";
-import { DeployDeps, deployBundle, rollbackBundle } from "./deploy";
-import { runtimeDeployDeps } from "./deployRuntime";
+import type { DeployDeps } from "./deploy";
+import { deployAction, runtimeDeployDeps } from "./deployRuntime";
 import { LiveConnection, LivePoller, runtimeLiveConnection } from "./liveMode";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -241,7 +241,7 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
       try {
         const deps = this.deploy ?? runtimeDeployDeps;
         if (action === "deploy") await saveHmiFiles(project);
-        const outcome = action === "deploy" ? await deployBundle(project.fsPath, deps) : await rollbackBundle(deps);
+        const outcome = await deployAction(action, project.fsPath, deps);
         post({ type: "deployed", action, outcome });
       } catch (error) {
         post({

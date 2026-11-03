@@ -28,6 +28,11 @@ const VALUE_CONTROLS: &[&str] = &[
     "selector",
     "mode-selector",
 ];
+/// The controls that act on the value they show (specification 39 §5.8).
+const SHOWING_CONTROLS: &[&str] = &["switch", "selector", "mode-selector", "slider"];
+/// Why a control that shows no value acts on nothing (§5.8): a word of the display's text table,
+/// so that the page says it in its language.
+pub const NOT_KNOWN: &str = "The value of this control is not known, so it sends nothing.";
 
 /// What confirms a command.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,12 +64,15 @@ pub struct Plan {
     pub timeout: Duration,
 }
 
-/// The plan for a request to a control, or why the request does not fit the control.
+/// The plan for a request to a control, or why the request does not fit the control. `shown` is
+/// the value the control showed when it sent the request (`Json::Null` when it showed none); a
+/// sender that does not say leaves it out.
 pub fn plan(
     object: &HmiObject,
     component: &ComponentDef,
     action: &str,
     value: Option<&Json>,
+    shown: Option<&Json>,
 ) -> Result<Plan, String> {
     if object.command.is_some() {
         return Err("a method command is sent as `invoke`".into());
@@ -77,6 +85,10 @@ pub fn plan(
         return Err(format!("\"{}\" sends no command", object.id));
     };
     let path = parse(&binding.path)?;
+    // A control that acts on the value it shows does nothing while it shows none (§5.8).
+    if SHOWING_CONTROLS.contains(&component.kind.as_str()) && shown == Some(&Json::Null) {
+        return Err(NOT_KNOWN.into());
+    }
     let (write, requested, pulse, expect) = match component.kind.as_str() {
         "button" => {
             let own = object.action.unwrap_or(HmiButtonAction::Set);
@@ -131,6 +143,16 @@ pub fn plan(
                 WriteAction::Set(json!(name))
             };
             (write, json!(name), None, None)
+        }
+        // A click on a switch writes the opposite of the value it shows (§5.8), which the page
+        // sends; without it, the switch shows no value.
+        "switch" if action == "toggle" => {
+            let shown = match shown {
+                Some(Json::Bool(shown)) => *shown,
+                None | Some(Json::Null) => return Err(NOT_KNOWN.into()),
+                Some(other) => return Err(format!("a switch shows TRUE or FALSE, not {other}")),
+            };
+            (WriteAction::Set(json!(!shown)), json!(!shown), None, None)
         }
         kind if VALUE_CONTROLS.contains(&kind) => {
             if action != "write" {

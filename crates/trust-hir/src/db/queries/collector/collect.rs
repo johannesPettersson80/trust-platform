@@ -71,6 +71,7 @@ impl SymbolCollector<'_> {
                 let return_type = self
                     .return_type_from_node(node)
                     .unwrap_or(LEGACY_UNKNOWN_TYPE_ID);
+                self.reject_iec_void_function_return(node, return_type);
                 self.collect_pou(
                     node,
                     SymbolKind::Function {
