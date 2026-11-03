@@ -115,6 +115,19 @@ fn index_arg(args: &Json, key: &str) -> Result<usize, String> {
         .map_err(|_| format!("The argument `{key}` is too large."))
 }
 
+/// The argument `key`, a list of texts.
+fn texts_arg(args: &Json, key: &str) -> Result<Vec<String>, String> {
+    args.get(key)
+        .and_then(Json::as_array)
+        .and_then(|items| {
+            items
+                .iter()
+                .map(|item| item.as_str().map(str::to_owned))
+                .collect::<Option<Vec<_>>>()
+        })
+        .ok_or_else(|| format!("The argument `{key}` must be a list of texts."))
+}
+
 /// The kind named by `kind`, or else the kind of the file `file`.
 fn kind_arg(args: &Json) -> Result<VisualKind, String> {
     if let Some(name) = args.str_at("kind") {
@@ -322,7 +335,10 @@ fn edit_answer(args: &Json) -> Result<Value, String> {
 /// A Statechart request: `actionReport` (`graphText`), the actions named without a mapping and
 /// the mappings nothing names; `afterDelay` (`text`), the delay typed into a transition's timer
 /// field (`after`, `null` for none); `mappingValue` (`text`), the value typed into an action
-/// mapping (`value`).
+/// mapping (`value`); `addMapping` (`mappings`, `name`), the mappings with a new action under the
+/// name typed into the Add dialog (`mappings`, `name`), or why not; `addState` (`graphText`,
+/// `stateType`), a new state of that kind under the first free `State<n>` name (`state`), or why
+/// not.
 fn statechart_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
     match op {
         "actionReport" => {
@@ -341,6 +357,26 @@ fn statechart_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
         "mappingValue" => {
             let value = trust_visual::statechart::mapping_value(text_arg(args, "text")?);
             Ok(json!({ "ok": true, "value": value.to_serde() }))
+        }
+        "addMapping" => {
+            let mappings = args.get("mappings").cloned().unwrap_or_else(Json::object);
+            Ok(
+                match trust_visual::statechart::add_mapping(&mappings, text_arg(args, "name")?) {
+                    Ok((mappings, name)) => {
+                        json!({ "ok": true, "mappings": mappings.to_serde(), "name": name })
+                    }
+                    Err(message) => edit_refused("refused", &message),
+                },
+            )
+        }
+        "addState" => {
+            let graph = parsed(text_arg(args, "graphText")?)?;
+            Ok(
+                match trust_visual::statechart::add_state(&graph, text_arg(args, "stateType")?) {
+                    Ok(state) => json!({ "ok": true, "state": state.to_serde() }),
+                    Err(message) => edit_refused("refused", &message),
+                },
+            )
         }
         _ => Err(format!("The Statechart editor has no edit \"{op}\".")),
     }
@@ -548,6 +584,18 @@ fn sfc_edit_answer(args: &Json, op: &str) -> Result<Value, String> {
                 "ok": true,
                 "node": added.node.to_serde(),
                 "edge": added.edge.as_ref().map(Json::to_serde),
+            }))
+        }
+        "deleteSelection" => {
+            let deleted = trust_visual::sfc::delete_selection(
+                &graph,
+                &texts_arg(args, "nodeIds")?,
+                &texts_arg(args, "edgeIds")?,
+            )?;
+            Ok(json!({
+                "ok": true,
+                "removedNodeIds": deleted.node_ids,
+                "removedEdgeIds": deleted.edge_ids,
             }))
         }
         _ => Err(format!("The SFC editor has no edit \"{op}\".")),

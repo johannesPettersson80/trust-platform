@@ -46,6 +46,7 @@ include!("tests/plant_metadata_contract.rs");
 include!("tests/plant_trace_contract.rs");
 include!("tests/plant_authorization_contract.rs");
 include!("tests/plant_offline_contract.rs");
+include!("tests/plant_topology_contract.rs");
 include!("tests/plant_full_roundtrip_contract.rs");
 
 include!("tests/control_studio_recording.rs");

@@ -131,31 +131,31 @@ export class TrendActions {
     return true;
   }
 
-  /** The visible window as CSV: the time of each sample in it, ISO 8601 in UTC, and each shown
-   * pen's value then, held from its last sample; empty before its first. */
-  private export(objectId: string): void {
+  /** The visible window as CSV, which the runtime writes from its trend history (§5.9 item 1,
+   * decided by the owner on 1 November 2026): the page names the window and the pens it shows, in
+   * their order, and saves the file the runtime answers. */
+  private async export(objectId: string): Promise<void> {
     const object = this.model().object.find((candidate) => candidate.id === objectId);
     const drawn = this.drawn(objectId);
     if (!object || !drawn || !this.download) return;
     const hidden = this.views[objectId]?.hidden ?? [];
-    const history = this.store.frame(this.now()).history ?? {};
     const pens = Object.entries(object.bind)
       .filter(([name]) => !NOT_PENS.includes(name) && !hidden.includes(name))
-      .sort(([first], [second]) => (first < second ? -1 : first > second ? 1 : 0))
-      .map(([name, binding]) => ({ name, samples: history[binding.path] ?? [] }));
-    const times = [...new Set(pens.flatMap((pen) => pen.samples.map(([time]) => time)))]
-      .filter((time) => time >= drawn.start && time <= drawn.end)
-      .sort((first, second) => first - second);
-    const rows = times.map((time) => [
-      new Date(time).toISOString(),
-      ...pens.map((pen) => {
-        const held = pen.samples.filter(([at]) => at <= time).pop();
-        return held === undefined ? "" : String(held[1]);
-      }),
-    ]);
-    const text = [["time", ...pens.map((pen) => pen.name)], ...rows].map((row) => row.join(",")).join("\n") + "\n";
-    const stamp = new Date(this.now()).toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
-    this.download(`${objectId}-${stamp}.csv`, text);
+      .sort(([first], [second]) => (first < second ? -1 : first > second ? 1 : 0));
+    const query = [
+      `object=${encodeURIComponent(objectId)}`,
+      `from=${Math.floor(drawn.start)}`,
+      `to=${Math.ceil(drawn.end)}`,
+      ...pens.flatMap(([name, binding]) => [
+        `pen=${encodeURIComponent(name)}`,
+        `path=${encodeURIComponent(binding.path)}`,
+      ]),
+    ].join("&");
+    const answer = await this.fetchJson(`/api/hmi/history/export?${query}`);
+    const file = answer.body as { name?: unknown; csv?: unknown } | null;
+    if (answer.status === 200 && typeof file?.name === "string" && typeof file.csv === "string") {
+      this.download(file.name, file.csv);
+    }
   }
 
   /** Shows `spanMs` ending at `endMs`: live when it reaches now, else paused there. */
@@ -209,7 +209,7 @@ export class TrendActions {
       return true;
     }
     if (clicked.closest('[data-trend-action="export"]')) {
-      this.export(objectId);
+      void this.export(objectId);
       return true;
     }
     if (clicked.closest('[data-trend-action="expand"]')) {

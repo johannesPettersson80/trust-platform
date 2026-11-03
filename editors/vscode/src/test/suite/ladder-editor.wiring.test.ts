@@ -134,7 +134,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const webview = panel.webview;
 
@@ -149,7 +149,7 @@ suite("Ladder editor wiring", function () {
     const program = JSON.parse(String(routed.programText)) as ProgramShape;
     assert.deepStrictEqual(
       program.networks[0].edges.map((edge) => edge.id),
-      ["edge_rung_1_0"],
+      ["edge_rung_1_0"]
     );
 
     webview.send({ type: "save", program });
@@ -160,6 +160,66 @@ suite("Ladder editor wiring", function () {
     assert.strictEqual(saved.networks[0].edges[0].id, "edge_rung_1_0");
     assert.strictEqual(typeof saved.metadata.modified, "string");
     panel.dispose();
+  });
+
+  // G28: the webview's sandbox ignores window.prompt and window.alert, so Find and replace asks for
+  // the symbol and its replacement in VS Code's input boxes, hands them to the webview, and shows the
+  // outcome the webview sends; Escape on the replacement asks nothing more. Catches a Find and replace
+  // that never reaches the edit and an outcome nobody sees.
+  test("Find and replace asks in VS Code's input boxes and shows the outcome", async () => {
+    const file = path.join(folder, "replace.ladder.json");
+    fs.writeFileSync(file, JSON.stringify(PROGRAM, null, 2));
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+    const provider = new LadderEditorProvider({ extensionPath: process.cwd() } as vscode.ExtensionContext);
+    const panel = new FakeWebviewPanel();
+    await provider.resolveCustomTextEditor(
+      document,
+      panel as unknown as vscode.WebviewPanel,
+      {} as vscode.CancellationToken
+    );
+    const webview = panel.webview;
+    const window = vscode.window as unknown as {
+      showInputBox: typeof vscode.window.showInputBox;
+      showInformationMessage: typeof vscode.window.showInformationMessage;
+    };
+    const original = {
+      showInputBox: window.showInputBox,
+      showInformationMessage: window.showInformationMessage,
+    };
+    const answers: Array<string | undefined> = ["Start", "Run", "Start", undefined];
+    const prompts: string[] = [];
+    const shown: string[] = [];
+    window.showInputBox = (async (options?: vscode.InputBoxOptions) => {
+      prompts.push(options?.prompt ?? "");
+      return answers.shift();
+    }) as typeof vscode.window.showInputBox;
+    window.showInformationMessage = (async (message: string) => {
+      shown.push(message);
+      return undefined;
+    }) as typeof vscode.window.showInformationMessage;
+    try {
+      webview.send({ type: "findReplace" });
+      const input = await webview.next("findReplaceInput");
+      assert.deepStrictEqual([input.find, input.replace], ["Start", "Run"]);
+      assert.deepStrictEqual(prompts, ["Find symbol/address", "Replace 'Start' with"]);
+
+      webview.send({ type: "notify", level: "info", text: "Updated 1 occurrence(s)." });
+      assert.deepStrictEqual(shown, ["Updated 1 occurrence(s)."]);
+
+      webview.send({ type: "findReplace" });
+      for (let attempt = 0; attempt < 50 && prompts.length < 4; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      assert.strictEqual(prompts.length, 4, "both boxes asked");
+      const nothing = await Promise.race([
+        webview.next("findReplaceInput").then(() => "sent"),
+        new Promise((resolve) => setTimeout(() => resolve("nothing"), 300)),
+      ]);
+      assert.strictEqual(nothing, "nothing", "Escape on the replacement sends nothing");
+    } finally {
+      Object.assign(window, original);
+      panel.dispose();
+    }
   });
 
   // Catches a properties panel whose number fields convert the typed text themselves: the host
@@ -174,7 +234,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const webview = panel.webview;
     const field = { op: "setNumber", programText: JSON.stringify(PROGRAM), rungIndex: 0, elementIndex: 0, field: "x" };
@@ -209,7 +269,7 @@ suite("Ladder editor wiring", function () {
     await provider.resolveCustomTextEditor(
       document,
       panel as unknown as vscode.WebviewPanel,
-      {} as vscode.CancellationToken,
+      {} as vscode.CancellationToken
     );
     const webview = panel.webview;
     const edit = { programText: JSON.stringify(PROGRAM), rungIndex: 0 };
@@ -221,10 +281,7 @@ suite("Ladder editor wiring", function () {
     const program = JSON.parse(String(removed.programText)) as {
       networks: Array<{ nodes: Array<{ id: string }> }>;
     };
-    assert.deepStrictEqual(
-      program.networks[0].nodes.map((node) => node.id),
-      ["q1"],
-    );
+    assert.deepStrictEqual(program.networks[0].nodes.map((node) => node.id), ["q1"]);
 
     webview.send({ type: "edit", requestId: 22, op: "toggleContactType", ...edit, elementIndex: 0 });
     const toggled = await webview.next("editResult");

@@ -368,6 +368,29 @@ fn a_typed_number_answers_the_program_with_the_stored_value_or_the_reason() {
 }
 
 #[test]
+fn a_new_statechart_state_is_named_by_the_language_server() {
+    // addState: the new state with the smallest free name, or `refused` with the reason. The
+    // rule is trust-visual's test; a wrong argument name would leave the toolbar adding nothing.
+    let graph = r#"{"states":[{"id":"state_State1","label":"State1","type":"initial"}],"transitions":[],"actionMappings":{}}"#;
+    let add = |state_type: &str| {
+        execute(
+            VISUAL_EDIT_COMMAND,
+            vec![
+                json!({ "kind": "statechart", "op": "addState", "graphText": graph, "stateType": state_type }),
+            ],
+        )
+    };
+    assert_eq!(
+        add("normal"),
+        json!({ "ok": true, "state": { "id": "state_State2", "label": "State2", "type": "normal", "entry": [], "exit": [] } })
+    );
+    assert_eq!(
+        add("initial"),
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "The statechart starts in \"State1\" already; it starts in one state." }] })
+    );
+}
+
+#[test]
 fn the_ladder_element_edits_answer_the_program_or_the_reason() {
     // Deleting an element, clearing a rung's wires, toggling a contact and a field of the
     // properties panel reach trust-visual with their arguments; a refused field names the rule.
@@ -440,4 +463,37 @@ fn a_typed_delay_or_mapping_value_answers_what_the_statechart_stores() {
         json!({ "ok": true, "value": "on" })
     );
     assert_eq!(ask("explode", "1")["ok"], json!(false));
+}
+
+#[test]
+fn a_new_action_mapping_is_added_or_refused_as_the_statechart_stores_it() {
+    // Specification 25 §11.4: the Add dialog's name goes to the language server with the panel's
+    // mappings; the answer is the mappings with the new action and its name, or the reason.
+    // Catches the mappings answered in another shape, which the panel would not store.
+    let add = |name: &str| {
+        execute(
+            VISUAL_EDIT_COMMAND,
+            vec![json!({
+                "kind": "statechart",
+                "op": "addMapping",
+                "mappings": { "START_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.1", "value": true } },
+                "name": name,
+            })],
+        )
+    };
+    assert_eq!(
+        add(" STOP_MOTOR "),
+        json!({
+            "ok": true,
+            "name": "STOP_MOTOR",
+            "mappings": {
+                "START_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.1", "value": true },
+                "STOP_MOTOR": { "action": "WRITE_OUTPUT", "address": "%QX0.0", "value": true },
+            },
+        })
+    );
+    assert_eq!(
+        add("START_MOTOR"),
+        json!({ "ok": false, "error": "refused", "errors": [{ "message": "An action with this name already exists." }] })
+    );
 }

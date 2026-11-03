@@ -1,5 +1,4 @@
 import {
-  decodePlantContractResponse,
   type PlantContractMessage,
 } from "./contract";
 import { attachPlantsToRuntime } from "../graphData";
@@ -222,26 +221,19 @@ export class ProjectPlantTopologyService implements PlantTopologyService {
     private readonly live: LivePlantRequest
   ) {}
 
-  async read(): Promise<PlantContractMessage> {
-    return await this.stopped.request("plant.read", {
+  async topology(status: unknown): Promise<PlantContractMessage> {
+    return await this.stopped.request("plant.topology", {
       contract: "trust.plant",
       schema_version: 1,
+      status: status ?? null,
     });
   }
 
-  async status(projectId: string): Promise<PlantContractMessage> {
-    const value = await this.live("plant.status", {
+  async status(projectId: string): Promise<unknown> {
+    return await this.live("plant.status", {
       contract: "trust.plant",
       schema_version: 1,
       project_id: projectId,
     });
-    const decoded = decodePlantContractResponse(value, projectId);
-    if (decoded.kind !== "accepted") {
-      throw new Error(`plant status unavailable: ${decoded.reason}`);
-    }
-    if (decoded.message.operation !== "plant.status") {
-      throw new Error("plant status unavailable: unexpected operation");
-    }
-    return decoded.message;
   }
 }

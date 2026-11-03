@@ -81,6 +81,11 @@ export interface RuntimeModelSnapshot {
   readonly projectEndpoint: string;
   /** Whether the project's own runtime answers at that endpoint. */
   readonly projectReachable: boolean;
+  /** The debug session's target name, as the Simulator's launch or a Connect gave it. */
+  readonly targetLabel?: string;
+  /** The lifecycle's failure; a runtime that answered Connect but keeps debugging disabled has its endpoint and the
+   * name Connect was given. */
+  readonly failure?: RuntimeLifecycleSnapshot["failure"];
 }
 
 export interface RunTargets {
@@ -91,6 +96,8 @@ export interface RunTargets {
   readonly selectionValid: boolean;
   /** The name the status bar gives the runtime the extension is connected to; none while it is connected to none. */
   readonly connectedLabel?: string;
+  /** Whether that runtime answered Connect but keeps debugging disabled. */
+  readonly connectedDebuggingDisabled?: boolean;
 }
 
 export interface RunTargetsInput {
@@ -110,6 +117,8 @@ export function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeMode
     starting: snapshot.starting,
     projectEndpoint: snapshot.status.projectEndpoint ?? "",
     projectReachable: snapshot.status.projectReachable ?? false,
+    targetLabel: snapshot.status.targetLabel,
+    failure: snapshot.failure,
   };
 }
 
@@ -130,6 +139,7 @@ export async function resolveRunTargets(input: RunTargetsInput): Promise<RunTarg
       selected: withoutNulls({ ...answer.selected, primary: withoutNulls(answer.selected.primary) }),
       selectionValid: answer.selectionValid,
       ...(answer.connectedLabel ? { connectedLabel: answer.connectedLabel } : {}),
+      connectedDebuggingDisabled: answer.connectedDebuggingDisabled === true,
     };
   }
   const simulator: RuntimeOption = { id: SIMULATOR_RUNTIME_ID, label: "Simulator", kind: "simulator" };

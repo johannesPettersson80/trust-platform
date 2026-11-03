@@ -7,7 +7,12 @@ export type NetworkCanvasRuntimeFailureKind =
   | "failed_spawn"
   | "stale_runtime"
   // The runtime answered Connect but keeps debugging disabled: it is the target, without Live Values.
-  | "debug_disabled";
+  | "debug_disabled"
+  // A failed I/O state request of Live Values (specification 25 §4.4): no session to ask, a connection lost under the
+  // request, or another failure.
+  | "no_session"
+  | "connection_lost"
+  | "request_failed";
 
 export type NetworkCanvasRuntimeFailure = {
   readonly kind: NetworkCanvasRuntimeFailureKind;
@@ -18,6 +23,8 @@ export type NetworkCanvasRuntimeFailure = {
   readonly endpoint?: string;
   // What the sidebar offers after a failed Connect, as the language server names it (§5.1).
   readonly remedy?: "openDevices" | "setAuthToken";
+  // The name Connect was given to a runtime that keeps debugging disabled, which names it without a session (§6.9).
+  readonly label?: string;
 };
 
 /** The kind of the failure `error` names, with the message the extension shows: the language server reads the failure's
@@ -29,4 +36,28 @@ export async function classifyRuntimeStartFailure(error: unknown): Promise<Netwo
     detail,
   });
   return answer.ok ? answer.failure : { kind: "failed_spawn", message: detail || answer.error, detail };
+}
+
+/** The failure of a simulator Start whose debug session ended while the extension watched it settle: the language
+ * server names its kind and message (`trust-lsp.runTargets`, action `failure`, `sessionEnded: true`, specification 25
+ * §5.10). */
+export async function classifyStartSessionEnded(): Promise<NetworkCanvasRuntimeFailure> {
+  const answer = await projectRequest<{ failure: NetworkCanvasRuntimeFailure }>("trust-lsp.runTargets", {
+    action: "failure",
+    sessionEnded: true,
+  });
+  return answer.ok ? answer.failure : { kind: "failed_spawn", message: answer.error };
+}
+
+/** The kind of a failed I/O state request of Live Values, with the message the extension shows: the language server
+ * reads the failure's text (`trust-lsp.runTargets`, action `failure`, `request: "ioState"`, specification 25 §4.4).
+ * Without `error`, there was no session to ask. */
+export async function classifyIoStateFailure(error?: unknown): Promise<NetworkCanvasRuntimeFailure> {
+  const detail = error === undefined ? undefined : error instanceof Error ? error.message : String(error);
+  const answer = await projectRequest<{ failure: NetworkCanvasRuntimeFailure }>("trust-lsp.runTargets", {
+    action: "failure",
+    request: "ioState",
+    ...(detail === undefined ? {} : { detail }),
+  });
+  return answer.ok ? answer.failure : { kind: "request_failed", message: answer.error, detail };
 }

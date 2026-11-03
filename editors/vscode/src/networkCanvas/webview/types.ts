@@ -171,6 +171,8 @@ export interface NCPlant {
   liveSample?: NCPlantLiveSample;
   savedConfigurationRevision?: string;
   activeConfigurationRevision?: string;
+  /** Every true state of the saved plant, primary first, as `plant.topology` answers them. */
+  states?: NCPlantState[];
   configuration?: {
     preservedConfiguration?: Record<string, unknown>;
     description: string;

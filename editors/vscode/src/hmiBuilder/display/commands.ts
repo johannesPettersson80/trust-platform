@@ -155,13 +155,13 @@ export class CommandSurface {
       const value = this.liveAt(binding?.path ?? "");
       return binding?.quality ? withQuality(value, this.liveAt(binding.quality)) : value;
     },
-    write: (object, value) =>
+    write: (object, value, shown) =>
       this.asked(
         object,
-        () => void this.send(object, "write", value),
+        () => void this.send(object, "write", value, shown),
         () => this.dropDraft(object.id),
       ),
-    notice: (text) => this.overlay.notice(text),
+    toggle: (object, shown) => this.asked(object, () => void this.send(object, "toggle", undefined, shown)),
     dialog: (part) => this.overlay.dialog("div", part),
     closeDialog: () => this.overlay.closeDialog(),
     draft: (object, value) => {
@@ -221,7 +221,7 @@ export class CommandSurface {
     dialog.append(actions);
   }
 
-  private async send(object: HmiObjectModel, action: string, value?: unknown): Promise<void> {
+  private async send(object: HmiObjectModel, action: string, value?: unknown, shown?: unknown): Promise<void> {
     const id = commandId();
     this.sentFrom.add(id, object.id);
     this.setOutcome(object.id, { outcome: "pending" });
@@ -234,6 +234,8 @@ export class CommandSurface {
       action: object.command ? "invoke" : action,
     };
     if (value !== undefined) body.value = value;
+    // What the control shows, which the runtime acts on (§5.8).
+    if (shown !== undefined) body.shown = shown;
     let answer: { status: number; body: unknown };
     try {
       answer = await this.host.postJson("/api/hmi/command", body);
