@@ -4,6 +4,7 @@ use percent_encoding::percent_decode_str;
 use tower_lsp::lsp_types::Url;
 
 use crate::config::ProjectConfig;
+use trust_hir::project::strip_windows_device_prefix;
 use trust_hir::SourceKey;
 
 use super::ServerState;
@@ -18,16 +19,13 @@ pub(super) fn workspace_config_match_for_uri(
 ) -> Option<(Url, ProjectConfig)> {
     let configs = state.workspace_configs.read();
     if let Some(path) = uri_to_path(uri) {
-        // The folder the client names and the file the indexer walked can spell one directory
-        // differently — a symlink on the way (`/var` against `/private/var`) or a short Windows
-        // path — so both sides meet in their canonical form (specification 14 §7.6).
-        let path = normalize_match_path(canonicalize_path(path));
+        let path = normalize_match_path(path);
         let mut best: Option<(usize, Url, ProjectConfig)> = None;
         for (root_url, config) in configs.iter() {
             let Some(root_path) = uri_to_path(root_url) else {
                 continue;
             };
-            let root_path = normalize_match_path(canonicalize_path(root_path));
+            let root_path = normalize_match_path(root_path);
             if path.starts_with(&root_path) {
                 let depth = root_path.components().count();
                 update_best_match(&mut best, depth, root_url, config);
@@ -261,12 +259,29 @@ pub(super) fn canonicalize_path(path: PathBuf) -> PathBuf {
     if path_debug_enabled() {
         tracing::info!(target: "trust_lsp::path", "canonicalize_path input: {}", path.display());
     }
-    // One canonical form everywhere: `config` owns the canonicalize-or-self path (with the
-    // Windows device-prefix stripping) that the library-surface matching and the configuration
-    // load share with this module.
-    let canon = crate::config::canonicalize_path(path);
-    if path_debug_enabled() {
-        tracing::info!(target: "trust_lsp::path", "canonicalize_path output: {}", canon.display());
+    if let Ok(canon) = path.canonicalize() {
+        let canon = strip_windows_device_prefix(canon);
+        if path_debug_enabled() {
+            tracing::info!(target: "trust_lsp::path", "canonicalize_path output: {}", canon.display());
+        }
+        return canon;
     }
-    canon
+    path
+}
+
+/// `path` as the filesystem resolves it, even when it does not exist (yet, or any more): its
+/// deepest existing ancestor resolved through links and short names, without the Windows device
+/// prefix, with the names below that ancestor kept as written. `path` itself when no ancestor
+/// exists.
+pub(crate) fn canonicalize_through_existing_ancestor(path: &Path) -> PathBuf {
+    for ancestor in path.ancestors() {
+        if let Ok(canonical) = ancestor.canonicalize() {
+            let canonical = strip_windows_device_prefix(canonical);
+            return match path.strip_prefix(ancestor) {
+                Ok(tail) if !tail.as_os_str().is_empty() => canonical.join(tail),
+                _ => canonical,
+            };
+        }
+    }
+    path.to_path_buf()
 }
