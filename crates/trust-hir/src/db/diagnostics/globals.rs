@@ -137,38 +137,15 @@ pub(in crate::db) fn check_global_external_links_with_project(
         diagnostics.add(diagnostic);
     }
 
-    let mut globals: FxHashMap<GlobalKey, GlobalInfo> = FxHashMap::default();
-
-    for symbol in symbols.iter() {
-        if !is_global_symbol(symbols, symbol) {
-            continue;
-        }
-        let namespace = namespace_path_for_symbol(symbols, symbol.id);
-        let key = GlobalKey {
-            namespace,
-            name: normalized_name(symbol.name.as_str()),
-        };
-        let is_constant = matches!(symbol.kind, SymbolKind::Constant);
-        let origin = symbol.origin.unwrap_or(SymbolOrigin {
-            file_id,
-            symbol_id: symbol.id,
-        });
-        let info = GlobalInfo {
-            type_id: symbol.type_id,
-            is_constant,
-            origin,
-            range: symbol.range,
-        };
-        if let Some(existing) = globals.insert(key, info) {
-            let diagnostic = Diagnostic::error(
-                DiagnosticCode::DuplicateDeclaration,
-                symbol.range,
-                format!("duplicate global declaration of '{}'", symbol.name),
-            )
-            .with_related(existing.range, "previously declared here");
-            diagnostics.add(diagnostic);
-        }
-    }
+    let globals = global_declarations(symbols, file_id, |symbol, existing| {
+        let diagnostic = Diagnostic::error(
+            DiagnosticCode::DuplicateDeclaration,
+            symbol.range,
+            format!("duplicate global declaration of '{}'", symbol.name),
+        )
+        .with_related(existing.range, "previously declared here");
+        diagnostics.add(diagnostic);
+    });
 
     for block in root
         .descendants()
@@ -195,16 +172,7 @@ pub(in crate::db) fn check_global_external_links_with_project(
                 let namespace = symbol_id
                     .map(|id| namespace_path_for_symbol(symbols, id))
                     .unwrap_or_default();
-                // The global the external names: in its own namespace or the nearest enclosing one,
-                // up to the global namespace (IEC 61131-3 §6.9.1, §6.9.3).
-                let normalized = normalized_name(name.as_str());
-                let global = (0..=namespace.len()).rev().find_map(|depth| {
-                    globals.get(&GlobalKey {
-                        namespace: namespace[..depth].to_vec(),
-                        name: normalized.clone(),
-                    })
-                });
-                let Some(global) = global else {
+                let Some(global) = nearest_global(&globals, &namespace, name.as_str()) else {
                     diagnostics.error(
                         DiagnosticCode::UndefinedVariable,
                         range,
@@ -263,6 +231,80 @@ pub(in crate::db) fn check_global_external_links_with_project(
             }
         }
     }
+}
+
+/// The global declarations of `symbols` by namespace and name. `duplicate` is told of each
+/// declaration that repeats a namespace and name, with the declaration it repeats.
+fn global_declarations(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    mut duplicate: impl FnMut(&Symbol, &GlobalInfo),
+) -> FxHashMap<GlobalKey, GlobalInfo> {
+    let mut globals: FxHashMap<GlobalKey, GlobalInfo> = FxHashMap::default();
+    for symbol in symbols.iter() {
+        if !is_global_symbol(symbols, symbol) {
+            continue;
+        }
+        let key = GlobalKey {
+            namespace: namespace_path_for_symbol(symbols, symbol.id),
+            name: normalized_name(symbol.name.as_str()),
+        };
+        let info = GlobalInfo {
+            type_id: symbol.type_id,
+            is_constant: matches!(symbol.kind, SymbolKind::Constant),
+            origin: symbol.origin.unwrap_or(SymbolOrigin {
+                file_id,
+                symbol_id: symbol.id,
+            }),
+            range: symbol.range,
+        };
+        if let Some(existing) = globals.insert(key, info) {
+            duplicate(symbol, &existing);
+        }
+    }
+    globals
+}
+
+/// The global that a `VAR_EXTERNAL` named `name` in `namespace` names: in that namespace or the
+/// nearest enclosing one, up to the global namespace (IEC 61131-3 §6.9.1, §6.9.3).
+fn nearest_global<'a>(
+    globals: &'a FxHashMap<GlobalKey, GlobalInfo>,
+    namespace: &[SmolStr],
+    name: &str,
+) -> Option<&'a GlobalInfo> {
+    let name = normalized_name(name);
+    (0..=namespace.len()).rev().find_map(|depth| {
+        globals.get(&GlobalKey {
+            namespace: namespace[..depth].to_vec(),
+            name: name.clone(),
+        })
+    })
+}
+
+/// The globals that the `VAR_EXTERNAL` declarations among `used` name, by their origin: a POU uses a
+/// global through its `VAR_EXTERNAL` declaration (IEC 61131-3 §6.5.2.1, Figure 8), so a use of the
+/// external is a use of the global (specification 28 §1).
+pub(in crate::db) fn used_external_globals(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    used: &FxHashSet<SymbolId>,
+) -> Vec<SymbolOrigin> {
+    let externals: Vec<&Symbol> = used
+        .iter()
+        .filter_map(|id| symbols.get(*id))
+        .filter(|symbol| symbol.declared_qualifier == Some(VarQualifier::External))
+        .collect();
+    if externals.is_empty() {
+        return Vec::new();
+    }
+    let globals = global_declarations(symbols, file_id, |_, _| {});
+    externals
+        .into_iter()
+        .filter_map(|external| {
+            let namespace = namespace_path_for_symbol(symbols, external.id);
+            nearest_global(&globals, &namespace, external.name.as_str()).map(|global| global.origin)
+        })
+        .collect()
 }
 
 /// Range of the first identifier in `root` that refers to `name` (a name or type reference).

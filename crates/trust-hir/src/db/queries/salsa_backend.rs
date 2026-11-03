@@ -6,7 +6,7 @@ use super::diagnostics::{
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
     check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
     check_using_directives, collect_used_symbols, expression_by_id, expression_context,
-    resolve_pending_types_with_table, type_check_file, ExpressionIndex,
+    resolve_pending_types_with_table, type_check_file, used_external_globals, ExpressionIndex,
 };
 use super::project_configuration::project_config_roots;
 use super::project_constants::{project_constant_expressions, project_declared_expressions};
@@ -376,6 +376,9 @@ pub(super) fn project_used_symbols_query(
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let symbols = merged_project_symbols_query(db, project, file_id);
         let used_ids = collect_used_symbols(symbols.as_ref(), &root);
+        for global in used_external_globals(symbols.as_ref(), file_id, &used_ids) {
+            used.insert((global.file_id, global.symbol_id));
+        }
         for symbol_id in used_ids {
             let Some(symbol) = symbols.get(symbol_id) else {
                 continue;

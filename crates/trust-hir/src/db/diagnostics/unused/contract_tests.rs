@@ -108,9 +108,11 @@ END_INTERFACE
     assert!(messages.is_empty());
 }
 
+/// Specification 28 §1: an unused local constant warns, and so does an unused global constant
+/// declared at the top level of a file. Catches the former exemption of global constants.
 #[test]
-fn local_constant_warns_but_global_constant_does_not() {
-    let messages = messages_for(
+fn an_unused_local_or_top_level_global_constant_warns() {
+    let mut messages = messages_for(
         r#"
 VAR_GLOBAL CONSTANT
     GlobalLimit : INT := 10;
@@ -123,8 +125,149 @@ END_PROGRAM
 "#,
         DiagnosticCode::UnusedVariable,
     );
+    messages.sort();
 
-    assert_eq!(messages, vec!["unused constant 'LocalLimit'"]);
+    assert_eq!(
+        messages,
+        vec![
+            "unused constant 'GlobalLimit'",
+            "unused constant 'LocalLimit'"
+        ]
+    );
+}
+
+/// Specification 28 §1 (decided by the owner on 1 November 2026): an unused global constant warns
+/// wherever it is declared: at the top level, in a NAMESPACE (also a nested one), in a CONFIGURATION
+/// and in a RESOURCE. Catches a place of declaration that is left out, as the top level was before.
+#[test]
+fn an_unused_global_constant_warns_wherever_it_is_declared() {
+    let mut messages = messages_for(
+        r#"
+VAR_GLOBAL CONSTANT
+    TopLevel : INT := 1;
+END_VAR
+NAMESPACE Outer
+VAR_GLOBAL CONSTANT
+    Spaced : INT := 2;
+END_VAR
+NAMESPACE Inner
+VAR_GLOBAL CONSTANT
+    Nested : INT := 3;
+END_VAR
+END_NAMESPACE
+END_NAMESPACE
+CONFIGURATION Plant
+VAR_GLOBAL CONSTANT
+    Configured : INT := 4;
+END_VAR
+RESOURCE Cpu ON PLC
+VAR_GLOBAL CONSTANT
+    Resourced : INT := 5;
+END_VAR
+TASK Fast(INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM MainInstance WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+PROGRAM Main
+END_PROGRAM
+"#,
+        DiagnosticCode::UnusedVariable,
+    );
+    messages.sort();
+
+    assert_eq!(
+        messages,
+        vec![
+            "unused constant 'Configured'",
+            "unused constant 'Nested'",
+            "unused constant 'Resourced'",
+            "unused constant 'Spaced'",
+            "unused constant 'TopLevel'",
+        ]
+    );
+}
+
+/// Specification 28 §1: use is project-wide, so a top-level global constant that another file uses by
+/// its name, or as a declaration's size, does not warn; one that no file uses does. Catches a
+/// top-level constant whose uses in other files are not counted.
+#[test]
+fn a_top_level_global_constant_used_from_another_file_does_not_warn() {
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+VAR_GLOBAL CONSTANT
+    ByName : INT := 4;
+    InSize : INT := 8;
+    NeverReferenced : INT := 9;
+END_VAR
+"#,
+            r#"
+PROGRAM Main
+VAR
+    Count : INT;
+    Text : STRING[InSize];
+END_VAR
+Count := Count + ByName;
+Text := Text;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert_eq!(unused, vec!["unused constant 'NeverReferenced'"]);
+}
+
+/// Specification 28 §1 and IEC 61131-3 §6.5.2.1, Figure 8: a POU uses a global through its
+/// `VAR_EXTERNAL` declaration, so a use of the external reaches the global; the declaration alone is
+/// no use. Catches a global constant reported unused although a program uses it through its
+/// external (as before), and an external that counts as a use without being used.
+#[test]
+fn a_global_constant_used_through_var_external_does_not_warn() {
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+CONFIGURATION Plant
+VAR_GLOBAL CONSTANT
+    ViaExternal : INT := 3;
+    DeclaredOnly : INT := 4;
+END_VAR
+VAR_GLOBAL
+    Level : INT;
+END_VAR
+RESOURCE Cpu ON PLC
+TASK Fast(INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM MainInstance WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+            r#"
+PROGRAM Main
+VAR_EXTERNAL CONSTANT
+    ViaExternal : INT;
+    DeclaredOnly : INT;
+END_VAR
+VAR_EXTERNAL
+    Level : INT;
+END_VAR
+Level := ViaExternal;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert_eq!(unused, vec!["unused constant 'DeclaredOnly'"]);
 }
 
 #[test]
