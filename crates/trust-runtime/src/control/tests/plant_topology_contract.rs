@@ -226,3 +226,110 @@ time_constant_s = 5.0
     assert_eq!(supplied.error_code.as_deref(), Some("malformed_request"));
     fs::remove_dir_all(root).expect("remove plant topology runtime fixture");
 }
+
+// Catches the data loss of checklist G33: opening a saved plant whose actuator is on-off in the
+// editor and saving it unchanged deleted its actuator (specification 47 §13.2). The path is the
+// extension's: the canvas's projection, the editor's draft and `open`, its candidate, `plant.save`.
+#[test]
+fn a_reopened_on_off_actuator_survives_saving() {
+    let root = temp_dir("plant-topology-on-off");
+    write_file(
+        &root.join("simulation.toml"),
+        r#"[simulation]
+enabled = true
+
+[[plants]]
+id = "heater"
+model = "first_order"
+command_sources = ["%QW0"]
+feedback_targets = ["%IW0"]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 5.0
+
+[plants.actuator]
+kind = "on-off"
+minimum = 0.0
+maximum = 100.0
+minimum_on_s = 20.0
+minimum_off_s = 10.0
+"#,
+    );
+    let session = crate::control::OfflinePlantSession::new(root.clone());
+    let topology = session.request_json(json!({
+        "id": 6920,
+        "type": "plant.topology",
+        "params": { "contract": "trust.plant", "schema_version": 1 }
+    }));
+    let result = &topology["result"];
+    let project_id = result["project_id"].clone();
+    let revision = result["configuration_revision"].clone();
+    let plant = &result["plants"][0];
+    // The editor's draft as the extension builds it from the projection (`createPlantEditDraft`).
+    let mut draft = plant["configuration"]
+        .as_object()
+        .expect("the heater opens in the editor")
+        .clone();
+    for (key, value) in [
+        ("id", json!("plant:heater")),
+        ("projectId", project_id.clone()),
+        ("originalPlantId", plant["id"].clone()),
+        ("plantId", plant["id"].clone()),
+        ("displayName", plant["displayName"].clone()),
+        ("runtimeId", json!("simulator")),
+        ("runtimeName", json!("Simulator")),
+        ("enabled", plant["enabled"].clone()),
+        ("startingPoint", json!("")),
+        ("model", plant["model"].clone()),
+        ("modelValuesTouched", json!(false)),
+        ("commandSources", plant["commandSources"].clone()),
+        ("feedbackTargets", plant["feedbackTargets"].clone()),
+        ("savedConfigurationRevision", revision.clone()),
+    ] {
+        draft.insert(key.into(), value);
+    }
+    let opened = session.request_json(json!({
+        "id": 6921,
+        "type": "plant.edit",
+        "params": {
+            "contract": "trust.plant",
+            "schema_version": 1,
+            "project_id": project_id,
+            "draft": draft,
+            "action": { "kind": "open" }
+        }
+    }));
+    assert_eq!(opened.get("ok"), Some(&json!(true)), "{opened}");
+    let saved = session.request_json(json!({
+        "id": 6922,
+        "type": "plant.save",
+        "params": {
+            "contract": "trust.plant",
+            "schema_version": 1,
+            "project_id": project_id,
+            "operation_id": "reopen-on-off",
+            "expected_revision": revision,
+            "plant": opened["result"]["candidate"]
+        }
+    }));
+    assert_eq!(saved.get("ok"), Some(&json!(true)), "{saved}");
+
+    let file = fs::read_to_string(root.join("simulation.toml")).expect("saved simulation.toml");
+    let document: toml::Value = toml::from_str(&file).expect("saved TOML");
+    let actuator = &document["plants"][0]["actuator"];
+    assert_eq!(actuator.get("kind").and_then(toml::Value::as_str), Some("on-off"));
+    for (key, expected) in [
+        ("minimum", 0.0),
+        ("maximum", 100.0),
+        ("minimum_on_s", 20.0),
+        ("minimum_off_s", 10.0),
+    ] {
+        assert_eq!(
+            actuator.get(key).and_then(toml::Value::as_float),
+            Some(expected),
+            "{key}"
+        );
+    }
+    fs::remove_dir_all(root).expect("remove on-off actuator fixture");
+}

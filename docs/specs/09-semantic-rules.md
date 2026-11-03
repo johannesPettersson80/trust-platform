@@ -28,6 +28,11 @@ This specification defines semantic rules and error conditions for trust-hir.
 ### 1.3 Shadowing Rules
 
 - Local names shadow global names
+- That includes the first name of a dotted name: a local, a parameter or a member of the POU
+  named like a global namespace or program hides it, so with a local `GVals`, `GVals.Member` is
+  the local's member and never the namespace's (IEC 61131-3 §6.5.2.2: declarations are local to
+  their POU; §6.9.3: a namespace's elements are reached by preceding its name). A nested
+  namespace found first hides nothing.
 - No shadowing within same scope (error: duplicate declaration)
 - Class members are accessed via THIS when shadowed
 

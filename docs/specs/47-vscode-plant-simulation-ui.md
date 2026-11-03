@@ -725,7 +725,11 @@ model validity) shall survive projection, draft
 creation and serialization unchanged. Editable fields remain authoritative:
 clearing an optional editable effect must not resurrect its saved value.
 Unsupported fields must remain isolated from the editable draft values; the
-runtime validates the complete resulting candidate before any write.
+runtime validates the complete resulting candidate before any write. That
+includes the keys of the saved actuator that the Actuator section does not
+manage, such as its `kind` and minimum on and off times: Save keeps them and
+takes the section's fields from the draft (2 November 2026: saving a reopened
+on-off actuator deleted it).
 This does not add support for new runtime configuration fields. In particular,
 the current runtime accepts one scalar actuator configuration, not a serialized
 per-channel `actuators` array.
@@ -1266,7 +1270,8 @@ the node's identity source:
   state. It sets `enabledDefaulted` when the file omits `enabled`, and
   `initialStateDefaulted` when the file omits `initial_state`; an omitted
   initial state is an empty list, which Rust's `open` edit sizes. It also holds
-  the step, the conversions, and the actuator values the file sets; the
+  the step, the conversions, and the Actuator section's fields that the file
+  sets (the actuator's other keys stay in `preservedConfiguration`); the
   uncertainties, each enabled; and the plant's scenario events (Section 12),
   each enabled, with a time that is not a number as `null`. Its
   `preservedConfiguration` is the whole saved table, which Save carries

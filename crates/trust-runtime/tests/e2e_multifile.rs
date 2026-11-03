@@ -33,6 +33,46 @@ fn namespace_resolution() {
     harness.assert_eq("count", 1i32);
 }
 
+// Catches a compiled program reading the namespace where a local named like it hides it: local names
+// shadow global names, so `GVals.UsedCrossFile` is the local's member (specification 09 §1.3;
+// issue #203: the program read the namespace's 5).
+#[test]
+fn a_local_named_like_a_namespace_reads_its_own_member() {
+    let globals = r#"
+        NAMESPACE GVals
+        VAR_GLOBAL CONSTANT
+            UsedCrossFile : DINT := 5;
+        END_VAR
+        END_NAMESPACE
+    "#;
+    let program = r#"
+        TYPE Shadow :
+        STRUCT
+            UsedCrossFile : DINT;
+        END_STRUCT
+        END_TYPE
+
+        FUNCTION ReadList : DINT
+        ReadList := GVals.UsedCrossFile;
+        END_FUNCTION
+
+        PROGRAM Main
+        VAR
+            GVals : Shadow := (UsedCrossFile := 7);
+            fromLocal : DINT;
+            fromList : DINT;
+        END_VAR
+        fromLocal := GVals.UsedCrossFile;
+        fromList := ReadList();
+        END_PROGRAM
+    "#;
+
+    let mut harness = TestHarness::from_sources(&[globals, program]).unwrap();
+    harness.cycle();
+    harness.assert_eq("fromLocal", 7i32);
+    harness.assert_eq("fromList", 5i32);
+}
+
 #[test]
 fn namespaced_programs_are_runtime_entry_points() {
     let source = r#"

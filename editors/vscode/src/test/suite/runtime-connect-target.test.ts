@@ -19,7 +19,7 @@ import { buildGraph } from "../../networkCanvas/webview/layout";
 import type { NCGraph, NCRuntime } from "../../networkCanvas/webview/types";
 import { getControlAuthToken, setControlAuthToken } from "../../runtimeAuth";
 import { statusText } from "../../runtimeControls";
-import { runtimeLifecycleService } from "../../runtimeLifecycle";
+import { OnlineStatusReport, runtimeLifecycleService } from "../../runtimeLifecycle";
 import { getSelectedRuntimeId, setSelectedRuntimeId } from "../../selectedRuntime";
 import { SIMULATOR_RUNTIME_ID } from "../../trustHomeModel";
 
@@ -707,6 +707,20 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     const stopped = await waitFor("the stopped runtime in the side panel", () =>
       sidebar.states().reverse().find((state) => state.selectedId === PROJECT_ID && state.selected.statusLabel === "Not running"));
     assert.strictEqual(stopped.selected.primary.enabled, false, "Connect waits for the runtime to run again");
+  });
+
+  test("the online watch tells the surfaces its first read, so a runtime that stopped before it is not shown answering", () => {
+    // Catches a watch that keeps its first read after arming to itself: a project runtime that stopped between the side
+    // panel's last read and that first read stayed shown as answering, and the test above waited in vain (CI of the
+    // 0.28.0 release pull request, 1 November 2026, checklist W18; specification 25, section 5.1).
+    const report = new OnlineStatusReport();
+    const answering = { endpoint: "", endpointReachable: false, projectEndpoint: "tcp://127.0.0.1:1", projectReachable: true };
+    const stopped = { ...answering, projectReachable: false };
+    assert.strictEqual(report.changed(stopped), true, "the first read after arming is news");
+    assert.strictEqual(report.changed(stopped), false, "the same status again is not");
+    assert.strictEqual(report.changed(answering), true, "a runtime that answers again is");
+    report.reset();
+    assert.strictEqual(report.changed(answering), true, "after a rest the first read is news again");
   });
 
   test("a runtime no probe asked is not connected, not unreachable", async () => {

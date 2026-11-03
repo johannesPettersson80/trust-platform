@@ -574,3 +574,83 @@ END_PROGRAM
         .collect();
     assert_eq!(errors, vec![DiagnosticCode::UndefinedField]);
 }
+
+// Catches a dotted name whose first name is a local named like a namespace resolved in the namespace:
+// local names shadow global names, so `GVals.UsedCrossFile` is a member of the local (specification
+// 09 §1.3; issue #203).
+#[test]
+fn a_local_named_like_a_namespace_hides_it_from_a_dotted_name() {
+    // The local is an INT: a member access needs a structure, a function block or a class, so it is
+    // the type mismatch any INT gets (E201).
+    check_has_error(
+        r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    UsedCrossFile : INT := 5;
+END_VAR
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    GVals : INT;
+END_VAR
+GVals := GVals.UsedCrossFile;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+    // The local's member is a STRING, which an INT cannot take; the namespace's INT could.
+    check_has_error(
+        r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    UsedCrossFile : INT := 5;
+END_VAR
+END_NAMESPACE
+
+TYPE Shadow :
+STRUCT
+    UsedCrossFile : STRING;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    GVals : Shadow;
+    i : INT;
+END_VAR
+i := GVals.UsedCrossFile;
+END_PROGRAM
+"#,
+        DiagnosticCode::IncompatibleAssignment,
+    );
+    // Read into a STRING, it is the local's member, and a POU without such a local still reads the
+    // namespace.
+    check_no_errors(
+        r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    UsedCrossFile : INT := 5;
+END_VAR
+END_NAMESPACE
+
+TYPE Shadow :
+STRUCT
+    UsedCrossFile : STRING;
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    GVals : Shadow;
+    s : STRING;
+END_VAR
+s := GVals.UsedCrossFile;
+END_PROGRAM
+
+FUNCTION ReadList : INT
+ReadList := GVals.UsedCrossFile;
+END_FUNCTION
+"#,
+    );
+}

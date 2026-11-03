@@ -141,6 +141,14 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         node: &SyntaxNode,
     ) -> Option<SymbolId> {
         let parts = self.qualified_name_from_field_expr(node)?;
+        // A local named like the namespace hides it (specification 09 §1.3).
+        if self
+            .checker
+            .symbols
+            .hides_global_head(parts.first()?, self.checker.current_scope)
+        {
+            return None;
+        }
         self.checker.symbols.resolve_qualified(&parts)
     }
 
@@ -156,6 +164,14 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         }
         let parts = self.qualified_name_from_field_expr(node)?;
         if parts.len() != 2 {
+            return None;
+        }
+        // A local named like the program hides it (specification 09 §1.3).
+        if self
+            .checker
+            .symbols
+            .hides_global_head(&parts[0], self.checker.current_scope)
+        {
             return None;
         }
         let program_id = self.checker.symbols.lookup(parts[0].as_str())?;

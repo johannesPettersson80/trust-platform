@@ -115,6 +115,12 @@ export class LadderEditorProvider implements vscode.CustomTextEditorProvider {
         case "edit":
           await this.edit(message, webviewPanel);
           break;
+        case "findReplace":
+          await this.askFindReplace(webviewPanel);
+          break;
+        case "notify":
+          this.notify(message);
+          break;
         case "webviewBootError":
           console.error("[Ladder] webview boot error:", message.message);
           void vscode.window.showErrorMessage(
@@ -225,6 +231,42 @@ export class LadderEditorProvider implements vscode.CustomTextEditorProvider {
     const { type: _type, requestId, ...edit } = message;
     const answer = await visualRequest("trust-lsp.visualEdit", { kind: "ladder", ...edit });
     void webviewPanel.webview.postMessage({ ...answer, type: "editResult", requestId });
+  }
+
+  /**
+   * Find and replace asks for the symbol or address and its replacement in VS Code's input boxes, since
+   * the webview's sandbox ignores `window.prompt`; Escape on either asks nothing more. The webview runs
+   * the replace (`replaceSymbol`) on its program.
+   */
+  private async askFindReplace(webviewPanel: vscode.WebviewPanel): Promise<void> {
+    const find = await vscode.window.showInputBox({
+      prompt: "Find symbol/address",
+      ignoreFocusOut: true,
+    });
+    if (!find) {
+      return;
+    }
+    const replace = await vscode.window.showInputBox({
+      prompt: `Replace '${find}' with`,
+      ignoreFocusOut: true,
+    });
+    if (replace === undefined) {
+      return;
+    }
+    void webviewPanel.webview.postMessage({ type: "findReplaceInput", find, replace });
+  }
+
+  /** Shows a message of the webview, which cannot show one itself. */
+  private notify(message: Record<string, unknown>): void {
+    const text = typeof message.text === "string" ? message.text : "";
+    if (!text) {
+      return;
+    }
+    if (message.level === "error") {
+      void vscode.window.showErrorMessage(text);
+    } else {
+      void vscode.window.showInformationMessage(text);
+    }
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {

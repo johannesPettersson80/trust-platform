@@ -10,7 +10,7 @@ import {
   __testApplySettingsUpdate,
   __testCollectSettingsSnapshot,
 } from "../../ioPanel";
-import { classifyIoStateFailure } from "../../networkCanvas/runtimeFailures";
+import { classifyIoStateFailure, classifyStartSessionEnded } from "../../networkCanvas/runtimeFailures";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 
 /**
@@ -338,6 +338,15 @@ suite("Debug/IO DRY flows", function () {
       kind: "connection_lost",
       message: "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.",
       detail: "I/O state request timed out.",
+    });
+  });
+
+  // The language server names the failure of a simulator Start whose session ended while it settled (specification
+  // 25 §5.10); connect_tests.rs proves it. Catches a request that does not reach the server, or an answer not shown.
+  test("integration: a Start whose session ended takes its failure from the language server", async () => {
+    assert.deepStrictEqual(await classifyStartSessionEnded(), {
+      kind: "failed_spawn",
+      message: "Simulator stopped during startup. Check the runtime port or target settings.",
     });
   });
 
