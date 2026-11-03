@@ -2273,7 +2273,7 @@ fn call_function(
 - **Stateful**: Internal VAR persists across calls
 - **Instances**: Each instance has independent state
 - **Call syntax**: `instance(inputs)` then access outputs via `instance.output`
-- **Omitted `VAR_INPUT` arguments**: When a FUNCTION_BLOCK call leaves an input open, runtime reuses the instance's previously stored input value; on the first call it falls back to the parameter initializer or the IEC type default if no initializer exists.
+- **Omitted `VAR_INPUT` arguments**: When a FUNCTION_BLOCK call leaves an input open, runtime reuses the instance's previously stored input value; on the first call it falls back to the parameter initializer or the IEC type default if no initializer exists. The explicit empty named binding (`input := ,`, `output => ` without a target) is the same omission (`IEC_DEVIATIONS.md` DEV-041) — the argument is dropped at lowering, so an unbound output simply stays unconnected. The same empty-binding equivalence applies to FUNCTION calls (declared initializer or type default applies).
 
 ```rust
 fn call_fb(
@@ -2365,6 +2365,16 @@ transaction:
    result, output or `ENO`. What the body wrote before the error, to an
    in-out, to its own instance or receiver, or to a global, remains, as the
    writes of every completed statement do (specification 11 §6.6).
+
+A positional actual associates with the callable's formal parameters in their
+declaration order, an output formal included (IEC 61131-3 Ed.3 §6.6.3.4,
+Table 42). Under the CODESYS profile, a function block invocation binds
+positionally to its input and in-out formals only, in declaration order
+base-first through the EXTENDS chain, and its output formals bind only by
+name with `=>`, keeping their default or stored value otherwise
+([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-044); functions and methods keep the
+full association. The compiled program binds the call's arguments at build
+time with the same rule (specification 44 §3).
 
 A call cannot map the same or overlapping caller storage to two writable
 formals when the source shows the overlap: the same variable, a variable and

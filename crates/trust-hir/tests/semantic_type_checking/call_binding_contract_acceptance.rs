@@ -385,3 +385,79 @@ END_PROGRAM
         "integer narrowing at a call argument is a warning: {mismatches:?}"
     );
 }
+
+const FUNCTION_BLOCK_INTERFACE: &str = r#"
+FUNCTION_BLOCK Regulator
+VAR_INPUT
+    setpoint : DINT;
+    measure : DINT;
+END_VAR
+VAR_OUTPUT
+    diff : DINT;
+END_VAR
+diff := setpoint - measure;
+END_FUNCTION_BLOCK
+"#;
+
+fn accepted_fb(body: &str) {
+    check_no_errors(&format!(
+        "{FUNCTION_BLOCK_INTERFACE}\nPROGRAM Main\nVAR\nregulator : Regulator; seen : DINT;\nEND_VAR\n{body}\nEND_PROGRAM"
+    ));
+}
+
+#[test]
+fn call_binding_contract_accepts_positional_function_block_call_without_outputs_under_codesys() {
+    // CODESYS parity (IEC_DEVIATIONS.md DEV-044): a function block invocation's positional
+    // association covers the input and in-out formals in declaration order; the output formal
+    // needs no actual, so two positional inputs are a complete call.
+    let source = format!(
+        "{FUNCTION_BLOCK_INTERFACE}\nPROGRAM Main\nVAR\nregulator : Regulator; seen : DINT;\nEND_VAR\nregulator(1, 2);\nseen := regulator.diff;\nEND_PROGRAM"
+    );
+    check_no_errors_in(Dialect::Codesys, &source);
+}
+
+#[test]
+fn call_binding_contract_accepts_positional_prefix_and_named_output_in_both_profiles() {
+    // An output formal bound by name with `=>` beside a positional input prefix is legal
+    // whatever the project's profile.
+    let body = "regulator(1, 2, diff => seen);";
+    check_no_errors_in(
+        Dialect::Codesys,
+        &format!(
+            "{FUNCTION_BLOCK_INTERFACE}\nPROGRAM Main\nVAR\nregulator : Regulator; seen : DINT;\nEND_VAR\n{body}\nEND_PROGRAM"
+        ),
+    );
+    accepted_fb(body);
+}
+
+#[test]
+fn call_binding_contract_accepts_positional_call_of_inherited_inputs_under_codesys() {
+    // CODESYS parity (IEC_DEVIATIONS.md DEV-044): positional association runs through the
+    // EXTENDS chain base-first and stops before the inherited output formal, so the base's
+    // input takes the first actual and the derived block's own input the second.
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+FUNCTION_BLOCK Base
+VAR_INPUT
+    base_in : DINT;
+END_VAR
+VAR_OUTPUT
+    base_out : BOOL;
+END_VAR
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK Derived EXTENDS Base
+VAR_INPUT
+    own : DINT;
+END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    derived : Derived; seen : BOOL;
+END_VAR
+derived(1, 2);
+derived(3, 4, base_out => seen);
+END_PROGRAM
+"#,
+    );
+}

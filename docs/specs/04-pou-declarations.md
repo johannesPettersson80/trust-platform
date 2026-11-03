@@ -102,6 +102,13 @@ END_FUNCTION
    through the truST value-bearing RETURN extension recorded as `DEV-022`
 3. **VAR_IN_OUT and VAR_EXTERNAL**: May be modified inside the function; VAR_EXTERNAL CONSTANT shall not be modified
 4. **CONSTANT restriction**: Function block instances shall not be declared in variable sections with CONSTANT qualifier
+5. **Return type**: the declared type names a data type of specification 02.
+   The IEC dialect rejects a `VOID` return declaration (`E207`): IEC 61131-3
+   knows no `VOID` data type. Under the CODESYS profile (`DEV-043` in
+   `docs/IEC_DEVIATIONS.md`) `FUNCTION name : VOID` declares a function
+   without a result: the function carries no return slot, a call captures no
+   result, the body may exit early with a value-less `RETURN;`, and a
+   `RETURN` with a value stays `E207`.
 
 ### POU initializer contract
 
@@ -306,7 +313,9 @@ END_FUNCTION_BLOCK
      block binds them like its own, for example `Block(Value := 7, Gain := 3,
      Result => R)` where `Gain` and `Result` are declared in the base. The base's
      parameters come first in positional order, then the derived block's, each in
-     declaration order.
+     declaration order; under the CODESYS profile the positional association covers
+     the input and in-out formals only, and an output formal binds only by name
+     with `=>` ([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-044).
    - A base in a namespace is written qualified (`EXTENDS Lib.Base`) or found
      through `USING`; both give the same inheritance (IEC 61131-3 Ed.3 Tables 64–66).
    - Calling a derived function block runs only its own body; the base's body does not
@@ -380,6 +389,15 @@ runs its own instance (IEC 61131-3 Ed.3 §6.6.3.4.1, example e). Outside an
 instance, an input may be assigned through the instance and takes effect with
 the next call; inside the function block, the block does not assign its own
 inputs (IEC 61131-3 Ed.3 §6.6.3.4.2, Figure 13 row 2).
+
+A positional actual associates with the block's formal parameters in their
+declaration order, an output formal included (IEC 61131-3 Ed.3 §6.6.3.4,
+Table 42). Under the CODESYS profile a function block invocation instead
+binds positionally to its input and in-out formals only, in declaration order
+base-first through the EXTENDS chain; an output formal binds only by name
+with `=>` and positional actuals beyond the input and in-out formals are
+rejected ([`DEV-044`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-11-03---codesys-language-profile-function-block-positional-association-excludes-output-formals)).
+Functions and methods keep the full positional association.
 
 ## 4. PROGRAM Declaration (Table 47, Section 6.6.4)
 

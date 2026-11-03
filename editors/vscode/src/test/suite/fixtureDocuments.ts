@@ -17,11 +17,12 @@ export async function disposeFixtureProject(root: string): Promise<void> {
   for (const document of sources) clear.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), "");
   if (sources.length && !await vscode.workspace.applyEdit(clear)) throw new Error("Could not clear generated fixture source models.");
   for (const document of sources) if (!await document.save()) throw new Error("Could not save cleared fixture source before cleanup.");
-  for (const document of documents) await vscode.window.showTextDocument(document, {preview: false});
-  await fs.rm(directory, {recursive: true, force: true});
+  // Close each editor while its file still exists: opening a file that is gone fails at random
+  // ("Could NOT open editor for …", W18, 1 November 2026), as VS Code may already have dropped it.
   for (const document of documents) {
     if (document.isClosed) continue;
     await vscode.window.showTextDocument(document, {preview: false});
     await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
   }
+  await fs.rm(directory, {recursive: true, force: true});
 }

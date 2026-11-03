@@ -395,6 +395,8 @@ END_PROGRAM
                 "trust-lsp.hmiFileCheck",
                 "trust-lsp.hmiCatalogue",
                 "trust-lsp.hmiBundle",
+                "trust-lsp.hmiDeploy",
+                "trust-lsp.hmiLiveGate",
                 "trust-lsp.hmiTexts",
                 "trust-lsp.hmiQuality",
                 "trust-lsp.hmiFaceplates",
@@ -634,6 +636,7 @@ END_PROGRAM
     }
 
     include!("hmi_check_tests.rs");
+    include!("hmi_deploy_tests.rs");
     include!("hmi_placed_tests.rs");
     include!("hmi_symbol_tests.rs");
     include!("hmi_program_edit_tests.rs");

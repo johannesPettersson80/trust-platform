@@ -6,7 +6,9 @@ import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 import { getControlAuthToken } from "./runtimeAuth";
 import { resolveProjectConnection, resolveRuntimeConnection } from "./runtimeConnection";
 import {
+  classifyIoStateFailure,
   classifyRuntimeStartFailure,
+  classifyStartSessionEnded,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
   type NetworkCanvasRuntimeFailureKind as RuntimeStartFailureKind,
 } from "./networkCanvas/runtimeFailures";
@@ -74,6 +76,26 @@ export function runtimeSessionControlAuthToken(
 }
 
 const EMPTY_IO_STATE: IoState = { inputs: [], outputs: [], memory: [], ads: [] };
+
+/** What the online watch last told the surfaces of the runtime: its endpoint, whether it answers, and the project's
+ * runtime. The first status after the watch arms is news as well, because the surfaces may have read the runtime before
+ * it: a project runtime that stopped in between stayed shown as answering (checklist W18, 1 November 2026). */
+export class OnlineStatusReport {
+  private reported: string | undefined;
+
+  /** Whether `status` differs from what the surfaces were last told; from now on it is what they were told. */
+  changed(status: Pick<RuntimeStatusPayload, "endpoint" | "endpointReachable" | "projectEndpoint" | "projectReachable">): boolean {
+    const now = JSON.stringify([status.endpoint, status.endpointReachable, status.projectEndpoint, status.projectReachable]);
+    const changed = now !== this.reported;
+    this.reported = now;
+    return changed;
+  }
+
+  /** The watch rests, offline or while a debug session reports the runtime, so its next status is news. */
+  reset(): void {
+    this.reported = undefined;
+  }
+}
 
 class RuntimeLifecycleService {
   private readonly sessions = new Map<string, vscode.DebugSession>();
@@ -174,21 +196,19 @@ class RuntimeLifecycleService {
   // Reads the status again while online without a session and tells the surfaces when what the language server reported
   // of the runtime changed: its endpoint, whether it answers, and the project's runtime.
   private watchOnline(context: vscode.ExtensionContext): void {
-    let reported = "";
+    const report = new OnlineStatusReport();
     let reading = false;
     const timer = setInterval(() => {
       const online = getTrustConfiguration(this.runtimeConfigTarget()).get<string>("runtime.mode", "simulate") === "online";
       if (!online || this.getStructuredTextSession()) {
-        reported = "";
+        report.reset();
         return;
       }
       if (reading) return;
       reading = true;
       void this.snapshot()
         .then(({ status }) => {
-          const now = JSON.stringify([status.endpoint, status.endpointReachable, status.projectEndpoint, status.projectReachable]);
-          if (reported && now !== reported) this.emitChanged();
-          reported = now;
+          if (report.changed(status)) this.emitChanged();
         })
         .catch(() => undefined)
         .finally(() => {
@@ -254,13 +274,7 @@ class RuntimeLifecycleService {
   async requestIoState(options: { readonly persistFailure?: boolean; readonly afterScan?: number } = {}): Promise<RuntimeLifecycleResult> {
     const session = this.getStructuredTextSession();
     if (!session) {
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: "No active Structured Text debug session.",
-        },
-      };
+      return { ok: false, failure: await classifyIoStateFailure() };
     }
     try {
       await withTimeout(
@@ -273,11 +287,7 @@ class RuntimeLifecycleService {
       );
       return { ok: true, message: "I/O state requested." };
     } catch (err) {
-      const failure = await classifyRuntimeStartFailure(err);
-      const ioFailure = {
-        ...failure,
-        message: `I/O state request failed: ${failure.message}`,
-      };
+      const ioFailure = await classifyIoStateFailure(err);
       if (options.persistFailure) {
         this.failure = ioFailure;
         this.emitChanged();
@@ -403,14 +413,11 @@ class RuntimeLifecycleService {
         return ioStateResult;
       }
       if (!(await this.waitForSessionStillPresent(SESSION_START_STABILITY_MS))) {
+        const failure = await classifyStartSessionEnded();
         this.starting = false;
-        this.failure = {
-          kind: "failed_spawn",
-          message:
-            "Simulator stopped during startup. Check the runtime port or target settings.",
-        };
+        this.failure = failure;
         this.emitChanged();
-        return { ok: false, failure: this.failure };
+        return { ok: false, failure };
       }
       this.starting = false;
       this.failure = undefined;

@@ -28,6 +28,12 @@ mod tests;
 pub(super) use signals::build as build_signal_catalog;
 pub(super) use vocabulary::editor_tables;
 
+/// Whether `key` is an actuator field the editor manages (specification 47 §10). The others a
+/// saved actuator may hold (its `kind`, minimum on and off times) are carried unchanged.
+pub(super) fn is_editor_actuator_field(key: &str) -> bool {
+    tables::ACTUATOR_FIELDS.iter().any(|field| field.key == key)
+}
+
 /// What `plant.edit` needs to know of the project beyond the draft.
 pub(super) struct Project {
     /// The IDs of the saved plants, in saved order.

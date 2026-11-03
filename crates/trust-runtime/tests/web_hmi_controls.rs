@@ -157,6 +157,29 @@ fn plant(name: &str) -> Plant {
 impl Plant {
     fn write(&self, id: &str, object: &str, value: Value) -> Value {
         let body = json!({ "id": id, "bundle": self.bundle, "page": "controls", "object": object, "action": "write", "value": value });
+        self.send(body)
+    }
+
+    /// A command with what the control showed (§5.8): `shown` is left out when `None`.
+    fn command(
+        &self,
+        id: &str,
+        object: &str,
+        action: &str,
+        value: Option<Value>,
+        shown: Option<Value>,
+    ) -> Value {
+        let mut body = json!({ "id": id, "bundle": self.bundle, "page": "controls", "object": object, "action": action });
+        if let Some(value) = value {
+            body["value"] = value;
+        }
+        if let Some(shown) = shown {
+            body["shown"] = shown;
+        }
+        self.send(body)
+    }
+
+    fn send(&self, body: Value) -> Value {
         let (status, answer, _) = http_request(
             "POST",
             &self.running.base,
@@ -185,6 +208,61 @@ fn a_switch_writes_true_or_false() {
     let plant = plant("controls-switch");
     applied(&plant.write("s1", "fan", json!(true)), json!(true));
     refused(&plant.write("s2", "fan", json!("on")), "TRUE or FALSE");
+}
+
+/// A switch toggles to the opposite of the value it shows (specification 39 §5.8; the owner decided
+/// on 1 November 2026 that the runtime decides it): FALSE shown writes TRUE, TRUE shown writes FALSE.
+/// While it shows no value, `shown` is null or left out, the runtime refuses with the words the page
+/// says in its language. Catches a toggle of the runtime's own value, which acts against what a
+/// stale screen showed, and a toggle written blind.
+#[test]
+fn a_switch_writes_the_opposite_of_the_value_it_shows() {
+    let plant = plant("controls-toggle");
+    applied(
+        &plant.command("t1", "fan", "toggle", None, Some(json!(false))),
+        json!(true),
+    );
+    applied(
+        &plant.command("t2", "fan", "toggle", None, Some(json!(false))),
+        json!(true),
+    );
+    applied(
+        &plant.command("t3", "fan", "toggle", None, Some(json!(true))),
+        json!(false),
+    );
+    for (id, shown) in [("t4", Some(json!(null))), ("t5", None)] {
+        refused(
+            &plant.command(id, "fan", "toggle", None, shown),
+            "The value of this control is not known, so it sends nothing.",
+        );
+    }
+    refused(
+        &plant.command("t6", "fan", "toggle", None, Some(json!("on"))),
+        "a switch shows TRUE or FALSE",
+    );
+}
+
+/// A control that acts on the value it shows sends nothing while it shows none (§5.8): a write
+/// whose `shown` is null is refused, and one whose sender leaves `shown` out is checked as before.
+/// Catches a selector, mode selector or slider command written while the page showed no value.
+#[test]
+fn a_control_that_shows_no_value_writes_nothing() {
+    let plant = plant("controls-not-known");
+    for (id, object, value) in [
+        ("n1", "speed", json!("low")),
+        ("n2", "mode", json!("Manual")),
+        ("n3", "valve", json!(20.0)),
+        ("n4", "fan", json!(true)),
+    ] {
+        refused(
+            &plant.command(id, object, "write", Some(value), Some(json!(null))),
+            "is not known",
+        );
+    }
+    applied(
+        &plant.command("n5", "speed", "write", Some(json!("low")), None),
+        json!("Low"),
+    );
 }
 
 #[test]

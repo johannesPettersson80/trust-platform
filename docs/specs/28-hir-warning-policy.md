@@ -23,7 +23,11 @@ following references count:
 - a resolved type reference;
 - a qualified value access chain (`GVals.Member`, dotted declaration sizes):
   the chain resolves to its terminal member and marks that member used —
-  the leftmost segment alone never marks anything used;
+  the leftmost segment alone never marks anything used. The chain head
+  resolves in the referencing expression's scope first, with the project-wide
+  lookup as the fallback: a local declaration named like the head shadows the
+  global, and the chain can never mark a global member used through that
+  local's spelling;
 - an `EXTENDS` or `IMPLEMENTS` target of a POU, class, or DUT declaration:
   inheritance is a use of the base;
 - a use of a `VAR_EXTERNAL` declaration: a POU uses a global through it
@@ -57,6 +61,13 @@ not emit this warning: the conversion is a well-defined base-part-copy upcast
 that assignment compatibility already accepts, and vendor toolchains treat it
 as an ordinary inheritance assignment. Conversions between DUTs without an
 ancestor relation keep the warning.
+
+A fixed-size array bound to an `ARRAY[*]` parameter, and the reverse arm of
+the same in/out binding, do not emit this warning either: the parameter
+aliases the argument's storage for the call, so no element conversion takes
+place (IEC 61131-3 varying arrays). Compatibility keeps the error channel
+unchanged: element mismatches and concrete bound mismatches keep their
+rejections.
 
 ## 3. Cyclomatic complexity
 

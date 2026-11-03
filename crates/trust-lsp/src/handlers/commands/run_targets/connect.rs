@@ -1,4 +1,4 @@
-//! A Connect, and the kind of a lifecycle failure (specification 25 §5.1, §5.10 and §6.4).
+//! A Connect, and the kind of a lifecycle failure (specification 25 §4.4, §5.1, §5.10 and §6.4).
 //!
 //! - `connect` `{ endpoint, authToken?, problem?, targetLabel? }`: Connect changes nothing until it
 //!   succeeds. The runtime must accept a connection at its endpoint and answer `status` with the
@@ -8,11 +8,18 @@
 //!   a failure naming its kind, its message, the endpoint it belongs to and, when the extension
 //!   offers one, its `remedy`: `openDevices` when the runtime accepts no connection or its `status`
 //!   request gets no answer, `setAuthToken` when it refuses a missing or rejected token by its code.
+//!   The failure of a runtime that keeps debugging disabled also carries the name Connect was given
+//!   (`label`), which names that runtime while it has no session (§6.9).
 //!   `problem` is trust-runtime's reason why the workspace's own runtime has no endpoint now
 //!   (specification 11 §6.8.0a).
 //! - `failure` `{ detail }`: the kind of the failure that the text `detail` of a start, a stop or an
 //!   attach names, with the message the extension shows: a missing executable, a port in use, a
 //!   folder that cannot be written, a stale runtime or session, else a failed start.
+//! - `failure` `{ request: "ioState", detail? }`: the kind of a failed I/O state request of Live
+//!   Values (§4.4), `detail` its text, none when there is no session to ask: no session, a lost
+//!   connection, else a failed request.
+//! - `failure` `{ sessionEnded: true }`: a simulator Start whose debug session ended while the
+//!   extension watched it settle, a failed start (§5.10).
 
 use std::time::Duration;
 
@@ -34,6 +41,33 @@ const OPEN_DEVICES: &str = "openDevices";
 const SET_AUTH_TOKEN: &str = "setAuthToken";
 /// What Live Values and the graph say of a runtime that keeps debugging disabled.
 pub(super) const DEBUG_DISABLED: &str = "Remote debugging is disabled for this runtime. Set debug_enabled = true under [runtime.control] in its runtime.toml, restart the runtime, then connect again.";
+/// The request whose failure `failure` reads as Live Values' I/O state request.
+const IO_STATE: &str = "ioState";
+/// The message of an I/O state request with no session to ask, or whose session is gone.
+const NO_SESSION: &str = "No active Structured Text debug session.";
+/// What Live Values says when the connection under its I/O state request failed.
+const CONNECTION_LOST: &str =
+    "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.";
+/// What a simulator Start says when its debug session ends while it settles.
+const SIMULATOR_STOPPED: &str =
+    "Simulator stopped during startup. Check the runtime port or target settings.";
+/// The words of a connection that failed under an I/O state request, in lower case.
+const TRANSPORT_WORDS: [&str; 14] = [
+    "cancelled",
+    "connection",
+    "socket",
+    "econnreset",
+    "econnrefused",
+    "epipe",
+    "closed",
+    "terminated",
+    "timeout",
+    "time out",
+    "timed out",
+    "timedout",
+    "not connected",
+    "disconnected",
+];
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,17 +83,39 @@ struct ConnectArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FailureArgs {
     #[serde(default)]
     detail: Option<String>,
+    #[serde(default)]
+    request: Option<String>,
+    #[serde(default)]
+    session_ended: bool,
 }
 
 /// The answer of the action `action`.
 pub(super) fn answer(action: &str, argument: Value) -> Result<Value, String> {
     if action == "failure" {
         let args: FailureArgs = decode(argument)?;
-        let detail = args.detail.unwrap_or_default();
-        return Ok(json!({ "ok": true, "failure": classify(&detail) }));
+        if args.session_ended {
+            if let Some(request) = args.request {
+                return Err(format!(
+                    "A session that ended is a start's failure, not one of the request {request}."
+                ));
+            }
+            let failure = failure_json("failed_spawn", SIMULATOR_STOPPED, None, None);
+            return Ok(json!({ "ok": true, "failure": failure }));
+        }
+        let failure = match args.request.as_deref() {
+            None => classify(args.detail.as_deref().unwrap_or_default()),
+            Some(IO_STATE) => io_state_failure(args.detail.as_deref()),
+            Some(other) => {
+                return Err(format!(
+                    "A failure is read for a start or for the request {IO_STATE}, not {other}."
+                ))
+            }
+        };
+        return Ok(json!({ "ok": true, "failure": failure }));
     }
     let args: ConnectArgs = decode(argument)?;
     Ok(connect(&args, &Network))
@@ -162,16 +218,17 @@ fn connect(args: &ConnectArgs, contact: &dyn Contact) -> Value {
             );
         }
     };
+    let target_label = non_blank(args.target_label.as_deref());
     if debug_disabled(&status) {
-        // The runtime answered, so it is the target; Live Values says why it has no session.
-        return json!({
-            "ok": true,
-            "outcome": "debugDisabled",
-            "failure": failure_json("debug_disabled", DEBUG_DISABLED, None, Some(&endpoint)),
-        });
+        // The runtime answered, so it is the target; Live Values says why it has no session. The
+        // name Connect was given names it while it has no session (§6.9).
+        let mut failure = failure_json("debug_disabled", DEBUG_DISABLED, None, Some(&endpoint));
+        if let Some(label) = &target_label {
+            failure["label"] = json!(label);
+        }
+        return json!({ "ok": true, "outcome": "debugDisabled", "failure": failure });
     }
-    let label =
-        non_blank(args.target_label.as_deref()).unwrap_or_else(|| sentence_label(&endpoint));
+    let label = target_label.unwrap_or_else(|| sentence_label(&endpoint));
     json!({
         "ok": true,
         "outcome": "attach",
@@ -252,6 +309,44 @@ fn classify(detail: &str) -> Value {
         ("failed_spawn", "Runtime failed to start.".to_owned())
     } else {
         ("failed_spawn", detail.to_owned())
+    };
+    failure_json(kind, &message, Some(detail), None)
+}
+
+/// The kind of a failed I/O state request of Live Values from its text `detail`, none when there
+/// was no session to ask (specification 25 §4.4). `no_session`: no session, or one that is gone,
+/// which VS Code says as `No debugger available`, `Can not send 'stIoState'`, or `Canceled` (one
+/// `l`) for the requests of a session that ends, and the debug adapter as `no program runs: launch
+/// or attach first` (trust-debug's `NOT_CONNECTED`). `connection_lost`: the connection under the
+/// request failed. `request_failed`: any other failure, with its text.
+fn io_state_failure(detail: Option<&str>) -> Value {
+    let Some(detail) = detail else {
+        return failure_json("no_session", NO_SESSION, None, None);
+    };
+    // Lower case, without quotes and with single spaces, so that every quoting and spacing of the
+    // request's name reads the same.
+    let text = detail
+        .to_lowercase()
+        .replace(['\'', '"'], "")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let (kind, message) = if text.starts_with("canceled")
+        || text.contains("no active structured text debug session")
+        || text.contains("no debugger available")
+        || text.contains("can not send stiostate")
+        || text.contains("no program runs")
+    {
+        ("no_session", NO_SESSION.to_owned())
+    } else if TRANSPORT_WORDS.iter().any(|word| text.contains(word)) {
+        ("connection_lost", CONNECTION_LOST.to_owned())
+    } else if text.is_empty() {
+        ("request_failed", "I/O state request failed.".to_owned())
+    } else {
+        (
+            "request_failed",
+            format!("I/O state request failed: {}", detail.trim()),
+        )
     };
     failure_json(kind, &message, Some(detail), None)
 }

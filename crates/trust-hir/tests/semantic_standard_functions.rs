@@ -337,6 +337,33 @@ END_PROGRAM
 }
 
 #[test]
+// IEC 61131-3 Ed.3 Table 35: `ADD` takes the time of day or the date and time first and the
+// duration second (items 2a and 3a), as the `+` operator does (specification 05). Catches `ADD`
+// accepting the duration first, which the build then refused with "a comparison of TIME with
+// TIME_OF_DAY is not compiled yet" (checklist G32).
+fn add_takes_the_duration_second_as_table_35_lists() {
+    let program = |body: &str| {
+        format!(
+            "PROGRAM Test\nVAR\n    t : TIME;\n    lt : LTIME;\n    tod_val : TOD;\n    \
+             dt_val : DT;\n    ltod_val : LTIME_OF_DAY;\n    ldt_val : LDATE_AND_TIME;\n\
+             END_VAR\n{body}\nEND_PROGRAM\n"
+        )
+    };
+    check_no_errors(&program(
+        "t := ADD(t, t);\nlt := ADD(lt, lt);\ntod_val := ADD(tod_val, t);\ndt_val := ADD(dt_val, t);\n\
+         ltod_val := ADD(ltod_val, lt);\nldt_val := ADD(ldt_val, lt);",
+    ));
+    for swapped in [
+        "tod_val := ADD(t, tod_val);",
+        "dt_val := ADD(t, dt_val);",
+        "ltod_val := ADD(lt, ltod_val);",
+        "ldt_val := ADD(lt, ldt_val);",
+    ] {
+        check_has_error(&program(swapped), DiagnosticCode::InvalidArgumentType);
+    }
+}
+
+#[test]
 fn test_standard_function_type_mismatch() {
     check_has_error(
         r#"

@@ -690,12 +690,17 @@ missing.
 Decided on 2 October 2026 while the user was away, approved by the user on 3 October 2026.
 
 Every control sends its commands as §12 describes. The switch, selector, mode selector and
-slider act on the value they show, so while it is unknown or stale they send nothing and say
-that the value is not known.
+slider act on the value they show, and send it with their command (`shown`, `null` while the
+value is unknown or stale). The runtime refuses a command whose control shows no value, with
+"The value of this control is not known, so it sends nothing.", records the refusal like any
+command, and the page shows the reason in its language (decided by the owner on 1 November 2026:
+the rule is the runtime's, and the operator's refusal is audited).
 1. **Setpoint entry and numeric input** ask for a number within their limits.
 2. **Button and pulse button** send their action (§12.8).
-3. **Switch** (`value`, a BOOL) shows On or Off as a sliding knob and the word; a click writes
-   the opposite of the value shown. Its track has a control's usual size: at most 32 px high,
+3. **Switch** (`value`, a BOOL) shows On or Off as a sliding knob and the word; a click sends
+   `toggle` with the value shown, and the runtime writes its opposite (decided by the owner on
+   1 November 2026: the value the operator saw decides, not the runtime's own value, which a stale
+   screen could contradict). Its track has a control's usual size: at most 32 px high,
    centred in the object, and about twice as wide, so a toggle in a tall row stays in proportion
    to its 14 px label; the whole object still takes the click (refined on 7 October 2026, when a
    56 px row drew a 106 px toggle). Its `options` may name its two states' words, off first: a
@@ -754,7 +759,13 @@ Planned with the user on 3 October 2026.
      reads each pen's last sample at the cursor's time ("?" before its first). A legend entry's
      click hides its pen, dimmed in the legend until clicked again. Export saves
      `<object id>-<yyyymmdd>-<hhmmss>.csv`: a `time` column in ISO 8601 UTC and a column per shown
-     pen, each holding its last value. Expand draws the trend over the page at the design size,
+     pen, each holding its last value. The runtime writes it from its trend history (decided by the
+     owner on 1 November 2026, as TwinCAT and CODESYS export from their recorders): the page asks
+     `GET /api/hmi/history/export?object=<id>&from=<ms>&to=<ms>` with `pen=<name>&path=<path>` for
+     each shown pen in their order (Viewer role, at most 16 pens and a day) and saves the answer's
+     `name` and `csv`. A row stands for each time a pen has a sample in the window, a sample a
+     second for the last hour and each minute's lowest and highest value before, so a short window
+     can have fewer rows than the page drew. Expand draws the trend over the page at the design size,
      sharing its window, cursor and hidden pens, with a close button. Over a span longer than
      10 minutes the browser keeps one live sample a second.
    - **Pen scales (4 October 2026 completion):** a numeric pen may put `range = [min, max]`
@@ -1338,8 +1349,9 @@ declaration's real values.
    - **Source:** the run target the extension has selected, the simulator or a runtime, reached
      through its control endpoint: the simulator or runtime whose debug session the extension
      holds, launched or attached, or the configured online runtime while it answers without one.
-     Without a control endpoint there is none. It is named by its session's target name, else
-     `Simulator` for the simulator and its endpoint for a runtime. The language server decides it
+     Without a control endpoint there is none. It has the name the status bar gives it
+     (specification 25 §6.9), and the simulator without a name the extension gave it is
+     `Simulator`. The language server decides it
      (`trust-lsp.runTargets`, action `hmiTarget`, specification 25 §6.9), and Deploy (§16.2
      item 8) sends to the same target. Live mode reads the page's bound paths with the control
      request `hmi.read` (`{ "paths": […] }`, Viewer role, at most 1 000 paths) every 250 ms; the
@@ -1364,7 +1376,12 @@ declaration's real values.
      the selected target. Target changes invalidate the session before another command can go
      out. An in-flight response from an ended connection cannot restore its cookie.
      Operating uses the deployed bundle, with its normal confirmations. The project must be
-     saved and match that bundle before opening the operating view. A simulator or target with
+     saved and match that bundle before opening the operating view. The language server decides
+     it (`trust-lsp.hmiLiveGate`, 2 November 2026), in this order: the HMI is saved, its bundle
+     passes the editor check (`trust-lsp.hmiBundle`), and the run target has an HMI web server;
+     then that web server serves the page from the active bundle that the first 16 characters of
+     the project bundle's version name, and the HMI is still saved when it answers. The first
+     unmet condition is the reason Live mode stays read-only. A simulator or target with
      no HMI web endpoint remains read-only with an explanation that names the target: the
      simulator has no HMI web server, and the page is operated, with its alarms, on a runtime
      selected or connected in Devices & Connections; a runtime without one needs `[runtime.web]`
@@ -1594,7 +1611,8 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      permissive) and `interlock-reason` (its text). The binding checks check them like every
      other binding.
 5. **Commands:** `POST /api/hmi/command` with
-   `{ "id", "bundle", "page", "object", "action", "value" }`.
+   `{ "id", "bundle", "page", "object", "action", "value"?, "shown"? }`, `shown` being the value
+   the control shows (§5.8); a sender that leaves it out is not checked against it.
    - The runtime finds the target from the active page file, never from the request.
    - It decides refused, applied (with the value read back) or timed out at the program's next
      call of `Hmi.Display` (§18 phase 5) and answers with that outcome; a command the program has
@@ -1603,8 +1621,9 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      value stream as `{ "command": { "id", "outcome", "readback"?, "reason"?, "error_code"? } }`.
    - A command id is remembered for ten minutes; a repeated id gets the first answer without a
      second write.
-   - `action` is `write` with a `value` (setpoint entry, numeric input, slider, switch), the
-     button's `action` (`set`, `reset` or `toggle`), or `pulse` (pulse button).
+   - `action` is `write` with a `value` (setpoint entry, numeric input, slider, switch), `toggle`
+     with the `shown` value for a switch, the button's `action` (`set`, `reset` or `toggle`), or
+     `pulse` (pulse button).
    - The target is the control's writing binding. A command needs a session, a permission that
      covers it (§12.2), a value within the limits that fits the target's type, and a permissive
      `interlock`. Otherwise it is refused with the reason. A target whose type is an alias of an
@@ -2101,7 +2120,12 @@ the binding list and the page permissions. Its version is the hash of its conten
    the runtime's administrator access (its control token). Problems stop it and are listed. The
    simulator has no web server, so Deploy says to use Live mode or start a runtime. Deploy saves
    the project's unsaved HMI files first, since the bundle is built from the saved files. After a
-   deployment the editor offers Roll back (`POST /api/hmi/rollback`).
+   deployment the editor offers Roll back (`POST /api/hmi/rollback`). The language server carries
+   out both (`trust-lsp.hmiDeploy`, 1 November 2026): it builds and checks the bundle for Deploy,
+   asks the runtime for its topology, sends the request and reads the runtime's answer. It follows
+   no redirect, so the token reaches only the runtime's web server, as in Live mode (§11). The
+   editor saves the files, passes the selected run target with its control token, and shows the
+   outcome.
 
 ### 16.3 Program changes
 

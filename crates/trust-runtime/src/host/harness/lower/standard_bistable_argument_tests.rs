@@ -1,12 +1,18 @@
-use crate::harness::{lower_application, SourceFile};
+use crate::harness::build::lower_application_with;
+use crate::harness::SourceFile;
 use crate::program_model::{Expr, Stmt};
+use crate::stdlib::conversions::ConversionProfile;
 
 /// Compiles `source` and returns the argument names of the call that is the first statement of
 /// `Main`. An unnamed argument is reported as `<positional>`.
 fn call_argument_names(source: &str) -> Vec<String> {
-    let (runtime, _) = lower_application(&[SourceFile::new(source)], false)
-        .and_then(|lowered| lowered.construct(&[]))
-        .unwrap_or_else(|error| panic!("bistable fixture must compile: {error}"));
+    let (runtime, _) = lower_application_with(
+        &[SourceFile::new(source)],
+        false,
+        ConversionProfile::Codesys,
+    )
+    .and_then(|lowered| lowered.construct(&[]))
+    .unwrap_or_else(|error| panic!("bistable fixture must compile: {error}"));
     let program = runtime.programs().values().next().expect("Main program");
     let Stmt::Expr {
         expr: Expr::Call { args, .. },
@@ -56,6 +62,41 @@ END_PROGRAM
 "#,
     );
     assert_eq!(names, ["S", "R1", "Q1"]);
+}
+
+#[test]
+fn empty_named_arguments_drop_from_the_lowered_call() {
+    // IEC_DEVIATIONS DEV-041: an empty right-hand side on a named binding
+    // omits the argument — `RESET := ` leaves the input unbound and an
+    // untargeted `Q1 =>` drops the output connection (the s4 project
+    // writes TOF calls exactly this way).
+    let dropped = call_argument_names(
+        r#"
+PROGRAM Main
+VAR
+    latch : SR;
+    set_sig : BOOL;
+    q_out : BOOL;
+END_VAR
+latch(SET1 := set_sig, RESET := , Q1 => );
+END_PROGRAM
+"#,
+    );
+    assert_eq!(dropped, ["S1"]);
+
+    let mixed = call_argument_names(
+        r#"
+PROGRAM Main
+VAR
+    latch : SR;
+    set_sig : BOOL;
+    q_out : BOOL;
+END_VAR
+latch(SET1 := set_sig, RESET := , Q1 => q_out);
+END_PROGRAM
+"#,
+    );
+    assert_eq!(mixed, ["S1", "Q1"]);
 }
 
 #[test]

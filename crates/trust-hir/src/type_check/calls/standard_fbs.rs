@@ -57,10 +57,13 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         node: &SyntaxNode,
         aliases: &[(&str, &str)],
     ) {
-        let bound = self
-            .checker
-            .calls()
-            .bind_call_arguments_with_aliases(params, node, aliases);
+        let outputs_positional = !self.checker.symbols.dialect().is_codesys();
+        let bound = self.checker.calls().bind_call_arguments_with_aliases(
+            params,
+            node,
+            aliases,
+            outputs_positional,
+        );
         self.checker
             .calls()
             .check_bound_call_argument_types(params, &bound);
@@ -84,7 +87,11 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             param("ET", TypeId::TIME, ParamDirection::Out),
         ];
 
-        let (_bound, typed) = self.checker.calls().collect_builtin_args(&params, node);
+        let outputs_positional = !self.checker.symbols.dialect().is_codesys();
+        let (_bound, typed) =
+            self.checker
+                .calls()
+                .collect_builtin_args(&params, node, outputs_positional);
 
         let pt_type = self.timer_value_type(typed.get(1).and_then(|arg| arg.as_ref()), "PT");
         let et_type = self.timer_value_type(typed.get(3).and_then(|arg| arg.as_ref()), "ET");

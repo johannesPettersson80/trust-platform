@@ -5,7 +5,7 @@ use super::literals::{
 };
 use super::*;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
-use crate::types::is_accuracy_preserving_implicit_conversion;
+use crate::types::{is_accuracy_preserving_implicit_conversion, ArrayDimensionExt};
 
 impl<'a> TypeChecker<'a> {
     // ========== Helper Methods ==========
@@ -165,6 +165,15 @@ impl<'a> TypeChecker<'a> {
             return;
         }
 
+        // A fixed-size array bound to an `ARRAY[*]` parameter (either arm of the
+        // binding pair) is a view binding: the parameter aliases the argument's
+        // storage for the call and no element conversion takes place. Compatibility
+        // owns bound agreement (its wildcard arms); only the fidelity warning here
+        // must stay quiet.
+        if self.is_varying_array_binding(target, source) {
+            return;
+        }
+
         self.diagnostics.warning(
             DiagnosticCode::ImplicitConversion,
             range,
@@ -213,6 +222,33 @@ impl<'a> TypeChecker<'a> {
         };
         source_name == target_name
             || self.struct_inherits_from(source_name.as_str(), target_name.as_str())
+    }
+
+    /// True when both sides are arrays of the same element type and at least one side
+    /// is bound-agnostic (`ARRAY[*]`): binding a concrete array to a varying-length
+    /// parameter passes storage, it does not convert it.
+    fn is_varying_array_binding(&self, target: TypeId, source: TypeId) -> bool {
+        let (
+            Some(Type::Array {
+                element: target_element,
+                dimensions: target_dimensions,
+            }),
+            Some(Type::Array {
+                element: source_element,
+                dimensions: source_dimensions,
+            }),
+        ) = (
+            self.symbols.type_by_id(target),
+            self.symbols.type_by_id(source),
+        )
+        else {
+            return false;
+        };
+        if target_element != source_element {
+            return false;
+        }
+        let varying = |dimensions: &[(i64, i64)]| dimensions.iter().any(|d| d.is_wildcard());
+        varying(target_dimensions.as_slice()) || varying(source_dimensions.as_slice())
     }
 
     fn is_string_family_implicit_ok(&self, target: TypeId, source: TypeId) -> bool {

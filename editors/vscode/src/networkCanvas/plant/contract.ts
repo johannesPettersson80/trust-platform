@@ -47,6 +47,15 @@ const EDIT_FIELDS = new Set([
 
 const SIGNALS_FIELDS = new Set(["contract", "schema_version", "operation", "project_id", "signals"]);
 
+const TOPOLOGY_FIELDS = new Set([
+  "contract",
+  "schema_version",
+  "operation",
+  "project_id",
+  "configuration_revision",
+  "plants",
+]);
+
 const READ_FIELDS = new Set([
   "contract",
   "schema_version",
@@ -499,6 +508,15 @@ export function decodePlantContractResponse(
   }
   if (message.operation === "plant.signals") {
     return hasOnlyFields(message, SIGNALS_FIELDS) && record(message.signals)
+      ? { kind: "accepted", message: message as unknown as PlantContractMessage }
+      : { kind: "status_unavailable", reason: "malformed_payload" };
+  }
+  // The canvas's plants (specification 47 §20.6) are rendered as Rust projects them.
+  if (message.operation === "plant.topology") {
+    return hasOnlyFields(message, TOPOLOGY_FIELDS) &&
+      revision(message.configuration_revision) &&
+      Array.isArray(message.plants) &&
+      message.plants.every((plant) => record(plant) !== undefined)
       ? { kind: "accepted", message: message as unknown as PlantContractMessage }
       : { kind: "status_unavailable", reason: "malformed_payload" };
   }
