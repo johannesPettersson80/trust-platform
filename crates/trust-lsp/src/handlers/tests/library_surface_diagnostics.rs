@@ -177,6 +177,14 @@ fn config_diagnostics(
     )
 }
 
+/// Whether `diagnostic` is a library or resolver code (`L...`) or an error, neither of which a
+/// valid library layout puts on its configuration.
+fn is_library_code_or_error(diagnostic: &tower_lsp::lsp_types::Diagnostic) -> bool {
+    let library_code =
+        matches!(&diagnostic.code, Some(NumberOrString::String(code)) if code.starts_with('L'));
+    library_code || diagnostic.severity == Some(DiagnosticSeverity::ERROR)
+}
+
 /// `include_paths = ["src"]` with a `[[libraries]]` folder `libs/vendor` beside it: no own
 /// folder holds the library's file, so it is library surface, and `src/main.st` is the
 /// project's own. Catches an exemption that never reaches the editor's diagnostics, and one that
@@ -266,8 +274,8 @@ async fn a_resolved_dependency_package_is_library_surface() {
 
 /// `[[libraries]] path = "."` names the project folder itself, as deep as the project's own
 /// folder, which wins: every file keeps its warnings, and the entry is valid configuration with
-/// no library code and no error. Catches the former refusal with an `L008` error, and a rule
-/// where a library entry at the root silences the whole project.
+/// no library code and no error. Catches a refusal of the entry with a configuration error,
+/// and a rule where a library entry at the root silences the whole project.
 #[tokio::test]
 async fn a_library_folder_that_is_the_project_root_exempts_nothing() {
     let config = "[[libraries]]\nname = \"Whole\"\npath = \".\"\n";
@@ -286,10 +294,7 @@ async fn a_library_folder_that_is_the_project_root_exempts_nothing() {
     assert_warned(&state, "vendor.st");
     let diagnostics = config_diagnostics(&state, &base, config);
     assert!(
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic.severity != Some(DiagnosticSeverity::ERROR)
-                && !matches!(&diagnostic.code, Some(NumberOrString::String(code)) if code.starts_with('L'))
-        }),
+        !diagnostics.iter().any(is_library_code_or_error),
         "the configuration must carry no library code and no error: {diagnostics:?}"
     );
     std::fs::remove_dir_all(base).ok();
@@ -424,8 +429,8 @@ severity_overrides = { W004 = "error" }
 /// `Plant = { path = "../.." }`, a library folder that holds the example. The library's
 /// `src/tank.st` lies outside the workspace folder and only in the library folder, so it is
 /// library surface; the example's `src/main.st` is held more deeply by its own folder and keeps
-/// its warnings; the configuration carries no library code and no error. Catches the former
-/// `L008` error on this valid layout and its lost exemption for the library's sources, and a
+/// its warnings; the configuration carries no library code and no error. Catches a
+/// configuration error on this valid layout with the library's sources left unexempted, and a
 /// rule where any holding library folder wins, which silenced the example.
 #[tokio::test]
 async fn a_library_folder_that_holds_the_project_exempts_only_the_library_files() {
@@ -446,10 +451,7 @@ async fn a_library_folder_that_holds_the_project_exempts_only_the_library_files(
     assert_warned(&state, "main.st");
     let diagnostics = config_diagnostics(&state, &base.join("plant/examples/x"), config);
     assert!(
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic.severity != Some(DiagnosticSeverity::ERROR)
-                && !matches!(&diagnostic.code, Some(NumberOrString::String(code)) if code.starts_with('L'))
-        }),
+        !diagnostics.iter().any(is_library_code_or_error),
         "the configuration must carry no library code and no error: {diagnostics:?}"
     );
     std::fs::remove_dir_all(base).ok();

@@ -86,9 +86,9 @@ fn an_own_folder_wins_over_an_equally_deep_library_folder() {
 /// The Plant examples' layout, `Plant = { path = "../.." }` with `include_paths = ["src"]`: the
 /// library folder `/w/plant` (three components) holds the example, whose own folder
 /// `/w/plant/examples/x/src` (six components) is deeper. The library's sources and its other
-/// examples are library surface, the example's own files are not. Catches the refused entry of
-/// the former `L008`, which exempted nothing, and a rule where any library folder that holds a
-/// file wins, which silenced the example.
+/// examples are library surface, the example's own files are not. Catches a refused library
+/// entry that exempts nothing, and a rule where any library folder that holds a file wins, which
+/// silenced the example.
 #[test]
 fn a_library_folder_that_holds_the_project_exempts_only_the_library_files() {
     let example = folders(&["/w/plant/examples/x/src"], &["/w/plant"]);
@@ -191,8 +191,8 @@ fn library_surface_matches_canonicalized_dependency_paths() {
 
 /// `[[libraries]] path = "."` is the project folder and `".."` holds it; neither exempts any
 /// file of the project, which is deeper in its own folder, while a file beside the project in
-/// the parent folder is the parent library's. Catches the former refusal (`L008`), which
-/// exempted nothing at all, and a rule where any holding library folder wins.
+/// the parent folder is the parent library's. Catches a refused entry that exempts nothing at
+/// all, and a rule where any holding library folder wins.
 #[test]
 fn a_library_at_or_above_the_project_folder_exempts_none_of_its_files() {
     let temp = TempFolder::new("library-above");
