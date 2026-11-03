@@ -308,7 +308,12 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   changelog: `scripts/bump_version.py` gathers the fragments into the
   version's section, the newest first; it merges like any other, and the
   release follows `main`'s CI (specification 24, "Release after main CI"),
-  publishing the packages built and tested for that commit;
+  publishing the packages built and tested for that commit. Such a pull
+  request changes no behavior of its own, and both bug-fix checks judge it
+  so: when the workspace version moves and every changed file is one the bump
+  changes, the direct-change contract needs no companion and the
+  regression-test-first check asks for no test, although its description names
+  the fixes it releases;
 - release blockers are regressions and severe bugs (safety, data loss, a
   broken user journey); any other finding goes on the checklist for the next
   release.
