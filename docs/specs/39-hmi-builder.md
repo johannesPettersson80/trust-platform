@@ -1376,7 +1376,12 @@ declaration's real values.
      the selected target. Target changes invalidate the session before another command can go
      out. An in-flight response from an ended connection cannot restore its cookie.
      Operating uses the deployed bundle, with its normal confirmations. The project must be
-     saved and match that bundle before opening the operating view. A simulator or target with
+     saved and match that bundle before opening the operating view. The language server decides
+     it (`trust-lsp.hmiLiveGate`, 2 November 2026), in this order: the HMI is saved, its bundle
+     passes the editor check (`trust-lsp.hmiBundle`), and the run target has an HMI web server;
+     then that web server serves the page from the active bundle that the first 16 characters of
+     the project bundle's version name, and the HMI is still saved when it answers. The first
+     unmet condition is the reason Live mode stays read-only. A simulator or target with
      no HMI web endpoint remains read-only with an explanation that names the target: the
      simulator has no HMI web server, and the page is operated, with its alarms, on a runtime
      selected or connected in Devices & Connections; a runtime without one needs `[runtime.web]`

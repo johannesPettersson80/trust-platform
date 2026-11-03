@@ -2,6 +2,23 @@
 import type { SocketLike } from "../display/runtimeDisplay";
 import type { HostToWebview, WebviewToHost } from "./messages";
 import { LiveSession, LiveSessionDeps } from "./liveSession";
+/** What Live mode's operating gate decides from (`trust-lsp.hmiLiveGate`, §11 item 6). */
+export interface LiveGateFacts {
+  dirty: boolean;
+  bundle: { ok?: boolean; version?: string };
+  webServer: boolean;
+  runTarget?: { label: string; simulator: boolean };
+  page: string;
+  /** The web server's answer to the page read, once the gate asked for it. */
+  served?: { status: number; body: unknown };
+}
+
+/** The gate's verdict: read the page, operate the deployed bundle, or stay read-only and say why. */
+export type LiveGateVerdict =
+  | { kind: "read_page" }
+  | { kind: "operate"; bundle: string }
+  | { kind: "read_only"; reason: string };
+
 export interface LiveOperatorDeps {
   session: LiveSessionDeps;
   /** The selected run target, also when it has no HMI web server: the read-only explanation names
@@ -9,20 +26,14 @@ export interface LiveOperatorDeps {
   runTarget(): Promise<{ label: string; simulator: boolean } | undefined>;
   dirty(): boolean;
   bundle(): Promise<{ ok?: boolean; version?: string }>;
+  /** Whether the operating view opens, as the language server decides it (§11 item 6). */
+  liveGate(facts: LiveGateFacts): Promise<LiveGateVerdict>;
 }
 interface Connection {
   id: string;
   bundle?: string;
   session: LiveSession;
   sockets: Map<number, SocketLike>;
-}
-
-/** Why Live mode stays read-only on a run target without an HMI web server, naming it (§11, item 6). */
-function withoutWebServer(target: { label: string; simulator: boolean } | undefined): string {
-  if (target?.simulator)
-    return "The simulator has no HMI web server. Operate the page, with its alarms, on a runtime: select or connect one in Devices & Connections.";
-  if (target) return `${target.label} has no HMI web server. Enable [runtime.web] in its runtime.toml.`;
-  return "The selected target has no HMI web server. Start a runtime with [runtime.web] enabled.";
 }
 
 export class LiveOperator {
@@ -111,39 +122,42 @@ export class LiveOperator {
       this.stop();
     };
     try {
-      if (this.deps.dirty()) {
-        refuse("Save the HMI before operating its deployed version.");
-        return;
-      }
+      // The language server decides whether the operating view opens (§11 item 6): once from the
+      // saved state, the bundle and the run target, and once more from the page the web server
+      // serves. The editor gathers those and reads the page.
       const bundle = await this.deps.bundle();
       if (this.current !== current) return;
-      if (!bundle.ok || !bundle.version) {
-        refuse("Check and deploy the HMI before operating it.");
-        return;
-      }
       const target = await this.deps.session.target();
       if (this.current !== current) return;
-      if (!target) {
-        refuse(withoutWebServer(await this.deps.runTarget()));
+      const selected = target ? undefined : await this.deps.runTarget();
+      if (this.current !== current) return;
+      const facts = {
+        bundle: { ok: bundle.ok, version: bundle.version },
+        webServer: target !== undefined,
+        runTarget: selected && { label: selected.label, simulator: selected.simulator },
+        page,
+      };
+      const before = await this.deps.liveGate({ ...facts, dirty: this.deps.dirty() });
+      if (this.current !== current) return;
+      if (before.kind === "read_only") {
+        refuse(before.reason);
         return;
       }
+      if (!target) throw new Error("trust-lsp.hmiLiveGate opened Live mode without an HMI web server");
       const answer = await current.session.request("GET", `/api/hmi/page?name=${encodeURIComponent(page)}`);
       if (this.current !== current) return;
-      const data = answer.body as { bundle?: string; page?: { name: string } } | null;
-      if (
-        answer.status !== 200 ||
-        !data?.page ||
-        data.page.name !== page ||
-        data.bundle !== bundle.version.slice(0, 16)
-      ) {
-        refuse("Deploy this saved HMI to the selected runtime before operating it.");
+      const after = await this.deps.liveGate({
+        ...facts,
+        dirty: this.deps.dirty(),
+        served: { status: answer.status, body: answer.body },
+      });
+      if (this.current !== current) return;
+      if (after.kind === "read_only") {
+        refuse(after.reason);
         return;
       }
-      if (this.deps.dirty()) {
-        refuse("The HMI changed. Save and deploy it before operating again.");
-        return;
-      }
-      current.bundle = data.bundle;
+      if (after.kind !== "operate") throw new Error("trust-lsp.hmiLiveGate gave no verdict on the page");
+      current.bundle = after.bundle;
       this.post({ type: "operateReady", id, target: target.label });
     } catch {
       refuse("The runtime cannot be reached. Check its connection and HMI web server.");

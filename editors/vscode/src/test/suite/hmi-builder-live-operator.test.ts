@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import { LiveOperator } from "../../hmiBuilder/editor/liveOperator";
+import { liveGate } from "../../hmiBuilder/editor/liveOperatorRuntime";
 import type { HostToWebview } from "../../hmiBuilder/editor/messages";
 
 suite("HMI Builder: deployed Live connection", () => {
@@ -11,6 +12,7 @@ suite("HMI Builder: deployed Live connection", () => {
         dirty: () => false,
         bundle: async () => ({ ok: true, version: "0123456789abcdef".repeat(4) }),
         runTarget: async () => ({ label: "Cell runtime", simulator: false }),
+        liveGate,
         session: {
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
           request: async (_target, _method, path) => {
@@ -39,6 +41,7 @@ suite("HMI Builder: deployed Live connection", () => {
           dirty: () => dirty,
           bundle: async () => ({ ok: true, version: "local" }),
           runTarget: async () => ({ label: "Cell runtime", simulator: false }),
+          liveGate,
           session: {
             target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
             request: async () => {
@@ -67,6 +70,7 @@ suite("HMI Builder: deployed Live connection", () => {
           dirty: () => false,
           bundle: async () => ({ ok: true, version: "v1" }),
           runTarget: async () => selected,
+          liveGate,
           session: {
             target: async () => undefined,
             request: async () => assert.fail("a target without an HMI web server is never asked for the page"),
@@ -97,6 +101,7 @@ suite("HMI Builder: deployed Live connection", () => {
         dirty: () => false,
         bundle: async () => ({ ok: true, version: "v1" }),
         runTarget: async () => ({ label: "Cell", simulator: false }),
+        liveGate,
         session: {
           target: async () => ({ endpoint, url: "http://plc:8080", label: "Cell" }),
           request: async () => {
@@ -125,6 +130,7 @@ suite("HMI Builder: deployed Live connection", () => {
         dirty: () => false,
         bundle: async () => ({ ok: true, version: "v1" }),
         runTarget: async () => ({ label: "Cell", simulator: false }),
+        liveGate,
         session: {
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
           request: async () => ({ status: 200, body: { bundle: version, page: { name: "overview" } } }),
@@ -162,6 +168,7 @@ suite("HMI Builder: deployed Live connection", () => {
             resolve = done;
           }),
         runTarget: async () => ({ label: "Cell", simulator: false }),
+        liveGate,
         session: {
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
           request: async () => {
