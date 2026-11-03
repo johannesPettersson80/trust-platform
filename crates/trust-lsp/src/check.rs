@@ -504,37 +504,6 @@ mod tests {
         assert_eq!(err, "");
     }
 
-    // Issue #213: `check` reported only the source files, so a broken configuration passed CI
-    // while the editor showed its error. With a clean program the configuration's `L001` (a path
-    // dependency whose folder is missing) is the only error, so it alone fails the check.
-    // Catches the configuration file left out of the check (specification 14 §7.7).
-    #[tokio::test]
-    async fn a_broken_configuration_fails_the_check() {
-        let project = Project::new("config");
-        std::fs::write(
-            project.0.join("trust-lsp.toml"),
-            "[project]\ninclude_paths = [\"src\"]\n\n[dependencies]\nMissing = { path = \"missing\" }\n",
-        )
-        .expect("config");
-        std::fs::write(
-            project.0.join("src/Main.st"),
-            "PROGRAM Main\nVAR p : Point; END_VAR\np.x := 1;\nEND_PROGRAM\n",
-        )
-        .expect("main");
-        let (status, out, _) = check_output(&["--project", project.root()]).await;
-        assert_eq!(status, 1, "{out}");
-        assert!(
-            out.lines()
-                .any(|line| line.starts_with("trust-lsp.toml:") && line.contains(": error[L001]: ")),
-            "{out}"
-        );
-        // `--file` reports the named source file only, as specification 14 §7.7 says.
-        let (status, out, _) =
-            check_output(&["--project", project.root(), "--file", "src/Main.st"]).await;
-        assert_eq!(status, 0, "{out}");
-        assert!(!out.contains("trust-lsp.toml"), "{out}");
-    }
-
     #[tokio::test]
     async fn text_output_lists_each_diagnostic_and_a_summary() {
         let project = Project::new("text");

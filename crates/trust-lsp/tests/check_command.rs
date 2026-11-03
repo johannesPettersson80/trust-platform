@@ -113,3 +113,43 @@ fn check_rejects_a_file_outside_the_project() {
         "stderr: {stderr}"
     );
 }
+
+// Issue #213: `check` reported only the source files, so a broken configuration passed CI while the
+// editor showed its error (docs/specs/14-lsp.md §7.7). With a clean program, the configuration's
+// `L001`, a path dependency whose folder is missing, is the only error, so it alone fails the
+// check; `--file` narrows the report to the named source file and leaves it out. Catches the
+// configuration file left out of the check.
+#[test]
+fn check_reports_the_configuration_and_fails_on_its_error() {
+    let project = Project::new("config");
+    std::fs::write(
+        project.0.join("trust-lsp.toml"),
+        "[project]\ninclude_paths = [\"src\"]\n\n[dependencies]\nMissing = { path = \"missing\" }\n",
+    )
+    .expect("config");
+    std::fs::write(
+        project.0.join("src").join("Main.st"),
+        "PROGRAM Main\nVAR p : Point; END_VAR\np.x := 1;\nEND_PROGRAM\n",
+    )
+    .expect("main");
+    let output = check(&[std::ffi::OsStr::new("--project"), project.0.as_os_str()]);
+    let stdout = text(&output.stdout);
+    assert_eq!(output.status.code(), Some(1), "{stdout}");
+    assert!(
+        stdout
+            .lines()
+            .any(|line| line.starts_with("trust-lsp.toml:") && line.contains(": error[L001]: ")),
+        "{stdout}"
+    );
+
+    let main = Path::new("src").join("Main.st");
+    let output = check(&[
+        std::ffi::OsStr::new("--project"),
+        project.0.as_os_str(),
+        std::ffi::OsStr::new("--file"),
+        main.as_os_str(),
+    ]);
+    let stdout = text(&output.stdout);
+    assert_eq!(output.status.code(), Some(0), "{stdout}");
+    assert!(!stdout.contains("trust-lsp.toml"), "{stdout}");
+}
