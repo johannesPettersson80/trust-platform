@@ -1098,11 +1098,14 @@ truST tooling behavior and do not alter IEC 61131-3 language semantics.
 runs without an LSP client. It loads `DIR` as a workspace folder exactly as
 `initialize`/`initialized` do (`ProjectConfig::load`, `index_workspace`) and reports, per
 indexed file, the result of the same `collect_diagnostics_with_ticket` path that answers
-`textDocument/diagnostic`, so CI output and editor diagnostics agree. Text output is
+`textDocument/diagnostic`, and for the project's configuration file (`trust-lsp.toml`) the
+diagnostics the editor shows for it (`L001`–`L007` and the configuration warnings), so CI
+output and editor diagnostics agree; a broken library or dependency configuration fails the
+check. `--file` narrows the report to the named source files. Text output is
 `path:line:column: severity[code]: message` (one-based; columns in UTF-16 code units as in
 LSP), sorted by path and position, with a summary on stderr. `path` is relative to `DIR`
 and written as the platform writes paths (`src\Main.st` on Windows). JSON output is one
-object: `version`, `project`, `files`, `errors`, `warnings`, `diagnostics[]` (`path`,
+object: `version`, `project`, `files` (the source files checked), `errors`, `warnings`, `diagnostics[]` (`path`,
 `line`, `column`, `endLine`, `endColumn`, `severity`, `code`, `message`). A `--file` that
 is not one of the project's indexed source files, or a project without source files, is a
 usage error: nothing is checked and the command names the file or directory. Exit status

@@ -245,7 +245,7 @@ async fn check(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Res
 
     let (client, _service) = silent_client();
     let state = ServerState::new();
-    state.set_workspace_folders(vec![root_uri]);
+    state.set_workspace_folders(vec![root_uri.clone()]);
     handlers::index_workspace(&client, &state).await;
     state.mark_index_first_pass_done();
 
@@ -297,6 +297,21 @@ async fn check(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Res
             None,
         );
         items.extend(diagnostics.iter().map(|d| to_item(&root, &doc.uri, d)));
+    }
+    // The project's configuration file, diagnosed as the editor diagnoses it, so that a broken
+    // library or dependency configuration fails the check as well (specification 14 §7.7).
+    // `--file` narrows the report to the named source files.
+    if only.is_empty()
+        && let Some(config_path) = state
+            .workspace_config_for_uri(&root_uri)
+            .and_then(|config| config.config_path)
+        && let (Ok(content), Ok(uri)) = (
+            std::fs::read_to_string(&config_path),
+            Url::from_file_path(&config_path),
+        )
+    {
+        let diagnostics = handlers::config_file_diagnostics(&state, &uri, &content);
+        items.extend(diagnostics.iter().map(|d| to_item(&root, &uri, d)));
     }
     items.sort_by(|a, b| {
         (&a.path, a.line, a.column, a.severity, &a.code, &a.message)

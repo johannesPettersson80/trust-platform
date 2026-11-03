@@ -350,13 +350,7 @@ pub(crate) fn collect_diagnostics_with_ticket(
     }
 
     if is_config_uri(uri) {
-        let diagnostics = collect_config_diagnostics(state, uri, content, None);
-        let mut diagnostics = diagnostics;
-        let config = state.workspace_config_for_uri(uri);
-        apply_diagnostic_filters(config.as_ref(), false, &mut diagnostics);
-        apply_diagnostic_overrides(config.as_ref(), &mut diagnostics);
-        attach_explainers(state, uri, content, None, &mut diagnostics);
-        return diagnostics;
+        return config_file_diagnostics(state, uri, content);
     }
 
     // HMI Builder page files are TOML, not Structured Text (specification 39, §15).
@@ -487,6 +481,22 @@ fn looks_like_identifier_candidate(text: &str) -> bool {
     };
     (first == '_' || first.is_alphabetic())
         && chars.all(|character| character == '_' || character.is_alphanumeric())
+}
+
+/// The diagnostics of a configuration file (`trust-lsp.toml`), as the editor shows them and
+/// `trust-lsp check` reports them (specification 14 §7.7): the configuration's issues, filtered,
+/// overridden and explained like every other diagnostic.
+pub(crate) fn config_file_diagnostics(
+    state: &ServerState,
+    uri: &Url,
+    content: &str,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = collect_config_diagnostics(state, uri, content, None);
+    let config = state.workspace_config_for_uri(uri);
+    apply_diagnostic_filters(config.as_ref(), false, &mut diagnostics);
+    apply_diagnostic_overrides(config.as_ref(), &mut diagnostics);
+    attach_explainers(state, uri, content, None, &mut diagnostics);
+    diagnostics
 }
 
 #[cfg(test)]
