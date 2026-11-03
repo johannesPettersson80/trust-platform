@@ -38,6 +38,17 @@ export async function classifyRuntimeStartFailure(error: unknown): Promise<Netwo
   return answer.ok ? answer.failure : { kind: "failed_spawn", message: detail || answer.error, detail };
 }
 
+/** The failure of a simulator Start whose debug session ended while the extension watched it settle: the language
+ * server names its kind and message (`trust-lsp.runTargets`, action `failure`, `sessionEnded: true`, specification 25
+ * §5.10). */
+export async function classifyStartSessionEnded(): Promise<NetworkCanvasRuntimeFailure> {
+  const answer = await projectRequest<{ failure: NetworkCanvasRuntimeFailure }>("trust-lsp.runTargets", {
+    action: "failure",
+    sessionEnded: true,
+  });
+  return answer.ok ? answer.failure : { kind: "failed_spawn", message: answer.error };
+}
+
 /** The kind of a failed I/O state request of Live Values, with the message the extension shows: the language server
  * reads the failure's text (`trust-lsp.runTargets`, action `failure`, `request: "ioState"`, specification 25 §4.4).
  * Without `error`, there was no session to ask. */

@@ -497,9 +497,12 @@ suite("truST sidebar — control surface contract", () => {
     );
     assert.ok(
       startLocal.includes("waitForSessionStillPresent") &&
-        startLocal.includes("Simulator stopped during startup") &&
-        startLocal.includes("runtime port or target settings"),
+        startLocal.includes("await classifyStartSessionEnded()"),
       "a debug session that immediately terminates must not be reported as a successful Start"
+    );
+    assert.ok(
+      !source.includes("Simulator stopped during startup"),
+      "the language server names the failure of a session that ends during Start (specification 25 §5.10)"
     );
     assert.ok(
       startLocal.includes("waitForStructuredTextSessionOrCommand(") &&

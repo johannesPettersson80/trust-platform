@@ -18,6 +18,8 @@
 //! - `failure` `{ request: "ioState", detail? }`: the kind of a failed I/O state request of Live
 //!   Values (§4.4), `detail` its text, none when there is no session to ask: no session, a lost
 //!   connection, else a failed request.
+//! - `failure` `{ sessionEnded: true }`: a simulator Start whose debug session ended while the
+//!   extension watched it settle, a failed start (§5.10).
 
 use std::time::Duration;
 
@@ -46,6 +48,9 @@ const NO_SESSION: &str = "No active Structured Text debug session.";
 /// What Live Values says when the connection under its I/O state request failed.
 const CONNECTION_LOST: &str =
     "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.";
+/// What a simulator Start says when its debug session ends while it settles.
+const SIMULATOR_STOPPED: &str =
+    "Simulator stopped during startup. Check the runtime port or target settings.";
 /// The words of a connection that failed under an I/O state request, in lower case.
 const TRANSPORT_WORDS: [&str; 14] = [
     "cancelled",
@@ -78,17 +83,29 @@ struct ConnectArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FailureArgs {
     #[serde(default)]
     detail: Option<String>,
     #[serde(default)]
     request: Option<String>,
+    #[serde(default)]
+    session_ended: bool,
 }
 
 /// The answer of the action `action`.
 pub(super) fn answer(action: &str, argument: Value) -> Result<Value, String> {
     if action == "failure" {
         let args: FailureArgs = decode(argument)?;
+        if args.session_ended {
+            if let Some(request) = args.request {
+                return Err(format!(
+                    "A session that ended is a start's failure, not one of the request {request}."
+                ));
+            }
+            let failure = failure_json("failed_spawn", SIMULATOR_STOPPED, None, None);
+            return Ok(json!({ "ok": true, "failure": failure }));
+        }
         let failure = match args.request.as_deref() {
             None => classify(args.detail.as_deref().unwrap_or_default()),
             Some(IO_STATE) => io_state_failure(args.detail.as_deref()),

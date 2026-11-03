@@ -366,3 +366,36 @@ fn an_io_state_request_that_failed_otherwise() {
         Err("A failure is read for a start or for the request ioState, not stIoWrite.".to_owned())
     );
 }
+
+// Catches a simulator Start whose debug session ended while it settled told as another failure,
+// or its words kept in the extension (specification 25 §5.10).
+#[test]
+fn a_simulator_start_whose_session_ended() {
+    assert_eq!(
+        answer("failure", json!({ "sessionEnded": true })),
+        Ok(json!({
+            "ok": true,
+            "failure": {
+                "kind": "failed_spawn",
+                "message": "Simulator stopped during startup. Check the runtime port or target settings."
+            }
+        }))
+    );
+    // Without it, a start's failure is read from its text, as before.
+    assert_eq!(
+        answer("failure", json!({ "sessionEnded": false })),
+        Ok(json!({
+            "ok": true,
+            "failure": { "kind": "failed_spawn", "message": "Runtime failed to start.", "detail": "" }
+        }))
+    );
+    assert_eq!(
+        answer(
+            "failure",
+            json!({ "sessionEnded": true, "request": "ioState" })
+        ),
+        Err(
+            "A session that ended is a start's failure, not one of the request ioState.".to_owned()
+        )
+    );
+}
