@@ -1017,3 +1017,40 @@ re-check them against this rule when touched.
   - The runtime treats an admitted `VOID` function like the other no-result
     POU forms — no return slot is allocated — so the departure changes no
     compiled-program behavior beyond accepting the declaration.
+
+## 2026-11-03 - CODESYS language profile: function block positional association excludes output formals
+
+- ID: DEV-044
+- Area: the association of positional actuals in a function block invocation
+  under the CODESYS language profile (`vendor_profile` `codesys`, `beckhoff`
+  or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.3.4 (Table 42)
+  associates the actual parameters of a function block invocation with the
+  formal parameters in their declaration order, inputs, outputs and in-outs
+  alike, so a complete positional call provides one actual for every formal
+  parameter.
+- truST behavior and conflict:
+  - The default language rules keep that association: a function block call
+    that is positional in whole or in prefix fills the formals in declaration
+    order, an output formal included, and a positional call that provides
+    fewer actuals than there are formals is rejected (`E204`).
+  - Under the CODESYS profile the invocation binds positionally to the input
+    and in-out formals only, in declaration order, base-first through the
+    EXTENDS chain, as the vendor toolchain does. An output formal binds only
+    by name with `=>` and otherwise keeps its default or stored value;
+    positional actuals beyond the input and in-out formals are rejected
+    (`E204`). Functions and methods keep the full positional association.
+  - Admitting the rule departs from the requirement that a positional actual
+    associates with every formal parameter in declaration order, an output
+    formal included.
+- Impact:
+  - A CODESYS-profile project compiles the vendor calls that pass the block's
+    inputs positionally and leave the outputs unconnected (`fb(1, 2)` on a
+    block with an output formal); the same source fails on the default rules
+    and on a strictly conforming IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is `codesys`,
+    `beckhoff` or `twincat` (specification 14); the default rules are
+    unchanged and both associations are pinned by native tests.
+  - The analyzer and the compiled-program generator bind with the same rule,
+    so the compiled program stores what the analyzer accepted.

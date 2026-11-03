@@ -471,3 +471,80 @@ END_PROGRAM
         DiagnosticCode::InvalidArgumentType,
     );
 }
+
+const FUNCTION_BLOCK_INTERFACE: &str = r#"
+FUNCTION_BLOCK Regulator
+VAR_INPUT
+    setpoint : DINT;
+    measure : DINT;
+END_VAR
+VAR_OUTPUT
+    diff : DINT;
+END_VAR
+diff := setpoint - measure;
+END_FUNCTION_BLOCK
+"#;
+
+fn rejected_fb(body: &str, dialect: Dialect, code: DiagnosticCode) {
+    check_has_error_in(
+        dialect,
+        &format!(
+            "{FUNCTION_BLOCK_INTERFACE}\nPROGRAM Main\nVAR\nregulator : Regulator; seen : DINT;\nEND_VAR\n{body}\nEND_PROGRAM"
+        ),
+        code,
+    );
+}
+
+#[test]
+fn call_binding_contract_rejects_short_positional_function_block_call_under_iec() {
+    // IEC 61131-3 Ed.3 §6.6.3.4 (Table 42): a positional actual associates with the formal
+    // parameters in declaration order, outputs included, so a complete positional call of the
+    // block needs one actual for the output too.
+    rejected_fb(
+        "regulator(1, 2);",
+        Dialect::Iec,
+        DiagnosticCode::WrongArgumentCount,
+    );
+}
+
+#[test]
+fn call_binding_contract_rejects_positional_actual_at_an_output_under_codesys() {
+    // CODESYS parity (IEC_DEVIATIONS.md DEV-044): the output formal is outside positional
+    // association, so a third positional actual has no parameter left to fill.
+    rejected_fb(
+        "regulator(1, 2, 3);",
+        Dialect::Codesys,
+        DiagnosticCode::WrongArgumentCount,
+    );
+}
+
+#[test]
+fn call_binding_contract_rejects_short_positional_call_of_inherited_block_under_iec() {
+    // The IEC rules keep the inherited output formal inside positional association, so the
+    // base's input and the derived block's own input are not enough for a complete call.
+    check_has_error_in(
+        Dialect::Iec,
+        r#"
+FUNCTION_BLOCK Base
+VAR_INPUT
+    base_in : DINT;
+END_VAR
+VAR_OUTPUT
+    base_out : BOOL;
+END_VAR
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK Derived EXTENDS Base
+VAR_INPUT
+    own : DINT;
+END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    derived : Derived;
+END_VAR
+derived(1, 2);
+END_PROGRAM
+"#,
+        DiagnosticCode::WrongArgumentCount,
+    );
+}

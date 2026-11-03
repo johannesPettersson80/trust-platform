@@ -2366,6 +2366,16 @@ transaction:
    in-out, to its own instance or receiver, or to a global, remains, as the
    writes of every completed statement do (specification 11 §6.6).
 
+A positional actual associates with the callable's formal parameters in their
+declaration order, an output formal included (IEC 61131-3 Ed.3 §6.6.3.4,
+Table 42). Under the CODESYS profile, a function block invocation binds
+positionally to its input and in-out formals only, in declaration order
+base-first through the EXTENDS chain, and its output formals bind only by
+name with `=>`, keeping their default or stored value otherwise
+([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-044); functions and methods keep the
+full association. The compiled program binds the call's arguments at build
+time with the same rule (specification 44 §3).
+
 A call cannot map the same or overlapping caller storage to two writable
 formals when the source shows the overlap: the same variable, a variable and
 one of its members or elements, or elements whose index expressions are

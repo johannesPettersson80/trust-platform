@@ -686,10 +686,15 @@ impl<'a> Lowerer<'_, 'a> {
         }
         let mut outputs = Vec::new();
         // A positional actual takes the next input, output or in-out in declaration order, `EN`
-        // and `ENO` left out (specification 06, "A complete non-formal call").
+        // and `ENO` left out (specification 06, "A complete non-formal call"). Under the CODESYS
+        // profile a function block invocation binds positionally to its inputs and in-outs only;
+        // output formals bind by name with `=>` (docs/IEC_DEVIATIONS.md DEV-044), as trust-hir
+        // binds them.
+        let positional_outputs = !crate::harness::dialect_of(self.model.conversions).is_codesys();
         let positional: Vec<&super::super::types::Member> = members
             .iter()
             .filter(|member| member.flags & (SYMBOL_INPUT | SYMBOL_OUTPUT | SYMBOL_IN_OUT) != 0)
+            .filter(|member| positional_outputs || member.flags & SYMBOL_OUTPUT == 0)
             .filter(|member| {
                 !member.name.eq_ignore_ascii_case("EN") && !member.name.eq_ignore_ascii_case("ENO")
             })
