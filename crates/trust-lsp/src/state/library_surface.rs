@@ -9,9 +9,11 @@
 //! Folders are compared where they resolve on disk, so that a link, a junction, a short Windows
 //! name and a canonicalized `[dependencies]` path all name the folder the client opened. A
 //! project's folders are resolved once, when its configuration is set; a document is resolved
-//! only when its project has library folders.
+//! only when its project has library folders, and for a file outside every workspace root, which
+//! follows the project whose library folder holds it (specification 14 §7.6.4).
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use tower_lsp::lsp_types::Url;
 
@@ -74,19 +76,55 @@ fn deepest_holding(folders: &[PathBuf], file: &Path) -> Option<usize> {
         .max()
 }
 
-/// The configuration of the workspace root that holds `uri`, and whether the file is library
-/// surface in that project.
+/// The configuration that governs `uri`'s diagnostics, and whether the file is library surface in
+/// that project: the workspace root that holds the file, or for a file outside every root the
+/// project whose library folder holds it.
 pub(super) fn diagnostic_scope_for_uri(state: &ServerState, uri: &Url) -> Option<DiagnosticScope> {
-    let (root, config) = workspace_config_match_for_uri(state, uri)?;
-    let folders = state.project_folders.read().get(&root).cloned();
-    let library_surface = folders.is_some_and(|folders| {
-        !folders.libraries.is_empty()
-            && resolved_document(uri).is_some_and(|file| folders.is_library_surface(&file))
-    });
+    if let Some((root, config)) = workspace_config_match_for_uri(state, uri) {
+        let folders = state.project_folders.read().get(&root).cloned();
+        let library_surface = folders.is_some_and(|folders| {
+            !folders.libraries.is_empty()
+                && resolved_document(uri).is_some_and(|file| folders.is_library_surface(&file))
+        });
+        return Some(DiagnosticScope {
+            config,
+            library_surface,
+        });
+    }
+    let file = resolved_document(uri)?;
+    let (config, folders) = library_owner(state, &file)?;
     Some(DiagnosticScope {
+        library_surface: folders.is_library_surface(&file),
         config,
-        library_surface,
     })
+}
+
+/// The project whose library folder holds the resolved `file`, a file outside every workspace
+/// root: the deepest such folder decides across projects, then the higher `[workspace]
+/// priority`, then the root that sorts first.
+fn library_owner(state: &ServerState, file: &Path) -> Option<(ProjectConfig, Arc<ProjectFolders>)> {
+    let candidates: Vec<(usize, Url, Arc<ProjectFolders>)> = state
+        .project_folders
+        .read()
+        .iter()
+        .filter_map(|(root, folders)| {
+            deepest_holding(&folders.libraries, file)
+                .map(|depth| (depth, root.clone(), Arc::clone(folders)))
+        })
+        .collect();
+    let deepest = candidates.iter().map(|(depth, _, _)| *depth).max()?;
+    let configs = state.workspace_configs.read();
+    candidates
+        .into_iter()
+        .filter(|(depth, _, _)| *depth == deepest)
+        .filter_map(|(_, root, folders)| configs.get(&root).map(|config| (root, config, folders)))
+        .max_by(|(root_a, a, _), (root_b, b, _)| {
+            a.workspace
+                .priority
+                .cmp(&b.workspace.priority)
+                .then_with(|| root_b.as_str().cmp(root_a.as_str()))
+        })
+        .map(|(_, config, folders)| (config.clone(), folders))
 }
 
 /// The document's path resolved on disk, through its deepest existing folder when it is missing.

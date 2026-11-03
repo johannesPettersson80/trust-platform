@@ -593,19 +593,28 @@ mod tests {
          VAR_INPUT\n    value : INT;\nEND_VAR\n\
          ProjScale := 0;\nEND_FUNCTION\n";
 
-    /// A project with a vendor library folder inside it.
+    /// A project with a vendor library, in a fresh temporary folder removed on drop.
     struct LibraryProject(PathBuf);
 
     impl LibraryProject {
+        /// The project at the folder's root, with `config` and the library at `libs/vendor`.
         fn new(name: &str, config: &str) -> Self {
+            Self::with_files(
+                name,
+                &[
+                    ("trust-lsp.toml", config),
+                    ("libs/vendor/Vendor.st", VENDOR_SOURCE),
+                    ("src/Main.st", MAIN_SOURCE),
+                ],
+            )
+        }
+
+        /// `files` under a fresh temporary folder.
+        fn with_files(name: &str, files: &[(&str, &str)]) -> Self {
             let root =
                 std::env::temp_dir().join(format!("trust-lsp-check-{name}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&root);
-            for (path, text) in [
-                ("trust-lsp.toml", config.to_string()),
-                ("libs/vendor/Vendor.st", VENDOR_SOURCE.to_string()),
-                ("src/Main.st", MAIN_SOURCE.to_string()),
-            ] {
+            for (path, text) in files {
                 let file = root.join(path);
                 std::fs::create_dir_all(file.parent().expect("a folder")).expect("folders");
                 std::fs::write(&file, text).expect("write source");
@@ -697,6 +706,47 @@ mod tests {
             main_codes.contains(&"W009".to_string()) && main_codes.contains(&"W002".to_string()),
             "the project's own declarations must warn: {out}"
         );
+        assert_eq!(err, "");
+    }
+
+    /// Specifications 14 §7.6.4 and §7.7, the OSCAT examples' layout: `app` depends on
+    /// `../vendor`, outside the checked folder. `check` reports the dependency's file, which lies
+    /// in no workspace root but in the project's library folder, so it follows the project and is
+    /// library surface: none of W001, W002 and W009. The project's own `Main.st` keeps W002
+    /// (`value`) and W009 twice (`Main`, `ProjScale`). Catches the 396 W009 and 6 W001 that
+    /// `trust-lsp check` reported on libraries/oscat for examples/OSCAT/boiler_feedwater_alarm/oop.
+    #[tokio::test]
+    async fn a_dependency_outside_the_project_keeps_no_unused_warnings_in_check() {
+        let project = LibraryProject::with_files(
+            "outside-dependency",
+            &[
+                (
+                    "app/trust-lsp.toml",
+                    "[project]\ninclude_paths = [\"src\"]\n\n[dependencies]\nVendor = { path = \"../vendor\" }\n",
+                ),
+                ("app/src/Main.st", MAIN_SOURCE),
+                ("vendor/Vendor.st", VENDOR_SOURCE),
+            ],
+        );
+        let app = project.0.join("app");
+        let (status, out, err) = check_output(&[
+            "--project",
+            app.to_str().expect("utf-8 path"),
+            "--format",
+            "json",
+        ])
+        .await;
+        assert_eq!(status, 0, "stderr: {err}");
+        let payload: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
+        assert_eq!(payload["files"], 2, "{out}");
+        assert_eq!(
+            LibraryProject::unused_codes(&payload, "Vendor.st"),
+            Vec::<String>::new(),
+            "the dependency outside the project must not warn as unused: {out}"
+        );
+        let mut main_codes = LibraryProject::unused_codes(&payload, "Main.st");
+        main_codes.sort();
+        assert_eq!(main_codes, ["W002", "W009", "W009"], "{out}");
         assert_eq!(err, "");
     }
 }

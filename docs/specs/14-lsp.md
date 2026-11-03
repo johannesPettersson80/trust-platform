@@ -778,7 +778,7 @@ The stable resolver codes are:
 
 - `[[libraries]]` can declare `dependencies` (array of `{ name, version? }`) to model library graphs; missing dependencies or version mismatches are reported as config diagnostics.
 - Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
-- Library files are API surface for the unused-symbol warnings (specification 28 §1). A project's library folders are its `[[libraries]]` folders, its `[project] library_paths`, and its resolved `[dependencies]` packages, transitive ones included; its own source folders are its `include_paths`, or its root when none are set. For each file, the deepest folder that holds it among the project's own source folders and its library folders decides. When that folder is a library folder, the file is library surface: it never receives W001, W002, or W009, in the editor and in `trust-lsp check` alike, while every other diagnostic stays on. An own source folder wins over an equally deep library folder, so a library entry equal to an own source folder (`[[libraries]] path = "."` in a project without `include_paths`, or a library at an include path) exempts nothing. A library folder that holds the project, as `Plant = { path = "../.." }` holds a Plant example, exempts the library's other files but not the project's own. Folders and files are compared component by component after resolving symbolic links, junctions, and short names, a missing file or folder through its deepest existing folder, so every spelling of one folder is the same folder. No library entry is refused for where its folder lies. A library is judged in its own project, where its files are that project's own sources and every warning is on.
+- Library files are API surface for the unused-symbol warnings (specification 28 §1). A project's library folders are its `[[libraries]]` folders, its `[project] library_paths`, and its resolved `[dependencies]` packages, transitive ones included; its own source folders are its `include_paths`, or its root when none are set. For each file, the deepest folder that holds it among the project's own source folders and its library folders decides. When that folder is a library folder, the file is library surface: it never receives W001, W002, or W009, in the editor and in `trust-lsp check` alike, while every other diagnostic stays on. A library file outside the workspace folder follows the project whose library it is (§7.6.4). An own source folder wins over an equally deep library folder, so a library entry equal to an own source folder (`[[libraries]] path = "."` in a project without `include_paths`, or a library at an include path) exempts nothing. A library folder that holds the project, as `Plant = { path = "../.." }` holds a Plant example, exempts the library's other files but not the project's own. Folders and files are compared component by component after resolving symbolic links, junctions, and short names, a missing file or folder through its deepest existing folder, so every spelling of one folder is the same folder. No library entry is refused for where its folder lies. A library is judged in its own project, where its files are that project's own sources and every warning is on.
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
 - `[workspace]` controls multi-root federation: `priority` orders root results for workspace symbol search, and `visibility` (`public`, `private`, `hidden`) filters which roots participate when querying (private roots only appear for non-empty queries) (tooling behavior, non-IEC).
 - `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults. `debug` (a Boolean, `true` when absent) chooses the native program image that `trust-runtime build --target` compiles: `false` builds a release image without debug hooks (specification 44 §13.2); `profile` does not choose the image. The language server reads no other meaning into `debug`.
@@ -1017,9 +1017,25 @@ mutating a returned value cannot alter server state. Capability flags are
 independent. Pull diagnostics are selected only when the client supports both
 pull diagnostics and diagnostic refresh. Workspace configuration has one entry
 per root, with replacement on the same root. The primary configuration is the
-highest numeric workspace priority. URI lookup chooses the deepest matching
-root, regardless of primary priority, and returns no configuration outside all
-registered roots.
+highest numeric workspace priority. URI lookup chooses the deepest root that
+holds the document's path as the client names it, compared component by
+component without resolving links, regardless of primary priority, and returns
+no configuration outside all registered roots.
+
+Diagnostics extend that lookup to a project's library files outside every
+registered root, as a dependency outside the project folder is (the OSCAT
+examples' `OscatOop = { path = "../../../../libraries/oscat/oop" }`): a source
+file outside all registered roots that lies in a library folder of a
+registered project is diagnosed under that project's configuration, with its
+`[diagnostics]` settings, severity overrides, external diagnostics and the
+library-surface rule of §7.6. The folders and the file are compared as §7.6
+compares them, after resolving links. When library folders of several
+projects hold the file, the deepest folder decides, then the higher
+`[workspace] priority`, then the root URI that sorts first. Every other lookup
+still returns no configuration for such a file. Each project's own and library
+folders are resolved once, when its configuration is set; a document is
+resolved only for a project with library folders and for a file outside every
+registered root.
 
 Document state follows these fail-closed rules:
 

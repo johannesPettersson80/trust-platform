@@ -53,33 +53,47 @@ END_FUNCTION
 
 const UNUSED_CODES: [&str; 3] = ["W001", "W002", "W009"];
 
-/// Writes `files` under a fresh folder and indexes the project folder `project` below it (the
-/// fresh folder itself when empty) the way the language server loads a workspace folder. Returns
-/// the state, which answers diagnostics for every indexed file, and the fresh folder.
-async fn indexed(name: &str, project: &str, files: &[(&str, &str)]) -> (ServerState, PathBuf) {
+/// Writes `files` under a fresh folder, which it returns.
+fn write_tree(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let base = temp_dir(name);
     for (path, text) in files {
         let file = base.join(path);
         std::fs::create_dir_all(file.parent().expect("a folder")).expect("folders");
         std::fs::write(&file, text).expect("write source");
     }
+    base
+}
+
+/// A fresh server state with `root` as its only workspace folder, indexed the way the language
+/// server loads a workspace folder; it answers diagnostics for every indexed file.
+async fn index_folder(root: &std::path::Path) -> ServerState {
+    let state = ServerState::new();
+    state.set_workspace_folders(vec![Url::from_directory_path(root).expect("root uri")]);
+    index_workspace(&test_client(), &state).await;
+    state.mark_index_first_pass_done();
+    state
+}
+
+/// Writes `files` under a fresh folder and indexes the project folder `project` below it (the
+/// fresh folder itself when empty). Returns the state and the fresh folder.
+async fn indexed(name: &str, project: &str, files: &[(&str, &str)]) -> (ServerState, PathBuf) {
+    let base = write_tree(name, files);
     let root = if project.is_empty() {
         base.clone()
     } else {
         base.join(project)
     };
-    let state = ServerState::new();
-    state.set_workspace_folders(vec![Url::from_directory_path(&root).expect("root uri")]);
-    index_workspace(&test_client(), &state).await;
-    state.mark_index_first_pass_done();
-    (state, base)
+    (index_folder(&root).await, base)
 }
 
-/// The diagnostic codes of every indexed document named `file_name`, one list per document: a
-/// file the indexer reached under two spellings (through a link, or through a canonicalized
+/// The diagnostics of every indexed document named `file_name`, one list per document: a file
+/// the indexer reached under two spellings (through a link, or through a canonicalized
 /// dependency path) is two documents, and each of them must follow the rule.
-fn codes_per_document(state: &ServerState, file_name: &str) -> Vec<(Url, Vec<String>)> {
-    let found: Vec<(Url, Vec<String>)> = state
+fn diagnostics_per_document(
+    state: &ServerState,
+    file_name: &str,
+) -> Vec<(Url, Vec<tower_lsp::lsp_types::Diagnostic>)> {
+    let found: Vec<_> = state
         .documents()
         .into_iter()
         .filter(|doc| {
@@ -89,24 +103,35 @@ fn codes_per_document(state: &ServerState, file_name: &str) -> Vec<(Url, Vec<Str
                 .is_some_and(|last| last == file_name)
         })
         .map(|doc| {
-            let codes = super::diagnostics::collect_diagnostics_with_ticket(
+            let diagnostics = super::diagnostics::collect_diagnostics_with_ticket(
                 state,
                 &doc.uri,
                 &doc.content,
                 doc.file_id,
                 None,
-            )
-            .into_iter()
-            .filter_map(|diagnostic| match diagnostic.code {
-                Some(NumberOrString::String(code)) => Some(code),
-                _ => None,
-            })
-            .collect();
-            (doc.uri, codes)
+            );
+            (doc.uri, diagnostics)
         })
         .collect();
     assert!(!found.is_empty(), "no indexed document named {file_name}");
     found
+}
+
+/// The diagnostic codes of every indexed document named `file_name`, one list per document.
+fn codes_per_document(state: &ServerState, file_name: &str) -> Vec<(Url, Vec<String>)> {
+    diagnostics_per_document(state, file_name)
+        .into_iter()
+        .map(|(uri, diagnostics)| {
+            let codes = diagnostics
+                .into_iter()
+                .filter_map(|diagnostic| match diagnostic.code {
+                    Some(NumberOrString::String(code)) => Some(code),
+                    _ => None,
+                })
+                .collect();
+            (uri, codes)
+        })
+        .collect()
 }
 
 /// Every document named `file_name` is library surface: none of W001, W002 and W009.
@@ -332,47 +357,132 @@ path = "src"
     std::fs::remove_dir_all(base).ok();
 }
 
-/// The project reached through a different spelling of its own folder — a symlink on unix, where
-/// `/tmp` and macOS `/var/folders` are symlinks and a canonicalized `[dependencies]` folder spells
-/// its files differently than the folder the client opened.
+/// A library function block whose CASE has no ELSE: W004 (missing ELSE), a warning that stays on
+/// for library files, besides its unused POU (W009).
+const VENDOR_CASE: &str = r#"
+FUNCTION_BLOCK VendMode
+VAR_INPUT
+    mode : INT;
+END_VAR
+VAR
+    level : INT;
+END_VAR
+CASE mode OF
+1: level := 1;
+END_CASE
+END_FUNCTION_BLOCK
+"#;
+
+/// Specification 14 §7.6.4, the OSCAT examples' layout: the project `app` depends on `../vendor`,
+/// outside the workspace folder. The dependency's file lies in no workspace root but in the
+/// project's library folder, so it is diagnosed under the project's configuration: it is library
+/// surface (none of W001, W002, W009), and the project's `severity_overrides` turn its W004 into
+/// an error. Catches a file outside every root that keeps no configuration, which kept the
+/// unused warnings and ignored the project's other settings (396 W009 and 6 W001 on
+/// libraries/oscat in `trust-lsp check` of examples/OSCAT/boiler_feedwater_alarm/oop).
 #[tokio::test]
-async fn a_project_opened_through_a_symlink_keeps_the_dependency_rule() {
-    #[cfg(not(unix))]
-    {
-        // Symlinked project folders are a unix shape; the canonical-form identity itself is
-        // pinned by the canonicalized-dependency tests on every platform.
-        eprintln!("a project through a symlink is pinned on unix");
-        return;
+async fn a_dependency_outside_the_project_folder_follows_the_project() {
+    let vendor = format!("{VENDOR}{VENDOR_CASE}");
+    let (state, base) = indexed(
+        "trustlsp-lib-surface-outside",
+        "app",
+        &[
+            (
+                "app/trust-lsp.toml",
+                r#"
+[project]
+include_paths = ["src"]
+
+[dependencies]
+Vendor = { path = "../vendor" }
+
+[diagnostics]
+severity_overrides = { W004 = "error" }
+"#,
+            ),
+            ("app/src/main.st", MAIN),
+            ("vendor/vendor.st", &vendor),
+        ],
+    )
+    .await;
+
+    assert_spared(&state, "vendor.st");
+    for (uri, diagnostics) in diagnostics_per_document(&state, "vendor.st") {
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                matches!(&diagnostic.code, Some(NumberOrString::String(code)) if code == "W004")
+                    && diagnostic.severity == Some(DiagnosticSeverity::ERROR)
+            }),
+            "the project's override must reach {uri}: {diagnostics:?}"
+        );
     }
+    assert_warned(&state, "main.st");
+    std::fs::remove_dir_all(base).ok();
+}
 
-    #[cfg(unix)]
-    {
-        let (state, root) = indexed(
-            "trustlsp-lib-surface-symlink",
-            "",
-            &[
-                (
-                    "trust-lsp.toml",
-                    "[dependencies]\nVendor = \"libs/vendor\"\n",
-                ),
-                ("libs/vendor/vendor.st", VENDOR),
-                ("src/main.st", MAIN),
-            ],
-        )
-        .await;
-        let link = root.parent().expect("temp parent").join(format!(
-            "{}-link",
-            root.file_name().expect("temp name").to_string_lossy()
-        ));
-        std::os::unix::fs::symlink(&root, &link).expect("symlink the project folder");
+/// The Plant examples' layout: the example `plant/examples/x` (own folder `src`) depends on
+/// `Plant = { path = "../.." }`, a library folder that holds the example. The library's
+/// `src/tank.st` lies outside the workspace folder and only in the library folder, so it is
+/// library surface; the example's `src/main.st` is held more deeply by its own folder and keeps
+/// its warnings; the configuration carries no library code and no error. Catches the former
+/// `L008` error on this valid layout and its lost exemption for the library's sources, and a
+/// rule where any holding library folder wins, which silenced the example.
+#[tokio::test]
+async fn a_library_folder_that_holds_the_project_exempts_only_the_library_files() {
+    let config =
+        "[project]\ninclude_paths = [\"src\"]\n\n[dependencies]\nPlant = { path = \"../..\" }\n";
+    let (state, base) = indexed(
+        "trustlsp-lib-surface-plant",
+        "plant/examples/x",
+        &[
+            ("plant/examples/x/trust-lsp.toml", config),
+            ("plant/examples/x/src/main.st", MAIN),
+            ("plant/src/tank.st", VENDOR),
+        ],
+    )
+    .await;
 
-        state.set_workspace_folders(vec![Url::from_directory_path(&link).expect("link uri")]);
-        index_workspace(&test_client(), &state).await;
-        state.mark_index_first_pass_done();
+    assert_spared(&state, "tank.st");
+    assert_warned(&state, "main.st");
+    let diagnostics = config_diagnostics(&state, &base.join("plant/examples/x"), config);
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.severity != Some(DiagnosticSeverity::ERROR)
+                && !matches!(&diagnostic.code, Some(NumberOrString::String(code)) if code.starts_with('L'))
+        }),
+        "the configuration must carry no library code and no error: {diagnostics:?}"
+    );
+    std::fs::remove_dir_all(base).ok();
+}
 
-        assert_spared(&state, "vendor.st");
-        assert_warned(&state, "main.st");
-        std::fs::remove_file(&link).ok();
-        std::fs::remove_dir_all(root).ok();
-    }
+/// A project opened only through a link (`link` → `real/app`), on a fresh server state: the
+/// `[dependencies]` folder is stored canonicalized (`real/app/libs/vendor`), so the indexer
+/// reaches `vendor.st` under the link's spelling from the root and under the real spelling from
+/// the library folder, which lies outside the workspace folder. Both documents are library
+/// surface, and `main.st` (the link's spelling only) keeps its warnings. Catches a library
+/// folder matched by its spelling, and a real-spelled library file that finds no configuration.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_project_opened_only_through_a_symlink_keeps_the_rule() {
+    let base = write_tree(
+        "trustlsp-lib-surface-symlink",
+        &[
+            (
+                "real/app/trust-lsp.toml",
+                "[dependencies]\nVendor = \"libs/vendor\"\n",
+            ),
+            ("real/app/libs/vendor/vendor.st", VENDOR),
+            ("real/app/src/main.st", MAIN),
+        ],
+    );
+    let link = base.join("link");
+    std::os::unix::fs::symlink(base.join("real/app"), &link).expect("link the project folder");
+
+    let state = index_folder(&link).await;
+
+    assert_eq!(codes_per_document(&state, "vendor.st").len(), 2);
+    assert_eq!(codes_per_document(&state, "main.st").len(), 1);
+    assert_spared(&state, "vendor.st");
+    assert_warned(&state, "main.st");
+    std::fs::remove_dir_all(base).ok();
 }

@@ -234,3 +234,69 @@ fn a_missing_file_under_a_linked_library_folder_is_library_surface() {
     assert!(surface(&project, &root.join("libs/vendor/new.st")));
     assert!(!surface(&project, &root.join("src/new.st")));
 }
+
+/// Two projects `a` and `b` with configurations set as for two workspace folders.
+fn two_projects(temp: &TempFolder, a: &str, b: &str) -> ServerState {
+    let state = ServerState::new();
+    for (name, config) in [("a", a), ("b", b)] {
+        temp.write(&format!("{name}/trust-lsp.toml"), config);
+        let root = temp.0.join(name);
+        state.set_workspace_config(
+            Url::from_directory_path(&root).expect("root uri"),
+            ProjectConfig::load(&root),
+        );
+    }
+    state
+}
+
+/// Specification 14 §7.6.4: a file outside every workspace root that lies in a library folder of
+/// a project is diagnosed under that project, and the deepest such folder decides across
+/// projects: `shared/inner/x.st` is `b`'s (its library `shared/inner` is one component deeper
+/// than `a`'s `shared`), `shared/y.st` is `a`'s, and a file in no library folder has no
+/// configuration. Catches a file outside the roots that keeps no configuration (the OSCAT
+/// examples' dependencies kept every unused warning), and an owner chosen by a shallower folder.
+#[test]
+fn a_file_outside_every_root_follows_the_project_with_the_deepest_library_folder() {
+    let temp = TempFolder::new("library-owner");
+    let inner = temp.write("shared/inner/x.st", SOURCE);
+    let outer = temp.write("shared/y.st", SOURCE);
+    let elsewhere = temp.write("elsewhere/z.st", SOURCE);
+    let state = two_projects(
+        &temp,
+        "[[libraries]]\nname = \"Shared\"\npath = \"../shared\"\n",
+        "[[libraries]]\nname = \"Inner\"\npath = \"../shared/inner\"\n",
+    );
+    let scope =
+        |file: &Path| state.diagnostic_scope_for_uri(&Url::from_file_path(file).expect("file uri"));
+
+    let inner = scope(&inner).expect("the inner library's project");
+    assert_eq!(inner.config.root, temp.0.join("b"));
+    assert!(inner.library_surface);
+    let outer = scope(&outer).expect("the shared library's project");
+    assert_eq!(outer.config.root, temp.0.join("a"));
+    assert!(outer.library_surface);
+    assert!(scope(&elsewhere).is_none());
+}
+
+/// Two projects whose library folders hold the outside file equally deep: the higher
+/// `[workspace] priority` decides, and at equal priority the root that sorts first (`a` before
+/// `b`). Catches an owner that depends on the order the configurations were set in.
+#[test]
+fn equally_deep_library_folders_go_to_the_higher_priority_then_the_first_root() {
+    let temp = TempFolder::new("library-owner-tie");
+    let file = temp.write("shared/x.st", SOURCE);
+    let library = "[[libraries]]\nname = \"Shared\"\npath = \"../shared\"\n";
+    let uri = Url::from_file_path(&file).expect("file uri");
+
+    let preferred = two_projects(
+        &temp,
+        library,
+        &format!("[workspace]\npriority = 5\n\n{library}"),
+    );
+    let owner = preferred.diagnostic_scope_for_uri(&uri).expect("an owner");
+    assert_eq!(owner.config.root, temp.0.join("b"));
+
+    let equal = two_projects(&temp, library, library);
+    let owner = equal.diagnostic_scope_for_uri(&uri).expect("an owner");
+    assert_eq!(owner.config.root, temp.0.join("a"));
+}
