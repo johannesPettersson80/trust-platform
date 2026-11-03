@@ -401,6 +401,21 @@ impl SymbolTable {
         Some(current)
     }
 
+    /// Whether a declaration nearer than the global names hides `head`, the first name of a dotted
+    /// name seen from `scope`: a local, a parameter or a member of the POU named like a namespace or
+    /// a program. Local names shadow global names (specification 09 §1.3), so the dotted name is
+    /// then a member access on that declaration. A nested namespace found first hides nothing.
+    #[must_use]
+    pub fn hides_global_head(&self, head: &str, scope: ScopeId) -> bool {
+        let Some(nearest) = self.resolve(head, scope) else {
+            return false;
+        };
+        Some(nearest) != self.lookup(head)
+            && !self
+                .get(nearest)
+                .is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Namespace))
+    }
+
     /// The language rules the table's project is analyzed under.
     #[must_use]
     pub fn dialect(&self) -> Dialect {

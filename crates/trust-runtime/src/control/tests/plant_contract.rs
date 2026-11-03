@@ -151,7 +151,8 @@ fn plant_capabilities_reports_the_closed_runtime_surface() {
             "plant.trace.read",
             "plant.trace.clear",
             "plant.edit",
-            "plant.signals"
+            "plant.signals",
+            "plant.topology"
         ]))
     );
     // The plant editor's tables (specification 47 §20.1): every model in the selector's order.
@@ -670,6 +671,7 @@ fn plant_contract_operations_use_the_specified_role_boundaries() {
         "plant.capabilities",
         "plant.read",
         "plant.status",
+        "plant.topology",
         "plant.trace.read",
     ] {
         assert_eq!(

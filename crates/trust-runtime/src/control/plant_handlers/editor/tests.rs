@@ -512,6 +512,27 @@ fn omitted_enabled_and_initial_state_stay_omitted_until_changed() {
 }
 
 #[test]
+fn a_saved_actuator_keeps_what_the_editor_does_not_manage() {
+    // Specification 47 §13.2, checklist G33: saving a reopened plant whose actuator is on-off
+    // deleted the whole actuator, its kind and minimum on and off times with it. The saved keys the
+    // editor does not manage are kept; the editor's fields come from the draft, so an edited value
+    // wins and a cleared one (here `lag_s`) stays cleared.
+    let mut value = first_order();
+    value["preservedConfiguration"] = json!({"actuator": {
+        "kind": "on-off", "minimum": 5, "maximum": 90, "lag_s": 1,
+        "minimum_on_s": 20, "minimum_off_s": 10,
+    }});
+    value["actuator"] = json!({"minimum": 0, "maximum": 100});
+    assert_eq!(
+        candidate::candidate(&draft(value)).get("actuator"),
+        Some(&json!({
+            "kind": "on-off", "minimum_on_s": 20, "minimum_off_s": 10,
+            "minimum": 0, "maximum": 100,
+        }))
+    );
+}
+
+#[test]
 fn fields_the_editor_does_not_manage_survive_saving() {
     // Specification 47 §13.2: fields outside the editor (model validity) survive projection and
     // serialization unchanged, and an editable field is never restored from the saved extras.

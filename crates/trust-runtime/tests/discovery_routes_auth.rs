@@ -4,12 +4,10 @@
 //! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::collections::VecDeque;
-use std::net::TcpListener;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 use indexmap::IndexMap;
 use serde_json::{json, Value};
@@ -175,37 +173,21 @@ fn control_state(source: &str) -> Arc<ControlState> {
     })
 }
 
-fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("local addr").port();
-    drop(listener);
-    port
-}
-
 /// Starts one loopback web server in token mode, which needs `X-Trust-Token` on every protected
 /// route, and answers its base URL.
 fn start_token_server(state: Arc<ControlState>) -> String {
-    for _ in 0..16 {
-        let port = reserve_loopback_port();
-        let listen = format!("127.0.0.1:{port}");
-        let config = WebConfig {
-            enabled: true,
-            listen: SmolStr::new(listen.clone()),
-            auth: WebAuthMode::Token,
-            tls: false,
-            hmi: Default::default(),
-        };
-        match start_web_server(&config, Arc::clone(&state), None, None, None, None) {
-            Ok(_server) => return format!("http://{listen}"),
-            Err(RuntimeError::ControlError(message))
-                if message.contains("Address already in use") =>
-            {
-                thread::sleep(Duration::from_millis(10));
-            }
-            Err(err) => panic!("start web server: {err}"),
-        }
-    }
-    panic!("start web server: no free loopback port after retries");
+    // Port 0: the server binds a free port itself and names it in `listen`, so no other test
+    // can take the port between choosing and binding it (checklist W21).
+    let config = WebConfig {
+        enabled: true,
+        listen: SmolStr::new("127.0.0.1:0"),
+        auth: WebAuthMode::Token,
+        tls: false,
+        hmi: Default::default(),
+    };
+    let server =
+        start_web_server(&config, state, None, None, None, None).expect("start web server");
+    format!("http://{}", server.listen)
 }
 
 fn get(base: &str, path: &str, token: Option<&str>) -> (u16, String) {

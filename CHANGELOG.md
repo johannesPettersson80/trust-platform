@@ -6,6 +6,108 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-11-03
+
+### Changed
+
+- An HMI switch sends `toggle` with the value it shows, and the runtime writes the opposite, so the value the operator
+  saw decides. A switch, selector, mode selector or slider that shows no value is now refused by the runtime with its
+  reason, which goes to the audit log like every other command; before, the page kept that refusal to itself
+  (specification 39 §5.8, decided by the owner on 1 November 2026).
+
+### Fixed
+
+- A local, a parameter or a member of a POU named like a global namespace or program now hides it in a dotted name,
+  as local names shadow global names (specification 09 §1.3). Before, `GVals.Member` read the namespace's `Member`
+  even with a local `GVals`: a running program read the wrong variable, and the editor reported neither a wrong type
+  nor the namespace member's unused warning (issue #203).
+- The side panel shows a project runtime that stops within two seconds of going online as not running. Before, it stayed
+  shown as answering until something else refreshed the panel.
+
+## [0.29.0] - 2026-11-02
+
+### Changed
+
+- Interface and abstract-method conformance diagnostics move from `E202` to
+  the new dedicated code `E208` ("must implement method/property",
+  signature and visibility mismatches, missing abstract implementations).
+  Type-used-as-value, access-specifier and initializer-constraint
+  diagnostics keep `E202`, so per-code severity overrides no longer mask
+  interface completeness regressions.
+
+### Fixed
+
+- Saving a simulated plant whose actuator is on-off (`kind = "on-off"`) no longer deletes the actuator
+  from `simulation.toml`. Before, reopening and saving such a plant, even unchanged, removed the whole
+  actuator table. The plant editor now keeps the actuator's kind and its minimum on and off times,
+  which it does not edit, and takes its own actuator fields from what you entered.
+- `ADD` with the duration first, such as `ADD(T#1H, startTime)` for a `TIME_OF_DAY`, is now reported
+  as an invalid argument where it is written. IEC 61131-3 Table 35 lists `ADD` with the time of day or
+  date and time first, as the `+` operator already required. Before, the editor accepted it and the
+  build then failed with a message that called the addition a comparison.
+- Devices & Connections shows a simulated plant as `Waiting for samples` until its simulation has
+  advanced. Before, it showed `Running`, with the plant's starting values as live values.
+- On a runtime that answers, a plant the runtime does not run is no longer `Status unavailable`. A
+  disabled plant shows `Disabled`, and a plant saved after the runtime started shows
+  `Restart required`.
+- The canvas no longer hides every simulated plant when one saved plant lacks its model or name.
+  Only that plant is left out.
+- Passing a fixed-size array to an `ARRAY[*]` parameter no longer reports an implicit conversion, in every parameter
+  direction: the binding aliases the argument's storage for the call (varying arrays) and converts nothing. Element
+  mismatches and concrete bound mismatches keep their errors (specification 28 §2, IEC deviations DEV-040).
+- A new state in the Statechart editor gets a name no other state has. Before, Add state named it after the number
+  of states, so after a deletion it could repeat a name, and saving the chart kept only one of the two states,
+  losing the other with its transitions. Saving now also refuses, with the reason, a chart in which two states share
+  a name or more than one state is initial, instead of keeping one of them (specification 25 §11.4).
+- Deleting an element in the Ladder editor takes it out of the rung's logic, as CODESYS and TwinCAT do: its wires go
+  with it, a series element closes the gap and a parallel leg made of the element alone leaves the other legs
+  (specification 25 §11.4). Before, the wires to a deleted element stayed in the file and kept the power from the
+  node they ended at, so a coil behind a deleted contact never switched on, and the implicit local of the deleted
+  contact's operand stayed declared.
+- Programs that the analyzer accepts now also build in these forms, which the build refused with an error that
+  named no line:
+  - an integer constant expression whose exact value fits its declared type folds exactly, so
+    `LOG_LOCAL0 : INT := 16 * 8` no longer overflows a narrow intermediate (IEC deviations DEV-038);
+  - under the CODESYS profile, an empty named argument (`RST := ,`, `Q => )`) omits the argument: an input keeps
+    its stored value or takes its declared default, and an output stays unconnected (DEV-041);
+  - a qualified enumeration member in a global initializer (`Namespace.EnumType.Member`, `EnumType.Member`) and,
+    under the CODESYS profile, a constant named through a library container its stub flattened
+    (`LogParameter.MAX_LOG_MSG_LEN` in a string capacity) (DEV-042);
+  - a `TIME` value added to a `TIME_OF_DAY` (`base + T#1H`), which IEC 61131-3 Table 35 defines (item 2b).
+- Ladder's Find and replace and the Statechart's Add and Delete action mapping did nothing: they asked through browser
+  dialogs, which VS Code's webviews ignore. They now ask in VS Code's input boxes and warnings, Escape cancelling, and
+  the language server refuses a new action's name that is blank or already in use (specification 25 §11.4).
+- When Live Values' I/O state request times out, the panel clears its values and says that it lost the connection to
+  the runtime. Before, the old values stayed under `I/O state request failed: A stale runtime or debug session blocked
+  startup.`, a start's message; other failed requests could be told as a start's failure too, such as a missing runtime
+  binary or a workspace that is not writable. A failed request now names its own reason, and the debug adapter's
+  `no program runs: launch or attach first` asks to Start or Connect like any missing session (specification 25 §4.4).
+- A runtime that keeps debugging disabled keeps the name Connect gave it, such as `Cpu`, in the status bar, in the side
+  panel's Target and in HMI Live. Before, the status bar and the side panel named it by its address
+  (`127.0.0.1:<port>`) and HMI Live by its whole endpoint (`tcp://127.0.0.1:<port>`). HMI Live now names every runtime
+  as the status bar does, the project's own runtime as `This project's runtime` (specification 25 §6.9, specification
+  39 §11 item 6).
+- Declaration sizes over flattened library containers: under the CODESYS
+  profile, a dotted size reference (`STRING(LogParameter.MAX_LOG_MSG_LEN)`,
+  `STRING(WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN)`) resolves when the
+  named GVL level was flattened into namespace-level constants — the
+  reference's last segment must match exactly one constant or
+  initializer-backed declared value table-wide, in the string-capacity and
+  array-bound contexts only. Ambiguous leaves and references rooted at a
+  scope-local value stay rejected; bare names never take the tolerance, and
+  ordinary initializers keep the strict rule (IEC_DEVIATIONS 2026-10-25).
+  The analyzer and the runtime harness fold the same value, so
+  documentation-faithful sizes (128/20/40-class stub constants) compile at
+  their declared capacities instead of failing the compile. PLCopen
+  import/export passes symbolic string lengths through verbatim (mirroring
+  array dimensions) instead of failing POUs closed at import.
+
+### Security
+
+- Deploy and Roll back in the HMI Builder follow no redirect from the runtime's web server, so the runtime's control
+  token is sent only to that web server, as in Live mode (specification 39 §16.2 item 8). Before, the extension
+  followed a redirect with the token.
+
 ## [0.28.0] - 2026-11-01
 
 ### Fixed

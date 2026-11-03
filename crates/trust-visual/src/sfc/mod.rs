@@ -23,7 +23,9 @@ mod generate;
 mod graph;
 mod validate;
 
-pub use edit::{add_node, connect, set_branch_count, Added, BranchCount, NodeType};
+pub use edit::{
+    add_node, connect, delete_selection, set_branch_count, Added, BranchCount, Deleted, NodeType,
+};
 pub use generate::generate;
 pub use graph::{file, graph, keep_identity};
 pub use validate::{validate, Issue, IssueKind};

@@ -102,6 +102,13 @@ END_FUNCTION
    through the truST value-bearing RETURN extension recorded as `DEV-022`
 3. **VAR_IN_OUT and VAR_EXTERNAL**: May be modified inside the function; VAR_EXTERNAL CONSTANT shall not be modified
 4. **CONSTANT restriction**: Function block instances shall not be declared in variable sections with CONSTANT qualifier
+5. **Return type**: the declared type names a data type of specification 02.
+   The IEC dialect rejects a `VOID` return declaration (`E207`): IEC 61131-3
+   knows no `VOID` data type. Under the CODESYS profile (`DEV-043` in
+   `docs/IEC_DEVIATIONS.md`) `FUNCTION name : VOID` declares a function
+   without a result: the function carries no return slot, a call captures no
+   result, the body may exit early with a value-less `RETURN;`, and a
+   `RETURN` with a value stays `E207`.
 
 ### POU initializer contract
 

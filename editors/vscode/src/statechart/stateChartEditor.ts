@@ -18,6 +18,12 @@ interface FormatAnswer extends VisualAnswer {
   text?: string;
 }
 
+/** The language server's answer to `addMapping`: the mappings with the new action, and its name. */
+interface AddMappingAnswer extends VisualAnswer {
+  mappings?: Record<string, unknown>;
+  name?: string;
+}
+
 interface ActionReportAnswer extends VisualAnswer {
   unmapped?: string[];
   unused?: string[];
@@ -171,6 +177,14 @@ export class StateChartEditorProvider
             void this.postValue(webviewPanel, message);
             return;
 
+          case "dialog":
+            void this.answerDialog(webviewPanel, message);
+            return;
+
+          case "addState":
+            void this.postAddedState(webviewPanel, message);
+            return;
+
           case "openAsText":
             void vscode.commands.executeCommand(
               "vscode.openWith",
@@ -252,6 +266,70 @@ export class StateChartEditorProvider
     void webviewPanel.webview.postMessage({
       ...answer,
       type: "valueResult",
+      requestId: message.requestId,
+    });
+  }
+
+  /**
+   * Shows a dialog of the action-mapping panel in VS Code, since the webview's sandbox ignores
+   * `window.prompt` and `window.confirm`: the name of a new mapping, which the language server adds
+   * to the panel's mappings or refuses (`addMapping`), or the confirmation of a deletion.
+   */
+  private async answerDialog(
+    webviewPanel: vscode.WebviewPanel,
+    message: { requestId?: unknown; dialog?: unknown; mappings?: unknown; name?: unknown }
+  ): Promise<void> {
+    const answer = (fields: Record<string, unknown>) =>
+      void webviewPanel.webview.postMessage({ ...fields, type: "dialogResult", requestId: message.requestId });
+    if (message.dialog === "addActionMapping") {
+      const name = await vscode.window.showInputBox({
+        prompt: "Name of the new action",
+        placeHolder: "START_MOTOR",
+        ignoreFocusOut: true,
+      });
+      if (name === undefined) {
+        answer({});
+        return;
+      }
+      const added = await visualRequest<AddMappingAnswer>("trust-lsp.visualEdit", {
+        kind: "statechart",
+        op: "addMapping",
+        mappings: message.mappings ?? {},
+        name,
+      });
+      if (!added.ok) {
+        void vscode.window.showErrorMessage(problemText(added));
+        answer({});
+        return;
+      }
+      answer({ mappings: added.mappings, name: added.name });
+      return;
+    }
+    if (message.dialog === "deleteActionMapping") {
+      const name = typeof message.name === "string" ? message.name : "";
+      const choice = await vscode.window.showWarningMessage(
+        `Delete action mapping "${name}"?`,
+        { modal: true },
+        "Delete"
+      );
+      answer({ confirmed: choice === "Delete" });
+    }
+  }
+
+  /** Answers the new state the language server gives the webview's graph (`addState`). */
+  private async postAddedState(
+    webviewPanel: vscode.WebviewPanel,
+    message: { requestId?: unknown; graph?: unknown; stateType?: unknown }
+  ): Promise<void> {
+    const answer = await visualRequest("trust-lsp.visualEdit", {
+      kind: "statechart",
+      op: "addState",
+      graphText: JSON.stringify(message.graph ?? null),
+      stateType: message.stateType,
+    });
+    void webviewPanel.webview.postMessage({
+      ...answer,
+      type: "stateAdded",
       requestId: message.requestId,
     });
   }

@@ -178,9 +178,10 @@ fn a_failed_status() {
 }
 
 /// A runtime that answers but keeps debugging disabled, at the top of its status or in its
-/// `control_status`, is the target without a session; one that allows debugging is attached under
-/// the target's label, else its address. Catches a debug-disabled runtime reported as a failed
-/// Connect, which leaves the previous target selected.
+/// `control_status`, is the target without a session, with the name Connect was given; one that
+/// allows debugging is attached under the target's label, else its address. Catches a
+/// debug-disabled runtime reported as a failed Connect, which leaves the previous target selected,
+/// and the name Connect was given lost without a session.
 #[test]
 fn debugging_disabled_and_attach() {
     let endpoint = "tcp://10.0.0.2:9901";
@@ -198,6 +199,20 @@ fn debugging_disabled_and_attach() {
             json!({ "kind": "debug_disabled", "message": DEBUG_DISABLED, "endpoint": endpoint })
         );
     }
+    // The name Connect was given stays with the runtime that has no session (§6.9).
+    let named = connect_to(
+        json!({ "endpoint": endpoint, "targetLabel": " Cpu " }),
+        &told(true, Outcome::Result(json!({ "debug_enabled": false }))),
+    );
+    assert_eq!(
+        named["failure"],
+        json!({
+            "kind": "debug_disabled",
+            "message": DEBUG_DISABLED,
+            "endpoint": endpoint,
+            "label": "Cpu",
+        })
+    );
     let attach = connect_to(
         json!({ "endpoint": endpoint, "targetLabel": "Line 1" }),
         &told(true, Outcome::Result(json!({ "debug_enabled": true }))),
@@ -251,4 +266,136 @@ fn a_failure_kind_from_its_text() {
         assert_eq!(failure["message"], message, "{detail}");
         assert_eq!(failure["detail"], detail);
     }
+}
+
+/// The failure of Live Values' I/O state request, `failure` with `request: "ioState"`.
+fn io_state_failure(detail: Option<&str>) -> Value {
+    let mut argument = json!({ "request": "ioState" });
+    if let Some(detail) = detail {
+        argument["detail"] = json!(detail);
+    }
+    answer("failure", argument).expect("an answer")["failure"].clone()
+}
+
+/// No session to ask, or a session that is gone, is `no_session` (specification 25 §4.4): VS
+/// Code's `Canceled` (one `l`) for the requests of a session that ends, `No debugger available`,
+/// `Can not send 'stIoState'` however quoted and spaced, the extension's own text, and the debug
+/// adapter's answer without a runtime. Catches the request of a session that ended told as a lost
+/// connection, and the adapter's raw no-session answer shown to the user.
+#[test]
+fn an_io_state_request_without_a_session() {
+    assert_eq!(
+        io_state_failure(None),
+        json!({ "kind": "no_session", "message": "No active Structured Text debug session." })
+    );
+    for detail in [
+        "Canceled",
+        "canceled",
+        "No debugger available found. Can not send 'stIoState'.",
+        "can  not send \"stIoState\"",
+        "No active Structured Text debug session.",
+        "no program runs: launch or attach first",
+    ] {
+        assert_eq!(
+            io_state_failure(Some(detail)),
+            json!({
+                "kind": "no_session",
+                "message": "No active Structured Text debug session.",
+                "detail": detail,
+            }),
+            "{detail}"
+        );
+    }
+}
+
+/// A connection that failed under the request is `connection_lost`, with what Live Values says
+/// (specification 25 §4.4): a timeout, a socket, a reset, refused or broken connection, and a
+/// connection `cancelled` (two `l`), closed, terminated or not connected. Catches a timed-out read
+/// told as a start that a stale runtime blocked, which kept the old values on screen.
+#[test]
+fn an_io_state_request_whose_connection_failed() {
+    for detail in [
+        "I/O state request timed out.",
+        "socket hang up",
+        "read ECONNRESET",
+        "connect ECONNREFUSED 127.0.0.1:18085",
+        "write EPIPE",
+        "Request cancelled",
+        "runtime connection closed",
+        "debug session terminated",
+        "attach session is not connected",
+        "runtime disconnected",
+        "control request timeout",
+    ] {
+        assert_eq!(
+            io_state_failure(Some(detail)),
+            json!({
+                "kind": "connection_lost",
+                "message": "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.",
+                "detail": detail,
+            }),
+            "{detail}"
+        );
+    }
+}
+
+/// Any other failure is `request_failed` and names its own text (specification 25 §4.4); a request
+/// other than the I/O state's is refused. Catches a refused read told that the workspace is not
+/// writable, and a missing runtime binary named for a read that never starts one.
+#[test]
+fn an_io_state_request_that_failed_otherwise() {
+    for (detail, message) in [
+        (
+            "permission denied",
+            "I/O state request failed: permission denied",
+        ),
+        (
+            "  trust-runtime answered an unknown I/O address  ",
+            "I/O state request failed: trust-runtime answered an unknown I/O address",
+        ),
+        ("", "I/O state request failed."),
+    ] {
+        assert_eq!(
+            io_state_failure(Some(detail)),
+            json!({ "kind": "request_failed", "message": message, "detail": detail }),
+            "{detail}"
+        );
+    }
+    assert_eq!(
+        answer("failure", json!({ "request": "stIoWrite", "detail": "x" })),
+        Err("A failure is read for a start or for the request ioState, not stIoWrite.".to_owned())
+    );
+}
+
+// Catches a simulator Start whose debug session ended while it settled told as another failure,
+// or its words kept in the extension (specification 25 §5.10).
+#[test]
+fn a_simulator_start_whose_session_ended() {
+    assert_eq!(
+        answer("failure", json!({ "sessionEnded": true })),
+        Ok(json!({
+            "ok": true,
+            "failure": {
+                "kind": "failed_spawn",
+                "message": "Simulator stopped during startup. Check the runtime port or target settings."
+            }
+        }))
+    );
+    // Without it, a start's failure is read from its text, as before.
+    assert_eq!(
+        answer("failure", json!({ "sessionEnded": false })),
+        Ok(json!({
+            "ok": true,
+            "failure": { "kind": "failed_spawn", "message": "Runtime failed to start.", "detail": "" }
+        }))
+    );
+    assert_eq!(
+        answer(
+            "failure",
+            json!({ "sessionEnded": true, "request": "ioState" })
+        ),
+        Err(
+            "A session that ended is a start's failure, not one of the request ioState.".to_owned()
+        )
+    );
 }

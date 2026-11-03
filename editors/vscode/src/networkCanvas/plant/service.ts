@@ -1,5 +1,4 @@
 import {
-  decodePlantContractResponse,
   type PlantContractMessage,
 } from "./contract";
 import { attachPlantsToRuntime } from "../graphData";
@@ -28,7 +27,11 @@ export function plantSaveResultLabel(
     : "Saved";
 }
 
-/** Uses the established project command session for the complete read/validate/save transaction. */
+/**
+ * Saves through the established project command session: `plant.save` validates the candidate and
+ * checks the revision itself (specification 47 §20), so the read only names the project and the
+ * revision.
+ */
 export async function savePlantCandidate(
   client: PlantCommandClient,
   plant: Record<string, unknown>,
@@ -39,21 +42,14 @@ export async function savePlantCandidate(
     contract: "trust.plant",
     schema_version: 1,
   });
-  const common = {
+  const saved = await client.request("plant.save", {
     contract: "trust.plant",
     schema_version: 1,
     project_id: read.project_id,
     plant,
-  };
-  const validation = await client.request("plant.validate", common);
-  if (validation.operation !== "plant.validate" || validation.valid !== true) {
-    throw new Error("The simulated plant configuration is not valid.");
-  }
-  const saved = await client.request("plant.save", {
-    ...common,
     operation_id: operationId,
-    // Validation uses the latest document, but an existing drawer remains
-    // bound to the revision it opened so newer project edits are not lost.
+    // An existing drawer remains bound to the revision it opened, so newer
+    // project edits are not lost; a new plant is saved over the current one.
     expected_revision: expectedRevision ?? read.configuration_revision,
   });
   if (saved.operation !== "plant.save") {
@@ -225,26 +221,19 @@ export class ProjectPlantTopologyService implements PlantTopologyService {
     private readonly live: LivePlantRequest
   ) {}
 
-  async read(): Promise<PlantContractMessage> {
-    return await this.stopped.request("plant.read", {
+  async topology(status: unknown): Promise<PlantContractMessage> {
+    return await this.stopped.request("plant.topology", {
       contract: "trust.plant",
       schema_version: 1,
+      status: status ?? null,
     });
   }
 
-  async status(projectId: string): Promise<PlantContractMessage> {
-    const value = await this.live("plant.status", {
+  async status(projectId: string): Promise<unknown> {
+    return await this.live("plant.status", {
       contract: "trust.plant",
       schema_version: 1,
       project_id: projectId,
     });
-    const decoded = decodePlantContractResponse(value, projectId);
-    if (decoded.kind !== "accepted") {
-      throw new Error(`plant status unavailable: ${decoded.reason}`);
-    }
-    if (decoded.message.operation !== "plant.status") {
-      throw new Error("plant status unavailable: unexpected operation");
-    }
-    return decoded.message;
   }
 }

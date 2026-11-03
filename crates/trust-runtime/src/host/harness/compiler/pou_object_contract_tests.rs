@@ -1,20 +1,38 @@
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
+use crate::harness::build::lower_application_with;
+use crate::harness::{CompileSession, SourceFile, TestHarness};
 use crate::program_model::{property_setter_method_name, FunctionBlockBase};
+use crate::stdlib::conversions::ConversionProfile;
 use crate::value::Value;
 use crate::RuntimeBuilder;
 use trust_hir::symbols::ParamDirection;
 
 fn runtime(source: &str) -> RuntimeBuilder {
-    lower_application(&[SourceFile::new(source)], false)
-        .and_then(|lowered| lowered.construct(&[]))
-        .map(|(builder, _)| builder)
-        .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
+    lower_application_with(
+        &[SourceFile::new(source)],
+        false,
+        ConversionProfile::Codesys,
+    )
+    .and_then(|lowered| lowered.construct(&[]))
+    .map(|(builder, _)| builder)
+    .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
 }
 
 fn run(source: &str) -> TestHarness {
     let mut harness = TestHarness::from_source(source)
+        .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"));
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    harness
+}
+
+/// [`run`] under the CODESYS profile, whose language rules admit an empty named argument
+/// (docs/IEC_DEVIATIONS.md DEV-041).
+fn codesys_run(source: &str) -> TestHarness {
+    let session =
+        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session)
         .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"));
     let cycle = harness.cycle();
     assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
@@ -176,6 +194,69 @@ END_PROGRAM
 "#);
     assert_eq!(harness.get_output("first"), Some(Value::Int(7)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(7)));
+}
+
+#[test]
+fn pou_object_contract_empty_named_fb_input_retains_last_stored_value() {
+    // IEC_DEVIATIONS DEV-041: under the CODESYS profile `value := ` omits
+    // the input; the FB retains the last stored value (7), it does NOT
+    // re-apply the declared default (2) — same contract as positional
+    // omission.
+    let harness = codesys_run(
+        r#"
+FUNCTION_BLOCK Echo
+VAR_INPUT
+    value : INT := INT#2;
+END_VAR
+VAR_OUTPUT
+    outputValue : INT;
+END_VAR
+outputValue := value;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    echo : Echo;
+    first : INT;
+    second : INT;
+END_VAR
+echo(value := INT#7);
+first := echo.outputValue;
+echo(value := );
+second := echo.outputValue;
+END_PROGRAM
+"#,
+    );
+    assert_eq!(harness.get_output("first"), Some(Value::Int(7)));
+    assert_eq!(harness.get_output("second"), Some(Value::Int(7)));
+}
+
+#[test]
+fn pou_object_contract_empty_named_fb_output_compiles_unconnected() {
+    // The s4 form `Q => )` under the CODESYS profile (DEV-041): an output
+    // named without a target compiles and the value stays reachable through
+    // the instance member.
+    let harness = codesys_run(
+        r#"
+FUNCTION_BLOCK Echo
+VAR_INPUT
+    value : INT := INT#4;
+END_VAR
+VAR_OUTPUT
+    outputValue : INT;
+END_VAR
+outputValue := value;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    echo : Echo;
+    result : INT;
+END_VAR
+echo(outputValue => );
+result := echo.outputValue;
+END_PROGRAM
+"#,
+    );
+    assert_eq!(harness.get_output("result"), Some(Value::Int(4)));
 }
 
 #[test]

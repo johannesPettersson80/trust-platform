@@ -203,14 +203,16 @@ fn type_expr_simple_to_xml(type_expr: &str) -> Option<String> {
     let upper = trimmed.to_ascii_uppercase();
     if upper.starts_with("STRING[") && upper.ends_with(']') {
         let length = trimmed[7..trimmed.len() - 1].trim();
-        if !is_valid_string_length(length) {
+        if length.is_empty() {
             return None;
         }
+        // Symbolic lengths export verbatim — the mirror of the import
+        // pass-through (IEC_DEVIATIONS 2026-10-21/2026-10-25).
         return Some(format!("<string length=\"{}\"/>", escape_xml_attr(length)));
     }
     if upper.starts_with("WSTRING[") && upper.ends_with(']') {
         let length = trimmed[8..trimmed.len() - 1].trim();
-        if !is_valid_string_length(length) {
+        if length.is_empty() {
             return None;
         }
         return Some(format!("<wstring length=\"{}\"/>", escape_xml_attr(length)));

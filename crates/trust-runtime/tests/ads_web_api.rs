@@ -543,32 +543,21 @@ fn ads_server_runtime_config() -> trust_runtime::ads::server::AdsServerRuntimeCo
     }
 }
 
-fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("read local addr").port();
-    drop(listener);
-    port
-}
-
 fn start_test_server(state: Arc<ControlState>) -> String {
-    for _ in 0..16 {
-        let port = reserve_loopback_port();
-        let listen = format!("127.0.0.1:{port}");
-        let config = WebConfig {
-            enabled: true,
-            listen: SmolStr::new(listen.clone()),
-            auth: WebAuthMode::Local,
-            tls: false,
-            hmi: Default::default(),
-        };
-        if start_web_server(&config, Arc::clone(&state), None, None, None, None).is_ok() {
-            let base = format!("http://{listen}");
-            wait_for_server(base.as_str());
-            return base;
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
-    panic!("start web server: no free loopback port after retries");
+    // Port 0: the server binds a free port itself and names it in `listen`, so no other test
+    // can take the port between choosing and binding it (checklist W21).
+    let config = WebConfig {
+        enabled: true,
+        listen: SmolStr::new("127.0.0.1:0"),
+        auth: WebAuthMode::Local,
+        tls: false,
+        hmi: Default::default(),
+    };
+    let server =
+        start_web_server(&config, state, None, None, None, None).expect("start web server");
+    let base = format!("http://{}", server.listen);
+    wait_for_server(base.as_str());
+    base
 }
 
 fn wait_for_server(base: &str) {

@@ -103,7 +103,7 @@ pub(super) fn check_method_overrides(
             });
             if has_impl.is_none() {
                 diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
+                    DiagnosticCode::InterfaceConformance,
                     class_range,
                     format!(
                         "class '{}' must implement abstract method '{}'",
