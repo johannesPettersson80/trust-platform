@@ -59,7 +59,12 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         params: Vec<ParamInfo>,
     ) -> BuiltinCall {
         let arg_count = self.checker.calls().collect_call_args(node).len();
-        let (bound, typed) = self.checker.calls().collect_builtin_args(&params, node);
+        // Standard functions keep the full positional association, outputs included (e.g.
+        // SPLIT_DATE), whatever the project's profile.
+        let (bound, typed) = self
+            .checker
+            .calls()
+            .collect_builtin_args(&params, node, true);
         BuiltinCall {
             arg_count,
             bound,

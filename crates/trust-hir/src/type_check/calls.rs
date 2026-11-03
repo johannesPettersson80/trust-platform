@@ -302,7 +302,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         }
 
         let params = self.callable_parameters(symbol_id, kind);
-        let bound = self.bind_call_arguments(&params, node);
+        // A function block invocation under the CODESYS profile excludes output formals from
+        // positional association (docs/IEC_DEVIATIONS.md DEV-044); every other callable keeps
+        // the full positional association, as does an IEC project's function block.
+        let outputs_positional = !(matches!(kind, SymbolKind::FunctionBlock)
+            && self.checker.symbols.dialect().is_codesys());
+        let bound = self.bind_call_arguments(&params, node, outputs_positional);
         self.check_bound_call_argument_types(&params, &bound);
         self.check_writable_argument_aliases(&params, &bound);
     }
