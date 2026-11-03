@@ -22,6 +22,14 @@ can, so a finding costs a fix in its own pull request, never another release rou
    a few hours of work. Push it with its pull request from the first commit, ready for review (a
    draft gets no automatic review). Codex reviews it when it opens; after later pushes ask with
    `@codex review`. Fix its findings in the same pull request.
+   **About three pull requests run CI at once** (owner, 2 November 2026). The account runs about 20
+   jobs at a time, 5 of them on macOS, and one pull request's CI is about 20 jobs, most on Linux.
+   With five pull requests at once, `main`'s run waited over two hours behind them (16 Linux jobs
+   queued from 11:34), and a release follows `main`'s CI. The runners set the throughput, so fewer
+   at once finish each sooner and let `main`'s runs start. A further ready lane waits as a pushed
+   branch, which starts no CI, and its pull request opens when a run finishes. To make room, pause
+   only runs that have not started (`gh run cancel`, noted for a later fresh run); while a release
+   is on its way, start nothing else.
 2. **Before each push**: the compile check of the changed crates (AGENTS.md) and the focused tests
    of what changed and of the crates and test files that use it, on the builder. Read the diff for
    logic in TypeScript. Nothing else locally: `just test-all`, the VS Code suites, the
