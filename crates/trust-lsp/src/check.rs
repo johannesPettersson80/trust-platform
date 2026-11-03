@@ -643,6 +643,10 @@ mod tests {
         }
     }
 
+    /// Specification 14 §7.7: `check` reports what the editor shows, library surface included.
+    /// `libs/vendor` is a library folder that no own folder (`src`) holds, so `Vendor.st` keeps
+    /// none of W001, W002 and W009, while `Main.st` keeps W009 (`Main`, `ProjScale`) and W002
+    /// (`value`). Catches an exemption that reaches the editor but not `check`.
     #[tokio::test]
     async fn a_library_file_keeps_no_unused_warnings_in_check() {
         let project = LibraryProject::new(
@@ -667,6 +671,9 @@ mod tests {
         assert_eq!(err, "");
     }
 
+    /// `[[libraries]] path = "."` is as deep as the project's own folder, which wins, so every
+    /// file keeps W001, W002 and W009. Catches a rule where a library entry at the root silences
+    /// the whole project in CI.
     #[tokio::test]
     async fn a_library_folder_that_is_the_project_root_keeps_every_warning() {
         let project = LibraryProject::new(
@@ -678,13 +685,12 @@ mod tests {
         assert_eq!(status, 0, "stderr: {err}");
         let payload: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
         assert_eq!(payload["files"], 2, "{out}");
-        // The refused entry exempts nothing: every file of the project keeps its warnings.
         let vendor_codes = LibraryProject::unused_codes(&payload, "Vendor.st");
         assert!(
             vendor_codes.contains(&"W001".to_string())
                 && vendor_codes.contains(&"W009".to_string())
                 && vendor_codes.contains(&"W002".to_string()),
-            "the library's declarations must warn when the entry is refused: {out}"
+            "a library entry at the project root exempts nothing: {out}"
         );
         let main_codes = LibraryProject::unused_codes(&payload, "Main.st");
         assert!(

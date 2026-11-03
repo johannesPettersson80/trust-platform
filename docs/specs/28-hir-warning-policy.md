@@ -40,18 +40,18 @@ file. Assigning a FUNCTION or METHOD return value through its own declaration
 name is part of that POU's result semantics and does not by itself make the POU
 externally used.
 
-A file inside the folder of a `[[libraries]]` entry or of a resolved
-`[dependencies]` package is library surface and receives none of these
-warnings, in the editor and in `trust-lsp check` alike. CODESYS and TwinCAT
-judge a library in its own project, where its files are that project's own
-sources and every warning is on, and truST does the same: "unused" is a claim
-about all of a declaration's users, and the application is only one of a
-library's users. The other warnings are properties of the code itself —
-errors, implicit conversion, complexity, unreachable code — and stay on for
-library files. A library entry whose folder is the project root, or contains
-it, would turn every file of the project into library surface; the
-configuration refuses it with `L008` (specification 14 §7.6) and it exempts
-nothing.
+A library file is library surface and receives none of these warnings, in the
+editor and in `trust-lsp check` alike. A file is a library file when the
+deepest folder that holds it, among its project's own source folders (the
+root, or the `include_paths`) and its library folders (`[[libraries]]`
+entries, `[project] library_paths` and resolved `[dependencies]` packages),
+is a library folder; at equal depth the project's own folder wins
+(specification 14 §7.6). CODESYS and TwinCAT judge a library in its own
+project, where its files are that project's own sources and every warning is
+on, and truST does the same: "unused" is a claim about all of a declaration's
+users, and the application is only one of a library's users. Every other
+diagnostic is a property of the code itself — errors, implicit conversion,
+complexity, unreachable code — and stays on for library files.
 
 ## 2. Implicit conversion
 

@@ -1,7 +1,7 @@
 //! Config domain models for trust-lsp.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tower_lsp::lsp_types::DiagnosticSeverity;
 
 /// Project configuration loaded from `trust-lsp.toml`.
@@ -41,9 +41,10 @@ pub struct ProjectConfig {
     pub telemetry: TelemetryConfig,
 }
 impl ProjectConfig {
-    pub fn indexing_roots(&self) -> Vec<PathBuf> {
-        let mut roots = Vec::new();
-        // `include_paths` is meant to scope what the indexer walks — when set,
+    /// The project's own source folders: its `include_paths`, or its root when none are set
+    /// (specification 14 §7.6).
+    pub fn source_folders(&self) -> Vec<PathBuf> {
+        // `include_paths` is meant to scope the project's sources — when set,
         // it replaces the workspace root rather than extending it. Otherwise a
         // user with `include_paths = ["src"]` still gets the entire workspace
         // root scanned, which on a multi-project tree (e.g. trust-platform/
@@ -51,10 +52,16 @@ impl ProjectConfig {
         // spurious E104 duplicate-import diagnostics. Falling back to the root
         // when `include_paths` is empty preserves the unconfigured-project case.
         if self.include_paths.is_empty() {
-            roots.push(self.root.clone());
+            vec![self.root.clone()]
         } else {
-            roots.extend(self.include_paths.iter().cloned());
+            self.include_paths.clone()
         }
+    }
+
+    /// The folders the indexer walks: the project's own source folders, then each library
+    /// folder once.
+    pub fn indexing_roots(&self) -> Vec<PathBuf> {
+        let mut roots = self.source_folders();
         for lib in &self.libraries {
             if !roots.contains(&lib.path) {
                 roots.push(lib.path.clone());
@@ -78,122 +85,6 @@ impl ProjectConfig {
             dir.to_string_lossy().as_ref(),
         ))
     }
-
-    /// Whether `path` lies inside one of the configured library folders and so is library API
-    /// surface for the unused-symbol warnings (specification 14 §7.6, specification 28 §1): a
-    /// library is judged in its own project, where its files are that project's own sources and
-    /// every warning is on, and the application is only one of the library's users. Every other
-    /// diagnostic is a property of the code itself and stays on. A library entry whose folder is
-    /// the project root, or contains it, would make every project file library surface; the
-    /// configuration reports it as `L008` and it exempts nothing.
-    pub(crate) fn is_library_surface(&self, path: &Path) -> bool {
-        // The editor sends the path as the project is opened — a symlink or a short Windows
-        // path — while a `[dependencies]` folder is canonical; compare real identities, the
-        // file through the longest ancestor that still exists (it may be missing), the folder
-        // as the filesystem resolves it. The stored forms stay as the configuration wrote them.
-        let file = normalize_match_path(&canonicalize_through_existing_ancestor(path));
-        self.libraries
-            .iter()
-            .filter(|library| !library_folder_swallows_project(&self.root, &library.path))
-            .any(|library| {
-                file.starts_with(normalize_match_path(&canonicalize_path(
-                    library.path.clone(),
-                )))
-            })
-    }
-
-    /// The configured libraries whose folder is the project root or contains it: refused with
-    /// `L008`, and exempting nothing (specification 14 §7.6).
-    pub(crate) fn root_swallowing_libraries(&self) -> Vec<&LibrarySpec> {
-        self.libraries
-            .iter()
-            .filter(|library| library_folder_swallows_project(&self.root, &library.path))
-            .collect()
-    }
-}
-
-/// Whether `library`'s folder is the project `root` itself or an ancestor of it, so that treating
-/// the library's files as library surface would silence the whole project. Both sides meet in
-/// their canonical forms; the match stays component-wise, so that `libs` does not match
-/// `libs-other`.
-fn library_folder_swallows_project(root: &Path, library: &Path) -> bool {
-    let project = normalize_match_path(&canonicalize_through_existing_ancestor(root));
-    let folder = normalize_match_path(&canonicalize_through_existing_ancestor(library));
-    folder == project || project.starts_with(&folder)
-}
-
-/// The path's canonical form; when the path itself does not exist, the canonical form of its
-/// longest existing ancestor with the rest of the path appended — a document may be missing while
-/// its library folder is not (`state::documents` deletes by the same identity).
-fn canonicalize_through_existing_ancestor(path: &Path) -> PathBuf {
-    path.ancestors()
-        .find_map(|ancestor| {
-            ancestor.canonicalize().ok().and_then(|_| {
-                path.strip_prefix(ancestor)
-                    .ok()
-                    .map(|tail| canonicalize_path(ancestor.to_path_buf()).join(tail))
-            })
-        })
-        .unwrap_or_else(|| path.to_path_buf())
-}
-
-/// The canonical form of a path when it can be read from the filesystem, the path as written
-/// otherwise; a canonical Windows path loses its device prefix (`\\?\C:\dir` is `C:\dir`,
-/// `\\?\UNC\server\share` is `\\server\share`), so every form the tools compare is plain.
-pub(crate) fn canonicalize_path(path: PathBuf) -> PathBuf {
-    let canonical = path.canonicalize().unwrap_or(path);
-    strip_windows_device_prefix(&canonical)
-}
-
-/// `\\?\C:\dir` is `C:\dir` and `\\?\UNC\server\share` is `\\server\share`; other verbatim and
-/// device paths have no plain form and are kept.
-#[cfg(windows)]
-fn strip_windows_device_prefix(path: &Path) -> PathBuf {
-    let raw = match path.to_str() {
-        Some(raw) => raw,
-        None => return path.to_path_buf(),
-    };
-    if let Some(rest) = raw
-        .strip_prefix("\\\\?\\UNC\\")
-        .or_else(|| raw.strip_prefix("\\?\\UNC\\"))
-        .or_else(|| raw.strip_prefix("\\\\.\\UNC\\"))
-        .or_else(|| raw.strip_prefix("\\??\\UNC\\"))
-    {
-        return PathBuf::from(format!("\\\\{rest}"));
-    }
-    if let Some(rest) = raw
-        .strip_prefix("\\\\?\\")
-        .or_else(|| raw.strip_prefix("\\?\\"))
-        .or_else(|| raw.strip_prefix("\\\\.\\"))
-        .or_else(|| raw.strip_prefix("\\??\\"))
-    {
-        return PathBuf::from(rest);
-    }
-    path.to_path_buf()
-}
-
-/// `\\?\C:\dir` is `C:\dir` and `\\?\UNC\server\share` is `\\server\share`; other verbatim and
-/// device paths have no plain form and are kept.
-#[cfg(not(windows))]
-fn strip_windows_device_prefix(path: &Path) -> PathBuf {
-    path.to_path_buf()
-}
-
-/// A path as a component-wise prefix-match key, with `.` and `..` resolved. Component-wise, so
-/// that `libs` does not match `libs-other` (the same matching the HMI's own-equipment rule relies
-/// on). The paths fed here are canonical or already plain, so no device-prefix handling is needed.
-fn normalize_match_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
-                normalized.pop();
-            }
-            _ => normalized.push(component.as_os_str()),
-        }
-    }
-    normalized
 }
 
 /// Standard library selection settings.

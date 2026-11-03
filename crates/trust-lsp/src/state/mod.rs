@@ -26,8 +26,10 @@ const BACKGROUND_REQUEST_LIMIT: usize = 1;
 
 mod cache;
 mod documents;
+mod library_surface;
 mod path;
 
+use library_surface::DiagnosticScope;
 pub(crate) use path::{path_to_uri, uri_to_path};
 
 /// A document managed by the server.
@@ -146,6 +148,9 @@ pub struct ServerState {
     workspace_folders: RwLock<Vec<Url>>,
     /// Workspace configuration per root.
     workspace_configs: RwLock<FxHashMap<Url, ProjectConfig>>,
+    /// Each root's own source folders and library folders, resolved on disk when its
+    /// configuration is set (specification 14 §7.6).
+    project_folders: RwLock<FxHashMap<Url, Arc<library_surface::ProjectFolders>>>,
     /// Cached external library docs per workspace root.
     library_docs: RwLock<FxHashMap<Url, Arc<FxHashMap<String, String>>>>,
     /// Telemetry collector (opt-in).
@@ -184,6 +189,7 @@ impl ServerState {
             project: RwLock::new(Project::new()),
             workspace_folders: RwLock::new(Vec::new()),
             workspace_configs: RwLock::new(FxHashMap::default()),
+            project_folders: RwLock::new(FxHashMap::default()),
             library_docs: RwLock::new(FxHashMap::default()),
             telemetry: TelemetryCollector::new(),
             devices: Arc::new(DevicesEngine::new()),
@@ -282,6 +288,9 @@ impl ServerState {
     /// of the highest-priority configuration's `vendor_profile` (specification 14); an unknown
     /// profile, which the configuration's diagnostics report, keeps the IEC rules.
     pub fn set_workspace_config(&self, root: Url, config: ProjectConfig) {
+        // Resolved before the configuration becomes visible, outside every lock.
+        let folders = Arc::new(library_surface::ProjectFolders::of(&config));
+        self.project_folders.write().insert(root.clone(), folders);
         self.workspace_configs.write().insert(root.clone(), config);
         self.library_docs.write().remove(&root);
         let dialect = self
@@ -318,6 +327,12 @@ impl ServerState {
     /// Returns the best-matching workspace configuration for a document URI.
     pub fn workspace_config_for_uri(&self, uri: &Url) -> Option<ProjectConfig> {
         path::workspace_config_for_uri(self, uri)
+    }
+
+    /// Returns the configuration that governs a source file's diagnostics, and whether the file
+    /// is library surface under it (specification 14 §7.6).
+    pub fn diagnostic_scope_for_uri(&self, uri: &Url) -> Option<DiagnosticScope> {
+        library_surface::diagnostic_scope_for_uri(self, uri)
     }
 
     /// Returns cached library docs for the workspace that owns `uri`.

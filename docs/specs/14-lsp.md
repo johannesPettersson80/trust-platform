@@ -681,7 +681,7 @@ program execution or an IEC 61131-3 deviation.
 #### 7.6 Project Configuration & Workspace Indexing
 
 - Per-root project config file: `trust-lsp.toml`, `.trust-lsp.toml`, or `trustlsp.toml`.
-- `[project]` supports `include_paths`, `library_paths`, `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
+- `[project]` supports `include_paths` (the project's own source folders), `library_paths` (library folders, indexed like `[[libraries]]` entries named after their folder), `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
 - `vendor_profile` selects the language rules of the whole analysis (diagnostics, hover, completion, `trust-lsp check`), and the runtime build, the debugger and the runtime's web IDE take the same rules from the project's `vendor_profile`, with the conversion rules it selects (docs/specs/07-standard-functions.md section 2.10):
   - `iec`, `siemens`, `mitsubishi`, `gxworks3`, an empty name or none: IEC 61131-3 as truST reads it.
   - `codesys`, `beckhoff`, `twincat`: the IEC rules with CODESYS's departures, each recorded in `docs/IEC_DEVIATIONS.md`: function block members public by default (DEV-028), a function block's or program's body assigning its own inputs (DEV-029), a program reached by its name (`Program.member`, `Program.action()`, `Program();`, DEV-030), references dereferenced without `^` (DEV-031), and a named actual without a value leaving the input unbound or discarding the output (DEV-032).
@@ -766,7 +766,7 @@ identity, bracketed IPv6 hosts are parsed as one host, credentials are never
 copied into diagnostics or cache names, and unknown URL schemes are `L005`.
 Trust rejection happens before clone, fetch, cache creation, or lock mutation.
 
-The stable library and resolver codes are:
+The stable resolver codes are:
 
 - `L001`: missing/unreadable source, manifest, or source operation;
 - `L002`: package-version mismatch;
@@ -774,12 +774,11 @@ The stable library and resolver codes are:
 - `L004`: dependency cycle;
 - `L005`: malformed dependency entry or rejected source policy;
 - `L006`: lock schema, identity, content, or publication failure; and
-- `L007`: offline cache or revision unavailable;
-- `L008`: a library folder that is the project root, or contains it — the entry is refused and exempts nothing (specification 28 §1).
+- `L007`: offline cache or revision unavailable.
 
 - `[[libraries]]` can declare `dependencies` (array of `{ name, version? }`) to model library graphs; missing dependencies or version mismatches are reported as config diagnostics.
 - Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
-- A file inside a `[[libraries]]` folder or a resolved `[dependencies]` package is library API surface: it never receives the unused-symbol warnings W001, W002, or W009, in the editor and in `trust-lsp check` alike, while every other diagnostic stays on (specification 28 §1). A library is judged in its own project, where its files are that project's own sources and every warning is on. A library entry whose folder is the project root, or contains it, would turn every file of the project into library surface; it is refused with the configuration diagnostic `L008` and exempts nothing.
+- Library files are API surface for the unused-symbol warnings (specification 28 §1). A project's library folders are its `[[libraries]]` folders, its `[project] library_paths`, and its resolved `[dependencies]` packages, transitive ones included; its own source folders are its `include_paths`, or its root when none are set. For each file, the deepest folder that holds it among the project's own source folders and its library folders decides. When that folder is a library folder, the file is library surface: it never receives W001, W002, or W009, in the editor and in `trust-lsp check` alike, while every other diagnostic stays on. An own source folder wins over an equally deep library folder, so a library entry equal to an own source folder (`[[libraries]] path = "."` in a project without `include_paths`, or a library at an include path) exempts nothing. A library folder that holds the project, as `Plant = { path = "../.." }` holds a Plant example, exempts the library's other files but not the project's own. Folders and files are compared component by component after resolving symbolic links, junctions, and short names, a missing file or folder through its deepest existing folder, so every spelling of one folder is the same folder. No library entry is refused for where its folder lies. A library is judged in its own project, where its files are that project's own sources and every warning is on.
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
 - `[workspace]` controls multi-root federation: `priority` orders root results for workspace symbol search, and `visibility` (`public`, `private`, `hidden`) filters which roots participate when querying (private roots only appear for non-empty queries) (tooling behavior, non-IEC).
 - `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults. `debug` (a Boolean, `true` when absent) chooses the native program image that `trust-runtime build --target` compiles: `false` builds a release image without debug hooks (specification 44 §13.2); `profile` does not choose the image. The language server reads no other meaning into `debug`.
