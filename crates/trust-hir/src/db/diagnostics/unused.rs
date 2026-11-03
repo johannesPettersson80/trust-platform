@@ -83,24 +83,35 @@ pub(in crate::db) fn collect_used_symbols(
             continue;
         }
         let context = expression_context(symbols, &node);
-        // A local, a parameter or a member of the POU named like a namespace hides it: the chain is
-        // a member access on that declaration, which the name pass above marks used
-        // (specification 09 §1.3).
-        if symbols.hides_global_head(&segments[0], context.scope_id) {
-            continue;
-        }
-        let resolved = symbols.resolve_qualified(&segments).or_else(|| {
-            // non-namespace chains: Enum.Member, Struct.Field - resolve the
-            // head through the remaining segments, then the terminal as its
-            // direct child
-            let (terminal, head) = segments.split_last()?;
-            let owner = if head.len() == 1 {
-                symbols.lookup(&head[0])
-            } else {
-                symbols.resolve_qualified(head)
-            }?;
-            symbols.resolve_child_symbol(owner, terminal)
-        });
+        // The single-segment head resolves in the expression's scope first:
+        // a local shadowing a global list owns the chain, and a member the
+        // local does not have must not fall back to the global spelling (the
+        // fallback can only ever hide that member's unused warning). Only a
+        // head the scope does not declare reaches the namespace walk and the
+        // global fallback for non-namespace chains (Enum.Member,
+        // Struct.Field) - the head through the remaining segments, then the
+        // terminal as its direct child.
+        let resolved = match segments.split_last() {
+            Some((terminal, head)) if head.len() == 1 => {
+                match symbols.resolve(&head[0], context.scope_id) {
+                    Some(owner) => symbols.resolve_child_symbol(owner, terminal),
+                    None => symbols.resolve_qualified(&segments).or_else(|| {
+                        symbols
+                            .lookup(&head[0])
+                            .and_then(|owner| symbols.resolve_child_symbol(owner, terminal))
+                    }),
+                }
+            }
+            // A longer chain whose head a nearer declaration hides is a member access on that
+            // declaration, which the name pass above marks used (specification 09 §1.3).
+            Some(_) if symbols.hides_global_head(&segments[0], context.scope_id) => None,
+            Some((terminal, head)) => symbols.resolve_qualified(&segments).or_else(|| {
+                symbols
+                    .resolve_qualified(head)
+                    .and_then(|owner| symbols.resolve_child_symbol(owner, terminal))
+            }),
+            _ => None,
+        };
         if let Some(symbol_id) = resolved {
             if is_self_pou_reference(symbols, symbol_id, &context) {
                 continue;

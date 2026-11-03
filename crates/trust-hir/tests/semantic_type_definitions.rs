@@ -491,6 +491,63 @@ END_PROGRAM
 }
 
 #[test]
+fn test_dut_conversion_without_ancestor_relation_stays_rejected() {
+    // The upcast carve-out covers the EXTENDS chain only: two DUTs with no
+    // ancestor relation keep the incompatible-assignment error, so the
+    // upcast relief cannot mask an accidental lookalike-struct assignment.
+    // Sibling DUTs (a shared base, no ancestor line between them) stay
+    // rejected too - only the derived -> ancestor direction is accepted.
+    let errors = check_errors(
+        r#"
+TYPE Entity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE Reading : STRUCT
+    rValue : REAL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        entity : Entity;
+        reading : Reading;
+    END_VAR
+    entity := reading;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "DUTs without an ancestor relation keep the assignment error: {errors:?}"
+    );
+
+    let errors = check_errors(
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE LeftDut EXTENDS BaseEntity : STRUCT
+    lValue : INT;
+END_STRUCT END_TYPE
+TYPE RightDut EXTENDS BaseEntity : STRUCT
+    rValue : REAL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        left : LeftDut;
+        right : RightDut;
+    END_VAR
+    left := right;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::IncompatibleAssignment),
+        "sibling DUTs with no ancestor line between them keep the assignment error: {errors:?}"
+    );
+}
+
+#[test]
 fn test_dut_extends_rejects_base_to_derived_assignment() {
     check_has_error(
         r#"

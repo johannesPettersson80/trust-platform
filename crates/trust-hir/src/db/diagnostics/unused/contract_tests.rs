@@ -552,6 +552,45 @@ END_PROGRAM
 }
 
 #[test]
+fn a_local_named_like_the_list_hides_a_longer_chain_too() {
+    // A local `GVals` hides the namespace for a chain of any length (specification 09 §1.3):
+    // `GVals.Inner.X` is a member of the local, so the nested namespace's constant, used nowhere
+    // else, keeps its warning. Catches a longer chain sent to the namespace walk past the local.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+NAMESPACE Inner
+VAR_GLOBAL CONSTANT
+    X : INT := 5;
+END_VAR
+END_NAMESPACE
+END_NAMESPACE
+"#,
+            r#"
+TYPE InnerT : STRUCT X : INT; END_STRUCT END_TYPE
+TYPE Shadow : STRUCT Inner : InnerT; END_STRUCT END_TYPE
+PROGRAM Main
+VAR
+    GVals : Shadow;
+    v : INT;
+END_VAR
+v := GVals.Inner.X;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    assert!(
+        diagnostics.iter().any(
+            |diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable
+                && diagnostic.message.contains("'X'")
+        ),
+        "the hidden nested namespace's constant stays unused: {diagnostics:?}"
+    );
+}
+
+#[test]
 fn a_local_named_like_the_list_leaves_its_constant_unused() {
     // Issue #203: a local named like the namespace hides it, so `GVals.UsedCrossFile` reads the
     // local, and the namespace's constant, used nowhere else, keeps its warning (specification 09
@@ -686,5 +725,55 @@ END_FUNCTION_BLOCK
     assert!(
         unused.iter().any(|message| message.contains("iDead")),
         "a pin of a method outside every implemented interface still warns: {unused:?}"
+    );
+}
+
+#[test]
+fn local_shadowing_a_global_list_does_not_mark_its_member_used() {
+    // Review follow-up (upstream PR #148, note 3): the qualified-chain head
+    // resolved with the global lookup, so a LOCAL named like the global list
+    // (`GVals`) made `GVals.UsedCrossFile` mark the global list's member
+    // used and hide its unused warning. The head now resolves in the
+    // expression's scope first, and a scoped head settles the chain: the
+    // local has no such member, so the genuinely unreferenced global stays
+    // warned.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    UsedCrossFile : INT := 5;
+    NeverReferenced : INT := 6;
+END_VAR
+END_NAMESPACE
+"#,
+            r#"
+PROGRAM Main
+VAR
+    GVals : INT;
+END_VAR
+    GVals := GVals.UsedCrossFile;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        unused
+            .iter()
+            .any(|message| message.contains("UsedCrossFile")),
+        "a local shadowing the list must not hide the global member's unused warning: {unused:?}"
+    );
+    assert!(
+        unused
+            .iter()
+            .any(|message| message.contains("NeverReferenced")),
+        "the untouched sibling member keeps its warning: {unused:?}"
     );
 }

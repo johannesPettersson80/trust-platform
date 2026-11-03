@@ -47812,3 +47812,23 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-11-02"
+
+[[reviews]]
+discovery_id = "DISC_BDF431494EAEF55C2432"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-hir/src/db/diagnostics/unused/contract_tests.rs"
+name = "local_shadowing_a_global_list_does_not_mark_its_member_used"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-02"
+
+[[reviews]]
+discovery_id = "DISC_FA6C63848AED1CC4F933"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_definitions.rs"
+name = "test_dut_conversion_without_ancestor_relation_stays_rejected"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-02"
