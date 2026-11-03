@@ -1225,6 +1225,12 @@ README that passes fails the check until it is taken off the list.
   workspace permission, stale runtime/timeout, and other spawn failure as
   `missing_binary`, `port_conflict`, `workspace_permission`,
   `stale_runtime`, and `failed_spawn` respectively.
+- A Start of the simulator whose debug session ends while the extension
+  watches it settle (within 2.5 s after the first I/O state request answered)
+  is a failed start, `failed_spawn`: `Simulator stopped during startup. Check
+  the runtime port or target settings.` The language server names the kind and
+  the message (`trust-lsp.runTargets`, action `failure` with
+  `sessionEnded: true`, §6.9); the extension only watches its own session.
 - An unreachable OPC UA client test reports that the OPC UA server is not
   reachable and MUST NOT expose raw backend status tokens such as
   `BadNotConnected`.
@@ -1874,7 +1880,8 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   (`selection`); the Live Values status with the row operations of §4.1 and
   whether a Force must be armed (`liveValues`); the simulator's speed and its
   words (`speed`); the Connect check of §5.1 (`connect`); the kind of a
-  failure from its text (`failure`); the run target that the HMI Builder's
+  failure from its text, or of a simulator Start whose session ended
+  (`failure`, §5.10); the run target that the HMI Builder's
   Live mode and Deploy talk to (`hmiTarget`, specification 39 §11 item 6); and
   the managed runtimes with their states, the outcome of a managed Start or Stop
   and the managed logs (`managed`, `managedOutcome`, `managedLogs`).
@@ -2157,6 +2164,15 @@ these commands and show the answers:
   transition keeps its delay. A mapping value of exactly `true` or `false` is
   a Boolean, text that reads as a finite number is that number, and any other
   text, blank text included, is kept as text.
+- A webview asks its host for every dialog, since VS Code's webview sandbox
+  ignores `alert`, `confirm` and `prompt`. The Statechart's Add action mapping
+  asks for the name in VS Code's input box; the language server refuses a
+  blank name or one that a mapping already has, and gives the new action a
+  mapping that writes `TRUE` to `%QX0.0` (`trust-lsp.visualEdit`
+  `addMapping`). Deleting a mapping asks in a modal VS Code warning. Ladder's
+  Find and replace asks for the symbol or address and its replacement in VS
+  Code's input boxes, Escape on either asking nothing more, and says how many
+  it replaced.
 - SFC Validate checks the chart on the canvas and refuses a chart its
   companion cannot be made of (`sfc-profile.md`, "What Validate refuses");
   saving, Preview ST and Generate ST show those findings instead of a

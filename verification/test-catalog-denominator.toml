@@ -47784,6 +47784,36 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-30"
 
 [[reviews]]
+discovery_id = "DISC_1F7E2E18586E65A6CD98"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/codesys_language_profile.rs"
+name = "a_reference_rebinds_to_another_programs_variable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-02"
+
+[[reviews]]
+discovery_id = "DISC_E4D9A462C5981EEB8790"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/codesys_language_profile.rs"
+name = "a_reference_rebinds_through_segmented_and_indexed_paths"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-02"
+
+[[reviews]]
+discovery_id = "DISC_378C16344A5F49803B61"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/codesys_language_profile.rs"
+name = "the_iec_rules_refuse_a_reference_bound_to_another_programs_variable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-02"
+
+[[reviews]]
 discovery_id = "DISC_BDF431494EAEF55C2432"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/db/diagnostics/unused/contract_tests.rs"

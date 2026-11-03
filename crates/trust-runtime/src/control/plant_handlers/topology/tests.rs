@@ -329,8 +329,8 @@ fn a_plants_states_follow_the_specified_order() {
 }
 
 // Catches the editor losing what it does not manage when it reopens a saved plant (the `validity`
-// table, specification 47 §13.2), another plant's scenario event in this plant's list, and a saved
-// uncertainty reopened as excluded (§11, §12).
+// table and an on-off actuator's kind, specification 47 §13.2), another plant's scenario event in
+// this plant's list, and a saved uncertainty reopened as excluded (§11, §12).
 #[test]
 fn a_saved_plant_opens_with_its_whole_saved_table() {
     let read = read_of(
@@ -362,7 +362,10 @@ state_minimum = [-10.0, -20.0]
 state_maximum = [10.0, 20.0]
 
 [plants.actuator]
-rate_limit_per_s = 2.5
+kind = "on-off"
+minimum = 0.0
+maximum = 100.0
+minimum_on_s = 20.0
 
 [[plants.uncertainties]]
 kind = "measurement_noise"
@@ -410,10 +413,14 @@ kind = "fault"
     assert_eq!(configuration["inputOffset"], json!([0.0, 3.0]));
     assert_eq!(configuration["outputScale"], json!([4.0, 5.0]));
     assert_eq!(configuration["outputOffset"], json!([6.0, 7.0]));
+    // The editor's actuator fields; the on-off kind and minimum on time stay in the saved table,
+    // which Save carries (checklist G33: a reopened on-off actuator was lost on Save).
     assert_eq!(
         configuration["actuator"],
-        json!({ "rate_limit_per_s": 2.5 })
+        json!({ "minimum": 0.0, "maximum": 100.0 })
     );
+    assert_eq!(saved["actuator"]["kind"], "on-off");
+    assert_eq!(saved["actuator"]["minimum_on_s"], 20.0);
     assert_eq!(
         configuration["uncertainties"],
         json!([{ "kind": "measurement_noise", "channel": 0, "amplitude": 0.1, "enabled": true }])

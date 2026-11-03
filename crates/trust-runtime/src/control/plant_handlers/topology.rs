@@ -9,6 +9,7 @@
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
+use super::editor::is_editor_actuator_field;
 use super::{
     admit, handle_plant_status, saved_plants, PlantHandlerContext, CONTRACT, SCHEMA_VERSION,
 };
@@ -339,9 +340,21 @@ fn editor_configuration(
             configuration.insert(key.into(), json!(list));
         }
     }
-    if let Some(actuator) =
-        number_table(table.get("actuator")).filter(|actuator| !actuator.is_empty())
-    {
+    // The actuator fields the editor manages, as saved (a value that is not a number is the
+    // editor's to report). The saved actuator's other keys (its `kind`, minimum on and off times)
+    // stay in `preservedConfiguration`, which Save carries (§13.2).
+    let actuator: Map<String, Value> = table
+        .get("actuator")
+        .and_then(Value::as_object)
+        .map(|saved| {
+            saved
+                .iter()
+                .filter(|(key, _)| is_editor_actuator_field(key))
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    if !actuator.is_empty() {
         configuration.insert("actuator".into(), Value::Object(actuator));
     }
     if let Some(effects) = table.get("uncertainties").and_then(Value::as_array) {
@@ -434,12 +447,6 @@ fn text_list(value: Option<&Value>) -> Option<Vec<&str>> {
 fn number_list(value: Option<&Value>) -> Option<Vec<Value>> {
     let list = value?.as_array()?;
     list.iter().all(is_finite_number).then(|| list.clone())
-}
-
-/// A table of finite numbers.
-fn number_table(value: Option<&Value>) -> Option<Map<String, Value>> {
-    let table = value?.as_object()?;
-    table.values().all(is_finite_number).then(|| table.clone())
 }
 
 /// A table whose values are finite numbers or lists, nested to any depth, of finite numbers: a

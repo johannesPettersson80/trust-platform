@@ -102,6 +102,9 @@ pub(in crate::db) fn collect_used_symbols(
                     }),
                 }
             }
+            // A longer chain whose head a nearer declaration hides is a member access on that
+            // declaration, which the name pass above marks used (specification 09 §1.3).
+            Some(_) if symbols.hides_global_head(&segments[0], context.scope_id) => None,
             Some((terminal, head)) => symbols.resolve_qualified(&segments).or_else(|| {
                 symbols
                     .resolve_qualified(head)

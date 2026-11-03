@@ -92,9 +92,22 @@ pub(super) fn candidate(draft: &Map<String, Value>) -> Value {
             candidate.insert(field.into(), copy(key));
         }
     }
-    let actuator = js::object(draft, "actuator");
+    // The actuator: the saved actuator's keys that the editor does not manage (its `kind`, minimum
+    // on and off times) kept as they were, then the editor's fields from the draft, so that a
+    // cleared editor field stays cleared (specification 47 §13.2).
+    let mut actuator: Map<String, Value> =
+        js::object(js::object(draft, "preservedConfiguration"), "actuator")
+            .iter()
+            .filter(|(key, _)| !super::is_editor_actuator_field(key))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+    actuator.extend(
+        js::object(draft, "actuator")
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone())),
+    );
     if !actuator.is_empty() {
-        candidate.insert("actuator".into(), Value::Object(actuator.clone()));
+        candidate.insert("actuator".into(), Value::Object(actuator));
     }
     if draft.get("uncertainties").is_some_and(Value::is_array) {
         candidate.insert(

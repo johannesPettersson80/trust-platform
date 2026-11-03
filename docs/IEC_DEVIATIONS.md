@@ -982,3 +982,38 @@ re-check them against this rule when touched.
   ambiguity stays unresolved, and the bare-name strictness documented
   for the size view carries over; the unqualified-member ambiguity rule
   of `resolve_enum_value_by_name` is unchanged.
+
+## 2026-11-02 - CODESYS language profile: VOID function returns
+
+- ID: DEV-043
+- Area: the declared return type of a `FUNCTION` under the CODESYS language
+  profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.1.2 declares a
+  function's result through its return type (`FUNCTION name : <data type>`),
+  and the declared type is one of the data types of section 6.3 — no `VOID`
+  type exists among them. A function always returns a value of its declared
+  type.
+- truST behavior and conflict:
+  - The default language rules reject a function whose declared return type
+    is `VOID` (`E207` at the declaration): the IEC dialect knows no such data
+    type.
+  - Under the CODESYS profile the declaration is accepted, as CODESYS does:
+    `FUNCTION MemCopy : VOID` declares a function without a result. The
+    function carries no return slot, a call captures no result, and the body
+    may exit early with a value-less `RETURN;`. A `RETURN` with a value stays
+    an error (`E207`), and the return-checking rules of specification 04
+    section 2 treat the function like the other no-result POU forms.
+  - Admitting the declaration departs from the requirement that a function's
+    declared type names a data type of section 6.3.
+- Impact:
+  - A CODESYS-profile project compiles the vendor library stubs whose
+    functions return nothing (`WagoSysPlainMem.MemCopy` and its idiom); the
+    same source fails on the default rules and on a strictly conforming
+    IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is `codesys`,
+    `beckhoff` or `twincat` (specification 14); the default rules are
+    unchanged and the rejection is pinned by a native test.
+  - The runtime treats an admitted `VOID` function like the other no-result
+    POU forms — no return slot is allocated — so the departure changes no
+    compiled-program behavior beyond accepting the declaration.

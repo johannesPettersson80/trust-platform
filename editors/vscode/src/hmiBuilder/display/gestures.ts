@@ -1,6 +1,6 @@
 // What the switch, selector, mode selector and slider do when they are used on the runtime page
-// (specification 39, §5.8). Each acts on the value it shows, so while that value is unknown or
-// stale it sends nothing and says so.
+// (specification 39, §5.8). Each acts on the value it shows and sends that value with its command;
+// the runtime decides what a switch writes, and refuses while the control shows no value.
 
 import { sliderValueAt } from "../drawing/components/slider";
 import type { HmiObjectModel, LiveValue } from "../drawing/model";
@@ -10,10 +10,10 @@ import { say, translate } from "../drawing/speech";
 export interface GestureContext {
   /** The live value of an object's bound property. */
   live(object: HmiObjectModel, property: string): LiveValue | undefined;
-  /** Writes a value, after the control's question when it has one. */
-  write(object: HmiObjectModel, value: unknown): void;
-  /** A short notice. */
-  notice(text: string): void;
+  /** Writes a value, after the control's question when it has one, saying what the control shows. */
+  write(object: HmiObjectModel, value: unknown, shown: unknown): void;
+  /** Toggles a switch, after the control's question when it has one, saying what it shows. */
+  toggle(object: HmiObjectModel, shown: unknown): void;
   /** A new dialog in place of any open one. */
   dialog(part: string): HTMLElement;
   closeDialog(): void;
@@ -21,30 +21,23 @@ export interface GestureContext {
   draft(object: HmiObjectModel, value: number | undefined): void;
 }
 
-const NOT_KNOWN = (): string => say("The value of this control is not known, so it sends nothing.");
-
-/** The value a gesture acts on, or undefined (with a notice) while it is unknown or stale. */
-function known(object: HmiObjectModel, property: string, context: GestureContext): LiveValue | undefined {
+/** The value a control shows, null while it shows none (unknown or stale). */
+function shownValue(object: HmiObjectModel, property: string, context: GestureContext): LiveValue["value"] | null {
   const live = context.live(object, property);
-  if (!live || live.state === "unknown" || live.staleMs !== undefined || live.value === null) {
-    context.notice(NOT_KNOWN());
-    return undefined;
-  }
-  return live;
+  if (!live || live.state === "unknown" || live.staleMs !== undefined) return null;
+  return live.value;
 }
 
-/** A switch writes the opposite of the value it shows. */
+/** A switch asks the runtime to write the opposite of the value it shows. */
 export function toggleSwitch(object: HmiObjectModel, context: GestureContext): void {
-  const live = known(object, "value", context);
-  if (live) context.write(object, live.value !== true);
+  context.toggle(object, shownValue(object, "value", context));
 }
 
 /** A selector lists its options, the current one marked, and writes the one chosen. */
 export function openSelector(object: HmiObjectModel, context: GestureContext): void {
-  const live = known(object, "value", context);
-  if (!live) return;
+  const shown = shownValue(object, "value", context);
   const options = object.options ?? [];
-  const current = typeof live.value === "number" ? options[live.value] : String(live.value);
+  const current = typeof shown === "number" ? options[shown] : shown === null ? undefined : String(shown);
   const dialog = context.dialog("choices");
   const document = dialog.ownerDocument;
   const heading = document.createElement("h2");
@@ -60,7 +53,7 @@ export function openSelector(object: HmiObjectModel, context: GestureContext): v
     choice.setAttribute("aria-pressed", String(chosen));
     choice.addEventListener("click", () => {
       context.closeDialog();
-      if (!chosen) context.write(object, option);
+      if (!chosen) context.write(object, option, shown);
     });
     list.append(choice);
   }
@@ -78,11 +71,13 @@ export function openSelector(object: HmiObjectModel, context: GestureContext): v
 /** A mode selector writes the mode clicked; the active one sends nothing. */
 export function chooseMode(object: HmiObjectModel, mode: string | undefined, context: GestureContext): void {
   if (mode === undefined) return;
-  const live = known(object, "mode", context);
-  if (live && String(live.value).toLowerCase() !== mode.toLowerCase()) context.write(object, mode);
+  const shown = shownValue(object, "mode", context);
+  if (shown !== null && String(shown).toLowerCase() === mode.toLowerCase()) return;
+  context.write(object, mode, shown);
 }
 
-/** A slider being dragged: the draft follows the pointer and is written on release. */
+/** A slider being dragged: the draft follows the pointer and is written on release, with the value
+ * the slider showed when the drag began. */
 export class SliderDrag {
   private value: number;
 
@@ -90,14 +85,15 @@ export class SliderDrag {
     private readonly object: HmiObjectModel,
     private readonly context: GestureContext,
     at: { x: number; y: number },
+    private readonly shown: unknown,
   ) {
     this.value = sliderValueAt(object, at.x, at.y);
     context.draft(object, this.value);
   }
 
-  /** A drag that starts at a point of the page, or none while the value is not known. */
-  static start(object: HmiObjectModel, at: { x: number; y: number }, context: GestureContext): SliderDrag | undefined {
-    return known(object, "value", context) ? new SliderDrag(object, context, at) : undefined;
+  /** A drag that starts at a point of the page. */
+  static start(object: HmiObjectModel, at: { x: number; y: number }, context: GestureContext): SliderDrag {
+    return new SliderDrag(object, context, at, shownValue(object, "value", context));
   }
 
   move(at: { x: number; y: number }): void {
@@ -107,6 +103,6 @@ export class SliderDrag {
 
   end(at: { x: number; y: number }): void {
     this.move(at);
-    this.context.write(this.object, this.value);
+    this.context.write(this.object, this.value, this.shown);
   }
 }

@@ -552,6 +552,40 @@ END_PROGRAM
 }
 
 #[test]
+fn a_local_named_like_the_list_leaves_its_constant_unused() {
+    // Issue #203: a local named like the namespace hides it, so `GVals.UsedCrossFile` reads the
+    // local, and the namespace's constant, used nowhere else, keeps its warning (specification 09
+    // §1.3). Catches the chain marking the hidden namespace's member used.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    UsedCrossFile : INT := 5;
+END_VAR
+END_NAMESPACE
+"#,
+            r#"
+PROGRAM Main
+VAR
+    GVals : INT;
+END_VAR
+GVals := GVals.UsedCrossFile;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    assert!(
+        diagnostics.iter().any(
+            |diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable
+                && diagnostic.message.contains("UsedCrossFile")
+        ),
+        "the hidden namespace's constant stays unused: {diagnostics:?}"
+    );
+}
+
+#[test]
 fn qualified_declaration_size_use_clears_the_unused_constant_warning() {
     // The s4 uiLenMsgTopic shape: the only reference is a STRING size in
     // another file's declaration. (A first cut of this pin used an enum
