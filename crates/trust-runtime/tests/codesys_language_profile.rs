@@ -128,6 +128,95 @@ END_PROGRAM
     assert_eq!(harness.get_output("Producer.counter"), Some(Value::Int(20)));
 }
 
+// The `REF=` rebinding of specification 06 with its source through the program's name: the shape a
+// configuration uses to hand each consumer the storage it binds behind its reference.
+const CROSS_PROGRAM_REF_SOURCE: &str = r#"
+PROGRAM Producer
+VAR
+    n : INT := 5;
+END_VAR
+END_PROGRAM
+
+PROGRAM Main
+VAR
+    r : REFERENCE TO INT;
+    seen : INT;
+END_VAR
+r REF= Producer.n;
+seen := r^;
+r^ := 7;
+END_PROGRAM
+"#;
+
+// DEV-030 with the `REF=` extension (specification 06): the rebinding names the other program's
+// variable, not a copy of it. Worked by hand: Main binds r to Producer.n (5), reads 5, and the
+// write through r^ lands in Producer's own storage. Catches the source built as a copy (Producer.n
+// stays 5) and the qualified source refused by the build.
+#[test]
+fn a_reference_rebinds_to_another_programs_variable() {
+    let harness = codesys_run(CROSS_PROGRAM_REF_SOURCE, 1);
+    assert_eq!(harness.get_output("Main.seen"), Some(Value::Int(5)));
+    assert_eq!(harness.get_output("Producer.n"), Some(Value::Int(7)));
+}
+
+// The segmented shapes: an indexed function-block array element's member as the source, and a
+// global array element's reference-typed member as the target (the event-wiring idiom). Worked by
+// hand: afb[2].stClick.count = 42 and stLocal.count = 41, so Main reads 42 through rLocal and 41
+// through the global holder's reference. Catches a segmented or indexed source refused, or the
+// global target's rebinding stored anywhere but the global's own storage.
+#[test]
+fn a_reference_rebinds_through_segmented_and_indexed_paths() {
+    let harness = codesys_run(
+        r#"
+TYPE Event : STRUCT count : INT; END_STRUCT END_TYPE
+TYPE Click : STRUCT stClick : Event; END_STRUCT END_TYPE
+TYPE Holder : STRUCT pEvent : REFERENCE TO Event; END_STRUCT END_TYPE
+
+VAR_GLOBAL
+    entities : ARRAY[0..1] OF Holder;
+END_VAR
+
+PROGRAM Producer
+VAR
+    stLocal : Event;
+    afb : ARRAY[0..3] OF Click;
+END_VAR
+stLocal.count := 41;
+afb[2].stClick.count := 42;
+END_PROGRAM
+
+PROGRAM Main
+VAR
+    rLocal : REFERENCE TO Event;
+    seen : INT;
+    viaGlobal : INT;
+END_VAR
+rLocal REF= Producer.afb[2].stClick;
+seen := rLocal^.count;
+entities[0].pEvent REF= Producer.stLocal;
+viaGlobal := entities[0].pEvent^.count;
+END_PROGRAM
+"#,
+        1,
+    );
+    assert_eq!(harness.get_output("Main.seen"), Some(Value::Int(42)));
+    assert_eq!(harness.get_output("Main.viaGlobal"), Some(Value::Int(41)));
+}
+
+// DEV-030: the IEC rules have no access to a program through its name (IEC 61131-3 Ed.3 §6.6.4
+// item 3), so its `REF=` source is refused too — the CODESYS twin above builds the same source.
+// Catches the profile rule bypassed by the rebinding.
+#[test]
+fn the_iec_rules_refuse_a_reference_bound_to_another_programs_variable() {
+    let Err(error) =
+        TestHarness::from_session(CompileSession::from_source(CROSS_PROGRAM_REF_SOURCE))
+    else {
+        panic!("the IEC rules refuse `r REF= Producer.n`");
+    };
+    let text = error.to_string();
+    assert!(text.contains("Producer"), "{text}");
+}
+
 // DEV-030: under the CODESYS profile `Doubler(x := 21)` runs Doubler's body with that input.
 // Worked by hand: y = 21 * 2 = 42 whichever program the cycle runs first (Doubler's own run keeps
 // the input 21 Main passed). Catches the call refused, or run without its argument (y = 0).

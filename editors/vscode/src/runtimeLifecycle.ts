@@ -8,6 +8,7 @@ import { resolveProjectConnection, resolveRuntimeConnection } from "./runtimeCon
 import {
   classifyIoStateFailure,
   classifyRuntimeStartFailure,
+  classifyStartSessionEnded,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
   type NetworkCanvasRuntimeFailureKind as RuntimeStartFailureKind,
 } from "./networkCanvas/runtimeFailures";
@@ -412,14 +413,11 @@ class RuntimeLifecycleService {
         return ioStateResult;
       }
       if (!(await this.waitForSessionStillPresent(SESSION_START_STABILITY_MS))) {
+        const failure = await classifyStartSessionEnded();
         this.starting = false;
-        this.failure = {
-          kind: "failed_spawn",
-          message:
-            "Simulator stopped during startup. Check the runtime port or target settings.",
-        };
+        this.failure = failure;
         this.emitChanged();
-        return { ok: false, failure: this.failure };
+        return { ok: false, failure };
       }
       this.starting = false;
       this.failure = undefined;
