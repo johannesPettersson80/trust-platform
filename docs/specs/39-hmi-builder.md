@@ -759,7 +759,13 @@ Planned with the user on 3 October 2026.
      reads each pen's last sample at the cursor's time ("?" before its first). A legend entry's
      click hides its pen, dimmed in the legend until clicked again. Export saves
      `<object id>-<yyyymmdd>-<hhmmss>.csv`: a `time` column in ISO 8601 UTC and a column per shown
-     pen, each holding its last value. Expand draws the trend over the page at the design size,
+     pen, each holding its last value. The runtime writes it from its trend history (decided by the
+     owner on 1 November 2026, as TwinCAT and CODESYS export from their recorders): the page asks
+     `GET /api/hmi/history/export?object=<id>&from=<ms>&to=<ms>` with `pen=<name>&path=<path>` for
+     each shown pen in their order (Viewer role, at most 16 pens and a day) and saves the answer's
+     `name` and `csv`. A row stands for each time a pen has a sample in the window, a sample a
+     second for the last hour and each minute's lowest and highest value before, so a short window
+     can have fewer rows than the page drew. Expand draws the trend over the page at the design size,
      sharing its window, cursor and hidden pens, with a close button. Over a span longer than
      10 minutes the browser keeps one live sample a second.
    - **Pen scales (4 October 2026 completion):** a numeric pen may put `range = [min, max]`

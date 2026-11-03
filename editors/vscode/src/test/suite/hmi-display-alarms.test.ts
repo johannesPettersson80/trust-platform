@@ -788,19 +788,20 @@ suite("HMI display: trend history", () => {
     const { root, window } = await openedWith(host);
     host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
     await settle(host);
+    // The runtime writes the CSV from its trend history (decided by the owner on 1 November 2026):
+    // the page names the trend, its visible window (the last 60 s) and the pens it shows in their
+    // order, and saves the runtime's file. The rows are proven by the runtime's history_tests.rs.
+    host.exportBody = { name: "loop-19700101-024640.csv", csv: "time,on,pv\n1970-01-01T02:46:10.000Z,,2\n" };
     click(window, root.querySelector('[data-object="loop"] [data-trend-action="export"]') as Element);
     await settle(host);
-    assert.strictEqual(host.downloads.length, 1);
-    const [file] = host.downloads;
-    assert.match(file.name, /^loop-\d{8}-\d{6}\.csv$/);
-    const lines = file.text.trim().split("\n");
-    assert.strictEqual(lines[0], "time,on,pv");
-    // The window is the last 60 s: the samples 30, 20 and 10 s ago; each pen holds its last value.
-    assert.deepStrictEqual(
-      lines.slice(1).map((line) => line.split(",").slice(1).join(",")),
-      [",2", "1,2", "1,3"],
+    const asked = host.fetched.find((url) => url.startsWith("/api/hmi/history/export"));
+    assert.strictEqual(
+      asked,
+      "/api/hmi/history/export?object=loop&from=9940000&to=10000000&pen=on&path=Main.Lamp&pen=pv&path=Main.T",
     );
-    assert.match(lines[1], /^1970-01-01T02:46:10\.000Z,/);
+    assert.deepStrictEqual(host.downloads, [
+      { name: "loop-19700101-024640.csv", text: "time,on,pv\n1970-01-01T02:46:10.000Z,,2\n" },
+    ]);
     click(window, root.querySelector('[data-object="loop"] [data-trend-action="expand"]') as Element);
     await settle(host);
     const expanded = root.querySelector('[data-part="trend-expanded"]');

@@ -146,6 +146,135 @@ fn the_history_needs_the_viewer_role() {
     let running = start(&root, WebAuthMode::Token, Some("secret"));
     let (status, _) = history(&running.base, "path=Main.P101.Speed");
     assert_eq!(status, 401);
+    let (status, _) = export(&running.base, "object=trend&from=0&to=1&pen=pv&path=Main.T");
+    assert_eq!(status, 401, "the export needs the viewer role too");
+}
+
+fn export(base: &str, query: &str) -> (u16, Value) {
+    let (status, body, _) = http_request(
+        "GET",
+        base,
+        &format!("/api/hmi/history/export?{query}"),
+        None,
+        None,
+    );
+    (status, body)
+}
+
+fn now_ms() -> u64 {
+    u64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("after 1970")
+            .as_millis(),
+    )
+    .expect("a time")
+}
+
+/// Specification 39, §5.9 item 1 (the runtime writes the export, decided by the owner on
+/// 1 November 2026): the visible window of a trend as CSV from the runtime's own trend history,
+/// `<object id>-<yyyymmdd>-<hhmmss>.csv` with a `time` column in ISO 8601 UTC and a column per pen.
+/// `Main.T` grows by one each cycle, so its rows grow, and the history keeps a sample a second.
+/// Catches an export from another source than the history and rows out of time order.
+#[test]
+fn a_trends_window_exports_as_csv_from_the_runtimes_history() {
+    let root = project(
+        "trend-export",
+        &[
+            ("hmi/screen.toml", SCREEN),
+            ("hmi/pages/trends.toml", TREND_PAGE),
+        ],
+    );
+    let running = start_with(
+        &root,
+        WebAuthMode::Local,
+        None,
+        HmiAccessConfig::default(),
+        PROGRAM,
+        None,
+    );
+    std::thread::sleep(Duration::from_millis(3_300));
+    let to = now_ms();
+    let (status, body) = export(
+        &running.base,
+        &format!(
+            "object=trend&from={}&to={to}&pen=temperature&path=Main.T",
+            to - 60_000
+        ),
+    );
+    assert_eq!(status, 200, "{body}");
+    let name = body["name"].as_str().expect("a file name");
+    assert!(
+        name.starts_with("trend-")
+            && name.ends_with(".csv")
+            && name.len() == "trend-yyyymmdd-hhmmss.csv".len(),
+        "{name}"
+    );
+    let csv = body["csv"].as_str().expect("the CSV");
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(lines[0], "time,temperature", "{csv}");
+    assert!(lines.len() >= 3, "a row about each second: {csv}");
+    let rows: Vec<(&str, f64)> = lines[1..]
+        .iter()
+        .map(|line| {
+            let (time, value) = line.split_once(',').expect("time and value");
+            (time, value.parse().expect("a number"))
+        })
+        .collect();
+    assert!(
+        rows.iter()
+            .all(|(time, _)| time.len() == "2026-11-01T17:00:00.000Z".len() && time.ends_with('Z')),
+        "{csv}"
+    );
+    assert!(
+        rows.windows(2)
+            .all(|pair| pair[0].0 < pair[1].0 && pair[0].1 < pair[1].1),
+        "oldest first, growing: {csv}"
+    );
+}
+
+/// An export names its trend, a window of at most a day, and 1 to 16 pens each with its path.
+/// Catches a file name built from a request's text and a pen without its path.
+#[test]
+fn an_export_names_its_trend_window_and_pens() {
+    let root = project("trend-export-limits", &[("hmi/screen.toml", SCREEN)]);
+    let running = start_with_historian(&root, PROGRAM);
+    let many = (0..17)
+        .map(|index| format!("pen=p{index}&path=Main.P{index}"))
+        .collect::<Vec<_>>()
+        .join("&");
+    let many = format!("object=trend&from=0&to=1&{many}");
+    for (query, words) in [
+        ("from=0&to=1&pen=pv&path=Main.T", "name the trend"),
+        (
+            "object=../trend&from=0&to=1&pen=pv&path=Main.T",
+            "name the trend",
+        ),
+        (
+            "object=trend&to=1&pen=pv&path=Main.T",
+            "milliseconds since 1970",
+        ),
+        (
+            "object=trend&from=2&to=1&pen=pv&path=Main.T",
+            "0 to 86400 seconds",
+        ),
+        (
+            "object=trend&from=0&to=86400001&pen=pv&path=Main.T",
+            "0 to 86400 seconds",
+        ),
+        ("object=trend&from=0&to=1", "1 to 16 pens"),
+        ("object=trend&from=0&to=1&pen=pv", "1 to 16 pens"),
+        (many.as_str(), "1 to 16 pens"),
+    ] {
+        let (status, body) = export(&running.base, query);
+        assert_eq!(status, 400, "{query}: {body}");
+        assert!(
+            body["error"]
+                .as_str()
+                .is_some_and(|error| error.contains(words)),
+            "{query}: {body}"
+        );
+    }
 }
 
 /// Specification 39, §5.9 item 1: history is on by default. A value a trend of the active bundle
