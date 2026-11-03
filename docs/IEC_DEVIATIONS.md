@@ -1024,11 +1024,17 @@ re-check them against this rule when touched.
 - Area: the association of positional actuals in a function block invocation
   under the CODESYS language profile (`vendor_profile` `codesys`, `beckhoff`
   or `twincat`)
-- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.3.4 (Table 42)
-  associates the actual parameters of a function block invocation with the
-  formal parameters in their declaration order, inputs, outputs and in-outs
-  alike, so a complete positional call provides one actual for every formal
-  parameter.
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.1.4.2 e), the
+  non-formal call: "The parameter list shall contain exactly the same number
+  of parameters, in exactly the same order and of the same data types as
+  given in the function definition, except the execution control parameters
+  EN and ENO". Section 6.6.3.4.1 applies it to a function block invocation
+  ("The features of the function block call (including the formal and the
+  non-formal call) are similar to those of the functions"). So the positional
+  actuals associate with the formals in their declaration order, inputs,
+  outputs and in-outs alike, and a complete positional call provides one
+  actual for every formal parameter. Table 42 lists the formal and graphical
+  calls of a function block.
 - truST behavior and conflict:
   - The default language rules keep that association: a function block call
     that is positional in whole or in prefix fills the formals in declaration
