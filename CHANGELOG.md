@@ -6,6 +6,24 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-11-03
+
+### Changed
+
+- An HMI switch sends `toggle` with the value it shows, and the runtime writes the opposite, so the value the operator
+  saw decides. A switch, selector, mode selector or slider that shows no value is now refused by the runtime with its
+  reason, which goes to the audit log like every other command; before, the page kept that refusal to itself
+  (specification 39 §5.8, decided by the owner on 1 November 2026).
+
+### Fixed
+
+- A local, a parameter or a member of a POU named like a global namespace or program now hides it in a dotted name,
+  as local names shadow global names (specification 09 §1.3). Before, `GVals.Member` read the namespace's `Member`
+  even with a local `GVals`: a running program read the wrong variable, and the editor reported neither a wrong type
+  nor the namespace member's unused warning (issue #203).
+- The side panel shows a project runtime that stops within two seconds of going online as not running. Before, it stayed
+  shown as answering until something else refreshed the panel.
+
 ## [0.29.0] - 2026-11-02
 
 ### Changed
