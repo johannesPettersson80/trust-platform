@@ -245,7 +245,7 @@ async fn check(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Res
 
     let (client, _service) = silent_client();
     let state = ServerState::new();
-    state.set_workspace_folders(vec![root_uri]);
+    state.set_workspace_folders(vec![root_uri.clone()]);
     handlers::index_workspace(&client, &state).await;
     state.mark_index_first_pass_done();
 
@@ -297,6 +297,21 @@ async fn check(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Res
             None,
         );
         items.extend(diagnostics.iter().map(|d| to_item(&root, &doc.uri, d)));
+    }
+    // The project's configuration file, diagnosed as the editor diagnoses it, so that a broken
+    // library or dependency configuration fails the check as well (specification 14 §7.7).
+    // `--file` narrows the report to the named source files.
+    if only.is_empty()
+        && let Some(config_path) = state
+            .workspace_config_for_uri(&root_uri)
+            .and_then(|config| config.config_path)
+        && let (Ok(content), Ok(uri)) = (
+            std::fs::read_to_string(&config_path),
+            Url::from_file_path(&config_path),
+        )
+    {
+        let diagnostics = handlers::config_file_diagnostics(&state, &uri, &content);
+        items.extend(diagnostics.iter().map(|d| to_item(&root, &uri, d)));
     }
     items.sort_by(|a, b| {
         (&a.path, a.line, a.column, a.severity, &a.code, &a.message)
@@ -487,6 +502,37 @@ mod tests {
             ])
         );
         assert_eq!(err, "");
+    }
+
+    // Issue #213: `check` reported only the source files, so a broken configuration passed CI
+    // while the editor showed its error. With a clean program the configuration's `L001` (a path
+    // dependency whose folder is missing) is the only error, so it alone fails the check.
+    // Catches the configuration file left out of the check (specification 14 §7.7).
+    #[tokio::test]
+    async fn a_broken_configuration_fails_the_check() {
+        let project = Project::new("config");
+        std::fs::write(
+            project.0.join("trust-lsp.toml"),
+            "[project]\ninclude_paths = [\"src\"]\n\n[dependencies]\nMissing = { path = \"missing\" }\n",
+        )
+        .expect("config");
+        std::fs::write(
+            project.0.join("src/Main.st"),
+            "PROGRAM Main\nVAR p : Point; END_VAR\np.x := 1;\nEND_PROGRAM\n",
+        )
+        .expect("main");
+        let (status, out, _) = check_output(&["--project", project.root()]).await;
+        assert_eq!(status, 1, "{out}");
+        assert!(
+            out.lines()
+                .any(|line| line.starts_with("trust-lsp.toml:") && line.contains(": error[L001]: ")),
+            "{out}"
+        );
+        // `--file` reports the named source file only, as specification 14 §7.7 says.
+        let (status, out, _) =
+            check_output(&["--project", project.root(), "--file", "src/Main.st"]).await;
+        assert_eq!(status, 0, "{out}");
+        assert!(!out.contains("trust-lsp.toml"), "{out}");
     }
 
     #[tokio::test]

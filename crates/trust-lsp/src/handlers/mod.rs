@@ -29,7 +29,8 @@ pub use devices::DEVICES_COMMANDS;
 #[cfg(test)]
 pub(crate) use diagnostics::document_diagnostic;
 pub(crate) use diagnostics::{
-    collect_diagnostics_with_ticket, document_diagnostic_result, workspace_diagnostic,
+    collect_diagnostics_with_ticket, config_file_diagnostics, document_diagnostic_result,
+    workspace_diagnostic,
 };
 #[cfg(test)]
 pub(crate) use features::completion_with_ticket_for_tests;
