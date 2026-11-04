@@ -28,14 +28,19 @@ fn start_server(responses: Vec<ScriptResponse>) -> (String, thread::JoinHandle<V
                 Ok(_) => {}
             }
             requests.push(serde_json::from_str(&request).expect("valid control request"));
+            // Each reply in one write. `writeln!` of a JSON value writes it in many small pieces,
+            // and the TCP stack holds all but the first until the client acknowledges it: 40 ms a
+            // reply on Linux and up to 200 ms on Windows, against the client's 250 ms bound (W30).
             match response {
                 ScriptResponse::Json(value) => {
-                    writeln!(stream, "{value}").expect("write scripted JSON response");
-                    stream.flush().expect("flush scripted JSON response");
+                    stream
+                        .write_all(format!("{value}\n").as_bytes())
+                        .expect("write scripted JSON response");
                 }
                 ScriptResponse::Raw(line) => {
-                    writeln!(stream, "{line}").expect("write scripted raw response");
-                    stream.flush().expect("flush scripted raw response");
+                    stream
+                        .write_all(format!("{line}\n").as_bytes())
+                        .expect("write scripted raw response");
                 }
                 ScriptResponse::Close => break,
             }

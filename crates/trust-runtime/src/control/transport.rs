@@ -47,6 +47,14 @@ pub(crate) fn spawn_control_server(
     }
 }
 
+/// Writes `line` and its newline in one write. A newline written on its own is held by the TCP
+/// stack until the peer acknowledges the line (Nagle's algorithm meeting delayed acknowledgements):
+/// 41 to 44 ms a request on Linux, measured on loopback on 4 November 2026 (specification 11,
+/// "Runtime control request, job, and state-surface contract").
+pub(crate) fn write_line(writer: &mut impl Write, line: &str) -> std::io::Result<()> {
+    writer.write_all(format!("{line}\n").as_bytes())
+}
+
 fn handle_client(stream: std::net::TcpStream, state: Arc<ControlState>, client: Option<String>) {
     let reader = match stream.try_clone() {
         Ok(clone) => BufReader::new(clone),
@@ -55,7 +63,7 @@ fn handle_client(stream: std::net::TcpStream, state: Arc<ControlState>, client: 
     let mut writer = stream;
     for line in reader.lines().map_while(Result::ok) {
         if let Some(response) = prepare_request_line(&line, &state, client.as_deref()) {
-            let _ = writeln!(writer, "{}", response.response());
+            let _ = write_line(&mut writer, response.response());
             response.complete(&state);
         }
     }
@@ -70,7 +78,7 @@ fn handle_unix_client(stream: std::os::unix::net::UnixStream, state: Arc<Control
     let mut writer = stream;
     for line in reader.lines().map_while(Result::ok) {
         if let Some(response) = prepare_request_line(&line, &state, Some("unix")) {
-            let _ = writeln!(writer, "{}", response.response());
+            let _ = write_line(&mut writer, response.response());
             response.complete(&state);
         }
     }
@@ -159,3 +167,7 @@ fn unix_stream_socket() -> rustix::io::Result<std::os::fd::OwnedFd> {
 
 #[cfg(all(test, unix))]
 mod tests;
+
+#[cfg(test)]
+#[path = "transport/write_line_tests.rs"]
+mod write_line_tests;

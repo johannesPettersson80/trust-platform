@@ -1,6 +1,8 @@
 //! The control exchange of the fleet commands: the response checks, the line limit and the
 //! transport errors that a stop asks again after. Moved with the code from the `fleet` command.
 
+use std::io::Write;
+
 use super::*;
 
 #[test]
@@ -13,12 +15,10 @@ fn control_request_rejects_a_mismatched_response_id() {
         BufReader::new(stream.try_clone().expect("clone fake stream"))
             .read_line(&mut request)
             .expect("read control request");
-        writeln!(
-            stream,
-            "{}",
-            serde_json::json!({"id": 99, "ok": true, "result": {}})
-        )
-        .expect("write mismatched response");
+        let response = serde_json::json!({"id": 99, "ok": true, "result": {}});
+        stream
+            .write_all(format!("{response}\n").as_bytes())
+            .expect("write mismatched response");
     });
 
     let error = request_control(format!("tcp://{address}").as_str(), Some("token"), "status")
@@ -91,7 +91,9 @@ fn control_error_for_response(response: &str) -> String {
         BufReader::new(stream.try_clone().expect("clone fake stream"))
             .read_line(&mut request)
             .expect("read control request");
-        writeln!(stream, "{response}").expect("write fake response");
+        stream
+            .write_all(format!("{response}\n").as_bytes())
+            .expect("write fake response");
     });
 
     let error = request_control(format!("tcp://{address}").as_str(), Some("token"), "status")
