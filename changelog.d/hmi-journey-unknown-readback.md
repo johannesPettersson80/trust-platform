@@ -1,10 +1,10 @@
 ### Changed
 
 - An HMI agent simulator journey no longer takes a method command (`invoke`) as a step, stops
-  before its next command when the target no longer runs in simulation, and is refused while the
-  language server trace logs each message's parameters (`verbose`), which would log the named
-  session's cookie. Changing the selected run target ends the simulator sessions
-  (specification 43, AT-08).
+  before its next command when the target does not say it runs in simulation, and is refused while
+  the language server trace logs each message's parameters (`verbose`, or the JSON trace format),
+  which would log the named session's cookie. Changing the selected run target ends the simulator
+  sessions (specification 43, AT-08).
 
 ### Fixed
 
