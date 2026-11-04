@@ -106,6 +106,9 @@ pub const HMI_PROPOSE_PAGE_COMMAND: &str = "trust-lsp.hmiProposePage";
 pub const HMI_PROPOSE_SETTINGS_PAGE_COMMAND: &str = "trust-lsp.hmiProposeSettingsPage";
 pub const HMI_RENAME_INSTANCE_COMMAND: &str = "trust-lsp.hmiRenameInstance";
 pub const CONTROL_KEEP_PARAMETERS_COMMAND: &str = "trust-lsp.controlKeepParameters";
+/// Starts an HMI agent simulator journey, whose end the language client hears as a notification, so
+/// it runs on the path that holds the client (specification 43, AT-08).
+pub const HMI_AGENT_RUN_JOURNEY_COMMAND: &str = "trust-lsp.hmiAgent.runSimulatorJourney";
 
 /// Commands the server advertises through `executeCommandProvider`.
 pub const EXECUTE_COMMANDS: &[&str] = &[
@@ -144,6 +147,12 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     "trust-lsp.hmiAgent.discard",
     "trust-lsp.hmiAgent.checkInput",
     "trust-lsp.hmiAgent.checkTarget",
+    "trust-lsp.hmiAgent.openSimulatorSession",
+    "trust-lsp.hmiAgent.closeSimulatorSession",
+    "trust-lsp.hmiAgent.simulatorSessions",
+    "trust-lsp.hmiAgent.admitSimulatorLogin",
+    HMI_AGENT_RUN_JOURNEY_COMMAND,
+    "trust-lsp.hmiAgent.cancelSimulatorJourney",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -195,6 +204,7 @@ pub async fn execute_command(
                 apply_workspace_edit_in_safe_phases(client, edit).await?
             ))
         }
+        HMI_AGENT_RUN_JOURNEY_COMMAND => Some(hmi_agent::start_journey(client, params.arguments)),
         _ => execute_read_command(state, params),
     }
 }

@@ -4,6 +4,8 @@
 
 use tower_lsp::{LspService, Server};
 use tracing::info;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 use trust_lsp::{check, command_line, hmi_agent_mcp, StLanguageServer};
 
 #[tokio::main]
@@ -25,9 +27,19 @@ async fn main() {
             filter = filter.add_directive(directive);
         }
     }
+    // The language server never logs the messages it receives or sends: they carry credentials,
+    // such as an HMI agent simulator journey's named-session cookie (specification 43, AT-08).
+    // tower-lsp traces each of them under `tower_lsp::codec`; this filter drops that target whatever
+    // `RUST_LOG` says, where a more specific directive (`tower_lsp::codec[{message}]=trace`) would
+    // outrank an `off` directive.
+    let silent_transport = tracing_subscriber::filter::filter_fn(|metadata| {
+        !metadata.target().starts_with("tower_lsp::codec")
+    });
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
+        .finish()
+        .with(silent_transport)
         .init();
 
     if command_line_check {

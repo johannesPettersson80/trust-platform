@@ -1544,8 +1544,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("stopped/no-session state is beginner-facing and clears stale values", () => {
     const host = readSrc("ioPanel.ts");
     assert.ok(
-      host.includes("Start the runtime to see live values."),
-      "Live Values must explain the stopped state in user-facing language"
+      host.includes('action: "unavailable"') &&
+        !host.includes("Start the runtime to see live values.") &&
+        !host.includes("Connect to the selected runtime to see live values."),
+      "Live Values must show the language server's guidance for a target without a session and keep no copy of its words (specification 25, section 4.4)"
     );
     assert.ok(
       host.includes("function postEmptyIoState"),
@@ -1577,13 +1579,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "Live Values must show an I/O state request whose session is gone, as the language server reads it, as the same beginner-facing empty state"
     );
     assert.ok(
-      host.includes("Connect to the selected runtime to see live values."),
-      "Live Values must tell disconnected remote users to Connect, not Start"
-    );
-    assert.ok(
-      host.includes("runtimeMode === \"online\"") &&
-        host.includes("runtimeState !== \"connected\""),
-      "Live Values disconnected guidance must branch on the selected target state"
+      !host.includes("runtimeMode === \"online\"") &&
+        !host.includes("runtimeState !== \"connected\""),
+      "Live Values must not choose the disconnected guidance from the target's state itself: the language server does"
     );
   });
 
@@ -1668,8 +1666,8 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
     assert.ok(
       unavailableBody.includes("postEmptyIoState();") &&
-        unavailableBody.includes("message || liveValuesUnavailableMessage(status)") &&
-        unavailableBody.includes("payload: statusMessage"),
+        unavailableBody.includes("unavailable(status)") &&
+        unavailableBody.includes("payload: message || guidance.message"),
       "terminated sessions must also clear stale rows and replace stale role/success banners with the correct unavailable message"
     );
     assert.ok(

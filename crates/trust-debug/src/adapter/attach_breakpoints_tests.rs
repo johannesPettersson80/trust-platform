@@ -49,7 +49,7 @@ fn spawn_runtime() -> (SocketAddr, Arc<Mutex<Vec<Value>>>) {
                         _ => json!({}),
                     };
                     let reply = json!({"id": id, "ok": true, "result": result});
-                    if writeln!(writer, "{reply}").is_err() {
+                    if writer.write_all(format!("{reply}\n").as_bytes()).is_err() {
                         return;
                     }
                 }

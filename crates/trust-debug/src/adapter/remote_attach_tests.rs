@@ -98,7 +98,10 @@ impl FakeRuntime {
                     "ok": true,
                     "result": {"paused": false, "stops": []},
                 });
-                if writeln!(writer, "{response}").is_err() {
+                if writer
+                    .write_all(format!("{response}\n").as_bytes())
+                    .is_err()
+                {
                     break;
                 }
             }

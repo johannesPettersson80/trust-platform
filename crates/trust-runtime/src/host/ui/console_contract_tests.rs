@@ -61,8 +61,7 @@ fn scripted_client(
                 .unwrap_or_else(|| json!({"ok": true, "result": {}}));
             response_index += 1;
             writer
-                .write_all(response.to_string().as_bytes())
-                .and_then(|_| writer.write_all(b"\n"))
+                .write_all(format!("{response}\n").as_bytes())
                 .and_then(|_| writer.flush())
                 .expect("write scripted response");
         }

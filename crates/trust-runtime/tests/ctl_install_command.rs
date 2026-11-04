@@ -117,7 +117,9 @@ fn spawn_runtime(token: &'static str) -> (String, JoinHandle<Seen>) {
                 Ok(result) => json!({"id": request["id"], "ok": true, "result": result}),
                 Err(error) => json!({"id": request["id"], "ok": false, "error": error}),
             };
-            writeln!(writer, "{reply}").expect("write a reply");
+            writer
+                .write_all(format!("{reply}\n").as_bytes())
+                .expect("write a reply");
         }
         seen
     });

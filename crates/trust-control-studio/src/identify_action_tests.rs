@@ -124,7 +124,7 @@ fn answer_requests(stream: TcpStream) {
         } else {
             json!({ "id": request["id"], "ok": false, "error": "Not in this test.", "error_code": "invalid_request" })
         };
-        if writeln!(writer, "{answer}").is_err() {
+        if writer.write_all(format!("{answer}\n").as_bytes()).is_err() {
             return;
         }
     }

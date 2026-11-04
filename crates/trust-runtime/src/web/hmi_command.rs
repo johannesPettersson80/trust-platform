@@ -33,14 +33,12 @@ use crate::hmi::access::config::HmiAccessConfig;
 use crate::hmi::access::policy::{authorize, effective_permission, within_limits};
 use crate::hmi::access::sessions::SessionInfo;
 use crate::hmi::catalogue::Catalogue;
-use crate::hmi::commands::plan::{matches, plan, Expected, Plan};
+use crate::hmi::commands::plan::{matches, plan, Expected, Plan, WRITE_TIMEOUT};
 use crate::hmi::commands::registry::{Begin, CommandAnswer, CommandRegistry, Outcome};
 use crate::hmi::commands::write::{path_text, WriteAction, WriteRefused, Written};
 use crate::hmi::member_paths::MemberPath;
 use crate::hmi::write_value::json_of;
 
-/// How long the runtime thread may take to write a command.
-const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 /// How often a confirmation is looked for.
 const POLL: Duration = Duration::from_millis(50);
 /// The most commands followed at once for confirmation or a remote pulse's end.
@@ -287,7 +285,7 @@ impl Commands {
         } = applied;
         let id = request.id.trim().to_string();
         let remote = crate::hmi::remote_values::remote_path(&plan.path).is_some();
-        if plan.confirm.is_none() && !(remote && plan.pulse.is_some()) {
+        if !plan.is_followed() {
             // A local pulse's final outcome is recorded when the runtime has written its end.
             if plan.pulse.is_none() {
                 let applied = CommandAnswer::new(&id, Outcome::Applied);
@@ -338,14 +336,11 @@ impl Commands {
                     }
                     commands.registry.later(&session.id, ended);
                 }
-                (Some(pulse), Some(ended)) => {
+                (Some(_), Some(ended)) => {
                     // The runtime writes the end (§21.5 item 1); the page is told it before the
                     // confirmation, which waits for it at most until the pulse and the
                     // confirmation time have passed and the runtime had time to write.
-                    let wait = pulse
-                        .max(plan.timeout)
-                        .saturating_add(WRITE_TIMEOUT)
-                        .saturating_sub(started.elapsed());
+                    let wait = plan.decided_within().saturating_sub(started.elapsed());
                     let _ = ended.recv_timeout(wait);
                 }
                 _ => {}

@@ -386,13 +386,10 @@ class RuntimeLifecycleService {
     );
   }
 
-  // The reason an online target has no session, when the lifecycle reported it for `endpoint`: the
-  // runtime answered Connect but keeps debugging disabled.
-  debugDisabledFailure(endpoint: string): RuntimeStartFailure | undefined {
-    const failure = this.failure;
-    return failure?.kind === "debug_disabled" && failure.endpoint === endpoint.trim()
-      ? failure
-      : undefined;
+  // The lifecycle's last failure, such as the one of a runtime that answered Connect but keeps debugging disabled. The
+  // language server decides what it means for a target (`trust-lsp.runTargets`).
+  lifecycleFailure(): RuntimeStartFailure | undefined {
+    return this.failure;
   }
 
   async startLocalSimulator(): Promise<RuntimeLifecycleResult> {

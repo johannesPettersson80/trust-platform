@@ -5,9 +5,9 @@
 //! through `schema.rs` and answers the operation's data. The context, library and inspection answers
 //! are in `queries.rs`; the review and the application are in `review_apply.rs`.
 //!
-//! Rendering (AT-07), the preview and the simulator (AT-08) and the editor transaction (AT-09) stay in
-//! the extension. The service answers what they need (a draft's pages and revision) and records what
-//! they report.
+//! Rendering (AT-07), the synthetic preview (AT-08) and the editor transaction (AT-09) stay in the
+//! extension. The service answers what they need (a draft's pages and revision) and records what they
+//! report. The simulator journeys of AT-08 are `simulator_commands`'.
 
 use std::collections::{BTreeMap, BTreeSet};
 

@@ -120,7 +120,7 @@ fn check_and_run(
 
 /// The success envelope of an answer.
 #[must_use]
-fn success_envelope(success: &Success) -> Value {
+pub(super) fn success_envelope(success: &Success) -> Value {
     json!({
         "ok": true,
         "data": success.data,

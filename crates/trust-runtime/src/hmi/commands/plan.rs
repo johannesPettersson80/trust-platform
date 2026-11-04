@@ -16,6 +16,8 @@ use crate::hmi::page_files::{
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a pulse lasts when the pulse button does not say.
 pub const DEFAULT_PULSE: Duration = Duration::from_secs(1);
+/// How long the runtime thread may take to write a command, a pulse's end among them.
+pub const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 /// Controls whose command is confirmed by the value read back.
 /// The controls whose entry is a number typed as text.
 const NUMBER_ENTRIES: &[&str] = &["setpoint", "numeric-input"];
@@ -62,6 +64,35 @@ pub struct Plan {
     pub confirm: Option<(MemberPath, Expected)>,
     /// How long confirmation may take.
     pub timeout: Duration,
+}
+
+impl Plan {
+    /// Whether the runtime follows the command after its first answer and reports its final outcome
+    /// later on the value stream (specification 39, §12.8 item 5): a command its control confirms, by
+    /// its feedback or by the value read back, and a pulse to a remote runtime's point, whose end the
+    /// runtime observes there. Any other command is final as `applied`; a local pulse's end is
+    /// reported, but its command is not followed for it. The runtime's command service and an HMI
+    /// agent simulator journey (specification 43, AT-08) both decide by this.
+    #[must_use]
+    pub fn is_followed(&self) -> bool {
+        self.confirm.is_some()
+            || (self.pulse.is_some()
+                && crate::hmi::remote_values::remote_path(&self.path).is_some())
+    }
+
+    /// How long after its first answer the runtime decides a followed command's later outcome, at
+    /// most (specification 39, §12.8 item 5): the control's confirmation time, and for a pulse the
+    /// longer of the pulse and the confirmation time plus the time the runtime allows to write the
+    /// pulse's end, since it decides the confirmation only after that end. The runtime's command
+    /// service waits this long for a local pulse's end, and an HMI agent simulator journey
+    /// (specification 43, AT-08) waits this long for the later outcome, plus the stream's delay.
+    #[must_use]
+    pub fn decided_within(&self) -> Duration {
+        match self.pulse {
+            Some(pulse) => pulse.max(self.timeout).saturating_add(WRITE_TIMEOUT),
+            None => self.timeout,
+        }
+    }
 }
 
 /// The plan for a request to a control, or why the request does not fit the control. `shown` is
@@ -267,3 +298,7 @@ fn scalar(value: &HmiScalar) -> Json {
         HmiScalar::Text(text) => json!(text),
     }
 }
+
+#[cfg(test)]
+#[path = "plan_tests.rs"]
+mod tests;

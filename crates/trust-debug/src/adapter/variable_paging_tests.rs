@@ -63,7 +63,9 @@ fn spawn_paging_runtime() -> (SocketAddr, Arc<Mutex<Vec<Value>>>, thread::JoinHa
                 "result": {"variables": page_reply()}
             });
             seen.lock().expect("requests lock").push(request);
-            writeln!(stream, "{reply}").expect("write the control reply");
+            stream
+                .write_all(format!("{reply}\n").as_bytes())
+                .expect("write the control reply");
         }
     });
     (addr, requests, handle)
