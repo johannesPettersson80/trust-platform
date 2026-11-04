@@ -1,3 +1,4 @@
+import { RuntimeControlError } from "../../runtimeControlClient";
 import type { NCPlant } from "../webview/types";
 import type { PlantContractMessage } from "./contract";
 
@@ -16,7 +17,11 @@ export interface PlantTopologyService {
  */
 export async function loadPlantTopology(service: PlantTopologyService): Promise<NCPlant[]> {
   const saved = await service.topology(null);
-  const status = await service.status(saved.project_id).catch(() => null);
+  // A refusal carries the runtime's answer (a stopped project's says that no runtime runs the plants); only no answer at
+  // all leaves the first projection.
+  const status = await service
+    .status(saved.project_id)
+    .catch((error: unknown) => (error instanceof RuntimeControlError && error.result !== undefined ? error.result : null));
   const topology = status == null ? saved : await service.topology(status);
   return topology.plants as NCPlant[];
 }

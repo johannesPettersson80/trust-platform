@@ -12,6 +12,7 @@ import {
 } from "../../networkCanvas/plant/service";
 import type { PlantCommandProcess } from "../../networkCanvas/plant/offlineSession";
 import * as plantServiceApi from "../../networkCanvas/plant/service";
+import { RuntimeControlError } from "../../runtimeControlClient";
 import { createPlantEditDraft } from "../../networkCanvas/plant/addFlow";
 
 /** A `plant.topology` answer as the stopped-project session gives it. */
@@ -258,6 +259,34 @@ suite("Plant service projection", () => {
 
     assert.deepStrictEqual(calls, ["topology", "status"]);
     assert.deepStrictEqual(plants, [{ id: "tank", states: ["Status unavailable"] }]);
+  });
+
+  // Catches a stopped runtime's answer dropped: it says that no runtime runs the plants, which Rust projects as
+  // Configured, where the first projection shows Status unavailable (specification 47 §20.6).
+  test("passes a refusal's answer to Rust's projection as it came", async () => {
+    const answer = {
+      contract: "trust.plant",
+      schema_version: 1,
+      operation: "plant.status",
+      project_id: "project:sha256:stopped",
+      requested_plant_id: null,
+      available: false,
+      reason_code: "runtime_evidence_unavailable",
+    };
+    let projected: unknown;
+    const plants = await loadPlantTopology({
+      async topology(given) {
+        projected = given;
+        const state = given === null ? "Status unavailable" : "Configured";
+        return topologyAnswer("project:sha256:stopped", [{ id: "tank", states: [state] }]);
+      },
+      async status() {
+        throw new RuntimeControlError("active plant runtime evidence is unavailable", "status_unavailable", answer);
+      },
+    });
+
+    assert.strictEqual(projected, answer, "the refusal's answer reaches Rust as it came");
+    assert.deepStrictEqual(plants, [{ id: "tank", states: ["Configured"] }]);
   });
 
   test("adapts stopped projections and live status behind one typed service", async () => {

@@ -63,7 +63,7 @@ pub(in crate::control) fn handle_plant_status(
             id,
             &project_id,
             params.plant_id.as_deref(),
-            "runtime_evidence_unavailable",
+            NO_RUNTIME_EVIDENCE,
         );
     };
     let Some(active_revision) = snapshot.active_configuration_revision else {
@@ -123,6 +123,10 @@ pub(in crate::control) fn handle_plant_status(
         }),
     )
 }
+
+/// The reason of an unavailable `plant.status` when no runtime runs the project's plants, as a
+/// stopped project answers (specification 47 §20.6).
+pub(super) const NO_RUNTIME_EVIDENCE: &str = "runtime_evidence_unavailable";
 
 fn unavailable(
     id: u64,

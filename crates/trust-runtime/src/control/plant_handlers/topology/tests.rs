@@ -226,10 +226,50 @@ fn a_plant_the_current_status_does_not_run_is_not_unknown() {
     );
 }
 
+// Catches a stopped project's plants shown as `Status unavailable`: its unavailable answer says
+// that no runtime runs them, so they hold no runtime evidence, which specification 47 §5.2 calls
+// `Configured` (§20.6); a disabled one stays `Disabled`. Another reason, and another project's
+// answer, still show `Status unavailable`.
+#[test]
+fn a_stopped_projects_saved_plants_are_configured() {
+    let simulation = format!("{TANK_AND_PUMP}\n[[plants]]\nid = \"valve\"\nmodel = \"static_gain\"\nenabled = false\ncommand_sources = [\"%QL16\"]\nfeedback_targets = [\"%IL16\"]\n\n[plants.parameters]\ngain = 1.0\n");
+    let read = read_of("stopped", &simulation);
+    let stopped = json!({
+        "contract": "trust.plant",
+        "schema_version": 1,
+        "operation": "plant.status",
+        "project_id": PROJECT,
+        "requested_plant_id": null,
+        "available": false,
+        "reason_code": "runtime_evidence_unavailable",
+    });
+    let plants = project(&read, Some(&stopped));
+    assert_eq!(plant(&plants, "tank")["states"], json!(["Configured"]));
+    assert_eq!(plant(&plants, "valve")["states"], json!(["Disabled"]));
+    assert!(plant(&plants, "tank").get("liveSample").is_none());
+
+    let mut other_reason = stopped.clone();
+    other_reason["reason_code"] = json!("active_revision_unavailable");
+    let mut other_project = stopped.clone();
+    other_project["project_id"] = json!("project:sha256:another");
+    for (case, status) in [
+        ("another reason", other_reason),
+        ("another project", other_project),
+    ] {
+        let plants = project(&read, Some(&status));
+        assert_eq!(
+            plant(&plants, "tank")["states"],
+            json!(["Status unavailable"]),
+            "{case}"
+        );
+    }
+}
+
 fn evidence() -> PlantEvidence<'static> {
     PlantEvidence {
         enabled: true,
         available: true,
+        no_runtime: false,
         operating_state: Some("running"),
         completed_sample: true,
         saved_revision: Some("sha256:saved"),
