@@ -380,7 +380,10 @@ An object has:
 - For a control, its permissions and confirmation (§12.8): `role` (`operator` or `engineer`),
   `confirm` (a question), `action` (`set`, `reset` or `toggle`, for a button), `pulse` (seconds,
   for a pulse button), `expect` (a boolean, number or text) and `timeout` (seconds). `pulse` and
-  `timeout` are positive and finite.
+  `timeout` are positive and at most 600 seconds (ten minutes). That is longer than any pulse or
+  confirmation in PLC practice, where a longer wait belongs in the program's own logic (an IEC
+  61131-3 timer, §6.6.3.5.5, Table 46). The page check refuses any other value, and no command
+  waits on one.
 - For an instrument, `attach`: the equipment or pipe it measures (§6, item 5).
 - For a placed faceplate (type `faceplate`), `faceplate`: the faceplate it shows, and
   `instance`: the instance it is bound to (§8.9 item 3). Both are required on a placed faceplate
@@ -1627,10 +1630,11 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - `role`: the lowest role, which can only raise the policy's;
    - `confirm`: a question asked before sending;
    - `min` and `max`: entry limits, which can only narrow the policy's;
-   - for buttons `action` (`set`, `reset` or `toggle`), for pulse buttons `pulse` (seconds);
+   - for buttons `action` (`set`, `reset` or `toggle`), for pulse buttons `pulse` (seconds, at
+     most 600, §5);
    - for selectors and mode selectors `options`, the choices offered, and for a switch its two
      states' words (§5.8);
-   - `expect` (the feedback's expected value) and `timeout` (seconds, default 5) for
+   - `expect` (the feedback's expected value) and `timeout` (seconds, default 5, at most 600) for
      confirmation;
    - the bindable properties `feedback` (what confirms the command), `interlock` (a BOOL
      permissive) and `interlock-reason` (its text). The binding checks check them like every
