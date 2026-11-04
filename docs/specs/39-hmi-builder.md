@@ -2979,7 +2979,11 @@ function block without writing a definition by hand.
    library, without a component definition, appears in the Components panel under My equipment,
    after Groups and sequences. Its proposed definition shows the plain `device` picture (§5.2),
    whose lamp follows a BOOL `Running`, and an automatic panel. Blocks the project has defined
-   itself are listed there too.
+   itself are listed there too. A block is the project's own when the project's folder holds its
+   file and no library folder deeper than the project's folder does: a library inside the
+   project keeps its blocks out, and a library folder that holds the project, as
+   `Plant = { path = "../.." }` holds a Plant example, leaves the project's blocks its own (the
+   deepest-folder rule of specification 14 §7.6).
 2. **Placed:** placing a proposed block writes its definition to `hmi/pairs/<name>.toml` and its
    panel to `hmi/panels/<name>.toml` (`<name>` is the block's name in lower case with hyphens,
    `FB_Mixer` gives `fb-mixer`), both saved. The panel shows the block's outputs and `PUBLIC`

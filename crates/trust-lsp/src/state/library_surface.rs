@@ -58,12 +58,17 @@ impl ProjectFolders {
         }
     }
 
-    /// Whether the resolved `file` is library surface: a library folder holds it, deeper than
-    /// every own source folder that holds it.
+    /// Whether the resolved `file` is library surface.
     fn is_library_surface(&self, file: &Path) -> bool {
-        deepest_holding(&self.libraries, file)
-            .is_some_and(|library| deepest_holding(&self.own, file).is_none_or(|own| library > own))
+        library_holds(&self.own, &self.libraries, file)
     }
+}
+
+/// Whether a library folder holds `file` deeper than every own folder that holds it: the deepest
+/// folder that holds a file decides, and an own folder wins over an equally deep library folder.
+pub(crate) fn library_holds(own: &[PathBuf], libraries: &[PathBuf], file: &Path) -> bool {
+    deepest_holding(libraries, file)
+        .is_some_and(|library| deepest_holding(own, file).is_none_or(|own| library > own))
 }
 
 /// The depth, in path components, of the deepest of `folders` that holds `file`. Component-wise,
