@@ -252,7 +252,9 @@ fn send_control_request(addr: SocketAddr, auth: &str, mut request: Value) -> Val
                     .as_object_mut()
                     .expect("a control request is an object")
                     .insert("auth".to_string(), json!(auth));
-                writeln!(stream, "{request}").expect("send the request");
+                stream
+                    .write_all(format!("{request}\n").as_bytes())
+                    .expect("send the request");
                 let mut line = String::new();
                 BufReader::new(stream)
                     .read_line(&mut line)

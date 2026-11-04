@@ -998,7 +998,9 @@ impl Control {
             .set_write_timeout(Some(REQUEST_TIMEOUT))
             .map_err(|error| error.to_string())?;
         let line = json!({ "id": 1, "type": operation, "auth": TOKEN, "params": params });
-        writeln!(stream, "{line}").map_err(|error| error.to_string())?;
+        stream
+            .write_all(format!("{line}\n").as_bytes())
+            .map_err(|error| error.to_string())?;
         let mut answer = String::new();
         BufReader::new(stream)
             .read_line(&mut answer)

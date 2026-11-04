@@ -76,7 +76,9 @@ fn fake_runtime() -> (String, Receiver<Value>) {
             };
             let response = json!({ "id": request["id"], "ok": true, "result": result });
             let _ = requests.send(request);
-            writeln!(writer, "{response}").expect("answer control request");
+            writer
+                .write_all(format!("{response}\n").as_bytes())
+                .expect("answer control request");
         }
     });
     (endpoint, received)

@@ -254,7 +254,9 @@ fn send_control_request(addr: SocketAddr, request: &Value) -> Value {
     stream
         .set_read_timeout(Some(Duration::from_secs(5)))
         .expect("set control read timeout");
-    writeln!(stream, "{request}").expect("write control request");
+    stream
+        .write_all(format!("{request}\n").as_bytes())
+        .expect("write control request");
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
     reader.read_line(&mut line).expect("read control response");

@@ -619,7 +619,8 @@ fn spawn_control_server(
             .expect("read ADS control request");
         let request = serde_json::from_str(line.trim_end()).expect("parse ADS control request");
         request_tx.send(request).expect("send captured ADS request");
-        writeln!(stream, "{}", serde_json::to_string(&response).unwrap())
+        stream
+            .write_all(format!("{}\n", serde_json::to_string(&response).unwrap()).as_bytes())
             .expect("write ADS control response");
     });
     (endpoint, request_rx, server)

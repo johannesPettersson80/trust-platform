@@ -98,7 +98,7 @@ fn serve(stream: TcpStream, handler: &Handler, served: &Mutex<Vec<Value>>) {
         let Some(reply) = handler(&request) else {
             return;
         };
-        if writeln!(writer, "{reply}").is_err() {
+        if writer.write_all(format!("{reply}\n").as_bytes()).is_err() {
             return;
         }
     }
