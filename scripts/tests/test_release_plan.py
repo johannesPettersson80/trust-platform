@@ -123,6 +123,15 @@ def commit_record(sha: str, tree: str = TREE, parents: tuple[str, ...] = (BASE,)
 COMMITS = {MERGE: commit_record(MERGE, parents=(BASE, REHEARSED)), REHEARSED: commit_record(REHEARSED)}
 
 
+def pull_request(**changes) -> dict:
+    """GitHub's record of pull request 223, which brought the rehearsed head into main."""
+    pull = {"number": 223, "state": "closed", "merged_at": "2026-11-04T00:13:03Z",
+            "head": {"sha": REHEARSED, "ref": "release/0.30.0", "repo": {"full_name": OFFICIAL}},
+            "base": {"ref": "main", "repo": {"full_name": OFFICIAL}}}
+    pull.update(changes)
+    return pull
+
+
 def ci_run(**changes) -> dict:
     """GitHub's record of a passed CI run of the rehearsed head."""
     run = {"id": 41707700000, "path": ".github/workflows/ci.yml", "status": "completed", "conclusion": "success",
@@ -139,16 +148,18 @@ def bundle_artifact(artifact_id: int = 13281794816, run_id: int = 41707764199, *
 
 
 def artifacts_api(test: unittest.TestCase, artifacts: list[dict], runs: dict[int, dict],
-                  commits: dict[str, dict] | None = None, ci: list[dict] | None = None):
-    """GitHub's API for the rehearsals of BUNDLE: the artifacts by name, each run, the commits and the CI runs of the
-    rehearsed head, which pass unless the test gives others."""
-    def get(path: str, token: str) -> dict:
+                  commits: dict[str, dict] | None = None, ci: list[dict] | None = None, pulls: list[dict] | None = None):
+    """GitHub's API for the rehearsals of BUNDLE: the artifacts by name, each run, the commits, the pull requests and
+    the CI runs of the rehearsed head, which pass unless the test gives others."""
+    def get(path: str, token: str) -> dict | list:
         test.assertEqual(token, "token")
         if path.startswith(f"/repos/{OFFICIAL}/actions/artifacts?"):
             test.assertIn(f"name={BUNDLE}&", path)
             return {"artifacts": artifacts}
         if path.startswith(f"/repos/{OFFICIAL}/git/commits/"):
             return (COMMITS if commits is None else commits)[path.rsplit("/", 1)[1]]
+        if path.startswith(f"/repos/{OFFICIAL}/commits/{REHEARSED}/pulls?"):
+            return [pull_request()] if pulls is None else pulls
         if path.startswith(f"/repos/{OFFICIAL}/actions/workflows/ci.yml/runs?"):
             test.assertIn(f"head_sha={REHEARSED}&", path)
             return {"workflow_runs": [ci_run()] if ci is None else ci}
@@ -517,6 +528,36 @@ class ReleasePlanTests(unittest.TestCase):
             found = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token",
                                                 get=artifacts_api(self, artifacts, {41707764199: run}))
             self.assertIsNone(found, case)
+
+    def test_a_pull_requests_rehearsal_needs_its_one_pull_request_merged_into_main(self) -> None:
+        # Specification 24, coordinator's decision of 4 November 2026: GitHub's record of the workflow a pull request's
+        # run called cannot tell a local call from an explicit call of this repository's workflow at a ref like the run's
+        # own. So the run must belong to the one pull request of its head, from its head branch, merged into this
+        # repository's main when the release plans. Each case would promote a rehearsal that no pull request merged into
+        # main ran for.
+        cases = {
+            "a pull request of the same head into another base, with another Release workflow": [pull_request(
+                base={"ref": "work/other-release", "repo": {"full_name": OFFICIAL}})],
+            "a pull request not merged": [pull_request(state="open", merged_at=None)],
+            "two pull requests with the same head": [pull_request(), pull_request(
+                number=224, merged_at=None, head={"sha": REHEARSED, "ref": "work/copy", "repo": {"full_name": OFFICIAL}},
+                base={"ref": "work/other-release", "repo": {"full_name": OFFICIAL}})],
+            "no pull request": [],
+            "a pull request from another branch than the run's": [pull_request(
+                head={"sha": REHEARSED, "ref": "work/copy", "repo": {"full_name": OFFICIAL}})],
+            "a pull request into another repository's main": [pull_request(
+                base={"ref": "main", "repo": {"full_name": "someone/fork"}})],
+            "a pull request of another head": [pull_request(
+                head={"sha": "e" * 40, "ref": "release/0.30.0", "repo": {"full_name": OFFICIAL}})],
+        }
+        for case, pulls in cases.items():
+            found = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
+                self, [bundle_artifact()], {41707764199: rehearsal_run()}, pulls=pulls))
+            self.assertIsNone(found, case)
+        # A manual rehearsal needs no pull request: its ref is the branch whose head it rehearsed.
+        manual = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
+            self, [bundle_artifact()], {41707764199: manual_rehearsal_run()}, pulls=[]))
+        self.assertEqual(manual, REHEARSAL)
 
     def test_the_passed_rehearsals_bundle_of_the_highest_id_is_promoted(self) -> None:
         # Catches a promotion of an older rehearsal's files when a newer one passed, and a finder that gives up when the

@@ -210,16 +210,17 @@ def runs_since(sha: str) -> str:
     return (committed - timedelta(days=1)).date().isoformat()
 
 
-def github_get(path: str, token: str) -> dict:
-    """One GitHub API object; a failed request or another kind of answer fails the plan."""
+def github_get(path: str, token: str) -> dict | list:
+    """One GitHub API answer: an object, or an array for a list such as a commit's pull requests; a failed request or
+    another kind of answer fails the plan."""
     request = urllib.request.Request(
         f"https://api.github.com{path}",
         headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         answer = json.load(response)
-    if not isinstance(answer, dict):
-        raise ValueError(f"GitHub answered a non-object for {path}")
+    if not isinstance(answer, (dict, list)):
+        raise ValueError(f"GitHub answered neither an object nor an array for {path}")
     return answer
 
 
@@ -305,6 +306,28 @@ def workflow_commit(run: dict, repository: str) -> str | None:
     return found.pop() if len(found) == 1 else None
 
 
+def merged_pull_request(run: dict, repository: str, token: str, get: Callable[[str, str], dict | list]) -> bool:
+    """Whether the pull request that a rehearsal ran for is merged into this repository's main: of the pull requests
+    that GitHub lists for the run's head, exactly one has that head, and it came from the run's head branch of this
+    repository, targets this repository's main and is merged. A pull request of the same head into another base, one
+    not merged, two such pull requests or none give no promotion."""
+    pulls = get(f"/repos/{repository}/commits/{run['head_sha']}/pulls?per_page=100", token)
+    if not isinstance(pulls, list):
+        return False
+    candidates = [pull for pull in pulls
+                  if isinstance(pull, dict) and (pull.get("head") or {}).get("sha") == run["head_sha"]]
+    if len(candidates) != 1:
+        return False
+    head, base = candidates[0].get("head") or {}, candidates[0].get("base") or {}
+    return (
+        base.get("ref") == "main"
+        and (base.get("repo") or {}).get("full_name") == repository
+        and head.get("ref") == run.get("head_branch")
+        and (head.get("repo") or {}).get("full_name") == repository
+        and bool(candidates[0].get("merged_at"))
+    )
+
+
 def ci_passed(repository: str, commit: str, tree: str, token: str, get: Callable[[str, str], dict]) -> bool:
     """Whether a CI run of this repository for the head `commit` passed, whose head commit has `tree` by GitHub's
     record of it."""
@@ -331,9 +354,10 @@ def find_rehearsal(
     It asks GitHub for the artifacts named `release-bundle-v<version>-<tree>`, and takes one only when it has not
     expired and its run is a Release run of this repository that a pull request or a manual run started and that
     completed with success, when GitHub's records give `tree` to the run's head commit and to the commit whose workflow
-    it ran (a pull request's test merge commit, which merges that head, or a manual run's head), and when a CI run of
-    the same head passed on `tree`. A pull request into a branch with another Release workflow runs a merge of another
-    tree. No pull request text is read."""
+    it ran (a pull request's test merge commit, which merges that head, or a manual run's head), when a pull
+    request's rehearsal ran for the one pull request of that head that is merged into main from the run's head
+    branch, and when a CI run of the same head passed on `tree`. A pull request into a branch with another Release
+    workflow runs a merge of another tree. No pull request text is read."""
     name = BUNDLE_NAME.format(tag=f"v{version}", tree=tree)
     listed = get(f"/repos/{repository}/actions/artifacts?name={name}&per_page=100", token).get("artifacts") or []
     candidates = [
@@ -364,7 +388,9 @@ def find_rehearsal(
             parents = [parent.get("sha") for parent in record.get("parents") or [] if isinstance(parent, dict)]
             if (record.get("tree") or {}).get("sha") != tree:
                 continue
-            if run["event"] == "pull_request" and run["head_sha"] not in parents:
+            if run["event"] == "pull_request" and (
+                run["head_sha"] not in parents or not merged_pull_request(run, repository, token, get)
+            ):
                 continue
             if not ci_passed(repository, run["head_sha"], tree, token, get):
                 continue

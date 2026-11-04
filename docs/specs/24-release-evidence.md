@@ -195,9 +195,15 @@ that the Release workflow calls, recorded at the run's own ref: a pull
 request's test merge commit `refs/pull/<number>/merge`, which merges that head,
 or a manual run's head (a pull request into a branch with another Release
 workflow runs a merge of another tree); and a CI run of the same head passed,
-whose head commit has that tree. The plan takes these facts from GitHub's API,
-never from a pull request's text, and of several such artifacts it takes the
-one with the highest id. Without one, the push releases nothing and the
+whose head commit has that tree. A pull request's rehearsal also needs the pull
+request it ran for, since GitHub's record of the called workflow cannot tell a
+local call from an explicit call of this repository's workflow at a ref like
+the run's own: of the pull requests that GitHub lists for the head, exactly one
+has that head, and it came from the run's head branch of this repository,
+targets this repository's `main` and is merged when the release plans. A
+manual rehearsal's ref is a branch whose head is the rehearsed commit. The
+plan takes these facts from GitHub's API, never from a pull request's text,
+and of several such artifacts it takes the one with the highest id. Without one, the push releases nothing and the
 release follows `main`'s CI. A promoted release runs no build or test of its
 packages; its preflight audits the VS Code lockfile again, since the audit of
 the rehearsal's build can be days old, and it runs the real-database matrix on
