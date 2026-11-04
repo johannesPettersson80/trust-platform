@@ -29,7 +29,7 @@ const MAX_PAGES: usize = 32;
 /// The most objects, operations and states one request names (specification 43, §4 and §5).
 const MAX_BATCH: usize = 500;
 /// The most states one preview names, and the most steps of one simulator journey.
-const MAX_PREVIEW: usize = 12;
+pub(super) const MAX_PREVIEW: usize = 12;
 /// The most waypoints one reroute supplies (AT-05).
 const MAX_WAYPOINTS: usize = 64;
 /// The most assumptions one composition records (AT-04).

@@ -87,9 +87,10 @@ records with their lifecycle, revisions, hashes and receipts (§6). The language
 draft records in the storage folder the extension passes (its workspace storage). The extension keeps
 what presents and wires: the two adapters below, VS Code document access (it passes the unsaved texts
 to each command, as the HMI Builder's commands receive them), rendering and rasterizing (AT-07),
-preview data and the simulator (AT-08), and the editor transaction that applies an approved draft
-(AT-09). An adapter forwards each tool call to its command and returns the command's answer; it
-holds no rule of its own.
+preview data (AT-08), the named simulator login with its session cookie, and the editor transaction
+that applies an approved draft (AT-09). The language server keeps the named simulator sessions and
+runs a simulator journey (AT-08, below). An adapter forwards each tool call to its command and
+returns the command's answer; it holds no rule of its own.
 
 Two thin adapters expose the same versioned contracts:
 
@@ -689,18 +690,86 @@ Named simulation journeys are connected explicitly through **Connect Named HMI S
 The selected target must report simulation mode and expose a local HMI web endpoint. A physical
 mode, non-loopback endpoint, changed target or absent HMI endpoint is refused without fallback.
 `trust-lsp.hmiAgent.checkTarget` decides whether a target is a local simulator, when the journey
-is connected and before each of its requests: the target reports simulation mode, its HMI web
-address names `localhost`, `127.0.0.1` or `[::1]`, and its control endpoint is `tcp://` to one of
-those hosts with a port, `unix://` or `npipe:`. Without the language server's answer the target is
-refused.
+is connected and before each of its steps and each of its commands: the target reports simulation
+mode, its HMI web address names `localhost`, `127.0.0.1` or `[::1]`, and its control endpoint is
+`tcp://` to one of those hosts with a port, `unix://` or `npipe:`. Without the language server's
+answer the target is refused.
 The user supplies a named simulator HMI login through the editor; credentials never become tool
 inputs or outputs. Context lists opaque session IDs and expiry. Sessions last at most ten minutes.
-`hmi_preview_states` may explicitly select `mode: simulator`, a `sessionId` and up to twelve steps.
-Each step names a deployed page, optional control/action/value and optional readback path/expected
-value. The deployed page must match the supplied draft and its local program revision must still
-match. A journey never starts a process or deploys an HMI implicitly. It uses the existing named
-session, command outcomes and readback stream; refusals, disconnects, cancellations and timeouts
-are returned with the already-completed outcomes. It never resends a command automatically.
+The language server keeps the sessions and runs the journeys (owner, 4 November 2026: "what you
+decide is okay with me"). `trust-lsp.hmiAgent.openSimulatorSession` takes the workspace, the
+journey's name and the target, and opens a session only for a target that `checkTarget` accepts and
+while that workspace holds fewer than five unexpired sessions; it answers the session's opaque ID
+and its expiry, ten minutes on, or the refusal. The extension then logs in through its HMI bridge
+(specification 39 §11 item 6) and keeps the session's cookie. It sends the login only to a target
+that `trust-lsp.hmiAgent.admitSimulatorLogin` admits as the session's own: a local simulator with
+the session's web address, control endpoint and access token. A login that the simulator refuses
+closes the session (`trust-lsp.hmiAgent.closeSimulatorSession`). Closing a session cancels its
+running journey, and the extension closes its sessions when the selected run target changes.
+`trust-lsp.hmiAgent.simulatorSessions` lists a workspace's unexpired sessions, their names and
+expiry, for the agent's context. `trust-lsp.hmiAgent.runSimulatorJourney` takes the workspace, a
+session ID of that workspace, the journey's ID, which the client chooses (at most 128 characters),
+that session's cookie, the target, the steps and the draft's page models. It starts the journey on a
+thread of its own and answers at once, `{ started: true, sessionId, journeyId }` or the refusal, so
+that a journey never holds one of the language server's requests. When the journey ends, the
+language server sends its answer, which names the journey, to the client as the notification
+`trust-lsp/simulatorJourneyEnded`, also when the journey's thread fails, with `PROJECT_UNAVAILABLE`
+and no outcomes; the extension hands it to the tool call that waits for that journey, and ends the
+wait with `NOT_CONNECTED` when the language server stops, and with `CANCELLED` when the answer has
+not come 2 seconds after the tool call's cancel. The language server holds the cookie in memory for
+that journey only and never writes or logs it: it never logs the messages it receives or sends,
+whatever `RUST_LOG` says. The extension refuses a journey while its language client's trace logs
+each message's parameters, since that trace would log the cookie: `trust.languageServer.trace` at
+`verbose`, or the client's own `trust-lsp.trace.server` at `verbose`, at `compact` or in the `json`
+format. A session runs one journey at a time, and a journey whose target differs from the session's
+is refused and closes the session (specification 39 §11 item 6). A method command (`invoke`) is not
+a journey step and is refused. `trust-lsp.hmiAgent.cancelSimulatorJourney` takes a session and the
+ID of the journey it cancels. A cancel that finds that journey not running, as when it arrives just
+before the journey starts, refuses that journey's start for two seconds and affects no other
+journey. A cancel also ends a request in flight within about 100 milliseconds. The journey then ends
+with `CANCELLED`, except when the request was a step's command: that step ends `cancelled`, with the
+command's ID, since the command may have been applied, and so ends the journey. Before each step,
+and again right before a step's command, the journey checks that the session is still open and
+unexpired and that `checkTarget` still accepts the target, then that the journey was not cancelled.
+It reads the deployed page (`GET /api/hmi/page`) and compares its model with the draft's, key order
+aside, and follows the page's readback stream (`/ws/hmi`). Before a command it reads that stream,
+for at most one stream period, until the runtime says whether the target runs in simulation, which
+it says as the stream opens, and stops with `CONFLICT` when the target does not, or when the stream
+has not said so within that period. A step with a control sends its command with the named session
+(`POST /api/hmi/command`, a new command ID) and stops the journey unless the answer is `applied`,
+`pending` or `confirmed`. A `confirmed` command is complete. An `applied` one is complete at once
+when the runtime does not follow it; the runtime follows a command whose control confirms it, by its
+feedback or by the value read back, and a pulse to a remote runtime's point, and reports its later
+outcome on the value stream (specification 39 §12.8 item 5). The runtime's own plan of the command
+decides this for the journey too (`Plan::is_followed` in trust-runtime). A followed `applied`
+command waits for its later outcome, its confirmation or, for a remote pulse without one, the report
+of its end, until the runtime decides it, plus two stream periods. The runtime decides it within the
+control's confirmation time, and for a pulse within the longer of the pulse and the confirmation
+time plus the 2 seconds it allows to write the pulse's end (`Plan::decided_within`, specification 39
+§12.8 item 5): 5.5 seconds for the default confirmation time of 5 seconds and stream period of 250
+milliseconds. So the runtime's own outcome, with its reason and value read back, arrives inside the
+wait. The wait lasts at most 60 seconds, and a session that closes or expires during it ends the
+journey with `CONFLICT`. The report of a pulse's end, a later `applied` with `ended`, does not
+complete a pulse followed to its confirmation. The runtime answers `pending` only to a repeated
+command ID, which a journey's new command IDs never are; a `pending` command waits the same way, and
+a later `applied` or `confirmed` completes it. A later `timed-out` or `refused` ends the step and
+the journey with that outcome and the runtime's reason, also while the step waits for its readback.
+So does a later `unknown`, the end of a remote pulse that cannot be observed, for a control without
+a confirmation; for a control with one the runtime still decides the confirmation, and the step
+waits for it. A followed command whose later outcome does not come within its wait, as when the
+runtime is already following as many commands as it can and leaves it final as `applied`, is
+reported `timed-out`: a false failure, never a false pass. With a readback path the step also waits,
+at least 5 seconds, for that path's value (a path the runtime answers as unknown, `null`, has none),
+the expected one when it is given. Each step adds its outcome: `observed`, or `cancelled`,
+`disconnected`, `timed-out`, `refused` or `unknown`, which end the journey. The answer names the
+session, holds every outcome and the error that ended the journey, if any, and has passed exactly
+when no error ended it and its last outcome is `observed`. `hmi_preview_states` may explicitly
+select `mode: simulator`, a `sessionId` and up to twelve steps. Each step names a deployed page,
+optional control/action/value and optional readback path/expected value. The deployed page must
+match the supplied draft and its local program revision must still match. A journey never starts a
+process or deploys an HMI implicitly. It uses the existing named session, command outcomes and
+readback stream; refusals, disconnects, cancellations and timeouts are returned with the
+already-completed outcomes. It never resends a command automatically.
 
 Review with `explore: true` includes a bounded snapshot of up to 32 project pages/popups and placed
 faceplates, rendered through the existing runtime display in the proposal panel. This mode's

@@ -21,8 +21,9 @@ pub(super) fn check_target(arguments: &[Value]) -> Value {
 }
 
 /// Whether `target` is a runtime in simulation with a local web address and a local control
-/// endpoint.
-fn is_local_simulator(target: &Value) -> bool {
+/// endpoint. A simulator session opens only for such a target, and its journey checks it again
+/// before each step (`simulator_sessions`, `simulator_journey`).
+pub(super) fn is_local_simulator(target: &Value) -> bool {
     target.get("simulator") == Some(&Value::Bool(true))
         && target
             .get("url")

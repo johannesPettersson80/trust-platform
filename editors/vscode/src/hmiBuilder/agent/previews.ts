@@ -7,7 +7,7 @@ import { sha256 } from "./artifacts";
 import { assetRevisions, loadPreviewAssets } from "./assets";
 import { context, drafts, EngineProject, envelopeFor, nativeCall, openDocuments, unwrap } from "./engineCommands";
 import { renderAgentPage, PreviewCrop } from "./render";
-import { runSimulator, SimulatorStep } from "./simulator";
+import { runSimulator } from "./simulator";
 import { scenarioFrame } from "./scenarios";
 import { withProjectSymbols } from "../drawing/symbols";
 import type { CustomSymbolModel } from "../drawing/symbols/custom";
@@ -244,7 +244,8 @@ export async function renderStates(
   return { data: { draftId: session.draft.draftId, revision: session.draft.revision, frames }, images };
 }
 
-/** The bounded simulator journey of `hmi_preview_states` (mode `simulator`), on the named session's deployed pages. */
+/** The bounded simulator journey of `hmi_preview_states` (mode `simulator`), on the named session's deployed pages; the
+ * language server runs it (`trust-lsp.hmiAgent.runSimulatorJourney`). */
 export async function simulatorJourney(
   session: PreviewSession,
   input: Record<string, unknown>,
@@ -255,11 +256,5 @@ export async function simulatorJourney(
   const models: Record<string, HmiPageModel> = {};
   for (const [file, text] of Object.entries(draft.files))
     models[path.basename(file, ".toml")] = await parsePage(session, text, file);
-  return runSimulator(
-    project.root.toString(),
-    String(input.sessionId),
-    input.steps as SimulatorStep[],
-    models,
-    session.signal,
-  );
+  return runSimulator(project.root.toString(), String(input.sessionId), input.steps, models, session.signal);
 }

@@ -1,52 +1,183 @@
-import * as vscode from "vscode";
+// Named HMI simulator journeys (specification 43, AT-08). The language server keeps the sessions and runs the journeys
+// (`trust-lsp.hmiAgent.openSimulatorSession`, `closeSimulatorSession`, `admitSimulatorLogin`, `runSimulatorJourney`,
+// `cancelSimulatorJourney`); a journey, named by the ID the extension gives it, answers its start at once and reports
+// its end, with that ID, as the notification `trust-lsp/simulatorJourneyEnded`. The extension keeps what the language
+// server cannot hold: the prompts, the named login through the HMI bridge, and each session's cookie, which it hands
+// over with each journey of that session (specification 39 §11 item 6).
 import { randomUUID } from "crypto";
-import { LiveSession, LiveEndpoint } from "../editor/liveSession";
+import * as vscode from "vscode";
+import { State } from "vscode-languageclient/node";
+import type { LspClientProvider } from "../../lm-tools/shared";
+import { getTrustConfiguration } from "../../configuration";
+import { onDidChangeSelectedRuntime } from "../../selectedRuntime";
+import { LiveSession, LiveEndpoint, LiveSessionDeps } from "../editor/liveSession";
 import { runtimeLiveOperatorDeps } from "../editor/liveOperatorRuntime";
-import { sameModel } from "../editor/pageDocument";
 import type { HmiPageModel } from "../drawing/model";
+import { AuthoringResult, unwrap } from "./engineCommands";
 
-export interface SimulatorJourney {
-  id: string;
-  name: string;
-  session: Pick<LiveSession, "request" | "openSocket" | "isCurrentTarget">;
-  expires: number;
-  busy: boolean;
+const JOURNEY_ENDED = "trust-lsp/simulatorJourneyEnded";
+
+/** A session this window logged into: the HMI bridge that holds its cookie, the selected target it reads, and the
+ * timer that drops it when the language server's expiry comes. */
+interface HeldSession {
+  live: LiveSession;
+  target: () => Promise<LiveEndpoint | undefined>;
+  expiry: ReturnType<typeof setTimeout>;
 }
-interface NamedSimulator extends SimulatorJourney {
-  workspace: string;
-  endpoint: string;
-  session: LiveSession;
+const held = new Map<string, HeldSession>();
+
+/** How long a cancelled tool call still waits for its journey's answer. */
+const CANCEL_GRACE_MS = 2_000;
+
+/** The tool calls waiting for their journey's end, by journey ID. */
+interface Waiter {
+  resolve: (answer: Record<string, unknown>) => void;
+  reject: (error: Error) => void;
 }
-const sessions = new Map<string, NamedSimulator>();
-/** Whether trust-lsp accepts the target for a simulator journey: a simulator whose web address and control endpoint are
- * on this computer (`trust-lsp.hmiAgent.checkTarget`, specification 43 AT-08). Without an answer it is refused. */
-export async function isLocalSimulator(target: LiveEndpoint | undefined): Promise<boolean> {
+const waiting = new Map<string, Waiter>();
+let languageClient: LspClientProvider = () => undefined;
+const listened = new WeakSet<object>();
+
+/** Lets the journeys listen on the language client that `getClient` gives; answers what restores the previous one. */
+export function setSimulatorLanguageClient(getClient: LspClientProvider): () => void {
+  const previous = languageClient;
+  languageClient = getClient;
+  return () => {
+    languageClient = previous;
+  };
+}
+
+/** Whether the language client's trace logs each message's parameters, a journey's cookie among them: `verbose` in
+ * `trust.languageServer.trace`, which the extension sets the trace from, or `verbose` or `compact` in the client's own
+ * `trust-lsp.trace.server` (vscode-jsonrpc logs the parameters at both), or that setting's `json` format, at which
+ * vscode-jsonrpc logs whole messages at any level (vscode-languageclient traces `off` as `messages` while its output
+ * channel logs at Trace). */
+function traceLogsParameters(): boolean {
+  const own = vscode.workspace.getConfiguration("trust-lsp").get<unknown>("trace.server");
+  const object = typeof own === "object" && own !== null ? (own as { verbosity?: unknown; format?: unknown }) : undefined;
+  const logs = (value: unknown): boolean => value === "verbose" || value === "compact";
+  return (
+    object?.format === "json" ||
+    logs(object ? object.verbosity : own) ||
+    logs(getTrustConfiguration().get("trace.server"))
+  );
+}
+
+/** The target as the language server reads it. */
+function targetOf(target: LiveEndpoint | undefined): Record<string, unknown> | null {
+  return target
+    ? { simulator: target.simulator, url: target.url, endpoint: target.endpoint, token: target.token ?? null }
+    : null;
+}
+
+function drop(id: string): void {
+  const session = held.get(id);
+  if (!session) return;
+  held.delete(id);
+  clearTimeout(session.expiry);
+  session.live.stop();
+}
+
+/** Ends every session this window holds, dropping their cookies, and every wait for a journey's end. */
+export function endSimulatorSessions(): void {
+  for (const id of [...held.keys()]) drop(id);
+  stopWaiting("NOT_CONNECTED: the editor ended the simulator journey's session.");
+}
+
+/** Closes this window's sessions in the language server, which cancels their journeys, after the selected run target
+ * changed (specification 39 §11 item 6: a target change invalidates the session). */
+export async function closeSimulatorSessions(): Promise<void> {
+  const ids = [...held.keys()];
+  for (const id of ids) drop(id);
+  await Promise.allSettled(
+    ids.map((sessionId) =>
+      vscode.commands.executeCommand("trust-lsp.hmiAgent.closeSimulatorSession", { sessionId }),
+    ),
+  );
+}
+
+function stopWaiting(reason: string): void {
+  const waiters = [...waiting.values()];
+  waiting.clear();
+  for (const waiter of waiters) waiter.reject(new Error(reason));
+}
+
+/** Hands the journey's answer to the tool call that waits for that journey. */
+function journeyEnded(answer: unknown): void {
+  const journeyId = (answer as { journeyId?: unknown } | undefined)?.journeyId;
+  const waiter = typeof journeyId === "string" ? waiting.get(journeyId) : undefined;
+  if (!waiter) return;
+  waiting.delete(journeyId as string);
+  waiter.resolve(answer as Record<string, unknown>);
+}
+
+/** Listens for journeys' ends on the language client, and gives up the waits when it stops. */
+function listen(): void {
+  const client = languageClient();
+  if (!client) throw new Error("NOT_CONNECTED: the truST language server is not running.");
+  if (listened.has(client)) return;
+  listened.add(client);
+  client.onNotification(JOURNEY_ENDED, journeyEnded);
+  client.onDidChangeState((change) => {
+    if (change.newState === State.Stopped) stopWaiting("NOT_CONNECTED: the truST language server stopped.");
+  });
+}
+
+/** Connects a named simulator journey: the language server opens the session for the selected target, the HMI bridge
+ * logs in to that target with the user's `credentials` and keeps the cookie. The login goes only to a target the
+ * language server admits as the session's own. A login that is cancelled or that the simulator refuses closes the
+ * session. */
+export async function connectSimulator(
+  workspace: string,
+  name: string,
+  deps: LiveSessionDeps,
+  credentials: () => Promise<{ user: string; password: string } | undefined>,
+): Promise<{ sessionId: string; name: string; expiresAt: string } | undefined> {
+  const opened = unwrap(
+    await vscode.commands.executeCommand<AuthoringResult>("trust-lsp.hmiAgent.openSimulatorSession", {
+      workspace,
+      name,
+      target: targetOf(await deps.target()),
+    }),
+  ).data as { sessionId: string; name: string; expiresAt: string };
+  const close = async (): Promise<void> => {
+    await vscode.commands.executeCommand("trust-lsp.hmiAgent.closeSimulatorSession", { sessionId: opened.sessionId });
+  };
+  let live: LiveSession | undefined;
   try {
-    const answer = await vscode.commands.executeCommand<{ local?: unknown } | undefined>(
-      "trust-lsp.hmiAgent.checkTarget",
-      target ? { simulator: target.simulator, url: target.url, endpoint: target.endpoint } : null,
-    );
-    return answer?.local === true;
-  } catch {
-    return false;
-  }
-}
-export function simulatorSessions(workspace: string): Array<{ sessionId: string; name: string; expiresAt: string }> {
-  for (const [id, session] of sessions)
-    if (session.expires < Date.now()) {
-      session.session.stop();
-      sessions.delete(id);
+    const login = await credentials();
+    if (login) {
+      live = new LiveSession({
+        ...deps,
+        target: async () => {
+          const current = await deps.target();
+          const answer = await vscode.commands.executeCommand<AuthoringResult>(
+            "trust-lsp.hmiAgent.admitSimulatorLogin",
+            { sessionId: opened.sessionId, target: targetOf(current) },
+          );
+          return answer?.ok && answer.data.admitted === true ? current : undefined;
+        },
+      });
+      const answer = await live.request("POST", "/api/hmi/login", login);
+      if (answer.status !== 200) throw new Error("The simulator refused the named HMI login.");
     }
-  return [...sessions.values()]
-    .filter((session) => session.workspace === workspace)
-    .map((session) => ({
-      sessionId: session.id,
-      name: session.name,
-      expiresAt: new Date(session.expires).toISOString(),
-    }));
+  } catch (error) {
+    live?.stop();
+    await close();
+    throw error;
+  }
+  if (!live) {
+    await close();
+    return undefined;
+  }
+  const expiry = setTimeout(() => drop(opened.sessionId), Math.max(0, Date.parse(opened.expiresAt) - Date.now()));
+  held.set(opened.sessionId, { live, target: () => deps.target(), expiry });
+  return opened;
 }
+
 /** The operator explicitly selects and logs into an already-running local simulator. */
-export function registerSimulatorSessions(context: vscode.ExtensionContext): void {
+export function registerSimulatorSessions(context: vscode.ExtensionContext, getClient?: LspClientProvider): void {
+  setSimulatorLanguageClient(getClient ?? (() => undefined));
   context.subscriptions.push(
     vscode.commands.registerCommand("trust-lsp.hmiBuilder.connectSimulator", async () => {
       const folders = vscode.workspace.workspaceFolders ?? [];
@@ -61,193 +192,91 @@ export function registerSimulatorSessions(context: vscode.ExtensionContext): voi
             )?.folder;
       if (!folder) return;
       const deps = runtimeLiveOperatorDeps(folder.uri.fsPath, true).session;
-      const target = await deps.target();
-      if (!(await isLocalSimulator(target)))
-        throw new Error(
-          "Start a local simulator with an HMI web endpoint before connecting a simulation journey. Physical or remote targets are refused.",
-        );
-      simulatorSessions(folder.uri.toString());
-      if (sessions.size >= 5)
-        throw new Error("Five simulator sessions already exist; wait for one to expire or restart the editor.");
       const name = await vscode.window.showInputBox({
         title: "Name this HMI simulation journey",
         prompt: "This session permits bounded HMI commands only on the selected local simulator.",
-        value: target!.label,
+        value: (await deps.target())?.label,
       });
       if (!name) return;
-      const user = await vscode.window.showInputBox({ title: "Simulator HMI user" });
-      if (!user) return;
-      const password = await vscode.window.showInputBox({ title: "Simulator HMI password", password: true });
-      if (password === undefined) return;
-      const guarded = {
-        ...deps,
-        target: async () => {
-          const current = await deps.target();
-          return (await isLocalSimulator(current)) &&
-            current?.endpoint === target!.endpoint &&
-            current?.url === target!.url
-            ? current
-            : undefined;
-        },
-      };
-      const session = new LiveSession(guarded);
-      const answer = await session.request("POST", "/api/hmi/login", { user, password });
-      if (answer.status !== 200) {
-        session.stop();
-        throw new Error("The simulator refused the named HMI login.");
-      }
-      const id = randomUUID();
-      sessions.set(id, {
-        id,
-        workspace: folder.uri.toString(),
-        name,
-        endpoint: target!.endpoint,
-        session,
-        expires: Date.now() + 10 * 60_000,
-        busy: false,
+      const opened = await connectSimulator(folder.uri.toString(), name, deps, async () => {
+        const user = await vscode.window.showInputBox({ title: "Simulator HMI user" });
+        if (!user) return undefined;
+        const password = await vscode.window.showInputBox({ title: "Simulator HMI password", password: true });
+        return password === undefined ? undefined : { user, password };
       });
+      if (!opened) return;
       await vscode.window.showInformationMessage(
-        `Simulator journey “${name}” is available for 10 minutes. Agent context lists its session ID.`,
+        `Simulator journey “${opened.name}” is available for 10 minutes. Agent context lists its session ID.`,
       );
-      return { sessionId: id, name };
+      return { sessionId: opened.sessionId, name: opened.name };
     }),
+    onDidChangeSelectedRuntime(() => void closeSimulatorSessions()),
+    { dispose: endSimulatorSessions },
   );
-  context.subscriptions.push({
-    dispose() {
-      for (const session of sessions.values()) session.session.stop();
-      sessions.clear();
-    },
-  });
 }
-export interface SimulatorStep {
-  page: string;
-  object?: string;
-  action?: string;
-  value?: boolean | number | string;
-  expect?: boolean | number | string;
-  path?: string;
-}
-/** Execute against deployed matching pages; a draft is never silently deployed for a journey. */
+
+/** Runs a journey in the language server with the cookie of its named session and the selected target, and waits for
+ * its answer, which the language server reports when the journey ends. Cancelling `signal` before the start goes out
+ * starts nothing; cancelling it later cancels the journey there, also when the cancel overtakes the start, and the
+ * journey's answer still comes back, with the outcomes its steps completed, or the wait ends 2 seconds after the
+ * cancel. */
 export async function runSimulator(
   workspace: string,
-  id: string,
-  steps: SimulatorStep[],
+  sessionId: string,
+  steps: unknown,
   models: Record<string, HmiPageModel>,
   signal: AbortSignal,
 ): Promise<Record<string, unknown>> {
-  simulatorSessions(workspace);
-  const owner = sessions.get(id);
-  if (!owner || owner.workspace !== workspace)
-    throw new Error("EXPIRED_DRAFT: select an unexpired named simulator session in this workspace.");
-  return executeSimulatorJourney(owner, steps, models, signal);
-}
-/** Bounded journey engine shared by named sessions and transport-level regression fixtures. */
-export async function executeSimulatorJourney(
-  owner: SimulatorJourney,
-  steps: SimulatorStep[],
-  models: Record<string, HmiPageModel>,
-  signal: AbortSignal,
-): Promise<Record<string, unknown>> {
-  const id = owner.id;
-  if (owner.busy) throw new Error("CONFLICT: this simulator journey is already running.");
-  if (!steps.length || steps.length > 12) throw new Error("LIMIT_EXCEEDED: use 1 to 12 bounded simulator steps.");
-  const outcomes: Array<Record<string, unknown>> = [];
-  owner.busy = true;
+  const journeyId = randomUUID();
+  // Listening before any await, so that no cancel is lost; only a start that went out is cancelled.
+  let started = false;
+  let grace: ReturnType<typeof setTimeout> | undefined;
+  const cancel = (): void => {
+    if (!started) return;
+    void vscode.commands.executeCommand("trust-lsp.hmiAgent.cancelSimulatorJourney", { sessionId, journeyId });
+    grace = setTimeout(() => {
+      const waiter = waiting.get(journeyId);
+      if (!waiter) return;
+      waiting.delete(journeyId);
+      waiter.reject(new Error("CANCELLED: the simulator journey was cancelled; its answer did not arrive in time."));
+    }, CANCEL_GRACE_MS);
+  };
+  signal.addEventListener("abort", cancel, { once: true });
   try {
-    for (const step of steps) {
-      if (signal.aborted)
-        throw new Error(
-          "CANCELLED: simulator journey cancelled; completed commands are retained in outcomes and are not undone.",
-        );
-      if (Date.now() > owner.expires || !(await owner.session.isCurrentTarget()))
-        throw new Error("CONFLICT: the simulator target or named session changed.");
-      const page = await owner.session.request("GET", `/api/hmi/page?name=${encodeURIComponent(step.page)}`);
-      const data = page.body as { page?: { model: HmiPageModel }; bundle?: string };
-      if (page.status !== 200 || !data.page || !sameModel(models[step.page], data.page.model))
-        throw new Error(
-          "CONFLICT: the deployed simulator page does not match this draft; apply and deploy explicitly before exercising it.",
-        );
-      const stream = await owner.session.openSocket(`/ws/hmi?page=${encodeURIComponent(step.page)}`);
-      if (!stream) throw new Error("NOT_CONNECTED: simulator readback stream unavailable.");
-      let disconnected = false;
-      const values: Record<string, { value: unknown }> = {};
-      const commands = new Map<string, Record<string, unknown>>();
-      stream.onclose = () => {
-        disconnected = true;
-      };
-      stream.onmessage = (event) => {
-        try {
-          const frame = JSON.parse(String(event.data));
-          Object.assign(values, frame.values ?? {});
-          if (frame.command?.id) commands.set(frame.command.id, frame.command);
-        } catch {
-          disconnected = true;
-        }
-      };
-      try {
-        let commandId: string | undefined;
-        if (step.object) {
-          const object = data.page.model.object.find((object) => object.id === step.object);
-          if (!object) throw new Error("INVALID_ARGUMENT: simulator step names an unknown control.");
-          commandId = randomUUID();
-          const reply = await owner.session.request("POST", "/api/hmi/command", {
-            id: commandId,
-            bundle: data.bundle,
-            page: step.page,
-            object: step.object,
-            action: step.action,
-            value: step.value,
-          });
-          const answer = reply.body as Record<string, unknown>;
-          outcomes.push({
-            page: step.page,
-            object: step.object,
-            commandId,
-            status: reply.status,
-            outcome: answer.outcome,
-            readback: answer.readback,
-            reason: answer.reason,
-          });
-          if (reply.status !== 200 || !["applied", "pending", "confirmed"].includes(String(answer.outcome))) break;
-          commands.set(commandId, answer);
-        }
-        const deadline = Date.now() + 5000;
-        while (!signal.aborted && !disconnected && Date.now() < deadline) {
-          const confirmed = !commandId || commands.get(commandId)?.outcome === "confirmed";
-          const readback = step.path ? values[step.path]?.value : undefined;
-          if (
-            confirmed &&
-            (step.path === undefined ||
-              (Object.prototype.hasOwnProperty.call(values, step.path) &&
-                (step.expect === undefined || readback === step.expect)))
-          ) {
-            outcomes.push({ page: step.page, outcome: "observed", commandId, path: step.path, value: readback });
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-        if (signal.aborted || disconnected || Date.now() >= deadline) {
-          outcomes.push({
-            page: step.page,
-            outcome: signal.aborted ? "cancelled" : disconnected ? "disconnected" : "timed-out",
-            commandId,
-          });
-          break;
-        }
-      } finally {
-        stream.close();
-      }
+    if (signal.aborted) throw new vscode.CancellationError();
+    if (traceLogsParameters())
+      throw new Error(
+        "UNSUPPORTED_CONTEXT: the language server trace logs each message's parameters, which would log the named session's cookie; trace off, or messages in text format, to run a simulator journey.",
+      );
+    listen();
+    const session = held.get(sessionId);
+    const target = await session?.target();
+    if (signal.aborted) throw new vscode.CancellationError();
+    const ended = new Promise<Record<string, unknown>>((resolve, reject) => {
+      waiting.set(journeyId, { resolve, reject });
+    });
+    // A wait given up before the start answers is reported by the start itself.
+    ended.catch(() => undefined);
+    started = true;
+    try {
+      unwrap(
+        await vscode.commands.executeCommand<AuthoringResult>("trust-lsp.hmiAgent.runSimulatorJourney", {
+          workspace,
+          sessionId,
+          journeyId,
+          cookie: session?.live.namedCookie() ?? null,
+          target: targetOf(target),
+          steps,
+          models,
+        }),
+      );
+    } catch (error) {
+      waiting.delete(journeyId);
+      throw error;
     }
-    return {
-      origin: "simulator",
-      sessionId: id,
-      name: owner.name,
-      outcomes,
-      passed: outcomes.length > 0 && outcomes[outcomes.length - 1].outcome === "observed",
-    };
-  } catch (error) {
-    return { origin: "simulator", sessionId: id, name: owner.name, outcomes, passed: false, error: String(error) };
+    return await ended;
   } finally {
-    owner.busy = false;
+    signal.removeEventListener("abort", cancel);
+    clearTimeout(grace);
   }
 }

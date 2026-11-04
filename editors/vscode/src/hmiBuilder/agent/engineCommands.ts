@@ -7,7 +7,6 @@ import * as vscode from "vscode";
 import { remoteVariableContext } from "../editor/remoteVariables";
 import { cancellableNativeRead } from "./lifetime";
 import { selectionsOf } from "./queryMetadata";
-import { simulatorSessions } from "./simulator";
 
 /** The error codes of specification 43, §4. */
 export type AuthoringErrorCode =
@@ -144,12 +143,22 @@ async function invoke(
     open: openDocuments(project.root),
     remote: (await remoteVariableContext(project.root)).catalogue,
     selections: selectionsOf(project.root),
-    simulatorSessions: simulatorSessions(project.root.toString()),
     request,
     ...fields,
   };
+  // The open simulator sessions are the language server's (`trust-lsp.hmiAgent.simulatorSessions`, AT-08).
   const call = (): Promise<AuthoringResult> =>
-    answerOf(() => Promise.resolve(vscode.commands.executeCommand<AuthoringResult>(command, argument)));
+    answerOf(async () => {
+      const sessions = unwrap(
+        await vscode.commands.executeCommand<AuthoringResult>("trust-lsp.hmiAgent.simulatorSessions", {
+          workspace: project.root.toString(),
+        }),
+      );
+      return vscode.commands.executeCommand<AuthoringResult>(command, {
+        ...argument,
+        simulatorSessions: sessions.data.sessions,
+      });
+    });
   if (kind === "read") return cancellableNativeRead(project.token, call);
   if (kind === "start" && project.token.isCancellationRequested) throw new vscode.CancellationError();
   return call();

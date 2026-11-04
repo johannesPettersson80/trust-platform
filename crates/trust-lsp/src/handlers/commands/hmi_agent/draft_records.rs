@@ -269,12 +269,22 @@ pub(super) fn is_draft_id(id: &str) -> bool {
 ///
 /// `PROJECT_UNAVAILABLE` when the operating system has no random source.
 pub(super) fn new_draft_id() -> AgentResult<String> {
+    new_uuid("a draft identifier")
+}
+
+/// A random version-4 UUID in lowercase hexadecimal (`randomUUID`), for the identifier `purpose`
+/// names: a draft, a simulator session or a simulator command.
+///
+/// # Errors
+///
+/// `PROJECT_UNAVAILABLE` when the operating system has no random source.
+pub(super) fn new_uuid(purpose: &str) -> AgentResult<String> {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).map_err(|error| {
         AgentError::new(
             PROJECT_UNAVAILABLE,
-            format!("no random source for a draft identifier: {error}"),
+            format!("no random source for {purpose}: {error}"),
         )
     })?;
     bytes[6] = (bytes[6] & 0x0f) | 0x40;

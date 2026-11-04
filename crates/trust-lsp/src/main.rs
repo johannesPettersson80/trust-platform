@@ -29,12 +29,14 @@ use tower_lsp::lsp_types::request::{
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tracing::info;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 use crate::handlers::HMI_BUILDER_COMMANDS;
 use crate::handlers::PROJECT_COMMANDS;
 use crate::handlers::RUN_TARGET_COMMANDS;
 use crate::handlers::VISUAL_COMMANDS;
-use crate::handlers::{DEVICES_COMMANDS, EXECUTE_COMMANDS};
+use crate::handlers::{DEVICES_COMMANDS, EXECUTE_COMMANDS, HMI_AGENT_RUN_JOURNEY_COMMAND};
 use crate::state::ServerState;
 use crate::telemetry::TelemetryEvent;
 
@@ -624,9 +626,11 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
-        // The namespace move applies its edit through the client, and the Devices & Connections
-        // commands hand their work to their own blocking thread (design §1.5).
+        // The namespace move applies its edit through the client, the Devices & Connections
+        // commands hand their work to their own blocking thread (design §1.5), and a simulator
+        // journey runs on a thread of its own and tells the client its end (specification 43, AT-08).
         if params.command == "trust-lsp.moveNamespace"
+            || params.command == HMI_AGENT_RUN_JOURNEY_COMMAND
             || DEVICES_COMMANDS.contains(&params.command.as_str())
         {
             return Ok(handlers::execute_command(&self.client, &self.state, params).await);
@@ -842,9 +846,19 @@ async fn main() {
             filter = filter.add_directive(directive);
         }
     }
+    // The language server never logs the messages it receives or sends: they carry credentials,
+    // such as an HMI agent simulator journey's named-session cookie (specification 43, AT-08).
+    // tower-lsp traces each of them under `tower_lsp::codec`; this filter drops that target whatever
+    // `RUST_LOG` says, where a more specific directive (`tower_lsp::codec[{message}]=trace`) would
+    // outrank an `off` directive.
+    let silent_transport = tracing_subscriber::filter::filter_fn(|metadata| {
+        !metadata.target().starts_with("tower_lsp::codec")
+    });
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
+        .finish()
+        .with(silent_transport)
         .init();
 
     if command_line_check {
