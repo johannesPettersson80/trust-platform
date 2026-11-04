@@ -600,6 +600,15 @@ class ReleaseWorkflowTests(unittest.TestCase):
         checkout = [text for text in step_texts(publish) if "uses: actions/checkout@" in text][0]
         self.assertIn("fetch-depth: 0", checkout, "the check reads the commit's date")
 
+    def test_a_rehearsal_records_the_commit_its_workflow_ran_from(self) -> None:
+        # Specification 24: the plan learns which commit's workflow a rehearsal ran from GitHub's record of the local
+        # reusable workflow that the Release workflow calls, which GitHub resolves at that commit. Catches a Release
+        # workflow that no longer calls one: no rehearsal would qualify, and every release would build again.
+        called = re.findall(r"(?m)^    uses: (\./\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml)$", self.text)
+        self.assertTrue(called)
+        for path in called:
+            self.assertTrue((ROOT / path[2:]).is_file(), path)
+
     def test_a_run_after_ci_is_named_by_the_commit_it_releases(self) -> None:
         # The completeness check finds a run after main's CI by its name, since GitHub gives it main's newest commit as
         # its head. Catches a run-name that the check no longer recognises: it would publish a released version again.

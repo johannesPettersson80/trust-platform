@@ -184,10 +184,16 @@ official one, and the version's tag, its release and the earlier versions are
 as above. It then promotes the release when a rehearsal kept its files for the
 commit's tree: GitHub lists an unexpired artifact named exactly
 `release-bundle-v<version>-<tree>` of a Release run of this repository that a
-pull request or a manual run started and that completed with `success`, and
-GitHub's record of that run's head commit has that tree. The plan takes these
-facts from GitHub's API, never from a pull request's text, and of several such
-artifacts it takes the newest. Without one, the push releases nothing and the
+pull request or a manual run started and that completed with `success`;
+GitHub's records give that tree to the run's head commit and to the commit
+whose workflow the run ran, which is the commit of the local reusable workflow
+that the Release workflow calls, recorded at the run's own ref: a pull
+request's test merge commit `refs/pull/<number>/merge`, which merges that head,
+or a manual run's head (a pull request into a branch with another Release
+workflow runs a merge of another tree); and a CI run of the same head passed,
+whose head commit has that tree. The plan takes these facts from GitHub's API,
+never from a pull request's text, and of several such artifacts it takes the
+one with the highest id. Without one, the push releases nothing and the
 release follows `main`'s CI. A promoted release runs no build or test of its
 packages, only the real-database matrix on the commit, which a pull request's
 rehearsal does not run: its publishing job waits for the matrix to pass, then

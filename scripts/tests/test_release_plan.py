@@ -25,6 +25,11 @@ TREE = "474f2f242b2039236ffb0116fbafc66bae0b811e"
 REHEARSED = "36ecae4797a0f81e64197fc6bc568cb4166f0d67"
 REHEARSAL = release_plan.Rehearsal(run_id=41707764199, artifact_id=13281794816, commit=REHEARSED)
 BUNDLE = f"release-bundle-v0.27.0-{TREE}"
+# The workflow of that pull request's run came from its test merge commit refs/pull/223/merge, 5634aa2f, which merged
+# the head into main's e6f92cd33 and has the head's tree.
+MERGE = "5634aa2f8e2e62273f34b582c8f7011b17d067f7"
+BASE = "e6f92cd33d357c1b72b502891811866b8cf83e4b"
+CALLED = f"{OFFICIAL}/.github/workflows/openot-real-databases.yml"
 
 
 def plan(**kwargs):
@@ -95,10 +100,34 @@ def rehearsal_run(**changes) -> dict:
         "status": "completed",
         "conclusion": "success",
         "head_sha": REHEARSED,
+        "head_branch": "release/0.30.0",
         "head_commit": {"id": REHEARSED, "tree_id": TREE},
         "repository": {"full_name": OFFICIAL},
         "head_repository": {"full_name": OFFICIAL},
+        "referenced_workflows": [{"path": f"{CALLED}@{MERGE}", "ref": "refs/pull/223/merge", "sha": MERGE}],
     }
+    run.update(changes)
+    return run
+
+
+def manual_rehearsal_run(**changes) -> dict:
+    """A maintainer's manual rehearsal of the same head on its branch: its workflow commit is its head."""
+    called = [{"path": f"{CALLED}@{REHEARSED}", "ref": "refs/heads/release/0.30.0", "sha": REHEARSED}]
+    return rehearsal_run(**{"event": "workflow_dispatch", "referenced_workflows": called, **changes})
+
+
+def commit_record(sha: str, tree: str = TREE, parents: tuple[str, ...] = (BASE,)) -> dict:
+    return {"sha": sha, "tree": {"sha": tree}, "parents": [{"sha": parent} for parent in parents]}
+
+
+COMMITS = {MERGE: commit_record(MERGE, parents=(BASE, REHEARSED)), REHEARSED: commit_record(REHEARSED)}
+
+
+def ci_run(**changes) -> dict:
+    """GitHub's record of a passed CI run of the rehearsed head."""
+    run = {"id": 41707700000, "path": ".github/workflows/ci.yml", "status": "completed", "conclusion": "success",
+           "head_commit": {"id": REHEARSED, "tree_id": TREE}, "repository": {"full_name": OFFICIAL},
+           "head_repository": {"full_name": OFFICIAL}}
     run.update(changes)
     return run
 
@@ -109,12 +138,20 @@ def bundle_artifact(artifact_id: int = 13281794816, run_id: int = 41707764199, *
     return artifact
 
 
-def artifacts_api(test: unittest.TestCase, artifacts: list[dict], runs: dict[int, dict]):
+def artifacts_api(test: unittest.TestCase, artifacts: list[dict], runs: dict[int, dict],
+                  commits: dict[str, dict] | None = None, ci: list[dict] | None = None):
+    """GitHub's API for the rehearsals of BUNDLE: the artifacts by name, each run, the commits and the CI runs of the
+    rehearsed head, which pass unless the test gives others."""
     def get(path: str, token: str) -> dict:
         test.assertEqual(token, "token")
         if path.startswith(f"/repos/{OFFICIAL}/actions/artifacts?"):
             test.assertIn(f"name={BUNDLE}&", path)
             return {"artifacts": artifacts}
+        if path.startswith(f"/repos/{OFFICIAL}/git/commits/"):
+            return (COMMITS if commits is None else commits)[path.rsplit("/", 1)[1]]
+        if path.startswith(f"/repos/{OFFICIAL}/actions/workflows/ci.yml/runs?"):
+            test.assertIn(f"head_sha={REHEARSED}&", path)
+            return {"workflow_runs": [ci_run()] if ci is None else ci}
         return runs[int(path.rsplit("/", 1)[1])]
     return get
 
@@ -403,9 +440,39 @@ class ReleasePlanTests(unittest.TestCase):
         self.assertEqual(found, REHEARSAL)
         dispatched = release_plan.find_rehearsal(
             OFFICIAL, "0.27.0", TREE, "token",
-            get=artifacts_api(self, [bundle_artifact()], {41707764199: rehearsal_run(event="workflow_dispatch")}),
+            get=artifacts_api(self, [bundle_artifact()], {41707764199: manual_rehearsal_run()}),
         )
         self.assertEqual(dispatched, REHEARSAL, "a maintainer's manual rehearsal counts as well")
+
+    def test_a_rehearsal_whose_workflow_or_ci_did_not_run_on_this_tree_is_not_promoted(self) -> None:
+        # Specification 24, review finding of 4 November 2026: a pull request's run executes the workflow of its test
+        # merge commit, not of its head, so a pull request into a branch with another Release workflow could keep a
+        # forged release-bundle-v<version>-<tree>. The plan takes the workflow's commit from GitHub's record of the local
+        # reusable workflow the run called, and wants a passed CI run of the same head on the tree. Each case would
+        # promote files that no run of this tree's workflow kept, or that CI never passed.
+        forged = dict(COMMITS, **{MERGE: commit_record(MERGE, tree="f" * 40, parents=(BASE, REHEARSED))})
+        cases = {
+            "a workflow from a merge commit of another tree": dict(commits=forged),
+            "no record of the workflow's commit": dict(runs=rehearsal_run(referenced_workflows=[])),
+            "this repository's workflow called at another ref": dict(runs=rehearsal_run(referenced_workflows=[
+                {"path": f"{CALLED}@{MERGE}", "ref": "refs/heads/release/0.30.0", "sha": MERGE}])),
+            "two workflow commits": dict(runs=rehearsal_run(referenced_workflows=[
+                {"path": f"{CALLED}@{MERGE}", "ref": "refs/pull/223/merge", "sha": MERGE},
+                {"path": f"{OFFICIAL}/.github/workflows/other.yml@{BASE}", "ref": "refs/pull/224/merge", "sha": BASE}])),
+            "a merge commit that does not merge the head": dict(
+                commits=dict(COMMITS, **{MERGE: commit_record(MERGE, parents=(BASE, "e" * 40))})),
+            "a manual run whose workflow is not its head's": dict(runs=manual_rehearsal_run(referenced_workflows=[
+                {"path": f"{CALLED}@{MERGE}", "ref": "refs/heads/release/0.30.0", "sha": MERGE}])),
+            "no passed CI run of the head": dict(ci=[]),
+            "a CI run of another tree": dict(ci=[ci_run(head_commit={"id": REHEARSED, "tree_id": "f" * 40})]),
+            "a CI run that failed": dict(ci=[ci_run(conclusion="failure")]),
+            "a fork's CI run": dict(ci=[ci_run(head_repository={"full_name": "someone/fork"})]),
+        }
+        for case, given in cases.items():
+            found = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
+                self, [bundle_artifact()], {41707764199: given.get("runs", rehearsal_run())},
+                commits=given.get("commits"), ci=given.get("ci")))
+            self.assertIsNone(found, case)
 
     def test_a_rehearsal_that_did_not_build_and_test_this_tree_is_not_promoted(self) -> None:
         # Specification 24: only a passed rehearsal of this repository whose head commit has the tree, by GitHub's own
@@ -432,9 +499,9 @@ class ReleasePlanTests(unittest.TestCase):
                                                 get=artifacts_api(self, artifacts, {41707764199: run}))
             self.assertIsNone(found, case)
 
-    def test_the_newest_bundle_of_a_passed_rehearsal_is_promoted(self) -> None:
+    def test_the_passed_rehearsals_bundle_of_the_highest_id_is_promoted(self) -> None:
         # Catches a promotion of an older rehearsal's files when a newer one passed, and a finder that gives up when the
-        # newest bundle's run failed although an older one passed.
+        # bundle of the highest id comes from a failed run although an older one passed.
         older, newer = bundle_artifact(5, 41), bundle_artifact(9, 42)
         runs = {41: rehearsal_run(id=41), 42: rehearsal_run(id=42)}
         self.assertEqual(release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token",
