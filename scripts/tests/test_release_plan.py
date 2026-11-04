@@ -174,6 +174,13 @@ def artifacts_api(test: unittest.TestCase, artifacts: list[dict], runs: dict[int
 
 
 class ReleasePlanTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # The plan waits between its questions about a commit's pull requests; the tests record the waits instead.
+        self.waits: list[float] = []
+        patcher = mock.patch.object(release_plan.time, "sleep", side_effect=self.waits.append)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_a_pull_request_is_rehearsed_only_when_it_changes_the_version(self) -> None:
         # Catches a rehearsal of every pull request (hours of release builds for nothing) and a
         # version change merged without one (0.25.0's release jobs first ran after its tag).
@@ -594,6 +601,25 @@ class ReleasePlanTests(unittest.TestCase):
         # GitHub's own record of run 41707764199: its local call at its own ref, with the merge commit's full sha.
         self.assertEqual(release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
             self, [bundle_artifact()], {41707764199: rehearsal_run()})), REHEARSAL)
+
+    def test_github_is_asked_again_while_it_lists_no_pull_request_of_the_head(self) -> None:
+        # Specification 24, coordinator's review: a push's plan runs seconds after the merge, when GitHub may not list
+        # the merged pull request yet. Catches a plan that gives up at once, and one that keeps asking: three questions
+        # over about 30 seconds, then no promotion.
+        api = artifacts_api(self, [bundle_artifact()], {41707764199: rehearsal_run()})
+        for answers, found, asked, waits in (([[], [pull_request()]], REHEARSAL, 2, [15]),
+                                             ([[], [], [], [pull_request()]], None, 3, [15, 15])):
+            questions = []
+
+            def get(path: str, token: str) -> dict | list:
+                if "/pulls?" in path:
+                    questions.append(path)
+                    return answers.pop(0)
+                return api(path, token)
+
+            self.waits.clear()
+            self.assertEqual(release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=get), found)
+            self.assertEqual((len(questions), self.waits), (asked, waits))
 
     def test_the_passed_rehearsals_bundle_of_the_highest_id_is_promoted(self) -> None:
         # Catches a promotion of an older rehearsal's files when a newer one passed, and a finder that gives up when the

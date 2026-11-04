@@ -44,6 +44,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import tomllib
 import urllib.request
 from dataclasses import dataclass, replace
@@ -71,6 +72,10 @@ CI_WORKFLOW = ".github/workflows/ci.yml"
 # ran. `test_release_workflow` holds release.yml to it.
 CALLED_WORKFLOW = ".github/workflows/openot-real-databases.yml"
 FULL_SHA = re.compile(r"[0-9a-f]{40}")
+# GitHub may list a merged pull request for its head a few seconds after the merge, so while it lists none the plan
+# asks again: this many times in all, this many seconds apart.
+PULL_REQUEST_ATTEMPTS = 3
+PULL_REQUEST_WAIT_SECONDS = 15
 # The events of the Release runs that rehearse: a pull request of this repository, and a maintainer's manual run.
 REHEARSAL_EVENTS = ("pull_request", "workflow_dispatch")
 # The pages of Release runs after CI that the completeness check reads, 100 runs each. GitHub lists at most 1,000 runs
@@ -308,13 +313,22 @@ def workflow_commit(run: dict, repository: str, own_ref: str) -> str | None:
     return sha
 
 
-def merged_pull_request(run: dict, repository: str, token: str, get: Callable[[str, str], dict | list]) -> int | None:
+def merged_pull_request(
+    run: dict, repository: str, token: str, get: Callable[[str, str], dict | list],
+    sleep: Callable[[float], None] | None = None,
+) -> int | None:
     """The number of the pull request that a rehearsal ran for, when it is merged into this repository's main: of the
     pull requests that GitHub lists for the run's head, exactly one has that head, came from the run's head branch of
     this repository, targets this repository's main and is merged. After the merge GitHub lists only the merged pull
-    request. A pull request of the same head that is open, into another base or from another branch, two candidates or
-    none give None."""
-    pulls = get(f"/repos/{repository}/commits/{run['head_sha']}/pulls?per_page=100", token)
+    request, a few seconds late at times, so while it lists none the plan asks again. A pull request of the same head
+    that is open, into another base or from another branch, two candidates or none give None."""
+    pulls: object = []
+    for attempt in range(PULL_REQUEST_ATTEMPTS):
+        if attempt:
+            (sleep or time.sleep)(PULL_REQUEST_WAIT_SECONDS)
+        pulls = get(f"/repos/{repository}/commits/{run['head_sha']}/pulls?per_page=100", token)
+        if pulls:
+            break
     if not isinstance(pulls, list):
         return None
     candidates = [pull for pull in pulls
@@ -354,6 +368,7 @@ def ci_passed(repository: str, commit: str, tree: str, token: str, get: Callable
 
 def find_rehearsal(
     repository: str, version: str, tree: str, token: str, get: Callable[[str, str], dict | list] = github_get,
+    *, sleep: Callable[[float], None] | None = None,
 ) -> Rehearsal | None:
     """The passed rehearsal, of the highest artifact id, that kept the release files of `version` for a commit with
     `tree`.
@@ -391,7 +406,7 @@ def find_rehearsal(
         ):
             continue
         if run["event"] == "pull_request":
-            number = merged_pull_request(run, repository, token, get)
+            number = merged_pull_request(run, repository, token, get, sleep)
             if number is None:
                 continue
             own_ref = f"refs/pull/{number}/merge"

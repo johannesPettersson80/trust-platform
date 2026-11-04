@@ -204,7 +204,9 @@ rehearsed commit. A pull request into a branch with another Release workflow
 runs a merge of another tree. This proof rests on GitHub recording a local
 call's path with the commit's sha: an explicit call of this repository's
 workflow records the ref name in its path, or no ref when it names a sha, and
-proves nothing. The plan takes these facts from GitHub's
+proves nothing. GitHub may list a merged pull request a few seconds after the
+merge, so while it lists none the plan asks again, three times in about 30
+seconds, and then promotes nothing. The plan takes these facts from GitHub's
 API, never from a pull request's text, and of several such artifacts it takes
 the one with the highest id. Without one, the push releases nothing and the release
 follows `main`'s CI. A promoted release runs no build or test of its
