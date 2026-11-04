@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
 import { liveValueActionTarget } from "./liveValueActionTarget";
+import { projectRequest } from "./projectRequest";
 import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 
 import type { AdsStatusSummary } from "./adsStatusSummary";
@@ -235,18 +236,37 @@ function postPanelStatus(message: string): void {
   });
 }
 
-function liveValuesUnavailableMessage(
-  status: RuntimeStatusPayload | undefined
-): string {
-  if (status?.runtimeMode === "online" && status.runtimeState !== "connected") {
-    // A runtime that answered Connect but keeps debugging disabled has no session to read: say why
-    // instead of asking for another Connect (spec 25 §5.1).
-    return (
-      runtimeLifecycleService.debugDisabledFailure(status.endpoint)?.message ??
-      "Connect to the selected runtime to see live values."
-    );
-  }
-  return "Start the runtime to see live values.";
+interface Unavailable {
+  readonly message: string;
+  readonly debugDisabled: boolean;
+}
+
+/** What Live Values says without a session to read, and whether its runtime keeps debugging disabled: the language
+ * server answers them from the status and the lifecycle's failure (specification 25, section 4.4). Without its answer
+ * the panel shows why. */
+async function unavailable(status: RuntimeStatusPayload | undefined): Promise<Unavailable> {
+  const snapshot = status
+    ? {
+        runtimeMode: status.runtimeMode,
+        runtimeState: status.runtimeState,
+        endpoint: status.endpoint,
+        failure: runtimeLifecycleService.lifecycleFailure(),
+      }
+    : {};
+  const answer = await projectRequest<Unavailable>(
+    "trust-lsp.runTargets",
+    { action: "unavailable", snapshot },
+    { wait: false }
+  );
+  return answer.ok
+    ? { message: answer.message, debugDisabled: answer.debugDisabled === true }
+    : { message: answer.error, debugDisabled: false };
+}
+
+/** The status as every runtime status message carries it: with the state "debugging disabled" when the language server
+ * says so, so no later message names the runtime "Not connected" instead (specification 25, section 4.4). */
+function withDebugState(status: RuntimeStatusPayload, guidance: Unavailable): RuntimeStatusPayload {
+  return guidance.debugDisabled ? { ...status, debugDisabled: true } : status;
 }
 
 function postEmptyIoState(): void {
@@ -260,23 +280,26 @@ function postUnavailableLiveValues(
   status?: RuntimeStatusPayload,
   message?: string
 ): void {
-  const publish = () => {
-    const statusMessage = message || liveValuesUnavailableMessage(status);
-    if (status) {
+  // The stale rows go at once; the guidance follows the language server's answer.
+  postEmptyIoState();
+  void unavailable(status).then((guidance) => {
+    const publish = () => {
+      if (status) {
+        panel?.webview.postMessage({
+          type: "runtimeStatus",
+          payload: withDebugState(status, guidance),
+        });
+      }
+      postEmptyIoState();
       panel?.webview.postMessage({
-        type: "runtimeStatus",
-        payload: withDebugState(status),
+        type: "status",
+        payload: message || guidance.message,
       });
-    }
-    postEmptyIoState();
-    panel?.webview.postMessage({
-      type: "status",
-      payload: statusMessage,
-    });
-  };
-  publish();
-  setTimeout(publish, 100);
-  setTimeout(publish, 500);
+    };
+    publish();
+    setTimeout(publish, 100);
+    setTimeout(publish, 500);
+  });
 }
 
 function terminatedSessionStatus(session: vscode.DebugSession): RuntimeStatusPayload {
@@ -465,19 +488,6 @@ async function runtimeStatusPayload(): Promise<RuntimeStatusPayload> {
   return (await runtimeLifecycleService.snapshot()).status;
 }
 
-/** The failure Connect recorded when the online runtime it reached keeps debugging disabled, if any. */
-function debugDisabledFailureOf(status: RuntimeStatusPayload) {
-  return status.runtimeMode === "online" && status.runtimeState !== "connected"
-    ? runtimeLifecycleService.debugDisabledFailure(status.endpoint)
-    : undefined;
-}
-
-/** The status as every runtime status message carries it: with the state "debugging disabled" when Connect found it, so
- * no later message names the runtime "Not connected" instead (specification 25, section 4.4). */
-function withDebugState(status: RuntimeStatusPayload): RuntimeStatusPayload {
-  return debugDisabledFailureOf(status) ? { ...status, debugDisabled: true } : status;
-}
-
 async function sendRuntimeStatus(): Promise<void> {
   if (!panel) {
     return;
@@ -488,13 +498,13 @@ async function sendRuntimeStatus(): Promise<void> {
     return;
   }
   // Connect can learn that the runtime keeps debugging disabled while this panel is open: say so now.
-  const debugDisabled = debugDisabledFailureOf(status);
-  panel.webview.postMessage({
+  const guidance = await unavailable(status);
+  panel?.webview.postMessage({
     type: "runtimeStatus",
-    payload: withDebugState(status),
+    payload: withDebugState(status, guidance),
   });
-  if (debugDisabled) {
-    panel?.webview.postMessage({ type: "status", payload: debugDisabled.message });
+  if (guidance.debugDisabled) {
+    panel?.webview.postMessage({ type: "status", payload: guidance.message });
   }
 }
 
@@ -680,9 +690,11 @@ async function stopDebugging(): Promise<void> {
       "trust-lsp.debug.stop"
     );
     if (!stopped) {
+      // Nothing ran: the guidance of a target without a session, as the language server words it.
+      const guidance = await unavailable(undefined);
       panel?.webview.postMessage({
         type: "status",
-        payload: "Start the runtime to see live values.",
+        payload: guidance.message,
       });
     }
   } catch (err) {

@@ -6,20 +6,17 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function isBinaryMissingError(message: string): boolean {
-  const lower = message.toLowerCase();
-  return lower.includes("enoent") || lower.includes("not found");
-}
-
+// Node names a binary it cannot start by the code ENOENT. The words of an error never decide it: a failure that only
+// says "not found" is no missing trust-runtime (specification 25, section 11.3).
 export function formatPlcopenLaunchError(
   action: PlcopenRuntimeAction,
-  message: string
+  error: unknown
 ): string {
-  const detail = normalizeWhitespace(message);
-  if (isBinaryMissingError(detail)) {
+  if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
     return `PLCopen ${action} could not start because the trust-runtime binary was not found. Build trust-runtime or set '${RUNTIME_PATH_SETTING}'.`;
   }
-  return `Failed to run trust-runtime plcopen ${action}: ${detail || "unknown error"}`;
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return `Failed to run trust-runtime plcopen ${action}: ${normalizeWhitespace(message) || "unknown error"}`;
 }
 
 export function formatPlcopenCommandFailure(

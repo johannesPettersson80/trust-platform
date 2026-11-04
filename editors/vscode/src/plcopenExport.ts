@@ -260,10 +260,8 @@ export function registerPlcopenExportCommand(
         try {
           result = await runRuntimeCommand(binary, runtimeArgs, workspaceRoot);
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error ?? "unknown");
           vscode.window.showErrorMessage(
-            formatPlcopenLaunchError("export", message)
+            formatPlcopenLaunchError("export", error)
           );
           return false;
         }

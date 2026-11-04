@@ -9,12 +9,26 @@ suite("PLCopen runtime error formatting", () => {
   test("import launch errors distinguish missing trust-runtime binary", () => {
     const message = formatPlcopenLaunchError(
       "import",
-      "spawn trust-runtime ENOENT"
+      Object.assign(new Error("spawn trust-runtime ENOENT"), { code: "ENOENT" })
     );
 
     assert.ok(message.includes("could not start"));
     assert.ok(message.includes("trust-runtime binary was not found"));
     assert.ok(message.includes("trust.runtime.executablePath"));
+  });
+
+  test("a launch failure that only says not found is no missing binary", () => {
+    // Catches a missing binary decided by the words of the error (specification 25, section 11.3): Node names a binary it
+    // cannot start by the code ENOENT, and a binary it may not run by EACCES, whatever the text says.
+    const message = formatPlcopenLaunchError(
+      "export",
+      Object.assign(new Error("spawn /opt/truST/trust-runtime EACCES: interpreter not found"), { code: "EACCES" })
+    );
+
+    assert.strictEqual(
+      message,
+      "Failed to run trust-runtime plcopen export: spawn /opt/truST/trust-runtime EACCES: interpreter not found"
+    );
   });
 
   test("import command failures show trust-runtime's text as it is", () => {

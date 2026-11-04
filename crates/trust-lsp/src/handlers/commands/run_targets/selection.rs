@@ -316,7 +316,7 @@ pub(super) fn given_name(snapshot: &Snapshot) -> Option<String> {
 
 /// Whether the runtime at the snapshot's endpoint answered Connect but keeps debugging disabled:
 /// no session is attached, and the lifecycle's failure says so for that endpoint (§4.4).
-fn debugging_disabled(snapshot: &Snapshot) -> bool {
+pub(super) fn debugging_disabled(snapshot: &Snapshot) -> bool {
     snapshot.runtime_state != "connected"
         && snapshot.failure.as_ref().is_some_and(|failure| {
             failure.kind == "debug_disabled"
