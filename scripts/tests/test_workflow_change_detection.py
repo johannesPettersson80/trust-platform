@@ -54,6 +54,25 @@ class WorkflowChangeDetectionTests(unittest.TestCase):
             self.assertEqual(conclusion["if"], "${{ !cancelled() }}", path.name)
             self.assertIn("all(.result == \"success\" or .result == \"skipped\")", conclusion["steps"][0]["run"])
 
+    def test_a_main_push_compares_with_its_workflows_newest_passed_run(self) -> None:
+        # Checklist W24: a newer push to main replaces a run that still waits, so a push compared with
+        # its previous commit leaves the replaced push's changes unchecked. Catches a workflow that does
+        # not name itself to the detector (it would compare with the previous commit), names another
+        # workflow (it would trust that workflow's runs), or cannot list its runs (no token or no
+        # `actions: read`, which makes every push check everything).
+        detecting = []
+        for path in WORKFLOWS:
+            for name, job in load(path).get("jobs", {}).items():
+                for step in job.get("steps", []):
+                    if "scripts/ci_changes.py" not in step.get("run", ""):
+                        continue
+                    detecting.append(path.name)
+                    self.assertIn(f"--workflow {path.name}", step["run"], f"{path.name} {name}")
+                    self.assertEqual(step.get("env", {}).get("GH_TOKEN"), "${{ github.token }}", f"{path.name} {name}")
+                    permissions = job.get("permissions", load(path).get("permissions", {}))
+                    self.assertEqual(permissions.get("actions"), "read", f"{path.name} {name}")
+        self.assertEqual(sorted(detecting), ["demo-pages.yml", "diagrams.yml", "docs-captures.yml"])
+
     def test_every_pull_request_workflow_runs_in_the_merge_queue_as_on_a_pull_request(self) -> None:
         # Specification 22, "Change and release workflow": the merge queue runs a pull request's checks
         # again on the merged result. Catches a workflow that never runs for a merge group (a required

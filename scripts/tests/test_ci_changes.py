@@ -68,7 +68,7 @@ class ChangeDetectionTests(unittest.TestCase):
             self.assertFalse(relevant)
             self.assertEqual(matched, [])
 
-    def test_a_push_compares_with_its_previous_commit(self) -> None:
+    def test_a_push_compares_with_the_commit_it_is_given(self) -> None:
         # Catches a push compared with the start of history, which would rerun every check on each push.
         holder, repo = repository()
         with holder:
@@ -83,6 +83,75 @@ class ChangeDetectionTests(unittest.TestCase):
             after = git(repo, "rev-parse", "HEAD")
             self.assertEqual(ci_changes.decide("push", before, after, ["docs/**"], cwd=repo), (False, []))
             self.assertEqual(ci_changes.decide("push", before, after, ["*.rs"], cwd=repo), (True, ["src.rs"]))
+
+    def test_a_push_compares_with_the_newest_passed_run_of_its_workflow(self) -> None:
+        # Checklist W24: a newer push to main replaces a run that still waits. A docs commit whose run
+        # was replaced, followed by a code commit, was compared only with that docs commit, so its own
+        # change was never checked on main. The newest passed run's commit covers both.
+        holder, repo = repository()
+        with holder:
+            passed = git(repo, "rev-parse", "HEAD")
+            (repo / "docs").mkdir()
+            (repo / "docs" / "a.md").write_text("a\n")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-q", "-m", "docs, whose run a newer push replaced")
+            replaced = git(repo, "rev-parse", "HEAD")
+            (repo / "src.rs").write_text("fn main() {}\n")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-q", "-m", "code")
+            head = git(repo, "rev-parse", "HEAD")
+            asked = []
+
+            def passed_head(repository: str, workflow: str) -> str:
+                asked.append((repository, workflow))
+                return passed
+
+            base = ci_changes.compared_base("push", replaced, "diagrams.yml", "owner/repo", passed_head)
+            self.assertEqual(base, passed)
+            self.assertEqual(asked, [("owner/repo", "diagrams.yml")])
+            self.assertEqual(ci_changes.decide("push", base, head, ["docs/**"], cwd=repo), (True, ["docs/a.md"]))
+            # The push's previous commit would have missed it.
+            self.assertEqual(ci_changes.decide("push", replaced, head, ["docs/**"], cwd=repo), (False, []))
+
+    def test_a_push_without_a_known_passed_run_checks_everything(self) -> None:
+        # Catches a push that skips its checks when GitHub lists no passed run, or cannot list them.
+        base = ci_changes.compared_base("push", "1" * 40, "diagrams.yml", "owner/repo", lambda *_: None)
+        self.assertEqual(base, "")
+        self.assertEqual(ci_changes.decide("push", base, "HEAD", ["x/**"]), (True, []))
+
+    def test_only_a_push_that_names_its_workflow_asks_for_a_passed_run(self) -> None:
+        # Catches a pull request or merge group compared with main's passed run instead of its own base.
+        def never(*_: str) -> str:
+            raise AssertionError("no passed run is asked for")
+
+        self.assertEqual(ci_changes.compared_base("pull_request", "base", "diagrams.yml", "o/r", never), "base")
+        self.assertEqual(ci_changes.compared_base("merge_group", "base", "diagrams.yml", "o/r", never), "base")
+        self.assertEqual(ci_changes.compared_base("push", "before", "", "o/r", never), "before")
+
+    def test_the_newest_passed_run_is_asked_of_github(self) -> None:
+        # Catches a request for another branch, event or status, and an answer taken for a commit when
+        # GitHub failed, listed nothing or gave something else.
+        sha = "0123456789abcdef0123456789abcdef01234567"
+        calls = []
+
+        def answering(returncode: int, stdout: str):
+            def run(argv, **_):
+                calls.append(argv)
+                return subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr="")
+
+            return run
+
+        self.assertEqual(ci_changes.last_passed_head("owner/repo", "diagrams.yml", answering(0, sha + "\n")), sha)
+        self.assertEqual(
+            calls[0][:3],
+            ["gh", "api", "repos/owner/repo/actions/workflows/diagrams.yml/runs?branch=main&event=push&status=success&per_page=1"],
+        )
+        for returncode, stdout in [(1, sha), (0, ""), (0, "null"), (0, "main")]:
+            self.assertIsNone(
+                ci_changes.last_passed_head("owner/repo", "diagrams.yml", answering(returncode, stdout)),
+                f"{returncode} {stdout!r}",
+            )
+        self.assertIsNone(ci_changes.last_passed_head("", "diagrams.yml", answering(0, sha)))
 
     def test_a_merge_group_compares_with_the_main_it_was_built_on(self) -> None:
         # Specification 22, "Change and release workflow": the merge queue builds the pull request on
