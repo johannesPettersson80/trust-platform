@@ -12,11 +12,14 @@
 //! answer is `applied`, `pending` or `confirmed`. A `confirmed` command is complete, and so is an
 //! `applied` one the runtime does not follow, as the runtime's own plan of it says
 //! (`Plan::is_followed`, specification 39 §12.8 item 5). A followed `applied` command waits for its
-//! later outcome on the stream, its confirmation or, for a remote pulse without one, its end, for its
-//! control's confirmation time plus two stream periods (5.5 seconds by default), so that the
-//! runtime's own outcome arrives inside the wait. A `pending` one (a repeated command ID) waits the
-//! same way for a later `applied` or `confirmed`. A later `timed-out`, `refused` or `unknown` ends the
-//! step and the journey with that outcome, and a later outcome that does not come within the wait is
+//! later outcome on the stream, its confirmation or, for a remote pulse without one, its end, until
+//! the runtime decides it (`Plan::decided_within`: the control's confirmation time, and for a pulse
+//! the longer of the pulse and the confirmation time plus the time the runtime allows to write the
+//! pulse's end) plus two stream periods (5.5 seconds by default), so that the runtime's own outcome
+//! arrives inside the wait. A pulse's end, reported as a later `applied`, does not complete a pulse
+//! followed to its confirmation. A `pending` one (a repeated command ID) waits the same way for a
+//! later `applied` or `confirmed`. A later `timed-out`, `refused` or `unknown` ends the step and the
+//! journey with that outcome, and a later outcome that does not come within the wait is
 //! `timed-out`, a false failure and never a false pass. With a readback path the step waits, within
 //! at least 5 seconds, for that path's value, the expected one when it is given (a path the runtime
 //! answers as unknown, `null`, has none). Each step adds its outcome: `observed`, or `cancelled`,
@@ -288,7 +291,7 @@ impl Runner<'_> {
                 id,
                 answered,
                 follow: following.follow,
-                confirmation: following.confirmation,
+                decided: following.decided,
             });
         }
         Ok(self.wait(stream, step, command.as_ref(), &mut seen))
@@ -322,7 +325,7 @@ impl Runner<'_> {
             && !command.complete(None)
         {
             let period = seen.period.unwrap_or(self.timing.period);
-            deadline = deadline.max(started + command.confirmation + period * 2);
+            deadline = deadline.max(started + command.decided + period * 2);
         }
         loop {
             // The later outcome the stream reported for the command, after its answer.
@@ -392,12 +395,12 @@ impl Runner<'_> {
 }
 
 /// A command a step sent: its ID, the outcome it was answered with, what the runtime does with it
-/// after that answer, and its control's confirmation time.
+/// after that answer, and how long after it the runtime decides its later outcome.
 struct Sent {
     id: String,
     answered: String,
     follow: Follow,
-    confirmation: Duration,
+    decided: Duration,
 }
 
 impl Sent {
@@ -424,17 +427,17 @@ enum Follow {
     PulseEnd,
 }
 
-/// What the runtime does with a command, and its control's confirmation time.
+/// What the runtime does with a command, and how long after its answer it decides the later outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Following {
     follow: Follow,
-    confirmation: Duration,
+    decided: Duration,
 }
 
 /// What the runtime does with the command `step` sends to `control`, a deployed page's object, as
-/// the runtime's own plan of that command says (`Plan::is_followed`, `Plan::timeout`). A control
-/// whose plan cannot be read is followed to a confirmation within the runtime's default time: an
-/// outcome that never comes reports `timed-out`, never a false pass.
+/// the runtime's own plan of that command says (`Plan::is_followed`, `Plan::decided_within`). A
+/// control whose plan cannot be read is followed to a confirmation within the runtime's default
+/// time: an outcome that never comes reports `timed-out`, never a false pass.
 fn following(control: &Value, step: &Step) -> Following {
     let planned = serde_json::from_value::<HmiObject>(control.clone())
         .ok()
@@ -448,11 +451,8 @@ fn following(control: &Value, step: &Step) -> Following {
         Some(plan) if plan.confirm.is_none() => Follow::PulseEnd,
         _ => Follow::Confirmation,
     };
-    let confirmation = planned.map_or(DEFAULT_TIMEOUT, |plan| plan.timeout);
-    Following {
-        follow,
-        confirmation,
-    }
+    let decided = planned.map_or(DEFAULT_TIMEOUT, |plan| plan.decided_within());
+    Following { follow, decided }
 }
 
 /// What a step's stream has said: each path's last entry, each command's later outcome, whether the

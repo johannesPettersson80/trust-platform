@@ -35,7 +35,8 @@ pub(super) struct CommandAnswer {
     pub(super) delay: Duration,
 }
 
-/// The runtime's shortest stream period, the least delay of a later outcome.
+/// The runtime's shortest stream period, which its stream announces by default, and the least delay
+/// of a later outcome.
 pub(super) const STREAM_PERIOD: Duration = Duration::from_millis(250);
 
 /// A request as the fake received it.
@@ -54,7 +55,10 @@ pub(super) struct Script {
     pub(super) pages: BTreeMap<String, Value>,
     /// Whether `/ws/hmi` opens; it answers 404 otherwise.
     pub(super) streams: bool,
-    /// Whether the target runs in simulation, which a stream says first; nothing when `None`.
+    /// The period a stream announces first, as the runtime's does (`{ period_ms, stale_ms }`).
+    pub(super) period: Duration,
+    /// Whether the target runs in simulation, which a stream says after its period and session;
+    /// nothing when `None`.
     pub(super) simulation: Option<bool>,
     /// What a stream sends when it opens.
     pub(super) on_open: Vec<Frame>,
@@ -70,6 +74,7 @@ impl Script {
         Self {
             pages,
             streams: true,
+            period: STREAM_PERIOD,
             simulation: Some(true),
             on_open: Vec::new(),
             on_stream: Box::new(|| {}),
@@ -206,8 +211,9 @@ fn serve(mut request: Request, shared: &Shared) {
     }
 }
 
-/// Opens a readback stream, as the runtime's `open_stream` does, and sends its frames until the
-/// fake stops or a frame closes it.
+/// Opens a readback stream and sends its frames until the fake stops or a frame closes it. It opens
+/// as the runtime's stream does (seen against a trust-runtime simulator): the period with its stale
+/// limit, the session, and whether the target runs in simulation.
 fn stream(request: Request, key: &str, shared: &Shared) {
     let accept = derive_accept_key(key.as_bytes());
     let header = Header::from_bytes("Sec-WebSocket-Accept", accept.as_bytes()).expect("a header");
@@ -215,11 +221,17 @@ fn stream(request: Request, key: &str, shared: &Shared) {
     let socket = request.upgrade("websocket", response);
     let mut socket = WebSocket::from_raw_socket(socket, Role::Server, None);
     let (sender, frames) = mpsc::channel();
-    let (simulation, on_open) = {
+    let (period, simulation, on_open) = {
         let script = lock(&shared.script);
         (script.on_stream)();
-        (script.simulation, script.on_open.clone())
+        (script.period, script.simulation, script.on_open.clone())
     };
+    let millis = period.as_millis();
+    let announced = json!({ "period_ms": millis, "stale_ms": millis * 3 });
+    let _ = sender.send(Frame::Text(announced));
+    let session = json!({ "session": { "acts_as": ["viewer", "operator", "engineer"],
+        "may_change_settings": true, "role": "engineer", "user": "journey" } });
+    let _ = sender.send(Frame::Text(session));
     if let Some(enabled) = simulation {
         let state = json!({ "simulation": { "enabled": enabled, "time_scale": 1.0 } });
         let _ = sender.send(Frame::Text(state));

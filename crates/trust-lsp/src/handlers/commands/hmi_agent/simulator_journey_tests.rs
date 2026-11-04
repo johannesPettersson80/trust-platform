@@ -17,8 +17,8 @@ use trust_runtime::hmi::page_files::HmiObject;
 
 const COOKIE: &str = "trust_hmi_session=4f1c0ffee";
 const TOKEN: &str = "access-token-7";
-/// Waits long enough for any answer the fake gives, with a stream period of 100 ms, since the fake
-/// announces none.
+/// Waits long enough for any answer the fake gives; the stream period of 100 ms counts only until the
+/// fake's stream announces its own, 250 ms by default, as the runtime's does.
 const PROMPT: Timing = Timing {
     wait: Duration::from_secs(5),
     poll: Duration::from_millis(10),
@@ -36,12 +36,15 @@ const BRIEF: Timing = Timing {
     wait: Duration::from_millis(100),
     ..PROMPT
 };
-/// The setpoint's confirmation time on the test page (its `timeout`, 0.3 seconds).
+/// The setpoint's and the reset pulse's confirmation time on the test page (`timeout`, 0.3 seconds).
 const CONFIRMATION: Duration = Duration::from_millis(300);
+/// The reset pulse's length on the test page (`pulse`, 0.4 seconds).
+const PULSE: Duration = Duration::from_millis(400);
 
 /// The deployed page as the runtime serves it, its numbers as the runtime writes them (`5.0`): a
-/// setpoint, which the runtime follows to its confirmation by the value read back, and a button
-/// without feedback, whose command is final as applied (specification 39 §12.8 item 5).
+/// setpoint, which the runtime follows to its confirmation by the value read back, a button without
+/// feedback, whose command is final as applied, and a pulse button with feedback, which the runtime
+/// follows to its confirmation after the pulse's end (specification 39 §12.8 item 5).
 fn deployed() -> Value {
     json!({
         "title": "Settings",
@@ -55,6 +58,14 @@ fn deployed() -> Value {
                 "id": "stop", "type": "button", "at": [32, 160], "size": [120, 40],
                 "action": "reset",
                 "bind": { "target": { "path": "Main.Run", "direction": "write" } }
+            },
+            {
+                "id": "reset", "type": "pulse-button", "at": [32, 220], "size": [120, 40],
+                "pulse": 0.4, "timeout": 0.3,
+                "bind": {
+                    "target": { "path": "Main.Reset", "direction": "write" },
+                    "feedback": { "path": "Main.Tripped", "direction": "read" }
+                }
             }
         ],
         "pipe": []
@@ -68,7 +79,10 @@ fn draft() -> Value {
             "max": 95, "min": 5, "timeout": 0.3, "size": [200, 64], "at": [32, 88], "type": "setpoint",
             "id": "sp"},
             {"bind": {"target": {"direction": "write", "path": "Main.Run"}}, "action": "reset",
-            "size": [120, 40], "at": [32, 160], "type": "button", "id": "stop"}],
+            "size": [120, 40], "at": [32, 160], "type": "button", "id": "stop"},
+            {"bind": {"feedback": {"direction": "read", "path": "Main.Tripped"},
+            "target": {"direction": "write", "path": "Main.Reset"}}, "timeout": 0.3, "pulse": 0.4,
+            "size": [120, 40], "at": [32, 220], "type": "pulse-button", "id": "reset"}],
             "title": "Settings"}"#,
     )
     .expect("the draft's model")
@@ -90,17 +104,54 @@ fn reported(
     answered: &'static str,
     later: &'static str,
 ) -> Box<dyn Fn(&Value) -> CommandAnswer + Send> {
+    let delay = if later == "timed-out" {
+        CONFIRMATION
+    } else {
+        STREAM_PERIOD
+    };
+    reported_after(answered, later, delay)
+}
+
+/// As [`reported`], the later outcome `delay` after the answer.
+fn reported_after(
+    answered: &'static str,
+    later: &'static str,
+    delay: Duration,
+) -> Box<dyn Fn(&Value) -> CommandAnswer + Send> {
     Box::new(move |command| CommandAnswer {
         status: 200,
         body: json!({ "id": command["id"], "outcome": answered }),
         then: vec![Frame::Text(json!({ "command": {
             "id": command["id"], "outcome": later, "reason": "not confirmed in time", "readback": 9.0,
         } }))],
-        delay: if later == "timed-out" {
-            CONFIRMATION
-        } else {
-            STREAM_PERIOD
-        },
+        delay,
+    })
+}
+
+/// A pulse answered `applied`, then, as a trust-runtime simulator reports a followed local pulse: the
+/// pulse's end (a later `applied` with `ended`) and the outcome `later` of its confirmation, which
+/// the runtime decides only after the end, here `delay` after the answer.
+fn pulse_reported(
+    later: &'static str,
+    delay: Duration,
+) -> Box<dyn Fn(&Value) -> CommandAnswer + Send> {
+    Box::new(move |command| {
+        let mut outcome =
+            json!({ "id": command["id"], "outcome": later, "readback": later == "confirmed" });
+        if later == "timed-out" {
+            outcome["reason"] = json!("not confirmed in time");
+        }
+        CommandAnswer {
+            status: 200,
+            body: json!({ "id": command["id"], "outcome": "applied", "readback": true }),
+            then: vec![
+                Frame::Text(
+                    json!({ "command": { "ended": true, "id": command["id"], "outcome": "applied" } }),
+                ),
+                Frame::Text(json!({ "command": outcome })),
+            ],
+            delay,
+        }
     })
 }
 
@@ -526,20 +577,36 @@ fn the_runtime_plans_which_commands_are_followed() {
     let setpoint_follows = following(setpoint, &step(set(10)));
     assert_eq!(setpoint_follows.follow, Follow::Confirmation);
     assert_eq!(
-        setpoint_follows.confirmation, CONFIRMATION,
+        setpoint_follows.decided, CONFIRMATION,
         "the control's own timeout"
     );
     assert_eq!(following(button, &step(stop())).follow, Follow::None);
+    let reset = following(
+        &page["object"][2],
+        &step(json!({ "page": "settings", "object": "reset", "action": "pulse" })),
+    );
+    assert_eq!(reset.follow, Follow::Confirmation);
+    assert_eq!(
+        reset.decided,
+        PULSE + Duration::from_secs(2),
+        "the longer of the pulse and the timeout, and the runtime's 2 s to write the pulse's end"
+    );
     let remote = json!({
         "id": "start", "type": "pulse-button", "at": [0, 0], "size": [120, 40], "pulse": 0.5,
         "bind": { "target": { "path": "Owner:Main.Start", "direction": "write" } }
     });
     let pulse = step(json!({ "page": "settings", "object": "start", "action": "pulse" }));
-    assert_eq!(following(&remote, &pulse).follow, Follow::PulseEnd);
+    let remote_follows = following(&remote, &pulse);
+    assert_eq!(remote_follows.follow, Follow::PulseEnd);
+    assert_eq!(
+        remote_follows.decided,
+        Duration::from_secs(7),
+        "the default timeout of 5 s, longer than the pulse, and 2 s to write"
+    );
     let unread = following(&json!({ "id": "odd" }), &step(stop()));
     assert_eq!(unread.follow, Follow::Confirmation);
     assert_eq!(
-        unread.confirmation,
+        unread.decided,
         Duration::from_secs(5),
         "the runtime's default"
     );
@@ -630,6 +697,79 @@ fn a_followed_command_waits_for_its_controls_confirmation_time() {
     assert_eq!(
         answer["passed"], true,
         "confirmed a stream period on: {answer}"
+    );
+}
+
+/// Catches: a followed pulse's wait cut at its control's confirmation time, although the runtime
+/// decides the confirmation only after the pulse's end (`Plan::decided_within`), so that the journey
+/// reports a time-out of its own without the runtime's reason; and the report of the pulse's end, a
+/// later `applied` with `ended`, taken for the pulse's completion. Seen against a trust-runtime
+/// simulator: a 1 s pulse with a 1 s confirmation time reported its end at 1.2 s and its time-out at
+/// 1.5 s. Here the outcome comes 1 s after the answer, after the confirmation time and two stream
+/// periods (0.8 s), and before the pulse, the runtime's 2 s to write its end and two periods.
+#[test]
+fn a_followed_pulse_ends_with_the_runtimes_outcome_after_its_end() {
+    let step = json!([{ "page": "settings", "object": "reset", "action": "pulse" }]);
+    let timed_out = FakeSimulator::start(Script {
+        on_command: pulse_reported("timed-out", Duration::from_secs(1)),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &timed_out,
+        step.clone(),
+        &|| true,
+        &AtomicBool::new(false),
+        BRIEF,
+    );
+    let id = &commands(&timed_out)[0]["id"];
+    assert_eq!(
+        answer["outcomes"],
+        json!([
+            { "page": "settings", "object": "reset", "commandId": id, "status": 200, "outcome": "applied",
+              "readback": true },
+            { "page": "settings", "outcome": "timed-out", "commandId": id,
+              "reason": "not confirmed in time", "readback": false },
+        ])
+    );
+    assert_eq!(answer["passed"], false);
+    let confirmed = FakeSimulator::start(Script {
+        on_command: pulse_reported("confirmed", Duration::from_secs(1)),
+        ..Script::serving(pages())
+    });
+    let answer = journey(&confirmed, step, &|| true, &AtomicBool::new(false), BRIEF);
+    let id = &commands(&confirmed)[0]["id"];
+    assert_eq!(
+        answer["outcomes"][1],
+        json!({ "page": "settings", "outcome": "observed", "commandId": id }),
+        "observed at its confirmation, not at the report of its end: {answer}"
+    );
+    assert_eq!(answer["passed"], true);
+}
+
+/// Catches: a journey that keeps its own stream period instead of the one the runtime's stream
+/// announces (`period_ms`), so that a slow stream's later outcome arrives after the wait and the
+/// journey reports a time-out of its own instead of the runtime's. The stream here announces 600 ms
+/// and reports the time-out 1.2 s after the answer: inside the confirmation time and two announced
+/// periods (1.5 s), after the confirmation time and two of the journey's own periods (0.5 s).
+#[test]
+fn the_streams_announced_period_lengthens_the_wait() {
+    let fake = FakeSimulator::start(Script {
+        period: Duration::from_millis(600),
+        on_command: reported_after("applied", "timed-out", Duration::from_millis(1200)),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &fake,
+        json!([set(10)]),
+        &|| true,
+        &AtomicBool::new(false),
+        BRIEF,
+    );
+    assert_eq!(
+        answer["outcomes"][1],
+        json!({ "page": "settings", "outcome": "timed-out", "commandId": commands(&fake)[0]["id"],
+                "reason": "not confirmed in time", "readback": 9.0 }),
+        "the runtime's own outcome"
     );
 }
 

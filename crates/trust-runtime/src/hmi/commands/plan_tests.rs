@@ -1,5 +1,8 @@
 //! Specification 39, §12.8 item 5: which commands the runtime follows after their first answer,
-//! reporting their final outcome later on the value stream, and which are final as `applied`.
+//! reporting their final outcome later on the value stream, and which are final as `applied`; and
+//! how long after the answer it decides that outcome.
+
+use std::time::Duration;
 
 use serde_json::{json, Value as Json};
 
@@ -79,4 +82,40 @@ fn a_pulse_is_followed_only_to_a_remote_point() {
     };
     assert!(!plan_of(&pulse("Main.Start"), "pulse", None).is_followed());
     assert!(plan_of(&pulse("Owner:Main.Start"), "pulse", None).is_followed());
+}
+
+/// Catches: a pulse's later outcome expected at its control's confirmation time, although the
+/// runtime waits for the pulse's end, up to the longer of the pulse and the confirmation time and
+/// the 2 s it allows to write the end, before it decides the confirmation; and a written value's
+/// expected later than its confirmation time.
+#[test]
+fn a_pulse_is_decided_after_its_end() {
+    let reset = |pulse: &str| {
+        format!(
+            "id = \"reset\"\ntype = \"pulse-button\"\nat = [0, 0]\nsize = [120, 40]\npulse = {pulse}\n\
+             timeout = 0.3\n\n[object.bind]\ntarget = {{ path = \"Main.Reset\", direction = \"write\" }}\n\
+             feedback = \"Main.Tripped\"\n"
+        )
+    };
+    assert_eq!(
+        plan_of(&reset("0.4"), "pulse", None).decided_within(),
+        Duration::from_millis(2_400)
+    );
+    assert_eq!(
+        plan_of(&reset("0.1"), "pulse", None).decided_within(),
+        Duration::from_millis(2_300)
+    );
+    let setpoint = r#"id = "sp"
+type = "setpoint"
+at = [0, 0]
+size = [200, 64]
+timeout = 0.3
+
+[object.bind]
+value = { path = "Main.SP", direction = "read-write" }
+"#;
+    assert_eq!(
+        plan_of(setpoint, "write", Some(json!(10))).decided_within(),
+        Duration::from_millis(300)
+    );
 }

@@ -16,6 +16,8 @@ use crate::hmi::page_files::{
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a pulse lasts when the pulse button does not say.
 pub const DEFAULT_PULSE: Duration = Duration::from_secs(1);
+/// How long the runtime thread may take to write a command, a pulse's end among them.
+pub const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 /// Controls whose command is confirmed by the value read back.
 /// The controls whose entry is a number typed as text.
 const NUMBER_ENTRIES: &[&str] = &["setpoint", "numeric-input"];
@@ -76,6 +78,20 @@ impl Plan {
         self.confirm.is_some()
             || (self.pulse.is_some()
                 && crate::hmi::remote_values::remote_path(&self.path).is_some())
+    }
+
+    /// How long after its first answer the runtime decides a followed command's later outcome, at
+    /// most (specification 39, §12.8 item 5): the control's confirmation time, and for a pulse the
+    /// longer of the pulse and the confirmation time plus the time the runtime allows to write the
+    /// pulse's end, since it decides the confirmation only after that end. The runtime's command
+    /// service waits this long for a local pulse's end, and an HMI agent simulator journey
+    /// (specification 43, AT-08) waits this long for the later outcome, plus the stream's delay.
+    #[must_use]
+    pub fn decided_within(&self) -> Duration {
+        match self.pulse {
+            Some(pulse) => pulse.max(self.timeout).saturating_add(WRITE_TIMEOUT),
+            None => self.timeout,
+        }
     }
 }
 
