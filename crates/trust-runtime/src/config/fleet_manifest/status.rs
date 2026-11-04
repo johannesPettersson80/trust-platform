@@ -3,7 +3,7 @@
 //! broke, so that a stop can tell a runtime that went away from a status that is unknown.
 
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read};
 use std::net::TcpStream;
 use std::path::Path;
 use std::time::Duration;
@@ -208,7 +208,7 @@ fn exchange_control(
             stream
                 .set_write_timeout(Some(Duration::from_millis(750)))
                 .ok();
-            writeln!(stream, "{payload}")
+            crate::control::write_line(&mut stream, &payload.to_string())
                 .map_err(control_transport_error)
                 .context("failed to send control request")?;
             let mut reader = BufReader::new(stream);
@@ -231,7 +231,7 @@ fn exchange_control(
             stream
                 .set_write_timeout(Some(Duration::from_millis(750)))
                 .ok();
-            writeln!(stream, "{payload}")
+            crate::control::write_line(&mut stream, &payload.to_string())
                 .map_err(control_transport_error)
                 .context("failed to send control request")?;
             let mut reader = BufReader::new(stream);

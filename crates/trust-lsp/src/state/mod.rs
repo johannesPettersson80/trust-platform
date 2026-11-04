@@ -29,6 +29,7 @@ mod documents;
 mod library_surface;
 mod path;
 
+pub(crate) use library_surface::library_holds;
 use library_surface::DiagnosticScope;
 pub(crate) use path::{path_to_uri, uri_to_path};
 

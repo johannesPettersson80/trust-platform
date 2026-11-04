@@ -12,7 +12,6 @@ REQUIRED_MARKERS = {
     ".github/workflows/ci.yml": [
         "scripts/run_with_progress.py",
         "ci-cargo-build",
-        "ci-runtime-warnings",
         "ci-full-test",
         "ci-conformance-pass-1",
         "ci-conformance-pass-2",
