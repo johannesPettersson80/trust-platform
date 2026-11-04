@@ -1233,9 +1233,15 @@ stopped-project session's `plant.topology`, which names the project and
 projects the saved plants even when the project runtime is stopped. When the
 owning runtime is reachable, it may additionally request `plant.status` using
 that project identity, and then asks `plant.topology` again with that status
-answer as it came: the extension does not decode it, because the projection
-decides whether it is current. A runtime that gives no answer (an error, a
-timeout) leaves the first projection. The webview shall receive only the
+answer as it came, a refusal's answer included: the extension does not decode
+it, because the projection decides whether it is current. An unavailable
+`plant.status` whose reason is `runtime_evidence_unavailable`, as a stopped
+project answers, says that no runtime runs the project's plants: each saved
+plant then holds no runtime evidence and shows `Configured` (§5.2), or its
+other states such as `Disabled`, never `Status unavailable`. Any other
+unavailable answer shows `Status unavailable`. A runtime that gives no answer
+(a transport failure, a timeout) leaves the first projection, whose plants show
+`Status unavailable`. The webview shall receive only the
 `plants` of the last answer, never a runtime socket, command process,
 filesystem path, or undecoded service payload.
 
