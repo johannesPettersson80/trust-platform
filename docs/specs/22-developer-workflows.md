@@ -295,7 +295,8 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   2026: the repository stays under the personal account, and GitHub gives the
   queue only to organizations), and the pull request need not hold the newest
   `main`: `main`'s CI checks every merge, a red `main` is fixed before any other
-  merge, and the release follows only a `main` commit whose CI passed;
+  merge, and a release comes only from a `main` commit whose CI passed or whose
+  tree a passed rehearsal built and tested;
 - a user-visible change adds a changelog fragment, `changelog.d/<topic>.md`,
   with Keep a Changelog sections and their entries, and leaves
   `## [Unreleased]` in `CHANGELOG.md` empty, so that open pull requests never
@@ -306,9 +307,11 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   compares the released sections with the pull request's base;
 - a release is a pull request that only bumps the version and moves the
   changelog: `scripts/bump_version.py` gathers the fragments into the
-  version's section, the newest first; it merges like any other, and the
-  release follows `main`'s CI (specification 24, "Release after main CI"),
-  publishing the packages built and tested for that commit. Such a pull
+  version's section, the newest first; it merges like any other. When the merge
+  commit has the tree of the head its rehearsal built and tested, the release
+  publishes that rehearsal's packages as soon as `main` has the commit;
+  otherwise it follows `main`'s CI and builds them again (specification 24,
+  "Release after main CI"). Such a pull
   request changes no behavior of its own, and both bug-fix checks judge it
   so: when the workspace version moves and every changed file is one the bump
   changes, the direct-change contract needs no companion and the
