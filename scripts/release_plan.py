@@ -21,10 +21,12 @@ Specification 24, "Release rehearsal on pull requests" and "Release after main C
 - on a push to this repository's `main`, the pushed commit's release is promoted when the same
   conditions would release it and a passed rehearsal kept its files for the commit's tree (owner,
   2 November 2026: build once): GitHub lists the artifact `release-bundle-v<version>-<tree>` of a
-  successful Release run that this repository's pull request or a manual run started, and GitHub's
-  record of that run's head commit has the tree. The release then publishes that rehearsal's files
-  without waiting for main's CI; without such a rehearsal the push releases nothing, and the release
-  follows main's CI.
+  successful Release run that this repository's pull request or a manual run started, GitHub's
+  records give the tree to that run's head commit and to the commit its workflow ran from, and CI
+  passed on that head. The release then publishes that rehearsal's files without waiting for main's
+  CI; without such a rehearsal the push releases nothing, and the release follows main's CI. The
+  release after main's CI promotes the same rehearsal when there is one, so that both publish the
+  same bytes, and builds every package otherwise.
 
 The plan never publishes; it prints and writes `mode`, `sha`, `version`, `tag`, the matrices of the
 toolchain-bundle and build jobs (`toolchain_targets`, `build_targets`), and for a promoted release the
@@ -422,13 +424,7 @@ def plan(
         if rehearsal is None:
             return Plan("skip", push_sha, due.version,
                         f"no passed rehearsal kept the files of this commit's tree; {due.tag} follows main's CI")
-        return replace(
-            due,
-            reason=f"{due.reason}; it promotes the files of rehearsal run {rehearsal.run_id}, which built "
-                   f"{rehearsal.commit[:9]} with this commit's tree",
-            platforms=(),
-            rehearsal=rehearsal,
-        )
+        return promoted(due, rehearsal)
     if event != "workflow_run":
         return Plan("skip", "", "", f"a {event} event releases nothing")
     if (
@@ -440,7 +436,24 @@ def plan(
         return Plan("skip", run_sha, "", "only a successful CI run of a push to this repository's main releases")
     if repository != official:
         return Plan("skip", run_sha, "", "only the official repository releases")
-    return main_release(run_sha, **released)
+    due = main_release(run_sha, **released)
+    if due.mode != "release":
+        return due
+    # The same rehearsal as a push's promotion, so that both publish the same bytes: a promotion that failed after
+    # it published some packages is finished with the files it began with.
+    rehearsal = find_rehearsal(due.version, run_sha)
+    return due if rehearsal is None else promoted(due, rehearsal)
+
+
+def promoted(due: Plan, rehearsal: Rehearsal) -> Plan:
+    """The release `due`, promoted from the files of `rehearsal`: it builds no platform."""
+    return replace(
+        due,
+        reason=f"{due.reason}; it promotes the files of rehearsal run {rehearsal.run_id}, which built "
+               f"{rehearsal.commit[:9]} with this commit's tree",
+        platforms=(),
+        rehearsal=rehearsal,
+    )
 
 
 def main_release(

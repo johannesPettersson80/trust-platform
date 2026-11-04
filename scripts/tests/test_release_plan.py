@@ -403,6 +403,25 @@ class ReleasePlanTests(unittest.TestCase):
         resumed = pushed(tag_commit=lambda tag: ("tag", "new"))
         self.assertEqual((resumed.mode, resumed.rehearsal), ("release", REHEARSAL), "an incomplete promotion resumes")
 
+    def test_main_ci_promotes_the_rehearsal_that_a_push_would(self) -> None:
+        # Specification 24, review finding of 4 November 2026: a promotion that tagged, released and published some VSIX
+        # packages and then failed was finished by a release after main's CI that built every package again; it
+        # replaced every GitHub asset while the Marketplace kept the rehearsal's packages. Catches a release after CI
+        # that rebuilds a commit whose tree a passed rehearsal built, and one that looks for a rehearsal of a version
+        # that is released.
+        asked = []
+        result = after_ci(tag_commit=lambda tag: ("tag", "new"),
+                          find_rehearsal=lambda version, sha: asked.append((version, sha)) or REHEARSAL)
+        self.assertEqual(asked, [("0.27.0", "new")])
+        self.assertEqual((result.mode, result.sha, result.rehearsal, result.platforms), ("release", "new", REHEARSAL, ()))
+        self.assertIn("promotes the files of rehearsal run 41707764199", result.reason)
+        built = after_ci(find_rehearsal=lambda version, sha: None)
+        self.assertEqual((built.mode, built.rehearsal, built.platforms), ("release", None, release_plan.ALL_PLATFORMS),
+                         "without a rehearsal of its tree, it builds every package")
+        unused = lambda version, sha: self.fail("a complete release looks for no rehearsal")
+        complete = after_ci(tag_commit=lambda tag: ("tag", "new"), release_complete=lambda tag: True, find_rehearsal=unused)
+        self.assertEqual(complete.mode, "skip")
+
     def test_main_ci_after_a_completed_promotion_releases_nothing(self) -> None:
         # Specification 24: the promotion runs for the push, so its run's head is the commit, and its Publish job's
         # verification makes the release complete. Catches a release after main's CI that publishes the promoted

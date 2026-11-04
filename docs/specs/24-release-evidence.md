@@ -140,15 +140,17 @@ the tag, and its packages are built and tested once (owner decision, 2 November
 2026: "yes"). When that commit has the tree of a commit that a passed rehearsal
 of the version built and tested, the release promotes the rehearsal's files as
 soon as `main` has the commit, without waiting for `main`'s CI to test the same
-tree again (promotion, below). Otherwise, as when a pull request merged between
-the rehearsal and the release, the release follows `main`'s CI on the commit and
+tree again (promotion, below); the release after `main`'s CI of that commit
+promotes the same files. Otherwise, as when a pull request merged between the
+rehearsal and the release, the release follows `main`'s CI on the commit and
 builds and tests every package itself. 0.29.0's release commit `4465d345a` and
 its rehearsed head `06c31e9be` share the tree `1794e85b`, yet `main`'s CI tested
 that tree again for about two hours and the release rebuilt every package for
 about one and a half; 0.30.0 did the same.
 
 When the CI workflow completes for a push to `main`, the
-Release workflow's plan releases that run's commit when all of these hold: the
+Release workflow's plan releases that run's commit, promoting the same
+rehearsal as a push would when there is one (below), when all of these hold: the
 CI run concluded `success` for a push to the `main` of this repository; the
 repository is the official one; and the workspace version at that commit has no
 tag `v<version>`, or that tag is annotated, peels to the same commit, and its
@@ -216,8 +218,8 @@ an older run whose release another run completed fails before it publishes
 anything. A promoted release that failed continues when its failed jobs are
 re-run, with the same rehearsal's files; when it is not re-run before `main`'s
 CI passes, or GitHub cancels its waiting publishing job for a newer run of the
-group, the release after `main`'s CI releases the commit and builds the
-packages again.
+group, the release after `main`'s CI promotes the same rehearsal's files, so
+that both publish the same bytes.
 
 The preflight, the real-database matrix and every build and test of every
 target run first, the builds and tests in the release's own run or in the

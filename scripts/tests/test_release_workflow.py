@@ -537,6 +537,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
             stopped = results("push", PROMOTED, ended={"openot-real-databases": end})
             self.assertEqual(stopped["publish"], "skipped", f"a {end} matrix stops a promotion")
             self.assertFalse(concluded(stopped))
+        # The release after main's CI of a commit whose tree a passed rehearsal built promotes it the same way, so that
+        # both paths publish the same bytes. Catches one that builds and publishes other packages.
+        self.assertEqual(ran(results("workflow_run", PROMOTED)), ran(promoted))
 
         # A release after main's CI builds and tests everything, the real-database matrix included, and publishes only
         # when all passed. Catches a tag after a failed or cancelled build (0.25.0, 25 October 2026).
