@@ -12,8 +12,9 @@
 //!   runtimes of a fleet root (§6.5), the status
 //!   that Live Values shows with the operations the session may use (§4.1, §4.2), the speed that a
 //!   simulated runtime reports (specification 35 B9.2), the outcome of a Connect (§5.1, §6.4),
-//!   the kind of a lifecycle failure (§5.10) and the run target that the HMI Builder's Live mode
-//!   and Deploy talk to (specification 39 §11 item 6).
+//!   the kind of a lifecycle failure (§5.10), what Live Values says when it has no session to read
+//!   (§4.4) and the run target that the HMI Builder's Live mode and Deploy talk to (specification
+//!   39 §11 item 6).
 //!
 //! Each answer is an object with `ok`; a refused request answers `ok: false` and an `error` text.
 
@@ -29,6 +30,7 @@ mod managed;
 pub(super) mod request;
 mod selection;
 mod target;
+mod unavailable;
 
 /// One control request to a runtime, or a probe of its endpoint.
 pub const RUNTIME_REQUEST_COMMAND: &str = "trust-lsp.runtimeRequest";
@@ -78,6 +80,7 @@ fn run_targets(argument: Value) -> Result<Value, String> {
         }
         "liveValues" | "speed" => live_values::answer(&action, argument),
         "connect" | "failure" => connect::answer(&action, argument),
+        "unavailable" => unavailable::answer(argument),
         "" => Err("trust-lsp.runTargets needs an action.".to_owned()),
         other => Err(format!("trust-lsp.runTargets has no action {other}.")),
     }
