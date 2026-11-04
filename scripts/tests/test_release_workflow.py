@@ -639,7 +639,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         # reusable workflow that the Release workflow calls, which GitHub resolves at that commit. Catches a Release
         # workflow that no longer calls one: no rehearsal would qualify, and every release would build again.
         called = re.findall(r"(?m)^    uses: (\./\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml)$", self.text)
-        self.assertTrue(called)
+        self.assertIn(f"./{release_plan.CALLED_WORKFLOW}", called)
         for path in called:
             self.assertTrue((ROOT / path[2:]).is_file(), path)
 

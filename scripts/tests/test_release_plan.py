@@ -492,9 +492,9 @@ class ReleasePlanTests(unittest.TestCase):
             "no record of the workflow's commit": dict(runs=rehearsal_run(referenced_workflows=[])),
             "this repository's workflow called at another ref": dict(runs=rehearsal_run(referenced_workflows=[
                 {"path": f"{CALLED}@{MERGE}", "ref": "refs/heads/release/0.30.0", "sha": MERGE}])),
-            "two workflow commits": dict(runs=rehearsal_run(referenced_workflows=[
+            "two records of the called workflow": dict(runs=rehearsal_run(referenced_workflows=[
                 {"path": f"{CALLED}@{MERGE}", "ref": "refs/pull/223/merge", "sha": MERGE},
-                {"path": f"{OFFICIAL}/.github/workflows/other.yml@{BASE}", "ref": "refs/pull/224/merge", "sha": BASE}])),
+                {"path": f"{CALLED}@{BASE}", "ref": "refs/pull/223/merge", "sha": BASE}])),
             "a merge commit that does not merge the head": dict(
                 commits=dict(COMMITS, **{MERGE: commit_record(MERGE, parents=(BASE, "e" * 40))})),
             "a manual run whose workflow is not its head's": dict(runs=manual_rehearsal_run(referenced_workflows=[
@@ -538,34 +538,62 @@ class ReleasePlanTests(unittest.TestCase):
             self.assertIsNone(found, case)
 
     def test_a_pull_requests_rehearsal_needs_its_one_pull_request_merged_into_main(self) -> None:
-        # Specification 24, coordinator's decision of 4 November 2026: GitHub's record of the workflow a pull request's
-        # run called cannot tell a local call from an explicit call of this repository's workflow at a ref like the run's
-        # own. So the run must belong to the one pull request of its head, from its head branch, merged into this
-        # repository's main when the release plans. Each case would promote a rehearsal that no pull request merged into
-        # main ran for.
+        # Specification 24, coordinator's decision of 4 November 2026: the run must belong to the one pull request of its
+        # head, from its head branch, merged into this repository's main when the release plans. After a merge GitHub
+        # lists only the merged pull request; one into another base shows only while the head is not merged, and is
+        # open. Each case would promote a rehearsal that no pull request merged into main ran for.
+        other_base = {"ref": "work/other-release", "repo": {"full_name": OFFICIAL}}
+        copy = {"sha": REHEARSED, "ref": "work/copy", "repo": {"full_name": OFFICIAL}}
         cases = {
-            "a pull request of the same head into another base, with another Release workflow": [pull_request(
-                base={"ref": "work/other-release", "repo": {"full_name": OFFICIAL}})],
-            "a pull request not merged": [pull_request(state="open", merged_at=None)],
-            "two pull requests with the same head": [pull_request(), pull_request(
-                number=224, merged_at=None, head={"sha": REHEARSED, "ref": "work/copy", "repo": {"full_name": OFFICIAL}},
-                base={"ref": "work/other-release", "repo": {"full_name": OFFICIAL}})],
-            "no pull request": [],
-            "a pull request from another branch than the run's": [pull_request(
-                head={"sha": REHEARSED, "ref": "work/copy", "repo": {"full_name": OFFICIAL}})],
-            "a pull request into another repository's main": [pull_request(
-                base={"ref": "main", "repo": {"full_name": "someone/fork"}})],
-            "a pull request of another head": [pull_request(
-                head={"sha": "e" * 40, "ref": "release/0.30.0", "repo": {"full_name": OFFICIAL}})],
+            "only an open pull request of the head into another base, with another Release workflow": (
+                rehearsal_run(), [pull_request(number=224, state="open", merged_at=None, base=other_base)]),
+            "a pull request not merged": (rehearsal_run(), [pull_request(state="open", merged_at=None)]),
+            "two candidates, more than GitHub lists after a merge": (
+                rehearsal_run(), [pull_request(), pull_request(number=224, state="open", merged_at=None, head=copy,
+                                                               base=other_base)]),
+            "no pull request": (rehearsal_run(), []),
+            "a run of another branch of the merged head": (rehearsal_run(head_branch="work/copy"), [pull_request()]),
+            "a merged pull request into another base, which GitHub does not list for a commit of main": (
+                rehearsal_run(), [pull_request(base=other_base)]),
+            "a pull request into another repository's main": (
+                rehearsal_run(), [pull_request(base={"ref": "main", "repo": {"full_name": "someone/fork"}})]),
+            "a pull request of another head": (
+                rehearsal_run(), [pull_request(head={"sha": "e" * 40, "ref": "release/0.30.0",
+                                                     "repo": {"full_name": OFFICIAL}})]),
         }
-        for case, pulls in cases.items():
+        for case, (run, pulls) in cases.items():
             found = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
-                self, [bundle_artifact()], {41707764199: rehearsal_run()}, pulls=pulls))
+                self, [bundle_artifact()], {41707764199: run}, pulls=pulls))
             self.assertIsNone(found, case)
         # A manual rehearsal needs no pull request: its ref is the branch whose head it rehearsed.
         manual = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
             self, [bundle_artifact()], {41707764199: manual_rehearsal_run()}, pulls=[]))
         self.assertEqual(manual, REHEARSAL)
+
+    def test_an_explicit_call_of_this_repositorys_workflow_proves_no_workflow_commit(self) -> None:
+        # Specification 24, coordinator's review of 4 November 2026: a forged run in a pull request from the release
+        # branch into a base with another release.yml can call openot-real-databases.yml of this repository explicitly
+        # at the real pull request's merge commit (with `if: false`); after the merge GitHub lists only pull request 223
+        # for the head, so the merged-pull-request check passes for it. Only GitHub's record of a local call proves the
+        # workflow's commit: the calling commit's full sha in its path, and the run's own ref. Each case would promote a
+        # forged rehearsal.
+        cases = {
+            "an explicit call by ref name": {"path": f"{CALLED}@refs/pull/223/merge", "ref": "refs/pull/223/merge",
+                                             "sha": MERGE},
+            "an explicit call by sha": {"path": f"{CALLED}@{MERGE}", "ref": "", "sha": MERGE},
+            "an explicit call by sha, recorded without a ref": {"path": f"{CALLED}@{MERGE}", "sha": MERGE},
+            "a local call of another pull request's run": {"path": f"{CALLED}@{MERGE}", "ref": "refs/pull/224/merge",
+                                                          "sha": MERGE},
+            "a path that names another commit": {"path": f"{CALLED}@{BASE}", "ref": "refs/pull/223/merge", "sha": MERGE},
+            "a short sha": {"path": f"{CALLED}@{MERGE[:8]}", "ref": "refs/pull/223/merge", "sha": MERGE[:8]},
+        }
+        for case, record in cases.items():
+            found = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
+                self, [bundle_artifact()], {41707764199: rehearsal_run(referenced_workflows=[record])}))
+            self.assertIsNone(found, case)
+        # GitHub's own record of run 41707764199: its local call at its own ref, with the merge commit's full sha.
+        self.assertEqual(release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(
+            self, [bundle_artifact()], {41707764199: rehearsal_run()})), REHEARSAL)
 
     def test_the_passed_rehearsals_bundle_of_the_highest_id_is_promoted(self) -> None:
         # Catches a promotion of an older rehearsal's files when a newer one passed, and a finder that gives up when the

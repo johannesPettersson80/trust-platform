@@ -67,6 +67,10 @@ AFTER_CI_RUN_NAME = "Release after CI of {sha}"
 BUNDLE_NAME = "release-bundle-{tag}-{tree}"
 RELEASE_WORKFLOW = ".github/workflows/release.yml"
 CI_WORKFLOW = ".github/workflows/ci.yml"
+# The local reusable workflow that release.yml calls: GitHub's record of that call names the commit whose workflow a run
+# ran. `test_release_workflow` holds release.yml to it.
+CALLED_WORKFLOW = ".github/workflows/openot-real-databases.yml"
+FULL_SHA = re.compile(r"[0-9a-f]{40}")
 # The events of the Release runs that rehearse: a pull request of this repository, and a maintainer's manual run.
 REHEARSAL_EVENTS = ("pull_request", "workflow_dispatch")
 # The pages of Release runs after CI that the completeness check reads, 100 runs each. GitHub lists at most 1,000 runs
@@ -286,46 +290,49 @@ def release_complete(
     return verifying_run(repository, sha, token, since=since, get=get) is not None
 
 
-def workflow_commit(run: dict, repository: str) -> str | None:
-    """The commit whose workflow `run` ran, by GitHub's record of the local reusable workflow that it calls: GitHub
-    resolves a local call at the caller's own commit. That record must have the run's own ref, the test merge
-    `refs/pull/<number>/merge` of a pull request's run or the branch of a manual run, whose workflow commit is its head;
-    a call of this repository's workflow at another ref, or none, gives None."""
-    found = set()
-    for called in run.get("referenced_workflows") or []:
-        if not isinstance(called, dict) or not str(called.get("path") or "").startswith(f"{repository}/.github/workflows/"):
-            continue
-        sha, ref = called.get("sha"), str(called.get("ref") or "")
-        if run.get("event") == "pull_request":
-            own = re.fullmatch(r"refs/pull/[0-9]+/merge", ref) is not None
-        else:
-            own = ref == f"refs/heads/{run.get('head_branch')}" and sha == run.get("head_sha")
-        if not own or not isinstance(sha, str):
-            return None
-        found.add(sha)
-    return found.pop() if len(found) == 1 else None
+def workflow_commit(run: dict, repository: str, own_ref: str) -> str | None:
+    """The commit whose workflow `run` ran, by GitHub's record of its local call of CALLED_WORKFLOW. GitHub records a
+    local call with the calling commit's full sha in its path, `<repository>/<workflow>@<sha>`, and with the run's own
+    ref, `own_ref`; an explicit call of this repository's workflow records the ref name in the path, or no ref when it
+    names a sha. Such a record, two records or none give None."""
+    prefix = f"{repository}/{CALLED_WORKFLOW}@"
+    records = [called for called in run.get("referenced_workflows") or []
+               if isinstance(called, dict) and str(called.get("path") or "").startswith(prefix)]
+    if len(records) != 1:
+        return None
+    sha = records[0].get("sha")
+    if not isinstance(sha, str) or not FULL_SHA.fullmatch(sha):
+        return None
+    if records[0].get("path") != prefix + sha or records[0].get("ref") != own_ref:
+        return None
+    return sha
 
 
-def merged_pull_request(run: dict, repository: str, token: str, get: Callable[[str, str], dict | list]) -> bool:
-    """Whether the pull request that a rehearsal ran for is merged into this repository's main: of the pull requests
-    that GitHub lists for the run's head, exactly one has that head, and it came from the run's head branch of this
-    repository, targets this repository's main and is merged. A pull request of the same head into another base, one
-    not merged, two such pull requests or none give no promotion."""
+def merged_pull_request(run: dict, repository: str, token: str, get: Callable[[str, str], dict | list]) -> int | None:
+    """The number of the pull request that a rehearsal ran for, when it is merged into this repository's main: of the
+    pull requests that GitHub lists for the run's head, exactly one has that head, came from the run's head branch of
+    this repository, targets this repository's main and is merged. After the merge GitHub lists only the merged pull
+    request. A pull request of the same head that is open, into another base or from another branch, two candidates or
+    none give None."""
     pulls = get(f"/repos/{repository}/commits/{run['head_sha']}/pulls?per_page=100", token)
     if not isinstance(pulls, list):
-        return False
+        return None
     candidates = [pull for pull in pulls
                   if isinstance(pull, dict) and (pull.get("head") or {}).get("sha") == run["head_sha"]]
     if len(candidates) != 1:
-        return False
-    head, base = candidates[0].get("head") or {}, candidates[0].get("base") or {}
-    return (
+        return None
+    pull = candidates[0]
+    head, base = pull.get("head") or {}, pull.get("base") or {}
+    if (
         base.get("ref") == "main"
         and (base.get("repo") or {}).get("full_name") == repository
         and head.get("ref") == run.get("head_branch")
         and (head.get("repo") or {}).get("full_name") == repository
-        and bool(candidates[0].get("merged_at"))
-    )
+        and pull.get("merged_at")
+        and isinstance(pull.get("number"), int)
+    ):
+        return pull["number"]
+    return None
 
 
 def ci_passed(repository: str, commit: str, tree: str, token: str, get: Callable[[str, str], dict]) -> bool:
@@ -346,18 +353,19 @@ def ci_passed(repository: str, commit: str, tree: str, token: str, get: Callable
 
 
 def find_rehearsal(
-    repository: str, version: str, tree: str, token: str, get: Callable[[str, str], dict] = github_get
+    repository: str, version: str, tree: str, token: str, get: Callable[[str, str], dict | list] = github_get,
 ) -> Rehearsal | None:
     """The passed rehearsal, of the highest artifact id, that kept the release files of `version` for a commit with
     `tree`.
 
     It asks GitHub for the artifacts named `release-bundle-v<version>-<tree>`, and takes one only when it has not
     expired and its run is a Release run of this repository that a pull request or a manual run started and that
-    completed with success, when GitHub's records give `tree` to the run's head commit and to the commit whose workflow
-    it ran (a pull request's test merge commit, which merges that head, or a manual run's head), when a pull
-    request's rehearsal ran for the one pull request of that head that is merged into main from the run's head
-    branch, and when a CI run of the same head passed on `tree`. A pull request into a branch with another Release
-    workflow runs a merge of another tree. No pull request text is read."""
+    completed with success; when a pull request's rehearsal ran for the one pull request of its head that is merged
+    into main from the run's head branch; when GitHub's records give `tree` to the run's head commit and to the commit
+    whose workflow it ran, by the run's local call of CALLED_WORKFLOW at its own ref (a pull request's test merge
+    commit `refs/pull/<number>/merge`, which merges that head, or a manual run's head on its branch); and when a CI run
+    of the same head passed on `tree`. A pull request into a branch with another Release workflow runs a merge of
+    another tree. No pull request text is read."""
     name = BUNDLE_NAME.format(tag=f"v{version}", tree=tree)
     listed = get(f"/repos/{repository}/actions/artifacts?name={name}&per_page=100", token).get("artifacts") or []
     candidates = [
@@ -371,7 +379,7 @@ def find_rehearsal(
     for artifact in sorted(candidates, key=lambda artifact: artifact["id"], reverse=True):
         run = get(f"/repos/{repository}/actions/runs/{artifact['workflow_run']['id']}", token)
         head = run.get("head_commit") or {}
-        if (
+        if not (
             run.get("path") == RELEASE_WORKFLOW
             and run.get("event") in REHEARSAL_EVENTS
             and run.get("status") == "completed"
@@ -381,20 +389,26 @@ def find_rehearsal(
             and head.get("id") == run.get("head_sha")
             and head.get("tree_id") == tree
         ):
-            commit = workflow_commit(run, repository)
-            if commit is None:
+            continue
+        if run["event"] == "pull_request":
+            number = merged_pull_request(run, repository, token, get)
+            if number is None:
                 continue
-            record = get(f"/repos/{repository}/git/commits/{commit}", token)
-            parents = [parent.get("sha") for parent in record.get("parents") or [] if isinstance(parent, dict)]
-            if (record.get("tree") or {}).get("sha") != tree:
-                continue
-            if run["event"] == "pull_request" and (
-                run["head_sha"] not in parents or not merged_pull_request(run, repository, token, get)
-            ):
-                continue
-            if not ci_passed(repository, run["head_sha"], tree, token, get):
-                continue
-            return Rehearsal(run_id=run["id"], artifact_id=artifact["id"], commit=run["head_sha"])
+            own_ref = f"refs/pull/{number}/merge"
+        else:
+            own_ref = f"refs/heads/{run.get('head_branch')}"
+        commit = workflow_commit(run, repository, own_ref)
+        if commit is None or (run["event"] != "pull_request" and commit != run["head_sha"]):
+            continue
+        record = get(f"/repos/{repository}/git/commits/{commit}", token)
+        parents = [parent.get("sha") for parent in record.get("parents") or [] if isinstance(parent, dict)]
+        if (record.get("tree") or {}).get("sha") != tree:
+            continue
+        if run["event"] == "pull_request" and run["head_sha"] not in parents:
+            continue
+        if not ci_passed(repository, run["head_sha"], tree, token, get):
+            continue
+        return Rehearsal(run_id=run["id"], artifact_id=artifact["id"], commit=run["head_sha"])
     return None
 
 

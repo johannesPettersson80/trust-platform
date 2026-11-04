@@ -188,23 +188,26 @@ official one, and the version's tag, its release and the earlier versions are
 as above. It then promotes the release when a rehearsal kept its files for the
 commit's tree: GitHub lists an unexpired artifact named exactly
 `release-bundle-v<version>-<tree>` of a Release run of this repository that a
-pull request or a manual run started and that completed with `success`;
-GitHub's records give that tree to the run's head commit and to the commit
-whose workflow the run ran, which is the commit of the local reusable workflow
-that the Release workflow calls, recorded at the run's own ref: a pull
-request's test merge commit `refs/pull/<number>/merge`, which merges that head,
-or a manual run's head (a pull request into a branch with another Release
-workflow runs a merge of another tree); and a CI run of the same head passed,
-whose head commit has that tree. A pull request's rehearsal also needs the pull
-request it ran for, since GitHub's record of the called workflow cannot tell a
-local call from an explicit call of this repository's workflow at a ref like
-the run's own: of the pull requests that GitHub lists for the head, exactly one
-has that head, and it came from the run's head branch of this repository,
-targets this repository's `main` and is merged when the release plans. A
-manual rehearsal's ref is a branch whose head is the rehearsed commit. The
-plan takes these facts from GitHub's API, never from a pull request's text,
-and of several such artifacts it takes the one with the highest id. Without one, the push releases nothing and the
-release follows `main`'s CI. A promoted release runs no build or test of its
+pull request or a manual run started and that completed with `success`; for
+a pull request's rehearsal, of the pull requests that GitHub lists for the
+head, exactly one has that head, and it came from the run's head branch of this
+repository, targets this repository's `main` and is merged when the release
+plans; GitHub's records give that tree to the run's head commit and to the
+commit whose workflow the run ran; and a CI run of the same head passed, whose
+head commit has that tree. The workflow's commit is the one that GitHub records for the
+run's local call of `.github/workflows/openot-real-databases.yml`, which the
+Release workflow calls: a local call is recorded with that commit's full sha in
+its path and with the run's own ref, which for a pull request's rehearsal is
+the test merge `refs/pull/<number>/merge` of its pull request, a commit that
+merges the head, and for a manual rehearsal its branch, whose head is the
+rehearsed commit. A pull request into a branch with another Release workflow
+runs a merge of another tree. This proof rests on GitHub recording a local
+call's path with the commit's sha: an explicit call of this repository's
+workflow records the ref name in its path, or no ref when it names a sha, and
+proves nothing. The plan takes these facts from GitHub's
+API, never from a pull request's text, and of several such artifacts it takes
+the one with the highest id. Without one, the push releases nothing and the release
+follows `main`'s CI. A promoted release runs no build or test of its
 packages; its preflight audits the VS Code lockfile again, since the audit of
 the rehearsal's build can be days old, and it runs the real-database matrix on
 the commit, which a pull request's
