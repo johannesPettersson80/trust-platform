@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import os
 import sys
 import tempfile
@@ -620,6 +621,36 @@ class ReleasePlanTests(unittest.TestCase):
             self.waits.clear()
             self.assertEqual(release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token", get=get), found)
             self.assertEqual((len(questions), self.waits), (asked, waits))
+
+    def test_a_release_that_began_with_a_rehearsals_files_continues_with_them(self) -> None:
+        # Specification 24, coordinator's review: a run after main's CI that continues a promotion which stopped
+        # halfway takes the rehearsal whose files the published release holds, by its release-provenance.json, while
+        # that rehearsal qualifies; a newer rehearsal of the same tree would stop at the published-release check and
+        # wait for a maintainer. Catches a continuation that takes another rehearsal's files.
+        older, newer = bundle_artifact(5, 41), bundle_artifact(9, 42)
+        runs = {41: rehearsal_run(id=41), 42: rehearsal_run(id=42)}
+        find = lambda **kwargs: release_plan.find_rehearsal(
+            OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(self, [older, newer], runs), **kwargs)
+        self.assertEqual(find(prefer=41).artifact_id, 5)
+        self.assertEqual(find().artifact_id, 9, "without a published release, the highest id")
+        runs[41] = rehearsal_run(id=41, conclusion="failure")
+        self.assertEqual(find(prefer=41).artifact_id, 9, "a preferred rehearsal that no longer qualifies")
+
+        record = lambda **fields: json.dumps({"promoted": True, "rehearsal": {"workflow_run_id": "41"}, **fields}).encode()
+        release = {"assets": [{"name": "release-provenance.json", "browser_download_url": "https://github.com/x/p.json"}]}
+        def named(answer, assets=release):
+            return release_plan.promoted_rehearsal_run(OFFICIAL, "v0.27.0", "token", release_of=lambda *args: assets,
+                                                       fetch=lambda url: answer)
+        self.assertEqual(named(record()), 41)
+        self.assertIsNone(named(record(promoted=False, rehearsal=None)), "a release that built its packages")
+        self.assertIsNone(named(record(), assets=None), "no published release")
+        self.assertIsNone(named(record(), assets={"assets": []}), "a release without its provenance yet")
+        with mock.patch.object(release_plan, "tree_of", return_value=TREE), \
+                mock.patch.object(release_plan, "promoted_rehearsal_run", return_value=41) as preferred, \
+                mock.patch.object(release_plan, "find_rehearsal", return_value=REHEARSAL) as finder:
+            self.assertEqual(release_plan.lookup_rehearsal(OFFICIAL, "0.27.0", "new", "token"), REHEARSAL)
+        preferred.assert_called_once_with(OFFICIAL, "v0.27.0", "token")
+        finder.assert_called_once_with(OFFICIAL, "0.27.0", TREE, "token", prefer=41)
 
     def test_the_passed_rehearsals_bundle_of_the_highest_id_is_promoted(self) -> None:
         # Catches a promotion of an older rehearsal's files when a newer one passed, and a finder that gives up when the

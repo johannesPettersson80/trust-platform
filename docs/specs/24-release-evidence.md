@@ -208,7 +208,11 @@ proves nothing. GitHub may list a merged pull request a few seconds after the
 merge, so while it lists none the plan asks again, three times in about 30
 seconds, and then promotes nothing. The plan takes these facts from GitHub's
 API, never from a pull request's text, and of several such artifacts it takes
-the one with the highest id. Without one, the push releases nothing and the release
+the one with the highest id; but when the version's tag is already on the
+commit and its GitHub release exists, as after a promotion that stopped
+halfway, it takes the rehearsal that the release's `release-provenance.json`
+names while that one still qualifies, so that the release continues with the
+files it began with. Without one, the push releases nothing and the release
 follows `main`'s CI. A promoted release runs no build or test of its
 packages; its preflight audits the VS Code lockfile again, since the audit of
 the rehearsal's build can be days old, and it runs the real-database matrix on

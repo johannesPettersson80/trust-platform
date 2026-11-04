@@ -54,8 +54,10 @@ from typing import Callable, Sequence
 
 try:
     from scripts import ci_changes
+    from scripts.check_published_release import github_release
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     import ci_changes  # type: ignore[no-redef]
+    from check_published_release import github_release  # type: ignore[no-redef]
 
 # The Release workflow's job and step that verify a release; `test_release_workflow` holds them to it.
 VERIFY_JOB = "Publish"
@@ -368,10 +370,10 @@ def ci_passed(repository: str, commit: str, tree: str, token: str, get: Callable
 
 def find_rehearsal(
     repository: str, version: str, tree: str, token: str, get: Callable[[str, str], dict | list] = github_get,
-    *, sleep: Callable[[float], None] | None = None,
+    *, prefer: int | None = None, sleep: Callable[[float], None] | None = None,
 ) -> Rehearsal | None:
-    """The passed rehearsal, of the highest artifact id, that kept the release files of `version` for a commit with
-    `tree`.
+    """The passed rehearsal that kept the release files of `version` for a commit with `tree`: the run `prefer` when
+    it qualifies, otherwise the one of the highest artifact id.
 
     It asks GitHub for the artifacts named `release-bundle-v<version>-<tree>`, and takes one only when it has not
     expired and its run is a Release run of this repository that a pull request or a manual run started and that
@@ -391,7 +393,8 @@ def find_rehearsal(
         and isinstance(artifact.get("id"), int)
         and isinstance((artifact.get("workflow_run") or {}).get("id"), int)
     ]
-    for artifact in sorted(candidates, key=lambda artifact: artifact["id"], reverse=True):
+    ordered = sorted(candidates, key=lambda artifact: (artifact["workflow_run"]["id"] != prefer, -artifact["id"]))
+    for artifact in ordered:
         run = get(f"/repos/{repository}/actions/runs/{artifact['workflow_run']['id']}", token)
         head = run.get("head_commit") or {}
         if not (
@@ -425,6 +428,42 @@ def find_rehearsal(
             continue
         return Rehearsal(run_id=run["id"], artifact_id=artifact["id"], commit=run["head_sha"])
     return None
+
+
+def download(url: str) -> bytes:
+    """A published release asset, fetched without the token: GitHub redirects an asset to its storage, which must never
+    receive it."""
+    with urllib.request.urlopen(url, timeout=30) as response:
+        return response.read()
+
+
+def promoted_rehearsal_run(
+    repository: str, tag: str, token: str,
+    release_of: Callable[[str, str, str], dict | None] | None = None,
+    fetch: Callable[[str], bytes] | None = None,
+) -> int | None:
+    """The rehearsal run whose files a published release of `tag` began to publish, by its release-provenance.json;
+    None without such a release, or when its packages were built rather than promoted."""
+    release = (release_of or github_release)(repository, tag, token)
+    if release is None:
+        return None
+    asset = next((asset for asset in release.get("assets") or []
+                  if isinstance(asset, dict) and asset.get("name") == "release-provenance.json"), None)
+    if asset is None:
+        return None
+    record = json.loads((fetch or download)(str(asset.get("browser_download_url") or "")))
+    rehearsal = record.get("rehearsal") if isinstance(record, dict) and record.get("promoted") is True else None
+    run_id = str((rehearsal or {}).get("workflow_run_id") or "") if isinstance(rehearsal, dict) else ""
+    return int(run_id) if run_id.isdigit() else None
+
+
+def lookup_rehearsal(repository: str, version: str, sha: str, token: str) -> Rehearsal | None:
+    """The rehearsal that a release of the main commit `sha` promotes. When a published release of the version already
+    holds a rehearsal's files, as after a promotion that stopped halfway, that rehearsal comes first while it still
+    qualifies, so that the release continues with the same files."""
+    return find_rehearsal(
+        repository, version, tree_of(sha), token, prefer=promoted_rehearsal_run(repository, f"v{version}", token)
+    )
 
 
 def plan(
@@ -597,7 +636,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         release_complete=lambda tag: release_complete(
             args.repository, released_sha, token, since=runs_since(released_sha)
         ),
-        find_rehearsal=lambda version, sha: find_rehearsal(args.repository, version, tree_of(sha), token),
+        find_rehearsal=lambda version, sha: lookup_rehearsal(args.repository, version, sha, token),
     )
     rehearsal = result.rehearsal
     lines = [f"mode={result.mode}", f"sha={result.sha}", f"version={result.version}", f"tag={result.tag}",
