@@ -116,8 +116,9 @@ Check it once, before the first push:
    section; check the text with `scripts/extract_changelog_section.py`. It carries nothing else.
 2. **Its rehearsal.** The Release workflow rehearses the head of a pull request that changes the
    workspace version: every build, test and Publish script runs, and nothing is published. The
-   real-database matrix, on the project's own runner, never runs a pull request's code: it runs in a
-   manual rehearsal and in every release, a promoted one before it publishes. Once every build and test passed, the
+   real-database matrix runs on the project's own runner: a pull request's or merge group's code never
+   runs on that runner, and a manual rehearsal runs the code of the ref a maintainer chooses. The matrix
+   runs in a manual rehearsal and in every release, a promoted one before it publishes. Once every build and test passed, the
    run keeps its release text and evidence as the artifact `release-rehearsal-v<version>`, and every
    file the release publishes as `release-bundle-v<version>-<tree>`, named after the tree of the
    rehearsed head, for 30 days. A fork's pull request is not rehearsed on the project's runners;
@@ -144,8 +145,10 @@ Check it once, before the first push:
      flake's failed jobs may be re-run, and their success starts the release.
    - When a release job fails, fix the cause; re-running the failed jobs continues the release on the
      same commit, a promotion with the same rehearsal's files. A promotion that is not re-run is
-     released by the release after `main`'s CI, which builds again. A fix that needs a new commit
-     releases from that commit once its CI passes, while the version has no tag yet.
+     finished by the release after `main`'s CI, which promotes the same files. No run publishes
+     packages that differ from those a release of the tag already holds: it fails before the tag, and
+     a maintainer decides, as when the bundle expired and the release would build again. A fix that
+     needs a new commit releases from that commit once its CI passes, while the version has no tag yet.
 5. **Verify**: `release_candidate_guard.py verify-release --candidate-head <head> --branch <branch>`
    with `TMPDIR` on a large disk (the assets are 2.7 GB). It checks the tag on `main`, the Release
    run named by the release's provenance, GitHub Latest, the assets against their checksums, and the

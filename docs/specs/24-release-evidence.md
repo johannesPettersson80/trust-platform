@@ -107,9 +107,10 @@ run passed (0.30.0's first rehearsal attempt kept its files after a cancelled
 build, 3 November 2026), and that job holds no token that writes: no
 Marketplace token and a read-only GitHub token; only a release's publishing
 job gets write access, and only its Marketplace step the Marketplace token.
-The real-database matrix runs on the project's own runner, so never for a pull
-request or a merge group, whose code it would run (Codex's review of #146): it
-runs in a maintainer's manual rehearsal and in every release, a promoted one
+The real-database matrix runs on the project's own runner. A pull request's or
+merge group's code never runs on that runner (Codex's review of #146), and a
+manual rehearsal runs the code of the ref a maintainer chooses. The matrix runs
+in a maintainer's manual rehearsal and in every release, a promoted one
 included, on the release's commit before anything is published (owner, 4
 November 2026: "what you decide is okay with me"). It is given no secret.
 A pull request that keeps the version but changes what the packages hold (the
@@ -169,8 +170,8 @@ which is named `Release after CI of <commit>`, or one that a push of the
 commit to `main` started, whose head is that commit. A run after CI never
 counts by its head: that is `main`'s newest commit when it starts, which can be
 a later commit than the one it releases. No other run counts: the workflow of a
-pull request's or a manual run comes from the code it runs, which could name a
-job as the verification's. The check reads the runs after CI since the day
+pull request's run or of a manual run comes from the code it runs, which could
+give a job the verification's name. The check reads the runs after CI since the day
 before the commit's date; GitHub lists at most 1,000 runs for such a query, so
 when it lists that many the check fails instead of answering. A version whose
 tag is on another commit was released before, so nothing happens; a
@@ -212,7 +213,9 @@ rehearsal's provenance names the release's tag, the commit's tree and that run,
 and the release text written from the commit's changelog is the rehearsal's;
 the checked folders move into the checkout only then, replacing nothing. It
 writes the release's own provenance and checksums, then tags, releases,
-publishes and verifies as below.
+publishes and verifies as below. Its `conformance-status.json` is the
+rehearsal's, which names the rehearsed head, where the conformance suite ran;
+its provenance names both the released commit and the rehearsed head.
 
 A release never happens twice. One job at a time publishes from `main`: the
 publishing job of a promoted release holds the concurrency group of the runs
@@ -245,7 +248,8 @@ release with every required asset and the version's changelog section as its
 text, publishes every target's VS Code package to the Marketplace, and verifies
 the release. A missing Marketplace token fails the release. Re-running the
 failed jobs of a release continues where it stopped: a tag on the same commit,
-an existing release and a target already published are accepted. The
+an existing release that holds the same packages and a target already
+published are accepted. The
 workflow's conclusion job fails when any job failed or was cancelled, and
 passes when every job passed or the plan skipped it.
 
