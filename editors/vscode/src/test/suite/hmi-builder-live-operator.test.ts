@@ -2,7 +2,12 @@ import * as assert from "assert";
 import { LiveOperator } from "../../hmiBuilder/editor/liveOperator";
 import type { LiveOperationVerdict, LiveOperatorDeps } from "../../hmiBuilder/editor/liveOperator";
 import type { LiveSessionDeps } from "../../hmiBuilder/editor/liveSession";
-import { liveGate, liveOperation } from "../../hmiBuilder/editor/liveOperatorRuntime";
+import { liveBridge, liveGate, liveOperation } from "../../hmiBuilder/editor/liveOperatorRuntime";
+
+/** A project with no unsaved document, and one with an unsaved page of its HMI. */
+const ROOT = "/work/plant";
+const SAVED = { root: ROOT, unsaved: [] as string[] };
+const EDITED = { root: ROOT, unsaved: ["/work/plant/hmi/pages/overview.toml"] };
 import type { HostToWebview } from "../../hmiBuilder/editor/messages";
 
 /** The first message that `find` picks, waiting up to five seconds for it. */
@@ -22,12 +27,13 @@ suite("HMI Builder: deployed Live connection", () => {
     const paths: string[] = [];
     const operator = new LiveOperator(
       {
-        dirty: () => false,
+        unsaved: () => SAVED,
         bundle: async () => ({ ok: true, version: "0123456789abcdef".repeat(4) }),
         runTarget: async () => ({ label: "Cell runtime", simulator: false }),
         liveGate,
         liveOperation,
         session: {
+          bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
           request: async (_target, _method, path) => {
             paths.push(path);
@@ -52,12 +58,13 @@ suite("HMI Builder: deployed Live connection", () => {
       let reads = 0;
       const operator = new LiveOperator(
         {
-          dirty: () => dirty,
+          unsaved: () => (dirty ? EDITED : SAVED),
           bundle: async () => ({ ok: true, version: "local" }),
           runTarget: async () => ({ label: "Cell runtime", simulator: false }),
           liveGate,
           liveOperation,
           session: {
+            bridge: liveBridge,
             target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
             request: async () => {
               reads++;
@@ -82,12 +89,13 @@ suite("HMI Builder: deployed Live connection", () => {
       const messages: HostToWebview[] = [];
       const operator = new LiveOperator(
         {
-          dirty: () => false,
+          unsaved: () => SAVED,
           bundle: async () => ({ ok: true, version: "v1" }),
           runTarget: async () => selected,
           liveGate,
           liveOperation,
           session: {
+            bridge: liveBridge,
             target: async () => undefined,
             request: async () => assert.fail("a target without an HMI web server is never asked for the page"),
           },
@@ -114,12 +122,13 @@ suite("HMI Builder: deployed Live connection", () => {
     let requests = 0;
     const operator = new LiveOperator(
       {
-        dirty: () => false,
+        unsaved: () => SAVED,
         bundle: async () => ({ ok: true, version: "v1" }),
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
         liveOperation,
         session: {
+          bridge: liveBridge,
           target: async () => ({ endpoint, url: "http://plc:8080", label: "Cell" }),
           request: async () => {
             requests++;
@@ -144,12 +153,13 @@ suite("HMI Builder: deployed Live connection", () => {
     let version = "v1";
     const operator = new LiveOperator(
       {
-        dirty: () => false,
+        unsaved: () => SAVED,
         bundle: async () => ({ ok: true, version: "v1" }),
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
         liveOperation,
         session: {
+          bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
           request: async () => ({ status: 200, body: { bundle: version, page: { name: "overview" } } }),
         },
@@ -184,7 +194,7 @@ suite("HMI Builder: deployed Live connection", () => {
     let requests = 0;
     const operator = new LiveOperator(
       {
-        dirty: () => false,
+        unsaved: () => SAVED,
         bundle: () =>
           new Promise((done) => {
             resolve = done;
@@ -193,6 +203,7 @@ suite("HMI Builder: deployed Live connection", () => {
         liveGate,
         liveOperation,
         session: {
+          bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
           request: async () => {
             requests++;
@@ -215,12 +226,13 @@ suite("HMI Builder: deployed Live connection", () => {
     const messages: HostToWebview[] = [];
     const operator = new LiveOperator(
       {
-        dirty: () => false,
+        unsaved: () => SAVED,
         bundle: async () => ({ ok: true, version: "v1" }),
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
         liveOperation,
         session: {
+          bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
           request: async (_target, _method, path) =>
             path === "/api/hmi/session"
@@ -251,12 +263,13 @@ suite("HMI Builder: deployed Live connection", () => {
   ): LiveOperatorDeps {
     const { request, openSocket, ...rest } = changes;
     return {
-      dirty: () => false,
+      unsaved: () => SAVED,
       bundle: async () => ({ ok: true, version: "v1" }),
       runTarget: async () => ({ label: "Cell", simulator: false }),
       liveGate,
       liveOperation,
       session: {
+        bridge: liveBridge,
         target: async () => ({ endpoint: endpoint(), url: "http://plc:8080", label: "Cell" }),
         request: request ?? (async () => ({ status: 200, body: { bundle: "v1", page: { name: "overview" } } })),
         openSocket,
@@ -334,7 +347,7 @@ suite("HMI Builder: deployed Live connection", () => {
     let dirty = false;
     const operator = new LiveOperator(
       deps({
-        dirty: () => dirty,
+        unsaved: () => (dirty ? EDITED : SAVED),
         request: async (_target, _method, path) => {
           paths.push(path);
           return { status: 200, body: { bundle: "v1", page: { name: "overview" } } };

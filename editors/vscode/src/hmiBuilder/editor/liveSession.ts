@@ -12,8 +12,28 @@ export interface LiveReply {
   body: unknown;
   cookie?: string;
 }
+/** What the language server decides about the session's traffic, from facts only: never the password or the session
+ * cookie, which a language client's `verbose` trace would log (`trust-lsp.hmiLiveBridge`, §11 item 6). */
+export interface LiveBridge {
+  /** Whether a request goes out, or how it is refused, and whether its answer's status comes back. */
+  request(facts: {
+    method: "GET" | "POST";
+    path: string;
+    session: boolean;
+    peer: boolean;
+  }): Promise<{ bridged: true; reply: boolean } | { bridged: false; status: number; message: string }>;
+  /** What the named session becomes after the answer to a login or a logout. */
+  reply(facts: {
+    path: string;
+    status: number;
+    peer: boolean;
+  }): Promise<{ session: "keep"; cookie: string } | { session: "drop" | "unchanged" }>;
+  /** Whether a value stream opens. */
+  stream(facts: { path: string }): Promise<boolean>;
+}
 export interface LiveSessionDeps {
   target(): Promise<LiveEndpoint | undefined>;
+  bridge: LiveBridge;
   openSocket?(target: LiveEndpoint, path: string, cookie?: string): SocketLike;
   request(
     target: LiveEndpoint,
@@ -24,11 +44,31 @@ export interface LiveSessionDeps {
   ): Promise<LiveReply>;
 }
 const refused = (status: number, error: string): LiveReply => ({ status, body: { error } });
-/** What Live mode forwards (§11, §21.3 item 7): the display's reads, the named session's login and
- * logout, and the writes that need that session: commands, alarm actions and settings (§21.4). */
-const READS = /^\/api\/hmi\/(?:page|popup|session|alarms|history|remote)(?:\?[^#\r\n]*)?$/;
-const WRITES = /^\/api\/hmi\/(?:login|logout|command|alarm|settings)$/;
-const NEEDS_SESSION = new Set(["/api/hmi/command", "/api/hmi/alarm", "/api/hmi/settings"]);
+/** How long the language server may take to give a verdict (specification 39, §11 item 6). */
+const VERDICT_WAIT_MS = 5_000;
+
+/** `verdict`, or a rejection when the language server does not give it within 5 seconds. */
+async function decided<T>(verdict: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`trust-lsp.hmiLiveBridge did not answer within ${VERDICT_WAIT_MS / 1000} seconds`)),
+      VERDICT_WAIT_MS,
+    );
+  });
+  try {
+    return await Promise.race([verdict, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The cookie-pair `name=value` that a `Set-Cookie` value begins with (RFC 6265 §5.2): its text up to the first `;` or
+ * white space; undefined for another cookie or none. The host keeps it in memory only (§11 item 6). */
+function cookiePair(setCookie: string | undefined, name: string): string | undefined {
+  const pair = setCookie?.split(/[;\s]/, 1)[0] ?? "";
+  return pair.length > name.length + 1 && pair.startsWith(`${name}=`) ? pair : undefined;
+}
 
 /** One editor's session, pinned to the first selected target; never revived after stop. */
 export class LiveSession {
@@ -42,25 +82,35 @@ export class LiveSession {
 
   async request(method: "GET" | "POST", path: string, body?: unknown): Promise<LiveReply> {
     if (this.stopped) return refused(409, "Live connection ended. Reopen Live mode to connect.");
-    const allowed = method === "GET" ? READS.test(path) : WRITES.test(path);
-    if (!allowed) return refused(403, "This address is not part of Live operation.");
+    // Facts only: whether a named session is held and whether a login names a peer, never their secrets.
+    const peer = Boolean((body as { peer?: unknown } | undefined)?.peer);
+    let verdict: Awaited<ReturnType<LiveBridge["request"]>>;
+    try {
+      verdict = await decided(this.deps.bridge.request({ method, path, session: this.cookie !== undefined, peer }));
+    } catch (error) {
+      // No verdict, no request.
+      return refused(503, error instanceof Error ? error.message : String(error));
+    }
+    if (!verdict.bridged) return refused(verdict.status, verdict.message);
     const target = await this.target();
     if (!target)
       return refused(409, "The run target changed or the Live connection ended. Reopen Live mode to connect.");
-    if (method === "POST" && NEEDS_SESSION.has(path) && !this.cookie) {
-      return refused(401, "Log in with a named HMI user to operate.");
-    }
     const answer = await this.deps.request(target, method, path, body, this.cookie);
     if (this.stopped) return refused(409, "Live connection ended.");
-    if (path === "/api/hmi/login" && answer.status === 200 && !(body as { peer?: unknown } | undefined)?.peer) {
-      this.cookie = /^trust_hmi_session=[^;\s]+/.exec(answer.cookie ?? "")?.[0];
+    if (verdict.reply) {
+      // Without a verdict on the answer, the session is not kept.
+      const after = await decided(this.deps.bridge.reply({ path, status: answer.status, peer })).catch(
+        () => ({ session: "drop" }) as const,
+      );
+      if (this.stopped) return refused(409, "Live connection ended.");
+      if (after.session === "keep") this.cookie = cookiePair(answer.cookie, after.cookie);
+      else if (after.session === "drop") this.cookie = undefined;
     }
-    if (path === "/api/hmi/logout") this.cookie = undefined;
     return { status: answer.status, body: answer.body };
   }
 
   async openSocket(path: string): Promise<SocketLike | undefined> {
-    if (!/^\/ws\/hmi\?(?:page|popup|faceplate)=[^#\r\n]+$/.test(path)) return undefined;
+    if (!(await decided(this.deps.bridge.stream({ path })).catch(() => false))) return undefined;
     const target = await this.target();
     if (!target || !this.deps.openSocket) return undefined;
     const raw = this.deps.openSocket(target, path, this.cookie);
