@@ -27,8 +27,9 @@ use super::{
     resolve_workspace_root, AgentCommandError, AgentServer, CommonProjectParams,
     HarnessAdvanceTimeParams, HarnessCycleParams, HarnessExecuteParams, HarnessGetOutputParams,
     HarnessLoadParams, HarnessRunUntilParams, HarnessSetInputParams, LspAstCanonicalizeParams,
-    LspAstSimilarityParams, LspDiagnosticsParams, LspFormatParams, RuntimeReloadParams,
-    RuntimeTestParams, WorkspaceReadParams, WorkspaceWriteParams,
+    LspAstSimilarityParams, LspDiagnosticsParams, LspFormatParams, RuntimeCompileReloadParams,
+    RuntimeIssueCapParams, RuntimeReloadParams, RuntimeTestParams, WorkspaceReadParams,
+    WorkspaceWriteParams,
 };
 
 /// The MCP protocol revision this server pins, per
@@ -70,7 +71,7 @@ const TOOL_BINDINGS: &[AgentToolBinding] = &[
     AgentToolBinding {
         method: "lsp.diagnostics",
         description:
-            "Return machine-readable diagnostics for one ST file or a whole project source tree.",
+            "Return machine-readable diagnostics for one ST file or a whole project source tree. Supports opt-in paging: pass page and page_size together to bound each response (see totalIssues/totalPages); omit both for the full list.",
     },
     AgentToolBinding {
         method: "lsp.ast_canonicalize",
@@ -88,16 +89,16 @@ const TOOL_BINDINGS: &[AgentToolBinding] = &[
     },
     AgentToolBinding {
         method: "runtime.build",
-        description: "Reuse the `trust-runtime build --ci` payload path.",
+        description: "Reuse the `trust-runtime build --ci` payload path. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) on large projects.",
     },
     AgentToolBinding {
         method: "runtime.compile_reload",
         description:
-            "Run the full diagnose -> build -> reload loop and return a single structured result.",
+            "Run the full diagnose -> build -> reload loop and return a single structured result. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) on large projects.",
     },
     AgentToolBinding {
         method: "runtime.validate",
-        description: "Reuse the `trust-runtime validate --ci` payload path.",
+        description: "Reuse the `trust-runtime validate --ci` payload path. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) on large projects.",
     },
     AgentToolBinding {
         method: "runtime.test",
@@ -175,9 +176,9 @@ fn input_schema(method: &str) -> JsonObject {
         "lsp.ast_canonicalize" => generated_schema::<LspAstCanonicalizeParams>(),
         "lsp.ast_similarity" => generated_schema::<LspAstSimilarityParams>(),
         "lsp.format" => generated_schema::<LspFormatParams>(),
-        "runtime.build" => generated_schema::<CommonProjectParams>(),
-        "runtime.compile_reload" => generated_schema::<RuntimeReloadParams>(),
-        "runtime.validate" => generated_schema::<CommonProjectParams>(),
+        "runtime.build" => generated_schema::<RuntimeIssueCapParams>(),
+        "runtime.compile_reload" => generated_schema::<RuntimeCompileReloadParams>(),
+        "runtime.validate" => generated_schema::<RuntimeIssueCapParams>(),
         "runtime.test" => generated_schema::<RuntimeTestParams>(),
         "runtime.reload" => generated_schema::<RuntimeReloadParams>(),
         "harness.load" => generated_schema::<HarnessLoadParams>(),

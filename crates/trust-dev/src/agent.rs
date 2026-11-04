@@ -21,6 +21,8 @@ mod contract_tests;
 mod harness;
 #[path = "agent/mcp.rs"]
 mod mcp;
+#[path = "agent/paging.rs"]
+mod paging;
 
 pub use mcp::run_agent_serve_mcp;
 const JSON_RPC_VERSION: &str = "2.0";
@@ -278,21 +280,28 @@ impl AgentServer {
             .map_err(AgentCommandError::from_anyhow)
     }
 
-    fn runtime_build(&self, params: CommonProjectParams) -> Result<JsonValue, AgentCommandError> {
-        let project_root = self.resolve_project_root(params.project.as_deref())?;
+    fn runtime_build(&self, params: RuntimeIssueCapParams) -> Result<JsonValue, AgentCommandError> {
+        let issues_limit = paging::validate_issue_limit(params.issues_limit)?;
+        let project_root = self.resolve_project_root(params.common.project.as_deref())?;
         let sources_root = params
+            .common
             .sources_root
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
-        crate::build::build_json_payload(Some(project_root), sources_root)
-            .map_err(AgentCommandError::from_anyhow)
+        let mut payload = crate::build::build_json_payload(Some(project_root), sources_root)
+            .map_err(AgentCommandError::from_anyhow)?;
+        if let Some(limit) = issues_limit {
+            paging::apply_issue_cap(&mut payload, limit);
+        }
+        Ok(payload)
     }
 
     fn lsp_diagnostics(
         &self,
         params: LspDiagnosticsParams,
     ) -> Result<JsonValue, AgentCommandError> {
+        let page = paging::validate_page_params(params.page, params.page_size)?;
         let project_root = self.resolve_project_root(params.project.as_deref())?;
         let sources_root = params
             .sources_root
@@ -305,13 +314,17 @@ impl AgentServer {
             .map(normalize_workspace_path)
             .transpose()?
             .map(|path| path.to_string_lossy().replace('\\', "/"));
-        crate::workflow::diagnostics_payload(
+        let mut payload = crate::workflow::diagnostics_payload(
             &project_root,
             sources_root.as_deref(),
             path.as_deref(),
             params.content,
         )
-        .map_err(AgentCommandError::from_anyhow)
+        .map_err(AgentCommandError::from_anyhow)?;
+        if let Some((page, page_size)) = page {
+            paging::apply_issue_paging(&mut payload, page, page_size);
+        }
+        Ok(payload)
     }
 
     fn lsp_format(&self, params: LspFormatParams) -> Result<JsonValue, AgentCommandError> {
@@ -369,10 +382,16 @@ impl AgentServer {
 
     fn runtime_validate(
         &self,
-        params: CommonProjectParams,
+        params: RuntimeIssueCapParams,
     ) -> Result<JsonValue, AgentCommandError> {
-        let project_root = self.resolve_project_root(params.project.as_deref())?;
-        crate::run::validate_json_payload(project_root).map_err(AgentCommandError::from_anyhow)
+        let issues_limit = paging::validate_issue_limit(params.issues_limit)?;
+        let project_root = self.resolve_project_root(params.common.project.as_deref())?;
+        let mut payload = crate::run::validate_json_payload(project_root)
+            .map_err(AgentCommandError::from_anyhow)?;
+        if let Some(limit) = issues_limit {
+            paging::apply_issue_cap(&mut payload, limit);
+        }
+        Ok(payload)
     }
 
     fn runtime_test(&self, params: RuntimeTestParams) -> Result<JsonValue, AgentCommandError> {
@@ -388,21 +407,27 @@ impl AgentServer {
 
     fn runtime_compile_reload(
         &self,
-        params: RuntimeReloadParams,
+        params: RuntimeCompileReloadParams,
     ) -> Result<JsonValue, AgentCommandError> {
-        let project_root = self.resolve_project_root(params.project.as_deref())?;
+        let issues_limit = paging::validate_issue_limit(params.issues_limit)?;
+        let project_root = self.resolve_project_root(params.runtime.project.as_deref())?;
         let sources_root = params
+            .runtime
             .sources_root
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
-        crate::workflow::compile_reload_payload(
+        let mut payload = crate::workflow::compile_reload_payload(
             &project_root,
             sources_root.as_deref(),
-            params.endpoint,
-            params.token,
+            params.runtime.endpoint,
+            params.runtime.token,
         )
-        .map_err(AgentCommandError::from_anyhow)
+        .map_err(AgentCommandError::from_anyhow)?;
+        if let Some(limit) = issues_limit {
+            paging::apply_issue_cap(&mut payload, limit);
+        }
+        Ok(payload)
     }
 
     fn runtime_reload(&self, params: RuntimeReloadParams) -> Result<JsonValue, AgentCommandError> {
@@ -744,6 +769,8 @@ struct LspDiagnosticsParams {
     sources_root: Option<String>,
     path: Option<String>,
     content: Option<String>,
+    page: Option<u64>,
+    page_size: Option<u64>,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -785,6 +812,25 @@ struct RuntimeReloadParams {
     sources_root: Option<String>,
     endpoint: Option<String>,
     token: Option<String>,
+}
+
+/// `runtime.compile_reload` — the runtime transaction params plus the
+/// contract's opt-in `issues_limit` cap (`runtime.reload` shares the runtime
+/// params but carries no top-level `issues` list, so it takes no cap).
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+struct RuntimeCompileReloadParams {
+    #[serde(flatten)]
+    runtime: RuntimeReloadParams,
+    issues_limit: Option<u64>,
+}
+
+/// The project params of `runtime.build` and `runtime.validate` plus the
+/// contract's opt-in `issues_limit` cap.
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+struct RuntimeIssueCapParams {
+    #[serde(flatten)]
+    common: CommonProjectParams,
+    issues_limit: Option<u64>,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]

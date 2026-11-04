@@ -135,6 +135,24 @@ JSON-RPC protocol errors on the MCP session; in particular an unknown tool
 name is rejected as a `-32601` protocol error and never reaches the tool
 result.
 
+## Large Projects and Response Size
+
+- Whole-project results can be large. A project whose analysis produces many
+  issues (for example when vendor stub libraries are not yet wired into the
+  analysis path) yields a single multi-megabyte JSON response, and real MCP
+  hosts enforce message-size limits and call timeouts on stdio traffic.
+- `lsp_diagnostics` therefore supports the contract's opt-in paging:
+  pass `page` and `page_size` together to bound each response and read
+  `totalIssues` / `totalPages` to iterate. Omitting both returns the full
+  list exactly as the JSON-RPC surface does.
+- `runtime_compile_reload`, `runtime_build`, and `runtime_validate` accept
+  the contract's opt-in `issues_limit`; an applied limit caps `issues[]` and
+  adds `issuesTruncated` and `totalIssues` to the result.
+- Clients driving large projects should set these parameters
+  (for example `page_size: 500`, `issues_limit: 500`). Without them the
+  tools return whole lists, which can exceed a host's message limit; the
+  call itself still completes server-side.
+
 ## Concurrency and Cancellation
 
 - Requests are served sequentially per server instance, in arrival order.

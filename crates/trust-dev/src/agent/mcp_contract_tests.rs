@@ -136,6 +136,49 @@ fn every_method_has_an_object_schema() {
     }
 }
 
+/// The contract's opt-in response-bounding parameters surface in the advisory
+/// schemas: paging on `lsp_diagnostics`, the `issues_limit` cap on the three
+/// runtime transaction tools. A flattened struct must not lose its parent
+/// fields, and the shared `runtime.reload` tool must not gain a cap it does
+/// not honour.
+#[test]
+fn response_bounding_params_surface_in_the_advisory_schemas() {
+    let diagnostics = Value::Object(input_schema("lsp.diagnostics"));
+    let properties = diagnostics["properties"]
+        .as_object()
+        .expect("schema properties");
+    for param in ["page", "page_size"] {
+        assert!(
+            properties.contains_key(param),
+            "lsp.diagnostics schema names the {param} paging parameter"
+        );
+    }
+
+    for method in [
+        "runtime.build",
+        "runtime.validate",
+        "runtime.compile_reload",
+    ] {
+        let schema = Value::Object(input_schema(method));
+        let properties = schema["properties"].as_object().expect("schema properties");
+        assert!(
+            properties.contains_key("issues_limit"),
+            "{method} schema names the issues_limit cap"
+        );
+        assert!(
+            properties.contains_key("project"),
+            "{method} schema keeps the flattened project parameter"
+        );
+    }
+
+    let reload = Value::Object(input_schema("runtime.reload"));
+    let properties = reload["properties"].as_object().expect("schema properties");
+    assert!(
+        !properties.contains_key("issues_limit"),
+        "runtime.reload carries no issues_limit: its payload has no top-level issues list"
+    );
+}
+
 /// An in-process MCP session over rmcp's in-memory transport. The server task
 /// holds its [`RunningService`] for the whole test: dropping it would close
 /// the transport the moment the handshake returns. The abort on drop tears

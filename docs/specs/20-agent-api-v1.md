@@ -66,7 +66,10 @@ normative for project orientation, source discovery, public diagnostic
 coordinates, canonical token and five-gram results, similarity decisions, and
 non-mutating formatting previews. Optional project and source-root parameters
 retain their documented resolution bases; an inline override affects only the
-request result and never changes the selected file.
+request result and never changes the selected file. Paging on `lsp.diagnostics`
+and the `issues_limit` cap on the runtime transaction methods are opt-in and
+deterministic: parameters select windows of the same sorted lists, and omitted
+parameters preserve the established whole-list responses.
 
 ## 8. MCP server binding
 

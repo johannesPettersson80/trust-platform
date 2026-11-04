@@ -634,3 +634,211 @@ fn harness_run_until_timeout_preserves_name_budget_and_typed_expected_value() {
         json!({"type": "BOOL", "value": true})
     );
 }
+
+// --- Opt-in response bounding: lsp.diagnostics paging and the runtime
+// --- issues_limit cap (specification 20 §7).
+
+fn invalid_agent_program(name: &str, symbol: &str) -> String {
+    format!("PROGRAM {name}\nVAR\n  value : INT;\nEND_VAR\nvalue := {symbol};\nEND_PROGRAM\n")
+}
+
+#[test]
+fn diagnostics_paging_slices_the_deterministic_sort_and_reports_totals() {
+    let workspace = TestWorkspace::new("diagnostics-paging");
+    workspace.write("src/a.st", &invalid_agent_program("Alpha", "MissingA"));
+    workspace.write("src/z.st", &invalid_agent_program("Zed", "MissingZ"));
+    let mut server = workspace.server();
+
+    let whole = success(server.handle_line(&request(json!(1), "lsp.diagnostics", Some(json!({})))));
+    let total_issues = whole["result"]["issues"]
+        .as_array()
+        .expect("issues array")
+        .len();
+    assert!(
+        total_issues >= 2,
+        "fixture must produce several issues: {whole:#}"
+    );
+    assert!(
+        whole.get("totalIssues").is_none(),
+        "unpaged response carries no paging fields: {whole:#}"
+    );
+
+    let first = success(server.handle_line(&request(
+        json!(2),
+        "lsp.diagnostics",
+        Some(json!({"page": 1, "page_size": 1})),
+    )));
+    assert_eq!(first["result"]["page"], 1);
+    assert_eq!(first["result"]["pageSize"], 1);
+    assert_eq!(first["result"]["totalIssues"], total_issues);
+    assert_eq!(first["result"]["totalPages"], total_issues);
+
+    // Every page of the sort, concatenated, is exactly the unpaged list.
+    let mut paged = Vec::new();
+    for page in 1..=total_issues {
+        let response = success(server.handle_line(&request(
+            json!(page + 10),
+            "lsp.diagnostics",
+            Some(json!({"page": page, "page_size": 1})),
+        )));
+        paged.extend(
+            response["result"]["issues"]
+                .as_array()
+                .expect("page issues")
+                .clone(),
+        );
+    }
+    assert_eq!(
+        Value::Array(paged),
+        whole["result"]["issues"],
+        "concatenated pages reproduce the unpaged deterministic list exactly"
+    );
+}
+
+#[test]
+fn diagnostics_paging_beyond_the_last_page_is_empty_with_honest_totals() {
+    let workspace = TestWorkspace::new("diagnostics-paging-empty");
+    workspace.write("src/a.st", &invalid_agent_program("Alpha", "MissingA"));
+    let mut server = workspace.server();
+
+    let whole = success(server.handle_line(&request(json!(1), "lsp.diagnostics", Some(json!({})))));
+    let total_issues = whole["result"]["issues"]
+        .as_array()
+        .expect("issues array")
+        .len();
+    assert!(total_issues >= 1, "{whole:#}");
+
+    let beyond = success(server.handle_line(&request(
+        json!(2),
+        "lsp.diagnostics",
+        Some(json!({"page": 99, "page_size": 1})),
+    )));
+    assert!(beyond["result"]["issues"]
+        .as_array()
+        .expect("issues array")
+        .is_empty());
+    assert_eq!(beyond["result"]["totalIssues"], total_issues);
+    assert_eq!(beyond["result"]["totalPages"], total_issues);
+}
+
+#[test]
+fn diagnostics_paging_params_must_be_a_pair_of_at_least_one() {
+    let workspace = TestWorkspace::new("diagnostics-paging-params");
+    workspace.write("src/a.st", &invalid_agent_program("Alpha", "MissingA"));
+    let mut server = workspace.server();
+
+    let alone = failure(
+        server.handle_line(&request(
+            json!(1),
+            "lsp.diagnostics",
+            Some(json!({"page": 1})),
+        )),
+        -32602,
+    );
+    let other_alone = failure(
+        server.handle_line(&request(
+            json!(2),
+            "lsp.diagnostics",
+            Some(json!({"page_size": 10})),
+        )),
+        -32602,
+    );
+    let zero = failure(
+        server.handle_line(&request(
+            json!(3),
+            "lsp.diagnostics",
+            Some(json!({"page": 0, "page_size": 10})),
+        )),
+        -32602,
+    );
+    let zero_size = failure(
+        server.handle_line(&request(
+            json!(4),
+            "lsp.diagnostics",
+            Some(json!({"page": 1, "page_size": 0})),
+        )),
+        -32602,
+    );
+    for response in [alone, other_alone, zero, zero_size] {
+        assert!(
+            response["error"]["message"].as_str().is_some(),
+            "invalid-params responses carry a message: {response:#}"
+        );
+    }
+}
+
+#[test]
+fn compile_reload_issues_limit_caps_and_flags_only_when_exceeded() {
+    let workspace = TestWorkspace::new("compile-reload-cap");
+    workspace.write("src/a.st", &invalid_agent_program("Alpha", "MissingA"));
+    let mut server = workspace.server();
+
+    let whole = success(server.handle_line(&request(
+        json!(1),
+        "runtime.compile_reload",
+        Some(json!({})),
+    )));
+    let total_issues = whole["result"]["issues"]
+        .as_array()
+        .expect("issues array")
+        .len();
+    assert!(
+        total_issues >= 1,
+        "blocked diagnose carries issues: {whole:#}"
+    );
+    assert!(
+        whole.get("issuesTruncated").is_none(),
+        "uncapped response carries no truncation fields: {whole:#}"
+    );
+
+    let capped = success(server.handle_line(&request(
+        json!(2),
+        "runtime.compile_reload",
+        Some(json!({"issues_limit": 1})),
+    )));
+    assert_eq!(
+        capped["result"]["issues"]
+            .as_array()
+            .expect("issues array")
+            .len(),
+        1
+    );
+    assert_eq!(capped["result"]["issuesTruncated"], true);
+    assert_eq!(capped["result"]["totalIssues"], total_issues);
+
+    let generous = success(server.handle_line(&request(
+        json!(3),
+        "runtime.compile_reload",
+        Some(json!({"issues_limit": 9999})),
+    )));
+    assert_eq!(
+        generous["result"]["issues"]
+            .as_array()
+            .expect("issues array")
+            .len(),
+        total_issues
+    );
+    assert!(
+        generous.get("issuesTruncated").is_none(),
+        "an unexceeded limit leaves the response unchanged: {generous:#}"
+    );
+}
+
+#[test]
+fn compile_reload_rejects_a_zero_issues_limit_as_invalid_params() {
+    let workspace = TestWorkspace::new("compile-reload-cap-zero");
+    let mut server = workspace.server();
+
+    let response = failure(
+        server.handle_line(&request(
+            json!(1),
+            "runtime.compile_reload",
+            Some(json!({"issues_limit": 0})),
+        )),
+        -32602,
+    );
+    assert!(
+        response["error"]["message"].as_str().is_some(),
+        "{response:#}"
+    );
+}
