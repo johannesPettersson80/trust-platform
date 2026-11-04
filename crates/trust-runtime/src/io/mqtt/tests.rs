@@ -235,6 +235,9 @@ fn sparkplug_profile_rejects_unsupported_shapes() {
 /// is connected, or why it is not. The broker stand-in accepts the session, then closes the
 /// connection, and the backoff of `reconnect_ms` keeps the session down. Catches a detail without
 /// the broker, one that reads connected after the broker went away, and one that hides the cause.
+/// The broker closes only after it took the driver's subscription: a socket closed with bytes it has
+/// not read resets the connection, and the driver then rightly names the reset (W31: a late stand-in
+/// on a loaded macOS runner).
 #[test]
 fn mqtt_detail_names_the_broker_and_the_sessions_state() {
     let broker = Broker::start();
@@ -255,6 +258,7 @@ fn mqtt_detail_names_the_broker_and_the_sessions_state() {
     eventually("a connected session in the detail", || {
         detail() == connected
     });
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
     broker.close_connection();
     eventually("the lost session in the detail", || detail() == lost);
 }
