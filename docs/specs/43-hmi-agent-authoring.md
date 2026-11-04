@@ -704,19 +704,22 @@ its expiry, ten minutes on, or the refusal. The extension then logs in through i
 (specification 39 §11 item 6) and keeps the session's cookie; a login that the simulator refuses
 closes the session (`trust-lsp.hmiAgent.closeSimulatorSession`). `trust-lsp.hmiAgent.simulatorSessions`
 lists a workspace's unexpired sessions, their names and expiry, for the agent's context.
-`trust-lsp.hmiAgent.runSimulatorJourney` takes a session ID, that session's cookie, the target, the
-steps and the draft's page models, and runs the journey itself; it holds the cookie in memory for
-that journey only and never writes or logs it. A session runs one journey at a time. Before each
-step the journey checks that the session has not expired and that `checkTarget` still accepts the
-target, reads the deployed page (`GET /api/hmi/page`) and compares its model with the draft's, key
-order aside, and follows the page's readback stream (`/ws/hmi`). A step with a control sends its
-command with the named session (`POST /api/hmi/command`, a new command ID) and stops the journey
-unless the answer is `applied`, `pending` or `confirmed`; then the step waits at most 5 seconds for
-the command's confirmation and, with a readback path, for that path's value, the expected one when
-it is given. Each step adds its outcome: `observed`, or `cancelled`, `disconnected` or `timed-out`,
-which end the journey. `trust-lsp.hmiAgent.cancelSimulatorJourney` cancels a session's running
-journey. The answer names the session, holds every outcome and the error that ended the journey, if
-any, and has passed exactly when its last outcome is `observed`.
+`trust-lsp.hmiAgent.runSimulatorJourney` takes the workspace, a session ID of that workspace, that
+session's cookie, the target, the steps and the draft's page models, and runs the journey itself; it
+holds the cookie in memory for that journey only and never writes or logs it. A session runs one
+journey at a time, and a journey whose target differs from the session's is refused and closes the
+session (specification 39 §11 item 6). Before each step the journey checks that the session has not
+expired and that `checkTarget` still accepts the target, reads the deployed page
+(`GET /api/hmi/page`) and compares its model with the draft's, key order aside, and follows the
+page's readback stream (`/ws/hmi`). A step with a control sends its command with the named session
+(`POST /api/hmi/command`, a new command ID) and stops the journey unless the answer is `applied`,
+`pending` or `confirmed`; then the step waits at most 5 seconds for the command's confirmation and,
+with a readback path, for that path's value (a path the runtime answers as unknown, `null`, has
+none), the expected one when it is given. Each step adds its outcome: `observed`, or `cancelled`,
+`disconnected` or `timed-out`, which end the journey. `trust-lsp.hmiAgent.cancelSimulatorJourney`
+cancels a session's running journey. The answer names the session, holds every outcome and the error
+that ended the journey, if any, and has passed exactly when no error ended it and its last outcome
+is `observed`.
 `hmi_preview_states` may explicitly select `mode: simulator`, a `sessionId` and up to twelve steps.
 Each step names a deployed page, optional control/action/value and optional readback path/expected
 value. The deployed page must match the supplied draft and its local program revision must still
