@@ -306,6 +306,33 @@ fn describe_is_complete_duplicate_free_and_transport_bound() {
     );
 }
 
+/// Specification 20 §7: `page` counts from 1 and needs `page_size`, the issues on each page. Catches
+/// a request whose page cannot be cut being answered with every issue, or with none.
+#[test]
+fn a_page_without_its_size_or_counting_from_zero_is_invalid_params() {
+    let workspace = TestWorkspace::new("diagnostics-page-params");
+    workspace.write("src/main.st", "PROGRAM Main\nEND_PROGRAM\n");
+    let mut server = workspace.server();
+
+    for (method, params) in [
+        ("lsp.diagnostics", json!({"page": 2})),
+        ("lsp.diagnostics", json!({"page": 0, "page_size": 10})),
+        ("lsp.diagnostics", json!({"page_size": 0})),
+        ("runtime.compile_reload", json!({"page": 1})),
+    ] {
+        let response = failure(
+            server.handle_line(&request(json!(60), method, Some(params.clone()))),
+            -32602,
+        );
+        assert!(
+            response["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("page")),
+            "{method} {params}: {response:#}"
+        );
+    }
+}
+
 #[test]
 fn workspace_read_returns_normalized_relative_path_and_exact_text() {
     let workspace = TestWorkspace::new("read");

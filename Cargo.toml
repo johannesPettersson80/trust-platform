@@ -133,6 +133,7 @@ espflash = { version = "4.6.0", default-features = false, features = ["serialpor
 trust-syntax = { path = "crates/trust-syntax" }
 trust-hir = { path = "crates/trust-hir" }
 trust-ide = { path = "crates/trust-ide" }
+trust-lsp = { path = "crates/trust-lsp" }
 trust-dev = { path = "crates/trust-dev" }
 trust-plcopen = { path = "crates/trust-plcopen" }
 trust-ads-core = { path = "crates/trust-ads-core" }

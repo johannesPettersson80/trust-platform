@@ -173,7 +173,8 @@ impl AgentServer {
                 "notes": [
                     "Transport is stdio JSON-RPC only in v1.",
                     "Network listeners are intentionally unsupported in this initial agent surface.",
-                    "lsp.diagnostics and lsp.format reuse the in-process Web IDE analysis/formatting services.",
+                    "lsp.diagnostics answers with the language server's own analysis, as trust-lsp check does: the project's trust-lsp.toml (include paths, libraries, vendor profile, severity overrides) applies, and page/page_size bound the listed issues.",
+                    "lsp.format reuses the in-process Web IDE formatting service.",
                     "lsp.ast_canonicalize and lsp.ast_similarity expose the canonical AST 5-gram normalization path used by contamination and dedup tooling.",
                     "runtime.compile_reload returns diagnostics plus build/reload status for iterative repair loops.",
                     "runtime.reload rebuilds program.tpi and sends it with bytecode.reload to the configured control endpoint.",
@@ -300,11 +301,14 @@ impl AgentServer {
             .map(normalize_workspace_path)
             .transpose()?
             .map(|path| path.to_string_lossy().replace('\\', "/"));
+        let page = issue_page(params.page, params.page_size)?;
         crate::workflow::diagnostics_payload(
+            &self.workspace_root,
             &project_root,
             sources_root.as_deref(),
             path.as_deref(),
             params.content,
+            page,
         )
         .map_err(AgentCommandError::from_anyhow)
     }
@@ -383,7 +387,7 @@ impl AgentServer {
 
     fn runtime_compile_reload(
         &self,
-        params: RuntimeReloadParams,
+        params: RuntimeCompileReloadParams,
     ) -> Result<JsonValue, AgentCommandError> {
         let project_root = self.resolve_project_root(params.project.as_deref())?;
         let sources_root = params
@@ -391,11 +395,14 @@ impl AgentServer {
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
+        let page = issue_page(params.page, params.page_size)?;
         crate::workflow::compile_reload_payload(
+            &self.workspace_root,
             &project_root,
             sources_root.as_deref(),
             params.endpoint,
             params.token,
+            page,
         )
         .map_err(AgentCommandError::from_anyhow)
     }
@@ -436,6 +443,27 @@ impl AgentServer {
                 "response": control.raw_response,
             }
         }))
+    }
+}
+
+/// The page of listed issues that `page` (from 1, the first when absent) and `page_size` (issues on
+/// each) ask for; every issue without a page size (specification 20 §7).
+fn issue_page(
+    page: Option<usize>,
+    page_size: Option<usize>,
+) -> Result<Option<crate::workflow::IssuePage>, AgentCommandError> {
+    match (page, page_size) {
+        (None, None) => Ok(None),
+        (Some(_), None) => Err(AgentCommandError::invalid_params(
+            "page needs page_size, the number of issues on each page",
+        )),
+        (Some(0), Some(_)) | (_, Some(0)) => Err(AgentCommandError::invalid_params(
+            "page and page_size count from 1",
+        )),
+        (number, Some(size)) => Ok(Some(crate::workflow::IssuePage {
+            number: number.unwrap_or(1),
+            size,
+        })),
     }
 }
 
@@ -739,6 +767,8 @@ struct LspDiagnosticsParams {
     sources_root: Option<String>,
     path: Option<String>,
     content: Option<String>,
+    page: Option<usize>,
+    page_size: Option<usize>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -772,6 +802,16 @@ struct RuntimeTestParams {
     list: bool,
     #[serde(default = "default_timeout_seconds")]
     timeout_seconds: u64,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct RuntimeCompileReloadParams {
+    project: Option<String>,
+    sources_root: Option<String>,
+    endpoint: Option<String>,
+    token: Option<String>,
+    page: Option<usize>,
+    page_size: Option<usize>,
 }
 
 #[derive(Debug, Default, Deserialize)]
