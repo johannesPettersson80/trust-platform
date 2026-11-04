@@ -451,9 +451,13 @@ request's head with its base over the full history (`git diff --name-only
 names the areas the change touches. A moved file counts at its old and its new
 path, so moving a page out of a watched tree still runs the checks that publish
 it. A job that checks an area runs when that area changed
-and is skipped otherwise. A push to `main` uses the same detection against the
-push's previous commit, with the same list of paths per area, kept in
-`.github/paths/`. A workflow with a `changes` job ends with a `conclusion` job
+and is skipped otherwise. A push to `main` uses the same detection, with the
+same list of paths per area, kept in `.github/paths/`, against the commit of
+that workflow's newest passed run on a push to `main`, as GitHub lists the
+runs: a newer push replaces a run that still waits (below), so comparing with
+the push's previous commit would never compare the replaced push's changes
+(4 November 2026). Without such a run, or when GitHub cannot list the runs,
+every check runs. A workflow with a `changes` job ends with a `conclusion` job
 that runs unless the run was cancelled, needs every other job, and fails unless
 each succeeded or was skipped; a failed `changes` job therefore fails the
 workflow instead of skipping its checks. GitHub's own path filters compare only the first 300 changed files, so
