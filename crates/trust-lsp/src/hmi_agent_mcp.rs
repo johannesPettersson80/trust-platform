@@ -69,7 +69,7 @@ impl Limits {
 }
 
 /// Runs `trust-lsp hmi-agent` with the arguments after `hmi-agent`; returns the exit status.
-pub(crate) fn run(args: &[String]) -> i32 {
+pub fn run(args: &[String]) -> i32 {
     let [file] = args else {
         eprint!("{USAGE}");
         return 2;
