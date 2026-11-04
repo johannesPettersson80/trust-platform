@@ -364,6 +364,12 @@ is checked against the array bounds at runtime. This follows IEC 61131-3 Ed.3
 §6.4.4.5.1, which defines the error in terms of the subscript value and notes
 that the error can only be detected at runtime for a computed index.
 
+An inherited member used as a subscript is a computed index: a name the
+constant evaluator cannot fold, but which resolves in the referencing scope
+or through the enclosing POU's EXTENDS chain, gets the runtime bounds check
+instead of an undefined-constant error. A subscript name that resolves in
+neither stays an undefined constant.
+
 ## 4. Reference Errors
 
 ### 4.1 Undefined Reference

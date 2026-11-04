@@ -707,3 +707,30 @@ END_PROGRAM
 "#,
     );
 }
+
+/// Negative pin for the const-index soft-path guard: a subscript naming
+/// nothing in scope and nothing in the enclosing POU's EXTENDS chain stays
+/// E101 "undefined constant". Catches the guard widening into swallowing
+/// genuinely unknown names (spec 09 §3.8 bounds rule still needs the value).
+#[test]
+fn array_index_unknown_bare_name_stays_undefined_constant() {
+    check_has_error_in(
+        Dialect::Codesys,
+        r#"
+VAR_GLOBAL
+    gvlArray : ARRAY[0..3] OF UINT;
+END_VAR
+
+FUNCTION_BLOCK FBBase
+VAR_INPUT
+    uiIdx : UINT;
+END_VAR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FBChild EXTENDS FBBase
+    gvlArray[uiNoSuchMember] := UINT#1;
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
