@@ -58,7 +58,9 @@ time_constant_s = 5.0
     assert_eq!(first.pointer("/result/project_id"), Some(&json!(project_id)));
     assert_eq!(first.pointer("/result/plants/0/id"), Some(&json!("tank")));
 
-    // The session's own status: no runtime runs, so the plant's live status is unavailable.
+    // The session's own status: no runtime runs the plants, so the saved plant holds no runtime
+    // evidence and shows `Configured`, while its live status stays unavailable (specification 47
+    // §5.2, §20.6).
     let status = session.request_json(json!({
         "id": 6901,
         "type": "plant.status",
@@ -86,7 +88,7 @@ time_constant_s = 5.0
     );
     assert_eq!(
         stopped.pointer("/result/plants/0/states"),
-        Some(&json!(["Status unavailable"]))
+        Some(&json!(["Configured"]))
     );
 
     // A current status of the running runtime joins the saved plant it names.

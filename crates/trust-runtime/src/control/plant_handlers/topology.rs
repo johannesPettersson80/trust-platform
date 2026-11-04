@@ -10,6 +10,7 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
 use super::editor::is_editor_actuator_field;
+use super::status::NO_RUNTIME_EVIDENCE;
 use super::{
     admit, handle_plant_status, saved_plants, PlantHandlerContext, CONTRACT, SCHEMA_VERSION,
 };
@@ -115,6 +116,7 @@ pub(super) fn handle_plant_topology(
 fn project(read: &Value, status: Option<&Value>) -> Vec<Value> {
     let project_id = text(read, "project_id").unwrap_or_default();
     let current = status.filter(|status| is_current(status, project_id));
+    let no_runtime = status.is_some_and(|status| runs_no_plants(status, project_id));
     let saved_revision = text(read, "configuration_revision");
     let active_revision = current.and_then(|status| text(status, "active_configuration_revision"));
     let saved_configuration = read.get("saved_configuration");
@@ -186,6 +188,7 @@ fn project(read: &Value, status: Option<&Value>) -> Vec<Value> {
                 json!(states(&PlantEvidence {
                     enabled: plant.enabled,
                     available,
+                    no_runtime,
                     operating_state,
                     completed_sample: sample.is_some(),
                     saved_revision,
@@ -208,13 +211,28 @@ fn advanced(live: &Map<String, Value>) -> bool {
 }
 
 /// A status counts only when it is an available `plant.status` answer of this contract and this
-/// project; a missing, refused, malformed or wrong-project status marks every plant unavailable.
+/// project; a missing, refused, malformed or wrong-project status marks every plant unavailable,
+/// unless it says that no runtime runs them ([`runs_no_plants`]).
 fn is_current(status: &Value, project_id: &str) -> bool {
+    is_status_of(status, project_id)
+        && status.get("available").and_then(Value::as_bool) == Some(true)
+}
+
+/// Whether `status` is this project's unavailable `plant.status` answer that no runtime runs its
+/// plants, as a stopped project answers: each saved plant then holds no runtime evidence, which
+/// specification 47 §5.2 calls `Configured`, not `Status unavailable` (§20.6).
+fn runs_no_plants(status: &Value, project_id: &str) -> bool {
+    is_status_of(status, project_id)
+        && status.get("available").and_then(Value::as_bool) == Some(false)
+        && text(status, "reason_code") == Some(NO_RUNTIME_EVIDENCE)
+}
+
+/// Whether `status` is a `plant.status` answer of this contract and this project.
+fn is_status_of(status: &Value, project_id: &str) -> bool {
     text(status, "contract") == Some(CONTRACT)
         && status.get("schema_version").and_then(Value::as_u64) == Some(SCHEMA_VERSION)
         && text(status, "operation") == Some("plant.status")
         && text(status, "project_id") == Some(project_id)
-        && status.get("available").and_then(Value::as_bool) == Some(true)
 }
 
 /// A saved plant's descriptor as the canvas needs it: one that lacks a field, or names an empty
@@ -246,6 +264,8 @@ impl<'a> SavedPlant<'a> {
 struct PlantEvidence<'a> {
     enabled: bool,
     available: bool,
+    /// The runtime answered that it runs no plant of the project: no evidence, not unknown.
+    no_runtime: bool,
     operating_state: Option<&'a str>,
     completed_sample: bool,
     saved_revision: Option<&'a str>,
@@ -269,7 +289,7 @@ fn states(evidence: &PlantEvidence<'_>) -> Vec<&'static str> {
     if !evidence.enabled {
         states.push("Disabled");
     }
-    if !evidence.available {
+    if !evidence.available && !evidence.no_runtime {
         states.push("Status unavailable");
     }
     if evidence.available && evidence.operating_state == Some("running") {

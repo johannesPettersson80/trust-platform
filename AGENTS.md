@@ -45,9 +45,9 @@ truST's logic is written in Rust. There is no exception without the user's writt
 - `crates/trust-hir`: semantic model, type checking and IEC rules (Salsa queries).
 - `crates/trust-ide`: diagnostics, completion, hover, references. `crates/trust-lsp`: the LSP
   protocol boundary and commands. `crates/trust-wasm-analysis`: the same analysis in the browser.
-- `crates/trust-runtime`: the host runtime, product CLI, I/O, web, HMI and control surfaces; the
-  bytecode VM (`src/runtime/vm/`) is the only execution backend. `crates/trust-runtime-core`: the
-  portable core.
+- `crates/trust-runtime`: the host runtime, product CLI, I/O, web, HMI and control surfaces.
+  Programs run compiled to native code (specification 44, `src/runtime/compiled/`); the bytecode
+  engine was deleted on 24 October 2026. `crates/trust-runtime-core`: the portable core.
 - `crates/trust-debug`: Debug Adapter Protocol and the VS Code simulator. `crates/trust-dev`:
   developer CLI. `crates/trust-plcopen`: PLCopen XML. `crates/trust-ads-*`, `trust-tcads-native`:
   Beckhoff ADS.

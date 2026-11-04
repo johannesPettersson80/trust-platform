@@ -42,6 +42,8 @@ TEST_PATH_MARKERS = ("/tests/", "/test/suite/", "/conformance/", "/fuzz/")
 TEST_SUFFIXES = (
     "_test.rs",
     "_tests.rs",
+    # The module file of `#[cfg(test)] mod tests;`.
+    "/tests.rs",
     "_test.py",
     "_tests.py",
     ".test.ts",
@@ -120,7 +122,7 @@ def validate_direct_change_contract(
         )
     for owner, prefixes, specification in OWNING_SPEC_ROUTES:
         if (
-            any(path.startswith(prefixes) for path in paths)
+            any(_is_production_source(path) and path.startswith(prefixes) for path in paths)
             and specification not in paths
             and specification not in named
         ):
