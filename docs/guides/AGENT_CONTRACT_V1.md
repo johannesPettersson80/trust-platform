@@ -196,42 +196,47 @@ Returns the same machine-readable payload shape as `trust-runtime build --ci`.
 Optional params:
 
 ```json
-{"project":"runtime-a","sources_root":"src","path":"src/main.st","content":"PROGRAM Main\nEND_PROGRAM\n"}
+{"project":"runtime-a","sources_root":"src","path":"src/main.st","content":"PROGRAM Main\nEND_PROGRAM\n","page":1,"page_size":50}
 ```
 
 Rules:
 
 - `project` is relative to the agent workspace root when present
-- `sources_root` is relative to the selected project root when present
-- `path` is relative to the selected project root when present
+- `sources_root` is relative to the selected project root when present, and narrows the listed
+  issues to the files under it
+- `path` is relative to the selected project root when present, and names one of the project's
+  source files
 - `content` is an in-memory override for `path`; it is invalid without `path`
+- `page` (from 1, the first when absent) and `page_size` (the issues on each page) select a page
+  of the listed issues; `page` without `page_size`, and a zero, are invalid params (`-32602`)
 
-If `path` is omitted, the method analyzes all `.st` / `.pou` files under the
-project `src/` tree (or `sources_root` override) and returns one aggregated
-diagnostic list.
+The diagnostics are the language server's: the same findings that `trust-lsp check` reports for
+the project. The project is loaded as the language server loads a workspace folder, with its
+`trust-lsp.toml`: include paths, library paths and libraries, vendor profile, `[diagnostics]`
+toggles and severity overrides. If `path` is omitted, every source file of the project and its
+`trust-lsp.toml` are diagnosed and listed in one aggregated list; otherwise only `path` is.
 
-Whole-project discovery is recursive and literal: metacharacters in a valid
-project or source-root name do not acquire glob meaning. The two supported
-extensions are matched case-insensitively for every ASCII spelling, only
-regular files are analyzed, and the normalized project-relative source list is
-deduplicated and ordered lexicographically. A source alias that resolves
-outside the canonical project root is rejected rather than analyzed.
+Only files inside the agent workspace are listed. A library that the configuration names
+outside the workspace is analyzed, so that its symbols resolve, but its findings are not listed.
+An issue's `path` is relative to the project root, or the file's full path for a listed file
+outside it, such as a library elsewhere in the workspace.
 
 Returns:
 
 - `target`
-- `errors`
-- `warnings`
-- `issues[]` with `path`, absolute `file`, `line`, `column`, `severity`,
-  `message`, optional `code`, and optional related entries
+- `errors` and `warnings`, counted over every listed issue
+- `totalIssues`, the number of listed issues
+- `page`, `pageSize` and `totalPages`, when a page was asked for
+- `issues[]` (the page's, when a page was asked for) with `path`, absolute `file`, `line`,
+  `column`, `severity`, `message`, optional `code`, and optional related entries
 
-Every issue uses one-based line and column coordinates while `span.start` and
-`span.end` remain zero-based UTF-8 byte offsets. Related entries use the same
-coordinate convention. `errors` and `warnings` are the exact counts of issues
-whose normalized severity is `error` and `warning`; other severities remain in
-`issues` but do not inflate either counter. Aggregate issues are sorted
-deterministically by file, position, severity, code, and message. An inline
-`content` override is analyzed without writing it to disk.
+Every issue uses one-based line and column coordinates, the columns in UTF-16 code units as the
+editor counts them, while `span.start` and `span.end` remain zero-based UTF-8 byte offsets.
+Related entries use the same coordinate convention and name places in the issue's file. `errors`
+and `warnings` are the exact counts of listed issues whose severity is `error` and `warning`;
+`information` and `hint` issues remain in `issues` but do not inflate either counter. Issues are
+sorted deterministically by file, position, severity, code, and message before a page is cut.
+An inline `content` override is analyzed without writing it to disk.
 
 ### `lsp.ast_canonicalize`
 
@@ -325,13 +330,14 @@ Returns the same JSON summary shape as `trust-dev test --output json`.
 Optional params:
 
 ```json
-{"project":"runtime-a","sources_root":"src","endpoint":"tcp://127.0.0.1:9001","token":"secret"}
+{"project":"runtime-a","sources_root":"src","endpoint":"tcp://127.0.0.1:9001","token":"secret","page":1,"page_size":50}
 ```
 
 Behavior:
 
-- collects diagnostics over the selected project source tree
-- blocks build/reload when diagnostics contain errors
+- collects the project's diagnostics as `lsp.diagnostics` does, the language server's, with the
+  same `sources_root`, `page` and `page_size` rules
+- blocks build/reload when the listed diagnostics contain errors
 - reuses the normal `trust-runtime build` path when diagnostics are clean
 - reuses the same `bytecode.reload` control-endpoint path as `runtime.reload`
 
@@ -339,8 +345,8 @@ Returns a single machine-readable loop result with:
 
 - `target`
 - `dirty` (currently always `false` for agent-driven file writes)
-- `errors`
-- `warnings`
+- `errors`, `warnings`, `totalIssues`, and `page`, `pageSize` and `totalPages` when a page was
+  asked for, as in `lsp.diagnostics`
 - `issues`
 - `runtimeStatus`
 - `runtimeMessage`

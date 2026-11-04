@@ -67,3 +67,13 @@ coordinates, canonical token and five-gram results, similarity decisions, and
 non-mutating formatting previews. Optional project and source-root parameters
 retain their documented resolution bases; an inline override affects only the
 request result and never changes the selected file.
+
+`lsp.diagnostics` and the diagnostics of `runtime.compile_reload` are the
+language server's: the same findings that `trust-lsp check` reports for the
+selected project, which is loaded with its `trust-lsp.toml` (include paths,
+libraries, vendor profile, `[diagnostics]` toggles and severity overrides,
+specification 14), so that the agent and the editor never disagree on a
+project (issue #236, 4 November 2026). Only files inside the workspace are
+listed (§3): a library that the configuration names outside it is analyzed but
+not listed. `page` and `page_size` bound the listed issues, while `errors`,
+`warnings` and `totalIssues` count all of them.
