@@ -306,30 +306,38 @@ fn describe_is_complete_duplicate_free_and_transport_bound() {
     );
 }
 
-/// Specification 20 §7: `page` counts from 1 and needs `page_size`, the issues on each page. Catches
-/// a request whose page cannot be cut being answered with every issue, or with none.
+/// Specification 20 §7: `page` and `page_size` come together, and both count from 1. Catches a
+/// request whose page cannot be cut being answered with every issue, with none, or with a guessed
+/// page.
 #[test]
-fn a_page_without_its_size_or_counting_from_zero_is_invalid_params() {
+fn page_and_page_size_come_together_and_count_from_one() {
     let workspace = TestWorkspace::new("diagnostics-page-params");
     workspace.write("src/main.st", "PROGRAM Main\nEND_PROGRAM\n");
     let mut server = workspace.server();
 
-    for (method, params) in [
-        ("lsp.diagnostics", json!({"page": 2})),
-        ("lsp.diagnostics", json!({"page": 0, "page_size": 10})),
-        ("lsp.diagnostics", json!({"page_size": 0})),
-        ("runtime.compile_reload", json!({"page": 1})),
+    for (params, message) in [
+        (
+            json!({"page": 2}),
+            "'page' and 'page_size' must be given together.",
+        ),
+        (
+            json!({"page_size": 10}),
+            "'page' and 'page_size' must be given together.",
+        ),
+        (
+            json!({"page": 0, "page_size": 10}),
+            "'page' and 'page_size' must both be at least 1 when present.",
+        ),
+        (
+            json!({"page": 1, "page_size": 0}),
+            "'page' and 'page_size' must both be at least 1 when present.",
+        ),
     ] {
         let response = failure(
-            server.handle_line(&request(json!(60), method, Some(params.clone()))),
+            server.handle_line(&request(json!(60), "lsp.diagnostics", Some(params.clone()))),
             -32602,
         );
-        assert!(
-            response["error"]["message"]
-                .as_str()
-                .is_some_and(|message| message.contains("page")),
-            "{method} {params}: {response:#}"
-        );
+        assert_eq!(response["error"]["message"], message, "{params}");
     }
 }
 

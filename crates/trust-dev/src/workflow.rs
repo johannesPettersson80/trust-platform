@@ -60,17 +60,19 @@ pub(crate) struct IssuePage {
     pub(crate) size: usize,
 }
 
-/// The issues a request lists, the counts over all of them, and the page of them it asked for.
+/// The issues a request lists and the counts over all of them; on a page, the page's issues and
+/// the page's place among all of them (specification 20 §7).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct IssueListing {
     errors: usize,
     warnings: usize,
-    total_issues: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     page: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     page_size: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_issues: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     total_pages: Option<usize>,
     issues: Vec<AgentIssue>,
@@ -78,7 +80,7 @@ struct IssueListing {
 
 impl IssueListing {
     /// `issues` sorted by file, position, severity, code and message, counted, and cut to `page`
-    /// when it is given.
+    /// when it is given. There is always at least one page; one past the last is empty.
     fn new(mut issues: Vec<AgentIssue>, page: Option<IssuePage>) -> Self {
         issues.sort_by(|a, b| {
             (
@@ -109,9 +111,9 @@ impl IssueListing {
             return Self {
                 errors,
                 warnings,
-                total_issues,
                 page: None,
                 page_size: None,
+                total_issues: None,
                 total_pages: None,
                 issues,
             };
@@ -119,10 +121,10 @@ impl IssueListing {
         Self {
             errors,
             warnings,
-            total_issues,
             page: Some(number),
             page_size: Some(size),
-            total_pages: Some(total_issues.div_ceil(size)),
+            total_issues: Some(total_issues),
+            total_pages: Some(total_issues.div_ceil(size).max(1)),
             issues: issues
                 .into_iter()
                 .skip(number.saturating_sub(1).saturating_mul(size))
@@ -235,10 +237,9 @@ pub(crate) fn compile_reload_payload(
     sources_root: Option<&Path>,
     endpoint: Option<String>,
     token: Option<String>,
-    page: Option<IssuePage>,
 ) -> anyhow::Result<JsonValue> {
     let summary =
-        collect_diagnostics_summary(workspace_root, project_root, sources_root, None, None, page)?;
+        collect_diagnostics_summary(workspace_root, project_root, sources_root, None, None, None)?;
     if summary.listing.errors > 0 {
         return serde_json::to_value(CompileReloadResult {
             target: project_root.display().to_string(),

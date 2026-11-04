@@ -207,8 +207,13 @@ Rules:
 - `path` is relative to the selected project root when present, and names one of the project's
   source files
 - `content` is an in-memory override for `path`; it is invalid without `path`
-- `page` (from 1, the first when absent) and `page_size` (the issues on each page) select a page
-  of the listed issues; `page` without `page_size`, and a zero, are invalid params (`-32602`)
+- `page` and `page_size` are optional paging parameters. They must be given together; either one
+  alone, a `page` below 1, or a `page_size` below 1 is an invalid-params error (`-32602`). When
+  they are present, `issues[]` is the requested window of the same deterministic sort, and the
+  response also carries `page`, `pageSize`, `totalIssues`, and `totalPages`. There is always at
+  least one page, and a `page` beyond `totalPages` returns an empty `issues[]` with the honest
+  totals. When both are omitted, the response is the full unpaged list and carries none of the
+  paging fields.
 
 The diagnostics are the language server's: the same findings that `trust-lsp check` reports for
 the project. The project is loaded as the language server loads a workspace folder, with its
@@ -224,9 +229,8 @@ outside it, such as a library elsewhere in the workspace.
 Returns:
 
 - `target`
-- `errors` and `warnings`, counted over every listed issue
-- `totalIssues`, the number of listed issues
-- `page`, `pageSize` and `totalPages`, when a page was asked for
+- `errors` and `warnings`, counted over every listed issue, also on a page
+- when `page` and `page_size` are present: `page`, `pageSize`, `totalIssues`, and `totalPages`
 - `issues[]` (the page's, when a page was asked for) with `path`, absolute `file`, `line`,
   `column`, `severity`, `message`, optional `code`, and optional related entries
 
@@ -330,13 +334,13 @@ Returns the same JSON summary shape as `trust-dev test --output json`.
 Optional params:
 
 ```json
-{"project":"runtime-a","sources_root":"src","endpoint":"tcp://127.0.0.1:9001","token":"secret","page":1,"page_size":50}
+{"project":"runtime-a","sources_root":"src","endpoint":"tcp://127.0.0.1:9001","token":"secret"}
 ```
 
 Behavior:
 
 - collects the project's diagnostics as `lsp.diagnostics` does, the language server's, with the
-  same `sources_root`, `page` and `page_size` rules
+  same `sources_root` rule
 - blocks build/reload when the listed diagnostics contain errors
 - reuses the normal `trust-runtime build` path when diagnostics are clean
 - reuses the same `bytecode.reload` control-endpoint path as `runtime.reload`
@@ -345,8 +349,8 @@ Returns a single machine-readable loop result with:
 
 - `target`
 - `dirty` (currently always `false` for agent-driven file writes)
-- `errors`, `warnings`, `totalIssues`, and `page`, `pageSize` and `totalPages` when a page was
-  asked for, as in `lsp.diagnostics`
+- `errors`
+- `warnings`
 - `issues`
 - `runtimeStatus`
 - `runtimeMessage`

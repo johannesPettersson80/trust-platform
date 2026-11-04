@@ -348,38 +348,118 @@ fn a_library_outside_the_workspace_is_analyzed_but_not_listed() {
     );
 }
 
-/// Specification 20 §7: `page` and `page_size` bound the listed issues (#236: an unpaged response
-/// of 13.7 MB exceeded real clients' frame limits) while the counts cover every listed issue.
+/// The listed issues as (path, line, code).
+fn listed(payload: &Value) -> Vec<(String, u64, String)> {
+    payload["issues"]
+        .as_array()
+        .expect("issues array")
+        .iter()
+        .map(|issue| {
+            (
+                issue["path"].as_str().expect("issue path").to_owned(),
+                issue["line"].as_u64().expect("issue line"),
+                issue["code"].as_str().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// Specification 20 §7: `page` and `page_size` cut a window of the sorted issues (#236: an
+/// unpaged response of 13.7 MB exceeded real clients' frame limits), while `errors`, `warnings`
+/// and `totalIssues` count every listed issue. Catches a page cut before the sort, counts over the
+/// page alone, a page past the last that repeats it, and paging fields on an unpaged response.
 #[test]
 fn a_page_lists_its_issues_and_the_counts_cover_all_of_them() {
     let project = TestProject::new("diagnostics-page");
-    for name in ["a", "b", "c"] {
+    for name in ["c", "a", "b"] {
         project.write(
             &format!("src/{name}.st"),
             &invalid_program(&format!("P{name}"), "Missing"),
         );
     }
+    // Each file holds a program that no configuration runs (W009 on line 1) and an undefined
+    // identifier (E101 on line 5): six issues, three errors and three warnings, by file and line.
+    let issue =
+        |file: &str, line: u64, code: &str| (format!("src/{file}.st"), line, code.to_owned());
     let all = diagnostics_payload(&project.root, &project.root, None, None, None, None)
         .expect("analyze project");
-    let total = all["issues"].as_array().expect("issues").len();
-    assert!(total >= 3, "{all:#}");
-    assert_eq!(all["totalIssues"], total);
-    assert!(all.get("page").is_none(), "no page was asked for: {all:#}");
+    assert_eq!(
+        listed(&all),
+        vec![
+            issue("a", 1, "W009"),
+            issue("a", 5, "E101"),
+            issue("b", 1, "W009"),
+            issue("b", 5, "E101"),
+            issue("c", 1, "W009"),
+            issue("c", 5, "E101"),
+        ],
+        "{all:#}"
+    );
+    assert_eq!((&all["errors"], &all["warnings"]), (&json!(3), &json!(3)));
+    for field in ["page", "pageSize", "totalIssues", "totalPages"] {
+        assert!(
+            all.get(field).is_none(),
+            "unpaged, without {field}: {all:#}"
+        );
+    }
 
-    let page = IssuePage { number: 2, size: 2 };
-    let second = diagnostics_payload(&project.root, &project.root, None, None, None, Some(page))
-        .expect("analyze project");
+    let page = |number, size| {
+        diagnostics_payload(
+            &project.root,
+            &project.root,
+            None,
+            None,
+            None,
+            Some(IssuePage { number, size }),
+        )
+        .expect("analyze project")
+    };
+    // Page 2 of four issues each holds the fifth and the sixth.
+    let second = page(2, 4);
     assert_eq!(
-        second["issues"],
-        json!(all["issues"].as_array().expect("issues")[2..total.min(4)])
+        listed(&second),
+        vec![issue("c", 1, "W009"), issue("c", 5, "E101")]
     );
-    assert_eq!(second["totalIssues"], total);
-    assert_eq!(second["errors"], all["errors"]);
     assert_eq!(
-        (second["page"].clone(), second["pageSize"].clone()),
-        (json!(2), json!(2))
+        [
+            &second["errors"],
+            &second["warnings"],
+            &second["totalIssues"]
+        ],
+        [&json!(3), &json!(3), &json!(6)]
     );
-    assert_eq!(second["totalPages"], total.div_ceil(2));
+    assert_eq!(
+        [&second["page"], &second["pageSize"], &second["totalPages"]],
+        [&json!(2), &json!(4), &json!(2)]
+    );
+    // A page past the last is empty, with the same totals.
+    let past = page(3, 4);
+    assert_eq!(listed(&past), Vec::new());
+    assert_eq!(
+        [&past["totalIssues"], &past["totalPages"]],
+        [&json!(6), &json!(2)]
+    );
+
+    // A project without issues has one page, an empty one.
+    let clean = TestProject::new("diagnostics-page-clean");
+    clean.write(
+        "src/main.st",
+        "CONFIGURATION Plant\nTASK MainTask (PRIORITY := 1);\nPROGRAM MainInstance WITH MainTask : Main;\nEND_CONFIGURATION\nPROGRAM Main\nEND_PROGRAM\n",
+    );
+    let empty = diagnostics_payload(
+        &clean.root,
+        &clean.root,
+        None,
+        None,
+        None,
+        Some(IssuePage { number: 1, size: 4 }),
+    )
+    .expect("analyze project");
+    assert_eq!(listed(&empty), Vec::new(), "{empty:#}");
+    assert_eq!(
+        [&empty["totalIssues"], &empty["totalPages"]],
+        [&json!(0), &json!(1)]
+    );
 }
 
 #[test]

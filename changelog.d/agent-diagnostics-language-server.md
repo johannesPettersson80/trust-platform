@@ -8,5 +8,5 @@
 
 ### Added
 
-- `lsp.diagnostics` and `runtime.compile_reload` of the agent API take `page` and `page_size` to bound the listed
-  issues, and report `totalIssues` (specification 20).
+- `lsp.diagnostics` of the agent API takes `page` and `page_size` together to bound the listed issues; a page
+  reports `page`, `pageSize`, `totalIssues` and `totalPages` (specification 20).

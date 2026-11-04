@@ -173,7 +173,7 @@ impl AgentServer {
                 "notes": [
                     "Transport is stdio JSON-RPC only in v1.",
                     "Network listeners are intentionally unsupported in this initial agent surface.",
-                    "lsp.diagnostics answers with the language server's own analysis, as trust-lsp check does: the project's trust-lsp.toml (include paths, libraries, vendor profile, severity overrides) applies, and page/page_size bound the listed issues.",
+                    "lsp.diagnostics answers with the language server's own analysis, as trust-lsp check does: the project's trust-lsp.toml (include paths, libraries, vendor profile, severity overrides) applies, and page with page_size bounds the listed issues.",
                     "lsp.format reuses the in-process Web IDE formatting service.",
                     "lsp.ast_canonicalize and lsp.ast_similarity expose the canonical AST 5-gram normalization path used by contamination and dedup tooling.",
                     "runtime.compile_reload returns diagnostics plus build/reload status for iterative repair loops.",
@@ -387,7 +387,7 @@ impl AgentServer {
 
     fn runtime_compile_reload(
         &self,
-        params: RuntimeCompileReloadParams,
+        params: RuntimeReloadParams,
     ) -> Result<JsonValue, AgentCommandError> {
         let project_root = self.resolve_project_root(params.project.as_deref())?;
         let sources_root = params
@@ -395,14 +395,12 @@ impl AgentServer {
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
-        let page = issue_page(params.page, params.page_size)?;
         crate::workflow::compile_reload_payload(
             &self.workspace_root,
             &project_root,
             sources_root.as_deref(),
             params.endpoint,
             params.token,
-            page,
         )
         .map_err(AgentCommandError::from_anyhow)
     }
@@ -446,24 +444,23 @@ impl AgentServer {
     }
 }
 
-/// The page of listed issues that `page` (from 1, the first when absent) and `page_size` (issues on
-/// each) ask for; every issue without a page size (specification 20 §7).
+/// The page of listed issues that `page` (from 1) and `page_size` (the issues on each) ask for,
+/// given together; every issue when both are absent (specification 20 §7).
 fn issue_page(
     page: Option<usize>,
     page_size: Option<usize>,
 ) -> Result<Option<crate::workflow::IssuePage>, AgentCommandError> {
     match (page, page_size) {
         (None, None) => Ok(None),
-        (Some(_), None) => Err(AgentCommandError::invalid_params(
-            "page needs page_size, the number of issues on each page",
+        (Some(number), Some(size)) if number >= 1 && size >= 1 => {
+            Ok(Some(crate::workflow::IssuePage { number, size }))
+        }
+        (Some(_), Some(_)) => Err(AgentCommandError::invalid_params(
+            "'page' and 'page_size' must both be at least 1 when present.",
         )),
-        (Some(0), Some(_)) | (_, Some(0)) => Err(AgentCommandError::invalid_params(
-            "page and page_size count from 1",
+        _ => Err(AgentCommandError::invalid_params(
+            "'page' and 'page_size' must be given together.",
         )),
-        (number, Some(size)) => Ok(Some(crate::workflow::IssuePage {
-            number: number.unwrap_or(1),
-            size,
-        })),
     }
 }
 
@@ -802,16 +799,6 @@ struct RuntimeTestParams {
     list: bool,
     #[serde(default = "default_timeout_seconds")]
     timeout_seconds: u64,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct RuntimeCompileReloadParams {
-    project: Option<String>,
-    sources_root: Option<String>,
-    endpoint: Option<String>,
-    token: Option<String>,
-    page: Option<usize>,
-    page_size: Option<usize>,
 }
 
 #[derive(Debug, Default, Deserialize)]

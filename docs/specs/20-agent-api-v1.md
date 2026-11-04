@@ -75,5 +75,6 @@ libraries, vendor profile, `[diagnostics]` toggles and severity overrides,
 specification 14), so that the agent and the editor never disagree on a
 project (issue #236, 4 November 2026). Only files inside the workspace are
 listed (§3): a library that the configuration names outside it is analyzed but
-not listed. `page` and `page_size` bound the listed issues, while `errors`,
-`warnings` and `totalIssues` count all of them.
+not listed. `lsp.diagnostics` takes `page` and `page_size` together to bound
+the listed issues, while `errors`, `warnings` and, on a page, `totalIssues`
+count all of them.
