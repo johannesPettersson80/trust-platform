@@ -334,9 +334,23 @@ suite("HMI completed authoring contracts", () => {
     });
   });
   test("a verbose language server trace refuses the journey before its cookie leaves", async () => {
-    const settings = vscode.workspace.getConfiguration("trust");
-    const before = settings.inspect<string>("languageServer.trace")?.globalValue;
-    await settings.update("languageServer.trace", "verbose", vscode.ConfigurationTarget.Global);
+    const getConfiguration = vscode.workspace.getConfiguration;
+    // `trust.languageServer.trace` at `verbose`, answered through a wrapper of VS Code's frozen configuration object.
+    // Writing the real setting would turn the language client's trace on for the rest of the suite (CI, 4 November
+    // 2026: this test then exceeded its 2 seconds while vscode-jsonrpc traced every message).
+    (vscode.workspace as any).getConfiguration = (section?: string, scope?: vscode.ConfigurationScope) => {
+      const real = getConfiguration(section, scope);
+      if (section !== "trust") return real;
+      const verbose = (key: string): boolean => key === "languageServer.trace";
+      const wrapper = {
+        has: (key: string) => verbose(key) || real.has(key),
+        get: (key: string, fallback?: unknown) => (verbose(key) ? "verbose" : real.get(key, fallback)),
+        inspect: (key: string) => (verbose(key) ? { key, globalValue: "verbose" } : real.inspect(key)),
+        update: (key: string, value: unknown, target?: vscode.ConfigurationTarget | boolean | null) =>
+          real.update(key, value, target),
+      };
+      return wrapper as unknown as vscode.WorkspaceConfiguration;
+    };
     try {
       await withSimulatorCommands({}, async (calls) => {
         await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
@@ -347,7 +361,7 @@ suite("HMI completed authoring contracts", () => {
         assert.ok(!calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
       });
     } finally {
-      await settings.update("languageServer.trace", before, vscode.ConfigurationTarget.Global);
+      (vscode.workspace as any).getConfiguration = getConfiguration;
     }
   });
   test("a JSON language server trace refuses the journey before its cookie leaves", async () => {
