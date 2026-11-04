@@ -219,7 +219,16 @@ anything. A promoted release that failed continues when its failed jobs are
 re-run, with the same rehearsal's files; when it is not re-run before `main`'s
 CI passes, or GitHub cancels its waiting publishing job for a newer run of the
 group, the release after `main`'s CI promotes the same rehearsal's files, so
-that both publish the same bytes.
+that both publish the same bytes. Before it tags anything, every publishing job
+asks GitHub for the release of the tag: when one exists, every package on it
+(a VS Code package, a runtime or language-server archive, a toolchain bundle)
+must be one the job publishes, with the SHA-256 digest that GitHub recorded for
+the uploaded asset, or the job fails and publishes nothing more. The
+provenance, the conformance status and `SHA256SUMS`, which every run writes
+anew, are not compared, and an asset still uploading is not published. So the
+GitHub release and the Marketplace never hold different bytes of a version: a
+release that no rehearsal can finish any more, as when its artifact expired,
+and that would build its packages again, stops for a maintainer to decide.
 
 The preflight, the real-database matrix and every build and test of every
 target run first, the builds and tests in the release's own run or in the

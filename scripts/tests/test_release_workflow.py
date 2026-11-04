@@ -603,6 +603,21 @@ class ReleaseWorkflowTests(unittest.TestCase):
         checkout = [text for text in step_texts(publish) if "uses: actions/checkout@" in text][0]
         self.assertIn("fetch-depth: 0", checkout, "the check reads the commit's date")
 
+    def test_a_run_publishes_nothing_over_other_packages_of_its_version(self) -> None:
+        # Specification 24, "A release never happens twice": before the tag, Publish compares the packages already on a
+        # GitHub release of the tag with its own. Catches a Publish job that tags or uploads first, and one that never
+        # compares, so that a run continuing another one replaces published packages with other bytes (review finding
+        # of 4 November 2026).
+        named = steps(self.jobs["publish"])
+        order = list(named)
+        check = "Check that a published release holds the same packages"
+        self.assertLess(order.index("Write the release files"), order.index(check))
+        self.assertLess(order.index(check), order.index(PUBLISHING[0]))
+        self.assertIn('python3 scripts/check_published_release.py --repository "${GITHUB_REPOSITORY}" '
+                      '--tag "${RELEASE_TAG}"', named[check])
+        self.assertIn("GITHUB_TOKEN: ${{ github.token }}", named[check])
+        self.assertEqual(field(named[check], "if"), "", "it runs whenever Publish runs")
+
     def test_a_rehearsal_records_the_commit_its_workflow_ran_from(self) -> None:
         # Specification 24: the plan learns which commit's workflow a rehearsal ran from GitHub's record of the local
         # reusable workflow that the Release workflow calls, which GitHub resolves at that commit. Catches a Release

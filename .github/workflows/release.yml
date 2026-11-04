@@ -707,6 +707,15 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce@4.0.0
 
+      - name: Check that a published release holds the same packages
+        # A release of this tag may exist from an earlier attempt or another run, as a promotion that failed after it
+        # published. Create GitHub Release replaces assets of the same name and the Marketplace keeps a package it has,
+        # so this run tags and publishes nothing unless every package already published is its own, byte for byte
+        # (specification 24, "A release never happens twice").
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_published_release.py --repository "${GITHUB_REPOSITORY}" --tag "${RELEASE_TAG}"
+
       - name: Tag the release
         # An annotated tag on the released commit. A re-run of a release that stopped later finds
         # its tag on the same commit and continues.

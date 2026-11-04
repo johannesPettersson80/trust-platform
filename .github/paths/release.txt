@@ -6,6 +6,7 @@
 .github/actions/release-files/**
 scripts/release_plan.py
 scripts/check_release_bundle.py
+scripts/check_published_release.py
 scripts/ci_changes.py
 scripts/check_dependency_exceptions.py
 scripts/check_npm_audit.py

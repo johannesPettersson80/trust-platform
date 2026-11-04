@@ -193,7 +193,8 @@ jobs:
       - name: Guard the release workflow
         run: |
           python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan \
-            scripts.tests.test_check_release_bundle scripts.release_artifact_generators_tests -v
+            scripts.tests.test_check_release_bundle scripts.tests.test_check_published_release \
+            scripts.release_artifact_generators_tests -v
       - name: Guard the Test jobs' one build
         run: python3 -m unittest scripts.tests.test_ci_test_jobs -v
       - name: Guard the docs' command and setting names
