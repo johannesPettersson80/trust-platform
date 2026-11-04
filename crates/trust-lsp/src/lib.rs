@@ -1,6 +1,7 @@
 //! The truST language server for IEC 61131-3 Structured Text: the server
-//! ([`StLanguageServer`]), its `check` and `command` command lines, the HMI agent tools over MCP,
-//! and reusable protocol-boundary helpers. The `trust-lsp` binary is a thin entry point over it.
+//! ([`StLanguageServer`]), its `check` and `command` command lines, a project's diagnostics for
+//! other tools ([`project_diagnostics`], specification 20 §7), the HMI agent tools over MCP, and
+//! reusable protocol-boundary helpers. The `trust-lsp` binary is a thin entry point over it.
 
 // Unsafe code is forbidden. Test builds deny it instead, so that the counting allocator that the
 // `perf_alloc_metrics` tests install may allow it (`perf.rs`, its sites registered in
@@ -21,10 +22,12 @@ mod library_graph;
 #[cfg(test)]
 #[allow(unsafe_code)]
 mod perf;
+mod project_diagnostics;
 mod server;
 mod state;
 mod telemetry;
 #[cfg(test)]
 mod test_support;
 
+pub use project_diagnostics::{project_diagnostics, Finding, RelatedFinding};
 pub use server::StLanguageServer;

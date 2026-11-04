@@ -18,11 +18,10 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use serde_json::json;
-use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Url};
+use tower_lsp::lsp_types::{Diagnostic, Url};
 use tower_lsp::{Client, LanguageServer, LspService};
 
-use crate::handlers;
-use crate::state::ServerState;
+use crate::project_diagnostics::{analyze, code_text, severity_name};
 
 const USAGE: &str =
     "usage: trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]
@@ -130,23 +129,6 @@ struct Item {
     message: String,
 }
 
-fn severity_name(severity: Option<DiagnosticSeverity>) -> &'static str {
-    match severity {
-        Some(DiagnosticSeverity::WARNING) => "warning",
-        Some(DiagnosticSeverity::INFORMATION) => "information",
-        Some(DiagnosticSeverity::HINT) => "hint",
-        _ => "error",
-    }
-}
-
-fn code_text(code: &Option<NumberOrString>) -> Option<String> {
-    match code {
-        Some(NumberOrString::String(code)) => Some(code.clone()),
-        Some(NumberOrString::Number(code)) => Some(code.to_string()),
-        None => None,
-    }
-}
-
 fn display_path(root: &Path, uri: &Url) -> String {
     let path = uri
         .to_file_path()
@@ -159,7 +141,7 @@ fn display_path(root: &Path, uri: &Url) -> String {
 
 /// A path as the platform writes it: native separators, and on Windows without the
 /// verbatim prefix (`\\?\`) that canonicalization adds.
-fn native_path(path: &Path) -> String {
+pub(crate) fn native_path(path: &Path) -> String {
     let text = path.display().to_string();
     if cfg!(windows) {
         strip_verbatim_prefix(&text)
@@ -192,7 +174,7 @@ fn to_item(root: &Path, uri: &Url, diagnostic: &Diagnostic) -> Item {
         end_line: range.end.line + 1,
         end_column: range.end.character + 1,
         severity: severity_name(diagnostic.severity),
-        code: code_text(&diagnostic.code),
+        code: code_text(diagnostic.code.as_ref()),
         message: diagnostic.message.clone(),
     }
 }
@@ -228,91 +210,31 @@ async fn check(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Res
         .project
         .canonicalize()
         .map_err(|error| format!("{}: {error}", options.project.display()))?;
-    let root_uri = Url::from_directory_path(&root)
-        .map_err(|()| format!("{}: not a directory path", native_path(&root)))?;
-    let mut only: Vec<(PathBuf, &PathBuf)> = Vec::new();
-    for file in &options.files {
-        let path = if file.is_absolute() {
-            file.clone()
-        } else {
-            root.join(file)
-        };
-        let path = path
-            .canonicalize()
-            .map_err(|error| format!("{}: {error}", file.display()))?;
-        only.push((path, file));
-    }
-
-    let (client, _service) = silent_client();
-    let state = ServerState::new();
-    state.set_workspace_folders(vec![root_uri.clone()]);
-    handlers::index_workspace(&client, &state).await;
-    state.mark_index_first_pass_done();
-
-    let mut documents = state.documents();
-    documents.sort_by(|a, b| a.uri.as_str().cmp(b.uri.as_str()));
-    if documents.is_empty() {
-        return Err(format!(
-            "no source files found in {} (see include_paths in trust-lsp.toml)",
-            native_path(&root)
-        ));
-    }
-    let document_paths: Vec<Option<PathBuf>> = documents
+    let only: Vec<(PathBuf, String)> = options
+        .files
         .iter()
-        .map(|doc| {
-            doc.uri
-                .to_file_path()
-                .ok()
-                .map(|path| path.canonicalize().unwrap_or(path))
+        .map(|file| {
+            let path = if file.is_absolute() {
+                file.clone()
+            } else {
+                root.join(file)
+            };
+            path.canonicalize()
+                .map(|path| (path, file.display().to_string()))
+                .map_err(|error| format!("{}: {error}", file.display()))
+        })
+        .collect::<Result<_, _>>()?;
+    let analysis = analyze(&root, &only, None).await?;
+    let checked = analysis.checked;
+    let mut items: Vec<Item> = analysis
+        .files
+        .iter()
+        .flat_map(|file| {
+            file.diagnostics
+                .iter()
+                .map(|diagnostic| to_item(&root, &file.uri, diagnostic))
         })
         .collect();
-    // A requested file the project does not contain would otherwise pass unchecked.
-    for (path, file) in &only {
-        if !document_paths.iter().flatten().any(|known| known == path) {
-            return Err(format!(
-                "{}: not a source file of the project in {}",
-                file.display(),
-                native_path(&root)
-            ));
-        }
-    }
-
-    let mut items = Vec::new();
-    let mut checked = 0usize;
-    for (doc, path) in documents.iter().zip(&document_paths) {
-        if !only.is_empty() {
-            let Some(path) = path else {
-                continue;
-            };
-            if !only.iter().any(|(wanted, _)| wanted == path) {
-                continue;
-            }
-        }
-        checked += 1;
-        let diagnostics = handlers::collect_diagnostics_with_ticket(
-            &state,
-            &doc.uri,
-            &doc.content,
-            doc.file_id,
-            None,
-        );
-        items.extend(diagnostics.iter().map(|d| to_item(&root, &doc.uri, d)));
-    }
-    // The project's configuration file, diagnosed as the editor diagnoses it, so that a broken
-    // library or dependency configuration fails the check as well (specification 14 §7.7).
-    // `--file` narrows the report to the named source files.
-    if only.is_empty()
-        && let Some(config_path) = state
-            .workspace_config_for_uri(&root_uri)
-            .and_then(|config| config.config_path)
-        && let (Ok(content), Ok(uri)) = (
-            std::fs::read_to_string(&config_path),
-            Url::from_file_path(&config_path),
-        )
-    {
-        let diagnostics = handlers::config_file_diagnostics(&state, &uri, &content);
-        items.extend(diagnostics.iter().map(|d| to_item(&root, &uri, d)));
-    }
     items.sort_by(|a, b| {
         (&a.path, a.line, a.column, a.severity, &a.code, &a.message)
             .cmp(&(&b.path, b.line, b.column, b.severity, &b.code, &b.message))
