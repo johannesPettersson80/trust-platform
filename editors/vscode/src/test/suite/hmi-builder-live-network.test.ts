@@ -15,7 +15,8 @@ suite("HMI Builder: Live HTTP transport", () => {
       }
       if (request.url === "/outside") redirected = true;
       response.setHeader("Content-Type", "application/json");
-      response.setHeader("Set-Cookie", "trust_hmi_session=named; HttpOnly; SameSite=Strict");
+      // A proxy's cookie beside the runtime's: each field reaches the session on its own (RFC 6265 §5.2).
+      response.setHeader("Set-Cookie", ["SERVERID=1; Path=/", "trust_hmi_session=named; HttpOnly; SameSite=Strict"]);
       response.end(
         JSON.stringify({
           token: request.headers["x-trust-token"],
@@ -42,7 +43,7 @@ suite("HMI Builder: Live HTTP transport", () => {
       );
       assert.strictEqual(answer.status, 200, "the selected runtime receives the request");
       assert.deepStrictEqual(answer.body, { token: "test-access", cookie: "trust_hmi_session=old", method: "POST" });
-      assert.strictEqual(answer.cookie, "trust_hmi_session=named; HttpOnly; SameSite=Strict");
+      assert.deepStrictEqual(answer.cookies, ["SERVERID=1; Path=/", "trust_hmi_session=named; HttpOnly; SameSite=Strict"]);
       await assert.rejects(() => requestLive(target, "GET", "/redirect", undefined), /redirect/i);
       assert.strictEqual(redirected, false);
     } finally {

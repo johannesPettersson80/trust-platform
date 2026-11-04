@@ -75,7 +75,7 @@ function simulatorBridge(status: number): LiveSessionDeps {
     target: async () => LOCAL,
     request: async (_target, _method, path) =>
       path === "/api/hmi/login" && status === 200
-        ? { status, body: { ok: true }, cookie: "trust_hmi_session=4f1c0ffee; Path=/; HttpOnly; SameSite=Strict" }
+        ? { status, body: { ok: true }, cookies: ["trust_hmi_session=4f1c0ffee; Path=/; HttpOnly; SameSite=Strict"] }
         : { status, body: { ok: false } },
   };
 }
@@ -245,7 +245,7 @@ suite("HMI completed authoring contracts", () => {
       target: async () => LOCAL,
       request: async () => {
         logins += 1;
-        return { status: 200, body: { ok: true }, cookie: "trust_hmi_session=4f1c0ffee" };
+        return { status: 200, body: { ok: true }, cookies: ["trust_hmi_session=4f1c0ffee"] };
       },
     };
     await withSimulatorCommands(

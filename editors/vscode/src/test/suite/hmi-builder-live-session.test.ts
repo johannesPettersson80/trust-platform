@@ -13,7 +13,7 @@ suite("HMI Builder: named Live session", () => {
       request: async (_target, _method, path, body, cookie) => {
         cookies.push(cookie);
         return path === "/api/hmi/login" && !(body as { peer?: string }).peer
-          ? { status: 200, body: { user: "anna", role: "operator" }, cookie: "trust_hmi_session=local; HttpOnly" }
+          ? { status: 200, body: { user: "anna", role: "operator" }, cookies: ["trust_hmi_session=local; HttpOnly"] }
           : { status: 200, body: { ok: true } };
       },
     });
@@ -39,7 +39,7 @@ suite("HMI Builder: named Live session", () => {
           return {
             status: 200,
             body: { user: "anna", role: "operator" },
-            cookie: "trust_hmi_session=named; HttpOnly; SameSite=Strict",
+            cookies: ["trust_hmi_session=named; HttpOnly; SameSite=Strict"],
           };
         return { status: 200, body: { status: "queued" } };
       },
@@ -87,7 +87,7 @@ suite("HMI Builder: named Live session", () => {
           return {
             status: 200,
             body: { user: "erik", role: "engineer" },
-            cookie: "trust_hmi_session=engineer; HttpOnly",
+            cookies: ["trust_hmi_session=engineer; HttpOnly"],
           };
         return { status: 200, body: { ok: true, settings: [] } };
       },
@@ -140,7 +140,7 @@ suite("HMI Builder: named Live session", () => {
       }),
       request: async (_target, _method, path) => {
         calls.push(path);
-        return { status: 200, body: {}, cookie: "trust_hmi_session=named; HttpOnly" };
+        return { status: 200, body: {}, cookies: ["trust_hmi_session=named; HttpOnly"] };
       },
     });
     await session.request("POST", "/api/hmi/login", {});
@@ -173,7 +173,7 @@ suite("HMI Builder: named Live session", () => {
     const pending = session.request("POST", "/api/hmi/login", {});
     await ready;
     session.stop();
-    resolve({ status: 200, body: { user: "anna" }, cookie: "trust_hmi_session=late" });
+    resolve({ status: 200, body: { user: "anna" }, cookies: ["trust_hmi_session=late"] });
     assert.strictEqual((await pending).status, 409);
     assert.strictEqual((await session.request("POST", "/api/hmi/command", {})).status, 409);
     assert.strictEqual(calls, 1);
@@ -184,7 +184,7 @@ suite("HMI Builder: named Live session", () => {
     const session = new LiveSession({
       bridge: liveBridge,
       target: async () => ({ endpoint: "tcp://plc:9000", url: "https://plc:8443", label: "Cell" }),
-      request: async () => ({ status: 200, body: {}, cookie: "trust_hmi_session=named; HttpOnly" }),
+      request: async () => ({ status: 200, body: {}, cookies: ["trust_hmi_session=named; HttpOnly"] }),
       openSocket: (_target, path, cookie) => {
         const socket = new FakeSocket();
         opened.push({ path, cookie, socket });
@@ -229,7 +229,7 @@ suite("HMI Builder: named Live session", () => {
       request: async (_target, _method, path, _body, cookie) => {
         cookies.push(cookie);
         return path === "/api/hmi/login"
-          ? { status: 200, body: { user: "anna" }, cookie: "trust_hmi_session=s3cr3t-cookie; HttpOnly" }
+          ? { status: 200, body: { user: "anna" }, cookies: ["trust_hmi_session=s3cr3t-cookie; HttpOnly"] }
           : { status: 200, body: {} };
       },
     });
@@ -283,24 +283,106 @@ suite("HMI Builder: named Live session", () => {
   });
 
   // §11 item 6: a login keeps the named session only on the language server's verdict. Catches a session kept when the
-  // verdict on the login's answer fails, and a stream the bridge refuses opened anyway.
+  // verdict on the login's answer fails, a login that then reports success, and a stream the bridge refuses opened anyway.
   test("an answer without a verdict keeps no session, and a refused stream opens no socket", async () => {
     const opened: string[] = [];
     const session = new LiveSession({
       bridge: { ...liveBridge, reply: async () => Promise.reject(new Error("no verdict on the answer")) },
       target: async () => ({ endpoint: "tcp://plc:9000", url: "https://plc:8443", label: "Cell" }),
-      request: async () => ({ status: 200, body: {}, cookie: "trust_hmi_session=named; HttpOnly" }),
+      request: async () => ({ status: 200, body: {}, cookies: ["trust_hmi_session=named; HttpOnly"] }),
       openSocket: (_target, path) => {
         opened.push(path);
         return new FakeSocket();
       },
     });
-    assert.strictEqual((await session.request("POST", "/api/hmi/login", { user: "anna", password: "x" })).status, 200);
+    assert.deepStrictEqual(await session.request("POST", "/api/hmi/login", { user: "anna", password: "x" }), {
+      status: 503,
+      body: { error: "no verdict on the answer" },
+    });
     assert.deepStrictEqual(await session.request("POST", "/api/hmi/command", {}), {
       status: 401,
       body: { error: "Log in with a named HMI user to operate." },
     });
     assert.strictEqual(await session.openSocket("/ws/hmi?alarms=1"), undefined);
     assert.deepStrictEqual(opened, []);
+  });
+
+  // §11 item 6: a verdict holds for the session it was asked for. Catches a command approved for a named session that
+  // a logout ended while the command waited for its verdict, then sent without that session.
+  test("a logout that ends while a command waits makes the command ask again, and it does not go out", async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const asked: boolean[] = [];
+    const sent: string[] = [];
+    const session = new LiveSession({
+      bridge: {
+        ...liveBridge,
+        request: async (facts) => {
+          if (facts.path === "/api/hmi/command") {
+            asked.push(facts.session);
+            if (asked.length === 1) await held;
+          }
+          return liveBridge.request(facts);
+        },
+      },
+      target: async () => ({ endpoint: "tcp://plc:9000", url: "https://plc:8443", label: "Cell" }),
+      request: async (_target, _method, path) => {
+        sent.push(path);
+        return path === "/api/hmi/login"
+          ? { status: 200, body: {}, cookies: ["trust_hmi_session=named; HttpOnly"] }
+          : { status: 200, body: {} };
+      },
+    });
+    await session.request("POST", "/api/hmi/login", { user: "anna", password: "x" });
+    const command = session.request("POST", "/api/hmi/command", { id: "late" });
+    await session.request("POST", "/api/hmi/logout", {});
+    release();
+    assert.deepStrictEqual(await command, { status: 401, body: { error: "Log in with a named HMI user to operate." } });
+    assert.deepStrictEqual(asked, [true, false], "asked again for the session held then");
+    assert.deepStrictEqual(sent, ["/api/hmi/login", "/api/hmi/logout"], "the command never went out");
+  });
+
+  // §11 item 6: without a verdict the named session is dropped. Catches a logout whose verdict fails leaving the
+  // operator's session held in the extension host.
+  test("a logout without a verdict still drops the named session", async () => {
+    let failing = false;
+    const session = new LiveSession({
+      bridge: {
+        ...liveBridge,
+        request: (facts) =>
+          failing ? Promise.reject(new Error("the language server failed")) : liveBridge.request(facts),
+      },
+      target: async () => ({ endpoint: "tcp://plc:9000", url: "https://plc:8443", label: "Cell" }),
+      request: async (_target, _method, path) =>
+        path === "/api/hmi/login"
+          ? { status: 200, body: {}, cookies: ["trust_hmi_session=named; HttpOnly"] }
+          : { status: 200, body: {} },
+    });
+    await session.request("POST", "/api/hmi/login", { user: "anna", password: "x" });
+    assert.strictEqual(session.namedCookie(), "trust_hmi_session=named", "the login keeps the session");
+    failing = true;
+    assert.deepStrictEqual(await session.request("POST", "/api/hmi/logout", {}), {
+      status: 503,
+      body: { error: "the language server failed" },
+    });
+    assert.strictEqual(session.namedCookie(), undefined);
+  });
+
+  // §11 item 6 and RFC 6265 §5.2: the session's cookie is taken from the answer's Set-Cookie fields by the name the
+  // language server gives. Catches only the first field read (a proxy's cookie before the runtime's), and a name or
+  // value kept with the white space around it.
+  test("the named session's cookie is taken by its name from every Set-Cookie field", async () => {
+    const session = new LiveSession({
+      bridge: liveBridge,
+      target: async () => ({ endpoint: "tcp://plc:9000", url: "https://plc:8443", label: "Cell" }),
+      request: async (_target, _method, path) =>
+        path === "/api/hmi/login"
+          ? { status: 200, body: {}, cookies: ["SERVERID=1; Path=/", " trust_hmi_session = named ; HttpOnly"] }
+          : { status: 200, body: {} },
+    });
+    await session.request("POST", "/api/hmi/login", { user: "anna", password: "x" });
+    assert.strictEqual(session.namedCookie(), "trust_hmi_session=named");
   });
 });

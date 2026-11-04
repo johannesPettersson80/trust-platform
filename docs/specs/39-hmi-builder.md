@@ -1391,9 +1391,13 @@ declaration's real values.
      The language server decides from facts only: the method, the path, whether a named session is
      held, whether a login names a peer, and the answer's status. Neither the password nor the
      session cookie is sent for these verdicts, because a language client's `verbose` trace logs
-     every message. The extension host keeps the cookie that the language server names, taken from
-     the login answer's `Set-Cookie` (RFC 6265 §5.2), in memory. Without the language server's
-     verdict within 5 seconds, the request does not go out. The runtime's access
+     every message. The extension host keeps in memory the cookie that the language server names,
+     the named session's `trust_hmi_session` (§12.8 item 3), taken from the login answer's
+     `Set-Cookie` fields (RFC 6265 §5.2). A verdict holds for the session it was asked for: when a
+     login or a logout ends while a request waits, its verdict is asked again for the session held
+     then. Without the language server's verdict within 5 seconds, or with a verdict of another
+     shape, the request does not go out (`503` with the reason) and the named session is dropped;
+     a login whose answer gets no verdict answers `503` too, without a session. The runtime's access
      token supplies transport access, never the named operator's identity. Each request verifies
      the selected target. Target changes invalidate the session before another command can go
      out. An in-flight response from an ended connection cannot restore its cookie.
@@ -1632,7 +1636,7 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - `POST /api/hmi/login` with `{ "user", "password" }` starts a session. It returns `user`,
      `role`, `acts_as` and `may_change_settings` (§12.4 item 4) and both expiry times
      (`idle_seconds`, `expires_seconds`), and sets an `HttpOnly`, `SameSite=Strict` session
-     cookie;
+     cookie, `trust_hmi_session`;
    - a wrong user and a wrong password give the same answer;
    - after five failed attempts a user is refused for a minute;
    - `POST /api/hmi/logout` ends the session, and `GET /api/hmi/session` reports it with the same

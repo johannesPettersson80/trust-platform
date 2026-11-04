@@ -10,7 +10,8 @@ export interface LiveEndpoint {
 export interface LiveReply {
   status: number;
   body: unknown;
-  cookie?: string;
+  /** The answer's `Set-Cookie` fields, one each. */
+  cookies?: string[];
 }
 /** What the language server decides about the session's traffic, from facts only: never the password or the session
  * cookie, which a language client's `verbose` trace would log (`trust-lsp.hmiLiveBridge`, §11 item 6). */
@@ -63,12 +64,22 @@ async function decided<T>(verdict: Promise<T>): Promise<T> {
   }
 }
 
-/** The cookie-pair `name=value` that a `Set-Cookie` value begins with (RFC 6265 §5.2): its text up to the first `;` or
- * white space; undefined for another cookie or none. The host keeps it in memory only (§11 item 6). */
-function cookiePair(setCookie: string | undefined, name: string): string | undefined {
-  const pair = setCookie?.split(/[;\s]/, 1)[0] ?? "";
-  return pair.length > name.length + 1 && pair.startsWith(`${name}=`) ? pair : undefined;
+/** The cookie-pair `name=value` that the answer's `Set-Cookie` fields set for `name` (RFC 6265 §5.2): a field's
+ * name-value pair up to its first `;`, name and value trimmed, the last field that sets the name with a value winning;
+ * undefined when none does. The host keeps it in memory only (§11 item 6). */
+function cookiePair(fields: readonly string[] | undefined, name: string): string | undefined {
+  let pair: string | undefined;
+  for (const field of fields ?? []) {
+    const nameValue = field.split(";", 1)[0];
+    const equals = nameValue.indexOf("=");
+    if (equals < 0) continue;
+    const value = nameValue.slice(equals + 1).trim();
+    if (nameValue.slice(0, equals).trim() === name && value !== "") pair = `${name}=${value}`;
+  }
+  return pair;
 }
+
+const reasonOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /** One editor's session, pinned to the first selected target; never revived after stop. */
 export class LiveSession {
@@ -85,25 +96,36 @@ export class LiveSession {
     // Facts only: whether a named session is held and whether a login names a peer, never their secrets.
     const peer = Boolean((body as { peer?: unknown } | undefined)?.peer);
     let verdict: Awaited<ReturnType<LiveBridge["request"]>>;
-    try {
-      verdict = await decided(this.deps.bridge.request({ method, path, session: this.cookie !== undefined, peer }));
-    } catch (error) {
-      // No verdict, no request.
-      return refused(503, error instanceof Error ? error.message : String(error));
-    }
-    if (!verdict.bridged) return refused(verdict.status, verdict.message);
-    const target = await this.target();
-    if (!target)
-      return refused(409, "The run target changed or the Live connection ended. Reopen Live mode to connect.");
-    const answer = await this.deps.request(target, method, path, body, this.cookie);
+    let target: LiveEndpoint | undefined;
+    let cookie: string | undefined;
+    // A verdict holds for the session it was asked for: a login or a logout that ended meanwhile asks again.
+    do {
+      cookie = this.cookie;
+      try {
+        verdict = await decided(this.deps.bridge.request({ method, path, session: cookie !== undefined, peer }));
+      } catch (error) {
+        // No verdict: no request, and no session.
+        this.cookie = undefined;
+        return refused(503, reasonOf(error));
+      }
+      if (!verdict.bridged) return refused(verdict.status, verdict.message);
+      target = await this.target();
+      if (!target)
+        return refused(409, "The run target changed or the Live connection ended. Reopen Live mode to connect.");
+    } while (this.cookie !== cookie);
+    const answer = await this.deps.request(target, method, path, body, cookie);
     if (this.stopped) return refused(409, "Live connection ended.");
     if (verdict.reply) {
-      // Without a verdict on the answer, the session is not kept.
-      const after = await decided(this.deps.bridge.reply({ path, status: answer.status, peer })).catch(
-        () => ({ session: "drop" }) as const,
-      );
+      let after: Awaited<ReturnType<LiveBridge["reply"]>>;
+      try {
+        after = await decided(this.deps.bridge.reply({ path, status: answer.status, peer }));
+      } catch (error) {
+        // No verdict on the answer: no session, and the caller learns that the request did not hold.
+        this.cookie = undefined;
+        return this.stopped ? refused(409, "Live connection ended.") : refused(503, reasonOf(error));
+      }
       if (this.stopped) return refused(409, "Live connection ended.");
-      if (after.session === "keep") this.cookie = cookiePair(answer.cookie, after.cookie);
+      if (after.session === "keep") this.cookie = cookiePair(answer.cookies, after.cookie);
       else if (after.session === "drop") this.cookie = undefined;
     }
     return { status: answer.status, body: answer.body };

@@ -22,6 +22,7 @@
 
 use serde::Deserialize;
 use serde_json::{json, Value};
+use trust_runtime::web::HMI_SESSION_COOKIE;
 
 use super::hmi_files::single_argument;
 use super::HMI_LIVE_BRIDGE_COMMAND;
@@ -57,8 +58,6 @@ const WRITES: [&str; 5] = ["login", "logout", "command", "alarm", "settings"];
 const NEEDS_SESSION: [&str; 3] = ["command", "alarm", "settings"];
 /// What a value stream follows.
 const STREAMS: [&str; 3] = ["page", "popup", "faceplate"];
-/// The named session's cookie, as the web server sets it.
-const SESSION_COOKIE: &str = "trust_hmi_session";
 
 const NOT_BRIDGED: &str = "This address is not part of Live operation.";
 const NEEDS_LOGIN: &str = "Log in with a named HMI user to operate.";
@@ -116,7 +115,7 @@ fn request(method: &str, path: &str, session: bool, peer: bool) -> Value {
 fn reply(path: &str, status: u16, peer: bool) -> Value {
     match route(path) {
         Some(("login", None)) if status == 200 && !peer => {
-            json!({ "ok": true, "session": "keep", "cookie": SESSION_COOKIE })
+            json!({ "ok": true, "session": "keep", "cookie": HMI_SESSION_COOKIE })
         }
         Some(("logout", None)) => json!({ "ok": true, "session": "drop" }),
         _ => json!({ "ok": true, "session": "unchanged" }),

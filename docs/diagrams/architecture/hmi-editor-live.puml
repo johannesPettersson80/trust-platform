@@ -6,6 +6,7 @@ component "LiveOperating\nShared runtime display" as display
 component "LiveDisplayHost\nRequests and stream messages" as adapter
 component "LiveOperator\nSaved/deployed bundle gate" as host
 component "LiveSession\nTarget pin + host-only cookie" as session
+component "trust-lsp\nhmiLiveBridge, hmiLiveGate,\nhmiLiveOperation verdicts" as lsp
 component "Live network\nHTTP + WebSocket, no redirects" as network
 component "Selected runtime\nHMI session + roles + command service" as runtime
 component "Hmi.Display\nProgram task + command outcomes" as plc
@@ -16,7 +17,10 @@ samples --> editor : shared drawing; no live process values
 editor --> display : Run target source
 display --> adapter : shared login, confirmations, reads, commands
 adapter <--> host : scoped webview messages
-host --> session : allowed HMI routes
+host --> session : operating requests and streams
+host --> lsp : gate and operation facts\n(unsaved paths, replies)
+session --> lsp : bridge facts only\n(method, path, session held, peer, status)
+lsp --> session : bridged or refused (403/401),\nkeep or drop the named session
 session --> network : transport access + named cookie
 network <--> runtime : authenticated HTTP and value stream
 runtime <--> plc : existing HMI exchange
@@ -25,7 +29,9 @@ editor --> host : end on exit or source change
 host --> session : end on edit, target change or disconnect
 note bottom of session
 No token or cookie in project files.
+No password or cookie to trust-lsp.
 No arbitrary URLs, deploy or control proxy.
+No verdict within 5 s: nothing goes out.
 No command replay after disconnect.
 end note
 @enduml
