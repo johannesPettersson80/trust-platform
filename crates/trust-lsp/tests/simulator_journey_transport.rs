@@ -39,13 +39,16 @@ struct LanguageServer {
 impl LanguageServer {
     /// Starts the server with `RUST_LOG` set to `log` and initializes it.
     fn start(log: &str) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_trust-lsp"))
-            .env("RUST_LOG", log)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("the trust-lsp binary");
+        let mut child = Command::new(
+            std::env::var_os("CARGO_BIN_EXE_trust-lsp")
+                .expect("Cargo must provide trust-lsp binary while executing integration tests"),
+        )
+        .env("RUST_LOG", log)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("the trust-lsp binary");
         let stdout = child.stdout.take().expect("its stdout");
         let (sender, incoming) = mpsc::channel();
         thread::spawn(move || {
