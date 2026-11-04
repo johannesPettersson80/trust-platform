@@ -7,6 +7,7 @@ use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -25,6 +26,7 @@ const PROMPT: Timing = Timing {
     request: Duration::from_secs(5),
     stream: Duration::from_secs(5),
     period: Duration::from_millis(100),
+    cap: Duration::from_secs(10),
 };
 /// A short wait for the readback, for the steps that must time out.
 const SHORT: Timing = Timing {
@@ -164,7 +166,7 @@ fn journey(
     fake: &FakeSimulator,
     steps: Value,
     live: &dyn Fn() -> bool,
-    cancelled: &AtomicBool,
+    cancelled: &Arc<AtomicBool>,
     timing: Timing,
 ) -> Value {
     let steps: Vec<Step> = serde_json::from_value(steps).expect("steps");
@@ -175,12 +177,18 @@ fn journey(
     let journey = Journey {
         session_id: "session-1",
         name: "Fixture",
+        journey_id: "journey-1",
         target: &target,
         cookie: COOKIE,
         steps: &steps,
         models: models.as_object().expect("the models"),
     };
     run(&journey, live, cancelled, timing)
+}
+
+/// A journey's cancellation, not set.
+fn not_cancelled() -> Arc<AtomicBool> {
+    Arc::new(AtomicBool::new(false))
 }
 
 /// A command answered `outcome`, then the frames `then` builds from the command's ID.
@@ -221,7 +229,7 @@ fn a_matching_page_with_its_readback_observed_passes() {
     });
     let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10,
                          "path": "Main.SP", "expect": 10 }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), PROMPT);
     let received = fake.received();
     let routes: Vec<(&str, &str)> = received
         .iter()
@@ -252,7 +260,8 @@ fn a_matching_page_with_its_readback_observed_passes() {
     assert_eq!(
         answer,
         json!({
-            "origin": "simulator", "sessionId": "session-1", "name": "Fixture", "passed": true,
+            "origin": "simulator", "sessionId": "session-1", "journeyId": "journey-1",
+            "name": "Fixture", "passed": true,
             "outcomes": [
                 { "page": "settings", "object": "sp", "commandId": id, "status": 200,
                   "outcome": "applied" },
@@ -273,11 +282,12 @@ fn a_page_that_differs_from_the_draft_stops_with_the_conflict() {
         other,
     )])));
     let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), PROMPT);
     assert_eq!(
         answer,
         json!({
-            "origin": "simulator", "sessionId": "session-1", "name": "Fixture", "passed": false,
+            "origin": "simulator", "sessionId": "session-1", "journeyId": "journey-1",
+            "name": "Fixture", "passed": false,
             "outcomes": [],
             "error": "CONFLICT: the deployed simulator page does not match this draft; apply and \
                       deploy explicitly before exercising it.",
@@ -320,7 +330,7 @@ fn a_refused_command_stops_the_journey_with_its_outcome() {
             { "page": "settings", "object": "sp", "action": "write", "value": 10 },
             { "page": "settings", "object": "sp", "action": "write", "value": 20 },
         ]);
-        let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
+        let answer = journey(&fake, steps, &|| true, &not_cancelled(), PROMPT);
         let sent = commands(&fake);
         assert_eq!(sent.len(), 1, "{status}: one command, never the next");
         let mut expected = json!({ "page": "settings", "object": "sp", "commandId": sent[0]["id"],
@@ -346,13 +356,7 @@ fn an_unfollowed_controls_applied_command_is_observed_at_once() {
         ..Script::serving(pages())
     });
     let started = Instant::now();
-    let answer = journey(
-        &fake,
-        json!([stop()]),
-        &|| true,
-        &AtomicBool::new(false),
-        PROMPT,
-    );
+    let answer = journey(&fake, json!([stop()]), &|| true, &not_cancelled(), PROMPT);
     assert!(
         started.elapsed() < Duration::from_secs(2),
         "it waited for no confirmation"
@@ -380,13 +384,7 @@ fn a_followed_controls_later_confirmation_is_observed() {
         }),
         ..Script::serving(pages())
     });
-    let answer = journey(
-        &fake,
-        json!([set(10)]),
-        &|| true,
-        &AtomicBool::new(false),
-        PROMPT,
-    );
+    let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), PROMPT);
     let id = &commands(&fake)[0]["id"];
     assert_eq!(
         answer["outcomes"],
@@ -410,7 +408,7 @@ fn a_followed_controls_later_timed_out_ends_the_journey() {
         &fake,
         json!([set(10), set(20)]),
         &|| true,
-        &AtomicBool::new(false),
+        &not_cancelled(),
         PROMPT,
     );
     let sent = commands(&fake);
@@ -436,13 +434,7 @@ fn a_followed_control_without_a_later_outcome_times_out() {
         ..Script::serving(pages())
     });
     let started = Instant::now();
-    let answer = journey(
-        &fake,
-        json!([set(10)]),
-        &|| true,
-        &AtomicBool::new(false),
-        SHORT,
-    );
+    let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), SHORT);
     assert!(
         started.elapsed() >= SHORT.wait,
         "it waited for the later outcome"
@@ -474,13 +466,7 @@ fn a_pending_command_completes_with_its_later_outcome() {
             }),
             ..Script::serving(pages())
         });
-        let answer = journey(
-            &fake,
-            json!([step]),
-            &|| true,
-            &AtomicBool::new(false),
-            PROMPT,
-        );
+        let answer = journey(&fake, json!([step]), &|| true, &not_cancelled(), PROMPT);
         let id = &commands(&fake)[0]["id"];
         assert_eq!(
             answer["outcomes"][1],
@@ -499,13 +485,7 @@ fn a_pending_command_never_decided_times_out() {
         on_command: answered("pending", |_| Vec::new()),
         ..Script::serving(pages())
     });
-    let answer = journey(
-        &fake,
-        json!([set(10)]),
-        &|| true,
-        &AtomicBool::new(false),
-        SHORT,
-    );
+    let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), SHORT);
     let id = &commands(&fake)[0]["id"];
     assert_eq!(
         answer["outcomes"][1],
@@ -537,7 +517,7 @@ fn a_command_the_stream_reports_failed_ends_the_journey_with_that_outcome() {
             &fake,
             json!([step, stop()]),
             &|| true,
-            &AtomicBool::new(false),
+            &not_cancelled(),
             PROMPT,
         );
         let sent = commands(&fake);
@@ -622,13 +602,7 @@ fn a_target_that_no_longer_simulates_stops_before_the_command() {
         on_command: answered("applied", |_| Vec::new()),
         ..Script::serving(pages())
     });
-    let answer = journey(
-        &fake,
-        json!([set(10)]),
-        &|| true,
-        &AtomicBool::new(false),
-        PROMPT,
-    );
+    let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), PROMPT);
     assert_eq!(
         answer["error"],
         "CONFLICT: the simulator target no longer runs in simulation mode; connect the simulator \
@@ -670,7 +644,7 @@ fn a_followed_command_waits_for_its_controls_confirmation_time() {
         &timed_out,
         json!([set(10)]),
         &|| true,
-        &AtomicBool::new(false),
+        &not_cancelled(),
         BRIEF,
     );
     assert_eq!(
@@ -691,7 +665,7 @@ fn a_followed_command_waits_for_its_controls_confirmation_time() {
         &confirmed,
         json!([set(10)]),
         &|| true,
-        &AtomicBool::new(false),
+        &not_cancelled(),
         BRIEF,
     );
     assert_eq!(
@@ -714,13 +688,7 @@ fn a_followed_pulse_ends_with_the_runtimes_outcome_after_its_end() {
         on_command: pulse_reported("timed-out", Duration::from_secs(1)),
         ..Script::serving(pages())
     });
-    let answer = journey(
-        &timed_out,
-        step.clone(),
-        &|| true,
-        &AtomicBool::new(false),
-        BRIEF,
-    );
+    let answer = journey(&timed_out, step.clone(), &|| true, &not_cancelled(), BRIEF);
     let id = &commands(&timed_out)[0]["id"];
     assert_eq!(
         answer["outcomes"],
@@ -736,7 +704,7 @@ fn a_followed_pulse_ends_with_the_runtimes_outcome_after_its_end() {
         on_command: pulse_reported("confirmed", Duration::from_secs(1)),
         ..Script::serving(pages())
     });
-    let answer = journey(&confirmed, step, &|| true, &AtomicBool::new(false), BRIEF);
+    let answer = journey(&confirmed, step, &|| true, &not_cancelled(), BRIEF);
     let id = &commands(&confirmed)[0]["id"];
     assert_eq!(
         answer["outcomes"][1],
@@ -758,19 +726,160 @@ fn the_streams_announced_period_lengthens_the_wait() {
         on_command: reported_after("applied", "timed-out", Duration::from_millis(1200)),
         ..Script::serving(pages())
     });
-    let answer = journey(
-        &fake,
-        json!([set(10)]),
-        &|| true,
-        &AtomicBool::new(false),
-        BRIEF,
-    );
+    let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), BRIEF);
     assert_eq!(
         answer["outcomes"][1],
         json!({ "page": "settings", "outcome": "timed-out", "commandId": commands(&fake)[0]["id"],
                 "reason": "not confirmed in time", "readback": 9.0 }),
         "the runtime's own outcome"
     );
+}
+
+/// Catches: a control's confirmation time taken as it is, which can be any positive number of
+/// seconds: `timeout = 1e19` overflowed the wait's deadline and the journey's thread panicked (the
+/// reviewer's probe). The wait is at most the cap, here 1 s.
+#[test]
+fn a_huge_confirmation_time_waits_at_most_the_cap() {
+    let mut page = deployed();
+    page["object"][0]["timeout"] = json!(1e19);
+    let fake = FakeSimulator::start(Script {
+        on_command: answered("applied", |_| Vec::new()),
+        ..Script::serving(BTreeMap::from([("settings".to_owned(), page.clone())]))
+    });
+    let steps: Vec<Step> = serde_json::from_value(json!([set(10)])).expect("steps");
+    let target = json!({ "simulator": true, "url": fake.url, "endpoint": "tcp://127.0.0.1:9100" });
+    let models = json!({ "settings": page });
+    let journey = Journey {
+        session_id: "session-1",
+        name: "Fixture",
+        journey_id: "journey-1",
+        target: &target,
+        cookie: COOKIE,
+        steps: &steps,
+        models: models.as_object().expect("the models"),
+    };
+    let capped = Timing {
+        cap: Duration::from_secs(1),
+        ..BRIEF
+    };
+    let started = Instant::now();
+    let answer = run(&journey, &|| true, &not_cancelled(), capped);
+    let took = started.elapsed();
+    assert_eq!(answer["outcomes"][1]["outcome"], "timed-out", "{answer}");
+    assert!(
+        took >= Duration::from_secs(1) && took < Duration::from_secs(3),
+        "{took:?}"
+    );
+}
+
+/// Catches: a journey that keeps waiting for a later outcome after its named session expired or
+/// closed, up to the control's confirmation time; the wait ends with the session.
+#[test]
+fn a_session_that_ends_during_the_wait_ends_the_step() {
+    let fake = FakeSimulator::start(Script {
+        on_command: answered("applied", |_| Vec::new()),
+        ..Script::serving(pages())
+    });
+    let started = Instant::now();
+    let live = || started.elapsed() < Duration::from_millis(400);
+    let answer = journey(&fake, json!([set(10)]), &live, &not_cancelled(), PROMPT);
+    assert_eq!(
+        answer["error"], "CONFLICT: the simulator target or named session changed.",
+        "{answer}"
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "it waited no longer"
+    );
+}
+
+/// Catches: a command sent although the stream never said that the target runs in simulation
+/// mode; the runtime says so as the stream opens, so silence fails closed.
+#[test]
+fn a_stream_that_never_says_simulation_stops_before_the_command() {
+    let fake = FakeSimulator::start(Script {
+        simulation: None,
+        on_command: answered("applied", |_| Vec::new()),
+        ..Script::serving(pages())
+    });
+    let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), PROMPT);
+    assert_eq!(
+        answer["error"],
+        "CONFLICT: the simulator's readback stream did not say that the target runs in simulation \
+         mode; connect the simulator journey again."
+    );
+    assert!(commands(&fake).is_empty(), "no command went out");
+}
+
+/// Catches: a later `unknown` taken as final for a control with a confirmation to come: the runtime
+/// reports the unobserved end of a remote pulse as `unknown` and then still decides its
+/// confirmation, so the step waits for it.
+#[test]
+fn an_unknown_end_waits_for_a_confirmation_to_come() {
+    let mut page = deployed();
+    page["object"][2]["bind"]["target"]["path"] = json!("Owner:Main.Reset");
+    let fake = FakeSimulator::start(Script {
+        on_command: answered("applied", |id| {
+            vec![
+                Frame::Text(json!({ "command": { "id": id, "outcome": "unknown",
+                    "reason": "the owner's pulse end could not be observed" } })),
+                Frame::Text(json!({ "command": { "id": id, "outcome": "confirmed" } })),
+            ]
+        }),
+        ..Script::serving(BTreeMap::from([("settings".to_owned(), page.clone())]))
+    });
+    let steps: Vec<Step> = serde_json::from_value(json!([
+        { "page": "settings", "object": "reset", "action": "pulse" }
+    ]))
+    .expect("steps");
+    let target = json!({ "simulator": true, "url": fake.url, "endpoint": "tcp://127.0.0.1:9100" });
+    let models = json!({ "settings": page });
+    let journey = Journey {
+        session_id: "session-1",
+        name: "Fixture",
+        journey_id: "journey-1",
+        target: &target,
+        cookie: COOKIE,
+        steps: &steps,
+        models: models.as_object().expect("the models"),
+    };
+    let answer = run(&journey, &|| true, &not_cancelled(), PROMPT);
+    assert_eq!(answer["outcomes"][1]["outcome"], "observed", "{answer}");
+    assert_eq!(answer["passed"], true);
+}
+
+/// Catches: a cancel that waits for the command's answer, which a hung runtime never gives, and a
+/// step that forgets a command it sent when a cancel interrupts the answer: the command may have been
+/// applied, so the step ends `cancelled` with its ID.
+#[test]
+fn a_cancel_during_the_commands_answer_keeps_its_id() {
+    let cancelled = not_cancelled();
+    let cancel = Arc::clone(&cancelled);
+    let fake = FakeSimulator::start(Script {
+        on_command: Box::new(move |command| {
+            cancel.store(true, Ordering::SeqCst);
+            thread::sleep(Duration::from_secs(2));
+            CommandAnswer {
+                status: 200,
+                body: json!({ "id": command["id"], "outcome": "applied" }),
+                then: Vec::new(),
+                delay: Duration::ZERO,
+            }
+        }),
+        ..Script::serving(pages())
+    });
+    let started = Instant::now();
+    let answer = journey(&fake, json!([set(10)]), &|| true, &cancelled, PROMPT);
+    assert!(
+        started.elapsed() < Duration::from_secs(1),
+        "it ended at the cancel"
+    );
+    assert_eq!(
+        answer["outcomes"],
+        json!([{ "page": "settings", "object": "sp", "commandId": commands(&fake)[0]["id"],
+                 "outcome": "cancelled" }])
+    );
+    assert_eq!(answer["passed"], false);
 }
 
 /// Catches: a journey that reports success, or keeps waiting, after the readback stream closed while
@@ -782,7 +891,7 @@ fn a_closed_stream_is_disconnected() {
         ..Script::serving(pages())
     });
     let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), PROMPT);
     let id = &commands(&fake)[0]["id"];
     assert_eq!(
         answer["outcomes"],
@@ -805,7 +914,12 @@ fn cancel_keeps_the_completed_outcomes() {
             json!({ "values": { "Main.SP": { "value": 50.0 } } }),
         )],
         on_command: Box::new(move |command| {
-            cancel.store(true, Ordering::SeqCst);
+            // Cancelled while the step waits for the command's later outcome, after its answer.
+            let cancel = Arc::clone(&cancel);
+            thread::spawn(move || {
+                thread::sleep(Duration::from_millis(100));
+                cancel.store(true, Ordering::SeqCst);
+            });
             CommandAnswer {
                 status: 200,
                 body: json!({ "id": command["id"], "outcome": "applied" }),
@@ -838,7 +952,7 @@ fn cancel_keeps_the_completed_outcomes() {
         &before,
         json!([{ "page": "settings" }]),
         &|| true,
-        &AtomicBool::new(true),
+        &Arc::new(AtomicBool::new(true)),
         PROMPT,
     );
     assert_eq!(
@@ -862,7 +976,7 @@ fn an_error_after_an_observed_step_does_not_pass() {
         ..Script::serving(pages())
     });
     let steps = json!([{ "page": "settings", "path": "Main.SP" }, { "page": "alarms" }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), PROMPT);
     assert_eq!(
         answer["outcomes"],
         json!([{ "page": "settings", "outcome": "observed", "path": "Main.SP", "value": 50.0 }])
@@ -891,11 +1005,13 @@ fn a_session_that_ends_between_steps_stops_the_journey() {
         checks.set(checks.get() + 1);
         checks.get() == 1
     };
-    let steps = json!([{ "page": "settings", "path": "Main.SP" }, { "page": "settings" }]);
-    let answer = journey(&fake, steps, &live, &AtomicBool::new(false), PROMPT);
+    // The first step neither commands nor reads back, so that only the second step's start asks
+    // whether the session is still open.
+    let steps = json!([{ "page": "settings" }, { "page": "settings", "path": "Main.SP" }]);
+    let answer = journey(&fake, steps, &live, &not_cancelled(), PROMPT);
     assert_eq!(
         answer["outcomes"],
-        json!([{ "page": "settings", "outcome": "observed", "path": "Main.SP", "value": 50.0 }])
+        json!([{ "page": "settings", "outcome": "observed" }])
     );
     assert_eq!(
         answer["error"],
@@ -917,7 +1033,7 @@ fn a_path_answered_null_has_no_value_and_times_out() {
         ..Script::serving(pages())
     });
     let steps = json!([{ "page": "settings", "path": "Main.Typo" }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), SHORT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), SHORT);
     assert_eq!(
         answer["outcomes"],
         json!([{ "page": "settings", "outcome": "timed-out" }])
@@ -935,7 +1051,7 @@ fn a_readback_other_than_the_expected_value_times_out() {
         ..Script::serving(pages())
     });
     let steps = json!([{ "page": "settings", "path": "Main.SP", "expect": 10 }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), SHORT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), SHORT);
     assert_eq!(
         answer["outcomes"],
         json!([{ "page": "settings", "outcome": "timed-out" }])
@@ -947,7 +1063,7 @@ fn a_readback_other_than_the_expected_value_times_out() {
 fn an_unknown_control_is_refused_before_any_command() {
     let fake = FakeSimulator::start(Script::serving(pages()));
     let steps = json!([{ "page": "settings", "object": "nope", "action": "set", "value": 1 }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), PROMPT);
     assert_eq!(
         answer["error"],
         "INVALID_ARGUMENT: simulator step names an unknown control."
@@ -964,7 +1080,7 @@ fn a_readback_stream_that_does_not_open_stops_before_the_command() {
         ..Script::serving(pages())
     });
     let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
+    let answer = journey(&fake, steps, &|| true, &not_cancelled(), PROMPT);
     let error = answer["error"].as_str().expect("an error");
     assert!(
         error.starts_with("NOT_CONNECTED: simulator readback stream unavailable"),

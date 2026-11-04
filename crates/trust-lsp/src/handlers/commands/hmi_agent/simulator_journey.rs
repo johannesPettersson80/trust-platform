@@ -31,6 +31,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
@@ -43,7 +44,7 @@ use trust_runtime::hmi::page_files::HmiObject;
 
 use super::draft_records::new_uuid;
 use super::error::{AgentError, AgentResult, CANCELLED};
-use super::simulator_http::{SimulatorHmi, REQUEST_TIMEOUT};
+use super::simulator_http::{cancelled, SimulatorHmi, REQUEST_TIMEOUT};
 use super::simulator_stream::{Readback, Received};
 use super::target::is_local_simulator;
 
@@ -80,7 +81,8 @@ impl Step {
 }
 
 /// How long a journey waits: for a step's readback, between two reads of the stream, for one
-/// request, for the stream to open, and for one stream period until the stream announces its own.
+/// request, for the stream to open, for one stream period until the stream announces its own, and
+/// at most for a command's later outcome.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Timing {
     pub(super) wait: Duration,
@@ -88,25 +90,29 @@ pub(super) struct Timing {
     pub(super) request: Duration,
     pub(super) stream: Duration,
     pub(super) period: Duration,
+    pub(super) cap: Duration,
 }
 
 impl Timing {
-    /// The product's: 5 seconds, 50 milliseconds, 15 seconds and 5 seconds, the extension's, and the
-    /// runtime's shortest stream period, 250 milliseconds.
+    /// The product's: 5 seconds, 50 milliseconds, 15 seconds and 5 seconds, the extension's, the
+    /// runtime's shortest stream period, 250 milliseconds, and at most 60 seconds for a later
+    /// outcome.
     pub(super) const PRODUCT: Self = Self {
         wait: Duration::from_secs(5),
         poll: Duration::from_millis(50),
         request: REQUEST_TIMEOUT,
         stream: Duration::from_secs(5),
         period: Duration::from_millis(250),
+        cap: Duration::from_secs(60),
     };
 }
 
-/// A journey to run: its session's ID and name, the target (`{ simulator, url, endpoint, token }`),
-/// the session's cookie, the steps and the draft's page models by page name.
+/// A journey to run: its session's ID and name, its own ID, the target (`{ simulator, url, endpoint,
+/// token }`), the session's cookie, the steps and the draft's page models by page name.
 pub(super) struct Journey<'a> {
     pub(super) session_id: &'a str,
     pub(super) name: &'a str,
+    pub(super) journey_id: &'a str,
     pub(super) target: &'a Value,
     pub(super) cookie: &'a str,
     pub(super) steps: &'a [Step],
@@ -114,12 +120,13 @@ pub(super) struct Journey<'a> {
 }
 
 /// Runs `journey`. `live` answers whether its session is still open and unexpired; `cancelled` is
-/// set when the journey is cancelled. The answer is `{ origin, sessionId, name, outcomes, passed }`,
-/// with `error` when an error ended the journey.
+/// set when the journey is cancelled, which also ends a request in flight. The answer is
+/// `{ origin, sessionId, journeyId, name, outcomes, passed }`, with `error` when an error ended the
+/// journey.
 pub(super) fn run(
     journey: &Journey<'_>,
     live: &dyn Fn() -> bool,
-    cancelled: &AtomicBool,
+    cancelled: &Arc<AtomicBool>,
     timing: Timing,
 ) -> Value {
     let token = journey.target.get("token").and_then(Value::as_str);
@@ -133,6 +140,7 @@ pub(super) fn run(
             token: token.filter(|token| !token.is_empty()),
             cookie: journey.cookie,
             timeout: timing.request,
+            cancelled: Arc::clone(cancelled),
         },
         journey,
         live,
@@ -146,6 +154,7 @@ pub(super) fn run(
     let mut answer = json!({
         "origin": "simulator",
         "sessionId": journey.session_id,
+        "journeyId": journey.journey_id,
         "name": journey.name,
         "outcomes": runner.outcomes,
         "passed": passed,
@@ -187,11 +196,7 @@ impl Runner<'_> {
             ));
         }
         if self.cancelled.load(Ordering::SeqCst) {
-            return Err(AgentError::new(
-                CANCELLED,
-                "simulator journey cancelled; completed commands are retained in outcomes and are \
-                 not undone.",
-            ));
+            return Err(cancelled());
         }
         Ok(())
     }
@@ -246,13 +251,23 @@ impl Runner<'_> {
                     .push(json!({ "page": step.page, "outcome": "disconnected" }));
                 return Ok(true);
             }
-            if seen.simulation == Some(false) {
-                return Err(AgentError::conflict(
-                    "the simulator target no longer runs in simulation mode; connect the simulator \
-                     journey again.",
-                ));
-            }
+            // A cancel, a closed session or another target first: they also silence the stream.
             self.halted()?;
+            match seen.simulation {
+                Some(true) => {}
+                Some(false) => {
+                    return Err(AgentError::conflict(
+                        "the simulator target no longer runs in simulation mode; connect the \
+                         simulator journey again.",
+                    ));
+                }
+                None => {
+                    return Err(AgentError::conflict(
+                        "the simulator's readback stream did not say that the target runs in \
+                         simulation mode; connect the simulator journey again.",
+                    ));
+                }
+            }
             let id = new_uuid("a simulator command identifier")?;
             let mut body = Map::new();
             body.insert("id".into(), json!(id));
@@ -267,9 +282,20 @@ impl Runner<'_> {
             if let Some(value) = &step.value {
                 body.insert("value".into(), value.clone());
             }
-            let (status, answer) = self
+            let sent = self
                 .hmi
-                .send("/api/hmi/command", Some(&Value::Object(body)))?;
+                .send("/api/hmi/command", Some(&Value::Object(body)));
+            let (status, answer) = match sent {
+                Ok(answered) => answered,
+                // The command went out and may have been applied: the step keeps its ID.
+                Err(error) if error.code == CANCELLED => {
+                    let outcome = json!({ "page": step.page, "object": object,
+                                          "commandId": id, "outcome": "cancelled" });
+                    self.outcomes.push(outcome);
+                    return Ok(true);
+                }
+                Err(error) => return Err(error),
+            };
             let mut outcome = Map::new();
             outcome.insert("page".into(), json!(step.page));
             outcome.insert("object".into(), json!(object));
@@ -294,7 +320,7 @@ impl Runner<'_> {
                 decided: following.decided,
             });
         }
-        Ok(self.wait(stream, step, command.as_ref(), &mut seen))
+        self.wait(stream, step, command.as_ref(), &mut seen)
     }
 
     /// Reads the stream until it has said whether the target runs in simulation, for at most one
@@ -312,20 +338,30 @@ impl Runner<'_> {
 
     /// Waits for the command's later outcome and the readback; `true` when the step's outcome ends
     /// the journey.
+    ///
+    /// # Errors
+    ///
+    /// `CONFLICT` when the session expires or closes while the step waits.
     fn wait(
         &mut self,
         stream: &mut Readback,
         step: &Step,
         command: Option<&Sent>,
         seen: &mut Seen,
-    ) -> bool {
+    ) -> AgentResult<bool> {
         let started = Instant::now();
         let mut deadline = started + self.timing.wait;
         if let Some(command) = command
             && !command.complete(None)
         {
+            // Until the runtime decides the later outcome and the stream reports it, at most the
+            // cap: a control's confirmation time can be any positive number of seconds.
             let period = seen.period.unwrap_or(self.timing.period);
-            deadline = deadline.max(started + command.decided + period * 2);
+            let wait = command
+                .decided
+                .saturating_add(period.saturating_mul(2))
+                .min(self.timing.cap);
+            deadline = deadline.max(started + wait);
         }
         loop {
             // The later outcome the stream reported for the command, after its answer.
@@ -333,8 +369,12 @@ impl Runner<'_> {
             let reported = report
                 .and_then(|report| report.get("outcome"))
                 .and_then(Value::as_str);
-            let failed = reported
-                .filter(|reported| matches!(*reported, "timed-out" | "refused" | "unknown"));
+            let failed = reported.filter(|reported| match *reported {
+                "timed-out" | "refused" => true,
+                // An end that cannot be observed is final only without a confirmation to come.
+                "unknown" => command.is_some_and(|command| command.follow != Follow::Confirmation),
+                _ => false,
+            });
             let ended = if self.cancelled.load(Ordering::SeqCst) {
                 Some("cancelled")
             } else if seen.disconnected {
@@ -359,7 +399,7 @@ impl Runner<'_> {
                     }
                 }
                 self.outcomes.push(outcome);
-                return true;
+                return Ok(true);
             }
             let confirmed = command.is_none_or(|command| command.complete(reported));
             let readback = match &step.path {
@@ -383,7 +423,13 @@ impl Runner<'_> {
                     outcome["value"] = value.unwrap_or(Value::Null);
                 }
                 self.outcomes.push(outcome);
-                return false;
+                return Ok(false);
+            }
+            // Still waiting: only while the session is open and unexpired.
+            if !(self.live)() && !self.cancelled.load(Ordering::SeqCst) {
+                return Err(AgentError::conflict(
+                    "the simulator target or named session changed.",
+                ));
             }
             let wait = self
                 .timing

@@ -11,6 +11,8 @@ use super::super::error::{CANCELLED, CONFLICT, EXPIRED_DRAFT, LIMIT_EXCEEDED, NO
 use super::{iso_time, SimulatorSessions, MAX_SESSIONS};
 
 const A: &str = "file:///projects/a";
+/// The journey ID the client chose for the journeys here.
+const J: &str = "journey-1";
 const B: &str = "file:///projects/b";
 
 /// `seconds` after 2026-11-04T10:00:00Z, which is 1 793 786 400 seconds after the epoch.
@@ -51,7 +53,7 @@ fn a_session_lasts_ten_minutes() {
     assert!(sessions.list(A, after).is_empty());
     assert!(!sessions.is_live(id, after));
     let refused = sessions
-        .begin(A, id, &local(), after)
+        .begin(A, id, J, &local(), after)
         .err()
         .expect("expired");
     assert_eq!(refused.code, EXPIRED_DRAFT);
@@ -100,16 +102,21 @@ fn a_session_opens_only_for_a_local_simulator() {
 fn a_session_runs_one_journey_at_a_time() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
-    let running = sessions.begin(A, &id, &local(), at(1)).expect("a journey");
+    let running = sessions
+        .begin(A, &id, J, &local(), at(1))
+        .expect("a journey");
     assert_eq!(running.name(), "Fixture");
-    let refused = sessions.begin(A, &id, &local(), at(2)).err().expect("busy");
+    let refused = sessions
+        .begin(A, &id, J, &local(), at(2))
+        .err()
+        .expect("busy");
     assert_eq!(refused.code, CONFLICT);
     assert_eq!(
         refused.message,
         "this simulator journey is already running."
     );
     drop(running);
-    assert!(sessions.begin(A, &id, &local(), at(3)).is_ok());
+    assert!(sessions.begin(A, &id, J, &local(), at(3)).is_ok());
 }
 
 /// Catches: a journey that sends the named session's cookie to a target other than the one it was
@@ -134,7 +141,7 @@ fn a_journey_with_another_target_is_refused_and_closes_the_session() {
         let sessions = SimulatorSessions::new();
         let id = open(&sessions, A, at(0));
         let refused = sessions
-            .begin(A, &id, &target, at(1))
+            .begin(A, &id, J, &target, at(1))
             .err()
             .expect("refused");
         assert_eq!(refused.code, CONFLICT, "{target}");
@@ -143,7 +150,7 @@ fn a_journey_with_another_target_is_refused_and_closes_the_session() {
             "{target}: the session is closed"
         );
         let again = sessions
-            .begin(A, &id, &local(), at(2))
+            .begin(A, &id, J, &local(), at(2))
             .err()
             .expect("closed");
         assert_eq!(again.code, EXPIRED_DRAFT, "{target}");
@@ -156,13 +163,13 @@ fn another_workspaces_session_is_refused() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
     let refused = sessions
-        .begin(B, &id, &local(), at(1))
+        .begin(B, &id, J, &local(), at(1))
         .err()
         .expect("refused");
     assert_eq!(refused.code, EXPIRED_DRAFT);
     assert_eq!(sessions.list(A, at(1)).len(), 1, "the session stays A's");
     assert!(sessions.list(B, at(1)).is_empty());
-    assert!(sessions.begin(A, &id, &local(), at(2)).is_ok());
+    assert!(sessions.begin(A, &id, J, &local(), at(2)).is_ok());
 }
 
 /// Catches: a cancellation that does not reach the running journey, or that claims to cancel when
@@ -171,39 +178,89 @@ fn another_workspaces_session_is_refused() {
 fn cancel_reaches_only_a_running_journey() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
-    assert!(!sessions.cancel(&id, at(0)));
-    let running = sessions.begin(A, &id, &local(), at(3)).expect("a journey");
+    assert!(!sessions.cancel(&id, J, at(0)));
+    let running = sessions
+        .begin(A, &id, J, &local(), at(3))
+        .expect("a journey");
     assert!(!running.cancellation().load(Ordering::SeqCst));
-    assert!(sessions.cancel(&id, at(4)));
+    assert!(sessions.cancel(&id, J, at(4)));
     assert!(running.cancellation().load(Ordering::SeqCst));
     drop(running);
-    assert!(!sessions.cancel(&id, at(5)));
-    assert!(!sessions.cancel("no-such-session", at(5)));
+    assert!(!sessions.cancel(&id, J, at(5)));
+    assert!(!sessions.cancel("no-such-session", J, at(5)));
 }
 
 /// Catches the race of a cancel that reaches the language server just before the journey it was sent
-/// for: the journey would run although the agent cancelled it. Such a cancel refuses the start for
-/// two seconds, and only for two seconds.
+/// for: the journey would run although the agent cancelled it. Such a cancel refuses that journey's
+/// start for two seconds, and only for two seconds.
 #[test]
 fn a_cancel_just_before_the_start_refuses_it() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
-    assert!(!sessions.cancel(&id, at(10)), "no journey ran");
+    assert!(!sessions.cancel(&id, J, at(10)), "no journey ran");
     let refused = sessions
-        .begin(A, &id, &local(), at(12))
+        .begin(A, &id, J, &local(), at(12))
         .err()
         .expect("cancelled");
     assert_eq!(refused.code, CANCELLED);
     assert!(
-        sessions.begin(A, &id, &local(), at(12)).is_ok(),
+        sessions.begin(A, &id, J, &local(), at(12)).is_ok(),
         "the cancel counted once"
     );
     let late = open(&sessions, A, at(20));
-    assert!(!sessions.cancel(&late, at(20)));
+    assert!(!sessions.cancel(&late, J, at(20)));
     let later = UNIX_EPOCH + Duration::from_millis(1_793_786_422_001);
     assert!(
-        sessions.begin(A, &late, &local(), later).is_ok(),
+        sessions.begin(A, &late, J, &local(), later).is_ok(),
         "2.001 s on, it is forgotten"
+    );
+}
+
+/// Catches: a cancel that stops whatever journey the session runs, so that a cancel the client sent
+/// for an earlier journey stops the next one; a cancel names the journey it cancels.
+#[test]
+fn a_cancel_names_its_journey() {
+    let sessions = SimulatorSessions::new();
+    let id = open(&sessions, A, at(0));
+    let running = sessions
+        .begin(A, &id, J, &local(), at(1))
+        .expect("a journey");
+    assert!(!sessions.cancel(&id, "journey-0", at(2)), "another journey");
+    assert!(!running.cancellation().load(Ordering::SeqCst));
+    assert!(sessions.cancel(&id, J, at(2)));
+    assert!(running.cancellation().load(Ordering::SeqCst));
+}
+
+/// Catches: an early cancel that refuses the session's next journey whatever it is, and a stale
+/// cancel of a journey that already ended refusing the one after it; an early cancel refuses only
+/// the journey it names.
+#[test]
+fn an_early_or_stale_cancel_refuses_only_the_journey_it_names() {
+    let sessions = SimulatorSessions::new();
+    let id = open(&sessions, A, at(0));
+    assert!(
+        !sessions.cancel(&id, "journey-2", at(10)),
+        "not yet running"
+    );
+    let first = sessions
+        .begin(A, &id, J, &local(), at(11))
+        .expect("another journey runs");
+    drop(first);
+    let refused = sessions
+        .begin(A, &id, "journey-2", &local(), at(11))
+        .err()
+        .expect("the named journey");
+    assert_eq!(refused.code, CANCELLED);
+    let ended = sessions
+        .begin(A, &id, "journey-3", &local(), at(12))
+        .expect("a journey");
+    drop(ended);
+    assert!(!sessions.cancel(&id, "journey-3", at(12)), "it ended");
+    assert!(
+        sessions
+            .begin(A, &id, "journey-4", &local(), at(12))
+            .is_ok(),
+        "the stale cancel affects no other journey"
     );
 }
 
@@ -213,7 +270,9 @@ fn a_cancel_just_before_the_start_refuses_it() {
 fn close_forgets_the_session_and_cancels_its_journey() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
-    let running = sessions.begin(A, &id, &local(), at(1)).expect("a journey");
+    let running = sessions
+        .begin(A, &id, J, &local(), at(1))
+        .expect("a journey");
     assert!(sessions.close(&id));
     assert!(
         running.cancellation().load(Ordering::SeqCst),
@@ -230,11 +289,13 @@ fn close_forgets_the_session_and_cancels_its_journey() {
 fn a_target_change_cancels_the_running_journey() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
-    let running = sessions.begin(A, &id, &local(), at(1)).expect("a journey");
+    let running = sessions
+        .begin(A, &id, J, &local(), at(1))
+        .expect("a journey");
     let mut other = local();
     other["token"] = json!("other-token");
     let refused = sessions
-        .begin(A, &id, &other, at(2))
+        .begin(A, &id, J, &other, at(2))
         .err()
         .expect("refused");
     assert_eq!(refused.code, CONFLICT);

@@ -29,6 +29,8 @@ use tower_lsp::lsp_types::request::{
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tracing::info;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 use crate::handlers::HMI_BUILDER_COMMANDS;
 use crate::handlers::PROJECT_COMMANDS;
@@ -838,20 +840,25 @@ async fn main() {
         tracing::Level::INFO
     };
     let mut filter = tracing_subscriber::EnvFilter::from_default_env().add_directive(level.into());
-    // The language server never logs the messages it receives or sends: they carry credentials,
-    // such as an HMI agent simulator journey's named-session cookie (specification 43, AT-08).
-    if let Ok(directive) = "tower_lsp::codec=off".parse() {
-        filter = filter.add_directive(directive);
-    }
     if command_line_run {
         // a command-line run's client has no peer: its log/progress notifications are dropped on purpose
         if let Ok(directive) = "tower_lsp::service::client=off".parse() {
             filter = filter.add_directive(directive);
         }
     }
+    // The language server never logs the messages it receives or sends: they carry credentials,
+    // such as an HMI agent simulator journey's named-session cookie (specification 43, AT-08).
+    // tower-lsp traces each of them under `tower_lsp::codec`; this filter drops that target whatever
+    // `RUST_LOG` says, where a more specific directive (`tower_lsp::codec[{message}]=trace`) would
+    // outrank an `off` directive.
+    let silent_transport = tracing_subscriber::filter::filter_fn(|metadata| {
+        !metadata.target().starts_with("tower_lsp::codec")
+    });
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
+        .finish()
+        .with(silent_transport)
         .init();
 
     if command_line_check {

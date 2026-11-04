@@ -6,11 +6,13 @@
 //! A journey reaches only this computer, so no host name is looked up: `localhost` is tried as
 //! 127.0.0.1, then as [::1]. Connecting, the TLS handshake and every socket read and write are
 //! bounded by one deadline per exchange: TLS reads and writes through [`Bounded`], so that one TLS
-//! read made of several socket reads ends at that deadline too.
+//! read made of several socket reads ends at that deadline too, or at the journey's cancel.
 
 use std::fmt::Display;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use tower_lsp::lsp_types::Url;
@@ -41,19 +43,24 @@ impl Connection for native_tls::TlsStream<Bounded> {
 }
 
 /// A TCP connection whose socket reads and writes end by a deadline. A read waits at most a slice,
-/// and none after the deadline; a read or write that runs out of time is `WouldBlock`, which a TLS
-/// stream takes for "try again" and keeps its state, and its caller then checks the deadline. So a
-/// TLS read that waits on several socket reads, one record arriving a few bytes at a time, ends at
-/// the deadline too.
+/// and none after the deadline or once the journey is cancelled; a read or write that runs out of
+/// time is `WouldBlock`, which a TLS stream takes for "try again" and keeps its state, and its
+/// caller then checks the deadline and the cancel. So a TLS read that waits on several socket reads,
+/// one record arriving a few bytes at a time, ends at the deadline or the cancel too.
 pub(super) struct Bounded {
     tcp: TcpStream,
     deadline: Instant,
+    cancelled: Arc<AtomicBool>,
 }
 
 impl Bounded {
-    /// `tcp`, its reads and writes ending by `deadline`.
-    pub(super) fn new(tcp: TcpStream, deadline: Instant) -> Self {
-        Self { tcp, deadline }
+    /// `tcp`, its reads and writes ending by `deadline` or when `cancelled` is set.
+    pub(super) fn new(tcp: TcpStream, deadline: Instant, cancelled: Arc<AtomicBool>) -> Self {
+        Self {
+            tcp,
+            deadline,
+            cancelled,
+        }
     }
 
     /// The time left before the deadline.
@@ -65,7 +72,7 @@ impl Bounded {
 impl Read for Bounded {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         let left = self.left();
-        if left.is_zero() {
+        if left.is_zero() || self.cancelled.load(Ordering::SeqCst) {
             return Err(io::ErrorKind::WouldBlock.into());
         }
         self.tcp
@@ -127,9 +134,13 @@ fn addresses(url: &Url) -> io::Result<Vec<SocketAddr>> {
         .collect())
 }
 
-/// Connects to the host of `url` before `deadline`, its reads and writes ending by `deadline`: TCP
-/// for `http`, TLS for `https`. A refused TLS handshake is an error that names TLS.
-pub(super) fn connect(url: &Url, deadline: Instant) -> io::Result<Box<dyn Connection>> {
+/// Connects to the host of `url` before `deadline`, its reads and writes ending by `deadline` or at
+/// `cancelled`: TCP for `http`, TLS for `https`. A refused TLS handshake is an error that names TLS.
+pub(super) fn connect(
+    url: &Url,
+    deadline: Instant,
+    cancelled: &Arc<AtomicBool>,
+) -> io::Result<Box<dyn Connection>> {
     let mut failure = io::Error::new(io::ErrorKind::NotFound, "no address");
     for address in addresses(url)? {
         let wait = time_left(deadline)?;
@@ -140,7 +151,7 @@ pub(super) fn connect(url: &Url, deadline: Instant) -> io::Result<Box<dyn Connec
                 continue;
             }
         };
-        let bounded = Bounded::new(tcp, deadline);
+        let bounded = Bounded::new(tcp, deadline, Arc::clone(cancelled));
         return match url.scheme() {
             "http" => Ok(Box::new(bounded)),
             "https" => secure(url, bounded, deadline),
@@ -166,6 +177,9 @@ fn secure(url: &Url, tcp: Bounded, deadline: Instant) -> io::Result<Box<dyn Conn
             Err(native_tls::HandshakeError::Failure(error)) => return Err(tls(&error)),
             Err(native_tls::HandshakeError::WouldBlock(middle)) => {
                 time_left(deadline)?;
+                if middle.get_ref().cancelled.load(Ordering::SeqCst) {
+                    return Err(io::ErrorKind::Interrupted.into());
+                }
                 handshake = middle.handshake();
             }
         }

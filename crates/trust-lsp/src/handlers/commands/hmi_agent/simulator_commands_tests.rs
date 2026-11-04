@@ -31,7 +31,10 @@ const PROMPT: Timing = Timing {
     request: Duration::from_secs(5),
     stream: Duration::from_secs(5),
     period: Duration::from_millis(100),
+    cap: Duration::from_secs(10),
 };
+/// The journey ID the client chose for the journeys here.
+const J: &str = "journey-1";
 
 /// `seconds` after 2026-11-04T10:00:00Z.
 fn at(seconds: u64) -> SystemTime {
@@ -91,10 +94,10 @@ fn opened(
         .to_owned()
 }
 
-/// The argument of a journey of `steps` on the session `id` with the cookie `cookie`.
+/// The argument of the journey `J` of `steps` on the session `id` with the cookie `cookie`.
 fn journey(workspace: &str, id: &str, cookie: Value, target: &Value, steps: Value) -> Value {
-    json!({ "workspace": workspace, "sessionId": id, "cookie": cookie, "target": target,
-            "steps": steps, "models": { "settings": page() } })
+    json!({ "workspace": workspace, "sessionId": id, "journeyId": J, "cookie": cookie,
+            "target": target, "steps": steps, "models": { "settings": page() } })
 }
 
 fn refusal(code: &str, message: &str) -> Value {
@@ -125,7 +128,8 @@ fn the_commands_answer_the_authoring_envelope() {
     let admit = json!({ "sessionId": id, "target": local });
     let admitted = call(&sessions, ADMIT_LOGIN, admit, at(1));
     assert_eq!(admitted, success(json!({ "admitted": true })));
-    let cancelled = call(&sessions, CANCEL_JOURNEY, json!({ "sessionId": id }), at(1));
+    let cancel = json!({ "sessionId": id, "journeyId": J });
+    let cancelled = call(&sessions, CANCEL_JOURNEY, cancel, at(1));
     assert_eq!(cancelled, success(json!({ "cancelled": false })));
     let closed = call(&sessions, CLOSE_SESSION, json!({ "sessionId": id }), at(1));
     assert_eq!(closed, success(json!({ "closed": true })));
@@ -247,7 +251,7 @@ fn an_expired_or_busy_session_is_refused_before_any_request() {
     );
     let busy_id = opened(sessions, A, &local, at(700));
     let running = sessions
-        .begin(A, &busy_id, &local, at(701))
+        .begin(A, &busy_id, J, &local, at(701))
         .expect("a journey");
     let second = journey(A, &busy_id, json!(COOKIE), &local, steps);
     assert_eq!(
@@ -316,7 +320,7 @@ fn a_journey_needs_its_sessions_cookie_and_never_quotes_it() {
     assert!(!refused.to_string().contains("5ecret"), "{refused}");
     assert!(fake.received().is_empty());
     assert!(
-        sessions.begin(A, &id, &local, at(2)).is_ok(),
+        sessions.begin(A, &id, J, &local, at(2)).is_ok(),
         "no refusal left the session busy"
     );
 }
@@ -351,7 +355,7 @@ fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
     let start_took = started_at.elapsed();
     assert_eq!(
         started,
-        success(json!({ "started": true, "sessionId": id }))
+        success(json!({ "started": true, "sessionId": id, "journeyId": J }))
     );
     let again = run(
         sessions,
@@ -369,10 +373,11 @@ fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
         "the start answered in {start_took:?}, before the journey ended at {journey_took:?}"
     );
     assert_eq!(answer["sessionId"], id);
+    assert_eq!(answer["journeyId"], J);
     assert_eq!(answer["origin"], "simulator");
     assert_eq!(answer["passed"], true, "{answer}");
     let free = (0..100).any(|_| {
-        let begun = sessions.begin(A, &id, &local, at(2)).is_ok();
+        let begun = sessions.begin(A, &id, J, &local, at(2)).is_ok();
         if !begun {
             thread::sleep(Duration::from_millis(10));
         }
@@ -413,7 +418,7 @@ fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
     let cancelled = call(
         sessions,
         CANCEL_JOURNEY,
-        json!({ "sessionId": ends[0].0 }),
+        json!({ "sessionId": ends[0].0, "journeyId": J }),
         at(1),
     );
     assert!(
@@ -423,16 +428,90 @@ fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
     );
     assert_eq!(listed["data"]["sessions"].as_array().map(Vec::len), Some(5));
     assert_eq!(cancelled["data"]["cancelled"], true);
-    for (id, ended) in ends {
+    for (index, (id, ended)) in ends.into_iter().enumerate() {
         let answer = ended
             .recv_timeout(Duration::from_secs(10))
             .expect("the hung journey's answer");
         assert_eq!(answer["sessionId"], id);
+        // The cancelled journey ends at its cancel, within one read slice of its request in flight;
+        // the others when their request times out.
+        let expected = if index == 0 {
+            "CANCELLED:"
+        } else {
+            "NOT_CONNECTED:"
+        };
         let error = answer["error"].as_str().unwrap_or_default();
-        assert!(
-            error.starts_with("NOT_CONNECTED:") || error.starts_with("CANCELLED:"),
-            "{answer}"
-        );
+        assert!(error.starts_with(expected), "{answer}");
     }
     drop(hung);
+}
+
+/// Catches: a journey whose thread panics never reporting its end, so that the client's wait never
+/// ends and the next answer of the session is taken for this journey's; the end is sent from a guard
+/// the panic drops, with the journey's ID.
+#[test]
+fn a_journey_thread_that_panics_still_reports_its_end() {
+    let (sender, ended) = mpsc::channel();
+    let report: super::Report = Box::new(move |answer| {
+        let _ = sender.send(answer);
+    });
+    let thread = thread::spawn(move || {
+        let _ending = super::Ending::new(report, "session-1", J, "Fixture");
+        panic!("a journey that fails");
+    });
+    assert!(thread.join().is_err(), "the thread panicked");
+    let answer = ended
+        .recv_timeout(Duration::from_secs(5))
+        .expect("an answer");
+    assert_eq!(answer["journeyId"], J);
+    assert_eq!(answer["sessionId"], "session-1");
+    assert_eq!(answer["passed"], false);
+    assert_eq!(answer["outcomes"], json!([]));
+    assert!(
+        answer["error"]
+            .as_str()
+            .is_some_and(|error| error.starts_with("PROJECT_UNAVAILABLE:")),
+        "{answer}"
+    );
+}
+
+/// Catches: a journey without the ID its client waits by, or with an ID the client cannot have
+/// meant, started all the same.
+#[test]
+fn a_journey_needs_an_id_of_at_most_128_characters() {
+    let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
+    let sessions = sessions();
+    let local = target(&fake.url, "access-token-7");
+    let id = opened(sessions, A, &local, at(0));
+    for journey_id in [json!(" "), json!("j".repeat(129))] {
+        let mut argument = journey(
+            A,
+            &id,
+            json!(COOKIE),
+            &local,
+            json!([{ "page": "settings" }]),
+        );
+        argument["journeyId"] = journey_id.clone();
+        assert_eq!(
+            run(sessions, argument, at(1), PROMPT).0["code"],
+            "INVALID_ARGUMENT",
+            "{journey_id}"
+        );
+    }
+    let mut nameless = journey(
+        A,
+        &id,
+        json!(COOKIE),
+        &local,
+        json!([{ "page": "settings" }]),
+    );
+    nameless
+        .as_object_mut()
+        .expect("an object")
+        .remove("journeyId");
+    assert_eq!(
+        run(sessions, nameless, at(1), PROMPT).0["code"],
+        "INVALID_ARGUMENT"
+    );
+    assert!(fake.received().is_empty());
 }

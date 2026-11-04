@@ -294,9 +294,10 @@ fn open(server: &mut LanguageServer, url: &str, token: &str) -> (Value, String) 
     (target, id)
 }
 
+/// The journey `journey-1` of `steps` on the session `id`, with `cookie`.
 fn journey(id: &str, cookie: &str, target: &Value, steps: Value) -> Value {
-    json!({ "workspace": "file:///projects/a", "sessionId": id, "cookie": cookie, "target": target,
-            "steps": steps, "models": { "settings": page() } })
+    json!({ "workspace": "file:///projects/a", "sessionId": id, "journeyId": "journey-1",
+            "cookie": cookie, "target": target, "steps": steps, "models": { "settings": page() } })
 }
 
 /// Catches: a journey that answers its request only when it ends, and a journey whose answer never
@@ -313,12 +314,13 @@ fn a_journey_answers_at_once_and_its_end_arrives_as_a_notification() {
     );
     assert_eq!(
         started["data"],
-        json!({ "started": true, "sessionId": id }),
+        json!({ "started": true, "sessionId": id, "journeyId": "journey-1" }),
         "{started}"
     );
     let ended = server.notification("trust-lsp/simulatorJourneyEnded", WAIT);
     let answer = &ended["params"];
     assert_eq!(answer["sessionId"], id);
+    assert_eq!(answer["journeyId"], "journey-1");
     assert_eq!(answer["origin"], "simulator");
     assert_eq!(answer["passed"], true, "{answer}");
     assert_eq!(answer["outcomes"][1]["outcome"], "observed");
@@ -353,7 +355,7 @@ fn journeys_waiting_on_a_hung_simulator_leave_the_server_answering() {
     let local = server.command("trust-lsp.hmiAgent.checkTarget", check);
     let cancelled = server.command(
         "trust-lsp.hmiAgent.cancelSimulatorJourney",
-        json!({ "sessionId": sessions[0] }),
+        json!({ "sessionId": sessions[0], "journeyId": "journey-1" }),
     );
     let took = asked.elapsed();
     assert_eq!(local, json!({ "local": true }));
@@ -365,39 +367,55 @@ fn journeys_waiting_on_a_hung_simulator_leave_the_server_answering() {
 
 /// Catches: the named session's cookie or the runtime's access token in any log line of the language
 /// server, its transport's (tower-lsp, which traces every message it receives and sends unless told
-/// not to) or a library's (tungstenite), with all of them at trace level, or in the journey's answer.
+/// not to) or a library's (tungstenite), with all of them at trace level, or in the journey's answer;
+/// and a `RUST_LOG` directive that outranks the transport's silence, as a field filter does
+/// (`tower_lsp::codec[{message}]=trace` printed the cookie and the token past an `off` directive).
 #[test]
 fn the_cookie_and_the_token_reach_no_log_line() {
     const COOKIE: &str = "c00kie-5ecret-91";
     const TOKEN: &str = "t0ken-5ecret-37";
     let url = simulator();
-    let mut server = LanguageServer::start("tower_lsp=trace,tungstenite=trace,trust_lsp=trace");
-    let (target, id) = open(&mut server, &url, TOKEN);
-    let steps = json!([{ "page": "settings", "object": "stop", "action": "reset" }]);
-    let started = server.command(
-        "trust-lsp.hmiAgent.runSimulatorJourney",
-        journey(&id, &format!("trust_hmi_session={COOKIE}"), &target, steps),
-    );
-    assert_eq!(started["data"]["started"], true, "{started}");
-    let ended = server.notification("trust-lsp/simulatorJourneyEnded", WAIT);
-    assert_eq!(ended["params"]["passed"], true, "the journey ran: {ended}");
-    // Each of the three logs is on: tower-lsp's own, the language server's and tungstenite's.
-    let cancel =
-        json!({ "jsonrpc": "2.0", "method": "$/cancelRequest", "params": { "id": 424242 } });
-    server.send(&cancel);
-    for line in [
-        "client asked to cancel request 424242",
-        "HMI agent simulator journey ended",
-        "Received message",
+    for log in [
+        "tower_lsp=trace,tungstenite=trace,trust_lsp=trace",
+        "tower_lsp::codec[{message}]=trace",
+        "tower_lsp[{message}]=trace",
     ] {
-        assert!(server.logged(line, WAIT), "the log has {line:?}");
-    }
-    let log = server.stop();
-    for secret in [COOKIE, TOKEN] {
-        assert!(!log.contains(secret), "the log names {secret}: {log}");
-        assert!(
-            !ended.to_string().contains(secret),
-            "the answer names {secret}"
+        let mut server = LanguageServer::start(log);
+        let (target, id) = open(&mut server, &url, TOKEN);
+        let steps = json!([{ "page": "settings", "object": "stop", "action": "reset" }]);
+        let started = server.command(
+            "trust-lsp.hmiAgent.runSimulatorJourney",
+            journey(&id, &format!("trust_hmi_session={COOKIE}"), &target, steps),
         );
+        assert_eq!(started["data"]["started"], true, "{log}: {started}");
+        let ended = server.notification("trust-lsp/simulatorJourneyEnded", WAIT);
+        assert_eq!(
+            ended["params"]["passed"], true,
+            "{log}: the journey ran: {ended}"
+        );
+        if log.starts_with("tower_lsp=trace") {
+            // Each of the three logs is on: tower-lsp's own, the language server's and tungstenite's.
+            let cancel = json!({ "jsonrpc": "2.0", "method": "$/cancelRequest",
+                                 "params": { "id": 424242 } });
+            server.send(&cancel);
+            for line in [
+                "client asked to cancel request 424242",
+                "HMI agent simulator journey ended",
+                "Received message",
+            ] {
+                assert!(server.logged(line, WAIT), "the log has {line:?}");
+            }
+        }
+        let written = server.stop();
+        for secret in [COOKIE, TOKEN] {
+            assert!(
+                !written.contains(secret),
+                "{log}: the log names {secret}: {written}"
+            );
+            assert!(
+                !ended.to_string().contains(secret),
+                "the answer names {secret}"
+            );
+        }
     }
 }

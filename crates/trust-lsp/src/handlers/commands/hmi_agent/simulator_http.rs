@@ -8,15 +8,18 @@
 //! chunked and ends with the connection. A redirect is reported, never followed. Every read is
 //! bounded: the answer's status line and headers to 16 KiB, its body to 8 MiB, and the whole
 //! exchange, connecting, the TLS handshake and every read, to the request's one deadline (15
-//! seconds, the extension's).
+//! seconds, the extension's). A cancel of the journey ends an exchange in flight within one 100 ms
+//! slice of a read, as `CANCELLED`.
 
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use tower_lsp::lsp_types::Url;
 
-use super::error::{AgentError, AgentResult, NOT_CONNECTED};
+use super::error::{AgentError, AgentResult, CANCELLED, NOT_CONNECTED};
 use super::simulator_connection::{connect, time_left, Connection};
 
 /// How long one exchange may take: connecting, sending and reading the whole answer.
@@ -46,12 +49,22 @@ impl Head {
 
 /// The simulator's HMI web server as one journey reaches it: its web address (such as
 /// `http://127.0.0.1:8080`), the runtime's access token, the named session's cookie
-/// (`trust_hmi_session=…`) and how long one exchange may take.
+/// (`trust_hmi_session=…`), how long one exchange may take, and the journey's cancellation.
 pub(super) struct SimulatorHmi<'a> {
     pub(super) base: &'a str,
     pub(super) token: Option<&'a str>,
     pub(super) cookie: &'a str,
     pub(super) timeout: Duration,
+    pub(super) cancelled: Arc<AtomicBool>,
+}
+
+/// The journey's end by a cancel: completed commands are kept in its outcomes and not undone.
+pub(super) fn cancelled() -> AgentError {
+    AgentError::new(
+        CANCELLED,
+        "simulator journey cancelled; completed commands are retained in outcomes and are not \
+         undone.",
+    )
 }
 
 impl SimulatorHmi<'_> {
@@ -107,6 +120,9 @@ impl SimulatorHmi<'_> {
         body: &str,
         deadline: Instant,
     ) -> AgentResult<(Box<dyn Connection>, Head)> {
+        if self.cancelled.load(Ordering::SeqCst) {
+            return Err(cancelled());
+        }
         let url = Url::parse(&format!("{}{path}", self.base))
             .map_err(|_| self.failure("is not a web address"))?;
         let host = url.host_str().unwrap_or_default();
@@ -131,7 +147,8 @@ impl SimulatorHmi<'_> {
         }
         request.push_str("\r\n");
         request.push_str(body);
-        let mut connection = connect(&url, deadline).map_err(|error| self.unreachable(&error))?;
+        let mut connection =
+            connect(&url, deadline, &self.cancelled).map_err(|error| self.unreachable(&error))?;
         connection
             .write_all(request.as_bytes())
             .and_then(|()| connection.flush())
@@ -184,7 +201,11 @@ impl SimulatorHmi<'_> {
             if buffer.len() > limit {
                 return Err(self.failure(too_long));
             }
-            // Each socket read waits a slice at most, so the deadline is checked again in time.
+            // Each socket read waits a slice at most, so the deadline and a cancel are checked again
+            // in time.
+            if self.cancelled.load(Ordering::SeqCst) {
+                return Err(cancelled());
+            }
             time_left(deadline).map_err(|error| self.unreachable(&error))?;
             let room = (limit + 1 - buffer.len()).min(CHUNK);
             match connection.read(&mut chunk[..room]) {
@@ -203,8 +224,12 @@ impl SimulatorHmi<'_> {
         Ok(true)
     }
 
-    /// The refusal of a connection that failed or ran out of time.
+    /// The refusal of a connection that failed or ran out of time, or the journey's cancel that
+    /// ended it.
     fn unreachable(&self, error: &io::Error) -> AgentError {
+        if self.cancelled.load(Ordering::SeqCst) {
+            return cancelled();
+        }
         match error.kind() {
             io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => {
                 self.failure(&format!("did not answer within {:?}", self.timeout))

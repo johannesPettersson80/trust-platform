@@ -5,14 +5,15 @@
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 use tiny_http::{HTTPVersion, Header, Request, Response, Server, StatusCode};
 
-use super::super::error::NOT_CONNECTED;
+use super::super::error::{CANCELLED, NOT_CONNECTED};
 use super::SimulatorHmi;
 
 const COOKIE: &str = "trust_hmi_session=4f1c0ffee";
@@ -24,6 +25,7 @@ fn hmi(base: &str, timeout: Duration) -> SimulatorHmi<'_> {
         token: Some(TOKEN),
         cookie: COOKIE,
         timeout,
+        cancelled: Arc::new(AtomicBool::new(false)),
     }
 }
 
@@ -269,6 +271,7 @@ fn a_header_value_http_does_not_allow_is_refused_without_quoting_it() {
         token: Some(TOKEN),
         cookie: "trust_hmi_session=5ecret\r\nX-Injected: 1",
         timeout: Duration::from_secs(5),
+        cancelled: Arc::new(AtomicBool::new(false)),
     };
     let error = hmi.send("/api/hmi/page?name=a", None).expect_err("refused");
     assert_eq!(error.code, NOT_CONNECTED);
@@ -297,4 +300,30 @@ fn an_https_address_that_fails_tls_names_tls() {
     let prefix = format!("the simulator's HMI at {address} could not be reached: TLS: ");
     assert!(error.message.starts_with(&prefix), "{}", error.message);
     let _ = server.join();
+}
+
+/// Catches: a cancel that waits for a request in flight to time out, so that a journey on a hung
+/// simulator ends 15 s later as `NOT_CONNECTED` instead of at once as `CANCELLED`. A read waits one
+/// 100 ms slice at most before it sees the cancel.
+#[test]
+fn a_cancel_ends_a_request_in_flight() {
+    let hung = TcpListener::bind("127.0.0.1:0").expect("a listener that never answers");
+    let base = format!("http://{}", hung.local_addr().expect("its address"));
+    let hmi = hmi(&base, Duration::from_secs(10));
+    let cancel = Arc::clone(&hmi.cancelled);
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(300));
+        cancel.store(true, Ordering::SeqCst);
+    });
+    let started = Instant::now();
+    let error = hmi
+        .send("/api/hmi/page?name=a", None)
+        .expect_err("cancelled");
+    let took = started.elapsed();
+    assert_eq!(error.code, CANCELLED, "{error}");
+    assert!(
+        took < Duration::from_millis(800),
+        "ended {took:?} after the request, 300 ms after it went out"
+    );
+    drop(hung);
 }

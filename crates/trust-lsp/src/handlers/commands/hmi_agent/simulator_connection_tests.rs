@@ -4,6 +4,8 @@
 
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -87,7 +89,8 @@ fn a_read_made_of_many_socket_reads_ends_at_the_deadline() {
     });
     let tcp = TcpStream::connect(("127.0.0.1", port)).expect("a connection");
     let started = Instant::now();
-    let bounded = Bounded::new(tcp, started + Duration::from_millis(300));
+    let not_cancelled = Arc::new(AtomicBool::new(false));
+    let bounded = Bounded::new(tcp, started + Duration::from_millis(300), not_cancelled);
     let mut records = Records {
         inner: bounded,
         size: 400,

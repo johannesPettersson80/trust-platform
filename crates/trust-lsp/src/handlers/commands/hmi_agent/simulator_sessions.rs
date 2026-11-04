@@ -5,9 +5,11 @@
 //! the session: its opaque ID, the workspace and journey name it belongs to, the target it was
 //! opened for, its expiry ten minutes on and the journey it runs. A session opens only for a target
 //! that `checkTarget` accepts, while its workspace holds fewer than five unexpired sessions. It runs
-//! one journey at a time, and a journey whose target differs from the session's is refused and
-//! closes the session. Closing a session cancels the journey it runs. A cancel that arrives while no
-//! journey runs, just before the journey that it cancels starts, refuses that start for two seconds.
+//! one journey at a time, named by the journey ID its client chose, and a journey whose target
+//! differs from the session's is refused and closes the session. Closing a session cancels the
+//! journey it runs. A cancel names the journey it cancels: a cancel that finds that journey not
+//! running, as when it arrives just before the journey starts, refuses that journey's start for two
+//! seconds, and affects no other journey.
 //! The target is kept as a hash of its web address, control endpoint and access token, so the token
 //! itself is not kept. Time is passed in, so the rules hold for any clock.
 
@@ -27,9 +29,11 @@ use super::target::is_local_simulator;
 pub(super) const SESSION_LIFETIME: Duration = Duration::from_secs(10 * 60);
 /// The most unexpired sessions one workspace holds.
 pub(super) const MAX_SESSIONS: usize = 5;
-/// How long a cancel that found no running journey still refuses the start of one: it can arrive just
-/// before the journey it was sent for.
+/// How long a cancel that found its journey not running still refuses that journey's start: it can
+/// arrive just before the journey it was sent for.
 pub(super) const EARLY_CANCEL: Duration = Duration::from_secs(2);
+/// The most cancels a session remembers for journeys that have not started; the oldest goes first.
+const EARLY_CANCELS: usize = 16;
 
 /// One named session.
 struct Session {
@@ -38,10 +42,10 @@ struct Session {
     /// The hash of the target it was opened for.
     target: String,
     expires: SystemTime,
-    /// The cancellation of the journey it runs, while it runs one.
-    journey: Option<Arc<AtomicBool>>,
-    /// When a cancel last found no running journey.
-    early_cancel: Option<SystemTime>,
+    /// The ID and the cancellation of the journey it runs, while it runs one.
+    journey: Option<(String, Arc<AtomicBool>)>,
+    /// The journeys a cancel named while they did not run, and when.
+    early_cancels: Vec<(String, SystemTime)>,
 }
 
 impl Session {
@@ -108,7 +112,7 @@ impl SimulatorSessions {
             target: identity(target),
             expires: now + SESSION_LIFETIME,
             journey: None,
-            early_cancel: None,
+            early_cancels: Vec::new(),
         };
         let view = session.view(&id);
         sessions.insert(id, session);
@@ -136,19 +140,20 @@ impl SimulatorSessions {
             .collect()
     }
 
-    /// Starts a journey on the session `id` of `workspace` for `target` at `now`. The journey ends
-    /// when the answer is dropped.
+    /// Starts the journey `journey` on the session `id` of `workspace` for `target` at `now`. The
+    /// journey ends when the answer is dropped.
     ///
     /// # Errors
     ///
     /// `EXPIRED_DRAFT` when the workspace holds no such unexpired session; `CONFLICT` when the
     /// target differs from the session's, which also closes the session and cancels the journey it
-    /// runs, or when the session runs a journey already; `CANCELLED` when a cancel for it arrived
-    /// within the last two seconds, before it started.
+    /// runs, or when the session runs a journey already; `CANCELLED` when a cancel naming this
+    /// journey arrived within the last two seconds, before it started.
     pub(super) fn begin(
         &self,
         workspace: &str,
         id: &str,
+        journey: &str,
         target: &Value,
         now: SystemTime,
     ) -> AgentResult<RunningJourney<'_>> {
@@ -174,18 +179,20 @@ impl SimulatorSessions {
                 "this simulator journey is already running.",
             ));
         }
-        let cancelled_early = session.early_cancel.take().is_some_and(|at| {
-            now.duration_since(at)
-                .is_ok_and(|since| since <= EARLY_CANCEL)
-        });
-        if cancelled_early {
+        forget_old_cancels(&mut session.early_cancels, now);
+        let named = session
+            .early_cancels
+            .iter()
+            .position(|(cancelled, _)| cancelled == journey);
+        if let Some(index) = named {
+            session.early_cancels.remove(index);
             return Err(AgentError::new(
                 CANCELLED,
                 "the simulator journey was cancelled before it started.",
             ));
         }
         let cancel = Arc::new(AtomicBool::new(false));
-        session.journey = Some(Arc::clone(&cancel));
+        session.journey = Some((journey.to_owned(), Arc::clone(&cancel)));
         Ok(RunningJourney {
             sessions: self,
             id: id.to_owned(),
@@ -201,20 +208,25 @@ impl SimulatorSessions {
             .is_some_and(|session| session.unexpired(now))
     }
 
-    /// Cancels the journey the session `id` runs at `now`; whether it runs one. A cancel that finds
-    /// no running journey refuses the start of one for two seconds ([`EARLY_CANCEL`]).
-    pub(super) fn cancel(&self, id: &str, now: SystemTime) -> bool {
+    /// Cancels the journey `journey` of the session `id` at `now`; whether the session runs it. A
+    /// cancel that finds that journey not running refuses its start for two seconds
+    /// ([`EARLY_CANCEL`]) and affects no other journey.
+    pub(super) fn cancel(&self, id: &str, journey: &str, now: SystemTime) -> bool {
         let mut sessions = self.locked_now();
         let Some(session) = sessions.get_mut(id) else {
             return false;
         };
         match &session.journey {
-            Some(journey) => {
-                journey.store(true, Ordering::SeqCst);
+            Some((running, cancel)) if running == journey => {
+                cancel.store(true, Ordering::SeqCst);
                 true
             }
-            None => {
-                session.early_cancel = Some(now);
+            _ => {
+                forget_old_cancels(&mut session.early_cancels, now);
+                if session.early_cancels.len() == EARLY_CANCELS {
+                    session.early_cancels.remove(0);
+                }
+                session.early_cancels.push((journey.to_owned(), now));
                 false
             }
         }
@@ -248,10 +260,18 @@ fn close(sessions: &mut BTreeMap<String, Session>, id: &str) -> bool {
     let Some(session) = sessions.remove(id) else {
         return false;
     };
-    if let Some(journey) = session.journey {
+    if let Some((_, journey)) = session.journey {
         journey.store(true, Ordering::SeqCst);
     }
     true
+}
+
+/// Forgets the cancels of journeys that did not start within two seconds.
+fn forget_old_cancels(cancels: &mut Vec<(String, SystemTime)>, now: SystemTime) {
+    cancels.retain(|(_, at)| {
+        now.duration_since(*at)
+            .is_ok_and(|since| since <= EARLY_CANCEL)
+    });
 }
 
 /// A journey running on a session: its name and its cancellation. Dropping it ends the journey, so
@@ -270,7 +290,7 @@ impl RunningJourney<'_> {
     }
 
     /// Set when the journey is cancelled.
-    pub(super) fn cancellation(&self) -> &AtomicBool {
+    pub(super) fn cancellation(&self) -> &Arc<AtomicBool> {
         &self.cancel
     }
 }
@@ -282,7 +302,7 @@ impl Drop for RunningJourney<'_> {
             && session
                 .journey
                 .as_ref()
-                .is_some_and(|journey| Arc::ptr_eq(journey, &self.cancel))
+                .is_some_and(|(_, journey)| Arc::ptr_eq(journey, &self.cancel))
         {
             session.journey = None;
         }

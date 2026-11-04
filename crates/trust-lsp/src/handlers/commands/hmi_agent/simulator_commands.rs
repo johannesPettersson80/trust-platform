@@ -11,8 +11,9 @@
 //!
 //! `runSimulatorJourney` starts the journey on a thread of its own and answers at once, so that a
 //! journey never holds one of the language server's request slots and a cancel never waits behind
-//! journeys. The language client gets the journey's answer as the notification
-//! `trust-lsp/simulatorJourneyEnded` when it ends.
+//! journeys. The client names each journey (`journeyId`); the language client gets the journey's
+//! answer, with that ID, as the notification `trust-lsp/simulatorJourneyEnded` when it ends, also
+//! when the journey's thread panics. A cancel names the journey it cancels.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -35,13 +36,15 @@ use super::simulator_sessions::SimulatorSessions;
 pub(super) const OPEN_SESSION: &str = "trust-lsp.hmiAgent.openSimulatorSession";
 /// Closes a session, as after a login the simulator refused, cancelling its running journey.
 pub(super) const CLOSE_SESSION: &str = "trust-lsp.hmiAgent.closeSimulatorSession";
+/// The longest journey ID a client may give.
+const MAX_JOURNEY_ID: usize = 128;
 /// Lists a workspace's unexpired sessions, for the agent's context.
 pub(super) const LIST_SESSIONS: &str = "trust-lsp.hmiAgent.simulatorSessions";
 /// Answers whether the simulator login for a session may go to a target.
 pub(super) const ADMIT_LOGIN: &str = "trust-lsp.hmiAgent.admitSimulatorLogin";
 /// Starts a journey with its session's cookie.
 pub(super) const RUN_JOURNEY: &str = "trust-lsp.hmiAgent.runSimulatorJourney";
-/// Cancels a session's running journey.
+/// Cancels a journey of a session, by its ID.
 pub(super) const CANCEL_JOURNEY: &str = "trust-lsp.hmiAgent.cancelSimulatorJourney";
 
 /// The simulator commands.
@@ -55,7 +58,7 @@ const COMMANDS: [&str; 6] = [
 ];
 
 /// The notification that gives the language client a journey's answer when the journey ends:
-/// `{ origin, sessionId, name, outcomes, passed, error? }`.
+/// `{ origin, sessionId, journeyId, name, outcomes, passed, error? }`.
 pub(super) enum SimulatorJourneyEnded {}
 
 impl Notification for SimulatorJourneyEnded {
@@ -133,8 +136,10 @@ fn answer(sessions: &SimulatorSessions, name: &str, arguments: Vec<Value>, clock
             Ok(json!({ "admitted": admitted }))
         }
         CANCEL_JOURNEY => {
-            let request: SessionArgument = decode(argument)?;
-            Ok(json!({ "cancelled": sessions.cancel(&request.session_id, clock()) }))
+            let request: CancelArgument = decode(argument)?;
+            journey_id(&request.journey_id)?;
+            let cancelled = sessions.cancel(&request.session_id, &request.journey_id, clock());
+            Ok(json!({ "cancelled": cancelled }))
         }
         RUN_JOURNEY => Err(AgentError::invalid(
             "runSimulatorJourney reports the journey's end to the language client, so it runs only \
@@ -158,9 +163,10 @@ fn envelope(result: AgentResult<Value>) -> Value {
 }
 
 /// `runSimulatorJourney`: refuses the journey, or begins it on its session and runs it on a thread
-/// of its own, answering `{ started: true, sessionId }` at once. `report` gets the journey's answer
-/// when it ends, while the session still counts it as running, so that the session's next journey
-/// starts only after the client got the answer.
+/// of its own, answering `{ started: true, sessionId, journeyId }` at once. `report` gets the
+/// journey's answer when it ends, while the session still counts it as running, so that the answer
+/// is queued for the client before the session can take its next journey. A journey whose thread
+/// panics still reports an answer, with the error that says so.
 fn start(
     sessions: &'static SimulatorSessions,
     arguments: Vec<Value>,
@@ -176,6 +182,7 @@ fn start(
     let request: RunArgument = decode(argument)?;
     required("workspace", &request.workspace)?;
     required("sessionId", &request.session_id)?;
+    journey_id(&request.journey_id)?;
     if request.steps.is_empty() || request.steps.len() > MAX_PREVIEW {
         return Err(AgentError::limit(format!(
             "use 1 to {MAX_PREVIEW} bounded simulator steps."
@@ -196,17 +203,27 @@ fn start(
     let running = sessions.begin(
         &request.workspace,
         &request.session_id,
+        &request.journey_id,
         &request.target,
         clock(),
     )?;
     let cookie = named_cookie(cookie.as_ref())?.to_owned();
-    let session_id = request.session_id.clone();
+    let (session_id, journey_id) = (request.session_id.clone(), request.journey_id.clone());
     thread::Builder::new()
         .name(format!("hmi-journey-{session_id}"))
         .spawn(move || {
+            // Dropped after `ending`, so that the answer is queued before the session is free.
+            let running = running;
+            let ending = Ending::new(
+                report,
+                &request.session_id,
+                &request.journey_id,
+                running.name(),
+            );
             let journey = Journey {
                 session_id: &request.session_id,
                 name: running.name(),
+                journey_id: &request.journey_id,
                 target: &request.target,
                 cookie: &cookie,
                 steps: &request.steps,
@@ -219,8 +236,7 @@ fn start(
                 passed = %answer["passed"],
                 "HMI agent simulator journey ended"
             );
-            report(answer);
-            drop(running);
+            ending.send(answer);
         })
         .map_err(|error| {
             AgentError::new(
@@ -228,7 +244,54 @@ fn start(
                 format!("the simulator journey could not start: {error}"),
             )
         })?;
-    Ok(json!({ "started": true, "sessionId": session_id }))
+    Ok(json!({ "started": true, "sessionId": session_id, "journeyId": journey_id }))
+}
+
+/// The end of a journey's thread: it sends the journey's answer, or, when the thread panicked before
+/// it could, an answer with the error that says so, so that the client's wait always ends.
+struct Ending {
+    report: Option<Report>,
+    session_id: String,
+    journey_id: String,
+    name: String,
+}
+
+impl Ending {
+    fn new(report: Report, session_id: &str, journey_id: &str, name: &str) -> Self {
+        Self {
+            report: Some(report),
+            session_id: session_id.to_owned(),
+            journey_id: journey_id.to_owned(),
+            name: name.to_owned(),
+        }
+    }
+
+    /// Sends `answer`.
+    fn send(mut self, answer: Value) {
+        if let Some(report) = self.report.take() {
+            report(answer);
+        }
+    }
+}
+
+impl Drop for Ending {
+    fn drop(&mut self) {
+        let Some(report) = self.report.take() else {
+            return;
+        };
+        report(json!({
+            "origin": "simulator",
+            "sessionId": self.session_id,
+            "journeyId": self.journey_id,
+            "name": self.name,
+            "outcomes": [],
+            "passed": false,
+            "error": format!(
+                "{PROJECT_UNAVAILABLE}: the simulator journey stopped unexpectedly; the outcomes of \
+                 its steps are not known."
+            ),
+        }));
+    }
 }
 
 /// The one argument object of a command.
@@ -242,6 +305,17 @@ fn one_argument(arguments: Vec<Value>) -> AgentResult<Value> {
 fn decode<T: DeserializeOwned>(argument: Value) -> AgentResult<T> {
     serde_json::from_value(argument)
         .map_err(|error| AgentError::invalid(format!("the argument is malformed: {error}.")))
+}
+
+/// Refuses a blank journey ID, or one longer than 128 characters.
+fn journey_id(id: &str) -> AgentResult<()> {
+    required("journeyId", id)?;
+    if id.chars().count() > MAX_JOURNEY_ID {
+        return Err(AgentError::invalid(format!(
+            "journeyId has at most {MAX_JOURNEY_ID} characters."
+        )));
+    }
+    Ok(())
 }
 
 /// Refuses a blank text field.
@@ -282,11 +356,19 @@ struct OpenArgument {
     target: Value,
 }
 
-/// The argument of `closeSimulatorSession` and `cancelSimulatorJourney`.
+/// The argument of `closeSimulatorSession`.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct SessionArgument {
     session_id: String,
+}
+
+/// The argument of `cancelSimulatorJourney`: the session and the journey it cancels.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct CancelArgument {
+    session_id: String,
+    journey_id: String,
 }
 
 /// The argument of `admitSimulatorLogin`.
@@ -310,6 +392,7 @@ struct WorkspaceArgument {
 struct RunArgument {
     workspace: String,
     session_id: String,
+    journey_id: String,
     target: Value,
     steps: Vec<Step>,
     models: Map<String, Value>,
