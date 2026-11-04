@@ -63,9 +63,10 @@ end note
 ' truST LSP CRATE (Protocol Layer)
 ' ============================================================
 package "trust-lsp crate" as trustlsp #LightGreen {
-    component "StLanguageServer" as server <<main.rs>>
+    component "StLanguageServer" as server <<server.rs>>
     component "ServerState" as state <<state.rs>>
     component "Document text core" as documentText <<document_text.rs>>
+    component "Project diagnostics\n(trust-lsp check, the agent)" as projectDiagnostics <<project_diagnostics.rs>>
 
     package "handlers/" as handlers {
         component "sync.rs" as syncHandler <<did_open, did_change>>
@@ -75,6 +76,8 @@ package "trust-lsp crate" as trustlsp #LightGreen {
 
     server --> state : uses
     server --> handlers : delegates
+    projectDiagnostics --> state : loads the project\nas a workspace folder
+    projectDiagnostics --> diagHandler : diagnoses every file
     syncHandler --> documentText : apply UTF-16 edits
 }
 
@@ -291,6 +294,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> adsServerIntegration : ads server status/doctor/route
     devCli --> commitWorkflow : owns workbench command
     devCli --> agentWorkflow : owns agent command
+    agentWorkflow --> projectDiagnostics : lsp.diagnostics,\nruntime.compile_reload
     devCli --> devTestDocs : owns test/docs commands
     launcher ..> devCli : deprecated commit/agent/test/docs aliases\nforward during migration
     registryCli --> bundleLoader : validates bundle

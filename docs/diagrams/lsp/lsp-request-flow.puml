@@ -541,7 +541,7 @@ server --> client
 
 note right of client
     **Key Files:**
-    • trust-lsp/src/main.rs - StLanguageServer
+    • trust-lsp/src/server.rs - StLanguageServer
     • trust-lsp/src/state.rs - ServerState
     • trust-lsp/src/handlers/*.rs - Request handlers
     • trust-ide/src/*.rs - IDE features
