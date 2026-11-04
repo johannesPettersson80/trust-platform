@@ -262,10 +262,8 @@ export function registerPlcopenImportCommand(
             workspaceRoot
           );
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error ?? "unknown");
           vscode.window.showErrorMessage(
-            formatPlcopenLaunchError("import", message)
+            formatPlcopenLaunchError("import", error)
           );
           return false;
         }
