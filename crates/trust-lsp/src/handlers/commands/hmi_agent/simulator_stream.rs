@@ -68,9 +68,7 @@ impl Readback {
 
     /// The next message, waiting at most `wait` for it.
     pub(super) fn next(&mut self, wait: Duration) -> Received {
-        if self.socket.get_ref().wait_at_most(wait).is_err() {
-            return Received::Closed;
-        }
+        self.socket.get_mut().until(Instant::now() + wait);
         match self.socket.read() {
             Ok(Message::Text(text)) => Received::Text(text.as_str().to_owned()),
             Ok(Message::Binary(bytes)) => {

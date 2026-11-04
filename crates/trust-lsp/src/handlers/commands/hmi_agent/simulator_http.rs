@@ -7,7 +7,8 @@
 //! quotes a header's value. A request is HTTP/1.0 with `Connection: close`, so its answer is never
 //! chunked and ends with the connection. A redirect is reported, never followed. Every read is
 //! bounded: the answer's status line and headers to 16 KiB, its body to 8 MiB, and the whole
-//! exchange to the request's timeout (15 seconds, the extension's).
+//! exchange, connecting, the TLS handshake and every read, to the request's one deadline (15
+//! seconds, the extension's).
 
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
@@ -178,17 +179,24 @@ impl SimulatorHmi<'_> {
         done: impl Fn(&[u8]) -> bool,
     ) -> AgentResult<bool> {
         let mut chunk = [0_u8; CHUNK];
+        connection.until(deadline);
         while !done(buffer) {
             if buffer.len() > limit {
                 return Err(self.failure(too_long));
             }
-            let waited = time_left(deadline).and_then(|wait| connection.wait_at_most(wait));
-            waited.map_err(|error| self.unreachable(&error))?;
+            // Each socket read waits a slice at most, so the deadline is checked again in time.
+            time_left(deadline).map_err(|error| self.unreachable(&error))?;
             let room = (limit + 1 - buffer.len()).min(CHUNK);
             match connection.read(&mut chunk[..room]) {
                 Ok(0) => return Ok(false),
                 Ok(read) => buffer.extend_from_slice(&chunk[..read]),
-                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::Interrupted
+                            | io::ErrorKind::WouldBlock
+                            | io::ErrorKind::TimedOut
+                    ) => {}
                 Err(error) => return Err(self.unreachable(&error)),
             }
         }
