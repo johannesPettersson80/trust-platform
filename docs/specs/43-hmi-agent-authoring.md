@@ -713,13 +713,24 @@ expired and that `checkTarget` still accepts the target, reads the deployed page
 (`GET /api/hmi/page`) and compares its model with the draft's, key order aside, and follows the
 page's readback stream (`/ws/hmi`). A step with a control sends its command with the named session
 (`POST /api/hmi/command`, a new command ID) and stops the journey unless the answer is `applied`,
-`pending` or `confirmed`; then the step waits at most 5 seconds for the command's confirmation and,
-with a readback path, for that path's value (a path the runtime answers as unknown, `null`, has
-none), the expected one when it is given. Each step adds its outcome: `observed`, or `cancelled`,
-`disconnected` or `timed-out`, which end the journey. `trust-lsp.hmiAgent.cancelSimulatorJourney`
-cancels a session's running journey. The answer names the session, holds every outcome and the error
-that ended the journey, if any, and has passed exactly when no error ended it and its last outcome
-is `observed`.
+`pending` or `confirmed`. A `confirmed` command is complete. An `applied` one is complete at once
+when the runtime does not follow it; the runtime follows a command whose control confirms it, by its
+feedback or by the value read back, and a pulse to a remote runtime's point, and reports its later
+outcome on the value stream (specification 39 §12.8 item 5). The runtime's own plan of the command
+decides this for the journey too (`Plan::is_followed` in trust-runtime). A followed `applied`
+command waits at most 5 seconds for its later outcome: its confirmation completes it, or, for a
+remote pulse without one, the report of its end. A `pending` command (a repeated command ID) waits
+the same way, and a later `applied` or `confirmed` completes it. A later `timed-out` or `refused`
+ends the step and the journey with that outcome, also while the step waits for its readback. A
+followed command whose later outcome does not come within the 5 seconds, because its control's
+confirmation time is longer or because the runtime is already following as many commands as it can
+and leaves it final as `applied`, is reported `timed-out`: a false failure, never a false pass. With
+a readback path the step also waits, within the same 5 seconds, for that path's value (a path the
+runtime answers as unknown, `null`, has none), the expected one when it is given. Each step adds its
+outcome: `observed`, or `cancelled`, `disconnected`, `timed-out` or `refused`, which end the
+journey. `trust-lsp.hmiAgent.cancelSimulatorJourney` cancels a session's running journey. The answer
+names the session, holds every outcome and the error that ended the journey, if any, and has passed
+exactly when no error ended it and its last outcome is `observed`.
 `hmi_preview_states` may explicitly select `mode: simulator`, a `sessionId` and up to twelve steps.
 Each step names a deployed page, optional control/action/value and optional readback path/expected
 value. The deployed page must match the supplied draft and its local program revision must still
