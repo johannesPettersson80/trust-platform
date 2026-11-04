@@ -76,7 +76,8 @@ def runs_api(test: unittest.TestCase, by_head: dict[int, list[dict]], after_ci: 
     def get(path: str, token: str) -> dict:
         test.assertEqual(token, "token")
         if "/actions/workflows/release.yml/runs?head_sha=new&" in path:
-            return {"workflow_runs": [{"id": run, "display_title": (names or {}).get(run, "")} for run in by_head]}
+            return {"workflow_runs": [{"id": run, "event": "push", "display_title": (names or {}).get(run, "")}
+                                      for run in by_head]}
         if "/actions/workflows/release.yml/runs?event=workflow_run&created=%3E%3D2026-11-03&" in path:
             return {"workflow_runs": after_ci or []}
         run = int(path.split("/actions/runs/")[1].split("/")[0])
@@ -256,6 +257,22 @@ class ReleasePlanTests(unittest.TestCase):
         self.assertTrue(complete([named("new", "success")]))
         self.assertFalse(complete([named("new", "failure")]), "its verification failed")
         self.assertFalse(complete([named("other", "success")]), "it released another commit")
+
+    def test_a_release_after_ci_never_counts_for_the_commit_that_was_mains_head(self) -> None:
+        # The runs 41699252466 and 41695006229 had the head c41008869 while they ran after the CI of 55f0612c8 and
+        # 3e2ba4f3c (3 November 2026). Catches a check that counts such a run for its head: when two version changes
+        # merge close together, the first one's verified release would make the second look complete, and its Publish
+        # job would refuse it.
+        def get(path: str, token: str) -> dict:
+            if "head_sha=new" in path:
+                return {"workflow_runs": [{"id": 9, "event": "workflow_run", "display_title": "Release after CI of older"}]}
+            if "event=workflow_run" in path:
+                return {"workflow_runs": [{"id": 9, "display_title": "Release after CI of older"}]}
+            return {"jobs": [publish_job("success")]}
+
+        self.assertFalse(release_plan.release_complete(OFFICIAL, "new", "token", since="2026-11-03", get=get))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(release_plan.check_unreleased(OFFICIAL, "new", "token", since="2026-11-03", get=get), 0)
 
     def test_the_completeness_check_reads_every_page_of_runs_after_ci_and_fails_when_it_cannot(self) -> None:
         # Catches a check that reads only the newest 100 runs after CI, and one that calls a release incomplete when it

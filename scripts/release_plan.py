@@ -236,14 +236,16 @@ def verified(jobs: list) -> bool:
 def release_runs(
     repository: str, sha: str, token: str, *, since: str, get: Callable[[str, str], dict] = github_get
 ) -> list[dict]:
-    """The Release runs of `sha`: those whose head is `sha`, as for a push, and those that main's CI of `sha` started,
-    which carry its name in their run name since their head is main's newest commit when they start. `since` is a
-    day no later than the first of them started."""
+    """The Release runs of `sha`: those that main's CI of `sha` started, which carry it in their run name, and every
+    other Release run whose head is `sha`, as a push's is. A run after CI never counts by its head: that is main's
+    newest commit when it starts, so it can be `sha` while the run releases an earlier commit. `since` is a day no
+    later than the first of them started."""
     runs = {}
     for run in get(f"/repos/{repository}/actions/workflows/release.yml/runs?head_sha={sha}&per_page=100", token).get(
         "workflow_runs"
     ) or []:
-        runs[run["id"]] = run
+        if run.get("event") != "workflow_run":
+            runs[run["id"]] = run
     name = AFTER_CI_RUN_NAME.format(sha=sha)
     for page in range(1, MAX_RUN_PAGES + 1):
         listed = get(
