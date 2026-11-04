@@ -29,6 +29,7 @@ mod signal_handlers;
 mod status_handlers;
 mod transfer_handlers;
 mod transport;
+pub(crate) use transport::write_line;
 mod types;
 mod variable_handlers;
 

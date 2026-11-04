@@ -363,7 +363,8 @@ fn exchange_control_request<S: Write, R: BufRead>(
     request: &JsonValue,
 ) -> anyhow::Result<JsonValue> {
     let line = serde_json::to_string(request)?;
-    writeln!(stream, "{line}")?;
+    // One write: a newline written on its own waits for the runtime's acknowledgement.
+    stream.write_all(format!("{line}\n").as_bytes())?;
     stream.flush()?;
     let mut response = String::new();
     let bytes = reader
@@ -1064,3 +1065,7 @@ mod tests {
 #[cfg(test)]
 #[path = "ctl/serial_tests.rs"]
 mod serial_tests;
+
+#[cfg(test)]
+#[path = "ctl/exchange_tests.rs"]
+mod exchange_tests;

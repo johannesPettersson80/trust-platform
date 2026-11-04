@@ -3525,7 +3525,12 @@ address does not take ends the step before the scan, and the values written befo
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is read into one request and dispatched
-once. A line is read as a JSON value and the value as the request envelope: a
+once. The runtime writes each reply line with its newline in one write, and
+`trust-runtime ctl` and the fleet status request write each request line so: a
+newline written on its own is held by the TCP stack until the peer acknowledges
+the line before it (Nagle's algorithm meeting delayed acknowledgements), which
+cost 41 to 44 ms a request on Linux loopback (4 November 2026), and Windows
+delays an acknowledgement up to 200 ms. A line is read as a JSON value and the value as the request envelope: a
 line that is not JSON gets `invalid request: <error>` with id 0, no audit
 record, no dispatch and no mutation, and JSON that is not a request gets
 `invalid request: <error>` with id 0 and an audit record of type `invalid`, each
