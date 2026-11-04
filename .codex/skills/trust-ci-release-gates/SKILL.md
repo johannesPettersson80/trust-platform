@@ -112,8 +112,9 @@ Check it once, before the first push:
    and the lockfiles, and gathers the changelog fragments of `changelog.d/` into the version's
    section; check the text with `scripts/extract_changelog_section.py`. It carries nothing else.
 2. **Its rehearsal.** The Release workflow rehearses the head of a pull request that changes the
-   workspace version: every build, test and Publish script runs, the real-database matrix on the
-   project's own runner included, and nothing is published. Once every build and test passed, the
+   workspace version: every build, test and Publish script runs, and nothing is published. The
+   real-database matrix, on the project's own runner, never runs a pull request's code: it runs in a
+   manual rehearsal and in every release, a promoted one before it publishes. Once every build and test passed, the
    run keeps its release text and evidence as the artifact `release-rehearsal-v<version>`, and every
    file the release publishes as `release-bundle-v<version>-<tree>`, named after the tree of the
    rehearsed head, for 30 days. A fork's pull request is not rehearsed on the project's runners;

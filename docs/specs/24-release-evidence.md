@@ -106,9 +106,11 @@ run passed (0.30.0's first rehearsal attempt kept its files after a cancelled
 build, 3 November 2026), and that job holds no token that writes: no
 Marketplace token and a read-only GitHub token; only a release's publishing
 job gets write access, and only its Marketplace step the Marketplace token.
-Every rehearsal runs the real-database matrix, on the project's own runner, so
-that a promoted release has passed every check a release runs; the plan never
-rehearses a fork's pull request, and the matrix is given no secret.
+The real-database matrix runs on the project's own runner, so never for a pull
+request or a merge group, whose code it would run (Codex's review of #146): it
+runs in a maintainer's manual rehearsal and in every release, a promoted one
+included, on the release's commit before anything is published (owner, 4
+November 2026: "what you decide is okay with me"). It is given no secret.
 A pull request that keeps the version but changes what the packages hold (the
 extension, the crates, the examples, the libraries, the Cargo manifests and
 toolchain; `.github/paths/package.txt`) builds only the linux-x64 toolchain
@@ -181,8 +183,10 @@ pull request or a manual run started and that completed with `success`, and
 GitHub's record of that run's head commit has that tree. The plan takes these
 facts from GitHub's API, never from a pull request's text, and of several such
 artifacts it takes the newest. Without one, the push releases nothing and the
-release follows `main`'s CI. A promoted release runs no build or test: its
-publishing job downloads that artifact and publishes it only when every line of
+release follows `main`'s CI. A promoted release runs no build or test of its
+packages, only the real-database matrix on the commit, which a pull request's
+rehearsal does not run: its publishing job waits for the matrix to pass, then
+downloads that artifact and publishes it only when every line of
 the rehearsal's `SHA256SUMS` names a file of the artifact with that digest,
 every file of the release folders is listed, every platform has its VS Code
 package, runtime and language-server archives and toolchain bundle, the
@@ -204,9 +208,10 @@ CI passes, or GitHub cancels its waiting publishing job for a newer run of the
 group, the release after `main`'s CI releases the commit and builds the
 packages again.
 
-The preflight and every build and test of every target run first, in the
-release's own run or in the rehearsal it promotes; a failure
-among them creates no tag and publishes nothing. Then one job creates the
+The preflight, the real-database matrix and every build and test of every
+target run first, the builds and tests in the release's own run or in the
+rehearsal it promotes; a failure among them creates no tag and publishes
+nothing. Then one job creates the
 annotated tag `v<version>` on the commit and pushes it, creates the GitHub
 release with every required asset and the version's changelog section as its
 text, publishes every target's VS Code package to the Marketplace, and verifies

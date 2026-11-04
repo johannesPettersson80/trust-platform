@@ -236,13 +236,15 @@ jobs:
             artifacts/release/runtime-vm-determinism/**
 
   openot-real-databases:
-    # It runs on the project's own runner, in every rehearsal and in a release that builds its packages, so that a
-    # promoted release has passed it too (specification 24, owner decision of 2 November 2026). The plan rehearses only
-    # this repository's pull requests and a maintainer's manual run, never a fork's pull request, and a package check or
-    # a merge group skips it. It needs no secret, so it is given none (Codex's review of #146).
+    # It runs on the project's own runner, so never for a pull request or a merge group, which carries a pull
+    # request's code (Codex's review of #146): in a maintainer's manual rehearsal and in every release, a release
+    # promoted from its rehearsal included, on main's commit before anything is published (specification 24; owner,
+    # 4 November 2026). It needs no secret, so it is given none.
     name: OpenOT Real Database Matrix
     needs: [plan, release-preflight]
-    if: ${{ needs.plan.outputs.mode == 'rehearsal' || (needs.plan.outputs.mode == 'release' && needs.plan.outputs.rehearsal_run == '') }}
+    if: >-
+      ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group'
+      && (needs.plan.outputs.mode == 'rehearsal' || needs.plan.outputs.mode == 'release') }}
     uses: ./.github/workflows/openot-real-databases.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}
@@ -585,11 +587,16 @@ jobs:
   rehearse:
     # A rehearsal writes the release's files from the candidate's artifacts and keeps them, only once every
     # build and test passed: a cancelled or skipped one keeps nothing (0.30.0's first attempt kept its files
-    # after a cancelled build). It holds no token that writes: no Marketplace token and a read-only GitHub
+    # after a cancelled build). The real-database matrix passed or, for a pull request, did not run (its
+    # promotion runs it on main). It holds no token that writes: no Marketplace token and a read-only GitHub
     # token, so the candidate's code and what it installs cannot reach either (Codex's review of #146).
     name: Rehearse
     needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases, acceptance]
-    if: ${{ needs.plan.outputs.mode == 'rehearsal' }}
+    if: >-
+      ${{ !cancelled() && needs.plan.outputs.mode == 'rehearsal' && needs.release-preflight.result == 'success'
+      && needs.build.result == 'success' && needs.toolchain-bundle.result == 'success'
+      && needs.runtime-vm-validation.result == 'success' && needs.acceptance.result == 'success'
+      && (needs.openot-real-databases.result == 'success' || needs.openot-real-databases.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -645,16 +652,16 @@ jobs:
   publish:
     # Only a release gets the write token, and only its Marketplace step the Marketplace token. A release after
     # main's CI publishes once every build and test of its run passed; a release promoted from its rehearsal
-    # builds and tests nothing and publishes the rehearsal's files once its preflight passed (specification 24,
-    # "Release after main CI").
+    # builds and tests nothing of its packages and publishes the rehearsal's files once its preflight and the
+    # real-database matrix on main's commit passed (specification 24, "Release after main CI").
     name: Publish
     needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases, acceptance]
     if: >-
       ${{ !cancelled() && needs.plan.outputs.mode == 'release' && needs.release-preflight.result == 'success'
+      && needs.openot-real-databases.result == 'success'
       && (needs.plan.outputs.rehearsal_run != ''
       || (needs.toolchain-bundle.result == 'success' && needs.build.result == 'success'
-      && needs.runtime-vm-validation.result == 'success' && needs.openot-real-databases.result == 'success'
-      && needs.acceptance.result == 'success')) }}
+      && needs.runtime-vm-validation.result == 'success' && needs.acceptance.result == 'success')) }}
     runs-on: ubuntu-latest
     # The Marketplace wait of the verification is at most an hour.
     timeout-minutes: 120

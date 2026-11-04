@@ -524,13 +524,19 @@ class ReleaseWorkflowTests(unittest.TestCase):
         results = lambda event, outputs, **kwargs: simulate(self.jobs, event=event, outputs=outputs, **kwargs)
         ran = lambda found: {job for job, result in found.items() if result != "skipped"}
 
-        # A promoted release builds and tests nothing and publishes the rehearsal's files. Catches one that builds every
-        # package again (the hours the owner's decision of 2 November 2026 saves) or that never publishes.
+        # A promoted release builds and tests nothing of its packages, runs the real-database matrix on main's commit and
+        # publishes the rehearsal's files. Catches one that builds every package again (the hours the owner's decision of
+        # 2 November 2026 saves), one that never publishes, and one that publishes without the matrix, which no pull
+        # request's rehearsal runs (owner, 4 November 2026).
         promoted = results("push", PROMOTED)
-        self.assertEqual(ran(promoted), {"plan", "release-preflight", "publish", "conclusion"})
+        self.assertEqual(ran(promoted), {"plan", "release-preflight", "openot-real-databases", "publish", "conclusion"})
         self.assertTrue(concluded(promoted))
         failed_preflight = results("push", PROMOTED, ended={"release-preflight": "failure"})
         self.assertEqual(failed_preflight["publish"], "skipped", "a failed preflight stops a promotion")
+        for end in ("failure", "cancelled"):
+            stopped = results("push", PROMOTED, ended={"openot-real-databases": end})
+            self.assertEqual(stopped["publish"], "skipped", f"a {end} matrix stops a promotion")
+            self.assertFalse(concluded(stopped))
 
         # A release after main's CI builds and tests everything, the real-database matrix included, and publishes only
         # when all passed. Catches a tag after a failed or cancelled build (0.25.0, 25 October 2026).
@@ -544,16 +550,24 @@ class ReleaseWorkflowTests(unittest.TestCase):
                 self.assertFalse(concluded(stopped))
         self.assertEqual(results("workflow_run", built, cancelled=True)["publish"], "skipped")
 
-        # A rehearsal runs every build and test, the real-database matrix too, so that its promotion loses nothing the
-        # release checked, and keeps its files only when all passed. Catches the rehearsal that kept its files after a
-        # cancelled darwin-arm64 build (0.30.0's first attempt, 3 November 2026) and a rehearsal without the matrix.
+        # A rehearsal runs every build and test and keeps its files only when all passed; a pull request's rehearsal runs
+        # no real-database matrix, which its promotion runs on main. Catches the rehearsal that kept its files after a
+        # cancelled darwin-arm64 build (0.30.0's first attempt, 3 November 2026), one that keeps nothing because the
+        # matrix did not run, and a manual rehearsal without the matrix.
         rehearsal = {"mode": "rehearsal", "sha": "head", "tag": "v0.31.0", "rehearsal_run": "", "rehearsal_artifact": ""}
-        for event in ("pull_request", "workflow_dispatch"):
-            rehearsed = results(event, rehearsal)
-            self.assertEqual(ran(rehearsed), {"plan", "release-preflight", "rehearse", "conclusion"} | BUILDS, event)
-        for job in BUILDS:
-            stopped = results("pull_request", rehearsal, ended={job: "cancelled"})
-            self.assertEqual(stopped["rehearse"], "skipped", job)
+        rehearsed = results("pull_request", rehearsal)
+        self.assertEqual(ran(rehearsed), {"plan", "release-preflight", "rehearse", "conclusion"}
+                         | (BUILDS - {"openot-real-databases"}))
+        self.assertTrue(concluded(rehearsed))
+        manual = results("workflow_dispatch", rehearsal)
+        self.assertEqual(ran(manual), {"plan", "release-preflight", "rehearse", "conclusion"} | BUILDS)
+        for job in BUILDS - {"openot-real-databases"}:
+            for end in ("failure", "cancelled"):
+                stopped = results("pull_request", rehearsal, ended={job: end})
+                self.assertEqual(stopped["rehearse"], "skipped", f"{job} {end}")
+        for end in ("failure", "cancelled"):
+            stopped = results("workflow_dispatch", rehearsal, ended={"openot-real-databases": end})
+            self.assertEqual(stopped["rehearse"], "skipped", f"the matrix {end}")
 
         # A run that the plan skips, as for a fork's pull request, a merge group or a push without a rehearsal of its
         # tree, runs nothing on any runner, the project's own included.
@@ -599,7 +613,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         # or write with the GitHub token (Codex's review of #146): it runs only for a rehearsal, reads, and
         # keeps no credential in its checkout. Only a release runs the Publish job.
         rehearse = self.jobs["rehearse"]
-        self.assertIn("needs.plan.outputs.mode == 'rehearsal'", field(rehearse, "if", 4))
+        self.assertIn("needs.plan.outputs.mode == 'rehearsal'", condition(rehearse) or "")
         self.assertIn("    permissions:\n      contents: read\n      actions: read\n", rehearse)
         self.assertNotIn("secrets.", rehearse)
         checkout = [text for text in step_texts(rehearse) if "uses: actions/checkout@" in text][0]
@@ -616,17 +630,19 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("secrets.VSCE_PAT", steps(self.jobs["publish"])["Publish to VS Code Marketplace"])
         self.assertNotIn("secrets.", RELEASE_FILES.read_text(encoding="utf-8"))
 
-    def test_the_project_runner_runs_only_rehearsals_and_built_releases(self) -> None:
-        # Specification 24: the real-database matrix runs on the project's own runner in every rehearsal and in a release
-        # that builds its packages, so that a promotion loses nothing the release checked; a package check and every run
-        # the plan skips, a fork's pull request and a merge group among them, never reach that runner, and the matrix is
-        # given no secret (Codex's review of #146).
+    def test_the_project_runner_never_runs_pull_request_code(self) -> None:
+        # Specification 24: the real-database matrix runs on the project's own runner in a maintainer's manual rehearsal
+        # and in every release, a promoted one included, on main's commit; a pull request or a merge group, whose code it
+        # would run, never reaches that runner, nor does any run the plan skips, and the matrix is given no secret
+        # (Codex's review of #146; owner, 4 November 2026). Catches the matrix in a pull request's rehearsal and a
+        # promotion without it.
         runs = lambda event, mode, rehearsal_run="": simulate(
             self.jobs, event=event, outputs={"mode": mode, "rehearsal_run": rehearsal_run})["openot-real-databases"]
-        self.assertEqual(runs("pull_request", "rehearsal"), "success")
+        self.assertEqual(runs("pull_request", "rehearsal"), "skipped")
+        self.assertEqual(runs("merge_group", "rehearsal"), "skipped")
         self.assertEqual(runs("workflow_dispatch", "rehearsal"), "success")
         self.assertEqual(runs("workflow_run", "release"), "success")
-        self.assertEqual(runs("push", "release", "41707764199"), "skipped", "its rehearsal ran it")
+        self.assertEqual(runs("push", "release", "41707764199"), "success", "a promotion runs it on main")
         self.assertEqual(runs("pull_request", "package"), "skipped")
         for event in ("pull_request", "merge_group", "push", "workflow_run"):
             self.assertEqual(runs(event, "skip"), "skipped", event)
