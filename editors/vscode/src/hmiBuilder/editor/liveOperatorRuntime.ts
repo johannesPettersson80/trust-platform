@@ -55,10 +55,17 @@ export async function liveOperation(event: LiveOperationEvent): Promise<LiveOper
   const answer = await vscode.commands.executeCommand<
     { ok?: boolean; proceed?: boolean; end?: string | null; error?: string } | undefined
   >("trust-lsp.hmiLiveOperation", event);
-  if (answer?.ok !== true || typeof answer.proceed !== "boolean") {
+  const end = answer?.end ?? null;
+  // A verdict is well formed when it says whether to go on, its reason is null or a text, and it goes on or ends.
+  const wellFormed =
+    answer?.ok === true &&
+    typeof answer.proceed === "boolean" &&
+    (end === null || (typeof end === "string" && end !== "")) &&
+    (answer.proceed || end !== null);
+  if (!wellFormed) {
     throw new Error(answer?.error ?? "trust-lsp.hmiLiveOperation gave no verdict");
   }
-  return { proceed: answer.proceed, end: answer.end ?? null };
+  return { proceed: answer.proceed === true, end };
 }
 
 export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): LiveOperatorDeps {

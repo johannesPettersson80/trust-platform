@@ -1,7 +1,8 @@
 import * as assert from "assert";
 import { LiveOperator } from "../../hmiBuilder/editor/liveOperator";
+import type { LiveOperationVerdict, LiveOperatorDeps } from "../../hmiBuilder/editor/liveOperator";
+import type { LiveSessionDeps } from "../../hmiBuilder/editor/liveSession";
 import { liveGate, liveOperation } from "../../hmiBuilder/editor/liveOperatorRuntime";
-import type { SocketLike } from "../../hmiBuilder/display/runtimeDisplay";
 import type { HostToWebview } from "../../hmiBuilder/editor/messages";
 
 /** The first message that `find` picks, waiting up to five seconds for it. */
@@ -165,7 +166,11 @@ suite("HMI Builder: deployed Live connection", () => {
       path: "/api/hmi/page?name=overview",
     });
     assert.ok(
-      messages.some((message) => message.type === "operateEnded" && /deploy/i.test(message.reason)),
+      messages.some(
+        (message) =>
+          message.type === "operateEnded" &&
+          message.reason === "The deployed HMI changed. Check and deploy the matching project before operating again.",
+      ),
       "the editor cannot operate another bundle after reload",
     );
     assert.ok(
@@ -239,46 +244,168 @@ suite("HMI Builder: deployed Live connection", () => {
     );
   });
 
-  test("a closed stream ends operation at once, and the language server says why", async () => {
-    // Catches a request that goes out after the runtime's stream closed, while the language server words the reason, and
-    // an ending that does not say that unfinished commands are not resent (specification 39, section 11 item 6).
+  /** Live operation dependencies for a deployed bundle `v1` at `endpoint()`, with `changes` over them. */
+  function deps(
+    changes: Partial<LiveOperatorDeps> & { request?: LiveSessionDeps["request"]; openSocket?: LiveSessionDeps["openSocket"] },
+    endpoint: () => string = () => "tcp://plc:9000",
+  ): LiveOperatorDeps {
+    const { request, openSocket, ...rest } = changes;
+    return {
+      dirty: () => false,
+      bundle: async () => ({ ok: true, version: "v1" }),
+      runTarget: async () => ({ label: "Cell", simulator: false }),
+      liveGate,
+      liveOperation,
+      session: {
+        target: async () => ({ endpoint: endpoint(), url: "http://plc:8080", label: "Cell" }),
+        request: request ?? (async () => ({ status: 200, body: { bundle: "v1", page: { name: "overview" } } })),
+        openSocket,
+      },
+      ...rest,
+    };
+  }
+
+  const ended = (messages: HostToWebview[]) => () => {
+    const end = messages.find((message) => message.type === "operateEnded");
+    return end?.type === "operateEnded" ? end.reason : undefined;
+  };
+
+  test("an unreachable runtime stops operation before the language server words why", async () => {
+    // Catches an ending that waits for the language server's reason before it stops operation: a request handled while
+    // the reason is pending must not go out (specification 39, section 11 item 6).
     const messages: HostToWebview[] = [];
     const paths: string[] = [];
-    let stream: SocketLike | undefined;
+    let release!: () => void;
+    const held = new Promise<void>((done) => {
+      release = done;
+    });
     const operator = new LiveOperator(
-      {
-        dirty: () => false,
-        bundle: async () => ({ ok: true, version: "v1" }),
-        runTarget: async () => ({ label: "Cell", simulator: false }),
-        liveGate,
-        liveOperation,
-        session: {
-          target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
-          request: async (_target, _method, path) => {
-            paths.push(path);
-            return { status: 200, body: { bundle: "v1", page: { name: "overview" } } };
-          },
-          openSocket: () => {
-            stream = { onmessage: null, onclose: null, close: () => undefined };
-            return stream;
-          },
+      deps({
+        liveOperation: async (event) => {
+          if (event.event === "unreachable") await held;
+          return liveOperation(event);
         },
-      },
+        request: async (_target, _method, path) => {
+          paths.push(path);
+          if (path === "/api/hmi/session") throw new Error("connection refused");
+          return { status: 200, body: { bundle: "v1", page: { name: "overview" } } };
+        },
+      }),
+      (message) => messages.push(message),
+    );
+    await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+    const failing = operator.handle({ type: "operateRequest", id: "one", request: 1, method: "GET", path: "/api/hmi/session" });
+    await posted(() => (paths.includes("/api/hmi/session") ? true : undefined));
+    await operator.handle({ type: "operateRequest", id: "one", request: 2, method: "GET", path: "/api/hmi/alarms" });
+    assert.deepStrictEqual(paths, ["/api/hmi/page?name=overview", "/api/hmi/session"], "nothing goes out while the reason is pending");
+    assert.strictEqual(ended(messages)(), undefined, "the reason is still pending");
+    release();
+    await failing;
+    assert.strictEqual(
+      ended(messages)(),
+      "The runtime cannot be reached. Any unfinished command has an unknown outcome; none will be resent.",
+    );
+  });
+
+  test("a target change that closes the value stream ends with the target's reason", async () => {
+    // Catches the stream's reason shown when the selected run target changed: the session closes its streams when it
+    // finds another target, so the operator must say why it stopped (specification 39, section 11 item 6).
+    const messages: HostToWebview[] = [];
+    let endpoint = "tcp://first:9000";
+    const operator = new LiveOperator(
+      deps({ openSocket: () => ({ onmessage: null, onclose: null, close: () => undefined }) }, () => endpoint),
       (message) => messages.push(message),
     );
     await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
     await operator.handle({ type: "operateSocket", id: "one", socket: 1, path: "/ws/hmi?page=overview" });
-    // The runtime closes its stream: the session's own handler runs.
-    const closed = stream?.onclose;
-    assert.ok(closed, "the stream opened");
-    closed();
-    await operator.handle({ type: "operateRequest", id: "one", request: 2, method: "GET", path: "/api/hmi/session" });
-    assert.deepStrictEqual(paths, ["/api/hmi/page?name=overview"], "no request goes out after the stream closed");
-    const end = await posted(() => messages.find((message) => message.type === "operateEnded"));
-    assert.ok(end.type === "operateEnded");
+    endpoint = "tcp://second:9000";
+    await operator.checkTarget();
     assert.strictEqual(
-      end.reason,
-      "The runtime disconnected. Any unfinished command has an unknown outcome; none will be resent.",
+      await posted(ended(messages)),
+      "The selected run target changed. Reopen Live mode to connect.",
     );
+  });
+
+  test("unsaved changes end operation before a request goes out", async () => {
+    // Catches a request sent from an HMI that is no longer the deployed one: the editor's unsaved state must reach the
+    // language server's verdict (specification 39, section 11 item 6).
+    const messages: HostToWebview[] = [];
+    const paths: string[] = [];
+    let dirty = false;
+    const operator = new LiveOperator(
+      deps({
+        dirty: () => dirty,
+        request: async (_target, _method, path) => {
+          paths.push(path);
+          return { status: 200, body: { bundle: "v1", page: { name: "overview" } } };
+        },
+      }),
+      (message) => messages.push(message),
+    );
+    await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+    dirty = true;
+    await operator.handle({ type: "operateRequest", id: "one", request: 1, method: "GET", path: "/api/hmi/session" });
+    assert.deepStrictEqual(paths, ["/api/hmi/page?name=overview"], "the request does not go out");
+    assert.strictEqual(ended(messages)(), "The HMI changed. Save and deploy it before operating again.");
+  });
+
+  test("an edit while operating ends operation at once, with the language server's reason", async () => {
+    // Catches operation that goes on after an HMI file changed, and an edit that ends it with words of the extension's
+    // own (specification 39, section 11 item 6).
+    const messages: HostToWebview[] = [];
+    const paths: string[] = [];
+    const operator = new LiveOperator(
+      deps({
+        request: async (_target, _method, path) => {
+          paths.push(path);
+          return { status: 200, body: { bundle: "v1", page: { name: "overview" } } };
+        },
+      }),
+      (message) => messages.push(message),
+    );
+    await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+    operator.edited();
+    await operator.handle({ type: "operateRequest", id: "one", request: 1, method: "GET", path: "/api/hmi/session" });
+    assert.deepStrictEqual(paths, ["/api/hmi/page?name=overview"], "nothing goes out after the edit");
+    assert.strictEqual(await posted(ended(messages)), "The HMI changed. Save and deploy it before operating again.");
+  });
+
+  test("without the language server's verdict, operation ends with its error and nothing is sent", async () => {
+    // Catches a request sent, or operation left running, when the language server cannot decide (specification 39,
+    // section 11 item 6: operation fails closed).
+    const messages: HostToWebview[] = [];
+    const paths: string[] = [];
+    const operator = new LiveOperator(
+      deps({
+        liveOperation: async () => {
+          throw new Error("the truST language server stopped");
+        },
+        request: async (_target, _method, path) => {
+          paths.push(path);
+          return { status: 200, body: { bundle: "v1", page: { name: "overview" } } };
+        },
+      }),
+      (message) => messages.push(message),
+    );
+    await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+    await operator.handle({ type: "operateRequest", id: "one", request: 1, method: "GET", path: "/api/hmi/session" });
+    assert.deepStrictEqual(paths, ["/api/hmi/page?name=overview"], "the request does not go out");
+    assert.strictEqual(ended(messages)(), "the truST language server stopped");
+  });
+
+  test("a language server that does not answer ends operation after 5 seconds", async function () {
+    // Catches operation left frozen on a hung language server: the view would show old values as live (specification
+    // 39, section 11 item 6).
+    this.timeout(15_000);
+    const messages: HostToWebview[] = [];
+    const operator = new LiveOperator(
+      deps({ liveOperation: () => new Promise<LiveOperationVerdict>(() => undefined) }),
+      (message) => messages.push(message),
+    );
+    await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+    const started = Date.now();
+    await operator.handle({ type: "operateRequest", id: "one", request: 1, method: "GET", path: "/api/hmi/session" });
+    assert.ok(Date.now() - started >= 4_900, "it waited the 5 seconds");
+    assert.strictEqual(ended(messages)(), "trust-lsp.hmiLiveOperation did not answer within 5 seconds");
   });
 });

@@ -41,8 +41,10 @@ suite("HMI Builder host: named Live operation", function () {
       await vscode.workspace.applyEdit(edit);
       await new Promise((resolve) => setTimeout(resolve, 100));
       assert.ok(
-        postedOfType(webview, "operateEnded").some((message) => /changed/i.test(message.reason)),
-        "editing the HMI ends its operating connection immediately",
+        postedOfType(webview, "operateEnded").some(
+          (message) => message.reason === "The HMI changed. Save and deploy it before operating again.",
+        ),
+        "editing the HMI ends its operating connection immediately, with the language server's reason",
       );
       panel.dispose();
       webview.send({ type: "operateRequest", id: "one", request: 1, method: "POST", path: "/api/hmi/login", body: {} });

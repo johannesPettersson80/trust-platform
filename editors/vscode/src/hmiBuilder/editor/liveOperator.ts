@@ -23,7 +23,7 @@ export type LiveGateVerdict =
 export type LiveOperationEvent =
   | { event: "request"; dirty: boolean }
   | { event: "reply"; method: string; status: number; body: unknown; bundle: string }
-  | { event: "streamUnavailable" | "streamClosed" | "unreachable" | "targetChanged" | "targetUnreachable" };
+  | { event: "edited" | "streamUnavailable" | "streamClosed" | "unreachable" | "targetChanged" | "targetUnreachable" };
 
 /** Whether what an event is about goes on, and why operation then ends, as the language server decides it. */
 export interface LiveOperationVerdict {
@@ -45,6 +45,8 @@ export interface LiveOperatorDeps {
 }
 /** An ending the language server gave no reason for, against its contract. */
 const NO_REASON = "trust-lsp.hmiLiveOperation gave no reason";
+/** How long the language server may take to give a verdict (specification 39, §11 item 6). */
+const VERDICT_WAIT_MS = 5_000;
 
 interface Connection {
   id: string;
@@ -106,7 +108,7 @@ export class LiveOperator {
             status: answer.status,
             body: answer.body,
           });
-        if (after.end) this.stop(after.end);
+        if (after.end || !after.proceed) this.stop(after.end ?? NO_REASON);
       } else if (message.type === "operateSocket") {
         const socket = await current.session.openSocket(message.path);
         if (this.current !== current) {
@@ -123,8 +125,9 @@ export class LiveOperator {
           if (this.current === current && typeof event.data === "string")
             this.post({ type: "operateStream", id: current.id, socket: message.socket, data: event.data });
         };
+        // A session that found another target closes its streams too: the operator says which happened.
         socket.onclose = () => {
-          void this.endAt(current, { event: "streamClosed" });
+          void this.endAt(current, { event: current.session.stoppedBy() ?? "streamClosed" });
         };
       }
     } catch {
@@ -132,12 +135,27 @@ export class LiveOperator {
     }
   }
 
-  /** The language server's verdict on `event`; without its answer, operation ends with its error. */
+  /** An HMI file changed while operating: operation ends at once, with the language server's reason. */
+  edited(): void {
+    const current = this.current;
+    if (current) void this.endAt(current, { event: "edited" });
+  }
+
+  /** The language server's verdict on `event`; without its answer within 5 seconds, operation ends with its error. */
   private async verdict(event: LiveOperationEvent): Promise<LiveOperationVerdict> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`trust-lsp.hmiLiveOperation did not answer within ${VERDICT_WAIT_MS / 1000} seconds`)),
+        VERDICT_WAIT_MS,
+      );
+    });
     try {
-      return await this.deps.liveOperation(event);
+      return await Promise.race([this.deps.liveOperation(event), late]);
     } catch (error) {
       return { proceed: false, end: error instanceof Error ? error.message : String(error) };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
