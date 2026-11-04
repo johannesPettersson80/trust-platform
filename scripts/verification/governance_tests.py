@@ -122,6 +122,22 @@ class GovernanceTests(unittest.TestCase):
             ["written_specification", "native_executable_test"],
         )
 
+    def test_a_test_module_file_is_a_native_test(self) -> None:
+        # Specification 30: a Rust module file named `tests.rs` (`#[cfg(test)] mod tests;`) holds tests, as a `tests`
+        # folder and a `_tests.rs` file do. Catches a change to one taken for production code that needs a specification
+        # and another test (G39 and W31 moved their tests on 4 November 2026 to pass), a test below the MQTT folder taken for
+        # an MQTT production change, and a production file whose name only ends in `tests.rs` taken for a test.
+        module = "crates/trust-runtime/src/io/mqtt/tests.rs"
+        self.assertEqual(validate_changed_files(self.document, [module]), [])
+        self.assertEqual(
+            validate_changed_files(self.document, ["crates/trust-runtime/src/runtime/cycle.rs", module]),
+            [SPECIFICATION_REQUIRED],
+        )
+        self.assertEqual(
+            validate_changed_files(self.document, ["crates/trust-runtime/src/io/contests.rs"]),
+            ["behavior-changing production paths require a changed native executable test", SPECIFICATION_REQUIRED],
+        )
+
     def test_a_version_bump_needs_no_companion(self) -> None:
         # Specification 30: a change that moves the workspace version and changes only what the bump changes (the
         # manifests, the lockfiles, the VS Code package and the changelog) changes no behaviour. Catches a release pull
