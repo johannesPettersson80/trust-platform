@@ -116,6 +116,12 @@ def manual_rehearsal_run(**changes) -> dict:
     return rehearsal_run(**{"event": "workflow_dispatch", "referenced_workflows": called, **changes})
 
 
+def branch_run(event: str, branch: str) -> dict:
+    """A run of `event` on `branch` whose workflow record is at that branch and the run's head, as a manual run's is."""
+    return rehearsal_run(event=event, head_branch=branch, referenced_workflows=[
+        {"path": f"{CALLED}@{REHEARSED}", "ref": f"refs/heads/{branch}", "sha": REHEARSED}])
+
+
 def commit_record(sha: str, tree: str = TREE, parents: tuple[str, ...] = (BASE,)) -> dict:
     return {"sha": sha, "tree": {"sha": tree}, "parents": [{"sha": parent} for parent in parents]}
 
@@ -512,8 +518,10 @@ class ReleasePlanTests(unittest.TestCase):
             "a failed rehearsal": ([bundle_artifact()], rehearsal_run(conclusion="failure")),
             "a rehearsal still running": ([bundle_artifact()], rehearsal_run(status="in_progress", conclusion=None)),
             "a cancelled rehearsal": ([bundle_artifact()], rehearsal_run(conclusion="cancelled")),
-            "a run after main's CI": ([bundle_artifact()], rehearsal_run(event="workflow_run")),
-            "a merge group": ([bundle_artifact()], rehearsal_run(event="merge_group")),
+            # These three pass every other check: a workflow record at their own branch and head, CI passed.
+            "a run after main's CI": ([bundle_artifact()], branch_run("workflow_run", "main")),
+            "a push": ([bundle_artifact()], branch_run("push", "main")),
+            "a merge group": ([bundle_artifact()], branch_run("merge_group", "gh-readonly-queue/main/pr-223")),
             "another workflow's artifact": ([bundle_artifact()], rehearsal_run(path=".github/workflows/ci.yml")),
             "a fork's run": ([bundle_artifact()], rehearsal_run(head_repository={"full_name": "someone/fork"})),
             "a head of another tree under this tree's name": (
