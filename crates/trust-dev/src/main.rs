@@ -118,6 +118,12 @@ enum AgentAction {
         #[arg(long = "project", alias = "bundle")]
         project: Option<PathBuf>,
     },
+    /// Serve the external agent contract as an MCP server over stdio.
+    ServeMcp {
+        /// Workspace/project root (defaults to current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -146,6 +152,7 @@ fn run() -> anyhow::Result<()> {
     match cli.command {
         Command::Agent { action } => match action {
             AgentAction::Serve { project } => agent::run_agent_serve(project),
+            AgentAction::ServeMcp { project } => agent::run_agent_serve_mcp(project),
         },
         Command::Commit {
             project,

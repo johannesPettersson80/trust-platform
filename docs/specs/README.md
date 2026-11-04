@@ -29,7 +29,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
 | [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
 | [19-project-model.md](19-project-model.md) | Project tree, config-file roles, build/run lifecycle ownership | trust-runtime, trust-lsp |
-| [20-agent-api-v1.md](20-agent-api-v1.md) | JSON-RPC contract for `trust-dev agent serve` | trust-dev |
+| [20-agent-api-v1.md](20-agent-api-v1.md) | JSON-RPC contract for `trust-dev agent serve` and its MCP server binding (`serve-mcp`) | trust-dev |
 | [21-harness-protocol.md](21-harness-protocol.md) | Deterministic harness wire protocol | trust-harness, trust-runtime |
 | [22-developer-workflows.md](22-developer-workflows.md) | Developer source-discovery and project-scoped commit behavior | trust-dev |
 | [23-connector-status.md](23-connector-status.md) | Canonical connector state, health, confidence, and point-quality vocabulary | trust-runtime, editors/vscode |
@@ -128,7 +128,9 @@ For debugging behavior, use `docs/specs/13-debug-adapter.md`.
 For LSP/IDE behavior, use `docs/specs/14-lsp.md`.
 For configuration/resource/task declarations, use `docs/specs/18-configurations-resources-tasks.md`.
 For machine-facing orchestration contracts, use `docs/specs/20-agent-api-v1.md`
-and `docs/specs/21-harness-protocol.md`. For developer workflow, connector
+and `docs/specs/21-harness-protocol.md`. The agent API's MCP server binding
+(`trust-dev agent serve-mcp`) is specified in `20-agent-api-v1.md` §8 with
+`docs/guides/AGENT_MCP_BINDING_V1.md`. For developer workflow, connector
 status, and release evidence contracts, use `docs/specs/22-developer-workflows.md`,
 `docs/specs/23-connector-status.md`, `docs/specs/24-release-evidence.md`, and
 `docs/specs/25-vscode-product-contract.md`.

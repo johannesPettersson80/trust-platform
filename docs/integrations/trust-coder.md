@@ -25,6 +25,8 @@ Dependency surface summary:
 - OOP semantic/runtime grading only where the appendix paths in `§1.8` remain valid at the frozen commit
 - benchmark/datagen tooling stays in `trust-coder`; only verifier/compiler/runtime substrate lives here
 
+Every `trust-dev agent serve` method listed above is also reachable from MCP-capable hosts through `trust-dev agent serve-mcp`, a transport-only binding (specification 20 §8): tool names replace dots with underscores, arguments and results are forwarded verbatim, and the contract's stable error codes travel in the tool result payload. The frozen contract, payload shapes, and error codes are unchanged; `trust-coder` tooling that speaks JSON-RPC directly does not need to move.
+
 Open trust-platform-side PRs:
 
 | Checklist ID | PR URL | State | Scope |

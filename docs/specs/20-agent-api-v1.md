@@ -67,3 +67,22 @@ coordinates, canonical token and five-gram results, similarity decisions, and
 non-mutating formatting previews. Optional project and source-root parameters
 retain their documented resolution bases; an inline override affects only the
 request result and never changes the selected file.
+
+## 8. MCP server binding
+
+`trust-dev agent serve-mcp` exposes the Agent API as an MCP server. The
+canonical contract remains the single authority on behaviour: the binding is a
+transport adapter that forwards every tool call, with its raw JSON arguments,
+to the same dispatch table that serves `trust-dev agent serve`, and projects
+the same results and stable error codes onto MCP tool results. It adds no
+method, no validation rule, and no configuration beyond the shared
+`--project`/`--bundle` flag.
+
+The binding's normative rules — the pinned `2025-06-18` protocol revision,
+the 1:1 tool mapping with dot-to-underscore name mangling, the advisory
+status of generated input schemas, the success and error result mappings, the
+tools-only capability set, and the sequential, shared-harness,
+non-preemptible concurrency model — are specified in
+`docs/guides/AGENT_MCP_BINDING_V1.md`, which this section incorporates by
+reference. A tool whose name does not map to an Agent API method is a JSON-RPC
+protocol error (`-32601`), never a tool result.

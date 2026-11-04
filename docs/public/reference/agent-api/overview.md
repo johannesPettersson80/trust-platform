@@ -42,3 +42,4 @@ automation. Keep editor-specific panels and UX in VS Code.
 ## Exact protocol
 
 - [Agent API v1](v1.md)
+- [Agent API as an MCP server](mcp.md)
