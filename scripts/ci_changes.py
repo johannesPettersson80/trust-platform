@@ -11,9 +11,13 @@ Usage, in a job whose checkout has the full history (`fetch-depth: 0`):
     python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD" --paths-file paths.txt
 
 Prints the matched files and writes `relevant=true` or `relevant=false` to `$GITHUB_OUTPUT`.
-A merge group compares its commit with the `main` it was built on, as a push to `main` does.
-A manual or scheduled run, and a push whose previous commit is unknown, is always relevant. A
-failing `git diff` fails the script, and so the workflow, instead of skipping its checks.
+A merge group compares its commit with the `main` it was built on. A push to `main` that names its
+workflow (`--workflow`, its file under `.github/workflows`) compares with the commit of that
+workflow's newest passed run on a push to `main`, as GitHub lists it: a newer push replaces a run
+that still waits, so comparing with the push's previous commit would never compare the replaced
+push's changes. A manual or scheduled run, and a push without a known passed run or previous commit,
+is always relevant. A failing `git diff` fails the script, and so the workflow, instead of skipping
+its checks.
 """
 
 from __future__ import annotations
@@ -78,6 +82,39 @@ def changed_files(event: str, base: str, head: str, cwd: Path | None = None) -> 
     return [line for line in result.stdout.splitlines() if line]
 
 
+def last_passed_head(repository: str, workflow: str, run=subprocess.run) -> str | None:
+    """The commit of the newest run of `workflow` that a push to `main` started and that passed, as
+    GitHub lists the runs (`gh api`); `None` when there is none or the runs cannot be listed."""
+    if not repository or not workflow:
+        return None
+    result = run(
+        [
+            "gh",
+            "api",
+            f"repos/{repository}/actions/workflows/{workflow}/runs"
+            "?branch=main&event=push&status=success&per_page=1",
+            "--jq",
+            ".workflow_runs[0].head_sha // empty",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    head = result.stdout.strip()
+    return head if result.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", head) else None
+
+
+def compared_base(
+    event: str, base: str, workflow: str, repository: str, passed_head=last_passed_head
+) -> str:
+    """The commit that a run compares its head with: for a push to `main` that names its workflow,
+    the commit of the workflow's newest passed run, empty when none is known so that everything is
+    checked; for every other run, `base`."""
+    if event != "push" or not workflow:
+        return base
+    return passed_head(repository, workflow) or ""
+
+
 def decide(
     event: str, base: str, head: str, patterns: Sequence[str], cwd: Path | None = None
 ) -> tuple[bool, list[str]]:
@@ -101,18 +138,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--base", default="")
     parser.add_argument("--head", required=True)
     parser.add_argument("--paths-file", required=True, type=Path)
+    parser.add_argument("--workflow", default="")
     args = parser.parse_args(argv)
 
     patterns = read_patterns(args.paths_file.read_text(encoding="utf-8"))
     if not patterns:
         print("ci_changes: the path list is empty", file=sys.stderr)
         return 2
-    relevant, matched = decide(args.event, args.base.strip(), args.head.strip(), patterns)
+    base = compared_base(
+        args.event, args.base.strip(), args.workflow, os.environ.get("GITHUB_REPOSITORY", "")
+    )
+    relevant, matched = decide(args.event, base, args.head.strip(), patterns)
     if args.event not in CHANGE_EVENTS:
         print(f"ci_changes: a {args.event} run checks everything")
-    elif not args.base.strip() or args.base.strip() == NULL_SHA:
+    elif args.event == "push" and args.workflow and not base:
+        print(f"ci_changes: no passed run of {args.workflow} on main is known, so everything is checked")
+    elif not base or base == NULL_SHA:
         print("ci_changes: the previous commit is unknown, so everything is checked")
     else:
+        if args.event == "push" and args.workflow:
+            print(f"ci_changes: compared with {base}, the newest passed run of {args.workflow} on main")
         print(f"ci_changes: {len(matched)} changed file(s) match the workflow's paths")
         for path in matched[:50]:
             print(f"  {path}")

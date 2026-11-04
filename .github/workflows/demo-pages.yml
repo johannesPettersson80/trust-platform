@@ -58,7 +58,9 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/docs-pages.txt
+          # A push to main compares with this workflow's newest passed run, which GitHub lists.
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/docs-pages.txt --workflow demo-pages.yml
 
       - name: Whether the Docs Captures run rendered screenshots
         # A run whose own change detection skipped the captures uploaded nothing new.
