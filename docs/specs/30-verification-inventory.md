@@ -245,6 +245,12 @@ that brings the code back to its specification), names the section in a
 `Specification: 35 B3.4` or
 `Specification: docs/specs/32-mqtt-io.md Scope and ownership`.
 
+A native executable test is a file below a `tests`, `test/suite`, `conformance`
+or `fuzz` folder, a Rust module file named `tests.rs` (the file of
+`#[cfg(test)] mod tests;`), or a file whose name ends in `_test.rs`,
+`_tests.rs`, `_test.py`, `_tests.py`, `.test.ts` or `.spec.ts`. Such a file is
+not a production path, so a change of tests alone needs no companion.
+
 The trailer names the specification by its number, which must be the number of
 exactly one file `docs/specs/<number>-*.md`, or by the path of a written
 specification: a file below `docs/specs/`, an IEC or PLCopen decision or
@@ -268,8 +274,8 @@ adequate.
 
 Protocol-specific production changes must name their protocol specification,
 changed or in a trailer.
-In particular, changes below `crates/trust-runtime/src/io/mqtt/` or to the MQTT
-tag-lowering adapter require the MQTT protocol specification; the generic
+In particular, production changes below `crates/trust-runtime/src/io/mqtt/` or to
+the MQTT tag-lowering adapter require the MQTT protocol specification; the generic
 runtime-engine specification cannot satisfy that companion by itself. The same
 rule applies to the other registered communication owners as their dedicated
 specifications are established.
