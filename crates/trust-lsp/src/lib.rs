@@ -29,5 +29,5 @@ mod telemetry;
 #[cfg(test)]
 mod test_support;
 
-pub use project_diagnostics::{project_diagnostics, Finding, RelatedFinding};
+pub use project_diagnostics::{project_diagnostics, Finding, ProjectDiagnostics, RelatedFinding};
 pub use server::StLanguageServer;

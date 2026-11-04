@@ -203,9 +203,14 @@ Rules:
 
 - `project` is relative to the agent workspace root when present
 - `sources_root` is relative to the selected project root when present, and narrows the listed
-  issues to the files under it
+  issues of a whole-project request to the files under it. A folder that does not exist
+  ("sources directory not found") or that holds none of the project's source files is an I/O
+  error (`-32002`), never an empty list
 - `path` is relative to the selected project root when present, and names one of the project's
-  source files
+  source files; then only that file's issues are listed, and `sources_root` does not apply. A file
+  outside the project's include paths is an I/O error (`-32002`) that says so
+- a `sources_root` or `path` that resolves outside the project or the workspace, through a
+  symbolic link for example, is refused with `-32001` before anything is analyzed
 - `content` is an in-memory override for `path`; it is invalid without `path`
 - `page` and `page_size` are optional paging parameters. They must be given together; either one
   alone, a `page` below 1, or a `page_size` below 1 is an invalid-params error (`-32602`). When
@@ -220,6 +225,11 @@ the project. The project is loaded as the language server loads a workspace fold
 `trust-lsp.toml`: include paths, library paths and libraries, vendor profile, `[diagnostics]`
 toggles and severity overrides. If `path` is omitted, every source file of the project and its
 `trust-lsp.toml` are diagnosed and listed in one aggregated list; otherwise only `path` is.
+
+The analysis changes nothing on disk and fetches nothing: it neither reads nor writes the
+language server's index cache, and it never clones or fetches a dependency. A git dependency is
+used only when its checkout already exists, for example after the editor or `trust-lsp check`
+fetched it; otherwise its `trust-lsp.toml` finding (`L007`) says that it is not available.
 
 Only files inside the agent workspace are listed. A library that the configuration names
 outside the workspace is analyzed, so that its symbols resolve, but its findings are not listed.

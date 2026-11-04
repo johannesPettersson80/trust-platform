@@ -21,6 +21,7 @@ use serde_json::json;
 use tower_lsp::lsp_types::{Diagnostic, Url};
 use tower_lsp::{Client, LanguageServer, LspService};
 
+use crate::config::LoadOptions;
 use crate::project_diagnostics::{analyze, code_text, severity_name};
 
 const USAGE: &str =
@@ -224,11 +225,14 @@ async fn check(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Res
                 .map_err(|error| format!("{}: {error}", file.display()))
         })
         .collect::<Result<_, _>>()?;
-    let analysis = analyze(&root, &only, None).await?;
-    let checked = analysis.checked;
+    // As the editor loads the project: dependencies are fetched and the index cache kept as the
+    // configuration says.
+    let analysis = analyze(&root, &only, None, LoadOptions::default()).await?;
+    let checked = analysis.sources.len();
     let mut items: Vec<Item> = analysis
-        .files
+        .sources
         .iter()
+        .chain(&analysis.config)
         .flat_map(|file| {
             file.diagnostics
                 .iter()

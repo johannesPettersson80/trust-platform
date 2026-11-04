@@ -425,15 +425,32 @@ fn collect_diagnostics_summary(
 ) -> anyhow::Result<DiagnosticsSummary> {
     let project_root = canonicalize_or_self(project_root);
     let workspace_root = canonicalize_or_self(workspace_root);
-    let sources_root = sources_root.map(canonicalize_or_self);
-    let findings =
-        trust_lsp::project_diagnostics(&project_root, path.map(Path::new), content.as_deref())
-            .map_err(anyhow::Error::msg)
-            .with_context(|| match path {
-                Some(path) => format!("collect diagnostics for '{path}'"),
-                None => "collect project diagnostics".to_owned(),
+    // `sources_root` narrows a whole-project listing; with `path`, only that file is listed.
+    let sources_root = match (path, sources_root) {
+        (None, Some(root)) if !root.is_dir() => {
+            anyhow::bail!("sources directory not found: {}", root.display())
+        }
+        (None, Some(root)) => Some(canonicalize_or_self(root)),
+        _ => None,
+    };
+    let analysis = trust_lsp::project_diagnostics(&project_root, path.map(Path::new), content.as_deref())
+            // The reason names the file or the project.
+            .map_err(|reason| match path {
+                Some(_) => anyhow::anyhow!("collect diagnostics: {reason}"),
+                None => anyhow::anyhow!("collect project diagnostics: {reason}"),
             })?;
-    let issues = findings
+    // A folder that the language server does not analyze never answers as clean.
+    if let Some(root) = &sources_root
+        && !analysis.files.iter().any(|file| file.starts_with(root))
+    {
+        anyhow::bail!(
+            "sources directory {} holds none of the project's source files (the include_paths of \
+             trust-lsp.toml decide them)",
+            root.display()
+        );
+    }
+    let issues = analysis
+        .findings
         .into_iter()
         .filter(|finding| finding.file.starts_with(&workspace_root))
         .filter(|finding| {

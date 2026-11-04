@@ -75,6 +75,10 @@ libraries, vendor profile, `[diagnostics]` toggles and severity overrides,
 specification 14), so that the agent and the editor never disagree on a
 project (issue #236, 4 November 2026). Only files inside the workspace are
 listed (§3): a library that the configuration names outside it is analyzed but
-not listed. `lsp.diagnostics` takes `page` and `page_size` together to bound
+not listed. The analysis writes nothing and fetches nothing: no index cache,
+and a git dependency only once its checkout exists. A `sources_root` or `path`
+that resolves outside the project or the workspace is `-32001`, and one that
+names no source file of the project is an error, never an empty list.
+`lsp.diagnostics` takes `page` and `page_size` together to bound
 the listed issues, while `errors`, `warnings` and, on a page, `totalIssues`
 count all of them.

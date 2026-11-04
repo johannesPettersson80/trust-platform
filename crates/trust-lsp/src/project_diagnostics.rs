@@ -4,12 +4,15 @@
 //! every file's diagnostics come from the same function that answers `textDocument/diagnostic`.
 //! `trust-lsp check` prints them, and [`project_diagnostics`] gives them to other tools, the agent
 //! API's `lsp.diagnostics` among them, so that every route reports the same findings for a project.
+//! [`project_diagnostics`] loads the project contained: it writes no index cache and fetches no
+//! dependency, so that a tool's analysis changes nothing on disk (specification 20 §7).
 
 use std::path::{Component, Path, PathBuf};
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Position, Url};
 
 use crate::check::{native_path, silent_client};
+use crate::config::LoadOptions;
 use crate::document_text::{DocumentPosition, LineIndex};
 use crate::handlers;
 use crate::state::ServerState;
@@ -21,18 +24,18 @@ pub(crate) struct FileDiagnostics {
     pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
-/// A project's diagnosed files, its configuration file among them when every source file was
-/// diagnosed, and how many source files were diagnosed.
+/// A project's diagnosed source files and, when every source file was diagnosed, its diagnosed
+/// configuration file.
 pub(crate) struct Analysis {
-    pub(crate) files: Vec<FileDiagnostics>,
-    pub(crate) checked: usize,
+    pub(crate) sources: Vec<FileDiagnostics>,
+    pub(crate) config: Option<FileDiagnostics>,
 }
 
 /// Loads the project at `root`, a canonical folder, as the language server loads a workspace
-/// folder, and diagnoses its source files: every one, or only those that `only` names (canonical
-/// paths, each with the name it was given), with `content` in place of the saved text of the file
-/// whose canonical path it names. The project's configuration file is diagnosed too when every
-/// source file is.
+/// folder (its configuration as `options` say), and diagnoses its source files: every one, or
+/// only those that `only` names (canonical paths, each with the name it was given), with `content`
+/// in place of the saved text of the file whose canonical path it names. The project's
+/// configuration file is diagnosed too when every source file is.
 ///
 /// # Errors
 ///
@@ -41,11 +44,13 @@ pub(crate) async fn analyze(
     root: &Path,
     only: &[(PathBuf, String)],
     content: Option<(&Path, &str)>,
+    options: LoadOptions,
 ) -> Result<Analysis, String> {
     let root_uri = Url::from_directory_path(root)
         .map_err(|()| format!("{}: not a directory path", native_path(root)))?;
     let (client, _service) = silent_client();
     let state = ServerState::new();
+    state.set_config_load_options(options);
     state.set_workspace_folders(vec![root_uri.clone()]);
     handlers::index_workspace(&client, &state).await;
     state.mark_index_first_pass_done();
@@ -99,8 +104,7 @@ pub(crate) async fn analyze(
         text.clone_into(&mut document.content);
     }
 
-    let mut files = Vec::new();
-    let mut checked = 0usize;
+    let mut sources = Vec::new();
     for (doc, path) in documents.iter().zip(&document_paths) {
         if !only.is_empty() {
             let Some(path) = path else {
@@ -110,7 +114,6 @@ pub(crate) async fn analyze(
                 continue;
             }
         }
-        checked += 1;
         let diagnostics = handlers::collect_diagnostics_with_ticket(
             &state,
             &doc.uri,
@@ -118,7 +121,7 @@ pub(crate) async fn analyze(
             doc.file_id,
             None,
         );
-        files.push(FileDiagnostics {
+        sources.push(FileDiagnostics {
             uri: doc.uri.clone(),
             content: doc.content.clone(),
             diagnostics,
@@ -127,6 +130,7 @@ pub(crate) async fn analyze(
     // The project's configuration file, diagnosed as the editor diagnoses it, so that a broken
     // library or dependency configuration is reported as well (specification 14 §7.7). Naming
     // files narrows the report to them.
+    let mut config = None;
     if only.is_empty()
         && let Some(config_path) = state
             .workspace_config_for_uri(&root_uri)
@@ -137,13 +141,13 @@ pub(crate) async fn analyze(
         )
     {
         let diagnostics = handlers::config_file_diagnostics(&state, &uri, &content);
-        files.push(FileDiagnostics {
+        config = Some(FileDiagnostics {
             uri,
             content,
             diagnostics,
         });
     }
-    Ok(Analysis { files, checked })
+    Ok(Analysis { sources, config })
 }
 
 /// The name of a diagnostic's severity, as `trust-lsp check` writes it.
@@ -216,10 +220,20 @@ pub struct RelatedFinding {
     pub message: String,
 }
 
+/// A project's diagnosed source files and its findings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectDiagnostics {
+    /// The full paths of the diagnosed source files, the configuration file not among them.
+    pub files: Vec<PathBuf>,
+    /// The findings, sorted by file, position, severity, code and message.
+    pub findings: Vec<Finding>,
+}
+
 /// The findings of the project at `root` as `trust-lsp check` reports them: those of every source
 /// file and of the configuration file, or of only the source file that `path` names (relative to
-/// `root`, or full), with `content` in place of that file's saved text. They are sorted by file,
-/// position, severity, code and message.
+/// `root`, or full), with `content` in place of that file's saved text. The project is loaded
+/// contained: no index cache is read or written, and a git dependency is used only when its
+/// checkout already exists.
 ///
 /// # Errors
 ///
@@ -229,7 +243,7 @@ pub fn project_diagnostics(
     root: &Path,
     path: Option<&Path>,
     content: Option<&str>,
-) -> Result<Vec<Finding>, String> {
+) -> Result<ProjectDiagnostics, String> {
     if content.is_some() && path.is_none() {
         return Err("content needs the path of the file it replaces".to_owned());
     }
@@ -257,16 +271,33 @@ pub fn project_diagnostics(
         .enable_all()
         .build()
         .map_err(|error| format!("start the analysis: {error}"))?
-        .block_on(analyze(&root, &only, replaced))?;
+        .block_on(analyze(
+            &root,
+            &only,
+            replaced,
+            LoadOptions {
+                offline_dependencies: true,
+                no_index_cache: true,
+            },
+        ))?;
 
-    let mut findings = Vec::new();
-    for file in &analysis.files {
+    let full_path = |file: &FileDiagnostics| {
         let full = file
             .uri
             .to_file_path()
             .unwrap_or_else(|_| PathBuf::from(file.uri.path()));
-        let full = full.canonicalize().unwrap_or(full);
-        let path = slashed(full.strip_prefix(&root).unwrap_or(&full));
+        full.canonicalize().unwrap_or(full)
+    };
+    let files = analysis.sources.iter().map(full_path).collect();
+    let mut findings = Vec::new();
+    for file in analysis.sources.iter().chain(&analysis.config) {
+        let full = full_path(file);
+        // Relative to the project, or the full path as the platform writes it (on Windows without
+        // the `\\?\` prefix) for a file outside it, `/` between the folders either way.
+        let path = match full.strip_prefix(&root) {
+            Ok(relative) => slashed(relative),
+            Err(_) => native_path(&full).replace('\\', "/"),
+        };
         let index = LineIndex::new(&file.content);
         let offset = |position: Position| {
             index
@@ -318,17 +349,16 @@ pub fn project_diagnostics(
         (&a.path, a.line, a.column, a.severity, &a.code, &a.message)
             .cmp(&(&b.path, b.line, b.column, b.severity, &b.code, &b.message))
     });
-    Ok(findings)
+    Ok(ProjectDiagnostics { files, findings })
 }
 
-/// A path with `/` between its parts, whatever the platform writes.
-fn slashed(path: &Path) -> String {
-    path.components()
+/// A relative path with `/` between its parts, whatever the platform writes.
+fn slashed(relative: &Path) -> String {
+    relative
+        .components()
         .filter_map(|component| match component {
             Component::Normal(part) => Some(part.to_string_lossy().into_owned()),
-            Component::RootDir => Some(String::new()),
-            Component::Prefix(prefix) => Some(prefix.as_os_str().to_string_lossy().into_owned()),
-            Component::CurDir | Component::ParentDir => None,
+            _ => None,
         })
         .collect::<Vec<_>>()
         .join("/")

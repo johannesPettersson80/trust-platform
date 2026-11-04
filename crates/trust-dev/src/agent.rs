@@ -293,14 +293,18 @@ impl AgentServer {
         let sources_root = params
             .sources_root
             .as_deref()
-            .map(|path| self.resolve_project_subpath(&project_root, path))
+            .map(|path| self.resolve_project_source(&project_root, path))
             .transpose()?;
         let path = params
             .path
             .as_deref()
-            .map(normalize_workspace_path)
-            .transpose()?
-            .map(|path| path.to_string_lossy().replace('\\', "/"));
+            .map(|path| -> Result<String, AgentCommandError> {
+                self.resolve_project_source(&project_root, path)?;
+                Ok(normalize_workspace_path(path)?
+                    .to_string_lossy()
+                    .replace('\\', "/"))
+            })
+            .transpose()?;
         let page = issue_page(params.page, params.page_size)?;
         crate::workflow::diagnostics_payload(
             &self.workspace_root,
@@ -393,7 +397,7 @@ impl AgentServer {
         let sources_root = params
             .sources_root
             .as_deref()
-            .map(|path| self.resolve_project_subpath(&project_root, path))
+            .map(|path| self.resolve_project_source(&project_root, path))
             .transpose()?;
         crate::workflow::compile_reload_payload(
             &self.workspace_root,

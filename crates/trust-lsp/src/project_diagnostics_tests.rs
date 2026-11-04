@@ -63,7 +63,9 @@ fn the_vendor_profile_decides_a_narrowing_stores_severity() {
         let config =
             format!("[project]\ninclude_paths = [\"src\"]\nvendor_profile = \"{profile}\"\n");
         let project = Project::new(&config, &[("project/src/main.st", NARROWING)]);
-        let findings = project_diagnostics(&project.root, None, None).expect("diagnostics");
+        let findings = project_diagnostics(&project.root, None, None)
+            .expect("diagnostics")
+            .findings;
         let narrowing = with_code(&findings, "E203");
         assert_eq!(narrowing.len(), 1, "{profile}: {findings:?}");
         assert_eq!(narrowing[0].severity, severity, "{profile}");
@@ -95,7 +97,9 @@ fn a_library_outside_the_project_resolves_and_is_reported() {
             ),
         ],
     );
-    let findings = project_diagnostics(&project.root, None, None).expect("diagnostics");
+    let findings = project_diagnostics(&project.root, None, None)
+        .expect("diagnostics")
+        .findings;
     assert!(
         !findings
             .iter()
@@ -124,7 +128,9 @@ fn the_projects_severity_overrides_apply() {
         &format!("{CODESYS}\n[diagnostics.severity_overrides]\nE203 = \"hint\"\n"),
         &[("project/src/main.st", NARROWING)],
     );
-    let findings = project_diagnostics(&project.root, None, None).expect("diagnostics");
+    let findings = project_diagnostics(&project.root, None, None)
+        .expect("diagnostics")
+        .findings;
     let narrowing = with_code(&findings, "E203");
     assert_eq!(narrowing.len(), 1, "{findings:?}");
     assert_eq!(narrowing[0].severity, "hint");
@@ -138,10 +144,13 @@ fn content_replaces_the_saved_text_of_its_file_only_in_the_analysis() {
         "PROGRAM Main\nVAR\n    s : SINT;\n    b : BYTE;\nEND_VAR\nb := BYTE#1;\nEND_PROGRAM\n";
     let project = Project::new(CODESYS, &[("project/src/main.st", saved)]);
     let path = Path::new("src/main.st");
-    let clean = project_diagnostics(&project.root, Some(path), None).expect("diagnostics");
+    let clean = project_diagnostics(&project.root, Some(path), None)
+        .expect("diagnostics")
+        .findings;
     assert!(with_code(&clean, "E203").is_empty(), "{clean:?}");
-    let changed =
-        project_diagnostics(&project.root, Some(path), Some(NARROWING)).expect("diagnostics");
+    let changed = project_diagnostics(&project.root, Some(path), Some(NARROWING))
+        .expect("diagnostics")
+        .findings;
     assert_eq!(with_code(&changed, "E203").len(), 1, "{changed:?}");
     assert_eq!(
         std::fs::read_to_string(project.root.join(path)).expect("saved file"),
@@ -149,19 +158,22 @@ fn content_replaces_the_saved_text_of_its_file_only_in_the_analysis() {
     );
 }
 
-// Catches columns counted in bytes and byte offsets counted in UTF-16 code units: the line before the
-// finding holds "Ä", one UTF-16 code unit and two UTF-8 bytes.
+// Catches columns counted in bytes or in characters, and byte offsets counted in UTF-16 code units:
+// on the finding's line, a comment before it holds U+1F600, one character, two UTF-16 code units
+// and four UTF-8 bytes.
 #[test]
 fn columns_count_utf16_units_and_offsets_count_bytes() {
-    let source = "PROGRAM Main\nVAR\n    s : SINT;\n    b : BYTE;\n    w : WSTRING;\nEND_VAR\nw := \"Ä\"; b := s;\nEND_PROGRAM\n";
+    let source = "PROGRAM Main\nVAR\n    s : SINT;\n    b : BYTE;\nEND_VAR\n(* \u{1F600} *) b := s;\nEND_PROGRAM\n";
     let project = Project::new(CODESYS, &[("project/src/main.st", source)]);
-    let findings = project_diagnostics(&project.root, None, None).expect("diagnostics");
+    let findings = project_diagnostics(&project.root, None, None)
+        .expect("diagnostics")
+        .findings;
     let narrowing = with_code(&findings, "E203");
     assert_eq!(narrowing.len(), 1, "{findings:?}");
-    // Lines 1 to 6 hold 13 + 4 + 14 + 14 + 17 + 8 = 70 bytes. On line 7, `w := "Ä"; ` before `b` is
-    // ten UTF-16 code units and eleven bytes.
-    assert_eq!((narrowing[0].line, narrowing[0].column), (7, 11));
-    assert_eq!(narrowing[0].start, 70 + 11);
+    // Lines 1 to 5 hold 13 + 4 + 14 + 14 + 8 = 53 bytes. On line 6, `(* \u{1F600} *) ` before `b`
+    // is eight characters, nine UTF-16 code units and eleven bytes, so `b` is in column 10.
+    assert_eq!((narrowing[0].line, narrowing[0].column), (6, 10));
+    assert_eq!(narrowing[0].start, 53 + 11);
     assert!(narrowing[0].end > narrowing[0].start);
 }
 
@@ -184,4 +196,47 @@ fn a_file_the_project_does_not_hold_and_content_without_a_path_are_refused() {
     );
     let error = project_diagnostics(&project.root, None, Some(NARROWING)).expect_err("no path");
     assert!(error.contains("content needs the path"), "{error}");
+}
+
+// Catches a tool's analysis that writes the language server's index cache, which holds the full text
+// of every analyzed file wherever `[indexing] cache_dir` points, or that fetches a git dependency into
+// the project: the agent API changes nothing outside its workspace and fetches nothing
+// (specification 20 §3 and §7). The dependency's source does not exist, so a fetch would first
+// create `.trust-lsp/deps/git` and then report a failed clone; offline it is L007, not available.
+#[test]
+fn a_tools_analysis_writes_no_cache_and_fetches_no_dependency() {
+    let project = Project::new(CODESYS, &[("project/src/main.st", NARROWING)]);
+    let cache = project.outside.join("cache");
+    let repo = project.outside.join("no-such-repo");
+    std::fs::write(
+        project.root.join("trust-lsp.toml"),
+        format!(
+            "{CODESYS}\n[indexing]\ncache_dir = '{}'\n\n[dependencies]\nShared = {{ git = '{}' }}\n",
+            cache.display(),
+            repo.display()
+        ),
+    )
+    .expect("config");
+
+    let analysis = project_diagnostics(&project.root, None, None).expect("diagnostics");
+
+    assert!(!cache.exists(), "an index cache outside the project");
+    assert!(
+        !project.root.join(".trust-lsp").exists(),
+        "a cache or a dependency checkout inside the project"
+    );
+    let dependency = analysis
+        .findings
+        .iter()
+        .find(|finding| finding.path == "trust-lsp.toml" && finding.message.contains("'Shared'"))
+        .unwrap_or_else(|| panic!("the dependency's finding: {:?}", analysis.findings));
+    assert_eq!(dependency.code.as_deref(), Some("L007"), "{dependency:?}");
+    assert_eq!(
+        analysis.files,
+        vec![project
+            .root
+            .join("src/main.st")
+            .canonicalize()
+            .expect("source")]
+    );
 }

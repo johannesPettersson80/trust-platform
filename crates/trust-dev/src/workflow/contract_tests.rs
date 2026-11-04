@@ -366,8 +366,10 @@ fn listed(payload: &Value) -> Vec<(String, u64, String)> {
 
 /// Specification 20 §7: `page` and `page_size` cut a window of the sorted issues (#236: an
 /// unpaged response of 13.7 MB exceeded real clients' frame limits), while `errors`, `warnings`
-/// and `totalIssues` count every listed issue. Catches a page cut before the sort, counts over the
-/// page alone, a page past the last that repeats it, and paging fields on an unpaged response.
+/// and `totalIssues` count every listed issue. Catches counts over the page alone, a page past the
+/// last that repeats it, and paging fields on an unpaged response. The language server already sorts
+/// these files; the agent's own sort before the cut is pinned with a library elsewhere in the
+/// workspace (agent contract tests).
 #[test]
 fn a_page_lists_its_issues_and_the_counts_cover_all_of_them() {
     let project = TestProject::new("diagnostics-page");
