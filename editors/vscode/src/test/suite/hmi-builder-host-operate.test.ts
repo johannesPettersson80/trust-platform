@@ -4,7 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { openBuilder, postedOfType } from "./hmiBuilderHost";
-import { liveGate } from "../../hmiBuilder/editor/liveOperatorRuntime";
+import { liveGate, liveOperation } from "../../hmiBuilder/editor/liveOperatorRuntime";
 
 suite("HMI Builder host: named Live operation", function () {
   this.timeout(15000);
@@ -19,6 +19,7 @@ suite("HMI Builder host: named Live operation", function () {
       bundle: async () => ({ ok: true, version: "v1" }),
       runTarget: async () => ({ label: "Cell", simulator: false }),
       liveGate,
+      liveOperation,
       session: {
         target: async () => ({ url: "http://plc:8080", endpoint: "tcp://plc:9000", label: "Cell" }),
         request: async (_target, _method, route) => {

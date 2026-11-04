@@ -19,6 +19,18 @@ export type LiveGateVerdict =
   | { kind: "operate"; bundle: string }
   | { kind: "read_only"; reason: string };
 
+/** What happened while the operating view runs (`trust-lsp.hmiLiveOperation`, §11 item 6). */
+export type LiveOperationEvent =
+  | { event: "request"; dirty: boolean }
+  | { event: "reply"; method: string; status: number; body: unknown; bundle: string }
+  | { event: "streamUnavailable" | "streamClosed" | "unreachable" | "targetChanged" | "targetUnreachable" };
+
+/** Whether what an event is about goes on, and why operation then ends, as the language server decides it. */
+export interface LiveOperationVerdict {
+  proceed: boolean;
+  end: string | null;
+}
+
 export interface LiveOperatorDeps {
   session: LiveSessionDeps;
   /** The selected run target, also when it has no HMI web server: the read-only explanation names
@@ -28,7 +40,12 @@ export interface LiveOperatorDeps {
   bundle(): Promise<{ ok?: boolean; version?: string }>;
   /** Whether the operating view opens, as the language server decides it (§11 item 6). */
   liveGate(facts: LiveGateFacts): Promise<LiveGateVerdict>;
+  /** Whether it ends, and why, as the language server decides it (§11 item 6). */
+  liveOperation(event: LiveOperationEvent): Promise<LiveOperationVerdict>;
 }
+/** An ending the language server gave no reason for, against its contract. */
+const NO_REASON = "trust-lsp.hmiLiveOperation gave no reason";
+
 interface Connection {
   id: string;
   bundle?: string;
@@ -61,30 +78,35 @@ export class LiveOperator {
       current.sockets.delete(message.socket);
       return;
     }
+    const bundle = current.bundle;
     try {
       if (message.type === "operateRequest") {
-        if (this.deps.dirty()) {
-          this.stop("The HMI changed. Save and deploy it before operating again.");
+        // The request goes out only once the language server lets it.
+        const before = await this.verdict({ event: "request", dirty: this.deps.dirty() });
+        if (this.current !== current) return;
+        if (!before.proceed) {
+          this.stop(before.end ?? NO_REASON);
           return;
         }
         const answer = await current.session.request(message.method, message.path, message.body);
         if (this.current !== current) return;
-        const served = answer.body as { bundle?: string } | null;
-        if (message.method === "GET" && served?.bundle !== undefined && served.bundle !== current.bundle) {
-          this.stop("The deployed HMI changed. Check and deploy the matching project before operating again.");
-          return;
-        }
-        this.post({
-          type: "operateReply",
-          id: current.id,
-          request: message.request,
+        const after = await this.verdict({
+          event: "reply",
+          method: message.method,
           status: answer.status,
           body: answer.body,
+          bundle,
         });
-        if (answer.status === 409)
-          this.stop(
-            "The run target changed or disconnected. Any unfinished command has an unknown outcome; none will be resent.",
-          );
+        if (this.current !== current) return;
+        if (after.proceed)
+          this.post({
+            type: "operateReply",
+            id: current.id,
+            request: message.request,
+            status: answer.status,
+            body: answer.body,
+          });
+        if (after.end) this.stop(after.end);
       } else if (message.type === "operateSocket") {
         const socket = await current.session.openSocket(message.path);
         if (this.current !== current) {
@@ -92,7 +114,7 @@ export class LiveOperator {
           return;
         }
         if (!socket) {
-          this.stop("The runtime stream is unavailable. Reopen Live mode to connect.");
+          await this.endAt(current, { event: "streamUnavailable" });
           return;
         }
         current.sockets.get(message.socket)?.close();
@@ -102,14 +124,29 @@ export class LiveOperator {
             this.post({ type: "operateStream", id: current.id, socket: message.socket, data: event.data });
         };
         socket.onclose = () => {
-          if (this.current === current)
-            this.stop("The runtime disconnected. Any unfinished command has an unknown outcome; none will be resent.");
+          void this.endAt(current, { event: "streamClosed" });
         };
       }
     } catch {
-      if (this.current === current)
-        this.stop("The runtime cannot be reached. Any unfinished command has an unknown outcome; none will be resent.");
+      await this.endAt(current, { event: "unreachable" });
     }
+  }
+
+  /** The language server's verdict on `event`; without its answer, operation ends with its error. */
+  private async verdict(event: LiveOperationEvent): Promise<LiveOperationVerdict> {
+    try {
+      return await this.deps.liveOperation(event);
+    } catch (error) {
+      return { proceed: false, end: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  /** Ends operation at once, so that nothing goes out after `event`, then says why, as the language server words it. */
+  private async endAt(current: Connection, event: LiveOperationEvent): Promise<void> {
+    if (this.current !== current) return;
+    this.stop();
+    const verdict = await this.verdict(event);
+    this.post({ type: "operateEnded", id: current.id, reason: verdict.end ?? NO_REASON });
   }
 
   private async open(id: string, page: string): Promise<void> {
@@ -169,11 +206,9 @@ export class LiveOperator {
     if (!current || this.checking) return;
     this.checking = true;
     try {
-      if (!(await current.session.isCurrentTarget()) && this.current === current)
-        this.stop("The selected run target changed. Reopen Live mode to connect.");
+      if (!(await current.session.isCurrentTarget())) await this.endAt(current, { event: "targetChanged" });
     } catch {
-      if (this.current === current)
-        this.stop("The selected run target cannot be reached. Reopen Live mode to connect.");
+      await this.endAt(current, { event: "targetUnreachable" });
     } finally {
       this.checking = false;
     }
