@@ -230,3 +230,7 @@ fn commands(index: &Declarations, block: SymbolId, name: &str) -> Vec<Command> {
     }
     found
 }
+
+#[cfg(test)]
+#[path = "blocks_tests.rs"]
+mod tests;
