@@ -22,7 +22,7 @@ component "Revision and image manifests\nagent/artifacts.ts + visualReview.ts" a
 component "Synthetic exploration\nagent/exploration.ts + Exploration.tsx\nshared runtime display, no network or commands" as explore
 component "Configured Control Studio handoff\neditor/controlStudioHandoff.ts" as studio
 component "Named simulator login\nagent/simulator.ts + editor/liveSession.ts\nprompts, named login, session cookie in memory" as simulatorLogin
-component "Simulator sessions and journeys (Rust)\ntrust-lsp hmi_agent/simulator_*.rs\nfive per workspace, ten minutes, matching deployed page,\nreadback stream, cookie held for one journey" as simulator
+component "Simulator sessions and journeys (Rust)\ntrust-lsp hmi_agent/simulator_*.rs\nfive per workspace, ten minutes, matching deployed page,\nreadback stream, journey on its own thread, cookie held for one journey" as simulator
 component "Remote samples and named owner sessions\nhmi/remote_values + remote_operations" as remote
 component "Authenticated TLS mesh\nmesh/hmi_reads + hmi_operations" as mesh
 component "Owning Hmi.Display task\nnative policy, typed write, pulse end and audit" as owner
@@ -39,7 +39,8 @@ boundary --> queries : read operations
 boundary --> service : draft operations
 queries --> remote : selected serving runtime publish catalogue
 vscode --> simulatorLogin : explicit bounded simulator journey
-simulatorLogin --> simulator : open / close session, journey with its session's cookie
+simulatorLogin --> simulator : open / close session, admit login,\nstart journey with its session's cookie
+simulator ..> simulatorLogin : journey's answer\n(trust-lsp/simulatorJourneyEnded)
 simulator --> owner : existing named HMI session and command API
 remote --> mesh : bounded non-realtime reads / authenticated operations
 mesh --> owner : own named login and policy
