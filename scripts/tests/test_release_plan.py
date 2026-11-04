@@ -3,9 +3,14 @@ after main CI"). Each expected mode follows from the event and the repository st
 
 from __future__ import annotations
 
+import contextlib
+import io
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -14,6 +19,12 @@ import release_plan  # noqa: E402
 
 OFFICIAL = "johannesPettersson80/trust-platform"
 VERSIONS = {"base": "0.26.0", "same": "0.26.0", "bumped": "0.27.0", "released": "0.26.0", "new": "0.27.0"}
+# 0.30.0's rehearsal (run 41707764199, artifact 13281794816) built the head 36ecae479, whose tree 474f2f24 its release
+# commit bd30e34ac shares.
+TREE = "474f2f242b2039236ffb0116fbafc66bae0b811e"
+REHEARSED = "36ecae4797a0f81e64197fc6bc568cb4166f0d67"
+REHEARSAL = release_plan.Rehearsal(run_id=41707764199, artifact_id=13281794816, commit=REHEARSED)
+BUNDLE = f"release-bundle-v0.27.0-{TREE}"
 
 
 def plan(**kwargs):
@@ -41,6 +52,70 @@ def after_ci(**kwargs):
     )
     run.update(kwargs)
     return plan(**run)
+
+
+def pushed(**kwargs):
+    run = dict(event="push", push_ref="refs/heads/main", push_sha="new", find_rehearsal=lambda version, sha: REHEARSAL)
+    run.update(kwargs)
+    return plan(**run)
+
+
+def publish_job(verify: str) -> dict:
+    return {"name": "Publish", "steps": [{"name": "Create GitHub Release", "conclusion": "success"},
+                                         {"name": "Verify the release", "conclusion": verify}]}
+
+
+def runs_api(test: unittest.TestCase, by_head: dict[int, list[dict]], after_ci: list[dict] | None = None,
+             names: dict[int, str] | None = None):
+    """GitHub's Actions API for the Release runs of the commit "new": the runs whose head is "new", the runs after CI
+    since the given day with their names, and the jobs of each run's attempts."""
+    jobs = dict(by_head)
+    for run in after_ci or []:
+        jobs[run["id"]] = run.pop("jobs")
+
+    def get(path: str, token: str) -> dict:
+        test.assertEqual(token, "token")
+        if "/actions/workflows/release.yml/runs?head_sha=new&" in path:
+            return {"workflow_runs": [{"id": run, "display_title": (names or {}).get(run, "")} for run in by_head]}
+        if "/actions/workflows/release.yml/runs?event=workflow_run&created=%3E%3D2026-11-03&" in path:
+            return {"workflow_runs": after_ci or []}
+        run = int(path.split("/actions/runs/")[1].split("/")[0])
+        test.assertIn("filter=all", path)
+        return {"jobs": jobs[run]}
+    return get
+
+
+def rehearsal_run(**changes) -> dict:
+    """GitHub's record of 0.30.0's rehearsal run, which passed."""
+    run = {
+        "id": 41707764199,
+        "path": ".github/workflows/release.yml",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": REHEARSED,
+        "head_commit": {"id": REHEARSED, "tree_id": TREE},
+        "repository": {"full_name": OFFICIAL},
+        "head_repository": {"full_name": OFFICIAL},
+    }
+    run.update(changes)
+    return run
+
+
+def bundle_artifact(artifact_id: int = 13281794816, run_id: int = 41707764199, **changes) -> dict:
+    artifact = {"id": artifact_id, "name": BUNDLE, "expired": False, "workflow_run": {"id": run_id}}
+    artifact.update(changes)
+    return artifact
+
+
+def artifacts_api(test: unittest.TestCase, artifacts: list[dict], runs: dict[int, dict]):
+    def get(path: str, token: str) -> dict:
+        test.assertEqual(token, "token")
+        if path.startswith(f"/repos/{OFFICIAL}/actions/artifacts?"):
+            test.assertIn(f"name={BUNDLE}&", path)
+            return {"artifacts": artifacts}
+        return runs[int(path.rsplit("/", 1)[1])]
+    return get
 
 
 class ReleasePlanTests(unittest.TestCase):
@@ -158,27 +233,192 @@ class ReleasePlanTests(unittest.TestCase):
         # release and its evidence exist from the step before, but no run passed the verification
         # (Codex, PR #146). Each answer is what GitHub's Actions API gives for the runs of the commit
         # and for the jobs of each run's attempts.
-        def job(verify: str) -> dict:
-            return {"name": "Publish", "steps": [{"name": "Create GitHub Release", "conclusion": "success"},
-                                                  {"name": "Verify the release", "conclusion": verify}]}
-
-        def api(runs: dict[int, list[dict]]):
-            def get(path: str, token: str) -> dict:
-                self.assertEqual(token, "token")
-                if "/actions/workflows/release.yml/runs?head_sha=new&" in path:
-                    return {"workflow_runs": [{"id": run} for run in runs]}
-                run = int(path.split("/actions/runs/")[1].split("/")[0])
-                self.assertIn("filter=all", path)
-                return {"jobs": runs[run]}
-            return get
-
-        complete = lambda runs: release_plan.release_complete(OFFICIAL, "new", "token", get=api(runs))
+        job = publish_job
+        complete = lambda runs: release_plan.release_complete(
+            OFFICIAL, "new", "token", since="2026-11-03", get=runs_api(self, runs)
+        )
         self.assertFalse(complete({}), "no Release run of the commit")
         self.assertFalse(complete({7: [job("failure")]}), "the Marketplace step or its verification failed")
         self.assertFalse(complete({7: [job("skipped")]}), "a rehearsal of the commit verifies nothing")
         self.assertFalse(complete({7: [{"name": "Build", "steps": [{"name": "Verify the release", "conclusion": "success"}]}]}))
         self.assertTrue(complete({7: [job("failure"), job("success")]}), "a later attempt verified it")
         self.assertTrue(complete({6: [job("skipped")], 7: [job("success")]}), "another run verified it")
+
+    def test_a_release_after_ci_counts_for_the_commit_its_name_gives(self) -> None:
+        # Specification 24: GitHub gives a run after main's CI main's newest commit as its head, so the run of 0.30.0's
+        # CI-passed c41008869 (41716540236, 3 November 2026) had the head e6f92cd33. Catches a completeness check that
+        # looks only at the runs whose head is the commit: it would miss such a verified release and publish it again.
+        named = lambda sha, verify, run_id=8: {"id": run_id, "display_title": f"Release after CI of {sha}",
+                                               "jobs": [publish_job(verify)]}
+        complete = lambda after_ci: release_plan.release_complete(
+            OFFICIAL, "new", "token", since="2026-11-03", get=runs_api(self, {}, after_ci)
+        )
+        self.assertTrue(complete([named("new", "success")]))
+        self.assertFalse(complete([named("new", "failure")]), "its verification failed")
+        self.assertFalse(complete([named("other", "success")]), "it released another commit")
+
+    def test_the_completeness_check_reads_every_page_of_runs_after_ci_and_fails_when_it_cannot(self) -> None:
+        # Catches a check that reads only the newest 100 runs after CI, and one that calls a release incomplete when it
+        # could not read them all (it then publishes it again).
+        pages = {1: [{"id": run, "display_title": "Release after CI of other"} for run in range(100)],
+                 2: [{"id": 500, "display_title": "Release after CI of new"}]}
+
+        def get(path: str, token: str) -> dict:
+            if "head_sha=new" in path:
+                return {"workflow_runs": []}
+            if "event=workflow_run" in path:
+                return {"workflow_runs": pages.get(int(path.rsplit("page=", 1)[1]), [])}
+            return {"jobs": [publish_job("success")]}
+
+        self.assertTrue(release_plan.release_complete(OFFICIAL, "new", "token", since="2026-11-03", get=get))
+        full = lambda path, token: ({"workflow_runs": [{"id": 1, "display_title": "x"}] * 100}
+                                    if "event=workflow_run" in path else {"workflow_runs": []})
+        with self.assertRaisesRegex(ValueError, "cannot tell whether new was released"):
+            release_plan.release_complete(OFFICIAL, "new", "token", since="2026-11-03", get=full)
+
+    def test_the_publish_job_refuses_a_release_that_a_run_verified(self) -> None:
+        # Specification 24, "A release never happens twice": the Publish job asks once it holds the release
+        # concurrency group. Catches a re-run of a promotion that publishes after the release after main's CI
+        # completed the release, or the reverse.
+        verified = runs_api(self, {}, [{"id": 8, "display_title": "Release after CI of new",
+                                        "html_url": "https://github.com/o/r/actions/runs/8",
+                                        "jobs": [publish_job("success")]}])
+        errors = io.StringIO()
+        with contextlib.redirect_stderr(errors):
+            self.assertEqual(release_plan.check_unreleased(OFFICIAL, "new", "token", since="2026-11-03", get=verified), 1)
+        self.assertIn("Release run https://github.com/o/r/actions/runs/8 already verified the release of new", errors.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(release_plan.check_unreleased(
+                OFFICIAL, "new", "token", since="2026-11-03", get=runs_api(self, {7: [publish_job("failure")]})), 0)
+
+    def test_a_push_promotes_the_release_whose_tree_a_passed_rehearsal_built(self) -> None:
+        # Specification 24, "Release after main CI" (owner, 2 November 2026: build once). 0.29.0's and 0.30.0's
+        # release commits had the tree of their rehearsed heads, yet main's CI tested them again for about two hours
+        # and the release rebuilt every package for about one and a half. Catches a promotion that waits for main's
+        # CI, one that builds the packages again, and one that does not name the rehearsal whose files it publishes.
+        asked = []
+        result = pushed(find_rehearsal=lambda version, sha: asked.append((version, sha)) or REHEARSAL)
+        self.assertEqual(asked, [("0.27.0", "new")])
+        self.assertEqual((result.mode, result.sha, result.tag, result.rehearsal), ("release", "new", "v0.27.0", REHEARSAL))
+        self.assertEqual(result.platforms, (), "a promoted release builds no platform")
+        self.assertIn("promotes the files of rehearsal run 41707764199", result.reason)
+
+    def test_a_push_without_a_passed_rehearsal_of_its_tree_waits_for_main_ci(self) -> None:
+        # Specification 24: a commit whose tree no passed rehearsal of its version built (a pull request merged between
+        # the rehearsal and the release, the rehearsal failed, or it built another version) is released after main's
+        # CI, as before. Catches a release from untested code.
+        result = pushed(find_rehearsal=lambda version, sha: None)
+        self.assertEqual((result.mode, result.sha, result.rehearsal), ("skip", "new", None))
+        self.assertIn("v0.27.0 follows main's CI", result.reason)
+        self.assertEqual(after_ci().mode, "release", "main's CI then releases it, building every package")
+        self.assertIsNone(after_ci().rehearsal)
+
+    def test_a_push_never_releases_a_version_twice(self) -> None:
+        # Catches a promotion of a version that is complete or was released from an earlier commit: every push after a
+        # release keeps its version. Neither looks for a rehearsal.
+        unused = lambda version, sha: self.fail("a released version looks for no rehearsal")
+        complete = pushed(tag_commit=lambda tag: ("tag", "new"), release_complete=lambda tag: True, find_rehearsal=unused)
+        self.assertEqual((complete.mode, complete.reason), ("skip", "v0.27.0 is released and complete"))
+        earlier = pushed(push_sha="released", tag_commit=lambda tag: ("tag", "older"), find_rehearsal=unused)
+        self.assertEqual((earlier.mode, earlier.tag), ("skip", "v0.26.0"))
+        resumed = pushed(tag_commit=lambda tag: ("tag", "new"))
+        self.assertEqual((resumed.mode, resumed.rehearsal), ("release", REHEARSAL), "an incomplete promotion resumes")
+
+    def test_main_ci_after_a_completed_promotion_releases_nothing(self) -> None:
+        # Specification 24: the promotion runs for the push, so its run's head is the commit, and its Publish job's
+        # verification makes the release complete. Catches a release after main's CI that publishes the promoted
+        # version again, with packages built anew.
+        complete = lambda tag: release_plan.release_complete(
+            OFFICIAL, "new", "token", since="2026-11-03", get=runs_api(self, {41760000000: [publish_job("success")]})
+        )
+        result = after_ci(tag_commit=lambda tag: ("tag", "new"), release_complete=complete)
+        self.assertEqual((result.mode, result.reason), ("skip", "v0.27.0 is released and complete"))
+
+    def test_only_a_push_to_main_of_the_official_repository_promotes(self) -> None:
+        # Catches a promotion from a branch push or from a fork's copy of the workflow.
+        unused = lambda version, sha: self.fail("only a push to main looks for a rehearsal")
+        self.assertEqual(pushed(push_ref="refs/heads/work/next", find_rehearsal=unused).mode, "skip")
+        self.assertEqual(pushed(push_ref="refs/tags/v0.27.0", find_rehearsal=unused).mode, "skip")
+        self.assertEqual(pushed(repository="someone/fork", find_rehearsal=unused).mode, "skip")
+
+    def test_a_push_keeps_the_rules_of_a_release_after_main_ci(self) -> None:
+        # Catches a promotion past a version whose release was dropped, or onto a lightweight tag.
+        with self.assertRaises(ValueError):
+            pushed(tag_commit=lambda tag: ("commit", "new"))
+        with self.assertRaisesRegex(ValueError, "v0.27.0 at mid has no tag"):
+            pushed(
+                version_at=lambda sha: {"new": "0.28.0", "mid": "0.27.0", "released": "0.26.0"}[sha],
+                tag_commit=lambda tag: {"v0.26.0": ("tag", "released")}.get(tag),
+                version_commits=lambda sha: ["new", "mid", "released"],
+            )
+
+    def test_the_rehearsal_is_found_by_its_bundle_and_githubs_record_of_its_run(self) -> None:
+        # Specification 24: GitHub lists the bundle named for the version and the tree, and its run passed. Catches a
+        # finder that misses 0.30.0's rehearsal, which its release could have promoted.
+        found = release_plan.find_rehearsal(
+            OFFICIAL, "0.27.0", TREE, "token", get=artifacts_api(self, [bundle_artifact()], {41707764199: rehearsal_run()})
+        )
+        self.assertEqual(found, REHEARSAL)
+        dispatched = release_plan.find_rehearsal(
+            OFFICIAL, "0.27.0", TREE, "token",
+            get=artifacts_api(self, [bundle_artifact()], {41707764199: rehearsal_run(event="workflow_dispatch")}),
+        )
+        self.assertEqual(dispatched, REHEARSAL, "a maintainer's manual rehearsal counts as well")
+
+    def test_a_rehearsal_that_did_not_build_and_test_this_tree_is_not_promoted(self) -> None:
+        # Specification 24: only a passed rehearsal of this repository whose head commit has the tree, by GitHub's own
+        # record, under the exact bundle name of this version and tree. Each case would publish packages that no passed
+        # rehearsal built from this tree.
+        cases = {
+            "a failed rehearsal": ([bundle_artifact()], rehearsal_run(conclusion="failure")),
+            "a rehearsal still running": ([bundle_artifact()], rehearsal_run(status="in_progress", conclusion=None)),
+            "a cancelled rehearsal": ([bundle_artifact()], rehearsal_run(conclusion="cancelled")),
+            "a run after main's CI": ([bundle_artifact()], rehearsal_run(event="workflow_run")),
+            "a merge group": ([bundle_artifact()], rehearsal_run(event="merge_group")),
+            "another workflow's artifact": ([bundle_artifact()], rehearsal_run(path=".github/workflows/ci.yml")),
+            "a fork's run": ([bundle_artifact()], rehearsal_run(head_repository={"full_name": "someone/fork"})),
+            "a head of another tree under this tree's name": (
+                [bundle_artifact()], rehearsal_run(head_commit={"id": REHEARSED, "tree_id": "f" * 40})),
+            "a head record of another commit": (
+                [bundle_artifact()], rehearsal_run(head_commit={"id": "e" * 40, "tree_id": TREE})),
+            "an expired bundle": ([bundle_artifact(expired=True)], rehearsal_run()),
+            "a rehearsal of another version": ([bundle_artifact(name=f"release-bundle-v0.26.0-{TREE}")], rehearsal_run()),
+            "no bundle": ([], rehearsal_run()),
+        }
+        for case, (artifacts, run) in cases.items():
+            found = release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token",
+                                                get=artifacts_api(self, artifacts, {41707764199: run}))
+            self.assertIsNone(found, case)
+
+    def test_the_newest_bundle_of_a_passed_rehearsal_is_promoted(self) -> None:
+        # Catches a promotion of an older rehearsal's files when a newer one passed, and a finder that gives up when the
+        # newest bundle's run failed although an older one passed.
+        older, newer = bundle_artifact(5, 41), bundle_artifact(9, 42)
+        runs = {41: rehearsal_run(id=41), 42: rehearsal_run(id=42)}
+        self.assertEqual(release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token",
+                                                     get=artifacts_api(self, [older, newer], runs)).artifact_id, 9)
+        runs[42] = rehearsal_run(id=42, conclusion="failure")
+        self.assertEqual(release_plan.find_rehearsal(OFFICIAL, "0.27.0", TREE, "token",
+                                                     get=artifacts_api(self, [older, newer], runs)).artifact_id, 5)
+
+    def test_the_plan_writes_the_rehearsal_a_promotion_takes(self) -> None:
+        # The Release workflow reads `rehearsal_run` and `rehearsal_artifact`. Catches a renamed or missing output: a
+        # promoted release would then build nothing and download nothing, or a release after CI would look promoted.
+        for result, expected in (
+            (release_plan.Plan("release", "new", "0.27.0", "promoted", rehearsal=REHEARSAL),
+             ["rehearsal_run=41707764199", "rehearsal_artifact=13281794816"]),
+            (release_plan.Plan("release", "new", "0.27.0", "built", release_plan.ALL_PLATFORMS),
+             ["rehearsal_run=", "rehearsal_artifact="]),
+        ):
+            with tempfile.TemporaryDirectory() as folder:
+                output = Path(folder) / "output"
+                with mock.patch.object(release_plan, "plan", return_value=result), \
+                        mock.patch.dict(os.environ, {"GITHUB_OUTPUT": str(output)}), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(release_plan.main(["--event", "push"]), 0)
+                written = output.read_text(encoding="utf-8").splitlines()
+            for line in expected + ["mode=release", "sha=new", "tag=v0.27.0"]:
+                self.assertIn(line, written)
 
     def test_a_version_whose_release_the_queue_dropped_stops_the_next_release(self) -> None:
         # Catches a release that skips a version for good: GitHub keeps one waiting run per concurrency

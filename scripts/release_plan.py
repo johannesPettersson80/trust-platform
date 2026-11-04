@@ -17,11 +17,21 @@ Specification 24, "Release rehearsal on pull requests" and "Release after main C
   so nothing happens. A release is complete once a Release run of its commit passed its last step,
   `Verify the release`, which checks the tag, the GitHub release with its evidence and the
   Marketplace listing of every target. The GitHub release exists before the Marketplace is
-  published, so a release whose publishing or verification failed has one, but no such run.
+  published, so a release whose publishing or verification failed has one, but no such run;
+- on a push to this repository's `main`, the pushed commit's release is promoted when the same
+  conditions would release it and a passed rehearsal kept its files for the commit's tree (owner,
+  2 November 2026: build once): GitHub lists the artifact `release-bundle-v<version>-<tree>` of a
+  successful Release run that this repository's pull request or a manual run started, and GitHub's
+  record of that run's head commit has the tree. The release then publishes that rehearsal's files
+  without waiting for main's CI; without such a rehearsal the push releases nothing, and the release
+  follows main's CI.
 
-The plan never publishes; it prints and writes `mode`, `sha`, `version`, `tag` and the matrices of the
-toolchain-bundle and build jobs (`toolchain_targets`, `build_targets`) to `$GITHUB_OUTPUT`. A failed git
-or API request fails it instead of choosing a mode.
+The plan never publishes; it prints and writes `mode`, `sha`, `version`, `tag`, the matrices of the
+toolchain-bundle and build jobs (`toolchain_targets`, `build_targets`), and for a promoted release the
+rehearsal run and the id of its bundle (`rehearsal_run`, `rehearsal_artifact`) to `$GITHUB_OUTPUT`.
+A failed git or API request fails it instead of choosing a mode. `--check-unreleased SHA` instead
+fails when a Release run of SHA already verified its release: the Publish job asks it once it holds
+the release concurrency group.
 """
 
 from __future__ import annotations
@@ -33,7 +43,8 @@ import subprocess
 import sys
 import tomllib
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -45,6 +56,18 @@ except ModuleNotFoundError:  # Direct `python scripts/...` execution.
 # The Release workflow's job and step that verify a release; `test_release_workflow` holds them to it.
 VERIFY_JOB = "Publish"
 VERIFY_STEP = "Verify the release"
+# The name of a Release run that main's CI of a commit started; GitHub gives such a run main's newest commit as its
+# head, so the name tells which commit it released. `test_release_workflow` holds the run-name to it.
+AFTER_CI_RUN_NAME = "Release after CI of {sha}"
+# The rehearsal's artifact that holds every file its release publishes; `test_release_workflow` holds the Rehearse job
+# to it.
+BUNDLE_NAME = "release-bundle-{tag}-{tree}"
+RELEASE_WORKFLOW = ".github/workflows/release.yml"
+# The events of the Release runs that rehearse: a pull request of this repository, and a maintainer's manual run.
+REHEARSAL_EVENTS = ("pull_request", "workflow_dispatch")
+# The pages of Release runs after CI that the completeness check reads, 100 runs each: about a month of merges.
+MAX_RUN_PAGES = 20
+MAIN_BRANCHES = ("main", "master")
 
 
 # The platforms of the release packages (specification 24): the runner that builds each one's toolchain bundle, and the
@@ -63,12 +86,23 @@ PACKAGE_PLATFORMS = ("linux-x64",)
 
 
 @dataclass(frozen=True)
+class Rehearsal:
+    """A passed rehearsal whose kept files a release promotes: its run, its bundle artifact and the commit it built."""
+
+    run_id: int
+    artifact_id: int
+    commit: str
+
+
+@dataclass(frozen=True)
 class Plan:
     mode: str  # "rehearsal", "release", "package" or "skip"
     sha: str
     version: str
     reason: str
     platforms: tuple[str, ...] = ()
+    # The rehearsal whose files a promoted release publishes; None for every other plan.
+    rehearsal: Rehearsal | None = None
 
     @property
     def tag(self) -> str:
@@ -159,6 +193,18 @@ def tag_commit(tag: str) -> tuple[str, str] | None:
     return parse_tag_listing(git("ls-remote", "--tags", "origin", f"refs/tags/{tag}*"), tag)
 
 
+def tree_of(sha: str) -> str:
+    """The tree of the commit `sha`."""
+    return git("rev-parse", f"{sha}^{{tree}}").strip()
+
+
+def runs_since(sha: str) -> str:
+    """A day no later than the first Release run of `sha` can start: the day before its commit date, in UTC, so that
+    a clock or time-zone difference cannot hide a run."""
+    committed = datetime.fromtimestamp(int(git("show", "-s", "--format=%ct", sha).strip()), timezone.utc)
+    return (committed - timedelta(days=1)).date().isoformat()
+
+
 def github_get(path: str, token: str) -> dict:
     """One GitHub API object; a failed request or another kind of answer fails the plan."""
     request = urllib.request.Request(
@@ -187,16 +233,83 @@ def verified(jobs: list) -> bool:
     )
 
 
-def release_complete(
-    repository: str, sha: str, token: str, get: Callable[[str, str], dict] = github_get
-) -> bool:
-    """Whether a Release run of `sha`, in any of its attempts, passed `Verify the release`."""
-    runs = get(f"/repos/{repository}/actions/workflows/release.yml/runs?head_sha={sha}&per_page=100", token)
-    for run in runs.get("workflow_runs") or []:
+def release_runs(
+    repository: str, sha: str, token: str, *, since: str, get: Callable[[str, str], dict] = github_get
+) -> list[dict]:
+    """The Release runs of `sha`: those whose head is `sha`, as for a push, and those that main's CI of `sha` started,
+    which carry its name in their run name since their head is main's newest commit when they start. `since` is a
+    day no later than the first of them started."""
+    runs = {}
+    for run in get(f"/repos/{repository}/actions/workflows/release.yml/runs?head_sha={sha}&per_page=100", token).get(
+        "workflow_runs"
+    ) or []:
+        runs[run["id"]] = run
+    name = AFTER_CI_RUN_NAME.format(sha=sha)
+    for page in range(1, MAX_RUN_PAGES + 1):
+        listed = get(
+            f"/repos/{repository}/actions/workflows/release.yml/runs?event=workflow_run&created=%3E%3D{since}"
+            f"&per_page=100&page={page}",
+            token,
+        ).get("workflow_runs") or []
+        runs.update((run["id"], run) for run in listed if run.get("display_title") == name)
+        if len(listed) < 100:
+            return list(runs.values())
+    raise ValueError(
+        f"more than {MAX_RUN_PAGES * 100} Release runs after CI since {since}; cannot tell whether {sha} was released"
+    )
+
+
+def verifying_run(
+    repository: str, sha: str, token: str, *, since: str, get: Callable[[str, str], dict] = github_get
+) -> dict | None:
+    """A Release run of `sha` that, in any of its attempts, passed `Verify the release`; None when there is none."""
+    for run in release_runs(repository, sha, token, since=since, get=get):
         jobs = get(f"/repos/{repository}/actions/runs/{run['id']}/jobs?filter=all&per_page=100", token)
         if verified(jobs.get("jobs") or []):
-            return True
-    return False
+            return run
+    return None
+
+
+def release_complete(
+    repository: str, sha: str, token: str, *, since: str, get: Callable[[str, str], dict] = github_get
+) -> bool:
+    """Whether a Release run of `sha`, in any of its attempts, passed `Verify the release`."""
+    return verifying_run(repository, sha, token, since=since, get=get) is not None
+
+
+def find_rehearsal(
+    repository: str, version: str, tree: str, token: str, get: Callable[[str, str], dict] = github_get
+) -> Rehearsal | None:
+    """The newest passed rehearsal that kept the release files of `version` for a commit with `tree`.
+
+    It asks GitHub for the artifacts named `release-bundle-v<version>-<tree>`, and takes one only when it has not
+    expired and its run is a Release run of this repository that a pull request or a manual run started, that
+    completed with success, and whose head commit has `tree` by GitHub's record of it. No pull request text is read."""
+    name = BUNDLE_NAME.format(tag=f"v{version}", tree=tree)
+    listed = get(f"/repos/{repository}/actions/artifacts?name={name}&per_page=100", token).get("artifacts") or []
+    candidates = [
+        artifact for artifact in listed
+        if isinstance(artifact, dict)
+        and artifact.get("name") == name
+        and artifact.get("expired") is False
+        and isinstance(artifact.get("id"), int)
+        and isinstance((artifact.get("workflow_run") or {}).get("id"), int)
+    ]
+    for artifact in sorted(candidates, key=lambda artifact: artifact["id"], reverse=True):
+        run = get(f"/repos/{repository}/actions/runs/{artifact['workflow_run']['id']}", token)
+        head = run.get("head_commit") or {}
+        if (
+            run.get("path") == RELEASE_WORKFLOW
+            and run.get("event") in REHEARSAL_EVENTS
+            and run.get("status") == "completed"
+            and run.get("conclusion") == "success"
+            and (run.get("repository") or {}).get("full_name") == repository
+            and (run.get("head_repository") or {}).get("full_name") == repository
+            and head.get("id") == run.get("head_sha")
+            and head.get("tree_id") == tree
+        ):
+            return Rehearsal(run_id=run["id"], artifact_id=artifact["id"], commit=run["head_sha"])
+    return None
 
 
 def plan(
@@ -213,10 +326,13 @@ def plan(
     run_sha: str = "",
     run_head_repository: str = "",
     dispatch_sha: str = "",
+    push_ref: str = "",
+    push_sha: str = "",
     version_at: Callable[[str], str] = version_at,
     tag_commit: Callable[[str], tuple[str, str] | None] = tag_commit,
     release_complete: Callable[[str], bool] = lambda tag: False,
     version_commits: Callable[[str], list[str]] = version_commits,
+    find_rehearsal: Callable[[str, str], Rehearsal | None] = lambda version, sha: None,
     release_paths: Path = Path(".github/paths/release.txt"),
     package_paths: Path = Path(".github/paths/package.txt"),
     changes: Callable[[str, str, Path], bool] = changes,
@@ -234,39 +350,90 @@ def plan(
         return Plan("skip", pr_head, version, "the pull request keeps the version and the packages")
     if event == "workflow_dispatch":
         return Plan("rehearsal", dispatch_sha, version_at(dispatch_sha), "a manual run rehearses", ALL_PLATFORMS)
+    released = dict(version_at=version_at, tag_commit=tag_commit, release_complete=release_complete,
+                    version_commits=version_commits)
+    if event == "push":
+        if push_ref not in {f"refs/heads/{branch}" for branch in MAIN_BRANCHES}:
+            return Plan("skip", push_sha, "", "only a push to main promotes a release")
+        if repository != official:
+            return Plan("skip", push_sha, "", "only the official repository releases")
+        due = main_release(push_sha, **released)
+        if due.mode != "release":
+            return due
+        rehearsal = find_rehearsal(due.version, push_sha)
+        if rehearsal is None:
+            return Plan("skip", push_sha, due.version,
+                        f"no passed rehearsal kept the files of this commit's tree; {due.tag} follows main's CI")
+        return replace(
+            due,
+            reason=f"{due.reason}; it promotes the files of rehearsal run {rehearsal.run_id}, which built "
+                   f"{rehearsal.commit[:9]} with this commit's tree",
+            platforms=(),
+            rehearsal=rehearsal,
+        )
     if event != "workflow_run":
         return Plan("skip", "", "", f"a {event} event releases nothing")
     if (
         run_conclusion != "success"
         or run_event != "push"
-        or run_branch not in {"main", "master"}
+        or run_branch not in MAIN_BRANCHES
         or run_head_repository != repository
     ):
         return Plan("skip", run_sha, "", "only a successful CI run of a push to this repository's main releases")
     if repository != official:
         return Plan("skip", run_sha, "", "only the official repository releases")
-    version = version_at(run_sha)
+    return main_release(run_sha, **released)
+
+
+def main_release(
+    sha: str,
+    *,
+    version_at: Callable[[str], str],
+    tag_commit: Callable[[str], tuple[str, str] | None],
+    release_complete: Callable[[str], bool],
+    version_commits: Callable[[str], list[str]],
+) -> Plan:
+    """Whether the main commit `sha` is released: its version has no tag, or the tag is on `sha` and its release is
+    not complete, and no earlier version of its first-parent line lacks a tag."""
+    version = version_at(sha)
     tag = f"v{version}"
     found = tag_commit(tag)
     if found is not None:
         kind, commit = found
-        if commit != run_sha:
-            return Plan("skip", run_sha, version, f"{tag} was released from {commit}")
+        if commit != sha:
+            return Plan("skip", sha, version, f"{tag} was released from {commit}")
         if kind != "tag":
-            raise ValueError(f"{tag} on {run_sha} is not an annotated tag")
+            raise ValueError(f"{tag} on {sha} is not an annotated tag")
         if release_complete(tag):
-            return Plan("skip", run_sha, version, f"{tag} is released and complete")
+            return Plan("skip", sha, version, f"{tag} is released and complete")
     # A version brought before this one and never tagged is released first, by running its commit's
     # Release again; releasing past it would skip it for good.
     skipped = unreleased_earlier(
-        run_sha, version, version_at=version_at, tag_commit=tag_commit, version_commits=version_commits
+        sha, version, version_at=version_at, tag_commit=tag_commit, version_commits=version_commits
     )
     if skipped:
         listed = ", ".join(f"v{earlier} at {commit[:9]}" for earlier, commit in skipped)
         raise ValueError(f"{listed} has no tag; run the Release of that commit again before releasing {tag}")
     if found is None:
-        return Plan("release", run_sha, version, f"{tag} has no tag yet", ALL_PLATFORMS)
-    return Plan("release", run_sha, version, f"{tag} is on this commit and its release is not complete", ALL_PLATFORMS)
+        return Plan("release", sha, version, f"{tag} has no tag yet", ALL_PLATFORMS)
+    return Plan("release", sha, version, f"{tag} is on this commit and its release is not complete", ALL_PLATFORMS)
+
+
+def check_unreleased(
+    repository: str, sha: str, token: str, *, since: str, get: Callable[[str, str], dict] = github_get
+) -> int:
+    """0 when no Release run of `sha` has verified its release; 1, naming the run, when one has. The Publish job asks
+    this once it holds the release concurrency group, since its plan decided before: a release never happens twice."""
+    run = verifying_run(repository, sha, token, since=since, get=get)
+    if run is not None:
+        print(
+            f"::error::Release run {run.get('html_url') or run['id']} already verified the release of {sha}; "
+            "this run publishes nothing.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"release plan: no Release run of {sha} has verified its release")
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -274,12 +441,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     for name in (
         "event", "repository", "official", "pr-base", "pr-head", "pr-head-repository",
         "run-conclusion", "run-event", "run-branch", "run-sha", "run-head-repository", "dispatch-sha",
+        "push-ref", "push-sha", "check-unreleased",
     ):
         parser.add_argument(f"--{name}", default="")
     parser.add_argument("--release-paths", type=Path, default=Path(".github/paths/release.txt"))
     parser.add_argument("--package-paths", type=Path, default=Path(".github/paths/package.txt"))
     args = parser.parse_args(argv)
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
+    if args.check_unreleased:
+        return check_unreleased(args.repository, args.check_unreleased, token, since=runs_since(args.check_unreleased))
+    released_sha = args.push_sha if args.event == "push" else args.run_sha
     result = plan(
         event=args.event,
         repository=args.repository,
@@ -293,11 +464,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_sha=args.run_sha,
         run_head_repository=args.run_head_repository,
         dispatch_sha=args.dispatch_sha,
+        push_ref=args.push_ref,
+        push_sha=args.push_sha,
         release_paths=args.release_paths,
         package_paths=args.package_paths,
-        release_complete=lambda tag: release_complete(args.repository, args.run_sha, token),
+        release_complete=lambda tag: release_complete(
+            args.repository, released_sha, token, since=runs_since(released_sha)
+        ),
+        find_rehearsal=lambda version, sha: find_rehearsal(args.repository, version, tree_of(sha), token),
     )
-    lines = [f"mode={result.mode}", f"sha={result.sha}", f"version={result.version}", f"tag={result.tag}"]
+    rehearsal = result.rehearsal
+    lines = [f"mode={result.mode}", f"sha={result.sha}", f"version={result.version}", f"tag={result.tag}",
+             f"rehearsal_run={rehearsal.run_id if rehearsal else ''}",
+             f"rehearsal_artifact={rehearsal.artifact_id if rehearsal else ''}"]
     lines += [f"{name}={json.dumps(matrix)}" for name, matrix in result.matrices().items()]
     print(f"release plan: {result.mode} ({result.reason})")
     for line in lines:
