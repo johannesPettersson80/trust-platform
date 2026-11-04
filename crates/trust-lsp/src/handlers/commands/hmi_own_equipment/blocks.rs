@@ -12,6 +12,7 @@ use trust_syntax::parser::parse;
 use trust_syntax::SyntaxKind;
 
 use crate::handlers::commands::hmi_authoring::declarations::Declarations;
+use crate::state::library_holds;
 
 /// Where a member is declared.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,16 +56,16 @@ pub(super) struct OwnBlock {
     pub(super) commands: Vec<Command>,
 }
 
-/// The project's own function blocks: declared under the project's folder and not in one of its
-/// libraries (which may lie inside it).
+/// The project's own function blocks: declared under the project's folder, unless a library
+/// folder deeper than the project's holds the file. A library may lie inside the project, and a
+/// library folder may hold the project, as the Plant library's holds its examples.
 pub(super) fn own_blocks(
     index: &Declarations,
     root: &Path,
     libraries: &[PathBuf],
 ) -> Vec<OwnBlock> {
-    let own = |file: &PathBuf| {
-        file.starts_with(root) && !libraries.iter().any(|library| file.starts_with(library))
-    };
+    let project = [root.to_path_buf()];
+    let own = |file: &PathBuf| file.starts_with(root) && !library_holds(&project, libraries, file);
     let mut blocks: Vec<OwnBlock> = index
         .symbols
         .iter()
