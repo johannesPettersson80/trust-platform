@@ -17,15 +17,27 @@ pub(crate) enum ConstEvalError {
 }
 
 impl<'a> TypeChecker<'a> {
+    /// Whether a name the const evaluator cannot fold is nevertheless known:
+    /// the lexical scope, or — IEC 61131-3 Ed.3 §6.6.3.4 function-block
+    /// inheritance — a member of the enclosing POU's EXTENDS chain. Without
+    /// the chain, an inherited member used as an array index reads as an
+    /// undefined constant.
+    fn name_resolves_for_const_context(&self, name: &str) -> bool {
+        if self.symbols.resolve(name, self.current_scope).is_some() {
+            return true;
+        }
+        self.resolve_ref()
+            .current_class_owner()
+            .and_then(|owner| self.symbols.resolve_member_symbol_in_hierarchy(owner, name))
+            .is_some()
+    }
+
     pub(super) fn eval_const_int_expr_or_report(&mut self, node: &SyntaxNode) -> Option<i64> {
         match self.try_eval_const_int_expr(node) {
             Ok(value) => Some(value),
             Err(ConstEvalError::NotConstant) => None,
             Err(ConstEvalError::UndefinedName(name))
-                if self
-                    .symbols
-                    .resolve(name.as_str(), self.current_scope)
-                    .is_some() =>
+                if self.name_resolves_for_const_context(name.as_str()) =>
             {
                 None
             }
@@ -44,10 +56,7 @@ impl<'a> TypeChecker<'a> {
         match self.try_eval_const_int_expr(node) {
             Ok(value) => Some(value),
             Err(ConstEvalError::UndefinedName(name))
-                if self
-                    .symbols
-                    .resolve(name.as_str(), self.current_scope)
-                    .is_some() =>
+                if self.name_resolves_for_const_context(name.as_str()) =>
             {
                 self.diagnostics.error(
                     DiagnosticCode::InvalidOperation,

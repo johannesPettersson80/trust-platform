@@ -757,3 +757,76 @@ END_PROGRAM
 "#,
     );
 }
+
+/// An inherited member used as an array subscript is a computed index, not an
+/// undefined constant: the const evaluator cannot fold it, but the name
+/// resolves through the enclosing POU's EXTENDS chain, so the index gets the
+/// runtime bounds check instead of E101 (spec 09 §3.8). Catches the soft-path
+/// guard asking only the lexical scope. Ungated on purpose — FB inheritance is
+/// IEC 61131-3 Ed.3 §6.6.3.4, so resolution correctness must hold under both
+/// dialects.
+#[test]
+fn inherited_member_as_array_index_is_a_computed_index_codesys() {
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+VAR_GLOBAL
+    gvlArray : ARRAY[0..3] OF UINT;
+END_VAR
+
+FUNCTION_BLOCK FBBase
+VAR_INPUT
+    uiIdx : UINT;
+END_VAR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FBChild EXTENDS FBBase
+VAR
+    uiMirror : UINT;
+END_VAR
+    gvlArray[uiIdx] := UINT#1;
+    uiMirror := gvlArray[uiIdx];
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    fbChild : FBChild;
+END_VAR
+    fbChild();
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn inherited_member_as_array_index_is_a_computed_index_iec() {
+    check_no_errors_in(
+        Dialect::Iec,
+        r#"
+VAR_GLOBAL
+    gvlArray : ARRAY[0..3] OF UINT;
+END_VAR
+
+FUNCTION_BLOCK FBBase
+VAR_INPUT
+    uiIdx : UINT;
+END_VAR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FBChild EXTENDS FBBase
+VAR
+    uiMirror : UINT;
+END_VAR
+    gvlArray[uiIdx] := UINT#1;
+    uiMirror := gvlArray[uiIdx];
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    fbChild : FBChild;
+END_VAR
+    fbChild();
+END_PROGRAM
+"#,
+    );
+}
