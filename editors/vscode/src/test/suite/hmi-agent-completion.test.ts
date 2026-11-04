@@ -138,6 +138,14 @@ async function until(ready: () => boolean): Promise<void> {
   for (let tries = 0; !ready() && tries < 200; tries++) await new Promise((resolve) => setTimeout(resolve, 5));
 }
 
+/** The journey ID the extension gave the journey it started, once it started one. */
+async function startedJourney(calls: Array<[string, Record<string, unknown>]>): Promise<string> {
+  await until(() => calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
+  const started = calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney")?.[1];
+  assert.strictEqual(typeof started?.journeyId, "string", "the start names its journey");
+  return started?.journeyId as string;
+}
+
 const login = async () => ({ user: "operator", password: "secret" });
 
 suite("HMI completed authoring contracts", () => {
@@ -168,7 +176,6 @@ suite("HMI completed authoring contracts", () => {
   // trust-lsp admits, keeps the session's cookie, hands it to trust-lsp with each journey of that session, and waits for
   // the journey's end as the notification trust-lsp/simulatorJourneyEnded.
   test("a simulator journey starts in trust-lsp with its named session's cookie, and its answer is the end's notification", async () => {
-    const journey = { origin: "simulator", sessionId: "session-1", name: "Fixture", outcomes: [], passed: true };
     const steps = [{ page: "settings", object: "sp", action: "write", value: 10, path: "Main.SP", expect: 10 }];
     const models = { settings: page() };
     await withSimulatorCommands({}, async (calls, client) => {
@@ -179,13 +186,22 @@ suite("HMI completed authoring contracts", () => {
         ["trust-lsp.hmiAgent.admitSimulatorLogin", { sessionId: "session-1", target: TARGET }],
       ]);
       const running = runSimulator(WORKSPACE, "session-1", steps, models, new AbortController().signal);
-      await until(() => calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
-      client.journeyEnded({ ...journey, sessionId: "another-session" });
+      const journeyId = await startedJourney(calls);
+      const journey = { origin: "simulator", sessionId: "session-1", journeyId, name: "Fixture", outcomes: [], passed: true };
+      client.journeyEnded({ ...journey, journeyId: "an-earlier-journey-of-the-session", passed: false });
       client.journeyEnded(journey);
-      assert.deepStrictEqual(await running, journey);
+      assert.deepStrictEqual(await running, journey, "the answer of its own journey, not another of the session");
       assert.deepStrictEqual(
         calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney")?.[1],
-        { workspace: WORKSPACE, sessionId: "session-1", cookie: "trust_hmi_session=4f1c0ffee", target: TARGET, steps, models },
+        {
+          workspace: WORKSPACE,
+          sessionId: "session-1",
+          journeyId,
+          cookie: "trust_hmi_session=4f1c0ffee",
+          target: TARGET,
+          steps,
+          models,
+        },
       );
     });
   });
@@ -239,17 +255,19 @@ suite("HMI completed authoring contracts", () => {
     );
   });
   test("cancelling a simulator journey cancels it in trust-lsp and still returns its completed outcomes", async () => {
-    const cancelled = {
-      origin: "simulator",
-      sessionId: "session-1",
-      name: "Fixture",
-      outcomes: [{ page: "settings", outcome: "cancelled" }],
-      passed: false,
-    };
     let client: FakeClient | undefined;
+    let cancelled: Record<string, unknown> | undefined;
     await withSimulatorCommands(
       {
-        "trust-lsp.hmiAgent.cancelSimulatorJourney": () => {
+        "trust-lsp.hmiAgent.cancelSimulatorJourney": (argument) => {
+          cancelled = {
+            origin: "simulator",
+            sessionId: "session-1",
+            journeyId: argument.journeyId,
+            name: "Fixture",
+            outcomes: [{ page: "settings", outcome: "cancelled" }],
+            passed: false,
+          };
           setTimeout(() => client?.journeyEnded(cancelled), 0);
           return success({ cancelled: true });
         },
@@ -259,15 +277,30 @@ suite("HMI completed authoring contracts", () => {
         await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
         const controller = new AbortController();
         const running = runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, controller.signal);
-        await until(() => calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
+        const journeyId = await startedJourney(calls);
         controller.abort();
         assert.deepStrictEqual(await running, cancelled);
         assert.deepStrictEqual(
           calls.find(([command]) => command === "trust-lsp.hmiAgent.cancelSimulatorJourney")?.[1],
-          { sessionId: "session-1" },
+          { sessionId: "session-1", journeyId },
+          "the cancel names the journey",
         );
       },
     );
+  });
+  test("a cancelled journey whose answer does not come ends its wait 2 seconds after the cancel", async function () {
+    this.timeout(10000);
+    await withSimulatorCommands({}, async (calls) => {
+      await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
+      const controller = new AbortController();
+      const running = runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, controller.signal);
+      await startedJourney(calls);
+      const aborted = Date.now();
+      controller.abort();
+      await assert.rejects(running, /^Error: CANCELLED: the simulator journey was cancelled; its answer did not arrive in time\.$/);
+      const waited = Date.now() - aborted;
+      assert.ok(waited >= 1900 && waited < 4000, `ended ${waited} ms after the cancel`);
+    });
   });
   test("a journey cancelled before its start goes out starts nothing and cancels nothing", async () => {
     let abortOnTarget: AbortController | undefined;
@@ -315,6 +348,36 @@ suite("HMI completed authoring contracts", () => {
       });
     } finally {
       await settings.update("languageServer.trace", before, vscode.ConfigurationTarget.Global);
+    }
+  });
+  test("a JSON language server trace refuses the journey before its cookie leaves", async () => {
+    const getConfiguration = vscode.workspace.getConfiguration;
+    // The client's own setting, `trust-lsp.trace.server`, which VS Code does not let a test write; VS Code's
+    // configuration object is frozen, so the test answers through a wrapper of it.
+    (vscode.workspace as any).getConfiguration = (section?: string, scope?: vscode.ConfigurationScope) => {
+      const real = getConfiguration(section, scope);
+      if (section !== "trust-lsp") return real;
+      const wrapper = {
+        has: (key: string) => real.has(key),
+        get: (key: string, fallback?: unknown) =>
+          key === "trace.server" ? { verbosity: "off", format: "json" } : real.get(key, fallback),
+        inspect: (key: string) => real.inspect(key),
+        update: (key: string, value: unknown, target?: vscode.ConfigurationTarget | boolean | null) =>
+          real.update(key, value, target),
+      };
+      return wrapper as unknown as vscode.WorkspaceConfiguration;
+    };
+    try {
+      await withSimulatorCommands({}, async (calls) => {
+        await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
+        await assert.rejects(
+          runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, new AbortController().signal),
+          /^Error: UNSUPPORTED_CONTEXT: the language server trace logs each message's parameters/,
+        );
+        assert.ok(!calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
+      });
+    } finally {
+      (vscode.workspace as any).getConfiguration = getConfiguration;
     }
   });
   test("a change of the selected run target closes the simulator sessions in trust-lsp", async function () {

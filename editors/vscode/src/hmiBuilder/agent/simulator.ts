@@ -1,9 +1,10 @@
 // Named HMI simulator journeys (specification 43, AT-08). The language server keeps the sessions and runs the journeys
 // (`trust-lsp.hmiAgent.openSimulatorSession`, `closeSimulatorSession`, `admitSimulatorLogin`, `runSimulatorJourney`,
-// `cancelSimulatorJourney`); a journey answers its start at once and reports its end as the notification
-// `trust-lsp/simulatorJourneyEnded`. The extension keeps what the language server cannot hold: the prompts, the named
-// login through the HMI bridge, and each session's cookie, which it hands over with each journey of that session
-// (specification 39 §11 item 6).
+// `cancelSimulatorJourney`); a journey, named by the ID the extension gives it, answers its start at once and reports
+// its end, with that ID, as the notification `trust-lsp/simulatorJourneyEnded`. The extension keeps what the language
+// server cannot hold: the prompts, the named login through the HMI bridge, and each session's cookie, which it hands
+// over with each journey of that session (specification 39 §11 item 6).
+import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import { State } from "vscode-languageclient/node";
 import type { LspClientProvider } from "../../lm-tools/shared";
@@ -25,13 +26,15 @@ interface HeldSession {
 }
 const held = new Map<string, HeldSession>();
 
-/** The tool calls waiting for their journey's end, by session ID, the first first: a session runs one journey at a
- * time, so each end belongs to the earliest call still waiting. */
+/** How long a cancelled tool call still waits for its journey's answer. */
+const CANCEL_GRACE_MS = 2_000;
+
+/** The tool calls waiting for their journey's end, by journey ID. */
 interface Waiter {
   resolve: (answer: Record<string, unknown>) => void;
   reject: (error: Error) => void;
 }
-const waiting = new Map<string, Waiter[]>();
+const waiting = new Map<string, Waiter>();
 let languageClient: LspClientProvider = () => undefined;
 const listened = new WeakSet<object>();
 
@@ -46,15 +49,17 @@ export function setSimulatorLanguageClient(getClient: LspClientProvider): () => 
 
 /** Whether the language client's trace logs each message's parameters, a journey's cookie among them: `verbose` in
  * `trust.languageServer.trace`, which the extension sets the trace from, or `verbose` or `compact` in the client's own
- * `trust-lsp.trace.server` (vscode-jsonrpc logs the parameters at both). */
+ * `trust-lsp.trace.server` (vscode-jsonrpc logs the parameters at both), or that setting's `json` format, at which
+ * vscode-jsonrpc logs whole messages at any level (vscode-languageclient traces `off` as `messages` while its output
+ * channel logs at Trace). */
 function traceLogsParameters(): boolean {
-  const logs = (value: unknown): boolean => {
-    const level = typeof value === "object" && value !== null ? (value as { verbosity?: unknown }).verbosity : value;
-    return level === "verbose" || level === "compact";
-  };
+  const own = vscode.workspace.getConfiguration("trust-lsp").get<unknown>("trace.server");
+  const object = typeof own === "object" && own !== null ? (own as { verbosity?: unknown; format?: unknown }) : undefined;
+  const logs = (value: unknown): boolean => value === "verbose" || value === "compact";
   return (
-    logs(getTrustConfiguration().get("trace.server")) ||
-    logs(vscode.workspace.getConfiguration("trust-lsp").get("trace.server"))
+    object?.format === "json" ||
+    logs(object ? object.verbosity : own) ||
+    logs(getTrustConfiguration().get("trace.server"))
   );
 }
 
@@ -92,23 +97,17 @@ export async function closeSimulatorSessions(): Promise<void> {
 }
 
 function stopWaiting(reason: string): void {
-  const waiters = [...waiting.values()].flat();
+  const waiters = [...waiting.values()];
   waiting.clear();
   for (const waiter of waiters) waiter.reject(new Error(reason));
 }
 
-function forget(sessionId: string, waiter: Waiter): void {
-  const rest = (waiting.get(sessionId) ?? []).filter((other) => other !== waiter);
-  if (rest.length) waiting.set(sessionId, rest);
-  else waiting.delete(sessionId);
-}
-
-/** Hands the journey's answer to the earliest tool call that waits for its session. */
+/** Hands the journey's answer to the tool call that waits for that journey. */
 function journeyEnded(answer: unknown): void {
-  const sessionId = (answer as { sessionId?: unknown } | undefined)?.sessionId;
-  const waiter = typeof sessionId === "string" ? waiting.get(sessionId)?.[0] : undefined;
+  const journeyId = (answer as { journeyId?: unknown } | undefined)?.journeyId;
+  const waiter = typeof journeyId === "string" ? waiting.get(journeyId) : undefined;
   if (!waiter) return;
-  forget(sessionId as string, waiter);
+  waiting.delete(journeyId as string);
   waiter.resolve(answer as Record<string, unknown>);
 }
 
@@ -219,7 +218,8 @@ export function registerSimulatorSessions(context: vscode.ExtensionContext, getC
 /** Runs a journey in the language server with the cookie of its named session and the selected target, and waits for
  * its answer, which the language server reports when the journey ends. Cancelling `signal` before the start goes out
  * starts nothing; cancelling it later cancels the journey there, also when the cancel overtakes the start, and the
- * journey's answer still comes back, with the outcomes its steps completed. */
+ * journey's answer still comes back, with the outcomes its steps completed, or the wait ends 2 seconds after the
+ * cancel. */
 export async function runSimulator(
   workspace: string,
   sessionId: string,
@@ -227,26 +227,33 @@ export async function runSimulator(
   models: Record<string, HmiPageModel>,
   signal: AbortSignal,
 ): Promise<Record<string, unknown>> {
+  const journeyId = randomUUID();
   // Listening before any await, so that no cancel is lost; only a start that went out is cancelled.
   let started = false;
+  let grace: ReturnType<typeof setTimeout> | undefined;
   const cancel = (): void => {
-    if (started) void vscode.commands.executeCommand("trust-lsp.hmiAgent.cancelSimulatorJourney", { sessionId });
+    if (!started) return;
+    void vscode.commands.executeCommand("trust-lsp.hmiAgent.cancelSimulatorJourney", { sessionId, journeyId });
+    grace = setTimeout(() => {
+      const waiter = waiting.get(journeyId);
+      if (!waiter) return;
+      waiting.delete(journeyId);
+      waiter.reject(new Error("CANCELLED: the simulator journey was cancelled; its answer did not arrive in time."));
+    }, CANCEL_GRACE_MS);
   };
   signal.addEventListener("abort", cancel, { once: true });
   try {
     if (signal.aborted) throw new vscode.CancellationError();
     if (traceLogsParameters())
       throw new Error(
-        "UNSUPPORTED_CONTEXT: the language server trace logs each message's parameters, which would log the named session's cookie; set trust.languageServer.trace to off or messages to run a simulator journey.",
+        "UNSUPPORTED_CONTEXT: the language server trace logs each message's parameters, which would log the named session's cookie; trace off, or messages in text format, to run a simulator journey.",
       );
     listen();
     const session = held.get(sessionId);
     const target = await session?.target();
     if (signal.aborted) throw new vscode.CancellationError();
-    let waiter: Waiter | undefined;
     const ended = new Promise<Record<string, unknown>>((resolve, reject) => {
-      waiter = { resolve, reject };
-      waiting.set(sessionId, [...(waiting.get(sessionId) ?? []), waiter]);
+      waiting.set(journeyId, { resolve, reject });
     });
     // A wait given up before the start answers is reported by the start itself.
     ended.catch(() => undefined);
@@ -256,6 +263,7 @@ export async function runSimulator(
         await vscode.commands.executeCommand<AuthoringResult>("trust-lsp.hmiAgent.runSimulatorJourney", {
           workspace,
           sessionId,
+          journeyId,
           cookie: session?.live.namedCookie() ?? null,
           target: targetOf(target),
           steps,
@@ -263,11 +271,12 @@ export async function runSimulator(
         }),
       );
     } catch (error) {
-      if (waiter) forget(sessionId, waiter);
+      waiting.delete(journeyId);
       throw error;
     }
     return await ended;
   } finally {
     signal.removeEventListener("abort", cancel);
+    clearTimeout(grace);
   }
 }
