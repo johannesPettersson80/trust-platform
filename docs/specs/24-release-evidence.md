@@ -43,7 +43,8 @@ chain check. The Rust workspace runs the owned-exception policy with
 every advisory `npm audit` reports, at any severity, needs an owned exception
 in `editors/vscode/audit-exceptions.toml`, with the same fields and limit and
 the advisory's GitHub id. `scripts/check_npm_audit.py` checks it in CI, in the
-release build and in the release guard's dependency audit; an advisory without
+release build, in the preflight of a promoted release, which builds nothing,
+and in the release guard's dependency audit; an advisory without
 an owned exception fails, and an exception whose advisory npm no longer reports
 is named for removal.
 
@@ -197,7 +198,9 @@ whose head commit has that tree. The plan takes these facts from GitHub's API,
 never from a pull request's text, and of several such artifacts it takes the
 one with the highest id. Without one, the push releases nothing and the
 release follows `main`'s CI. A promoted release runs no build or test of its
-packages, only the real-database matrix on the commit, which a pull request's
+packages; its preflight audits the VS Code lockfile again, since the audit of
+the rehearsal's build can be days old, and it runs the real-database matrix on
+the commit, which a pull request's
 rehearsal does not run: its publishing job waits for the matrix to pass, then
 downloads that artifact into an empty folder outside the checkout, so that
 none of its entries can replace a file there, and publishes it only when it

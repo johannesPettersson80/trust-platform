@@ -139,6 +139,19 @@ jobs:
       - name: Validate owned dependency exception lifetimes
         run: python3 scripts/check_dependency_exceptions.py
 
+      - name: Setup Node.js for the dependency audit
+        # A promotion builds nothing, so the audit of its rehearsal's build can be days old, and an advisory can
+        # appear any day (specification 24). npm audits the lockfile alone.
+        if: ${{ needs.plan.outputs.rehearsal_run != '' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24.21.0"
+
+      - name: Audit the VS Code dependency lockfile
+        if: ${{ needs.plan.outputs.rehearsal_run != '' }}
+        working-directory: editors/vscode
+        run: python3 ../../scripts/check_npm_audit.py
+
       - name: Validate release tag
         if: ${{ needs.plan.outputs.mode == 'release' }}
         env:

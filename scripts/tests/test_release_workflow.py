@@ -363,6 +363,22 @@ class ReleaseWorkflowTests(unittest.TestCase):
         for script in run:
             self.assertTrue(any(ci_changes.pattern_regex(pattern).match(script) for pattern in patterns), script)
 
+    def test_a_promotion_audits_the_vs_code_lockfile_again(self) -> None:
+        # Specification 24, review finding of 4 November 2026: a promotion builds nothing, so the npm audit of its
+        # rehearsal's build can be days old. Catches a promotion that publishes without auditing the lockfile on the
+        # day it publishes; a release that builds audits it in its build job.
+        preflight = steps(self.jobs["release-preflight"])
+        promoted = "${{ needs.plan.outputs.rehearsal_run != '' }}"
+        audit = preflight["Audit the VS Code dependency lockfile"]
+        self.assertEqual(field(audit, "if"), promoted)
+        self.assertEqual(field(audit, "working-directory"), "editors/vscode")
+        self.assertEqual(field(audit, "run"), "python3 ../../scripts/check_npm_audit.py")
+        node = preflight["Setup Node.js for the dependency audit"]
+        self.assertEqual(field(node, "if"), promoted)
+        self.assertLess(list(preflight).index("Setup Node.js for the dependency audit"),
+                        list(preflight).index("Audit the VS Code dependency lockfile"))
+        self.assertIn("python3 ../../scripts/check_npm_audit.py", steps(self.jobs["build"])["Audit VS Code dependency lockfile"])
+
     def test_a_missing_marketplace_token_fails_a_release_before_it_builds(self) -> None:
         require = steps(self.jobs["release-preflight"])["Require the Marketplace token"]
         self.assertEqual(field(require, "if"), RELEASE_ONLY)
