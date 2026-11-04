@@ -70,6 +70,7 @@ runs:
         RELEASE_TAG: ${{ inputs.tag }}
       run: |
         set -euo pipefail
+        tree=$(git rev-parse "${RELEASE_SHA}^{tree}")
         python3 scripts/generate_release_provenance.py \
           --artifact-root vsix-artifacts \
           --artifact-root runtime-artifacts \
@@ -78,6 +79,7 @@ runs:
           --artifact-root release-evidence \
           --tag "${RELEASE_TAG}" \
           --commit "${RELEASE_SHA}" \
+          --tree "${tree}" \
           --workflow-run-id "${GITHUB_RUN_ID}" \
           --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
           --timestamp "$(date --iso-8601=seconds)" \
