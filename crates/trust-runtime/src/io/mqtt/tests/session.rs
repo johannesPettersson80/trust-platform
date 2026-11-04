@@ -671,3 +671,35 @@ fn fail_closed_connect_failure_is_observable() {
         "{error}"
     );
 }
+
+/// Specification 42, §4 item 9: the driver's own words name the broker and whether the session
+/// is connected, or why it is not. The broker stand-in accepts the session, then closes the
+/// connection, and the backoff of `reconnect_ms` keeps the session down. Catches a detail without
+/// the broker, one that reads connected after the broker went away, and one that hides the cause.
+/// The broker closes only after it took the driver's subscription: a socket closed with bytes it has
+/// not read resets the connection, and the driver then rightly names the reset (W31: a late stand-in
+/// on a loaded macOS runner).
+#[test]
+fn mqtt_detail_names_the_broker_and_the_sessions_state() {
+    let broker = Broker::start();
+    let mut driver = start(&at(&broker, "on_error = \"warn\"\nreconnect_ms = 60000"));
+    let connected = format!("{}, connected", broker.endpoint());
+    let lost = format!(
+        "{}, disconnected: the broker closed the connection",
+        broker.endpoint()
+    );
+    let mut inputs = [0_u8; 4];
+    let mut detail = || {
+        let _ = driver.read_inputs(&mut inputs);
+        driver
+            .detail()
+            .map(|text| text.to_string())
+            .unwrap_or_default()
+    };
+    eventually("a connected session in the detail", || {
+        detail() == connected
+    });
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+    broker.close_connection();
+    eventually("the lost session in the detail", || detail() == lost);
+}
