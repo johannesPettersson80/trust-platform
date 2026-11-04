@@ -1,12 +1,16 @@
-//! Endpoint and token precedence of the control helper (spec 11 section 6.8.1).
+//! Endpoint and token precedence of the control helper (spec 11 section 6.8.1), and its request
+//! line in one write (spec 11, "Runtime control request, job, and state-surface contract").
 //!
 //! The environment token is merged by `call_control_request`, so these tests call the resolver
 //! directly and never depend on the `TRUST_CTL_TOKEN` of the machine that runs them.
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::resolve_control_target;
+use serde_json::json;
+
+use super::{exchange_control_request, resolve_control_target};
 
 static PROJECT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -177,4 +181,30 @@ fn a_stale_endpoint_file_reports_that_the_runtime_is_not_running() {
         "{error:#}"
     );
     drop(published);
+}
+
+/// A writer that keeps each write it is given.
+#[derive(Default)]
+struct Writes(Vec<Vec<u8>>);
+
+impl Write for Writes {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.push(buf.to_vec());
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn the_request_line_goes_out_in_one_write() {
+    // Catches the request written as its JSON and then its newline: the TCP stack holds the
+    // newline until the runtime acknowledges the JSON, 41 to 44 ms a request on Linux.
+    let request = json!({"id": 1, "type": "status"});
+    let mut writes = Writes::default();
+    let mut response = std::io::Cursor::new(b"{\"id\":1,\"ok\":true}\n");
+    exchange_control_request(&mut writes, &mut response, &request).expect("a valid exchange");
+    assert_eq!(writes.0, [b"{\"id\":1,\"type\":\"status\"}\n".to_vec()]);
 }
