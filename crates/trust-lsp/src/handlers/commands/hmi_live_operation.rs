@@ -5,7 +5,8 @@
 //! `trust-lsp.hmiLiveOperation` `{ event, … }` answers `{ ok: true, proceed, end }`: `proceed`
 //! whether what the event is about goes on (a request goes out, a reply is shown), and `end` the
 //! reason operation then ends, or `null`. The events:
-//! - `request` `{ dirty }`, before a request goes out: unsaved HMI changes end operation.
+//! - `request` `{ root, unsaved }`, before a request goes out, with the project's folder and the
+//!   paths of the editor's unsaved documents: one under the `hmi/` folder ends operation.
 //! - `edited`: an HMI file changed while operating, which ends operation at once.
 //! - `reply` `{ method, status, body?, bundle }`, the web server's answer and the operated bundle:
 //!   a page read (`GET`) answered from another bundle ends it before the reply is shown; an answer
@@ -16,10 +17,12 @@
 //! Arguments it cannot read, an unknown event or a field the event does not take among them, answer
 //! `{ ok: false, error }`.
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::hmi_files::single_argument;
+use super::hmi_files::{holds_unsaved_hmi, single_argument};
 use super::HMI_LIVE_OPERATION_COMMAND;
 
 #[cfg(test)]
@@ -32,7 +35,8 @@ mod tests;
 #[serde(tag = "event", rename_all = "camelCase", deny_unknown_fields)]
 enum Event {
     Request {
-        dirty: bool,
+        root: PathBuf,
+        unsaved: Vec<PathBuf>,
     },
     Edited {},
     Reply {
@@ -76,8 +80,11 @@ pub(super) fn live_operation_value(args: Vec<Value>) -> Value {
 /// Whether what `event` is about goes on, and why operation then ends, if it does.
 fn verdict(event: &Event) -> (bool, Option<String>) {
     match event {
-        Event::Request { dirty: true } | Event::Edited {} => (false, Some(CHANGED.to_owned())),
-        Event::Request { dirty: false } => (true, None),
+        Event::Request { root, unsaved } if holds_unsaved_hmi(root, unsaved) => {
+            (false, Some(CHANGED.to_owned()))
+        }
+        Event::Edited {} => (false, Some(CHANGED.to_owned())),
+        Event::Request { .. } => (true, None),
         Event::Reply {
             method,
             status,

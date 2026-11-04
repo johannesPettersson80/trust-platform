@@ -1,11 +1,12 @@
 //! Live mode's operating gate (specification 39, §11 item 6): whether the HMI Builder opens the
 //! operating view on the deployed HMI of the selected run target, or why Live mode stays
-//! read-only. The extension gathers the facts and shows the verdict: whether the HMI has unsaved
-//! changes, the project's bundle as `trust-lsp.hmiBundle` checks it, whether the run target has an
-//! HMI web server (else the run target, to name it), and the web server's answer when it reads the
-//! page there.
+//! read-only. The extension gathers the facts and shows the verdict: the project's folder and the
+//! paths of the editor's unsaved documents (one under its `hmi/` folder is an unsaved HMI change),
+//! the project's bundle as `trust-lsp.hmiBundle` checks it, whether the run target has an HMI web
+//! server (else the run target, to name it), and the web server's answer when it reads the page
+//! there.
 //!
-//! `trust-lsp.hmiLiveGate` `{ dirty, bundle?, webServer, runTarget?, page, served? }`, with
+//! `trust-lsp.hmiLiveGate` `{ root, unsaved, bundle?, webServer, runTarget?, page, served? }`, with
 //! `bundle` `{ ok?, version? }`, `runTarget` `{ label, simulator }` and `served` `{ status, body }`,
 //! answers `{ ok: true, verdict }`, the verdict's `kind` one of:
 //! - `read_page`: before the page is read (no `served`), the HMI is saved, its bundle checked and
@@ -16,10 +17,12 @@
 //!
 //! Arguments it cannot read answer `{ ok: false, error }`.
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::hmi_files::single_argument;
+use super::hmi_files::{holds_unsaved_hmi, single_argument};
 use super::HMI_LIVE_GATE_COMMAND;
 
 #[cfg(test)]
@@ -28,7 +31,8 @@ mod tests;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct Args {
-    dirty: bool,
+    root: PathBuf,
+    unsaved: Vec<PathBuf>,
     #[serde(default)]
     bundle: Option<Bundle>,
     web_server: bool,
@@ -86,9 +90,10 @@ fn verdict(args: &Args) -> Value {
         .filter(|bundle| bundle.ok)
         .and_then(|bundle| bundle.version.as_deref())
         .filter(|version| !version.is_empty());
+    let dirty = holds_unsaved_hmi(&args.root, &args.unsaved);
     let Some(served) = &args.served else {
         // Before the page is read: the saved HMI, its checked bundle, the web server, in turn.
-        if args.dirty {
+        if dirty {
             return read_only(UNSAVED);
         }
         if version.is_none() {
@@ -112,7 +117,7 @@ fn verdict(args: &Args) -> Value {
     {
         return read_only(UNDEPLOYED);
     }
-    if args.dirty {
+    if dirty {
         // Edited while the page was read.
         return read_only(CHANGED);
     }
