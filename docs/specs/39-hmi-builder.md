@@ -1370,7 +1370,11 @@ declaration's real values.
      lifetime: ending it closes its stream, stops delayed redraws/reconnects, removes its global
      input handlers and prevents late requests or replies from reviving the old display.
      The extension host retains the named session cookie only in memory for this editor and
-     target. Only HMI read, login, logout, command and alarm endpoints are bridged; arbitrary
+     target. For an HMI agent simulator journey it hands the cookie of that journey's named
+     session to its own language server with the journey (specification 43, AT-08), which holds
+     it in memory for that journey only, never writes or logs it, and drops it when the journey
+     ends (owner, 4 November 2026: "what you decide is okay with me"). Only HMI read, login,
+     logout, command and alarm endpoints are bridged; arbitrary
      addresses, redirects, deployment and control endpoints are refused. The runtime's access
      token supplies transport access, never the named operator's identity. Each request verifies
      the selected target. Target changes invalidate the session before another command can go
