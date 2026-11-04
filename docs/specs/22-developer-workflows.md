@@ -392,13 +392,20 @@ and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
 
-Each native test job also checks `trust-runtime` with all its targets and
-warnings denied (`RUSTFLAGS=-Dwarnings`). The changed compiler flags rebuild
-the crate and its dependencies outside the job's warm cache, so this step has
-its own time limit of one hour, which `CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS` may
-change. On a macOS runner without a warm cache it took longer than the earlier
-20 minutes (`main`, 28 October 2026). The limit stops a hung check; it is not a
-build-time budget, and a check that exceeds it fails the job.
+Each native test job builds every crate with all its targets and warnings
+denied (`RUSTFLAGS=-Dwarnings` for the whole job), in the one build its tests
+use, so a warning on any of the three systems fails the job. Until 4 November
+2026 a separate step checked only `trust-runtime` that way, and its other
+compiler flags compiled the crate and its dependencies a second time: 1.5, 3.5
+and 14 minutes on Linux, macOS and Windows.
+
+The mesh TLS stability gate (`runtime_mesh_tls_stability_gate.sh`, four runs on
+Linux and macOS) is the job's last cargo step, after the full suite and its doc
+tests. Its `cargo test -p trust-runtime --lib` builds its own variant of
+`trust-runtime` and some of its dependencies, and run before the full suite it
+made the suite compile `trust-wasm-analysis`, `trust-runtime` and the five
+crates that use them again: 14.5 minutes on Linux and 21 on macOS (`main`,
+4 November 2026).
 
 The full test suite has two hours on macOS and Windows and one hour on Linux, which
 `CI_FULL_TEST_TIMEOUT_SECONDS` may change: Windows runs one test at a time, and a macOS

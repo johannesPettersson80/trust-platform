@@ -192,6 +192,8 @@ jobs:
           fi
       - name: Guard the release workflow
         run: python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan -v
+      - name: Guard the Test jobs' one build
+        run: python3 -m unittest scripts.tests.test_ci_test_jobs -v
       - name: Guard the docs' command and setting names
         run: python3 -m unittest scripts.tests.test_check_public_docs_commands -v
       - name: Guard the example walkthroughs
@@ -253,6 +255,12 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Every crate builds with warnings denied on every system, in the one build the tests use. A
+    # separate `cargo check -p trust-runtime` with other RUSTFLAGS compiled the crate and its
+    # dependencies a second time: 1.5, 3.5 and 14 minutes on Linux, macOS and Windows (main, 4
+    # November 2026). The toolchain script sets its own RUSTFLAGS.
+    env:
+      RUSTFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -339,32 +347,6 @@ jobs:
           else
             echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
           fi
-      - name: trust-runtime warnings denied
-        shell: bash
-        run: |
-          set -euo pipefail
-          PYTHON_BIN=python3
-          if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
-            PYTHON_BIN=python
-          fi
-          LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
-          # The changed RUSTFLAGS check trust-runtime and its dependencies afresh: on the macOS
-          # runner without a warm cache that took longer than 20 minutes (main, 28 October 2026).
-          RUSTFLAGS=-Dwarnings "${PYTHON_BIN}" scripts/run_with_progress.py \
-            --phase ci-runtime-warnings \
-            --target "${{ matrix.os }} trust-runtime" \
-            --timeout-seconds "${CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS:-3600}" \
-            --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
-            --log "${LOG_PATH}" \
-            -- cargo check -p trust-runtime --all-targets
-      - name: Mesh TLS stability gate
-        shell: bash
-        run: |
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            echo "Skipping mesh TLS stress gate on windows-latest; covered by linux/macos runs."
-            exit 0
-          fi
-          ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 4
       - name: Run full test suite
         shell: bash
         run: |
@@ -419,6 +401,18 @@ jobs:
           # declared by a `compile_fail,E0xxx` doc test only with RUSTC_BOOTSTRAP set, so this
           # run proves why each forbidden API use is rejected, not only that it fails to build.
           RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime -p trust-runtime-core 2>&1 | tee -a "${LOG_PATH}"
+      # The last cargo step. Its `cargo test -p trust-runtime --lib` builds its own variant of
+      # trust-runtime and some of its dependencies; run before the full suite, it made the suite
+      # compile trust-wasm-analysis, trust-runtime and the five crates that use them again: 14.5
+      # minutes on Linux and 21 on macOS (main, 4 November 2026).
+      - name: Mesh TLS stability gate
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            echo "Skipping mesh TLS stress gate on windows-latest; covered by linux/macos runs."
+            exit 0
+          fi
+          ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 4
       - name: Upload test suite log
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
