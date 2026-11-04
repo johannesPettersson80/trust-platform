@@ -18,6 +18,9 @@ const MAIN: &str = "PROGRAM Main\nVAR\n    count : INT;\n    mode : Mode;\nEND_V
 
 /// The number of the next test socket in this process.
 static SOCKETS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+/// The number of the next test project in this process: the clock alone does not tell two
+/// projects apart, as macOS counts it in microseconds and the tests run side by side.
+static PROJECTS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// A project folder with `MAIN` and `TYPES` in `src`, a symbolic link to it on Unix, through which
 /// the client names the program as for a project opened through a link, and a socket path for its
@@ -36,11 +39,12 @@ impl Project {
     /// The project with `main` in place of [`MAIN`].
     fn with_main(main: &str) -> Self {
         let stamp = format!(
-            "{}-{}",
+            "{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |elapsed| elapsed.as_nanos())
+                .map_or(0, |elapsed| elapsed.as_nanos()),
+            PROJECTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         );
         let root = std::env::temp_dir().join(format!("trust-simulator-{stamp}"));
         std::fs::create_dir_all(root.join("src")).expect("project folder");
