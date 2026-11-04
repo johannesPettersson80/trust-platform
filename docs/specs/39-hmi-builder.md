@@ -1383,20 +1383,22 @@ declaration's real values.
      the project bundle's version name, and the HMI is still saved when it answers. The first
      unmet condition is the reason Live mode stays read-only. While the operating view runs, the
      language server also decides whether operation ends, and why (`trust-lsp.hmiLiveOperation`,
-     4 November 2026). Unsaved HMI changes end it before a request goes out: `The HMI changed.
-     Save and deploy it before operating again.` A page read that the web server answers from
-     another bundle ends it before the page shows: `The deployed HMI changed. Check and deploy
-     the matching project before operating again.` An answer `409`, the named session's target
-     changed or gone, is shown and then ends it: `The run target changed or disconnected. Any
-     unfinished command has an unknown outcome; none will be resent.` A value stream that does
-     not open ends it with `The runtime stream is unavailable. Reopen Live mode to connect.`,
-     one that closes with `The runtime disconnected. Any unfinished command has an unknown
-     outcome; none will be resent.`, and a request that cannot reach the runtime with `The
-     runtime cannot be reached. Any unfinished command has an unknown outcome; none will be
+     4 November 2026). Unsaved HMI changes end it before a request goes out, and a change of the
+     HMI's files ends it at once: `The HMI changed. Save and deploy it before operating again.` A
+     page read that the web server answers from another bundle ends it before the page shows: `The
+     deployed HMI changed. Check and deploy the matching project before operating again.` An answer
+     `409`, the named session's target changed or gone, is shown and then ends it: `The run target
+     changed or disconnected. Any unfinished command has an unknown outcome; none will be resent.` A
+     value stream that does not open ends it with `The runtime stream is unavailable. Reopen Live
+     mode to connect.`, one that closes with `The runtime disconnected. Any unfinished command has
+     an unknown outcome; none will be resent.`, and a request that cannot reach the runtime with
+     `The runtime cannot be reached. Any unfinished command has an unknown outcome; none will be
      resent.` A selected run target that changes ends it with `The selected run target changed.
-     Reopen Live mode to connect.`, one that cannot be reached with `The selected run target
-     cannot be reached. Reopen Live mode to connect.` Without the language server's answer,
-     operation ends with its error. A simulator or target with
+     Reopen Live mode to connect.`, also when the change closes the value stream, and one that
+     cannot be reached with `The selected run target cannot be reached. Reopen Live mode to
+     connect.` A lost stream, an unreachable runtime, a changed target and an edit stop operation at
+     once, so that no request goes out after them; the reason follows. Without the language server's
+     answer within 5 seconds, operation ends with its error. A simulator or target with
      no HMI web endpoint remains read-only with an explanation that names the target: the
      simulator has no HMI web server, and the page is operated, with its alarms, on a runtime
      selected or connected in Devices & Connections; a runtime without one needs `[runtime.web]`
