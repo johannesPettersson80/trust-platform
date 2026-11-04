@@ -2,22 +2,32 @@ name: Release
 # Specification 24, "Release rehearsal on pull requests" and "Release after main CI". The plan job
 # decides what a run does: a pull request that changes the workspace version rehearses the release
 # on its head, and a manual run rehearses the commit it runs on; both build, test and run every
-# Publish script and publish nothing. After main's CI passed for a push, the commit it checked is
-# released when its version has no complete release yet: the tag, the GitHub release and the
-# Marketplace follow the builds and tests, and nobody pushes a tag. Every job checks out the plan's
-# commit, never the branch's newest one.
+# Publish script and publish nothing, and keep the files the release would publish. A push to main
+# whose version has no complete release promotes that version's release when a passed rehearsal kept
+# the files of a commit with the pushed commit's tree: it publishes them as they are, without waiting
+# for main's CI. Otherwise, after main's CI passed for the push, the commit it checked is released
+# when its version has no complete release yet: the tag, the GitHub release and the Marketplace follow
+# the builds and tests, and nobody pushes a tag. Every job checks out the plan's commit, never the
+# branch's newest one.
 run-name: >-
   ${{ github.event_name == 'workflow_run'
   && format('Release after CI of {0}', github.event.workflow_run.head_sha)
+  || (github.event_name == 'push'
+  && format('Release promotion check of {0}', github.sha)
   || (github.event_name == 'pull_request'
   && format('Release rehearsal of #{0}', github.event.pull_request.number)
   || (github.event_name == 'merge_group'
   && format('Release plan of the merge queue at {0}', github.event.merge_group.head_sha)
-  || format('Release rehearsal of {0}', github.ref_name))) }}
+  || format('Release rehearsal of {0}', github.ref_name)))) }}
 
 on:
   pull_request:
   merge_group:
+  # A push to main promotes its version's release from a passed rehearsal of the same tree, if there is one
+  # (specification 24). It is the push, not CI's completion, because the push comes at once, while CI completes after
+  # the two hours a promotion saves; and a push run's head is the commit it releases.
+  push:
+    branches: [main]
   workflow_run:
     workflows: [CI]
     types: [completed]
@@ -28,12 +38,16 @@ permissions:
   contents: read
   actions: read
 
-# A new push to a pull request replaces its rehearsal; releases from main run one at a time.
+# A new push to a pull request replaces its rehearsal; releases from main run one at a time. Every run after main's
+# CI holds `release-main`; a push's run plans at once in a group of its own, and only the publishing job of a promoted
+# release joins `release-main` (the Publish job), so that a push never replaces a release after CI that waits.
 concurrency:
   group: >-
     ${{ github.event_name == 'pull_request'
     && format('release-pr-{0}', github.event.pull_request.number)
-    || (github.event_name == 'workflow_run' && 'release-main' || format('release-dispatch-{0}', github.ref)) }}
+    || (github.event_name == 'workflow_run' && 'release-main'
+    || (github.event_name == 'push' && format('release-push-{0}', github.sha)
+    || format('release-dispatch-{0}', github.ref))) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -50,16 +64,21 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
+      # For a release promoted from its rehearsal (specification 24, "Release after main CI"): the rehearsal run and
+      # the id of its artifact release-bundle-v<version>-<tree>. Empty for every other run, which builds its packages.
+      rehearsal_run: ${{ steps.plan.outputs.rehearsal_run }}
+      rehearsal_artifact: ${{ steps.plan.outputs.rehearsal_artifact }}
       # The matrices of the toolchain-bundle and build jobs: every platform for a rehearsal or a release, linux-x64 for
       # a pull request's package (specification 24); release_plan.TARGETS holds the platforms.
       toolchain_targets: ${{ steps.plan.outputs.toolchain_targets }}
       build_targets: ${{ steps.plan.outputs.build_targets }}
     steps:
-      # The plan never runs a fork's code. It runs the workflow's own commit, which after main's CI is
-      # main's and for a pull request from this repository is its merge commit, and reads the commit
-      # it plans for as data. A fork's pull request runs its base, whose planner skips it without
-      # reading it. The checkout keeps no credentials, and only the run after main's CI, which asks
-      # GitHub whether a release is complete, gets the token.
+      # The plan never runs a fork's code. It runs the workflow's own commit, which after main's CI or
+      # for a push is main's and for a pull request from this repository is its merge commit, and reads
+      # the commit it plans for as data. A fork's pull request runs its base, whose planner skips it
+      # without reading it. The checkout keeps no credentials, and only the runs for main, after its CI
+      # and for a push, which ask GitHub whether a release is complete and which rehearsal kept a
+      # commit's tree, get the token.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -69,7 +88,7 @@ jobs:
       - name: Plan the run
         id: plan
         env:
-          GITHUB_TOKEN: ${{ github.event_name == 'workflow_run' && github.token || '' }}
+          GITHUB_TOKEN: ${{ (github.event_name == 'workflow_run' || github.event_name == 'push') && github.token || '' }}
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
@@ -93,6 +112,8 @@ jobs:
             --run-sha "${RUN_SHA}" \
             --run-head-repository "${RUN_HEAD_REPOSITORY}" \
             --dispatch-sha "${GITHUB_SHA}" \
+            --push-ref "${GITHUB_REF}" \
+            --push-sha "${GITHUB_SHA}" \
             --release-paths .github/paths/release.txt \
             --package-paths .github/paths/package.txt
 
@@ -139,8 +160,9 @@ jobs:
   runtime-vm-validation:
     name: Runtime Validation
     needs: [plan, release-preflight]
-    # A pull request's package check builds the package for its acceptance journeys; CI tests the runtime.
-    if: ${{ needs.plan.outputs.mode != 'package' }}
+    # A pull request's package check builds the package for its acceptance journeys; CI tests the runtime. A promoted
+    # release takes the result of its rehearsal, which ran this job on the same tree.
+    if: ${{ needs.plan.outputs.mode != 'package' && needs.plan.outputs.rehearsal_run == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -214,12 +236,13 @@ jobs:
             artifacts/release/runtime-vm-determinism/**
 
   openot-real-databases:
-    # It runs on the project's own runner, so never for a pull request or a merge group, which carries a
-    # pull request's code: a maintainer's dispatched rehearsal and the release run it. It needs no secret,
-    # so it is given none (Codex's review of #146).
+    # It runs on the project's own runner, in every rehearsal and in a release that builds its packages, so that a
+    # promoted release has passed it too (specification 24, owner decision of 2 November 2026). The plan rehearses only
+    # this repository's pull requests and a maintainer's manual run, never a fork's pull request, and a package check or
+    # a merge group skips it. It needs no secret, so it is given none (Codex's review of #146).
     name: OpenOT Real Database Matrix
     needs: [plan, release-preflight]
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
+    if: ${{ needs.plan.outputs.mode == 'rehearsal' || (needs.plan.outputs.mode == 'release' && needs.plan.outputs.rehearsal_run == '') }}
     uses: ./.github/workflows/openot-real-databases.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}
@@ -229,6 +252,8 @@ jobs:
     # its own trust-runtime from rustup's pinned release and the program libraries.
     name: Toolchain bundle (${{ matrix.platform }})
     needs: [plan, release-preflight]
+    # A promoted release builds nothing: its rehearsal built every package from the same tree.
+    if: ${{ needs.plan.outputs.rehearsal_run == '' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -281,6 +306,7 @@ jobs:
     name: Build (${{ matrix.target }})
     # The extension carries its platform's toolchain bundle (specification 44 §4.6).
     needs: [plan, release-preflight, toolchain-bundle]
+    if: ${{ needs.plan.outputs.rehearsal_run == '' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -506,6 +532,7 @@ jobs:
     # Rust toolchain, each journey at 1x. The journal and screenshots of every step are kept, also when a journey fails.
     name: Acceptance journeys (linux-x64)
     needs: [plan, release-preflight, build]
+    if: ${{ needs.plan.outputs.rehearsal_run == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -556,13 +583,13 @@ jobs:
           if-no-files-found: warn
 
   rehearse:
-    # A rehearsal writes the release's files from the candidate's artifacts and keeps them. It holds no
-    # token that writes: no Marketplace token and a read-only GitHub token, so the candidate's code and
-    # what it installs cannot reach either (Codex's review of #146).
+    # A rehearsal writes the release's files from the candidate's artifacts and keeps them, only once every
+    # build and test passed: a cancelled or skipped one keeps nothing (0.30.0's first attempt kept its files
+    # after a cancelled build). It holds no token that writes: no Marketplace token and a read-only GitHub
+    # token, so the candidate's code and what it installs cannot reach either (Codex's review of #146).
     name: Rehearse
     needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases, acceptance]
-    # The real-database matrix is skipped for a pull request (it runs on the project's own runner).
-    if: ${{ !cancelled() && needs.plan.outputs.mode == 'rehearsal' && !contains(needs.*.result, 'failure') }}
+    if: ${{ needs.plan.outputs.mode == 'rehearsal' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -587,14 +614,56 @@ jobs:
             release-notes.md
             release-evidence/
 
+      - name: Name the release bundle after the rehearsed tree
+        id: bundle
+        env:
+          RELEASE_SHA: ${{ needs.plan.outputs.sha }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          tree=$(git rev-parse "${RELEASE_SHA}^{tree}")
+          echo "name=release-bundle-${RELEASE_TAG}-${tree}" >> "${GITHUB_OUTPUT}"
+
+      - name: Keep the release bundle for its promotion
+        # Every file the release publishes, for a push to main of a commit with this tree to promote (specification
+        # 24, "Release after main CI"). The release pull request normally merges within days.
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.bundle.outputs.name }}
+          path: |
+            vsix-artifacts/
+            runtime-artifacts/
+            trust-lsp-artifacts/
+            toolchain-artifacts/
+            release-evidence/
+            release-notes.md
+          retention-days: 30
+          # The packages are compressed archives already.
+          compression-level: 0
+          if-no-files-found: error
+
   publish:
-    # Only a release gets the write token, and only its Marketplace step the Marketplace token.
+    # Only a release gets the write token, and only its Marketplace step the Marketplace token. A release after
+    # main's CI publishes once every build and test of its run passed; a release promoted from its rehearsal
+    # builds and tests nothing and publishes the rehearsal's files once its preflight passed (specification 24,
+    # "Release after main CI").
     name: Publish
     needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases, acceptance]
-    if: ${{ needs.plan.outputs.mode == 'release' }}
+    if: >-
+      ${{ !cancelled() && needs.plan.outputs.mode == 'release' && needs.release-preflight.result == 'success'
+      && (needs.plan.outputs.rehearsal_run != ''
+      || (needs.toolchain-bundle.result == 'success' && needs.build.result == 'success'
+      && needs.runtime-vm-validation.result == 'success' && needs.openot-real-databases.result == 'success'
+      && needs.acceptance.result == 'success')) }}
     runs-on: ubuntu-latest
     # The Marketplace wait of the verification is at most an hour.
     timeout-minutes: 120
+    # One job at a time publishes from main. A run after main's CI holds `release-main` already, so its job takes a
+    # group of its own (a job group equal to its run's deadlocks); a promotion's run plans outside it, so its
+    # publishing joins it.
+    concurrency:
+      group: ${{ github.event_name == 'push' && 'release-main' || format('release-publish-{0}', github.run_id) }}
+      cancel-in-progress: false
     permissions:
       contents: write
       actions: read
@@ -607,11 +676,21 @@ jobs:
           ref: ${{ needs.plan.outputs.sha }}
           fetch-depth: 0
 
+      - name: Check that no run has released this version
+        # The plan decided before this job held the release group, and a run of the same commit may have verified the
+        # release since: a re-run of an older run then fails here and publishes nothing (specification 24, "A release
+        # never happens twice").
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/release_plan.py --repository "${GITHUB_REPOSITORY}" --check-unreleased "${RELEASE_SHA}"
+
       - name: Write the release files
         uses: ./.github/actions/release-files
         with:
           sha: ${{ needs.plan.outputs.sha }}
           tag: ${{ needs.plan.outputs.tag }}
+          rehearsal-run: ${{ needs.plan.outputs.rehearsal_run }}
+          rehearsal-artifact: ${{ needs.plan.outputs.rehearsal_artifact }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

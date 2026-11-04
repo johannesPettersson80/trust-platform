@@ -191,7 +191,9 @@ jobs:
             python3 scripts/changelog_fragments.py check
           fi
       - name: Guard the release workflow
-        run: python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan -v
+        run: |
+          python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan \
+            scripts.tests.test_check_release_bundle scripts.release_artifact_generators_tests -v
       - name: Guard the docs' command and setting names
         run: python3 -m unittest scripts.tests.test_check_public_docs_commands -v
       - name: Guard the example walkthroughs

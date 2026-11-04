@@ -1,8 +1,10 @@
 name: Release files
 description: >-
-  The files a release publishes, from the build and test jobs' artifacts (specification 24): every package, the
-  result-derived conformance status, the provenance of every artifact, their checksums, and the release text from the
-  changelog. The Release workflow's Rehearse job keeps them and its Publish job publishes them.
+  The files a release publishes (specification 24): every package, the result-derived conformance status, the
+  provenance of every artifact, their checksums, and the release text from the changelog. They come from this run's
+  build and test jobs, whose files the Release workflow's Rehearse job keeps and its Publish job publishes; or, for a
+  release promoted from its rehearsal ("Release after main CI"), from the files that rehearsal kept, checked against its
+  SHA256SUMS before the release writes its own provenance and checksums.
 inputs:
   sha:
     description: The commit the release is built from (the plan's).
@@ -10,10 +12,19 @@ inputs:
   tag:
     description: The release tag, v<version> (the plan's).
     required: true
+  rehearsal-run:
+    description: The rehearsal run whose kept files a promoted release publishes (the plan's); empty takes this run's.
+    required: false
+    default: ""
+  rehearsal-artifact:
+    description: The id of that run's artifact release-bundle-v<version>-<tree> (the plan's).
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
     - name: Download VSIX artifacts
+      if: ${{ inputs.rehearsal-run == '' }}
       uses: actions/download-artifact@v8
       with:
         path: vsix-artifacts
@@ -21,6 +32,7 @@ runs:
         merge-multiple: true
 
     - name: Download runtime artifacts
+      if: ${{ inputs.rehearsal-run == '' }}
       uses: actions/download-artifact@v8
       with:
         path: runtime-artifacts
@@ -28,6 +40,7 @@ runs:
         merge-multiple: true
 
     - name: Download trust-lsp artifacts
+      if: ${{ inputs.rehearsal-run == '' }}
       uses: actions/download-artifact@v8
       with:
         path: trust-lsp-artifacts
@@ -35,6 +48,7 @@ runs:
         merge-multiple: true
 
     - name: Download toolchain bundles
+      if: ${{ inputs.rehearsal-run == '' }}
       uses: actions/download-artifact@v8
       with:
         path: toolchain-artifacts
@@ -42,12 +56,14 @@ runs:
         merge-multiple: true
 
     - name: Download release conformance artifact
+      if: ${{ inputs.rehearsal-run == '' }}
       uses: actions/download-artifact@v8
       with:
         name: release-conformance
         path: conformance-artifacts
 
     - name: Generate result-derived conformance status
+      if: ${{ inputs.rehearsal-run == '' }}
       shell: bash
       env:
         RELEASE_SHA: ${{ inputs.sha }}
@@ -63,11 +79,40 @@ runs:
           --json-out release-evidence/conformance-status.json \
           --markdown-out release-evidence/conformance-status.md
 
+    - name: Take the rehearsal's release files
+      # The one artifact the plan chose, from the passed rehearsal run it names; the download checks the artifact's own
+      # digest too. It needs the token's `actions: read`.
+      if: ${{ inputs.rehearsal-run != '' }}
+      uses: actions/download-artifact@v8
+      with:
+        run-id: ${{ inputs.rehearsal-run }}
+        artifact-ids: ${{ inputs.rehearsal-artifact }}
+        github-token: ${{ github.token }}
+
+    - name: Check the rehearsal's files against their checksums
+      # Every file against the rehearsal's SHA256SUMS and provenance, before anything is published; the rehearsal's own
+      # provenance, checksums and text are then set aside.
+      if: ${{ inputs.rehearsal-run != '' }}
+      shell: bash
+      env:
+        RELEASE_SHA: ${{ inputs.sha }}
+        RELEASE_TAG: ${{ inputs.tag }}
+        REHEARSAL_RUN: ${{ inputs.rehearsal-run }}
+      run: |
+        set -euo pipefail
+        tree=$(git rev-parse "${RELEASE_SHA}^{tree}")
+        python3 scripts/check_release_bundle.py \
+          --tag "${RELEASE_TAG}" \
+          --tree "${tree}" \
+          --run-id "${REHEARSAL_RUN}" \
+          --set-aside rehearsal-evidence
+
     - name: Generate release artifact provenance
       shell: bash
       env:
         RELEASE_SHA: ${{ inputs.sha }}
         RELEASE_TAG: ${{ inputs.tag }}
+        REHEARSAL_PROVENANCE: ${{ inputs.rehearsal-run != '' && 'rehearsal-evidence/release-provenance.json' || '' }}
       run: |
         set -euo pipefail
         tree=$(git rev-parse "${RELEASE_SHA}^{tree}")
@@ -80,6 +125,7 @@ runs:
           --tag "${RELEASE_TAG}" \
           --commit "${RELEASE_SHA}" \
           --tree "${tree}" \
+          --rehearsal-provenance "${REHEARSAL_PROVENANCE}" \
           --workflow-run-id "${GITHUB_RUN_ID}" \
           --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
           --timestamp "$(date --iso-8601=seconds)" \
@@ -101,8 +147,14 @@ runs:
       shell: bash
       env:
         RELEASE_TAG: ${{ inputs.tag }}
+        REHEARSAL_RUN: ${{ inputs.rehearsal-run }}
       run: |
+        set -euo pipefail
         python3 scripts/extract_changelog_section.py \
           --section "${RELEASE_TAG#v}" \
           --title "${RELEASE_TAG}" \
           --output release-notes.md
+        if [ -n "${REHEARSAL_RUN}" ]; then
+          # A promoted release publishes the text its rehearsal showed.
+          cmp rehearsal-evidence/release-notes.md release-notes.md
+        fi
