@@ -55,7 +55,10 @@ fn spawn_control_server(response: Value) -> (String, Receiver<Value>, JoinHandle
             line.clear();
             if request["id"] == json!(1) {
                 request_tx.send(request).expect("send captured request");
-                writeln!(stream, "{}", serde_json::to_string(&response).unwrap())
+                stream
+                    .write_all(
+                        format!("{}\n", serde_json::to_string(&response).unwrap()).as_bytes(),
+                    )
                     .expect("write control response");
                 return;
             }
@@ -73,7 +76,9 @@ fn spawn_control_server(response: Value) -> (String, Receiver<Value>, JoinHandle
                     "version": env!("CARGO_PKG_VERSION"),
                 },
             });
-            writeln!(stream, "{status}").expect("write version check response");
+            stream
+                .write_all(format!("{status}\n").as_bytes())
+                .expect("write version check response");
         }
     });
     (endpoint, request_rx, server)

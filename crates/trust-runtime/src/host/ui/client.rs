@@ -62,17 +62,24 @@ impl ControlClient {
         if let Some(token) = self.token.as_deref() {
             payload["auth"] = json!(token);
         }
-        let line = serde_json::to_string(&payload)?;
-        {
-            let stream = self.reader.get_mut();
-            stream.write_all(line.as_bytes())?;
-            stream.write_all(b"\n")?;
-            stream.flush()?;
-        }
-        let mut response = String::new();
-        self.reader.read_line(&mut response)?;
-        Ok(serde_json::from_str(&response)?)
+        exchange(&mut self.reader, &payload)
     }
+}
+
+/// Sends `payload` as one request line through `reader`'s connection and reads the response line.
+/// The line goes out with its newline in one write (spec 11, "Runtime control request, job, and
+/// state-surface contract").
+fn exchange<S: Read + Write>(
+    reader: &mut io::BufReader<S>,
+    payload: &serde_json::Value,
+) -> anyhow::Result<serde_json::Value> {
+    let line = serde_json::to_string(payload)?;
+    let stream = reader.get_mut();
+    crate::control::write_line(stream, &line)?;
+    stream.flush()?;
+    let mut response = String::new();
+    reader.read_line(&mut response)?;
+    Ok(serde_json::from_str(&response)?)
 }
 
 /// What the console connects to: the project folder, an explicit endpoint and the caller's token

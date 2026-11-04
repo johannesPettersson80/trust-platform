@@ -604,23 +604,29 @@ impl ControlClient {
     }
 
     fn request(&mut self, payload: Value) -> RemoteResult<ControlResponse> {
-        let line = serde_json::to_string(&payload).map_err(|err| err.to_string())?;
-        {
-            let stream = self.reader.get_mut();
-            stream
-                .write_all(line.as_bytes())
-                .map_err(|err| err.to_string())?;
-            stream.write_all(b"\n").map_err(|err| err.to_string())?;
-            stream.flush().map_err(|err| err.to_string())?;
-        }
-        let mut response = String::new();
-        self.reader
-            .read_line(&mut response)
-            .map_err(|err| err.to_string())?;
-        let response: ControlResponse =
-            serde_json::from_str(&response).map_err(|err| err.to_string())?;
-        Ok(response)
+        exchange(&mut self.reader, &payload)
     }
+}
+
+/// Sends `payload` as one request line through `reader`'s connection and reads the response line.
+/// The line goes out with its newline in one write: a newline written on its own waits on TCP until
+/// the runtime acknowledges the line before it, 41 to 44 ms a request on Linux and up to 200 ms on
+/// Windows (specification 11, "Runtime control request, job, and state-surface contract").
+fn exchange<S: Read + Write>(
+    reader: &mut BufReader<S>,
+    payload: &Value,
+) -> RemoteResult<ControlResponse> {
+    let line = serde_json::to_string(payload).map_err(|err| err.to_string())?;
+    let stream = reader.get_mut();
+    stream
+        .write_all(format!("{line}\n").as_bytes())
+        .map_err(|err| err.to_string())?;
+    stream.flush().map_err(|err| err.to_string())?;
+    let mut response = String::new();
+    reader
+        .read_line(&mut response)
+        .map_err(|err| err.to_string())?;
+    serde_json::from_str(&response).map_err(|err| err.to_string())
 }
 
 #[derive(Debug)]
@@ -793,5 +799,56 @@ mod client_source_path_tests {
             elsewhere
         );
         std::fs::remove_dir_all(&folder).expect("remove the project folder");
+    }
+}
+
+#[cfg(test)]
+mod exchange_tests {
+    use std::io::{self, BufReader, Read, Write};
+
+    use serde_json::json;
+
+    use super::exchange;
+
+    /// A control connection that answers with `reply` and keeps each write it is given.
+    struct Recorded {
+        reply: io::Cursor<Vec<u8>>,
+        writes: Vec<Vec<u8>>,
+    }
+
+    impl Read for Recorded {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            self.reply.read(buf)
+        }
+    }
+
+    impl Write for Recorded {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.writes.push(buf.to_vec());
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// Specification 11, "Runtime control request, job, and state-surface contract": a request
+    /// line goes out with its newline in one write. Catches the request written as its JSON and
+    /// then its newline: on TCP the newline waits for the runtime's acknowledgement, 41 to 44 ms a
+    /// debug request on Linux and up to 200 ms on Windows.
+    #[test]
+    fn a_request_line_goes_out_in_one_write() {
+        let mut connection = BufReader::new(Recorded {
+            reply: io::Cursor::new(b"{\"id\":1,\"ok\":true,\"result\":{}}\n".to_vec()),
+            writes: Vec::new(),
+        });
+        let response =
+            exchange(&mut connection, &json!({"id": 1, "type": "debug.state"})).expect("an answer");
+        assert!(response.ok);
+        assert_eq!(
+            connection.get_ref().writes,
+            [b"{\"id\":1,\"type\":\"debug.state\"}\n".to_vec()]
+        );
     }
 }

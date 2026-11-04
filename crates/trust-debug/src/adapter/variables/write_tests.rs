@@ -69,7 +69,7 @@ fn fake_runtime(mut answer: Answer) -> (SocketAddr, Received, thread::JoinHandle
                 }
                 Err(error) => json!({"id": id, "ok": false, "error": error}),
             };
-            if writeln!(stream, "{reply}").is_err() {
+            if stream.write_all(format!("{reply}\n").as_bytes()).is_err() {
                 break;
             }
         }

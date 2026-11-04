@@ -3526,7 +3526,9 @@ address does not take ends the step before the scan, and the values written befo
 
 Each newline-delimited control request is read into one request and dispatched
 once. The runtime writes each reply line with its newline in one write, and
-`trust-runtime ctl` and the fleet status request write each request line so: a
+every truST client of the control endpoint writes each request line so
+(`trust-runtime ctl`, the console `trust-runtime ui`, the fleet status request,
+`trust-dev ctl` and the debug adapter's remote attach): a
 newline written on its own is held by the TCP stack until the peer acknowledges
 the line before it (Nagle's algorithm meeting delayed acknowledgements), which
 cost 41 to 44 ms a request on Linux loopback (4 November 2026), and Windows

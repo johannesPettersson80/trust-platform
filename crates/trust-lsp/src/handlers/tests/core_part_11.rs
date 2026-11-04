@@ -147,7 +147,9 @@ pub(super) fn spawn_control_stub() -> (String, thread::JoinHandle<()>) {
                 }
                 _ => json!({ "id": id, "ok": false, "error": "unknown request" }),
             };
-            writeln!(writer, "{response}").expect("write response");
+            writer
+                .write_all(format!("{response}\n").as_bytes())
+                .expect("write response");
             writer.flush().expect("flush response");
         }
     });
@@ -227,7 +229,9 @@ pub(super) fn spawn_control_stub_with_instances(
                 }
                 _ => json!({ "id": id, "ok": false, "error": "unknown request" }),
             };
-            writeln!(writer, "{response}").expect("write response");
+            writer
+                .write_all(format!("{response}\n").as_bytes())
+                .expect("write response");
             writer.flush().expect("flush response");
         }
     });

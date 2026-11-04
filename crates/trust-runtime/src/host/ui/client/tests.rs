@@ -1,13 +1,17 @@
 //! Endpoint and token precedence of the console (spec 11 section 6.8.1), its reconnection to a
-//! runtime that restarted, and a refused connection (spec 11 section 6.8.0a).
+//! runtime that restarted, a refused connection (spec 11 section 6.8.0a), and its request line in
+//! one write (spec 11, "Runtime control request, job, and state-surface contract").
 //!
 //! The merged `--token` and `TRUST_CTL_TOKEN` value comes from the caller, so these tests call
 //! the resolver directly and never depend on the environment of the machine that runs them.
 
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::ConsoleTarget;
+use serde_json::json;
+
+use super::{exchange, ConsoleTarget};
 use crate::control::endpoint::{ControlTarget, EndpointSource, PublishedEndpoint};
 use crate::control::ControlEndpoint;
 
@@ -237,4 +241,44 @@ fn a_refused_endpoint_from_the_endpoint_file_means_the_runtime_is_not_running() 
         "{error:#}"
     );
     drop(published);
+}
+
+/// A control connection that answers with `reply` and keeps each write it is given.
+struct Recorded {
+    reply: io::Cursor<Vec<u8>>,
+    writes: Vec<Vec<u8>>,
+}
+
+impl Read for Recorded {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.reply.read(buf)
+    }
+}
+
+impl Write for Recorded {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.writes.push(buf.to_vec());
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_request_line_goes_out_in_one_write() {
+    // Catches the request written as its JSON and then its newline: on TCP the newline waits for
+    // the runtime's acknowledgement, 41 to 44 ms a request on Linux and up to 200 ms on Windows.
+    let mut connection = io::BufReader::new(Recorded {
+        reply: io::Cursor::new(b"{\"id\":1,\"ok\":true}\n".to_vec()),
+        writes: Vec::new(),
+    });
+    let response =
+        exchange(&mut connection, &json!({"id": 1, "type": "status"})).expect("an answer");
+    assert_eq!(response, json!({"id": 1, "ok": true}));
+    assert_eq!(
+        connection.get_ref().writes,
+        [b"{\"id\":1,\"type\":\"status\"}\n".to_vec()]
+    );
 }
