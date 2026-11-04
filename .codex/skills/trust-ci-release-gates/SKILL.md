@@ -46,7 +46,8 @@ can, so a finding costs a fix in its own pull request, never another release rou
    stays under the personal account, and GitHub gives the queue only to organizations), and the
    branch need not hold the newest `main`. `main`'s CI checks every merge: when `main` is red,
    fixing it comes before any other merge, and a release comes only from a `main` commit whose CI
-   passed. The required checks are those of `.github/required-checks.txt`.
+   passed or whose tree a passed rehearsal built and tested (Releasing, below). The required checks
+   are those of `.github/required-checks.txt`.
 5. **Release** with a pull request that only bumps the version and moves the changelog section
    (Releasing, below). It merges like any other.
 6. **Release blockers** are regressions and severe bugs: safety, data loss, a broken user journey.
@@ -114,23 +115,40 @@ Check it once, before the first push:
    and the lockfiles, and gathers the changelog fragments of `changelog.d/` into the version's
    section; check the text with `scripts/extract_changelog_section.py`. It carries nothing else.
 2. **Its rehearsal.** The Release workflow rehearses the head of a pull request that changes the
-   workspace version: every build, test and Publish script runs and nothing is published, and the
-   run keeps its release text and evidence as the artifact `release-rehearsal-v<version>`. A fork's
-   pull request is not rehearsed on the project's runners; rehearse its head with
-   `gh workflow run release.yml --ref <branch>`.
+   workspace version: every build, test and Publish script runs, and nothing is published. The
+   real-database matrix runs on the project's own runner: a pull request's or merge group's code never
+   runs on that runner, and a manual rehearsal runs the code of the ref a maintainer chooses. The matrix
+   runs in a manual rehearsal and in every release, a promoted one before it publishes. Once every build and test passed, the
+   run keeps its release text and evidence as the artifact `release-rehearsal-v<version>`, and every
+   file the release publishes as `release-bundle-v<version>-<tree>`, named after the tree of the
+   rehearsed head, for 30 days. A fork's pull request is not rehearsed on the project's runners;
+   rehearse its head with `gh workflow run release.yml --ref <branch>`.
 3. **Merge** it when CI, the rehearsal and Codex are green, at its exact head with
    `gh pr merge <number> --merge --match-head-commit <sha>`. For a version change the required
-   Release Conclusion is green only when the rehearsal passed.
-4. **The release follows `main`'s CI.** When `main`'s CI passes on the merge commit, the Release
-   workflow tags that commit `v<version>`, creates the GitHub release with the version's changelog
-   section, publishes every target to the Marketplace and verifies the tag, the release, Latest and
-   the Marketplace listing of every target (specification 24, "Release after main CI"). Never push a
-   release tag by hand.
-   - When `main`'s CI fails on the merge commit, nothing is released: find the cause; a flake's
-     failed jobs may be re-run, and their success starts the release.
+   Release Conclusion is green only when the rehearsal passed. The merge commit has the rehearsed
+   tree only when nothing else merged into `main` since the head was made; then the release is
+   promoted (4).
+4. **The release is promoted, or follows `main`'s CI** (owner, 2 November 2026: build once;
+   specification 24, "Release after main CI"). Never push a release tag by hand.
+   - When the merge commit has the tree of a passed rehearsal, the push to `main` starts the Release
+     run `Release promotion check of <sha>`. It downloads that rehearsal's
+     `release-bundle-v<version>-<tree>`, checks every file against its `SHA256SUMS`, and tags the
+     commit `v<version>`, creates the GitHub release with the version's changelog section, publishes
+     every target to the Marketplace and verifies the tag, the release, Latest and the Marketplace
+     listing of every target, without waiting for `main`'s CI. Its provenance names the rehearsal run
+     that built the packages. The release after `main`'s CI of the same commit then finds the release
+     complete and does nothing.
+   - Otherwise (another tree, no passed rehearsal, an expired bundle), the push releases nothing: when
+     `main`'s CI passes on the merge commit, the Release workflow builds every package again and
+     releases as above.
+   - When `main`'s CI fails on a commit that was not promoted, nothing is released: find the cause; a
+     flake's failed jobs may be re-run, and their success starts the release.
    - When a release job fails, fix the cause; re-running the failed jobs continues the release on the
-     same commit. A fix that needs a new commit releases from that commit once its CI passes, while
-     the version has no tag yet.
+     same commit, a promotion with the same rehearsal's files. A promotion that is not re-run is
+     finished by the release after `main`'s CI, which promotes the same files. No run publishes
+     packages that differ from those a release of the tag already holds: it fails before the tag, and
+     a maintainer decides, as when the bundle expired and the release would build again. A fix that
+     needs a new commit releases from that commit once its CI passes, while the version has no tag yet.
 5. **Verify**: `release_candidate_guard.py verify-release --candidate-head <head> --branch <branch>`
    with `TMPDIR` on a large disk (the assets are 2.7 GB). It checks the tag on `main`, the Release
    run named by the release's provenance, GitHub Latest, the assets against their checksums, and the

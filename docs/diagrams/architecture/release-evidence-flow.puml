@@ -11,6 +11,10 @@ component "Direct change contract\n(path-level minimum)" as directChangeContract
 component "Runtime communications\nconformance gate" as runtimeCommsGate
 node "Real Mosquitto broker\n+ mosquitto_sub client" as mosquitto
 component "GitHub Release workflow" as release
+component "Release rehearsal\nevery build and test of the version" as rehearsal
+artifact "Rehearsal bundle\nrelease-bundle-v<version>-<tree>" as rehearsalBundle
+component "Release bundle check\nSHA256SUMS, provenance, platforms" as bundleCheck
+component "Published release check\npackages equal GitHub's asset digests" as publishedCheck
 component "Release candidate guard" as releaseGuard
 component "Rust xtask external unsafe gate\nproduction + exact registered test inventory\nownership and stale-site decision" as unsafeGate
 artifact "ast-grep / rg raw facts\nretained normalized and rejected sites" as unsafeFacts
@@ -74,12 +78,23 @@ release --> npmAudit : require zero lockfile advisories
 release --> conformanceInput : download successful CI evidence
 conformanceInput --> conformanceGenerator : suite result + commit
 verification --> conformanceGenerator : known gaps and contract
-release --> provenanceGenerator : tag, commit, workflow, artifacts
+release --> provenanceGenerator : tag, commit, tree, workflow, artifacts
+rehearsal --> rehearsalBundle : keep every release file once all passed
+release --> bundleCheck : commit with the rehearsed tree, after a push or main's CI
+release --> publishedCheck : before the tag, against a release of it
+rehearsalBundle --> bundleCheck : the artifact the plan found
+bundleCheck --> provenanceGenerator : rehearsal run and commit, same digests
 verification --> provenanceGenerator : platform and identity contract
 conformanceGenerator --> claimContract : result-derived status
 provenanceGenerator --> claimContract : artifact identity
 claimContract --> assets : validate and checksum
 release --> assets : publish only after all checks pass
+
+note bottom of bundleCheck
+  Build once (owner, 2 November 2026): a promoted release
+  publishes the rehearsal's files without main's CI;
+  another tree follows main's CI and builds again.
+end note
 
 note bottom of verification
   Targeted G1 proof supports implementation claims.
