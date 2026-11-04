@@ -726,16 +726,16 @@ is refused and closes the session (specification 39 §11 item 6). A method comma
 a journey step and is refused. `trust-lsp.hmiAgent.cancelSimulatorJourney` takes a session and the
 ID of the journey it cancels. A cancel that finds that journey not running, as when it arrives just
 before the journey starts, refuses that journey's start for two seconds and affects no other
-journey. A cancel also ends a request in flight within about 100 milliseconds: the journey ends with
-`CANCELLED`, and a step whose command's answer it interrupts ends `cancelled` with that command's
-ID, since the command may have been applied. Before each step, and again right before a step's
-command, the journey checks that the session is still open and unexpired and that `checkTarget`
-still accepts the target, then that the journey was not cancelled. It reads the deployed page
-(`GET /api/hmi/page`) and compares its model with the draft's, key order aside, and follows the
-page's readback stream (`/ws/hmi`). Before a command it reads that stream, for at most one stream
-period, until the runtime says whether the target runs in simulation, which it says as the stream
-opens, and stops with `CONFLICT` when the target does not, or when the stream has not said so within
-that period. A step with a control sends its command with the named session
+journey. A cancel also ends a request in flight within about 100 milliseconds. The journey then ends
+with `CANCELLED`, except when the request was a step's command: that step ends `cancelled`, with the
+command's ID, since the command may have been applied, and so ends the journey. Before each step,
+and again right before a step's command, the journey checks that the session is still open and
+unexpired and that `checkTarget` still accepts the target, then that the journey was not cancelled.
+It reads the deployed page (`GET /api/hmi/page`) and compares its model with the draft's, key order
+aside, and follows the page's readback stream (`/ws/hmi`). Before a command it reads that stream,
+for at most one stream period, until the runtime says whether the target runs in simulation, which
+it says as the stream opens, and stops with `CONFLICT` when the target does not, or when the stream
+has not said so within that period. A step with a control sends its command with the named session
 (`POST /api/hmi/command`, a new command ID) and stops the journey unless the answer is `applied`,
 `pending` or `confirmed`. A `confirmed` command is complete. An `applied` one is complete at once
 when the runtime does not follow it; the runtime follows a command whose control confirms it, by its
@@ -763,13 +763,13 @@ at least 5 seconds, for that path's value (a path the runtime answers as unknown
 the expected one when it is given. Each step adds its outcome: `observed`, or `cancelled`,
 `disconnected`, `timed-out`, `refused` or `unknown`, which end the journey. The answer names the
 session, holds every outcome and the error that ended the journey, if any, and has passed exactly
-when no error ended it and its last outcome is `observed`.
-`hmi_preview_states` may explicitly select `mode: simulator`, a `sessionId` and up to twelve steps.
-Each step names a deployed page, optional control/action/value and optional readback path/expected
-value. The deployed page must match the supplied draft and its local program revision must still
-match. A journey never starts a process or deploys an HMI implicitly. It uses the existing named
-session, command outcomes and readback stream; refusals, disconnects, cancellations and timeouts
-are returned with the already-completed outcomes. It never resends a command automatically.
+when no error ended it and its last outcome is `observed`. `hmi_preview_states` may explicitly
+select `mode: simulator`, a `sessionId` and up to twelve steps. Each step names a deployed page,
+optional control/action/value and optional readback path/expected value. The deployed page must
+match the supplied draft and its local program revision must still match. A journey never starts a
+process or deploys an HMI implicitly. It uses the existing named session, command outcomes and
+readback stream; refusals, disconnects, cancellations and timeouts are returned with the
+already-completed outcomes. It never resends a command automatically.
 
 Review with `explore: true` includes a bounded snapshot of up to 32 project pages/popups and placed
 faceplates, rendered through the existing runtime display in the proposal panel. This mode's
