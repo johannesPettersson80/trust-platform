@@ -42,6 +42,19 @@ fn unsaved_changes_end_operation_before_a_request() {
     );
 }
 
+// Catches operation that goes on after an HMI file changed while operating: the editor no longer
+// shows the deployed HMI, so operation ends at once with the same reason.
+#[test]
+fn an_edit_while_operating_ends_operation_at_once() {
+    assert_eq!(
+        verdict(json!({ "event": "edited" })),
+        (
+            false,
+            json!("The HMI changed. Save and deploy it before operating again.")
+        )
+    );
+}
+
 // Catches a page from another deployment shown in the operating view: a page read answered from
 // another bundle ends operation before it shows, also when the bundle it names is not text.
 #[test]
@@ -113,13 +126,16 @@ fn each_lost_connection_ends_operation_with_its_reason() {
     }
 }
 
-// Catches an event the language server does not know taken as one it does.
+// Catches an event the language server does not know taken as one it does, and an event with a
+// field it does not take, the events without facts among them.
 #[test]
 fn an_unknown_event_or_field_is_refused() {
     for event in [
         json!({ "event": "pause" }),
         json!({ "event": "request", "dirty": false, "page": "overview" }),
         json!({ "event": "request" }),
+        json!({ "event": "streamClosed", "dirty": true }),
+        json!({ "event": "edited", "page": "overview" }),
     ] {
         let answer = operation(event.clone());
         assert_eq!(answer["ok"], false, "{event}: {answer}");
