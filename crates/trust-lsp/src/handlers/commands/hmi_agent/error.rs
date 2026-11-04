@@ -27,6 +27,8 @@ pub(super) const COMPILATION_FAILED: &str = "COMPILATION_FAILED";
 pub(super) const UNSUPPORTED_CONTEXT: &str = "UNSUPPORTED_CONTEXT";
 /// Rendering or reading a project image failed: the image is missing or cannot be read.
 pub(super) const RENDER_FAILED: &str = "RENDER_FAILED";
+/// The simulator a journey needs did not answer, or its answer or stream cannot be used.
+pub(super) const NOT_CONNECTED: &str = "NOT_CONNECTED";
 
 /// A refusal of the authoring engine: its stable code and its message.
 #[derive(Debug, Clone, PartialEq, Eq)]
