@@ -199,13 +199,16 @@ one with the highest id. Without one, the push releases nothing and the
 release follows `main`'s CI. A promoted release runs no build or test of its
 packages, only the real-database matrix on the commit, which a pull request's
 rehearsal does not run: its publishing job waits for the matrix to pass, then
-downloads that artifact and publishes it only when every line of
+downloads that artifact into an empty folder outside the checkout, so that
+none of its entries can replace a file there, and publishes it only when it
+holds the release folders and the release text and nothing else, every line of
 the rehearsal's `SHA256SUMS` names a file of the artifact with that digest,
 every file of the release folders is listed, every platform has its VS Code
 package, runtime and language-server archives and toolchain bundle, the
 rehearsal's provenance names the release's tag, the commit's tree and that run,
-and the release text written from the commit's changelog is the rehearsal's.
-It writes the release's own provenance and checksums, then tags, releases,
+and the release text written from the commit's changelog is the rehearsal's;
+the checked folders move into the checkout only then, replacing nothing. It
+writes the release's own provenance and checksums, then tags, releases,
 publishes and verifies as below.
 
 A release never happens twice. One job at a time publishes from `main`: the

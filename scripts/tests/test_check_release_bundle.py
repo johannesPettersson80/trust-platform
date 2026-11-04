@@ -83,10 +83,22 @@ def write_bundle(root: Path, platforms=generator.PLATFORMS) -> None:
 
 class ReleaseBundleTests(unittest.TestCase):
     def setUp(self) -> None:
+        # The bundle as download-artifact extracts it into an empty folder, and a separate checkout that receives it.
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
-        self.root = Path(folder.name)
+        self.root = Path(folder.name) / "rehearsal-bundle"
+        self.root.mkdir()
         write_bundle(self.root)
+        self.workspace = Path(folder.name) / "checkout"
+        (self.workspace / "scripts").mkdir(parents=True)
+        (self.workspace / "scripts" / "check_release_bundle.py").write_text("# the checker of the checkout\n")
+
+    def promote(self) -> tuple[int, str]:
+        errors = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(errors):
+            status = bundle.main(["--bundle", str(self.root), "--tag", TAG, "--tree", TREE, "--run-id", RUN,
+                                  "--set-aside", "rehearsal-evidence", "--root", str(self.workspace)])
+        return status, errors.getvalue()
 
     def refused(self, reason: str, **kwargs: str) -> None:
         args = {"tag": TAG, "tree": TREE, "run_id": RUN, **kwargs}
@@ -98,15 +110,37 @@ class ReleaseBundleTests(unittest.TestCase):
         # release that publishes the rehearsal's provenance, which names the rehearsed commit and run, as its own.
         listed = bundle.check_bundle(self.root, tag=TAG, tree=TREE, run_id=RUN)
         self.assertEqual(len(listed), 23, "five platforms of four packages, two conformance files, the provenance")
-        arguments = ["--tag", TAG, "--tree", TREE, "--run-id", RUN, "--set-aside", "rehearsal-evidence",
-                     "--root", str(self.root)]
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(bundle.main(arguments), 0)
-        self.assertEqual(sorted(path.name for path in (self.root / "rehearsal-evidence").iterdir()),
+        self.assertEqual(self.promote(), (0, ""))
+        self.assertEqual(sorted(path.name for path in (self.workspace / "rehearsal-evidence").iterdir()),
                          ["SHA256SUMS", "release-notes.md", "release-provenance.json"])
-        self.assertEqual(sorted(path.name for path in (self.root / "release-evidence").iterdir()),
+        self.assertEqual(sorted(path.name for path in (self.workspace / "release-evidence").iterdir()),
                          ["conformance-status.json", "conformance-status.md"])
-        self.assertFalse((self.root / "release-notes.md").exists())
+        for folder in bundle.FOLDERS[:4]:
+            self.assertEqual(len(list((self.workspace / folder).iterdir())), 5, folder)
+        self.assertFalse((self.workspace / "release-notes.md").exists())
+        self.assertEqual(list(self.root.iterdir()), [], "everything moved out of the download folder")
+
+    def test_a_bundle_entry_outside_the_release_folders_is_refused(self) -> None:
+        # Review finding of 4 November 2026: download-artifact extracted the bundle into the checkout, so an entry
+        # scripts/check_release_bundle.py could replace the checker before it ran. Catches a check that accepts, or a
+        # download that lets into the checkout, any entry other than the release folders and the release text.
+        (self.root / "scripts").mkdir()
+        (self.root / "scripts" / "check_release_bundle.py").write_text("print('every bundle passes')\n")
+        self.refused("the bundle holds scripts, which is no release file")
+        status, errors = self.promote()
+        self.assertEqual(status, 1)
+        self.assertIn("the bundle holds scripts, which is no release file", errors)
+        self.assertEqual((self.workspace / "scripts" / "check_release_bundle.py").read_text(),
+                         "# the checker of the checkout\n")
+        self.assertFalse((self.workspace / "vsix-artifacts").exists(), "nothing moves into the checkout")
+
+    def test_a_release_folder_already_in_the_checkout_is_refused(self) -> None:
+        # Catches a promotion that mixes the rehearsal's files with files already in the checkout.
+        (self.workspace / "vsix-artifacts").mkdir()
+        status, errors = self.promote()
+        self.assertEqual(status, 1)
+        self.assertIn("vsix-artifacts is in the workspace already", errors)
+        self.assertTrue((self.root / "runtime-artifacts").is_dir(), "nothing moved")
 
     def test_a_file_changed_after_the_rehearsal_is_refused(self) -> None:
         # Catches a release that publishes bytes no rehearsal built and tested, or a download that broke a package.
@@ -176,13 +210,11 @@ class ReleaseBundleTests(unittest.TestCase):
     def test_a_refused_bundle_fails_the_step_and_says_why(self) -> None:
         # Catches a check that prints a warning and lets the release publish.
         (self.root / "runtime-artifacts" / "trust-runtime-linux-x64.tar.gz").write_bytes(b"other")
-        errors = io.StringIO()
-        with contextlib.redirect_stderr(errors):
-            status = bundle.main(["--tag", TAG, "--tree", TREE, "--run-id", RUN, "--set-aside", "rehearsal-evidence",
-                                  "--root", str(self.root)])
+        status, errors = self.promote()
         self.assertEqual(status, 1)
-        self.assertIn("::error::release bundle: runtime-artifacts/trust-runtime-linux-x64.tar.gz does not have", errors.getvalue())
-        self.assertFalse((self.root / "rehearsal-evidence").exists())
+        self.assertIn("::error::release bundle: runtime-artifacts/trust-runtime-linux-x64.tar.gz does not have", errors)
+        self.assertFalse((self.workspace / "rehearsal-evidence").exists())
+        self.assertFalse((self.workspace / "runtime-artifacts").exists(), "nothing unchecked moves into the checkout")
 
 
 if __name__ == "__main__":

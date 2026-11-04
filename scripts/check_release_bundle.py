@@ -12,12 +12,16 @@ publishes them only when
 - every platform has one VS Code package, one runtime and one language-server archive and one toolchain bundle, and the
   conformance status is there;
 - the release text is there.
-It then moves the rehearsal's provenance, checksums and release text to the `--set-aside` folder: the release writes its
-own provenance and checksums, and compares the text it writes from the changelog with the rehearsal's.
+The bundle is downloaded into an empty folder outside the checkout (`--bundle`), so that none of its entries can replace
+a file of the checkout, this script among them. It must hold the release folders and the release text and nothing
+else. Only once all of it is checked does the script move them into the workspace, refusing to replace anything there,
+and then it moves the rehearsal's provenance, checksums and release text to the `--set-aside` folder: the release writes
+its own provenance and checksums, and compares the text it writes from the changelog with the rehearsal's.
 
-Usage, at the root of the workspace that holds the downloaded bundle:
+Usage, at the root of the workspace:
 
-    python3 scripts/check_release_bundle.py --tag vX.Y.Z --tree TREE --run-id RUN --set-aside rehearsal-evidence
+    python3 scripts/check_release_bundle.py --bundle DOWNLOADED --tag vX.Y.Z --tree TREE --run-id RUN \
+        --set-aside rehearsal-evidence
 """
 
 from __future__ import annotations
@@ -153,8 +157,19 @@ def check_provenance(root: Path, listed: dict[PurePosixPath, str], *, tag: str, 
         raise BundleError("the bundle does not hold exactly one " + ", ".join(wrong))
 
 
+def check_entries(root: Path) -> None:
+    """The downloaded bundle holds the release folders and the release text, and nothing else."""
+    expected = set(FOLDERS) | {str(TEXT)}
+    for entry in sorted(root.iterdir()):
+        if entry.name not in expected:
+            raise BundleError(f"the bundle holds {entry.name}, which is no release file")
+        if entry.is_symlink():
+            raise BundleError(f"the bundle's {entry.name} is a link")
+
+
 def check_bundle(root: Path, *, tag: str, tree: str, run_id: str) -> dict[PurePosixPath, str]:
     """The files of the bundle at `root`, checked as the module describes; a BundleError says what is wrong."""
+    check_entries(root)
     listed = read_sums(root)
     check_files(root, listed)
     check_provenance(root, listed, tag=tag, tree=tree, run_id=run_id)
@@ -162,6 +177,16 @@ def check_bundle(root: Path, *, tag: str, tree: str, run_id: str) -> dict[PurePo
     if not _regular(text) or not text.read_text(encoding="utf-8").strip():
         raise BundleError(f"the bundle has no release text, {TEXT}")
     return listed
+
+
+def move_into(bundle: Path, root: Path) -> None:
+    """Move the checked release folders and text from the download folder into the workspace, replacing nothing."""
+    names = [*FOLDERS, str(TEXT)]
+    for name in names:
+        if (root / name).exists() or (root / name).is_symlink():
+            raise BundleError(f"{name} is in the workspace already")
+    for name in names:
+        shutil.move(bundle / name, root / name)
 
 
 def set_aside(root: Path, folder: Path) -> None:
@@ -178,10 +203,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--tree", required=True, help="The released commit's tree.")
     parser.add_argument("--run-id", required=True, help="The rehearsal run that the plan chose.")
     parser.add_argument("--set-aside", type=Path, required=True, help="Where the rehearsal's own records go.")
-    parser.add_argument("--root", type=Path, default=Path("."), help="The folder that holds the bundle.")
+    parser.add_argument("--bundle", type=Path, required=True, help="The empty folder the bundle was downloaded into.")
+    parser.add_argument("--root", type=Path, default=Path("."), help="The workspace that receives the release files.")
     args = parser.parse_args(argv)
     try:
-        listed = check_bundle(args.root, tag=args.tag, tree=args.tree, run_id=args.run_id)
+        listed = check_bundle(args.bundle, tag=args.tag, tree=args.tree, run_id=args.run_id)
+        move_into(args.bundle, args.root)
         set_aside(args.root, args.set_aside)
     except (BundleError, OSError) as error:
         print(f"::error::release bundle: {error}", file=sys.stderr)

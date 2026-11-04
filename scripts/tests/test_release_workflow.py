@@ -496,15 +496,15 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn(promoted, take)
         self.assertIn("uses: actions/download-artifact@", take)
         for line in ("run-id: ${{ inputs.rehearsal-run }}", "artifact-ids: ${{ inputs.rehearsal-artifact }}",
-                     "github-token: ${{ github.token }}"):
+                     "github-token: ${{ github.token }}", "path: ${{ runner.temp }}/rehearsal-bundle"):
             self.assertIn(line, take)
         self.assertNotIn("name:", take.split("with:", 1)[1], "the artifact the plan chose, by its id")
         check = action["Check the rehearsal's files against their checksums"]
         self.assertIn(promoted, check)
         self.assertIn('tree=$(git rev-parse "${RELEASE_SHA}^{tree}")', check)
         self.assertIn("python3 scripts/check_release_bundle.py", check)
-        for argument in ('--tag "${RELEASE_TAG}"', '--tree "${tree}"', '--run-id "${REHEARSAL_RUN}"',
-                         "--set-aside rehearsal-evidence"):
+        for argument in ('--bundle "${RUNNER_TEMP}/rehearsal-bundle"', '--tag "${RELEASE_TAG}"', '--tree "${tree}"',
+                         '--run-id "${REHEARSAL_RUN}"', "--set-aside rehearsal-evidence"):
             self.assertIn(argument, check)
         self.assertEqual(
             order[order.index("Take the rehearsal's release files"):],

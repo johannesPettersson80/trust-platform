@@ -80,18 +80,21 @@ runs:
           --markdown-out release-evidence/conformance-status.md
 
     - name: Take the rehearsal's release files
-      # The one artifact the plan chose, from the passed rehearsal run it names; the download checks the artifact's own
-      # digest too. It needs the token's `actions: read`.
+      # The one artifact the plan chose, from the passed rehearsal run it names, into an empty folder outside the
+      # checkout, so that none of its entries can replace a file of the checkout; the download checks the artifact's
+      # own digest too. It needs the token's `actions: read`.
       if: ${{ inputs.rehearsal-run != '' }}
       uses: actions/download-artifact@v8
       with:
         run-id: ${{ inputs.rehearsal-run }}
         artifact-ids: ${{ inputs.rehearsal-artifact }}
         github-token: ${{ github.token }}
+        path: ${{ runner.temp }}/rehearsal-bundle
 
     - name: Check the rehearsal's files against their checksums
-      # Every file against the rehearsal's SHA256SUMS and provenance, before anything is published; the rehearsal's own
-      # provenance, checksums and text are then set aside.
+      # Every file against the rehearsal's SHA256SUMS and provenance, before anything is published; only then do the
+      # release folders and text move into the checkout, and the rehearsal's own provenance, checksums and text are
+      # set aside.
       if: ${{ inputs.rehearsal-run != '' }}
       shell: bash
       env:
@@ -102,6 +105,7 @@ runs:
         set -euo pipefail
         tree=$(git rev-parse "${RELEASE_SHA}^{tree}")
         python3 scripts/check_release_bundle.py \
+          --bundle "${RUNNER_TEMP}/rehearsal-bundle" \
           --tag "${RELEASE_TAG}" \
           --tree "${tree}" \
           --run-id "${REHEARSAL_RUN}" \
