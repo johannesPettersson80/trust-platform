@@ -324,7 +324,7 @@ fn the_cookie_and_token_never_appear_in_the_answer_or_the_log() {
     let local = target(&fake.url, SECRET_TOKEN);
     let id = opened(&sessions, A, &local, at(0));
     let cookie = json!(format!("trust_hmi_session={SECRET_COOKIE}"));
-    let steps = json!([{ "page": "settings", "object": "sp", "action": "set", "value": 10,
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10,
                          "path": "Main.SP", "expect": 10 }]);
     let answer = call(
         &sessions,

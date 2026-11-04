@@ -12,7 +12,8 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 use super::super::simulator_fake::{CommandAnswer, FakeSimulator, Frame, Script};
-use super::{run, same_model, Journey, Step, Timing};
+use super::{follow_of, run, same_model, Follow, Journey, Step, Timing};
+use trust_runtime::hmi::page_files::HmiObject;
 
 const COOKIE: &str = "trust_hmi_session=4f1c0ffee";
 const TOKEN: &str = "access-token-7";
@@ -29,15 +30,24 @@ const SHORT: Timing = Timing {
     ..PROMPT
 };
 
-/// The deployed page as the runtime serves it: its numbers as the runtime writes them (`5.0`).
+/// The deployed page as the runtime serves it, its numbers as the runtime writes them (`5.0`): a
+/// setpoint, which the runtime follows to its confirmation by the value read back, and a button
+/// without feedback, whose command is final as applied (specification 39 §12.8 item 5).
 fn deployed() -> Value {
     json!({
         "title": "Settings",
-        "object": [{
-            "id": "sp", "type": "setpoint", "at": [32, 88], "size": [200, 64],
-            "min": 5.0, "max": 95.0,
-            "bind": { "value": { "path": "Main.SP", "direction": "read-write" } }
-        }],
+        "object": [
+            {
+                "id": "sp", "type": "setpoint", "at": [32, 88], "size": [200, 64],
+                "min": 5.0, "max": 95.0,
+                "bind": { "value": { "path": "Main.SP", "direction": "read-write" } }
+            },
+            {
+                "id": "stop", "type": "button", "at": [32, 160], "size": [120, 40],
+                "action": "reset",
+                "bind": { "target": { "path": "Main.Run", "direction": "write" } }
+            }
+        ],
         "pipe": []
     })
 }
@@ -46,10 +56,36 @@ fn deployed() -> Value {
 fn draft() -> Value {
     serde_json::from_str(
         r#"{"pipe": [], "object": [{"bind": {"value": {"direction": "read-write", "path": "Main.SP"}},
-            "max": 95, "min": 5, "size": [200, 64], "at": [32, 88], "type": "setpoint", "id": "sp"}],
+            "max": 95, "min": 5, "size": [200, 64], "at": [32, 88], "type": "setpoint", "id": "sp"},
+            {"bind": {"target": {"direction": "write", "path": "Main.Run"}}, "action": "reset",
+            "size": [120, 40], "at": [32, 160], "type": "button", "id": "stop"}],
             "title": "Settings"}"#,
     )
     .expect("the draft's model")
+}
+
+/// A setpoint command, which the runtime follows, and a stop command, which it does not.
+fn set(value: i64) -> Value {
+    json!({ "page": "settings", "object": "sp", "action": "write", "value": value })
+}
+
+fn stop() -> Value {
+    json!({ "page": "settings", "object": "stop", "action": "reset" })
+}
+
+/// A command answered `outcome`, then the later outcome `later` reported for it on the stream, with
+/// the reason and the value read back the runtime reports with a failure.
+fn reported(
+    answered: &'static str,
+    later: &'static str,
+) -> Box<dyn Fn(&Value) -> CommandAnswer + Send> {
+    Box::new(move |command| CommandAnswer {
+        status: 200,
+        body: json!({ "id": command["id"], "outcome": answered }),
+        then: vec![Frame::Text(json!({ "command": {
+            "id": command["id"], "outcome": later, "reason": "not confirmed in time", "readback": 9.0,
+        } }))],
+    })
 }
 
 fn pages() -> BTreeMap<String, Value> {
@@ -115,7 +151,7 @@ fn a_matching_page_with_its_readback_observed_passes() {
         }),
         ..Script::serving(pages())
     });
-    let steps = json!([{ "page": "settings", "object": "sp", "action": "set", "value": 10,
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10,
                          "path": "Main.SP", "expect": 10 }]);
     let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
     let received = fake.received();
@@ -143,7 +179,7 @@ fn a_matching_page_with_its_readback_observed_passes() {
     assert_eq!(
         received[2].body,
         json!({ "id": id, "bundle": "bundle-1", "page": "settings", "object": "sp",
-                "action": "set", "value": 10 })
+                "action": "write", "value": 10 })
     );
     assert_eq!(
         answer,
@@ -168,7 +204,7 @@ fn a_page_that_differs_from_the_draft_stops_with_the_conflict() {
         "settings".into(),
         other,
     )])));
-    let steps = json!([{ "page": "settings", "object": "sp", "action": "set", "value": 10 }]);
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
     let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
     assert_eq!(
         answer,
@@ -212,8 +248,8 @@ fn a_refused_command_stops_the_journey_with_its_outcome() {
             ..Script::serving(pages())
         });
         let steps = json!([
-            { "page": "settings", "object": "sp", "action": "set", "value": 10 },
-            { "page": "settings", "object": "sp", "action": "set", "value": 20 },
+            { "page": "settings", "object": "sp", "action": "write", "value": 10 },
+            { "page": "settings", "object": "sp", "action": "write", "value": 20 },
         ]);
         let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
         let sent = commands(&fake);
@@ -231,19 +267,116 @@ fn a_refused_command_stops_the_journey_with_its_outcome() {
     }
 }
 
-/// Catches: a journey that reports a command as observed although the simulator never confirmed it.
+/// Catches the defect of the extension's journey: it waited for a confirmation the runtime never
+/// sends for a control it does not follow, whose command is final as `applied`, so every such step
+/// timed out.
 #[test]
-fn no_confirmation_within_the_wait_times_out() {
+fn an_unfollowed_controls_applied_command_is_observed_at_once() {
     let fake = FakeSimulator::start(Script {
         on_command: answered("applied", |_| Vec::new()),
         ..Script::serving(pages())
     });
-    let steps = json!([{ "page": "settings", "object": "sp", "action": "set", "value": 10 }]);
     let started = Instant::now();
-    let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), SHORT);
+    let answer = journey(
+        &fake,
+        json!([stop()]),
+        &|| true,
+        &AtomicBool::new(false),
+        PROMPT,
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "it waited for no confirmation"
+    );
+    let id = &commands(&fake)[0]["id"];
+    assert_eq!(
+        answer["outcomes"],
+        json!([
+            { "page": "settings", "object": "stop", "commandId": id, "status": 200, "outcome": "applied" },
+            { "page": "settings", "outcome": "observed", "commandId": id },
+        ])
+    );
+    assert_eq!(answer["passed"], true);
+}
+
+/// Catches: a followed control's command taken as complete without its later confirmation, or that
+/// confirmation missed.
+#[test]
+fn a_followed_controls_later_confirmation_is_observed() {
+    let fake = FakeSimulator::start(Script {
+        on_command: answered("applied", |id| {
+            vec![Frame::Text(
+                json!({ "command": { "id": id, "outcome": "confirmed" } }),
+            )]
+        }),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &fake,
+        json!([set(10)]),
+        &|| true,
+        &AtomicBool::new(false),
+        PROMPT,
+    );
+    let id = &commands(&fake)[0]["id"];
+    assert_eq!(
+        answer["outcomes"],
+        json!([
+            { "page": "settings", "object": "sp", "commandId": id, "status": 200, "outcome": "applied" },
+            { "page": "settings", "outcome": "observed", "commandId": id },
+        ])
+    );
+    assert_eq!(answer["passed"], true);
+}
+
+/// Catches the regression a rule taking every `applied` as final would cause: a followed control's
+/// command that the runtime later reports timed out passed, where the extension's journey caught it.
+#[test]
+fn a_followed_controls_later_timed_out_ends_the_journey() {
+    let fake = FakeSimulator::start(Script {
+        on_command: reported("applied", "timed-out"),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &fake,
+        json!([set(10), set(20)]),
+        &|| true,
+        &AtomicBool::new(false),
+        PROMPT,
+    );
+    let sent = commands(&fake);
+    assert_eq!(sent.len(), 1, "the next step never ran");
+    assert_eq!(
+        answer["outcomes"],
+        json!([
+            { "page": "settings", "object": "sp", "commandId": sent[0]["id"], "status": 200,
+              "outcome": "applied" },
+            { "page": "settings", "outcome": "timed-out", "commandId": sent[0]["id"],
+              "reason": "not confirmed in time", "readback": 9.0 },
+        ])
+    );
+    assert_eq!(answer["passed"], false);
+}
+
+/// Catches: a followed control's command reported observed although no later outcome came within the
+/// wait.
+#[test]
+fn a_followed_control_without_a_later_outcome_times_out() {
+    let fake = FakeSimulator::start(Script {
+        on_command: answered("applied", |_| Vec::new()),
+        ..Script::serving(pages())
+    });
+    let started = Instant::now();
+    let answer = journey(
+        &fake,
+        json!([set(10)]),
+        &|| true,
+        &AtomicBool::new(false),
+        SHORT,
+    );
     assert!(
         started.elapsed() >= SHORT.wait,
-        "it waited for the confirmation"
+        "it waited for the later outcome"
     );
     let id = &commands(&fake)[0]["id"];
     assert_eq!(
@@ -256,6 +389,134 @@ fn no_confirmation_within_the_wait_times_out() {
     assert_eq!(answer["passed"], false);
 }
 
+/// Catches: a `pending` answer (a repeated command ID) taken for a completed command, or its later
+/// `applied` or `confirmed` missed.
+#[test]
+fn a_pending_command_completes_with_its_later_outcome() {
+    for (step, later) in [(stop(), "applied"), (set(10), "confirmed")] {
+        let fake = FakeSimulator::start(Script {
+            on_command: Box::new(move |command| CommandAnswer {
+                status: 200,
+                body: json!({ "id": command["id"], "outcome": "pending" }),
+                then: vec![Frame::Text(
+                    json!({ "command": { "id": command["id"], "outcome": later } }),
+                )],
+            }),
+            ..Script::serving(pages())
+        });
+        let answer = journey(
+            &fake,
+            json!([step]),
+            &|| true,
+            &AtomicBool::new(false),
+            PROMPT,
+        );
+        let id = &commands(&fake)[0]["id"];
+        assert_eq!(
+            answer["outcomes"][1],
+            json!({ "page": "settings", "outcome": "observed", "commandId": id }),
+            "{later}"
+        );
+        assert_eq!(answer["passed"], true, "{later}");
+    }
+}
+
+/// Catches: a journey that reports a `pending` command as observed although the simulator never
+/// decided it within the wait.
+#[test]
+fn a_pending_command_never_decided_times_out() {
+    let fake = FakeSimulator::start(Script {
+        on_command: answered("pending", |_| Vec::new()),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &fake,
+        json!([stop()]),
+        &|| true,
+        &AtomicBool::new(false),
+        SHORT,
+    );
+    let id = &commands(&fake)[0]["id"];
+    assert_eq!(
+        answer["outcomes"][1],
+        json!({ "page": "settings", "outcome": "timed-out", "commandId": id })
+    );
+    assert_eq!(answer["passed"], false);
+}
+
+/// Catches: a journey that goes on after the stream reported its command refused or timed out, while
+/// the step waited for its later outcome or for its readback, or that drops the report's reason and
+/// the value it read back.
+#[test]
+fn a_command_the_stream_reports_failed_ends_the_journey_with_that_outcome() {
+    let mut stop_with_readback = stop();
+    stop_with_readback["path"] = json!("Main.Run");
+    let cases = [
+        (set(10), "pending", "refused"),
+        (stop(), "pending", "timed-out"),
+        (stop_with_readback, "applied", "timed-out"),
+    ];
+    for (step, answered, later) in cases {
+        let fake = FakeSimulator::start(Script {
+            on_command: reported(answered, later),
+            ..Script::serving(pages())
+        });
+        let object = step["object"].clone();
+        let answer = journey(
+            &fake,
+            json!([step, stop()]),
+            &|| true,
+            &AtomicBool::new(false),
+            PROMPT,
+        );
+        let sent = commands(&fake);
+        assert_eq!(
+            sent.len(),
+            1,
+            "{answered} then {later}: the next step never ran"
+        );
+        assert_eq!(
+            answer["outcomes"],
+            json!([
+                { "page": "settings", "object": object, "commandId": sent[0]["id"], "status": 200,
+                  "outcome": answered },
+                { "page": "settings", "outcome": later, "commandId": sent[0]["id"],
+                  "reason": "not confirmed in time", "readback": 9.0 },
+            ]),
+            "{answered} then {later}"
+        );
+        assert_eq!(answer["passed"], false);
+        assert!(answer.get("error").is_none(), "{answer}");
+    }
+}
+
+/// Catches: a journey that decides itself which commands the runtime follows, instead of by the
+/// runtime's own plan of each (`Plan::is_followed`), or that takes a control whose plan it cannot read
+/// as unfollowed, which could pass a command the runtime later reports failed.
+#[test]
+fn the_runtime_plans_which_commands_are_followed() {
+    let page = deployed();
+    let step = |value: Value| serde_json::from_value::<Step>(value).expect("a step");
+    let setpoint = &page["object"][0];
+    let button = &page["object"][1];
+    serde_json::from_value::<HmiObject>(setpoint.clone())
+        .expect("the setpoint as the runtime reads it");
+    serde_json::from_value::<HmiObject>(button.clone())
+        .expect("the button as the runtime reads it");
+    assert_eq!(follow_of(setpoint, &step(set(10))), Follow::Confirmation);
+    assert_eq!(follow_of(button, &step(stop())), Follow::None);
+    let remote = json!({
+        "id": "start", "type": "pulse-button", "at": [0, 0], "size": [120, 40], "pulse": 0.5,
+        "bind": { "target": { "path": "Owner:Main.Start", "direction": "write" } }
+    });
+    let pulse = step(json!({ "page": "settings", "object": "start", "action": "pulse" }));
+    assert_eq!(follow_of(&remote, &pulse), Follow::PulseEnd);
+    assert_eq!(
+        follow_of(&json!({ "id": "odd" }), &step(stop())),
+        Follow::Confirmation
+    );
+}
+
 /// Catches: a journey that reports success, or keeps waiting, after the readback stream closed while
 /// the command was still pending.
 #[test]
@@ -264,7 +525,7 @@ fn a_closed_stream_is_disconnected() {
         on_command: answered("pending", |_| vec![Frame::Close]),
         ..Script::serving(pages())
     });
-    let steps = json!([{ "page": "settings", "object": "sp", "action": "set", "value": 10 }]);
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
     let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
     let id = &commands(&fake)[0]["id"];
     assert_eq!(
@@ -299,7 +560,7 @@ fn cancel_keeps_the_completed_outcomes() {
     });
     let steps = json!([
         { "page": "settings", "path": "Main.SP" },
-        { "page": "settings", "object": "sp", "action": "set", "value": 10 },
+        { "page": "settings", "object": "sp", "action": "write", "value": 10 },
         { "page": "settings", "path": "Main.SP" },
     ]);
     let answer = journey(&fake, steps, &|| true, &cancelled, PROMPT);
@@ -444,7 +705,7 @@ fn a_readback_stream_that_does_not_open_stops_before_the_command() {
         streams: false,
         ..Script::serving(pages())
     });
-    let steps = json!([{ "page": "settings", "object": "sp", "action": "set", "value": 10 }]);
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
     let answer = journey(&fake, steps, &|| true, &AtomicBool::new(false), PROMPT);
     let error = answer["error"].as_str().expect("an error");
     assert!(

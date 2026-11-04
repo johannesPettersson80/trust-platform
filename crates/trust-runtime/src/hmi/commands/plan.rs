@@ -64,6 +64,21 @@ pub struct Plan {
     pub timeout: Duration,
 }
 
+impl Plan {
+    /// Whether the runtime follows the command after its first answer and reports its final outcome
+    /// later on the value stream (specification 39, §12.8 item 5): a command its control confirms, by
+    /// its feedback or by the value read back, and a pulse to a remote runtime's point, whose end the
+    /// runtime observes there. Any other command is final as `applied`; a local pulse's end is
+    /// reported, but its command is not followed for it. The runtime's command service and an HMI
+    /// agent simulator journey (specification 43, AT-08) both decide by this.
+    #[must_use]
+    pub fn is_followed(&self) -> bool {
+        self.confirm.is_some()
+            || (self.pulse.is_some()
+                && crate::hmi::remote_values::remote_path(&self.path).is_some())
+    }
+}
+
 /// The plan for a request to a control, or why the request does not fit the control. `shown` is
 /// the value the control showed when it sent the request (`Json::Null` when it showed none); a
 /// sender that does not say leaves it out.
@@ -267,3 +282,7 @@ fn scalar(value: &HmiScalar) -> Json {
         HmiScalar::Text(text) => json!(text),
     }
 }
+
+#[cfg(test)]
+#[path = "plan_tests.rs"]
+mod tests;

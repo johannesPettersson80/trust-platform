@@ -5,12 +5,19 @@
 //! `checkTarget` still accepts the target. The step reads the deployed page and compares its model
 //! with the draft's, key order aside and numbers by value, and follows the page's readback stream.
 //! A step with a control sends its command with a new command ID and stops the journey unless the
-//! answer is `applied`, `pending` or `confirmed`; then the step waits at most 5 seconds for the
-//! command's confirmation and, with a readback path, for that path's value, the expected one when it
-//! is given (a path the runtime answers as unknown, `null`, has none). Each step adds its outcome:
-//! `observed`, or `cancelled`, `disconnected` or `timed-out`, which end the journey. The answer holds
-//! every outcome and the error that ended the journey, if any, and has passed exactly when no error
-//! ended it and its last outcome is `observed`. A command is never resent.
+//! answer is `applied`, `pending` or `confirmed`. A `confirmed` command is complete, and so is an
+//! `applied` one the runtime does not follow, as the runtime's own plan of it says
+//! (`Plan::is_followed`, specification 39 §12.8 item 5). A followed `applied` command waits at most
+//! 5 seconds for its later outcome on the stream: its confirmation, or, for a remote pulse without
+//! one, its end; a `pending` one (a repeated command ID) waits for a later `applied` or
+//! `confirmed`. A later `timed-out` or `refused` ends the step and the journey with that outcome,
+//! and a later outcome that does not come within the 5 seconds is `timed-out`, a false failure and
+//! never a false pass. With a readback path the step waits, within the same 5 seconds, for that
+//! path's value, the expected one when it is given (a path the runtime answers as unknown, `null`,
+//! has none). Each step adds its outcome: `observed`, or `cancelled`, `disconnected`, `timed-out` or
+//! `refused`, which end the journey. The answer holds every outcome and the error that ended the
+//! journey, if any, and has passed exactly when no error ended it and its last outcome is
+//! `observed`. A command is never resent.
 //!
 //! Port of `executeSimulatorJourney` in `editors/vscode/src/hmiBuilder/agent/simulator.ts`.
 
@@ -21,6 +28,10 @@ use std::time::{Duration, Instant};
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::Deserialize;
 use serde_json::{json, Map, Number, Value};
+
+use trust_runtime::hmi::catalogue::Catalogue;
+use trust_runtime::hmi::commands::plan::plan;
+use trust_runtime::hmi::page_files::HmiObject;
 
 use super::draft_records::new_uuid;
 use super::error::{AgentError, AgentResult, CANCELLED};
@@ -193,14 +204,15 @@ impl Runner<'_> {
         let mut command = None;
         if let Some(object) = &step.object {
             let controls = deployed.get("object").and_then(Value::as_array);
-            let is_object = |control: &Value| {
+            let is_object = |control: &&Value| {
                 control.get("id").and_then(Value::as_str) == Some(object.as_str())
             };
-            if !controls.is_some_and(|controls| controls.iter().any(is_object)) {
+            let Some(control) = controls.and_then(|controls| controls.iter().find(is_object))
+            else {
                 return Err(AgentError::invalid(
                     "simulator step names an unknown control.",
                 ));
-            }
+            };
             let id = new_uuid("a simulator command identifier")?;
             let mut body = Map::new();
             body.insert("id".into(), json!(id));
@@ -229,16 +241,19 @@ impl Runner<'_> {
                 }
             }
             self.outcomes.push(Value::Object(outcome));
-            let named = answer.get("outcome").and_then(Value::as_str);
-            let accepted =
-                named.is_some_and(|named| matches!(named, "applied" | "pending" | "confirmed"));
-            if status != 200 || !accepted {
+            let answered = answer.get("outcome").and_then(Value::as_str);
+            let answered = answered.unwrap_or_default().to_owned();
+            if status != 200 || !matches!(answered.as_str(), "applied" | "pending" | "confirmed") {
                 return Ok(true);
             }
-            seen.commands.insert(id.clone(), answer);
-            command = Some(id);
+            let follow = follow_of(control, step);
+            command = Some(Sent {
+                id,
+                answered,
+                follow,
+            });
         }
-        Ok(self.wait(stream, step, command.as_deref(), &mut seen))
+        Ok(self.wait(stream, step, command.as_ref(), &mut seen))
     }
 
     /// Waits for the command's confirmation and the readback; `true` when the step's outcome ends
@@ -247,15 +262,23 @@ impl Runner<'_> {
         &mut self,
         stream: &mut Readback,
         step: &Step,
-        command: Option<&str>,
+        command: Option<&Sent>,
         seen: &mut Seen,
     ) -> bool {
         let deadline = Instant::now() + self.timing.wait;
         loop {
+            // The later outcome the stream reported for the command, after its answer.
+            let report = command.and_then(|command| seen.commands.get(&command.id));
+            let reported = report
+                .and_then(|report| report.get("outcome"))
+                .and_then(Value::as_str);
+            let failed = reported.filter(|reported| matches!(*reported, "timed-out" | "refused"));
             let ended = if self.cancelled.load(Ordering::SeqCst) {
                 Some("cancelled")
             } else if seen.disconnected {
                 Some("disconnected")
+            } else if failed.is_some() {
+                failed
             } else if Instant::now() >= deadline {
                 Some("timed-out")
             } else {
@@ -264,18 +287,19 @@ impl Runner<'_> {
             if let Some(ended) = ended {
                 let mut outcome = json!({ "page": step.page, "outcome": ended });
                 if let Some(command) = command {
-                    outcome["commandId"] = json!(command);
+                    outcome["commandId"] = json!(command.id);
+                }
+                if let Some(report) = report.filter(|_| failed == Some(ended)) {
+                    for key in ["readback", "reason"] {
+                        if let Some(value) = report.get(key) {
+                            outcome[key] = value.clone();
+                        }
+                    }
                 }
                 self.outcomes.push(outcome);
                 return true;
             }
-            let confirmed = command.is_none_or(|command| {
-                let answer = seen.commands.get(command);
-                answer
-                    .and_then(|answer| answer.get("outcome"))
-                    .and_then(Value::as_str)
-                    == Some("confirmed")
-            });
+            let confirmed = command.is_none_or(|command| command.complete(reported));
             let readback = match &step.path {
                 None => Some(None),
                 Some(path) => seen
@@ -290,7 +314,7 @@ impl Runner<'_> {
             if confirmed && let Some(value) = readback {
                 let mut outcome = json!({ "page": step.page, "outcome": "observed" });
                 if let Some(command) = command {
-                    outcome["commandId"] = json!(command);
+                    outcome["commandId"] = json!(command.id);
                 }
                 if let Some(path) = &step.path {
                     outcome["path"] = json!(path);
@@ -312,7 +336,58 @@ impl Runner<'_> {
     }
 }
 
-/// What a step's stream has said: each path's last entry, each command's last answer, and whether
+/// A command a step sent: its ID, the outcome it was answered with, and what the runtime does with it
+/// after that answer.
+struct Sent {
+    id: String,
+    answered: String,
+    follow: Follow,
+}
+
+impl Sent {
+    /// Whether the command is complete, given the later outcome the stream reported for it, if any:
+    /// a `confirmed` answer, or an `applied` one the runtime does not follow, at once; a followed
+    /// `applied` one at its later confirmation, or for a remote pulse without one at its later end
+    /// (`applied`); a `pending` one at its later `applied` or `confirmed`.
+    fn complete(&self, reported: Option<&str>) -> bool {
+        match (self.answered.as_str(), self.follow) {
+            ("confirmed", _) | ("applied", Follow::None) => true,
+            ("applied", Follow::Confirmation) => reported == Some("confirmed"),
+            _ => matches!(reported, Some("applied" | "confirmed")),
+        }
+    }
+}
+
+/// What the runtime does with a command after answering it `applied` (specification 39, §12.8
+/// item 5): nothing, so the answer is final; follow it to its confirmation; or, for a pulse to a
+/// remote runtime's point without a confirmation, follow it to the pulse's end.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Follow {
+    None,
+    Confirmation,
+    PulseEnd,
+}
+
+/// What the runtime does with the command `step` sends to `control`, a deployed page's object, as
+/// the runtime's own plan of that command says (`Plan::is_followed`). A control whose plan cannot be
+/// read is followed to a confirmation: an outcome that never comes reports `timed-out`, never a
+/// false pass.
+fn follow_of(control: &Value, step: &Step) -> Follow {
+    let planned = serde_json::from_value::<HmiObject>(control.clone())
+        .ok()
+        .and_then(|object| {
+            let component = Catalogue::shipped().component(&object.kind)?;
+            let action = step.action.as_deref().unwrap_or_default();
+            plan(&object, component, action, step.value.as_ref(), None).ok()
+        });
+    match planned {
+        Some(plan) if !plan.is_followed() => Follow::None,
+        Some(plan) if plan.confirm.is_none() => Follow::PulseEnd,
+        _ => Follow::Confirmation,
+    }
+}
+
+/// What a step's stream has said: each path's last entry, each command's later outcome, and whether
 /// the stream ended or sent what is not JSON.
 #[derive(Default)]
 struct Seen {

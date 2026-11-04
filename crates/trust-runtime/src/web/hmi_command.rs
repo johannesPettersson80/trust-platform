@@ -287,7 +287,7 @@ impl Commands {
         } = applied;
         let id = request.id.trim().to_string();
         let remote = crate::hmi::remote_values::remote_path(&plan.path).is_some();
-        if plan.confirm.is_none() && !(remote && plan.pulse.is_some()) {
+        if !plan.is_followed() {
             // A local pulse's final outcome is recorded when the runtime has written its end.
             if plan.pulse.is_none() {
                 let applied = CommandAnswer::new(&id, Outcome::Applied);
