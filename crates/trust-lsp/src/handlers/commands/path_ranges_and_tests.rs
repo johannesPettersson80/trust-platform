@@ -397,6 +397,7 @@ END_PROGRAM
                 "trust-lsp.hmiBundle",
                 "trust-lsp.hmiDeploy",
                 "trust-lsp.hmiLiveGate",
+                "trust-lsp.hmiLiveOperation",
                 "trust-lsp.hmiTexts",
                 "trust-lsp.hmiQuality",
                 "trust-lsp.hmiFaceplates",

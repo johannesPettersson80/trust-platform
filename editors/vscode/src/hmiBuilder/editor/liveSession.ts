@@ -35,6 +35,8 @@ export class LiveSession {
   private cookie: string | undefined;
   private identity: string | undefined;
   private stopped = false;
+  /** Why the session stopped itself, when it did: its run target changed, or the runtime closed its stream. */
+  private endedBy: "targetChanged" | "streamClosed" | undefined;
   private readonly sockets = new Set<SocketLike>();
   constructor(private readonly deps: LiveSessionDeps) {}
 
@@ -75,7 +77,7 @@ export class LiveSession {
     raw.onmessage = (event) => {
       if (!this.stopped) stream.onmessage?.(event);
     };
-    raw.onclose = () => this.stop();
+    raw.onclose = () => this.stop("streamClosed");
     this.sockets.add(stream);
     return stream;
   }
@@ -95,19 +97,25 @@ export class LiveSession {
     const target = await this.deps.target();
     if (this.stopped) return undefined;
     if (!target) {
-      this.stop();
+      this.stop("targetChanged");
       return undefined;
     }
     const identity = JSON.stringify([target.endpoint, target.url, target.token]);
     if (this.identity !== undefined && this.identity !== identity) {
-      this.stop();
+      this.stop("targetChanged");
       return undefined;
     }
     this.identity = identity;
     return target;
   }
 
-  stop(): void {
+  /** Why the session stopped itself, if it did. */
+  stoppedBy(): "targetChanged" | "streamClosed" | undefined {
+    return this.endedBy;
+  }
+
+  stop(reason?: "targetChanged" | "streamClosed"): void {
+    if (!this.stopped) this.endedBy = reason;
     this.stopped = true;
     this.cookie = undefined;
     for (const socket of [...this.sockets]) {

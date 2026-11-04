@@ -53,6 +53,8 @@ mod hmi_faceplates;
 mod hmi_files;
 mod hmi_generate;
 mod hmi_live_gate;
+// Whether Live mode's operating view ends, and why (specification 39 §11 item 6).
+mod hmi_live_operation;
 mod hmi_own_equipment;
 mod hmi_page_proposal;
 #[path = "commands/hmi_placed.rs"]
@@ -93,6 +95,7 @@ pub const HMI_CATALOGUE_COMMAND: &str = "trust-lsp.hmiCatalogue";
 pub const HMI_BUNDLE_COMMAND: &str = "trust-lsp.hmiBundle";
 pub const HMI_DEPLOY_COMMAND: &str = "trust-lsp.hmiDeploy";
 pub const HMI_LIVE_GATE_COMMAND: &str = "trust-lsp.hmiLiveGate";
+pub const HMI_LIVE_OPERATION_COMMAND: &str = "trust-lsp.hmiLiveOperation";
 pub const HMI_TEXTS_COMMAND: &str = "trust-lsp.hmiTexts";
 pub const HMI_QUALITY_COMMAND: &str = "trust-lsp.hmiQuality";
 pub const HMI_FACEPLATES_COMMAND: &str = "trust-lsp.hmiFaceplates";
@@ -122,6 +125,7 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     HMI_BUNDLE_COMMAND,
     HMI_DEPLOY_COMMAND,
     HMI_LIVE_GATE_COMMAND,
+    HMI_LIVE_OPERATION_COMMAND,
     HMI_TEXTS_COMMAND,
     HMI_QUALITY_COMMAND,
     HMI_FACEPLATES_COMMAND,
@@ -254,6 +258,9 @@ pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -
         )),
         HMI_DEPLOY_COMMAND => Some(hmi_deploy::deploy_value(state, params.arguments)),
         HMI_LIVE_GATE_COMMAND => Some(hmi_live_gate::live_gate_value(params.arguments)),
+        HMI_LIVE_OPERATION_COMMAND => {
+            Some(hmi_live_operation::live_operation_value(params.arguments))
+        }
         HMI_RENAME_INSTANCE_COMMAND => Some(hmi_rename_instance::rename_instance(
             state,
             params.arguments,

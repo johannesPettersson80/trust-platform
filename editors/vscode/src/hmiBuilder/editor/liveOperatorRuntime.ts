@@ -4,7 +4,13 @@ import * as vscode from "vscode";
 import { sendRuntimeControlRequest } from "../../runtimeControlClient";
 import { runtimeDeployDeps } from "./deployRuntime";
 import { openLiveSocket, requestLive } from "./liveNetwork";
-import type { LiveGateFacts, LiveGateVerdict, LiveOperatorDeps } from "./liveOperator";
+import type {
+  LiveGateFacts,
+  LiveGateVerdict,
+  LiveOperationEvent,
+  LiveOperationVerdict,
+  LiveOperatorDeps,
+} from "./liveOperator";
 import type { LiveEndpoint } from "./liveSession";
 import { remoteVariableContext } from "./remoteVariables";
 
@@ -43,6 +49,25 @@ export async function liveGate(facts: LiveGateFacts): Promise<LiveGateVerdict> {
   return answer.verdict;
 }
 
+/** Whether Live mode's operating view ends, and why, as the language server decides it (`trust-lsp.hmiLiveOperation`,
+ * §11 item 6). */
+export async function liveOperation(event: LiveOperationEvent): Promise<LiveOperationVerdict> {
+  const answer = await vscode.commands.executeCommand<
+    { ok?: boolean; proceed?: boolean; end?: string | null; error?: string } | undefined
+  >("trust-lsp.hmiLiveOperation", event);
+  const end = answer?.end ?? null;
+  // A verdict is well formed when it says whether to go on, its reason is null or a text, and it goes on or ends.
+  const wellFormed =
+    answer?.ok === true &&
+    typeof answer.proceed === "boolean" &&
+    (end === null || (typeof end === "string" && end !== "")) &&
+    (answer.proceed || end !== null);
+  if (!wellFormed) {
+    throw new Error(answer?.error ?? "trust-lsp.hmiLiveOperation gave no verdict");
+  }
+  return { proceed: answer.proceed === true, end };
+}
+
 export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): LiveOperatorDeps {
   let cached: { identity: string; target: LiveEndpoint } | undefined;
   return {
@@ -56,6 +81,7 @@ export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): L
     bundle: () => projectBundle(root),
     runTarget: () => runtimeDeployDeps.target(),
     liveGate,
+    liveOperation,
     session: {
       async target() {
         const selected = await runtimeDeployDeps.target();
