@@ -1,8 +1,31 @@
 //! What a control declares in a page file (specification 39, §5.1, §5.8, §12.8): its role,
 //! confirmation question, button action, options, pulse, expected feedback and timeout.
 
+use std::time::Duration;
+
 use super::load::{error_at, line_at, PageFileError, RawObject};
 use super::types::{HmiButtonAction, HmiRole};
+
+/// The longest pulse or confirmation time a control may declare (specification 39, §5): ten
+/// minutes, longer than any pulse or confirmation in PLC practice.
+pub const MAX_CONTROL_TIME: Duration = Duration::from_secs(600);
+
+/// `seconds` as a control's `pulse` or `timeout`: positive and at most [`MAX_CONTROL_TIME`].
+/// `None` for any other number, zero, a negative number, an infinity and NaN among them.
+#[must_use]
+pub fn control_time(seconds: f64) -> Option<Duration> {
+    (seconds > 0.0 && seconds <= MAX_CONTROL_TIME.as_secs_f64())
+        .then(|| Duration::from_secs_f64(seconds))
+}
+
+/// Why a control's `key` (`pulse` or `timeout`) holds no control time.
+#[must_use]
+pub fn control_time_error(key: &str) -> String {
+    format!(
+        "{key} must be a positive number of seconds, at most {}",
+        MAX_CONTROL_TIME.as_secs()
+    )
+}
 
 /// A role a control may ask for.
 pub(super) fn role(text: &str) -> Option<HmiRole> {
@@ -77,14 +100,10 @@ pub(super) fn check(
         }
         check_options(object, &mut report);
         for (key, value) in [("pulse", &object.pulse), ("timeout", &object.timeout)] {
-            if let Some(value) = value {
-                let seconds = *value.get_ref();
-                if !(seconds.is_finite() && seconds > 0.0) {
-                    report(
-                        value.span().start,
-                        format!("{key} must be a positive number of seconds"),
-                    );
-                }
+            if let Some(value) = value
+                && control_time(*value.get_ref()).is_none()
+            {
+                report(value.span().start, control_time_error(key));
             }
         }
     }

@@ -86,6 +86,44 @@ fn bad_control_keys_are_errors_on_their_line() {
     }
 }
 
+/// Specification 39, §5: `pulse` and `timeout` are positive and at most 600 seconds. Catches a page
+/// check that lets a time of years through (checklist G43: it overflowed the command's deadline and
+/// held one of the followed commands' slots for good), one that lets an infinity or NaN through,
+/// and one that refuses the longest time the specification allows.
+#[test]
+fn pulse_and_timeout_are_at_most_ten_minutes() {
+    for (from, to) in [
+        ("pulse = 0.5", "pulse = 600.0"),
+        ("timeout = 8", "timeout = 600"),
+    ] {
+        let text = CONTROLS.replace(from, to);
+        let page = parse_page(FILE, &text).unwrap_or_else(|found| panic!("{to}: {found:#?}"));
+        let start = &page.objects[0];
+        let seconds = if to.starts_with("pulse") {
+            start.pulse
+        } else {
+            start.timeout
+        };
+        assert_eq!(seconds, Some(600.0), "{to}");
+    }
+    for (from, bad, key) in [
+        ("pulse = 0.5", "pulse = 600.5", "pulse"),
+        ("pulse = 0.5", "pulse = 1e300", "pulse"),
+        ("timeout = 8", "timeout = 6e11", "timeout"),
+        ("timeout = 8", "timeout = inf", "timeout"),
+        ("timeout = 8", "timeout = nan", "timeout"),
+    ] {
+        let text = CONTROLS.replace(from, bad);
+        let found = errors(&text);
+        assert!(
+            found.iter().any(|error| error.line == line_of(&text, bad)
+                && error.message
+                    == format!("{key} must be a positive number of seconds, at most 600")),
+            "{bad}: {found:#?}"
+        );
+    }
+}
+
 const CHOICES: &str = r#"format = 1
 title = "Choices"
 

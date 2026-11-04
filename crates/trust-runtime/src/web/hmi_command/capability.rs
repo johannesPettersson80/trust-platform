@@ -292,18 +292,17 @@ impl Commands {
             Some(Ok(path)) => Some(path),
             Some(Err(_)) => return,
         };
-        if FOLLOWED
-            .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
-                (count < MAX_FOLLOWED).then_some(count + 1)
-            })
-            .is_err()
-        {
+        // The page check refuses a page with any other time; one that bypassed it is not followed.
+        let timeout = match object.timeout {
+            None => crate::hmi::commands::plan::DEFAULT_TIMEOUT,
+            Some(seconds) => match crate::hmi::page_files::control_time(seconds) {
+                Some(timeout) => timeout,
+                None => return,
+            },
+        };
+        let Some(slot) = super::follow::FollowSlot::take() else {
             return;
-        }
-        let timeout = object.timeout.map_or(
-            crate::hmi::commands::plan::DEFAULT_TIMEOUT,
-            Duration::from_secs_f64,
-        );
+        };
         let commands = Commands {
             registry: self.registry.clone(),
             access: self.access.clone(),
@@ -312,7 +311,8 @@ impl Commands {
             alarms: self.alarms.clone(),
         };
         thread::spawn(move || {
-            let deadline = Instant::now() + timeout;
+            let _slot = slot;
+            let started = Instant::now();
             let mut answer = CommandAnswer {
                 reason: Some("accepted; the feedback did not confirm it in time".into()),
                 ..CommandAnswer::new(&request.id, Outcome::TimedOut)
@@ -359,13 +359,12 @@ impl Commands {
                     };
                     break;
                 }
-                if Instant::now() >= deadline {
+                if started.elapsed() >= timeout {
                     break;
                 }
             }
             commands.capability_audit(&request, &session, Some(&command), &answer);
             commands.registry.later(&session.id, answer);
-            FOLLOWED.fetch_sub(1, Ordering::AcqRel);
         });
     }
 }

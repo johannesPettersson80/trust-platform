@@ -119,3 +119,39 @@ value = { path = "Main.SP", direction = "read-write" }
         Duration::from_millis(300)
     );
 }
+
+/// Specification 39, §5 and §12.8: a control's `pulse` and `timeout` are at most 600 seconds; a page
+/// object that bypassed the page check refuses its command with the reason. Catches checklist G43:
+/// a time of years panicked while the command was planned, in the web request thread, and a time
+/// just beyond the bound was followed.
+#[test]
+fn a_time_beyond_the_bound_refuses_the_command_instead_of_panicking() {
+    let pulse_button = r#"id = "start"
+type = "pulse-button"
+at = [0, 0]
+size = [120, 40]
+
+[object.bind]
+target = { path = "Main.Start", direction = "write" }
+"#;
+    let text = format!("format = 1\ntitle = \"Controls\"\n\n[[object]]\n{pulse_button}");
+    for (key, seconds) in [("pulse", f64::MAX), ("timeout", 1e300), ("timeout", 600.5)] {
+        let mut page = parse_page("hmi/pages/controls.toml", &text).expect("the page loads");
+        let control = &mut page.objects[0];
+        if key == "pulse" {
+            control.pulse = Some(seconds);
+        } else {
+            control.timeout = Some(seconds);
+        }
+        let component = Catalogue::shipped()
+            .component(&control.kind)
+            .expect("a shipped component");
+        let refused = plan(control, component, "pulse", None, None)
+            .expect_err("a time beyond the bound refuses the command");
+        assert_eq!(
+            refused,
+            format!("{key} must be a positive number of seconds, at most 600"),
+            "{key} = {seconds}"
+        );
+    }
+}

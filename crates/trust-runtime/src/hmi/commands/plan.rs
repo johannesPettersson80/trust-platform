@@ -9,7 +9,8 @@ use super::write::WriteAction;
 use crate::hmi::catalogue::{ComponentCategory, ComponentDef};
 use crate::hmi::member_paths::MemberPath;
 use crate::hmi::page_files::{
-    HmiBindingDirection, HmiButtonAction, HmiObject, HmiScalar, MODE_NAMES,
+    control_time, control_time_error, HmiBindingDirection, HmiButtonAction, HmiObject, HmiScalar,
+    MODE_NAMES,
 };
 
 /// How long a command may take to be confirmed when the control does not say.
@@ -151,7 +152,12 @@ pub fn plan(
             if action != "pulse" {
                 return Err(format!("this pulse button sends pulse, not {action}"));
             }
-            let pulse = object.pulse.map_or(DEFAULT_PULSE, Duration::from_secs_f64);
+            let pulse = match object.pulse {
+                None => DEFAULT_PULSE,
+                Some(seconds) => {
+                    control_time(seconds).ok_or_else(|| control_time_error("pulse"))?
+                }
+            };
             (
                 WriteAction::Set(json!(true)),
                 json!(true),
@@ -222,9 +228,12 @@ pub fn plan(
         }
         None => None,
     };
-    let timeout = object
-        .timeout
-        .map_or(DEFAULT_TIMEOUT, Duration::from_secs_f64);
+    // The page check refuses a page with any other time; a page that bypassed it refuses its
+    // commands rather than waiting forever or overflowing a deadline.
+    let timeout = match object.timeout {
+        None => DEFAULT_TIMEOUT,
+        Some(seconds) => control_time(seconds).ok_or_else(|| control_time_error("timeout"))?,
+    };
     Ok(Plan {
         path,
         action: write,
