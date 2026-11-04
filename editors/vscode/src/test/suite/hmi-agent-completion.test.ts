@@ -1,12 +1,18 @@
 import { alarmScenario } from "../../hmiBuilder/agent/alarmScenario";
 import { operationTimeout } from "../../hmiBuilder/agent/lifetime";
-import { isLocalSimulator, executeSimulatorJourney, SimulatorJourney } from "../../hmiBuilder/agent/simulator";
+import {
+  connectSimulator,
+  endSimulatorSessions,
+  isLocalSimulator,
+  runSimulator,
+} from "../../hmiBuilder/agent/simulator";
 import * as assert from "assert";
 import * as vscode from "vscode";
 import { languageServerReady } from "./hmiBuilderHost";
 import { scenarioFrame } from "../../hmiBuilder/agent/scenarios";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import type { HmiPageModel } from "../../hmiBuilder/drawing/model";
+import type { LiveSessionDeps } from "../../hmiBuilder/editor/liveSession";
 
 const catalogue: Catalogue = {
   format: 1,
@@ -38,6 +44,62 @@ const page = (): HmiPageModel => ({
     },
   ],
 });
+
+const WORKSPACE = "file:///projects/simulated";
+const LOCAL = {
+  simulator: true,
+  endpoint: "tcp://127.0.0.1:9100",
+  url: "http://127.0.0.1:8080",
+  token: "access-token-7",
+  label: "Fixture",
+};
+/** The target as trust-lsp receives it. */
+const TARGET = { simulator: true, url: LOCAL.url, endpoint: LOCAL.endpoint, token: LOCAL.token };
+const OPENED = {
+  ok: true,
+  data: { sessionId: "session-1", name: "Fixture", expiresAt: new Date(Date.now() + 600_000).toISOString() },
+  revisions: {},
+  warnings: [],
+};
+
+/** The HMI bridge of a local simulator whose login answers `status`, with the session cookie when it is 200. */
+function simulatorBridge(status: number): LiveSessionDeps {
+  return {
+    target: async () => LOCAL,
+    request: async (_target, _method, path) =>
+      path === "/api/hmi/login" && status === 200
+        ? { status, body: { ok: true }, cookie: "trust_hmi_session=4f1c0ffee; Path=/; HttpOnly; SameSite=Strict" }
+        : { status, body: { ok: false } },
+  };
+}
+
+/** Runs `body` with trust-lsp's simulator commands answered by `answers` (the target check accepts, a session opens),
+ * recording each call in order; the sessions the extension holds end afterwards. */
+async function withSimulatorCommands(
+  answers: Record<string, (argument: Record<string, unknown>) => unknown>,
+  body: (calls: Array<[string, Record<string, unknown>]>) => Promise<void>,
+): Promise<void> {
+  const executeCommand = vscode.commands.executeCommand;
+  const calls: Array<[string, Record<string, unknown>]> = [];
+  const answer: Record<string, (argument: Record<string, unknown>) => unknown> = {
+    "trust-lsp.hmiAgent.checkTarget": () => ({ local: true }),
+    "trust-lsp.hmiAgent.openSimulatorSession": () => OPENED,
+    "trust-lsp.hmiAgent.closeSimulatorSession": () => ({ ok: true, data: { closed: true }, revisions: {}, warnings: [] }),
+    ...answers,
+  };
+  (vscode.commands as any).executeCommand = async (command: string, ...rest: unknown[]) => {
+    const argument = rest[0] as Record<string, unknown>;
+    if (!(command in answer)) return executeCommand(command, ...rest);
+    if (command !== "trust-lsp.hmiAgent.checkTarget") calls.push([command, argument]);
+    return answer[command](argument);
+  };
+  try {
+    await body(calls);
+  } finally {
+    (vscode.commands as any).executeCommand = executeCommand;
+    endSimulatorSessions();
+  }
+}
 
 suite("HMI completed authoring contracts", () => {
   test("synthetic alarm exploration uses labelled samples without executing PLC alarm sources", () => {
@@ -71,97 +133,98 @@ suite("HMI completed authoring contracts", () => {
     assert.strictEqual(await isLocalSimulator({ ...local, simulator: false, label: "Forwarded PLC" }), false);
     assert.strictEqual(await isLocalSimulator(undefined), false);
   });
-  test("simulator journeys retain denied and expired-login outcomes and never replay commands", async () => {
-    for (const status of [401, 403]) {
-      let writes = 0;
-      const owner: SimulatorJourney = {
-        id: "session",
-        name: "fixture",
-        expires: Date.now() + 10000,
-        busy: false,
-        session: {
-          isCurrentTarget: async () => true,
-          request: async (method) =>
-            method === "GET"
-              ? { status: 200, body: { page: { model: page() }, bundle: "b" } }
-              : (writes++, { status, body: { outcome: "refused", reason: "named login or policy refused" } }),
-          openSocket: async () => ({ onmessage: null, onclose: null, close() {} }),
-        },
-      };
-      const result = await executeSimulatorJourney(
-        owner,
-        [
-          { page: "settings", object: "sp", action: "set", value: 10 },
-          { page: "settings", object: "sp", action: "set", value: 20 },
-        ],
-        { settings: page() },
-        new AbortController().signal,
-      );
-      assert.strictEqual(result.passed, false);
-      assert.strictEqual(writes, 1);
-      assert.strictEqual(owner.busy, false);
-      assert.strictEqual((result.outcomes as Array<{ status: number }>)[0].status, status);
-    }
+  // The journey and the session rules are trust-lsp's (`trust-lsp.hmiAgent.openSimulatorSession`, `runSimulatorJourney`
+  // and the rest, specification 43 AT-08), proven by the Rust tests in
+  // crates/trust-lsp/src/handlers/commands/hmi_agent/simulator_*_tests.rs. These prove the wiring: the extension logs in
+  // through its HMI bridge, keeps the session's cookie and hands it to trust-lsp with each journey of that session.
+  test("a simulator journey runs in trust-lsp with its named session's cookie, and its answer is trust-lsp's", async () => {
+    const journey = { origin: "simulator", sessionId: "session-1", name: "Fixture", outcomes: [], passed: true };
+    const steps = [{ page: "settings", object: "sp", action: "set", value: 10, path: "Main.SP", expect: 10 }];
+    const models = { settings: page() };
+    await withSimulatorCommands(
+      { "trust-lsp.hmiAgent.runSimulatorJourney": () => ({ ok: true, data: journey, revisions: {}, warnings: [] }) },
+      async (calls) => {
+        const session = await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), async () => ({
+          user: "operator",
+          password: "secret",
+        }));
+        assert.deepStrictEqual(session, OPENED.data);
+        assert.deepStrictEqual(calls[0], [
+          "trust-lsp.hmiAgent.openSimulatorSession",
+          { workspace: WORKSPACE, name: "Fixture", target: TARGET },
+        ]);
+        const answer = await runSimulator(WORKSPACE, "session-1", steps, models, new AbortController().signal);
+        assert.deepStrictEqual(answer, journey);
+        assert.deepStrictEqual(
+          calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney")?.[1],
+          { workspace: WORKSPACE, sessionId: "session-1", cookie: "trust_hmi_session=4f1c0ffee", target: TARGET, steps, models },
+        );
+      },
+    );
   });
-  test("simulator expiry and changed target stop before any read or command", async () => {
-    for (const expired of [true, false]) {
-      let requests = 0;
-      const owner: SimulatorJourney = {
-        id: "session",
-        name: "fixture",
-        expires: expired ? 0 : Date.now() + 10000,
-        busy: false,
-        session: {
-          isCurrentTarget: async () => false,
-          request: async () => {
-            requests++;
-            return { status: 200, body: {} };
-          },
-          openSocket: async () => undefined,
-        },
-      };
-      const result = await executeSimulatorJourney(
-        owner,
-        [{ page: "settings", object: "sp" }],
-        { settings: page() },
-        new AbortController().signal,
-      );
-      assert.strictEqual(result.passed, false);
-      assert.strictEqual(requests, 0);
-      assert.strictEqual(owner.busy, false);
-    }
+  test("a refused or abandoned simulator login closes the session in trust-lsp, and no cookie goes out", async () => {
+    await withSimulatorCommands(
+      {
+        "trust-lsp.hmiAgent.runSimulatorJourney": () => ({
+          ok: false,
+          code: "EXPIRED_DRAFT",
+          message: "select an unexpired named simulator session in this workspace.",
+          retryable: false,
+        }),
+      },
+      async (calls) => {
+        await assert.rejects(
+          connectSimulator(WORKSPACE, "Fixture", simulatorBridge(401), async () => ({ user: "operator", password: "x" })),
+          /The simulator refused the named HMI login\./,
+        );
+        assert.strictEqual(await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), async () => undefined), undefined);
+        const closed = calls.filter(([command]) => command === "trust-lsp.hmiAgent.closeSimulatorSession");
+        assert.deepStrictEqual(closed, [
+          ["trust-lsp.hmiAgent.closeSimulatorSession", { sessionId: "session-1" }],
+          ["trust-lsp.hmiAgent.closeSimulatorSession", { sessionId: "session-1" }],
+        ]);
+        await assert.rejects(
+          runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, new AbortController().signal),
+          /^Error: EXPIRED_DRAFT: select an unexpired named simulator session in this workspace\.$/,
+        );
+        const run = calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney");
+        assert.strictEqual(run?.[1].cookie, null);
+        assert.strictEqual(run?.[1].target, null);
+      },
+    );
   });
-  test("simulator disconnect retains the pending command instead of reporting success", async () => {
-    const stream: {
-      onmessage: ((event: { data: unknown }) => void) | null;
-      onclose: (() => void) | null;
-      close(): void;
-    } = { onmessage: null, onclose: null, close() {} };
-    const owner: SimulatorJourney = {
-      id: "session",
-      name: "fixture",
-      expires: Date.now() + 10000,
-      busy: false,
-      session: {
-        isCurrentTarget: async () => true,
-        openSocket: async () => stream,
-        request: async (method) => {
-          if (method === "GET") return { status: 200, body: { page: { model: page() }, bundle: "b" } };
-          stream.onclose?.();
-          return { status: 200, body: { outcome: "pending" } };
+  test("cancelling a simulator journey cancels it in trust-lsp and still returns its completed outcomes", async () => {
+    const cancelled = {
+      origin: "simulator",
+      sessionId: "session-1",
+      name: "Fixture",
+      outcomes: [{ page: "settings", outcome: "cancelled" }],
+      passed: false,
+    };
+    let finish: (() => void) | undefined;
+    await withSimulatorCommands(
+      {
+        "trust-lsp.hmiAgent.runSimulatorJourney": () =>
+          new Promise((resolve) => {
+            finish = () => resolve({ ok: true, data: cancelled, revisions: {}, warnings: [] });
+          }),
+        "trust-lsp.hmiAgent.cancelSimulatorJourney": () => {
+          finish?.();
+          return { ok: true, data: { cancelled: true }, revisions: {}, warnings: [] };
         },
       },
-    };
-    const result = await executeSimulatorJourney(
-      owner,
-      [{ page: "settings", object: "sp", action: "set", value: 10 }],
-      { settings: page() },
-      new AbortController().signal,
-    );
-    assert.strictEqual(result.passed, false);
-    assert.deepStrictEqual(
-      (result.outcomes as Array<{ outcome: string }>).map((item) => item.outcome),
-      ["pending", "disconnected"],
+      async (calls) => {
+        await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), async () => ({ user: "operator", password: "x" }));
+        const controller = new AbortController();
+        const running = runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, controller.signal);
+        for (let tries = 0; !finish && tries < 200; tries++) await new Promise((resolve) => setTimeout(resolve, 5));
+        controller.abort();
+        assert.deepStrictEqual(await running, cancelled);
+        assert.deepStrictEqual(
+          calls.find(([command]) => command === "trust-lsp.hmiAgent.cancelSimulatorJourney")?.[1],
+          { sessionId: "session-1" },
+        );
+      },
     );
   });
   test("synthetic extremes and command outcomes preserve source values and have no runtime transport", () => {

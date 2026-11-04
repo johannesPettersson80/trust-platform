@@ -84,6 +84,12 @@ export class LiveSession {
     return (await this.target()) !== undefined;
   }
 
+  /** The named session's cookie, which an HMI agent simulator journey hands to the language server
+   * with the journey (§11 item 6, specification 43 AT-08); none once the session ended. */
+  namedCookie(): string | undefined {
+    return this.stopped ? undefined : this.cookie;
+  }
+
   private async target(): Promise<LiveEndpoint | undefined> {
     if (this.stopped) return undefined;
     const target = await this.deps.target();
