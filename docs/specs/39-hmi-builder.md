@@ -1373,8 +1373,12 @@ declaration's real values.
      target. For an HMI agent simulator journey it hands the cookie of that journey's named
      session to its own language server with the journey (specification 43, AT-08), which holds
      it in memory for that journey only, never writes or logs it, and drops it when the journey
-     ends (owner, 4 November 2026: "what you decide is okay with me"). Only HMI read, login,
-     logout, command and alarm endpoints are bridged; arbitrary
+     ends (owner, 4 November 2026: "what you decide is okay with me"). It sends such a session's
+     login only to a target the language server admits as the session's own
+     (`trust-lsp.hmiAgent.admitSimulatorLogin`), refuses a journey while its language client's
+     trace logs each message's parameters (`verbose`), which would log the cookie, and closes its
+     simulator sessions when the selected run target changes. Only HMI read, login, logout,
+     command and alarm endpoints are bridged; arbitrary
      addresses, redirects, deployment and control endpoints are refused. The runtime's access
      token supplies transport access, never the named operator's identity. Each request verifies
      the selected target. Target changes invalidate the session before another command can go

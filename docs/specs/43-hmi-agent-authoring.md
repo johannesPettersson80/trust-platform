@@ -699,38 +699,58 @@ inputs or outputs. Context lists opaque session IDs and expiry. Sessions last at
 The language server keeps the sessions and runs the journeys (owner, 4 November 2026: "what you
 decide is okay with me"). `trust-lsp.hmiAgent.openSimulatorSession` takes the workspace, the
 journey's name and the target, and opens a session only for a target that `checkTarget` accepts and
-while that workspace holds fewer than five unexpired sessions; it answers the session's opaque ID and
-its expiry, ten minutes on, or the refusal. The extension then logs in through its HMI bridge
-(specification 39 §11 item 6) and keeps the session's cookie; a login that the simulator refuses
-closes the session (`trust-lsp.hmiAgent.closeSimulatorSession`). `trust-lsp.hmiAgent.simulatorSessions`
-lists a workspace's unexpired sessions, their names and expiry, for the agent's context.
-`trust-lsp.hmiAgent.runSimulatorJourney` takes the workspace, a session ID of that workspace, that
-session's cookie, the target, the steps and the draft's page models, and runs the journey itself; it
-holds the cookie in memory for that journey only and never writes or logs it. A session runs one
-journey at a time, and a journey whose target differs from the session's is refused and closes the
-session (specification 39 §11 item 6). Before each step the journey checks that the session has not
-expired and that `checkTarget` still accepts the target, reads the deployed page
-(`GET /api/hmi/page`) and compares its model with the draft's, key order aside, and follows the
-page's readback stream (`/ws/hmi`). A step with a control sends its command with the named session
+while that workspace holds fewer than five unexpired sessions; it answers the session's opaque ID
+and its expiry, ten minutes on, or the refusal. The extension then logs in through its HMI bridge
+(specification 39 §11 item 6) and keeps the session's cookie. It sends the login only to a target
+that `trust-lsp.hmiAgent.admitSimulatorLogin` admits as the session's own: a local simulator with
+the session's web address, control endpoint and access token. A login that the simulator refuses
+closes the session (`trust-lsp.hmiAgent.closeSimulatorSession`). Closing a session cancels its
+running journey, and the extension closes its sessions when the selected run target changes.
+`trust-lsp.hmiAgent.simulatorSessions` lists a workspace's unexpired sessions, their names and
+expiry, for the agent's context. `trust-lsp.hmiAgent.runSimulatorJourney` takes the workspace, a
+session ID of that workspace, that session's cookie, the target, the steps and the draft's page
+models. It starts the journey on a thread of its own and answers at once,
+`{ started: true, sessionId }` or the refusal, so that a journey never holds one of the language
+server's requests. When the journey ends, the language server sends its answer to the client as the
+notification `trust-lsp/simulatorJourneyEnded`; the extension hands it to the tool call that waits
+for that session's journey, and ends the wait with `NOT_CONNECTED` when the language server stops.
+The language server holds the cookie in memory for that journey only and never writes or logs it: it
+never logs the messages it receives or sends, whatever `RUST_LOG` says. The extension refuses a
+journey while its language client's trace logs each message's parameters
+(`trust.languageServer.trace` at `verbose`), since that trace would log the cookie. A session runs
+one journey at a time, and a journey whose target differs from the session's is refused and closes
+the session (specification 39 §11 item 6). A method command (`invoke`) is not a journey step and is
+refused. `trust-lsp.hmiAgent.cancelSimulatorJourney` cancels a session's running journey; a cancel
+that arrives while no journey runs, just before the journey it was sent for, refuses that journey's
+start for two seconds. Before each step, and again right before a step's command, the journey checks
+that the session is still open and unexpired and that `checkTarget` still accepts the target, then
+that the journey was not cancelled. It reads the deployed page (`GET /api/hmi/page`) and compares
+its model with the draft's, key order aside, and follows the page's readback stream (`/ws/hmi`).
+Before a command it reads that stream, for at most one stream period, until the runtime says whether
+the target runs in simulation, which it says as the stream opens, and stops with `CONFLICT` when the
+target no longer does. A step with a control sends its command with the named session
 (`POST /api/hmi/command`, a new command ID) and stops the journey unless the answer is `applied`,
 `pending` or `confirmed`. A `confirmed` command is complete. An `applied` one is complete at once
 when the runtime does not follow it; the runtime follows a command whose control confirms it, by its
 feedback or by the value read back, and a pulse to a remote runtime's point, and reports its later
 outcome on the value stream (specification 39 §12.8 item 5). The runtime's own plan of the command
 decides this for the journey too (`Plan::is_followed` in trust-runtime). A followed `applied`
-command waits at most 5 seconds for its later outcome: its confirmation completes it, or, for a
-remote pulse without one, the report of its end. A `pending` command (a repeated command ID) waits
-the same way, and a later `applied` or `confirmed` completes it. A later `timed-out` or `refused`
-ends the step and the journey with that outcome, also while the step waits for its readback. A
-followed command whose later outcome does not come within the 5 seconds, because its control's
-confirmation time is longer or because the runtime is already following as many commands as it can
-and leaves it final as `applied`, is reported `timed-out`: a false failure, never a false pass. With
-a readback path the step also waits, within the same 5 seconds, for that path's value (a path the
-runtime answers as unknown, `null`, has none), the expected one when it is given. Each step adds its
-outcome: `observed`, or `cancelled`, `disconnected`, `timed-out` or `refused`, which end the
-journey. `trust-lsp.hmiAgent.cancelSimulatorJourney` cancels a session's running journey. The answer
-names the session, holds every outcome and the error that ended the journey, if any, and has passed
-exactly when no error ended it and its last outcome is `observed`.
+command waits for its later outcome, its confirmation or, for a remote pulse without one, the report
+of its end, for its control's confirmation time plus two stream periods (5.5 seconds for the default
+confirmation time of 5 seconds and stream period of 250 milliseconds), so that the runtime's own
+outcome, with its reason and value read back, arrives inside the wait. The runtime answers `pending`
+only to a repeated command ID, which a journey's new command IDs never are; a `pending` command
+waits the same way, and a later `applied` or `confirmed` completes it. A later `timed-out`,
+`refused` or `unknown` (a remote pulse whose end cannot be observed) ends the step and the journey
+with that outcome and the runtime's reason, also while the step waits for its readback. A followed
+command whose later outcome does not come within its wait, as when the runtime is already following
+as many commands as it can and leaves it final as `applied`, is reported `timed-out`: a false
+failure, never a false pass. With a readback path the step also waits, at least 5 seconds, for that
+path's value (a path the runtime answers as unknown, `null`, has none), the expected one when it is
+given. Each step adds its outcome: `observed`, or `cancelled`, `disconnected`, `timed-out`,
+`refused` or `unknown`, which end the journey. The answer names the session, holds every outcome and
+the error that ended the journey, if any, and has passed exactly when no error ended it and its last
+outcome is `observed`.
 `hmi_preview_states` may explicitly select `mode: simulator`, a `sessionId` and up to twelve steps.
 Each step names a deployed page, optional control/action/value and optional readback path/expected
 value. The deployed page must match the supplied draft and its local program revision must still
