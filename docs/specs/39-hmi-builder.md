@@ -1626,7 +1626,10 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      call of `Hmi.Display` (§18 phase 5) and answers with that outcome; a command the program has
      not taken within the time limit is withdrawn, so it is never applied later.
    - Confirmation by the feedback, a pulse's end and every later outcome reach the browser on the
-     value stream as `{ "command": { "id", "outcome", "readback"?, "reason"?, "error_code"? } }`.
+     value stream as
+     `{ "command": { "id", "outcome", "readback"?, "reason"?, "ended"?, "error_code"? } }`. A
+     pulse's end is a later `applied` with `ended` TRUE; for a pulse with a confirmation it comes
+     before the confirmation's outcome.
    - A command id is remembered for ten minutes; a repeated id gets the first answer without a
      second write.
    - `action` is `write` with a `value` (setpoint entry, numeric input, slider, switch), `toggle`
@@ -1646,7 +1649,9 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - Confirmation: by `feedback` reaching `expect` (for buttons TRUE after `set` and `pulse`,
      FALSE after `reset`). For a written value without `feedback`, the target reads back the
      requested value in a later scan. Either must happen within `timeout`, or the command times
-     out with the value read back.
+     out with the value read back. A pulse's confirmation is decided after the pulse's end, which
+     the runtime waits for at most the longer of the pulse and `timeout` plus the 2 seconds it
+     allows to write the end; its later outcome comes within that time (`Plan::decided_within`).
    - `bundle` is the version of the HMI files the page was drawn from, given with the page data.
      A command from another version is refused: "the page is out of date; reload it" (1C makes
      this the deployed bundle's version).

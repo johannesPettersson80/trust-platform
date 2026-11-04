@@ -690,10 +690,10 @@ Named simulation journeys are connected explicitly through **Connect Named HMI S
 The selected target must report simulation mode and expose a local HMI web endpoint. A physical
 mode, non-loopback endpoint, changed target or absent HMI endpoint is refused without fallback.
 `trust-lsp.hmiAgent.checkTarget` decides whether a target is a local simulator, when the journey
-is connected and before each of its requests: the target reports simulation mode, its HMI web
-address names `localhost`, `127.0.0.1` or `[::1]`, and its control endpoint is `tcp://` to one of
-those hosts with a port, `unix://` or `npipe:`. Without the language server's answer the target is
-refused.
+is connected and before each of its steps and each of its commands: the target reports simulation
+mode, its HMI web address names `localhost`, `127.0.0.1` or `[::1]`, and its control endpoint is
+`tcp://` to one of those hosts with a port, `unix://` or `npipe:`. Without the language server's
+answer the target is refused.
 The user supplies a named simulator HMI login through the editor; credentials never become tool
 inputs or outputs. Context lists opaque session IDs and expiry. Sessions last at most ten minutes.
 The language server keeps the sessions and runs the journeys (owner, 4 November 2026: "what you
@@ -736,21 +736,24 @@ feedback or by the value read back, and a pulse to a remote runtime's point, and
 outcome on the value stream (specification 39 §12.8 item 5). The runtime's own plan of the command
 decides this for the journey too (`Plan::is_followed` in trust-runtime). A followed `applied`
 command waits for its later outcome, its confirmation or, for a remote pulse without one, the report
-of its end, for its control's confirmation time plus two stream periods (5.5 seconds for the default
-confirmation time of 5 seconds and stream period of 250 milliseconds), so that the runtime's own
-outcome, with its reason and value read back, arrives inside the wait. The runtime answers `pending`
-only to a repeated command ID, which a journey's new command IDs never are; a `pending` command
-waits the same way, and a later `applied` or `confirmed` completes it. A later `timed-out`,
-`refused` or `unknown` (a remote pulse whose end cannot be observed) ends the step and the journey
-with that outcome and the runtime's reason, also while the step waits for its readback. A followed
-command whose later outcome does not come within its wait, as when the runtime is already following
-as many commands as it can and leaves it final as `applied`, is reported `timed-out`: a false
-failure, never a false pass. With a readback path the step also waits, at least 5 seconds, for that
-path's value (a path the runtime answers as unknown, `null`, has none), the expected one when it is
-given. Each step adds its outcome: `observed`, or `cancelled`, `disconnected`, `timed-out`,
-`refused` or `unknown`, which end the journey. The answer names the session, holds every outcome and
-the error that ended the journey, if any, and has passed exactly when no error ended it and its last
-outcome is `observed`.
+of its end, until the runtime decides it, plus two stream periods. The runtime decides it within the
+control's confirmation time, and for a pulse within the longer of the pulse and the confirmation
+time plus the 2 seconds it allows to write the pulse's end (`Plan::decided_within`, specification 39
+§12.8 item 5): 5.5 seconds for the default confirmation time of 5 seconds and stream period of 250
+milliseconds. So the runtime's own outcome, with its reason and value read back, arrives inside the
+wait. The report of a pulse's end, a later `applied` with `ended`, does not complete a pulse
+followed to its confirmation. The runtime answers `pending` only to a repeated command ID, which a
+journey's new command IDs never are; a `pending` command waits the same way, and a later `applied`
+or `confirmed` completes it. A later `timed-out`, `refused` or `unknown` (a remote pulse whose end
+cannot be observed) ends the step and the journey with that outcome and the runtime's reason, also
+while the step waits for its readback. A followed command whose later outcome does not come within
+its wait, as when the runtime is already following as many commands as it can and leaves it final as
+`applied`, is reported `timed-out`: a false failure, never a false pass. With a readback path the
+step also waits, at least 5 seconds, for that path's value (a path the runtime answers as unknown,
+`null`, has none), the expected one when it is given. Each step adds its outcome: `observed`, or
+`cancelled`, `disconnected`, `timed-out`, `refused` or `unknown`, which end the journey. The answer
+names the session, holds every outcome and the error that ended the journey, if any, and has passed
+exactly when no error ended it and its last outcome is `observed`.
 `hmi_preview_states` may explicitly select `mode: simulator`, a `sessionId` and up to twelve steps.
 Each step names a deployed page, optional control/action/value and optional readback path/expected
 value. The deployed page must match the supplied draft and its local program revision must still
