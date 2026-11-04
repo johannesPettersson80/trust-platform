@@ -23,6 +23,7 @@ mod harness;
 mod mcp;
 #[path = "agent/paging.rs"]
 mod paging;
+pub(crate) use paging::bound_issue_lines;
 
 pub use mcp::run_agent_serve_mcp;
 const JSON_RPC_VERSION: &str = "2.0";
@@ -289,8 +290,17 @@ impl AgentServer {
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
-        let mut payload = crate::build::build_json_payload(Some(project_root), sources_root)
-            .map_err(AgentCommandError::from_anyhow)?;
+        let mut payload = match crate::build::build_json_payload(Some(project_root), sources_root) {
+            Ok(payload) => payload,
+            Err(error) => {
+                // A failed build projects the raw compiler dump as its error
+                // message; an applied cap bounds that projection, not just the
+                // success payload's issue list (specification 20 §7).
+                let mut error = AgentCommandError::from_anyhow(error);
+                error.message = paging::bound_issue_lines(&error.message, issues_limit);
+                return Err(error);
+            }
+        };
         if let Some(limit) = issues_limit {
             paging::apply_issue_cap(&mut payload, limit);
         }
@@ -386,8 +396,14 @@ impl AgentServer {
     ) -> Result<JsonValue, AgentCommandError> {
         let issues_limit = paging::validate_issue_limit(params.issues_limit)?;
         let project_root = self.resolve_project_root(params.common.project.as_deref())?;
-        let mut payload = crate::run::validate_json_payload(project_root)
-            .map_err(AgentCommandError::from_anyhow)?;
+        let mut payload = match crate::run::validate_json_payload(project_root) {
+            Ok(payload) => payload,
+            Err(error) => {
+                let mut error = AgentCommandError::from_anyhow(error);
+                error.message = paging::bound_issue_lines(&error.message, issues_limit);
+                return Err(error);
+            }
+        };
         if let Some(limit) = issues_limit {
             paging::apply_issue_cap(&mut payload, limit);
         }
@@ -417,13 +433,20 @@ impl AgentServer {
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
-        let mut payload = crate::workflow::compile_reload_payload(
+        let mut payload = match crate::workflow::compile_reload_payload(
             &project_root,
             sources_root.as_deref(),
             params.runtime.endpoint,
             params.runtime.token,
-        )
-        .map_err(AgentCommandError::from_anyhow)?;
+            issues_limit,
+        ) {
+            Ok(payload) => payload,
+            Err(error) => {
+                let mut error = AgentCommandError::from_anyhow(error);
+                error.message = paging::bound_issue_lines(&error.message, issues_limit);
+                return Err(error);
+            }
+        };
         if let Some(limit) = issues_limit {
             paging::apply_issue_cap(&mut payload, limit);
         }

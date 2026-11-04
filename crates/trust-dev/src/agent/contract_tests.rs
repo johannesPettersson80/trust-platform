@@ -842,3 +842,80 @@ fn compile_reload_rejects_a_zero_issues_limit_as_invalid_params() {
         "{response:#}"
     );
 }
+
+fn program_with_undefined_symbols(name: &str, symbols: &[&str]) -> String {
+    let mut text = format!("PROGRAM {name}\nVAR\n  value : INT;\nEND_VAR\n");
+    for symbol in symbols {
+        text.push_str(&format!("value := {symbol};\n"));
+    }
+    text.push_str("END_PROGRAM\n");
+    text
+}
+
+#[test]
+fn runtime_build_issues_limit_bounds_a_failed_builds_error_text() {
+    let workspace = TestWorkspace::new("build-cap-failure");
+    workspace.write(
+        "src/a.st",
+        &program_with_undefined_symbols("Alpha", &["MissingA", "MissingB", "MissingC"]),
+    );
+    let mut server = workspace.server();
+
+    let whole = failure(
+        server.handle_line(&request(json!(1), "runtime.build", Some(json!({})))),
+        -32002,
+    );
+    let full = whole["error"]["message"]
+        .as_str()
+        .expect("a failed build carries an error message");
+    let lines: Vec<&str> = full.lines().collect();
+    assert!(
+        lines.len() >= 3 && lines.iter().all(|line| line.contains("error[E")),
+        "fixture must fail with one diagnostic line per undefined symbol: {full}"
+    );
+
+    let capped = failure(
+        server.handle_line(&request(
+            json!(2),
+            "runtime.build",
+            Some(json!({"issues_limit": 1})),
+        )),
+        -32002,
+    );
+    let bounded = capped["error"]["message"]
+        .as_str()
+        .expect("the capped failure carries an error message");
+    assert_eq!(
+        bounded.lines().next(),
+        lines.first().copied(),
+        "the cap keeps the dump's first line: {bounded}"
+    );
+    assert!(
+        bounded.contains(&format!(
+            "… {} more diagnostic line(s) omitted by 'issues_limit' ({} total).",
+            lines.len() - 1,
+            lines.len()
+        )),
+        "the cap names the honest remainder: {bounded}"
+    );
+    for line in &lines[1..] {
+        assert!(
+            !bounded.contains(line),
+            "no line beyond the limit survives the cap: {bounded}"
+        );
+    }
+
+    let generous = failure(
+        server.handle_line(&request(
+            json!(3),
+            "runtime.build",
+            Some(json!({"issues_limit": 9999})),
+        )),
+        -32002,
+    );
+    assert_eq!(
+        generous["error"]["message"].as_str(),
+        Some(full),
+        "a limit no shorter than the dump leaves the error text unchanged"
+    );
+}

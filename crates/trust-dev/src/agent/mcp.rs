@@ -89,16 +89,16 @@ const TOOL_BINDINGS: &[AgentToolBinding] = &[
     },
     AgentToolBinding {
         method: "runtime.build",
-        description: "Reuse the `trust-runtime build --ci` payload path. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) on large projects.",
+        description: "Reuse the `trust-runtime build --ci` payload path. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) and bounds a failed build's raw error text on large projects.",
     },
     AgentToolBinding {
         method: "runtime.compile_reload",
         description:
-            "Run the full diagnose -> build -> reload loop and return a single structured result. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) on large projects.",
+            "Run the full diagnose -> build -> reload loop and return a single structured result. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) and bounds a reported build failure's raw error text on large projects.",
     },
     AgentToolBinding {
         method: "runtime.validate",
-        description: "Reuse the `trust-runtime validate --ci` payload path. Optional issues_limit caps the returned issues list (see issuesTruncated/totalIssues) on large projects.",
+        description: "Reuse the `trust-runtime validate --ci` payload path. Optional issues_limit bounds a failed validation's raw error text on large projects.",
     },
     AgentToolBinding {
         method: "runtime.test",

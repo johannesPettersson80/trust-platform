@@ -147,7 +147,12 @@ result.
   list exactly as the JSON-RPC surface does.
 - `runtime_compile_reload`, `runtime_build`, and `runtime_validate` accept
   the contract's opt-in `issues_limit`; an applied limit caps `issues[]` and
-  adds `issuesTruncated` and `totalIssues` to the result.
+  adds `issuesTruncated` and `totalIssues` to the result. The same limit
+  bounds a failed step's raw diagnostic dump: the error text (or
+  `runtimeMessage` on `runtime_compile_reload`) keeps the dump's first lines
+  up to the limit plus one closing line naming the omitted remainder and the
+  dump's total, so a failed build on a large project stays under a host's
+  message limit as well.
 - Clients driving large projects should set these parameters
   (for example `page_size: 500`, `issues_limit: 500`). Without them the
   tools return whole lists, which can exceed a host's message limit; the

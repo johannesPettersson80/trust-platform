@@ -69,7 +69,11 @@ retain their documented resolution bases; an inline override affects only the
 request result and never changes the selected file. Paging on `lsp.diagnostics`
 and the `issues_limit` cap on the runtime transaction methods are opt-in and
 deterministic: parameters select windows of the same sorted lists, and omitted
-parameters preserve the established whole-list responses.
+parameters preserve the established whole-list responses. An applied
+`issues_limit` bounds a failed runtime step's projected raw diagnostic dump as
+well: the error text keeps the dump's first lines up to the limit and one
+closing line names the omitted remainder and the dump's total; without the
+limit the dump is projected whole.
 
 ## 8. MCP server binding
 

@@ -7,5 +7,7 @@
 - `lsp.diagnostics` supports opt-in deterministic paging (`page`/`page_size`),
   and `runtime.build`/`runtime.validate`/`runtime.compile_reload` accept an
   opt-in `issues_limit` cap, so large projects stay under MCP hosts' message
-  limits in both transports. Omitted parameters preserve the whole-list
+  limits in both transports: an applied limit caps the response's issue list
+  and bounds a failed build's raw diagnostic dump to its first lines, naming
+  the omitted remainder. Omitted parameters preserve the whole-list
   responses.
