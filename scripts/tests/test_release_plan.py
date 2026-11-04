@@ -288,10 +288,35 @@ class ReleasePlanTests(unittest.TestCase):
             return {"jobs": [publish_job("success")]}
 
         self.assertTrue(release_plan.release_complete(OFFICIAL, "new", "token", since="2026-11-03", get=get))
-        full = lambda path, token: ({"workflow_runs": [{"id": 1, "display_title": "x"}] * 100}
-                                    if "event=workflow_run" in path else {"workflow_runs": []})
+
+        # GitHub lists at most 1,000 runs for a filtered query: pages 1 to 10 hold 100 runs each and page 11 comes back
+        # empty. Catches a check that takes the empty page 11 for the end of the list and calls the release incomplete.
+        def capped(path: str, token: str) -> dict:
+            if "event=workflow_run" not in path:
+                return {"workflow_runs": []}
+            page = int(path.rsplit("page=", 1)[1])
+            return {"workflow_runs": [{"id": page * 1000 + run, "display_title": "x"} for run in range(100)]
+                    if page <= 10 else []}
+
         with self.assertRaisesRegex(ValueError, "cannot tell whether new was released"):
-            release_plan.release_complete(OFFICIAL, "new", "token", since="2026-11-03", get=full)
+            release_plan.release_complete(OFFICIAL, "new", "token", since="2026-11-03", get=capped)
+
+    def test_only_a_push_run_counts_for_its_head(self) -> None:
+        # Specification 24: besides the runs after main's CI by their name, only a run that a push of the commit to main
+        # started counts by its head. A pull request's or a manual run's workflow comes from the code it runs, so it can
+        # name a job Publish and pass a step "Verify the release". Catches a completeness check that such a run fools
+        # into skipping a release.
+        for event, counts in (("push", True), ("pull_request", False), ("workflow_dispatch", False)):
+            def get(path: str, token: str) -> dict:
+                if "head_sha=new" in path:
+                    return {"workflow_runs": [{"id": 7, "event": event, "display_title": "Release after CI of new"}]}
+                if "event=workflow_run" in path:
+                    return {"workflow_runs": []}
+                return {"jobs": [publish_job("success")]}
+
+            self.assertEqual(
+                release_plan.release_complete(OFFICIAL, "new", "token", since="2026-11-03", get=get), counts, event
+            )
 
     def test_the_publish_job_refuses_a_release_that_a_run_verified(self) -> None:
         # Specification 24, "A release never happens twice": the Publish job asks once it holds the release

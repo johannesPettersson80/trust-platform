@@ -65,8 +65,9 @@ BUNDLE_NAME = "release-bundle-{tag}-{tree}"
 RELEASE_WORKFLOW = ".github/workflows/release.yml"
 # The events of the Release runs that rehearse: a pull request of this repository, and a maintainer's manual run.
 REHEARSAL_EVENTS = ("pull_request", "workflow_dispatch")
-# The pages of Release runs after CI that the completeness check reads, 100 runs each: about a month of merges.
-MAX_RUN_PAGES = 20
+# The pages of Release runs after CI that the completeness check reads, 100 runs each. GitHub lists at most 1,000 runs
+# for a filtered query and answers an empty page 11, so a full page 10 means the list may be cut off.
+MAX_RUN_PAGES = 10
 MAIN_BRANCHES = ("main", "master")
 
 
@@ -236,15 +237,16 @@ def verified(jobs: list) -> bool:
 def release_runs(
     repository: str, sha: str, token: str, *, since: str, get: Callable[[str, str], dict] = github_get
 ) -> list[dict]:
-    """The Release runs of `sha`: those that main's CI of `sha` started, which carry it in their run name, and every
-    other Release run whose head is `sha`, as a push's is. A run after CI never counts by its head: that is main's
-    newest commit when it starts, so it can be `sha` while the run releases an earlier commit. `since` is a day no
-    later than the first of them started."""
+    """The Release runs of `sha`: those that main's CI of `sha` started, which carry it in their run name, and those
+    that a push of `sha` to main started, whose head is `sha`. A run after CI never counts by its head: that is main's
+    newest commit when it starts, so it can be `sha` while the run releases an earlier commit. No other run counts: a
+    pull request's or a manual run's workflow comes from the code it runs, which could name a job Publish. `since` is
+    a day no later than the first of them started; when GitHub lists the most it lists, the check fails."""
     runs = {}
     for run in get(f"/repos/{repository}/actions/workflows/release.yml/runs?head_sha={sha}&per_page=100", token).get(
         "workflow_runs"
     ) or []:
-        if run.get("event") != "workflow_run":
+        if run.get("event") == "push":
             runs[run["id"]] = run
     name = AFTER_CI_RUN_NAME.format(sha=sha)
     for page in range(1, MAX_RUN_PAGES + 1):

@@ -162,12 +162,17 @@ in any attempt, passed the verification below; the GitHub release exists before
 the Marketplace is published, so a release whose publishing or verification
 failed is not complete, and running the workflow again releases it from its
 tag. A Release run of a commit is one that `main`'s CI of the commit started,
-which is named `Release after CI of <commit>`, or any other Release run whose
-head is that commit, as a push's is. A run after CI never counts by its head:
-that is `main`'s newest commit when it starts, which can be a later commit
-than the one it releases. A version whose tag is on another commit was
-released before, so nothing happens; a lightweight tag on the commit fails the
-plan, as does a failed git or GitHub request. The plan runs the workflow's own commit and
+which is named `Release after CI of <commit>`, or one that a push of the
+commit to `main` started, whose head is that commit. A run after CI never
+counts by its head: that is `main`'s newest commit when it starts, which can be
+a later commit than the one it releases. No other run counts: the workflow of a
+pull request's or a manual run comes from the code it runs, which could name a
+job as the verification's. The check reads the runs after CI since the day
+before the commit's date; GitHub lists at most 1,000 runs for such a query, so
+when it lists that many the check fails instead of answering. A version whose
+tag is on another commit was released before, so nothing happens; a
+lightweight tag on the commit fails the plan, as does a failed git or GitHub
+request. The plan runs the workflow's own commit and
 reads the commit it plans for only as data, so the code of a fork's pull request
 never runs with the release's token. Every job of the release checks out that
 commit, never the branch's newest one, and releases from `main` run one at a
