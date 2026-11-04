@@ -2,11 +2,12 @@
 //! workspace, ten minutes each, opaque IDs, one journey at a time; specification 39 §11 item 6: a
 //! target change invalidates the session). The clock is passed in, so each time is exact.
 
+use std::sync::atomic::Ordering;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
 
-use super::super::error::{CONFLICT, EXPIRED_DRAFT, LIMIT_EXCEEDED, NOT_CONNECTED};
+use super::super::error::{CANCELLED, CONFLICT, EXPIRED_DRAFT, LIMIT_EXCEEDED, NOT_CONNECTED};
 use super::{iso_time, SimulatorSessions, MAX_SESSIONS};
 
 const A: &str = "file:///projects/a";
@@ -170,29 +171,97 @@ fn another_workspaces_session_is_refused() {
 fn cancel_reaches_only_a_running_journey() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
-    assert!(!sessions.cancel(&id));
-    let running = sessions.begin(A, &id, &local(), at(1)).expect("a journey");
-    assert!(!running
-        .cancellation()
-        .load(std::sync::atomic::Ordering::SeqCst));
-    assert!(sessions.cancel(&id));
-    assert!(running
-        .cancellation()
-        .load(std::sync::atomic::Ordering::SeqCst));
+    assert!(!sessions.cancel(&id, at(0)));
+    let running = sessions.begin(A, &id, &local(), at(3)).expect("a journey");
+    assert!(!running.cancellation().load(Ordering::SeqCst));
+    assert!(sessions.cancel(&id, at(4)));
+    assert!(running.cancellation().load(Ordering::SeqCst));
     drop(running);
-    assert!(!sessions.cancel(&id));
-    assert!(!sessions.cancel("no-such-session"));
+    assert!(!sessions.cancel(&id, at(5)));
+    assert!(!sessions.cancel("no-such-session", at(5)));
 }
 
-/// Catches: a closed session that is still listed or still runs journeys.
+/// Catches the race of a cancel that reaches the language server just before the journey it was sent
+/// for: the journey would run although the agent cancelled it. Such a cancel refuses the start for
+/// two seconds, and only for two seconds.
 #[test]
-fn close_forgets_the_session() {
+fn a_cancel_just_before_the_start_refuses_it() {
     let sessions = SimulatorSessions::new();
     let id = open(&sessions, A, at(0));
+    assert!(!sessions.cancel(&id, at(10)), "no journey ran");
+    let refused = sessions
+        .begin(A, &id, &local(), at(12))
+        .err()
+        .expect("cancelled");
+    assert_eq!(refused.code, CANCELLED);
+    assert!(
+        sessions.begin(A, &id, &local(), at(12)).is_ok(),
+        "the cancel counted once"
+    );
+    let late = open(&sessions, A, at(20));
+    assert!(!sessions.cancel(&late, at(20)));
+    let later = UNIX_EPOCH + Duration::from_millis(1_793_786_422_001);
+    assert!(
+        sessions.begin(A, &late, &local(), later).is_ok(),
+        "2.001 s on, it is forgotten"
+    );
+}
+
+/// Catches: a closed session that is still listed or still runs journeys, or whose running journey
+/// goes on: closing it cancels that journey.
+#[test]
+fn close_forgets_the_session_and_cancels_its_journey() {
+    let sessions = SimulatorSessions::new();
+    let id = open(&sessions, A, at(0));
+    let running = sessions.begin(A, &id, &local(), at(1)).expect("a journey");
     assert!(sessions.close(&id));
+    assert!(
+        running.cancellation().load(Ordering::SeqCst),
+        "its journey is cancelled"
+    );
     assert!(sessions.list(A, at(1)).is_empty());
     assert!(!sessions.is_live(&id, at(1)));
     assert!(!sessions.close(&id));
+}
+
+/// Catches: a running journey that goes on after another journey request named another target,
+/// which closes the session (specification 39 §11 item 6).
+#[test]
+fn a_target_change_cancels_the_running_journey() {
+    let sessions = SimulatorSessions::new();
+    let id = open(&sessions, A, at(0));
+    let running = sessions.begin(A, &id, &local(), at(1)).expect("a journey");
+    let mut other = local();
+    other["token"] = json!("other-token");
+    let refused = sessions
+        .begin(A, &id, &other, at(2))
+        .err()
+        .expect("refused");
+    assert_eq!(refused.code, CONFLICT);
+    assert!(running.cancellation().load(Ordering::SeqCst));
+    assert!(!sessions.is_live(&id, at(2)));
+}
+
+/// Catches: a simulator login sent to a target other than the session's own (another web address,
+/// control endpoint or access token), to a target that is not a local simulator, or for a session that
+/// is closed or expired.
+#[test]
+fn a_login_is_admitted_only_to_the_sessions_own_local_target() {
+    let sessions = SimulatorSessions::new();
+    let id = open(&sessions, A, at(0));
+    assert!(sessions.admits(&id, &local(), at(1)));
+    for (key, value) in [
+        ("url", json!("http://localhost:8080")),
+        ("endpoint", json!("tcp://127.0.0.1:9101")),
+        ("token", json!("other-token")),
+        ("simulator", json!(false)),
+    ] {
+        let mut target = local();
+        target[key] = value;
+        assert!(!sessions.admits(&id, &target, at(1)), "{key}");
+    }
+    assert!(!sessions.admits(&id, &local(), at(601)), "expired");
+    assert!(!sessions.admits("no-such-session", &local(), at(1)));
 }
 
 /// Catches: session IDs that repeat or carry meaning instead of being opaque random identifiers.

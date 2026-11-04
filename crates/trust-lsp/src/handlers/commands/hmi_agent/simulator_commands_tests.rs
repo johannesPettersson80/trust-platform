@@ -1,22 +1,26 @@
 //! Tests of the simulator commands (specification 43, AT-08; specification 39 §11 item 6): their
 //! envelope, the journey's workspace, steps, session and cookie checks before any request, and a
-//! whole journey whose cookie and access token appear in no answer and no log line.
+//! journey that starts at once on a thread of its own and reports its answer when it ends, so that
+//! journeys waiting on a simulator never keep other commands from answering. That no log line names
+//! the cookie or the access token is proven against the language server's binary in
+//! `crates/trust-lsp/tests/simulator_journey_transport.rs`.
 
 use std::collections::BTreeMap;
-use std::io;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::net::TcpListener;
+use std::sync::mpsc::{self, Receiver};
+use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
-use tracing_subscriber::filter::filter_fn;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 
-use super::super::simulator_fake::{CommandAnswer, FakeSimulator, Frame, Script};
+use super::super::simulator_fake::{CommandAnswer, FakeSimulator, Frame, Script, STREAM_PERIOD};
 use super::super::simulator_journey::Timing;
 use super::super::simulator_sessions::SimulatorSessions;
-use super::{answer, CANCEL_JOURNEY, CLOSE_SESSION, LIST_SESSIONS, OPEN_SESSION, RUN_JOURNEY};
+use super::{
+    answer, envelope, start, Clock, ADMIT_LOGIN, CANCEL_JOURNEY, CLOSE_SESSION, LIST_SESSIONS,
+    OPEN_SESSION, RUN_JOURNEY,
+};
 
 const A: &str = "file:///projects/a";
 const B: &str = "file:///projects/b";
@@ -26,6 +30,7 @@ const PROMPT: Timing = Timing {
     poll: Duration::from_millis(10),
     request: Duration::from_secs(5),
     stream: Duration::from_secs(5),
+    period: Duration::from_millis(100),
 };
 
 /// `seconds` after 2026-11-04T10:00:00Z.
@@ -33,8 +38,32 @@ fn at(seconds: u64) -> SystemTime {
     UNIX_EPOCH + Duration::from_secs(1_793_786_400 + seconds)
 }
 
+fn clock(now: SystemTime) -> Clock {
+    Arc::new(move || now)
+}
+
+/// Sessions that live as long as the journey threads that use them.
+fn sessions() -> &'static SimulatorSessions {
+    Box::leak(Box::new(SimulatorSessions::new()))
+}
+
 fn call(sessions: &SimulatorSessions, name: &str, argument: Value, now: SystemTime) -> Value {
-    answer(sessions, name, vec![argument], &move || now, PROMPT)
+    answer(sessions, name, vec![argument], &clock(now))
+}
+
+/// Starts a journey: the start's envelope, and where its answer arrives when it ends.
+fn run(
+    sessions: &'static SimulatorSessions,
+    argument: Value,
+    now: SystemTime,
+    timing: Timing,
+) -> (Value, Receiver<Value>) {
+    let (sender, receiver) = mpsc::channel();
+    let report = Box::new(move |answer| {
+        let _ = sender.send(answer);
+    });
+    let started = start(sessions, vec![argument], clock(now), timing, report);
+    (envelope(started), receiver)
 }
 
 fn target(url: &str, token: &str) -> Value {
@@ -72,7 +101,12 @@ fn refusal(code: &str, message: &str) -> Value {
     json!({ "ok": false, "code": code, "message": message, "retryable": false })
 }
 
-/// Catches: an answer form the extension cannot unwrap, or a refusal that is not the shared envelope.
+fn success(data: Value) -> Value {
+    json!({ "ok": true, "data": data, "revisions": {}, "warnings": [] })
+}
+
+/// Catches: an answer form the extension cannot unwrap, or a refusal that is not the shared envelope;
+/// and a journey run on the path without the language client, which could not report its end.
 #[test]
 fn the_commands_answer_the_authoring_envelope() {
     let sessions = SimulatorSessions::new();
@@ -85,11 +119,12 @@ fn the_commands_answer_the_authoring_envelope() {
         .to_owned();
     let view =
         json!({ "sessionId": id, "name": "Fixture", "expiresAt": "2026-11-04T10:10:00.000Z" });
-    let success =
-        |data: Value| json!({ "ok": true, "data": data, "revisions": {}, "warnings": [] });
     assert_eq!(opened, success(view.clone()));
     let listed = call(&sessions, LIST_SESSIONS, json!({ "workspace": A }), at(1));
     assert_eq!(listed, success(json!({ "sessions": [view] })));
+    let admit = json!({ "sessionId": id, "target": local });
+    let admitted = call(&sessions, ADMIT_LOGIN, admit, at(1));
+    assert_eq!(admitted, success(json!({ "admitted": true })));
     let cancelled = call(&sessions, CANCEL_JOURNEY, json!({ "sessionId": id }), at(1));
     assert_eq!(cancelled, success(json!({ "cancelled": false })));
     let closed = call(&sessions, CLOSE_SESSION, json!({ "sessionId": id }), at(1));
@@ -104,8 +139,7 @@ fn the_commands_answer_the_authoring_envelope() {
         &sessions,
         LIST_SESSIONS,
         vec![json!({}), json!({})],
-        &|| at(2),
-        PROMPT,
+        &clock(at(2)),
     );
     assert_eq!(
         two,
@@ -121,19 +155,21 @@ fn the_commands_answer_the_authoring_envelope() {
         at(2),
     );
     assert_eq!(unknown["code"], "INVALID_ARGUMENT");
+    let without_client = call(&sessions, RUN_JOURNEY, json!({}), at(2));
+    assert_eq!(without_client["code"], "INVALID_ARGUMENT");
 }
 
 /// Catches: a journey that does not name its workspace, or that runs on another workspace's session.
 #[test]
 fn a_journey_names_its_workspace_and_refuses_another_workspaces_session() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
-    let sessions = SimulatorSessions::new();
+    let sessions = sessions();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(&sessions, A, &local, at(0));
+    let id = opened(sessions, A, &local, at(0));
     let steps = json!([{ "page": "settings" }]);
     let other = journey(B, &id, json!(COOKIE), &local, steps.clone());
     assert_eq!(
-        call(&sessions, RUN_JOURNEY, other, at(1)),
+        run(sessions, other, at(1), PROMPT).0,
         refusal(
             "EXPIRED_DRAFT",
             "select an unexpired named simulator session in this workspace."
@@ -145,7 +181,7 @@ fn a_journey_names_its_workspace_and_refuses_another_workspaces_session() {
         .expect("an object")
         .remove("workspace");
     assert_eq!(
-        call(&sessions, RUN_JOURNEY, nameless, at(1))["code"],
+        run(sessions, nameless, at(1), PROMPT).0["code"],
         "INVALID_ARGUMENT"
     );
     assert!(fake.received().is_empty());
@@ -156,18 +192,39 @@ fn a_journey_names_its_workspace_and_refuses_another_workspaces_session() {
 #[test]
 fn more_than_twelve_steps_are_refused_before_any_request() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
-    let sessions = SimulatorSessions::new();
+    let sessions = sessions();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(&sessions, A, &local, at(0));
+    let id = opened(sessions, A, &local, at(0));
     for count in [0, 13] {
         let steps = Value::Array(vec![json!({ "page": "settings" }); count]);
         let argument = journey(A, &id, json!(COOKIE), &local, steps);
         assert_eq!(
-            call(&sessions, RUN_JOURNEY, argument, at(1)),
+            run(sessions, argument, at(1), PROMPT).0,
             refusal("LIMIT_EXCEEDED", "use 1 to 12 bounded simulator steps."),
             "{count} steps"
         );
     }
+    assert!(fake.received().is_empty());
+}
+
+/// Catches: a method command (`invoke`) taken for a journey step, which the runtime runs as a
+/// capability request rather than a control's command.
+#[test]
+fn a_method_command_is_not_a_journey_step() {
+    let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
+    let sessions = sessions();
+    let local = target(&fake.url, "access-token-7");
+    let id = opened(sessions, A, &local, at(0));
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "invoke" }]);
+    let argument = journey(A, &id, json!(COOKIE), &local, steps);
+    assert_eq!(
+        run(sessions, argument, at(1), PROMPT).0,
+        refusal(
+            "INVALID_ARGUMENT",
+            "a method command (`invoke`) is not a simulator journey step; a step's command writes, \
+             sets, resets, toggles or pulses."
+        )
+    );
     assert!(fake.received().is_empty());
 }
 
@@ -176,26 +233,25 @@ fn more_than_twelve_steps_are_refused_before_any_request() {
 #[test]
 fn an_expired_or_busy_session_is_refused_before_any_request() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
-    let sessions = SimulatorSessions::new();
+    let sessions = sessions();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(&sessions, A, &local, at(0));
+    let id = opened(sessions, A, &local, at(0));
     let steps = json!([{ "page": "settings" }]);
     let late = journey(A, &id, json!(COOKIE), &local, steps.clone());
-    let expired = call(&sessions, RUN_JOURNEY, late, at(601));
     assert_eq!(
-        expired,
+        run(sessions, late, at(601), PROMPT).0,
         refusal(
             "EXPIRED_DRAFT",
             "select an unexpired named simulator session in this workspace."
         )
     );
-    let busy_id = opened(&sessions, A, &local, at(700));
+    let busy_id = opened(sessions, A, &local, at(700));
     let running = sessions
         .begin(A, &busy_id, &local, at(701))
         .expect("a journey");
     let second = journey(A, &busy_id, json!(COOKIE), &local, steps);
     assert_eq!(
-        call(&sessions, RUN_JOURNEY, second, at(702)),
+        run(sessions, second, at(702), PROMPT).0,
         refusal("CONFLICT", "this simulator journey is already running.")
     );
     drop(running);
@@ -207,9 +263,9 @@ fn an_expired_or_busy_session_is_refused_before_any_request() {
 #[test]
 fn a_journey_with_another_target_closes_its_session() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
-    let sessions = SimulatorSessions::new();
+    let sessions = sessions();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(&sessions, A, &local, at(0));
+    let id = opened(sessions, A, &local, at(0));
     let repaired = target(&fake.url, "access-token-8");
     let argument = journey(
         A,
@@ -218,11 +274,8 @@ fn a_journey_with_another_target_closes_its_session() {
         &repaired,
         json!([{ "page": "settings" }]),
     );
-    assert_eq!(
-        call(&sessions, RUN_JOURNEY, argument, at(1))["code"],
-        "CONFLICT"
-    );
-    let listed = call(&sessions, LIST_SESSIONS, json!({ "workspace": A }), at(2));
+    assert_eq!(run(sessions, argument, at(1), PROMPT).0["code"], "CONFLICT");
+    let listed = call(sessions, LIST_SESSIONS, json!({ "workspace": A }), at(2));
     assert_eq!(listed["data"]["sessions"], json!([]));
     assert!(fake.received().is_empty());
 }
@@ -232,9 +285,9 @@ fn a_journey_with_another_target_closes_its_session() {
 #[test]
 fn a_journey_needs_its_sessions_cookie_and_never_quotes_it() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
-    let sessions = SimulatorSessions::new();
+    let sessions = sessions();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(&sessions, A, &local, at(0));
+    let id = opened(sessions, A, &local, at(0));
     let steps = json!([{ "page": "settings" }]);
     let needs = refusal(
         "INVALID_ARGUMENT",
@@ -251,18 +304,14 @@ fn a_journey_needs_its_sessions_cookie_and_never_quotes_it() {
     ];
     for cookie in cookies {
         let argument = journey(A, &id, cookie.clone(), &local, steps.clone());
-        assert_eq!(
-            call(&sessions, RUN_JOURNEY, argument, at(1)),
-            needs,
-            "{cookie}"
-        );
+        assert_eq!(run(sessions, argument, at(1), PROMPT).0, needs, "{cookie}");
     }
     let mut missing = journey(A, &id, Value::Null, &local, steps.clone());
     missing.as_object_mut().expect("an object").remove("cookie");
-    assert_eq!(call(&sessions, RUN_JOURNEY, missing, at(1)), needs);
+    assert_eq!(run(sessions, missing, at(1), PROMPT).0, needs);
     let mut malformed = journey(A, &id, json!("trust_hmi_session=5ecret-d"), &local, steps);
     malformed["steps"] = json!("not steps");
-    let refused = call(&sessions, RUN_JOURNEY, malformed, at(1));
+    let refused = run(sessions, malformed, at(1), PROMPT).0;
     assert_eq!(refused["code"], "INVALID_ARGUMENT");
     assert!(!refused.to_string().contains("5ecret"), "{refused}");
     assert!(fake.received().is_empty());
@@ -272,91 +321,118 @@ fn a_journey_needs_its_sessions_cookie_and_never_quotes_it() {
     );
 }
 
-/// A writer that keeps what the log subscriber writes.
-#[derive(Clone)]
-struct Captured(Arc<Mutex<Vec<u8>>>);
-
-impl io::Write for Captured {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        let mut kept = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        kept.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-/// Catches: the named session's cookie or the target's access token written into the journey's
-/// answer or into any log line of the journey, the language server's own or a library's (the
-/// language server forwards the `log` records of tungstenite to its subscriber, as here).
+/// Catches: a journey that runs inside the request that starts it, and so holds one of the language
+/// server's request slots until it ends; and a journey whose answer never reaches the client, or
+/// reaches it after the session took another journey.
 #[test]
-fn the_cookie_and_token_never_appear_in_the_answer_or_the_log() {
-    const SECRET_COOKIE: &str = "c00kie-5ecret-91";
-    const SECRET_TOKEN: &str = "t0ken-5ecret-37";
-    let kept = Arc::new(Mutex::new(Vec::new()));
-    let journey_thread = thread::current().id();
-    let writer = Captured(Arc::clone(&kept));
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
-        .with_ansi(false)
-        .with_writer(move || writer.clone())
-        .finish()
-        .with(filter_fn(move |_| thread::current().id() == journey_thread))
-        .try_init()
-        .expect("this test binary's only global log subscriber");
-
+fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
     let fake = FakeSimulator::start(Script {
-        on_open: vec![Frame::Text(
-            json!({ "values": { "Main.SP": { "value": 10.0 } } }),
-        )],
         on_command: Box::new(|command| CommandAnswer {
             status: 200,
             body: json!({ "id": command["id"], "outcome": "applied" }),
             then: vec![Frame::Text(
                 json!({ "command": { "id": command["id"], "outcome": "confirmed" } }),
             )],
+            delay: STREAM_PERIOD,
         }),
         ..Script::serving(BTreeMap::from([("settings".to_owned(), page())]))
     });
-    let sessions = SimulatorSessions::new();
-    let local = target(&fake.url, SECRET_TOKEN);
-    let id = opened(&sessions, A, &local, at(0));
-    let cookie = json!(format!("trust_hmi_session={SECRET_COOKIE}"));
-    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10,
-                         "path": "Main.SP", "expect": 10 }]);
-    let answer = call(
-        &sessions,
-        RUN_JOURNEY,
-        journey(A, &id, cookie, &local, steps),
+    let sessions = sessions();
+    let local = target(&fake.url, "access-token-7");
+    let id = opened(sessions, A, &local, at(0));
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
+    let started_at = Instant::now();
+    let (started, ended) = run(
+        sessions,
+        journey(A, &id, json!(COOKIE), &local, steps.clone()),
+        at(1),
+        PROMPT,
+    );
+    let start_took = started_at.elapsed();
+    assert_eq!(
+        started,
+        success(json!({ "started": true, "sessionId": id }))
+    );
+    let again = run(
+        sessions,
+        journey(A, &id, json!(COOKIE), &local, steps),
+        at(1),
+        PROMPT,
+    );
+    assert_eq!(again.0["code"], "CONFLICT", "the session runs its journey");
+    let answer = ended
+        .recv_timeout(Duration::from_secs(10))
+        .expect("the journey's answer");
+    let journey_took = started_at.elapsed();
+    assert!(
+        start_took < journey_took / 2 && journey_took >= STREAM_PERIOD,
+        "the start answered in {start_took:?}, before the journey ended at {journey_took:?}"
+    );
+    assert_eq!(answer["sessionId"], id);
+    assert_eq!(answer["origin"], "simulator");
+    assert_eq!(answer["passed"], true, "{answer}");
+    let free = (0..100).any(|_| {
+        let begun = sessions.begin(A, &id, &local, at(2)).is_ok();
+        if !begun {
+            thread::sleep(Duration::from_millis(10));
+        }
+        begun
+    });
+    assert!(free, "the session is free once its answer was reported");
+}
+
+/// Catches: journeys waiting on a simulator that never answers keeping other commands, a cancel
+/// among them, from answering (the language server serves four requests at once); and a journey
+/// that never ends when its simulator hangs.
+#[test]
+fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
+    let hung = TcpListener::bind("127.0.0.1:0").expect("a listener");
+    let url = format!("http://{}", hung.local_addr().expect("an address"));
+    let sessions = sessions();
+    let local = target(&url, "access-token-7");
+    let hurried = Timing {
+        request: Duration::from_millis(500),
+        ..PROMPT
+    };
+    let mut ends = Vec::new();
+    for _ in 0..5 {
+        let id = opened(sessions, A, &local, at(0));
+        let argument = journey(
+            A,
+            &id,
+            json!(COOKIE),
+            &local,
+            json!([{ "page": "settings" }]),
+        );
+        let (started, ended) = run(sessions, argument, at(1), hurried);
+        assert_eq!(started["data"]["started"], true, "{started}");
+        ends.push((id, ended));
+    }
+    let asked = Instant::now();
+    let listed = call(sessions, LIST_SESSIONS, json!({ "workspace": A }), at(1));
+    let cancelled = call(
+        sessions,
+        CANCEL_JOURNEY,
+        json!({ "sessionId": ends[0].0 }),
         at(1),
     );
-
-    assert_eq!(answer["data"]["passed"], true, "the journey ran: {answer}");
-    for request in fake.received() {
-        let sent = request
-            .cookie
-            .as_deref()
-            .is_some_and(|cookie| cookie.contains(SECRET_COOKIE));
-        assert!(sent, "{request:?} carried the cookie");
-        assert_eq!(request.token.as_deref(), Some(SECRET_TOKEN), "{request:?}");
-    }
-    let log =
-        String::from_utf8_lossy(&kept.lock().unwrap_or_else(PoisonError::into_inner)).into_owned();
     assert!(
-        log.contains("HMI agent simulator journey ended"),
-        "our events reached the capture"
+        asked.elapsed() < Duration::from_millis(200),
+        "answered in {:?}",
+        asked.elapsed()
     );
-    assert!(
-        log.contains("Received message"),
-        "tungstenite's trace reached the capture: {log}"
-    );
-    for secret in [SECRET_COOKIE, SECRET_TOKEN] {
-        assert!(!log.contains(secret), "the log names {secret}: {log}");
+    assert_eq!(listed["data"]["sessions"].as_array().map(Vec::len), Some(5));
+    assert_eq!(cancelled["data"]["cancelled"], true);
+    for (id, ended) in ends {
+        let answer = ended
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the hung journey's answer");
+        assert_eq!(answer["sessionId"], id);
+        let error = answer["error"].as_str().unwrap_or_default();
         assert!(
-            !answer.to_string().contains(secret),
-            "the answer names {secret}: {answer}"
+            error.starts_with("NOT_CONNECTED:") || error.starts_with("CANCELLED:"),
+            "{answer}"
         );
     }
+    drop(hung);
 }

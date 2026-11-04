@@ -1,23 +1,28 @@
 //! The HMI agent's simulator journey (specification 43, AT-08): bounded steps on the deployed pages
 //! of a named local simulator, run with the cookie of that named session.
 //!
-//! Before each step the journey checks that its session is still open and unexpired and that
-//! `checkTarget` still accepts the target. The step reads the deployed page and compares its model
-//! with the draft's, key order aside and numbers by value, and follows the page's readback stream.
+//! Before each step, and again right before a step's command, the journey checks that its session
+//! is still open and unexpired and that `checkTarget` still accepts the target, then that it was not
+//! cancelled. The step reads the deployed page and compares its model with the draft's, key order
+//! aside and numbers by value, and follows the page's readback stream. Before a command, the step
+//! reads the stream until it says whether the target runs in simulation, and stops with `CONFLICT`
+//! when it no longer does.
+//!
 //! A step with a control sends its command with a new command ID and stops the journey unless the
 //! answer is `applied`, `pending` or `confirmed`. A `confirmed` command is complete, and so is an
 //! `applied` one the runtime does not follow, as the runtime's own plan of it says
-//! (`Plan::is_followed`, specification 39 §12.8 item 5). A followed `applied` command waits at most
-//! 5 seconds for its later outcome on the stream: its confirmation, or, for a remote pulse without
-//! one, its end; a `pending` one (a repeated command ID) waits for a later `applied` or
-//! `confirmed`. A later `timed-out` or `refused` ends the step and the journey with that outcome,
-//! and a later outcome that does not come within the 5 seconds is `timed-out`, a false failure and
-//! never a false pass. With a readback path the step waits, within the same 5 seconds, for that
-//! path's value, the expected one when it is given (a path the runtime answers as unknown, `null`,
-//! has none). Each step adds its outcome: `observed`, or `cancelled`, `disconnected`, `timed-out` or
-//! `refused`, which end the journey. The answer holds every outcome and the error that ended the
-//! journey, if any, and has passed exactly when no error ended it and its last outcome is
-//! `observed`. A command is never resent.
+//! (`Plan::is_followed`, specification 39 §12.8 item 5). A followed `applied` command waits for its
+//! later outcome on the stream, its confirmation or, for a remote pulse without one, its end, for its
+//! control's confirmation time plus two stream periods (5.5 seconds by default), so that the
+//! runtime's own outcome arrives inside the wait. A `pending` one (a repeated command ID) waits the
+//! same way for a later `applied` or `confirmed`. A later `timed-out`, `refused` or `unknown` ends the
+//! step and the journey with that outcome, and a later outcome that does not come within the wait is
+//! `timed-out`, a false failure and never a false pass. With a readback path the step waits, within
+//! at least 5 seconds, for that path's value, the expected one when it is given (a path the runtime
+//! answers as unknown, `null`, has none). Each step adds its outcome: `observed`, or `cancelled`,
+//! `disconnected`, `timed-out`, `refused` or `unknown`, which end the journey. The answer holds every
+//! outcome and the error that ended the journey, if any, and has passed exactly when no error ended
+//! it and its last outcome is `observed`. A command is never resent.
 //!
 //! Port of `executeSimulatorJourney` in `editors/vscode/src/hmiBuilder/agent/simulator.ts`.
 
@@ -30,7 +35,7 @@ use serde::Deserialize;
 use serde_json::{json, Map, Number, Value};
 
 use trust_runtime::hmi::catalogue::Catalogue;
-use trust_runtime::hmi::commands::plan::plan;
+use trust_runtime::hmi::commands::plan::{plan, DEFAULT_TIMEOUT};
 use trust_runtime::hmi::page_files::HmiObject;
 
 use super::draft_records::new_uuid;
@@ -64,23 +69,33 @@ pub(super) struct Step {
     expect: Option<Value>,
 }
 
-/// How long a journey waits: for a step's confirmation and readback, between two reads of the
-/// stream, for one request, and for the stream to open.
+impl Step {
+    /// The action the step's command sends, if it has one.
+    pub(super) fn action(&self) -> Option<&str> {
+        self.action.as_deref()
+    }
+}
+
+/// How long a journey waits: for a step's readback, between two reads of the stream, for one
+/// request, for the stream to open, and for one stream period until the stream announces its own.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Timing {
     pub(super) wait: Duration,
     pub(super) poll: Duration,
     pub(super) request: Duration,
     pub(super) stream: Duration,
+    pub(super) period: Duration,
 }
 
 impl Timing {
-    /// The product's: 5 seconds, 50 milliseconds, 15 seconds and 5 seconds, the extension's.
+    /// The product's: 5 seconds, 50 milliseconds, 15 seconds and 5 seconds, the extension's, and the
+    /// runtime's shortest stream period, 250 milliseconds.
     pub(super) const PRODUCT: Self = Self {
         wait: Duration::from_secs(5),
         poll: Duration::from_millis(50),
         request: REQUEST_TIMEOUT,
         stream: Duration::from_secs(5),
+        period: Duration::from_millis(250),
     };
 }
 
@@ -117,11 +132,12 @@ pub(super) fn run(
             timeout: timing.request,
         },
         journey,
+        live,
         cancelled,
         timing,
         outcomes: Vec::new(),
     };
-    let error = runner.steps(live).err();
+    let error = runner.steps().err();
     let last = runner.outcomes.last();
     let passed = error.is_none() && last.is_some_and(|outcome| outcome["outcome"] == "observed");
     let mut answer = json!({
@@ -141,30 +157,38 @@ pub(super) fn run(
 struct Runner<'a> {
     hmi: SimulatorHmi<'a>,
     journey: &'a Journey<'a>,
+    live: &'a dyn Fn() -> bool,
     cancelled: &'a AtomicBool,
     timing: Timing,
     outcomes: Vec<Value>,
 }
 
 impl Runner<'_> {
-    fn steps(&mut self, live: &dyn Fn() -> bool) -> AgentResult<()> {
+    fn steps(&mut self) -> AgentResult<()> {
         let steps = self.journey.steps;
         for step in steps {
-            if self.cancelled.load(Ordering::SeqCst) {
-                return Err(AgentError::new(
-                    CANCELLED,
-                    "simulator journey cancelled; completed commands are retained in outcomes and \
-                     are not undone.",
-                ));
-            }
-            if !live() || !is_local_simulator(self.journey.target) {
-                return Err(AgentError::conflict(
-                    "the simulator target or named session changed.",
-                ));
-            }
+            self.halted()?;
             if self.step(step)? {
                 break;
             }
+        }
+        Ok(())
+    }
+
+    /// Refuses to go on when the session closed or expired or the target is no longer a local
+    /// simulator (`CONFLICT`), or when the journey was cancelled (`CANCELLED`).
+    fn halted(&self) -> AgentResult<()> {
+        if !(self.live)() || !is_local_simulator(self.journey.target) {
+            return Err(AgentError::conflict(
+                "the simulator target or named session changed.",
+            ));
+        }
+        if self.cancelled.load(Ordering::SeqCst) {
+            return Err(AgentError::new(
+                CANCELLED,
+                "simulator journey cancelled; completed commands are retained in outcomes and are \
+                 not undone.",
+            ));
         }
         Ok(())
     }
@@ -213,6 +237,19 @@ impl Runner<'_> {
                     "simulator step names an unknown control.",
                 ));
             };
+            self.settle(stream, &mut seen);
+            if seen.disconnected {
+                self.outcomes
+                    .push(json!({ "page": step.page, "outcome": "disconnected" }));
+                return Ok(true);
+            }
+            if seen.simulation == Some(false) {
+                return Err(AgentError::conflict(
+                    "the simulator target no longer runs in simulation mode; connect the simulator \
+                     journey again.",
+                ));
+            }
+            self.halted()?;
             let id = new_uuid("a simulator command identifier")?;
             let mut body = Map::new();
             body.insert("id".into(), json!(id));
@@ -246,17 +283,31 @@ impl Runner<'_> {
             if status != 200 || !matches!(answered.as_str(), "applied" | "pending" | "confirmed") {
                 return Ok(true);
             }
-            let follow = follow_of(control, step);
+            let following = following(control, step);
             command = Some(Sent {
                 id,
                 answered,
-                follow,
+                follow: following.follow,
+                confirmation: following.confirmation,
             });
         }
         Ok(self.wait(stream, step, command.as_ref(), &mut seen))
     }
 
-    /// Waits for the command's confirmation and the readback; `true` when the step's outcome ends
+    /// Reads the stream until it has said whether the target runs in simulation, for at most one
+    /// stream period: the runtime says it as soon as the stream opens.
+    fn settle(&self, stream: &mut Readback, seen: &mut Seen) {
+        let deadline = Instant::now() + seen.period.unwrap_or(self.timing.period);
+        while seen.simulation.is_none() && !seen.disconnected {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                break;
+            }
+            seen.read(stream, self.timing.poll.min(left));
+        }
+    }
+
+    /// Waits for the command's later outcome and the readback; `true` when the step's outcome ends
     /// the journey.
     fn wait(
         &mut self,
@@ -265,14 +316,22 @@ impl Runner<'_> {
         command: Option<&Sent>,
         seen: &mut Seen,
     ) -> bool {
-        let deadline = Instant::now() + self.timing.wait;
+        let started = Instant::now();
+        let mut deadline = started + self.timing.wait;
+        if let Some(command) = command
+            && !command.complete(None)
+        {
+            let period = seen.period.unwrap_or(self.timing.period);
+            deadline = deadline.max(started + command.confirmation + period * 2);
+        }
         loop {
             // The later outcome the stream reported for the command, after its answer.
             let report = command.and_then(|command| seen.commands.get(&command.id));
             let reported = report
                 .and_then(|report| report.get("outcome"))
                 .and_then(Value::as_str);
-            let failed = reported.filter(|reported| matches!(*reported, "timed-out" | "refused"));
+            let failed = reported
+                .filter(|reported| matches!(*reported, "timed-out" | "refused" | "unknown"));
             let ended = if self.cancelled.load(Ordering::SeqCst) {
                 Some("cancelled")
             } else if seen.disconnected {
@@ -327,21 +386,18 @@ impl Runner<'_> {
                 .timing
                 .poll
                 .min(deadline.saturating_duration_since(Instant::now()));
-            match stream.next(wait) {
-                Received::Text(text) => seen.absorb(&text),
-                Received::Idle => {}
-                Received::Closed => seen.disconnected = true,
-            }
+            seen.read(stream, wait);
         }
     }
 }
 
-/// A command a step sent: its ID, the outcome it was answered with, and what the runtime does with it
-/// after that answer.
+/// A command a step sent: its ID, the outcome it was answered with, what the runtime does with it
+/// after that answer, and its control's confirmation time.
 struct Sent {
     id: String,
     answered: String,
     follow: Follow,
+    confirmation: Duration,
 }
 
 impl Sent {
@@ -368,11 +424,18 @@ enum Follow {
     PulseEnd,
 }
 
+/// What the runtime does with a command, and its control's confirmation time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Following {
+    follow: Follow,
+    confirmation: Duration,
+}
+
 /// What the runtime does with the command `step` sends to `control`, a deployed page's object, as
-/// the runtime's own plan of that command says (`Plan::is_followed`). A control whose plan cannot be
-/// read is followed to a confirmation: an outcome that never comes reports `timed-out`, never a
-/// false pass.
-fn follow_of(control: &Value, step: &Step) -> Follow {
+/// the runtime's own plan of that command says (`Plan::is_followed`, `Plan::timeout`). A control
+/// whose plan cannot be read is followed to a confirmation within the runtime's default time: an
+/// outcome that never comes reports `timed-out`, never a false pass.
+fn following(control: &Value, step: &Step) -> Following {
     let planned = serde_json::from_value::<HmiObject>(control.clone())
         .ok()
         .and_then(|object| {
@@ -380,24 +443,42 @@ fn follow_of(control: &Value, step: &Step) -> Follow {
             let action = step.action.as_deref().unwrap_or_default();
             plan(&object, component, action, step.value.as_ref(), None).ok()
         });
-    match planned {
+    let follow = match &planned {
         Some(plan) if !plan.is_followed() => Follow::None,
         Some(plan) if plan.confirm.is_none() => Follow::PulseEnd,
         _ => Follow::Confirmation,
+    };
+    let confirmation = planned.map_or(DEFAULT_TIMEOUT, |plan| plan.timeout);
+    Following {
+        follow,
+        confirmation,
     }
 }
 
-/// What a step's stream has said: each path's last entry, each command's later outcome, and whether
-/// the stream ended or sent what is not JSON.
+/// What a step's stream has said: each path's last entry, each command's later outcome, whether the
+/// target runs in simulation, the stream's period, and whether the stream ended or sent what is not
+/// JSON.
 #[derive(Default)]
 struct Seen {
     values: Map<String, Value>,
     commands: BTreeMap<String, Value>,
+    simulation: Option<bool>,
+    period: Option<Duration>,
     disconnected: bool,
 }
 
 impl Seen {
-    /// Takes in one message: `{ values }` entries by path and a `{ command }` answer by its ID.
+    /// Reads the stream's next message, waiting at most `wait`.
+    fn read(&mut self, stream: &mut Readback, wait: Duration) {
+        match stream.next(wait) {
+            Received::Text(text) => self.absorb(&text),
+            Received::Idle => {}
+            Received::Closed => self.disconnected = true,
+        }
+    }
+
+    /// Takes in one message: `{ values }` entries by path, a `{ command }` outcome by its ID, the
+    /// `{ simulation }` state and the `{ period_ms }` the stream announces.
     fn absorb(&mut self, text: &str) {
         let Ok(message) = serde_json::from_str::<Value>(text) else {
             self.disconnected = true;
@@ -415,6 +496,12 @@ impl Seen {
                 .filter(|id| !id.is_empty())
         {
             self.commands.insert(id.to_owned(), command.clone());
+        }
+        if let Some(simulation) = message.get("simulation") {
+            self.simulation = simulation.get("enabled").and_then(Value::as_bool);
+        }
+        if let Some(period) = message.get("period_ms").and_then(Value::as_u64) {
+            self.period = Some(Duration::from_millis(period));
         }
     }
 

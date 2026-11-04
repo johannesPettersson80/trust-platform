@@ -52,6 +52,13 @@ pub(super) fn is_command(name: &str) -> bool {
         || simulator_commands::is_command(name)
 }
 
+/// Starts a simulator journey for the language client, which gets the journey's answer as
+/// `trust-lsp/simulatorJourneyEnded` when it ends (`trust-lsp.hmiAgent.runSimulatorJourney`).
+#[must_use]
+pub(super) fn start_journey(client: &tower_lsp::Client, arguments: Vec<Value>) -> Value {
+    simulator_commands::start_for_client(client, arguments)
+}
+
 /// Runs the HMI agent command `name` on its argument, or `None` when it is not one.
 #[must_use]
 pub(super) fn execute(state: &ServerState, name: &str, arguments: Vec<Value>) -> Option<Value> {

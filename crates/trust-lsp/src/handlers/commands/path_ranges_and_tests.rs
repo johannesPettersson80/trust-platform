@@ -425,6 +425,7 @@ END_PROGRAM
                 "trust-lsp.hmiAgent.openSimulatorSession",
                 "trust-lsp.hmiAgent.closeSimulatorSession",
                 "trust-lsp.hmiAgent.simulatorSessions",
+                "trust-lsp.hmiAgent.admitSimulatorLogin",
                 "trust-lsp.hmiAgent.runSimulatorJourney",
                 "trust-lsp.hmiAgent.cancelSimulatorJourney",
             ]

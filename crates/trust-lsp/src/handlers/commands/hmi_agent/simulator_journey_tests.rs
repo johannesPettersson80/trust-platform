@@ -11,24 +11,33 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use super::super::simulator_fake::{CommandAnswer, FakeSimulator, Frame, Script};
-use super::{follow_of, run, same_model, Follow, Journey, Step, Timing};
+use super::super::simulator_fake::{CommandAnswer, FakeSimulator, Frame, Script, STREAM_PERIOD};
+use super::{following, run, same_model, Follow, Journey, Step, Timing};
 use trust_runtime::hmi::page_files::HmiObject;
 
 const COOKIE: &str = "trust_hmi_session=4f1c0ffee";
 const TOKEN: &str = "access-token-7";
-/// Waits long enough for any answer the fake gives at once.
+/// Waits long enough for any answer the fake gives, with a stream period of 100 ms, since the fake
+/// announces none.
 const PROMPT: Timing = Timing {
     wait: Duration::from_secs(5),
     poll: Duration::from_millis(10),
     request: Duration::from_secs(5),
     stream: Duration::from_secs(5),
+    period: Duration::from_millis(100),
 };
-/// A short wait for confirmation and readback, for the steps that must time out.
+/// A short wait for the readback, for the steps that must time out.
 const SHORT: Timing = Timing {
     wait: Duration::from_millis(300),
     ..PROMPT
 };
+/// A readback wait shorter than the setpoint's confirmation time.
+const BRIEF: Timing = Timing {
+    wait: Duration::from_millis(100),
+    ..PROMPT
+};
+/// The setpoint's confirmation time on the test page (its `timeout`, 0.3 seconds).
+const CONFIRMATION: Duration = Duration::from_millis(300);
 
 /// The deployed page as the runtime serves it, its numbers as the runtime writes them (`5.0`): a
 /// setpoint, which the runtime follows to its confirmation by the value read back, and a button
@@ -39,7 +48,7 @@ fn deployed() -> Value {
         "object": [
             {
                 "id": "sp", "type": "setpoint", "at": [32, 88], "size": [200, 64],
-                "min": 5.0, "max": 95.0,
+                "min": 5.0, "max": 95.0, "timeout": 0.3,
                 "bind": { "value": { "path": "Main.SP", "direction": "read-write" } }
             },
             {
@@ -56,7 +65,8 @@ fn deployed() -> Value {
 fn draft() -> Value {
     serde_json::from_str(
         r#"{"pipe": [], "object": [{"bind": {"value": {"direction": "read-write", "path": "Main.SP"}},
-            "max": 95, "min": 5, "size": [200, 64], "at": [32, 88], "type": "setpoint", "id": "sp"},
+            "max": 95, "min": 5, "timeout": 0.3, "size": [200, 64], "at": [32, 88], "type": "setpoint",
+            "id": "sp"},
             {"bind": {"target": {"direction": "write", "path": "Main.Run"}}, "action": "reset",
             "size": [120, 40], "at": [32, 160], "type": "button", "id": "stop"}],
             "title": "Settings"}"#,
@@ -74,7 +84,8 @@ fn stop() -> Value {
 }
 
 /// A command answered `outcome`, then the later outcome `later` reported for it on the stream, with
-/// the reason and the value read back the runtime reports with a failure.
+/// the reason and the value read back the runtime reports with a failure, as late as the runtime
+/// reports it: a timed-out outcome at the control's confirmation time, any other a stream period on.
 fn reported(
     answered: &'static str,
     later: &'static str,
@@ -85,6 +96,11 @@ fn reported(
         then: vec![Frame::Text(json!({ "command": {
             "id": command["id"], "outcome": later, "reason": "not confirmed in time", "readback": 9.0,
         } }))],
+        delay: if later == "timed-out" {
+            CONFIRMATION
+        } else {
+            STREAM_PERIOD
+        },
     })
 }
 
@@ -125,6 +141,7 @@ fn answered(
         status: 200,
         body: json!({ "id": command["id"], "outcome": outcome }),
         then: then(&command["id"]),
+        delay: STREAM_PERIOD,
     })
 }
 
@@ -244,6 +261,7 @@ fn a_refused_command_stops_the_journey_with_its_outcome() {
                 status,
                 body: answer_body.clone(),
                 then: Vec::new(),
+                delay: STREAM_PERIOD,
             }),
             ..Script::serving(pages())
         });
@@ -401,6 +419,7 @@ fn a_pending_command_completes_with_its_later_outcome() {
                 then: vec![Frame::Text(
                     json!({ "command": { "id": command["id"], "outcome": later } }),
                 )],
+                delay: STREAM_PERIOD,
             }),
             ..Script::serving(pages())
         });
@@ -431,7 +450,7 @@ fn a_pending_command_never_decided_times_out() {
     });
     let answer = journey(
         &fake,
-        json!([stop()]),
+        json!([set(10)]),
         &|| true,
         &AtomicBool::new(false),
         SHORT,
@@ -444,9 +463,9 @@ fn a_pending_command_never_decided_times_out() {
     assert_eq!(answer["passed"], false);
 }
 
-/// Catches: a journey that goes on after the stream reported its command refused or timed out, while
-/// the step waited for its later outcome or for its readback, or that drops the report's reason and
-/// the value it read back.
+/// Catches: a journey that goes on after the stream reported its command refused, timed out or of
+/// unknown outcome (a remote pulse whose end cannot be observed), while the step waited for its later
+/// outcome or for its readback, or that drops the report's reason and the value it read back.
 #[test]
 fn a_command_the_stream_reports_failed_ends_the_journey_with_that_outcome() {
     let mut stop_with_readback = stop();
@@ -454,6 +473,7 @@ fn a_command_the_stream_reports_failed_ends_the_journey_with_that_outcome() {
     let cases = [
         (set(10), "pending", "refused"),
         (stop(), "pending", "timed-out"),
+        (stop(), "pending", "unknown"),
         (stop_with_readback, "applied", "timed-out"),
     ];
     for (step, answered, later) in cases {
@@ -503,17 +523,113 @@ fn the_runtime_plans_which_commands_are_followed() {
         .expect("the setpoint as the runtime reads it");
     serde_json::from_value::<HmiObject>(button.clone())
         .expect("the button as the runtime reads it");
-    assert_eq!(follow_of(setpoint, &step(set(10))), Follow::Confirmation);
-    assert_eq!(follow_of(button, &step(stop())), Follow::None);
+    let setpoint_follows = following(setpoint, &step(set(10)));
+    assert_eq!(setpoint_follows.follow, Follow::Confirmation);
+    assert_eq!(
+        setpoint_follows.confirmation, CONFIRMATION,
+        "the control's own timeout"
+    );
+    assert_eq!(following(button, &step(stop())).follow, Follow::None);
     let remote = json!({
         "id": "start", "type": "pulse-button", "at": [0, 0], "size": [120, 40], "pulse": 0.5,
         "bind": { "target": { "path": "Owner:Main.Start", "direction": "write" } }
     });
     let pulse = step(json!({ "page": "settings", "object": "start", "action": "pulse" }));
-    assert_eq!(follow_of(&remote, &pulse), Follow::PulseEnd);
+    assert_eq!(following(&remote, &pulse).follow, Follow::PulseEnd);
+    let unread = following(&json!({ "id": "odd" }), &step(stop()));
+    assert_eq!(unread.follow, Follow::Confirmation);
     assert_eq!(
-        follow_of(&json!({ "id": "odd" }), &step(stop())),
-        Follow::Confirmation
+        unread.confirmation,
+        Duration::from_secs(5),
+        "the runtime's default"
+    );
+}
+
+/// Catches: a command sent to a target that no longer runs in simulation mode, which the runtime's
+/// stream says as it opens (specification 39 §11 item 6: a target change invalidates the session
+/// before another command can go out).
+#[test]
+fn a_target_that_no_longer_simulates_stops_before_the_command() {
+    let fake = FakeSimulator::start(Script {
+        simulation: Some(false),
+        on_command: answered("applied", |_| Vec::new()),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &fake,
+        json!([set(10)]),
+        &|| true,
+        &AtomicBool::new(false),
+        PROMPT,
+    );
+    assert_eq!(
+        answer["error"],
+        "CONFLICT: the simulator target no longer runs in simulation mode; connect the simulator \
+         journey again."
+    );
+    assert!(commands(&fake).is_empty(), "no command went out");
+}
+
+/// Catches: a command sent after the journey was cancelled while its step read the page and opened
+/// the stream: the journey checks the cancel again right before the command.
+#[test]
+fn a_cancel_before_the_command_sends_none() {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let cancel = Arc::clone(&cancelled);
+    let fake = FakeSimulator::start(Script {
+        on_stream: Box::new(move || cancel.store(true, Ordering::SeqCst)),
+        on_command: answered("applied", |_| Vec::new()),
+        ..Script::serving(pages())
+    });
+    let answer = journey(&fake, json!([set(10)]), &|| true, &cancelled, PROMPT);
+    assert_eq!(
+        answer["error"],
+        "CANCELLED: simulator journey cancelled; completed commands are retained in outcomes and \
+         are not undone."
+    );
+    assert!(commands(&fake).is_empty(), "no command went out");
+}
+
+/// Catches: a followed command's wait cut at the readback wait instead of its control's confirmation
+/// time and the stream's delay, so that the runtime's own outcome, with its reason and value read
+/// back, arrives too late and a confirmation is reported as a time-out.
+#[test]
+fn a_followed_command_waits_for_its_controls_confirmation_time() {
+    let timed_out = FakeSimulator::start(Script {
+        on_command: reported("applied", "timed-out"),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &timed_out,
+        json!([set(10)]),
+        &|| true,
+        &AtomicBool::new(false),
+        BRIEF,
+    );
+    assert_eq!(
+        answer["outcomes"][1],
+        json!({ "page": "settings", "outcome": "timed-out", "commandId": commands(&timed_out)[0]["id"],
+                "reason": "not confirmed in time", "readback": 9.0 }),
+        "the runtime's own outcome, at the control's confirmation time"
+    );
+    let confirmed = FakeSimulator::start(Script {
+        on_command: answered("applied", |id| {
+            vec![Frame::Text(
+                json!({ "command": { "id": id, "outcome": "confirmed" } }),
+            )]
+        }),
+        ..Script::serving(pages())
+    });
+    let answer = journey(
+        &confirmed,
+        json!([set(10)]),
+        &|| true,
+        &AtomicBool::new(false),
+        BRIEF,
+    );
+    assert_eq!(
+        answer["passed"], true,
+        "confirmed a stream period on: {answer}"
     );
 }
 
@@ -554,6 +670,7 @@ fn cancel_keeps_the_completed_outcomes() {
                 status: 200,
                 body: json!({ "id": command["id"], "outcome": "applied" }),
                 then: Vec::new(),
+                delay: STREAM_PERIOD,
             }
         }),
         ..Script::serving(pages())
@@ -618,8 +735,9 @@ fn an_error_after_an_observed_step_does_not_pass() {
     assert_eq!(answer["passed"], false);
 }
 
-/// Catches: a journey that goes on after its named session expired or closed, or after its target
-/// stopped being a local simulator, between two steps.
+/// Catches: a journey that goes on after its named session expired or was closed between two steps,
+/// as closing it does when the selected run target changes. (A target that stops simulating is
+/// caught by `a_target_that_no_longer_simulates_stops_before_the_command`.)
 #[test]
 fn a_session_that_ends_between_steps_stops_the_journey() {
     let fake = FakeSimulator::start(Script {

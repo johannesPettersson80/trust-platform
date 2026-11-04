@@ -1,7 +1,10 @@
 //! A fake simulator HMI web server for the simulator journey tests: the runtime's page, command and
 //! readback stream routes (`/api/hmi/page`, `/api/hmi/command`, `/ws/hmi`) on 127.0.0.1, served by
 //! tiny_http and tungstenite as the runtime serves them (`crates/trust-runtime/src/web`), with the
-//! answers each test scripts. It records every request with its cookie and access token.
+//! answers each test scripts. Like the runtime, a stream first says whether the target runs in
+//! simulation, and a command's later outcomes come after a delay: at least a stream period, a
+//! timed-out one at the control's confirmation time. It records every request with its cookie and
+//! access token.
 
 use std::collections::BTreeMap;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
@@ -24,12 +27,16 @@ pub(super) enum Frame {
     Close,
 }
 
-/// The answer to a command, and what every open stream sends after it.
+/// The answer to a command, and what every open stream sends `delay` after it.
 pub(super) struct CommandAnswer {
     pub(super) status: u16,
     pub(super) body: Value,
     pub(super) then: Vec<Frame>,
+    pub(super) delay: Duration,
 }
+
+/// The runtime's shortest stream period, the least delay of a later outcome.
+pub(super) const STREAM_PERIOD: Duration = Duration::from_millis(250);
 
 /// A request as the fake received it.
 #[derive(Debug, Clone)]
@@ -47,8 +54,12 @@ pub(super) struct Script {
     pub(super) pages: BTreeMap<String, Value>,
     /// Whether `/ws/hmi` opens; it answers 404 otherwise.
     pub(super) streams: bool,
+    /// Whether the target runs in simulation, which a stream says first; nothing when `None`.
+    pub(super) simulation: Option<bool>,
     /// What a stream sends when it opens.
     pub(super) on_open: Vec<Frame>,
+    /// What happens when a stream opens, before it sends anything.
+    pub(super) on_stream: Box<dyn Fn() + Send>,
     /// The answer to each command, given its body.
     pub(super) on_command: Box<dyn Fn(&Value) -> CommandAnswer + Send>,
 }
@@ -59,11 +70,14 @@ impl Script {
         Self {
             pages,
             streams: true,
+            simulation: Some(true),
             on_open: Vec::new(),
+            on_stream: Box::new(|| {}),
             on_command: Box::new(|_| CommandAnswer {
                 status: 404,
                 body: json!({ "error": "no command service" }),
                 then: Vec::new(),
+                delay: STREAM_PERIOD,
             }),
         }
     }
@@ -181,6 +195,7 @@ fn serve(mut request: Request, shared: &Shared) {
         (Method::Post, "/api/hmi/command") => {
             let answer = (lock(&shared.script).on_command)(&body);
             respond(request, answer.status, &answer.body);
+            thread::sleep(answer.delay);
             let mut open = lock(&shared.streams);
             for frame in answer.then {
                 open.retain(|stream| stream.send(frame.clone()).is_ok());
@@ -200,7 +215,16 @@ fn stream(request: Request, key: &str, shared: &Shared) {
     let socket = request.upgrade("websocket", response);
     let mut socket = WebSocket::from_raw_socket(socket, Role::Server, None);
     let (sender, frames) = mpsc::channel();
-    for frame in lock(&shared.script).on_open.clone() {
+    let (simulation, on_open) = {
+        let script = lock(&shared.script);
+        (script.on_stream)();
+        (script.simulation, script.on_open.clone())
+    };
+    if let Some(enabled) = simulation {
+        let state = json!({ "simulation": { "enabled": enabled, "time_scale": 1.0 } });
+        let _ = sender.send(Frame::Text(state));
+    }
+    for frame in on_open {
         let _ = sender.send(frame);
     }
     lock(&shared.streams).push(sender);
