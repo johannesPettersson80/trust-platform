@@ -213,7 +213,11 @@ commit and its GitHub release exists, as after a promotion that stopped
 halfway, it takes the rehearsal that the release's `release-provenance.json`
 names while that one still qualifies, so that the release continues with the
 files it began with. Without one, the push releases nothing and the release
-follows `main`'s CI. A promoted release runs no build or test of its
+follows `main`'s CI. An error while the plan looks for a rehearsal, as a failed
+GitHub request, never fails the plan: it promotes nothing and names the error
+in a notice, so that a push's run releases nothing and the release after
+`main`'s CI builds every package. The plan job may read pull requests for this
+(`pull-requests: read`). A promoted release runs no build or test of its
 packages; its preflight audits the VS Code lockfile again, since the audit of
 the rehearsal's build can be days old, and it runs the real-database matrix on
 the commit, which a pull request's

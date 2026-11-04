@@ -10,6 +10,7 @@ import os
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
@@ -420,10 +421,13 @@ class ReleasePlanTests(unittest.TestCase):
     def test_a_push_never_releases_a_version_twice(self) -> None:
         # Catches a promotion of a version that is complete or was released from an earlier commit: every push after a
         # release keeps its version. Neither looks for a rehearsal.
-        unused = lambda version, sha: self.fail("a released version looks for no rehearsal")
+        # The lookups are recorded, not failed: an error of the lookup only means no promotion (coordinator, B).
+        asked = []
+        unused = lambda version, sha: asked.append((version, sha))
         complete = pushed(tag_commit=lambda tag: ("tag", "new"), release_complete=lambda tag: True, find_rehearsal=unused)
         self.assertEqual((complete.mode, complete.reason), ("skip", "v0.27.0 is released and complete"))
         earlier = pushed(push_sha="released", tag_commit=lambda tag: ("tag", "older"), find_rehearsal=unused)
+        self.assertEqual(asked, [], "a released version looks for no rehearsal")
         self.assertEqual((earlier.mode, earlier.tag), ("skip", "v0.26.0"))
         resumed = pushed(tag_commit=lambda tag: ("tag", "new"))
         self.assertEqual((resumed.mode, resumed.rehearsal), ("release", REHEARSAL), "an incomplete promotion resumes")
@@ -443,8 +447,10 @@ class ReleasePlanTests(unittest.TestCase):
         built = after_ci(find_rehearsal=lambda version, sha: None)
         self.assertEqual((built.mode, built.rehearsal, built.platforms), ("release", None, release_plan.ALL_PLATFORMS),
                          "without a rehearsal of its tree, it builds every package")
-        unused = lambda version, sha: self.fail("a complete release looks for no rehearsal")
+        asked = []
+        unused = lambda version, sha: asked.append((version, sha))
         complete = after_ci(tag_commit=lambda tag: ("tag", "new"), release_complete=lambda tag: True, find_rehearsal=unused)
+        self.assertEqual(asked, [], "a complete release looks for no rehearsal")
         self.assertEqual(complete.mode, "skip")
 
     def test_main_ci_after_a_completed_promotion_releases_nothing(self) -> None:
@@ -459,10 +465,12 @@ class ReleasePlanTests(unittest.TestCase):
 
     def test_only_a_push_to_main_of_the_official_repository_promotes(self) -> None:
         # Catches a promotion from a branch push or from a fork's copy of the workflow.
-        unused = lambda version, sha: self.fail("only a push to main looks for a rehearsal")
+        asked = []
+        unused = lambda version, sha: asked.append((version, sha))
         self.assertEqual(pushed(push_ref="refs/heads/work/next", find_rehearsal=unused).mode, "skip")
         self.assertEqual(pushed(push_ref="refs/tags/v0.27.0", find_rehearsal=unused).mode, "skip")
         self.assertEqual(pushed(repository="someone/fork", find_rehearsal=unused).mode, "skip")
+        self.assertEqual(asked, [], "only a push to main of the official repository looks for a rehearsal")
 
     def test_a_push_keeps_the_rules_of_a_release_after_main_ci(self) -> None:
         # Catches a promotion past a version whose release was dropped, or onto a lightweight tag.
@@ -651,6 +659,35 @@ class ReleasePlanTests(unittest.TestCase):
             self.assertEqual(release_plan.lookup_rehearsal(OFFICIAL, "0.27.0", "new", "token"), REHEARSAL)
         preferred.assert_called_once_with(OFFICIAL, "v0.27.0", "token")
         finder.assert_called_once_with(OFFICIAL, "0.27.0", TREE, "token", prefer=41)
+
+    def test_an_error_of_the_promotion_lookup_never_fails_the_plan(self) -> None:
+        # Specification 24, coordinator's review: a failed GitHub request or answer while looking for a rehearsal means
+        # no promotion, with a notice that names it; a push's run then releases nothing, and the release after main's CI
+        # builds. Catches a lookup error that fails the plan and so blocks the release that builds, and one that a
+        # promotion swallows without a word. A failed completeness check still fails the plan.
+        def broken(version: str, sha: str):
+            raise urllib.error.URLError("api.github.com is unreachable")
+
+        push = pushed(find_rehearsal=broken)
+        self.assertEqual((push.mode, push.rehearsal), ("skip", None))
+        self.assertIn("the promotion lookup failed (URLError: <urlopen error api.github.com is unreachable>)", push.notice)
+        self.assertIn("v0.27.0 follows main's CI", push.notice)
+        built = after_ci(find_rehearsal=broken)
+        self.assertEqual((built.mode, built.rehearsal, built.platforms), ("release", None, release_plan.ALL_PLATFORMS))
+        self.assertIn("the promotion lookup failed (URLError", built.notice)
+        self.assertIn("v0.27.0 builds every package", built.notice)
+        self.assertEqual(pushed().notice, "", "a lookup that worked says nothing")
+
+        def unknown(tag: str) -> bool:
+            raise urllib.error.URLError("api.github.com is unreachable")
+
+        with self.assertRaises(urllib.error.URLError):
+            after_ci(tag_commit=lambda tag: ("tag", "new"), release_complete=unknown)
+        output = io.StringIO()
+        with mock.patch.object(release_plan, "plan", return_value=push), contextlib.redirect_stdout(output), \
+                mock.patch.dict(os.environ, {"GITHUB_OUTPUT": ""}):
+            self.assertEqual(release_plan.main(["--event", "push"]), 0)
+        self.assertIn("::notice::release plan: the promotion lookup failed (URLError", output.getvalue())
 
     def test_the_passed_rehearsals_bundle_of_the_highest_id_is_promoted(self) -> None:
         # Catches a promotion of an older rehearsal's files when a newer one passed, and a finder that gives up when the

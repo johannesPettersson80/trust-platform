@@ -119,6 +119,8 @@ class Plan:
     platforms: tuple[str, ...] = ()
     # The rehearsal whose files a promoted release publishes; None for every other plan.
     rehearsal: Rehearsal | None = None
+    # Why a promotion was not looked up to the end, when its lookup failed; the run prints it as a notice.
+    notice: str = ""
 
     @property
     def tag(self) -> str:
@@ -466,6 +468,15 @@ def lookup_rehearsal(repository: str, version: str, sha: str, token: str) -> Reh
     )
 
 
+def looked_up(find: Callable[[str, str], Rehearsal | None], version: str, sha: str) -> tuple[Rehearsal | None, str]:
+    """The rehearsal that `find` finds, or None and a notice naming the error when the lookup failed: an error while
+    looking for a rehearsal never fails the plan, so it never blocks the release that builds instead."""
+    try:
+        return find(version, sha), ""
+    except Exception as error:  # Any failed request or answer: no promotion, and the notice says why.
+        return None, f"the promotion lookup failed ({type(error).__name__}: {error})"
+
+
 def plan(
     *,
     event: str,
@@ -514,10 +525,11 @@ def plan(
         due = main_release(push_sha, **released)
         if due.mode != "release":
             return due
-        rehearsal = find_rehearsal(due.version, push_sha)
+        rehearsal, failure = looked_up(find_rehearsal, due.version, push_sha)
         if rehearsal is None:
-            return Plan("skip", push_sha, due.version,
-                        f"no passed rehearsal kept the files of this commit's tree; {due.tag} follows main's CI")
+            why = failure or "no passed rehearsal kept the files of this commit's tree"
+            return Plan("skip", push_sha, due.version, f"{why}; {due.tag} follows main's CI",
+                        notice=failure and f"{failure}; {due.tag} follows main's CI")
         return promoted(due, rehearsal)
     if event != "workflow_run":
         return Plan("skip", "", "", f"a {event} event releases nothing")
@@ -535,8 +547,10 @@ def plan(
         return due
     # The same rehearsal as a push's promotion, so that both publish the same bytes: a promotion that failed after
     # it published some packages is finished with the files it began with.
-    rehearsal = find_rehearsal(due.version, run_sha)
-    return due if rehearsal is None else promoted(due, rehearsal)
+    rehearsal, failure = looked_up(find_rehearsal, due.version, run_sha)
+    if rehearsal is None:
+        return replace(due, notice=failure and f"{failure}; {due.tag} builds every package")
+    return promoted(due, rehearsal)
 
 
 def promoted(due: Plan, rehearsal: Rehearsal) -> Plan:
@@ -638,6 +652,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         find_rehearsal=lambda version, sha: lookup_rehearsal(args.repository, version, sha, token),
     )
+    if result.notice:
+        print(f"::notice::release plan: {result.notice}")
     rehearsal = result.rehearsal
     lines = [f"mode={result.mode}", f"sha={result.sha}", f"version={result.version}", f"tag={result.tag}",
              f"rehearsal_run={rehearsal.run_id if rehearsal else ''}",

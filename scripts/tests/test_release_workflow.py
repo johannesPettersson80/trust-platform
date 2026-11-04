@@ -643,6 +643,13 @@ class ReleaseWorkflowTests(unittest.TestCase):
         for path in called:
             self.assertTrue((ROOT / path[2:]).is_file(), path)
 
+    def test_the_plan_may_read_a_commits_pull_requests(self) -> None:
+        # Specification 24: the plan asks GitHub for the pull requests of a rehearsed head, which needs
+        # `pull-requests: read`; without it that question fails once the repository is private. Catches a plan job that
+        # drops the permission, or the reading of runs, artifacts and commits it needs too.
+        plan = self.jobs["plan"]
+        self.assertIn("    permissions:\n      contents: read\n      actions: read\n      pull-requests: read\n", plan)
+
     def test_a_run_after_ci_is_named_by_the_commit_it_releases(self) -> None:
         # The completeness check finds a run after main's CI by its name, since GitHub gives it main's newest commit as
         # its head. Catches a run-name that the check no longer recognises: it would publish a released version again.
