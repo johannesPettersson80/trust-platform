@@ -6,6 +6,50 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-03
+
+### Added
+
+- The `VOID` return type of a function, under the CODESYS profile: `FUNCTION MemCopy : VOID` declares a
+  function without a result, as the vendor libraries declare it (`WagoSysPlainMem.MemCopy`). The function
+  carries no return slot, a call captures no result, and the body may exit early with a value-less `RETURN;`
+  (specification 04 section 2, `docs/IEC_DEVIATIONS.md` DEV-043).
+
+### Changed
+
+- Library files no longer receive the unused-symbol warnings W001, W002, and W009, in the editor
+  and in `trust-lsp check` alike: a library is API surface that an application only uses, and it
+  is judged in its own project, where its files are that project's own sources and every warning
+  is on. For each file, the deepest folder that holds it among the project's own source folders
+  (its `include_paths`, or the project folder) and its library folders (`[[libraries]]`,
+  `[project] library_paths`, and resolved `[dependencies]` packages) decides, and an own folder
+  wins over an equally deep library folder. A dependency outside the project folder, as in the
+  OSCAT examples, is diagnosed with the project's settings. Every other diagnostic stays on for
+  library files (specifications 14 §7.6 and §7.6.4, 28 §1).
+- Under the IEC rules, a function declared `: VOID` is now an error (`E207`): IEC 61131-3 has no `VOID` data
+  type. Before, every profile accepted it. A project that uses it either selects the CODESYS profile
+  (`vendor_profile = "codesys"` in `trust-lsp.toml`) or declares the function without a result type
+  (`FUNCTION LogMessage`, specification 04).
+- An unused global constant now warns (W001) wherever it is declared, also at the top level of a file. Before, only
+  one declared in a NAMESPACE, a CONFIGURATION or a RESOURCE warned (specification 28 §1, decided by the owner on
+  1 November 2026, as CODESYS's static analysis reports a project's unused global variables).
+- A trend's Export saves the visible window as the runtime writes it from its trend history, as TwinCAT and CODESYS
+  export from their recorders: a sample a second for the last hour, then each minute's lowest and highest value. Before,
+  the page wrote the file from what it had drawn (specification 39 §5.9, decided by the owner on 1 November 2026).
+
+### Fixed
+
+- `trust-lsp check` reports the diagnostics of the project's `trust-lsp.toml`, as the editor shows them:
+  a broken library or dependency configuration (`L001`–`L007`) now fails the check. Before, the check
+  looked only at the source files, so a CI gate passed a configuration the editor marked as an error
+  (specification 14 §7.7, issue #213).
+- A function block invocation under the CODESYS profile binds positionally to its input and
+  in-out formals only, in declaration order; an output formal binds only by name with `=>`, so
+  vendor calls such as `fb(1, 2)` on a block with an output formal compile. Functions and
+  methods keep the full positional association, and the default rules are unchanged
+  (`IEC_DEVIATIONS.md` DEV-044; specification 04, "Function Block Call (Table 42)").
+- A global constant that a program uses through its `VAR_EXTERNAL` declaration is no longer reported as unused (W001).
+
 ## [0.29.1] - 2026-11-03
 
 ### Changed
