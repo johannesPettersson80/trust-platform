@@ -313,9 +313,10 @@ impl AgentToolProvider {
     /// failure answer that one failed call would be indistinguishable from
     /// (specification 20 §8).
     fn poisoned_result() -> Value {
-        Self::error_text_result(
-            r#"{"code":-32002,"message":"An earlier call panicked and ended this agent server session. Restart 'trust-dev agent serve-mcp' to start a fresh session; the harness session state is lost."}"#,
-        )
+        json!({
+            "content": [{ "type": "text", "text": r#"{"code":-32002,"data":{"kind":"session_ended"},"message":"An earlier call panicked and ended this agent server session. Restart 'trust-dev agent serve-mcp' to start a fresh session; the harness session state is lost."}"# }],
+            "isError": true,
+        })
     }
 
     fn error_text_result(text: &str) -> Value {

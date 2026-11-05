@@ -169,7 +169,8 @@ answer. A call that panics inside the dispatch is answered the same way.
 - The Agent API harness methods share one stateful harness session per server
   instance (`harness.load` then `harness.cycle` observe the same session).
   Serving one call at a time is what makes that session model safe.
-- Long-running calls (builds, tests) block later calls until they finish.
+- While a long call (a build, a test run) runs, other calls are refused
+  until it answers.
 - The connection layer accepts `notifications/cancelled` and asks the
   provider to cancel the call; sequential v1 serving cannot preempt a running
   dispatch, so the cancel is a no-op and the call answers through its own

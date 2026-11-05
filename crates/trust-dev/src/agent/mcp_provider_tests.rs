@@ -373,6 +373,10 @@ fn a_panicked_dispatch_marks_every_later_call_as_a_dead_session() {
     let dead = tool_call(&provider, "agent_describe", json!({}));
     let payload = error_payload(&dead);
     assert_eq!(payload["code"], -32002, "{payload:#}");
+    assert_eq!(
+        payload["data"]["kind"], "session_ended",
+        "the payload carries the machine-readable kind: {payload:#}"
+    );
     let message = payload["message"].as_str().expect("restart message");
     assert!(
         message.contains("Restart 'trust-dev agent serve-mcp'"),
