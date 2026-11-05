@@ -70,7 +70,7 @@ fn run(
 }
 
 fn target(url: &str, token: &str) -> Value {
-    json!({ "simulator": true, "url": url, "endpoint": "tcp://127.0.0.1:9100", "token": token })
+    json!({ "simulator": true, "url": url, "endpoint": "tcp://127.0.0.1:9100", "authToken": token })
 }
 
 /// The page every journey here exercises.

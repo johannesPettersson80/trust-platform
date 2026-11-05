@@ -8,7 +8,7 @@ import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import { State } from "vscode-languageclient/node";
 import type { LspClientProvider } from "../../lm-tools/shared";
-import { getTrustConfiguration } from "../../configuration";
+import { traceLogsParameters } from "../../lspCredentials";
 import { onDidChangeSelectedRuntime } from "../../selectedRuntime";
 import { LiveSession, LiveEndpoint, LiveSessionDeps } from "../editor/liveSession";
 import { runtimeLiveOperatorDeps } from "../editor/liveOperatorRuntime";
@@ -47,26 +47,10 @@ export function setSimulatorLanguageClient(getClient: LspClientProvider): () => 
   };
 }
 
-/** Whether the language client's trace logs each message's parameters, a journey's cookie among them: `verbose` in
- * `trust.languageServer.trace`, which the extension sets the trace from, or `verbose` or `compact` in the client's own
- * `trust-lsp.trace.server` (vscode-jsonrpc logs the parameters at both), or that setting's `json` format, at which
- * vscode-jsonrpc logs whole messages at any level (vscode-languageclient traces `off` as `messages` while its output
- * channel logs at Trace). */
-function traceLogsParameters(): boolean {
-  const own = vscode.workspace.getConfiguration("trust-lsp").get<unknown>("trace.server");
-  const object = typeof own === "object" && own !== null ? (own as { verbosity?: unknown; format?: unknown }) : undefined;
-  const logs = (value: unknown): boolean => value === "verbose" || value === "compact";
-  return (
-    object?.format === "json" ||
-    logs(object ? object.verbosity : own) ||
-    logs(getTrustConfiguration().get("trace.server"))
-  );
-}
-
 /** The target as the language server reads it. */
 function targetOf(target: LiveEndpoint | undefined): Record<string, unknown> | null {
   return target
-    ? { simulator: target.simulator, url: target.url, endpoint: target.endpoint, token: target.token ?? null }
+    ? { simulator: target.simulator, url: target.url, endpoint: target.endpoint, authToken: target.token ?? null }
     : null;
 }
 

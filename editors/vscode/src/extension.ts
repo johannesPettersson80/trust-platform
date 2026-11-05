@@ -17,6 +17,7 @@ import { registerSimulationSpeedCommand } from "./simulationSpeed";
 import { registerTrustHome } from "./trustHomeView";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
+import { carriesCredential, credentialNamesOf, CREDENTIAL_TRACE_REFUSAL, traceLogsParameters } from "./lspCredentials";
 import { registerNewProjectCommand } from "./newProject";
 import { openPendingProjectLanding } from "./projectLandingActivation";
 import { registerExamples } from "./examples";
@@ -247,6 +248,15 @@ export async function activate(context: vscode.ExtensionContext) {
             augmentDiagnostic(diagnostic, showIecDiagnosticRefs)
           )
         );
+      },
+      // A command that carries a credential the language server names is refused, unsent, while the client's trace
+      // logs each message's parameters (specification 25 §6.4).
+      executeCommand(command, args, next) {
+        const names = credentialNamesOf(client?.initializeResult?.capabilities.experimental);
+        if (names && traceLogsParameters() && carriesCredential(command, args, names)) {
+          return Promise.reject(new Error(CREDENTIAL_TRACE_REFUSAL));
+        }
+        return next(command, args);
       },
     },
   };

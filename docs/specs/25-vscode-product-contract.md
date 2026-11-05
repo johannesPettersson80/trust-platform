@@ -1787,6 +1787,22 @@ test checks each family.
   (`localhost`, a `127.0.0.0/8` address or `[::1]`); any other TCP endpoint is
   an untrusted plain-TCP channel, and a blank, unreadable or serial endpoint
   has none.
+- A credential crosses the language server's channel only where no trace logs
+  it (5 November 2026). The language server never logs the messages it
+  receives or sends, whatever `RUST_LOG` says (specification 43, AT-08). Its
+  `initialize` answer names the credentials it receives or answers
+  (`capabilities.experimental.credentials`):
+  - the request fields `authToken`: a runtime's access token, for run targets,
+    HMI deployment and a simulator journey's target;
+  - `controlAuthToken`, for Live Values;
+  - `cookie`, a named HMI session's (specification 43, AT-08);
+  - the answer of `trust-lsp.simulatorControl` `create` (§6.8).
+
+  While the language client's trace logs each message's parameters, the
+  extension refuses such a command before it sends anything, with
+  `UNSUPPORTED_CONTEXT` and the settings to change. The trace logs parameters
+  with `trust.languageServer.trace` at `verbose`, or with
+  `trust-lsp.trace.server` at `verbose`, at `compact` or in the `json` format.
 - Remote Connect verifies control authentication and `debug_enabled` before
   opening an attach session. Managed token parsing accepts only root
   `runtime.control`, including its root dotted form; an identically named key

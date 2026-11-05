@@ -16,6 +16,7 @@ mod runtime_values;
 mod sync;
 mod workspace;
 
+pub(crate) use commands::credentials;
 #[cfg(test)]
 pub(crate) use commands::namespace_move_workspace_edit;
 pub use commands::HMI_BUILDER_COMMANDS;

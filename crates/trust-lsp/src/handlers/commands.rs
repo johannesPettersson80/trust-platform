@@ -77,6 +77,8 @@ pub use visual::VISUAL_COMMANDS;
 // the sidebar's gates and the examples gallery.
 pub(crate) mod project;
 pub use project::PROJECT_COMMANDS;
+// The credentials that cross the channel (specification 25 §6.4), named in the `initialize` answer.
+pub(crate) mod credentials;
 // The run targets and the runtime requests of the extension (specification 25 §4, §5.1, §6.4).
 mod run_targets;
 pub use run_targets::RUN_TARGET_COMMANDS;
