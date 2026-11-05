@@ -254,6 +254,7 @@ nav:
       - Agent API:
           - Overview: reference/agent-api/overview.md
           - v1: reference/agent-api/v1.md
+          - MCP Binding: reference/agent-api/mcp.md
       - Harness Protocol: reference/harness/protocol.md
       - Diagnostics: reference/diagnostics.md
       - Specifications:

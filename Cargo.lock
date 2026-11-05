@@ -7739,6 +7739,7 @@ dependencies = [
  "clap",
  "dialoguer",
  "owo-colors",
+ "schemars 1.2.2",
  "serde",
  "serde_json",
  "smol_str",

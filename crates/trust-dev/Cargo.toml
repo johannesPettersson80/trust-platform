@@ -13,6 +13,7 @@ base64 = "0.23.1"
 clap.workspace = true
 dialoguer.workspace = true
 owo-colors.workspace = true
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 smol_str = { workspace = true, features = ["std"] }
