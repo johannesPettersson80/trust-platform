@@ -2,6 +2,7 @@
 import { TextDecoder } from "util";
 import * as vscode from "vscode";
 import { MAX_ITEMS, type LspClientProvider } from "./types";
+import { carriesCredential, credentialNamesOf, MODEL_CREDENTIAL_REFUSAL } from "../../lspCredentials";
 
 export async function ensureDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
   const open = openDocumentIfLoaded(uri);
@@ -149,6 +150,15 @@ export async function sendLspRequest(
   const client = getClient?.();
   if (!client) {
     return { error: "Language client is not available." };
+  }
+  // A language-model tool never sends or receives a credential (specification 25 §6.4): such a request goes to the
+  // language server around the client's middleware, and its answer would reach the model.
+  if (method === "workspace/executeCommand") {
+    const { command, arguments: args } = (params ?? {}) as { command?: unknown; arguments?: unknown };
+    const names = credentialNamesOf(client.initializeResult?.capabilities.experimental);
+    if (names && typeof command === "string" && carriesCredential(command, Array.isArray(args) ? args : [], names)) {
+      return { error: MODEL_CREDENTIAL_REFUSAL };
+    }
   }
   const notifications: Array<{ method: string; params: unknown }> = [];
   const disposables: vscode.Disposable[] = [];

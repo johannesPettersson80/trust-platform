@@ -67,6 +67,36 @@ suite("Credentials on the language server's channel", () => {
     });
   });
 
+  // Catches the review of #247: Devices & Connections sends the runtime's control token as `runtime.token`, a secret
+  // configuration key, which the guard missed before; the refused request never reaches the language server.
+  test("Devices & Connections' runtime token is refused, unsent, while the trace logs parameters", async () => {
+    await underVerboseTrace(async () => {
+      await assert.rejects(
+        run("trust-lsp.devicesCanvasAct", {
+          op: "identify",
+          args: { name: "Line 1" },
+          runtime: { endpoint: "unix:///nonexistent/trust-credentials-test.sock", token: "secret-7" },
+        }),
+        REFUSAL,
+      );
+    });
+  });
+
+  // Catches a guard that reads any field named like a credential: a field holding no text carries none, and the colour
+  // command's token travels as `colourToken`.
+  test("a blank token and a colour token go out under a verbose trace", async () => {
+    await underVerboseTrace(async () => {
+      assert.deepStrictEqual(await run("trust-lsp.hmiDeploy", { action: "deploy", authToken: "   " }), NO_PROJECT);
+      const colour = (await run("trust-lsp.hmiScreenColour", {
+        text: "",
+        theme: "dark",
+        colourToken: "accent",
+        value: "#112233",
+      })) as { ok?: unknown };
+      assert.strictEqual(typeof colour.ok, "boolean");
+    });
+  });
+
   // Catches G47's class for an answer: the simulator control's `create` answers a new control token, its `check` none.
   test("the simulator control's new token is refused under a verbose trace, and its check is not", async () => {
     await underVerboseTrace(async () => {

@@ -6,6 +6,7 @@ import { ensureToolchain } from "./toolchain";
 import { getBinaryPath } from "./binary";
 import { getTrustConfiguration } from "./configuration";
 import { launchEndpointProblem, localSimControl } from "./simControl";
+import { credentialRefusal, traceLogsParameters } from "./lspCredentials";
 import {
   __testCreateDefaultConfigurationAuto,
   __testEnsureConfigurationEntryAuto,
@@ -73,6 +74,10 @@ async function applyLaunchControlEndpoint(
   if (sim) {
     config.controlEndpoint = sim.endpoint;
     config.controlAuthToken = sim.authToken;
+  } else if (traceLogsParameters()) {
+    // The simulator's control token was refused, since the trace would log it: the launch stops here instead of
+    // starting the simulator on the adapter's default endpoint without a token (specification 25 §6.4).
+    throw credentialRefusal();
   }
 }
 

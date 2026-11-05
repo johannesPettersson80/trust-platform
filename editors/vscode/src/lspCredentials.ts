@@ -48,13 +48,14 @@ export function credentialNamesOf(experimental: unknown): CredentialNames | unde
   };
 }
 
-/** Whether `value` holds a named credential field with a value, at any depth. */
+/** Whether `value` holds a named credential field, at any depth: a field that carries a credential holds non-blank
+ * text (specification 25 §6.4), so `token: true` or an empty token does not. */
 function holdsCredential(value: unknown, fields: ReadonlySet<string>): boolean {
   if (Array.isArray(value)) return value.some((item) => holdsCredential(item, fields));
   if (typeof value !== "object" || value === null) return false;
   return Object.entries(value).some(
     ([key, field]) =>
-      (fields.has(key) && field !== null && field !== undefined && field !== "") || holdsCredential(field, fields),
+      (fields.has(key) && typeof field === "string" && field.trim() !== "") || holdsCredential(field, fields),
   );
 }
 
@@ -65,4 +66,28 @@ export function carriesCredential(command: string, args: unknown[], names: Crede
     (answer) => answer.command === command && (answer.action === undefined || answer.action === action),
   );
   return answered || holdsCredential(args, new Set(names.fields));
+}
+
+/** The refusal of a language-model tool's command that carries or answers a credential: a model never receives one. */
+export const MODEL_CREDENTIAL_REFUSAL =
+  "UNSUPPORTED_CONTEXT: this command sends or answers a credential, which a language-model tool never does.";
+
+/** When the extension last told the user of a refusal: at most once a minute, since Live Values and the canvas ask
+ * again and again. */
+let toldAt = 0;
+const TELL_EVERY_MS = 60_000;
+
+/** The refusal of a command that carries a credential while the trace logs parameters: the error for the caller, and a
+ * warning with the setting to change for the user, since some callers fall back to what they do without an answer. */
+export function credentialRefusal(): Error {
+  const now = Date.now();
+  if (now - toldAt >= TELL_EVERY_MS) {
+    toldAt = now;
+    void vscode.window
+      .showWarningMessage(CREDENTIAL_TRACE_REFUSAL, "Open Settings")
+      .then((choice) =>
+        choice ? vscode.commands.executeCommand("workbench.action.openSettings", "trust.languageServer.trace") : undefined,
+      );
+  }
+  return new Error(CREDENTIAL_TRACE_REFUSAL);
 }

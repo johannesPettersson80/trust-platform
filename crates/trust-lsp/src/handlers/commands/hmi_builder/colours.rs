@@ -21,6 +21,9 @@ const SCREEN_FILE: &str = "hmi/screen.toml";
 struct Args {
     text: String,
     theme: String,
+    /// The colour token's name, `colourToken` on the wire: `token` names a credential there
+    /// (specification 25 §6.4).
+    #[serde(rename = "colourToken")]
     token: String,
     #[serde(default)]
     value: Option<String>,
