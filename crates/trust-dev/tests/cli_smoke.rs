@@ -125,7 +125,7 @@ fn agent_serve_mcp_serves_one_json_rpc_message_per_line_and_refuses_an_overlappi
         }
     });
     let mut stdin = child.stdin.take().expect("child stdin");
-    let mut next_answer = |stdin: &mut std::process::ChildStdin| -> serde_json::Value {
+    let next_answer = || -> serde_json::Value {
         let line = receiver
             .recv_timeout(std::time::Duration::from_secs(120))
             .expect("the server answers before the answer time");
@@ -140,7 +140,7 @@ fn agent_serve_mcp_serves_one_json_rpc_message_per_line_and_refuses_an_overlappi
         r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"protocolVersion":"2025-06-18","capabilities":{{}},"clientInfo":{{"name":"test","version":"0"}}}}}}"#
     )
     .expect("send initialize");
-    let initialized = next_answer(&mut stdin);
+    let initialized = next_answer();
     assert!(
         initialized["result"]["protocolVersion"].is_string(),
         "initialize answers a protocol version: {initialized:#}"
@@ -155,7 +155,7 @@ fn agent_serve_mcp_serves_one_json_rpc_message_per_line_and_refuses_an_overlappi
         r#"{{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{{}}}}"#
     )
     .expect("send tools/list");
-    let listed = next_answer(&mut stdin);
+    let listed = next_answer();
     let tools = listed["result"]["tools"]
         .as_array()
         .expect("tools/list answers a list");
@@ -178,7 +178,7 @@ fn agent_serve_mcp_serves_one_json_rpc_message_per_line_and_refuses_an_overlappi
         r#"{{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{{"name":"agent_describe","arguments":{{}}}}}}"#
     )
     .expect("send the overlapping agent_describe");
-    let answers: Vec<serde_json::Value> = (0..2).map(|_| next_answer(&mut stdin)).collect();
+    let answers: Vec<serde_json::Value> = (0..2).map(|_| next_answer()).collect();
     let refused = answers.iter().find(|answer| answer["id"] == 4);
     let refused = refused.expect("the overlapping call is answered");
     assert_eq!(
