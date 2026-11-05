@@ -671,8 +671,8 @@ def _validate_verification_workflow_source_contract(
             "GATE_JOB_VERIFICATION_REPORT: exhaustive verification tooling must retain a schedule"
         )
     reviewed_fragments = (
-        "if: ${{ github.event_name == 'pull_request' }}",
-        "if: ${{ github.event_name != 'pull_request' }}",
+        "if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
+        "if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}",
         "python3 scripts/check_verification_tooling_selftests.py",
     )
     if any(fragment not in block for fragment in reviewed_fragments):
