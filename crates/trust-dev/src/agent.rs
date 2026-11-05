@@ -18,6 +18,9 @@ use trust_runtime::RestartMode;
 mod contract_tests;
 #[path = "agent/harness.rs"]
 mod harness;
+#[path = "agent/issue_cap.rs"]
+mod issue_cap;
+pub(crate) use issue_cap::bound_issue_lines;
 const JSON_RPC_VERSION: &str = "2.0";
 const ERROR_PATH_OUTSIDE_WORKSPACE: i32 = -32001;
 const ERROR_IO: i32 = -32002;
@@ -273,15 +276,30 @@ impl AgentServer {
             .map_err(AgentCommandError::from_anyhow)
     }
 
-    fn runtime_build(&self, params: CommonProjectParams) -> Result<JsonValue, AgentCommandError> {
-        let project_root = self.resolve_project_root(params.project.as_deref())?;
+    fn runtime_build(&self, params: RuntimeIssueCapParams) -> Result<JsonValue, AgentCommandError> {
+        let issues_limit = issue_cap::validate_issue_limit(params.issues_limit)?;
+        let project_root = self.resolve_project_root(params.common.project.as_deref())?;
         let sources_root = params
+            .common
             .sources_root
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
-        crate::build::build_json_payload(Some(project_root), sources_root)
-            .map_err(AgentCommandError::from_anyhow)
+        let mut payload = match crate::build::build_json_payload(Some(project_root), sources_root) {
+            Ok(payload) => payload,
+            Err(error) => {
+                // A failed build projects the raw compiler dump as its error
+                // message; an applied cap bounds that projection, not just the
+                // success payload's issue list (specification 20 §7).
+                let mut error = AgentCommandError::from_anyhow(error);
+                error.message = issue_cap::bound_issue_lines(&error.message, issues_limit);
+                return Err(error);
+            }
+        };
+        if let Some(limit) = issues_limit {
+            issue_cap::apply_issue_cap(&mut payload, limit);
+        }
+        Ok(payload)
     }
 
     fn lsp_diagnostics(
@@ -364,10 +382,22 @@ impl AgentServer {
 
     fn runtime_validate(
         &self,
-        params: CommonProjectParams,
+        params: RuntimeIssueCapParams,
     ) -> Result<JsonValue, AgentCommandError> {
-        let project_root = self.resolve_project_root(params.project.as_deref())?;
-        crate::run::validate_json_payload(project_root).map_err(AgentCommandError::from_anyhow)
+        let issues_limit = issue_cap::validate_issue_limit(params.issues_limit)?;
+        let project_root = self.resolve_project_root(params.common.project.as_deref())?;
+        let mut payload = match crate::run::validate_json_payload(project_root) {
+            Ok(payload) => payload,
+            Err(error) => {
+                let mut error = AgentCommandError::from_anyhow(error);
+                error.message = issue_cap::bound_issue_lines(&error.message, issues_limit);
+                return Err(error);
+            }
+        };
+        if let Some(limit) = issues_limit {
+            issue_cap::apply_issue_cap(&mut payload, limit);
+        }
+        Ok(payload)
     }
 
     fn runtime_test(&self, params: RuntimeTestParams) -> Result<JsonValue, AgentCommandError> {
@@ -383,21 +413,34 @@ impl AgentServer {
 
     fn runtime_compile_reload(
         &self,
-        params: RuntimeReloadParams,
+        params: RuntimeCompileReloadParams,
     ) -> Result<JsonValue, AgentCommandError> {
-        let project_root = self.resolve_project_root(params.project.as_deref())?;
+        let issues_limit = issue_cap::validate_issue_limit(params.issues_limit)?;
+        let project_root = self.resolve_project_root(params.runtime.project.as_deref())?;
         let sources_root = params
+            .runtime
             .sources_root
             .as_deref()
             .map(|path| self.resolve_project_subpath(&project_root, path))
             .transpose()?;
-        crate::workflow::compile_reload_payload(
+        let mut payload = match crate::workflow::compile_reload_payload(
             &project_root,
             sources_root.as_deref(),
-            params.endpoint,
-            params.token,
-        )
-        .map_err(AgentCommandError::from_anyhow)
+            params.runtime.endpoint,
+            params.runtime.token,
+            issues_limit,
+        ) {
+            Ok(payload) => payload,
+            Err(error) => {
+                let mut error = AgentCommandError::from_anyhow(error);
+                error.message = issue_cap::bound_issue_lines(&error.message, issues_limit);
+                return Err(error);
+            }
+        };
+        if let Some(limit) = issues_limit {
+            issue_cap::apply_issue_cap(&mut payload, limit);
+        }
+        Ok(payload)
     }
 
     fn runtime_reload(&self, params: RuntimeReloadParams) -> Result<JsonValue, AgentCommandError> {
@@ -780,6 +823,25 @@ struct RuntimeReloadParams {
     sources_root: Option<String>,
     endpoint: Option<String>,
     token: Option<String>,
+}
+
+/// `runtime.compile_reload` — the runtime transaction params plus the
+/// contract's opt-in `issues_limit` cap (`runtime.reload` shares the runtime
+/// params but carries no top-level `issues` list, so it takes no cap).
+#[derive(Debug, Default, Deserialize)]
+struct RuntimeCompileReloadParams {
+    #[serde(flatten)]
+    runtime: RuntimeReloadParams,
+    issues_limit: Option<u64>,
+}
+
+/// The project params of `runtime.build` and `runtime.validate` plus the
+/// contract's opt-in `issues_limit` cap.
+#[derive(Debug, Default, Deserialize)]
+struct RuntimeIssueCapParams {
+    #[serde(flatten)]
+    common: CommonProjectParams,
+    issues_limit: Option<u64>,
 }
 
 #[derive(Debug, Default, Deserialize)]

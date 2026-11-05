@@ -634,3 +634,152 @@ fn harness_run_until_timeout_preserves_name_budget_and_typed_expected_value() {
         json!({"type": "BOOL", "value": true})
     );
 }
+
+// --- Opt-in issues_limit cap on the runtime transaction methods
+// --- (specification 20 §7).
+
+fn invalid_agent_program(name: &str, symbol: &str) -> String {
+    format!("PROGRAM {name}\nVAR\n  value : INT;\nEND_VAR\nvalue := {symbol};\nEND_PROGRAM\n")
+}
+
+#[test]
+fn compile_reload_issues_limit_caps_and_flags_only_when_exceeded() {
+    let workspace = TestWorkspace::new("compile-reload-cap");
+    workspace.write("src/a.st", &invalid_agent_program("Alpha", "MissingA"));
+    let mut server = workspace.server();
+
+    let whole = success(server.handle_line(&request(
+        json!(1),
+        "runtime.compile_reload",
+        Some(json!({})),
+    )));
+    let total_issues = whole["result"]["issues"]
+        .as_array()
+        .expect("issues array")
+        .len();
+    assert!(
+        total_issues >= 1,
+        "blocked diagnose carries issues: {whole:#}"
+    );
+    assert!(
+        whole.get("issuesTruncated").is_none(),
+        "uncapped response carries no truncation fields: {whole:#}"
+    );
+
+    let capped = success(server.handle_line(&request(
+        json!(2),
+        "runtime.compile_reload",
+        Some(json!({"issues_limit": 1})),
+    )));
+    assert_eq!(
+        capped["result"]["issues"]
+            .as_array()
+            .expect("issues array")
+            .len(),
+        1
+    );
+    assert_eq!(capped["result"]["issuesTruncated"], true);
+    assert_eq!(capped["result"]["totalIssues"], total_issues);
+
+    let generous = success(server.handle_line(&request(
+        json!(3),
+        "runtime.compile_reload",
+        Some(json!({"issues_limit": 9999})),
+    )));
+    assert_eq!(
+        generous["result"]["issues"]
+            .as_array()
+            .expect("issues array")
+            .len(),
+        total_issues
+    );
+    assert!(
+        generous.get("issuesTruncated").is_none(),
+        "an unexceeded limit leaves the response unchanged: {generous:#}"
+    );
+}
+
+#[test]
+fn compile_reload_rejects_a_zero_issues_limit_as_invalid_params() {
+    let workspace = TestWorkspace::new("compile-reload-cap-zero");
+    let mut server = workspace.server();
+
+    let response = failure(
+        server.handle_line(&request(
+            json!(1),
+            "runtime.compile_reload",
+            Some(json!({"issues_limit": 0})),
+        )),
+        -32602,
+    );
+    assert!(
+        response["error"]["message"].as_str().is_some(),
+        "{response:#}"
+    );
+}
+
+#[test]
+fn runtime_build_issues_limit_bounds_a_failed_builds_error_text() {
+    let workspace = TestWorkspace::new("runtime-build-cap-error-text");
+    workspace.write("src/a.st", &invalid_agent_program("Alpha", "MissingA"));
+    workspace.write("src/b.st", &invalid_agent_program("Beta", "MissingB"));
+    workspace.write("src/c.st", &invalid_agent_program("Gamma", "MissingC"));
+    let mut server = workspace.server();
+
+    let uncapped = failure(
+        server.handle_line(&request(json!(1), "runtime.build", Some(json!({})))),
+        -32002,
+    );
+    let uncapped_lines = uncapped["error"]["message"]
+        .as_str()
+        .unwrap()
+        .lines()
+        .count();
+
+    let capped = failure(
+        server.handle_line(&request(
+            json!(2),
+            "runtime.build",
+            Some(json!({"issues_limit": 1})),
+        )),
+        -32002,
+    );
+    let capped_message = capped["error"]["message"].as_str().unwrap();
+    let capped_lines: Vec<&str> = capped_message.lines().collect();
+    assert_eq!(
+        capped_lines.len(),
+        2,
+        "first limit line plus one closing marker: {capped_message}"
+    );
+    assert!(
+        capped_lines[0].contains("error[E"),
+        "the first diagnostic line survives: {capped_message}"
+    );
+    assert!(
+        capped_lines[1].contains("more diagnostic line(s) omitted by 'issues_limit'"),
+        "the closing line names the applied cap: {capped_message}"
+    );
+    assert!(
+        uncapped_lines > capped_lines.len(),
+        "the cap actually dropped dump lines: {uncapped_lines} vs {}",
+        capped_lines.len()
+    );
+
+    let generous = failure(
+        server.handle_line(&request(
+            json!(3),
+            "runtime.build",
+            Some(json!({"issues_limit": 9999})),
+        )),
+        -32002,
+    );
+    assert_eq!(
+        generous["error"]["message"]
+            .as_str()
+            .unwrap()
+            .lines()
+            .count(),
+        uncapped_lines,
+        "a generous limit leaves the error text unchanged: {generous:#}"
+    );
+}

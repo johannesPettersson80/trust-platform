@@ -148,6 +148,7 @@ pub(crate) fn compile_reload_payload(
     sources_root: Option<&Path>,
     endpoint: Option<String>,
     token: Option<String>,
+    issues_limit: Option<u64>,
 ) -> anyhow::Result<JsonValue> {
     let summary = collect_diagnostics_summary(project_root, sources_root, None, None)?;
     if summary.errors > 0 {
@@ -178,7 +179,10 @@ pub(crate) fn compile_reload_payload(
                 warnings: summary.warnings,
                 issues: summary.issues,
                 runtime_status: "error",
-                runtime_message: Some(format!("Build failed: {error}")),
+                runtime_message: Some(format!(
+                    "Build failed: {}",
+                    crate::agent::bound_issue_lines(&error.to_string(), issues_limit)
+                )),
                 build: None,
                 reload: None,
             })

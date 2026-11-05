@@ -66,4 +66,8 @@ normative for project orientation, source discovery, public diagnostic
 coordinates, canonical token and five-gram results, similarity decisions, and
 non-mutating formatting previews. Optional project and source-root parameters
 retain their documented resolution bases; an inline override affects only the
-request result and never changes the selected file.
+request result and never changes the selected file. The `issues_limit` cap on
+`runtime.build`, `runtime.validate`, and `runtime.compile_reload` is opt-in
+and deterministic: a limit selects the first entries of the same sorted lists
+and bounds the projected build-failure text, and an omitted limit preserves
+the established whole-list responses.
