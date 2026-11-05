@@ -636,6 +636,15 @@ README that passes fails the check until it is taken off the list.
   Force says so, which clears the panel's pending Boolean forces; and a
   release says so, which adds `Force remains armed for this target.` while
   the target stays armed.
+- Each message's treatment comes from its source the same way. The host gives
+  error treatment to every failure it reports, a Start or Stop that failed
+  among them, except a runtime that keeps debugging disabled, whose message is
+  guidance; warning treatment to a Force that made a value active; and success
+  treatment to a write queued and a force released. The panel gives warning
+  treatment to its own armed-force feedback, its active-force summary and the
+  runtime's access reason. The active-force summary replaces any message but an
+  error or an access reason, and goes when no force remains. Guidance,
+  including the unavailable route's, is plain.
 - Successful row operations use the prefixes `I/O write queued for`,
   `I/O force active at`, and `I/O force released at`. Success feedback expires
   after exactly 5000 milliseconds only if it is still the current message.

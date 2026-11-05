@@ -229,10 +229,12 @@ function showPanel(
   context.subscriptions.push(panel);
 }
 
-function postPanelStatus(message: string): void {
+/** A status message of the panel itself, with its treatment when it has one (specification 25 §4.2). */
+function postPanelStatus(message: string, treatment?: "error"): void {
   panel?.webview.postMessage({
     type: "status",
     payload: message,
+    treatment,
   });
 }
 
@@ -385,7 +387,7 @@ function handleWebviewMessage(message: any): void {
       const detail =
         typeof message.message === "string" ? message.message : "Unknown error";
       console.error("Live Values webview error:", detail, message.stack || "");
-      postPanelStatus(`Live Values error: ${detail}`);
+      postPanelStatus(`Live Values error: ${detail}`, "error");
       break;
     }
     case "webviewReady":
@@ -543,6 +545,7 @@ async function handleIoStateRequestResult(result: RuntimeLifecycleResult): Promi
     panel?.webview.postMessage({
       type: "status",
       payload: result.failure.message,
+      treatment: "error",
     });
     return;
   }
@@ -553,6 +556,7 @@ async function writeInput(address: string, value: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: "Missing I/O address.",
+      treatment: "error",
     });
     return;
   }
@@ -564,6 +568,7 @@ async function writeInput(address: string, value: string): Promise<void> {
       type: "status",
       payload: `I/O write queued for ${address}.`,
       lifetime: "expires",
+      treatment: "ok",
     });
     void requestIoStateAfterScan(previousScan);
   } catch (err) {
@@ -571,6 +576,7 @@ async function writeInput(address: string, value: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O write failed: ${message}`,
+      treatment: "error",
     });
   }
 }
@@ -580,6 +586,7 @@ async function forceInput(address: string, value: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: "Missing I/O address.",
+      treatment: "error",
     });
     return;
   }
@@ -592,6 +599,8 @@ async function forceInput(address: string, value: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O force active at ${address}.`,
+      treatment: "warning",
+      forceActive: true,
     });
     void requestIoStateAfterScan(previousScan);
   } catch (err) {
@@ -599,6 +608,7 @@ async function forceInput(address: string, value: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O force failed: ${message}`,
+      treatment: "error",
       forceFailed: true,
     });
   }
@@ -609,6 +619,7 @@ async function releaseInput(address: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: "Missing I/O address.",
+      treatment: "error",
     });
     return;
   }
@@ -620,6 +631,7 @@ async function releaseInput(address: string): Promise<void> {
       type: "status",
       payload: `I/O force released at ${address}.`,
       lifetime: "expires",
+      treatment: "ok",
       released: true,
     });
     void requestIoStateAfterScan(previousScan);
@@ -628,6 +640,7 @@ async function releaseInput(address: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O release failed: ${message}`,
+      treatment: "error",
     });
   }
 }
@@ -655,6 +668,7 @@ async function releaseAllForces(addresses: string[]): Promise<void> {
         ? `Released ${released} force${released === 1 ? "" : "s"}.`
         : "No forces to release.",
     lifetime: "expires",
+    treatment: released > 0 ? "ok" : undefined,
     released: released > 0,
   });
   void requestIoStateAfterScan(previousScan);
@@ -713,6 +727,7 @@ async function stopDebugging(): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `Stop debugging failed: ${message}`,
+      treatment: "error",
     });
   }
 }
@@ -727,6 +742,7 @@ async function startDebugging(programOverride?: string): Promise<void> {
       panel?.webview.postMessage({
         type: "status",
         payload: "Start debugging did not launch a session.",
+        treatment: "error",
       });
     }
   } catch (err) {
@@ -734,6 +750,7 @@ async function startDebugging(programOverride?: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `Start debugging failed: ${message}`,
+      treatment: "error",
     });
   }
 }
@@ -762,6 +779,7 @@ async function startAttachDebugging(
       panel?.webview.postMessage({
         type: "status",
         payload: "Attach failed to start.",
+        treatment: "error",
       });
     }
     return started;
@@ -770,6 +788,7 @@ async function startAttachDebugging(
     panel?.webview.postMessage({
       type: "status",
       payload: `Attach failed: ${message}`,
+      treatment: "error",
     });
     return false;
   }
@@ -804,10 +823,13 @@ async function handleRuntimeStop(): Promise<void> {
   void sendRuntimeStatus();
 }
 
+/** A Start's or Stop's outcome: a failure has error treatment, except a runtime that keeps debugging disabled, whose
+ * message is guidance for a state (specification 25, sections 4.2 and 4.4). */
 function postRuntimeLifecycleResult(result: RuntimeLifecycleResult): void {
   panel?.webview.postMessage({
     type: "status",
     payload: result.ok ? result.message : result.failure.message,
+    treatment: result.ok || result.failure.kind === "debug_disabled" ? undefined : "error",
   });
 }
 

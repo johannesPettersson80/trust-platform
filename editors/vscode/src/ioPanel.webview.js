@@ -50,6 +50,11 @@ let forceArmed = false;
 let statusClearTimer = undefined;
 // Whether the status line's message goes when live values arrive: the panel opens on `Live Values loading...`.
 let statusUntilValues = true;
+// The status line's treatment, as its source says it (specification 25 §4.2): `error`, `warning`, `permission` (a
+// warning that the active-force summary does not replace) or `ok`; none is plain.
+let statusTreatment = undefined;
+// Whether the status line shows the active-force summary, which goes when no force remains.
+let statusForceSummary = false;
 // The runtime status the host last sent, which the header keeps when the session is lost (specification 25 §4.4).
 let lastRuntimeStatus = undefined;
 let numericDisplayBase = "dec";
@@ -165,17 +170,17 @@ function updateForceStatusFromState(state) {
     return;
   }
   const addresses = forcedAddresses(state);
-  const current = status.textContent || "";
-  const preserveStatus = isErrorStatusText(current) || isPermissionGuidanceText(current);
+  const preserveStatus = statusTreatment === "error" || statusTreatment === "permission";
   if (addresses.length > 0 && !preserveStatus) {
     setStatusText(
       addresses.length === 1
         ? "I/O force active at " + addresses[0] + "."
-        : addresses.length + " I/O forces active."
+        : addresses.length + " I/O forces active.",
+      { treatment: "warning", forceSummary: true }
     );
     return;
   }
-  if (addresses.length === 0 && /I\/O forces? active|force active/i.test(current)) {
+  if (addresses.length === 0 && statusForceSummary) {
     setStatusText("");
   }
 }
@@ -310,24 +315,23 @@ if (sections) {
   });
 }
 
-/** Shows `message` in the status line. `lifetime` is how long it stays, as the host says it (specification 25 §4.2):
+/** Shows `message` in the status line, as its source says it (specification 25 §4.2). `lifetime` is how long it stays:
  * `untilValues` until live values arrive, `expires` for TRANSIENT_STATUS_CLEAR_MS while it is still the message, and
- * `startup` whichever comes first; without one it stays until the next message. */
-function setStatusText(message, lifetime) {
+ * `startup` whichever comes first; without one it stays until the next message. `treatment` is `error`, `warning`,
+ * `permission` or `ok`, and `forceSummary` marks the active-force summary. */
+function setStatusText(message, options = {}) {
   if (status) {
     clearStatusClearTimer();
     const text = String(message || "");
+    const { lifetime, treatment, forceSummary } = options;
     statusUntilValues = lifetime === "untilValues" || lifetime === "startup";
-    const isWarning = isWarningStatusText(text);
-    const isError = isErrorStatusText(text) && !isWarning;
+    statusTreatment = text ? treatment : undefined;
+    statusForceSummary = forceSummary === true;
     status.textContent = text;
     status.title = text;
-    status.classList.toggle("status-error", isError);
-    status.classList.toggle("status-warn", isWarning);
-    status.classList.toggle(
-      "status-ok",
-      !isWarning && /queued|released|cleared/i.test(text)
-    );
+    status.classList.toggle("status-error", statusTreatment === "error");
+    status.classList.toggle("status-warn", statusTreatment === "warning" || statusTreatment === "permission");
+    status.classList.toggle("status-ok", statusTreatment === "ok");
     if (lifetime === "expires" || lifetime === "startup") {
       statusClearTimer = window.setTimeout(() => {
         if (status && status.textContent === text) {
@@ -336,23 +340,6 @@ function setStatusText(message, lifetime) {
       }, TRANSIENT_STATUS_CLEAR_MS);
     }
   }
-}
-
-function isPermissionGuidanceText(message) {
-  const text = String(message || "");
-  return (
-    /viewer role|operator role|engineer token|permissions are unknown/i.test(text) ||
-    (/forbidden|requires role|denied/i.test(text) && !/failed|error/i.test(text))
-  );
-}
-
-function isWarningStatusText(message) {
-  const text = String(message || "");
-  return /force armed|force active|force remains armed/i.test(text) || isPermissionGuidanceText(text);
-}
-
-function isErrorStatusText(message) {
-  return /failed|forbidden|requires role|missing|error|denied/i.test(String(message || ""));
 }
 
 function clearStatusClearTimer() {
@@ -443,12 +430,12 @@ function accessKey(access) {
 
 function armForceForTarget() {
   forceArmed = true;
-  setStatusText("Force armed for this target. Click Force again to pin a value.");
+  setStatusText("Force armed for this target. Click Force again to pin a value.", { treatment: "warning" });
   render(currentState);
 }
 
 function reportWebviewError(message, stack) {
-  setStatusText("Live Values error: " + message);
+  setStatusText("Live Values error: " + message, { treatment: "error" });
   vscode.postMessage({
     type: "webviewError",
     message,
@@ -518,7 +505,7 @@ if (filterInput) {
     render(currentState);
   });
 }
-setStatusText("Live Values ready.", "startup");
+setStatusText("Live Values ready.", { lifetime: "startup" });
 vscode.postMessage({ type: "webviewReady" });
 
 function setSettingsOpen(open) {
@@ -619,7 +606,7 @@ function collectSettingsPayload() {
     debugAdapterEnv = parseEnv(getFieldValue(settingsFields.debugAdapterEnv));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    setStatusText(message);
+    setStatusText(message, { treatment: "error" });
     return null;
   }
   return {
@@ -728,7 +715,7 @@ function applyRuntimeStatus(payload) {
     render(currentState);
   }
   if (currentAccess.reason && (running || connected)) {
-    setStatusText(currentAccess.reason);
+    setStatusText(currentAccess.reason, { treatment: "permission" });
   }
 
   if (runtimeStart) {
@@ -1358,8 +1345,8 @@ window.addEventListener("message", (event) => {
     }
   }
   if (message.type === "status") {
-    // The host says what a message reports (specification 25 §4.2, §4.4): `sessionLost`, `forceFailed`, `released`
-    // and `lifetime`.
+    // The host says what a message reports (specification 25 §4.2, §4.4): `sessionLost`, `forceFailed`, `released`,
+    // `forceActive`, `lifetime` and `treatment`.
     const payload = String(message.payload || "");
     if (message.sessionLost) {
       showSessionLost();
@@ -1373,9 +1360,13 @@ window.addEventListener("message", (event) => {
     }
     if (message.released && forceRequiresArming() && forceArmed) {
       // The arming feedback stays explicit after a release, so this message does not expire.
-      setStatusText(payload + " Force remains armed for this target.");
+      setStatusText(payload + " Force remains armed for this target.", { treatment: "warning" });
     } else {
-      setStatusText(payload, message.lifetime);
+      setStatusText(payload, {
+        lifetime: message.lifetime,
+        treatment: message.treatment,
+        forceSummary: message.forceActive === true
+      });
     }
   }
   if (message.type === "settings") {

@@ -1105,7 +1105,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       web.includes("writeButton.title = allowed.writeReason") &&
         web.includes("forceButton.title = allowed.forceReason") &&
         web.includes("releaseButton.title = allowed.releaseReason") &&
-        web.includes("setStatusText(currentAccess.reason)"),
+        web.includes('setStatusText(currentAccess.reason, { treatment: "permission" })'),
       "denied controls must carry a visible reason, and forced rows must explain why Write is disabled"
     );
   });
@@ -1332,13 +1332,19 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "status messages must go through the styled status renderer"
     );
     assert.ok(web.includes("status-error"), "webview must mark failed operations as error status");
+    // The treatment comes from the message's source, never from its words (specification 25, section 4.2); the
+    // rendered behaviour is proven in live-values-webview-interactions.test.ts ("Live Values status messages").
     assert.ok(
       web.includes("status-warn") &&
-        web.includes("isPermissionGuidanceText") &&
-        web.includes("force armed|force active|force remains armed") &&
-        web.includes("!isWarning && /queued|released|cleared/i.test(text)") &&
-        web.includes('status.classList.toggle("status-error", isError)'),
-      "force armed/active feedback and permission guidance must be amber warning, not green success or alarm red"
+        web.includes('statusTreatment === "warning" || statusTreatment === "permission"') &&
+        web.includes('status.classList.toggle("status-error", statusTreatment === "error")') &&
+        web.includes('status.classList.toggle("status-ok", statusTreatment === "ok")') &&
+        web.includes('setStatusText(currentAccess.reason, { treatment: "permission" })') &&
+        web.includes('"Force armed for this target. Click Force again to pin a value.", { treatment: "warning" }') &&
+        !web.includes("isPermissionGuidanceText") &&
+        !web.includes("isWarningStatusText") &&
+        !web.includes("isErrorStatusText"),
+      "force armed/active feedback and permission guidance must be amber warning, not green success or alarm red, by their source"
     );
     assert.ok(
       web.includes("updateForceStatusFromState") &&
