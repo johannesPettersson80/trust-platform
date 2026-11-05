@@ -24,7 +24,8 @@ import {
   validate,
 } from "./engineCommands";
 import { applyDraft, discardDraft, reviewDraft } from "./proposalFlow";
-import { previewSession, renderState, renderStates, simulatorJourney } from "./previews";
+import { previewSession, renderState, renderStates } from "./previews";
+import { simulatorJourney } from "./simulator";
 
 export const workspaceIdentity = (uri: vscode.Uri): string =>
   createHash("sha256").update(uri.toString()).digest("hex").slice(0, 24);
@@ -170,9 +171,9 @@ export class HmiAgentTool {
       case "hmi_preview_states": {
         const checked = await checkInput(project, this.name, request);
         if (!checked.ok) return { answer: checked, images: [] };
-        const session = await previewSession(project, fontFile, input, signal);
         if (input.mode === "simulator")
-          return { answer: succeeded(await simulatorJourney(session, input)), images: [] };
+          return { answer: succeeded(await simulatorJourney(project, input, signal)), images: [] };
+        const session = await previewSession(project, fontFile, input, signal);
         const rendered = await renderStates(session, input, input.states as string[]);
         return { answer: succeeded(rendered.data), images: rendered.images };
       }

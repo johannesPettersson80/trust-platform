@@ -1,13 +1,11 @@
 // The renders of a draft (AT-07, AT-08): each page is drawn by the shared renderer, with its project images and the
 // synthetic scenario of its state. The draft and the project context come from the authoring commands.
 
-import * as path from "path";
 import { alarmScenario } from "./alarmScenario";
 import { sha256 } from "./artifacts";
 import { assetRevisions, loadPreviewAssets } from "./assets";
 import { context, drafts, EngineProject, envelopeFor, nativeCall, openDocuments, unwrap } from "./engineCommands";
 import { renderAgentPage, PreviewCrop } from "./render";
-import { runSimulator } from "./simulator";
 import { scenarioFrame } from "./scenarios";
 import { withProjectSymbols } from "../drawing/symbols";
 import type { CustomSymbolModel } from "../drawing/symbols/custom";
@@ -242,19 +240,4 @@ export async function renderStates(
     frames.push(rendered.data);
   }
   return { data: { draftId: session.draft.draftId, revision: session.draft.revision, frames }, images };
-}
-
-/** The bounded simulator journey of `hmi_preview_states` (mode `simulator`), on the named session's deployed pages; the
- * language server runs it (`trust-lsp.hmiAgent.runSimulatorJourney`). */
-export async function simulatorJourney(
-  session: PreviewSession,
-  input: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const { project, draft, projectContext } = session;
-  if (draft.programRevision !== projectContext.programRevision)
-    throw new Error("CONFLICT: the program changed since this simulation proposal was created.");
-  const models: Record<string, HmiPageModel> = {};
-  for (const [file, text] of Object.entries(draft.files))
-    models[path.basename(file, ".toml")] = await parsePage(session, text, file);
-  return runSimulator(project.root.toString(), String(input.sessionId), input.steps, models, session.signal);
 }

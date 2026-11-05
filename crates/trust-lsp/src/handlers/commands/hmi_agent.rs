@@ -12,14 +12,17 @@
 //! authoring commands (`service`, `review_apply`).
 //!
 //! The named simulator sessions and their journeys (AT-08) run here too: the session commands
-//! (`simulator_commands`), the sessions (`simulator_sessions`), the journey (`simulator_journey`) and
-//! its transport (`simulator_connection`, `simulator_http`, `simulator_stream`). Whether a journey's
+//! (`simulator_commands`), the sessions (`simulator_sessions`), the draft a journey exercises
+//! (`simulator_draft`), the journey (`simulator_journey`) and its transport
+//! (`simulator_connection`, `simulator_http`, `simulator_stream`). Whether a journey's
 //! target is a local simulator is decided by `trust-lsp.hmiAgent.checkTarget` (`target`).
 //!
 //! The extension keeps what presents and wires: the rendering and synthetic preview (AT-07, AT-08),
 //! the named simulator login with its session cookie, and the editor transaction (AT-09). The
 //! editor's quality warnings are decided by `trust-lsp.hmiQuality` (`hmi_quality`); the extension
 //! adds only the texts its drawing cuts.
+
+use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -36,10 +39,13 @@ mod target;
 
 mod simulator_commands;
 mod simulator_connection;
+mod simulator_draft;
 #[cfg(test)]
 mod simulator_fake;
 mod simulator_http;
 mod simulator_journey;
+#[cfg(test)]
+mod simulator_project;
 mod simulator_sessions;
 mod simulator_stream;
 
@@ -55,8 +61,12 @@ pub(super) fn is_command(name: &str) -> bool {
 /// Starts a simulator journey for the language client, which gets the journey's answer as
 /// `trust-lsp/simulatorJourneyEnded` when it ends (`trust-lsp.hmiAgent.runSimulatorJourney`).
 #[must_use]
-pub(super) fn start_journey(client: &tower_lsp::Client, arguments: Vec<Value>) -> Value {
-    simulator_commands::start_for_client(client, arguments)
+pub(super) fn start_journey(
+    client: &tower_lsp::Client,
+    state: &Arc<ServerState>,
+    arguments: Vec<Value>,
+) -> Value {
+    simulator_commands::start_for_client(client, Arc::clone(state), arguments)
 }
 
 /// Runs the HMI agent command `name` on its argument, or `None` when it is not one.

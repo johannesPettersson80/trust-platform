@@ -1,8 +1,9 @@
 //! Tests of the simulator commands (specification 43, AT-08; specification 39 §11 item 6): their
-//! envelope, the journey's workspace, steps, session and cookie checks before any request, and a
+//! envelope, the journey's workspace, steps, session and cookie checks before any request, a
 //! journey that starts at once on a thread of its own and reports its answer when it ends, so that
-//! journeys waiting on a simulator never keep other commands from answering. That no log line names
-//! the cookie or the access token is proven against the language server's binary in
+//! journeys waiting on a simulator never keep other commands from answering, and a journey whose
+//! draft is refused ending before its first step. That no log line names the cookie or the access
+//! token is proven against the language server's binary in
 //! `crates/trust-lsp/tests/simulator_journey_transport.rs`.
 
 use std::collections::BTreeMap;
@@ -14,8 +15,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
 
+use crate::state::ServerState;
+
 use super::super::simulator_fake::{CommandAnswer, FakeSimulator, Frame, Script, STREAM_PERIOD};
 use super::super::simulator_journey::Timing;
+use super::super::simulator_project::{settings_model, JourneyProject};
 use super::super::simulator_sessions::SimulatorSessions;
 use super::{
     answer, envelope, start, Clock, ADMIT_LOGIN, CANCEL_JOURNEY, CLOSE_SESSION, LIST_SESSIONS,
@@ -23,7 +27,6 @@ use super::{
 };
 
 const A: &str = "file:///projects/a";
-const B: &str = "file:///projects/b";
 const COOKIE: &str = "trust_hmi_session=4f1c0ffee";
 const PROMPT: Timing = Timing {
     wait: Duration::from_secs(5),
@@ -35,6 +38,8 @@ const PROMPT: Timing = Timing {
 };
 /// The journey ID the client chose for the journeys here.
 const J: &str = "journey-1";
+/// The draft of the journeys that are refused before their thread reads a draft.
+const NO_DRAFT: &str = "00000000-0000-4000-8000-000000000000";
 
 /// `seconds` after 2026-11-04T10:00:00Z.
 fn at(seconds: u64) -> SystemTime {
@@ -57,6 +62,7 @@ fn call(sessions: &SimulatorSessions, name: &str, argument: Value, now: SystemTi
 /// Starts a journey: the start's envelope, and where its answer arrives when it ends.
 fn run(
     sessions: &'static SimulatorSessions,
+    state: &Arc<ServerState>,
     argument: Value,
     now: SystemTime,
     timing: Timing,
@@ -65,18 +71,25 @@ fn run(
     let report = Box::new(move |answer| {
         let _ = sender.send(answer);
     });
-    let started = start(sessions, vec![argument], clock(now), timing, report);
+    let started = start(
+        sessions,
+        Arc::clone(state),
+        vec![argument],
+        clock(now),
+        timing,
+        report,
+    );
     (envelope(started), receiver)
+}
+
+/// The start's envelope of a journey that is refused before it starts.
+fn refused(sessions: &'static SimulatorSessions, argument: Value, now: SystemTime) -> Value {
+    let state = Arc::new(ServerState::new());
+    run(sessions, &state, argument, now, PROMPT).0
 }
 
 fn target(url: &str, token: &str) -> Value {
     json!({ "simulator": true, "url": url, "endpoint": "tcp://127.0.0.1:9100", "authToken": token })
-}
-
-/// The page every journey here exercises.
-fn page() -> Value {
-    json!({ "title": "Settings", "object": [{ "id": "sp", "type": "setpoint", "at": [32, 88],
-            "size": [200, 64] }], "pipe": [] })
 }
 
 /// Opens a session of `workspace` for `target`: its ID.
@@ -94,10 +107,34 @@ fn opened(
         .to_owned()
 }
 
-/// The argument of the journey `J` of `steps` on the session `id` with the cookie `cookie`.
-fn journey(workspace: &str, id: &str, cookie: Value, target: &Value, steps: Value) -> Value {
-    json!({ "workspace": workspace, "sessionId": id, "journeyId": J, "cookie": cookie,
-            "target": target, "steps": steps, "models": { "settings": page() } })
+/// The argument of the journey `J` of `steps` on the session `id` of `project`, with the cookie
+/// `cookie`, on revision 1 of `draft`.
+fn journey(
+    project: &JourneyProject,
+    draft: &str,
+    id: &str,
+    cookie: Value,
+    target: &Value,
+    steps: Value,
+) -> Value {
+    let mut argument = project.fields();
+    for (field, value) in [
+        ("sessionId", json!(id)),
+        ("journeyId", json!(J)),
+        ("cookie", cookie),
+        ("target", target.clone()),
+        ("steps", steps),
+        ("draftId", json!(draft)),
+        ("revision", json!("1")),
+    ] {
+        argument[field] = value;
+    }
+    argument
+}
+
+/// The deployed pages of a simulator: the settings page.
+fn deployed(state: &ServerState) -> BTreeMap<String, Value> {
+    BTreeMap::from([("settings".to_owned(), settings_model(state))])
 }
 
 fn refusal(code: &str, message: &str) -> Value {
@@ -163,30 +200,32 @@ fn the_commands_answer_the_authoring_envelope() {
     assert_eq!(without_client["code"], "INVALID_ARGUMENT");
 }
 
-/// Catches: a journey that does not name its workspace, or that runs on another workspace's session.
+/// Catches: a journey that does not name its project folder, the workspace of its session, or that
+/// runs on another workspace's session.
 #[test]
 fn a_journey_names_its_workspace_and_refuses_another_workspaces_session() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
     let sessions = sessions();
+    let (a, b) = (JourneyProject::new("a"), JourneyProject::new("b"));
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &a.root_uri(), &local, at(0));
     let steps = json!([{ "page": "settings" }]);
-    let other = journey(B, &id, json!(COOKIE), &local, steps.clone());
+    let other = journey(&b, NO_DRAFT, &id, json!(COOKIE), &local, steps.clone());
     assert_eq!(
-        run(sessions, other, at(1), PROMPT).0,
+        refused(sessions, other, at(1)),
         refusal(
             "EXPIRED_DRAFT",
             "select an unexpired named simulator session in this workspace."
         )
     );
-    let mut nameless = journey(A, &id, json!(COOKIE), &local, steps);
+    let mut nameless = journey(&a, NO_DRAFT, &id, json!(COOKIE), &local, steps);
     nameless
         .as_object_mut()
         .expect("an object")
-        .remove("workspace");
+        .remove("root_uri");
     assert_eq!(
-        run(sessions, nameless, at(1), PROMPT).0["code"],
-        "INVALID_ARGUMENT"
+        refused(sessions, nameless, at(1)),
+        refusal("INVALID_ARGUMENT", "root_uri is required.")
     );
     assert!(fake.received().is_empty());
 }
@@ -197,13 +236,14 @@ fn a_journey_names_its_workspace_and_refuses_another_workspaces_session() {
 fn more_than_twelve_steps_are_refused_before_any_request() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
     let sessions = sessions();
+    let project = JourneyProject::new("twelve");
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &project.root_uri(), &local, at(0));
     for count in [0, 13] {
         let steps = Value::Array(vec![json!({ "page": "settings" }); count]);
-        let argument = journey(A, &id, json!(COOKIE), &local, steps);
+        let argument = journey(&project, NO_DRAFT, &id, json!(COOKIE), &local, steps);
         assert_eq!(
-            run(sessions, argument, at(1), PROMPT).0,
+            refused(sessions, argument, at(1)),
             refusal("LIMIT_EXCEEDED", "use 1 to 12 bounded simulator steps."),
             "{count} steps"
         );
@@ -217,12 +257,13 @@ fn more_than_twelve_steps_are_refused_before_any_request() {
 fn a_method_command_is_not_a_journey_step() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
     let sessions = sessions();
+    let project = JourneyProject::new("invoke");
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &project.root_uri(), &local, at(0));
     let steps = json!([{ "page": "settings", "object": "sp", "action": "invoke" }]);
-    let argument = journey(A, &id, json!(COOKIE), &local, steps);
+    let argument = journey(&project, NO_DRAFT, &id, json!(COOKIE), &local, steps);
     assert_eq!(
-        run(sessions, argument, at(1), PROMPT).0,
+        refused(sessions, argument, at(1)),
         refusal(
             "INVALID_ARGUMENT",
             "a method command (`invoke`) is not a simulator journey step; a step's command writes, \
@@ -238,24 +279,33 @@ fn a_method_command_is_not_a_journey_step() {
 fn an_expired_or_busy_session_is_refused_before_any_request() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
     let sessions = sessions();
+    let project = JourneyProject::new("busy");
+    let root = project.root_uri();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &root, &local, at(0));
     let steps = json!([{ "page": "settings" }]);
-    let late = journey(A, &id, json!(COOKIE), &local, steps.clone());
+    let late = journey(
+        &project,
+        NO_DRAFT,
+        &id,
+        json!(COOKIE),
+        &local,
+        steps.clone(),
+    );
     assert_eq!(
-        run(sessions, late, at(601), PROMPT).0,
+        refused(sessions, late, at(601)),
         refusal(
             "EXPIRED_DRAFT",
             "select an unexpired named simulator session in this workspace."
         )
     );
-    let busy_id = opened(sessions, A, &local, at(700));
+    let busy_id = opened(sessions, &root, &local, at(700));
     let running = sessions
-        .begin(A, &busy_id, J, &local, at(701))
+        .begin(&root, &busy_id, J, &local, at(701))
         .expect("a journey");
-    let second = journey(A, &busy_id, json!(COOKIE), &local, steps);
+    let second = journey(&project, NO_DRAFT, &busy_id, json!(COOKIE), &local, steps);
     assert_eq!(
-        run(sessions, second, at(702), PROMPT).0,
+        refused(sessions, second, at(702)),
         refusal("CONFLICT", "this simulator journey is already running.")
     );
     drop(running);
@@ -268,18 +318,21 @@ fn an_expired_or_busy_session_is_refused_before_any_request() {
 fn a_journey_with_another_target_closes_its_session() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
     let sessions = sessions();
+    let project = JourneyProject::new("target");
+    let root = project.root_uri();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &root, &local, at(0));
     let repaired = target(&fake.url, "access-token-8");
     let argument = journey(
-        A,
+        &project,
+        NO_DRAFT,
         &id,
         json!(COOKIE),
         &repaired,
         json!([{ "page": "settings" }]),
     );
-    assert_eq!(run(sessions, argument, at(1), PROMPT).0["code"], "CONFLICT");
-    let listed = call(sessions, LIST_SESSIONS, json!({ "workspace": A }), at(2));
+    assert_eq!(refused(sessions, argument, at(1))["code"], "CONFLICT");
+    let listed = call(sessions, LIST_SESSIONS, json!({ "workspace": root }), at(2));
     assert_eq!(listed["data"]["sessions"], json!([]));
     assert!(fake.received().is_empty());
 }
@@ -290,8 +343,10 @@ fn a_journey_with_another_target_closes_its_session() {
 fn a_journey_needs_its_sessions_cookie_and_never_quotes_it() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
     let sessions = sessions();
+    let project = JourneyProject::new("cookie");
+    let root = project.root_uri();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &root, &local, at(0));
     let steps = json!([{ "page": "settings" }]);
     let needs = refusal(
         "INVALID_ARGUMENT",
@@ -307,20 +362,28 @@ fn a_journey_needs_its_sessions_cookie_and_never_quotes_it() {
         json!(5),
     ];
     for cookie in cookies {
-        let argument = journey(A, &id, cookie.clone(), &local, steps.clone());
-        assert_eq!(run(sessions, argument, at(1), PROMPT).0, needs, "{cookie}");
+        let argument = journey(
+            &project,
+            NO_DRAFT,
+            &id,
+            cookie.clone(),
+            &local,
+            steps.clone(),
+        );
+        assert_eq!(refused(sessions, argument, at(1)), needs, "{cookie}");
     }
-    let mut missing = journey(A, &id, Value::Null, &local, steps.clone());
+    let mut missing = journey(&project, NO_DRAFT, &id, Value::Null, &local, steps.clone());
     missing.as_object_mut().expect("an object").remove("cookie");
-    assert_eq!(run(sessions, missing, at(1), PROMPT).0, needs);
-    let mut malformed = journey(A, &id, json!("trust_hmi_session=5ecret-d"), &local, steps);
+    assert_eq!(refused(sessions, missing, at(1)), needs);
+    let secret = json!("trust_hmi_session=5ecret-d");
+    let mut malformed = journey(&project, NO_DRAFT, &id, secret, &local, steps);
     malformed["steps"] = json!("not steps");
-    let refused = run(sessions, malformed, at(1), PROMPT).0;
-    assert_eq!(refused["code"], "INVALID_ARGUMENT");
-    assert!(!refused.to_string().contains("5ecret"), "{refused}");
+    let refusal = refused(sessions, malformed, at(1));
+    assert_eq!(refusal["code"], "INVALID_ARGUMENT");
+    assert!(!refusal.to_string().contains("5ecret"), "{refusal}");
     assert!(fake.received().is_empty());
     assert!(
-        sessions.begin(A, &id, J, &local, at(2)).is_ok(),
+        sessions.begin(&root, &id, J, &local, at(2)).is_ok(),
         "no refusal left the session busy"
     );
 }
@@ -330,6 +393,9 @@ fn a_journey_needs_its_sessions_cookie_and_never_quotes_it() {
 /// reaches it after the session took another journey.
 #[test]
 fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
+    let project = JourneyProject::new("at-once");
+    let state = Arc::new(ServerState::new());
+    let draft = project.settings_draft(&state, "at-once");
     let fake = FakeSimulator::start(Script {
         on_command: Box::new(|command| CommandAnswer {
             status: 200,
@@ -339,16 +405,18 @@ fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
             )],
             delay: STREAM_PERIOD,
         }),
-        ..Script::serving(BTreeMap::from([("settings".to_owned(), page())]))
+        ..Script::serving(deployed(&state))
     });
     let sessions = sessions();
+    let root = project.root_uri();
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &root, &local, at(0));
     let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
     let started_at = Instant::now();
     let (started, ended) = run(
         sessions,
-        journey(A, &id, json!(COOKIE), &local, steps.clone()),
+        &state,
+        journey(&project, &draft, &id, json!(COOKIE), &local, steps.clone()),
         at(1),
         PROMPT,
     );
@@ -359,7 +427,8 @@ fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
     );
     let again = run(
         sessions,
-        journey(A, &id, json!(COOKIE), &local, steps),
+        &state,
+        journey(&project, &draft, &id, json!(COOKIE), &local, steps),
         at(1),
         PROMPT,
     );
@@ -377,7 +446,7 @@ fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
     assert_eq!(answer["origin"], "simulator");
     assert_eq!(answer["passed"], true, "{answer}");
     let free = (0..100).any(|_| {
-        let begun = sessions.begin(A, &id, J, &local, at(2)).is_ok();
+        let begun = sessions.begin(&root, &id, J, &local, at(2)).is_ok();
         if !begun {
             thread::sleep(Duration::from_millis(10));
         }
@@ -393,6 +462,10 @@ fn a_journey_starts_at_once_and_reports_its_answer_when_it_ends() {
 fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
     let hung = TcpListener::bind("127.0.0.1:0").expect("a listener");
     let url = format!("http://{}", hung.local_addr().expect("an address"));
+    let project = JourneyProject::new("hung");
+    let state = Arc::new(ServerState::new());
+    let draft = project.settings_draft(&state, "hung");
+    let root = project.root_uri();
     let sessions = sessions();
     let local = target(&url, "access-token-7");
     let hurried = Timing {
@@ -401,20 +474,21 @@ fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
     };
     let mut ends = Vec::new();
     for _ in 0..5 {
-        let id = opened(sessions, A, &local, at(0));
+        let id = opened(sessions, &root, &local, at(0));
         let argument = journey(
-            A,
+            &project,
+            &draft,
             &id,
             json!(COOKIE),
             &local,
             json!([{ "page": "settings" }]),
         );
-        let (started, ended) = run(sessions, argument, at(1), hurried);
+        let (started, ended) = run(sessions, &state, argument, at(1), hurried);
         assert_eq!(started["data"]["started"], true, "{started}");
         ends.push((id, ended));
     }
     let asked = Instant::now();
-    let listed = call(sessions, LIST_SESSIONS, json!({ "workspace": A }), at(1));
+    let listed = call(sessions, LIST_SESSIONS, json!({ "workspace": root }), at(1));
     let cancelled = call(
         sessions,
         CANCEL_JOURNEY,
@@ -430,7 +504,7 @@ fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
     assert_eq!(cancelled["data"]["cancelled"], true);
     for (index, (id, ended)) in ends.into_iter().enumerate() {
         let answer = ended
-            .recv_timeout(Duration::from_secs(10))
+            .recv_timeout(Duration::from_secs(30))
             .expect("the hung journey's answer");
         assert_eq!(answer["sessionId"], id);
         // The cancelled journey ends at its cancel, within one read slice of its request in flight;
@@ -481,11 +555,13 @@ fn a_journey_thread_that_panics_still_reports_its_end() {
 fn a_journey_needs_an_id_of_at_most_128_characters() {
     let fake = FakeSimulator::start(Script::serving(BTreeMap::new()));
     let sessions = sessions();
+    let project = JourneyProject::new("journey-id");
     let local = target(&fake.url, "access-token-7");
-    let id = opened(sessions, A, &local, at(0));
+    let id = opened(sessions, &project.root_uri(), &local, at(0));
     for journey_id in [json!(" "), json!("j".repeat(129))] {
         let mut argument = journey(
-            A,
+            &project,
+            NO_DRAFT,
             &id,
             json!(COOKIE),
             &local,
@@ -493,13 +569,14 @@ fn a_journey_needs_an_id_of_at_most_128_characters() {
         );
         argument["journeyId"] = journey_id.clone();
         assert_eq!(
-            run(sessions, argument, at(1), PROMPT).0["code"],
+            refused(sessions, argument, at(1))["code"],
             "INVALID_ARGUMENT",
             "{journey_id}"
         );
     }
     let mut nameless = journey(
-        A,
+        &project,
+        NO_DRAFT,
         &id,
         json!(COOKIE),
         &local,
@@ -510,8 +587,55 @@ fn a_journey_needs_an_id_of_at_most_128_characters() {
         .expect("an object")
         .remove("journeyId");
     assert_eq!(
-        run(sessions, nameless, at(1), PROMPT).0["code"],
+        refused(sessions, nameless, at(1))["code"],
         "INVALID_ARGUMENT"
     );
     assert!(fake.received().is_empty());
+}
+
+/// Catches: a journey that exercises a draft composed against an older program, sending its
+/// commands to pages whose bindings may no longer hold, and a refused draft whose journey never
+/// ends, so that the client's wait never ends; the refusal ends the journey before its first step,
+/// with no request to the simulator, and frees its session.
+#[test]
+fn a_journey_on_a_draft_of_an_older_program_ends_with_conflict_before_its_first_step() {
+    let project = JourneyProject::new("older");
+    let state = Arc::new(ServerState::new());
+    let draft = project.settings_draft(&state, "older");
+    let fake = FakeSimulator::start(Script::serving(deployed(&state)));
+    project.write(
+        "src/main.st",
+        "PROGRAM Main\nVAR Level : REAL := 2.0; END_VAR\nEND_PROGRAM\n",
+    );
+    let sessions = sessions();
+    let root = project.root_uri();
+    let local = target(&fake.url, "access-token-7");
+    let id = opened(sessions, &root, &local, at(0));
+    let steps = json!([{ "page": "settings", "object": "sp", "action": "write", "value": 10 }]);
+    let argument = journey(&project, &draft, &id, json!(COOKIE), &local, steps);
+    let (started, ended) = run(sessions, &state, argument, at(1), PROMPT);
+    assert_eq!(started["data"]["started"], true, "{started}");
+    let answer = ended
+        .recv_timeout(Duration::from_secs(30))
+        .expect("the journey's answer");
+    assert_eq!(
+        answer,
+        json!({
+            "origin": "simulator", "sessionId": id, "journeyId": J, "name": "Fixture",
+            "outcomes": [], "passed": false,
+            "error": "CONFLICT: the program changed since this simulation proposal was created.",
+        })
+    );
+    assert!(
+        fake.received().is_empty(),
+        "no request reached the simulator"
+    );
+    let free = (0..100).any(|_| {
+        let begun = sessions.begin(&root, &id, J, &local, at(2)).is_ok();
+        if !begun {
+            thread::sleep(Duration::from_millis(10));
+        }
+        begun
+    });
+    assert!(free, "the session is free once its answer was reported");
 }

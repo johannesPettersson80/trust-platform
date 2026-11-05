@@ -6,11 +6,14 @@
 //! its end as `trust-lsp/simulatorJourneyEnded`; journeys waiting on a hung simulator never keep the
 //! server's other requests waiting (it serves four at a time); and with tower-lsp's, tungstenite's
 //! and the language server's own logs at trace level, no log line carries the named session's cookie
-//! or the runtime's access token.
+//! or the runtime's access token. Each journey exercises a draft that the server composed from a
+//! project page, and the simulator serves that page.
 
 use std::collections::VecDeque;
+use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
+use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
@@ -19,6 +22,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 use tiny_http::{Header, Method, Response, Server as HttpServer, StatusCode};
+use tower_lsp::lsp_types::Url;
 use tungstenite::protocol::Role;
 use tungstenite::{Message, WebSocket};
 
@@ -216,25 +220,94 @@ fn read_message(reader: &mut impl BufRead) -> Option<Value> {
     serde_json::from_slice(&body).ok()
 }
 
+/// The settings page's file.
+const SETTINGS_FILE: &str = "hmi/pages/settings.toml";
 /// A page with a button without feedback, whose command the runtime does not follow.
-fn page() -> Value {
-    json!({
-        "title": "Settings",
-        "object": [{
-            "id": "stop", "type": "button", "at": [32, 160], "size": [120, 40], "action": "reset",
-            "bind": { "target": { "path": "Main.Run", "direction": "write" } }
-        }],
-        "pipe": []
-    })
+const SETTINGS: &str = "format = 1\ntitle = \"Settings\"\n\n[[object]]\nid = \"stop\"\ntype = \"button\"\nat = [32, 160]\nsize = [120, 40]\naction = \"reset\"\n\n[object.bind]\ntarget = { path = \"Main.Run\", direction = \"write\" }\n";
+/// The workspace the journeys' drafts belong to.
+const WORKSPACE: &str = "workspace-transport";
+
+/// A project folder under the system temporary folder, with a compiling program and the settings
+/// page; removed when the test ends.
+struct Project(PathBuf);
+
+impl Project {
+    fn new(label: &str) -> Self {
+        let folder = std::env::temp_dir().join(format!(
+            "trust-lsp-journey-transport-{label}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&folder);
+        for (file, text) in [
+            (
+                "src/main.st",
+                "PROGRAM Main\nVAR Run : BOOL; END_VAR\nEND_PROGRAM\n",
+            ),
+            (
+                "hmi/screen.toml",
+                "format = 1\nsize = [1280, 800]\ntheme = \"dark\"\nsymbols = \"flat\"\n",
+            ),
+            (SETTINGS_FILE, SETTINGS),
+        ] {
+            let path = folder.join(file);
+            fs::create_dir_all(path.parent().expect("a folder")).expect("the folder");
+            fs::write(path, text).expect("the file");
+        }
+        Self(folder)
+    }
+
+    /// The project folder's address, the workspace of its simulator sessions.
+    fn root_uri(&self) -> String {
+        Url::from_directory_path(&self.0)
+            .expect("a folder address")
+            .to_string()
+    }
+
+    /// The fields the authoring commands share: the workspace, the project folder and its draft
+    /// storage.
+    fn fields(&self) -> Value {
+        json!({
+            "workspaceId": WORKSPACE,
+            "root_uri": self.root_uri(),
+            "storage": self.0.join("private").display().to_string(),
+        })
+    }
+
+    /// Has `server` compose a draft that copies the settings page: the draft's ID, at revision 1,
+    /// and the page's model as the simulator serves it once the page is deployed.
+    fn settings_draft(&self, server: &mut LanguageServer) -> (String, Value) {
+        let mut argument = self.fields();
+        argument["request"] = json!({
+            "contractVersion": 1,
+            "workspaceId": WORKSPACE,
+            "input": { "key": "transport", "file": SETTINGS_FILE, "sourceFile": SETTINGS_FILE },
+        });
+        let composed = server.command("trust-lsp.hmiAgent.compose", argument);
+        let draft = composed["data"]["draftId"]
+            .as_str()
+            .unwrap_or_else(|| panic!("a draft: {composed}"))
+            .to_owned();
+        let parse = json!({ "kind": "page", "text": SETTINGS, "file": SETTINGS_FILE });
+        let parsed = server.command("trust-lsp.hmiFileParse", parse);
+        assert_eq!(parsed["ok"], true, "{parsed}");
+        (draft, parsed["model"].clone())
+    }
 }
 
-/// A simulator HMI on 127.0.0.1 serving `page()` as `settings`, its readback stream and its
+impl Drop for Project {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+/// A simulator HMI on 127.0.0.1 serving `model` as the page `settings`, its readback stream and its
 /// commands, answered `applied`, as the runtime serves them. Its web address.
-fn simulator() -> String {
+fn simulator(model: Value) -> String {
     let server = HttpServer::http("127.0.0.1:0").expect("a simulator HMI");
     let address = server.server_addr().to_ip().expect("an IP listener");
     thread::spawn(move || {
         for mut request in server.incoming_requests() {
+            let model = model.clone();
             thread::spawn(move || {
                 let url = request.url().to_owned();
                 let json = |status: u16, body: Value| {
@@ -246,7 +319,7 @@ fn simulator() -> String {
                 };
                 if url.starts_with("/api/hmi/page") {
                     let body =
-                        json!({ "page": { "name": "settings", "model": page() }, "bundle": "b1" });
+                        json!({ "page": { "name": "settings", "model": model }, "bundle": "b1" });
                     let _ = request.respond(json(200, body));
                 } else if url == "/api/hmi/command" && *request.method() == Method::Post {
                     let mut text = String::new();
@@ -282,13 +355,12 @@ fn simulator() -> String {
     format!("http://{address}")
 }
 
-/// Opens a session of the workspace `file:///projects/a` for the simulator at `url` with `token`:
-/// the target and the session's ID.
-fn open(server: &mut LanguageServer, url: &str, token: &str) -> (Value, String) {
+/// Opens a session of `project`'s workspace for the simulator at `url` with `token`: the target and
+/// the session's ID.
+fn open(server: &mut LanguageServer, project: &Project, url: &str, token: &str) -> (Value, String) {
     let target = json!({ "simulator": true, "url": url, "endpoint": "tcp://127.0.0.1:9100",
                          "token": token });
-    let argument =
-        json!({ "workspace": "file:///projects/a", "name": "Fixture", "target": target });
+    let argument = json!({ "workspace": project.root_uri(), "name": "Fixture", "target": target });
     let opened = server.command("trust-lsp.hmiAgent.openSimulatorSession", argument);
     let id = opened["data"]["sessionId"]
         .as_str()
@@ -297,23 +369,45 @@ fn open(server: &mut LanguageServer, url: &str, token: &str) -> (Value, String) 
     (target, id)
 }
 
-/// The journey `journey-1` of `steps` on the session `id`, with `cookie`.
-fn journey(id: &str, cookie: &str, target: &Value, steps: Value) -> Value {
-    json!({ "workspace": "file:///projects/a", "sessionId": id, "journeyId": "journey-1",
-            "cookie": cookie, "target": target, "steps": steps, "models": { "settings": page() } })
+/// The journey `journey-1` of `steps` on the session `id` of `project`, with `cookie`, on revision 1
+/// of `draft`.
+fn journey(
+    project: &Project,
+    draft: &str,
+    id: &str,
+    cookie: &str,
+    target: &Value,
+    steps: Value,
+) -> Value {
+    let mut argument = project.fields();
+    for (field, value) in [
+        ("sessionId", json!(id)),
+        ("journeyId", json!("journey-1")),
+        ("cookie", json!(cookie)),
+        ("target", target.clone()),
+        ("steps", steps),
+        ("draftId", json!(draft)),
+        ("revision", json!("1")),
+    ] {
+        argument[field] = value;
+    }
+    argument
 }
 
 /// Catches: a journey that answers its request only when it ends, and a journey whose answer never
 /// reaches the client as `trust-lsp/simulatorJourneyEnded`.
 #[test]
 fn a_journey_answers_at_once_and_its_end_arrives_as_a_notification() {
-    let url = simulator();
+    let project = Project::new("at-once");
     let mut server = LanguageServer::start("warn");
-    let (target, id) = open(&mut server, &url, "access-token-7");
+    let (draft, model) = project.settings_draft(&mut server);
+    let url = simulator(model);
+    let (target, id) = open(&mut server, &project, &url, "access-token-7");
     let steps = json!([{ "page": "settings", "object": "stop", "action": "reset" }]);
+    let cookie = "trust_hmi_session=4f1c0ffee";
     let started = server.command(
         "trust-lsp.hmiAgent.runSimulatorJourney",
-        journey(&id, "trust_hmi_session=4f1c0ffee", &target, steps),
+        journey(&project, &draft, &id, cookie, &target, steps),
     );
     assert_eq!(
         started["data"],
@@ -337,13 +431,17 @@ fn a_journey_answers_at_once_and_its_end_arrives_as_a_notification() {
 fn journeys_waiting_on_a_hung_simulator_leave_the_server_answering() {
     let hung = TcpListener::bind("127.0.0.1:0").expect("a listener that never answers");
     let url = format!("http://{}", hung.local_addr().expect("its address"));
+    let project = Project::new("hung");
     let mut server = LanguageServer::start("warn");
+    let (draft, _) = project.settings_draft(&mut server);
     let mut sessions = Vec::new();
     for _ in 0..5 {
-        let (target, id) = open(&mut server, &url, "access-token-7");
+        let (target, id) = open(&mut server, &project, &url, "access-token-7");
         let started = server.command(
             "trust-lsp.hmiAgent.runSimulatorJourney",
             journey(
+                &project,
+                &draft,
                 &id,
                 "trust_hmi_session=4f1c0ffee",
                 &target,
@@ -377,18 +475,21 @@ fn journeys_waiting_on_a_hung_simulator_leave_the_server_answering() {
 fn the_cookie_and_the_token_reach_no_log_line() {
     const COOKIE: &str = "c00kie-5ecret-91";
     const TOKEN: &str = "t0ken-5ecret-37";
-    let url = simulator();
+    let project = Project::new("log");
     for log in [
         "tower_lsp=trace,tungstenite=trace,trust_lsp=trace",
         "tower_lsp::codec[{message}]=trace",
         "tower_lsp[{message}]=trace",
     ] {
         let mut server = LanguageServer::start(log);
-        let (target, id) = open(&mut server, &url, TOKEN);
+        let (draft, model) = project.settings_draft(&mut server);
+        let url = simulator(model);
+        let (target, id) = open(&mut server, &project, &url, TOKEN);
         let steps = json!([{ "page": "settings", "object": "stop", "action": "reset" }]);
+        let cookie = format!("trust_hmi_session={COOKIE}");
         let started = server.command(
             "trust-lsp.hmiAgent.runSimulatorJourney",
-            journey(&id, &format!("trust_hmi_session={COOKIE}"), &target, steps),
+            journey(&project, &draft, &id, &cookie, &target, steps),
         );
         assert_eq!(started["data"]["started"], true, "{log}: {started}");
         let ended = server.notification("trust-lsp/simulatorJourneyEnded", WAIT);
