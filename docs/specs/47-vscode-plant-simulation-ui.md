@@ -185,6 +185,10 @@ detail. Humanisation shall not change identity or configuration.
 
 The complete ordered mapping shall be shown in the inspector.
 
+Selecting a saved plant shows it in the inspector, never the setup editor at once. The
+inspector offers Configure plant, which opens the setup editor (§6.1), and, for a saved plant,
+the same `Open in Control Studio` action as the editor (§14.1).
+
 ### 5.2 Plant states
 
 The visible plant state shall be derived from configuration and runtime

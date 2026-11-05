@@ -8,8 +8,9 @@ import {
   openRenderedPlantSession,
   pollSave,
   pollValue,
-  sleep,
+  pressConfigurePlant,
   type RenderedPlantSession,
+  sleep,
 } from "./plant-rendered-harness";
 
 const RENDERED_TEST_ENABLED = process.env.TRUST_PLANT_RENDERED_TEST === "1";
@@ -239,6 +240,7 @@ async function saveAndReopenPlant(session: RenderedPlantSession): Promise<void> 
   assert.strictEqual(clicked, "SAVED", "the valid Piecewise linear route should be ready for a real save");
   await pollValue("saved Piecewise linear draft to close", () => session.inner("return d.querySelector('aside[aria-label=\"Plant properties\"]')?'OPEN':'CLOSED';"), (value) => value === "CLOSED", 20_000);
   await pollValue("persisted Piecewise linear node to reopen", () => session.inner("var node=[...d.querySelectorAll('.react-flow__node')].find((candidate)=>(candidate.textContent||'').includes('New simulated plant')&&!(candidate.textContent||'').includes('DRAFT'));if(!node)return 'WAIT';node.dispatchEvent(new node.ownerDocument.defaultView.MouseEvent('click',{bubbles:true}));return 'CLICKED';"), (value) => value === "CLICKED", 20_000);
+  await pressConfigurePlant(session.inner);
   await pollValue("persisted Piecewise linear editor", () => session.inner("var panel=d.querySelector('aside[aria-label=\"Plant properties\"]');return (panel?.textContent||'').includes('Configure plant')?'OPEN':'WAIT';"), (value) => value === "OPEN", 20_000);
 }
 

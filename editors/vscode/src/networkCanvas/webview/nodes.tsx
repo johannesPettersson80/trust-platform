@@ -489,6 +489,10 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
         <HoverCard
           title={d.name}
           rows={[
+            // A plant's exact persisted ID and state are hover details (specification 47 §5.1).
+            ...(d.kind === "plant"
+              ? ([["plant id", String(d.plantId ?? "")], ["state", String(d.state ?? "")]] as Array<[string, string]>)
+              : []),
             ["protocol", protocolName(d.protocol)],
             ["role", d.role],
             ["health", d.health],

@@ -190,7 +190,8 @@ export interface NCPlant {
     uncertainties?: Array<Record<string, unknown>>;
     scenarioEvents?: Array<{
       enabled: boolean;
-      atMs: number;
+      /** Null for a saved time that is not a number (Rust's `plant.topology`). */
+      atMs: number | null;
       kind: string;
       channel?: number;
       parameter?: string;

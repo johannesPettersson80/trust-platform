@@ -9,8 +9,9 @@ import {
   openRenderedPlantSession,
   pollSave,
   pollValue,
-  sleep,
+  pressConfigurePlant,
   type RenderedPlantSession,
+  sleep,
 } from "./plant-rendered-harness";
 
 const RENDERED_TEST_ENABLED = process.env.TRUST_PLANT_RENDERED_TEST === "1";
@@ -494,6 +495,7 @@ async function saveAndReopenPlant(session: RenderedPlantSession): Promise<void> 
     (value) => value === "CLICKED",
     20_000
   );
+  await pressConfigurePlant(session.inner);
   await pollValue(
     "persisted plant editor",
     async () => session.inner("var panel=d.querySelector('aside[aria-label=\"Plant properties\"]');return (panel?.textContent||'').includes('Configure plant')?'OPEN':'WAIT';"),

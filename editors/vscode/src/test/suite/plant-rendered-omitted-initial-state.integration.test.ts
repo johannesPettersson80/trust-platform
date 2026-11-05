@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { captureRenderedWorkbench, openRenderedPlantSession, pollSave, pollValue, sleep, type RenderedPlantSession } from "./plant-rendered-harness";
+import { captureRenderedWorkbench, openRenderedPlantSession, pollSave, pollValue, pressConfigurePlant, sleep, type RenderedPlantSession } from "./plant-rendered-harness";
 
 if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
   suite("Rendered plant editor", function () {
@@ -19,6 +19,7 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
           (value) => value === "OPEN",
           20_000
         );
+        await pressConfigurePlant(inner);
         await sleep(500);
         assert.strictEqual(await inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"),
           "true", "a runtime-valid saved plant with omitted initial_state must open its editor");
@@ -55,6 +56,7 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
           (value) => value === "OPEN",
           20_000
         );
+        await pressConfigurePlant(inner);
         // The editor shows its fields once Rust has opened the saved plant; an edit before then
         // finds no field.
         await pollValue(

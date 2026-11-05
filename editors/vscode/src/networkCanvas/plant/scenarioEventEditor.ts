@@ -6,7 +6,8 @@
  */
 export interface PlantScenarioEventDraft {
   enabled: boolean;
-  atMs: number;
+  /** Null for a saved time that is not a number, which the editor's checks report. */
+  atMs: number | null;
   /** The seconds text as typed; once present, Rust reads the event time from it. */
   timeSecondsText?: string;
   kind: string;

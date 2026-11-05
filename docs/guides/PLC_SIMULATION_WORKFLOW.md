@@ -16,8 +16,9 @@ command and reads `%I` feedback exactly as it would with an actuator and sensor.
 
 Save changes `simulation.toml`. If an older configuration is running, VS Code
 reports **Saved · restart required**; it does not claim that the new plant is
-already active. Open **Control Studio** from the saved plant to inspect live
-simulation values. Plant Properties remains a configuration surface and does
+already active. Select the saved plant to see its states and mapping in the
+inspector; **Configure plant** reopens the editor. Open **Control Studio** from
+the saved plant to inspect live simulation values. Plant Properties remains a configuration surface and does
 not duplicate live charts.
 
 The Tank starting point is useful for level, inventory, and accumulated

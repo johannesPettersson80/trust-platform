@@ -22,6 +22,8 @@ import type {
 } from "../../communication/schemaForm";
 import { visibleSchemaFields } from "../../communication/schemaForm";
 import { RemoveBrickActions } from "./RemoveBrickActions";
+import { iconBtn, PANEL_STYLE } from "./inspectorChrome";
+import { PlantInspector } from "./PlantInspector";
 
 // §4 D + settings UX (2026-06-17/18): single-click a node → ONE side panel. It opens on a
 // read-only SUMMARY (what it is + its current settings); an Edit button switches to the
@@ -44,6 +46,10 @@ interface Props {
   onClose: () => void;
   onFocus: (nodeId: string) => void;
   onBrowse?: (node: InspectorNode) => void; // §0.5.2 browse what the endpoint exposes (tags/channels/globals)
+  /** A saved plant's Configure plant: opens its setup editor (specification 47 §6.1). */
+  onConfigurePlant?: () => void;
+  /** A saved plant's Open in Control Studio (specification 47 §14.1). */
+  onOpenControlStudio?: () => void;
   post: (message: unknown) => void;
 }
 
@@ -414,23 +420,8 @@ function editBreadcrumb(protocol: string): string {
   return `Edit ${protocolName(protocol)}`;
 }
 
-const PANEL_STYLE: React.CSSProperties = {
-  position: "absolute",
-  top: 0,
-  right: 0,
-  bottom: 0,
-  width: 340,
-  maxWidth: "92vw",
-  background: t.overlay,
-  borderLeft: `1px solid ${t.border}`,
-  boxShadow: t.shadowOverlay,
-  zIndex: 8,
-  display: "flex",
-  flexDirection: "column",
-  overflow: "hidden",
-};
 
-export function NodeInspector({ node, schema, params, reachable, applyResult, onClose, onFocus, onBrowse, post }: Props) {
+export function NodeInspector({ node, schema, params, reachable, applyResult, onClose, onFocus, onBrowse, onConfigurePlant, onOpenControlStudio, post }: Props) {
   const protocol = str(node.data.protocol);
   const protoSchema = useMemo(
     () => (node.type === "endpoint" ? schema?.protocols.find((p) => p.id === protocol) : undefined),
@@ -445,6 +436,19 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
   const [editing, setEditing] = useState(false);
   // Every node opens on its summary; reset when a different node is selected.
   useEffect(() => setEditing(false), [node.id]);
+
+  // A simulated plant opens in the shared inspector like every runtime child (specification 47 §5).
+  if (node.data.kind === "plant") {
+    return (
+      <PlantInspector
+        node={node}
+        onConfigure={onConfigurePlant}
+        onOpenControlStudio={onOpenControlStudio}
+        onFocus={onFocus}
+        onClose={onClose}
+      />
+    );
+  }
 
   // §8 P3b: a runtime node is where per-runtime lifecycle lives. Honest verbs — Start/Stop for the
   // local simulator we own, Connect/Disconnect for a remote we don't (never a fake remote "Stop").
@@ -912,5 +916,3 @@ function EditableEndpoint({
     </aside>
   );
 }
-
-const iconBtn: React.CSSProperties = { border: "none", background: "transparent", color: t.textMuted, fontSize: 14, cursor: "pointer" };

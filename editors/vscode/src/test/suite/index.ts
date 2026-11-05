@@ -222,6 +222,7 @@ export function run(): Promise<void> {
   require("./plant-contract.test");
   require("./offline-plant-session.test");
   require("./plant-service.test");
+  require("./plant-inspector-render.test");
   require("./plant-topology.test");
   require("./plant-picker.test");
   require("./plant-editor-session.test");

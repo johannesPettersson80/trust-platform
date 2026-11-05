@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { beginPlantDraft, captureRenderedWorkbench, openRenderedPlantSession, pollSave, pollValue, sleep } from "./plant-rendered-harness";
+import { beginPlantDraft, captureRenderedWorkbench, openRenderedPlantSession, pollSave, pollValue, pressConfigurePlant, sleep } from "./plant-rendered-harness";
 
 if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
   suite("Rendered plant editor", function () {
@@ -58,6 +58,7 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         // that a Save of the value the field held before is caught here and not only after reopening.
         for (const field of optional) assert.doesNotMatch(simulation, new RegExp(`\\b${field}\\s*=`), `${field} omission must persist`);
         await pollValue("saved robot node", () => inner("var node=[...d.querySelectorAll('.react-flow__node')].find((candidate)=>(candidate.textContent||'').includes('New simulated plant'));if(!node)return 'WAIT';node.dispatchEvent(new node.ownerDocument.defaultView.MouseEvent('click',{bubbles:true}));return 'OPEN';"), (value) => value === "OPEN", 20_000);
+        await pressConfigurePlant(inner);
         await pollValue("reopened robot editor", () => inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"), (value) => value === "true", 20_000);
         for (const field of optional) {
           assert.strictEqual(await inner(`return d.querySelector('[data-plant-dynamics-field="${field}"]')?.value||'';`), "", `${field} remains blank after reopen`);

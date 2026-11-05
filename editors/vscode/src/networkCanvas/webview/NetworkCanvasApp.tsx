@@ -31,7 +31,6 @@ import {
 import { useCanvasViewport } from "./useCanvasViewport";
 import {
   createPlantDraft,
-  createPlantEditDraft,
   plantDraftCancelTarget,
   PLANT_DRAG_MIME,
   plantDropPresentation,
@@ -40,6 +39,7 @@ import {
   type PlantDraft,
 } from "../plant/addFlow";
 import type { PlantSignalCatalog } from "../plant/signalCatalog";
+import { controlStudioHandoff, plantEditDraftForNode } from "../plant/editDraftFromNode";
 import { receivePlantEditResult, type PlantEditorTables } from "../plant/editorSession";
 
 interface VsCodeApi {
@@ -763,21 +763,7 @@ function Canvas() {
             });
           }
         : undefined,
-      onOpenControlStudio:
-        plantDraft.persisted &&
-        plantDraft.projectId &&
-        plantDraft.savedConfigurationRevision
-          ? () => post({
-              type: "openControlStudio",
-              projectId: plantDraft.projectId,
-              runtimeId: plantDraft.runtimeId,
-              plantId: plantDraft.plantId,
-              savedConfigurationRevision: plantDraft.savedConfigurationRevision,
-              ...(plantDraft.activeConfigurationDigest
-                ? { activeConfigurationDigest: plantDraft.activeConfigurationDigest }
-                : {}),
-            })
-          : undefined,
+      onOpenControlStudio: withHandoff(controlStudioHandoff(plantDraft), post),
       onCancel: () => {
         const restoreId = plantDraftCancelTarget({
           previousSelectedId: plantDraftOriginRef.current.selectedId,
@@ -795,6 +781,11 @@ function Canvas() {
     };
   }
   if (selectedNode && !draft && !plantDraft) {
+    const selectedGraphNode = built.nodes.find((node) => node.id === selectedNode.id);
+    const runtime = built.nodes.find((node) => node.id === selectedGraphNode?.parentId);
+    const plantEditDraft = selectedGraphNode
+      ? plantEditDraftForNode(selectedGraphNode, String(runtime?.data.label ?? "runtime"))
+      : undefined;
     drawerRoutes.inspectNode = {
       node: selectedNode,
       schema,
@@ -804,6 +795,15 @@ function Canvas() {
       post,
       onFocus: focusNode,
       onBrowse,
+      onConfigurePlant: plantEditDraft
+        ? () => {
+            plantDraftOriginRef.current = { selectedId: selectedNode.id };
+            setPlantDraft(plantEditDraft);
+          }
+        : undefined,
+      onOpenControlStudio: plantEditDraft
+        ? withHandoff(controlStudioHandoff(plantEditDraft), post)
+        : undefined,
       onClose: () => {
         clearApplyResult();
         setSelectedId(undefined);
@@ -966,57 +966,8 @@ function Canvas() {
             equipment.setVisible(false);
             clearApplyResult();
             setDraft(undefined); // selection and the add-flow share the right drawer
-            const data = node.data as Record<string, unknown>;
-            const configuration = data.configuration as {
-              preservedConfiguration?: Record<string, unknown>;
-              description?: string;
-              parameters?: Record<string, number | number[] | number[][]>;
-              initialState?: number[];
-              enabledDefaulted?: boolean;
-              initialStateDefaulted?: boolean;
-              stepMs?: number;
-              initialInput?: number[];
-              inputScale?: number[];
-              inputOffset?: number[];
-              outputScale?: number[];
-              outputOffset?: number[];
-              actuator?: Record<string, number>;
-              uncertainties?: Array<Record<string, unknown>>;
-              scenarioEvents?: Array<Record<string, unknown>>;
-            } | undefined;
-            if (
-              data.kind === "plant" &&
-              data.draft !== true &&
-              node.parentId &&
-              typeof data.plantId === "string" &&
-              typeof data.displayName === "string" &&
-              typeof data.modelKind === "string" &&
-              configuration?.parameters &&
-              Array.isArray(configuration.initialState)
-            ) {
-              const runtime = built.nodes.find((candidate) => candidate.id === node.parentId);
-              plantDraftOriginRef.current = { selectedId: node.id };
-              setPlantDraft(createPlantEditDraft({
-                ...configuration,
-                parameters: configuration.parameters,
-                initialState: configuration.initialState,
-                id: node.id,
-                projectId: String(data.projectId ?? ""),
-                runtimeId: node.parentId,
-                runtimeName: String(runtime?.data.label ?? "runtime"),
-                plantId: data.plantId,
-                displayName: data.displayName,
-                description: configuration.description ?? "",
-                enabled: data.enabled !== false,
-                model: data.modelKind as import("../plant/editorModel").PlantModelKind,
-                commandSources: Array.isArray(data.commandSources) ? data.commandSources as string[] : [],
-                feedbackTargets: Array.isArray(data.feedbackTargets) ? data.feedbackTargets as string[] : [],
-                savedConfigurationRevision: String(data.savedConfigurationRevision ?? ""),
-                actuator: configuration.actuator,
-                uncertainties: configuration.uncertainties as import("../plant/uncertaintyEditor").PlantUncertaintyDraft[] | undefined,
-                scenarioEvents: configuration.scenarioEvents as import("../plant/scenarioEventEditor").PlantScenarioEventDraft[] | undefined,
-              }));
-            }
+            // A saved plant opens in the shared inspector like every runtime child; its Configure
+            // plant opens the setup editor (specification 47 §5, §6.1).
             setSelectedId(node.id);
             setFocusTargetId(node.id);
             post({ type: "selectNode", nodeId: node.id });
@@ -1031,6 +982,14 @@ function Canvas() {
       </div>
     </div>
   );
+}
+
+/** Sends a handoff when there is one; no action otherwise. */
+function withHandoff(
+  handoff: Record<string, unknown> | undefined,
+  post: (message: unknown) => void,
+): (() => void) | undefined {
+  return handoff ? () => post(handoff) : undefined;
 }
 
 export function NetworkCanvasApp() {
