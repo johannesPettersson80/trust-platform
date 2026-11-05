@@ -194,17 +194,19 @@ export function validate(project: EngineProject, request: Envelope): Promise<Aut
   return invoke(project, "trust-lsp.hmiAgent.validate", request, {}, "read");
 }
 
-/** The drafts of this workspace: `list`, one draft's pages with `read`, or `cleanup` of finished records. */
+/** The drafts of this workspace: `list`, one draft's pages with `read` (refused at another `revision`, when one is
+ * given), or `cleanup` of finished records. */
 export function drafts(
   project: EngineProject,
   action: "list" | "read" | "cleanup",
   draftId?: string,
+  revision?: string,
 ): Promise<AuthoringResult> {
   return invoke(
     project,
     "trust-lsp.hmiAgent.drafts",
     envelopeFor(project.workspaceId, {}),
-    { action, draftId },
+    { action, draftId, revision },
     action === "cleanup" ? "start" : "read",
   );
 }

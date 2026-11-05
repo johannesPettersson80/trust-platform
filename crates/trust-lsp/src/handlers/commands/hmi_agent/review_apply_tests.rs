@@ -742,3 +742,32 @@ fn an_unknown_draft_identifier_cannot_escape_the_storage() {
     let unknown = read_draft(&state, &project, "00000000-0000-4000-8000-000000000000");
     assert_eq!(unknown["code"], EXPIRED_DRAFT);
 }
+
+/// Specification 43, AT-07: a render reads the exact revision its tool call names. Catches a read that answers
+/// another revision's pages, so that an agent's render certifies pages it never asked for; the TypeScript render
+/// path compared the revisions itself before (checklist U4c). A read that names no revision, as the drafts list
+/// and the proposal's own reads make, still answers the current one.
+#[test]
+fn a_draft_read_at_another_revision_is_refused() {
+    let project = TempProject::new("read-revision");
+    let state = ServerState::new();
+    let draft = tanks_draft(&state, &project, "read-revision");
+    let read_at = |revision: Value| {
+        call(
+            &state,
+            DRAFTS,
+            project.argument(
+                json!({}),
+                json!({ "action": "read", "draftId": draft, "revision": revision }),
+            ),
+        )
+    };
+    assert_eq!(ok_data(&read_at(json!("1")))["revision"], "1");
+    let later = read_at(json!("2"));
+    assert_eq!(later["code"], CONFLICT, "{later}");
+    assert_eq!(later["message"], "draft revision changed.");
+    assert_eq!(
+        ok_data(&read_draft(&state, &project, &draft))["revision"],
+        "1"
+    );
+}

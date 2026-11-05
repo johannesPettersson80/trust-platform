@@ -18,6 +18,7 @@ import { scenarioFrame } from "../../hmiBuilder/agent/scenarios";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import type { HmiPageModel } from "../../hmiBuilder/drawing/model";
 import type { LiveSessionDeps } from "../../hmiBuilder/editor/liveSession";
+import { previewSession } from "../../hmiBuilder/agent/previews";
 import { liveBridge } from "../../hmiBuilder/editor/liveOperatorRuntime";
 
 const catalogue: Catalogue = {
@@ -422,6 +423,40 @@ suite("HMI completed authoring contracts", () => {
     } finally {
       (vscode.workspace as any).getConfiguration = getConfiguration;
     }
+  });
+  // The draft's revision is trust-lsp's to check (`trust-lsp.hmiAgent.drafts`, `read`, specification 43 AT-07), proven
+  // by `a_draft_read_at_another_revision_is_refused` in crates/trust-lsp; this proves that a render asks for the
+  // revision its tool call names. Catches a render that reads the draft without it, and so renders another revision's
+  // pages (checklist U4c).
+  test("a render reads its draft at the revision its tool call names", async () => {
+    const refused = {
+      ok: false,
+      code: "CONFLICT",
+      message: "draft revision changed.",
+      retryable: false,
+    };
+    await withSimulatorCommands(
+      {
+        "trust-lsp.hmiAgent.simulatorSessions": () => success({ sessions: [] }),
+        "trust-lsp.hmiAgent.drafts": () => refused,
+      },
+      async (calls) => {
+        const project = {
+          root: vscode.Uri.file("/projects/preview-revision"),
+          workspaceId: "workspace-1",
+          storage: "/storage/workspace-1",
+          token: new vscode.CancellationTokenSource().token,
+        };
+        await assert.rejects(
+          previewSession(project, "font.ttf", { draftId: "draft-1", revision: "2" }, new AbortController().signal),
+          /^Error: CONFLICT: draft revision changed\.$/,
+        );
+        const read = calls.find(([command]) => command === "trust-lsp.hmiAgent.drafts")?.[1];
+        assert.strictEqual(read?.action, "read");
+        assert.strictEqual(read?.draftId, "draft-1");
+        assert.strictEqual(read?.revision, "2");
+      },
+    );
   });
   test("a change of the selected run target closes the simulator sessions in trust-lsp", async function () {
     this.timeout(60000);
