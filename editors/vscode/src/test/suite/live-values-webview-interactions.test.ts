@@ -24,8 +24,17 @@ type LiveValuesHarness = {
     scan: number,
     input?: { readonly value?: string; readonly forced?: boolean },
   ): void;
+  /** Sends the panel a message as the host does. */
+  send(message: Record<string, unknown>): void;
+  /** The status messages' expiries that are pending: the panel's 5000 ms timers, which the harness holds. */
+  pendingExpiries(): number;
+  /** Lets every pending expiry run, as when 5000 ms passed. */
+  expire(): void;
   close(): void;
 };
+
+/** The delay after which success feedback expires (specification 25, section 4.2). */
+const EXPIRY_MS = 5000;
 
 function extensionRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
@@ -84,6 +93,8 @@ function createHarness(): LiveValuesHarness {
       <button id="forcedFilter" type="button"></button>
       <button id="releaseAllForces" type="button"></button>
       <div id="status"></div>
+      <span id="runtimeStatusText"></span>
+      <span id="targetLabel"></span>
       <div id="sections"></div>
     </body></html>`,
     { runScripts: "outside-only", url: "https://live-values.test/" },
@@ -92,6 +103,27 @@ function createHarness(): LiveValuesHarness {
   dom.window.acquireVsCodeApi = () => ({
     postMessage: (message: PostedMessage) => posted.push(message),
   });
+  // The harness holds the status line's expiry timers, so a test lets 5000 ms pass at once.
+  const expiries = new Map<number, () => void>();
+  let nextExpiry = 1_000_000;
+  const setTimer = dom.window.setTimeout.bind(dom.window);
+  const clearTimer = dom.window.clearTimeout.bind(dom.window);
+  dom.window.setTimeout = (callback: () => void, delay?: number, ...rest: unknown[]) => {
+    if (delay !== EXPIRY_MS) {
+      return setTimer(callback, delay, ...rest);
+    }
+    nextExpiry += 1;
+    expiries.set(nextExpiry, callback);
+    return nextExpiry;
+  };
+  dom.window.clearTimeout = (id: number) => {
+    if (!expiries.delete(id)) {
+      clearTimer(id);
+    }
+  };
+  const send = (message: Record<string, unknown>): void => {
+    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: message }));
+  };
   const source = fs.readFileSync(
     path.join(extensionRoot(), "src", "ioPanel.webview.js"),
     "utf8",
@@ -134,6 +166,17 @@ function createHarness(): LiveValuesHarness {
           },
         }),
       );
+    },
+    send,
+    pendingExpiries(): number {
+      return expiries.size;
+    },
+    expire(): void {
+      const due = [...expiries.values()];
+      expiries.clear();
+      for (const callback of due) {
+        callback();
+      }
     },
     close(): void {
       dom.window.close();
@@ -467,6 +510,175 @@ suite("Live Values rendered interactions", function () {
         Math.abs(io[column] - ads[column]) < 0.5,
         `column ${column + 1} is misaligned: I/O=${io[column]}, ADS=${ads[column]}`,
       );
+    }
+  });
+});
+
+/** The status line's text. */
+function statusText(harness: LiveValuesHarness): string {
+  return harness.document.getElementById("status")?.textContent ?? "";
+}
+
+/** Makes a pending Boolean force: the toggle reads TRUE and Force is clicked, while the runtime still says FALSE. */
+async function pendingForce(harness: LiveValuesHarness): Promise<void> {
+  harness.sendIoState(1);
+  const toggle = harness.document.querySelector("button.bool-toggle");
+  assert.ok(toggle, "expected a rendered Boolean value control");
+  toggle.click();
+  const force = actionButton(harness.document, "Force");
+  assert.ok(force, "expected the Force action");
+  force.click();
+  await nextTask(harness.window);
+  assert.strictEqual(harness.document.querySelector(".row .value")?.textContent, "TRUE", "the force is pending");
+}
+
+// The host says how long a status message stays and what it reports; the panel acts on that, never on the message's
+// words (specification 25, sections 4.2 and 4.4). Each test sends a message whose words the panel once matched, without
+// the host's word for it, beside one with it.
+suite("Live Values status messages", function () {
+  test("a message goes when live values arrive only when the host says so", () => {
+    // Catches U3c: the panel cleared the language server's guidance by its words, and kept a lost connection's message
+    // after values came back.
+    const harness = createHarness();
+    try {
+      harness.send({
+        type: "status",
+        payload: "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.",
+        lifetime: "untilValues",
+      });
+      harness.sendIoState(1);
+      assert.strictEqual(statusText(harness), "");
+
+      harness.send({ type: "status", payload: "Start the runtime to see live values." });
+      harness.sendIoState(2);
+      assert.strictEqual(statusText(harness), "Start the runtime to see live values.");
+    } finally {
+      harness.close();
+    }
+  });
+
+  test("success feedback expires after 5000 ms only when the host says so, and never clears a newer message", () => {
+    // Catches U3c: the panel expired a message by its words, and an expiry that clears the message after it.
+    const harness = createHarness();
+    try {
+      harness.expire();
+      harness.send({ type: "status", payload: "I/O write queued for %IX0.0.", lifetime: "expires" });
+      assert.strictEqual(harness.pendingExpiries(), 1);
+      harness.expire();
+      assert.strictEqual(statusText(harness), "");
+
+      harness.send({ type: "status", payload: "I/O write queued for %IX0.0.", lifetime: "expires" });
+      harness.send({ type: "status", payload: "I/O write failed: the runtime refused the value." });
+      harness.expire();
+      assert.strictEqual(statusText(harness), "I/O write failed: the runtime refused the value.");
+
+      harness.send({ type: "status", payload: "I/O write queued for %IX0.0." });
+      assert.strictEqual(harness.pendingExpiries(), 0, "a message without the host's lifetime stays");
+    } finally {
+      harness.close();
+    }
+  });
+
+  test("a lost session keeps the target the header showed, without a connection", () => {
+    // Catches U3c: the panel made up the header from the guidance's words, an online runtime with no endpoint.
+    const harness = createHarness();
+    try {
+      harness.send({
+        type: "runtimeStatus",
+        payload: {
+          running: true,
+          runtimeMode: "online",
+          runtimeState: "connected",
+          endpoint: "tcp://10.0.0.7:9100",
+          targetLabel: "Line PLC",
+          access: { role: "admin", allowWrite: true, allowForce: true, allowRelease: true, reason: null },
+        },
+      });
+      assert.strictEqual(harness.document.getElementById("runtimeStatusText")?.textContent, "Connected");
+      harness.send({
+        type: "status",
+        payload: "Connect to the selected runtime to see live values.",
+        lifetime: "untilValues",
+        sessionLost: true,
+      });
+      const pill = harness.document.getElementById("runtimeStatusText");
+      const target = harness.document.getElementById("targetLabel");
+      assert.strictEqual(pill?.textContent, "Not connected");
+      assert.strictEqual(target?.textContent, "Line PLC");
+      assert.strictEqual(target?.title, "tcp://10.0.0.7:9100");
+    } finally {
+      harness.close();
+    }
+  });
+
+  test("guidance sent with a runtime status leaves the header to that status", () => {
+    // Catches U3c's finding: after a terminated session's status, the guidance's words overwrote it and lost its
+    // endpoint.
+    const harness = createHarness();
+    try {
+      harness.send({
+        type: "runtimeStatus",
+        payload: {
+          running: false,
+          runtimeMode: "online",
+          runtimeState: "stopped",
+          endpoint: "tcp://10.0.0.7:9100",
+          targetLabel: "Line PLC",
+        },
+      });
+      harness.send({
+        type: "status",
+        payload: "Connect to the selected runtime to see live values.",
+        lifetime: "untilValues",
+        sessionLost: false,
+      });
+      const target = harness.document.getElementById("targetLabel");
+      assert.strictEqual(target?.textContent, "Line PLC");
+      assert.strictEqual(target?.title, "tcp://10.0.0.7:9100");
+    } finally {
+      harness.close();
+    }
+  });
+
+  test("a failed Force clears the pending Boolean force only when the host says it failed", async () => {
+    // Catches U3c: the panel read a failed force from the words "I/O force failed:".
+    const failed = createHarness();
+    try {
+      await pendingForce(failed);
+      failed.send({ type: "status", payload: "I/O force failed: the runtime refused the force.", forceFailed: true });
+      assert.strictEqual(failed.document.querySelector(".row .value")?.textContent, "FALSE");
+    } finally {
+      failed.close();
+    }
+    const unflagged = createHarness();
+    try {
+      await pendingForce(unflagged);
+      unflagged.send({ type: "status", payload: "I/O force failed: the runtime refused the force." });
+      assert.strictEqual(unflagged.document.querySelector(".row .value")?.textContent, "TRUE");
+    } finally {
+      unflagged.close();
+    }
+  });
+
+  test("a release on an armed target says the force remains armed, and that message stays", () => {
+    // Catches U3c: the panel read a release from the words "released" or "cleared", and let the arming feedback expire.
+    const harness = createHarness();
+    try {
+      harness.send({ type: "runtimeStatus", payload: { ...SIMULATOR_STATUS, forceRequiresArm: true } });
+      harness.sendIoState(1);
+      const arm = actionButton(harness.document, "Arm force");
+      assert.ok(arm, "expected the Arm force action on a target that requires arming");
+      arm.click();
+      harness.expire();
+
+      harness.send({ type: "status", payload: "I/O force released at %IX0.0.", lifetime: "expires", released: true });
+      assert.strictEqual(statusText(harness), "I/O force released at %IX0.0. Force remains armed for this target.");
+      assert.strictEqual(harness.pendingExpiries(), 0, "the arming feedback stays explicit after a release");
+
+      harness.send({ type: "status", payload: "Watch list cleared and released.", lifetime: "expires" });
+      assert.strictEqual(statusText(harness), "Watch list cleared and released.");
+    } finally {
+      harness.close();
     }
   });
 });

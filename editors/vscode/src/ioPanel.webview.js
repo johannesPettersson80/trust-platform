@@ -48,6 +48,10 @@ let currentRuntimeState = "stopped";
 let currentTargetKey = "simulate|stopped|";
 let forceArmed = false;
 let statusClearTimer = undefined;
+// Whether the status line's message goes when live values arrive: the panel opens on `Live Values loading...`.
+let statusUntilValues = true;
+// The runtime status the host last sent, which the header keeps when the session is lost (specification 25 §4.4).
+let lastRuntimeStatus = undefined;
 let numericDisplayBase = "dec";
 let actionInteractionActive = false;
 let actionInteractionRenderPending = false;
@@ -306,10 +310,14 @@ if (sections) {
   });
 }
 
-function setStatusText(message) {
+/** Shows `message` in the status line. `lifetime` is how long it stays, as the host says it (specification 25 §4.2):
+ * `untilValues` until live values arrive, `expires` for TRANSIENT_STATUS_CLEAR_MS while it is still the message, and
+ * `startup` whichever comes first; without one it stays until the next message. */
+function setStatusText(message, lifetime) {
   if (status) {
     clearStatusClearTimer();
     const text = String(message || "");
+    statusUntilValues = lifetime === "untilValues" || lifetime === "startup";
     const isWarning = isWarningStatusText(text);
     const isError = isErrorStatusText(text) && !isWarning;
     status.textContent = text;
@@ -320,7 +328,7 @@ function setStatusText(message) {
       "status-ok",
       !isWarning && /queued|released|cleared/i.test(text)
     );
-    if (isAutoExpiringStatusText(text)) {
+    if (lifetime === "expires" || lifetime === "startup") {
       statusClearTimer = window.setTimeout(() => {
         if (status && status.textContent === text) {
           setStatusText("");
@@ -364,24 +372,6 @@ function updateScanLabel(state) {
     scan === undefined
       ? "No runtime scan has been received yet"
       : "Rows are from runtime scan #" + scan;
-}
-
-function isTransientStatusText(message) {
-  return (
-    /^Live Values (loading|ready)\.?$/i.test(message) ||
-    /^Start the runtime to see live values\.?$/i.test(message) ||
-    /^Connect to the selected runtime to see live values\.?$/i.test(message)
-  );
-}
-
-function isAutoExpiringStatusText(message) {
-  return (
-    /^Live Values ready\.?$/i.test(message) ||
-    /^I\/O write queued for .+\.?$/i.test(message) ||
-    /^I\/O force released at .+\.?$/i.test(message) ||
-    /^Released \d+ forces?\.?$/i.test(message) ||
-    /^No forces to release\.?$/i.test(message)
-  );
 }
 
 function forceRequiresArming() {
@@ -528,7 +518,7 @@ if (filterInput) {
     render(currentState);
   });
 }
-setStatusText("Live Values ready.");
+setStatusText("Live Values ready.", "startup");
 vscode.postMessage({ type: "webviewReady" });
 
 function setSettingsOpen(open) {
@@ -779,30 +769,16 @@ function applyRuntimeStatus(payload) {
   updateForcePolicy();
 }
 
-function clearUnavailableRuntimeStatus(message) {
-  if (/Start the runtime to see live values/i.test(message)) {
-    applyRuntimeStatus({
-      running: false,
-      runtimeMode: "simulate",
-      runtimeState: "stopped",
-      endpoint: "",
-      endpointConfigured: false,
-      endpointEnabled: true,
-      endpointReachable: false
-    });
-    return;
-  }
-  if (/Connect to the selected runtime to see live values/i.test(message)) {
-    applyRuntimeStatus({
-      running: false,
-      runtimeMode: "online",
-      runtimeState: "stopped",
-      endpoint: "",
-      endpointConfigured: false,
-      endpointEnabled: true,
-      endpointReachable: false
-    });
-  }
+/** The host lost Live Values' session without a runtime status to send (specification 25 §4.4): the header keeps the
+ * target it last showed, without a connection or capabilities. */
+function showSessionLost() {
+  applyRuntimeStatus({
+    ...(lastRuntimeStatus || {}),
+    running: false,
+    runtimeState: "stopped",
+    access: undefined,
+    rows: undefined
+  });
 }
 
 function applySettingsPayload(payload) {
@@ -1369,7 +1345,7 @@ function render(state) {
 window.addEventListener("message", (event) => {
   const message = event.data;
   if (message.type === "ioState") {
-    if (isTransientStatusText(status ? status.textContent || "" : "")) {
+    if (statusUntilValues) {
       setStatusText("");
     }
     currentState = message.payload || { inputs: [], outputs: [], memory: [], ads: [] };
@@ -1382,31 +1358,32 @@ window.addEventListener("message", (event) => {
     }
   }
   if (message.type === "status") {
+    // The host says what a message reports (specification 25 §4.2, §4.4): `sessionLost`, `forceFailed`, `released`
+    // and `lifetime`.
     const payload = String(message.payload || "");
-    clearUnavailableRuntimeStatus(payload);
-    if (/I\/O force failed:/i.test(payload) && clearPendingBooleanForces()) {
+    if (message.sessionLost) {
+      showSessionLost();
+    }
+    if (message.forceFailed && clearPendingBooleanForces()) {
       if (actionInteractionActive) {
         actionInteractionRenderPending = true;
       } else {
         render(currentState);
       }
     }
-    if (
-      forceRequiresArming() &&
-      forceArmed &&
-      /released|cleared/i.test(payload) &&
-      !/armed/i.test(payload)
-    ) {
+    if (message.released && forceRequiresArming() && forceArmed) {
+      // The arming feedback stays explicit after a release, so this message does not expire.
       setStatusText(payload + " Force remains armed for this target.");
     } else {
-      setStatusText(payload);
+      setStatusText(payload, message.lifetime);
     }
   }
   if (message.type === "settings") {
     applySettingsPayload(message.payload || {});
   }
   if (message.type === "runtimeStatus") {
-    applyRuntimeStatus(message.payload || {});
+    lastRuntimeStatus = message.payload || {};
+    applyRuntimeStatus(lastRuntimeStatus);
   }
 
   if (message.type === "openSettings") {

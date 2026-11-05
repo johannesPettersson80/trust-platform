@@ -276,11 +276,13 @@ function postEmptyIoState(): void {
   });
 }
 
+/** Live Values without a session: the rows go at once, and the language server's guidance, or `message`, follows with
+ * `status` for the header. Without a status the panel is told the session was lost, and its header keeps the target it
+ * showed without a connection; the message goes when live values arrive (specification 25, sections 4.2 and 4.4). */
 function postUnavailableLiveValues(
   status?: RuntimeStatusPayload,
   message?: string
 ): void {
-  // The stale rows go at once; the guidance follows the language server's answer.
   postEmptyIoState();
   void unavailable(status).then((guidance) => {
     const publish = () => {
@@ -294,6 +296,8 @@ function postUnavailableLiveValues(
       panel?.webview.postMessage({
         type: "status",
         payload: message || guidance.message,
+        lifetime: "untilValues",
+        sessionLost: status === undefined,
       });
     };
     publish();
@@ -504,7 +508,7 @@ async function sendRuntimeStatus(): Promise<void> {
     payload: withDebugState(status, guidance),
   });
   if (guidance.debugDisabled) {
-    panel?.webview.postMessage({ type: "status", payload: guidance.message });
+    panel?.webview.postMessage({ type: "status", payload: guidance.message, lifetime: "untilValues" });
   }
 }
 
@@ -559,6 +563,7 @@ async function writeInput(address: string, value: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O write queued for ${address}.`,
+      lifetime: "expires",
     });
     void requestIoStateAfterScan(previousScan);
   } catch (err) {
@@ -594,6 +599,7 @@ async function forceInput(address: string, value: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O force failed: ${message}`,
+      forceFailed: true,
     });
   }
 }
@@ -613,6 +619,8 @@ async function releaseInput(address: string): Promise<void> {
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O force released at ${address}.`,
+      lifetime: "expires",
+      released: true,
     });
     void requestIoStateAfterScan(previousScan);
   } catch (err) {
@@ -646,6 +654,8 @@ async function releaseAllForces(addresses: string[]): Promise<void> {
       released > 0
         ? `Released ${released} force${released === 1 ? "" : "s"}.`
         : "No forces to release.",
+    lifetime: "expires",
+    released: released > 0,
   });
   void requestIoStateAfterScan(previousScan);
 }
@@ -695,6 +705,7 @@ async function stopDebugging(): Promise<void> {
       panel?.webview.postMessage({
         type: "status",
         payload: guidance.message,
+        lifetime: "untilValues",
       });
     }
   } catch (err) {

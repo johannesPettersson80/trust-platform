@@ -1347,33 +1347,37 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("updateForceStatusFromState(currentState)"),
       "active forces from runtime snapshots must render a standing amber warning, even without a fresh button click"
     );
-    for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
-      assert.ok(
-        source.includes("isTransientStatusText"),
-        `${name} must clear only startup/unavailable guidance when live values arrive`
-      );
-      assert.ok(
-        source.includes("Start the runtime to see live values"),
-        `${name} must clear stale empty-state guidance after live values arrive`
-      );
-      assert.ok(
-        source.includes("TRANSIENT_STATUS_CLEAR_MS = 5000") &&
-          source.includes("isAutoExpiringStatusText") &&
-          source.includes("force released at") &&
-          source.includes("Released \\d+ forces?") &&
-          source.includes("No forces to release") &&
-          /status(?:\?\.|\.)textContent === (text|message)/.test(source),
-        `${name} must auto-expire short success feedback without clearing newer status`
-      );
-      assert.ok(
-        !source.includes("I/O force active at .+"),
-        `${name} must not auto-expire force-active standing-state banners`
-      );
-      assert.ok(
-        !/if \(message\.type === "ioState"\) \{\s*setStatusText\(""\);/.test(source),
-        `${name} must not clear operation feedback on every value refresh`
-      );
-    }
+    // The host says how long each message stays; the panel never decides it by a message's words (specification 25,
+    // section 4.2). The rendered behaviour is proven in live-values-status.test.ts.
+    const host = readSrc("ioPanel.ts");
+    const body = (from: string, to: string): string => host.slice(host.indexOf(from), host.indexOf(to));
+    const writeBody = body("async function writeInput", "async function forceInput");
+    const forceBody = body("async function forceInput", "async function releaseInput");
+    const releasedBody = body("async function releaseInput", "async function releaseAllForces");
+    assert.ok(
+      web.includes("if (statusUntilValues)") &&
+        !web.includes("isTransientStatusText") &&
+        !web.includes("Start the runtime to see live values") &&
+        host.includes('lifetime: "untilValues"'),
+      "unavailable guidance must clear when live values arrive because the host says so, not by its words"
+    );
+    assert.ok(
+      web.includes("TRANSIENT_STATUS_CLEAR_MS = 5000") &&
+        web.includes('lifetime === "expires"') &&
+        !web.includes("isAutoExpiringStatusText") &&
+        /status(?:\?\.|\.)textContent === (text|message)/.test(web) &&
+        writeBody.includes('lifetime: "expires"') &&
+        releasedBody.includes('lifetime: "expires"'),
+      "short success feedback must expire because the host says so, without clearing newer status"
+    );
+    assert.ok(
+      !forceBody.includes("lifetime"),
+      "force-active standing-state banners must not expire"
+    );
+    assert.ok(
+      !/if \(message\.type === "ioState"\) \{\s*setStatusText\(""\);/.test(web),
+      "ioPanel.webview.js must not clear operation feedback on every value refresh"
+    );
   });
 
   test("Live Values makes the active target and table columns visible", () => {
@@ -1681,11 +1685,12 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
     const web = readSrc("ioPanel.webview.js");
     assert.ok(
-      web.includes("function clearUnavailableRuntimeStatus") &&
-        web.includes("Start the runtime to see live values") &&
+      web.includes("function showSessionLost") &&
+        web.includes("if (message.sessionLost)") &&
         web.includes('runtimeState: "stopped"') &&
-        web.includes("clearUnavailableRuntimeStatus(payload)"),
-      "the webview must clear stale Connected pills when the host reports Live Values unavailable"
+        !web.includes("clearUnavailableRuntimeStatus") &&
+        unavailableBody.includes("sessionLost: status === undefined"),
+      "the webview must clear stale Connected pills when the host says the session was lost, keeping the target it showed"
     );
     assert.ok(
       host.includes("postUnavailableLiveValues();") &&
