@@ -5,8 +5,9 @@ use super::diagnostics::{
     check_empty_named_actuals, check_extends_implements_semantics,
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
     check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
-    check_using_directives, collect_used_symbols, expression_by_id, expression_context,
-    resolve_pending_types_with_table, type_check_file, used_external_globals, ExpressionIndex,
+    check_using_directives, collect_used_symbols, compute_host_clock_sources, expression_by_id,
+    expression_context, resolve_pending_types_with_table, type_check_file, used_external_globals,
+    ExpressionIndex, HostClockSources,
 };
 use super::project_configuration::project_config_roots;
 use super::project_constants::{project_constant_expressions, project_declared_expressions};
@@ -520,7 +521,15 @@ pub(super) fn analyze_query(
     let expression_types = type_check_file(&mut symbols, &root, &mut builder);
     check_unreachable_statements(&root, &mut builder);
     check_cyclomatic_complexity(&root, &mut builder);
-    check_nondeterminism(&symbols, &mut builder);
+    let clock_sources = host_clock_sources_query(db, project);
+    check_nondeterminism(
+        &symbols,
+        &root,
+        file_id,
+        &expression_types.symbols,
+        clock_sources.as_ref(),
+        &mut builder,
+    );
     if has_owned_global_variables(&symbols, file_id) && project_has_task_configs_query(db, project)
     {
         let project_roots = project_roots_from_inputs(db, &project_source_inputs);
@@ -537,6 +546,26 @@ pub(super) fn analyze_query(
         resolved_symbols: Arc::new(expression_types.symbols),
         declaration_catalog: Arc::new(declaration_catalog),
     })
+}
+
+/// The project's host-clock sources, keyed canonically per POU (specification
+/// 28 section 5). Built from the parsed bodies against each file's merged
+/// symbol table — the same per-file inputs the unused-symbol rule reads — so
+/// body-call resolution sees the whole project and this query adds no cycle.
+#[salsa::tracked(returns(ref))]
+pub(super) fn host_clock_sources_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+) -> Arc<HostClockSources> {
+    cancellation_checkpoint(db);
+    let project_files = project.files(db);
+    let mut files: Vec<(FileId, &SymbolTable, SyntaxNode)> = Vec::new();
+    for (file_id, input) in project_files.iter().copied() {
+        let table = merged_project_symbols_query(db, project, file_id);
+        let root = SyntaxNode::new_root(parse_green(db, input).clone());
+        files.push((file_id, table.as_ref(), root));
+    }
+    Arc::new(compute_host_clock_sources(&files))
 }
 
 #[salsa::tracked(returns(ref))]

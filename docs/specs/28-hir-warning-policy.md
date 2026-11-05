@@ -114,13 +114,36 @@ warning at its own source range.
 
 ## 5. Nondeterministic values and I/O
 
-`NondeterministicTimeDate` is emitted for live variable-like declarations of
-TIME, LTIME, DATE, LDATE, TOD, LTOD, DT, or LDT, including aliases.
-Variable-like declarations are variables, parameters, function or method
-results, and properties. Type declarations and constants do not themselves
-represent a changing clock value and do not receive this warning. Imported and
-synthetic declarations are diagnosed only at their real source declaration,
-never again in each consuming file.
+`NondeterministicTimeDate` tracks clock sources, not declarations. A
+declaration of time/date storage cannot introduce nondeterminism, so no TIME,
+LTIME, DATE, LDATE, TOD, LTOD, DT or LDT declaration ever warns — variable,
+parameter, function or method result, property, or an alias resolving to one
+of those types, declared locally or imported. What counts as a source follows
+truST's own clock contract, specification 07, "Runtime Clock Sources":
+
+- `CURRENT_DT` is the source. It samples the host's wall clock, and
+  deterministic replay does not control it. The warning is emitted at a call
+  of `CURRENT_DT()`, and at the call site of a function, method, function
+  block or program whose body reads it, directly or through the POUs it calls.
+  The message names the source: "`CURRENT_DT` reads the host clock, which
+  replay does not control".
+- `TIME` is not a source. It returns the runtime's logical elapsed time, which
+  replay controls (specification 07 recommends it for exactly that reason).
+  Neither it nor what is built on it warns: `T_PLC_MS`, `T_PLC_US`, `RTC_MS`,
+  `RTC_2` and the timers read runtime clock sources, not the host clock.
+- There is no declaration-level fallback, and a value whose source cannot be
+  traced does not warn either. A function that exists only as a body-less
+  library stub reads no clock; tracing through a vendor-stub boundary is out
+  of scope. A call that cannot be resolved does not warn, for the same
+  reason: a lint does not name a clock that is not there. This section keeps
+  the library-surface decision of #180: a clock read in a library body still
+  warns where that body is linked into the project.
+
+Call-site ranges select the called name, and the call graph is computed from
+the bodies of the project's POUs, resolving each body call in its scope: an
+instance's call maps to the block the instance variable declares, `inst.M()`
+maps to that type's method, and a bare call never takes a same-named method's
+clock.
 
 `NondeterministicIo` is emitted for a live declaration bound to a direct input
 or output address whose normalized address begins with `%I` or `%Q`.

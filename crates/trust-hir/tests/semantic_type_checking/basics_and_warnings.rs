@@ -400,8 +400,29 @@ END_PROGRAM
     assert!(warnings.contains(&DiagnosticCode::UnreachableCode));
 }
 
+/// Specification 28 §5: W010 tracks clock sources, not declarations. `CURRENT_DT` samples the
+/// host wall clock, which replay does not control, so its call warns.
 #[test]
 fn test_nondeterministic_time_date_warning() {
+    let warnings = check_warnings(
+        r#"
+PROGRAM Test
+    VAR
+        t : TIME;
+        d : DATE;
+        stamp : DT;
+    END_VAR
+    stamp := CURRENT_DT();
+END_PROGRAM
+"#,
+    );
+    assert!(warnings.contains(&DiagnosticCode::NondeterministicTimeDate));
+}
+
+/// Specification 28 §5: a TIME/DATE declaration is storage and never warns, so a program
+/// holding only declarations stays silent.
+#[test]
+fn test_time_date_declarations_do_not_warn() {
     let warnings = check_warnings(
         r#"
 PROGRAM Test
@@ -412,7 +433,7 @@ PROGRAM Test
 END_PROGRAM
 "#,
     );
-    assert!(warnings.contains(&DiagnosticCode::NondeterministicTimeDate));
+    assert!(!warnings.contains(&DiagnosticCode::NondeterministicTimeDate));
 }
 
 /// Specification 14 (W011): a direct `%I`/`%Q` address in reusable code warns; a program's I/O
