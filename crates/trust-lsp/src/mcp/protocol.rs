@@ -3,6 +3,8 @@
 
 use serde_json::{json, Map, Value};
 
+use super::ServerInfo;
+
 /// The message is not JSON.
 pub(crate) const PARSE_ERROR: i64 = -32700;
 /// The message is not a JSON-RPC 2.0 request, its id is not a string or a number, or the request
@@ -10,9 +12,11 @@ pub(crate) const PARSE_ERROR: i64 = -32700;
 pub(crate) const INVALID_REQUEST: i64 = -32600;
 /// The server has no such method.
 pub(crate) const METHOD_NOT_FOUND: i64 = -32601;
-/// The tool call names an unknown tool, has no argument object or names another workspace.
+/// The tool call's parameters are refused by the tool provider: for the HMI authoring tools, an
+/// unknown tool, no argument object or another workspace.
 pub(crate) const INVALID_PARAMS: i64 = -32602;
-/// The loopback could not answer.
+/// The tool provider could not answer the call, the server could not run it, or the line was over
+/// the line limit.
 pub(crate) const UNAVAILABLE: i64 = -32000;
 
 /// The notification that cancels a request.
@@ -20,16 +24,6 @@ pub(crate) const CANCELLED: &str = "notifications/cancelled";
 
 /// The protocol versions the server speaks, newest first.
 pub(crate) const VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
-
-/// The server's name and version in the answer to `initialize`.
-const SERVER_NAME: &str = "trust-hmi-authoring";
-const SERVER_VERSION: &str = "1.0.0";
-
-/// The instructions the server gives the agent in the answer to `initialize`.
-const INSTRUCTIONS: &str = "Use the connected VS Code project's HMI tools. Inspect context and the visual library before editing. Render and inspect proposals, validate bindings, and review changes before applying. Authoring is separate from deployment and equipment operation.";
-
-/// The failure answer of a request that the loopback could not answer.
-const UNAVAILABLE_MESSAGE: &str = "HMI authoring connection unavailable or request limit exceeded. Reconnect in the selected VS Code window.";
 
 /// A message read from a line.
 #[derive(Debug, PartialEq)]
@@ -90,8 +84,8 @@ pub(crate) fn classify(message: Value) -> Message {
 }
 
 /// The result of `initialize`: the client's protocol version when the server speaks it, otherwise
-/// the newest one the server speaks.
-pub(crate) fn initialize(params: &Map<String, Value>) -> Value {
+/// the newest one the server speaks, and what the server says of itself.
+pub(crate) fn initialize(params: &Map<String, Value>, info: &ServerInfo) -> Value {
     let requested = params.get("protocolVersion").and_then(Value::as_str);
     let version = requested
         .filter(|version| VERSIONS.contains(version))
@@ -99,8 +93,8 @@ pub(crate) fn initialize(params: &Map<String, Value>) -> Value {
     json!({
         "protocolVersion": version,
         "capabilities": { "tools": {} },
-        "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION },
-        "instructions": INSTRUCTIONS,
+        "serverInfo": { "name": info.name, "version": info.version },
+        "instructions": info.instructions,
     })
 }
 
@@ -114,7 +108,7 @@ pub(crate) fn refusal(id: Value, code: i64, message: &str) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
 }
 
-/// The answer to request `id` that the loopback could not answer.
-pub(crate) fn unavailable(id: Value) -> Value {
-    refusal(id, UNAVAILABLE, UNAVAILABLE_MESSAGE)
+/// The failure answer of request `id`, with the server's `message`.
+pub(crate) fn unavailable(id: Value, message: &str) -> Value {
+    refusal(id, UNAVAILABLE, message)
 }
