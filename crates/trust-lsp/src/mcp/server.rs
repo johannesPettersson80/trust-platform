@@ -2,6 +2,7 @@
 //! message except a tool call itself, in order. Each tool call runs on its own thread, so ping and
 //! cancellation are answered while calls run.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::panic::{self, AssertUnwindSafe};
@@ -157,9 +158,17 @@ impl Server {
         None
     }
 
-    /// Starts a tool call on its own thread, or refuses it.
+    /// Starts a tool call on its own thread, or refuses it. MCP's `tools/call` makes `arguments`
+    /// optional, so an omitted one reaches the provider's checks as no arguments, `{}`.
     fn call(self: &Arc<Self>, id: Value, params: &Map<String, Value>) -> Option<JoinHandle<()>> {
-        let (name, arguments) = match self.provider.check(params) {
+        let params = if params.contains_key("arguments") {
+            Cow::Borrowed(params)
+        } else {
+            let mut params = params.clone();
+            params.insert("arguments".to_owned(), Value::Object(Map::new()));
+            Cow::Owned(params)
+        };
+        let (name, arguments) = match self.provider.check(&params) {
             Ok(checked) => checked,
             Err(reason) => {
                 self.write(&protocol::refusal(id, protocol::INVALID_PARAMS, reason));

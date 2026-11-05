@@ -10,9 +10,7 @@ use super::super::bridge::CALL;
 use super::super::connection::Connection;
 use super::super::tools::StartError;
 use super::super::Limits;
-use super::{
-    call, ping, refusal, tools, unavailable, Calls, FakeBridge, Session, CAPABILITY, WORKSPACE,
-};
+use super::{call, ping, tools, unavailable, Calls, FakeBridge, Session, CAPABILITY, WORKSPACE};
 
 /// A text whose characters take two to four bytes each.
 const TEXT: &str = "Pumpe Ø 50 – Füllstand · 🌊";
@@ -189,9 +187,15 @@ fn the_call_body_is_the_agents_arguments_as_json() {
         calls[0].body["arguments"],
         json!({"input": {"title": "Ø \"q\" \n", "n": 12}, "workspaceId": WORKSPACE})
     );
+    // MCP makes `arguments` optional: a call without them reaches the loopback with only the
+    // connection's workspace (specification 43 §3.1).
     assert_eq!(
-        session.ask(&json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "hmi_get_context"}})),
-        refusal(json!(2), -32602, "Tool arguments must be an object.")
+        session.ask(&json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "hmi_get_context"}}))["id"],
+        json!(2)
+    );
+    assert_eq!(
+        bridge.received_on(CALL)[1].body["arguments"],
+        json!({"workspaceId": WORKSPACE})
     );
     session.close();
 }
