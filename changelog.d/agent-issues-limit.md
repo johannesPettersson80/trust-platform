@@ -5,5 +5,4 @@
   message limits. An applied limit truncates `issues[]` to the first entries
   of the deterministic order, bounds the failed-build error text and the
   compile_reload build-failure `runtimeMessage`, and adds `issuesTruncated`
-  and `totalIssues`. An omitted limit preserves the whole-list responses
-  (`agent serve` and the MCP binding alike).
+  and `totalIssues`. An omitted limit preserves the whole-list responses.
