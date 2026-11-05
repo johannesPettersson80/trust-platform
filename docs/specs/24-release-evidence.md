@@ -43,10 +43,9 @@ chain check. The Rust workspace runs the owned-exception policy with
 every advisory `npm audit` reports, at any severity, needs an owned exception
 in `editors/vscode/audit-exceptions.toml`, with the same fields and limit and
 the advisory's GitHub id. `scripts/check_npm_audit.py` checks it in CI, in the
-release build, in the preflight of a promoted release, which builds nothing,
-and in the release guard's dependency audit; an advisory without
-an owned exception fails, and an exception whose advisory npm no longer reports
-is named for removal.
+release build, and in the preflight of a promoted release, which builds
+nothing; an advisory without an owned exception fails, and an exception whose
+advisory npm no longer reports is named for removal.
 
 ## Vendored Dependency Provenance
 
@@ -301,18 +300,6 @@ the workspace, VS Code package and lockfile versions to agree. It does not wait
 for the release, which follows CI. Until 0.26.0 it waited for a release started
 by a hand-pushed tag, and 0.25.1's release outlasted its 90 minutes
 (29 October 2026).
-
-### Exact-SHA candidate execution
-
-Retired from the workflow on 31 October 2026 (specification 22, "Change and
-release workflow"): no push requires an exact-SHA candidate artifact. While the
-tool remains, a candidate artifact records local and remote commands that all
-ran against the candidate revision. The
-remote VS Code gate uses a unique, bounded-length temporary directory under
-`/tmp` for browser and Extension Host process sockets, removes that directory
-when the gate exits, and keeps Cargo build output in the separately validated
-generated target. A caller-supplied target path must not lengthen browser socket
-paths or make an otherwise valid rendered gate fail.
 
 ### Release preflight and manifest alignment
 
