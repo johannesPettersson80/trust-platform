@@ -205,7 +205,9 @@ the route's JSON object (400). Its routes: `POST /mcp/tools` answers `{ "tools" 
 `POST /mcp/call` with `{ "id", "name", "arguments" }` invokes the named VS Code tool for the
 loopback's own workspace, whatever the arguments name, and answers the tool's result (409 while a
 call with that id runs, 500 when the tool fails); `POST /mcp/cancel` with `{ "id" }` cancels the
-call with that id. The server gives each call its own id with a random prefix, so two servers on
+call with that id. The server sends a cancellation on a thread of its own, so it can arrive before
+its call: the loopback keeps such a cancellation for 10 seconds, at most 64 of them, and the call
+with that id then starts cancelled, so that its tool answers its cancellation. The server gives each call its own id with a random prefix, so two servers on
 one connection never share one. The loopback holds no MCP rule.
 
 ## 4. Common tool contract

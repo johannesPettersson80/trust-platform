@@ -20,6 +20,11 @@ export interface AgentBridge {
 }
 /** The largest request body the loopback reads. */
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
+/** How long the loopback keeps a cancellation that came before its call: the MCP server sends a cancellation on a
+ * thread of its own, so it can overtake its call's request (specification 43 §3.1). */
+const EARLY_CANCEL_MS = 10_000;
+/** The most early cancellations the loopback keeps; the oldest goes first. */
+const MAX_EARLY_CANCELS = 64;
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
@@ -31,6 +36,19 @@ export async function startAgentBridge(options: BridgeOptions): Promise<AgentBri
   const capability = randomBytes(32).toString("hex");
   const expectedAuth = Buffer.from(`Bearer ${capability}`);
   const active = new Map<string, AbortController>();
+  /** The cancellations that came before their calls, by call id: when each one expires. */
+  const early = new Map<string, number>();
+  const keepEarlyCancel = (id: string): void => {
+    const now = Date.now();
+    for (const [kept, expires] of early) if (expires <= now) early.delete(kept);
+    if (early.size >= MAX_EARLY_CANCELS) early.delete(early.keys().next().value as string);
+    early.set(id, now + EARLY_CANCEL_MS);
+  };
+  const takeEarlyCancel = (id: string): boolean => {
+    const expires = early.get(id);
+    early.delete(id);
+    return expires !== undefined && expires > Date.now();
+  };
   const sockets = new Set<Socket>();
   const server = http.createServer(async (req, res) => {
     const send = (status: number, body?: unknown): void => {
@@ -67,13 +85,17 @@ export async function startAgentBridge(options: BridgeOptions): Promise<AgentBri
     const id = body.id;
     if (typeof id !== "string") return send(400);
     if (req.url === "/mcp/cancel") {
-      active.get(id)?.abort();
+      const running = active.get(id);
+      if (running) running.abort();
+      else keepEarlyCancel(id);
       return send(200, {});
     }
     if (typeof body.name !== "string" || !object(body.arguments)) return send(400);
     if (active.has(id)) return send(409);
     const controller = new AbortController();
     active.set(id, controller);
+    // A cancellation that overtook this call cancels it from the start, and the tool answers its cancellation.
+    if (takeEarlyCancel(id)) controller.abort();
     try {
       // The tool runs for this window's workspace, whatever the arguments name.
       const input = { ...body.arguments, workspaceId: options.workspaceId };
