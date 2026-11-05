@@ -7,6 +7,7 @@ import {
   openRenderedPlantSession,
   pollSave,
   pollValue,
+  pressConfigurePlant,
   requiredEnvironment,
   sleep,
   type RenderedPlantSession,
@@ -56,7 +57,84 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         session.close();
       }
     });
+
+    // Specification 47 §5, §5.1, §5.2 and §6.1: a saved plant opens in the shared inspector like every
+    // runtime child, with its exact ID, its states, its ordered mapping, its parameters and its saved
+    // apart from its running configuration, as Rust's `plant.topology` gives them; Configure plant then
+    // opens the setup editor. The fixture's project is stopped, so its plant is Configured (§20.6) and
+    // no running configuration is reported. Catches a click that opens the editor at once, so that the
+    // inspector never shows, and an inspector that drops or alters what Rust answered.
+    test("G35 a saved plant opens in the shared inspector, and Configure plant opens its editor", async function () {
+      const session = await openRenderedPlantSession();
+      try {
+        const workspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        assert.ok(workspace, "rendered full-candidate fixture workspace must be open");
+        const revision = await readSavedRevision(workspace);
+        await pollValue(
+          "saved plant Full candidate tank",
+          async () => session.inner("var node=[...d.querySelectorAll('.react-flow__node')].find((candidate)=>(candidate.textContent||'').includes('Full candidate tank'));if(!node)return 'WAIT';node.dispatchEvent(new node.ownerDocument.defaultView.MouseEvent('click',{bubbles:true}));return 'OPEN';"),
+          (value) => value === "OPEN",
+          20_000,
+        );
+        const shown = await pollValue(
+          "the plant inspector",
+          () => session.inner("var aside=d.querySelector('aside[aria-label=\"Plant summary\"]');if(!aside)return 'WAIT';return JSON.stringify(Object.fromEntries([...aside.querySelectorAll('[data-plant-inspector-row]')].map((row)=>[row.getAttribute('data-plant-inspector-row'),{text:row.lastElementChild.textContent,title:row.lastElementChild.getAttribute('title')}])));"),
+          (value) => value !== "WAIT",
+          20_000,
+        );
+        const shownRows = JSON.parse(shown) as Record<string, { text: string; title: string | null }>;
+        const rows = Object.fromEntries(Object.entries(shownRows).map(([label, row]) => [label, row.text]));
+        assert.strictEqual(
+          await session.inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"),
+          "false",
+          "selecting the plant opens no editor",
+        );
+        assert.strictEqual(rows["Plant ID"], "tank");
+        assert.strictEqual(rows["State"], "Configured");
+        assert.strictEqual(rows["Command"], "%QL0");
+        assert.strictEqual(rows["Feedback"], "%IL0");
+        // The panel shows the revision's short form and keeps the whole value on hover.
+        assert.strictEqual(shownRows["Saved configuration"].title, revision);
+        assert.strictEqual(rows["Saved configuration"], `${revision.slice(0, "sha256:".length + 12)}…`);
+        assert.strictEqual(rows["Running configuration"], "None reported");
+        assert.ok(rows["Model"], "the inspector names the model");
+        assert.deepStrictEqual(
+          rows["Parameters"].split("\n").sort(),
+          ["dead_time_s = 0.5", "gain = 1.2", "initial_delayed_input = 2", "time_constant_s = 5"],
+        );
+        if (process.env.TRUST_PLANT_RENDERED_SCREENSHOT) {
+          await vscode.commands.executeCommand("notifications.clearAll");
+          await sleep(400);
+          captureRenderedWorkbench(process.env.TRUST_PLANT_RENDERED_SCREENSHOT);
+        }
+
+        await pressConfigurePlant(session.inner);
+        await pollValue(
+          "the plant's setup editor",
+          () => session.inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"),
+          (value) => value === "true",
+          10_000,
+        );
+      } finally {
+        session.close();
+      }
+    });
   });
+}
+
+/** The saved configuration's revision as Rust's `plant.read` answers it. */
+async function readSavedRevision(workspace: string): Promise<string> {
+  const registry = createPlantSessionRegistry(requiredEnvironment("ST_RUNTIME_TEST_BIN"));
+  try {
+    const response = await registry.forProject(workspace).request("plant.read", {
+      contract: "trust.plant",
+      schema_version: 1,
+    });
+    assert.ok(typeof response.configuration_revision === "string", "plant.read answers a configuration revision");
+    return response.configuration_revision as string;
+  } finally {
+    registry.dispose();
+  }
 }
 
 type SavedConfiguration = {
@@ -87,6 +165,7 @@ async function openPlant(session: RenderedPlantSession, label: string): Promise<
     (value) => value === "OPEN",
     20_000,
   );
+  await pressConfigurePlant(session.inner);
   await pollValue(
     `editor for ${label}`,
     () => session.inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"),

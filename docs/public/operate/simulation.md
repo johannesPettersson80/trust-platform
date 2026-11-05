@@ -24,8 +24,10 @@ The workflow should make later hardware validation smaller, not optional.
 6. If the runtime still uses an older configuration, follow the existing
    restart workflow. `Saved · restart required` means the file changed; it does
    not mean the running plant changed.
-7. Select the saved plant and choose **Open in Control Studio** to monitor,
-   test, identify, tune, and validate the loop.
+7. Select the saved plant. The inspector shows its states, its signal
+   mapping, and its saved and running configuration. Choose **Configure plant**
+   to change it, or **Open in Control Studio** to monitor, test, identify, tune,
+   and validate the loop.
 
 **Plant Properties** is deliberately configuration-only. Live SP, PV, MV,
 quality, limits, and plots stay in [Control Studio](control-studio.md), where

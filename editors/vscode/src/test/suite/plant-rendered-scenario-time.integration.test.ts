@@ -10,8 +10,9 @@ import {
   openRenderedPlantSession,
   pollSave,
   pollValue,
-  sleep,
+  pressConfigurePlant,
   type RenderedPlantSession,
+  sleep,
 } from "./plant-rendered-harness";
 
 const RENDERED_TEST_ENABLED = process.env.TRUST_PLANT_RENDERED_TEST === "1";
@@ -121,6 +122,7 @@ async function saveAndReopen(session: RenderedPlantSession): Promise<void> {
   assert.strictEqual(clicked, "SAVED", "scenario draft must be ready for a real save");
   await pollValue("saved scenario draft to close", async () => session.inner("return d.querySelector('aside[aria-label=\"Plant properties\"]')?'OPEN':'CLOSED';"), (value) => value === "CLOSED", 20_000);
   await pollValue("persisted plant node to reopen", async () => session.inner("var node=[...d.querySelectorAll('.react-flow__node')].find((candidate)=>(candidate.textContent||'').includes('New simulated plant')&&!(candidate.textContent||'').includes('DRAFT'));if(!node)return 'WAIT';node.dispatchEvent(new node.ownerDocument.defaultView.MouseEvent('click',{bubbles:true}));return 'CLICKED';"), (value) => value === "CLICKED", 20_000);
+  await pressConfigurePlant(session.inner);
   await pollValue("persisted plant editor", async () => session.inner("var panel=d.querySelector('aside[aria-label=\"Plant properties\"]');return (panel?.textContent||'').includes('Configure plant')?'OPEN':'WAIT';"), (value) => value === "OPEN", 20_000);
   // The reopened editor shows its fields once Rust has opened the saved plant.
   await pollValue("reopened plant fields", async () => session.inner("return String(Boolean(d.querySelector('[data-plant-optional-open=scenarios]')));"), (value) => value === "true", 20_000);

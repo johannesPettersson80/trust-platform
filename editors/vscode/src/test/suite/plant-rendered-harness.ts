@@ -340,6 +340,20 @@ export async function pollSave(
   );
 }
 
+/**
+ * Opens the setup editor of the plant whose node the test just clicked, the way a user does
+ * (specification 47 §5, §6.1): the click shows the shared inspector, whose Configure plant opens
+ * the editor.
+ */
+export async function pressConfigurePlant(inner: WebviewEvaluator): Promise<void> {
+  await pollValue(
+    "the plant inspector's Configure plant",
+    () => inner("var button=d.querySelector('[data-plant-configure]');if(!button||button.disabled)return 'WAIT';button.click();return 'CONFIGURE';"),
+    (value) => value === "CONFIGURE",
+    10_000
+  );
+}
+
 export async function pollValue<T>(
   label: string,
   read: () => Promise<T>,

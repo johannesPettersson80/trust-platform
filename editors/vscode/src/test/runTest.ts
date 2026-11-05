@@ -215,6 +215,7 @@ async function main(): Promise<void> {
     "Rendered example open recovery CPEX-009 retries the same copied destination from the real notification",
     "Rendered retained lesson projects CPEX-012 selected lesson detail offers Open existing project",
     "Rendered plant editor CPFIX-003 rendered full candidate preservation",
+    "Rendered plant editor G35 a saved plant opens in the shared inspector, and Configure plant opens its editor",
     "Rendered plant editor CPFIX-006 rendered robot optional defaults preserve blank parameters",
     "Rendered plant editor CPFIX-006 rendered omitted initial state remains editable and omission-preserving",
     "Control Studio three-page workflow opens recorded data from its visible button and stops for model review without starting a runtime",
@@ -292,7 +293,8 @@ async function main(): Promise<void> {
       const renderedFixture = gated?.fixture ? gated.fixture : studioCase
         ? path.join(repoRoot, "examples", "control-pid-commissioning")
         : path.join(extensionDevelopmentPath, "src", "test", "fixtures",
-          renderedTestFullTitle.includes("CPFIX-003 rendered full candidate") ? "plant-rendered-full-preservation"
+          renderedTestFullTitle.includes("CPFIX-003 rendered full candidate") || renderedTestFullTitle.includes("G35 a saved plant")
+            ? "plant-rendered-full-preservation"
           : renderedTestFullTitle.includes("CPFIX-006 rendered omitted") ? "plant-rendered-omitted-initial-state"
           : renderedTestFullTitle.startsWith("Rendered Control Studio ") ? "control-studio-recording-gap"
           : "plant-rendered-invalid-input");
