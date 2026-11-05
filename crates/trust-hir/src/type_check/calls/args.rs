@@ -358,8 +358,8 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             .is_pointer_target_lenient_binding(param.type_id, arg_type)
                         {
                             // CODESYS binds vendor-idiom pointer targets
-                            // (CHAR↔BYTE, STRING vs ARRAY OF BYTE) with a
-                            // warning (DEV-028).
+                            // (CHAR↔BYTE, STRING vs byte buffers) with a
+                            // warning (DEV-039).
                             self.checker.diagnostics.warning(
                                 DiagnosticCode::InvalidArgumentType,
                                 arg.range,
@@ -511,8 +511,8 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             .is_pointer_target_lenient_binding(param.type_id, arg_type)
                         {
                             // CODESYS binds vendor-idiom pointer targets
-                            // (CHAR↔BYTE, STRING vs ARRAY OF BYTE) with a
-                            // warning (DEV-028).
+                            // (CHAR↔BYTE, STRING vs byte buffers) with a
+                            // warning (DEV-039).
                             self.checker.diagnostics.warning(
                                 DiagnosticCode::InvalidArgumentType,
                                 arg.range,

@@ -849,7 +849,8 @@ re-check them against this rule when touched.
   (`E205` "pointer target mismatch for parameter ...", `E203` "cannot
   assign") where the two pointer targets differ by a 1-byte scalar class
   (`CHAR` ↔ `BYTE`) or by the vendor byte-buffer idiom (`ADR(STRING[n])`
-  against a `POINTER TO ARRAY[i..j] OF BYTE` formal).
+  against a `POINTER TO ARRAY[i..j] OF BYTE` formal, or against a plain
+  `POINTER TO BYTE` formal at the string's base address).
 - Normative IEC requirement: IEC 61131-3 Ed.3 defines no implicit
   conversion between pointer targets; `§6.6.1.6` admits implicit
   assignments only where value and accuracy are preserved, and strict
@@ -860,15 +861,22 @@ re-check them against this rule when touched.
   a **warning** with the same code and message, not an error — matching
   CODESYS, which compiles them as implicit pointer conversions with a
   compiler warning. `ADR` keeps its pointee typing (`ADR(str[1])` stays
-  `POINTER TO CHAR`), so the vendor `MemCopy`/`MemCopySecure`
-  `POINTER TO BYTE` formals and the vendor `Fb_JSON_ParseAndModify`
-  `pData : POINTER TO ARRAY[0..65535] OF BYTE` formal bind directly.
+  `POINTER TO CHAR`, `ADR(str)` stays `POINTER TO STRING[n]`), so the
+  vendor `MemCopy`/`MemCopySecure` `POINTER TO BYTE` formals bind an
+  `ADR` of a string element, and the string's base address binds both
+  the vendor `Fb_JSON_ParseAndModify` `pData : POINTER TO ARRAY[0..65535]
+  OF BYTE` formal and plain `POINTER TO BYTE` formals.
   Every other pointee mismatch stays an error (wider scalar classes,
   array bound widening, records, other families).
-- Impact: the downstream tree's 3 remaining pointer sites (2×
+- Impact: the downstream tree's pointer sites (2×
   `MemCopy`/`MemCopySecure` string-offset byte-pointer bindings, 1×
-  JSON-parser data binding) pass the compile gate while each binding
-  stays individually visible. No runtime mirror is needed: no
+  JSON-parser data binding, 1× `MemCopy` string-base copy loop whose
+  payload must start at the string's first byte) pass the compile gate
+  while each binding stays individually visible. The base-address form
+  is the correct vendor usage, not a variant to rewrite away: indexing
+  the string (`ADR(s[1])`) copies from offset one and loses the first
+  byte, which a vendor project observed live as a broken payload on the
+  wire. No runtime mirror is needed: no
   conversion dispatch is involved and the pointer value is copied
   verbatim, so only the compile contract changes.
 - Mitigation: the demotion is form-scoped, not blanket — element/record

@@ -198,3 +198,76 @@ END_PROGRAM
         DiagnosticCode::InvalidArgumentType,
     );
 }
+
+#[test]
+fn string_adr_binds_byte_pointer_parameter_as_warning() {
+    // The vendor MemCopy idiom at the string base: `ADR(STRING[n])` binds
+    // a plain `POINTER TO BYTE` formal as a warning (DEV-039; the vendor
+    // copy loop binds the string's base address — the element form
+    // `ADR(s[1])` would copy from offset one and lose the first byte).
+    assert_single_lenient_warning(
+        r#"
+FUNCTION MemCopy : DINT
+VAR_INPUT
+    pDest : POINTER TO BYTE;
+    pSource : POINTER TO BYTE;
+    udiSize : UDINT;
+END_VAR
+MemCopy := 0;
+END_FUNCTION
+
+PROGRAM Test
+VAR
+    aBuf : ARRAY[0..15] OF BYTE;
+    sPayload : STRING[64];
+END_VAR
+MemCopy(pDest := ADR(aBuf[0]), pSource := ADR(sPayload), udiSize := 8);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+fn string_base_adr_to_byte_pointer_target_assignment_warns() {
+    // The assignment form of the same idiom: a typed byte pointer takes
+    // `ADR` of the string base ((IEC_DEVIATIONS, DEV-039 byte-buffer
+    // forms), diagnosed as a warning, not an error.
+    assert_single_lenient_warning(
+        r#"
+PROGRAM Test
+VAR
+    s : STRING[16];
+    pB : POINTER TO BYTE;
+END_VAR
+pB := ADR(s);
+END_PROGRAM
+"#,
+        DiagnosticCode::IncompatibleAssignment,
+    );
+}
+
+#[test]
+fn int_array_element_adr_to_byte_pointer_parameter_stays_error() {
+    // The byte-buffer forms are string-scoped: `ADR` of a wider element
+    // (ARRAY OF INT) does not bind a POINTER TO BYTE formal
+    // (IEC_DEVIATIONS, DEV-039 — form-scoped, not blanket).
+    assert_single_strict_error(
+        r#"
+FUNCTION ByteSink : DINT
+VAR_INPUT
+    pSource : POINTER TO BYTE;
+END_VAR
+ByteSink := 0;
+END_FUNCTION
+
+PROGRAM Test
+VAR
+    aInt : ARRAY[0..7] OF INT;
+END_VAR
+ByteSink(pSource := ADR(aInt[0]));
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
