@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Exact-SHA release-candidate preparation, push, merge, and release guard."""
+"""The workflow's pre-push check, a pull request's failure logs, and release verification and its cleanup audit."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
 import re
 import subprocess
 import sys
@@ -16,11 +15,9 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 
-ZERO_SHA = "0" * 40
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 ACTION_JOB_RE = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 PENDING_STATES = {"EXPECTED", "IN_PROGRESS", "PENDING", "QUEUED", "REQUESTED", "WAITING"}
-PASS_STATES = {"SUCCESS", "NEUTRAL", "SKIPPED"}
 FAIL_STATES = {
     "ACTION_REQUIRED",
     "CANCELLED",
@@ -29,26 +26,6 @@ FAIL_STATES = {
     "STARTUP_FAILURE",
     "TIMED_OUT",
 }
-BASE_REQUIRED_COMMANDS = (
-    "bootstrap",
-    "clean",
-    "base_ancestor",
-    "diff_check",
-    "strict_gate",
-    "remote_exact_head",
-    "remote_disk_preflight",
-    "remote_fmt",
-    "remote_cross_target_warnings",
-    "remote_supply_chain",
-    "remote_architecture_safety",
-    "remote_clippy",
-    "remote_docs",
-    "remote_docs_site",
-    "remote_reclaim_before_test_all",
-    "remote_test_all",
-    "remote_mp001_parity",
-    "remote_clean_after",
-)
 
 
 def run(
@@ -92,10 +69,6 @@ def state_root(repo: Path) -> Path:
     return common_git_dir(repo) / "trust-release-candidates"
 
 
-def artifact_path(repo: Path, head: str) -> Path:
-    return state_root(repo) / "artifacts" / f"{head}.json"
-
-
 def failure_ledger_path(repo: Path, head: str) -> Path:
     return state_root(repo) / "failures" / f"{head}.json"
 
@@ -115,103 +88,11 @@ def write_json(path: Path, value: Any) -> None:
     temporary.replace(path)
 
 
-def load_artifact(repo: Path, head: str) -> dict[str, Any] | None:
-    path = artifact_path(repo, head)
-    if not path.is_file():
-        return None
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def changed_paths(repo: Path, base: str, head: str) -> list[str]:
-    raw = git(repo, "diff", "--name-only", "-z", f"{base}...{head}")
-    return sorted(path for path in raw.split("\0") if path)
-
-
-def changed_paths_sha256(repo: Path, base: str, head: str) -> str:
-    return sha256_bytes(canonical_json_bytes(changed_paths(repo, base, head)))
-
-
-def required_command_ids(*, vscode_changed: bool) -> tuple[str, ...]:
-    if vscode_changed:
-        return BASE_REQUIRED_COMMANDS + (
-            "remote_docs_capture_lifecycle",
-            "remote_vscode",
-        )
-    return BASE_REQUIRED_COMMANDS
-
-
 def command_state(check: dict[str, Any]) -> str:
     conclusion = check.get("conclusion")
     status = check.get("status")
     state = check.get("state")
     return str(conclusion or state or status or "UNKNOWN").upper()
-
-
-def validate_artifact(repo: Path, artifact: dict[str, Any], head: str) -> list[str]:
-    failures: list[str] = []
-    if artifact.get("schema_version") != 1:
-        failures.append("release-candidate artifact must use schema_version 1")
-    if artifact.get("status") != "pass":
-        failures.append("release-candidate artifact status must be pass")
-    if artifact.get("head") != head:
-        failures.append(f"artifact head {artifact.get('head')!r} does not match pushed head {head}")
-    base_ref = artifact.get("base_ref")
-    base_sha = artifact.get("base_sha")
-    if not isinstance(base_ref, str) or not base_ref:
-        failures.append("artifact base_ref is missing")
-    elif not isinstance(base_sha, str) or not SHA_RE.fullmatch(base_sha):
-        failures.append("artifact base_sha must be a full Git SHA")
-    else:
-        current_base = git(repo, "rev-parse", base_ref, check=False).strip()
-        if current_base != base_sha:
-            failures.append(
-                f"artifact base {base_sha} is stale; {base_ref} currently resolves to {current_base or 'nothing'}"
-            )
-        elif SHA_RE.fullmatch(head):
-            expected_changed = changed_paths_sha256(repo, base_sha, head)
-            if artifact.get("changed_paths_sha256") != expected_changed:
-                failures.append("artifact changed-path digest does not match the exact base/head diff")
-
-    commands = artifact.get("commands")
-    if not isinstance(commands, list):
-        failures.append("artifact commands must be a list")
-        return failures
-    by_id: dict[str, dict[str, Any]] = {}
-    for row in commands:
-        if not isinstance(row, dict) or not isinstance(row.get("id"), str):
-            failures.append("artifact contains an invalid command record")
-            continue
-        command_id = row["id"]
-        if command_id in by_id:
-            failures.append(f"artifact duplicates command {command_id}")
-        by_id[command_id] = row
-
-    vscode_changed = False
-    base_exists = (
-        isinstance(base_sha, str)
-        and SHA_RE.fullmatch(base_sha) is not None
-        and git(repo, "cat-file", "-e", f"{base_sha}^{{commit}}", check=False) == ""
-    )
-    head_exists = (
-        SHA_RE.fullmatch(head) is not None
-        and git(repo, "cat-file", "-e", f"{head}^{{commit}}", check=False) == ""
-    )
-    if base_exists and head_exists:
-        vscode_changed = any(
-            path == "editors/vscode" or path.startswith("editors/vscode/")
-            for path in changed_paths(repo, base_sha, head)
-        )
-    for command_id in required_command_ids(vscode_changed=vscode_changed):
-        row = by_id.get(command_id)
-        if row is None:
-            failures.append(f"artifact is missing required command {command_id}")
-        elif row.get("exit_status") != 0:
-            failures.append(f"artifact command {command_id} did not pass")
-    return failures
 
 
 def workspace_version_at(repo: Path, revision: str) -> str | None:
@@ -279,51 +160,6 @@ def build_failure_ledger(
     }
 
 
-def validate_merge_state(pr: dict[str, Any], expected_head: str) -> list[str]:
-    failures: list[str] = []
-    if pr.get("headRefOid") != expected_head:
-        failures.append(
-            f"PR head {pr.get('headRefOid')} does not match validated head {expected_head}"
-        )
-    if pr.get("mergeStateStatus") != "CLEAN":
-        failures.append(f"PR merge state must be CLEAN, found {pr.get('mergeStateStatus')}")
-    checks = pr.get("statusCheckRollup")
-    if not isinstance(checks, list) or not checks:
-        failures.append("PR has no completed status checks")
-        return failures
-    for check in checks:
-        state = command_state(check)
-        if state not in PASS_STATES:
-            failures.append(f"required candidate check {check.get('name', 'unnamed')} is {state}")
-    return failures
-
-
-def validate_release_rehearsal(
-    runs: list[dict[str, Any]], head: str, branch: str, version: str
-) -> list[str]:
-    """A version bump merges once the Release workflow has passed as a rehearsal on its exact head.
-
-    The pull request starts the rehearsal itself, and a maintainer dispatches one for a fork's
-    (specification 24, "Release rehearsal on pull requests"). A run counts only when it kept the
-    rehearsal's release files, `release-rehearsal-v<version>`: a run whose plan skipped its jobs
-    passes too. 0.25.0's release jobs failed only after its tag, and every fix then needed a new
-    version.
-    """
-    if any(
-        run.get("headSha") == head
-        and run.get("event") in {"pull_request", "workflow_dispatch"}
-        and run.get("status") == "completed"
-        and run.get("conclusion") == "success"
-        and f"release-rehearsal-v{version}" in (run.get("artifacts") or [])
-        for run in runs
-    ):
-        return []
-    return [
-        f"a version bump needs a passed Release rehearsal on {head} that kept release-rehearsal-v{version}: "
-        f"the pull request starts it; for a fork's, gh workflow run release.yml --ref {branch}"
-    ]
-
-
 def validate_release_state(
     state: dict[str, Any], version: str, marketplace_targets: Sequence[str]
 ) -> list[str]:
@@ -350,7 +186,6 @@ def validate_release_state(
                     f"VS Code Marketplace target {target} is {versions.get(target)!r}, expected {version}"
                 )
     return failures
-
 
 
 def collect_failures(args: argparse.Namespace) -> int:
@@ -419,104 +254,10 @@ def collect_failures(args: argparse.Namespace) -> int:
     return 1 if ledger["failed"] else 0
 
 
-def check_merge(args: argparse.Namespace) -> int:
-    repo = repo_root(Path(args.repo))
-    head = git(repo, "rev-parse", "HEAD").strip()
-    failures: list[str] = []
-    result = run(
-        [
-            "gh",
-            "pr",
-            "view",
-            str(args.pr),
-            "--json",
-            "headRefName,headRefOid,mergeStateStatus,statusCheckRollup,state,url",
-        ],
-        cwd=repo,
-    )
-    if result.returncode != 0:
-        print(result.stdout, file=sys.stderr)
-        return 2
-    pr = json.loads(result.stdout)
-    failures.extend(validate_merge_state(pr, head))
-    version = workspace_version_at(repo, head)
-    if version != workspace_version_at(repo, "origin/main"):
-        rehearsals = run(
-            [
-                "gh", "run", "list", "--workflow", "release.yml", "--commit", head,
-                "--json", "databaseId,headSha,event,status,conclusion",
-            ],
-            cwd=repo,
-        )
-        runs = json.loads(rehearsals.stdout) if rehearsals.returncode == 0 else []
-        for row in runs:
-            if row.get("conclusion") == "success" and row.get("headSha") == head:
-                listed = run(
-                    [
-                        "gh", "api", f"repos/{{owner}}/{{repo}}/actions/runs/{row.get('databaseId')}/artifacts?per_page=100",
-                        "--jq", ".artifacts[].name",
-                    ],
-                    cwd=repo,
-                )
-                row["artifacts"] = listed.stdout.split() if listed.returncode == 0 else []
-        failures.extend(
-            validate_release_rehearsal(runs, head, str(pr.get("headRefName")), str(version))
-        )
-    if failures:
-        print("\n".join(f"BLOCKED: {failure}" for failure in failures), file=sys.stderr)
-        return 1
-    if args.execute:
-        merge = run(
-            [
-                "gh",
-                "pr",
-                "merge",
-                str(args.pr),
-                "--merge",
-                "--match-head-commit",
-                head,
-            ],
-            cwd=repo,
-        )
-        print(merge.stdout, end="")
-        return merge.returncode
-    print(f"PR {args.pr} is eligible to merge at exact head {head}")
-    return 0
-
-
-
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--repo", default=".")
     subparsers = result.add_subparsers(dest="command", required=True)
-
-    def candidate_arguments(command: argparse.ArgumentParser) -> None:
-        command.add_argument("--base", default="origin/main")
-        command.add_argument(
-            "--intent", choices=("bugfix", "docs", "feature", "refactor", "test-refactor"), default="bugfix"
-        )
-        command.add_argument(
-            "--canonical-repo",
-            default=os.environ.get("TRUST_CANONICAL_REPO", "/home/johannes/projects/trust-platform"),
-        )
-        command.add_argument("--remote-host", default="trust-builder")
-        command.add_argument("--remote-worktree", required=True)
-        command.add_argument("--remote-tool-path", default=None)
-        command.add_argument("--remote-cargo-home", default=None)
-        command.add_argument(
-            "--remote-target",
-            default="/home/johannes/.cache/codex-targets/trust-platform-gate",
-        )
-        command.add_argument("--fetch", action=argparse.BooleanOptionalAction, default=True)
-
-    prepare_parser = subparsers.add_parser("prepare")
-    candidate_arguments(prepare_parser)
-    prepare_parser.set_defaults(handler=prepare_command, preflight=False)
-
-    # The quick stages of `prepare`, every failure reported, no artifact (specification 22).
-    preflight_parser = subparsers.add_parser("preflight")
-    candidate_arguments(preflight_parser)
-    preflight_parser.set_defaults(handler=prepare_command, preflight=True)
 
     push_parser = subparsers.add_parser("check-push")
     push_parser.set_defaults(handler=lambda args: check_push_command(args))
@@ -527,11 +268,6 @@ def parser() -> argparse.ArgumentParser:
     collect_parser.add_argument("--timeout", type=int, default=7200)
     collect_parser.add_argument("--interval", type=int, default=30)
     collect_parser.set_defaults(handler=collect_failures)
-
-    merge_parser = subparsers.add_parser("check-merge")
-    merge_parser.add_argument("--pr", required=True)
-    merge_parser.add_argument("--execute", action="store_true")
-    merge_parser.set_defaults(handler=check_merge)
 
     release_parser = subparsers.add_parser("verify-release")
     release_parser.add_argument("--candidate-head", required=True)
@@ -545,12 +281,6 @@ def parser() -> argparse.ArgumentParser:
     cleanup_parser.add_argument("--main-ref", default="origin/main")
     cleanup_parser.set_defaults(handler=audit_post_merge_command)
     return result
-
-
-def prepare_command(args: argparse.Namespace) -> int:
-    from release_candidate_prepare import prepare
-
-    return prepare(args)
 
 
 def verify_release_command(args: argparse.Namespace) -> int:

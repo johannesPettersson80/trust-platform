@@ -100,12 +100,11 @@ ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/de
   home filesystem and `/tmp`. Confirm the intended volume is mounted before using it.
 - **Capacity**:
   - allow about 25 GB for Clippy, tests or npm output on the filesystem holding that output;
-  - a cold `just test-all` (the release guard, while it is in use) needs 80 GiB on the selected
-    target filesystem, and a guard on a new version needs its old target removed first;
+  - a cold `just test-all` needs 80 GiB on the selected target filesystem;
   - inspect active task-owned builds and coordinate overlapping large runs on the same filesystem.
     A target lease protects against deletion, not disk consumption by other targets;
   - record actual free space and known concurrent growth. If headroom is insufficient, postpone the
-    new run or use an approved target root with capacity. Do not lower guard thresholds or delete
+    new run or use an approved target root with capacity. Do not lower these thresholds or delete
     another session's outputs to make a preflight pass.
 - **Cleaning up**: delete only generated outputs, never a source worktree. Examples are an isolated
   copy's `target/`, `fuzz/target/` and `~/.cache/sccache`. Use the idle-target script for shared

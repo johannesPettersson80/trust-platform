@@ -580,7 +580,7 @@ acceptance and physical-panel performance are distinct evidence classes.
   user account or production credentials required for fork pull requests.
 - Editor/runtime/draft-preview parity at equal dimensions/data; use specification 39's defined
   rasterization tolerance and negative-control test rather than widening thresholds on failure.
-- Link HMI jobs into the aggregate gate and exact-candidate guard. A failed, cancelled, missing
+- Link HMI jobs into the aggregate gate. A failed, cancelled, missing
   or unexpectedly skipped required HMI job must not yield aggregate success. Test this wiring.
 - Upload image baselines/actuals/diffs, Playwright traces, findings, revision manifests and test
   summaries on failure; retain reviewed success evidence for releases. Do not auto-approve
@@ -590,7 +590,7 @@ Extend existing `ci.yml` HMI and VS Code jobs; introduce a separate job only whe
 runtime isolation justifies it. Use reusable gate scripts so builder preflight and CI execute
 the same command shapes. Relevant paths include HMI/native commands, shared drawing/themes,
 agent adapters, fixtures, examples, lockfiles, build scripts and workflows. Shared dependencies
-must trigger the required suites. Preserve branch-protection and release-guard enforcement.
+must trigger the required suites. Preserve branch-protection enforcement.
 
 ### 9.2 Scheduled and manual gates
 

@@ -322,12 +322,13 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   release.
 
 The pre-push hook refuses only a direct push to `main` and a pushed release
-tag; every other push goes through. The release guard
-(`release_candidate_guard.py prepare`) is retired from the workflow: CI runs
-every stage it ran, and `git diff --check`; the sections below on release
-candidates (failure reporting, discovery parity, build parallelism and target
-storage) describe the tool until its code is removed. `verify-release` and the
-post-merge audit stay as tools.
+tag; every other push goes through. Until 31 October 2026 a release guard
+(`release_candidate_guard.py prepare`) ran the checks on the builder before a
+push. CI runs every stage it ran, and `git diff --check`, and branch protection
+refuses the merges its `check-merge` refused, so their code was removed
+(5 November 2026). `release_candidate_guard.py` keeps the pre-push check,
+`collect-failures` (every failed job log of a pull request), `verify-release`
+and the post-merge audit.
 
 ### Acceptance journeys on the packaged extension
 
@@ -446,15 +447,11 @@ captures (28 October 2026).
 Shared-builder Cargo targets used by an active gate MUST hold a stable external
 lease for the complete command lifetime. Generated-target cleanup MUST acquire
 that same lease without waiting and MUST skip a target whose lease is held; a
-globbed deletion of the shared target root is forbidden. Exact-candidate
-lease descriptors MUST NOT be inherited by helper daemons or detached
-background children after the invoked command exits. A command that
-intentionally leaves an asynchronous target user running MUST arrange a
-separate lease for that user instead of extending the caller's lease
-accidentally through descriptor inheritance. Exact-candidate
-preparation MUST use the leased target for every Cargo-producing VS Code,
-cross-target, supply-chain, architecture, clippy, and full-test command, and
-its deliberate pre-test reclaim MUST use the lease-aware cleanup command. A
+globbed deletion of the shared target root is forbidden. Lease descriptors
+MUST NOT be inherited by helper daemons or detached background children after
+the invoked command exits. A command that intentionally leaves an asynchronous
+target user running MUST arrange a separate lease for that user instead of
+extending the caller's lease accidentally through descriptor inheritance. A
 cross-target command MUST NOT inject host `CC` or `CXX` overrides into the
 target build; target-specific compiler discovery remains owned by Cargo and
 the cross-target gate. Host-only commands MAY pin the host C/C++ compilers. A
@@ -543,24 +540,6 @@ without its command, and 15 example and docs pages that sent readers to the
 Runtime Panel or to `Structured Text:` commands, such as the six ADS commands
 that Devices & Connections replaced).
 
-### Release-candidate failure reporting
-
-The exact-SHA `prepare` command runs every stage whose prerequisites passed and
-reports every failure of the run. Its prerequisites are the exact candidate
-head, the disk preflight, the target preparation, the toolchain build and the
-reclaim before `test-all`; a failed prerequisite ends the run, because the
-stages after it cannot run. Any other failed stage is recorded and the run goes
-on, and the VS Code stage runs every rendered journey after a failure. A run
-with a failed stage never yields a passing artifact. 0.26.0 needed six runs,
-each ended by one failure that the next stages would have shown too (29 and
-30 October 2026).
-
-`preflight` runs the quick stages of `prepare` in the same staged worktree,
-with the same environment: formatting, cross-target warnings, the supply chain
-and architecture gates, Clippy, the documentation build and the documentation
-site. It reports every failure and writes no artifact, so a push cannot rely on
-it.
-
 ### Native test and docs-capture lifecycle portability
 
 Native Unix control-endpoint fixtures must derive a collision-resistant socket
@@ -619,35 +598,26 @@ when a check failed, so a broken page fails the pull request instead of the
 deploy after the merge (the retired release guard ran these checks before each
 push; Codex's review of #153, 1 November 2026).
 
-### Release-candidate discovery parity
+### Test-discovery parity
 
-The exact-SHA prepare command includes the existing MP-001 test-discovery and
-snapshot inventory check. It runs after the native workspace suite, under the
-same target lease and compiler environment, so discovery reuses the built test
-binaries. It does not rerun test bodies. Adding or moving a handler test updates
-its checked-in discovery baseline alongside the test. A failed or missing parity
-command prevents a passing release-candidate artifact.
+CI's MP-001 Parity job (`scripts/check_mp001_split_parity.sh --verify`) compares
+the tests that `trust-lsp`'s handler tests and `trust-hir`'s
+`semantic_type_checking` list, and `trust-lsp`'s handler snapshots, with the
+checked-in baseline in `tests/fixtures/mp001`. It does not run test bodies.
+Adding or moving a handler test updates the baseline alongside the test.
 
-### Release-candidate build parallelism
+### Builder target storage
 
-Release validation uses Cargo's normal build-job configuration on the builder. The guard
-must not replace an inherited `CARGO_BUILD_JOBS` value or a configured `[build].jobs` limit
-with a hardcoded single-job setting. When the environment is unset, Cargo resolves its
-configuration normally. Build concurrency is an infrastructure resource choice, not a
-change to the selected tests or their assertions. The 80 GiB disk preflight, target lease,
-uncached compilation and target reclamation requirements remain in force.
-
-### Release-candidate target storage
-
-The guard requires at least 80 GiB free on the filesystem that will contain its
-selected generated target, before compilation starts. It reports that filesystem,
-`$HOME` and `/tmp`; moving a target to a mounted volume does not lower the threshold.
-Approved targets are strict descendants of the home Cargo-target cache, `/tmp`, or
-`/mnt/HC_Volume_107089260/builder-storage/cargo-targets`. The volume must actually
-be mounted. Target paths cannot traverse `.` or `..`, alias another path through
-symlinks, or name an existing target/parent owned by another user. The shared
-external lease and idle-only reclamation apply to all approved roots, and policy
-is rechecked after acquiring the lease.
+A cold `just test-all` on the builder needs at least 80 GiB free on the
+filesystem that holds its generated target; moving a target to a mounted volume
+does not lower that. Approved targets are strict descendants of the home
+Cargo-target cache, `/tmp`, or
+`/mnt/HC_Volume_107089260/builder-storage/cargo-targets`
+(`scripts/cargo_target_path.sh`). The volume must actually be mounted. Target
+paths cannot traverse `.` or `..`, alias another path through symlinks, or name
+an existing target/parent owned by another user. The shared external lease and
+idle-only reclamation apply to all approved roots, and policy is rechecked after
+acquiring the lease.
 
 A target migration holds both path leases, copies only the task-owned generated
 target, and verifies file bytes and symlink destinations before removing the

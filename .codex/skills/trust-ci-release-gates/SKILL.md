@@ -166,11 +166,12 @@ later one.
 In PR text, `Closes`, `Fixes` and `Resolves` close an issue on merge; `Addresses` does not. Check
 that the intended issues are closed after the merge.
 
-### The release guard (retired)
+### Failure logs
 
-`release_candidate_guard.py prepare` and `preflight` are no longer part of the workflow: CI runs every
-stage they ran, and `git diff --check`. They stay until checklist W8 removes them. `collect-failures
---pr <number> --wait` still gathers every failed job log of a pull request.
+`release_candidate_guard.py collect-failures --pr <number> --wait` gathers every failed job log of a
+pull request. The release guard's `prepare`, `preflight` and `check-merge` were removed on 5 November
+2026: CI runs every stage they ran, and `git diff --check`, and branch protection refuses what
+`check-merge` refused.
 
 ## Changing CI or gate scripts
 
@@ -194,31 +195,14 @@ stage they ran, and `git diff --check`. They stay until checklist W8 removes the
     artifact of the newest passing run of `main` that a push, the schedule or a dispatch started
     (specification 22, "Docs Captures");
   - a newly linked public specification needs its snippet page, navigation and
-    index/search entries. Include the workflow's strict MkDocs build and public
-    docs checks in the candidate batch; capture-lifecycle tests do not cover
+    index/search entries. Docs Pages runs the strict MkDocs build and the public
+    docs checks on the pull request; capture-lifecycle tests do not cover
     publication or cross-page links.
 - **Target storage**: use a strict descendant of `~/.cache/codex-targets/`, `/tmp/`, or
   `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/`. The shared path policy
   requires the volume mount, canonical paths and current-user ownership; leases
   and idle-only removal apply unchanged. Keep the 80 GiB floor on the target's
   actual filesystem. Do not substitute a symlink to bypass target-root policy.
-- **Exact-candidate disk bounds**:
-  - `CARGO_INCREMENTAL=0`;
-  - `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` set to `/usr/bin/env`;
-  - `scripts/compiler_passthrough.sh` installed on `PATH` as `sccache`;
-  - `CC=cc` and `CXX=c++` for native builds only;
-  - cross-compilation commands use `env -u CC -u CXX` so native overrides cannot
-    select a host compiler for the target; reuse the guard's separate native and
-    cross-target environments in supplemental commands;
-  - honor the builder's Cargo job configuration for cold `just test-all`; do not force one job;
-  - `TMPDIR` inside the task's own target.
-
-  Between Clippy, the documentation build and `just test-all`, recheck available space on the validated
-  target filesystem. Preserve the warm target when the existing 80 GiB floor is
-  met. Otherwise reclaim only that target through
-  `scripts/remove_cargo_target_if_idle.sh`, prepare its directories again and
-  recheck the same floor. A busy target, unreadable space measurement or still
-  insufficient space fails the stage; never delete an active target or lower the floor.
 - **Script style**: gate scripts fail fast and pass shellcheck (`set -euo pipefail`). With `set -u`,
   do not expand arrays that may be empty.
 - **Regression tests for gate tooling**: name the focused test so that
