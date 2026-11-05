@@ -23,7 +23,9 @@ pub(super) use globals::{
     check_global_external_links_with_project, resolve_pending_types_with_table,
     used_external_globals,
 };
-pub(super) use nondeterminism::check_nondeterminism;
+pub(super) use nondeterminism::{
+    check_nondeterminism, compute_host_clock_sources, HostClockSources,
+};
 pub(super) use oop::{
     check_abstract_instantiations, check_class_semantics, check_dut_extends_semantics,
     check_extends_implements_semantics, check_interface_conformance, check_property_accessors,

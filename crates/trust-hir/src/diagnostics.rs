@@ -102,7 +102,7 @@ pub enum DiagnosticCode {
     HighComplexity,
     /// Unused program/function/function block.
     UnusedPou,
-    /// Non-deterministic time/date usage.
+    /// Non-deterministic host-clock usage (`CURRENT_DT` and the POUs that reach it).
     NondeterministicTimeDate,
     /// Non-deterministic I/O timing usage.
     NondeterministicIo,

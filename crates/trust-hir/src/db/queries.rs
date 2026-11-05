@@ -14,10 +14,10 @@ mod salsa_backend;
 pub use salsa_backend::SalsaEventSnapshot;
 
 pub(super) use helpers::{
-    collect_program_instances, implements_clause_names, name_from_node, normalize_member_name,
-    program_config_instance_and_type, qualified_name_parts, qualified_name_string,
-    resolve_access_path_target, type_path_from_type_ref, var_block_is_constant,
-    var_qualifier_from_block,
+    collect_program_instances, first_ident_token, implements_clause_names, name_from_node,
+    normalize_member_name, program_config_instance_and_type, qualified_name_parts,
+    qualified_name_string, resolve_access_path_target, type_path_from_type_ref,
+    var_block_is_constant, var_qualifier_from_block,
 };
 
 /// A file identifier.

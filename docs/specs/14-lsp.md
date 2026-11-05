@@ -230,7 +230,7 @@ Initial explainer coverage:
 | W004 | IEC 61131-3 Ed.3 §7.3.3.3.3 | `docs/specs/06-statements.md` |
 | W005 | IEC 61131-3 Ed.3 §6.4.2 | `docs/specs/02-data-types.md` |
 | W008/W009 | Tooling quality lint (non-IEC) | `docs/specs/09-semantic-rules.md` |
-| W010 | Tooling lint; TIME/DATE types per IEC 61131-3 Ed.3 §6.4.2 (Table 10) | `docs/specs/09-semantic-rules.md` |
+| W010 | Tooling lint; host-clock reads (`CURRENT_DT` and the POUs that reach it) per specification 07 "Runtime Clock Sources", IEC 61131-3 Ed.3 §6.4.2 (Table 10) for the TIME/DATE family | `docs/specs/28-hir-warning-policy.md` |
 | W011 | Tooling lint; Direct variables per IEC 61131-3 Ed.3 §6.5.5 (Table 16) | `docs/specs/09-semantic-rules.md` |
 | W012 | Tooling lint; shared global access across tasks (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62) | `docs/specs/09-semantic-rules.md` |
 | W013/W014 | Tooling numeric-hazard lints (non-IEC) | `docs/specs/09-semantic-rules.md` |
@@ -257,7 +257,12 @@ Recommended warning groups:
 - `W005` implicit conversion
 - `W008` cyclomatic complexity quality lint
 - `W009` unused POU quality lint
-- `W010`/`W011` non-deterministic time/date and direct-I/O usage; `W011` concerns a direct
+- `W010`/`W011` non-deterministic clock sources and direct-I/O usage. `W010` warns at a read
+  of the host wall clock: a call of `CURRENT_DT()` or a call of a function, method, function
+  block or program whose body reaches one, directly or through the POUs it calls. Declarations
+  of TIME/DATE/TOD/DT never warn, and neither does a source that cannot be traced, such as a
+  body-less library stub (redefined 5 November 2026, issue #250: sources, not declarations).
+  `W011` concerns a direct
   `%I`/`%Q` address declared in reusable code (a function block, function, method or class),
   where it ties every use to one channel and to the I/O image's timing. A program's or
   configuration's I/O list is the normal place for addresses and does not warn (refined on
