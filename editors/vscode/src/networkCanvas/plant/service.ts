@@ -206,7 +206,7 @@ export async function populatePlantTopology(
   runtimeId: string,
   service: PlantTopologyService
 ): Promise<void> {
-  attachPlantsToRuntime(graph, runtimeId, await loadPlantTopology(service));
+  attachPlantsToRuntime(graph, runtimeId, (await loadPlantTopology(service)).plants);
 }
 
 export type LivePlantRequest = (
