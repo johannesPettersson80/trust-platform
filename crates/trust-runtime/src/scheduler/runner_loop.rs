@@ -350,8 +350,10 @@ fn handle_watchdog_overrun<C: Clock + Clone>(
     }
 }
 
-/// Serves every queued command: pause and resume change the loop's state, the others act on the
-/// runtime (the shared running-command rules).
+/// Serves the commands queued when the boundary begins: pause and resume change the loop's state,
+/// the others act on the runtime (the shared running-command rules). A command queued while they
+/// are served waits for the next boundary, so that clients that ask again as soon as they are
+/// answered cannot hold the next cycle back (specification 11 section 6.9).
 fn drain_commands<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     state: &Arc<Mutex<ResourceState>>,
@@ -360,7 +362,11 @@ fn drain_commands<C: Clock + Clone>(
     let Some(commands) = runner.command_rx.as_ref() else {
         return;
     };
-    while let Ok(command) = commands.try_recv() {
+    let queued: Vec<ResourceCommand> = commands
+        .try_iter()
+        .take(RESOURCE_COMMAND_CAPACITY)
+        .collect();
+    for command in queued {
         match running_command_effect(command_class(&command)) {
             // A pause and a resume restart the simulation schedule (specification 46, §6.1 item 4).
             RunningCommandEffect::Pause => {
@@ -597,6 +603,10 @@ mod restart_storage_trace_cases;
 #[cfg(test)]
 #[path = "runner_loop/pacing_tests.rs"]
 mod pacing_tests;
+
+#[cfg(test)]
+#[path = "runner_loop/command_drain_tests.rs"]
+mod command_drain_tests;
 
 #[cfg(test)]
 mod runner_loop_poison_tests {
