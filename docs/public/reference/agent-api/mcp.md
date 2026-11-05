@@ -26,5 +26,6 @@ Point your MCP host at `trust-dev agent serve-mcp` over stdio:
 ```
 
 `--project` (alias `--bundle`) selects the workspace root; omit it to use the
-host's current directory. The server advertises tools only and serves
-requests sequentially, in arrival order.
+host's current directory. The server advertises tools only and runs one tool
+call at a time: a call sent while another is running is refused (`-32600`)
+and can be re-sent after the running call's answer.

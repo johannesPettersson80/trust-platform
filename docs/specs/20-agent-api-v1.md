@@ -101,8 +101,9 @@ no validation rule, and no configuration beyond the shared
 The binding's normative rules — the connection layer's protocol revision
 negotiation, the 1:1 tool mapping with dot-to-underscore name mangling, the
 advisory status of generated input schemas, the success and error result
-mappings, the tools-only capability set, and the sequential, shared-harness,
-non-preemptible concurrency model — are specified in
+mappings, the tools-only capability set, and the one-call-at-a-time,
+shared-harness, non-preemptible concurrency model with the refused-call and
+panicked-session answers — are specified in
 `docs/guides/AGENT_MCP_BINDING_V1.md`, which this section incorporates by
 reference. A call whose tool name does not map to an Agent API method is
 refused by the connection layer's parameter check (`-32602`), never a tool

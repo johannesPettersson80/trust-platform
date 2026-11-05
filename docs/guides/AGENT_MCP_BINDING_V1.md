@@ -162,17 +162,28 @@ answer. A call that panics inside the dispatch is answered the same way.
 
 ## Concurrency and Cancellation
 
-- Requests are served sequentially per server instance (`active_calls: 1`),
-  in arrival order. There is no parallel tool execution.
+- One tool call runs at a time. A `tools/call` that arrives while another call
+  is running is refused with the JSON-RPC protocol error `-32600` ("too many
+  active requests") and can be re-sent after the running call's answer. There
+  is no queue and no parallel tool execution.
 - The Agent API harness methods share one stateful harness session per server
   instance (`harness.load` then `harness.cycle` observe the same session).
-  Sequential serving is what makes that session model safe.
+  Serving one call at a time is what makes that session model safe.
 - Long-running calls (builds, tests) block later calls until they finish.
 - The connection layer accepts `notifications/cancelled` and asks the
   provider to cancel the call; sequential v1 serving cannot preempt a running
   dispatch, so the cancel is a no-op and the call answers through its own
   result when its dispatch ends. A caller that no longer wants a result
   should simply not read it.
+
+### A call that panicked
+
+A dispatch that panics ends the agent server session: the layer's failure
+answer covers the panicking call, and every later call answers an error tool
+result (`-32002`) whose message says the session must be restarted, instead
+of a generic failure the agent could not tell from one failed call. Restart
+`trust-dev agent serve-mcp` to start a fresh session; the harness session
+state is lost with the process.
 
 ## Scope Boundary
 

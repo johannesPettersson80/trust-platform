@@ -252,8 +252,10 @@ impl ToolProvider for AgentToolProvider {
     /// spans the whole dispatch, so builds and tests run one at a time and later calls
     /// observe earlier calls' effects. A contract error becomes an error tool result
     /// whose text carries the contract-stable `{code, message, data}` object, so the
-    /// connection stays open (specification 20 §8); only a poisoned server mutex — a
-    /// call that panicked — is the connection layer's failure answer.
+    /// connection stays open (specification 20 §8). A dispatch that panicked poisons
+    /// the server mutex: every later call answers an error tool result that says the
+    /// session must be restarted, so the agent can tell one failed call from a dead
+    /// session (specification 20 §8).
     fn call(
         &self,
         _id: &str,
@@ -264,11 +266,11 @@ impl ToolProvider for AgentToolProvider {
             .map(|binding| binding.method)
             .expect("check() admits only known tool names");
         let params = Value::Object(arguments);
-        let dispatch = match self.agent.lock() {
-            Ok(mut server) => server.execute(method, Some(params)),
-            Err(_) => return Err(Unavailable),
+        let mut server = match self.agent.lock() {
+            Ok(server) => server,
+            Err(_) => return Ok(Self::poisoned_result()),
         };
-        match dispatch {
+        match server.execute(method, Some(params)) {
             Ok(result) => Ok(Self::result(result)),
             Err(error) => Ok(Self::error_result(error)),
         }
@@ -303,7 +305,20 @@ impl AgentToolProvider {
         if let Some(data) = error.data {
             payload["data"] = data;
         }
-        let text = serde_json::to_string(&payload).expect("error payload serializes");
+        Self::error_text_result(&serde_json::to_string(&payload).expect("error payload serializes"))
+    }
+
+    /// The poisoned-session answer: an error tool result that says the session is dead
+    /// and the server must be restarted, instead of the connection layer's generic
+    /// failure answer that one failed call would be indistinguishable from
+    /// (specification 20 §8).
+    fn poisoned_result() -> Value {
+        Self::error_text_result(
+            r#"{"code":-32002,"message":"An earlier call panicked and ended this agent server session. Restart 'trust-dev agent serve-mcp' to start a fresh session; the harness session state is lost."}"#,
+        )
+    }
+
+    fn error_text_result(text: &str) -> Value {
         json!({
             "content": [{ "type": "text", "text": text }],
             "isError": true,

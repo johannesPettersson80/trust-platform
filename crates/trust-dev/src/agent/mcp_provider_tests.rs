@@ -347,3 +347,40 @@ fn harness_session_is_shared_across_tool_calls() {
     );
     let _ = std::fs::remove_dir_all(workspace);
 }
+
+/// A dispatch that panicked poisons the server mutex, and every later call
+/// answers an error tool result that says the session must be restarted — not
+/// the connection layer's generic failure answer, which one failed call would
+/// be indistinguishable from (specification 20 §8).
+#[test]
+fn a_panicked_dispatch_marks_every_later_call_as_a_dead_session() {
+    let workspace = temp_workspace("poisoned");
+    let resolved = resolve_workspace_root(Some(workspace.clone())).expect("workspace resolves");
+    let agent = Arc::new(Mutex::new(AgentServer::new(resolved)));
+    let provider = AgentToolProvider {
+        agent: Arc::clone(&agent),
+    };
+
+    // End the session the way a panicking dispatch ends it: the mutex is
+    // dropped by an unwinding panic, which poisons it.
+    let poisoner = Arc::clone(&agent);
+    let _ = std::thread::spawn(move || {
+        let _held = poisoner.lock().expect("lock before the panic");
+        panic!("the dispatch panicked while holding the server");
+    })
+    .join();
+
+    let dead = tool_call(&provider, "agent_describe", json!({}));
+    let payload = error_payload(&dead);
+    assert_eq!(payload["code"], -32002, "{payload:#}");
+    let message = payload["message"].as_str().expect("restart message");
+    assert!(
+        message.contains("Restart 'trust-dev agent serve-mcp'"),
+        "the message names the restart action: {message}"
+    );
+    assert!(
+        message.contains("harness session state is lost"),
+        "the message is honest about the lost session state: {message}"
+    );
+    let _ = std::fs::remove_dir_all(workspace);
+}
