@@ -6350,6 +6350,11 @@ when enabled:
 - The resource command queue holds at most 1,024 commands. A request that finds
   it full is rejected with the stable code `resource_busy` and is not queued, so
   a burst of requests cannot grow the runtime's memory without bound.
+- Between two cycles the scan thread serves the commands that the queue holds
+  when it begins to serve them, at most 1,024. A command queued while they are
+  served waits for the next boundary, so that clients that send a new request
+  as soon as one is answered delay the next cycle by at most one queue of
+  commands and never hold the cycles back.
 
 **Operations while the debugger holds the scan:**
 - A debugger hold (a breakpoint, a debug-mode `pause` or a completed step) takes
