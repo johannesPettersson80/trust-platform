@@ -8,7 +8,8 @@ import type { LoopMessageScope } from "../../controlStudio/messages";
 
 /**
  * An engine process without a binary: it answers each method the test names, records each request, and relays the update
- * notifications the test sends. The route's own functions run unchanged over it.
+ * notifications the test sends. The route's own functions run unchanged over it. As an engine does, it answers the status
+ * of an operation the test does not script: the operation is running until the test notifies its end.
  */
 export function fakeEngine(answers: Record<string, unknown>): {
   readonly engine: EngineProcess;
@@ -18,13 +19,20 @@ export function fakeEngine(answers: Record<string, unknown>): {
   const requests: Array<{ method: string; params: unknown }> = [];
   const listeners: Array<(params: unknown) => void> = [];
   // A loop without a model offers no analysis tool: the open answer asks for the tools, so each fake answers them (B9.9).
-  const scripted: Record<string, unknown> = { "controlStudio/analyze": { result: { tools: [] } }, ...answers };
+  // An engine answers every status request; a fake that answered none made each subscription's catch-up throw (G44).
+  const scripted: Record<string, unknown> = {
+    "controlStudio/analyze": { result: { tools: [] } },
+    "controlStudio/status": (params: { operationId?: unknown }) => ({
+      result: { operationId: params.operationId, state: "running" },
+    }),
+    ...answers,
+  };
   const connection = {
     sendRequest: async (method: string, params: unknown) => {
       requests.push({ method, params });
       const answer = scripted[method];
-      // An answer the test computes, such as one it holds back until it releases it.
-      return typeof answer === "function" ? (answer as () => unknown)() : answer;
+      // An answer the test computes from the request, such as one it holds back until it releases it.
+      return typeof answer === "function" ? (answer as (params: unknown) => unknown)(params) : answer;
     },
   };
   const engine = {

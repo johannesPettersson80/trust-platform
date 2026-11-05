@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import type { LoopMessageScope } from "../../controlStudio/messages";
+import { createEngineClient } from "../../controlStudio/engine/engineClient";
 import { createEnginePanelRoute, type EnginePanelRoute } from "../../controlStudio/engine/enginePanelRoute";
 import { startEngine, type EngineProcess } from "../../controlStudio/engine/engineProcess";
 import { commandMessage, fakeEngine, openedAnswer, tuneMessage } from "./control-studio-engine-route-support";
@@ -148,6 +149,32 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(posted[0].method, "open", `${what} shows the refusal of the open`);
     assert.deepStrictEqual(posted[0].failure, refusal, `${what} shows the engine's sentence and next action`);
   }
+
+  // Catches G44: the fake engine answered a status it was not scripted for with nothing, which no engine does, and the
+  // client's catch-up of each subscription threw on it as an unhandled rejection (27 in one CI run of main). The engine
+  // answers every status request, so the fake does too.
+  test("a subscription's catch-up over the fake engine asks the status and rejects nothing", async () => {
+    const unhandled: unknown[] = [];
+    const record = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", record);
+    try {
+      const fake = fakeEngine({});
+      const updates: unknown[] = [];
+      const subscription = createEngineClient(fake.engine).onUpdate("operation-1", (update) => updates.push(update));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      subscription.dispose();
+      assert.deepStrictEqual(
+        fake.requests.filter((sent) => sent.method === "controlStudio/status"),
+        [{ method: "controlStudio/status", params: { operationId: "operation-1" } }],
+      );
+      assert.deepStrictEqual(updates, [], "a running operation's catch-up delivers nothing");
+      assert.deepStrictEqual(unhandled, [], "the catch-up rejects nothing");
+    } finally {
+      process.off("unhandledRejection", record);
+    }
+  });
 
   test("opens a loop the engine runs, and answers with its stages and page", async function () {
     this.timeout(30_000);
