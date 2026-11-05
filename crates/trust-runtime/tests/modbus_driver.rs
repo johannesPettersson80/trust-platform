@@ -601,8 +601,9 @@ fn modbus_rejects_unknown_function_config() {
 
 #[test]
 fn modbus_driver_warn_policy_degrades_without_transport_error() {
+    // Nothing listens on port 1, below every operating system's ephemeral ports (checklist W36).
     let params: toml::Value = toml::from_str(
-        "address = \"127.0.0.1:65000\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\non_error = \"warn\"\n",
+        "address = \"127.0.0.1:1\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\non_error = \"warn\"\n",
     )
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
@@ -621,8 +622,9 @@ fn modbus_driver_warn_policy_degrades_without_transport_error() {
 
 #[test]
 fn modbus_driver_ignore_policy_degrades_without_transport_error() {
+    // Nothing listens on port 1, below every operating system's ephemeral ports (checklist W36).
     let params: toml::Value = toml::from_str(
-        "address = \"127.0.0.1:65000\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\non_error = \"ignore\"\n",
+        "address = \"127.0.0.1:1\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\non_error = \"ignore\"\n",
     )
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
