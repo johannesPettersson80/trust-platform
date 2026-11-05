@@ -81,4 +81,8 @@ that resolves outside the project or the workspace is `-32001`, and one that
 names no source file of the project is an error, never an empty list.
 `lsp.diagnostics` takes `page` and `page_size` together to bound
 the listed issues, while `errors`, `warnings` and, on a page, `totalIssues`
-count all of them.
+count all of them. The `issues_limit` cap on
+`runtime.build`, `runtime.validate`, and `runtime.compile_reload` is opt-in
+and deterministic: a limit selects the first entries of the same sorted lists
+and bounds the projected build-failure text, and an omitted limit preserves
+the established whole-list responses.

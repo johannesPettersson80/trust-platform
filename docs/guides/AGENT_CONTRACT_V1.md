@@ -186,8 +186,17 @@ file path and reports `parseError` instead of failing the whole request.
 Optional params:
 
 ```json
-{"project":"runtime-a","sources_root":"src"}
+{"project":"runtime-a","sources_root":"src","issues_limit":500}
 ```
+
+`issues_limit` is optional; a value below 1 is an invalid-params error. When
+it is present and the payload carries more issues than the limit, `issues[]`
+is the first `issues_limit` entries of the same deterministic order and the
+response also carries `issuesTruncated: true` and `totalIssues`. When it is
+omitted, or when the limit is not exceeded, the response is unchanged and
+carries neither field. An applied limit also bounds a failed build's
+projected error text: the compiler dump keeps its first `issues_limit` lines
+plus one closing line naming the omitted remainder and the dump's total.
 
 Returns the same machine-readable payload shape as `trust-runtime build --ci`.
 
@@ -324,8 +333,12 @@ effective input. The returned `path` is normalized and project-relative;
 Optional params:
 
 ```json
-{"project":"runtime-a"}
+{"project":"runtime-a","issues_limit":500}
 ```
+
+`issues_limit` follows the `runtime.build` rule: optional, values below 1 are
+invalid params, and an applied limit adds `issuesTruncated: true` and
+`totalIssues` to the response.
 
 Returns the same machine-readable payload shape as `trust-runtime validate --ci`.
 
@@ -344,8 +357,14 @@ Returns the same JSON summary shape as `trust-dev test --output json`.
 Optional params:
 
 ```json
-{"project":"runtime-a","sources_root":"src","endpoint":"tcp://127.0.0.1:9001","token":"secret"}
+{"project":"runtime-a","sources_root":"src","endpoint":"tcp://127.0.0.1:9001","token":"secret","issues_limit":500}
 ```
+
+`issues_limit` follows the `runtime.build` rule: optional, values below 1 are
+invalid params, and an applied limit truncates `issues[]` to the first
+`issues_limit` entries of the same deterministic order, bounds the
+build-failure `runtimeMessage` and the method's error text the same way, and
+adds `issuesTruncated: true` and `totalIssues` to the response.
 
 Behavior:
 
@@ -366,6 +385,8 @@ Returns a single machine-readable loop result with:
 - `runtimeMessage`
 - optional `build`
 - optional `reload`
+- when `issues_limit` truncated the list: `issuesTruncated` (`true`) and
+  `totalIssues`
 
 This is the preferred agent method for iterative `write -> diagnose -> build -> reload`
 loops because it keeps diagnostics and reload state in one payload.
