@@ -7,6 +7,14 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**6 November 2026 (lead): specification 34 v0.73, from the Rust-logic checklist's G5.** The bytecode
+engine's built-in import contracts are gone. A compiled image imports nothing (specification 44 §6.9), so
+`trust-runtime-core::stdlib::contracts`, its test `import_contracts.rs`, the admission's contract check,
+`ImportRefusal`, `RuntimeError::ImportUnsupported` and the stable code `runtime_import_unsupported` were removed
+(§5.2.1, LOAD-06). Admission refuses a record that lists an import as a record of another program (§5.1.1, step 6),
+after its version check, so a bytecode program's record still gets "rebuild the project". The record format,
+section 6 included, is unchanged. I4 (S9 Modbus RTU next) stays open.
+
 **31 October 2026 (lead): the lines below are merged, and their worktrees are archived.** Native execution
 (specification 44), the chips (C6, STM32U5A9) and S1 to S7 reached `main` with the I-ALL integration and shipped in
 0.25.x and 0.26.0 (30 October); PRs #140 and #141 shipped in 0.26.0. Before the old worktrees were removed (owner's yes,

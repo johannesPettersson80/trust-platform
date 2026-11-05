@@ -141,11 +141,11 @@ impl fmt::Display for LimitKind {
 }
 
 /// Why a device refuses a deployment before constructing any state (specification 34 §5.1.1,
-/// DEPLOY-04). The stable code is `runtime_deployment_refused`; an import refusal is
-/// `RuntimeError::ImportUnsupported` instead.
+/// DEPLOY-04). The stable code is `runtime_deployment_refused`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdmissionRefusal {
-    /// The supplied program's length or SHA-256 differs from the record's.
+    /// The supplied program's length or SHA-256 differs from the record's, or the record lists an
+    /// import, which a compiled image never has (specification 34 §5.2.1).
     ProgramMismatch,
     /// The device does not run the version of the program's format: an STBC program of the
     /// bytecode engine, or an image on a device that runs none.

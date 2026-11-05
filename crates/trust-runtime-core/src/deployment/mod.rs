@@ -325,23 +325,25 @@ pub struct TaskSummary {
     pub event: bool,
 }
 
-/// The kind of a built-in import.
+/// The kind of a built-in import a record lists (specification 34 §5.1.1, section 6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ImportKind {
-    /// A built-in function (specification 34 §5.2.1).
+    /// A built-in function.
     Function = 1,
     /// A standard function block.
     FunctionBlock = 2,
 }
 
-/// A built-in import the program calls, with the version of its contract.
+/// A built-in import a record lists, with a contract version: section 6 of the record, which the
+/// records of bytecode programs filled. A compiled image imports nothing, and admission refuses a
+/// record that lists an import (specification 34 §5.2.1).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequiredImport {
     /// Function or function block.
     pub kind: ImportKind,
     /// The canonical uppercase name.
     pub name: SmolStr,
-    /// The contract version the program was built against (specification 34 §5.2.1).
+    /// The contract version the record names.
     pub contract_version: u16,
 }
 
