@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
+use std::panic::{self, AssertUnwindSafe};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::Arc;
@@ -46,6 +47,17 @@ struct Call {
     arguments: Map<String, Value>,
 }
 
+/// The calls of a server: the requests in progress, and the provider calls that have not returned.
+#[derive(Default)]
+struct Calls {
+    /// Where each request in progress gets its events, by request key; the id is free again once
+    /// the request is answered.
+    requests: HashMap<String, Sender<Event>>,
+    /// The provider calls that have not returned, answered or not. Each holds one of the active
+    /// calls until it returns, so that calls that never return cannot pile up beside new ones.
+    running: usize,
+}
+
 /// The server of one connection.
 pub struct Server {
     provider: Arc<dyn ToolProvider>,
@@ -54,8 +66,8 @@ pub struct Server {
     /// servers on one connection never share an id.
     prefix: String,
     next_call: AtomicU64,
-    /// The calls in progress, by request key: where each one's events go.
-    calls: Mutex<HashMap<String, Sender<Event>>>,
+    /// The calls in progress.
+    calls: Mutex<Calls>,
     /// Standard output: protocol messages only, one per line.
     output: Mutex<Box<dyn Write + Send>>,
 }
@@ -75,7 +87,7 @@ impl Server {
             limits,
             prefix: hex::encode(random),
             next_call: AtomicU64::new(1),
-            calls: Mutex::new(HashMap::new()),
+            calls: Mutex::new(Calls::default()),
             output: Mutex::new(output),
         }))
     }
@@ -179,7 +191,10 @@ impl Server {
         match started {
             Ok(running) => Some(running),
             Err(_) => {
-                self.calls.lock().remove(&key);
+                let mut calls = self.calls.lock();
+                calls.requests.remove(&key);
+                calls.running -= 1;
+                drop(calls);
                 self.write(&self.unavailable(id));
                 None
             }
@@ -189,17 +204,18 @@ impl Server {
     /// Records a call in progress, unless its id is in progress already or the most calls run.
     fn register(&self, key: &str, events: Sender<Event>) -> bool {
         let mut calls = self.calls.lock();
-        let free = !calls.contains_key(key) && calls.len() < self.limits.active_calls;
+        let free = !calls.requests.contains_key(key) && calls.running < self.limits.active_calls;
         if free {
-            calls.insert(key.to_owned(), events);
+            calls.requests.insert(key.to_owned(), events);
+            calls.running += 1;
         }
         free
     }
 
-    /// Runs a call at the provider and answers it. The provider runs the call on its own thread,
-    /// so that the agent's cancellation and the call's time limit reach the provider while it
-    /// waits.
-    fn run(&self, call: Call, inbox: &Receiver<Event>, events: Sender<Event>) {
+    /// Runs a call at the provider and answers it. The server runs the provider's call on a thread
+    /// of its own, so that the agent's cancellation and the call's time limit reach the provider
+    /// while this thread waits; a provider call that panics is answered with the failure answer.
+    fn run(self: &Arc<Self>, call: Call, inbox: &Receiver<Event>, events: Sender<Event>) {
         let Call {
             id,
             key,
@@ -207,20 +223,28 @@ impl Server {
             name,
             arguments,
         } = call;
-        let provider = Arc::clone(&self.provider);
+        let server = Arc::clone(self);
         let running_id = call_id.clone();
         let exchange = thread::Builder::new()
             .name("mcp-exchange".to_owned())
             .spawn(move || {
-                let answer = provider.call(&running_id, &name, arguments);
+                let answer = panic::catch_unwind(AssertUnwindSafe(|| {
+                    server.provider.call(&running_id, &name, arguments)
+                }))
+                .unwrap_or(Err(Unavailable));
+                // The call's place among the active calls is free once the provider returned.
+                server.calls.lock().running -= 1;
                 let _ = events.send(Event::Answered(answer));
             });
         let answer = match exchange {
             Ok(_) => self.await_answer(&call_id, inbox),
-            Err(_) => Err(Unavailable),
+            Err(_) => {
+                self.calls.lock().running -= 1;
+                Err(Unavailable)
+            }
         };
         // The id is free again before the agent reads the answer.
-        self.calls.lock().remove(&key);
+        self.calls.lock().requests.remove(&key);
         self.write(&match answer {
             Ok(result) => protocol::answer(id, result),
             Err(Unavailable) => self.unavailable(id),
@@ -228,8 +252,9 @@ impl Server {
     }
 
     /// Waits for the provider's answer to a call. A cancellation by the agent, or the end of the
-    /// call's time, cancels the call at the provider once; the tool then answers its cancellation
-    /// through the call. Without an answer in the answer time, the call fails.
+    /// call's time, cancels the call at the provider once, on a thread of its own, so that a
+    /// cancellation that waits cannot hold back the answer time; the tool then answers its
+    /// cancellation through the call. Without an answer in the answer time, the call fails.
     fn await_answer(&self, call_id: &str, inbox: &Receiver<Event>) -> Result<Value, Unavailable> {
         let started = Instant::now();
         let cancel_at = started + self.limits.call_time;
@@ -252,7 +277,11 @@ impl Server {
             }
             if !cancelled {
                 cancelled = true;
-                self.provider.cancel(call_id);
+                let provider = Arc::clone(&self.provider);
+                let call_id = call_id.to_owned();
+                let _ = thread::Builder::new()
+                    .name("mcp-cancel".to_owned())
+                    .spawn(move || provider.cancel(&call_id));
             }
         }
     }
@@ -265,7 +294,7 @@ impl Server {
         else {
             return;
         };
-        if let Some(events) = self.calls.lock().get(&id.to_string()) {
+        if let Some(events) = self.calls.lock().requests.get(&id.to_string()) {
             let _ = events.send(Event::Cancel);
         }
     }

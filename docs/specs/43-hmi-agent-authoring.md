@@ -127,13 +127,22 @@ invokes the VS Code tools. Rust tests: `crates/trust-lsp/src/hmi_agent_mcp/tests
 
 These rules belong to trust-lsp's MCP server (`crates/trust-lsp/src/mcp/`, 5 November 2026),
 which serves the tools of a tool provider. The adapter is the provider of the loopback's tools:
-- the server name and the instructions in the answer to `initialize`;
+- the server name, version and instructions in the answer to `initialize`;
 - the tools with their annotations;
 - the checks of a tool call;
 - the text of the failure answer.
 
-Another provider that the same server serves keeps every rule of this section and gives its own
-of these four. Rust tests of that seam: `crates/trust-lsp/src/mcp/tests.rs`.
+The adapter starts the server with this section's limits: 8 MiB lines, eight calls, 120 and 125
+seconds. Another provider served by the same server keeps the message form, the protocol
+versions, the request ids and cancellation of this section, and gives its own of the four above
+and its own limits. For every provider:
+- a call counts among the active calls until the provider's call returns, also after its failure
+  answer;
+- a provider call that panics gets the failure answer at once;
+- the server cancels a call at most once, on a thread of its own, so that the answer time holds
+  even when the cancellation waits.
+
+Rust tests of that seam: `crates/trust-lsp/src/mcp/tests.rs`.
 
 The adapter lists the loopback's tools with its own annotations, whatever the loopback sends:
 `hmi_compose_page`, `hmi_edit_draft`, `hmi_apply_draft` and `hmi_preview_states` change the

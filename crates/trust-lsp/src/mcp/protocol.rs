@@ -15,7 +15,8 @@ pub(crate) const METHOD_NOT_FOUND: i64 = -32601;
 /// The tool call's parameters are refused by the tool provider: for the HMI authoring tools, an
 /// unknown tool, no argument object or another workspace.
 pub(crate) const INVALID_PARAMS: i64 = -32602;
-/// The tool provider could not answer the call, or the server could not run it.
+/// The tool provider could not answer the call, the server could not run it, or the line was over
+/// the line limit.
 pub(crate) const UNAVAILABLE: i64 = -32000;
 
 /// The notification that cancels a request.
