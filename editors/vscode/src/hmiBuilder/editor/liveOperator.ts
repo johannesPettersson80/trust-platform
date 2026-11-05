@@ -4,7 +4,10 @@ import type { HostToWebview, WebviewToHost } from "./messages";
 import { LiveSession, LiveSessionDeps } from "./liveSession";
 /** What Live mode's operating gate decides from (`trust-lsp.hmiLiveGate`, §11 item 6). */
 export interface LiveGateFacts {
-  dirty: boolean;
+  /** The project's folder and the paths of the editor's unsaved documents: the language server decides which are HMI
+   * changes. */
+  root: string;
+  unsaved: string[];
   bundle: { ok?: boolean; version?: string };
   webServer: boolean;
   runTarget?: { label: string; simulator: boolean };
@@ -21,7 +24,7 @@ export type LiveGateVerdict =
 
 /** What happened while the operating view runs (`trust-lsp.hmiLiveOperation`, §11 item 6). */
 export type LiveOperationEvent =
-  | { event: "request"; dirty: boolean }
+  | { event: "request"; root: string; unsaved: string[] }
   | { event: "reply"; method: string; status: number; body: unknown; bundle: string }
   | { event: "edited" | "streamUnavailable" | "streamClosed" | "unreachable" | "targetChanged" | "targetUnreachable" };
 
@@ -36,7 +39,8 @@ export interface LiveOperatorDeps {
   /** The selected run target, also when it has no HMI web server: the read-only explanation names
    * it (§11, item 6). */
   runTarget(): Promise<{ label: string; simulator: boolean } | undefined>;
-  dirty(): boolean;
+  /** The project's folder and the paths of the editor's unsaved documents. */
+  unsaved(): { root: string; unsaved: string[] };
   bundle(): Promise<{ ok?: boolean; version?: string }>;
   /** Whether the operating view opens, as the language server decides it (§11 item 6). */
   liveGate(facts: LiveGateFacts): Promise<LiveGateVerdict>;
@@ -84,7 +88,7 @@ export class LiveOperator {
     try {
       if (message.type === "operateRequest") {
         // The request goes out only once the language server lets it.
-        const before = await this.verdict({ event: "request", dirty: this.deps.dirty() });
+        const before = await this.verdict({ event: "request", ...this.deps.unsaved() });
         if (this.current !== current) return;
         if (!before.proceed) {
           this.stop(before.end ?? NO_REASON);
@@ -192,7 +196,7 @@ export class LiveOperator {
         runTarget: selected && { label: selected.label, simulator: selected.simulator },
         page,
       };
-      const before = await this.deps.liveGate({ ...facts, dirty: this.deps.dirty() });
+      const before = await this.deps.liveGate({ ...facts, ...this.deps.unsaved() });
       if (this.current !== current) return;
       if (before.kind === "read_only") {
         refuse(before.reason);
@@ -203,7 +207,7 @@ export class LiveOperator {
       if (this.current !== current) return;
       const after = await this.deps.liveGate({
         ...facts,
-        dirty: this.deps.dirty(),
+        ...this.deps.unsaved(),
         served: { status: answer.status, body: answer.body },
       });
       if (this.current !== current) return;

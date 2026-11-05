@@ -25,21 +25,37 @@ fn reply(method: &str, status: u16, body: Value) -> Value {
     json!({ "event": "reply", "method": method, "status": status, "body": body, "bundle": DEPLOYED })
 }
 
-// Catches a command sent from an HMI that is no longer the one deployed: unsaved changes end
-// operation before the request goes out.
+// Catches a command sent from an HMI that is no longer the one deployed: an unsaved document under
+// the project's `hmi/` folder ends operation before the request goes out (specification 39, §11
+// item 6). Also catches an unsaved document elsewhere counted, one in a folder whose name only
+// begins with `hmi` or another project's HMI among them.
 #[test]
-fn unsaved_changes_end_operation_before_a_request() {
-    assert_eq!(
-        verdict(json!({ "event": "request", "dirty": true })),
-        (
-            false,
-            json!("The HMI changed. Save and deploy it before operating again.")
-        )
-    );
-    assert_eq!(
-        verdict(json!({ "event": "request", "dirty": false })),
-        (true, Value::Null)
-    );
+fn unsaved_hmi_changes_end_operation_before_a_request() {
+    let request = |unsaved: Value| {
+        verdict(json!({ "event": "request", "root": "/work/plant", "unsaved": unsaved }))
+    };
+    for unsaved in [
+        json!(["/work/plant/hmi/pages/overview.toml"]),
+        json!(["/work/plant/src/main.st", "/work/plant/hmi/texts/en.toml"]),
+    ] {
+        assert_eq!(
+            request(unsaved.clone()),
+            (
+                false,
+                json!("The HMI changed. Save and deploy it before operating again.")
+            ),
+            "{unsaved}"
+        );
+    }
+    for unsaved in [
+        json!([]),
+        json!(["/work/plant/src/main.st"]),
+        json!(["/work/plant/hmi-old/pages/overview.toml"]),
+        json!(["/work/other/hmi/pages/overview.toml"]),
+        json!(["/work/plant/hmi"]),
+    ] {
+        assert_eq!(request(unsaved.clone()), (true, Value::Null), "{unsaved}");
+    }
 }
 
 // Catches operation that goes on after an HMI file changed while operating: the editor no longer
@@ -132,7 +148,8 @@ fn each_lost_connection_ends_operation_with_its_reason() {
 fn an_unknown_event_or_field_is_refused() {
     for event in [
         json!({ "event": "pause" }),
-        json!({ "event": "request", "dirty": false, "page": "overview" }),
+        json!({ "event": "request", "root": "/work/plant", "unsaved": [], "page": "overview" }),
+        json!({ "event": "request", "dirty": false }),
         json!({ "event": "request" }),
         json!({ "event": "streamClosed", "dirty": true }),
         json!({ "event": "edited", "page": "overview" }),

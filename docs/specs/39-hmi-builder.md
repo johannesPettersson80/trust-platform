@@ -1380,9 +1380,27 @@ declaration's real values.
      login only to a target the language server admits as the session's own
      (`trust-lsp.hmiAgent.admitSimulatorLogin`), refuses a journey while its language client's
      trace logs each message's parameters (`verbose`), which would log the cookie, and closes its
-     simulator sessions when the selected run target changes. Only HMI read, login, logout,
-     command and alarm endpoints are bridged; arbitrary
-     addresses, redirects, deployment and control endpoints are refused. The runtime's access
+     simulator sessions when the selected run target changes. The language server decides what
+     the extension host bridges (`trust-lsp.hmiLiveBridge`, 4 November 2026):
+     - `GET` of `/api/hmi/page`, `popup`, `session`, `alarms`, `history` and `remote`, each with an
+       optional query;
+     - `POST` of `/api/hmi/login`, `logout`, `command`, `alarm` and `settings`, the last three only
+       within a named session (otherwise `401`, `Log in with a named HMI user to operate.`);
+     - the value streams `/ws/hmi?page=`, `popup=` and `faceplate=`.
+
+     Any other address is refused (`403`, `This address is not part of Live operation.`), other
+     hosts, redirects, deployment and control endpoints among them. A login that the web server
+     accepts (`200`) for the operator, not for a peer, starts the named session; a logout ends it.
+     The language server decides from facts only: the method, the path, whether a named session is
+     held, whether a login names a peer, and the answer's status. Neither the password nor the
+     session cookie is sent for these verdicts, because a language client's `verbose` trace logs
+     every message. The extension host keeps in memory the cookie that the language server names,
+     the named session's `trust_hmi_session` (§12.8 item 3), taken from the login answer's
+     `Set-Cookie` fields (RFC 6265 §5.2). A verdict holds for the session it was asked for: when a
+     login or a logout ends while a request waits, its verdict is asked again for the session held
+     then. Without the language server's verdict within 5 seconds, or with a verdict of another
+     shape, the request does not go out (`503` with the reason) and the named session is dropped;
+     a login whose answer gets no verdict answers `503` too, without a session. The runtime's access
      token supplies transport access, never the named operator's identity. Each request verifies
      the selected target. Target changes invalidate the session before another command can go
      out. An in-flight response from an ended connection cannot restore its cookie.
@@ -1395,7 +1413,10 @@ declaration's real values.
      unmet condition is the reason Live mode stays read-only. While the operating view runs, the
      language server also decides whether operation ends, and why (`trust-lsp.hmiLiveOperation`,
      4 November 2026). Unsaved HMI changes end it before a request goes out, and a change of the
-     HMI's files ends it at once: `The HMI changed. Save and deploy it before operating again.` A
+     HMI's files ends it at once, both with `The HMI changed. Save and deploy it before operating
+     again.` An unsaved HMI change is an editor's unsaved document under the project's `hmi/`
+     folder: the editor sends the paths of its unsaved documents, to the gate as well, and the
+     language server decides. A
      page read that the web server answers from another bundle ends it before the page shows: `The
      deployed HMI changed. Check and deploy the matching project before operating again.` An answer
      `409`, the named session's target changed or gone, is shown and then ends it: `The run target
@@ -1618,7 +1639,7 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - `POST /api/hmi/login` with `{ "user", "password" }` starts a session. It returns `user`,
      `role`, `acts_as` and `may_change_settings` (§12.4 item 4) and both expiry times
      (`idle_seconds`, `expires_seconds`), and sets an `HttpOnly`, `SameSite=Strict` session
-     cookie;
+     cookie, `trust_hmi_session`;
    - a wrong user and a wrong password give the same answer;
    - after five failed attempts a user is refused for a minute;
    - `POST /api/hmi/logout` ends the session, and `GET /api/hmi/session` reports it with the same

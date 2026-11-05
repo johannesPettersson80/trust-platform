@@ -16,6 +16,7 @@ import { scenarioFrame } from "../../hmiBuilder/agent/scenarios";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import type { HmiPageModel } from "../../hmiBuilder/drawing/model";
 import type { LiveSessionDeps } from "../../hmiBuilder/editor/liveSession";
+import { liveBridge } from "../../hmiBuilder/editor/liveOperatorRuntime";
 
 const catalogue: Catalogue = {
   format: 1,
@@ -70,10 +71,11 @@ const success = (data: unknown) => ({ ok: true, data, revisions: {}, warnings: [
 /** The HMI bridge of a local simulator whose login answers `status`, with the session cookie when it is 200. */
 function simulatorBridge(status: number): LiveSessionDeps {
   return {
+    bridge: liveBridge,
     target: async () => LOCAL,
     request: async (_target, _method, path) =>
       path === "/api/hmi/login" && status === 200
-        ? { status, body: { ok: true }, cookie: "trust_hmi_session=4f1c0ffee; Path=/; HttpOnly; SameSite=Strict" }
+        ? { status, body: { ok: true }, cookies: ["trust_hmi_session=4f1c0ffee; Path=/; HttpOnly; SameSite=Strict"] }
         : { status, body: { ok: false } },
   };
 }
@@ -239,10 +241,11 @@ suite("HMI completed authoring contracts", () => {
   test("a login trust-lsp does not admit is never sent to the target", async () => {
     let logins = 0;
     const bridge: LiveSessionDeps = {
+      bridge: liveBridge,
       target: async () => LOCAL,
       request: async () => {
         logins += 1;
-        return { status: 200, body: { ok: true }, cookie: "trust_hmi_session=4f1c0ffee" };
+        return { status: 200, body: { ok: true }, cookies: ["trust_hmi_session=4f1c0ffee"] };
       },
     };
     await withSimulatorCommands(

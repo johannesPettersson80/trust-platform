@@ -52,6 +52,8 @@ mod hmi_faceplates;
 #[path = "commands/hmi_files.rs"]
 mod hmi_files;
 mod hmi_generate;
+// What Live mode bridges to the run target's HMI web server (specification 39 §11 item 6).
+mod hmi_live_bridge;
 mod hmi_live_gate;
 // Whether Live mode's operating view ends, and why (specification 39 §11 item 6).
 mod hmi_live_operation;
@@ -94,6 +96,7 @@ pub const HMI_FILE_CHECK_COMMAND: &str = "trust-lsp.hmiFileCheck";
 pub const HMI_CATALOGUE_COMMAND: &str = "trust-lsp.hmiCatalogue";
 pub const HMI_BUNDLE_COMMAND: &str = "trust-lsp.hmiBundle";
 pub const HMI_DEPLOY_COMMAND: &str = "trust-lsp.hmiDeploy";
+pub const HMI_LIVE_BRIDGE_COMMAND: &str = "trust-lsp.hmiLiveBridge";
 pub const HMI_LIVE_GATE_COMMAND: &str = "trust-lsp.hmiLiveGate";
 pub const HMI_LIVE_OPERATION_COMMAND: &str = "trust-lsp.hmiLiveOperation";
 pub const HMI_TEXTS_COMMAND: &str = "trust-lsp.hmiTexts";
@@ -124,6 +127,7 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     HMI_CATALOGUE_COMMAND,
     HMI_BUNDLE_COMMAND,
     HMI_DEPLOY_COMMAND,
+    HMI_LIVE_BRIDGE_COMMAND,
     HMI_LIVE_GATE_COMMAND,
     HMI_LIVE_OPERATION_COMMAND,
     HMI_TEXTS_COMMAND,
@@ -257,6 +261,7 @@ pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -
             params.arguments,
         )),
         HMI_DEPLOY_COMMAND => Some(hmi_deploy::deploy_value(state, params.arguments)),
+        HMI_LIVE_BRIDGE_COMMAND => Some(hmi_live_bridge::live_bridge_value(params.arguments)),
         HMI_LIVE_GATE_COMMAND => Some(hmi_live_gate::live_gate_value(params.arguments)),
         HMI_LIVE_OPERATION_COMMAND => {
             Some(hmi_live_operation::live_operation_value(params.arguments))

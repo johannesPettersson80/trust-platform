@@ -8,10 +8,15 @@ fn gate(args: Value) -> Value {
     live_gate_value(vec![args])
 }
 
+/// The project's folder, and an unsaved document of its HMI.
+const ROOT: &str = "/work/plant";
+const UNSAVED_PAGE: &str = "/work/plant/hmi/pages/overview.toml";
+
 /// A saved HMI with a checked bundle on a run target with an HMI web server, opening `overview`.
 fn facts(changes: Value) -> Value {
     let mut facts = json!({
-        "dirty": false,
+        "root": ROOT,
+        "unsaved": [],
         "bundle": { "ok": true, "version": VERSION },
         "webServer": true,
         "page": "overview",
@@ -62,7 +67,8 @@ fn a_saved_checked_hmi_reads_its_page_then_operates_the_deployed_bundle() {
 // `[runtime.web]`, which only a runtime has (specification 39, §11 item 6).
 #[test]
 fn before_the_page_is_read_the_first_unmet_condition_is_the_reason() {
-    let nothing_holds = json!({ "dirty": true, "bundle": { "ok": false }, "webServer": false });
+    let nothing_holds =
+        json!({ "unsaved": [UNSAVED_PAGE], "bundle": { "ok": false }, "webServer": false });
     assert_eq!(
         reason(&gate(facts(nothing_holds))),
         "Save the HMI before operating its deployed version."
@@ -123,14 +129,14 @@ fn a_page_not_served_from_the_project_bundle_stays_read_only() {
     }
     assert_eq!(
         reason(&gate(facts(json!({
-            "dirty": true,
+            "unsaved": [UNSAVED_PAGE],
             "served": served(200, "0123456789abcdef", "overview"),
         })))),
         "The HMI changed. Save and deploy it before operating again."
     );
     assert_eq!(
         reason(&gate(facts(json!({
-            "dirty": true,
+            "unsaved": [UNSAVED_PAGE],
             "served": served(200, "deployed", "overview"),
         })))),
         undeployed,
@@ -141,7 +147,8 @@ fn a_page_not_served_from_the_project_bundle_stays_read_only() {
 #[test]
 fn arguments_it_cannot_read_answer_an_error() {
     for args in [
-        json!({ "dirty": false, "webServer": true }),
+        json!({ "root": ROOT, "unsaved": [], "webServer": true }),
+        facts(json!({ "dirty": false })),
         facts(json!({ "extra": 1 })),
         json!("open"),
     ] {
