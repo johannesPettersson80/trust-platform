@@ -1,9 +1,10 @@
-// Named HMI simulator journeys (specification 43, AT-08). The language server keeps the sessions and runs the journeys
-// (`trust-lsp.hmiAgent.openSimulatorSession`, `closeSimulatorSession`, `admitSimulatorLogin`, `runSimulatorJourney`,
-// `cancelSimulatorJourney`); a journey, named by the ID the extension gives it, answers its start at once and reports
-// its end, with that ID, as the notification `trust-lsp/simulatorJourneyEnded`. The extension keeps what the language
-// server cannot hold: the prompts, the named login through the HMI bridge, and each session's cookie, which it hands
-// over with each journey of that session (specification 39 §11 item 6).
+// Named HMI simulator journeys (specification 43, AT-08). The language server keeps the sessions, reads the draft each
+// journey exercises and runs the journeys (`trust-lsp.hmiAgent.openSimulatorSession`, `closeSimulatorSession`,
+// `admitSimulatorLogin`, `runSimulatorJourney`, `cancelSimulatorJourney`); a journey, named by the ID the extension
+// gives it, answers its start at once and reports its end, with that ID, as the notification
+// `trust-lsp/simulatorJourneyEnded`. The extension keeps what the language server cannot hold: the prompts, the named
+// login through the HMI bridge, and each session's cookie, which it hands over with each journey of that session
+// (specification 39 §11 item 6).
 import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import { State } from "vscode-languageclient/node";
@@ -12,8 +13,7 @@ import { traceLogsParameters } from "../../lspCredentials";
 import { onDidChangeSelectedRuntime } from "../../selectedRuntime";
 import { LiveSession, LiveEndpoint, LiveSessionDeps } from "../editor/liveSession";
 import { runtimeLiveOperatorDeps } from "../editor/liveOperatorRuntime";
-import type { HmiPageModel } from "../drawing/model";
-import { AuthoringResult, unwrap } from "./engineCommands";
+import { AuthoringResult, EngineProject, unwrap } from "./engineCommands";
 
 const JOURNEY_ENDED = "trust-lsp/simulatorJourneyEnded";
 
@@ -74,9 +74,7 @@ export async function closeSimulatorSessions(): Promise<void> {
   const ids = [...held.keys()];
   for (const id of ids) drop(id);
   await Promise.allSettled(
-    ids.map((sessionId) =>
-      vscode.commands.executeCommand("trust-lsp.hmiAgent.closeSimulatorSession", { sessionId }),
-    ),
+    ids.map((sessionId) => vscode.commands.executeCommand("trust-lsp.hmiAgent.closeSimulatorSession", { sessionId })),
   );
 }
 
@@ -199,16 +197,42 @@ export function registerSimulatorSessions(context: vscode.ExtensionContext, getC
   );
 }
 
-/** Runs a journey in the language server with the cookie of its named session and the selected target, and waits for
- * its answer, which the language server reports when the journey ends. Cancelling `signal` before the start goes out
- * starts nothing; cancelling it later cancels the journey there, also when the cancel overtakes the start, and the
- * journey's answer still comes back, with the outcomes its steps completed, or the wait ends 2 seconds after the
+/** The draft a journey exercises: the workspace, project folder and draft storage that the authoring commands take
+ * (`engineCommands.ts`), and the draft and revision that the tool call names. */
+export interface JourneyDraft {
+  workspaceId: string;
+  root_uri: string;
+  storage: string;
+  draftId: string;
+  revision: string;
+}
+
+/** The bounded simulator journey of `hmi_preview_states` (mode `simulator`) on the named session's deployed pages, for
+ * the draft and revision that its input names. */
+export function simulatorJourney(
+  project: EngineProject,
+  input: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<Record<string, unknown>> {
+  const draft: JourneyDraft = {
+    workspaceId: project.workspaceId,
+    root_uri: project.root.toString(),
+    storage: project.storage,
+    draftId: String(input.draftId),
+    revision: String(input.revision),
+  };
+  return runSimulator(draft, String(input.sessionId), input.steps, signal);
+}
+
+/** Runs a journey on `draft` in the language server with the cookie of its named session and the selected target, and
+ * waits for its answer, which the language server reports when the journey ends. Cancelling `signal` before the start
+ * goes out starts nothing; cancelling it later cancels the journey there, also when the cancel overtakes the start, and
+ * the journey's answer still comes back, with the outcomes its steps completed, or the wait ends 2 seconds after the
  * cancel. */
 export async function runSimulator(
-  workspace: string,
+  draft: JourneyDraft,
   sessionId: string,
   steps: unknown,
-  models: Record<string, HmiPageModel>,
   signal: AbortSignal,
 ): Promise<Record<string, unknown>> {
   const journeyId = randomUUID();
@@ -245,13 +269,12 @@ export async function runSimulator(
     try {
       unwrap(
         await vscode.commands.executeCommand<AuthoringResult>("trust-lsp.hmiAgent.runSimulatorJourney", {
-          workspace,
+          ...draft,
           sessionId,
           journeyId,
           cookie: session?.live.namedCookie() ?? null,
           target: targetOf(target),
           steps,
-          models,
         }),
       );
     } catch (error) {
