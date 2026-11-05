@@ -111,6 +111,7 @@ basics_and_warnings::test_subrange_assignment_in_range: test
 basics_and_warnings::test_subrange_assignment_out_of_range: test
 basics_and_warnings::test_subrange_bounds_invalid_order: test
 basics_and_warnings::test_subrange_bounds_undefined_names_report_primary_diagnostic: test
+basics_and_warnings::test_time_date_declarations_do_not_warn: test
 basics_and_warnings::test_unreachable_code_warning: test
 basics_and_warnings::test_unreachable_elsif_false_branch_warning: test
 basics_and_warnings::test_unreachable_if_false_branch_warning: test
