@@ -16,6 +16,9 @@ fn web_ide_reference_performance_gates_contract() {
         );
         return;
     }
+    let _alone = MEASURING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
 
     let project = make_project("perf-gates");
     let state = control_state(source_fixture(), ControlMode::Debug, None);

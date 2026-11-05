@@ -2,6 +2,9 @@ use super::*;
 
 #[test]
 fn web_ide_latency_and_resource_budget_contract() {
+    let _alone = MEASURING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let project = make_project("budget");
     let state = control_state(source_fixture(), ControlMode::Debug, None);
     let base = start_test_server(state, project.clone(), WebAuthMode::Local);

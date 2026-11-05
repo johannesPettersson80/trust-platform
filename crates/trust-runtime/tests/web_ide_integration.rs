@@ -4,8 +4,6 @@ include!("web_ide_integration/helpers.rs");
 mod web_ide_integration_part_01;
 #[path = "web_ide_integration/web_ide_integration_part_02.rs"]
 mod web_ide_integration_part_02;
-#[path = "web_ide_integration/web_ide_integration_part_03.rs"]
-mod web_ide_integration_part_03;
 #[path = "web_ide_integration/web_ide_integration_part_05.rs"]
 mod web_ide_integration_part_05;
 #[path = "web_ide_integration/web_ide_integration_part_06.rs"]
