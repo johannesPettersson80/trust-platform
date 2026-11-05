@@ -3,6 +3,7 @@
 //! reconnection and its backoff, freshness, the bounds of the scan's calls, and the failures that
 //! fail closed.
 
+use std::net::TcpStream;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -619,6 +620,28 @@ fn fail_closed_disconnected_read_returns_freshness_error() {
         driver.read_inputs(&mut inputs) == Err(RuntimeError::IoFreshness(lost.into()))
     });
     assert_eq!(inputs, [0x55]);
+}
+
+/// Another client's connection to the broker leaves the driver's session running, and the driver
+/// reads on: a broker replaces a session only for a client that connects again (MQTT-3.1.4-2).
+/// Catches checklist W37: the stand-in ended the current session at every new TCP connection, so a
+/// stray connection on a Windows runner failed a health test with "the broker closed the
+/// connection" (5 November 2026).
+#[test]
+fn another_client_s_connection_leaves_the_session_running() {
+    let broker = Broker::start();
+    let mut driver = start(&at(&broker, "topic_in = \"line/in\"\nreconnect_ms = 60000"));
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+    let _other = TcpStream::connect(broker.endpoint()).expect("another client connects");
+    broker.wait_for("the other connection", |record| record.accepted == 2);
+    broker.deliver(&[("line/in", &[9])]);
+    let mut inputs = [0_u8];
+    assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
+    assert_eq!(inputs, [9]);
+    assert_eq!(
+        broker.record(|record| record.ended.clone()),
+        Vec::<String>::new()
+    );
 }
 
 /// A publication that the session cannot carry fails the write under the default `fault` with
