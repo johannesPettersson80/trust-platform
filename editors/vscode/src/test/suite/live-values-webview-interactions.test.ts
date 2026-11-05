@@ -660,6 +660,63 @@ suite("Live Values status messages", function () {
     }
   });
 
+  test("a message's treatment is the host's word for it, never its words", () => {
+    // Catches U3d: the panel coloured a message by matching words such as "failed", "error" or "queued".
+    const harness = createHarness();
+    try {
+      const status = (): any => harness.document.getElementById("status");
+      harness.send({ type: "status", payload: "Settings could not be saved.", treatment: "error" });
+      assert.ok(status().classList.contains("status-error"), "an error the host names is an error");
+      harness.send({ type: "status", payload: "I/O write failed: the runtime refused the value." });
+      assert.ok(!status().classList.contains("status-error"), "the words of a failure make no error");
+      harness.send({ type: "status", payload: "Released 2 forces.", treatment: "ok" });
+      assert.ok(status().classList.contains("status-ok"), "a success the host names is a success");
+      harness.send({ type: "status", payload: "I/O write queued for %IX0.0." });
+      assert.ok(!status().classList.contains("status-ok"), "the words of a success make no success");
+      harness.send({ type: "status", payload: "Force armed state unknown.", treatment: "warning" });
+      assert.ok(status().classList.contains("status-warn"), "a warning the host names is a warning");
+    } finally {
+      harness.close();
+    }
+  });
+
+  test("the active-force summary replaces any message but an error or an access reason, and goes with the last force", () => {
+    // Catches U3d: the panel kept a message over the summary by its words, and cleared a message by the words
+    // "force active".
+    const harness = createHarness();
+    try {
+      harness.send({ type: "status", payload: "Settings could not be saved.", treatment: "error" });
+      harness.sendIoState(1, { forced: true });
+      assert.strictEqual(statusText(harness), "Settings could not be saved.", "an error stays over the summary");
+
+      harness.send({ type: "status", payload: "Settings saved." });
+      harness.sendIoState(2, { forced: true });
+      assert.strictEqual(statusText(harness), "I/O force active at %IX0.0.");
+      assert.ok(harness.document.getElementById("status")?.classList.contains("status-warn"));
+      harness.sendIoState(3);
+      assert.strictEqual(statusText(harness), "", "the summary goes when no force remains");
+
+      harness.send({ type: "status", payload: "I/O force active at %IX0.0.", treatment: "warning", forceActive: true });
+      harness.sendIoState(4);
+      assert.strictEqual(statusText(harness), "", "the host's force feedback goes with the last force too");
+
+      harness.send({ type: "status", payload: "The force active lamp is a plain message." });
+      harness.sendIoState(5);
+      assert.strictEqual(statusText(harness), "The force active lamp is a plain message.");
+
+      harness.send({
+        type: "runtimeStatus",
+        payload: { ...SIMULATOR_STATUS, access: { ...SIMULATOR_STATUS.access, reason: "Write access needs another role." } },
+      });
+      assert.strictEqual(statusText(harness), "Write access needs another role.");
+      harness.sendIoState(6, { forced: true });
+      assert.strictEqual(statusText(harness), "Write access needs another role.", "an access reason stays over the summary");
+      assert.ok(harness.document.getElementById("status")?.classList.contains("status-warn"));
+    } finally {
+      harness.close();
+    }
+  });
+
   test("a release on an armed target says the force remains armed, and that message stays", () => {
     // Catches U3c: the panel read a release from the words "released" or "cleared", and let the arming feedback expire.
     const harness = createHarness();
