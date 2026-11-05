@@ -137,6 +137,7 @@ export function run(): Promise<void> {
   require("./hmi-agent-proxy.test");
   require("./hmi-agent-render.test");
   require("./hmi-agent-completion.test");
+  require("./lsp-credentials.test");
   require("./hmi-agent-projects.test");
   require("./hmi-agent-apply.test");
   require("./hmi-agent-engine-commands.test");

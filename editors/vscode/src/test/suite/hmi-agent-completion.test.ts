@@ -58,7 +58,7 @@ const LOCAL = {
   label: "Fixture",
 };
 /** The target as trust-lsp receives it. */
-const TARGET = { simulator: true, url: LOCAL.url, endpoint: LOCAL.endpoint, token: LOCAL.token };
+const TARGET = { simulator: true, url: LOCAL.url, endpoint: LOCAL.endpoint, authToken: LOCAL.token };
 const OPENED = {
   ok: true,
   data: { sessionId: "session-1", name: "Fixture", expiresAt: new Date(Date.now() + 600_000).toISOString() },

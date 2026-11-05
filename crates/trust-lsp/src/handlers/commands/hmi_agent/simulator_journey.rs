@@ -108,7 +108,7 @@ impl Timing {
 }
 
 /// A journey to run: its session's ID and name, its own ID, the target (`{ simulator, url, endpoint,
-/// token }`), the session's cookie, the steps and the draft's page models by page name.
+/// authToken }`), the session's cookie, the steps and the draft's page models by page name.
 pub(super) struct Journey<'a> {
     pub(super) session_id: &'a str,
     pub(super) name: &'a str,
@@ -129,7 +129,7 @@ pub(super) fn run(
     cancelled: &Arc<AtomicBool>,
     timing: Timing,
 ) -> Value {
-    let token = journey.target.get("token").and_then(Value::as_str);
+    let token = journey.target.get("authToken").and_then(Value::as_str);
     let mut runner = Runner {
         hmi: SimulatorHmi {
             base: journey

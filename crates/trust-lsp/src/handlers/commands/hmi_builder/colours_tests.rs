@@ -24,7 +24,7 @@ accent = "#0e7490"
 "##;
 
 fn colour(text: &str, theme: &str, token: &str, value: Option<&str>) -> Value {
-    let mut argument = json!({ "text": text, "theme": theme, "token": token });
+    let mut argument = json!({ "text": text, "theme": theme, "colourToken": token });
     if let Some(value) = value {
         argument["value"] = json!(value);
     }

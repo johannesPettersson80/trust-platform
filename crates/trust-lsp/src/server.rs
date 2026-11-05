@@ -326,8 +326,12 @@ impl LanguageServer for StLanguageServer {
                     }),
                 }),
 
-                // Type hierarchy (keep experimental for clients that still read it)
-                experimental: Some(json!({ "typeHierarchyProvider": true })),
+                // Type hierarchy (keep experimental for clients that still read it), and the
+                // credentials that cross the channel (specification 25 §6.4).
+                experimental: Some(json!({
+                    "typeHierarchyProvider": true,
+                    "credentials": handlers::credentials::announcement(),
+                })),
 
                 ..Default::default()
             },

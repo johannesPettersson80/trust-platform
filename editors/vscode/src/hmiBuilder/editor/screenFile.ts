@@ -75,7 +75,7 @@ export async function writeScreenColour(
       text?: string;
       model?: ScreenFileModel;
       error?: string;
-    }>("trust-lsp.hmiScreenColour", { text, theme, token, value });
+    }>("trust-lsp.hmiScreenColour", { text, theme, colourToken: token, value });
     return answer?.ok === true && typeof answer.text === "string" && answer.model
       ? { text: answer.text, model: answer.model }
       : (answer?.error ?? "The truST language server is not running.");

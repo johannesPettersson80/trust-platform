@@ -24,7 +24,7 @@ fn at(seconds: u64) -> SystemTime {
 fn local() -> Value {
     json!({
         "simulator": true, "url": "http://127.0.0.1:8080", "endpoint": "tcp://127.0.0.1:9100",
-        "token": "access-token-7", "label": "Fixture",
+        "authToken": "access-token-7", "label": "Fixture",
     })
 }
 
@@ -127,7 +127,7 @@ fn a_journey_with_another_target_is_refused_and_closes_the_session() {
     let changes = [
         ("url", json!("http://localhost:8080")),
         ("endpoint", json!("tcp://127.0.0.1:9101")),
-        ("token", json!("other-token")),
+        ("authToken", json!("other-token")),
     ];
     let targets = changes
         .into_iter()
@@ -293,7 +293,7 @@ fn a_target_change_cancels_the_running_journey() {
         .begin(A, &id, J, &local(), at(1))
         .expect("a journey");
     let mut other = local();
-    other["token"] = json!("other-token");
+    other["authToken"] = json!("other-token");
     let refused = sessions
         .begin(A, &id, J, &other, at(2))
         .err()
@@ -314,7 +314,7 @@ fn a_login_is_admitted_only_to_the_sessions_own_local_target() {
     for (key, value) in [
         ("url", json!("http://localhost:8080")),
         ("endpoint", json!("tcp://127.0.0.1:9101")),
-        ("token", json!("other-token")),
+        ("authToken", json!("other-token")),
         ("simulator", json!(false)),
     ] {
         let mut target = local();

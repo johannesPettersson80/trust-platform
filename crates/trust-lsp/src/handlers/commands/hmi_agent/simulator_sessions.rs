@@ -313,7 +313,7 @@ impl Drop for RunningJourney<'_> {
 /// bridge pins its target by (`LiveSession`).
 fn identity(target: &Value) -> String {
     let field = |key: &str| target.get(key).and_then(Value::as_str);
-    let fields = json!([field("endpoint"), field("url"), field("token")]);
+    let fields = json!([field("endpoint"), field("url"), field("authToken")]);
     sha256_hex(fields.to_string().as_bytes())
 }
 

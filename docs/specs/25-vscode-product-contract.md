@@ -1787,6 +1787,36 @@ test checks each family.
   (`localhost`, a `127.0.0.0/8` address or `[::1]`); any other TCP endpoint is
   an untrusted plain-TCP channel, and a blank, unreadable or serial endpoint
   has none.
+- A credential crosses the language server's channel only where no trace logs
+  it (5 November 2026). The language server never logs the messages it
+  receives or sends, whatever `RUST_LOG` says (specification 43, AT-08). Its
+  `initialize` answer names the credentials it receives or answers
+  (`capabilities.experimental.credentials`):
+  - the channel's own request fields:
+    - `authToken`, a runtime's access token: run targets, HMI deployment and
+      a simulator journey's target;
+    - `controlAuthToken`, for Live Values;
+    - `cookie`, a named HMI session's (specification 43, AT-08);
+    - `runtimeToml`, a project's `runtime.toml`, whose `[runtime.control]` and
+      `[runtime.mesh]` hold tokens: the HMI users;
+  - the secret configuration keys of specification 11 §6.9.7 (`password`,
+    `auth_token`, `token`, `credential`, `credentials`, `secret`,
+    `client_secret`, `private_key`), which a protocol form or Devices &
+    Connections sends by name;
+  - the answer of `trust-lsp.simulatorControl` `create` (§6.8).
+
+  A field carries a credential when it holds non-blank text. The HMI colour
+  command therefore names its colour token `colourToken`.
+
+  While the language client's trace logs each message's parameters, the
+  extension refuses such a command before it sends anything. The caller gets
+  `UNSUPPORTED_CONTEXT`, and the user gets a warning naming the setting, with
+  Open Settings, at most once a minute. The trace logs parameters with
+  `trust.languageServer.trace` at `verbose`, or with `trust-lsp.trace.server`
+  at `verbose`, at `compact` or in the `json` format. A simulator launch whose
+  control token is refused this way stops with that refusal instead of starting
+  without a token. A language-model tool never sends or receives such a
+  command, whatever the trace.
 - Remote Connect verifies control authentication and `debug_enabled` before
   opening an attach session. Managed token parsing accepts only root
   `runtime.control`, including its root dotted form; an identically named key

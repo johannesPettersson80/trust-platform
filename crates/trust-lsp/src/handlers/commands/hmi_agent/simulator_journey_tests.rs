@@ -171,7 +171,7 @@ fn journey(
 ) -> Value {
     let steps: Vec<Step> = serde_json::from_value(steps).expect("steps");
     let target = json!({
-        "simulator": true, "url": fake.url, "endpoint": "tcp://127.0.0.1:9100", "token": TOKEN,
+        "simulator": true, "url": fake.url, "endpoint": "tcp://127.0.0.1:9100", "authToken": TOKEN,
     });
     let models = json!({ "settings": draft() });
     let journey = Journey {
