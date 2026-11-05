@@ -91,7 +91,6 @@ fn a_call_names_a_listed_tool_with_an_argument_object() {
             json!({"name": "hmi_get_context", "arguments": null}),
             not_object,
         ),
-        (json!({"name": "hmi_get_context"}), not_object),
     ] {
         let request = json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": params});
         assert_eq!(

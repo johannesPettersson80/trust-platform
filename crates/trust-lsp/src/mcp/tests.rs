@@ -362,6 +362,31 @@ fn the_server_serves_its_providers_info_tools_and_calls() {
     assert_eq!(answers["null"]["error"], failure());
 }
 
+/// MCP's `tools/call` makes `arguments` optional: a call without them runs with none, `{}`, and
+/// only arguments that are there and not an object are refused (specification 43 §3.1). Catches a
+/// host's call of a tool that takes no arguments refused because it left `arguments` out.
+#[test]
+fn a_call_without_arguments_runs_with_none() {
+    let provider = TestTools::new();
+    let answers = serve(
+        &provider,
+        LIMITS,
+        &[
+            request(1, "tools/call", json!({ "name": "echo" })),
+            request(
+                2,
+                "tools/call",
+                json!({ "name": "echo", "arguments": null }),
+            ),
+            request(3, "tools/call", json!({ "name": "echo", "arguments": 5 })),
+        ],
+    );
+    assert_eq!(answers["1"]["result"]["arguments"], json!({}));
+    let refused = json!({ "code": -32602, "message": "Arguments must be an object." });
+    assert_eq!(answers["2"]["error"], refused);
+    assert_eq!(answers["3"]["error"], refused);
+}
+
 /// The agent's cancellation reaches the provider, for the call it names, and the call answers
 /// through its own result. Catches a cancellation that never reaches the provider, or that names
 /// the agent's request id instead of the provider's call.

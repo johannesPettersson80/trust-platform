@@ -180,7 +180,8 @@ are not an object are read as none.
 | Any other method | -32601 "Unknown method." |
 
 **Tool calls.** `tools/call` checks, in this order: `name` is a listed tool (-32602 "Unknown
-authoring tool."); `arguments` is an object (-32602 "Tool arguments must be an object.");
+authoring tool."); `arguments` is an object, or absent, which MCP allows and which reads as `{}`
+(-32602 "Tool arguments must be an object.");
 `arguments.workspaceId` is absent or the connection's workspace (-32602 "The tool belongs to
 another workspace."); no call with the same id is in progress and fewer than eight calls run
 (-32600 "Duplicate request id or too many active requests."). Ids are compared as JSON values, so
