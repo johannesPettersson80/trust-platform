@@ -6,9 +6,12 @@
 //! from the standard, not with the shared codec, so that a fault of the codec cannot hide in both
 //! ends of a test.
 //!
-//! One connection is current at a time: a new connection replaces the one before, as a broker
-//! replaces the session of a client that connects again (MQTT-3.1.4-2). The messages of one
-//! [`Broker::deliver`] go out in one write, so they reach the driver together, as one batch.
+//! One session is current at a time: a connection whose CONNECT the broker accepts replaces the
+//! session before it, as a broker replaces the session of a client that connects again
+//! (MQTT-3.1.4-2; each test has one client). A connection without an accepted session, such as one
+//! that has sent no CONNECT, leaves the current session alone. The messages of one
+//! [`Broker::deliver`] go out in one write, so they reach the driver together, as one batch. When a
+//! test fails, the broker prints what it saw, with why each connection ended.
 
 use std::collections::VecDeque;
 use std::io::{ErrorKind, Read, Write};
@@ -101,6 +104,8 @@ pub(super) struct Record {
     pub(super) disconnects: usize,
     /// The TLS handshakes that failed.
     pub(super) handshake_failures: usize,
+    /// Why each connection ended, with its number, in order.
+    pub(super) ended: Vec<String>,
 }
 
 impl Record {
@@ -135,9 +140,12 @@ struct Control {
     suback: u8,
     /// Whether the broker closes the connection after each PUBLISH it takes.
     close_on_publish: bool,
-    /// The bytes for the client of the current connection, sent once its session is accepted.
+    /// The bytes for the client of the current session.
     outbox: Vec<u8>,
-    /// The number of the current connection; 0 before the first.
+    /// The number of the last connection taken; 0 before the first.
+    last: u64,
+    /// The number of the connection of the current session, the one whose CONNECT the broker
+    /// accepted last; 0 before the first.
     current: u64,
     /// The number of a connection that the broker is to close.
     close: Option<u64>,
@@ -236,7 +244,7 @@ impl Broker {
         self.inner.lock().outbox.extend(bytes);
     }
 
-    /// Closes the current connection, as a broker that goes away does.
+    /// Closes the connection of the current session, as a broker that goes away does.
     pub(super) fn close_connection(&self) {
         let mut control = self.inner.lock();
         control.close = Some(control.current);
@@ -270,8 +278,14 @@ impl Broker {
 }
 
 impl Drop for Broker {
+    /// Stops the broker; in a test that fails, prints what the broker saw, so that its output says
+    /// why each connection ended.
     fn drop(&mut self) {
-        self.inner.lock().stop = true;
+        let mut control = self.inner.lock();
+        control.stop = true;
+        if thread::panicking() {
+            eprintln!("the broker saw: {:?}", control.record);
+        }
     }
 }
 
@@ -304,10 +318,9 @@ fn accept(listener: &TcpListener, inner: &Arc<Inner>, acceptor: Option<&Arc<TlsA
                 let number = {
                     let mut control = inner.lock();
                     control.record.accepted += 1;
-                    control.current += 1;
-                    control.outbox.clear();
+                    control.last += 1;
                     inner.changed.notify_all();
-                    control.current
+                    control.last
                 };
                 let serving = Arc::clone(inner);
                 let acceptor = acceptor.cloned();
@@ -320,46 +333,68 @@ fn accept(listener: &TcpListener, inner: &Arc<Inner>, acceptor: Option<&Arc<TlsA
     }
 }
 
-/// Serves the connection `stream`, number `number`, with TLS through `acceptor` when it is given.
+/// Serves the connection `stream`, number `number`, with TLS through `acceptor` when it is given,
+/// and records why it ended.
 fn serve_connection(stream: TcpStream, inner: &Inner, acceptor: Option<&TlsAcceptor>, number: u64) {
+    let ended = serve_stream(stream, inner, acceptor, number);
+    inner
+        .lock()
+        .record
+        .ended
+        .push(format!("connection {number}: {ended}"));
+    inner.changed.notify_all();
+}
+
+/// Serves the connection `stream` until it ends; why it ended.
+fn serve_stream(
+    stream: TcpStream,
+    inner: &Inner,
+    acceptor: Option<&TlsAcceptor>,
+    number: u64,
+) -> String {
     // A connection from a listener that does not block may not block either on some systems.
-    if stream.set_nonblocking(false).is_err() {
-        return;
+    if let Err(error) = stream.set_nonblocking(false) {
+        return format!("it could not be made blocking: {error}");
     }
     let Some(acceptor) = acceptor else {
-        if stream.set_read_timeout(Some(SLICE)).is_ok() {
-            serve(stream, inner, number);
-        }
-        return;
+        return match stream.set_read_timeout(Some(SLICE)) {
+            Ok(()) => serve(stream, inner, number),
+            Err(error) => format!("it took no read timeout: {error}"),
+        };
     };
-    if stream.set_read_timeout(Some(PATIENCE)).is_err() {
-        return;
+    if let Err(error) = stream.set_read_timeout(Some(PATIENCE)) {
+        return format!("it took no read timeout: {error}");
     }
     match acceptor.accept(stream) {
-        Ok(tls) => {
-            if tls.get_ref().set_read_timeout(Some(SLICE)).is_ok() {
-                serve(tls, inner, number);
-            }
-        }
-        Err(_) => {
+        Ok(tls) => match tls.get_ref().set_read_timeout(Some(SLICE)) {
+            Ok(()) => serve(tls, inner, number),
+            Err(error) => format!("it took no read timeout: {error}"),
+        },
+        Err(error) => {
             inner.lock().record.handshake_failures += 1;
-            inner.changed.notify_all();
+            format!("its TLS handshake failed: {error}")
         }
     }
 }
 
-/// Answers the client of `stream` until it disconnects, the connection fails, a newer connection
-/// replaces it, the test closes it or the broker stops; the outbox goes out once the session is
-/// accepted.
-fn serve(mut stream: impl Read + Write, inner: &Inner, number: u64) {
+/// Answers the client of `stream`, connection `number`, until it disconnects, the connection
+/// fails, a newer session replaces its session, the test closes it or the broker stops; why it
+/// ended. The outbox goes out while its session is the current one.
+fn serve(mut stream: impl Read + Write, inner: &Inner, number: u64) -> String {
     let mut accepted = false;
     let mut inbound = Vec::new();
     let mut buffer = [0_u8; 4096];
     loop {
         let outgoing = {
             let mut control = inner.lock();
-            if control.stop || control.current != number || control.close == Some(number) {
-                return;
+            if control.stop {
+                return String::from("the broker stopped");
+            }
+            if accepted && control.current != number {
+                return String::from("a newer session replaced its session");
+            }
+            if control.close == Some(number) {
+                return String::from("the test closed it");
             }
             if accepted {
                 std::mem::take(&mut control.outbox)
@@ -367,16 +402,20 @@ fn serve(mut stream: impl Read + Write, inner: &Inner, number: u64) {
                 Vec::new()
             }
         };
-        if !outgoing.is_empty() && send(&mut stream, &outgoing).is_err() {
-            return;
+        if !outgoing.is_empty()
+            && let Err(error) = send(&mut stream, &outgoing)
+        {
+            return format!("a write failed: {error}");
         }
         match stream.read(&mut buffer) {
-            Ok(0) => return,
+            Ok(0) => return String::from("the client closed it"),
             Ok(count) => {
                 inbound.extend_from_slice(&buffer[..count]);
                 while let Some((first, body)) = take_packet(&mut inbound) {
-                    if !answer(&mut stream, inner, first, &body, &mut accepted) {
-                        return;
+                    if let Err(ended) =
+                        answer(&mut stream, inner, number, first, &body, &mut accepted)
+                    {
+                        return ended;
                     }
                 }
             }
@@ -385,24 +424,27 @@ fn serve(mut stream: impl Read + Write, inner: &Inner, number: u64) {
                     error.kind(),
                     ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted
                 ) => {}
-            Err(_) => return,
+            Err(error) => return format!("a read failed: {error}"),
         }
     }
 }
 
-/// Answers the packet of first byte `first` and body `body`; false when the connection ends.
+/// Answers the packet of first byte `first` and body `body` on connection `number`; why the
+/// connection ends, when it does. An accepted CONNECT makes its session the current one, with
+/// nothing queued for it, and so ends the session before it (MQTT-3.1.4-2).
 fn answer(
     stream: &mut impl Write,
     inner: &Inner,
+    number: u64,
     first: u8,
     body: &[u8],
     accepted: &mut bool,
-) -> bool {
+) -> Result<(), String> {
+    let written =
+        |sent: std::io::Result<()>| sent.map_err(|error| format!("a write failed: {error}"));
     match first >> 4 {
         1 => {
-            let Some(connect) = parse_connect(body) else {
-                return false;
-            };
+            let connect = parse_connect(body).ok_or("a CONNECT it could not read")?;
             let answer = {
                 let mut control = inner.lock();
                 control.record.connects.push(connect);
@@ -414,50 +456,59 @@ fn answer(
                     .unwrap_or(Answer::ConnAck(0))
             };
             match answer {
-                Answer::ConnAck(code) => {
-                    *accepted = code == 0;
-                    send(stream, &[0x20, 0x02, 0x00, code]).is_ok() && code == 0
+                Answer::ConnAck(0) => {
+                    {
+                        let mut control = inner.lock();
+                        control.current = number;
+                        control.outbox.clear();
+                    }
+                    *accepted = true;
+                    written(send(stream, &[0x20, 0x02, 0x00, 0]))
                 }
-                Answer::Silence => true,
-                Answer::Close => false,
+                Answer::ConnAck(code) => {
+                    written(send(stream, &[0x20, 0x02, 0x00, code]))?;
+                    Err(format!("it refused the session with return code {code}"))
+                }
+                Answer::Silence => Ok(()),
+                Answer::Close => Err(String::from("the test's answer to its CONNECT closed it")),
             }
         }
         3 => {
-            let Some(publish) = parse_publish(first, body) else {
-                return false;
-            };
+            let publish = parse_publish(first, body).ok_or("a PUBLISH it could not read")?;
             let mut control = inner.lock();
             control.record.publishes.push(publish);
             inner.changed.notify_all();
-            !control.close_on_publish
+            if control.close_on_publish {
+                return Err(String::from("the broker closes after each PUBLISH"));
+            }
+            Ok(())
         }
         8 => {
-            let Some((packet_id, filters)) = parse_subscribe(body) else {
-                return false;
-            };
+            let (packet_id, filters) =
+                parse_subscribe(body).ok_or("a SUBSCRIBE it could not read")?;
             let code = inner.lock().suback;
             let length = u8::try_from(2 + filters.len()).expect("a short SUBACK");
             let mut suback = vec![0x90, length];
             suback.extend_from_slice(&packet_id.to_be_bytes());
             suback.extend(std::iter::repeat_n(code, filters.len()));
-            let sent = send(stream, &suback).is_ok();
+            let sent = send(stream, &suback);
             let mut control = inner.lock();
             control.record.subscriptions.extend(filters);
             inner.changed.notify_all();
-            sent
+            written(sent)
         }
         12 => {
-            let sent = send(stream, &[0xD0, 0x00]).is_ok();
+            let sent = send(stream, &[0xD0, 0x00]);
             inner.lock().record.pings += 1;
             inner.changed.notify_all();
-            sent
+            written(sent)
         }
         14 => {
             inner.lock().record.disconnects += 1;
             inner.changed.notify_all();
-            false
+            Err(String::from("the client disconnected"))
         }
-        _ => true,
+        _ => Ok(()),
     }
 }
 
