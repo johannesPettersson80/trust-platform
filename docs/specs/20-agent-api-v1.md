@@ -86,3 +86,25 @@ count all of them. The `issues_limit` cap on
 and deterministic: a limit selects the first entries of the same sorted lists
 and bounds the projected build-failure text, and an omitted limit preserves
 the established whole-list responses.
+
+## 8. MCP server binding
+
+`trust-dev agent serve-mcp` exposes the Agent API as MCP tools over the
+platform's one MCP connection layer (`trust_lsp::mcp`, specification 43 §3.1).
+The canonical contract remains the single authority on behaviour: the binding
+is a tool provider that forwards every call, with its raw JSON arguments, to
+the same dispatch table that serves `trust-dev agent serve`, and projects the
+same results and stable error codes onto MCP tool results. It adds no method,
+no validation rule, and no configuration beyond the shared
+`--project`/`--bundle` flag.
+
+The binding's normative rules — the connection layer's protocol revision
+negotiation, the 1:1 tool mapping with dot-to-underscore name mangling, the
+advisory status of generated input schemas, the success and error result
+mappings, the tools-only capability set, and the one-call-at-a-time,
+shared-harness, non-preemptible concurrency model with the refused-call and
+panicked-session answers — are specified in
+`docs/guides/AGENT_MCP_BINDING_V1.md`, which this section incorporates by
+reference. A call whose tool name does not map to an Agent API method is
+refused by the connection layer's parameter check (`-32602`), never a tool
+result.

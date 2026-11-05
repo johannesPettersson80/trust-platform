@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::Context;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use trust_runtime::bundle_builder::collect_project_source_files;
@@ -20,7 +21,10 @@ mod contract_tests;
 mod harness;
 #[path = "agent/issue_cap.rs"]
 mod issue_cap;
+#[path = "agent/mcp_provider.rs"]
+mod mcp_provider;
 pub(crate) use issue_cap::bound_issue_lines;
+pub use mcp_provider::run_agent_serve_mcp;
 const JSON_RPC_VERSION: &str = "2.0";
 const ERROR_PATH_OUTSIDE_WORKSPACE: i32 = -32001;
 const ERROR_IO: i32 = -32002;
@@ -786,12 +790,12 @@ impl From<HarnessAutomationError> for AgentCommandError {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct WorkspaceReadParams {
     path: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct WorkspaceWriteParams {
     path: String,
     text: String,
@@ -799,13 +803,13 @@ struct WorkspaceWriteParams {
     create_parents: bool,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct CommonProjectParams {
     project: Option<String>,
     sources_root: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct LspDiagnosticsParams {
     project: Option<String>,
     sources_root: Option<String>,
@@ -815,14 +819,14 @@ struct LspDiagnosticsParams {
     page_size: Option<usize>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct LspAstCanonicalizeParams {
     project: Option<String>,
     path: Option<String>,
     content: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct LspAstSimilarityParams {
     project: Option<String>,
     left_path: Option<String>,
@@ -831,14 +835,14 @@ struct LspAstSimilarityParams {
     right_content: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct LspFormatParams {
     project: Option<String>,
     path: String,
     content: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct RuntimeTestParams {
     project: Option<String>,
     filter: Option<String>,
@@ -848,7 +852,7 @@ struct RuntimeTestParams {
     timeout_seconds: u64,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct RuntimeReloadParams {
     project: Option<String>,
     sources_root: Option<String>,
@@ -859,7 +863,7 @@ struct RuntimeReloadParams {
 /// `runtime.compile_reload` — the runtime transaction params plus the
 /// contract's opt-in `issues_limit` cap (`runtime.reload` shares the runtime
 /// params but carries no top-level `issues` list, so it takes no cap).
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct RuntimeCompileReloadParams {
     #[serde(flatten)]
     runtime: RuntimeReloadParams,
@@ -868,21 +872,21 @@ struct RuntimeCompileReloadParams {
 
 /// The project params of `runtime.build` and `runtime.validate` plus the
 /// contract's opt-in `issues_limit` cap.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct RuntimeIssueCapParams {
     #[serde(flatten)]
     common: CommonProjectParams,
     issues_limit: Option<u64>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct HarnessLoadParams {
     project: Option<String>,
     files: Option<Vec<String>>,
     inline_sources: Option<Vec<InlineSource>>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct HarnessExecuteParams {
     #[serde(flatten)]
     load: HarnessLoadParams,
@@ -894,14 +898,14 @@ struct HarnessExecuteParams {
     watch: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct InlineSource {
     #[allow(dead_code)]
     path: Option<String>,
     text: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum HarnessExecuteStep {
     SetInput {
@@ -940,7 +944,7 @@ enum HarnessExecuteStep {
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum HarnessAssertion {
     OutputEquals { name: String, equals: JsonValue },
@@ -992,7 +996,7 @@ struct HarnessExecuteFailure {
     errors: Vec<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 struct HarnessCycleParams {
     #[serde(default = "default_cycle_count")]
     count: u32,
@@ -1001,23 +1005,23 @@ struct HarnessCycleParams {
     watch: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct HarnessSetInputParams {
     name: String,
     value: JsonValue,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct HarnessGetOutputParams {
     name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct HarnessAdvanceTimeParams {
     duration_ms: i64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct HarnessRunUntilParams {
     name: String,
     equals: JsonValue,

@@ -90,7 +90,7 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("harness", "concepts/deterministic-harness/"),
     ("harness protocol", "reference/harness/protocol/"),
     ("alarm acknowledge", "operate/operator-alarm-handbook/"),
-    ("agent serve stdio", "start/automate-with-cli/"),
+    ("agent serve stdio", "start/agent-quickstart/"),
     ("trust-runtime flags", "reference/cli/trust-runtime/"),
 ]
 
