@@ -629,6 +629,13 @@ README that passes fails the check until it is taken off the list.
   sticky header. Failure uses error treatment; permission, armed force, and
   active-force state use warning treatment. Only bounded transient startup,
   unavailable, or success feedback may expire automatically.
+- The host says how long each message stays and what it reports, from where
+  the message comes, and the panel acts on that, never on a message's words:
+  a message of the unavailable route (§4.4) stays until live values arrive;
+  success feedback, a write queued or a force released, expires; a failed
+  Force says so, which clears the panel's pending Boolean forces; and a
+  release says so, which adds `Force remains armed for this target.` while
+  the target stays armed.
 - Successful row operations use the prefixes `I/O write queued for`,
   `I/O force active at`, and `I/O force released at`. Success feedback expires
   after exactly 5000 milliseconds only if it is still the current message.
@@ -718,7 +725,12 @@ README that passes fails the check until it is taken off the list.
 - The lifecycle pill contains only lifecycle state and MUST NOT append ADS or
   other protocol commentary.
 - Debug termination or active-session loss immediately clears stale rows,
-  capabilities, operation banners, and Connected state. Termination handling
+  capabilities, operation banners, and Connected state. A status message
+  changes the runtime header only when the host says the session was lost
+  without a runtime status to send, as when the active debug session becomes
+  one that is not Structured Text; the header then shows the target it last
+  showed, without a connection or capabilities, and invents no mode or
+  endpoint. Every other header comes from a runtime status. Termination handling
   MUST NOT immediately restore stale state from an older lifecycle snapshot.
 - Structured Text Stop MUST track the relevant ST session even when VS Code has
   no active session, await its termination event, and wait the bounded UI
