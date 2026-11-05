@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 use super::connection::Connection;
-use super::server::{Server, StartError};
+use super::tools::StartError;
 use super::Limits;
 
 /// The capability of the fake loopback.
@@ -354,7 +354,7 @@ impl Session {
             lines,
             partial: Vec::new(),
         };
-        let server = Server::start(connection, limits, Box::new(sink))?;
+        let server = super::tools::start(connection, limits, Box::new(sink))?;
         let (input, chunks) = mpsc::channel();
         let served = thread::spawn(move || {
             let mut input = BufReader::new(ChannelInput {
