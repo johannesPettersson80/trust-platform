@@ -4,7 +4,7 @@ title = "Release Verification"
 area = "suite"
 owner = "verification"
 status = "mapped"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-11-05"
 purpose = "Release entrypoints whose outputs are named CI artifacts or public release objects; helper scripts remain inventory references."
 duration_class = "long"
 environment = "github_release_matrix"
@@ -17,6 +17,9 @@ commands = [
   "workflow job .github/workflows/release.yml#toolchain-bundle",
   "workflow job .github/workflows/release.yml#publish",
   "workflow job .github/workflows/release.yml#runtime-vm-validation",
+  "workflow job .github/workflows/release.yml#acceptance",
+  "workflow job .github/workflows/release.yml#rehearse",
+  "workflow job .github/workflows/release.yml#conclusion",
 ]
 command_bindings = [
   "GATE_JOB_RELEASE_OPENOT",
@@ -27,14 +30,21 @@ command_bindings = [
   "GATE_JOB_RELEASE_TOOLCHAIN_BUNDLE",
   "GATE_JOB_RELEASE_PUBLISH",
   "GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION",
+  "GATE_JOB_RELEASE_ACCEPTANCE",
+  "GATE_JOB_RELEASE_REHEARSE",
+  "GATE_JOB_RELEASE_CONCLUSION",
 ]
 inventory_ids = [
   "GATE_JOB_CI_RELEASE_GATE_REPORT",
   "GATE_JOB_CI_VERSION_RELEASE_GUARD",
+  "GATE_JOB_RELEASE_ACCEPTANCE",
   "GATE_JOB_RELEASE_BUILD",
+  "GATE_JOB_RELEASE_CONCLUSION",
   "GATE_JOB_RELEASE_OPENOT",
+  "GATE_JOB_RELEASE_PLAN",
   "GATE_JOB_RELEASE_PREFLIGHT",
   "GATE_JOB_RELEASE_PUBLISH",
+  "GATE_JOB_RELEASE_REHEARSE",
   "GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION",
   "GATE_JOB_RELEASE_TOOLCHAIN_BUNDLE",
   "GATE_SCRIPT_GENERATE_RELEASE_GATE_REPORT",

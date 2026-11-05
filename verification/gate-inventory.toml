@@ -678,7 +678,7 @@ artifact_paths = ["target/gate-artifacts/verification/"]
 artifact_retention = "machine_local"
 enforcement = "report_only"
 required_env = []
-rationale = "The helper renders the changed-file report; --smoke runs only report-boundary tests for PR and exact-candidate latency, while scheduled/manual runs retain exhaustive advisory maintenance."
+rationale = "The helper renders the changed-file report; --smoke runs only report-boundary tests for pull-request latency, while scheduled/manual runs retain exhaustive advisory maintenance."
 
 [[surfaces]]
 schema_version = 1
@@ -1056,6 +1056,28 @@ rationale = "Deployment is a publishing action, not verification evidence by its
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_JOB_DOCS_PAGES_CONCLUSION"
+discovery_id = "DISC_D38A8DE746CA709A4ABE"
+source_kind = "github_workflow_job"
+path = ".github/workflows/demo-pages.yml"
+name = "Docs Pages / conclusion"
+command = "workflow job .github/workflows/demo-pages.yml#conclusion"
+variant = "one result for the site check"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "The conclusion reports the site check's jobs as one result; the check itself is not a milestone verification gate."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JOB_RENDER_DIAGRAMS_CHANGES"
 discovery_id = "DISC_0356506B80A9665B9D92"
 source_kind = "github_workflow_job"
@@ -1317,6 +1339,50 @@ artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
 rationale = "The matrix builds the shipped platform packages from the commit the plan names."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_RELEASE_ACCEPTANCE"
+discovery_id = "DISC_482604E23A62EF4392F1"
+source_kind = "github_workflow_job"
+path = ".github/workflows/release.yml"
+name = "Release / acceptance"
+command = "workflow job .github/workflows/release.yml#acceptance"
+variant = "acceptance journeys on the linux-x64 package"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "release"
+duration_class = "medium"
+environment = "github_release"
+artifact_kind = "ci_artifact"
+artifact_paths = ["acceptance-journeys"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "The acceptance journeys (specification 22) run on the linux-x64 package that the run built, for a pull request that changes what the packages hold and for every rehearsal and release before anything is kept or published; the journal and the screenshots of every step are kept."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_RELEASE_REHEARSE"
+discovery_id = "DISC_E1DF11B2B832DDE38AA2"
+source_kind = "github_workflow_job"
+path = ".github/workflows/release.yml"
+name = "Release / rehearse"
+command = "workflow job .github/workflows/release.yml#rehearse"
+variant = "the release files written and kept, nothing published"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "release"
+duration_class = "fast"
+environment = "github_release"
+artifact_kind = "ci_artifact"
+artifact_paths = ["release-rehearsal-${{ needs.plan.outputs.tag }}"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "A rehearsal (specification 24) writes the release's files from the candidate's artifacts with a read-only token and no Marketplace token, and keeps them for the release guard; it publishes nothing."
 
 [[surfaces]]
 schema_version = 1

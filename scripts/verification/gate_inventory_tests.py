@@ -382,6 +382,14 @@ class GateInventoryTests(unittest.TestCase):
                 ),
                 "read-only permissions",
             ),
+            # A merge group must run the smoke, never the exhaustive scheduled tooling.
+            (
+                enforcing.replace(
+                    "if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
+                    "if: ${{ github.event_name == 'pull_request' }}",
+                ),
+                "smoke/scheduled split drifts",
+            ),
         )
         for text, expected in cases:
             with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp:

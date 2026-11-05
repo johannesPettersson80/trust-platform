@@ -1,7 +1,7 @@
 """Exhaustive advisory discovery for verification-tooling Python tests.
 
-The public wrapper keeps its historical filename for compatibility. Pull-request
-and exact-candidate paths use the bounded report smoke instead.
+The public wrapper keeps its historical filename for compatibility. Pull requests
+use the bounded report smoke instead.
 """
 
 from __future__ import annotations
