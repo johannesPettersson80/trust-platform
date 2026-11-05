@@ -410,6 +410,15 @@ made the suite compile `trust-wasm-analysis`, `trust-runtime` and the five
 crates that use them again: 14.5 minutes on Linux and 21 on macOS (`main`,
 4 November 2026).
 
+The gate repeats the mesh TLS tests named by three filters:
+- the certificate requirement (`mesh::tests::mesh_tls`);
+- the certificate a socket presents (`mesh::security_tests::mesh_tls`);
+- the two-peer TLS exchange (`mesh::hmi_remote_tests::two_tls_peers`).
+
+A run that passes without a passing test of every filter fails the gate. Until
+5 November 2026 its filter named a test deleted long before, so every run
+reported "0 passed" and the gate passed without testing anything.
+
 The full test suite has two hours on macOS and Windows and one hour on Linux, which
 `CI_FULL_TEST_TIMEOUT_SECONDS` may change: Windows runs one test at a time, and a macOS
 runner took longer than an hour (28 October 2026). An attempt that exceeds its limit fails.
