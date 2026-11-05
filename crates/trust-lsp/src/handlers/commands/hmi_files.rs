@@ -3,6 +3,8 @@
 //! Native presentation fields reuse the runtime parser. Editor intent is preserved separately
 //! and must be projected to that unchanged deployment format.
 
+use std::path::{Path, PathBuf};
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use trust_runtime::hmi::my_symbols::{parse_symbol, write_symbol, HmiSymbol};
@@ -131,6 +133,16 @@ fn written<T: for<'de> Deserialize<'de>>(
         Ok(()) => json!({ "ok": true, "kind": kind, "text": text }),
         Err(errors) => file_errors(&errors),
     }
+}
+
+/// Whether an editor's unsaved documents hold an HMI change (specification 39, §11 item 6): one of
+/// `unsaved`, the paths of the editor's unsaved documents, lies under the `hmi/` folder of the
+/// project at `root`. Paths compare by whole components, so `hmi-old/` is not `hmi/`.
+pub(super) fn holds_unsaved_hmi(root: &Path, unsaved: &[PathBuf]) -> bool {
+    let hmi = root.join("hmi");
+    unsaved
+        .iter()
+        .any(|path| path.starts_with(&hmi) && *path != hmi)
 }
 
 pub(super) fn single_argument<T: for<'de> Deserialize<'de>>(

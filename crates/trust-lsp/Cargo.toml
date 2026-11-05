@@ -47,6 +47,10 @@ getrandom = "0.4"
 # HMI Deploy sends the bundle to the runtime's web server (specification 39 §16.2 item 8); the same
 # HTTP client as trust-runtime's.
 ureq = "3.4.2"
+# An HMI agent simulator journey reaches an `https` simulator with the certificates the system trusts,
+# and frames its readback stream with trust-runtime's WebSocket library (specification 43, AT-08).
+native-tls.workspace = true
+tungstenite = "0.30.0"
 
 [dev-dependencies]
 expect-test.workspace = true
@@ -54,3 +58,5 @@ insta.workspace = true
 verification-cases.workspace = true
 futures-util.workspace = true
 tower.workspace = true
+# The simulator journey's tests serve a fake simulator HMI the way the runtime serves its own.
+tiny_http = "0.12.0"

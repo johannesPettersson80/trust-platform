@@ -75,18 +75,18 @@ pub async fn did_change(client: &Client, state: &ServerState, params: DidChangeT
 fn apply_content_changes(
     content: &str,
     changes: &[TextDocumentContentChangeEvent],
-) -> Result<String, trust_lsp::document_text::ContentChangeError> {
+) -> Result<String, crate::document_text::ContentChangeError> {
     let changes = changes
         .iter()
-        .map(|change| trust_lsp::document_text::ContentChange {
+        .map(|change| crate::document_text::ContentChange {
             range: change
                 .range
-                .map(|range| trust_lsp::document_text::DocumentRange {
-                    start: trust_lsp::document_text::DocumentPosition {
+                .map(|range| crate::document_text::DocumentRange {
+                    start: crate::document_text::DocumentPosition {
                         line: range.start.line,
                         character: range.start.character,
                     },
-                    end: trust_lsp::document_text::DocumentPosition {
+                    end: crate::document_text::DocumentPosition {
                         line: range.end.line,
                         character: range.end.character,
                     },
@@ -94,7 +94,7 @@ fn apply_content_changes(
             text: change.text.clone(),
         })
         .collect::<Vec<_>>();
-    trust_lsp::document_text::apply_content_changes(content, &changes)
+    crate::document_text::apply_content_changes(content, &changes)
 }
 
 pub async fn did_save(client: &Client, state: &ServerState, params: DidSaveTextDocumentParams) {

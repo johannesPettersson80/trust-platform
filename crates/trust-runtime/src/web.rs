@@ -103,6 +103,7 @@ use deploy::{apply_deploy, apply_rollback, refusal_unless_stopped, DeployRequest
 use hmi_deploy::{handle_hmi_deploy_route, HmiDeployContext, HmiDeployOutcome};
 pub use hmi_display::{drawing_assets, placed_faceplates};
 use hmi_display::{handle_hmi_route, HmiRouteContext, HmiRouteOutcome};
+pub use hmi_operate::SESSION_COOKIE as HMI_SESSION_COOKIE;
 use hmi_operate::{handle_hmi_operate_route, HmiOperateContext, HmiOperateOutcome};
 use http_post_policy::{api_post_policy_check, json_body_error_response, read_json_body};
 use ide::{IdeError, IdeRole, WebIdeFrontendTelemetry, WebIdeState};

@@ -94,7 +94,9 @@ fn acknowledge_shutdown(listener: &TcpListener) {
     // Specification 11 section 6.8.3 and 34 STATE-08: `fleet runtime stop` ends the managed
     // process, so it sends the explicit exit; a plain `shutdown` would leave the process running.
     assert_eq!(request["params"], serde_json::json!({"exit": true}));
-    writeln!(stream, "{STATUS_OK}").expect("acknowledge the shutdown");
+    stream
+        .write_all(format!("{STATUS_OK}\n").as_bytes())
+        .expect("acknowledge the shutdown");
 }
 
 /// A `status` answer that reports the program in `state`.

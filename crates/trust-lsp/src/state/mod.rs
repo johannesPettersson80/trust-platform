@@ -16,7 +16,7 @@ use tower_lsp::lsp_types::{
     CallHierarchyIncomingCall, CallHierarchyOutgoingCall, SemanticToken, Url,
 };
 
-use crate::config::ProjectConfig;
+use crate::config::{LoadOptions, ProjectConfig};
 use crate::library_docs::library_doc_map;
 use crate::telemetry::{TelemetryCollector, TelemetryEvent};
 use trust_devices::engine::DevicesEngine;
@@ -149,6 +149,8 @@ pub struct ServerState {
     workspace_folders: RwLock<Vec<Url>>,
     /// Workspace configuration per root.
     workspace_configs: RwLock<FxHashMap<Url, ProjectConfig>>,
+    /// How this state loads a workspace folder's configuration.
+    config_load_options: RwLock<LoadOptions>,
     /// Each root's own source folders and library folders, resolved on disk when its
     /// configuration is set (specification 14 §7.6).
     project_folders: RwLock<FxHashMap<Url, Arc<library_surface::ProjectFolders>>>,
@@ -190,6 +192,7 @@ impl ServerState {
             project: RwLock::new(Project::new()),
             workspace_folders: RwLock::new(Vec::new()),
             workspace_configs: RwLock::new(FxHashMap::default()),
+            config_load_options: RwLock::new(LoadOptions::default()),
             project_folders: RwLock::new(FxHashMap::default()),
             library_docs: RwLock::new(FxHashMap::default()),
             telemetry: TelemetryCollector::new(),
@@ -283,6 +286,17 @@ impl ServerState {
     pub fn semantic_tokens_refresh_supported(&self) -> bool {
         self.semantic_tokens_refresh_supported
             .load(Ordering::Relaxed)
+    }
+
+    /// How a workspace folder's configuration is loaded: as written, unless a one-shot analysis
+    /// asked for a contained load.
+    pub(crate) fn config_load_options(&self) -> LoadOptions {
+        *self.config_load_options.read()
+    }
+
+    /// Loads every later workspace folder's configuration as `options` say.
+    pub(crate) fn set_config_load_options(&self, options: LoadOptions) {
+        *self.config_load_options.write() = options;
     }
 
     /// Stores configuration for a workspace root. The project is analyzed under the language rules

@@ -247,10 +247,12 @@ where
 /// One input word: an input image of two bytes.
 const TWO_INPUT_BYTES: &str = "VAR_GLOBAL word_in AT %IW0 : WORD; END_VAR PROGRAM Main END_PROGRAM";
 
+/// Modbus parameters for an address where nothing listens: port 1, below every operating system's
+/// ephemeral ports, which no other test's server can hold (checklist W36).
 fn modbus_params(policy: &str) -> toml::Value {
     toml::from_str(&format!(
         r#"
-address = "127.0.0.1:65000"
+address = "127.0.0.1:1"
 unit_id = 1
 input_start = 0
 output_start = 0

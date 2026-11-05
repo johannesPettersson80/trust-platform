@@ -29,7 +29,7 @@ export async function requestLive(
   return {
     status: response.status,
     body: await response.json().catch(() => null),
-    cookie: response.headers.get("set-cookie") ?? undefined,
+    cookies: response.headers.getSetCookie(),
   };
 }
 

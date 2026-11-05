@@ -3,10 +3,11 @@
 //!
 //! The agent starts this server with the private connection file that the extension's **HMI: Connect
 //! Agent Tools** command writes. The server reads one JSON-RPC message per line on standard input and
-//! writes each answer as one line on standard output, which carries nothing else. It owns every rule
-//! of the MCP connection: the message form, the protocol version, the request ids, the limits and
-//! cancellation. A tool call goes to the window's loopback (`agent/bridge.ts` in the extension),
-//! which checks the capability and runs the VS Code tool.
+//! writes each answer as one line on standard output, which carries nothing else. The MCP server of
+//! [`crate::mcp`] owns every rule of the connection: the message form, the protocol version, the
+//! request ids, the limits and cancellation. This module provides its tools: a tool call goes to the
+//! window's loopback (`agent/bridge.ts` in the extension), which checks the capability and runs the
+//! VS Code tool.
 //!
 //! ```text
 //! trust-lsp hmi-agent <connection-file>
@@ -17,17 +18,14 @@
 
 mod bridge;
 mod connection;
-mod lines;
-mod protocol;
-mod server;
 #[cfg(test)]
 mod tests;
+mod tools;
 
 use std::path::Path;
 use std::time::Duration;
 
 use connection::Connection;
-use server::Server;
 
 const USAGE: &str = "usage: trust-lsp hmi-agent <connection-file>
 
@@ -66,10 +64,20 @@ impl Limits {
         bridge_time: Duration::from_secs(125),
         answer_bytes: 64 * 1024 * 1024,
     };
+
+    /// The limits of the MCP server: a call's answer time is the loopback's exchange time.
+    fn connection(&self) -> crate::mcp::Limits {
+        crate::mcp::Limits {
+            line_bytes: self.line_bytes,
+            active_calls: self.active_calls,
+            call_time: self.call_time,
+            answer_time: self.bridge_time,
+        }
+    }
 }
 
 /// Runs `trust-lsp hmi-agent` with the arguments after `hmi-agent`; returns the exit status.
-pub(crate) fn run(args: &[String]) -> i32 {
+pub fn run(args: &[String]) -> i32 {
     let [file] = args else {
         eprint!("{USAGE}");
         return 2;
@@ -82,7 +90,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         eprintln!("{NOT_CONNECTED}");
         return 1;
     };
-    match Server::start(connection, Limits::PRODUCT, Box::new(std::io::stdout())) {
+    match tools::start(connection, Limits::PRODUCT, Box::new(std::io::stdout())) {
         Ok(server) => {
             server.serve(&mut std::io::stdin().lock());
             0

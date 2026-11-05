@@ -32,8 +32,7 @@ fn test_client() -> ControlClient {
                 "result": {}
             });
             if writer
-                .write_all(response.to_string().as_bytes())
-                .and_then(|_| writer.write_all(b"\n"))
+                .write_all(format!("{response}\n").as_bytes())
                 .and_then(|_| writer.flush())
                 .is_err()
             {

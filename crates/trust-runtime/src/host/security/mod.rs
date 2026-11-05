@@ -20,20 +20,25 @@ pub use trust_runtime_services::access::{
     constant_time_eq, required_role_for_control_request, AccessRole,
 };
 
-/// Whether a configuration key names a secret value: a credential that read surfaces never return
-/// (specification 11, §6.9.7). Matched ASCII-case-insensitively.
+/// The configuration keys that name a secret value: a credential that read surfaces never return
+/// (specification 11, §6.9.7), and that the language server's channel names as credentials
+/// (specification 25 §6.4).
+pub const SECRET_PARAM_KEYS: [&str; 8] = [
+    "password",
+    "auth_token",
+    "token",
+    "credential",
+    "credentials",
+    "secret",
+    "client_secret",
+    "private_key",
+];
+
+/// Whether a configuration key names a secret value ([`SECRET_PARAM_KEYS`]). Matched
+/// ASCII-case-insensitively.
 pub fn is_secret_param_key(key: &str) -> bool {
-    matches!(
-        key.to_ascii_lowercase().as_str(),
-        "password"
-            | "auth_token"
-            | "token"
-            | "credential"
-            | "credentials"
-            | "secret"
-            | "client_secret"
-            | "private_key"
-    )
+    let key = key.to_ascii_lowercase();
+    SECRET_PARAM_KEYS.contains(&key.as_str())
 }
 
 #[derive(Debug, Clone)]

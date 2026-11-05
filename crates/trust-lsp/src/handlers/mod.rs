@@ -16,6 +16,7 @@ mod runtime_values;
 mod sync;
 mod workspace;
 
+pub(crate) use commands::credentials;
 #[cfg(test)]
 pub(crate) use commands::namespace_move_workspace_edit;
 pub use commands::HMI_BUILDER_COMMANDS;
@@ -24,7 +25,9 @@ pub use commands::PROJECT_COMMANDS;
 pub(crate) use commands::PROJECT_INFO_COMMAND;
 pub use commands::RUN_TARGET_COMMANDS;
 pub use commands::VISUAL_COMMANDS;
-pub use commands::{execute_command, execute_read_command, EXECUTE_COMMANDS};
+pub use commands::{
+    execute_command, execute_read_command, EXECUTE_COMMANDS, HMI_AGENT_RUN_JOURNEY_COMMAND,
+};
 pub use devices::DEVICES_COMMANDS;
 #[cfg(test)]
 pub(crate) use diagnostics::document_diagnostic;

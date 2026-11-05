@@ -56,6 +56,7 @@ mod texts_tests;
 #[cfg(test)]
 mod write_tests;
 
+pub use control_keys::{control_time, control_time_error, MAX_CONTROL_TIME};
 pub use limits::HmiLimits;
 
 pub use docked::{compose_docked, HmiDock, HmiDockEdge, HmiDockScope};

@@ -472,7 +472,9 @@ impl Runtime {
         stream
             .set_read_timeout(Some(WAIT))
             .expect("bound the control read");
-        writeln!(stream, "{request}").expect("send the control request");
+        stream
+            .write_all(format!("{request}\n").as_bytes())
+            .expect("send the control request");
         let mut line = String::new();
         BufReader::new(stream)
             .read_line(&mut line)

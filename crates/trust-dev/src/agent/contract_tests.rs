@@ -306,6 +306,221 @@ fn describe_is_complete_duplicate_free_and_transport_bound() {
     );
 }
 
+/// Specification 20 §7: `page` and `page_size` come together, and both count from 1. Catches a
+/// request whose page cannot be cut being answered with every issue, with none, or with a guessed
+/// page.
+#[test]
+fn page_and_page_size_come_together_and_count_from_one() {
+    let workspace = TestWorkspace::new("diagnostics-page-params");
+    workspace.write("src/main.st", "PROGRAM Main\nEND_PROGRAM\n");
+    let mut server = workspace.server();
+
+    for (params, message) in [
+        (
+            json!({"page": 2}),
+            "'page' and 'page_size' must be given together.",
+        ),
+        (
+            json!({"page_size": 10}),
+            "'page' and 'page_size' must be given together.",
+        ),
+        (
+            json!({"page": 0, "page_size": 10}),
+            "'page' and 'page_size' must both be at least 1 when present.",
+        ),
+        (
+            json!({"page": 1, "page_size": 0}),
+            "'page' and 'page_size' must both be at least 1 when present.",
+        ),
+    ] {
+        let response = failure(
+            server.handle_line(&request(json!(60), "lsp.diagnostics", Some(params.clone()))),
+            -32602,
+        );
+        assert_eq!(response["error"]["message"], message, "{params}");
+    }
+}
+
+/// The listed issues of a response as (path, line, code).
+fn listed_issues(response: &Value) -> Vec<(String, u64, String)> {
+    response["result"]["issues"]
+        .as_array()
+        .expect("issues array")
+        .iter()
+        .map(|issue| {
+            (
+                issue["path"].as_str().expect("issue path").to_owned(),
+                issue["line"].as_u64().expect("issue line"),
+                issue["code"].as_str().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// Specification 20 §7: a library elsewhere in the workspace is listed by its full path, and the
+/// issues are sorted by file before a page is cut. Catches a listing filtered by the project instead
+/// of the workspace, a full path written with Windows' `\\?\` prefix or with backslashes, and a page
+/// cut in the language server's order, which sorts by the issue's path text and so puts the full
+/// path first.
+#[test]
+fn a_library_elsewhere_in_the_workspace_is_listed_by_its_full_path_in_file_order() {
+    let workspace = TestWorkspace::new("diagnostics-workspace-library");
+    workspace.write(
+        "proj/trust-lsp.toml",
+        "[project]\ninclude_paths = [\"src\"]\nvendor_profile = \"codesys\"\nlibrary_paths = [\"../zlib\"]\n",
+    );
+    workspace.write(
+        "proj/src/main.st",
+        "PROGRAM Main\nVAR\n    fb : fbLib;\n    s : SINT;\n    b : BYTE;\nEND_VAR\nfb(x := 1);\nb := s;\nEND_PROGRAM\n",
+    );
+    workspace.write(
+        "zlib/fb_lib.st",
+        "FUNCTION_BLOCK fbLib\nVAR_INPUT\n    x : INT;\nEND_VAR\nVAR\n    s : SINT;\n    b : BYTE;\nEND_VAR\nb := s;\nEND_FUNCTION_BLOCK\n",
+    );
+    let library = workspace.root.join("zlib").join("fb_lib.st");
+    let library = library
+        .display()
+        .to_string()
+        .trim_start_matches(r"\\?\")
+        .replace('\\', "/");
+    let issue = |path: &str, line: u64, code: &str| (path.to_owned(), line, code.to_owned());
+    let mut server = workspace.server();
+    let mut diagnostics = |params: Value| {
+        success(server.handle_line(&request(json!(61), "lsp.diagnostics", Some(params))))
+    };
+
+    // The program that no configuration runs (W009, line 1) and its narrowing store (E203 under
+    // `codesys`, line 8), then the library's narrowing store (line 9): `.../proj/src/main.st`
+    // sorts before `.../zlib/fb_lib.st`. A library is API surface, so its unused input is not
+    // reported (#180).
+    let all = diagnostics(json!({"project": "proj"}));
+    assert_eq!(
+        listed_issues(&all),
+        vec![
+            issue("src/main.st", 1, "W009"),
+            issue("src/main.st", 8, "E203"),
+            issue(&library, 9, "E203"),
+        ],
+        "{all:#}"
+    );
+    let first = diagnostics(json!({"project": "proj", "page": 1, "page_size": 1}));
+    assert_eq!(listed_issues(&first), vec![issue("src/main.st", 1, "W009")]);
+    let last = diagnostics(json!({"project": "proj", "page": 3, "page_size": 1}));
+    assert_eq!(listed_issues(&last), vec![issue(&library, 9, "E203")]);
+}
+
+/// Canonical contract, "Workspace filesystem containment": a `path` that a symbolic link takes out of
+/// the workspace, or out of the project into the rest of the workspace, is `-32001` before anything
+/// is analyzed. Catches the override that replaces a library's text elsewhere and then lists none of
+/// its findings: a clean answer for a file the agent may not see.
+#[cfg(unix)]
+#[test]
+fn a_diagnostics_path_linked_out_of_the_project_is_refused() {
+    use std::os::unix::fs::symlink;
+
+    let workspace = TestWorkspace::new("diagnostics-path-link");
+    let outside = TestWorkspace::new("diagnostics-path-link-outside");
+    outside.write("fb_lib.st", "FUNCTION_BLOCK fbLib\nEND_FUNCTION_BLOCK\n");
+    workspace.write(
+        "proj/trust-lsp.toml",
+        &format!(
+            "[project]\ninclude_paths = [\"src\"]\nlibrary_paths = [{:?}, \"../shared\"]\n",
+            outside.root.display().to_string()
+        ),
+    );
+    workspace.write("proj/src/main.st", "PROGRAM Main\nEND_PROGRAM\n");
+    workspace.write(
+        "shared/other.st",
+        "FUNCTION_BLOCK fbOther\nEND_FUNCTION_BLOCK\n",
+    );
+    symlink(
+        outside.root.join("fb_lib.st"),
+        workspace.root.join("proj/src/lib_alias.st"),
+    )
+    .unwrap();
+    symlink(
+        workspace.root.join("shared/other.st"),
+        workspace.root.join("proj/src/other_alias.st"),
+    )
+    .unwrap();
+    let mut server = workspace.server();
+
+    for alias in ["src/lib_alias.st", "src/other_alias.st"] {
+        let params = json!({
+            "project": "proj",
+            "path": alias,
+            "content": "FUNCTION_BLOCK fbLib\nv := ;\nEND_FUNCTION_BLOCK\n",
+        });
+        let response = failure(
+            server.handle_line(&request(json!(62), "lsp.diagnostics", Some(params))),
+            -32001,
+        );
+        assert_eq!(
+            response["error"]["data"]["kind"], "path_outside_workspace",
+            "{alias}"
+        );
+        assert_eq!(response["error"]["data"]["path"], alias);
+    }
+}
+
+/// Canonical contract: an I/O failure never answers as an empty project. A `sources_root` that does
+/// not exist is "sources directory not found", and one that holds none of the project's source files
+/// (a folder outside the include paths) is refused too, while the project has an error. Catches the
+/// typo `scr` answering `errors: 0`, and a check that refuses the project's own source folder.
+#[test]
+fn a_sources_root_without_the_projects_sources_is_an_error() {
+    let workspace = TestWorkspace::new("diagnostics-sources-root");
+    workspace.write("trust-lsp.toml", "[project]\ninclude_paths = [\"src\"]\n");
+    workspace.write(
+        "src/main.st",
+        "PROGRAM Main\nVAR\n    v : INT;\nEND_VAR\nv := Missing;\nEND_PROGRAM\n",
+    );
+    workspace.write("alt/other.st", "PROGRAM Other\nEND_PROGRAM\n");
+    let mut server = workspace.server();
+
+    for (sources_root, message) in [
+        ("scr", "sources directory not found"),
+        ("alt", "holds none of the project's source files"),
+    ] {
+        let params = json!({"sources_root": sources_root});
+        let response = failure(
+            server.handle_line(&request(json!(63), "lsp.diagnostics", Some(params))),
+            -32002,
+        );
+        assert!(
+            response["error"]["message"]
+                .as_str()
+                .is_some_and(|text| text.contains(message)),
+            "{sources_root}: {response:#}"
+        );
+    }
+    let params = json!({"sources_root": "src"});
+    let listed = success(server.handle_line(&request(json!(64), "lsp.diagnostics", Some(params))));
+    assert_eq!(listed["result"]["errors"], 1, "{listed:#}");
+}
+
+/// A refused request says why: a file outside the include paths is "not a source file of the
+/// project". Catches an answer that keeps only "collect diagnostics" and drops the reason.
+#[test]
+fn a_file_outside_the_include_paths_is_refused_with_its_reason() {
+    let workspace = TestWorkspace::new("diagnostics-path-reason");
+    workspace.write("trust-lsp.toml", "[project]\ninclude_paths = [\"src\"]\n");
+    workspace.write("src/main.st", "PROGRAM Main\nEND_PROGRAM\n");
+    workspace.write("notes/draft.st", "PROGRAM Draft\nEND_PROGRAM\n");
+    let mut server = workspace.server();
+
+    let params = json!({"path": "notes/draft.st"});
+    let response = failure(
+        server.handle_line(&request(json!(65), "lsp.diagnostics", Some(params))),
+        -32002,
+    );
+    let message = response["error"]["message"].as_str().expect("message");
+    assert!(
+        message.contains("notes/draft.st") && message.contains("not a source file of the project"),
+        "{message}"
+    );
+}
+
 #[test]
 fn workspace_read_returns_normalized_relative_path_and_exact_text() {
     let workspace = TestWorkspace::new("read");

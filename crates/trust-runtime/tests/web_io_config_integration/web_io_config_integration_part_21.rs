@@ -1,6 +1,11 @@
 use super::*;
 use std::path::Path;
 
+/// A live target where nothing listens. Port 1 lies below every operating system's range of
+/// ephemeral ports, so that no other test's server can hold it, as one held 65530 on a Windows
+/// runner (checklist W36).
+const UNREACHABLE_TARGET: &str = "http://127.0.0.1:1";
+
 pub(super) fn runtime_toml(runtime_id: &str, host_group: &str, links: &str) -> String {
     format!(
         r#"
@@ -549,7 +554,7 @@ fn config_ui_live_targets_and_live_state_endpoints_roundtrip() {
     );
 
     let upsert_payload = json!({
-        "target": "http://127.0.0.1:65530",
+        "target": UNREACHABLE_TARGET,
         "label": "lab-a",
     });
     let upsert_body = ureq::post(&format!("{base}/api/config-ui/live/targets"))
@@ -564,7 +569,7 @@ fn config_ui_live_targets_and_live_state_endpoints_roundtrip() {
     assert_eq!(upsert_value.get("ok").and_then(Value::as_bool), Some(true));
 
     let connect_payload = json!({
-        "target": "http://127.0.0.1:65530",
+        "target": UNREACHABLE_TARGET,
     });
     let connect_body = ureq::post(&format!("{base}/api/config-ui/live/connect"))
         .header("Content-Type", "application/json")
@@ -607,10 +612,10 @@ fn config_ui_live_targets_and_live_state_endpoints_roundtrip() {
     );
     assert_eq!(
         state_value.get("active_target").and_then(Value::as_str),
-        Some("http://127.0.0.1:65530")
+        Some(UNREACHABLE_TARGET)
     );
 
-    let remove_payload = json!({ "target": "http://127.0.0.1:65530" });
+    let remove_payload = json!({ "target": UNREACHABLE_TARGET });
     let remove_body = ureq::post(&format!("{base}/api/config-ui/live/targets/remove"))
         .header("Content-Type", "application/json")
         .send(&remove_payload.to_string())

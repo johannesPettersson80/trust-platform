@@ -6,6 +6,82 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-05
+
+### Added
+
+- `lsp.diagnostics` of the agent API takes `page` and `page_size` together to bound the listed issues; a page
+  reports `page`, `pageSize`, `totalIssues` and `totalPages` (specification 20).
+
+### Changed
+
+- An HMI agent simulator journey no longer takes a method command (`invoke`) as a step, stops
+  before its next command when the target does not say it runs in simulation, and is refused while
+  the language server trace logs each message's parameters (`verbose`, or the JSON trace format),
+  which would log the named session's cookie. Changing the selected run target ends the simulator
+  sessions (specification 43, AT-08).
+- A release publishes the packages that its pull request's rehearsal built and tested when the merge commit on `main`
+  has the rehearsed head's tree, as soon as `main` has the commit. Before, `main`'s CI tested the same tree again for
+  about two hours and the release built every package again for about one and a half (0.29.0 and 0.30.0). Each
+  rehearsal keeps the release's files as `release-bundle-v<version>-<tree>` for 30 days; a promoted release runs the
+  real-database matrix on its commit and checks every file against the rehearsal's `SHA256SUMS` before it publishes.
+  A pull request's or merge group's code never runs on the project's own runner, and a manual rehearsal runs the code
+  of the ref a maintainer chooses. A merge commit
+  with another tree is released after `main`'s CI, building every package, as before. `release-provenance.json`
+  records the released commit's tree, whether the packages were promoted, and the rehearsal run that built them
+  (specification 24, "Release after main CI").
+
+### Fixed
+
+- An HMI page whose control declares a `pulse` or `timeout` above 600 seconds is refused by the page check
+  (specification 39). Before, a time of years could panic the runtime's command handling and keep one of the
+  followed-command slots for good, so that after 64 such commands no confirmation or remote pulse end was reported.
+  A followed command now gives its slot back however its follow ends.
+- `trust-dev agent serve` reports a project's diagnostics as the language server does. `lsp.diagnostics` and
+  `runtime.compile_reload` now give the same findings as `trust-lsp check`, from the project's `trust-lsp.toml`:
+  vendor profile, include paths, libraries and severity overrides. Before, they analyzed the project's folder under
+  the IEC rules without its libraries, so a CODESYS project showed narrowing stores as errors and every symbol of a
+  library elsewhere as undefined (#236). The agent's analysis writes no index cache and fetches no dependency, and a
+  `path` or `sources_root` that leaves the project, or names none of its source files, is refused.
+- An inherited function-block member used as an array subscript no longer reports E101
+  "undefined constant". The index-bounds check folds only compile-time constants; for a
+  name it cannot fold it asked the lexical scope whether the index is a computed value,
+  and a member declared in a base function block (`fbChild EXTENDS fbBase`, indexed by a
+  `VAR_INPUT` of the base) resolved in neither, so a statement like
+  `gvlLog[uiEntityIdx] := 1` on the derived block reported an undefined constant while
+  the identical statement with a local member stayed silent. The guard now also asks the
+  enclosing POU's EXTENDS chain — under both dialects, since function-block inheritance
+  is IEC 61131-3 Ed.3 §6.6.3.4 — and a genuinely unknown name keeps E101
+  (specification 09 §3.8).
+- PLCopen import and export say that trust-runtime was not found only when Node cannot start it at all (`ENOENT`).
+  A launch failure whose text only said "not found", such as a trust-runtime the user may not run, was reported as a
+  missing trust-runtime instead of with its own text (specification 25).
+- The debugger, the console (`trust-runtime ui`) and `trust-dev ctl` send each control request to the runtime in
+  one piece. They wrote the request's newline as a write of its own, which the TCP stack held until the runtime
+  acknowledged the request: about 40 ms a request from Linux, and up to 200 ms from Windows, where every control
+  connection is TCP. A debug stop makes several such requests (specification 11).
+- An HMI agent simulator journey no longer reports a step as observed when its readback path is one
+  the running program does not have, which the runtime answers as unknown; the step now times out
+  (specification 43, AT-08).
+- An HMI agent simulator journey step that commands a control without a confirmation, such as a
+  button without feedback, is observed once the runtime applies the command; it always timed out
+  before (specification 43, AT-08).
+- An HMI agent simulator journey step waits for its control's own confirmation time, so a control
+  that confirms later than 5 seconds is no longer reported as timed out, and it ends with the
+  runtime's own outcome and reason when the runtime reports the command timed out, refused or
+  unknown (specification 43, AT-08).
+- Devices & Connections shows the saved plants of a stopped runtime as `Configured`, or `Disabled`, as specification 47
+  §5.2 defines a plant saved without runtime evidence. Before, every plant of a stopped runtime showed
+  `Status unavailable`, a state meant for a runtime whose live status cannot be read (specification 47 §20.6).
+- The runtime answers each control request at once. It wrote the newline that ends a reply as a write of its
+  own, and the TCP stack held that newline until the client acknowledged the reply: about 40 ms a request
+  from Linux, and up to 200 ms from Windows, where every control connection is TCP. `trust-runtime ctl` and
+  the fleet status request send their request lines in one piece for the same reason (specification 11).
+- The HMI Builder's My equipment lists a project's own function blocks when a library folder holds the
+  project, as `Plant = { path = "../.." }` holds each Plant example. Before, every file of such a project
+  was taken for the library's, and the list was empty. A library inside the project still keeps its blocks
+  out (specification 39 §21.9, by the deepest-folder rule of specification 14 §7.6).
+
 ## [0.30.0] - 2026-11-03
 
 ### Added

@@ -380,7 +380,10 @@ An object has:
 - For a control, its permissions and confirmation (§12.8): `role` (`operator` or `engineer`),
   `confirm` (a question), `action` (`set`, `reset` or `toggle`, for a button), `pulse` (seconds,
   for a pulse button), `expect` (a boolean, number or text) and `timeout` (seconds). `pulse` and
-  `timeout` are positive and finite.
+  `timeout` are positive and at most 600 seconds (ten minutes). That is longer than any pulse or
+  confirmation in PLC practice, where a longer wait belongs in the program's own logic (an IEC
+  61131-3 timer, §6.6.3.5.5, Table 46). The page check refuses any other value, and no command
+  waits on one.
 - For an instrument, `attach`: the equipment or pipe it measures (§6, item 5).
 - For a placed faceplate (type `faceplate`), `faceplate`: the faceplate it shows, and
   `instance`: the instance it is bound to (§8.9 item 3). Both are required on a placed faceplate
@@ -1370,8 +1373,34 @@ declaration's real values.
      lifetime: ending it closes its stream, stops delayed redraws/reconnects, removes its global
      input handlers and prevents late requests or replies from reviving the old display.
      The extension host retains the named session cookie only in memory for this editor and
-     target. Only HMI read, login, logout, command and alarm endpoints are bridged; arbitrary
-     addresses, redirects, deployment and control endpoints are refused. The runtime's access
+     target. For an HMI agent simulator journey it hands the cookie of that journey's named
+     session to its own language server with the journey (specification 43, AT-08), which holds
+     it in memory for that journey only, never writes or logs it, and drops it when the journey
+     ends (owner, 4 November 2026: "what you decide is okay with me"). It sends such a session's
+     login only to a target the language server admits as the session's own
+     (`trust-lsp.hmiAgent.admitSimulatorLogin`), refuses a journey while its language client's
+     trace logs each message's parameters (`verbose`), which would log the cookie, and closes its
+     simulator sessions when the selected run target changes. The language server decides what
+     the extension host bridges (`trust-lsp.hmiLiveBridge`, 4 November 2026):
+     - `GET` of `/api/hmi/page`, `popup`, `session`, `alarms`, `history` and `remote`, each with an
+       optional query;
+     - `POST` of `/api/hmi/login`, `logout`, `command`, `alarm` and `settings`, the last three only
+       within a named session (otherwise `401`, `Log in with a named HMI user to operate.`);
+     - the value streams `/ws/hmi?page=`, `popup=` and `faceplate=`.
+
+     Any other address is refused (`403`, `This address is not part of Live operation.`), other
+     hosts, redirects, deployment and control endpoints among them. A login that the web server
+     accepts (`200`) for the operator, not for a peer, starts the named session; a logout ends it.
+     The language server decides from facts only: the method, the path, whether a named session is
+     held, whether a login names a peer, and the answer's status. Neither the password nor the
+     session cookie is sent for these verdicts, because a language client's `verbose` trace logs
+     every message. The extension host keeps in memory the cookie that the language server names,
+     the named session's `trust_hmi_session` (§12.8 item 3), taken from the login answer's
+     `Set-Cookie` fields (RFC 6265 §5.2). A verdict holds for the session it was asked for: when a
+     login or a logout ends while a request waits, its verdict is asked again for the session held
+     then. Without the language server's verdict within 5 seconds, or with a verdict of another
+     shape, the request does not go out (`503` with the reason) and the named session is dropped;
+     a login whose answer gets no verdict answers `503` too, without a session. The runtime's access
      token supplies transport access, never the named operator's identity. Each request verifies
      the selected target. Target changes invalidate the session before another command can go
      out. An in-flight response from an ended connection cannot restore its cookie.
@@ -1381,7 +1410,27 @@ declaration's real values.
      passes the editor check (`trust-lsp.hmiBundle`), and the run target has an HMI web server;
      then that web server serves the page from the active bundle that the first 16 characters of
      the project bundle's version name, and the HMI is still saved when it answers. The first
-     unmet condition is the reason Live mode stays read-only. A simulator or target with
+     unmet condition is the reason Live mode stays read-only. While the operating view runs, the
+     language server also decides whether operation ends, and why (`trust-lsp.hmiLiveOperation`,
+     4 November 2026). Unsaved HMI changes end it before a request goes out, and a change of the
+     HMI's files ends it at once, both with `The HMI changed. Save and deploy it before operating
+     again.` An unsaved HMI change is an editor's unsaved document under the project's `hmi/`
+     folder: the editor sends the paths of its unsaved documents, to the gate as well, and the
+     language server decides. A
+     page read that the web server answers from another bundle ends it before the page shows: `The
+     deployed HMI changed. Check and deploy the matching project before operating again.` An answer
+     `409`, the named session's target changed or gone, is shown and then ends it: `The run target
+     changed or disconnected. Any unfinished command has an unknown outcome; none will be resent.` A
+     value stream that does not open ends it with `The runtime stream is unavailable. Reopen Live
+     mode to connect.`, one that closes with `The runtime disconnected. Any unfinished command has
+     an unknown outcome; none will be resent.`, and a request that cannot reach the runtime with
+     `The runtime cannot be reached. Any unfinished command has an unknown outcome; none will be
+     resent.` A selected run target that changes ends it with `The selected run target changed.
+     Reopen Live mode to connect.`, also when the change closes the value stream, and one that
+     cannot be reached with `The selected run target cannot be reached. Reopen Live mode to
+     connect.` A lost stream, an unreachable runtime, a changed target and an edit stop operation at
+     once, so that no request goes out after them; the reason follows. Without the language server's
+     answer within 5 seconds, operation ends with its error. A simulator or target with
      no HMI web endpoint remains read-only with an explanation that names the target: the
      simulator has no HMI web server, and the page is operated, with its alarms, on a runtime
      selected or connected in Devices & Connections; a runtime without one needs `[runtime.web]`
@@ -1590,7 +1639,7 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - `POST /api/hmi/login` with `{ "user", "password" }` starts a session. It returns `user`,
      `role`, `acts_as` and `may_change_settings` (§12.4 item 4) and both expiry times
      (`idle_seconds`, `expires_seconds`), and sets an `HttpOnly`, `SameSite=Strict` session
-     cookie;
+     cookie, `trust_hmi_session`;
    - a wrong user and a wrong password give the same answer;
    - after five failed attempts a user is refused for a minute;
    - `POST /api/hmi/logout` ends the session, and `GET /api/hmi/session` reports it with the same
@@ -1602,10 +1651,11 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - `role`: the lowest role, which can only raise the policy's;
    - `confirm`: a question asked before sending;
    - `min` and `max`: entry limits, which can only narrow the policy's;
-   - for buttons `action` (`set`, `reset` or `toggle`), for pulse buttons `pulse` (seconds);
+   - for buttons `action` (`set`, `reset` or `toggle`), for pulse buttons `pulse` (seconds, at
+     most 600, §5);
    - for selectors and mode selectors `options`, the choices offered, and for a switch its two
      states' words (§5.8);
-   - `expect` (the feedback's expected value) and `timeout` (seconds, default 5) for
+   - `expect` (the feedback's expected value) and `timeout` (seconds, default 5, at most 600) for
      confirmation;
    - the bindable properties `feedback` (what confirms the command), `interlock` (a BOOL
      permissive) and `interlock-reason` (its text). The binding checks check them like every
@@ -1618,7 +1668,10 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      call of `Hmi.Display` (§18 phase 5) and answers with that outcome; a command the program has
      not taken within the time limit is withdrawn, so it is never applied later.
    - Confirmation by the feedback, a pulse's end and every later outcome reach the browser on the
-     value stream as `{ "command": { "id", "outcome", "readback"?, "reason"?, "error_code"? } }`.
+     value stream as
+     `{ "command": { "id", "outcome", "readback"?, "reason"?, "ended"?, "error_code"? } }`. A
+     pulse's end is a later `applied` with `ended` TRUE; for a pulse with a confirmation it comes
+     before the confirmation's outcome.
    - A command id is remembered for ten minutes; a repeated id gets the first answer without a
      second write.
    - `action` is `write` with a `value` (setpoint entry, numeric input, slider, switch), `toggle`
@@ -1638,7 +1691,9 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - Confirmation: by `feedback` reaching `expect` (for buttons TRUE after `set` and `pulse`,
      FALSE after `reset`). For a written value without `feedback`, the target reads back the
      requested value in a later scan. Either must happen within `timeout`, or the command times
-     out with the value read back.
+     out with the value read back. A pulse's confirmation is decided after the pulse's end, which
+     the runtime waits for at most the longer of the pulse and `timeout` plus the 2 seconds it
+     allows to write the end; its later outcome comes within that time (`Plan::decided_within`).
    - `bundle` is the version of the HMI files the page was drawn from, given with the page data.
      A command from another version is refused: "the page is out of date; reload it" (1C makes
      this the deployed bundle's version).

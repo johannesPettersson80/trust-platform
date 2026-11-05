@@ -146,4 +146,22 @@ suite("HMI agent loopback bridge", () => {
     await request("/cancel", { id: "server-2" });
     assert.strictEqual((await second).status, 200);
   });
+  // Catches checklist G48: the MCP server sends a cancellation on a thread of its own, so it can overtake its call's
+  // request, and a loopback that forgot it would run the call to its end.
+  test("a cancellation that overtakes its call cancels the call when it arrives", async () => {
+    await bridge.close();
+    bridge = await startAgentBridge({
+      workspaceId: "project-a",
+      tools: [{ name: "hmi_get_context", description: "Read", inputSchema: {} }],
+      invoke: async (_name, _input, signal) =>
+        signal.aborted
+          ? { content: [{ type: "text", text: "cancelled" }], isError: true }
+          : new Promise((resolve) =>
+              signal.addEventListener("abort", () => resolve({ content: [], isError: false }), { once: true }),
+            ),
+    });
+    assert.strictEqual((await request("/cancel", { id: "server-3" })).status, 200);
+    const answer = await request("/call", { ...call, id: "server-3" });
+    assert.deepStrictEqual(answer.body, { content: [{ type: "text", text: "cancelled" }], isError: true });
+  });
 });

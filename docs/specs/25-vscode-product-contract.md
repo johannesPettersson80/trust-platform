@@ -684,7 +684,13 @@ README that passes fails the check until it is taken off the list.
   clear stale values through one unavailable-state route.
 - A simulator with no session tells the user to Start. A selected unattached
   remote tells the user to Connect. Raw adapter no-session errors are
-  normalized to those product states.
+  normalized to those product states. The language server words them
+  (`trust-lsp.runTargets`, action `unavailable`, §6.9) from the lifecycle
+  snapshot: an online runtime that the lifecycle does not name connected gets
+  `Connect to the selected runtime to see live values.`, or, when that runtime
+  answered Connect but keeps debugging disabled (§5.1), that reason and the
+  state `Debugging disabled`; every other target, the Simulator among them,
+  gets `Start the runtime to see live values.`
 - The language server reads a failed I/O state request of Live Values
   (`trust-lsp.runTargets`, action `failure` with `request: "ioState"`, §6.9)
   as one of three kinds, and the panel acts on the kind:
@@ -1781,6 +1787,36 @@ test checks each family.
   (`localhost`, a `127.0.0.0/8` address or `[::1]`); any other TCP endpoint is
   an untrusted plain-TCP channel, and a blank, unreadable or serial endpoint
   has none.
+- A credential crosses the language server's channel only where no trace logs
+  it (5 November 2026). The language server never logs the messages it
+  receives or sends, whatever `RUST_LOG` says (specification 43, AT-08). Its
+  `initialize` answer names the credentials it receives or answers
+  (`capabilities.experimental.credentials`):
+  - the channel's own request fields:
+    - `authToken`, a runtime's access token: run targets, HMI deployment and
+      a simulator journey's target;
+    - `controlAuthToken`, for Live Values;
+    - `cookie`, a named HMI session's (specification 43, AT-08);
+    - `runtimeToml`, a project's `runtime.toml`, whose `[runtime.control]` and
+      `[runtime.mesh]` hold tokens: the HMI users;
+  - the secret configuration keys of specification 11 §6.9.7 (`password`,
+    `auth_token`, `token`, `credential`, `credentials`, `secret`,
+    `client_secret`, `private_key`), which a protocol form or Devices &
+    Connections sends by name;
+  - the answer of `trust-lsp.simulatorControl` `create` (§6.8).
+
+  A field carries a credential when it holds non-blank text. The HMI colour
+  command therefore names its colour token `colourToken`.
+
+  While the language client's trace logs each message's parameters, the
+  extension refuses such a command before it sends anything. The caller gets
+  `UNSUPPORTED_CONTEXT`, and the user gets a warning naming the setting, with
+  Open Settings, at most once a minute. The trace logs parameters with
+  `trust.languageServer.trace` at `verbose`, or with `trust-lsp.trace.server`
+  at `verbose`, at `compact` or in the `json` format. A simulator launch whose
+  control token is refused this way stops with that refusal instead of starting
+  without a token. A language-model tool never sends or receives such a
+  command, whatever the trace.
 - Remote Connect verifies control authentication and `debug_enabled` before
   opening an attach session. Managed token parsing accepts only root
   `runtime.control`, including its root dotted form; an identically named key
@@ -1881,7 +1917,8 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   whether a Force must be armed (`liveValues`); the simulator's speed and its
   words (`speed`); the Connect check of §5.1 (`connect`); the kind of a
   failure from its text, or of a simulator Start whose session ended
-  (`failure`, §5.10); the run target that the HMI Builder's
+  (`failure`, §5.10); what Live Values says when it has no session to read
+  (`unavailable`, §4.4); the run target that the HMI Builder's
   Live mode and Deploy talk to (`hmiTarget`, specification 39 §11 item 6); and
   the managed runtimes with their states, the outcome of a managed Start or Stop
   and the managed logs (`managed`, `managedOutcome`, `managedLogs`).
@@ -2058,7 +2095,10 @@ The HMI Builder editor and its pages are specified in
 
 - Import and export cancellation is side-effect free. Missing input, missing
   project, missing runtime binary, malformed XML, and command failure produce
-  actionable, operation-specific errors.
+  actionable, operation-specific errors. The runtime binary is missing when
+  Node cannot start it and names the failure by the code `ENOENT`; the words
+  of an error never decide it, so a failure that only says `not found` is a
+  failed run with its own text.
 - Import into a nonempty target and export over an existing file require
   explicit confirmation before mutation.
 - Successful import and export preserve the selected project/file identity and

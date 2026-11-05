@@ -52,6 +52,14 @@
     },
     {
       "from": "trust-dev",
+      "to": "trust-lsp",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "dev tooling",
+      "rationale": "the agent's lsp.diagnostics and runtime.compile_reload report the language server's own project diagnostics (trust_lsp::project_diagnostics, specification 20 section 7)"
+    },
+    {
+      "from": "trust-dev",
       "to": "trust-wasm-analysis",
       "kind": "normal",
       "status": "temporary",

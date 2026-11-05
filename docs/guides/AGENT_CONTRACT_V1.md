@@ -205,42 +205,61 @@ Returns the same machine-readable payload shape as `trust-runtime build --ci`.
 Optional params:
 
 ```json
-{"project":"runtime-a","sources_root":"src","path":"src/main.st","content":"PROGRAM Main\nEND_PROGRAM\n"}
+{"project":"runtime-a","sources_root":"src","path":"src/main.st","content":"PROGRAM Main\nEND_PROGRAM\n","page":1,"page_size":50}
 ```
 
 Rules:
 
 - `project` is relative to the agent workspace root when present
-- `sources_root` is relative to the selected project root when present
-- `path` is relative to the selected project root when present
+- `sources_root` is relative to the selected project root when present, and narrows the listed
+  issues of a whole-project request to the files under it. A folder that does not exist
+  ("sources directory not found") or that holds none of the project's source files is an I/O
+  error (`-32002`), never an empty list
+- `path` is relative to the selected project root when present, and names one of the project's
+  source files; then only that file's issues are listed, and `sources_root` does not apply. A file
+  outside the project's include paths is an I/O error (`-32002`) that says so
+- a `sources_root` or `path` that resolves outside the project or the workspace, through a
+  symbolic link for example, is refused with `-32001` before anything is analyzed
 - `content` is an in-memory override for `path`; it is invalid without `path`
+- `page` and `page_size` are optional paging parameters. They must be given together; either one
+  alone, a `page` below 1, or a `page_size` below 1 is an invalid-params error (`-32602`). When
+  they are present, `issues[]` is the requested window of the same deterministic sort, and the
+  response also carries `page`, `pageSize`, `totalIssues`, and `totalPages`. There is always at
+  least one page, and a `page` beyond `totalPages` returns an empty `issues[]` with the honest
+  totals. When both are omitted, the response is the full unpaged list and carries none of the
+  paging fields.
 
-If `path` is omitted, the method analyzes all `.st` / `.pou` files under the
-project `src/` tree (or `sources_root` override) and returns one aggregated
-diagnostic list.
+The diagnostics are the language server's: the same findings that `trust-lsp check` reports for
+the project. The project is loaded as the language server loads a workspace folder, with its
+`trust-lsp.toml`: include paths, library paths and libraries, vendor profile, `[diagnostics]`
+toggles and severity overrides. If `path` is omitted, every source file of the project and its
+`trust-lsp.toml` are diagnosed and listed in one aggregated list; otherwise only `path` is.
 
-Whole-project discovery is recursive and literal: metacharacters in a valid
-project or source-root name do not acquire glob meaning. The two supported
-extensions are matched case-insensitively for every ASCII spelling, only
-regular files are analyzed, and the normalized project-relative source list is
-deduplicated and ordered lexicographically. A source alias that resolves
-outside the canonical project root is rejected rather than analyzed.
+The analysis changes nothing on disk and fetches nothing: it neither reads nor writes the
+language server's index cache, and it never clones or fetches a dependency. A git dependency is
+used only when its checkout already exists, for example after the editor or `trust-lsp check`
+fetched it; otherwise its `trust-lsp.toml` finding (`L007`) says that it is not available.
+
+Only files inside the agent workspace are listed. A library that the configuration names
+outside the workspace is analyzed, so that its symbols resolve, but its findings are not listed.
+An issue's `path` is relative to the project root, or the file's full path for a listed file
+outside it, such as a library elsewhere in the workspace.
 
 Returns:
 
 - `target`
-- `errors`
-- `warnings`
-- `issues[]` with `path`, absolute `file`, `line`, `column`, `severity`,
-  `message`, optional `code`, and optional related entries
+- `errors` and `warnings`, counted over every listed issue, also on a page
+- when `page` and `page_size` are present: `page`, `pageSize`, `totalIssues`, and `totalPages`
+- `issues[]` (the page's, when a page was asked for) with `path`, absolute `file`, `line`,
+  `column`, `severity`, `message`, optional `code`, and optional related entries
 
-Every issue uses one-based line and column coordinates while `span.start` and
-`span.end` remain zero-based UTF-8 byte offsets. Related entries use the same
-coordinate convention. `errors` and `warnings` are the exact counts of issues
-whose normalized severity is `error` and `warning`; other severities remain in
-`issues` but do not inflate either counter. Aggregate issues are sorted
-deterministically by file, position, severity, code, and message. An inline
-`content` override is analyzed without writing it to disk.
+Every issue uses one-based line and column coordinates, the columns in UTF-16 code units as the
+editor counts them, while `span.start` and `span.end` remain zero-based UTF-8 byte offsets.
+Related entries use the same coordinate convention and name places in the issue's file. `errors`
+and `warnings` are the exact counts of listed issues whose severity is `error` and `warning`;
+`information` and `hint` issues remain in `issues` but do not inflate either counter. Issues are
+sorted deterministically by file, position, severity, code, and message before a page is cut.
+An inline `content` override is analyzed without writing it to disk.
 
 ### `lsp.ast_canonicalize`
 
@@ -349,8 +368,9 @@ adds `issuesTruncated: true` and `totalIssues` to the response.
 
 Behavior:
 
-- collects diagnostics over the selected project source tree
-- blocks build/reload when diagnostics contain errors
+- collects the project's diagnostics as `lsp.diagnostics` does, the language server's, with the
+  same `sources_root` rule
+- blocks build/reload when the listed diagnostics contain errors
 - reuses the normal `trust-runtime build` path when diagnostics are clean
 - reuses the same `bytecode.reload` control-endpoint path as `runtime.reload`
 

@@ -18,8 +18,8 @@ use crate::hmi::access::policy::{acts_as, may_change_settings};
 use crate::hmi::access::sessions::{LoginRefusal, SessionInfo, SessionStore};
 use crate::security::AccessRole;
 
-/// The session cookie's name.
-pub(super) const SESSION_COOKIE: &str = "trust_hmi_session";
+/// The named HMI session's cookie (specification 39, §12.8 item 3).
+pub const SESSION_COOKIE: &str = "trust_hmi_session";
 /// The largest request body read.
 const MAX_BODY: u64 = 16 * 1024;
 

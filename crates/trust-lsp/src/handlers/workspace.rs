@@ -88,7 +88,7 @@ pub async fn index_workspace(client: &Client, state: &ServerState) {
         let Some(root) = uri_to_path(&folder) else {
             continue;
         };
-        let config = ProjectConfig::load(&root);
+        let config = ProjectConfig::load_with(&root, state.config_load_options());
         state.set_workspace_config(folder.clone(), config.clone());
         let summary = index_workspace_root(client, state, &config, &folder, &mut seen).await;
         indexed_total += summary.indexed;

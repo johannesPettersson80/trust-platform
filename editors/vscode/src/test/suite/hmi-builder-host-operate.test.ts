@@ -4,7 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { openBuilder, postedOfType } from "./hmiBuilderHost";
-import { liveGate } from "../../hmiBuilder/editor/liveOperatorRuntime";
+import { liveBridge, liveGate, liveOperation } from "../../hmiBuilder/editor/liveOperatorRuntime";
 
 suite("HMI Builder host: named Live operation", function () {
   this.timeout(15000);
@@ -15,11 +15,13 @@ suite("HMI Builder host: named Live operation", function () {
     fs.writeFileSync(file, 'format = 1\ntitle = "Cell"\n');
     const requests: string[] = [];
     const { panel, webview } = await openBuilder(file, undefined, undefined, undefined, {
-      dirty: () => false,
+      unsaved: () => ({ root, unsaved: [] }),
       bundle: async () => ({ ok: true, version: "v1" }),
       runTarget: async () => ({ label: "Cell", simulator: false }),
       liveGate,
+      liveOperation,
       session: {
+        bridge: liveBridge,
         target: async () => ({ url: "http://plc:8080", endpoint: "tcp://plc:9000", label: "Cell" }),
         request: async (_target, _method, route) => {
           requests.push(route);
@@ -40,8 +42,10 @@ suite("HMI Builder host: named Live operation", function () {
       await vscode.workspace.applyEdit(edit);
       await new Promise((resolve) => setTimeout(resolve, 100));
       assert.ok(
-        postedOfType(webview, "operateEnded").some((message) => /changed/i.test(message.reason)),
-        "editing the HMI ends its operating connection immediately",
+        postedOfType(webview, "operateEnded").some(
+          (message) => message.reason === "The HMI changed. Save and deploy it before operating again.",
+        ),
+        "editing the HMI ends its operating connection immediately, with the language server's reason",
       );
       panel.dispose();
       webview.send({ type: "operateRequest", id: "one", request: 1, method: "POST", path: "/api/hmi/login", body: {} });

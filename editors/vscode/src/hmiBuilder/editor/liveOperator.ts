@@ -4,7 +4,10 @@ import type { HostToWebview, WebviewToHost } from "./messages";
 import { LiveSession, LiveSessionDeps } from "./liveSession";
 /** What Live mode's operating gate decides from (`trust-lsp.hmiLiveGate`, §11 item 6). */
 export interface LiveGateFacts {
-  dirty: boolean;
+  /** The project's folder and the paths of the editor's unsaved documents: the language server decides which are HMI
+   * changes. */
+  root: string;
+  unsaved: string[];
   bundle: { ok?: boolean; version?: string };
   webServer: boolean;
   runTarget?: { label: string; simulator: boolean };
@@ -19,16 +22,36 @@ export type LiveGateVerdict =
   | { kind: "operate"; bundle: string }
   | { kind: "read_only"; reason: string };
 
+/** What happened while the operating view runs (`trust-lsp.hmiLiveOperation`, §11 item 6). */
+export type LiveOperationEvent =
+  | { event: "request"; root: string; unsaved: string[] }
+  | { event: "reply"; method: string; status: number; body: unknown; bundle: string }
+  | { event: "edited" | "streamUnavailable" | "streamClosed" | "unreachable" | "targetChanged" | "targetUnreachable" };
+
+/** Whether what an event is about goes on, and why operation then ends, as the language server decides it. */
+export interface LiveOperationVerdict {
+  proceed: boolean;
+  end: string | null;
+}
+
 export interface LiveOperatorDeps {
   session: LiveSessionDeps;
   /** The selected run target, also when it has no HMI web server: the read-only explanation names
    * it (§11, item 6). */
   runTarget(): Promise<{ label: string; simulator: boolean } | undefined>;
-  dirty(): boolean;
+  /** The project's folder and the paths of the editor's unsaved documents. */
+  unsaved(): { root: string; unsaved: string[] };
   bundle(): Promise<{ ok?: boolean; version?: string }>;
   /** Whether the operating view opens, as the language server decides it (§11 item 6). */
   liveGate(facts: LiveGateFacts): Promise<LiveGateVerdict>;
+  /** Whether it ends, and why, as the language server decides it (§11 item 6). */
+  liveOperation(event: LiveOperationEvent): Promise<LiveOperationVerdict>;
 }
+/** An ending the language server gave no reason for, against its contract. */
+const NO_REASON = "trust-lsp.hmiLiveOperation gave no reason";
+/** How long the language server may take to give a verdict (specification 39, §11 item 6). */
+const VERDICT_WAIT_MS = 5_000;
+
 interface Connection {
   id: string;
   bundle?: string;
@@ -61,30 +84,35 @@ export class LiveOperator {
       current.sockets.delete(message.socket);
       return;
     }
+    const bundle = current.bundle;
     try {
       if (message.type === "operateRequest") {
-        if (this.deps.dirty()) {
-          this.stop("The HMI changed. Save and deploy it before operating again.");
+        // The request goes out only once the language server lets it.
+        const before = await this.verdict({ event: "request", ...this.deps.unsaved() });
+        if (this.current !== current) return;
+        if (!before.proceed) {
+          this.stop(before.end ?? NO_REASON);
           return;
         }
         const answer = await current.session.request(message.method, message.path, message.body);
         if (this.current !== current) return;
-        const served = answer.body as { bundle?: string } | null;
-        if (message.method === "GET" && served?.bundle !== undefined && served.bundle !== current.bundle) {
-          this.stop("The deployed HMI changed. Check and deploy the matching project before operating again.");
-          return;
-        }
-        this.post({
-          type: "operateReply",
-          id: current.id,
-          request: message.request,
+        const after = await this.verdict({
+          event: "reply",
+          method: message.method,
           status: answer.status,
           body: answer.body,
+          bundle,
         });
-        if (answer.status === 409)
-          this.stop(
-            "The run target changed or disconnected. Any unfinished command has an unknown outcome; none will be resent.",
-          );
+        if (this.current !== current) return;
+        if (after.proceed)
+          this.post({
+            type: "operateReply",
+            id: current.id,
+            request: message.request,
+            status: answer.status,
+            body: answer.body,
+          });
+        if (after.end || !after.proceed) this.stop(after.end ?? NO_REASON);
       } else if (message.type === "operateSocket") {
         const socket = await current.session.openSocket(message.path);
         if (this.current !== current) {
@@ -92,7 +120,7 @@ export class LiveOperator {
           return;
         }
         if (!socket) {
-          this.stop("The runtime stream is unavailable. Reopen Live mode to connect.");
+          await this.endAt(current, { event: "streamUnavailable" });
           return;
         }
         current.sockets.get(message.socket)?.close();
@@ -101,15 +129,46 @@ export class LiveOperator {
           if (this.current === current && typeof event.data === "string")
             this.post({ type: "operateStream", id: current.id, socket: message.socket, data: event.data });
         };
+        // A session that found another target closes its streams too: the operator says which happened.
         socket.onclose = () => {
-          if (this.current === current)
-            this.stop("The runtime disconnected. Any unfinished command has an unknown outcome; none will be resent.");
+          void this.endAt(current, { event: current.session.stoppedBy() ?? "streamClosed" });
         };
       }
     } catch {
-      if (this.current === current)
-        this.stop("The runtime cannot be reached. Any unfinished command has an unknown outcome; none will be resent.");
+      await this.endAt(current, { event: "unreachable" });
     }
+  }
+
+  /** An HMI file changed while operating: operation ends at once, with the language server's reason. */
+  edited(): void {
+    const current = this.current;
+    if (current) void this.endAt(current, { event: "edited" });
+  }
+
+  /** The language server's verdict on `event`; without its answer within 5 seconds, operation ends with its error. */
+  private async verdict(event: LiveOperationEvent): Promise<LiveOperationVerdict> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`trust-lsp.hmiLiveOperation did not answer within ${VERDICT_WAIT_MS / 1000} seconds`)),
+        VERDICT_WAIT_MS,
+      );
+    });
+    try {
+      return await Promise.race([this.deps.liveOperation(event), late]);
+    } catch (error) {
+      return { proceed: false, end: error instanceof Error ? error.message : String(error) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** Ends operation at once, so that nothing goes out after `event`, then says why, as the language server words it. */
+  private async endAt(current: Connection, event: LiveOperationEvent): Promise<void> {
+    if (this.current !== current) return;
+    this.stop();
+    const verdict = await this.verdict(event);
+    this.post({ type: "operateEnded", id: current.id, reason: verdict.end ?? NO_REASON });
   }
 
   private async open(id: string, page: string): Promise<void> {
@@ -137,7 +196,7 @@ export class LiveOperator {
         runTarget: selected && { label: selected.label, simulator: selected.simulator },
         page,
       };
-      const before = await this.deps.liveGate({ ...facts, dirty: this.deps.dirty() });
+      const before = await this.deps.liveGate({ ...facts, ...this.deps.unsaved() });
       if (this.current !== current) return;
       if (before.kind === "read_only") {
         refuse(before.reason);
@@ -148,7 +207,7 @@ export class LiveOperator {
       if (this.current !== current) return;
       const after = await this.deps.liveGate({
         ...facts,
-        dirty: this.deps.dirty(),
+        ...this.deps.unsaved(),
         served: { status: answer.status, body: answer.body },
       });
       if (this.current !== current) return;
@@ -169,11 +228,9 @@ export class LiveOperator {
     if (!current || this.checking) return;
     this.checking = true;
     try {
-      if (!(await current.session.isCurrentTarget()) && this.current === current)
-        this.stop("The selected run target changed. Reopen Live mode to connect.");
+      if (!(await current.session.isCurrentTarget())) await this.endAt(current, { event: "targetChanged" });
     } catch {
-      if (this.current === current)
-        this.stop("The selected run target cannot be reached. Reopen Live mode to connect.");
+      await this.endAt(current, { event: "targetUnreachable" });
     } finally {
       this.checking = false;
     }

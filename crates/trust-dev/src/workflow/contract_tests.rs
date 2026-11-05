@@ -1,7 +1,6 @@
 use super::*;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use trust_wasm_analysis::{ByteSpan, Position, Range, RelatedInfoItem};
 
 static NEXT_PROJECT_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -64,172 +63,18 @@ fn issue_files(payload: &Value) -> Vec<String> {
 }
 
 #[test]
-fn project_source_discovery_accepts_every_ascii_case_extension_spelling() {
-    let project = TestProject::new("extension-cases");
-    let extensions = [
-        "st", "sT", "St", "ST", "pou", "poU", "pOu", "pOU", "Pou", "PoU", "POu", "POU",
-    ];
-    for (index, extension) in extensions.iter().enumerate() {
-        project.write(
-            &format!("src/source-{index}.{extension}"),
-            &valid_program(&format!("P{index}")),
-        );
-    }
-
-    let paths = collect_project_source_paths(&project.root, None).expect("discover sources");
-
-    assert_eq!(paths.len(), extensions.len(), "{paths:#?}");
-    for (index, extension) in extensions.iter().enumerate() {
-        assert!(
-            paths.contains(&format!("src/source-{index}.{extension}")),
-            "missing .{extension}: {paths:#?}"
-        );
-    }
-}
-
-#[test]
-#[cfg(not(windows))]
-fn project_source_discovery_treats_root_metacharacters_literally() {
-    let project = TestProject::new("literal-[batch]-star*");
-    project.write("src/main.st", &valid_program("Main"));
-
-    let paths = collect_project_source_paths(&project.root, None).expect("discover literal root");
-
-    assert_eq!(paths, vec!["src/main.st"]);
-}
-
-#[test]
-fn project_source_discovery_is_recursive_deduplicated_and_sorted() {
-    let project = TestProject::new("recursive-order");
-    project.write("src/z/last.st", &valid_program("Last"));
-    project.write("src/a/first.POU", &valid_program("First"));
-    project.write("src/middle.ST", &valid_program("Middle"));
-
-    let paths = collect_project_source_paths(&project.root, None).expect("discover sources");
-
-    assert_eq!(
-        paths,
-        vec!["src/a/first.POU", "src/middle.ST", "src/z/last.st"]
-    );
-}
-
-#[test]
-fn project_source_discovery_ignores_unsupported_files_and_directories() {
-    let project = TestProject::new("regular-files");
-    project.write("src/main.st", &valid_program("Main"));
-    project.write("src/notes.txt", "not structured text");
-    std::fs::create_dir_all(project.root.join("src/not-a-file.pou"))
-        .expect("create source-looking directory");
-
-    let paths = collect_project_source_paths(&project.root, None).expect("discover sources");
-
-    assert_eq!(paths, vec!["src/main.st"]);
-}
-
-#[test]
-fn project_source_discovery_honors_explicit_source_root() {
-    let project = TestProject::new("source-override");
-    project.write("src/default.st", &valid_program("Default"));
-    project.write("alternate/selected.st", &valid_program("Selected"));
-
-    let paths = collect_project_source_paths(
-        &project.root,
-        Some(project.root.join("alternate").as_path()),
-    )
-    .expect("discover override");
-
-    assert_eq!(paths, vec!["alternate/selected.st"]);
-}
-
-#[cfg(unix)]
-#[test]
-fn project_source_discovery_rejects_symlink_escape() {
-    use std::os::unix::fs::symlink;
-
-    let project = TestProject::new("source-symlink");
-    let outside = TestProject::new("source-symlink-outside");
-    outside.write("secret.st", &valid_program("Secret"));
-    symlink(
-        outside.root.join("secret.st"),
-        project.root.join("src/escape.st"),
-    )
-    .expect("create escaping source symlink");
-
-    let error = collect_project_source_paths(&project.root, None)
-        .expect_err("escaping source alias must fail");
-
-    assert!(
-        error
-            .to_string()
-            .contains("does not live under project root"),
-        "{error:#}"
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn project_source_discovery_rejects_symlink_escape_before_target_extension_filtering() {
-    use std::os::unix::fs::symlink;
-
-    let project = TestProject::new("source-symlink-unsupported-escape");
-    let outside = TestProject::new("source-symlink-unsupported-escape-outside");
-    outside.write("secret.txt", "not structured text");
-    symlink(
-        outside.root.join("secret.txt"),
-        project.root.join("src/escape.st"),
-    )
-    .expect("create escaping source symlink");
-
-    let error = collect_project_source_paths(&project.root, None)
-        .expect_err("every escaping source alias must fail before target filtering");
-
-    assert!(
-        error
-            .to_string()
-            .contains("does not live under project root"),
-        "{error:#}"
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn project_source_discovery_accepts_contained_source_symlink() {
-    use std::os::unix::fs::symlink;
-
-    let project = TestProject::new("contained-source-symlink");
-    project.write("shared/target.st", &valid_program("Target"));
-    symlink("../shared/target.st", project.root.join("src/alias.st"))
-        .expect("create contained source symlink");
-
-    let paths = collect_project_source_paths(&project.root, None).expect("discover sources");
-
-    assert_eq!(paths, vec!["shared/target.st"]);
-}
-
-#[cfg(unix)]
-#[test]
-fn project_source_discovery_ignores_source_alias_to_unsupported_target() {
-    use std::os::unix::fs::symlink;
-
-    let project = TestProject::new("unsupported-source-symlink-target");
-    project.write("src/target.txt", "not structured text");
-    symlink("target.txt", project.root.join("src/alias.st"))
-        .expect("create unsupported source symlink");
-
-    let paths = collect_project_source_paths(&project.root, None).expect("discover sources");
-
-    assert!(
-        paths.is_empty(),
-        "unsupported target was analyzed: {paths:?}"
-    );
-}
-
-#[test]
 fn diagnostics_rejects_content_without_path() {
     let project = TestProject::new("diagnostics-content-path");
 
-    let error = diagnostics_payload(&project.root, None, None, Some(valid_program("Inline")))
-        .expect_err("content without identity must fail");
+    let error = diagnostics_payload(
+        &project.root,
+        &project.root,
+        None,
+        None,
+        Some(valid_program("Inline")),
+        None,
+    )
+    .expect_err("content without identity must fail");
 
     assert!(
         error
@@ -247,9 +92,11 @@ fn diagnostics_inline_override_does_not_mutate_disk() {
 
     let payload = diagnostics_payload(
         &project.root,
+        &project.root,
         None,
         Some("src/main.st"),
         Some(invalid_program("Inline", "Missing")),
+        None,
     )
     .expect("analyze override");
 
@@ -276,8 +123,8 @@ END_PROGRAM
 "#,
     );
 
-    let payload =
-        diagnostics_payload(&project.root, None, None, None).expect("analyze project sources");
+    let payload = diagnostics_payload(&project.root, &project.root, None, None, None, None)
+        .expect("analyze project sources");
 
     assert_eq!(
         Path::new(payload["target"].as_str().expect("target")),
@@ -299,7 +146,9 @@ fn diagnostics_whole_project_honors_source_root_override() {
 
     let payload = diagnostics_payload(
         &project.root,
+        &project.root,
         Some(project.root.join("selected").as_path()),
+        None,
         None,
         None,
     )
@@ -318,8 +167,8 @@ fn diagnostics_whole_project_orders_issues_by_file_then_position() {
     project.write("src/z.st", &invalid_program("Zed", "MissingZ"));
     project.write("src/a.st", &invalid_program("Alpha", "MissingA"));
 
-    let payload =
-        diagnostics_payload(&project.root, None, None, None).expect("analyze project sources");
+    let payload = diagnostics_payload(&project.root, &project.root, None, None, None, None)
+        .expect("analyze project sources");
     let files = issue_files(&payload);
 
     assert!(!files.is_empty(), "{payload:#}");
@@ -334,8 +183,8 @@ fn diagnostics_whole_project_includes_mixed_case_extension() {
     let project = TestProject::new("diagnostics-mixed-extension");
     project.write("src/invalid.sT", &invalid_program("Mixed", "Missing"));
 
-    let payload =
-        diagnostics_payload(&project.root, None, None, None).expect("analyze project sources");
+    let payload = diagnostics_payload(&project.root, &project.root, None, None, None, None)
+        .expect("analyze project sources");
 
     assert!(
         payload["errors"].as_u64().expect("error count") > 0,
@@ -351,49 +200,36 @@ fn diagnostics_whole_project_includes_mixed_case_extension() {
 
 #[test]
 fn diagnostic_projection_uses_public_coordinates_and_preserves_related_evidence() {
-    let diagnostic = DiagnosticItem {
-        code: "E-DEMO".to_string(),
-        severity: "ERROR".to_string(),
+    let finding = trust_lsp::Finding {
+        path: "src/main.st".to_string(),
+        file: PathBuf::from("/project/src/main.st"),
+        line: 3,
+        column: 5,
+        end_line: 3,
+        end_column: 10,
+        start: 20,
+        end: 25,
+        severity: "error",
+        code: Some("E-DEMO".to_string()),
         message: "primary".to_string(),
-        range: Range {
-            start: Position {
-                line: 2,
-                character: 4,
-            },
-            end: Position {
-                line: 2,
-                character: 9,
-            },
-        },
-        span: ByteSpan { start: 20, end: 25 },
-        related: vec![RelatedInfoItem {
-            range: Range {
-                start: Position {
-                    line: 0,
-                    character: 1,
-                },
-                end: Position {
-                    line: 0,
-                    character: 3,
-                },
-            },
-            span: ByteSpan { start: 1, end: 3 },
+        related: vec![trust_lsp::RelatedFinding {
+            line: 1,
+            column: 2,
+            end_line: 1,
+            end_column: 4,
+            start: 1,
+            end: 3,
             message: "origin".to_string(),
         }],
     };
 
-    let projected = serde_json::to_value(map_diagnostic(
-        "src/main.st",
-        "/project/src/main.st",
-        diagnostic,
-    ))
-    .expect("serialize issue");
+    let projected = serde_json::to_value(map_finding(finding)).expect("serialize issue");
 
     assert_eq!(
         projected,
         json!({
             "path": "src/main.st",
-            "file": "/project/src/main.st",
+            "file": Path::new("/project/src/main.st").display().to_string(),
             "line": 3,
             "column": 5,
             "endLine": 3,
@@ -402,7 +238,7 @@ fn diagnostic_projection_uses_public_coordinates_and_preserves_related_evidence(
             "severity": "error",
             "message": "primary",
             "code": "E-DEMO",
-            "source": "trust-analysis",
+            "source": "trust-lsp",
             "related": [{
                 "line": 1,
                 "column": 2,
@@ -417,30 +253,215 @@ fn diagnostic_projection_uses_public_coordinates_and_preserves_related_evidence(
 
 #[test]
 fn diagnostic_projection_omits_blank_code_and_empty_related_list() {
-    let diagnostic = DiagnosticItem {
-        code: "   ".to_string(),
-        severity: "Warning".to_string(),
+    let finding = trust_lsp::Finding {
+        path: "main.st".to_string(),
+        file: PathBuf::from("/main.st"),
+        line: 1,
+        column: 1,
+        end_line: 1,
+        end_column: 2,
+        start: 0,
+        end: 1,
+        severity: "warning",
+        code: Some("   ".to_string()),
         message: "warning".to_string(),
-        range: Range {
-            start: Position {
-                line: 0,
-                character: 0,
-            },
-            end: Position {
-                line: 0,
-                character: 1,
-            },
-        },
-        span: ByteSpan { start: 0, end: 1 },
         related: Vec::new(),
     };
 
-    let projected = serde_json::to_value(map_diagnostic("main.st", "/main.st", diagnostic))
-        .expect("serialize issue");
+    let projected = serde_json::to_value(map_finding(finding)).expect("serialize issue");
 
     assert!(projected.get("code").is_none(), "{projected:#}");
     assert!(projected.get("related").is_none(), "{projected:#}");
     assert_eq!(projected["severity"], "warning");
+}
+
+/// Issue #236: the agent measured a CODESYS project under the IEC rules, because its diagnostics
+/// came from an engine that never received the vendor profile. Catches that route: specification
+/// 14's `codesys` profile (IEC_DEVIATIONS DEV-037) makes a narrowing store a warning, as
+/// `trust-lsp check` reports it.
+#[test]
+fn diagnostics_follow_the_projects_vendor_profile_as_trust_lsp_check_does() {
+    let project = TestProject::new("diagnostics-codesys");
+    project.write(
+        "trust-lsp.toml",
+        "[project]\ninclude_paths = [\"src\"]\nvendor_profile = \"codesys\"\n",
+    );
+    project.write(
+        "src/main.st",
+        "PROGRAM Main\nVAR\n    s : SINT;\n    b : BYTE;\nEND_VAR\nb := s;\nEND_PROGRAM\n",
+    );
+
+    let payload = diagnostics_payload(&project.root, &project.root, None, None, None, None)
+        .expect("analyze project");
+
+    let narrowing: Vec<&Value> = payload["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .filter(|issue| issue["code"] == "E203")
+        .collect();
+    assert_eq!(narrowing.len(), 1, "{payload:#}");
+    assert_eq!(narrowing[0]["severity"], "warning", "{payload:#}");
+    assert_eq!(narrowing[0]["message"], "cannot assign 'SINT' to 'BYTE'");
+    assert_eq!(payload["errors"], 0, "{payload:#}");
+}
+
+/// Specification 20 §3 and §7: a library that the project's configuration names outside the agent
+/// workspace is analyzed, so that its function block resolves in the project, but its own findings
+/// are not listed. Catches a route that leaves the library out (an undefined type in the project)
+/// and one that lists findings of files outside the workspace.
+#[test]
+fn a_library_outside_the_workspace_is_analyzed_but_not_listed() {
+    let project = TestProject::new("diagnostics-outside-library");
+    let library = TestProject::new("diagnostics-outside-library-shared");
+    library.write(
+        "fb_lib.st",
+        "FUNCTION_BLOCK fbLib\nVAR_INPUT\n    x : INT;\nEND_VAR\nVAR\n    v : INT;\nEND_VAR\nv := MissingInLibrary;\nEND_FUNCTION_BLOCK\n",
+    );
+    project.write(
+        "trust-lsp.toml",
+        &format!(
+            "[project]\ninclude_paths = [\"src\"]\nlibrary_paths = [{:?}]\n",
+            library.root.display().to_string()
+        ),
+    );
+    project.write(
+        "src/main.st",
+        "PROGRAM Main\nVAR\n    fb : fbLib;\nEND_VAR\nfb(x := 1);\nEND_PROGRAM\n",
+    );
+
+    let payload = diagnostics_payload(&project.root, &project.root, None, None, None, None)
+        .expect("analyze project");
+
+    let files = issue_files(&payload);
+    assert!(
+        files.iter().all(|file| !file.ends_with("fb_lib.st")),
+        "a file outside the workspace is not listed: {payload:#}"
+    );
+    assert!(
+        !payload["issues"]
+            .as_array()
+            .expect("issues")
+            .iter()
+            .any(|issue| issue["message"].as_str().unwrap_or("").contains("fbLib")),
+        "the library's function block resolves: {payload:#}"
+    );
+}
+
+/// The listed issues as (path, line, code).
+fn listed(payload: &Value) -> Vec<(String, u64, String)> {
+    payload["issues"]
+        .as_array()
+        .expect("issues array")
+        .iter()
+        .map(|issue| {
+            (
+                issue["path"].as_str().expect("issue path").to_owned(),
+                issue["line"].as_u64().expect("issue line"),
+                issue["code"].as_str().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// Specification 20 §7: `page` and `page_size` cut a window of the sorted issues (#236: an
+/// unpaged response of 13.7 MB exceeded real clients' frame limits), while `errors`, `warnings`
+/// and `totalIssues` count every listed issue. Catches counts over the page alone, a page past the
+/// last that repeats it, and paging fields on an unpaged response. The language server already sorts
+/// these files; the agent's own sort before the cut is pinned with a library elsewhere in the
+/// workspace (agent contract tests).
+#[test]
+fn a_page_lists_its_issues_and_the_counts_cover_all_of_them() {
+    let project = TestProject::new("diagnostics-page");
+    for name in ["c", "a", "b"] {
+        project.write(
+            &format!("src/{name}.st"),
+            &invalid_program(&format!("P{name}"), "Missing"),
+        );
+    }
+    // Each file holds a program that no configuration runs (W009 on line 1) and an undefined
+    // identifier (E101 on line 5): six issues, three errors and three warnings, by file and line.
+    let issue =
+        |file: &str, line: u64, code: &str| (format!("src/{file}.st"), line, code.to_owned());
+    let all = diagnostics_payload(&project.root, &project.root, None, None, None, None)
+        .expect("analyze project");
+    assert_eq!(
+        listed(&all),
+        vec![
+            issue("a", 1, "W009"),
+            issue("a", 5, "E101"),
+            issue("b", 1, "W009"),
+            issue("b", 5, "E101"),
+            issue("c", 1, "W009"),
+            issue("c", 5, "E101"),
+        ],
+        "{all:#}"
+    );
+    assert_eq!((&all["errors"], &all["warnings"]), (&json!(3), &json!(3)));
+    for field in ["page", "pageSize", "totalIssues", "totalPages"] {
+        assert!(
+            all.get(field).is_none(),
+            "unpaged, without {field}: {all:#}"
+        );
+    }
+
+    let page = |number, size| {
+        diagnostics_payload(
+            &project.root,
+            &project.root,
+            None,
+            None,
+            None,
+            Some(IssuePage { number, size }),
+        )
+        .expect("analyze project")
+    };
+    // Page 2 of four issues each holds the fifth and the sixth.
+    let second = page(2, 4);
+    assert_eq!(
+        listed(&second),
+        vec![issue("c", 1, "W009"), issue("c", 5, "E101")]
+    );
+    assert_eq!(
+        [
+            &second["errors"],
+            &second["warnings"],
+            &second["totalIssues"]
+        ],
+        [&json!(3), &json!(3), &json!(6)]
+    );
+    assert_eq!(
+        [&second["page"], &second["pageSize"], &second["totalPages"]],
+        [&json!(2), &json!(4), &json!(2)]
+    );
+    // A page past the last is empty, with the same totals.
+    let past = page(3, 4);
+    assert_eq!(listed(&past), Vec::new());
+    assert_eq!(
+        [&past["totalIssues"], &past["totalPages"]],
+        [&json!(6), &json!(2)]
+    );
+
+    // A project without issues has one page, an empty one.
+    let clean = TestProject::new("diagnostics-page-clean");
+    clean.write(
+        "src/main.st",
+        "CONFIGURATION Plant\nTASK MainTask (PRIORITY := 1);\nPROGRAM MainInstance WITH MainTask : Main;\nEND_CONFIGURATION\nPROGRAM Main\nEND_PROGRAM\n",
+    );
+    let empty = diagnostics_payload(
+        &clean.root,
+        &clean.root,
+        None,
+        None,
+        None,
+        Some(IssuePage { number: 1, size: 4 }),
+    )
+    .expect("analyze project");
+    assert_eq!(listed(&empty), Vec::new(), "{empty:#}");
+    assert_eq!(
+        [&empty["totalIssues"], &empty["totalPages"]],
+        [&json!(0), &json!(1)]
+    );
 }
 
 #[test]

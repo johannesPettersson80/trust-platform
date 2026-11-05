@@ -60,7 +60,8 @@ fn spawn_control_server(response: Value) -> (String, Receiver<Value>, JoinHandle
         request_tx
             .send(serde_json::from_str(line.trim_end()).expect("parse control request"))
             .expect("send captured request");
-        writeln!(stream, "{}", serde_json::to_string(&response).unwrap())
+        stream
+            .write_all(format!("{}\n", serde_json::to_string(&response).unwrap()).as_bytes())
             .expect("write control response");
     });
     (endpoint, request_rx, server)

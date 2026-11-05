@@ -396,7 +396,9 @@ END_PROGRAM
                 "trust-lsp.hmiCatalogue",
                 "trust-lsp.hmiBundle",
                 "trust-lsp.hmiDeploy",
+                "trust-lsp.hmiLiveBridge",
                 "trust-lsp.hmiLiveGate",
+                "trust-lsp.hmiLiveOperation",
                 "trust-lsp.hmiTexts",
                 "trust-lsp.hmiQuality",
                 "trust-lsp.hmiFaceplates",
@@ -422,6 +424,12 @@ END_PROGRAM
                 "trust-lsp.hmiAgent.discard",
                 "trust-lsp.hmiAgent.checkInput",
                 "trust-lsp.hmiAgent.checkTarget",
+                "trust-lsp.hmiAgent.openSimulatorSession",
+                "trust-lsp.hmiAgent.closeSimulatorSession",
+                "trust-lsp.hmiAgent.simulatorSessions",
+                "trust-lsp.hmiAgent.admitSimulatorLogin",
+                "trust-lsp.hmiAgent.runSimulatorJourney",
+                "trust-lsp.hmiAgent.cancelSimulatorJourney",
             ]
         );
     }

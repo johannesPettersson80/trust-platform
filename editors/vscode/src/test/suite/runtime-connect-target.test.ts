@@ -676,8 +676,10 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
       (await sidebar.pickerItems()).some((item) => item.id === PROJECT_ID));
     await sidebar.select(PROJECT_ID);
     await sidebar.press();
-    const failure = await waitFor("the project's runtime answering Connect", () =>
-      runtimeLifecycleService.debugDisabledFailure(fake.endpoint));
+    const failure = await waitFor("the project's runtime answering Connect", () => {
+      const failure = runtimeLifecycleService.lifecycleFailure();
+      return failure?.endpoint === fake.endpoint ? failure : undefined;
+    });
     assert.strictEqual(failure.kind, "debug_disabled");
     assert.strictEqual(
       getTrustConfiguration(folder.uri).get<string>("runtime.controlEndpoint"),
@@ -785,6 +787,28 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
       "HMI Live has no runtime to operate until the Simulator starts",
     );
     assert.strictEqual(snapshot.failure, undefined, "the runtime's disabled debugging is no reason of the Simulator's");
+  });
+
+  test("live values asks to connect to a selected runtime without a session", async () => {
+    // Catches Live Values telling the user to Start a selected online runtime that it has no session with, which only
+    // Connect can give it (specification 25, section 4.4). The language server words it; the extension shows it.
+    const config = getTrustConfiguration(folder.uri);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.controlEndpoint", fake.endpoint, vscode.ConfigurationTarget.WorkspaceFolder);
+    await setSelectedRuntimeId(fake.endpoint);
+    const capture = captureWebviewPanels();
+    cleanups.push(() => capture.restore());
+
+    await vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
+    const live = await waitFor("Live Values", () => capture.panels.find((panel) => panel.viewType === "trust-io-panel"));
+    const connect = "Connect to the selected runtime to see live values.";
+    await waitFor("the guidance in Live Values", () => (lastStatus(live) === connect ? connect : undefined));
+    // Live Values republishes its unavailable state at 100 and 500 ms; the guidance stays.
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    assert.strictEqual(lastStatus(live), connect);
+    const rendered = renderLiveValues(live.posted);
+    assert.strictEqual(rendered.status, connect, "the panel shows the guidance");
+    assert.notStrictEqual(rendered.state, "Debugging disabled", "no Connect has found debugging disabled");
   });
 
   test("live values names disabled debugging on a connected runtime", async () => {

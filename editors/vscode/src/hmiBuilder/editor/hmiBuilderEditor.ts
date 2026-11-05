@@ -366,7 +366,7 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
         void sendPlaced(true);
       }
       if (uri.toString() === screenUri.toString()) void sendScreen();
-      operator.stop("The HMI changed. Save and deploy it before operating again.");
+      operator.edited();
       if (/[/\\](pages|popups)[/\\][^/\\]+\.toml$/.test(uri.fsPath)) resendCatalogue();
     };
     const subscriptions = [

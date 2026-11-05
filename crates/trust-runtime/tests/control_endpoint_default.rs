@@ -478,7 +478,9 @@ fn unix_request(endpoint: &str, request: &str) -> Value {
     stream
         .set_read_timeout(Some(WAIT))
         .expect("set read timeout");
-    writeln!(stream, "{request}").expect("send request");
+    stream
+        .write_all(format!("{request}\n").as_bytes())
+        .expect("send request");
     let mut line = String::new();
     BufReader::new(stream)
         .read_line(&mut line)

@@ -9,6 +9,7 @@ mod deps;
 mod diagnostics;
 mod git;
 mod load;
+pub(crate) use load::LoadOptions;
 mod lockfile;
 
 use deps::{parse_project_dependencies, resolve_manifest_dependencies};

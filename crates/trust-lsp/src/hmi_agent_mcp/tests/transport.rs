@@ -2,15 +2,13 @@
 //! message lines and their 8 MiB limit, the loopback's answer read whole with its raw-byte limit,
 //! and the start, which needs the loopback's tool list.
 
-use std::io::Cursor;
 use std::net::{Ipv4Addr, SocketAddr, TcpListener};
 
 use serde_json::{json, Value};
 
 use super::super::bridge::CALL;
 use super::super::connection::Connection;
-use super::super::lines::{read_line, Line};
-use super::super::server::StartError;
+use super::super::tools::StartError;
 use super::super::Limits;
 use super::{
     call, ping, refusal, tools, unavailable, Calls, FakeBridge, Session, CAPABILITY, WORKSPACE,
@@ -64,28 +62,6 @@ fn a_line_over_8_mib_is_refused_and_the_next_line_is_served() {
         "the next line is the next message"
     );
     session.close();
-}
-
-/// Catches: the line reader splitting or joining lines wrongly, keeping a long line's bytes or
-/// losing a last line without a line end.
-#[test]
-fn lines_end_at_a_newline_and_are_limited_before_their_line_end() {
-    let mut input = Cursor::new(b"abc\r\nabcdefgh\r\nabcdefghi\n\nabcdefgh\rx\nlast".to_vec());
-    let mut lines = Vec::new();
-    while let Some(line) = read_line(&mut input, 8).expect("read") {
-        lines.push(line);
-    }
-    assert_eq!(
-        lines,
-        [
-            Line::Text(b"abc".to_vec()),
-            Line::Text(b"abcdefgh".to_vec()),
-            Line::TooLong,
-            Line::Text(Vec::new()),
-            Line::TooLong,
-            Line::Text(b"last".to_vec()),
-        ]
-    );
 }
 
 /// A tool result whose text is `text`, as the loopback's answer body.

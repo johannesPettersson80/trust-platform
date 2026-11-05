@@ -14,10 +14,11 @@
 //! own route (§21.4, `settings`).
 
 mod capability;
+mod follow;
 mod pulse;
 pub(super) mod settings;
 
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::thread;
@@ -33,22 +34,17 @@ use crate::hmi::access::config::HmiAccessConfig;
 use crate::hmi::access::policy::{authorize, effective_permission, within_limits};
 use crate::hmi::access::sessions::SessionInfo;
 use crate::hmi::catalogue::Catalogue;
-use crate::hmi::commands::plan::{matches, plan, Expected, Plan};
+use crate::hmi::commands::plan::{matches, plan, Expected, Plan, WRITE_TIMEOUT};
 use crate::hmi::commands::registry::{Begin, CommandAnswer, CommandRegistry, Outcome};
 use crate::hmi::commands::write::{path_text, WriteAction, WriteRefused, Written};
 use crate::hmi::member_paths::MemberPath;
 use crate::hmi::write_value::json_of;
 
-/// How long the runtime thread may take to write a command.
-const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 /// How often a confirmation is looked for.
 const POLL: Duration = Duration::from_millis(50);
-/// The most commands followed at once for confirmation or a remote pulse's end.
-const MAX_FOLLOWED: usize = 64;
 /// The longest command id.
 const MAX_ID: usize = 128;
 
-static FOLLOWED: AtomicUsize = AtomicUsize::new(0);
 static AUDIT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 /// A command as the page sends it.
@@ -287,7 +283,7 @@ impl Commands {
         } = applied;
         let id = request.id.trim().to_string();
         let remote = crate::hmi::remote_values::remote_path(&plan.path).is_some();
-        if plan.confirm.is_none() && !(remote && plan.pulse.is_some()) {
+        if !plan.is_followed() {
             // A local pulse's final outcome is recorded when the runtime has written its end.
             if plan.pulse.is_none() {
                 let applied = CommandAnswer::new(&id, Outcome::Applied);
@@ -295,17 +291,12 @@ impl Commands {
             }
             return;
         }
-        if FOLLOWED
-            .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
-                (count < MAX_FOLLOWED).then_some(count + 1)
-            })
-            .is_err()
-        {
+        let Some(slot) = follow::FollowSlot::take() else {
             // Not followed: final as applied. A local pulse still ends; its end is the runtime's.
             let applied = CommandAnswer::new(&id, Outcome::Applied);
             self.finished(Some(&session), &request, Some(&plan), &applied);
             return;
-        }
+        };
         let commands = Commands {
             registry: self.registry.clone(),
             access: self.access.clone(),
@@ -314,6 +305,7 @@ impl Commands {
             alarms: self.alarms.clone(),
         };
         thread::spawn(move || {
+            let _slot = slot;
             let id = request.id.trim().to_string();
             let started = Instant::now();
             match (plan.pulse, &ended) {
@@ -338,14 +330,11 @@ impl Commands {
                     }
                     commands.registry.later(&session.id, ended);
                 }
-                (Some(pulse), Some(ended)) => {
+                (Some(_), Some(ended)) => {
                     // The runtime writes the end (§21.5 item 1); the page is told it before the
                     // confirmation, which waits for it at most until the pulse and the
                     // confirmation time have passed and the runtime had time to write.
-                    let wait = pulse
-                        .max(plan.timeout)
-                        .saturating_add(WRITE_TIMEOUT)
-                        .saturating_sub(started.elapsed());
+                    let wait = plan.decided_within().saturating_sub(started.elapsed());
                     let _ = ended.recv_timeout(wait);
                 }
                 _ => {}
@@ -355,7 +344,6 @@ impl Commands {
                     Expected::Value(value) => Some(value.clone()),
                     Expected::Readback => json_of(&written.readback),
                 };
-                let deadline = started + plan.timeout;
                 let mut last = None;
                 let confirmed = loop {
                     last = commands.observe(point, &session).or(last);
@@ -369,7 +357,7 @@ impl Commands {
                     {
                         break true;
                     }
-                    if Instant::now() >= deadline {
+                    if started.elapsed() >= plan.timeout {
                         break false;
                     }
                     thread::sleep(POLL);
@@ -398,7 +386,6 @@ impl Commands {
                 commands.finished(Some(&session), &request, Some(&plan), &answer);
                 commands.registry.later(&session.id, answer);
             }
-            FOLLOWED.fetch_sub(1, Ordering::AcqRel);
         });
     }
 

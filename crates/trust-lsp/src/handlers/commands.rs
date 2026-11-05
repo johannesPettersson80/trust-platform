@@ -52,7 +52,11 @@ mod hmi_faceplates;
 #[path = "commands/hmi_files.rs"]
 mod hmi_files;
 mod hmi_generate;
+// What Live mode bridges to the run target's HMI web server (specification 39 §11 item 6).
+mod hmi_live_bridge;
 mod hmi_live_gate;
+// Whether Live mode's operating view ends, and why (specification 39 §11 item 6).
+mod hmi_live_operation;
 mod hmi_own_equipment;
 mod hmi_page_proposal;
 #[path = "commands/hmi_placed.rs"]
@@ -75,6 +79,8 @@ pub use visual::VISUAL_COMMANDS;
 // the sidebar's gates and the examples gallery.
 pub(crate) mod project;
 pub use project::PROJECT_COMMANDS;
+// The credentials that cross the channel (specification 25 §6.4), named in the `initialize` answer.
+pub(crate) mod credentials;
 // The run targets and the runtime requests of the extension (specification 25 §4, §5.1, §6.4).
 mod run_targets;
 pub use run_targets::RUN_TARGET_COMMANDS;
@@ -92,7 +98,9 @@ pub const HMI_FILE_CHECK_COMMAND: &str = "trust-lsp.hmiFileCheck";
 pub const HMI_CATALOGUE_COMMAND: &str = "trust-lsp.hmiCatalogue";
 pub const HMI_BUNDLE_COMMAND: &str = "trust-lsp.hmiBundle";
 pub const HMI_DEPLOY_COMMAND: &str = "trust-lsp.hmiDeploy";
+pub const HMI_LIVE_BRIDGE_COMMAND: &str = "trust-lsp.hmiLiveBridge";
 pub const HMI_LIVE_GATE_COMMAND: &str = "trust-lsp.hmiLiveGate";
+pub const HMI_LIVE_OPERATION_COMMAND: &str = "trust-lsp.hmiLiveOperation";
 pub const HMI_TEXTS_COMMAND: &str = "trust-lsp.hmiTexts";
 pub const HMI_QUALITY_COMMAND: &str = "trust-lsp.hmiQuality";
 pub const HMI_FACEPLATES_COMMAND: &str = "trust-lsp.hmiFaceplates";
@@ -106,6 +114,9 @@ pub const HMI_PROPOSE_PAGE_COMMAND: &str = "trust-lsp.hmiProposePage";
 pub const HMI_PROPOSE_SETTINGS_PAGE_COMMAND: &str = "trust-lsp.hmiProposeSettingsPage";
 pub const HMI_RENAME_INSTANCE_COMMAND: &str = "trust-lsp.hmiRenameInstance";
 pub const CONTROL_KEEP_PARAMETERS_COMMAND: &str = "trust-lsp.controlKeepParameters";
+/// Starts an HMI agent simulator journey, whose end the language client hears as a notification, so
+/// it runs on the path that holds the client (specification 43, AT-08).
+pub const HMI_AGENT_RUN_JOURNEY_COMMAND: &str = "trust-lsp.hmiAgent.runSimulatorJourney";
 
 /// Commands the server advertises through `executeCommandProvider`.
 pub const EXECUTE_COMMANDS: &[&str] = &[
@@ -118,7 +129,9 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     HMI_CATALOGUE_COMMAND,
     HMI_BUNDLE_COMMAND,
     HMI_DEPLOY_COMMAND,
+    HMI_LIVE_BRIDGE_COMMAND,
     HMI_LIVE_GATE_COMMAND,
+    HMI_LIVE_OPERATION_COMMAND,
     HMI_TEXTS_COMMAND,
     HMI_QUALITY_COMMAND,
     HMI_FACEPLATES_COMMAND,
@@ -144,6 +157,12 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     "trust-lsp.hmiAgent.discard",
     "trust-lsp.hmiAgent.checkInput",
     "trust-lsp.hmiAgent.checkTarget",
+    "trust-lsp.hmiAgent.openSimulatorSession",
+    "trust-lsp.hmiAgent.closeSimulatorSession",
+    "trust-lsp.hmiAgent.simulatorSessions",
+    "trust-lsp.hmiAgent.admitSimulatorLogin",
+    HMI_AGENT_RUN_JOURNEY_COMMAND,
+    "trust-lsp.hmiAgent.cancelSimulatorJourney",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -195,6 +214,7 @@ pub async fn execute_command(
                 apply_workspace_edit_in_safe_phases(client, edit).await?
             ))
         }
+        HMI_AGENT_RUN_JOURNEY_COMMAND => Some(hmi_agent::start_journey(client, params.arguments)),
         _ => execute_read_command(state, params),
     }
 }
@@ -243,7 +263,11 @@ pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -
             params.arguments,
         )),
         HMI_DEPLOY_COMMAND => Some(hmi_deploy::deploy_value(state, params.arguments)),
+        HMI_LIVE_BRIDGE_COMMAND => Some(hmi_live_bridge::live_bridge_value(params.arguments)),
         HMI_LIVE_GATE_COMMAND => Some(hmi_live_gate::live_gate_value(params.arguments)),
+        HMI_LIVE_OPERATION_COMMAND => {
+            Some(hmi_live_operation::live_operation_value(params.arguments))
+        }
         HMI_RENAME_INSTANCE_COMMAND => Some(hmi_rename_instance::rename_instance(
             state,
             params.arguments,

@@ -176,7 +176,8 @@ impl AgentServer {
                 "notes": [
                     "Transport is stdio JSON-RPC only in v1.",
                     "Network listeners are intentionally unsupported in this initial agent surface.",
-                    "lsp.diagnostics and lsp.format reuse the in-process Web IDE analysis/formatting services.",
+                    "lsp.diagnostics answers with the language server's own analysis, as trust-lsp check does: the project's trust-lsp.toml (include paths, libraries, vendor profile, severity overrides) applies, and page with page_size bounds the listed issues.",
+                    "lsp.format reuses the in-process Web IDE formatting service.",
                     "lsp.ast_canonicalize and lsp.ast_similarity expose the canonical AST 5-gram normalization path used by contamination and dedup tooling.",
                     "runtime.compile_reload returns diagnostics plus build/reload status for iterative repair loops.",
                     "runtime.reload rebuilds program.tpi and sends it with bytecode.reload to the configured control endpoint.",
@@ -310,19 +311,26 @@ impl AgentServer {
         let sources_root = params
             .sources_root
             .as_deref()
-            .map(|path| self.resolve_project_subpath(&project_root, path))
+            .map(|path| self.resolve_project_source(&project_root, path))
             .transpose()?;
         let path = params
             .path
             .as_deref()
-            .map(normalize_workspace_path)
-            .transpose()?
-            .map(|path| path.to_string_lossy().replace('\\', "/"));
+            .map(|path| -> Result<String, AgentCommandError> {
+                self.resolve_project_source(&project_root, path)?;
+                Ok(normalize_workspace_path(path)?
+                    .to_string_lossy()
+                    .replace('\\', "/"))
+            })
+            .transpose()?;
+        let page = issue_page(params.page, params.page_size)?;
         crate::workflow::diagnostics_payload(
+            &self.workspace_root,
             &project_root,
             sources_root.as_deref(),
             path.as_deref(),
             params.content,
+            page,
         )
         .map_err(AgentCommandError::from_anyhow)
     }
@@ -421,9 +429,10 @@ impl AgentServer {
             .runtime
             .sources_root
             .as_deref()
-            .map(|path| self.resolve_project_subpath(&project_root, path))
+            .map(|path| self.resolve_project_source(&project_root, path))
             .transpose()?;
         let mut payload = match crate::workflow::compile_reload_payload(
+            &self.workspace_root,
             &project_root,
             sources_root.as_deref(),
             params.runtime.endpoint,
@@ -479,6 +488,26 @@ impl AgentServer {
                 "response": control.raw_response,
             }
         }))
+    }
+}
+
+/// The page of listed issues that `page` (from 1) and `page_size` (the issues on each) ask for,
+/// given together; every issue when both are absent (specification 20 §7).
+fn issue_page(
+    page: Option<usize>,
+    page_size: Option<usize>,
+) -> Result<Option<crate::workflow::IssuePage>, AgentCommandError> {
+    match (page, page_size) {
+        (None, None) => Ok(None),
+        (Some(number), Some(size)) if number >= 1 && size >= 1 => {
+            Ok(Some(crate::workflow::IssuePage { number, size }))
+        }
+        (Some(_), Some(_)) => Err(AgentCommandError::invalid_params(
+            "'page' and 'page_size' must both be at least 1 when present.",
+        )),
+        _ => Err(AgentCommandError::invalid_params(
+            "'page' and 'page_size' must be given together.",
+        )),
     }
 }
 
@@ -782,6 +811,8 @@ struct LspDiagnosticsParams {
     sources_root: Option<String>,
     path: Option<String>,
     content: Option<String>,
+    page: Option<usize>,
+    page_size: Option<usize>,
 }
 
 #[derive(Debug, Default, Deserialize)]

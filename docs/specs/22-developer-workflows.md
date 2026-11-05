@@ -410,6 +410,15 @@ made the suite compile `trust-wasm-analysis`, `trust-runtime` and the five
 crates that use them again: 14.5 minutes on Linux and 21 on macOS (`main`,
 4 November 2026).
 
+The gate repeats the mesh TLS tests named by three filters:
+- the certificate requirement (`mesh::tests::mesh_tls`);
+- the certificate a socket presents (`mesh::security_tests::mesh_tls`);
+- the two-peer TLS exchange (`mesh::hmi_remote_tests::two_tls_peers`).
+
+A run that passes without a passing test of every filter fails the gate. Until
+5 November 2026 its filter named a test deleted long before, so every run
+reported "0 passed" and the gate passed without testing anything.
+
 The full test suite has two hours on macOS and Windows and one hour on Linux, which
 `CI_FULL_TEST_TIMEOUT_SECONDS` may change: Windows runs one test at a time, and a macOS
 runner took longer than an hour (28 October 2026). An attempt that exceeds its limit fails.
@@ -451,9 +460,13 @@ request's head with its base over the full history (`git diff --name-only
 names the areas the change touches. A moved file counts at its old and its new
 path, so moving a page out of a watched tree still runs the checks that publish
 it. A job that checks an area runs when that area changed
-and is skipped otherwise. A push to `main` uses the same detection against the
-push's previous commit, with the same list of paths per area, kept in
-`.github/paths/`. A workflow with a `changes` job ends with a `conclusion` job
+and is skipped otherwise. A push to `main` uses the same detection, with the
+same list of paths per area, kept in `.github/paths/`, against the commit of
+that workflow's newest passed run on a push to `main`, as GitHub lists the
+runs: a newer push replaces a run that still waits (below), so comparing with
+the push's previous commit would never compare the replaced push's changes
+(4 November 2026). Without such a run, or when GitHub cannot list the runs,
+every check runs. A workflow with a `changes` job ends with a `conclusion` job
 that runs unless the run was cancelled, needs every other job, and fails unless
 each succeeded or was skipped; a failed `changes` job therefore fails the
 workflow instead of skipping its checks. GitHub's own path filters compare only the first 300 changed files, so

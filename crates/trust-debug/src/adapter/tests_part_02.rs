@@ -361,7 +361,9 @@ fn spawn_remote_io_force_server() -> (
                     "error": format!("unexpected request {other:?}")
                 }),
             };
-            writeln!(stream, "{response}").expect("write control response");
+            stream
+                .write_all(format!("{response}\n").as_bytes())
+                .expect("write control response");
         }
     });
     (addr, requests, handle)
@@ -705,7 +707,7 @@ pub(super) fn send_control_request(
                     .as_object_mut()
                     .expect("control request should be an object")
                     .insert("auth".to_string(), serde_json::json!(auth));
-                writeln!(stream, "{request}").unwrap();
+                stream.write_all(format!("{request}\n").as_bytes()).unwrap();
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
                 reader.read_line(&mut line).unwrap();

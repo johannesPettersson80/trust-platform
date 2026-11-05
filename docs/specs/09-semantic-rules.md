@@ -364,6 +364,12 @@ is checked against the array bounds at runtime. This follows IEC 61131-3 Ed.3
 §6.4.4.5.1, which defines the error in terms of the subscript value and notes
 that the error can only be detected at runtime for a computed index.
 
+An inherited member used as a subscript is a computed index: a name the
+constant evaluator cannot fold, but which resolves in the referencing scope
+or through the enclosing POU's EXTENDS chain, gets the runtime bounds check
+instead of an undefined-constant error. A subscript name that resolves in
+neither stays an undefined constant.
+
 ## 4. Reference Errors
 
 ### 4.1 Undefined Reference
@@ -416,16 +422,17 @@ The semantic reference boundary also enforces:
   same-family source or `NULL`; and
 - reference arithmetic and reference ordering comparisons are invalid.
 
-Pointer-target vendor leniency (IEC_DEVIATIONS DEV-028): the family rule
+Pointer-target vendor leniency (IEC_DEVIATIONS DEV-039): the family rule
 above has one CODESYS-parity carve-out for pointer bindings — a call
 argument or assignment binding between `POINTER TO CHAR` and
-`POINTER TO BYTE`, and between `POINTER TO STRING[n]` and
-`POINTER TO ARRAY[i..j] OF BYTE`, is diagnosed as a warning carrying the
+`POINTER TO BYTE`, and between `POINTER TO STRING[n]` and a byte-buffer
+pointer — a `POINTER TO ARRAY[i..j] OF BYTE` or a plain
+`POINTER TO BYTE` — is diagnosed as a warning carrying the
 ordinary mismatch code (`E205`/`E203`), not an error; the vendor
-`MemCopy` byte-pointer formals and the vendor JSON parser's data-buffer
-formal bind without source contortions. Every other pointee mismatch
-(wider scalar classes, array bound widening, records, other families)
-stays an error.
+`MemCopy` byte-pointer formals (element and base-address idiom) and the
+vendor JSON parser's data-buffer formal bind without source contortions.
+Every other pointee mismatch (wider scalar classes, array bound
+widening, records, other families) stays an error.
 
 At runtime, a failed dynamic OOP assignment attempt stores `NULL`; it is not a
 runtime fault. Dereferencing that result without the required null check is a

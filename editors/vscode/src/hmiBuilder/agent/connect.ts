@@ -11,7 +11,7 @@ import { startAgentBridge, AgentBridge, BridgeTool } from "./bridge";
 export const CONNECT_AGENT_COMMAND = "trust-lsp.hmiBuilder.connectAgent";
 /** Explicitly creates a private connection for one workspace in this editor window. */
 export function registerAgentConnection(context: vscode.ExtensionContext, getClient?: LspClientProvider): void {
-  registerSimulatorSessions(context);
+  registerSimulatorSessions(context, getClient);
   const connections = new Map<string, { bridge: AgentBridge; connectionFile: string }>();
   const stop = async (id: string): Promise<void> => {
     const connection = connections.get(id);

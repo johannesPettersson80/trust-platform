@@ -223,7 +223,7 @@ fn serve(stream: TcpStream, script: &Script, seen: &Mutex<Vec<Value>>) {
             }
         }
         // The client may already have given up on this answer.
-        let _ = writeln!(writer, "{answer}");
+        let _ = writer.write_all(format!("{answer}\n").as_bytes());
     }
 }
 
