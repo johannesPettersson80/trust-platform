@@ -231,6 +231,26 @@ impl AgentServer {
         Ok(full_path)
     }
 
+    /// A project-relative source root or source file that, once resolved, stays inside the project
+    /// as well as the workspace: a symbolic link out of either is `-32001` (canonical contract,
+    /// "Workspace filesystem containment"). A path that does not exist is left to its use.
+    pub(super) fn resolve_project_source(
+        &self,
+        project_root: &Path,
+        subpath: &str,
+    ) -> Result<PathBuf, AgentCommandError> {
+        let full_path = self.resolve_project_subpath(project_root, subpath)?;
+        if let Ok(resolved) = full_path.canonicalize() {
+            let project = project_root
+                .canonicalize()
+                .unwrap_or_else(|_| project_root.to_path_buf());
+            if !resolved.starts_with(project) {
+                return Err(AgentCommandError::path_outside_workspace(subpath));
+            }
+        }
+        Ok(full_path)
+    }
+
     pub(super) fn collect_harness_sources(
         &self,
         params: &HarnessLoadParams,

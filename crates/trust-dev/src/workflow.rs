@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
@@ -7,10 +6,10 @@ use base64::Engine;
 use serde::Serialize;
 use serde_json::{json, Value as JsonValue};
 use toml::Value as TomlValue;
-use trust_runtime::bundle_builder::{inspect_project_layout, resolve_sources_root};
+use trust_runtime::bundle_builder::inspect_project_layout;
 use trust_runtime::config::{IoConfig, RuntimeConfig, WebAuthMode};
 use trust_runtime::web::ide::{IdeRole, WebIdeState};
-use trust_wasm_analysis::{canonical_ast_similarity, canonical_ast_summary, DiagnosticItem};
+use trust_wasm_analysis::{canonical_ast_similarity, canonical_ast_summary};
 
 #[cfg(test)]
 #[path = "workflow/contract_tests.rs"]
@@ -53,13 +52,94 @@ struct AgentIssueRelated {
     message: String,
 }
 
+/// Which page of the listed issues a request asks for (specification 20 §7): `number` from 1,
+/// `size` issues on each.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IssuePage {
+    pub(crate) number: usize,
+    pub(crate) size: usize,
+}
+
+/// The issues a request lists and the counts over all of them; on a page, the page's issues and
+/// the page's place among all of them (specification 20 §7).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct IssueListing {
+    errors: usize,
+    warnings: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page_size: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_issues: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_pages: Option<usize>,
+    issues: Vec<AgentIssue>,
+}
+
+impl IssueListing {
+    /// `issues` sorted by file, position, severity, code and message, counted, and cut to `page`
+    /// when it is given. There is always at least one page; one past the last is empty.
+    fn new(mut issues: Vec<AgentIssue>, page: Option<IssuePage>) -> Self {
+        issues.sort_by(|a, b| {
+            (
+                &a.file,
+                a.line,
+                a.column,
+                a.severity.as_str(),
+                a.code.as_deref().unwrap_or(""),
+                a.message.as_str(),
+            )
+                .cmp(&(
+                    &b.file,
+                    b.line,
+                    b.column,
+                    b.severity.as_str(),
+                    b.code.as_deref().unwrap_or(""),
+                    b.message.as_str(),
+                ))
+        });
+        let count = |severity: &str| {
+            issues
+                .iter()
+                .filter(|issue| issue.severity == severity)
+                .count()
+        };
+        let (errors, warnings, total_issues) = (count("error"), count("warning"), issues.len());
+        let Some(IssuePage { number, size }) = page else {
+            return Self {
+                errors,
+                warnings,
+                page: None,
+                page_size: None,
+                total_issues: None,
+                total_pages: None,
+                issues,
+            };
+        };
+        Self {
+            errors,
+            warnings,
+            page: Some(number),
+            page_size: Some(size),
+            total_issues: Some(total_issues),
+            total_pages: Some(total_issues.div_ceil(size).max(1)),
+            issues: issues
+                .into_iter()
+                .skip(number.saturating_sub(1).saturating_mul(size))
+                .take(size)
+                .collect(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DiagnosticsSummary {
     target: String,
-    errors: usize,
-    warnings: usize,
-    issues: Vec<AgentIssue>,
+    #[serde(flatten)]
+    listing: IssueListing,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,9 +147,8 @@ struct DiagnosticsSummary {
 struct CompileReloadResult {
     target: String,
     dirty: bool,
-    errors: usize,
-    warnings: usize,
-    issues: Vec<AgentIssue>,
+    #[serde(flatten)]
+    listing: IssueListing,
     runtime_status: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     runtime_message: Option<String>,
@@ -87,15 +166,24 @@ struct FormatPreview {
 }
 
 pub(crate) fn diagnostics_payload(
+    workspace_root: &Path,
     project_root: &Path,
     sources_root: Option<&Path>,
     path: Option<&str>,
     content: Option<String>,
+    page: Option<IssuePage>,
 ) -> anyhow::Result<JsonValue> {
     if content.is_some() && path.is_none() {
         anyhow::bail!("content overrides require a file path");
     }
-    let summary = collect_diagnostics_summary(project_root, sources_root, path, content)?;
+    let summary = collect_diagnostics_summary(
+        workspace_root,
+        project_root,
+        sources_root,
+        path,
+        content,
+        page,
+    )?;
     serde_json::to_value(summary).context("serialize diagnostics payload")
 }
 
@@ -144,19 +232,19 @@ pub(crate) fn format_payload(
 }
 
 pub(crate) fn compile_reload_payload(
+    workspace_root: &Path,
     project_root: &Path,
     sources_root: Option<&Path>,
     endpoint: Option<String>,
     token: Option<String>,
 ) -> anyhow::Result<JsonValue> {
-    let summary = collect_diagnostics_summary(project_root, sources_root, None, None)?;
-    if summary.errors > 0 {
+    let summary =
+        collect_diagnostics_summary(workspace_root, project_root, sources_root, None, None, None)?;
+    if summary.listing.errors > 0 {
         return serde_json::to_value(CompileReloadResult {
             target: project_root.display().to_string(),
             dirty: false,
-            errors: summary.errors,
-            warnings: summary.warnings,
-            issues: summary.issues,
+            listing: summary.listing,
             runtime_status: "skipped",
             runtime_message: Some("Build and reload blocked by diagnostics.".to_string()),
             build: None,
@@ -174,9 +262,7 @@ pub(crate) fn compile_reload_payload(
             return serde_json::to_value(CompileReloadResult {
                 target: project_root.display().to_string(),
                 dirty: false,
-                errors: summary.errors,
-                warnings: summary.warnings,
-                issues: summary.issues,
+                listing: summary.listing,
                 runtime_status: "error",
                 runtime_message: Some(format!("Build failed: {error}")),
                 build: None,
@@ -193,9 +279,7 @@ pub(crate) fn compile_reload_payload(
             return serde_json::to_value(CompileReloadResult {
                 target: project_root.display().to_string(),
                 dirty: false,
-                errors: summary.errors,
-                warnings: summary.warnings,
-                issues: summary.issues,
+                listing: summary.listing,
                 runtime_status: "error",
                 runtime_message: Some(format!(
                     "Reload failed: unable to read '{}': {error}",
@@ -226,9 +310,7 @@ pub(crate) fn compile_reload_payload(
             return serde_json::to_value(CompileReloadResult {
                 target: project_root.display().to_string(),
                 dirty: false,
-                errors: summary.errors,
-                warnings: summary.warnings,
-                issues: summary.issues,
+                listing: summary.listing,
                 runtime_status: "error",
                 runtime_message: Some(format!("Reload failed: {error}")),
                 build: Some(build),
@@ -241,9 +323,7 @@ pub(crate) fn compile_reload_payload(
     serde_json::to_value(CompileReloadResult {
         target: project_root.display().to_string(),
         dirty: false,
-        errors: summary.errors,
-        warnings: summary.warnings,
-        issues: summary.issues,
+        listing: summary.listing,
         runtime_status: "ok",
         runtime_message: Some("Runtime reload succeeded.".to_string()),
         build: Some(build),
@@ -330,81 +410,63 @@ pub(crate) fn project_info_payload(
     }))
 }
 
+/// The diagnostics of the project at `project_root`, or of its file `path` with `content` in place
+/// of the saved text, as the language server reports them: the same findings as `trust-lsp check`,
+/// from the project's `trust-lsp.toml` (specification 20 §7). Only the files inside
+/// `workspace_root`, and under `sources_root` when it is given, are listed: a library that the
+/// configuration names outside the workspace is analyzed but not listed (specification 20 §3).
 fn collect_diagnostics_summary(
+    workspace_root: &Path,
     project_root: &Path,
     sources_root: Option<&Path>,
     path: Option<&str>,
     content: Option<String>,
+    page: Option<IssuePage>,
 ) -> anyhow::Result<DiagnosticsSummary> {
-    let ide = WebIdeState::new(Some(project_root.to_path_buf()));
-    let session = ide
-        .create_session(IdeRole::Viewer)
-        .context("create IDE session for diagnostics")?;
-
     let project_root = canonicalize_or_self(project_root);
-    let mut issues = Vec::new();
-    let target = if let Some(path) = path {
-        let diagnostics = ide
-            .diagnostics(&session.token, path, content)
-            .map_err(anyhow::Error::new)
-            .with_context(|| format!("collect diagnostics for '{path}'"))?;
-        let file = project_root.join(path).display().to_string();
-        issues.extend(
-            diagnostics
-                .into_iter()
-                .map(|item| map_diagnostic(path, &file, item)),
-        );
-        file
-    } else {
-        let paths = collect_project_source_paths(&project_root, sources_root)?;
-        for path in &paths {
-            let file = project_root.join(path).display().to_string();
-            let diagnostics = ide
-                .diagnostics(&session.token, path, None)
-                .map_err(anyhow::Error::new)
-                .with_context(|| format!("collect diagnostics for '{path}'"))?;
-            issues.extend(
-                diagnostics
-                    .into_iter()
-                    .map(|item| map_diagnostic(path.as_str(), &file, item)),
-            );
+    let workspace_root = canonicalize_or_self(workspace_root);
+    // `sources_root` narrows a whole-project listing; with `path`, only that file is listed.
+    let sources_root = match (path, sources_root) {
+        (None, Some(root)) if !root.is_dir() => {
+            anyhow::bail!("sources directory not found: {}", root.display())
         }
-        project_root.display().to_string()
+        (None, Some(root)) => Some(canonicalize_or_self(root)),
+        _ => None,
     };
-
-    issues.sort_by(|a, b| {
-        (
-            &a.file,
-            a.line,
-            a.column,
-            a.severity.as_str(),
-            a.code.as_deref().unwrap_or(""),
-            a.message.as_str(),
-        )
-            .cmp(&(
-                &b.file,
-                b.line,
-                b.column,
-                b.severity.as_str(),
-                b.code.as_deref().unwrap_or(""),
-                b.message.as_str(),
-            ))
-    });
-
-    let errors = issues
-        .iter()
-        .filter(|issue| issue.severity == "error")
-        .count();
-    let warnings = issues
-        .iter()
-        .filter(|issue| issue.severity == "warning")
-        .count();
-
+    let analysis = trust_lsp::project_diagnostics(&project_root, path.map(Path::new), content.as_deref())
+            // The reason names the file or the project.
+            .map_err(|reason| match path {
+                Some(_) => anyhow::anyhow!("collect diagnostics: {reason}"),
+                None => anyhow::anyhow!("collect project diagnostics: {reason}"),
+            })?;
+    // A folder that the language server does not analyze never answers as clean.
+    if let Some(root) = &sources_root
+        && !analysis.files.iter().any(|file| file.starts_with(root))
+    {
+        anyhow::bail!(
+            "sources directory {} holds none of the project's source files (the include_paths of \
+             trust-lsp.toml decide them)",
+            root.display()
+        );
+    }
+    let issues = analysis
+        .findings
+        .into_iter()
+        .filter(|finding| finding.file.starts_with(&workspace_root))
+        .filter(|finding| {
+            sources_root
+                .as_ref()
+                .is_none_or(|root| finding.file.starts_with(root))
+        })
+        .map(map_finding)
+        .collect();
+    let target = match path {
+        Some(path) => project_root.join(path).display().to_string(),
+        None => project_root.display().to_string(),
+    };
     Ok(DiagnosticsSummary {
         target,
-        errors,
-        warnings,
-        issues,
+        listing: IssueListing::new(issues, page),
     })
 }
 
@@ -427,92 +489,35 @@ fn read_analysis_source(
         .with_context(|| format!("read {label} source '{}'", full_path.display()))
 }
 
-fn collect_project_source_paths(
-    project_root: &Path,
-    sources_root: Option<&Path>,
-) -> anyhow::Result<Vec<String>> {
-    let project_root = canonicalize_or_self(project_root);
-    let sources_root = resolve_sources_root(&project_root, sources_root)?;
-    let mut paths = BTreeSet::new();
-    collect_source_paths(&project_root, &sources_root, &mut paths)?;
-    Ok(paths.into_iter().collect())
-}
-
-fn collect_source_paths(
-    project_root: &Path,
-    root: &Path,
-    paths: &mut BTreeSet<String>,
-) -> anyhow::Result<()> {
-    let entries = std::fs::read_dir(root)
-        .with_context(|| format!("read project sources under {}", root.display()))?;
-    for entry in entries {
-        let entry =
-            entry.with_context(|| format!("inspect project source under {}", root.display()))?;
-        let path = entry.path();
-        let file_type = entry
-            .file_type()
-            .with_context(|| format!("inspect project source '{}'", path.display()))?;
-        if file_type.is_dir() {
-            collect_source_paths(project_root, &path, paths)?;
-            continue;
-        }
-        if !file_type.is_file() && !file_type.is_symlink() {
-            continue;
-        }
-        if !is_structured_text_source(&path) {
-            continue;
-        }
-        let path = canonicalize_or_self(&path);
-        let relative = path.strip_prefix(project_root).with_context(|| {
-            format!(
-                "source '{}' does not live under project root '{}'",
-                path.display(),
-                project_root.display()
-            )
-        })?;
-        if !path.is_file() || !is_structured_text_source(&path) {
-            continue;
-        }
-        paths.insert(relative.to_string_lossy().replace('\\', "/"));
-    }
-    Ok(())
-}
-
-fn is_structured_text_source(path: &Path) -> bool {
-    path.extension().is_some_and(|extension| {
-        extension.eq_ignore_ascii_case("st") || extension.eq_ignore_ascii_case("pou")
-    })
-}
-
-fn map_diagnostic(path: &str, file: &str, diagnostic: DiagnosticItem) -> AgentIssue {
-    let severity = diagnostic.severity.to_ascii_lowercase();
-    let code = (!diagnostic.code.trim().is_empty()).then_some(diagnostic.code);
+/// A finding of the language server as an agent issue: the same coordinates (one-based lines and
+/// columns in UTF-16 code units, zero-based UTF-8 byte offsets) and its related places.
+fn map_finding(finding: trust_lsp::Finding) -> AgentIssue {
     AgentIssue {
-        path: path.to_string(),
-        file: file.to_string(),
-        line: diagnostic.range.start.line + 1,
-        column: diagnostic.range.start.character + 1,
-        end_line: diagnostic.range.end.line + 1,
-        end_column: diagnostic.range.end.character + 1,
+        path: finding.path,
+        file: finding.file.display().to_string(),
+        line: finding.line,
+        column: finding.column,
+        end_line: finding.end_line,
+        end_column: finding.end_column,
         span: AgentIssueSpan {
-            start: diagnostic.span.start,
-            end: diagnostic.span.end,
+            start: finding.start,
+            end: finding.end,
         },
-        severity,
-        message: diagnostic.message,
-        code,
-        source: "trust-analysis",
-        related: diagnostic
+        severity: finding.severity.to_owned(),
+        message: finding.message,
+        code: finding.code.filter(|code| !code.trim().is_empty()),
+        source: "trust-lsp",
+        related: finding
             .related
             .into_iter()
             .map(|item| AgentIssueRelated {
-                line: item.range.start.line + 1,
-                column: item.range.start.character + 1,
-                end_line: item.range.end.line + 1,
-                end_column: item.range.end.character + 1,
+                line: item.line,
+                column: item.column,
+                end_line: item.end_line,
+                end_column: item.end_column,
                 span: AgentIssueSpan {
-                    start: item.span.start,
-                    end: item.span.end,
+                    start: item.start,
+                    end: item.end,
                 },
                 message: item.message,
             })

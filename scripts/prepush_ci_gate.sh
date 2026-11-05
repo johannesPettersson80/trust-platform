@@ -46,7 +46,7 @@ run_step "02" "IEC log path guard" python3 ./scripts/check_iec_log_paths.py
 run_step "03" "Deterministic diagram workflow contract" env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts.tests.test_diagram_workflow -v
 run_step "04" "Rust fmt check" cargo fmt --all --check
 run_step "05" "Clippy deny warnings (trust-hir + trust-lsp)" cargo clippy -p trust-hir -p trust-lsp -- -D warnings
-run_step "06" "trust-lsp unit/integration tests" cargo test -p trust-lsp --bin trust-lsp
+run_step "06" "trust-lsp unit/integration tests" cargo test -p trust-lsp --lib
 run_step "07" "trust-runtime cross-target warning gate" ./scripts/check_runtime_cross_target_warnings.sh
 run_step "08" "trust-runtime mesh TLS stability gate" ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 8
 

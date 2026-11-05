@@ -67,3 +67,18 @@ coordinates, canonical token and five-gram results, similarity decisions, and
 non-mutating formatting previews. Optional project and source-root parameters
 retain their documented resolution bases; an inline override affects only the
 request result and never changes the selected file.
+
+`lsp.diagnostics` and the diagnostics of `runtime.compile_reload` are the
+language server's: the same findings that `trust-lsp check` reports for the
+selected project, which is loaded with its `trust-lsp.toml` (include paths,
+libraries, vendor profile, `[diagnostics]` toggles and severity overrides,
+specification 14), so that the agent and the editor never disagree on a
+project (issue #236, 4 November 2026). Only files inside the workspace are
+listed (§3): a library that the configuration names outside it is analyzed but
+not listed. The analysis writes nothing and fetches nothing: no index cache,
+and a git dependency only once its checkout exists. A `sources_root` or `path`
+that resolves outside the project or the workspace is `-32001`, and one that
+names no source file of the project is an error, never an empty list.
+`lsp.diagnostics` takes `page` and `page_size` together to bound
+the listed issues, while `errors`, `warnings` and, on a page, `totalIssues`
+count all of them.

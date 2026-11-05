@@ -7743,6 +7743,7 @@ dependencies = [
  "serde_json",
  "smol_str",
  "toml",
+ "trust-lsp",
  "trust-runtime",
  "trust-runtime-core",
  "trust-syntax",

@@ -91,14 +91,14 @@ tests=(
   "handlers::tests::mod_part_01::mod_part_01_part_01::lsp_golden_multi_root_protocol_snapshot"
 )
 
-test_list="$(cargo test -p trust-lsp --bin trust-lsp -- --list)"
+test_list="$(cargo test -p trust-lsp --lib -- --list)"
 for test_name in "${tests[@]}"; do
   if ! grep -Fqx "${test_name}: test" <<<"${test_list}"; then
     echo "[editor-smoke] exact filter selected zero tests: ${test_name}" >&2
     exit 1
   fi
-  echo "[editor-smoke] cargo test -p trust-lsp --bin trust-lsp ${test_name} -- --exact"
-  cargo test -p trust-lsp --bin trust-lsp "${test_name}" -- --exact
+  echo "[editor-smoke] cargo test -p trust-lsp --lib ${test_name} -- --exact"
+  cargo test -p trust-lsp --lib "${test_name}" -- --exact
 done
 
 echo "[editor-smoke] all checks passed"

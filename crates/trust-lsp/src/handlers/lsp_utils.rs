@@ -6,11 +6,11 @@ use tower_lsp::lsp_types::{
     Url,
 };
 
+use crate::document_text::{DocumentPosition, LineIndex};
 use trust_hir::symbols::{Symbol, SymbolTable};
 use trust_hir::SymbolKind as HirSymbolKind;
 use trust_hir::Type;
 use trust_ide::rename::RenameResult;
-use trust_lsp::document_text::{DocumentPosition, LineIndex};
 
 use crate::state::{uri_to_path, ServerState};
 

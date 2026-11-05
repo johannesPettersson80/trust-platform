@@ -5,8 +5,8 @@ use tower_lsp::lsp_types::{
     Position, Range, TextEdit, Url,
 };
 
+use crate::document_text::LineIndex;
 use serde_json::Value;
-use trust_lsp::document_text::LineIndex;
 use trust_syntax::{lex, Token, TokenKind};
 
 use crate::state::ServerState;

@@ -9,7 +9,8 @@ fn collect_config_diagnostics(
         .or_else(|| config_root_for_uri(state, uri))
         .unwrap_or_else(|| PathBuf::from("."));
     let config_path = uri_to_path(uri);
-    let config = ProjectConfig::from_contents(&root, config_path, content);
+    let config =
+        ProjectConfig::from_contents_with(&root, config_path, content, state.config_load_options());
     let mut diagnostics = Vec::new();
     for issue in crate::config::configuration_issues(content) {
         diagnostics.push(Diagnostic {

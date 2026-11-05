@@ -23,7 +23,7 @@
   "docs/diagrams/architecture/runtime-native-execution.puml": "b28beec0e08114d61c90e64edf7369eda0f6da56705511c5742a0832f2796481",
   "docs/diagrams/architecture/simulation-plant-system.puml": "3f74854f156646272880d1ebbeddd3f48202c5239dded420fc9636754f0c1379",
   "docs/diagrams/architecture/st-test-source-selection.puml": "1cc3a7be343a6af0dc54325867e3635ca374f01dd94c085914dfa809d5952179",
-  "docs/diagrams/architecture/system-architecture.puml": "c863d1d06ec6d3bc820e2b0c25d01f8a6d9c7a1408232110c9418de53751435d",
+  "docs/diagrams/architecture/system-architecture.puml": "4c87a93dd971578b62e824fa281d81cfcc26dafe20552e84244ef30ec1f3f3dd",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
   "docs/diagrams/debug/debug-architecture.puml": "db5dc51c1899e7f6183d56218107fee2bbb212967e6ea1a22c682d313a0c059d",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",
@@ -33,6 +33,6 @@
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
   "docs/diagrams/hir/hir-semantics.puml": "a5b9e1d1f1d85fa6cff3099c36b6a115664d3d1620b823dab462e29f3c2fafe4",
   "docs/diagrams/lsp/compiled-binding-sources.puml": "d239446b9578abb6b71b07ac1ad450e4c89374464a284ae232787f28eb1909c5",
-  "docs/diagrams/lsp/lsp-request-flow.puml": "4c6952358f178504623c1a607e04214cbc3a497dccf2a3f2d7cd85b0e48e1eae",
+  "docs/diagrams/lsp/lsp-request-flow.puml": "888560dff0d9986d59f08ac34bdc478d081f60e3a7d47969aaa6d73c1de9870a",
   "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"
 }

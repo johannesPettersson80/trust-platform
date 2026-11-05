@@ -3,22 +3,41 @@ use std::path::{Path, PathBuf};
 
 use tracing::warn;
 
+/// How a project's configuration is loaded. The editor and `trust-lsp check` load it as written
+/// (the default); an analysis for the agent API loads it contained, so that it writes nothing
+/// and fetches nothing, whatever the file says (specification 20 §7).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct LoadOptions {
+    /// Never clone or fetch a dependency, as `[build] dependencies_offline = true` does: a git
+    /// dependency is used only when its checkout already exists.
+    pub(crate) offline_dependencies: bool,
+    /// Never read or write the index cache, as `[indexing] cache = false` does.
+    pub(crate) no_index_cache: bool,
+}
+
 impl super::ProjectConfig {
-    /// Load configuration for a workspace root.
+    /// Load configuration for a workspace root as written. The language server loads through its
+    /// state's options (`load_with`).
+    #[cfg(test)]
     pub fn load(root: &Path) -> Self {
+        Self::load_with(root, LoadOptions::default())
+    }
+
+    /// Load configuration for a workspace root as `options` say.
+    pub(crate) fn load_with(root: &Path, options: LoadOptions) -> Self {
         let config_path = super::find_config_file(root);
         let Some(path) = config_path.clone() else {
-            return super::ProjectConfig::base(root, None);
+            return super::ProjectConfig::base(root, None).limited_by(options);
         };
         let Ok(contents) = std::fs::read_to_string(&path) else {
             warn!("Failed to read trust-lsp config at {}", path.display());
-            return super::ProjectConfig::base(root, config_path);
+            return super::ProjectConfig::base(root, config_path).limited_by(options);
         };
-        super::ProjectConfig::from_contents(root, config_path, &contents)
+        super::ProjectConfig::from_contents_with(root, config_path, &contents, options)
     }
 
     /// Why `contents` cannot be read as a project's `trust-lsp.toml`: the one-based line the
-    /// parser stopped at and its message. `None` when [`Self::from_contents`] reads it
+    /// parser stopped at and its message. `None` when [`Self::from_contents_with`] reads it
     /// (specification 25 §6.2).
     pub(crate) fn read_problem(contents: &str) -> Option<(usize, String)> {
         let error = toml::from_str::<super::ConfigFile>(contents).err()?;
@@ -33,8 +52,21 @@ impl super::ProjectConfig {
         Some((line, error.message().trim().to_owned()))
     }
 
+    /// Read `contents` as a project's `trust-lsp.toml` as written. The language server reads it
+    /// through its state's options (`from_contents_with`).
+    #[cfg(test)]
     pub fn from_contents(root: &Path, config_path: Option<PathBuf>, contents: &str) -> Self {
-        let mut config = super::ProjectConfig::base(root, config_path);
+        Self::from_contents_with(root, config_path, contents, LoadOptions::default())
+    }
+
+    /// Read `contents` as a project's `trust-lsp.toml`, as `options` say.
+    pub(crate) fn from_contents_with(
+        root: &Path,
+        config_path: Option<PathBuf>,
+        contents: &str,
+        options: LoadOptions,
+    ) -> Self {
+        let mut config = super::ProjectConfig::base(root, config_path).limited_by(options);
         let parsed: super::ConfigFile = match toml::from_str(contents) {
             Ok(parsed) => parsed,
             Err(err) => {
@@ -54,6 +86,7 @@ impl super::ProjectConfig {
             .map(|profile| profile.to_ascii_lowercase());
         config.stdlib = parsed.project.stdlib.into();
         config.build = parsed.build.into();
+        config.build.dependencies_offline |= options.offline_dependencies;
         let mut target_names = HashSet::new();
         config.targets = parsed
             .targets
@@ -64,6 +97,7 @@ impl super::ProjectConfig {
             })
             .collect();
         config.indexing = parsed.indexing.into();
+        config.indexing.cache_enabled &= !options.no_index_cache;
         let diagnostics_section = parsed.diagnostics;
         config.diagnostic_external_paths =
             super::resolve_paths(root, &diagnostics_section.external_paths);
@@ -142,6 +176,13 @@ impl super::ProjectConfig {
         config.dependency_resolution_issues = dependency_resolution_issues;
 
         config
+    }
+
+    /// This configuration without what `options` rule out.
+    fn limited_by(mut self, options: LoadOptions) -> Self {
+        self.build.dependencies_offline |= options.offline_dependencies;
+        self.indexing.cache_enabled &= !options.no_index_cache;
+        self
     }
 
     fn base(root: &Path, config_path: Option<PathBuf>) -> Self {
