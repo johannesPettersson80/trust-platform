@@ -16,6 +16,7 @@ import { scenarioFrame } from "../../hmiBuilder/agent/scenarios";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import type { HmiPageModel } from "../../hmiBuilder/drawing/model";
 import type { LiveSessionDeps } from "../../hmiBuilder/editor/liveSession";
+import { previewSession } from "../../hmiBuilder/agent/previews";
 import { liveBridge } from "../../hmiBuilder/editor/liveOperatorRuntime";
 
 const catalogue: Catalogue = {
@@ -189,22 +190,26 @@ suite("HMI completed authoring contracts", () => {
       ]);
       const running = runSimulator(WORKSPACE, "session-1", steps, models, new AbortController().signal);
       const journeyId = await startedJourney(calls);
-      const journey = { origin: "simulator", sessionId: "session-1", journeyId, name: "Fixture", outcomes: [], passed: true };
+      const journey = {
+        origin: "simulator",
+        sessionId: "session-1",
+        journeyId,
+        name: "Fixture",
+        outcomes: [],
+        passed: true,
+      };
       client.journeyEnded({ ...journey, journeyId: "an-earlier-journey-of-the-session", passed: false });
       client.journeyEnded(journey);
       assert.deepStrictEqual(await running, journey, "the answer of its own journey, not another of the session");
-      assert.deepStrictEqual(
-        calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney")?.[1],
-        {
-          workspace: WORKSPACE,
-          sessionId: "session-1",
-          journeyId,
-          cookie: "trust_hmi_session=4f1c0ffee",
-          target: TARGET,
-          steps,
-          models,
-        },
-      );
+      assert.deepStrictEqual(calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney")?.[1], {
+        workspace: WORKSPACE,
+        sessionId: "session-1",
+        journeyId,
+        cookie: "trust_hmi_session=4f1c0ffee",
+        target: TARGET,
+        steps,
+        models,
+      });
     });
   });
   test("a refused or abandoned simulator login closes the session in trust-lsp, and no cookie goes out", async () => {
@@ -222,7 +227,10 @@ suite("HMI completed authoring contracts", () => {
           connectSimulator(WORKSPACE, "Fixture", simulatorBridge(401), login),
           /The simulator refused the named HMI login\./,
         );
-        assert.strictEqual(await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), async () => undefined), undefined);
+        assert.strictEqual(
+          await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), async () => undefined),
+          undefined,
+        );
         const closed = calls.filter(([command]) => command === "trust-lsp.hmiAgent.closeSimulatorSession");
         assert.deepStrictEqual(closed, [
           ["trust-lsp.hmiAgent.closeSimulatorSession", { sessionId: "session-1" }],
@@ -300,7 +308,10 @@ suite("HMI completed authoring contracts", () => {
       await startedJourney(calls);
       const aborted = Date.now();
       controller.abort();
-      await assert.rejects(running, /^Error: CANCELLED: the simulator journey was cancelled; its answer did not arrive in time\.$/);
+      await assert.rejects(
+        running,
+        /^Error: CANCELLED: the simulator journey was cancelled; its answer did not arrive in time\.$/,
+      );
       const waited = Date.now() - aborted;
       assert.ok(waited >= 1900 && waited < 4000, `ended ${waited} ms after the cancel`);
     });
@@ -396,6 +407,40 @@ suite("HMI completed authoring contracts", () => {
     } finally {
       (vscode.workspace as any).getConfiguration = getConfiguration;
     }
+  });
+  // The draft's revision is trust-lsp's to check (`trust-lsp.hmiAgent.drafts`, `read`, specification 43 AT-07), proven
+  // by `a_draft_read_at_another_revision_is_refused` in crates/trust-lsp; this proves that a render asks for the
+  // revision its tool call names. Catches a render that reads the draft without it, and so renders another revision's
+  // pages (checklist U4c).
+  test("a render reads its draft at the revision its tool call names", async () => {
+    const refused = {
+      ok: false,
+      code: "CONFLICT",
+      message: "draft revision changed.",
+      retryable: false,
+    };
+    await withSimulatorCommands(
+      {
+        "trust-lsp.hmiAgent.simulatorSessions": () => success({ sessions: [] }),
+        "trust-lsp.hmiAgent.drafts": () => refused,
+      },
+      async (calls) => {
+        const project = {
+          root: vscode.Uri.file("/projects/preview-revision"),
+          workspaceId: "workspace-1",
+          storage: "/storage/workspace-1",
+          token: new vscode.CancellationTokenSource().token,
+        };
+        await assert.rejects(
+          previewSession(project, "font.ttf", { draftId: "draft-1", revision: "2" }, new AbortController().signal),
+          /^Error: CONFLICT: draft revision changed\.$/,
+        );
+        const read = calls.find(([command]) => command === "trust-lsp.hmiAgent.drafts")?.[1];
+        assert.strictEqual(read?.action, "read");
+        assert.strictEqual(read?.draftId, "draft-1");
+        assert.strictEqual(read?.revision, "2");
+      },
+    );
   });
   test("a change of the selected run target closes the simulator sessions in trust-lsp", async function () {
     this.timeout(60000);

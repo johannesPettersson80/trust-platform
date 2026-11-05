@@ -52,12 +52,14 @@ const MAX_CHANGED_FILES: usize = 32;
 
 /// `drafts`: the open drafts of this workspace (`list`), or one draft's pages and revision for the
 /// extension to render or to apply (`read`). An applied draft keeps only its receipts, so it is refused
-/// with `EXPIRED_DRAFT` for `read`. `cleanup` removes the finished records past retention, as the customer
-/// asks, and reports the records that cannot be read (specification 43, §6 and §8 repair 1).
+/// with `EXPIRED_DRAFT` for `read`; a `read` that names the `revision` its tool call names is refused at
+/// another revision (specification 43, AT-07). `cleanup` removes the finished records past retention, as
+/// the customer asks, and reports the records that cannot be read (specification 43, §6 and §8 repair 1).
 ///
 /// # Errors
 ///
-/// `INVALID_ARGUMENT` for an unknown action or a missing `draftId`; the refusals of the store.
+/// `INVALID_ARGUMENT` for an unknown action or a missing `draftId`; `CONFLICT` for a `read` at another
+/// revision; the refusals of the store.
 pub(super) fn drafts(argument: &Argument) -> AgentResult<Success> {
     let store = DraftStore::open(&argument.storage)?;
     match argument.raw.get("action").and_then(Value::as_str) {
@@ -76,6 +78,9 @@ pub(super) fn drafts(argument: &Argument) -> AgentResult<Success> {
                 .ok_or_else(|| AgentError::new(INVALID_ARGUMENT, "draftId is required."))?;
             let draft = owned_draft(&store, argument, id)?;
             require_retained_pages(&draft)?;
+            if let Some(revision) = argument.raw.get("revision").and_then(Value::as_str) {
+                at_revision(&draft, revision)?;
+            }
             let revisions = BTreeMap::from([(draft.id.clone(), draft.revision.clone())]);
             Ok(success(read_value(&draft)?, revisions))
         }

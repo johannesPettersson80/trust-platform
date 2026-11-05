@@ -356,8 +356,10 @@ visual review state; no single score or `ok` flag means the design is beautiful.
 ### AT-07 `hmi_render_draft`
 
 Input: exact draft/revision, viewport, theme, language, design scenario and optional crop/object
-IDs. Output: actual browser-rendered PNG, artifact manifest, object hit map and available layout
-measurements. Render the same drawing and presentation code used by the builder/runtime.
+IDs. The language server reads the draft at that revision (`trust-lsp.hmiAgent.drafts`, action
+`read` with its `revision`) and refuses another revision with `CONFLICT`, `draft revision
+changed.`; a review (AT-09) reads its draft the same way. Output: actual browser-rendered PNG,
+artifact manifest, object hit map and available layout measurements. Render the same drawing and presentation code used by the builder/runtime.
 Use deterministic fonts, clock, animation phase and history for repeatable captures. Capture
 whole-page context and optional native-scale detail; do not conceal defects by shrinking to fit.
 Unsupported rendering or a missing font is reported, not replaced by a schematic placeholder.

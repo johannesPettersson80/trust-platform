@@ -44,16 +44,16 @@ export interface RenderedState {
   images: string[];
 }
 
-/** The session of a render: the draft at the revision the request names, and the project context. */
+/** The session of a render: the draft at the revision the request names, which the language server refuses at another
+ * revision, and the project context. */
 export async function previewSession(
   project: EngineProject,
   fontFile: string,
   input: Record<string, unknown>,
   signal: AbortSignal,
 ): Promise<PreviewSession> {
-  const read = unwrap(await drafts(project, "read", String(input.draftId)));
-  if (typeof input.revision === "string" && read.data.revision !== input.revision)
-    throw new Error("CONFLICT: draft revision changed.");
+  const revision = typeof input.revision === "string" ? input.revision : undefined;
+  const read = unwrap(await drafts(project, "read", String(input.draftId), revision));
   const answer = unwrap(await context(project, envelopeFor(project.workspaceId, { sections: PREVIEW_SECTIONS })));
   return {
     project,
