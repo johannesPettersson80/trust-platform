@@ -69,4 +69,7 @@ if ! has_windows_gnu_compiler; then
   exit 0
 fi
 
-env RUSTFLAGS=-Dwarnings cargo check -p trust-runtime --all-targets --target "${WINDOWS_TARGET}"
+# Clippy, not only the compiler, on the crates with Windows-only code: the Linux Clippy job never compiles that code,
+# so Windows-only lints reached main (W40, specification 22).
+env RUSTFLAGS=-Dwarnings cargo clippy -p trust-runtime -p trust-tcads-native -p trust-control -p trust-hir -p trust-lsp \
+  --all-targets --target "${WINDOWS_TARGET}" -- -D warnings

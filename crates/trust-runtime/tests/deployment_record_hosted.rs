@@ -53,11 +53,11 @@ fn portable_runtime_toml() -> String {
     let runtime = render_runtime_toml(&SmolStr::new("record-test"), 10);
     #[cfg(windows)]
     {
-        return runtime.replacen(
+        runtime.replacen(
             "[runtime.control]\n",
             "[runtime.control]\nendpoint = \"tcp://127.0.0.1:19092\"\nauth_token = \"record-test-token\"\n",
             1,
-        );
+        )
     }
     #[cfg(not(windows))]
     runtime

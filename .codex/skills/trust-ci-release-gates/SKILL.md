@@ -84,8 +84,10 @@ When one of these fails in CI, reproduce it on the builder with the same command
 - **Runtime networking, mesh or TLS**: `./scripts/runtime_mesh_tls_stability_gate.sh --iterations 8`.
 - **A warning in a Test job**: each Test job builds every crate with `RUSTFLAGS=-Dwarnings`. The
   compile check's Clippy run finds a Linux warning; for one on Windows or macOS only, check the crate
-  for that target (`cargo check --target <triple> --all-targets`), as
-  `./scripts/check_runtime_cross_target_warnings.sh` does for trust-runtime on Windows.
+  for that target (`cargo check --target <triple> --all-targets`).
+- **A Windows-only Clippy lint** (the Clippy job's cross-target gate): `./scripts/check_runtime_cross_target_warnings.sh`
+  runs Clippy for `x86_64-pc-windows-gnu` on trust-runtime, trust-tcads-native, trust-control, trust-hir and
+  trust-lsp, the crates with Windows-only code (specification 22).
 - **Runtime CI contracts** (`crates/trust-runtime/tests/ci_cicd_contract.rs` or `tests/fixtures/ci/**`):
   `cargo test -p trust-runtime --test ci_cicd_contract --test config_schema_command --test registry_command`.
 - **Any `trust-runtime` change**: `./scripts/check_runtime_cross_target_warnings.sh --install-missing

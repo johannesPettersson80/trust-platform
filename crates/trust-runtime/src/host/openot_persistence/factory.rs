@@ -31,9 +31,10 @@ pub enum OpenOtDocumentSink {
     /// Shared MySQL/MariaDB adapter.
     #[cfg(feature = "openot-database-mysql")]
     MySql(MySqlDocumentSink),
-    /// Microsoft SQL Server/Azure SQL adapter.
+    /// Microsoft SQL Server/Azure SQL adapter, boxed: on Windows its client is about twice the size of the
+    /// next-largest sink.
     #[cfg(feature = "openot-database-sqlserver")]
-    SqlServer(SqlServerDocumentSink),
+    SqlServer(Box<SqlServerDocumentSink>),
     /// InfluxDB 3 adapter with mandatory local spool.
     #[cfg(feature = "openot-database-influxdb3")]
     InfluxDb3(InfluxDb3DocumentSink),
@@ -373,7 +374,7 @@ impl OpenOtDocumentSink {
                     &ca_cert_path,
                     _definitions.to_vec(),
                 )
-                .map(Self::SqlServer)
+                .map(|sink| Self::SqlServer(Box::new(sink)))
             }
             #[cfg(not(feature = "openot-database-sqlserver"))]
             OpenOtPersistenceBackend::SqlServer => Err(backend_unavailable("sqlserver")),

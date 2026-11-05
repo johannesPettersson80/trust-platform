@@ -245,7 +245,7 @@ impl CompiledRuntime {
             fault_policy: FaultPolicy::Halt,
             ads: AdsSubsystem::new(),
             opcua_client: OpcUaClientSubsystem::new(),
-            openot_telemetry: OpenOtTelemetrySubsystem::default(),
+            openot_telemetry: OpenOtTelemetrySubsystem::new(),
             tags: Vec::new(),
             extra,
             debug: None,

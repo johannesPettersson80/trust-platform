@@ -31,11 +31,11 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
 fn make_runtime_toml_portable(runtime_toml: String) -> String {
     #[cfg(windows)]
     {
-        return runtime_toml.replacen(
+        runtime_toml.replacen(
             "[runtime.control]\n",
             "[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"\n",
             1,
-        );
+        )
     }
     #[cfg(not(windows))]
     runtime_toml
