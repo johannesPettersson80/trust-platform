@@ -134,12 +134,16 @@ truST's own clock contract, specification 07, "Runtime Clock Sources":
 - There is no declaration-level fallback, and a value whose source cannot be
   traced does not warn either. A function that exists only as a body-less
   library stub reads no clock; tracing through a vendor-stub boundary is out
-  of scope. A clock read in a library body still warns where that body is
-  linked into the project (specification 28 §5 keeps the library-surface
-  decision of #180).
+  of scope. A call that cannot be resolved does not warn, for the same
+  reason: a lint does not name a clock that is not there. This section keeps
+  the library-surface decision of #180: a clock read in a library body still
+  warns where that body is linked into the project.
 
 Call-site ranges select the called name, and the call graph is computed from
-the bodies of the project's POUs.
+the bodies of the project's POUs, resolving each body call in its scope: an
+instance's call maps to the block the instance variable declares, `inst.M()`
+maps to that type's method, and a bare call never takes a same-named method's
+clock.
 
 `NondeterministicIo` is emitted for a live declaration bound to a direct input
 or output address whose normalized address begins with `%I` or `%Q`.

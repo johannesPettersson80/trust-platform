@@ -3,6 +3,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use super::super::queries::*;
 use super::super::*;
 use super::context::find_symbol_by_name_range;
+use crate::types::Type;
 
 /// Canonical identity of a POU: the file that declares it and the symbol id in
 /// that file's own table. An imported symbol maps back through its origin, so
@@ -130,19 +131,16 @@ fn call_target_range(callee: &SyntaxNode) -> TextRange {
 }
 
 /// Builds the project-wide index. `files` holds every project file with its
-/// own symbol table and parsed root.
+/// merged symbol table and parsed root. Each body call resolves in the scope
+/// of the POU whose body contains it, so an instance's call maps to the block
+/// the variable declares, `inst.M()` maps to that type's method, and a bare
+/// call never takes a same-named method's clock (specification 28 section 5).
 pub(in crate::db) fn compute_host_clock_sources(
     files: &[(FileId, &SymbolTable, SyntaxNode)],
 ) -> HostClockSources {
     let mut direct: FxHashSet<PouKey> = FxHashSet::default();
     let mut call_targets: FxHashMap<PouKey, Vec<PouKey>> = FxHashMap::default();
-    // Callable POUs by upper-cased name: the bare-name call targets, and the
-    // member-name targets of method calls.
-    let mut callables_by_name: FxHashMap<SmolStr, Vec<PouKey>> = FxHashMap::default();
-    let mut methods_by_name: FxHashMap<SmolStr, Vec<PouKey>> = FxHashMap::default();
 
-    // Pass one: every POU that its file's table can anchor.
-    let mut pous = Vec::new();
     for (file_id, symbols, root) in files {
         for pou in pou_nodes(root) {
             let Some((name, name_range)) = name_from_node(&pou) else {
@@ -152,37 +150,26 @@ pub(in crate::db) fn compute_host_clock_sources(
                 continue;
             };
             let key: PouKey = (*file_id, pou_id);
-            register_callable(
+            let scope_id = symbols.scope_for_owner(pou_id).unwrap_or(ScopeId::GLOBAL);
+            let mut reads = false;
+            let mut targets: Vec<PouKey> = Vec::new();
+            collect_body_calls(
                 symbols,
+                *file_id,
                 pou_id,
-                key,
-                &mut callables_by_name,
-                &mut methods_by_name,
+                scope_id,
+                &pou,
+                &mut |call| match call {
+                    BodyCall::CurrentDt => reads = true,
+                    BodyCall::Named(target) => targets.push(target),
+                },
             );
-            pous.push((key, pou));
-        }
-    }
-
-    // Pass two: the bodies, now that every call target is registered.
-    for (key, pou) in &pous {
-        let mut reads = false;
-        let mut targets = Vec::new();
-        collect_body_calls(pou, &mut |call| match call {
-            BodyCall::CurrentDt => reads = true,
-            BodyCall::Named(name) => {
-                if let Some(found) = callables_by_name.get(&name) {
-                    targets.extend(found.iter().copied());
-                }
-                if let Some(found) = methods_by_name.get(&name) {
-                    targets.extend(found.iter().copied());
-                }
+            if reads {
+                direct.insert(key);
             }
-        });
-        if reads {
-            direct.insert(*key);
-        }
-        if !targets.is_empty() {
-            call_targets.insert(*key, targets);
+            if !targets.is_empty() {
+                call_targets.insert(key, targets);
+            }
         }
     }
 
@@ -203,7 +190,19 @@ pub(in crate::db) fn compute_host_clock_sources(
 
 enum BodyCall {
     CurrentDt,
-    Named(SmolStr),
+    Named(PouKey),
+}
+
+/// What a body's bare callee name binds to.
+enum BareCall {
+    /// The product host clock: the name is `CURRENT_DT` and no declaration
+    /// shadows it.
+    HostClock,
+    /// A resolved callable POU in the project.
+    Target(PouKey),
+    /// Nothing resolvable: the call stays silent, like every call that cannot
+    /// be resolved (specification 28 section 5).
+    Unresolved,
 }
 
 fn pou_nodes(root: &SyntaxNode) -> impl Iterator<Item = SyntaxNode> + '_ {
@@ -220,32 +219,174 @@ fn pou_nodes(root: &SyntaxNode) -> impl Iterator<Item = SyntaxNode> + '_ {
     })
 }
 
-fn register_callable(
+/// Scoped name resolution for a body call: the calling scope's chain first,
+/// then the table's global name. The type checker resolves the same way.
+fn resolve_in_scope(symbols: &SymbolTable, name: &str, scope_id: ScopeId) -> Option<SymbolId> {
+    symbols
+        .resolve(name, scope_id)
+        .or_else(|| symbols.lookup(name))
+}
+
+/// What a bare callee name binds to, resolved in the calling scope.
+fn bare_call_target(
     symbols: &SymbolTable,
+    file_id: FileId,
+    name: &str,
+    scope_id: ScopeId,
     pou_id: SymbolId,
-    key: PouKey,
-    callables_by_name: &mut FxHashMap<SmolStr, Vec<PouKey>>,
-    methods_by_name: &mut FxHashMap<SmolStr, Vec<PouKey>>,
-) {
-    let Some(symbol) = symbols.get(pou_id) else {
-        return;
-    };
-    let name = SmolStr::new(symbol.name.to_ascii_uppercase());
-    match symbol.kind {
-        SymbolKind::Function { .. }
-        | SymbolKind::FunctionBlock
-        | SymbolKind::Program
-        | SymbolKind::Action => {
-            callables_by_name.entry(name).or_default().push(key);
+) -> BareCall {
+    if let Some(id) = resolve_in_scope(symbols, name, scope_id) {
+        let Some(symbol) = symbols.get(id) else {
+            return BareCall::Unresolved;
+        };
+        match &symbol.kind {
+            SymbolKind::Function { .. }
+            | SymbolKind::FunctionBlock
+            | SymbolKind::Program
+            | SymbolKind::Action => {
+                return BareCall::Target(canonical_pou(symbols, file_id, id));
+            }
+            SymbolKind::Variable { .. } => {
+                return match block_instance_target(symbols, file_id, symbol) {
+                    Some(target) => BareCall::Target(target),
+                    None => BareCall::Unresolved,
+                };
+            }
+            // A method is never reachable by bare name alone; the
+            // implicit-self form resolves below.
+            _ => return BareCall::Unresolved,
         }
-        SymbolKind::Method { .. } => {
-            methods_by_name.entry(name).or_default().push(key);
-        }
-        _ => {}
+    }
+    // The name resolved to nothing, so a call of `CURRENT_DT` is the product
+    // host clock; any other unresolved name can only be the implicit-self
+    // form of the enclosing block (vendor dialect).
+    if name.eq_ignore_ascii_case("CURRENT_DT") {
+        return BareCall::HostClock;
+    }
+    match implicit_self_target(symbols, file_id, pou_id, name) {
+        Some(target) => BareCall::Target(target),
+        None => BareCall::Unresolved,
     }
 }
 
-fn collect_body_calls(pou: &SyntaxNode, out: &mut impl FnMut(BodyCall)) {
+/// The block an instance's call runs: the function block that the instance
+/// variable declares.
+fn block_instance_target(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    symbol: &Symbol,
+) -> Option<PouKey> {
+    let base = symbols.resolve_alias_type(symbol.type_id);
+    let Type::FunctionBlock { name } = symbols.type_by_id(base)? else {
+        return None;
+    };
+    let block_id = symbols.resolve_global_or_qualified_name(name.as_str())?;
+    Some(canonical_pou(symbols, file_id, block_id))
+}
+
+/// `inst.M()`: the method or action of the type the instance declares, a
+/// program's child, or a namespace-qualified function — in the type checker's
+/// own order. A base that resolves to nothing usable stays silent, like every
+/// call that cannot be resolved.
+fn member_call_target(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    callee: &SyntaxNode,
+    scope_id: ScopeId,
+) -> Option<PouKey> {
+    // The dotted name's parts, as written: a FieldExpr holds them as name
+    // nodes (`NameRef` for the head, `Name` for the members), each carrying
+    // its own leading trivia.
+    let parts: Vec<SmolStr> = callee
+        .children()
+        .filter(|child| matches!(child.kind(), SyntaxKind::NameRef | SyntaxKind::Name))
+        .map(|child| {
+            let text = child.text().to_string();
+            SmolStr::new(text.trim())
+        })
+        .collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let member_name = parts.last()?.as_str();
+
+    if parts.len() == 2
+        && let Some(base_id) = resolve_in_scope(symbols, parts[0].as_str(), scope_id)
+    {
+        let base_symbol = symbols.get(base_id)?;
+        let member_id = match &base_symbol.kind {
+            SymbolKind::Variable { .. } => {
+                symbols.resolve_member_symbol_in_type(base_symbol.type_id, member_name)?
+            }
+            SymbolKind::Program => symbols.resolve_child_symbol(base_id, member_name)?,
+            SymbolKind::Namespace => {
+                return namespace_call_target(symbols, file_id, &parts, scope_id);
+            }
+            _ => return None,
+        };
+        return match symbols.get(member_id).map(|symbol| &symbol.kind) {
+            Some(SymbolKind::Function { .. } | SymbolKind::Method { .. } | SymbolKind::Action) => {
+                Some(canonical_pou(symbols, file_id, member_id))
+            }
+            _ => None,
+        };
+    }
+    // Namespace-qualified (`WagoAppTime.FuGetDateAndTime()`): the same
+    // resolution the type checker applies; a local named like the namespace
+    // hides it (specification 09 1.3) and the call stays silent.
+    namespace_call_target(symbols, file_id, &parts, scope_id)
+}
+
+fn namespace_call_target(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    parts: &[SmolStr],
+    scope_id: ScopeId,
+) -> Option<PouKey> {
+    if symbols.hides_global_head(parts[0].as_str(), scope_id) {
+        return None;
+    }
+    let member_id = symbols.resolve_qualified(parts)?;
+    match symbols.get(member_id).map(|symbol| &symbol.kind) {
+        Some(SymbolKind::Function { .. } | SymbolKind::Method { .. } | SymbolKind::Action) => {
+            Some(canonical_pou(symbols, file_id, member_id))
+        }
+        _ => None,
+    }
+}
+
+/// The implicit-self form (vendor dialect): a bare name that resolves nowhere
+/// can still be a method or an action of the enclosing block or its owner.
+fn implicit_self_target(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    pou_id: SymbolId,
+    name: &str,
+) -> Option<PouKey> {
+    let mut owner = Some(pou_id);
+    for _ in 0..4 {
+        let current = owner?;
+        if let Some(id) = symbols.resolve_child_symbol(current, name)
+            && matches!(
+                symbols.get(id).map(|symbol| &symbol.kind),
+                Some(SymbolKind::Method { .. } | SymbolKind::Action)
+            )
+        {
+            return Some(canonical_pou(symbols, file_id, id));
+        }
+        owner = symbols.get(current).and_then(|symbol| symbol.parent);
+    }
+    None
+}
+
+fn collect_body_calls(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    pou_id: SymbolId,
+    scope_id: ScopeId,
+    pou: &SyntaxNode,
+    out: &mut impl FnMut(BodyCall),
+) {
     let mut stack: Vec<SyntaxNode> = pou.children().collect();
     while let Some(node) = stack.pop() {
         // A nested POU or action is its own unit in the graph.
@@ -258,23 +399,15 @@ fn collect_body_calls(pou: &SyntaxNode, out: &mut impl FnMut(BodyCall)) {
             match callee.kind() {
                 SyntaxKind::NameRef => {
                     let name_text = callee.text().to_string();
-                    let name = name_text.trim().to_ascii_uppercase();
-                    if name == "CURRENT_DT" {
-                        out(BodyCall::CurrentDt);
-                    } else {
-                        out(BodyCall::Named(SmolStr::new(name)));
+                    match bare_call_target(symbols, file_id, name_text.trim(), scope_id, pou_id) {
+                        BareCall::HostClock => out(BodyCall::CurrentDt),
+                        BareCall::Target(target) => out(BodyCall::Named(target)),
+                        BareCall::Unresolved => {}
                     }
                 }
                 SyntaxKind::FieldExpr => {
-                    if let Some(member) = callee
-                        .children()
-                        .filter(|child| child.kind() == SyntaxKind::NameRef)
-                        .last()
-                    {
-                        let member_text = member.text().to_string();
-                        out(BodyCall::Named(SmolStr::new(
-                            member_text.trim().to_ascii_uppercase(),
-                        )));
+                    if let Some(target) = member_call_target(symbols, file_id, &callee, scope_id) {
+                        out(BodyCall::Named(target));
                     }
                 }
                 _ => {}

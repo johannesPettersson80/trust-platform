@@ -510,3 +510,146 @@ END_FUNCTION_BLOCK
     assert!(time.is_empty(), "{time:?}");
     assert_eq!(io.len(), 1);
 }
+
+/// Wrong behaviour this pins: a clock read reaching the outer call site only
+/// through an FB instance inside another FB is lost there. Specification 28
+/// section 5: the call site of a function block whose body reaches the clock,
+/// directly or through the POUs it calls, warns. An instance's call maps to
+/// the block the variable declares.
+#[test]
+fn a_clock_read_through_fb_instances_warns_at_every_level_up() {
+    let source = r#"
+FUNCTION_BLOCK Ticker
+VAR
+    Seen : DT;
+END_VAR
+Seen := CURRENT_DT();
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK Wrapper
+VAR
+    Inner : Ticker;
+END_VAR
+Inner();
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    Outer : Wrapper;
+END_VAR
+Outer();
+END_PROGRAM
+"#;
+    let found = time_warnings(source);
+
+    assert_eq!(found.len(), 3, "{found:?}");
+    assert!(
+        found
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("'Ticker'")),
+        "{found:?}"
+    );
+    assert!(
+        found
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("'Wrapper'")),
+        "{found:?}"
+    );
+}
+
+/// Wrong behaviour this pins: a bare call taking a same-named method's clock.
+/// `Read()` inside `Caller` binds to the function `Read`, which reads no
+/// clock; a method is never reachable by bare name alone (specification 28
+/// section 5), so `Caller` stays silent.
+#[test]
+fn a_bare_call_never_takes_a_same_named_methods_clock() {
+    let source = r#"
+FUNCTION_BLOCK WallClock
+METHOD PUBLIC Read : DT
+Read := CURRENT_DT();
+END_METHOD
+END_FUNCTION_BLOCK
+FUNCTION Read : INT
+Read := 1;
+END_FUNCTION
+FUNCTION Caller : INT
+Caller := Read();
+END_FUNCTION
+PROGRAM Main
+VAR
+    Ticks : INT;
+END_VAR
+Ticks := Caller();
+END_PROGRAM
+"#;
+    let found = time_warnings(source);
+
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].message.contains("CURRENT_DT reads the host clock"),
+        "{found:?}"
+    );
+}
+
+/// Wrong behaviour this pins: the graph treating a call of a user-declared
+/// `CURRENT_DT` function as the host clock. The call-site check honours the
+/// shadowing; the graph follows the same rule (specification 28 section 5:
+/// the source is the product function, not a same-named declaration).
+#[test]
+fn a_user_declared_current_dt_shadows_the_host_clock() {
+    let source = r#"
+FUNCTION CURRENT_DT : DT
+CURRENT_DT := DT#1970-01-01-00:00:00;
+END_FUNCTION
+FUNCTION GetNow : DT
+GetNow := CURRENT_DT();
+END_FUNCTION
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := GetNow();
+END_PROGRAM
+"#;
+    assert!(time_warnings(source).is_empty());
+}
+
+/// Wrong behaviour this pins: a namespace-qualified call of a clock-reading
+/// library function staying silent at its call site, or failing to carry the
+/// clock through a wrapper that calls it. Specification 28 section 5: the
+/// call site of a function whose body reaches the clock warns, and the vendor
+/// corpus calls `WagoAppTime.FuGetDateAndTime()` exactly this way.
+#[test]
+fn a_namespace_qualified_call_of_a_clock_reader_warns() {
+    let source = r#"
+NAMESPACE WagoAppTime
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := CURRENT_DT();
+END_FUNCTION
+END_NAMESPACE
+FUNCTION GetNow : DT
+GetNow := WagoAppTime.FuGetDateAndTime();
+END_FUNCTION
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := WagoAppTime.FuGetDateAndTime();
+Stamp := GetNow();
+END_PROGRAM
+"#;
+    let found = time_warnings(source);
+
+    assert_eq!(found.len(), 4, "{found:?}");
+    assert!(
+        found.iter().any(
+            |diagnostic| diagnostic.message.contains("'FuGetDateAndTime'")
+                && diagnostic.message.contains("CURRENT_DT")
+        ),
+        "{found:?}"
+    );
+    assert!(
+        found
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("'GetNow'")),
+        "{found:?}"
+    );
+}

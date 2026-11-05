@@ -549,8 +549,9 @@ pub(super) fn analyze_query(
 }
 
 /// The project's host-clock sources, keyed canonically per POU (specification
-/// 28 section 5). Built from the parsed bodies, so it changes only when a
-/// project input changes.
+/// 28 section 5). Built from the parsed bodies against each file's merged
+/// symbol table — the same per-file inputs the unused-symbol rule reads — so
+/// body-call resolution sees the whole project and this query adds no cycle.
 #[salsa::tracked(returns(ref))]
 pub(super) fn host_clock_sources_query(
     db: &dyn salsa::Database,
@@ -558,12 +559,9 @@ pub(super) fn host_clock_sources_query(
 ) -> Arc<HostClockSources> {
     cancellation_checkpoint(db);
     let project_files = project.files(db);
-    let project_tables = project_symbol_tables_query(db, project);
     let mut files: Vec<(FileId, &SymbolTable, SyntaxNode)> = Vec::new();
     for (file_id, input) in project_files.iter().copied() {
-        let Some(table) = project_tables.get(&file_id) else {
-            continue;
-        };
+        let table = merged_project_symbols_query(db, project, file_id);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         files.push((file_id, table.as_ref(), root));
     }
