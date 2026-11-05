@@ -12,15 +12,17 @@ import {
   removePlantCandidate,
   savePlantCandidate,
 } from "./plant/service";
-import { loadPlantTopology } from "./plant/projection";
+import { ConfirmedPlants } from "./plant/projection";
 import type { NCPlant } from "./webview/types";
 
 const plantSessions = new WeakMap<vscode.ExtensionContext, PlantSessionRegistry>();
 
+const confirmedPlants = new ConfirmedPlants();
+
 /**
  * The project's simulated plants for the canvas (specification 47): their saved configuration through the
- * project's command session and, while the runtime is reachable, their live status. Undefined when the plant
- * configuration is unavailable, so the ordinary canvas stays usable.
+ * project's command session and, while the runtime is reachable, their live status. When a load fails, the last
+ * confirmed saved configuration (§20.6); undefined when there is none, so the ordinary canvas stays usable.
  */
 export async function loadProjectPlantTopology(
   context: vscode.ExtensionContext,
@@ -40,17 +42,14 @@ export async function loadProjectPlantTopology(
           )
       : async (operation: string, params: Record<string, unknown>) =>
           await stopped.request(operation, params);
-  try {
-    return await loadPlantTopology(new ProjectPlantTopologyService(stopped, liveRequest));
-  } catch (error) {
+  return await confirmedPlants.load(projectDir, new ProjectPlantTopologyService(stopped, liveRequest), (error) => {
     // Keep the ordinary canvas usable, but do not make a missing plant
     // capability invisible during extension-host diagnosis.
     console.warn(
       "[truST] Simulated plant configuration is unavailable:",
       error instanceof Error ? error.message : String(error)
     );
-    return undefined;
-  }
+  });
 }
 
 function plantSessionRegistry(context: vscode.ExtensionContext): PlantSessionRegistry {

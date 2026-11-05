@@ -2,7 +2,7 @@ import * as assert from "assert";
 import { EventEmitter } from "events";
 
 import type { PlantContractMessage } from "../../networkCanvas/plant/contract";
-import { loadPlantTopology } from "../../networkCanvas/plant/projection";
+import { ConfirmedPlants, loadPlantTopology, type PlantTopologyService } from "../../networkCanvas/plant/projection";
 import {
   createPlantSessionRegistry,
   type PlantCommandClient,
@@ -226,7 +226,7 @@ suite("Plant service projection", () => {
     const calls: string[] = [];
     const status = { contract: "trust.plant", operation: "plant.status", available: false, reason_code: "x" };
     let projected: unknown;
-    const plants = await loadPlantTopology({
+    const { plants } = await loadPlantTopology({
       async topology(given) {
         calls.push(given === null ? "topology" : "topology:status");
         projected = given;
@@ -246,7 +246,7 @@ suite("Plant service projection", () => {
   // Catches a failed status hiding the saved plants, and a second projection asked for nothing.
   test("shows Rust's first projection when the runtime gives no status", async () => {
     const calls: string[] = [];
-    const plants = await loadPlantTopology({
+    const { plants } = await loadPlantTopology({
       async topology(given) {
         calls.push(given === null ? "topology" : "topology:status");
         return topologyAnswer("project:sha256:offline", [{ id: "tank", states: ["Status unavailable"] }]);
@@ -259,6 +259,57 @@ suite("Plant service projection", () => {
 
     assert.deepStrictEqual(calls, ["topology", "status"]);
     assert.deepStrictEqual(plants, [{ id: "tank", states: ["Status unavailable"] }]);
+  });
+
+  // Specification 47 §20.6: a rejected answer leaves the last confirmed saved configuration, which Rust's first projection
+  // shows as Status unavailable with no live data. Catches a status projection that fails hiding the saved plants.
+  test("a second projection that fails leaves the first", async () => {
+    const calls: string[] = [];
+    const topology = await loadPlantTopology({
+      async topology(given) {
+        calls.push(given === null ? "topology" : "topology:status");
+        if (given !== null) throw new Error("the plant file changed between the two calls");
+        return topologyAnswer("project:sha256:changed", [{ id: "tank", states: ["Status unavailable"] }]);
+      },
+      async status() {
+        return { contract: "trust.plant", operation: "plant.status", available: true };
+      },
+    });
+
+    assert.deepStrictEqual(calls, ["topology", "topology:status"]);
+    assert.deepStrictEqual(topology.plants, [{ id: "tank", states: ["Status unavailable"] }]);
+    assert.deepStrictEqual(topology.saved, topology.plants);
+  });
+
+  // Catches a failed refresh dropping every plant from the canvas (the panel drew none), and one that keeps the last
+  // live sample instead of Rust's projection without a status (specification 47 §20.6).
+  test("a load that fails keeps the project's last confirmed saved plants, without their live data", async () => {
+    const confirmed = new ConfirmedPlants();
+    const running = { id: "tank", states: ["Running"], liveSample: { command: 1, feedback: 2 } };
+    const saved = { id: "tank", states: ["Status unavailable"] };
+    const answering: PlantTopologyService = {
+      async topology(given) {
+        return topologyAnswer("project:sha256:tank", [given === null ? saved : running]);
+      },
+      async status() {
+        return { contract: "trust.plant", operation: "plant.status", available: true };
+      },
+    };
+    const failing: PlantTopologyService = {
+      async topology() {
+        throw new Error("session timed out");
+      },
+      async status() {
+        throw new Error("not asked");
+      },
+    };
+    const failures: unknown[] = [];
+    const onFailure = (error: unknown) => failures.push(error);
+
+    assert.deepStrictEqual(await confirmed.load("/project", answering, onFailure), [running]);
+    assert.deepStrictEqual(await confirmed.load("/project", failing, onFailure), [saved]);
+    assert.strictEqual(await confirmed.load("/other", failing, onFailure), undefined, "another project has none");
+    assert.strictEqual(failures.length, 2, "each failure is still reported");
   });
 
   // Catches a stopped runtime's answer dropped: it says that no runtime runs the plants, which Rust projects as
@@ -274,7 +325,7 @@ suite("Plant service projection", () => {
       reason_code: "runtime_evidence_unavailable",
     };
     let projected: unknown;
-    const plants = await loadPlantTopology({
+    const { plants } = await loadPlantTopology({
       async topology(given) {
         projected = given;
         const state = given === null ? "Status unavailable" : "Configured";
