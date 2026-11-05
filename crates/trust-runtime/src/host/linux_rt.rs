@@ -326,7 +326,7 @@ fn apply_current_thread_profile(config: LinuxRtConfig) -> LinuxRtRuntimeStatus {
     let mut status = LinuxRtRuntimeStatus::from_config(config.clone());
     if config.enabled {
         status.errors.push(SmolStr::new(
-            "runtime.realtime PREEMPT_RT profile is only supported on Linux targets".to_string(),
+            "runtime.realtime PREEMPT_RT profile is only supported on Linux targets",
         ));
     }
     status

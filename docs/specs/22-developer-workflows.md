@@ -402,6 +402,16 @@ use, so a warning on any of the three systems fails the job. Until 4 November
 compiler flags compiled the crate and its dependencies a second time: 1.5, 3.5
 and 14 minutes on Linux, macOS and Windows.
 
+Compiler warnings are denied on each system, but Clippy runs only in the Linux
+Clippy job, which never compiles code that only another system compiles. Its
+cross-target gate (`check_runtime_cross_target_warnings.sh`) therefore runs
+Clippy with warnings denied for `x86_64-pc-windows-gnu`, with default features
+and all targets, on the crates with Windows-only code: `trust-runtime`,
+`trust-tcads-native`, `trust-control`, `trust-hir` and `trust-lsp` (W40,
+5 November 2026: a Windows-only `needless_return` in `trust-tcads-native`,
+reported on #254, and three Windows-only lints in `trust-runtime` had reached
+`main`).
+
 The mesh TLS stability gate (`runtime_mesh_tls_stability_gate.sh`, four runs on
 Linux and macOS) is the job's last cargo step, after the full suite and its doc
 tests. Its `cargo test -p trust-runtime --lib` builds its own variant of

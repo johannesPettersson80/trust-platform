@@ -215,12 +215,12 @@ impl TcAdsDll {
                         "AdsSyncReadWriteReqEx2",
                     )?,
                 };
-                return Ok(Self {
+                Ok(Self {
                     functions: Arc::new(NativeOwner {
                         functions,
                         _library: library,
                     }),
-                });
+                })
             }
         }
         #[cfg(not(target_os = "windows"))]

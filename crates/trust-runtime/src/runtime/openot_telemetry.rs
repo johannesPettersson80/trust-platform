@@ -39,6 +39,13 @@ mod imp {
         }
     }
 
+    impl OpenOtTelemetrySubsystem {
+        /// The subsystem before it is configured: no publisher.
+        pub(crate) fn new() -> Self {
+            Self::default()
+        }
+    }
+
     /// Milliseconds since the Unix epoch, the alarm service's run identity.
     fn start_ms() -> u64 {
         std::time::SystemTime::now()
@@ -733,6 +740,11 @@ mod imp {
     pub(crate) struct OpenOtTelemetrySubsystem;
 
     impl OpenOtTelemetrySubsystem {
+        /// The subsystem where OpenOT telemetry is not available.
+        pub(crate) fn new() -> Self {
+            Self
+        }
+
         pub(crate) fn configure(
             &mut self,
             config: &OpenOtTelemetryConfig,
