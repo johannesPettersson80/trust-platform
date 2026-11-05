@@ -13,7 +13,10 @@
 //! journey never holds one of the language server's request slots and a cancel never waits behind
 //! journeys. The client names each journey (`journeyId`); the language client gets the journey's
 //! answer, with that ID, as the notification `trust-lsp/simulatorJourneyEnded` when it ends, also
-//! when the journey's thread panics. A cancel names the journey it cancels.
+//! when the journey's thread panics. A cancel names the journey it cancels. The journey takes the
+//! authoring commands' workspace, project folder and draft storage (`Argument`), and the draft and
+//! revision that the tool call names; its thread reads the draft's pages (`simulator_draft`), since
+//! the program's revision can take a compilation.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -22,13 +25,17 @@ use std::time::SystemTime;
 
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use tower_lsp::lsp_types::notification::Notification;
 use tower_lsp::Client;
 
+use crate::state::ServerState;
+
+use super::argument::Argument;
 use super::boundary::{self, Success};
 use super::error::{AgentError, AgentResult, PROJECT_UNAVAILABLE};
 use super::schema::MAX_PREVIEW;
+use super::simulator_draft::draft_models;
 use super::simulator_journey::{self, Journey, Step, Timing};
 use super::simulator_sessions::SimulatorSessions;
 
@@ -91,7 +98,11 @@ pub(super) fn execute(name: &str, arguments: Vec<Value>) -> Value {
 /// the answer comes at once; the client gets the journey's answer as
 /// `trust-lsp/simulatorJourneyEnded` when it ends.
 #[must_use]
-pub(super) fn start_for_client(client: &Client, arguments: Vec<Value>) -> Value {
+pub(super) fn start_for_client(
+    client: &Client,
+    state: Arc<ServerState>,
+    arguments: Vec<Value>,
+) -> Value {
     let client = client.clone();
     let runtime = tokio::runtime::Handle::current();
     let report: Report = Box::new(move |answer| {
@@ -99,6 +110,7 @@ pub(super) fn start_for_client(client: &Client, arguments: Vec<Value>) -> Value 
     });
     let started = start(
         &SERVER_SESSIONS,
+        state,
         arguments,
         system_clock(),
         Timing::PRODUCT,
@@ -163,12 +175,15 @@ fn envelope(result: AgentResult<Value>) -> Value {
 }
 
 /// `runSimulatorJourney`: refuses the journey, or begins it on its session and runs it on a thread
-/// of its own, answering `{ started: true, sessionId, journeyId }` at once. `report` gets the
-/// journey's answer when it ends, while the session still counts it as running, so that the answer
-/// is queued for the client before the session can take its next journey. A journey whose thread
-/// panics still reports an answer, with the error that says so.
+/// of its own, answering `{ started: true, sessionId, journeyId }` at once. The session's workspace
+/// is the project folder's address. The thread reads the draft's pages first; a refusal of the
+/// draft ends the journey before its first step. `report` gets the journey's answer when it ends,
+/// while the session still counts it as running, so that the answer is queued for the client
+/// before the session can take its next journey. A journey whose thread panics still reports an
+/// answer, with the error that says so.
 fn start(
     sessions: &'static SimulatorSessions,
+    state: Arc<ServerState>,
     arguments: Vec<Value>,
     clock: Clock,
     timing: Timing,
@@ -179,10 +194,12 @@ fn start(
     let cookie = argument
         .as_object_mut()
         .and_then(|fields| fields.remove("cookie"));
-    let request: RunArgument = decode(argument)?;
-    required("workspace", &request.workspace)?;
+    let authoring = Argument::read(vec![argument])?;
+    let request: RunArgument = decode(authoring.raw.clone())?;
     required("sessionId", &request.session_id)?;
     journey_id(&request.journey_id)?;
+    required("draftId", &request.draft_id)?;
+    required("revision", &request.revision)?;
     if request.steps.is_empty() || request.steps.len() > MAX_PREVIEW {
         return Err(AgentError::limit(format!(
             "use 1 to {MAX_PREVIEW} bounded simulator steps."
@@ -201,7 +218,7 @@ fn start(
         ));
     }
     let running = sessions.begin(
-        &request.workspace,
+        &authoring.root_uri,
         &request.session_id,
         &request.journey_id,
         &request.target,
@@ -220,17 +237,29 @@ fn start(
                 &request.journey_id,
                 running.name(),
             );
-            let journey = Journey {
-                session_id: &request.session_id,
-                name: running.name(),
-                journey_id: &request.journey_id,
-                target: &request.target,
-                cookie: &cookie,
-                steps: &request.steps,
-                models: &request.models,
-            };
-            let live = || sessions.is_live(&request.session_id, clock());
-            let answer = simulator_journey::run(&journey, &live, running.cancellation(), timing);
+            let answer =
+                match draft_models(&state, &authoring, &request.draft_id, &request.revision) {
+                    Ok(models) => {
+                        let journey = Journey {
+                            session_id: &request.session_id,
+                            name: running.name(),
+                            journey_id: &request.journey_id,
+                            target: &request.target,
+                            cookie: &cookie,
+                            steps: &request.steps,
+                            models: &models,
+                        };
+                        let live = || sessions.is_live(&request.session_id, clock());
+                        simulator_journey::run(&journey, &live, running.cancellation(), timing)
+                    }
+                    Err(error) => simulator_journey::answer(
+                        &request.session_id,
+                        &request.journey_id,
+                        running.name(),
+                        Vec::new(),
+                        Some(&error),
+                    ),
+                };
             tracing::debug!(
                 session = %request.session_id,
                 passed = %answer["passed"],
@@ -386,16 +415,17 @@ struct WorkspaceArgument {
     workspace: String,
 }
 
-/// The argument of `runSimulatorJourney`, without its cookie.
+/// The journey's own fields of the argument of `runSimulatorJourney`, beside the authoring
+/// commands' (`Argument`) and without its cookie.
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 struct RunArgument {
-    workspace: String,
     session_id: String,
     journey_id: String,
     target: Value,
     steps: Vec<Step>,
-    models: Map<String, Value>,
+    draft_id: String,
+    revision: String,
 }
 
 #[cfg(test)]

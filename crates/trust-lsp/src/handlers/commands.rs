@@ -4,6 +4,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tower_lsp::lsp_types::{
     CreateFile, CreateFileOptions, DeleteFile, DeleteFileOptions, DocumentChangeOperation,
     DocumentChanges, ExecuteCommandParams, OptionalVersionedTextDocumentIdentifier, Position,
@@ -196,7 +197,7 @@ struct HmiBindingsCommandArgs {
 
 pub async fn execute_command(
     client: &Client,
-    state: &ServerState,
+    state: &Arc<ServerState>,
     params: ExecuteCommandParams,
 ) -> Option<Value> {
     if let Some(reply) = super::devices::execute(state, &params).await {
@@ -214,7 +215,9 @@ pub async fn execute_command(
                 apply_workspace_edit_in_safe_phases(client, edit).await?
             ))
         }
-        HMI_AGENT_RUN_JOURNEY_COMMAND => Some(hmi_agent::start_journey(client, params.arguments)),
+        HMI_AGENT_RUN_JOURNEY_COMMAND => {
+            Some(hmi_agent::start_journey(client, state, params.arguments))
+        }
         _ => execute_read_command(state, params),
     }
 }

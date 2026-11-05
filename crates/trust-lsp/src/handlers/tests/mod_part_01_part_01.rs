@@ -66,7 +66,7 @@ name = "Vendor"
 path = "vendor"
 "#;
 
-    let state = ServerState::new();
+    let state = Arc::new(ServerState::new());
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

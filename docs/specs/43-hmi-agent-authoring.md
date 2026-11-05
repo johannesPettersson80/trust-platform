@@ -718,8 +718,9 @@ answer the target is refused.
 The user supplies a named simulator HMI login through the editor; credentials never become tool
 inputs or outputs. Context lists opaque session IDs and expiry. Sessions last at most ten minutes.
 The language server keeps the sessions and runs the journeys (owner, 4 November 2026: "what you
-decide is okay with me"). `trust-lsp.hmiAgent.openSimulatorSession` takes the workspace, the
-journey's name and the target, and opens a session only for a target that `checkTarget` accepts and
+decide is okay with me"). `trust-lsp.hmiAgent.openSimulatorSession` takes the workspace (the project
+folder's address), the journey's name and the target, and opens a session only for a target that
+`checkTarget` accepts and
 while that workspace holds fewer than five unexpired sessions; it answers the session's opaque ID
 and its expiry, ten minutes on, or the refusal. The extension then logs in through its HMI bridge
 (specification 39 §11 item 6) and keeps the session's cookie. It sends the login only to a target
@@ -728,11 +729,19 @@ the session's web address, control endpoint and access token. A login that the s
 closes the session (`trust-lsp.hmiAgent.closeSimulatorSession`). Closing a session cancels its
 running journey, and the extension closes its sessions when the selected run target changes.
 `trust-lsp.hmiAgent.simulatorSessions` lists a workspace's unexpired sessions, their names and
-expiry, for the agent's context. `trust-lsp.hmiAgent.runSimulatorJourney` takes the workspace, a
-session ID of that workspace, the journey's ID, which the client chooses (at most 128 characters),
-that session's cookie, the target, the steps and the draft's page models. It starts the journey on a
-thread of its own and answers at once, `{ started: true, sessionId, journeyId }` or the refusal, so
-that a journey never holds one of the language server's requests. When the journey ends, the
+expiry, for the agent's context. `trust-lsp.hmiAgent.runSimulatorJourney` takes the workspace ID,
+the project folder and the draft storage, as the authoring commands take them, a session ID of that
+project folder's workspace, the journey's ID, which the client chooses (at most 128 characters),
+that session's cookie, the target, the steps, and the draft and revision that the tool call names.
+It starts the journey on a thread of its own and answers at once, `{ started: true, sessionId,
+journeyId }` or the refusal, so that a journey never holds one of the language server's requests.
+The journey's thread first reads the draft at that revision and the program's revision, which can
+take a compilation. A draft that is unavailable, discarded, applied, another workspace's or at
+another revision ends the journey with the refusal of that read; a program that does not compile
+ends it with `COMPILATION_FAILED`, and a program whose revision is not the one the draft was
+composed against with `CONFLICT`, as for an application (AT-09). Each step compares the deployed
+page it names with the model of the draft page of that name, the page file's stem
+(`hmi/pages/pumps.toml` holds the page `pumps`). When the journey ends, the
 language server sends its answer, which names the journey, to the client as the notification
 `trust-lsp/simulatorJourneyEnded`, also when the journey's thread fails, with `PROJECT_UNAVAILABLE`
 and no outcomes; the extension hands it to the tool call that waits for that journey, and ends the

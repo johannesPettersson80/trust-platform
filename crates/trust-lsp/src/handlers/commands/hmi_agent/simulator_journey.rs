@@ -149,14 +149,33 @@ pub(super) fn run(
         outcomes: Vec::new(),
     };
     let error = runner.steps().err();
-    let last = runner.outcomes.last();
+    answer(
+        journey.session_id,
+        journey.journey_id,
+        journey.name,
+        runner.outcomes,
+        error.as_ref(),
+    )
+}
+
+/// A journey's answer: `{ origin, sessionId, journeyId, name, outcomes, passed }`, with `error`
+/// when an error ended the journey. It passed exactly when no error ended it and its last outcome
+/// is `observed`.
+pub(super) fn answer(
+    session_id: &str,
+    journey_id: &str,
+    name: &str,
+    outcomes: Vec<Value>,
+    error: Option<&AgentError>,
+) -> Value {
+    let last = outcomes.last();
     let passed = error.is_none() && last.is_some_and(|outcome| outcome["outcome"] == "observed");
     let mut answer = json!({
         "origin": "simulator",
-        "sessionId": journey.session_id,
-        "journeyId": journey.journey_id,
-        "name": journey.name,
-        "outcomes": runner.outcomes,
+        "sessionId": session_id,
+        "journeyId": journey_id,
+        "name": name,
+        "outcomes": outcomes,
         "passed": passed,
     });
     if let Some(error) = error {

@@ -6,7 +6,9 @@ import {
   registerSimulatorSessions,
   runSimulator,
   setSimulatorLanguageClient,
+  simulatorJourney,
 } from "../../hmiBuilder/agent/simulator";
+import type { EngineProject } from "../../hmiBuilder/agent/engineCommands";
 import * as assert from "assert";
 import * as vscode from "vscode";
 import { State } from "vscode-languageclient/node";
@@ -50,6 +52,14 @@ const page = (): HmiPageModel => ({
 });
 
 const WORKSPACE = "file:///projects/simulated";
+/** The draft a journey exercises, as trust-lsp receives it with the journey. */
+const DRAFT = {
+  workspaceId: "workspace-1",
+  root_uri: WORKSPACE,
+  storage: "/storage/workspace-1",
+  draftId: "draft-1",
+  revision: "1",
+};
 const LOCAL = {
   simulator: true,
   endpoint: "tcp://127.0.0.1:9100",
@@ -174,12 +184,19 @@ suite("HMI completed authoring contracts", () => {
   // The journey and the session rules are trust-lsp's (`trust-lsp.hmiAgent.openSimulatorSession`, `runSimulatorJourney`
   // and the rest, specification 43 AT-08), proven by the Rust tests in
   // crates/trust-lsp/src/handlers/commands/hmi_agent/simulator_*_tests.rs and crates/trust-lsp/tests/
-  // simulator_journey_transport.rs. These prove the wiring: the extension logs in through its HMI bridge to a target
-  // trust-lsp admits, keeps the session's cookie, hands it to trust-lsp with each journey of that session, and waits for
-  // the journey's end as the notification trust-lsp/simulatorJourneyEnded.
-  test("a simulator journey starts in trust-lsp with its named session's cookie, and its answer is the end's notification", async () => {
+  // simulator_journey_transport.rs; so are the draft's checks and its pages, which trust-lsp reads. These prove the
+  // wiring: the extension logs in through its HMI bridge to a target trust-lsp admits, keeps the session's cookie, hands
+  // it to trust-lsp with each journey of that session and the draft the tool call names, and waits for the journey's end
+  // as the notification trust-lsp/simulatorJourneyEnded.
+  test("a simulator journey starts in trust-lsp on its draft with its named session's cookie, and its answer is the end's notification", async () => {
     const steps = [{ page: "settings", object: "sp", action: "write", value: 10, path: "Main.SP", expect: 10 }];
-    const models = { settings: page() };
+    const project: EngineProject = {
+      root: vscode.Uri.parse(WORKSPACE),
+      workspaceId: DRAFT.workspaceId,
+      storage: DRAFT.storage,
+      token: new vscode.CancellationTokenSource().token,
+    };
+    const input = { draftId: "draft-1", revision: "1", mode: "simulator", sessionId: "session-1", steps };
     await withSimulatorCommands({}, async (calls, client) => {
       const session = await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
       assert.deepStrictEqual(session, OPENED.data);
@@ -187,24 +204,27 @@ suite("HMI completed authoring contracts", () => {
         ["trust-lsp.hmiAgent.openSimulatorSession", { workspace: WORKSPACE, name: "Fixture", target: TARGET }],
         ["trust-lsp.hmiAgent.admitSimulatorLogin", { sessionId: "session-1", target: TARGET }],
       ]);
-      const running = runSimulator(WORKSPACE, "session-1", steps, models, new AbortController().signal);
+      const running = simulatorJourney(project, input, new AbortController().signal);
       const journeyId = await startedJourney(calls);
-      const journey = { origin: "simulator", sessionId: "session-1", journeyId, name: "Fixture", outcomes: [], passed: true };
+      const journey = {
+        origin: "simulator",
+        sessionId: "session-1",
+        journeyId,
+        name: "Fixture",
+        outcomes: [],
+        passed: true,
+      };
       client.journeyEnded({ ...journey, journeyId: "an-earlier-journey-of-the-session", passed: false });
       client.journeyEnded(journey);
       assert.deepStrictEqual(await running, journey, "the answer of its own journey, not another of the session");
-      assert.deepStrictEqual(
-        calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney")?.[1],
-        {
-          workspace: WORKSPACE,
-          sessionId: "session-1",
-          journeyId,
-          cookie: "trust_hmi_session=4f1c0ffee",
-          target: TARGET,
-          steps,
-          models,
-        },
-      );
+      assert.deepStrictEqual(calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney")?.[1], {
+        ...DRAFT,
+        sessionId: "session-1",
+        journeyId,
+        cookie: "trust_hmi_session=4f1c0ffee",
+        target: TARGET,
+        steps,
+      });
     });
   });
   test("a refused or abandoned simulator login closes the session in trust-lsp, and no cookie goes out", async () => {
@@ -222,14 +242,17 @@ suite("HMI completed authoring contracts", () => {
           connectSimulator(WORKSPACE, "Fixture", simulatorBridge(401), login),
           /The simulator refused the named HMI login\./,
         );
-        assert.strictEqual(await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), async () => undefined), undefined);
+        assert.strictEqual(
+          await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), async () => undefined),
+          undefined,
+        );
         const closed = calls.filter(([command]) => command === "trust-lsp.hmiAgent.closeSimulatorSession");
         assert.deepStrictEqual(closed, [
           ["trust-lsp.hmiAgent.closeSimulatorSession", { sessionId: "session-1" }],
           ["trust-lsp.hmiAgent.closeSimulatorSession", { sessionId: "session-1" }],
         ]);
         await assert.rejects(
-          runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, new AbortController().signal),
+          runSimulator(DRAFT, "session-1", [{ page: "settings" }], new AbortController().signal),
           /^Error: EXPIRED_DRAFT: select an unexpired named simulator session in this workspace\.$/,
         );
         const run = calls.find(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney");
@@ -279,7 +302,7 @@ suite("HMI completed authoring contracts", () => {
         client = fake;
         await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
         const controller = new AbortController();
-        const running = runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, controller.signal);
+        const running = runSimulator(DRAFT, "session-1", [{ page: "settings" }], controller.signal);
         const journeyId = await startedJourney(calls);
         controller.abort();
         assert.deepStrictEqual(await running, cancelled);
@@ -296,11 +319,14 @@ suite("HMI completed authoring contracts", () => {
     await withSimulatorCommands({}, async (calls) => {
       await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
       const controller = new AbortController();
-      const running = runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, controller.signal);
+      const running = runSimulator(DRAFT, "session-1", [{ page: "settings" }], controller.signal);
       await startedJourney(calls);
       const aborted = Date.now();
       controller.abort();
-      await assert.rejects(running, /^Error: CANCELLED: the simulator journey was cancelled; its answer did not arrive in time\.$/);
+      await assert.rejects(
+        running,
+        /^Error: CANCELLED: the simulator journey was cancelled; its answer did not arrive in time\.$/,
+      );
       const waited = Date.now() - aborted;
       assert.ok(waited >= 1900 && waited < 4000, `ended ${waited} ms after the cancel`);
     });
@@ -319,7 +345,7 @@ suite("HMI completed authoring contracts", () => {
       const controller = new AbortController();
       abortOnTarget = controller;
       await assert.rejects(
-        runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, controller.signal),
+        runSimulator(DRAFT, "session-1", [{ page: "settings" }], controller.signal),
         vscode.CancellationError,
       );
       const sent = calls.map(([command]) => command);
@@ -330,7 +356,7 @@ suite("HMI completed authoring contracts", () => {
   test("a journey whose language server stops ends with NOT_CONNECTED instead of waiting forever", async () => {
     await withSimulatorCommands({}, async (calls, client) => {
       await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
-      const running = runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, new AbortController().signal);
+      const running = runSimulator(DRAFT, "session-1", [{ page: "settings" }], new AbortController().signal);
       await until(() => calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
       client.stop();
       await assert.rejects(running, /^Error: NOT_CONNECTED: the truST language server stopped\.$/);
@@ -358,7 +384,7 @@ suite("HMI completed authoring contracts", () => {
       await withSimulatorCommands({}, async (calls) => {
         await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
         await assert.rejects(
-          runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, new AbortController().signal),
+          runSimulator(DRAFT, "session-1", [{ page: "settings" }], new AbortController().signal),
           /^Error: UNSUPPORTED_CONTEXT: the language server trace logs each message's parameters, which would log the named session's cookie/,
         );
         assert.ok(!calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
@@ -388,7 +414,7 @@ suite("HMI completed authoring contracts", () => {
       await withSimulatorCommands({}, async (calls) => {
         await connectSimulator(WORKSPACE, "Fixture", simulatorBridge(200), login);
         await assert.rejects(
-          runSimulator(WORKSPACE, "session-1", [{ page: "settings" }], {}, new AbortController().signal),
+          runSimulator(DRAFT, "session-1", [{ page: "settings" }], new AbortController().signal),
           /^Error: UNSUPPORTED_CONTEXT: the language server trace logs each message's parameters/,
         );
         assert.ok(!calls.some(([command]) => command === "trust-lsp.hmiAgent.runSimulatorJourney"));
