@@ -20,7 +20,7 @@ use super::{
     HarnessLoadParams, HarnessRunUntilParams, HarnessSetInputParams, LspAstCanonicalizeParams,
     LspAstSimilarityParams, LspDiagnosticsParams, LspFormatParams, RuntimeCompileReloadParams,
     RuntimeIssueCapParams, RuntimeReloadParams, RuntimeTestParams, WorkspaceReadParams,
-    WorkspaceWriteParams,
+    WorkspaceWriteParams, ERROR_IO,
 };
 
 /// One row of the static tool table: the canonical Agent API method and the tool
@@ -308,14 +308,18 @@ impl AgentToolProvider {
         Self::error_text_result(&serde_json::to_string(&payload).expect("error payload serializes"))
     }
 
-    /// The poisoned-session answer: an error tool result that says the session is dead
-    /// and the server must be restarted, instead of the connection layer's generic
-    /// failure answer that one failed call would be indistinguishable from
-    /// (specification 20 §8).
+    /// The poisoned-session answer: an error tool result, kind `session_ended`, that says
+    /// the session is dead and the server must be restarted, instead of the connection
+    /// layer's generic failure answer that one failed call would be indistinguishable
+    /// from (specification 20 §8).
     fn poisoned_result() -> Value {
-        json!({
-            "content": [{ "type": "text", "text": r#"{"code":-32002,"data":{"kind":"session_ended"},"message":"An earlier call panicked and ended this agent server session. Restart 'trust-dev agent serve-mcp' to start a fresh session; the harness session state is lost."}"# }],
-            "isError": true,
+        Self::error_result(AgentCommandError {
+            code: ERROR_IO,
+            message: "An earlier call panicked and ended this agent server session. Restart \
+                      'trust-dev agent serve-mcp' to start a fresh session; the harness session \
+                      state is lost."
+                .to_owned(),
+            data: Some(json!({ "kind": "session_ended" })),
         })
     }
 

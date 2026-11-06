@@ -373,10 +373,22 @@ fn a_panicked_dispatch_marks_every_later_call_as_a_dead_session() {
     let dead = tool_call(&provider, "agent_describe", json!({}));
     let payload = error_payload(&dead);
     assert_eq!(payload["code"], -32002, "{payload:#}");
+    // The contract's `{code, message, data}` object, like every other error answer, with
+    // the kind an agent detects it by and nothing else: catches an answer built apart
+    // from the other errors that loses the kind or gains a field.
     assert_eq!(
-        payload["data"]["kind"], "session_ended",
+        payload["data"],
+        json!({ "kind": "session_ended" }),
         "the payload carries the machine-readable kind: {payload:#}"
     );
+    let mut keys: Vec<&str> = payload
+        .as_object()
+        .expect("the payload is an object")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["code", "data", "message"], "{payload:#}");
     let message = payload["message"].as_str().expect("restart message");
     assert!(
         message.contains("Restart 'trust-dev agent serve-mcp'"),

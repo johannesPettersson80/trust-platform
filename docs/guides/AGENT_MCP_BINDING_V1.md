@@ -182,9 +182,10 @@ answer. A call that panics inside the dispatch is answered the same way.
 A dispatch that panics ends the agent server session: the layer's failure
 answer covers the panicking call, and every later call answers an error tool
 result (`-32002`) whose message says the session must be restarted, instead
-of a generic failure the agent could not tell from one failed call. Restart
-`trust-dev agent serve-mcp` to start a fresh session; the harness session
-state is lost with the process.
+of a generic failure the agent could not tell from one failed call. Its
+payload carries `data.kind = "session_ended"`, so an agent detects the ended
+session without reading the message. Restart `trust-dev agent serve-mcp` to
+start a fresh session; the harness session state is lost with the process.
 
 ## Scope Boundary
 
