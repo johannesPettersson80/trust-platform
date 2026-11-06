@@ -188,6 +188,30 @@ fn durations_convert_to_whole_milliseconds() {
     assert_eq!(dword_to_time(1500), 1_500_000_000);
 }
 
+/// The CODESYS duration and time-of-day counts (specification 07 §2.4, `docs/IEC_DEVIATIONS.md`
+/// DEV-036): 1,500,000,000 ns are 1,500 whole milliseconds and 1,999,999 ns are 1; an `LTIME`
+/// counts its nanoseconds; a negative duration overflows, where a wrong count would read its
+/// magnitude. 01:00 is 3,600,000 ms of the day, as a `TOD` (milliseconds) and an `LTOD`
+/// (nanoseconds); a negative time of day overflows, and an `LTOD` 999,999 ns before midnight is
+/// still 0 whole milliseconds.
+#[test]
+fn the_codesys_rules_count_durations_and_times_of_day() {
+    let mut cx = cx();
+    assert_eq!(duration_count(&mut cx, 1_500_000_000, 1_000_000), Ok(1500));
+    assert_eq!(duration_count(&mut cx, 1_999_999, 1_000_000), Ok(1));
+    assert_eq!(duration_count(&mut cx, 9, 1), Ok(9));
+    assert_eq!(
+        code(duration_count(&mut cx, -5_000_000, 1_000_000)),
+        OVERFLOW
+    );
+    assert_eq!(tod_to_dword(&mut cx, 3_600_000), Ok(3_600_000));
+    assert_eq!(code(tod_to_dword(&mut cx, -1)), OVERFLOW);
+    assert_eq!(code(tod_to_dword(&mut cx, 4_294_967_296)), OVERFLOW);
+    assert_eq!(ltod_to_dword(&mut cx, 3_600_000_000_000), Ok(3_600_000));
+    assert_eq!(ltod_to_dword(&mut cx, -999_999), Ok(0));
+    assert_eq!(code(ltod_to_dword(&mut cx, -1_000_000)), OVERFLOW);
+}
+
 fn text<const N: usize>(value: &Str<N>) -> ([u8; 64], usize) {
     let view = value.view();
     let mut bytes = [0u8; 64];
@@ -268,6 +292,21 @@ fn integers_become_decimal_text() {
     let short = Str::<2>::new();
     write_uint(short.view(), 12_345);
     assert_text(&short, "12");
+}
+
+/// A `BOOL` as text under the CODESYS rules is `TRUE` or `FALSE` (specification 07 §2.7), where a
+/// wrong spelling would give its number, and the text is cut at the capacity: `FAL` in a
+/// `STRING[3]`.
+#[test]
+fn booleans_become_true_or_false() {
+    let value = Str::<8>::new();
+    write_bool(value.view(), true);
+    assert_text(&value, "TRUE");
+    write_bool(value.view(), false);
+    assert_text(&value, "FALSE");
+    let short = Str::<3>::new();
+    write_bool(short.view(), false);
+    assert_text(&short, "FAL");
 }
 
 /// Strings compare by their bytes, a prefix first.

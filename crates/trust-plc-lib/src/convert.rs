@@ -259,6 +259,45 @@ pub fn dword_to_time(millis: u32) -> i64 {
     i64::from(millis) * 1_000_000
 }
 
+/// `TIME_TO_<int>` and `LTIME_TO_<int>` under the CODESYS conversion rules (specification 07 §2.4,
+/// `docs/IEC_DEVIATIONS.md` DEV-036): the whole number of `per` nanoseconds in a duration, a
+/// `TIME`'s milliseconds or an `LTIME`'s nanoseconds, which the generated code keeps to the
+/// destination's low-order bits.
+///
+/// # Errors
+///
+/// `Overflow` for a negative duration.
+#[inline]
+pub fn duration_count(cx: &mut Cx, nanos: i64, per: i64) -> Result<i64, Fault> {
+    if nanos < 0 {
+        return Err(overflow(cx, nanos));
+    }
+    Ok(nanos / per)
+}
+
+/// `TOD_TO_DWORD` under the CODESYS conversion rules (specification 07 §2.4, DEV-036): the
+/// milliseconds of the day.
+///
+/// # Errors
+///
+/// `Overflow` for a negative time of day and for one of more than `u32::MAX` milliseconds.
+#[inline]
+pub fn tod_to_dword(cx: &mut Cx, ticks: i64) -> Result<u32, Fault> {
+    u32::try_from(ticks).map_err(|_| overflow(cx, ticks))
+}
+
+/// `LTOD_TO_DWORD` under the CODESYS conversion rules (specification 07 §2.4, DEV-036): the whole
+/// milliseconds of the day.
+///
+/// # Errors
+///
+/// `Overflow` for a time of day before midnight by a millisecond or more, and for one of more than
+/// `u32::MAX` milliseconds.
+#[inline]
+pub fn ltod_to_dword(cx: &mut Cx, nanos: i64) -> Result<u32, Fault> {
+    u32::try_from(nanos / 1_000_000).map_err(|_| overflow(cx, nanos))
+}
+
 /// An integer a text spells, in 128 bits, as the integer type `T`: `STRING_TO_INT`.
 ///
 /// # Errors

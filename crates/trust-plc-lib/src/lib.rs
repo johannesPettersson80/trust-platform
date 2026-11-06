@@ -41,10 +41,11 @@ pub use assertions::{assert_near, assertion_failed, text_assertion_failed, Asser
 pub use bistables::{rs, sr, Rs, Sr};
 pub use bits::{rol, ror, shift_bool, shift_count, shl, shr, Bits};
 pub use convert::{
-    bits_to_real32, bits_to_real64, code_to_char, code_to_wchar, dword_to_time, from_bcd,
-    real32_to_real, real64_to_real32, real_to_bool, real_to_int, real_to_int_wrapping,
-    round_ties_to_even, sint_to, sint_to_real32, sint_to_real64, time_to_dword, to_bcd, uint_to,
-    uint_to_real32, uint_to_real64, wide_to, IntTarget, Rounding,
+    bits_to_real32, bits_to_real64, code_to_char, code_to_wchar, duration_count, dword_to_time,
+    from_bcd, ltod_to_dword, real32_to_real, real64_to_real32, real_to_bool, real_to_int,
+    real_to_int_wrapping, round_ties_to_even, sint_to, sint_to_real32, sint_to_real64,
+    time_to_dword, to_bcd, tod_to_dword, uint_to, uint_to_real32, uint_to_real64, wide_to,
+    IntTarget, Rounding,
 };
 pub use counters::{
     ctd_dint, ctd_int, ctd_lint, ctd_udint, ctd_ulint, ctu_dint, ctu_int, ctu_lint, ctu_udint,
@@ -64,7 +65,7 @@ pub use math::{atan2_32, atan2_64, expt32, expt64, real32, real64, Math};
 pub use number_text::{parse_int, parse_real, write_real, REAL_TEXT};
 pub use select::{at, fabs, limit, max, min, mux_index, subrange};
 pub use text::{
-    assign, assign_bytes, compare, concat, len, write_int, write_uint, Piece, MAX_TEXT,
+    assign, assign_bytes, compare, concat, len, write_bool, write_int, write_uint, Piece, MAX_TEXT,
 };
 pub use text_functions::{
     char_at, delete, find, insert, left, len_int, mid, replace, right, set_char, text_to_char,

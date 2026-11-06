@@ -858,6 +858,120 @@ END_TEST_PROGRAM
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// A project with the CODESYS rules (`vendor_profile = "codesys"`) and the test sources `tests`.
+fn codesys_project(prefix: &str, tests: &str) -> std::path::PathBuf {
+    let project = unique_temp_dir(prefix);
+    let sources = project.join("src");
+    std::fs::create_dir_all(&sources).expect("create src dir");
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesys\"\n",
+    )
+    .expect("write trust-lsp.toml");
+    std::fs::write(sources.join("tests.st"), tests).expect("write test source");
+    project
+}
+
+// docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the CODESYS
+// rules an enumerated value as text is its value's name, as a STRING or a WSTRING, also for an
+// enumeration with given values. A wrong compiled program spells the base integer ('1' for
+// Color#Green), which the native generator did until 6 November 2026.
+#[test]
+fn run_test_spells_an_enumerated_value_as_its_name_under_the_codesys_rules() {
+    let project = codesys_project(
+        "codesys-enumerated-names",
+        r#"
+TYPE Color : (Red, Green, Blue); END_TYPE
+TYPE Mode : (Off := 0, Auto := 5, Hand := 9); END_TYPE
+
+TEST_PROGRAM EnumeratedValuesSpellTheirNames
+VAR
+    Shade : Color := Color#Green;
+    Way : Mode := Mode#Hand;
+    Name : STRING;
+    WideName : WSTRING;
+END_VAR
+Name := TO_STRING(Shade);
+ASSERT_EQUAL(EXPECTED := 'Green', ACTUAL := Name);
+Name := TO_STRING(Way);
+ASSERT_EQUAL(EXPECTED := 'Hand', ACTUAL := Name);
+WideName := TO_WSTRING(Shade);
+ASSERT_TRUE(IN := WideName = "Green");
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["passed"], 1, "{payload}");
+    assert_eq!(payload["summary"]["total"], 1, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+// docs/specs/07-standard-functions.md 2.4 and 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the
+// CODESYS rules a TIME converts to an integer as its whole milliseconds and an LTIME as its
+// nanoseconds, kept to the destination's low-order bits (300 ms in a SINT is 44); a time of day
+// to a DWORD as its milliseconds of the day (01:00 is 3,600,000); a BOOL to text as TRUE or FALSE;
+// a negative duration is an overflow. A wrong generator refuses to build them, which it did until
+// 6 November 2026, faults on the SINT, or reads the negative duration's magnitude.
+#[test]
+fn run_test_compiles_the_codesys_duration_time_of_day_and_boolean_conversions() {
+    let project = codesys_project(
+        "codesys-vendor-conversions",
+        r#"
+TEST_PROGRAM DurationsGiveTheirCounts
+ASSERT_EQUAL(DINT#1500, TIME_TO_DINT(T#1500ms));
+ASSERT_EQUAL(UDINT#1500, TIME_TO_UDINT(T#1500ms));
+ASSERT_EQUAL(LINT#9, LTIME_TO_LINT(LTIME#9ns));
+ASSERT_EQUAL(SINT#44, TIME_TO_SINT(T#300ms));
+END_TEST_PROGRAM
+
+TEST_PROGRAM TimesOfDayGiveTheirMilliseconds
+ASSERT_EQUAL(DWORD#3600000, TOD_TO_DWORD(TOD#01:00:00));
+ASSERT_EQUAL(DWORD#3600000, LTOD_TO_DWORD(LTOD#01:00:00));
+END_TEST_PROGRAM
+
+TEST_PROGRAM BooleansSpellTrueOrFalse
+VAR
+    Flag : BOOL := TRUE;
+    Text : STRING;
+END_VAR
+Text := TO_STRING(Flag);
+ASSERT_EQUAL(EXPECTED := 'TRUE', ACTUAL := Text);
+Text := BOOL_TO_STRING(FALSE);
+ASSERT_EQUAL(EXPECTED := 'FALSE', ACTUAL := Text);
+END_TEST_PROGRAM
+
+TEST_PROGRAM ANegativeDurationOverflows
+VAR
+    Span : TIME := T#-5ms;
+    Count : DINT;
+END_VAR
+Count := TIME_TO_DINT(Span);
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["total"], 4, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 3, "{payload}");
+    let overflowed = payload["tests"]
+        .as_array()
+        .and_then(|tests| {
+            tests
+                .iter()
+                .find(|test| test["name"] == "ANegativeDurationOverflows")
+        })
+        .expect("the negative duration's test ran");
+    assert_eq!(overflowed["status"], "error", "{payload}");
+    assert!(
+        overflowed["message"]
+            .as_str()
+            .is_some_and(|message| message.to_ascii_lowercase().contains("overflow")),
+        "{payload}"
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn filtered_configured_test_registers_all_test_declarations_but_executes_only_selected() {
     let project = unique_temp_dir("configured-filtered-declarations");

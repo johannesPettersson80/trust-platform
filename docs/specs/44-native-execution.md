@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.38 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.40 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -37,7 +37,9 @@ goes, which the scan of the example projects found missing on 26 October 2026; 0
 non-finite real inputs and writes past the process images; 0.36 gives the debugger its writes and
 forces back on compiled programs, §13.2; 0.37 ships the toolchain bundle inside the VS Code
 extension, as the owner asked on 27 October 2026, §4.6; 0.38 makes a computer's copied module the
-instructions an ARM CPU fetches, §10.3, Appendix B),
+instructions an ARM CPU fetches, §10.3; 0.39 keeps every instruction of an AArch64 module off
+`x18`, §4.4, §4.5; 0.40 compiles the CODESYS vendor conversions of specification 07, §6.8,
+Appendix B),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 (Ed25519ph since 0.30) with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -227,7 +229,9 @@ and macOS alike, since a freestanding module calls nothing of the operating syst
 names the calling convention instead of taking the operating system's: `extern "sysv64"` on x86-64
 and `extern "C"` elsewhere (AAPCS64 and Apple's arm64 convention agree for the interface's
 signatures, which pass everything in registers). The AArch64 module reserves `x18`, which macOS
-reserves.
+reserves and may overwrite when it switches threads: no instruction of the linked module names it,
+neither the generated code nor the libraries it links (§4.5) nor the compiler's own functions it
+takes in.
 
 ### 4.5 Compiler flags
 
@@ -248,7 +252,14 @@ No `-Z` flag is used: the build runs on stable rustc only. The module is linked 
 position-independent executable, so that an absolute address anywhere in it would be a dynamic
 relocation, which the image builder refuses (§5.3); a module that links has none. The program
 library and the interface crates are compiled for each target with the same relocation model, abort
-on panic and embedded bitcode, so that link-time optimization takes in what the program calls. The
+on panic and embedded bitcode, so that link-time optimization takes in what the program calls, and
+for AArch64 with the module's `-C target-feature=+reserve-x18` (§4.4): link-time optimization keeps
+each function's own target features, so a library built without it kept values in `x18`, and on
+macOS a program computed a wrong value or crashed at random (found 6 November 2026). rustc 1.99
+warns that the feature will no longer be accepted this way and names the unstable `-Zfixed-x18`
+(rust-lang/rust#116344); a toolchain on which the warning has become an error keeps `x18` reserved
+by another stable means before it is adopted, and the test that reads an AArch64 module's machine
+code for the register holds either way. The
 ELF's symbols are kept for the image builder, which reads the entry points' offsets from them; the
 image carries none of them. (`-C llvm-args=-stack-size-section`, which 0.1 named, is accepted by
 stable rustc and has no effect: rustc sets that option itself only for `-Z emit-stack-sizes`.)
@@ -913,7 +924,14 @@ How the library carries the runtime's rules over, function by function:
   rounded half away from zero (`TRUNC` toward zero) and kept to the low-order bits of the target's
   width; an integer to an integer by its low-order bits; `REAL_TO_DWORD` and `LREAL_TO_LWORD` the
   number so rounded; `DWORD_TO_REAL` and `LWORD_TO_LREAL` the number; a bit string to `BOOL` TRUE
-  when it is not zero. A non-finite real is still an overflow.
+  when it is not zero. A non-finite real is still an overflow. The same rules carry the vendor
+  conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036): a `TIME` to an
+  integer through the library's `duration_count`, its whole milliseconds (an `LTIME`'s
+  nanoseconds) kept to the low-order bits of the integer, a negative duration an overflow;
+  `TOD_TO_DWORD` and `LTOD_TO_DWORD` the milliseconds of the day; a `BOOL` as text `TRUE` or
+  `FALSE`; an enumerated value as text its value's name, the first name of a value two names
+  share, and the decimal number of a value no name has. `TO_STRING` of a `TIME` or an `LTIME` is
+  not compiled yet (NX-09): the vendor's text is to be measured first.
 - A character converts by its code: a number or a bit string to a `CHAR` or `WCHAR` by its value,
   a negative one by its bits, an overflow above the type; a `CHAR` to a number by its code and to a
   text as its character in UTF-8; a text to a `CHAR` when it holds exactly one character (a type
@@ -1956,6 +1974,8 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
 | 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner approved on 25 October 2026 (§14.4: "if its professional and according to iec then i trust you"): each records an IEC 61131-3 construct whose representation IEC leaves to the implementer (the resource of §6.8.1, the direct and hierarchical addresses of §6.5.5 and Table 16, `STRUCT OVERLAP` of §6.4.4.6, the variable-length arrays of §6.5.3) or the truST function `CURRENT_DT` (specification 07). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
+| 0.40 | 6 November 2026 | The CODESYS vendor conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036), which the type checker accepted under the CODESYS rules since 31 October 2026, compiled (§6.8): a duration to an integer, a time of day to a `DWORD`, a `BOOL` and an enumerated value as text. The build refused the first three, and spelled an enumerated value as its number. `TO_STRING` of a duration stays refused (NX-09) until the vendor's text is measured. |
+| 0.39 | 6 November 2026 | The AArch64 module's reservation of `x18` (§4.4) made whole: the libraries a module links are built with `+reserve-x18` too (§4.5). Link-time optimization kept their functions' own target features, so `write_parts` (`CONCAT`), `find` (`FIND`), the number texts and `libm` kept values in `x18`; on macOS, which may overwrite the register when it switches threads, OSCAT's `DT_TO_STRF` once gave '2026-0 4-15 13:14' and a test program died of SIGSEGV. A test reads every instruction of an AArch64 module for the register. |
 | 0.38 | 28 October 2026 | A computer's kernel makes the module it copied the instructions an ARM CPU fetches before the code runs: `sys_icache_invalidate` on macOS, the architecture's cache maintenance by address on Linux (§10.3). The mapping did not, so on an ARM computer a module could run instructions that the instruction cache still held for its addresses. It was found while a test program that failed once at random on macOS was investigated; that failure did not recur in 40 runs on macOS with either loader, so its cause is not confirmed (28 October 2026). §10.3 no longer says that macOS maps with `MAP_JIT`: the releases are not notarized. |
 | 0.37 | 27 October 2026 | The VS Code extension carries its platform's toolchain bundle in `bin/` and installs it on the first build that needs it, with no download; `trust-runtime` installs a bundle beside its own program before it would download one, and the release packs each platform's bundle into that platform's extension (§4.6; the owner, 27 October 2026: "this complete toolchain must be shipped in our vs code extension. the user shall not have to install rust by himself"). |
 | 0.36 | 26 October 2026 | A debugger's writes and forces on a compiled program, which a debug session lost when every session became a session with a runtime of its own (the owner, 26 October 2026: "did you run a program, simulate and force values etc? did you test all workflows?"). §13.2: while the debugger holds the scan, `debug.set` writes into the held scan at once, through the stop the hold lends to the reads, a variable a listing showed or a path, a local of a frame on the held call stack included; a computer hands the write to its scan thread and answers once it was applied; a force at a hold is written at once and held as a Live Values force; between scans nothing is written and the client queues the write. §13.3: a `global:` target is a path through the type table, a constant and an instance are refused, and a value is a literal of its target's declared type, also at an address a variable is bound to. The image format and the kernel interface are unchanged. |
