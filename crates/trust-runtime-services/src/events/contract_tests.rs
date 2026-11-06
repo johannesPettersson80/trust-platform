@@ -6,8 +6,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use serde_json::json;
-use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError, StableErrorCode, VmFaultDetail};
-use trust_runtime_core::fault::FaultDetail;
+use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError};
 use trust_runtime_core::value::Duration;
 
 use super::*;
@@ -328,13 +327,7 @@ fn a_fault_event_replies_as_before() {
             },
             "execution timed out: allocation bytes limit 60, used 40, requested 24",
         ),
-        (
-            RuntimeError::VmFault(VmFaultDetail {
-                code: StableErrorCode::VmCallStackOverflow,
-                detail: FaultDetail::Text("vm call stack overflow"),
-            }),
-            "call depth exceeded",
-        ),
+        (RuntimeError::CallDepthExceeded, "call depth exceeded"),
     ];
 
     for (error, text) in cases {

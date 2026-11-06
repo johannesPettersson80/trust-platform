@@ -12,8 +12,6 @@ pub use crate::error_code::StableErrorCode;
 
 mod execution;
 pub use execution::ExecutionLimitKind;
-mod vm_fault;
-pub use vm_fault::{RuntimeText, VmFaultDetail};
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -170,11 +168,12 @@ pub enum RuntimeError {
         error: SmolStr,
     },
 
-    /// A VM fault during a scan with bounded, allocation-free context (specification 34
-    /// MEM-05). Its stable code is unchanged from the bytecode fault it replaces; it reads as
-    /// [`VmFaultDetail::runtime_text`] says.
-    #[error("{}", .0.runtime_text())]
-    VmFault(VmFaultDetail),
+    /// A recursive call that found no call depth left: a recursion deeper than the depth the
+    /// kernel gives an activation (specification 44 §6.4, Appendix A). Its stable code is
+    /// `vm_call_stack_overflow`, the code the bytecode engine gave a call beyond its call
+    /// levels (specification 10).
+    #[error("call depth exceeded")]
+    CallDepthExceeded,
 
     /// Thread spawn error.
     #[error("thread spawn error '{0}'")]
@@ -264,17 +263,6 @@ pub enum RuntimeError {
 }
 
 impl RuntimeError {
-    /// The error of a call beyond the call levels a task's stack holds: a recursion deeper than
-    /// the depth the kernel gives an activation (specification 44 §6.4, Appendix A). It reads
-    /// `call depth exceeded`.
-    #[must_use]
-    pub fn call_depth_exceeded() -> Self {
-        Self::VmFault(VmFaultDetail {
-            code: StableErrorCode::VmCallStackOverflow,
-            detail: crate::fault::FaultDetail::Text("vm call stack overflow"),
-        })
-    }
-
     /// Return the stable machine identifier for this runtime failure.
     #[must_use]
     pub const fn stable_code(&self) -> StableErrorCode {
@@ -315,7 +303,7 @@ impl RuntimeError {
             Self::IoAddress(_) => StableErrorCode::RuntimeIoAddress,
             Self::IoFreshness(_) => StableErrorCode::RuntimeIoFreshness,
             Self::InitFailed { .. } => StableErrorCode::RuntimeInitFailed,
-            Self::VmFault(fault) => fault.code,
+            Self::CallDepthExceeded => StableErrorCode::VmCallStackOverflow,
             Self::ThreadSpawn(_) => StableErrorCode::RuntimeThreadSpawn,
             Self::WatchdogTimeout => StableErrorCode::RuntimeWatchdogTimeout,
             Self::RestartLimitExceeded { .. } => StableErrorCode::RuntimeRestartLimitExceeded,
@@ -473,7 +461,7 @@ mod tests {
                 StableErrorCode::RuntimeReferenceLifetime,
             ),
             (
-                RuntimeError::call_depth_exceeded(),
+                RuntimeError::CallDepthExceeded,
                 StableErrorCode::VmCallStackOverflow,
             ),
             (

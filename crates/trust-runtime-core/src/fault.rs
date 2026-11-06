@@ -24,7 +24,6 @@ use smol_str::SmolStr;
 use crate::error::ExecutionLimitKind;
 use crate::error::RuntimeError;
 use crate::error::StableErrorCode;
-use crate::error::VmFaultDetail;
 use crate::value::Duration;
 
 /// Milliseconds in one whole second of the record's logical time.
@@ -35,8 +34,6 @@ const MILLIS_PER_SECOND: i64 = 1_000;
 pub enum FaultDetail {
     /// No additional context.
     None,
-    /// A fixed diagnostic text.
-    Text(&'static str),
     /// A value outside an inclusive `[lower, upper]` range.
     Index {
         /// Rejected value.
@@ -90,7 +87,6 @@ impl fmt::Display for FaultDetail {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::None => formatter.write_str(""),
-            Self::Text(text) => formatter.write_str(text),
             Self::Index {
                 index,
                 lower,
@@ -238,7 +234,6 @@ impl FaultRecord {
     /// (specification 34 MEM-05).
     fn code_and_detail(error: &RuntimeError) -> (StableErrorCode, FaultDetail) {
         match error {
-            RuntimeError::VmFault(fault) => (fault.code, fault.detail),
             RuntimeError::IndexOutOfBounds {
                 index,
                 lower,
@@ -386,17 +381,6 @@ impl fmt::Display for FaultRecord {
                 formatter,
                 "execution timed out: {kind} limit {limit}, used {used}, requested {requested}"
             ),
-            // Every other bounded detail belongs to a VM fault, which reads as its runtime error
-            // does: the bytecode prefix around the detail, or `call depth exceeded` for a call
-            // beyond the call levels (specification 34 MEM-05; specification 12 §7.4.1).
-            detail => fmt::Display::fmt(
-                &VmFaultDetail {
-                    code: self.code,
-                    detail,
-                }
-                .runtime_text(),
-                formatter,
-            ),
         }
     }
 }
@@ -423,6 +407,7 @@ fn fixed_message(code: StableErrorCode) -> &'static str {
         StableErrorCode::RuntimeResourceFaulted => "resource faulted",
         StableErrorCode::RuntimeWatchdogTimeout => "watchdog timeout",
         StableErrorCode::RuntimeExecutionTimeout => "execution timed out",
+        StableErrorCode::VmCallStackOverflow => "call depth exceeded",
         StableErrorCode::RuntimeStringCapacityExceeded => {
             "string result longer than the maximum of 65535"
         }

@@ -156,7 +156,7 @@ fn a_recursion_that_does_not_end_ends_the_scan_at_the_call_depth() {
     let error = program
         .scan(Duration::from_millis(10), &mut NoHooks)
         .expect_err("the recursion ends the scan");
-    assert_eq!(error, RuntimeError::call_depth_exceeded());
+    assert_eq!(error, RuntimeError::CallDepthExceeded);
     assert_eq!(error.to_string(), "call depth exceeded");
     let calls = i64::try_from(depth + 1).expect("a depth of a test's task stack");
     assert_eq!(

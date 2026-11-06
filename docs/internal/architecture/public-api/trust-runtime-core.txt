@@ -357,6 +357,7 @@ impl core::fmt::Display for trust_runtime_core::error::ExecutionLimitKind
 pub fn trust_runtime_core::error::ExecutionLimitKind::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime_core::error::RuntimeError
 pub trust_runtime_core::error::RuntimeError::AssertionFailed(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::CallDepthExceeded
 pub trust_runtime_core::error::RuntimeError::ControlError(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::DateTimeRange(trust_runtime_core::value::DateTimeError)
 pub trust_runtime_core::error::RuntimeError::DeploymentRecordInvalid(trust_runtime_core::deployment::DeploymentRecordError)
@@ -426,10 +427,8 @@ pub trust_runtime_core::error::RuntimeError::UndefinedFunction(smol_str::SmolStr
 pub trust_runtime_core::error::RuntimeError::UndefinedFunctionBlock(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::UndefinedProgram(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::UndefinedVariable(smol_str::SmolStr)
-pub trust_runtime_core::error::RuntimeError::VmFault(trust_runtime_core::error::VmFaultDetail)
 pub trust_runtime_core::error::RuntimeError::WatchdogTimeout
 impl trust_runtime_core::error::RuntimeError
-pub fn trust_runtime_core::error::RuntimeError::call_depth_exceeded() -> Self
 pub const fn trust_runtime_core::error::RuntimeError::stable_code(&self) -> trust_runtime_core::error_code::StableErrorCode
 impl core::convert::From<trust_runtime_core::datetime::DateTimeCalcError> for trust_runtime_core::error::RuntimeError
 pub fn trust_runtime_core::error::RuntimeError::from(_: trust_runtime_core::datetime::DateTimeCalcError) -> Self
@@ -495,16 +494,6 @@ impl trust_runtime_core::error_code::StableErrorCode
 pub const fn trust_runtime_core::error_code::StableErrorCode::as_str(self) -> &'static str
 impl core::fmt::Display for trust_runtime_core::error_code::StableErrorCode
 pub fn trust_runtime_core::error_code::StableErrorCode::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-pub struct trust_runtime_core::error::RuntimeText<'a>(_)
-impl core::fmt::Display for trust_runtime_core::error::RuntimeText<'_>
-pub fn trust_runtime_core::error::RuntimeText<'_>::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-pub struct trust_runtime_core::error::VmFaultDetail
-pub trust_runtime_core::error::VmFaultDetail::code: trust_runtime_core::error_code::StableErrorCode
-pub trust_runtime_core::error::VmFaultDetail::detail: trust_runtime_core::fault::FaultDetail
-impl trust_runtime_core::error::VmFaultDetail
-pub fn trust_runtime_core::error::VmFaultDetail::runtime_text(&self) -> trust_runtime_core::error::RuntimeText<'_>
-impl core::fmt::Display for trust_runtime_core::error::VmFaultDetail
-pub fn trust_runtime_core::error::VmFaultDetail::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub mod trust_runtime_core::error_code
 pub enum trust_runtime_core::error_code::StableErrorCode
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeAssertionFailed
@@ -575,7 +564,6 @@ pub trust_runtime_core::fault::FaultDetail::Subrange::lower: u64
 pub trust_runtime_core::fault::FaultDetail::Subrange::negative: u8
 pub trust_runtime_core::fault::FaultDetail::Subrange::upper: u64
 pub trust_runtime_core::fault::FaultDetail::Subrange::value: u64
-pub trust_runtime_core::fault::FaultDetail::Text(&'static str)
 impl core::fmt::Display for trust_runtime_core::fault::FaultDetail
 pub fn trust_runtime_core::fault::FaultDetail::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime_core::fault::FaultMessage
