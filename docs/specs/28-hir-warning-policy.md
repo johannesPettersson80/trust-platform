@@ -143,10 +143,13 @@ truST's own clock contract, specification 07, "Runtime Clock Sources":
   body it replaces, and the warnings appear at the call sites, as with a
   linked library body. When a call reaches a declared source, the message
   names it: at the call of the declared POU itself, "`FuGetDateAndTime`
-  declares reads_host_clock and reads the host clock, which replay does not
+  reads the host clock (declared reads_host_clock), which replay does not
   control"; at a call site the source reaches through other POUs, "'mHandle'
-  reads the host clock through 'FuGetDateAndTime', which declares
-  reads_host_clock, which replay does not control". A call that reaches more
+  reads the host clock through 'FuGetDateAndTime' (declared
+  reads_host_clock), which replay does not control" — the through-form
+  belongs to the call the declared POU's key resolves to, so a wrapper of
+  the same name in another namespace reads as a reader, never as a
+  declarer. A call that reaches more
   than one source names the one whose direct reader comes first in the
   project's file order and document order. This section keeps the
   library-surface decision of #180: a clock read in a library body still

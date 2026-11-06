@@ -722,7 +722,7 @@ END_PROGRAM
         found[0].message.contains("'FuGetDateAndTime'")
             && found[0]
                 .message
-                .contains("declares reads_host_clock and reads the host clock"),
+                .contains("reads the host clock (declared reads_host_clock)"),
         "{found:?}"
     );
 }
@@ -761,13 +761,13 @@ END_PROGRAM
     assert!(
         app_file.iter().any(|diagnostic| diagnostic
             .message
-            .contains("'FuGetDateAndTime' declares reads_host_clock")),
+            .contains("'FuGetDateAndTime' reads the host clock (declared reads_host_clock)")),
         "{app_file:?}"
     );
     assert!(
         app_file.iter().any(|diagnostic| diagnostic
             .message
-            .contains("'MqttSub' reads the host clock through 'FuGetDateAndTime', which declares reads_host_clock")),
+            .contains("'MqttSub' reads the host clock through 'FuGetDateAndTime' (declared reads_host_clock)")),
         "{app_file:?}"
     );
 }
@@ -846,7 +846,9 @@ END_PROGRAM
     assert_eq!(app_file.len(), 1, "{app_file:?}");
     assert!(
         app_file[0].message.contains("'FuGetDateAndTime'")
-            && app_file[0].message.contains("declares reads_host_clock"),
+            && app_file[0]
+                .message
+                .contains("reads the host clock (declared reads_host_clock)"),
         "{app_file:?}"
     );
 }
@@ -922,14 +924,64 @@ END_PROGRAM
     assert!(
         wrapper_call
             .message
-            .contains("through 'FuGetDateAndTime', which declares reads_host_clock")
+            .contains("through 'FuGetDateAndTime' (declared reads_host_clock)")
             && !wrapper_call.message.contains("FuGetLocalDateAndTime"),
         "{wrapper_call:?}"
     );
     assert!(
         app_file.iter().any(|diagnostic| diagnostic
             .message
-            .contains("'FuGetLocalDateAndTime' declares reads_host_clock")),
+            .contains("'FuGetLocalDateAndTime' reads the host clock (declared reads_host_clock)")),
+        "{app_file:?}"
+    );
+}
+
+/// Wrong behaviour this pins: choosing the direct-call wording by comparing
+/// names. A wrapper of the same name in another namespace, whose body
+/// reaches the declared stub, would claim `declares reads_host_clock`
+/// although it declares nothing. Specification 28 section 5: the
+/// through-form belongs to the call the declared POU's key resolves to;
+/// identity comes from resolution, not from the spelling (#255's lesson).
+#[test]
+fn a_same_named_wrapper_in_another_namespace_gets_the_transitive_message() {
+    let sources = [
+        r#"
+NAMESPACE WagoAppTime
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+END_NAMESPACE
+"#,
+        r#"
+NAMESPACE Other
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := WagoAppTime.FuGetDateAndTime();
+END_FUNCTION
+END_NAMESPACE
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := Other.FuGetDateAndTime();
+END_PROGRAM
+"#,
+    ];
+    let stub_file = time_warnings_in(&sources, 0);
+    let app_file = time_warnings_in(&sources, 1);
+
+    assert!(stub_file.is_empty(), "{stub_file:?}");
+    assert_eq!(app_file.len(), 2, "{app_file:?}");
+    assert!(
+        app_file.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("reads the host clock (declared reads_host_clock)")),
+        "{app_file:?}"
+    );
+    assert!(
+        app_file.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("through 'FuGetDateAndTime' (declared reads_host_clock)")),
         "{app_file:?}"
     );
 }

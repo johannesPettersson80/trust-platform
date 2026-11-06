@@ -18,9 +18,10 @@ pub(in crate::db) type PouKey = (FileId, SymbolId);
 pub(in crate::db) enum ClockSource {
     /// The product host clock: a body that calls `CURRENT_DT`.
     CurrentDt,
-    /// A POU carrying the `{attribute 'reads_host_clock'}` pragma; holds the
-    /// POU's declared name.
-    Declared(SmolStr),
+    /// A POU carrying the `{attribute 'reads_host_clock'}` pragma: its key,
+    /// which tells the declared POU itself from a same-named reader, and the
+    /// POU's name for the message.
+    Declared { key: PouKey, name: SmolStr },
 }
 
 /// A clock source with the document rank of the direct reader that carries
@@ -125,15 +126,11 @@ pub(in crate::db) fn check_nondeterminism(
             ClockSource::CurrentDt => format!(
                 "'{callee_name}' reads the host clock through CURRENT_DT, which replay does not control"
             ),
-            ClockSource::Declared(source_name)
-                if source_name.eq_ignore_ascii_case(&callee_name) =>
-            {
-                format!(
-                    "'{callee_name}' declares reads_host_clock and reads the host clock, which replay does not control"
-                )
-            }
-            ClockSource::Declared(source_name) => format!(
-                "'{callee_name}' reads the host clock through '{source_name}', which declares reads_host_clock, which replay does not control"
+            ClockSource::Declared { key: declared, .. } if *declared == canonical => format!(
+                "'{callee_name}' reads the host clock (declared reads_host_clock), which replay does not control"
+            ),
+            ClockSource::Declared { name: source_name, .. } => format!(
+                "'{callee_name}' reads the host clock through '{source_name}' (declared reads_host_clock), which replay does not control"
             ),
         };
         diagnostics.warning(DiagnosticCode::NondeterministicTimeDate, range, message);
@@ -219,7 +216,7 @@ pub(in crate::db) fn compute_host_clock_sources(
                     key,
                     ClockEntry {
                         rank: entry_rank,
-                        source: ClockSource::Declared(name),
+                        source: ClockSource::Declared { key, name },
                     },
                 );
             }
