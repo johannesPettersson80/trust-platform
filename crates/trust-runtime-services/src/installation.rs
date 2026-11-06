@@ -685,8 +685,8 @@ pub enum AdmissionError {
     /// The container's record is not one this runtime reads; the same refusal the core reports as
     /// `RuntimeError::DeploymentRecordInvalid` (specification 34 §5.1.1).
     Record(DeploymentRecordError),
-    /// Admission refused the deployment: `RuntimeError::DeploymentRefused` with its numbers, or
-    /// `RuntimeError::ImportUnsupported` (specification 34 §5.1.1, DEPLOY-04).
+    /// Admission refused the deployment: `RuntimeError::DeploymentRefused` with its numbers
+    /// (specification 34 §5.1.1, DEPLOY-04).
     Deployment(RuntimeError),
 }
 

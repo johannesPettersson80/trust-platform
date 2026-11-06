@@ -9,7 +9,7 @@ use trust_runtime_core::deployment::{
     ProcessImageSummary, ProgramVersion, RequestedLimits, RequiredImport, SchedulingProfile,
     TimingEvidence,
 };
-use trust_runtime_core::error::{ImportRefusal, RuntimeError, StableErrorCode};
+use trust_runtime_core::error::{RuntimeError, StableErrorCode};
 use trust_runtime_core::native::image::Target;
 
 /// The bytes a record describes. Admission compares them with the record's length and SHA-256 and
@@ -298,81 +298,26 @@ fn each_contract_and_capability_is_checked_against_the_device() {
     );
 }
 
+/// Specification 34 §5.1.1, step 6, and §5.2.1: a compiled image imports nothing, so a record that
+/// lists an import is another program's, even an import the bytecode engine had a contract for (TON,
+/// version 1). Catches an admission that still checks imports against a table of contracts, and one
+/// that lets a listed import through.
 #[test]
-fn every_import_needs_a_contract_of_the_same_version() {
-    let record = record_of(PROGRAM);
-    let device = computer();
-    let with_import = |import: RequiredImport| {
-        let mut changed = record.clone();
-        changed.imports.push(import);
-        admit(&changed, PROGRAM, &device)
-    };
-    assert_eq!(
-        with_import(RequiredImport {
-            kind: ImportKind::FunctionBlock,
-            name: "TON".into(),
-            contract_version: 1,
-        }),
-        Ok(())
-    );
-    assert_eq!(
-        with_import(RequiredImport {
-            kind: ImportKind::Function,
-            name: "SQRTX".into(),
-            contract_version: 1,
-        }),
-        Err(RuntimeError::ImportUnsupported {
-            import: "SQRTX".into(),
-            reason: ImportRefusal::NoContract,
-        })
-    );
-    // A standard function block is not a function, and a function is not a block.
-    assert_eq!(
-        with_import(RequiredImport {
-            kind: ImportKind::Function,
-            name: "TON".into(),
-            contract_version: 1,
-        }),
-        Err(RuntimeError::ImportUnsupported {
-            import: "TON".into(),
-            reason: ImportRefusal::NoContract,
-        })
-    );
-    assert_eq!(
-        with_import(RequiredImport {
-            kind: ImportKind::FunctionBlock,
-            name: "SQRT".into(),
-            contract_version: 1,
-        }),
-        Err(RuntimeError::ImportUnsupported {
-            import: "SQRT".into(),
-            reason: ImportRefusal::NoContract,
-        })
-    );
-    let error = with_import(RequiredImport {
+fn a_record_that_lists_an_import_is_another_programs() {
+    let mut record = record_of(PROGRAM);
+    record.imports.push(RequiredImport {
         kind: ImportKind::FunctionBlock,
         name: "TON".into(),
-        contract_version: 2,
-    })
-    .unwrap_err();
+        contract_version: 1,
+    });
+    let error = admit(&record, PROGRAM, &computer()).unwrap_err();
     assert_eq!(
         error,
-        RuntimeError::ImportUnsupported {
-            import: "TON".into(),
-            reason: ImportRefusal::ContractVersion {
-                record: 2,
-                runtime: 1,
-            },
-        }
+        RuntimeError::DeploymentRefused(AdmissionRefusal::ProgramMismatch)
     );
     assert_eq!(
         error.stable_code(),
-        StableErrorCode::RuntimeImportUnsupported
-    );
-    assert_eq!(
-        error.to_string(),
-        "unsupported import 'TON': the deployment record names contract version 2, the runtime \
-         has version 1"
+        StableErrorCode::RuntimeDeploymentRefused
     );
 }
 
@@ -462,7 +407,6 @@ fn the_first_failed_check_in_the_specified_order_refuses() {
     record.contracts.scheduling_profile = SchedulingProfile(9);
     record.contracts.numeric_contract = NumericContract(9);
     record.contracts.timing_evidence = TimingEvidence::ANALYTICALLY_SUPPORTED;
-    record.imports[0].contract_version = 9;
     record.limits.max_call_depth = 4096;
     let check = |record: &DeploymentRecord| admit(record, PROGRAM, &device).unwrap_err();
     assert_eq!(
@@ -501,14 +445,11 @@ fn the_first_failed_check_in_the_specified_order_refuses() {
         ..device
     };
     let check = |record: &DeploymentRecord| admit(record, PROGRAM, &device).unwrap_err();
-    assert!(matches!(
+    assert_eq!(
         check(&record),
-        RuntimeError::ImportUnsupported {
-            reason: ImportRefusal::ContractVersion { record: 9, .. },
-            ..
-        }
-    ));
-    record.imports[0].contract_version = 1;
+        RuntimeError::DeploymentRefused(AdmissionRefusal::ProgramMismatch)
+    );
+    record.imports.clear();
     assert!(matches!(
         check(&record),
         RuntimeError::DeploymentRefused(AdmissionRefusal::Limit {

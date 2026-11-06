@@ -2385,14 +2385,6 @@
         "split_plan": "Split enum families only if the version-two wire contract changes."
       },
       {
-        "path": "crates/trust-runtime-core/src/error.rs",
-        "name": "runtime_error_stable_codes_cover_every_committed_variant",
-        "owner": "runtime-core tests",
-        "rationale": "Stable runtime error-code coverage is one exhaustive compatibility matrix",
-        "review_date": "2026-08-21",
-        "split_plan": "Keep exhaustive mapping together unless error families obtain independent public versions."
-      },
-      {
         "path": "crates/trust-runtime/src/control/tests/core.rs",
         "name": "runtime_status_projection_contract_reports_resource_metrics_realtime_and_io_health",
         "owner": "runtime/control tests",

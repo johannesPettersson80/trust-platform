@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.72 — identify as a shared component, in every state of the resource (SERVICE-07); after 0.71 — a chip takes its checkpoint buffer at boot and lends it to each program, and a dropped network driver gives its socket back once its connection has ended (MEM-12, D.2) (0.70: the `mqtt` driver on the C6 with a chip's bounds on its queue and outgoing bytes).
+- **Version:** 0.73 — a compiled program image imports nothing, so the bytecode engine's built-in import contracts are gone (§5.2.1, LOAD-06); after 0.72 — identify as a shared component, in every state of the resource (SERVICE-07) (0.71: a chip takes its checkpoint buffer at boot and lends it to each program, and a dropped network driver gives its socket back once its connection has ended).
 - **Date:** 25 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -722,7 +722,7 @@ Version 1 has these seven sections, each once; version 2 has them and section 8:
 | 3 Limits | The requested preparation limits, 8 bytes each, in this order: artifact bytes, preparation bytes, preparation work, validation scratch bytes, validation work, construction values, construction bytes, process-image bytes, work, construction work, call depth |
 | 4 Process image | The input, output and marker image sizes in bytes and the number of I/O bindings (4 each) |
 | 5 Tasks | The task count (2) and 2 reserved bytes, then for each task in declaration order: its interval in nanoseconds (8, signed), its priority (4) and its flags (4), of which bit 0 marks an event task (`SINGLE`) and the others are 0 |
-| 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); the contract version (2, §5.2.1); the canonical uppercase name |
+| 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); a contract version (2); the canonical uppercase name. A compiled program image imports nothing (§5.2.1), so its count is 0 |
 | 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the event-store capacity, the task overrides, the I/O drivers and the safe state |
 | 8 Driver parameters (version 2) | The driver count (2), which is section 7's, then for each I/O driver in section 7's order: the length (4) and the UTF-8 text of the driver's `params` table as JSON (below) |
 
@@ -821,8 +821,8 @@ numbers involved; nothing is constructed:
 3. The device implements the scheduling/I/O profile and the numeric contract.
 4. The required timing evidence is not stronger than the device's (LOAD-08).
 5. The device supplies every required capability.
-6. Every import has a contract of the same version on the device (§5.2.1). Otherwise the
-   refusal is `runtime_import_unsupported`, naming the import.
+6. The record lists no import. A compiled program image imports nothing (§5.2.1), so a record
+   that lists one is refused as a record of another program, as in step 1.
 7. No requested limit is above the device's maximum for it, for example "the record requests
    max_call_depth 2048, the device allows at most 1024"; nor is the record's section-7 event-store
    capacity, when it is not 0, above the device's maximum, refused as "the record requests an
@@ -907,7 +907,7 @@ computer, and a chip reports its heap as it stands as `heap`.
 
 **LOAD-05.** Runtime checks that remain necessary for dynamic indexes, null/reference lifetime errors, call depth, execution budgets, and arithmetic faults shall remain active. Admission is not permission to remove runtime memory protections.
 
-**LOAD-06.** Required imports shall resolve to approved, typed implementations with a versioned execution contract covering maximum work, variable-size arguments, blocking, allocation, failure, and allowed profile/state. A callback without a supportable bound shall be staged outside bounded execution or rejected for that profile; a deadline parameter is not proof of cancellation. No arbitrary pointer or symbol name shall become a device address or callable function. Host-only imports shall fail MCU admission; hosted builds may admit them only under the selected platform/profile contract.
+**LOAD-06.** A compiled program image requires no import: the standard functions and function blocks it calls are compiled into it from the program library (specification 44 §6.9), and its deployment record lists none (§5.2.1). No arbitrary pointer or symbol name shall become a device address or callable function.
 
 Debug/source sections may be omitted when genuinely optional. Required symbol, type, interface, or import information shall not be stripped merely because it resembles debug metadata. The line table of specification 12 §6.13 is optional: a target without it still debugs from statement starts, and a target never needs the ST text to resolve breakpoints or steps (owner, 18 October 2026).
 
@@ -961,91 +961,17 @@ visits, lookup comparisons and expanded constant visits. These cumulative logica
 conservative admission metrics, not allocator peak, RSS, elapsed time or WCET;
 allocator overhead, error diagnostics and native stack still require measured
 profile headroom in Scope B. Validation retains its independent scratch/work
-limits. Executable native imports must resolve to the shared standard-library or
-POU implementation, and every built-in import must match its contract (§5.2.1),
-a built-in FB's signature and hidden state included. CURRENT_DT additionally requires an explicitly supplied wall-clock
-service before instance construction; a logical-only composition rejects it.
+limits. CURRENT_DT requires an explicitly supplied wall-clock service before instance construction; a
+logical-only composition rejects it.
 
-### 5.2.1 Built-in import contracts
+### 5.2.1 Built-in imports
 
-LOAD-06 and PORT-02 are met for the built-in imports by one contract table in
-`trust-runtime-core` (`stdlib::contracts`), the same on every target; no built-in
-import is host-only. The standard-library registration stays the one list of
-registered functions: each registered family names its contract there. Conversions,
-date/time splits, the runtime clocks and the standard function blocks keep their
-recognizers, and each kind they recognize has one contract. A native test compares
-the table with the registration entry by entry.
-
-Every contract in the table is version 1; a change to any rule of a contract issues
-a new version. A contract states:
-
-- **Signature.** A registered function takes the parameters of its registration: a
-  fixed list, or fixed parameters followed by a numbered variadic suffix with a
-  minimum count (specification 07). A conversion takes one input `IN`. A split takes
-  `IN` and then its outputs, each a writable target. A clock takes no parameter. A
-  standard function block declares its IEC parameters, each with its direction and
-  type, and the hidden native state of specification 12 §11.5.5.
-- **Work.** What TIME-08 charges beyond the call's instructions. A registered function
-  or a conversion charges its argument binding and 1 unit per byte of its STRING and
-  WSTRING arguments before the body runs; a clock, a split or a function block charges
-  its argument binding only. A call has at most 1,024 native arguments (specification
-  12 §4.6), and a text argument is bounded by its declared capacity or by the
-  allocation allowance.
-- **Allocation.** Whether the call can return a STRING or WSTRING result, which
-  TIME-08 charges as a new value: 1 unit and its bytes of allocation.
-- **Blocking.** None. Every built-in import returns without waiting for a device, a
-  lock or a service other than the clock it is given.
-- **Failure.** The stable codes its implementation can return for a call that matches
-  its signature. The engine's binding and reference checks (specification 12 §7.7 and
-  §7.8) apply to every call besides.
-- **Profile.** CURRENT_DT requires the platform wall clock (§5.2). No other built-in
-  import requires a capability.
-
-| Family | Imports | IEC 61131-3 Ed.3 | Text | Failures |
-|---|---|---|---|---|
-| Numeric | ABS, SQRT, LN, LOG, EXP, SIN, COS, TAN, ASIN, ACOS, ATAN, ATAN2, ADD, SUB, MUL, DIV, MOD, EXPT, MOVE | Tables 28 and 29; ADD, SUB, MUL and DIV of durations and dates: Table 35 | arguments charged; MOVE returns text | type mismatch, overflow, division by zero, modulo by zero, date/time range, argument count (ADD and MUL with a time operand take exactly two inputs) |
-| Bit | SHL, SHR, ROL, ROR, AND, OR, XOR, NOT | Tables 30 and 31 | arguments charged | type mismatch |
-| Selection | SEL, MAX, MIN, LIMIT, MUX | Table 32; enumerations: Table 38 | arguments charged; text results | type mismatch, overflow, index out of bounds |
-| Comparison | GT, GE, EQ, LE, LT, NE | Table 33; enumerations: Table 38 | arguments charged | type mismatch |
-| String | LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE, FIND; the assignment helper `__TRUST_LIMIT_STRING` (specification 07 §8.1) | Table 34 | arguments charged; text results | type mismatch, overflow, string capacity exceeded (a result above 65,535 bytes or code units) |
-| Time | ADD_TIME, ADD_LTIME, ADD_TOD_TIME, ADD_LTOD_LTIME, ADD_DT_TIME, ADD_LDT_LTIME, the twelve SUB_ functions, MUL_TIME, MUL_LTIME, DIV_TIME, DIV_LTIME; CONCAT_DATE, CONCAT_DATE_TOD, CONCAT_DATE_LTOD, CONCAT_TOD, CONCAT_LTOD, CONCAT_DT, CONCAT_LDT, DAY_OF_WEEK | Tables 35 and 36 | arguments charged | type mismatch, overflow, division by zero, date/time range |
-| Validate | IS_VALID, IS_VALID_BCD | Table 39 | arguments charged | type mismatch |
-| Assertions | ASSERT_TRUE, ASSERT_FALSE, ASSERT_EQUAL, ASSERT_NOT_EQUAL, ASSERT_GREATER, ASSERT_LESS, ASSERT_GREATER_OR_EQUAL, ASSERT_LESS_OR_EQUAL, ASSERT_NEAR (specification 07, a truST test extension) | none | arguments charged | assertion failed, type mismatch, overflow |
-| Conversion | every name of a Table 22 conversion form | Tables 22 to 27 | arguments charged; text results | type mismatch, overflow, string capacity exceeded (a STRING or WSTRING result above 65,535 bytes or code units) |
-| Split | SPLIT_DATE, SPLIT_TOD, SPLIT_LTOD, SPLIT_DT, SPLIT_LDT | Table 36 | binding only | type mismatch, overflow |
-| Clock | TIME, CURRENT_DT (specification 07, truST clock sources) | none | binding only | none for TIME; overflow for CURRENT_DT |
-| Bistable | RS, SR | Table 43 | binding only | type mismatch |
-| Edge detection | R_TRIG, F_TRIG, and their other names DIFU and DIFD | Table 44 | binding only | type mismatch |
-| Counters | CTU, CTD, CTUD and their _INT, _DINT, _LINT, _UDINT and _ULINT variants | Table 45 | binding only | type mismatch |
-| Timers | TP, TON, TOF and their _TIME and _LTIME variants | Table 46 | binding only | type mismatch |
-
-The failures are the stable codes `runtime_type_mismatch`, `runtime_overflow`,
-`runtime_division_by_zero`, `runtime_modulo_by_zero`, `runtime_date_time_range`,
-`runtime_invalid_argument_count`, `runtime_index_out_of_bounds`,
-`runtime_string_capacity_exceeded` and `runtime_assertion_failed`.
-
-**Admission.** A standard-library descriptor resolves in the order the call
-dispatcher runs it: a clock, a split, a conversion, then a registered function.
-Before any state exists, preparation refuses the artifact (LOAD-03, ARCH-06,
-DEPLOY-04) when:
-
-- a standard-library descriptor names no contract;
-- its argument count does not fit the signature (a fixed list takes exactly its
-  parameters, a variadic one at least its minimum), or its argument names do not fit
-  the parameters: an unknown or repeated name, a gap in a variadic suffix, or named
-  and positional arguments in one call (specification 12 §7.7);
-- a split output is not a writable target;
-- a function-block template that carries a standard function block's name declares
-  other parameters than its contract, in number, name, direction or type, or other
-  hidden native state.
-
-The refusal is `RuntimeError::ImportUnsupported` with the stable code
-`runtime_import_unsupported`. It names the import by its canonical uppercase name and
-states which part of the contract it fails, for example `unsupported import 'TON': a
-parameter's type or direction differs from the contract`. A call of the artifact's
-own function, function block or method resolves to that POU and has no built-in
-contract. When a deployment record (§5.1) names the contract version of a required
-import, admission refuses a version other than the runtime's.
+A compiled program image imports nothing (LOAD-06). The standard functions and function blocks of
+specification 07 that it calls are compiled into it from the program library (specification 44
+§6.9), so their behaviour and their failures are the library's, and a device keeps no table of
+import contracts to check them against. The record's import section (§5.1.1, section 6) therefore
+holds no import, and admission refuses a record that lists one (§5.1.1, step 6). A call of the
+program's own function, function block or method resolves to that POU in the image.
 
 ### 5.3 Validated construction and admission evidence
 
@@ -1092,7 +1018,7 @@ Replace the singleton version assumption with explicit reader-supported pairs an
 | Inheritance, method/interface dispatch, and parameter binding | Prepare validated type/member/method tables, defaults, OUT/IN_OUT behavior, and receiver checks. | Two instances retain distinct state while using shared method code and checked interface dispatch. |
 | Tasks, event references, process images, and bindings | Construct tasks and bindings only after validating referenced program/instance storage. | Periodic/event tasks and `%I`/`%Q`/`%M` bindings initialize without `CompileSession`. |
 | RETAIN and restart initialization | Bind schema, initial state, checkpoint compatibility, and restart actions to the artifact identity. | Cold/warm initialization and rejected incompatible checkpoints preserve the specified contract. |
-| Native/standard-library imports | Resolve only typed, versioned implementations admitted by LOAD-06. | Required timer/math imports resolve; unavailable or mismatched imports fail before RUN. |
+| Native/standard-library imports | None: a compiled image's standard library is compiled into it (LOAD-06, §5.2.1). | A record that lists an import is refused before RUN. |
 
 **LOAD-11.** Prepare immutable bytecode initialization plans and storage before RUN; execute dynamic initializers at their required call/first-use/restart boundary. Scope/frame visibility, declaration order, parameter preservation, static once-state, instance construction, bounds, faults, and value copies follow specification 12 §7.11. Use the same executor and nested work budget as the POU body. Replace module-address cache identity with the admitted module/generation identity; remove the Expr initializer execution path from migrated runtime execution once the corresponding coverage is complete. HIR may remain in the compiler, but neither a serialized AST interpreter nor a first-use lowering cache belongs in the portable engine. [R29]
 
@@ -3793,6 +3719,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | 0.10 | 9 October 2026 | Moves the dependency-free SCHED-05 implementation and native regressions to the start of A1, separately reviewed within its existing batch. Removes deferred-defect baseline acceptance; A4 keeps fixture/oracle integration. Four scopes remain; no implementation or validation is asserted. |
 | 0.9 | 9 October 2026 | Folds the periodic scheduling defect into Scope A/A4 as SCHED-05; aligns specifications 10/11, selects nominal deadlines for SCHED-01/CYCLE-03, and adds the 25 ms / 10 ms native and shared-artifact oracle. Implementation, validation, version bump and release remain deferred to the authorized implementation scope. |
 | 0.72 | 26 October 2026 | Identify (specification 11, "Identify") joins the combined line as the shared component SERVICE-07, from the devices-and-connections line of 18 October 2026: the request, its timer, the blink and the `identifying` status member are one implementation in `trust-runtime-services`, a platform supplies only the way to drive one output, it is accepted and blinks in every state of the resource (running, paused, stopped or faulted, the scheduler's waits ticking it while no scan runs), and a chip answers `identify_not_configured` until its firmware drives an output. STATE-08 lists the identify output among the configuration that a restart from Stopped reads again. The gap is reported as ARCH-13 requires; no function is reduced on any target. |
+| 0.73 | 6 November 2026 | A compiled program image imports nothing (specification 44 §6.9 compiles the program library into it), so §5.2.1's table of built-in import contracts, which the bytecode engine checked at preparation, is gone with LOAD-06's contract rules and the stable code `runtime_import_unsupported`. The record keeps its import section for the records of bytecode programs, which admission refuses by their version first; admission refuses a record that lists an import as a record of another program (§5.1.1, step 6). Checklist G5. |
 
 Version 0.8 divides aggregate Scope A into A1–A4, with one final batch per explicitly
 bounded scope, and adds the implementation checklist/current-checkpoint pointer.

@@ -355,18 +355,6 @@ pub trust_runtime_core::error::ExecutionLimitKind::ConstructedValues
 pub trust_runtime_core::error::ExecutionLimitKind::Work
 impl core::fmt::Display for trust_runtime_core::error::ExecutionLimitKind
 pub fn trust_runtime_core::error::ExecutionLimitKind::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-pub enum trust_runtime_core::error::ImportRefusal
-pub trust_runtime_core::error::ImportRefusal::ContractVersion
-pub trust_runtime_core::error::ImportRefusal::ContractVersion::record: u16
-pub trust_runtime_core::error::ImportRefusal::ContractVersion::runtime: u16
-pub trust_runtime_core::error::ImportRefusal::NoContract
-pub trust_runtime_core::error::ImportRefusal::OutputTarget
-pub trust_runtime_core::error::ImportRefusal::ParameterCount
-pub trust_runtime_core::error::ImportRefusal::ParameterName
-pub trust_runtime_core::error::ImportRefusal::ParameterType
-pub trust_runtime_core::error::ImportRefusal::StateLayout
-impl core::fmt::Display for trust_runtime_core::error::ImportRefusal
-pub fn trust_runtime_core::error::ImportRefusal::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime_core::error::RuntimeError
 pub trust_runtime_core::error::RuntimeError::AssertionFailed(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::ControlError(smol_str::SmolStr)
@@ -381,9 +369,6 @@ pub trust_runtime_core::error::RuntimeError::ExecutionLimit::requested: usize
 pub trust_runtime_core::error::RuntimeError::ExecutionLimit::used: usize
 pub trust_runtime_core::error::RuntimeError::ExecutionTimeout
 pub trust_runtime_core::error::RuntimeError::ForStepZero
-pub trust_runtime_core::error::RuntimeError::ImportUnsupported
-pub trust_runtime_core::error::RuntimeError::ImportUnsupported::import: smol_str::SmolStr
-pub trust_runtime_core::error::RuntimeError::ImportUnsupported::reason: trust_runtime_core::error::ImportRefusal
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::index: i64
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::lower: i64
@@ -467,7 +452,6 @@ pub trust_runtime_core::error::StableErrorCode::RuntimeDeploymentRefused
 pub trust_runtime_core::error::StableErrorCode::RuntimeDivisionByZero
 pub trust_runtime_core::error::StableErrorCode::RuntimeExecutionTimeout
 pub trust_runtime_core::error::StableErrorCode::RuntimeForStepZero
-pub trust_runtime_core::error::StableErrorCode::RuntimeImportUnsupported
 pub trust_runtime_core::error::StableErrorCode::RuntimeIndexOutOfBounds
 pub trust_runtime_core::error::StableErrorCode::RuntimeInitFailed
 pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidAlias
@@ -531,7 +515,6 @@ pub trust_runtime_core::error_code::StableErrorCode::RuntimeDeploymentRefused
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeDivisionByZero
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeExecutionTimeout
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeForStepZero
-pub trust_runtime_core::error_code::StableErrorCode::RuntimeImportUnsupported
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeIndexOutOfBounds
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeInitFailed
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidAlias
@@ -1846,47 +1829,6 @@ pub trust_runtime_core::scheduler::ResourceState::Ready
 pub trust_runtime_core::scheduler::ResourceState::Running
 pub trust_runtime_core::scheduler::ResourceState::Stopped
 pub mod trust_runtime_core::stdlib
-pub mod trust_runtime_core::stdlib::contracts
-pub enum trust_runtime_core::stdlib::contracts::FbParameterType
-pub trust_runtime_core::stdlib::contracts::FbParameterType::Bool
-pub trust_runtime_core::stdlib::contracts::FbParameterType::Count
-pub trust_runtime_core::stdlib::contracts::FbParameterType::Duration
-pub enum trust_runtime_core::stdlib::contracts::FunctionSignature
-pub trust_runtime_core::stdlib::contracts::FunctionSignature::Clock
-pub trust_runtime_core::stdlib::contracts::FunctionSignature::Conversion
-pub trust_runtime_core::stdlib::contracts::FunctionSignature::Registered(&'static trust_runtime_core::stdlib::StdParams)
-pub trust_runtime_core::stdlib::contracts::FunctionSignature::Split(&'static [&'static str])
-pub enum trust_runtime_core::stdlib::contracts::ImportAllocation
-pub trust_runtime_core::stdlib::contracts::ImportAllocation::NoText
-pub trust_runtime_core::stdlib::contracts::ImportAllocation::TextResult
-pub enum trust_runtime_core::stdlib::contracts::ImportCapability
-pub trust_runtime_core::stdlib::contracts::ImportCapability::WallClock
-pub enum trust_runtime_core::stdlib::contracts::ImportWork
-pub trust_runtime_core::stdlib::contracts::ImportWork::Binding
-pub trust_runtime_core::stdlib::contracts::ImportWork::TextArguments
-pub struct trust_runtime_core::stdlib::contracts::FbParameter
-pub trust_runtime_core::stdlib::contracts::FbParameter::name: &'static str
-pub trust_runtime_core::stdlib::contracts::FbParameter::output: bool
-pub trust_runtime_core::stdlib::contracts::FbParameter::ty: trust_runtime_core::stdlib::contracts::FbParameterType
-pub struct trust_runtime_core::stdlib::contracts::FunctionBlockImport
-pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::contract: &'static trust_runtime_core::stdlib::contracts::ImportContract
-pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::kind: trust_runtime_core::stdlib::fbs::BuiltinFbKind
-pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::parameters: &'static [trust_runtime_core::stdlib::contracts::FbParameter]
-pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::state: &'static [(&'static str, u16)]
-impl trust_runtime_core::stdlib::contracts::FunctionBlockImport
-pub fn trust_runtime_core::stdlib::contracts::FunctionBlockImport::primitive(&self, ty: trust_runtime_core::stdlib::contracts::FbParameterType) -> u16
-pub struct trust_runtime_core::stdlib::contracts::FunctionImport
-pub trust_runtime_core::stdlib::contracts::FunctionImport::contract: &'static trust_runtime_core::stdlib::contracts::ImportContract
-pub trust_runtime_core::stdlib::contracts::FunctionImport::signature: trust_runtime_core::stdlib::contracts::FunctionSignature
-pub struct trust_runtime_core::stdlib::contracts::ImportContract
-pub trust_runtime_core::stdlib::contracts::ImportContract::allocation: trust_runtime_core::stdlib::contracts::ImportAllocation
-pub trust_runtime_core::stdlib::contracts::ImportContract::capability: core::option::Option<trust_runtime_core::stdlib::contracts::ImportCapability>
-pub trust_runtime_core::stdlib::contracts::ImportContract::failures: &'static [trust_runtime_core::error_code::StableErrorCode]
-pub trust_runtime_core::stdlib::contracts::ImportContract::version: u16
-pub trust_runtime_core::stdlib::contracts::ImportContract::work: trust_runtime_core::stdlib::contracts::ImportWork
-pub fn trust_runtime_core::stdlib::contracts::function(name: &str) -> core::option::Option<trust_runtime_core::stdlib::contracts::FunctionImport>
-pub fn trust_runtime_core::stdlib::contracts::function_block(name: &str) -> core::option::Option<trust_runtime_core::stdlib::contracts::FunctionBlockImport>
-pub fn trust_runtime_core::stdlib::contracts::registered() -> impl core::iter::traits::iterator::Iterator<Item = (&'static str, trust_runtime_core::stdlib::contracts::FunctionImport)>
 pub mod trust_runtime_core::stdlib::conversions
 pub enum trust_runtime_core::stdlib::conversions::ConversionSpec
 pub trust_runtime_core::stdlib::conversions::ConversionSpec::BcdTo

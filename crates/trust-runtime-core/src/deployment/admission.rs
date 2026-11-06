@@ -2,12 +2,10 @@
 //! DEPLOY-04, LOAD-07, LOAD-09; specification 44 §10.2, step 1).
 
 use super::{
-    identity, AdmissionRefusal, Capabilities, DeploymentRecord, ImportKind, LimitKind,
-    NumericContract, ProgramVersion, RequestedLimits, RequiredImport, SchedulingProfile,
-    TimingEvidence,
+    identity, AdmissionRefusal, Capabilities, DeploymentRecord, LimitKind, NumericContract,
+    ProgramVersion, RequestedLimits, SchedulingProfile, TimingEvidence,
 };
-use crate::error::{ImportRefusal, RuntimeError};
-use crate::stdlib::contracts;
+use crate::error::RuntimeError;
 
 /// What a device runs and how much it admits (specification 34 COMPAT-02, §5.1.1).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,9 +128,7 @@ impl DeviceDescriptor {
 ///
 /// # Errors
 ///
-/// `RuntimeError::DeploymentRefused` with the reason and its numbers, or
-/// `RuntimeError::ImportUnsupported` for an import the device has no contract of that version
-/// for.
+/// `RuntimeError::DeploymentRefused` with the reason and its numbers.
 pub fn admit(
     record: &DeploymentRecord,
     program: &[u8],
@@ -174,8 +170,10 @@ pub fn admit(
     if !missing.is_empty() {
         return refuse(AdmissionRefusal::Capability(missing));
     }
-    for import in &record.imports {
-        check_import(import)?;
+    // A compiled image imports nothing: the program library is compiled into it (specification
+    // 34 §5.2.1, specification 44 §6.9). A record that lists an import is another program's.
+    if !record.imports.is_empty() {
+        return refuse(AdmissionRefusal::ProgramMismatch);
     }
     for (limit, requested) in record.limits.values() {
         // A request above this target's address range cannot be held, whatever its maximum.
@@ -205,28 +203,4 @@ pub fn admit(
         }
     }
     Ok(())
-}
-
-/// An import the device has a contract of the same version for (specification 34 §5.2.1).
-fn check_import(import: &RequiredImport) -> Result<(), RuntimeError> {
-    let contract = match import.kind {
-        ImportKind::Function => contracts::function(&import.name).map(|found| found.contract),
-        ImportKind::FunctionBlock => {
-            contracts::function_block(&import.name).map(|found| found.contract)
-        }
-    };
-    let reason = match contract {
-        None => ImportRefusal::NoContract,
-        Some(contract) if contract.version != import.contract_version => {
-            ImportRefusal::ContractVersion {
-                record: import.contract_version,
-                runtime: contract.version,
-            }
-        }
-        Some(_) => return Ok(()),
-    };
-    Err(RuntimeError::ImportUnsupported {
-        import: import.name.clone(),
-        reason,
-    })
 }
