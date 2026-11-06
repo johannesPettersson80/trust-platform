@@ -86,6 +86,7 @@ assignments_and_var_access::test_var_persistent_allowed: test
 assignments_and_var_access::test_var_retain_non_retain_conflict: test
 assignments_and_var_access::test_var_retain_not_allowed_in_in_out: test
 basics_and_warnings::an_instance_passed_to_its_interface_is_no_implicit_conversion: test
+basics_and_warnings::test_attribute_inside_body_does_not_declare_a_clock_source: test
 basics_and_warnings::test_boolean_condition_ok: test
 basics_and_warnings::test_boolean_condition_required: test
 basics_and_warnings::test_constant_modification: test
@@ -95,6 +96,7 @@ basics_and_warnings::test_contextual_int_literal_return: test
 basics_and_warnings::test_contextual_real_literal_assignment: test
 basics_and_warnings::test_contextual_real_literal_return: test
 basics_and_warnings::test_cyclomatic_complexity_warning: test
+basics_and_warnings::test_declared_host_clock_stub_warns_at_call_site: test
 basics_and_warnings::test_float_equality_warning: test
 basics_and_warnings::test_function_block_used_as_type_no_unused_pou_warning: test
 basics_and_warnings::test_implicit_conversion_warning: test

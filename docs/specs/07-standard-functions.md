@@ -840,6 +840,33 @@ clock. Programs that require replay-controlled elapsed time use `TIME()`
 instead. `CURRENT_DT` rejects every argument during HIR validation and at the
 runtime dispatch boundary.
 
+### Declared Clock Sources (`reads_host_clock`)
+
+A POU can declare that it samples the host wall clock with the pragma
+attribute `reads_host_clock`. The flag carries no value:
+
+```iecst
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+    FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+```
+
+A declared POU is itself a clock source, on the same terms as `CURRENT_DT`:
+deterministic replay does not control it, and a program that calls it needs a
+controlled host clock for identical results. The declaration makes no claim
+about how the samples are taken; it declares that the POU reads the host
+clock, which is what a vendor library documents and what a body-less stub
+cannot say in code.
+
+The declaration is read from the pragma trivia that precedes the POU's
+declaration keyword. A pragma inside the POU's body does not declare
+anything, and a POU whose body also reads `CURRENT_DT` is one source, not
+two. A declaration-only stub that carries the flag warns nowhere in its own
+file: the declaration speaks for the body the stub replaces, and the warnings
+appear at the call sites, like those of a linked library body (specification
+14 §7.6). Specification 28 §5 defines the warning and its message.
+
 ### Date/Time Component Functions
 
 | Function | Description |

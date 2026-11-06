@@ -436,6 +436,51 @@ END_PROGRAM
     assert!(!warnings.contains(&DiagnosticCode::NondeterministicTimeDate));
 }
 
+/// Specification 07 "Declared Clock Sources": a body-less stub carrying
+/// `{attribute 'reads_host_clock'}` is itself a clock source, so its call
+/// site warns. Wrong behaviour this pins: the declaration staying unread and
+/// the stub boundary silencing the project's only wall-clock reads.
+#[test]
+fn test_declared_host_clock_stub_warns_at_call_site() {
+    let warnings = check_warnings(
+        r#"
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+PROGRAM Test
+    VAR
+        Stamp : DT;
+    END_VAR
+    Stamp := FuGetDateAndTime();
+END_PROGRAM
+"#,
+    );
+    assert!(warnings.contains(&DiagnosticCode::NondeterministicTimeDate));
+}
+
+/// Specification 07: the declaration is read from the pragma trivia before
+/// the POU's declaration keyword, never from the body. Wrong behaviour this
+/// pins: a pragma inside the body being taken for a declaration.
+#[test]
+fn test_attribute_inside_body_does_not_declare_a_clock_source() {
+    let warnings = check_warnings(
+        r#"
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+{attribute 'reads_host_clock'}
+END_FUNCTION
+PROGRAM Test
+    VAR
+        Stamp : DT;
+    END_VAR
+    Stamp := FuGetDateAndTime();
+END_PROGRAM
+"#,
+    );
+    assert!(!warnings.contains(&DiagnosticCode::NondeterministicTimeDate));
+}
+
 /// Specification 14 (W011): a direct `%I`/`%Q` address in reusable code warns; a program's I/O
 /// list is the normal place for addresses.
 #[test]

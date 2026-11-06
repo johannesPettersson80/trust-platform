@@ -1,8 +1,9 @@
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 
 use super::super::queries::*;
 use super::super::*;
 use super::context::find_symbol_by_name_range;
+use crate::openot_authoring::parse_attribute_entries_from_text;
 use crate::types::Type;
 
 /// Canonical identity of a POU: the file that declares it and the symbol id in
@@ -10,17 +11,40 @@ use crate::types::Type;
 /// one POU has one key project-wide.
 pub(in crate::db) type PouKey = (FileId, SymbolId);
 
+/// The clock source a reader reaches: the product host clock, or a POU that
+/// declares `reads_host_clock` (specification 07, "Declared Clock Sources";
+/// specification 28 section 5).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::db) enum ClockSource {
+    /// The product host clock: a body that calls `CURRENT_DT`.
+    CurrentDt,
+    /// A POU carrying the `{attribute 'reads_host_clock'}` pragma: its key,
+    /// which tells the declared POU itself from a same-named reader, and the
+    /// POU's name for the message.
+    Declared { key: PouKey, name: SmolStr },
+}
+
+/// A clock source with the document rank of the direct reader that carries
+/// it. A call that reaches more than one source names the one with the
+/// smallest rank, so the named source never depends on iteration order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ClockEntry {
+    rank: u32,
+    source: ClockSource,
+}
+
 /// The project's clock-source index: every POU whose body reads the host wall
-/// clock (`CURRENT_DT`), directly or through the POUs it calls (specification
-/// 07, "Runtime Clock Sources"; specification 28 section 5).
+/// clock (`CURRENT_DT`), directly or through the POUs it calls, plus every
+/// POU that declares the read (specification 07; specification 28 section 5).
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(in crate::db) struct HostClockSources {
-    readers: FxHashSet<PouKey>,
+    sources: FxHashMap<PouKey, ClockEntry>,
 }
 
 impl HostClockSources {
-    pub(in crate::db) fn reads_host_clock(&self, pou: &PouKey) -> bool {
-        self.readers.contains(pou)
+    /// The source a reader reaches, named by the call-site message.
+    pub(in crate::db) fn source_reaching(&self, pou: &PouKey) -> Option<&ClockSource> {
+        self.sources.get(pou).map(|entry| &entry.source)
     }
 }
 
@@ -77,16 +101,18 @@ pub(in crate::db) fn check_nondeterminism(
         }
 
         // A call of a POU whose body reaches the host clock, directly or
-        // through the POUs it calls. The type checker records the callable
-        // every call binds (specification 44 section 3); a call that resolves
-        // to nothing readable warns no more than an unread clock.
+        // through the POUs it calls, or of a POU that declares the read
+        // (specification 07, "Declared Clock Sources"). The type checker
+        // records the callable every call binds (specification 44 section 3);
+        // a call that resolves to nothing readable warns no more than an
+        // unread clock.
         let Some(&callee_id) = resolved_callees.get(&call_key) else {
             continue;
         };
         let canonical = canonical_pou(symbols, file_id, callee_id);
-        if !clock_sources.reads_host_clock(&canonical) {
+        let Some(source) = clock_sources.source_reaching(&canonical) else {
             continue;
-        }
+        };
         let callee_name = symbols
             .get(callee_id)
             .map(|symbol| symbol.name.clone())
@@ -96,13 +122,18 @@ pub(in crate::db) fn check_nondeterminism(
         } else {
             call_range
         };
-        diagnostics.warning(
-            DiagnosticCode::NondeterministicTimeDate,
-            range,
-            format!(
+        let message = match source {
+            ClockSource::CurrentDt => format!(
                 "'{callee_name}' reads the host clock through CURRENT_DT, which replay does not control"
             ),
-        );
+            ClockSource::Declared { key: declared, .. } if *declared == canonical => format!(
+                "'{callee_name}' reads the host clock (declared reads_host_clock), which replay does not control"
+            ),
+            ClockSource::Declared { name: source_name, .. } => format!(
+                "'{callee_name}' reads the host clock through '{source_name}' (declared reads_host_clock), which replay does not control"
+            ),
+        };
+        diagnostics.warning(DiagnosticCode::NondeterministicTimeDate, range, message);
     }
 }
 
@@ -135,11 +166,14 @@ fn call_target_range(callee: &SyntaxNode) -> TextRange {
 /// of the POU whose body contains it, so an instance's call maps to the block
 /// the variable declares, `inst.M()` maps to that type's method, and a bare
 /// call never takes a same-named method's clock (specification 28 section 5).
+/// A POU whose leading pragma trivia carries `reads_host_clock` seeds as a
+/// reader without a body read (specification 07, "Declared Clock Sources").
 pub(in crate::db) fn compute_host_clock_sources(
     files: &[(FileId, &SymbolTable, SyntaxNode)],
 ) -> HostClockSources {
-    let mut direct: FxHashSet<PouKey> = FxHashSet::default();
+    let mut direct: FxHashMap<PouKey, ClockEntry> = FxHashMap::default();
     let mut call_targets: FxHashMap<PouKey, Vec<PouKey>> = FxHashMap::default();
+    let mut rank: u32 = 0;
 
     for (file_id, symbols, root) in files {
         for pou in pou_nodes(root) {
@@ -150,6 +184,8 @@ pub(in crate::db) fn compute_host_clock_sources(
                 continue;
             };
             let key: PouKey = (*file_id, pou_id);
+            let entry_rank = rank;
+            rank += 1;
             let scope_id = symbols.scope_for_owner(pou_id).unwrap_or(ScopeId::GLOBAL);
             let mut reads = false;
             let mut targets: Vec<PouKey> = Vec::new();
@@ -165,7 +201,24 @@ pub(in crate::db) fn compute_host_clock_sources(
                 },
             );
             if reads {
-                direct.insert(key);
+                // The body's own read is the concrete source; a declaration
+                // on the same POU adds nothing (specification 07: one
+                // source, not two).
+                direct.insert(
+                    key,
+                    ClockEntry {
+                        rank: entry_rank,
+                        source: ClockSource::CurrentDt,
+                    },
+                );
+            } else if declares_host_clock(&pou) {
+                direct.insert(
+                    key,
+                    ClockEntry {
+                        rank: entry_rank,
+                        source: ClockSource::Declared { key, name },
+                    },
+                );
             }
             if !targets.is_empty() {
                 call_targets.insert(key, targets);
@@ -173,19 +226,127 @@ pub(in crate::db) fn compute_host_clock_sources(
         }
     }
 
-    // Reading the clock propagates from callee to caller until it is stable.
-    let mut readers = direct;
+    // Reaching a source propagates from callee to caller until it is stable.
+    // The smallest rank wins at every step, so a call reaching more than one
+    // source names the first one in the project's file order and document
+    // order, whatever order the map iterates in.
+    let mut sources = direct;
     let mut changed = true;
     while changed {
         changed = false;
         for (caller, targets) in &call_targets {
-            if !readers.contains(caller) && targets.iter().any(|target| readers.contains(target)) {
-                readers.insert(*caller);
-                changed = true;
+            let best = targets
+                .iter()
+                .filter_map(|target| sources.get(target))
+                .min_by_key(|entry| entry.rank)
+                .cloned();
+            let Some(best) = best else {
+                continue;
+            };
+            match sources.get(caller) {
+                Some(entry) if entry.rank <= best.rank => {}
+                _ => {
+                    sources.insert(*caller, best);
+                    changed = true;
+                }
             }
         }
     }
-    HostClockSources { readers }
+    HostClockSources { sources }
+}
+
+/// Whether the pragma trivia preceding the POU's declaration keyword carries
+/// `reads_host_clock` (specification 07, "Declared Clock Sources"). The scan
+/// walks backwards over trivia and over the trailing trivia of the element
+/// the parser parked it in: a pragma before a header may sit in the leading
+/// trivia of the POU node, in the trailing trivia of the preceding construct
+/// (the previous POU in a file, the namespace head), so the keyword's
+/// immediate trivia is what counts. A pragma inside the body — behind the
+/// declaration keyword, before other statements — never declares.
+fn declares_host_clock(pou: &SyntaxNode) -> bool {
+    let reads = |token: &trust_syntax::syntax::SyntaxToken| {
+        token.kind() == SyntaxKind::Pragma
+            && parse_attribute_entries_from_text(token.text(), token.text_range())
+                .iter()
+                .any(|entry| entry.key == "reads_host_clock")
+    };
+    // The trivia the POU node itself holds before its declaration keyword —
+    // the whole leading trivia when the declaration opens a file or follows
+    // a header the parser closed cleanly.
+    for element in pou.children_with_tokens() {
+        let Some(token) = element.into_token() else {
+            break;
+        };
+        if !token.kind().is_trivia() {
+            break;
+        }
+        if reads(&token) {
+            return true;
+        }
+    }
+    // The trivia immediately preceding the keyword, however the parser
+    // nested it: backwards over trivia tokens, then through the trailing
+    // trivia of the construct the parser parked the pragma in — the previous
+    // POU in a file, or the namespace head. Rowan's sibling walk is
+    // parent-scoped, so the walk climbs parents to stay in document order.
+    let keyword = pou
+        .children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| !token.kind().is_trivia());
+    let Some(keyword) = keyword else {
+        return false;
+    };
+    let mut cursor = rowan::NodeOrToken::Token(keyword);
+    loop {
+        let Some(prev) = prev_in_document_order(cursor.clone()) else {
+            return false;
+        };
+        match prev {
+            rowan::NodeOrToken::Token(token) => {
+                if !token.kind().is_trivia() {
+                    return false;
+                }
+                if reads(&token) {
+                    return true;
+                }
+                cursor = rowan::NodeOrToken::Token(token);
+            }
+            rowan::NodeOrToken::Node(node) => {
+                // The previous construct swallowed the trivia that precedes
+                // this declaration as its own trailing trivia. Look only
+                // there: beyond its last non-trivia token lies an earlier
+                // construct, separated from this declaration by a keyword.
+                let children: Vec<_> = node.children_with_tokens().collect();
+                for element in children.into_iter().rev() {
+                    let Some(token) = element.into_token() else {
+                        break;
+                    };
+                    if !token.kind().is_trivia() {
+                        break;
+                    }
+                    if reads(&token) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+    }
+}
+
+/// The previous element in document order: the sibling walk inside one
+/// parent, climbing through the parent chain when the element is its
+/// parent's first child.
+fn prev_in_document_order(
+    element: rowan::NodeOrToken<SyntaxNode, trust_syntax::syntax::SyntaxToken>,
+) -> Option<rowan::NodeOrToken<SyntaxNode, trust_syntax::syntax::SyntaxToken>> {
+    if let Some(prev) = element.prev_sibling_or_token() {
+        return Some(prev);
+    }
+    element
+        .parent()
+        .map(rowan::NodeOrToken::Node)
+        .and_then(prev_in_document_order)
 }
 
 enum BodyCall {
