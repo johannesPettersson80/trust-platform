@@ -54,7 +54,10 @@ fn time_from_real_millis(value: f64) -> Result<Value, RuntimeError> {
     if !value.is_finite() {
         return Err(RuntimeError::Overflow);
     }
-    let millis = value.trunc().max(0.0);
+    // The locked libm primitive: a bare `f64::trunc` has no portable core
+    // implementation (specification 34 A1).
+    let millis = crate::numeric::math::trunc(value);
+    let millis = if millis > 0.0 { millis } else { 0.0 };
     Ok(Value::Time(crate::value::Duration::from_millis(
         millis as i64,
     )))
