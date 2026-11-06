@@ -9,6 +9,7 @@ mod helpers;
 mod strings;
 mod table;
 
+pub use builtins::{STANDARD_FUNCTION_BLOCKS, STANDARD_FUNCTION_BLOCK_ALIASES};
 pub use defs::*;
 pub(crate) use table::UniqueSymbolResolution;
 pub use table::{EnumValueResolution, SymbolTable};

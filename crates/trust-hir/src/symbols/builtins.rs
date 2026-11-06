@@ -6,6 +6,51 @@ use crate::types::{Type, TypeId, DEFAULT_STRING_LENGTH};
 use super::defs::{ParamDirection, Symbol, SymbolId, SymbolKind};
 use super::table::SymbolTable;
 
+/// Every name of a standard function block, in the order of specification 08: SR and RS (Table
+/// 43), R_TRIG and F_TRIG with the aliases DIFU and DIFD (section 3), CTU, CTD and CTUD with their
+/// `_INT`, `_DINT`, `_LINT`, `_UDINT` and `_ULINT` variants (section 4), and TP, TON and TOF with
+/// their `_TIME` and `_LTIME` variants (section 5). The builtin table declares exactly these, and
+/// the editor's completion and the runtime's compiler are tested against this list.
+pub const STANDARD_FUNCTION_BLOCKS: [&str; 33] = [
+    "SR",
+    "RS",
+    "R_TRIG",
+    "F_TRIG",
+    "DIFU",
+    "DIFD",
+    "CTU",
+    "CTU_INT",
+    "CTU_DINT",
+    "CTU_LINT",
+    "CTU_UDINT",
+    "CTU_ULINT",
+    "CTD",
+    "CTD_INT",
+    "CTD_DINT",
+    "CTD_LINT",
+    "CTD_UDINT",
+    "CTD_ULINT",
+    "CTUD",
+    "CTUD_INT",
+    "CTUD_DINT",
+    "CTUD_LINT",
+    "CTUD_UDINT",
+    "CTUD_ULINT",
+    "TP",
+    "TP_TIME",
+    "TP_LTIME",
+    "TON",
+    "TON_TIME",
+    "TON_LTIME",
+    "TOF",
+    "TOF_TIME",
+    "TOF_LTIME",
+];
+
+/// The names among [`STANDARD_FUNCTION_BLOCKS`] that are not IEC names: Mitsubishi's `DIFU` and
+/// `DIFD` for `R_TRIG` and `F_TRIG` (specification 08, section 3).
+pub const STANDARD_FUNCTION_BLOCK_ALIASES: [&str; 2] = ["DIFU", "DIFD"];
+
 impl SymbolTable {
     pub(super) fn register_builtin_types(&mut self) {
         self.register_builtin(TypeId::UNKNOWN, "UNKNOWN", Type::Unknown);
@@ -258,3 +303,7 @@ impl SymbolTable {
         self.add_symbol_raw(symbol);
     }
 }
+
+#[cfg(test)]
+#[path = "builtins_tests.rs"]
+mod tests;

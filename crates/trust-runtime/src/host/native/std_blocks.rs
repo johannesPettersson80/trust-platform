@@ -334,3 +334,7 @@ impl StdFb {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "std_blocks_tests.rs"]
+mod tests;
