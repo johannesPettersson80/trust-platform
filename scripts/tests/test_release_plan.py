@@ -43,6 +43,7 @@ def plan(**kwargs):
         release_complete=lambda tag: False,
         version_commits=lambda sha: [],
         changes=lambda base, head, paths: False,
+        merge_base=lambda base, head: base,
     )
     defaults.update(kwargs)
     return release_plan.plan(**defaults)
@@ -190,6 +191,27 @@ class ReleasePlanTests(unittest.TestCase):
         self.assertEqual((kept.mode, kept.sha), ("skip", "same"))
         bumped = plan(event="pull_request", pr_base="base", pr_head="bumped", pr_head_repository=OFFICIAL)
         self.assertEqual((bumped.mode, bumped.sha, bumped.tag), ("rehearsal", "bumped", "v0.27.0"))
+
+    def test_a_branch_from_before_a_version_bump_does_not_change_the_version(self) -> None:
+        # Catches the plan of 6 November 2026 (W44): #281 branched from 0.31.0 before main's bump to 0.32.0, its head
+        # differed from main's version, and it was rehearsed as 0.31.0 on every platform. The version a pull request
+        # sets is compared with where it branched.
+        stale = plan(
+            event="pull_request",
+            pr_base="bumped",
+            pr_head="same",
+            pr_head_repository=OFFICIAL,
+            merge_base=lambda base, head: "base",
+        )
+        self.assertEqual(stale.mode, "skip")
+        bumping = plan(
+            event="pull_request",
+            pr_base="released",
+            pr_head="bumped",
+            pr_head_repository=OFFICIAL,
+            merge_base=lambda base, head: "base",
+        )
+        self.assertEqual((bumping.mode, bumping.version), ("rehearsal", "0.27.0"))
 
     def test_a_pull_request_that_keeps_the_version_builds_the_linux_package_only_when_it_changes_one(self) -> None:
         # Specification 24: a pull request that changes what the packages hold builds the linux-x64 package for its

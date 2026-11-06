@@ -151,6 +151,11 @@ def changes(base: str, head: str, paths_file: Path) -> bool:
     return relevant
 
 
+def merge_base(base: str, head: str) -> str:
+    """The commit where `head` branched from `base`'s history."""
+    return git("merge-base", base, head).strip()
+
+
 def version_at(sha: str) -> str:
     """The workspace version at `sha`; a commit without one fails the plan."""
     package = tomllib.loads(git("show", f"{sha}:Cargo.toml"))["workspace"]["package"]
@@ -501,12 +506,15 @@ def plan(
     release_paths: Path = Path(".github/paths/release.txt"),
     package_paths: Path = Path(".github/paths/package.txt"),
     changes: Callable[[str, str, Path], bool] = changes,
+    merge_base: Callable[[str, str], str] = merge_base,
 ) -> Plan:
     if event == "pull_request":
         if pr_head_repository != repository:
             return Plan("skip", pr_head, "", "a fork's pull request is rehearsed by a maintainer's dispatch")
         version = version_at(pr_head)
-        if version != version_at(pr_base):
+        # The version the pull request itself sets: against where it branched, so a branch from before a version
+        # bump on the base does not count as changing the version (6 November 2026: #281 rehearsed 0.31.0, W44).
+        if version != version_at(merge_base(pr_base, pr_head)):
             return Plan("rehearsal", pr_head, version, "the pull request changes the version", ALL_PLATFORMS)
         if changes(pr_base, pr_head, release_paths):
             return Plan("rehearsal", pr_head, version, "the pull request changes the release workflow", ALL_PLATFORMS)

@@ -88,7 +88,9 @@ creates none.
 
 ### Release rehearsal on pull requests
 
-A pull request whose head changes the workspace version, or changes the
+A pull request whose head changes the workspace version from the version
+where it branched from its base (so a branch from before a version bump on
+`main` changes nothing), or changes the
 Release workflow, its `release-files` action or a script either runs (listed in
 `.github/paths/release.txt`), runs the Release workflow as a rehearsal on its
 head: the preflight, every build, every test and
