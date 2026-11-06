@@ -16,11 +16,13 @@ pub(super) fn convert_to_time(value: &Value, dst: ConversionType) -> Result<Valu
             crate::value::Duration::from_millis(i64::from(*value)),
         )),
         // Round 2 (IEC_DEVIATIONS 2026-11-06): an integer is a millisecond
-        // count; a negative count saturates to zero, following the measured
-        // `REAL_TO_TIME(-1.0) = T#0ms`. A REAL/LREAL value is read as
-        // milliseconds truncated toward zero — measured
-        // `REAL_TO_TIME(2.5) = T#2ms`, not the DEV-024 rounding — and a
-        // non-finite value keeps the overflow fault (specification 07 2.10).
+        // count read through its low-order 32 bits — measured
+        // `DINT_TO_TIME(DINT#-1) = T#49d17h2m47s295ms` and
+        // `INT_TO_TIME(INT#-1) = T#49d17h2m47s295ms` (the vendor TIME is a
+        // 32-bit unsigned count). A REAL/LREAL value is read as milliseconds
+        // truncated toward zero — measured `REAL_TO_TIME(2.5) = T#2ms`, not
+        // the DEV-024 rounding — and a non-finite value keeps the overflow
+        // fault (specification 07 2.10).
         (Value::SInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
         (Value::Int(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
         (Value::DInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
@@ -29,9 +31,9 @@ pub(super) fn convert_to_time(value: &Value, dst: ConversionType) -> Result<Valu
         (Value::UInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
         (Value::UDInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
         (Value::ULInt(value), ConversionType::Time) => {
-            // TIME is a 32-bit vendor type; a ULINT count above the i64
-            // storage saturates (the low-order-bit rule covers the rest).
-            let millis = (*value).min(i64::MAX as u64) as i64;
+            // The vendor TIME is a 32-bit unsigned millisecond count: the
+            // low-order 32 bits of the count, measured on `-1`.
+            let millis = (*value & u64::from(u32::MAX)) as i64;
             Ok(Value::Time(crate::value::Duration::from_millis(millis)))
         }
         (Value::Real(value), ConversionType::Time) => time_from_real_millis(f64::from(*value)),
@@ -40,11 +42,12 @@ pub(super) fn convert_to_time(value: &Value, dst: ConversionType) -> Result<Valu
     }
 }
 
-/// The duration of a millisecond count, a negative count saturated to zero
-/// (the measured `REAL_TO_TIME(-1.0) = T#0ms` vendor behaviour).
+/// The duration of a millisecond count read through its low-order 32 bits:
+/// `DINT_TO_TIME(DINT#-1)` is `T#49d17h2m47s295ms` (measured; the vendor
+/// TIME is a 32-bit unsigned count).
 fn time_from_ms_count(millis: i64) -> Result<Value, RuntimeError> {
     Ok(Value::Time(crate::value::Duration::from_millis(
-        millis.max(0),
+        (millis as u64 & u64::from(u32::MAX)) as i64,
     )))
 }
 

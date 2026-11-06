@@ -165,6 +165,11 @@ pub(super) fn parse_int_text_codesys(text: &str) -> i128 {
     let mut value: i128 = 0;
     let mut seen = false;
     for character in digits.chars() {
+        // Measured `TO_BYTE('1_0') = BYTE#10`: the vendor consumes `_` as a
+        // digit separator inside the number.
+        if character == '_' {
+            continue;
+        }
         let Some(digit) = character.to_digit(radix) else {
             break;
         };

@@ -1084,9 +1084,10 @@ re-check them against this rule when touched.
   citations already used in `docs/specs/07-standard-functions.md`.
 - truST behavior and conflict: under a CODESYS `vendor_profile`
   (specification 14), truST accepts — matching the CODESYS toolchain —
-  (a) `<ANY_INT>_TO_TIME`, the integer read as a millisecond count;
+  (a) `<ANY_INT>_TO_TIME`, the integer read as a millisecond count through
+  its low-order 32 bits (the vendor TIME is a 32-bit unsigned count);
   (b) `REAL_TO_TIME`/`LREAL_TO_TIME`, the value read as milliseconds
-  truncated toward zero, a negative count saturating to `T#0ms`;
+  truncated toward zero, a negative value saturating to `T#0ms`;
   (c) `DWORD_TO_TOD`, the ms-of-day magnitude modulo 24 h; (d) string to an
   integer or a bit string, typed and overloaded, all with one parse rule:
   leading spaces, an optional sign, a decimal or `2#`/`8#`/`16#` literal,
@@ -1099,8 +1100,10 @@ re-check them against this rule when touched.
   runtime on a WAGO PFC200 (2026-11-06), recorded in specification 07 2.10:
   `REAL_TO_TIME(2.5) = T#2ms` (truncated, not the DEV-024 rounding of
   `REAL`/`LREAL` to an integer), `REAL_TO_TIME(-1.0) = T#0ms`,
-  `LREAL_TO_TIME(2.5) = T#2ms`, `TO_BYTE('abc') = 0`, `TO_BYTE('') = 0`,
-  `TO_BYTE('300') = 44`, `TO_BYTE('123abc') = 123`,
+  `LREAL_TO_TIME(2.5) = T#2ms`, `DINT_TO_TIME(DINT#-1) =
+  T#49d17h2m47s295ms` and `INT_TO_TIME(INT#-1) = T#49d17h2m47s295ms` (the
+  low-order 32 bits), `TO_BYTE('abc') = 0`, `TO_BYTE('') = 0`,
+  `TO_BYTE('300') = 44`, `TO_BYTE('123abc') = 123`, `TO_BYTE('1_0') = 10`,
   `DWORD_TO_TOD(DWORD#86400000) = TOD#0:0:0`,
   `DWORD_TO_TOD(DWORD#16#FFFFFFFF) = TOD#17:02:47.295`.
 - Impact: vendor-project call sites of these families compile clean in the
