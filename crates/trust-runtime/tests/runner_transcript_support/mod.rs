@@ -33,7 +33,7 @@ use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::native::{
     build, load_kept, this_computer, HostCode, Options, Target, Toolchain,
 };
-use trust_runtime::scheduler::{ResourceHandle, ResourceRunner, ResourceState, StdClock};
+use trust_runtime::scheduler::{Clock, ResourceHandle, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::settings::{
     BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings, WebSettings,
 };
@@ -164,6 +164,8 @@ fn wait_for(what: &str, mut done: impl FnMut() -> bool) {
 pub struct HostComposition {
     pub state: Arc<ControlState>,
     handle: ResourceHandle<StdClock>,
+    /// The scan thread's clock, whose time each [`HostScan::at`] is.
+    clock: StdClock,
     runtime_events: Receiver<RuntimeEvent>,
     io_snapshots: Receiver<trust_runtime::io::IoSnapshot>,
     live_metrics: Arc<Mutex<RuntimeMetrics>>,
@@ -226,9 +228,10 @@ impl HostComposition {
         let watchdog = runtime.watchdog_policy();
         let fault_policy = runtime.fault_policy();
         let pending_restart = Arc::new(Mutex::new(None));
+        let clock = StdClock::new();
         let handle = ResourceRunner::new(
             runtime,
-            StdClock::new(),
+            clock.clone(),
             Duration::from_millis(CYCLE_INTERVAL_MS),
         )
         .with_restart_signal(Arc::clone(&pending_restart))
@@ -282,6 +285,7 @@ impl HostComposition {
         Self {
             state: Arc::new(state),
             handle,
+            clock,
             runtime_events,
             io_snapshots,
             live_metrics,
@@ -309,6 +313,20 @@ impl HostComposition {
 
     pub fn resource_state(&self) -> ResourceState {
         self.state.resource.state()
+    }
+
+    /// The scan thread's time now, as each [`HostScan::at`] counts it.
+    pub fn now(&self) -> StdDuration {
+        StdDuration::from_nanos(u64::try_from(self.clock.now().as_nanos()).expect("host time"))
+    }
+
+    /// Waits until the scan thread has completed `scans` scans that [`Self::settle`] has not
+    /// taken yet, as a test thread that a loaded machine holds back leaves them.
+    pub fn wait_for_untaken(&self, scans: u64) {
+        wait_for(&format!("{scans} scans the test has not taken"), || {
+            let metrics = self.live_metrics.lock().expect("live metrics");
+            metrics.cycle().samples() >= self.completed + scans
+        });
     }
 
     /// Waits until the scan thread reports `state`.
