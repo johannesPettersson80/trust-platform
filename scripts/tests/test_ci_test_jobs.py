@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import unittest
 
-from scripts.tests.test_release_workflow import CI, jobs, step_texts, steps
+from scripts.tests.test_release_workflow import CI, ROOT, jobs, step_texts, steps
 
 
 class CiTestJobTests(unittest.TestCase):
@@ -26,6 +26,25 @@ class CiTestJobTests(unittest.TestCase):
         # job (5 November 2026); its trust-runtime unit tests alone took 610 s, against 171 s in
         # parallel on Linux. A test that measures time takes its program's measurement lock instead.
         self.assertNotIn("--test-threads", steps(self.job)["Run full test suite"])
+
+    def test_the_suite_runs_under_nextest_and_each_measuring_test_runs_alone(self) -> None:
+        # Catches the suite back on `cargo test`, which runs the programs one after another (#271's
+        # suites took 23 to 43 minutes, most of it waiting on single programs), and a test that measures
+        # time without its override, which would run beside the tests of every other program
+        # (specification 22).
+        suite = steps(self.job)["Run full test suite"]
+        self.assertIn("cargo nextest run --all-targets --no-fail-fast --profile ci", suite)
+        self.assertNotIn("cargo test", suite)
+        self.assertIn("cargo install cargo-nextest --version", steps(self.job)["Install cargo-nextest"])
+        config = (ROOT / ".config" / "nextest.toml").read_text(encoding="utf-8")
+        for measuring in (
+            "ci_clean_setup_first_passing_test_is_under_ten_minutes",
+            "single_test_feedback_is_under_two_seconds_for_small_project",
+            "run_all_tests_scales_roughly_linearly_for_small_projects",
+            "binary(web_ide_performance_gate)",
+        ):
+            self.assertIn(measuring, config)
+        self.assertEqual(config.count('threads-required = "num-test-threads"'), 2)
 
     def test_the_mesh_tls_gate_is_the_last_cargo_step(self) -> None:
         # Catches the gate's own variant of trust-runtime built before the full suite, which then
