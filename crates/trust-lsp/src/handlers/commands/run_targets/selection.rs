@@ -44,7 +44,7 @@ pub(super) const SIMULATOR: &str = "simulator";
 /// The id of the workspace project's own runtime (specification 25 §5.1).
 pub(super) const PROJECT: &str = "project";
 /// The name of the workspace project's own runtime.
-const PROJECT_LABEL: &str = "This project's runtime";
+pub(super) const PROJECT_LABEL: &str = "This project's runtime";
 
 /// The lifecycle snapshot of the extension: the runtime settings and the debug session.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -283,7 +283,7 @@ fn connected(snapshot: &Snapshot) -> bool {
 /// endpoint without its scheme.
 pub(super) fn runtime_name(snapshot: &Snapshot, project_listed: bool) -> String {
     let endpoint = snapshot.endpoint.trim();
-    if project_listed && !endpoint.is_empty() && endpoint == snapshot.project_endpoint.trim() {
+    if project_listed && is_project_runtime(endpoint, &snapshot.project_endpoint) {
         return PROJECT_LABEL.to_owned();
     }
     if let Some(name) = given_name(snapshot) {
@@ -297,6 +297,13 @@ pub(super) fn runtime_name(snapshot: &Snapshot, project_listed: bool) -> String 
     } else {
         remote_label(endpoint)
     }
+}
+
+/// Whether the runtime at `endpoint` is the workspace project's own, whose control endpoint is
+/// `project_endpoint`: it has that runtime's name on every surface (§6.9).
+pub(super) fn is_project_runtime(endpoint: &str, project_endpoint: &str) -> bool {
+    let endpoint = endpoint.trim();
+    !endpoint.is_empty() && endpoint == project_endpoint.trim()
 }
 
 /// The name the extension gave the runtime it is connected to: the debug session's target name,

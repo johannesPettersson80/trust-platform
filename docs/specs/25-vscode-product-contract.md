@@ -675,8 +675,9 @@ README that passes fails the check until it is taken off the list.
   sends nothing and asks for a value.
 - The header identifies the selected target, current scan, and DEC/HEX/BIN
   format. The table identifies `Name`, `Value`, `Type`, `State`, and `Actions`.
-- Standard target labels are `Simulator`, `Connected runtime`,
-  `Runtime at <endpoint>`, and `Local runtime (control socket)`. Scan labels
+- Standard target labels are `Simulator`, `This project's runtime` (§6.9),
+  `Connected runtime`, `Runtime at <endpoint>`, and
+  `Local runtime (control socket)`. Scan labels
   use `scan #N`, and accessible context states
   `Rows are from runtime scan #N`.
 - BYTE, WORD, and DWORD values use uppercase IEC-style `16#…` and padded
@@ -1956,7 +1957,12 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   disabled, the name Connect was given; else `runtime` for a local control
   socket, else the endpoint without its scheme. The runtime's entry in the
   side panel's list has the same name, and HMI Live names its run target the
-  same way (specification 39 §11 item 6). `connectedDebuggingDisabled` says
+  same way (specification 39 §11 item 6). Live Values' header names the
+  runtime it shows the same way (`liveValues`' `targetLabel`, §4.3): online
+  with or connected to the project's own runtime, by that name, whichever
+  action connected it (the side panel's Connect, Live Values' Start or the
+  canvas's) and whatever name that action gave the debug session; else the
+  debug session's target name. `connectedDebuggingDisabled` says
   that the runtime keeps debugging disabled, so that the bar reads
   `<runtime> · debugging disabled` (§4.4).
 

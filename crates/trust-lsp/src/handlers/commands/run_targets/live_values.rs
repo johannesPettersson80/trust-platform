@@ -8,9 +8,10 @@
 //!   session?, projectEndpoint? }`, `session` the debug session's configuration (`request`,
 //!   `endpoint`, `authToken`, `controlEndpoint`, `controlAuthToken`, `targetLabel`) or `null`, and
 //!   `projectEndpoint` the workspace project's own control endpoint: `{ ok: true, status,
-//!   adsReport }`, `status` the panel's runtime status with what each section's rows may do and
-//!   whether the project's own runtime answers, and `adsReport` the runtime's `ads.status` answer
-//!   while an online target answers without a session.
+//!   adsReport }`, `status` the panel's runtime status with the name of its runtime (specification
+//!   25 §6.9), what each section's rows may do and whether the project's own runtime answers, and
+//!   `adsReport` the runtime's `ads.status` answer while an online target answers without a
+//!   session.
 //! - `speed` `{ endpoint, authToken? }`: `{ ok: true, read }`, the simulation facts and speeds that
 //!   the runtime's `status` reports, `null` when it cannot be read.
 
@@ -21,6 +22,7 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
 use super::request::{reachable, send, Outcome};
+use super::selection::{is_project_runtime, PROJECT_LABEL};
 use super::{decode, non_blank};
 
 /// Why an output or a memory row is not written: the program drives it (specification 25 §4.2).
@@ -246,7 +248,16 @@ fn live_values(args: &LiveArgs, runtimes: &dyn Runtimes) -> (Value, Option<Value
         status.insert("cycleIntervalMs".into(), json!(cycle));
     }
     status.insert("runtimeState".into(), json!(state));
-    if let Some(label) = session.and_then(|session| non_blank(session.target_label.as_deref())) {
+    // The project's own runtime has that name here as in the side panel and the status bar, before
+    // the name a Connect gave the debug session; another runtime has the session's name (§6.9).
+    let project = non_blank(args.project_endpoint.as_deref()).unwrap_or_default();
+    let label =
+        if (mode == "online" || state == "connected") && is_project_runtime(&endpoint, &project) {
+            Some(PROJECT_LABEL.to_owned())
+        } else {
+            session.and_then(|session| non_blank(session.target_label.as_deref()))
+        };
+    if let Some(label) = label {
         status.insert("targetLabel".into(), json!(label));
     }
     status.insert("endpoint".into(), json!(endpoint));
@@ -256,7 +267,6 @@ fn live_values(args: &LiveArgs, runtimes: &dyn Runtimes) -> (Value, Option<Value
     status.insert("endpointReachable".into(), json!(reachable));
     // The project's own runtime, which the Target picker offers while it answers (specification 25
     // §5.1); the target's probe stands for it when the target is that runtime.
-    let project = non_blank(args.project_endpoint.as_deref()).unwrap_or_default();
     let project_reachable = !project.is_empty()
         && if probed && project == configured {
             reachable

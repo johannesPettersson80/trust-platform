@@ -310,6 +310,66 @@ fn the_project_runtime_is_probed() {
     assert_eq!(status["projectReachable"], false);
 }
 
+/// Live Values names the project's own runtime as the side panel and the status bar do, however
+/// it was connected (specification 25 §6.9): online with it before any session, attached by Live
+/// Values' Start with no name, or attached by a Connect that gave its session another name; any
+/// other runtime keeps its session's name, and the Simulator is never named after the project.
+/// Catches the 30 October F23 finding, the side panel saying "This project's runtime" while Live
+/// Values said "Runtime at 127.0.0.1:9123" for the same runtime.
+#[test]
+fn the_project_runtime_has_its_name_in_live_values() {
+    let project = "tcp://127.0.0.1:9123";
+    let named = |arguments: Value| {
+        let (status, _) = status_of(arguments, &Told::default());
+        status["targetLabel"].clone()
+    };
+    let attached = |endpoint: &str, label: Option<&str>| {
+        json!({
+            "runtimeMode": "online",
+            "endpoint": project,
+            "projectEndpoint": format!(" {project} "),
+            "session": { "request": "attach", "endpoint": endpoint, "targetLabel": label },
+        })
+    };
+    assert_eq!(
+        named(json!({ "runtimeMode": "online", "endpoint": project, "projectEndpoint": project })),
+        "This project's runtime",
+        "online with the project's runtime, before a session"
+    );
+    assert_eq!(
+        named(attached(project, None)),
+        "This project's runtime",
+        "Live Values' Start gives its session no name"
+    );
+    assert_eq!(
+        named(attached(project, Some("Cpu"))),
+        "This project's runtime",
+        "a Connect that named its session otherwise"
+    );
+    assert_eq!(
+        named(attached("tcp://10.0.0.2:9901", Some("Line 1"))),
+        "Line 1",
+        "another runtime keeps its session's name"
+    );
+    assert_eq!(
+        named(json!({
+            "runtimeMode": "simulate",
+            "endpoint": project,
+            "projectEndpoint": project,
+            "session": { "request": "launch", "controlEndpoint": project, "targetLabel": "Simulator" },
+        })),
+        "Simulator",
+        "the Simulator at the same endpoint"
+    );
+    assert_eq!(
+        named(
+            json!({ "runtimeMode": "simulate", "endpoint": project, "projectEndpoint": project })
+        ),
+        Value::Null,
+        "the stopped Simulator"
+    );
+}
+
 /// The simulation facts as the runtime states them, with the stricter default where it states
 /// none (specification 35 A2.4 and B9.2): `simulated` only when stated, the time scale only while
 /// simulation is enabled, no speed words at 1×. Catches a target made simulated by its simulation
