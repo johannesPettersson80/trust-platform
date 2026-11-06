@@ -1,26 +1,41 @@
 //! The endpoint, the credentials and the transport security of the computer's driver
 //! (specification 32 §3): the rules of the parameters, which the shared module decides, and what
-//! the computer adds, reading the TLS files and building its TLS client with `native-tls`, then a
-//! session over TLS with the broker stand-in.
+//! the computer adds, reading the TLS files and building its TLS client with rustls, then sessions
+//! over TLS with the broker stand-in.
 
 use std::path::PathBuf;
 
 use trust_runtime_services::io_drivers::mqtt::{BrokerEndpoint, ClientAuth, MqttTls};
 
-use super::broker::{tls_acceptor, tls_fixture, Broker};
+use rustls::version::{TLS12, TLS13};
+
+use super::broker::{tls_fixture, tls_server, tls_server_with, Broker};
 use super::{
-    eventually, faulted_with, read, read_fresh, refusal, refused, start, table, MqttIoDriver,
+    degraded, eventually, faulted_with, read, read_fresh, refusal, refused, start, table,
+    MqttIoDriver,
 };
 use crate::error::RuntimeError;
 use crate::io::IoDriver;
 
-/// The path of a certificate of another authority, `CN=another-broker`, which did not sign the
-/// broker stand-in's certificate, as a TOML string holds it on every system.
-fn another_authority() -> String {
+/// The path of the fixture `name` beside these tests, as a TOML string holds it on every system:
+/// - `another-authority.pem`, a certificate of another authority, `CN=another-broker`, which did
+///   not sign the broker stand-in's certificate;
+/// - `two-authorities.pem`, that certificate and then the broker stand-in's;
+/// - `client-cert.pem`, the self-signed certificate of a client, `CN=trust-mqtt-client`, and
+///   `client-key-sec1.pem`, its EC P-256 key in SEC1 PEM;
+/// - `server-key-pkcs1.pem`, the key of the broker stand-in's certificate in PKCS#1 PEM.
+fn own_fixture(name: &str) -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src/io/mqtt/tests/another-authority.pem")
+        .join("src/io/mqtt/tests")
+        .join(name)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+/// The path of a certificate of another authority, which did not sign the broker stand-in's
+/// certificate.
+fn another_authority() -> String {
+    own_fixture("another-authority.pem")
 }
 
 /// A plaintext broker is taken only on the loopback or with `allow_insecure_remote = true`
@@ -152,7 +167,7 @@ fn security_test_rejects_partial_mtls_pair() {
 /// ALPN protocol `mqtt` (specification 32 §3). Catches a path or an ALPN protocol lost on the way
 /// to the client, and a client that cannot be built from valid files.
 #[test]
-fn tls_transport_test_builds_the_native_tls_client() {
+fn tls_transport_test_builds_the_tls_client() {
     let ca = tls_fixture("server-cert.pem");
     let key = tls_fixture("server-key.pem");
     let params = read(&format!(
@@ -173,7 +188,31 @@ fn tls_transport_test_builds_the_native_tls_client() {
             alpn: Some(vec!["mqtt".into()]),
         })
     );
-    assert!(matches!(super::super::tls::client(&params), Ok(Some(_))));
+    let client = super::super::tls::client(&params)
+        .expect("the TLS client")
+        .expect("TLS is on");
+    assert_eq!(client.config().alpn_protocols, [b"mqtt".to_vec()]);
+}
+
+/// The client's key is read from PEM as PKCS#8, PKCS#1 (RSA) or SEC1 (EC), and the driver is taken
+/// with each (specification 32 §3). Catches a client that reads PKCS#8 only.
+#[test]
+fn a_client_key_is_read_from_pkcs8_pkcs1_or_sec1_pem() {
+    let ca = tls_fixture("server-cert.pem");
+    for (certificate, key) in [
+        (ca.clone(), tls_fixture("server-key.pem")),
+        (ca.clone(), own_fixture("server-key-pkcs1.pem")),
+        (
+            own_fixture("client-cert.pem"),
+            own_fixture("client-key-sec1.pem"),
+        ),
+    ] {
+        let value = table(&format!(
+            "broker = \"mqtts://127.0.0.1:8883\"\ntls_ca_path = \"{ca}\"\n\
+             tls_client_cert_path = \"{certificate}\"\ntls_client_key_path = \"{key}\""
+        ));
+        assert_eq!(MqttIoDriver::validate_params(&value), Ok(()), "{key}");
+    }
 }
 
 /// A TLS file that cannot be read is refused with its key and its path, in the computer's words,
@@ -206,8 +245,9 @@ fn a_tls_file_that_cannot_be_read_is_refused() {
 
 /// A file that does not hold what its key names is refused when the driver is validated and when
 /// it starts: a private key as the authority, and a certificate and a key given the other way
-/// round (specification 32 §3), in the computer's words. Catches a TLS client built without its
-/// authority, which would trust nothing or anything.
+/// round, whose certificate file holds no certificate (specification 32 §3), in the computer's
+/// words. Catches a TLS client built without its authority, which would trust nothing or anything,
+/// and one built without the client's certificate.
 #[test]
 fn a_tls_file_that_does_not_hold_its_certificate_is_refused() {
     let ca = tls_fixture("server-cert.pem");
@@ -226,26 +266,53 @@ fn a_tls_file_that_does_not_hold_its_certificate_is_refused() {
          tls_client_cert_path = \"{key}\"\ntls_client_key_path = \"{ca}\""
     ))
     .expect_err("a swapped pair is refused");
+    assert_eq!(
+        error,
+        RuntimeError::InvalidConfig(
+            "mqtt tls_client_cert_path is not a valid PEM certificate: it holds no certificate"
+                .into()
+        )
+    );
+}
+
+/// A key file without a private key, and a key that does not belong to the client's certificate,
+/// are refused when the driver is validated and when it starts (specification 32 §3), in the
+/// computer's words. Catches a client that would offer a certificate it cannot sign for, which
+/// every broker that asks for the certificate refuses, found only at the broker.
+#[test]
+fn a_key_that_is_not_the_certificates_is_refused() {
+    let ca = tls_fixture("server-cert.pem");
+    let error = refusal(&format!(
+        "broker = \"mqtts://127.0.0.1:8883\"\ntls_ca_path = \"{ca}\"\n\
+         tls_client_cert_path = \"{ca}\"\ntls_client_key_path = \"{ca}\""
+    ))
+    .expect_err("a certificate is no key");
     assert!(
         matches!(&error, RuntimeError::InvalidConfig(text)
-            if text.starts_with("mqtt mTLS client certificate/key are not valid PKCS#8 PEM: ")),
+            if text.starts_with("mqtt tls_client_key_path is not a valid PEM private key: ")),
+        "{error}"
+    );
+    let error = refusal(&format!(
+        "broker = \"mqtts://127.0.0.1:8883\"\ntls_ca_path = \"{ca}\"\n\
+         tls_client_cert_path = \"{}\"\ntls_client_key_path = \"{}\"",
+        own_fixture("client-cert.pem"),
+        tls_fixture("server-key.pem")
+    ))
+    .expect_err("another certificate's key is refused");
+    assert!(
+        matches!(&error, RuntimeError::InvalidConfig(text)
+            if text.starts_with("mqtt mTLS client certificate/key are not a usable pair: ")),
         "{error}"
     );
 }
 
 /// The driver talks MQTT to its broker over TLS: the handshake verifies the broker's certificate
 /// for `127.0.0.1` with the authority of `tls_ca_path`, the CONNECT carries the keep alive, and a
-/// message and an image go through (specification 32 §3). Catches a TLS client that does not carry
-/// the session, or that is not used for an `mqtts://` broker.
+/// message and an image go through (specification 32 §3), on every computer. Catches a TLS client
+/// that does not carry the session, or that is not used for an `mqtts://` broker.
 #[test]
-#[cfg_attr(
-    not(target_os = "linux"),
-    ignore = "the fixture's self-signed certificate (CA:FALSE, ten years' validity) is an \
-              authority that the TLS library of Linux (OpenSSL) takes, while the trust policies \
-              of macOS and Windows may refuse it"
-)]
 fn the_driver_talks_mqtt_to_its_broker_over_tls() {
-    let broker = Broker::start_tls(tls_acceptor());
+    let broker = Broker::start_tls(tls_server());
     let mut driver = start(&format!(
         "broker = \"mqtts://127.0.0.1:{}\"\ntls_ca_path = \"{}\"\nkeep_alive_s = 11\n\
          topic_in = \"line/in\"\ntopic_out = \"line/out\"",
@@ -268,13 +335,10 @@ fn the_driver_talks_mqtt_to_its_broker_over_tls() {
 
 /// The TLS client refuses a broker whose certificate its authority did not sign: the handshake
 /// fails, the driver's health says so after `mqtt connect failed:`, and no CONNECT reaches the
-/// broker (specification 32 §3). The client's side is what the test reads: Windows' TLS checks a
-/// certificate authority of the client's own after the handshake, so its broker sees a handshake
-/// that completed and a connection that ended, not a failed one. Catches a client that skips the
-/// verification of the broker.
+/// broker (specification 32 §3). Catches a client that skips the verification of the broker.
 #[test]
 fn the_tls_client_refuses_a_broker_it_cannot_verify() {
-    let broker = Broker::start_tls(tls_acceptor());
+    let broker = Broker::start_tls(tls_server());
     let driver = start(&format!(
         "broker = \"mqtts://127.0.0.1:{}\"\ntls_ca_path = \"{}\"\nreconnect_ms = 60000",
         broker.port(),
@@ -302,4 +366,95 @@ fn a_broker_without_tls_fails_the_handshake() {
         faulted_with(&driver.health(), "mqtt connect failed: TLS handshake")
     });
     assert!(broker.record(|record| record.connects.is_empty()));
+}
+
+/// The client trusts every certificate of `tls_ca_path`: a file that holds another authority first
+/// and the broker's after it verifies the broker, and the session goes through (specification 32
+/// §3). Catches a client that reads only the file's first certificate.
+#[test]
+fn the_tls_client_trusts_every_authority_of_its_file() {
+    let broker = Broker::start_tls(tls_server());
+    let _driver = start(&format!(
+        "broker = \"mqtts://127.0.0.1:{}\"\ntls_ca_path = \"{}\"\ntopic_in = \"line/in\"",
+        broker.port(),
+        own_fixture("two-authorities.pem")
+    ));
+    broker.wait_for("subscription with the file's second authority", |record| {
+        record.subscriptions == ["line/in"]
+    });
+}
+
+/// The client speaks TLS 1.2 to a broker without TLS 1.3, and the session goes through
+/// (specification 32 §3: TLS 1.2 and 1.3). Catches a client that offers TLS 1.3 only, which such a
+/// broker refuses.
+#[test]
+fn the_driver_talks_tls_1_2_to_a_broker_without_tls_1_3() {
+    let broker = Broker::start_tls(tls_server_with(&[&TLS12], None));
+    let _driver = start(&format!(
+        "broker = \"mqtts://127.0.0.1:{}\"\ntls_ca_path = \"{}\"\ntopic_in = \"line/in\"",
+        broker.port(),
+        tls_fixture("server-cert.pem")
+    ));
+    broker.wait_for("subscription over TLS 1.2", |record| {
+        record.subscriptions == ["line/in"]
+    });
+}
+
+/// The driver presents its certificate to a broker that asks for one. The broker refuses a driver
+/// without a certificate in the handshake, before any CONNECT; the driver with its certificate and
+/// its EC key from SEC1 PEM gets its session, and an image goes through (specification 32 §3).
+/// Catches a client that presents no certificate, or a key that is not its certificate's, such as
+/// another runtime's.
+#[test]
+fn the_driver_presents_its_certificate_to_a_broker_that_asks_for_one() {
+    let client_authority = own_fixture("client-cert.pem");
+    let broker = Broker::start_tls(tls_server_with(&[&TLS13, &TLS12], Some(&client_authority)));
+    let ca = tls_fixture("server-cert.pem");
+    let without = start(&format!(
+        "broker = \"mqtts://127.0.0.1:{}\"\ntls_ca_path = \"{ca}\"\nreconnect_ms = 60000\n\
+         topic_in = \"line/in\"",
+        broker.port()
+    ));
+    broker.wait_for(
+        "the refused handshake of a driver without a certificate",
+        |record| record.handshake_failures >= 1,
+    );
+    assert!(broker.record(|record| record.connects.is_empty()));
+    drop(without);
+    let mut driver = start(&format!(
+        "broker = \"mqtts://127.0.0.1:{}\"\ntls_ca_path = \"{ca}\"\n\
+         tls_client_cert_path = \"{client_authority}\"\ntls_client_key_path = \"{}\"\n\
+         topic_in = \"line/in\"\ntopic_out = \"line/out\"",
+        broker.port(),
+        own_fixture("client-key-sec1.pem")
+    ));
+    broker.wait_for("subscription over mutual TLS", |record| {
+        record.subscriptions == ["line/in"]
+    });
+    assert_eq!(driver.write_outputs(&[7]), Ok(()));
+    broker.wait_for("image over mutual TLS", |record| {
+        record.published("line/out") == [vec![7]]
+    });
+}
+
+/// A broker that ends a TLS session by closing its socket, without TLS's close notification, ends
+/// it as a broker that closes a plain connection: the output path reads `mqtt disconnected: the
+/// broker closed the connection` (specification 32 §3 and §8). Catches a TLS client that reports
+/// the missing notification as a failure in the TLS library's words.
+#[test]
+fn a_broker_that_closes_a_tls_session_closes_the_connection() {
+    let broker = Broker::start_tls(tls_server());
+    let driver = start(&format!(
+        "broker = \"mqtts://127.0.0.1:{}\"\ntls_ca_path = \"{}\"\nreconnect_ms = 60000\n\
+         topic_in = \"line/in\"\ntopic_out = \"line/out\"\non_error = \"warn\"",
+        broker.port(),
+        tls_fixture("server-cert.pem")
+    ));
+    broker.wait_for("subscription over TLS", |record| {
+        record.subscriptions == ["line/in"]
+    });
+    broker.close_connection();
+    eventually("the broker's end in the output path", || {
+        driver.output_health() == degraded("mqtt disconnected: the broker closed the connection")
+    });
 }

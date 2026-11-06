@@ -445,11 +445,7 @@ runner took longer than an hour (28 October 2026). An attempt that exceeds its l
 fails.
 
 A test that expects no watchdog fault from real cycles against a short watchdog runs alone
-too, as the debugger's pause tests do with their 20 ms watchdog. On Windows, the tests that
-build a TLS identity with native-tls, which are trust-runtime's MQTT tests, run one at a
-time: native-tls keeps each identity's key in a key container of the user, named by a count
-kept in its own process, so the identities of two test processes would share one container
-(6 November 2026).
+too, as the debugger's pause tests do with their 20 ms watchdog.
 
 Every job that builds Structured Text programs provisions the toolchain of
 specification 44 §4.6 itself and names it in `TRUST_TOOLCHAIN`, the release's

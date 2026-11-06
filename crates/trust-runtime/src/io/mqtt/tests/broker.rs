@@ -21,7 +21,13 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use native_tls::{Identity, TlsAcceptor};
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::server::WebPkiClientVerifier;
+use rustls::version::{TLS12, TLS13};
+use rustls::{
+    RootCertStore, ServerConfig, ServerConnection, StreamOwned, SupportedProtocolVersion,
+};
 
 /// How long a test waits for the driver and the broker before it fails.
 pub(super) const PATIENCE: Duration = Duration::from_secs(5);
@@ -178,12 +184,12 @@ impl Broker {
         Self::listen(None)
     }
 
-    /// A broker that takes each connection with the TLS of `acceptor` first.
-    pub(super) fn start_tls(acceptor: TlsAcceptor) -> Self {
-        Self::listen(Some(Arc::new(acceptor)))
+    /// A broker that takes each connection with the TLS of `tls` first.
+    pub(super) fn start_tls(tls: Arc<ServerConfig>) -> Self {
+        Self::listen(Some(tls))
     }
 
-    fn listen(acceptor: Option<Arc<TlsAcceptor>>) -> Self {
+    fn listen(tls: Option<Arc<ServerConfig>>) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind the broker stand-in");
         let address = listener.local_addr().expect("the broker's address");
         listener
@@ -194,7 +200,7 @@ impl Broker {
             changed: Condvar::new(),
         });
         let accepting = Arc::clone(&inner);
-        thread::spawn(move || accept(&listener, &accepting, acceptor.as_ref()));
+        thread::spawn(move || accept(&listener, &accepting, tls.as_ref()));
         Self { address, inner }
     }
 
@@ -299,16 +305,51 @@ pub(super) fn tls_fixture(name: &str) -> String {
 }
 
 /// The TLS of a broker for `localhost`, `127.0.0.1` and `::1`, with the fixture's self-signed
-/// certificate, which `tls_ca_path` names as the authority.
-pub(super) fn tls_acceptor() -> TlsAcceptor {
-    let certificate = std::fs::read(tls_fixture("server-cert.pem")).expect("the certificate");
-    let key = std::fs::read(tls_fixture("server-key.pem")).expect("the key");
-    let identity = Identity::from_pkcs8(&certificate, &key).expect("the broker's identity");
-    TlsAcceptor::new(identity).expect("the broker's TLS")
+/// certificate, which `tls_ca_path` names as the authority: TLS 1.2 and 1.3, no client certificate.
+pub(super) fn tls_server() -> Arc<ServerConfig> {
+    tls_server_with(&[&TLS13, &TLS12], None)
+}
+
+/// The TLS of [`tls_server`], speaking the TLS `versions`, which asks each client for a certificate
+/// that the authorities of the PEM file `client_authority` signed, when it is given, and refuses a
+/// client without one.
+pub(super) fn tls_server_with(
+    versions: &[&'static SupportedProtocolVersion],
+    client_authority: Option<&str>,
+) -> Arc<ServerConfig> {
+    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let builder = ServerConfig::builder_with_provider(Arc::clone(&provider))
+        .with_protocol_versions(versions)
+        .expect("the broker's TLS versions");
+    let builder = match client_authority {
+        None => builder.with_no_client_auth(),
+        Some(path) => {
+            let mut roots = RootCertStore::empty();
+            for certificate in CertificateDer::pem_file_iter(path).expect("the client authority") {
+                roots
+                    .add(certificate.expect("a certificate of the client authority"))
+                    .expect("an authority of clients");
+            }
+            let verifier = WebPkiClientVerifier::builder_with_provider(Arc::new(roots), provider)
+                .build()
+                .expect("the broker's check of clients");
+            builder.with_client_cert_verifier(verifier)
+        }
+    };
+    let chain = CertificateDer::pem_file_iter(tls_fixture("server-cert.pem"))
+        .expect("the certificate")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("the certificate");
+    let key = PrivateKeyDer::from_pem_file(tls_fixture("server-key.pem")).expect("the key");
+    Arc::new(
+        builder
+            .with_single_cert(chain, key)
+            .expect("the broker's TLS"),
+    )
 }
 
 /// Takes the connections to `listener` until the broker stops, each on a thread of its own.
-fn accept(listener: &TcpListener, inner: &Arc<Inner>, acceptor: Option<&Arc<TlsAcceptor>>) {
+fn accept(listener: &TcpListener, inner: &Arc<Inner>, tls: Option<&Arc<ServerConfig>>) {
     loop {
         if inner.lock().stop {
             return;
@@ -323,9 +364,9 @@ fn accept(listener: &TcpListener, inner: &Arc<Inner>, acceptor: Option<&Arc<TlsA
                     control.last
                 };
                 let serving = Arc::clone(inner);
-                let acceptor = acceptor.cloned();
+                let tls = tls.cloned();
                 thread::spawn(move || {
-                    serve_connection(stream, &serving, acceptor.as_deref(), number);
+                    serve_connection(stream, &serving, tls.as_ref(), number);
                 });
             }
             Err(_) => thread::sleep(SLICE),
@@ -333,10 +374,15 @@ fn accept(listener: &TcpListener, inner: &Arc<Inner>, acceptor: Option<&Arc<TlsA
     }
 }
 
-/// Serves the connection `stream`, number `number`, with TLS through `acceptor` when it is given,
-/// and records why it ended.
-fn serve_connection(stream: TcpStream, inner: &Inner, acceptor: Option<&TlsAcceptor>, number: u64) {
-    let ended = serve_stream(stream, inner, acceptor, number);
+/// Serves the connection `stream`, number `number`, with the TLS of `tls` when it is given, and
+/// records why it ended.
+fn serve_connection(
+    stream: TcpStream,
+    inner: &Inner,
+    tls: Option<&Arc<ServerConfig>>,
+    number: u64,
+) {
+    let ended = serve_stream(stream, inner, tls, number);
     inner
         .lock()
         .record
@@ -347,16 +393,16 @@ fn serve_connection(stream: TcpStream, inner: &Inner, acceptor: Option<&TlsAccep
 
 /// Serves the connection `stream` until it ends; why it ended.
 fn serve_stream(
-    stream: TcpStream,
+    mut stream: TcpStream,
     inner: &Inner,
-    acceptor: Option<&TlsAcceptor>,
+    tls: Option<&Arc<ServerConfig>>,
     number: u64,
 ) -> String {
     // A connection from a listener that does not block may not block either on some systems.
     if let Err(error) = stream.set_nonblocking(false) {
         return format!("it could not be made blocking: {error}");
     }
-    let Some(acceptor) = acceptor else {
+    let Some(tls) = tls else {
         return match stream.set_read_timeout(Some(SLICE)) {
             Ok(()) => serve(stream, inner, number),
             Err(error) => format!("it took no read timeout: {error}"),
@@ -365,15 +411,19 @@ fn serve_stream(
     if let Err(error) = stream.set_read_timeout(Some(PATIENCE)) {
         return format!("it took no read timeout: {error}");
     }
-    match acceptor.accept(stream) {
-        Ok(tls) => match tls.get_ref().set_read_timeout(Some(SLICE)) {
-            Ok(()) => serve(tls, inner, number),
-            Err(error) => format!("it took no read timeout: {error}"),
-        },
-        Err(error) => {
+    let mut session = match ServerConnection::new(Arc::clone(tls)) {
+        Ok(session) => session,
+        Err(error) => return format!("its TLS session could not start: {error}"),
+    };
+    while session.is_handshaking() {
+        if let Err(error) = session.complete_io(&mut stream) {
             inner.lock().record.handshake_failures += 1;
-            format!("its TLS handshake failed: {error}")
+            return format!("its TLS handshake failed: {error}");
         }
+    }
+    match stream.set_read_timeout(Some(SLICE)) {
+        Ok(()) => serve(StreamOwned::new(session, stream), inner, number),
+        Err(error) => format!("it took no read timeout: {error}"),
     }
 }
 

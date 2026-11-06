@@ -30,7 +30,6 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use native_tls::TlsConnector;
 use smol_str::SmolStr;
 use trust_runtime_services::io_drivers::mqtt::{
     MqttExchange, MqttParams, MqttSession, SCAN_WAIT_MS,
@@ -187,7 +186,7 @@ impl MqttIoDriver {
     /// # Errors
     ///
     /// `mqtt: start the worker: <reason>` when the operating system starts no thread.
-    fn start(params: MqttParams, tls: Option<TlsConnector>) -> Result<Self, RuntimeError> {
+    fn start(params: MqttParams, tls: Option<tls::TlsClient>) -> Result<Self, RuntimeError> {
         let carries = params.input_enabled() || params.output_enabled();
         let client_id = format!("trust-runtime-{}", std::process::id());
         let shared = Arc::new(Shared {
