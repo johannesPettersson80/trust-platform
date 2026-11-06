@@ -7,13 +7,19 @@
 //! (specification 07 §2.10), converts as the CODESYS Development System does: a real to an integer
 //! or a bit string rounds half away from zero, a value outside the target keeps the low-order bits
 //! of the target's width, two's complement, `REAL_TO_DWORD`, `LREAL_TO_LWORD`, `DWORD_TO_REAL` and
-//! `LWORD_TO_LREAL` convert the number, and a bit string to `BOOL` tests for zero. Every other
-//! conversion is the same under both rules.
+//! `LWORD_TO_LREAL` convert the number, and a bit string to `BOOL` tests for zero. The same rules
+//! carry the vendor conversions of specification 07 §2.4 and §2.7, which the IEC rules refuse: a
+//! duration to an integer as its milliseconds (an `LTIME` its nanoseconds), a time of day to a
+//! `DWORD` as its milliseconds of the day, and a `BOOL` or an enumerated value to text as `TRUE` or
+//! `FALSE` and as its value's name. Every other conversion is the same under both rules.
 
+use std::collections::BTreeSet;
+
+use smol_str::SmolStr;
 use trust_syntax::syntax::SyntaxNode;
 
 use super::call::Called;
-use super::text::Text;
+use super::text::{byte_string, Text};
 use super::Lowerer;
 use crate::native::types::{Elem, Kind, Ty};
 use crate::native::NativeError;
@@ -47,6 +53,16 @@ impl Lowerer<'_, '_> {
         let Some(src) = self.info(from).scalar() else {
             return Err(self.unsupported(node, format!("{name} of a value that is no scalar")));
         };
+        let codesys = self.model.conversions == ConversionProfile::Codesys;
+        // Under the CODESYS rules an enumerated value as text is its value's name (specification
+        // 07 §2.7, `docs/IEC_DEVIATIONS.md` DEV-036); the IEC rules accept no such conversion.
+        if codesys
+            && let Kind::Enum { values, .. } = &self.info(from).kind
+            && matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_))
+        {
+            let values = values.clone();
+            return Ok(self.enumeration_name(&source, src, &values, ty));
+        }
         if let Kind::WStr(_) = self.info(ty).kind {
             // A `WCHAR` is the one code unit of its code; any other value is spelled as its
             // `STRING` is, then widened (specification 07 §2).
@@ -80,7 +96,6 @@ impl Lowerer<'_, '_> {
         }
         let rust = dst.rust();
         let truncate = name == "TRUNC";
-        let codesys = self.model.conversions == ConversionProfile::Codesys;
         let character = |elem: Elem| matches!(elem, Elem::Char | Elem::WChar);
         let converted = if src == dst || (src.is_duration() && dst.is_duration()) {
             source
@@ -195,6 +210,21 @@ impl Lowerer<'_, '_> {
             }
         } else if src.is_duration() && dst == Elem::DWord {
             self.bind(&format!("lib::time_to_dword(cx, {source})?"))
+        } else if codesys && src.is_duration() && dst.is_integer() {
+            // The CODESYS rules: a `TIME`'s whole milliseconds, an `LTIME`'s nanoseconds, kept to
+            // the destination's low-order bits; a negative duration is an overflow (specification
+            // 07 §2.4, `docs/IEC_DEVIATIONS.md` DEV-036).
+            let per = if src == Elem::LTime { 1 } else { 1_000_000 };
+            let count = self.bind(&format!("lib::duration_count(cx, {source}, {per})?"));
+            format!("({count} as {rust})")
+        } else if codesys && matches!(src, Elem::Tod | Elem::LTod) && dst == Elem::DWord {
+            // The CODESYS rules: the milliseconds of the day (specification 07 §2.4, DEV-036).
+            let function = if src == Elem::Tod {
+                "tod_to_dword"
+            } else {
+                "ltod_to_dword"
+            };
+            self.bind(&format!("lib::{function}(cx, {source})?"))
         } else if src == Elem::DWord && dst.is_duration() {
             format!("lib::dword_to_time({source})")
         } else {
@@ -244,6 +274,13 @@ impl Lowerer<'_, '_> {
             (format!("lib::write_char(TEXT.view(), {source})"), 2)
         } else if src == Elem::WChar {
             (format!("lib::write_wchar(cx, TEXT.view(), {source})?"), 3)
+        } else if src == Elem::Bool {
+            // `TRUE` or `FALSE` under the CODESYS rules (specification 07 §2.7, DEV-036); the IEC
+            // rules accept no such conversion.
+            (
+                format!("lib::write_bool(TEXT.view(), u8::from({source}) != 0)"),
+                5,
+            )
         } else {
             return Err(self.unsupported(node, format!("{name}: {} as text", src.name())));
         };
@@ -254,6 +291,49 @@ impl Lowerer<'_, '_> {
             reference: format!("&{temp}"),
             capacity,
         }]))
+    }
+
+    /// The name of the enumerated value `source`, whose base is `base`, among `values`: the first
+    /// name that has the value, or its decimal number when none has it (a type with named values
+    /// holds every value of its base, specification 02 §3.2), as a `STRING`, widened for a
+    /// `WSTRING` result `ty` (specification 07 §2.7, `docs/IEC_DEVIATIONS.md` DEV-036).
+    fn enumeration_name(
+        &mut self,
+        source: &str,
+        base: Elem,
+        values: &[(SmolStr, i64)],
+        ty: Ty,
+    ) -> Called {
+        let longest = values.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
+        let capacity = u32::try_from(longest).unwrap_or(u32::MAX).max(INTEGER_TEXT);
+        let temp = self.temp();
+        self.line(&format!("let {temp} = Str::<{capacity}>::new();"));
+        self.line(&format!("match {source} {{"));
+        let mut spelled = BTreeSet::new();
+        for (name, value) in values {
+            // A value two names share is spelled as the first.
+            if spelled.insert(*value) {
+                self.line(&format!(
+                    "    {value} => lib::assign_bytes({temp}.view(), {}),",
+                    byte_string(name.as_bytes())
+                ));
+            }
+        }
+        let number = if base.is_signed() {
+            format!("lib::write_int({temp}.view(), i64::from(other))")
+        } else {
+            format!("lib::write_uint({temp}.view(), u64::from(other))")
+        };
+        self.line(&format!("    other => {number},"));
+        self.line("}");
+        let text = format!("&{temp}");
+        if let Kind::WStr(_) = self.info(ty).kind {
+            return self.widened(&text, capacity);
+        }
+        Called::Text(vec![Text::Str {
+            reference: text,
+            capacity,
+        }])
     }
 
     /// The `STRING` `text` of `capacity` bytes as a `WSTRING`: at most as many code units as it

@@ -168,9 +168,12 @@ Implementer extension note:
   provides duration-to-integer and time-of-day-to-dword conversions as
   documented non-IEC helpers (`IEC_DEVIATIONS.md` 2026-10-28); the IEC
   dialect rejects them:
-  `TIME_TO_<int>` and `LTIME_TO_<int>` yield the millisecond (respectively
-  nanosecond) magnitude truncated into the destination integer;
-  `TOD_TO_DWORD` and `LTOD_TO_DWORD` yield the ms-of-day magnitude.
+  `TIME_TO_<int>` and `LTIME_TO_<int>` yield the whole millisecond
+  (respectively nanosecond) count, kept to the destination's low-order bits
+  as the other CODESYS integer conversions are (section 2.10):
+  `TIME_TO_DINT(T#1500ms) = 1500`, `TIME_TO_SINT(T#300ms) = 44`;
+  `TOD_TO_DWORD` and `LTOD_TO_DWORD` yield the milliseconds of the day:
+  `TOD_TO_DWORD(TOD#01:00:00) = 3600000`.
   A negative duration rejects with an overflow fault, matching the
   `TIME_TO_DWORD` contract.
 
