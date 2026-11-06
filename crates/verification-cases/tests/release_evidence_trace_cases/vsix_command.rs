@@ -28,7 +28,8 @@ fn vsix_contract_rejects_unlocked_tool_missing_target_and_missing_binaries() {
             "trust-lsp.exe editors/vscode/bin/",
             "trust-debug.exe editors/vscode/bin/",
             "trust-runtime.exe editors/vscode/bin/",
-            "needs: [plan, release-preflight, toolchain-bundle]",
+            // Each build waits for its own platform's toolchain bundle (specification 24; W43).
+            "scripts/wait_for_run_artifact.py \\\n            --run \"${{ github.run_id }}\" \\\n            --artifact \"toolchain-${{ matrix.platform }}\"",
             "name: toolchain-${{ matrix.platform }}\n          path: editors/vscode/bin",
             "wanted = f\"extension/bin/trust-toolchain-{platform}.tar.gz\"",
         ]
