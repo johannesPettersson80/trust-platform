@@ -1918,7 +1918,9 @@ as unpadded base64url (specification 11 §6.8.0a); on Windows none, and the
 debug adapter binds its default endpoint. The extension asks once per
 workspace folder in a VS Code session, so the launch and Devices & Connections
 (§5.1) use the same endpoint and token. A launch configuration's own
-`controlEndpoint` is used as it is. Before Start launches on a TCP endpoint,
+`controlEndpoint` is used as it is, and the debug adapter connects to the
+simulator it launched at the endpoint that the simulator's control server
+bound. Before Start launches on a TCP endpoint,
 the language server tries to connect to it for at most 300 ms; when a program
 accepts the connection, Start is refused with `The runtime port is already in
 use.`

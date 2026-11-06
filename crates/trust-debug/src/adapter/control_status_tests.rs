@@ -15,7 +15,6 @@ use super::simulation_speed_tests::{
     assert_cycles_step, control_status, disconnect, launched, launched_state, next_cycle_ends,
     project_with, reload,
 };
-use super::tests_part_02::reserve_loopback_addr;
 use crate::DebugAdapter;
 
 /// One task of 100 ms.
@@ -129,9 +128,8 @@ fn assert_the_runner_takes_the_reported_cycle(adapter: &DebugAdapter, status: &V
 #[test]
 fn status_lists_the_task_and_reports_the_cycle_the_runner_takes() {
     let root = project_with("status-one-task", ONE_TASK, None, None);
-    let addr = reserve_loopback_addr();
     let auth = "status-one-task-token";
-    let mut adapter = launched(&root, addr, auth);
+    let (mut adapter, addr) = launched(&root, auth);
 
     let status = program_status(addr, auth);
     assert_eq!(
@@ -154,9 +152,8 @@ fn status_lists_every_task_and_reports_the_cycle_of_the_project_runtime_toml() {
         trust_runtime::bundle_template::render_runtime_toml(&smol_str::SmolStr::new("Res"), 20),
     )
     .unwrap();
-    let addr = reserve_loopback_addr();
     let auth = "status-two-tasks-token";
-    let mut adapter = launched(&root, addr, auth);
+    let (mut adapter, addr) = launched(&root, auth);
 
     let status = program_status(addr, auth);
     assert_eq!(
@@ -175,9 +172,8 @@ fn status_lists_every_task_and_reports_the_cycle_of_the_project_runtime_toml() {
 fn a_reload_updates_the_tasks_and_keeps_the_cycle_that_status_reports() {
     let root = project_with("status-reload", ONE_TASK, None, None);
     let main = root.join("main.st");
-    let addr = reserve_loopback_addr();
     let auth = "status-reload-token";
-    let mut adapter = launched(&root, addr, auth);
+    let (mut adapter, addr) = launched(&root, auth);
     let before = program_status(addr, auth);
     assert_eq!(
         listed_tasks(&before),

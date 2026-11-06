@@ -230,6 +230,12 @@ impl DebugControlServer {
         ControlServer::start(endpoint, state)
     }
 
+    /// The endpoint the server listens on: for a TCP endpoint with port 0, the port that the
+    /// operating system chose when the server bound it.
+    pub(super) fn endpoint(&self) -> &ControlEndpoint {
+        self.server.endpoint()
+    }
+
     /// Reports the program that a reload changed (specification 35, A2.3 and A2.4): the program's sources, which
     /// isolated runs and searches compile and breakpoints resolve against; the tasks that `status` lists come from the
     /// image the reloaded program runs. A simulated target takes `time_scale`, the speed of
@@ -269,6 +275,17 @@ impl DebugControlServer {
     /// The control state the server serves.
     pub(super) fn state(&self) -> Arc<ControlState> {
         self.server.state()
+    }
+
+    /// The address the server listens on, a TCP endpoint's.
+    pub(super) fn tcp_addr(&self) -> std::net::SocketAddr {
+        match self.endpoint() {
+            ControlEndpoint::Tcp(addr) => *addr,
+            #[cfg(unix)]
+            ControlEndpoint::Unix(path) => {
+                panic!("the control server listens on {}", path.display())
+            }
+        }
     }
 }
 

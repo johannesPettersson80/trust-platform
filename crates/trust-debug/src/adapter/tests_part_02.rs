@@ -408,9 +408,9 @@ fn debug_control_server_experiment_keeps_the_typed_pid_loop_running() {
     trust_runtime::native::Toolchain::find()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let mut adapter = DebugAdapter::new(DebugSession::new());
-    let addr = reserve_loopback_addr();
     let auth = "debug-control-pid-token";
-    launch_debug_control_session(&mut adapter, &project_root, &format!("tcp://{addr}"), auth);
+    launch_debug_control_session(&mut adapter, &project_root, ANY_LOOPBACK_ENDPOINT, auth);
+    let addr = bound_control_addr(&adapter);
     thread::sleep(Duration::from_millis(250));
     let scan_before = io_state_scan(&mut adapter)
         .expect("control server must not replace the Debug Adapter I/O stream");
@@ -610,11 +610,19 @@ pub(super) fn unique_project_root(label: &str) -> PathBuf {
     root
 }
 
-pub(super) fn reserve_loopback_addr() -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let addr = listener.local_addr().unwrap();
-    drop(listener);
-    addr
+/// A loopback control endpoint whose port the operating system chooses when the control server
+/// binds it. A port reserved and released before the server binds it can be taken by another test
+/// in between (`Address already in use`, G53); the test reads the bound port from the server.
+pub(super) const ANY_LOOPBACK_ENDPOINT: &str = "tcp://127.0.0.1:0";
+
+/// The address of the control server of the adapter's simulator, as it is bound.
+pub(super) fn bound_control_addr(adapter: &DebugAdapter) -> SocketAddr {
+    adapter
+        .simulator
+        .as_ref()
+        .expect("the launch runs the simulator")
+        .control_server()
+        .tcp_addr()
 }
 
 fn initialize_adapter_for_launch(adapter: &mut DebugAdapter, seq: u32) {

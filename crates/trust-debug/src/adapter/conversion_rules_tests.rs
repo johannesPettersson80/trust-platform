@@ -9,7 +9,6 @@ use std::time::{Duration, Instant};
 use trust_runtime::value::Value;
 
 use super::simulation_speed_tests::{project_with, published_output, simulator};
-use super::tests_part_02::reserve_loopback_addr;
 
 /// Converts 2.5 to an `INT`, which it publishes at `%QW0`.
 const ROUNDING: &str = "PROGRAM Main\nVAR\n    Half : REAL := 2.5;\n    Rounded AT %QW0 : INT;\nEND_VAR\nRounded := REAL_TO_INT(Half);\nEND_PROGRAM\n";
@@ -27,7 +26,7 @@ fn the_simulator_builds_with_the_conversion_rules_of_the_project_vendor_profile(
             format!("[project]\nvendor_profile = \"{vendor_profile}\"\n"),
         )
         .unwrap();
-        let (_session, simulator) = simulator(&root, reserve_loopback_addr(), "rules-token");
+        let (_session, simulator, _) = simulator(&root, "rules-token");
         let state = simulator.control_server().state();
         let deadline = Instant::now() + Duration::from_secs(10);
         let published = loop {

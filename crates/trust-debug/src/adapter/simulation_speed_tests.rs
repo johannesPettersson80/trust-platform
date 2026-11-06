@@ -17,8 +17,8 @@ use trust_runtime::simulation::SimulationRuntimeSnapshot;
 use trust_runtime::value::Duration;
 
 use super::tests_part_02::{
-    assert_control_ok, control_result, launch_debug_control_session, reserve_loopback_addr,
-    send_control_request, unique_project_root,
+    assert_control_ok, bound_control_addr, control_result, launch_debug_control_session,
+    send_control_request, unique_project_root, ANY_LOOPBACK_ENDPOINT,
 };
 use crate::adapter::control_bridge::start_simulator;
 use crate::adapter::simulator::Simulator;
@@ -72,22 +72,27 @@ fn project(label: &str, io: Option<&str>, simulation: Option<&str>) -> PathBuf {
 }
 
 /// The simulator of the project at `root`, whose program is `main.st`, built and started as a launch starts it, with its
-/// control server at `addr`, authenticated with `auth`, and its scheduler running.
-pub(super) fn simulator(root: &Path, addr: SocketAddr, auth: &str) -> (DebugSession, Simulator) {
-    start_simulator(
+/// control server on a loopback port that the operating system chooses, authenticated with `auth`, and its scheduler
+/// running; and the address that server is bound to.
+pub(super) fn simulator(root: &Path, auth: &str) -> (DebugSession, Simulator, SocketAddr) {
+    let (session, simulator) = start_simulator(
         root,
         &root.join("main.st"),
-        ControlEndpoint::Tcp(addr),
+        ControlEndpoint::parse(ANY_LOOPBACK_ENDPOINT).expect("a loopback endpoint"),
         Some(auth.to_string()),
-    )
+    );
+    let addr = simulator.control_server().tcp_addr();
+    (session, simulator, addr)
 }
 
-/// The adapter after a launch of the project at `root` whose program is `main.st`, with its control server at `addr`,
-/// authenticated with `auth`: a `stReload` of this adapter changes the simulator's program online.
-pub(super) fn launched(root: &Path, addr: SocketAddr, auth: &str) -> DebugAdapter {
+/// The adapter after a launch of the project at `root` whose program is `main.st`, with its control server on a loopback
+/// port that the operating system chooses, authenticated with `auth`, and the address that server is bound to: a
+/// `stReload` of this adapter changes the simulator's program online.
+pub(super) fn launched(root: &Path, auth: &str) -> (DebugAdapter, SocketAddr) {
     let mut adapter = DebugAdapter::new(DebugSession::new());
-    launch_debug_control_session(&mut adapter, root, &format!("tcp://{addr}"), auth);
-    adapter
+    launch_debug_control_session(&mut adapter, root, ANY_LOOPBACK_ENDPOINT, auth);
+    let addr = bound_control_addr(&adapter);
+    (adapter, addr)
 }
 
 /// The control state of the adapter's simulator.
@@ -261,9 +266,8 @@ fn a_simulated_target_reports_the_project_speed_when_no_physical_driver_is_attac
         Some(SIMULATED_IO),
         Some(SCALE_TEN_PLANTS_DISABLED),
     );
-    let addr = reserve_loopback_addr();
     let auth = "simulation-facts-token";
-    let (_session, simulator) = simulator(&root, addr, auth);
+    let (_session, simulator, addr) = simulator(&root, auth);
 
     let status = control_status(addr, auth);
     simulator.stop();
@@ -277,9 +281,8 @@ fn a_simulated_target_reports_the_project_speed_when_no_physical_driver_is_attac
 #[test]
 fn a_physical_driver_makes_the_target_physical_at_speed_one() {
     let root = project("physical-facts", Some(PHYSICAL_IO), Some(SCALE_TEN));
-    let addr = reserve_loopback_addr();
     let auth = "physical-facts-token";
-    let (_session, simulator) = simulator(&root, addr, auth);
+    let (_session, simulator, addr) = simulator(&root, auth);
     let state = simulator.control_server().state();
     assert_eq!(
         facts(&state),
@@ -301,7 +304,7 @@ fn a_physical_driver_makes_the_target_physical_at_speed_one() {
 #[test]
 fn a_project_without_a_simulation_file_runs_at_speed_one() {
     let root = project("no-simulation-file", None, None);
-    let (_session, simulator) = simulator(&root, reserve_loopback_addr(), "no-simulation-token");
+    let (_session, simulator, _) = simulator(&root, "no-simulation-token");
     let state = simulator.control_server().state();
     let facts = facts(&state);
     let plants = simulation(&state);
@@ -320,7 +323,7 @@ fn a_project_without_a_simulation_file_runs_at_speed_one() {
 #[test]
 fn disabled_plants_keep_the_project_speed_but_create_no_plant_controller() {
     let root = project("plants-disabled", None, Some(SCALE_TEN_PLANTS_DISABLED));
-    let (_session, simulator) = simulator(&root, reserve_loopback_addr(), "plants-disabled-token");
+    let (_session, simulator, _) = simulator(&root, "plants-disabled-token");
     let state = simulator.control_server().state();
     let facts = facts(&state);
     let plants = simulation(&state);
@@ -346,7 +349,7 @@ fn the_simulated_driver_names_of_the_runtime_binary_keep_the_target_simulated() 
             format!("[io]\ndriver = \"{name}\"\nparams = {{}}\n"),
         )
         .unwrap();
-        let (_session, simulator) = simulator(&root, reserve_loopback_addr(), "names-token");
+        let (_session, simulator, _) = simulator(&root, "names-token");
         let facts = facts(&simulator.control_server().state());
         simulator.stop();
         assert!(facts.enabled, "the driver '{name}' is simulated");
@@ -357,9 +360,8 @@ fn the_simulated_driver_names_of_the_runtime_binary_keep_the_target_simulated() 
 #[test]
 fn config_set_changes_the_speed_that_the_simulator_loop_reads() {
     let root = project("config-set-simulated", Some(SIMULATED_IO), None);
-    let addr = reserve_loopback_addr();
     let auth = "config-set-token";
-    let (_session, simulator) = simulator(&root, addr, auth);
+    let (_session, simulator, addr) = simulator(&root, auth);
     let state = simulator.control_server().state();
 
     assert_control_ok(
@@ -377,9 +379,8 @@ fn config_set_changes_the_speed_that_the_simulator_loop_reads() {
 #[test]
 fn config_set_is_refused_for_a_physical_target() {
     let root = project("config-set-physical", Some(PHYSICAL_IO), Some(SCALE_TEN));
-    let addr = reserve_loopback_addr();
     let auth = "config-set-physical-token";
-    let (_session, simulator) = simulator(&root, addr, auth);
+    let (_session, simulator, addr) = simulator(&root, auth);
     let state = simulator.control_server().state();
 
     let response = set_time_scale(addr, auth, 10);
@@ -402,9 +403,8 @@ fn config_set_is_refused_for_a_physical_target() {
 fn a_relaunch_that_attaches_a_simulated_driver_updates_what_control_status_reports() {
     let root = project("reload-facts", Some(PHYSICAL_IO), None);
     let main = root.join("main.st");
-    let addr = reserve_loopback_addr();
     let auth = "reload-facts-token";
-    let mut adapter = launched(&root, addr, auth);
+    let (mut adapter, addr) = launched(&root, auth);
     assert_eq!(
         control_status(addr, auth)["simulation_enabled"],
         json!(false)
@@ -419,12 +419,42 @@ fn a_relaunch_that_attaches_a_simulated_driver_updates_what_control_status_repor
     );
     disconnect(&mut adapter);
 
-    let addr = reserve_loopback_addr();
-    let mut adapter = launched(&root, addr, auth);
+    let (mut adapter, addr) = launched(&root, auth);
     let status = control_status(addr, auth);
     disconnect(&mut adapter);
     assert_eq!(status["simulation_enabled"], json!(true));
     assert_eq!(status["simulation_mode"], json!("simulation"));
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn a_launch_on_port_0_connects_to_the_port_its_control_server_bound() {
+    // Wrong behaviour caught: the adapter connected to the endpoint the launch asked for, so a launch whose `controlEndpoint`
+    // has port 0 failed with "connecting to the simulator: Connection refused" although its control server listened on the
+    // port the operating system chose (specification 25 §6.8).
+    let root = project("bound-port", Some(SIMULATED_IO), None);
+    let auth = "bound-port-token";
+    let (mut adapter, addr) = launched(&root, auth);
+    assert_ne!(
+        addr.port(),
+        0,
+        "the server is bound to a port the operating system chose"
+    );
+    let connected = adapter
+        .remote_session
+        .as_ref()
+        .expect("the launch connects to its simulator")
+        .endpoint()
+        .clone();
+    assert!(
+        matches!(connected, crate::adapter::remote::RemoteEndpoint::Tcp(at) if at == addr),
+        "the adapter is connected to {addr}: {connected:?}"
+    );
+    assert_eq!(
+        control_status(addr, auth)["simulation_enabled"],
+        json!(true)
+    );
+    disconnect(&mut adapter);
     fs::remove_dir_all(root).ok();
 }
 
@@ -434,7 +464,7 @@ fn a_reload_replaces_the_sources_that_isolated_runs_and_searches_compile() {
     // Validate's isolated runs and a search compiled the program as it was before the edit (specification 35, B5.3 and C5).
     let root = project("reload-sources", Some(SIMULATED_IO), None);
     let main = root.join("main.st");
-    let mut adapter = launched(&root, reserve_loopback_addr(), "reload-sources-token");
+    let (mut adapter, _) = launched(&root, "reload-sources-token");
     let edited = PROGRAM.replace("Count := Count + 1;", "Count := Count + 2;");
     fs::write(&main, &edited).unwrap();
     reload(&mut adapter, &main);
@@ -465,9 +495,8 @@ fn a_reload_replaces_the_sources_that_isolated_runs_and_searches_compile() {
 fn a_reload_starts_a_new_runtime_epoch_in_control_status() {
     let root = project("reload-epoch", Some(SIMULATED_IO), None);
     let main = root.join("main.st");
-    let addr = reserve_loopback_addr();
     let auth = "reload-epoch-token";
-    let mut adapter = launched(&root, addr, auth);
+    let (mut adapter, addr) = launched(&root, auth);
     let before = control_status(addr, auth)["session_epoch"].clone();
 
     reload(&mut adapter, &main);
@@ -488,9 +517,8 @@ fn a_reload_starts_a_new_runtime_epoch_in_control_status() {
 #[test]
 fn a_speed_change_restarts_the_schedule_without_moving_process_time() {
     let root = project("speed-change", Some(SIMULATED_IO), None);
-    let addr = reserve_loopback_addr();
     let auth = "speed-change-token";
-    let (_session, simulator) = simulator(&root, addr, auth);
+    let (_session, simulator, addr) = simulator(&root, auth);
     let state = simulator.control_server().state();
     wait_for_cycle(&state, 3);
 
@@ -509,9 +537,8 @@ fn a_speed_change_restarts_the_schedule_without_moving_process_time() {
 #[test]
 fn the_achieved_speed_of_the_running_simulator_is_reported_in_status() {
     let root = project("achieved-speed", Some(SIMULATED_IO), Some(SCALE_TEN));
-    let addr = reserve_loopback_addr();
     let auth = "achieved-speed-token";
-    let (_session, simulator) = simulator(&root, addr, auth);
+    let (_session, simulator, addr) = simulator(&root, auth);
 
     let deadline = Instant::now() + StdDuration::from_secs(6);
     let achieved = loop {

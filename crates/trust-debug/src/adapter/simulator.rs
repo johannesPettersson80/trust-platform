@@ -302,13 +302,15 @@ impl DebugAdapter {
             program,
             &root,
             self.session.as_ref(),
-            endpoint.clone(),
+            endpoint,
             token.clone(),
         ) {
             Ok(simulator) => simulator,
             Err(error) => return self.launch_failed(request, events, &error),
         };
-        let remote = match RemoteSession::connect(remote_endpoint(&endpoint), token) {
+        // The endpoint the server bound: a TCP port of 0 is the port the operating system chose.
+        let bound = remote_endpoint(simulator.control_server().endpoint());
+        let remote = match RemoteSession::connect(bound, token) {
             Ok(remote) => remote,
             Err(error) => {
                 simulator.stop();
