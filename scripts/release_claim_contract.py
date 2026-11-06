@@ -208,8 +208,9 @@ def audit_vsix() -> dict[str, Any]:
             "trust-lsp.exe editors/vscode/bin/",
             "trust-debug.exe editors/vscode/bin/",
             "trust-runtime.exe editors/vscode/bin/",
-            # Specification 44 §4.6: each platform's extension carries its toolchain bundle.
-            "needs: [plan, release-preflight, toolchain-bundle]",
+            # Specification 44 §4.6: each platform's extension carries its toolchain bundle, which its build waits
+            # for when it packages the extension (specification 24; W43).
+            'scripts/wait_for_run_artifact.py \\\n            --run "${{ github.run_id }}" \\\n            --artifact "toolchain-${{ matrix.platform }}"',
             "name: toolchain-${{ matrix.platform }}\n          path: editors/vscode/bin",
             'wanted = f"extension/bin/trust-toolchain-{platform}.tar.gz"',
         ],

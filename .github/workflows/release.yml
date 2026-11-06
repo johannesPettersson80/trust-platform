@@ -325,8 +325,10 @@ jobs:
 
   build:
     name: Build (${{ matrix.target }})
-    # The extension carries its platform's toolchain bundle (specification 44 §4.6).
-    needs: [plan, release-preflight, toolchain-bundle]
+    # The extension carries its platform's toolchain bundle (specification 44 §4.6). The build starts beside the
+    # toolchain-bundle jobs and waits only for its own platform's bundle, when it packages the extension: on 6 November
+    # 2026 every build waited 49 minutes for the slowest bundle (specification 24; checklist W43).
+    needs: [plan, release-preflight]
     if: ${{ needs.plan.outputs.rehearsal_run == '' }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -465,6 +467,21 @@ jobs:
           https://github.com/johannesPettersson80/trust-claude-plugins
           '@ | Set-Content -Path dist/trust-lsp-${{ matrix.platform }}/README.txt
           Compress-Archive -Path dist/trust-lsp-${{ matrix.platform }}/* -DestinationPath trust-lsp-${{ matrix.platform }}.zip
+
+      - name: Wait for this platform's toolchain bundle
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PYTHON_BIN=python3
+          if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+            PYTHON_BIN=python
+          fi
+          "${PYTHON_BIN}" scripts/wait_for_run_artifact.py \
+            --run "${{ github.run_id }}" \
+            --artifact "toolchain-${{ matrix.platform }}" \
+            --job "Toolchain bundle (${{ matrix.platform }})"
 
       - name: Carry the toolchain bundle (specification 44 §4.6)
         uses: actions/download-artifact@v8
