@@ -276,8 +276,12 @@ const INTERNAL_ID_KEYS: &[&str] = &[
 pub struct AttributeEntry {
     /// Lower-case key.
     pub key: String,
-    /// Raw string value.
+    /// Raw string value; empty for a valueless flag.
     pub value: String,
+    /// The attribute carries no value: a plain CODESYS-style flag such as
+    /// `{attribute 'qualified_only'}` (specification 07, "Declared Clock
+    /// Sources").
+    pub valueless: bool,
     /// Source range for diagnostics.
     pub range: TextRange,
 }
@@ -329,7 +333,12 @@ pub fn parse_attribute_map_from_node(node: &SyntaxNode) -> AttributeMap {
     {
         let range = token.text_range();
         for entry in parse_attribute_entries_from_text(token.text(), range) {
-            map.values.insert(entry.key.clone(), entry.value.clone());
+            // A valueless flag has no value to store: the value map holds one
+            // raw string per key, and an empty entry would flip OpenOT's
+            // `oot` gate, which the dropped attribute kept silent.
+            if !entry.valueless {
+                map.values.insert(entry.key.clone(), entry.value.clone());
+            }
             map.entries.push(entry);
         }
     }
@@ -354,6 +363,7 @@ pub fn parse_attribute_entries_from_text(text: &str, range: TextRange) -> Vec<At
                     entries.push(AttributeEntry {
                         key: tokens[0].to_ascii_lowercase(),
                         value: tokens[1].clone(),
+                        valueless: false,
                         range,
                     });
                 } else if tokens.len() == 1
@@ -362,6 +372,16 @@ pub fn parse_attribute_entries_from_text(text: &str, range: TextRange) -> Vec<At
                     entries.push(AttributeEntry {
                         key: tokens[0].to_ascii_lowercase(),
                         value: value.trim().trim_matches('\'').trim().to_string(),
+                        valueless: false,
+                        range,
+                    });
+                } else if tokens.len() == 1 {
+                    // A plain flag: the key's presence is the statement, as
+                    // CODESYS writes `qualified_only` or `hide`.
+                    entries.push(AttributeEntry {
+                        key: tokens[0].to_ascii_lowercase(),
+                        value: String::new(),
+                        valueless: true,
                         range,
                     });
                 }
@@ -2239,6 +2259,58 @@ fn quoted_tokens(text: &str) -> Vec<String> {
 mod tests {
     use super::*;
     use trust_syntax::parser::parse;
+
+    /// Wrong behaviour this pins: the parser dropping an attribute that
+    /// carries no value. CODESYS writes its own flags this way
+    /// (`qualified_only`, `hide`), and specification 07's
+    /// `reads_host_clock` is a plain flag: the key is present and the
+    /// value stays empty.
+    #[test]
+    fn parses_a_valueless_attribute_flag() {
+        let entries = parse_attribute_entries_from_text(
+            "{attribute 'reads_host_clock'}",
+            TextRange::empty(0.into()),
+        );
+
+        assert_eq!(entries.len(), 1, "{entries:?}");
+        assert_eq!(entries[0].key, "reads_host_clock");
+        assert!(entries[0].value.is_empty(), "{entries:?}");
+    }
+
+    /// Wrong behaviour this pins: comma-separated flags losing every entry
+    /// after the first, or the first gaining a value it never had.
+    #[test]
+    fn parses_multiple_valueless_flags_from_one_pragma() {
+        let entries = parse_attribute_entries_from_text(
+            "{attribute 'qualified_only', 'hide'}",
+            TextRange::empty(0.into()),
+        );
+
+        assert_eq!(entries.len(), 2, "{entries:?}");
+        assert_eq!(entries[0].key, "qualified_only");
+        assert!(entries[0].value.is_empty());
+        assert_eq!(entries[1].key, "hide");
+        assert!(entries[1].value.is_empty());
+    }
+
+    /// Wrong behaviour this pins: a valueless attribute entering the OpenOT
+    /// value map with an empty value, which would flip `contains_oot` and
+    /// fire OpenOT validation where the old parser stayed silent.
+    #[test]
+    fn a_valueless_flag_stays_out_of_the_openot_value_map() {
+        let parsed = parse(
+            r#"
+PROGRAM Main
+VAR
+    Flag : BOOL {attribute 'oot'};
+END_VAR
+END_PROGRAM
+"#,
+        );
+        let diagnostics = collect_openot_attribute_diagnostics(&parsed.syntax());
+
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    }
 
     #[test]
     fn validates_known_and_unknown_state_category() {

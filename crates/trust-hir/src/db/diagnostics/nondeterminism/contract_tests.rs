@@ -653,3 +653,283 @@ END_PROGRAM
         "{found:?}"
     );
 }
+
+/// Specification 07 "Declared Clock Sources" and specification 28 section 5:
+/// a body-less vendor stub carrying `{attribute 'reads_host_clock'}` declares
+/// that it samples the host clock, so its call sites warn and name it. Wrong
+/// behaviour this pins: the declaration staying unread (the vendor corpus
+/// measures zero W010s behind the stub boundary), or the stub's own file
+/// warning — the declaration speaks for the missing body, and the warnings
+/// belong at the call sites, as with a linked library body under #180.
+#[test]
+fn an_attributed_bodyless_stub_warns_at_its_call_site_and_names_the_stub() {
+    let sources = [
+        r#"
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+"#,
+        r#"
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := FuGetDateAndTime();
+END_PROGRAM
+"#,
+    ];
+    let stub_file = time_warnings_in(&sources, 0);
+    let app_file = time_warnings_in(&sources, 1);
+
+    assert!(
+        stub_file.is_empty(),
+        "the declared stub's own file must not warn: {stub_file:?}"
+    );
+    assert_eq!(app_file.len(), 1, "{app_file:?}");
+    assert!(
+        app_file[0].message.contains("'FuGetDateAndTime'")
+            && app_file[0].message.contains("reads_host_clock"),
+        "{app_file:?}"
+    );
+}
+
+/// Specification 07: the declaration is read before the POU's declaration
+/// keyword, so the attribute works inside a `NAMESPACE`, and the call site
+/// resolves the qualified call to the declared stub. Wrong behaviour this
+/// pins: the pragma going unread because it sits in a namespace or is
+/// trivia the POU node does not own.
+#[test]
+fn a_declared_stub_inside_a_namespace_warns_at_the_qualified_call() {
+    let source = r#"
+NAMESPACE WagoAppTime
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+END_NAMESPACE
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := WagoAppTime.FuGetDateAndTime();
+END_PROGRAM
+"#;
+    let found = time_warnings(source);
+
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].message.contains("'FuGetDateAndTime'")
+            && found[0]
+                .message
+                .contains("declares reads_host_clock and reads the host clock"),
+        "{found:?}"
+    );
+}
+
+/// Specification 28 section 5: the declared source crosses function blocks,
+/// and the message names the source the call reaches instead of a hardcoded
+/// `CURRENT_DT`. Wrong behaviour this pins: the block's invocation staying
+/// silent, or naming `CURRENT_DT` which the stub never calls (issue #264).
+#[test]
+fn a_declared_stub_warns_through_an_fb_instance_call_and_names_the_source() {
+    let sources = [
+        r#"
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+"#,
+        r#"
+FUNCTION_BLOCK MqttSub
+VAR
+    T : DT;
+END_VAR
+T := FuGetDateAndTime();
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    Handle : MqttSub;
+END_VAR
+Handle();
+END_PROGRAM
+"#,
+    ];
+    let app_file = time_warnings_in(&sources, 1);
+
+    assert_eq!(app_file.len(), 2, "{app_file:?}");
+    assert!(
+        app_file.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("'FuGetDateAndTime' declares reads_host_clock")),
+        "{app_file:?}"
+    );
+    assert!(
+        app_file.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("'MqttSub' reads the host clock through 'FuGetDateAndTime', which declares reads_host_clock")),
+        "{app_file:?}"
+    );
+}
+
+/// Specification 07: a POU whose body reads `CURRENT_DT` and that also
+/// carries the attribute is one source, not two. Wrong behaviour this pins:
+/// the attribute seeding a second warning or hiding the concrete read behind
+/// the declaration.
+#[test]
+fn a_real_body_reading_current_dt_with_the_attribute_warns_once() {
+    let sources = [
+        r#"
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := CURRENT_DT();
+END_FUNCTION
+"#,
+        r#"
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := FuGetDateAndTime();
+END_PROGRAM
+"#,
+    ];
+    let stub_file = time_warnings_in(&sources, 0);
+    let app_file = time_warnings_in(&sources, 1);
+
+    assert_eq!(stub_file.len(), 1, "{stub_file:?}");
+    assert!(
+        stub_file[0]
+            .message
+            .contains("CURRENT_DT reads the host clock"),
+        "{stub_file:?}"
+    );
+    assert_eq!(app_file.len(), 1, "{app_file:?}");
+    assert!(
+        app_file[0]
+            .message
+            .contains("reads the host clock through CURRENT_DT"),
+        "{app_file:?}"
+    );
+}
+
+/// Specification 28 section 5: the attribute follows the resolved
+/// declaration, not the spelling. Wrong behaviour this pins: a bare call of
+/// a user-declared function that shadows the stub's name warning because the
+/// stub carries the attribute.
+#[test]
+fn a_user_declared_function_shadowing_the_stub_keeps_the_shadowing_rule() {
+    let sources = [
+        r#"
+NAMESPACE WagoAppTime
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+END_NAMESPACE
+"#,
+        r#"
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := DT#1970-01-01-00:00:00;
+END_FUNCTION
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := FuGetDateAndTime();
+Stamp := WagoAppTime.FuGetDateAndTime();
+END_PROGRAM
+"#,
+    ];
+    let app_file = time_warnings_in(&sources, 1);
+
+    assert_eq!(app_file.len(), 1, "{app_file:?}");
+    assert!(
+        app_file[0].message.contains("'FuGetDateAndTime'")
+            && app_file[0].message.contains("declares reads_host_clock"),
+        "{app_file:?}"
+    );
+}
+
+/// Specification 07: the declaration is read from the pragma trivia before
+/// the POU's declaration keyword, never from the body. Wrong behaviour this
+/// pins: a pragma inside the body being taken for a declaration.
+#[test]
+fn an_attribute_inside_the_body_does_not_declare_a_source() {
+    let source = r#"
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+{attribute 'reads_host_clock'}
+END_FUNCTION
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := FuGetDateAndTime();
+END_PROGRAM
+"#;
+    assert!(time_warnings(source).is_empty());
+}
+
+/// Specification 28 section 5: a call that reaches more than one source
+/// names the one whose direct reader comes first in the project's file order
+/// and document order. Wrong behaviour this pins: the message naming a
+/// source picked by hash-map iteration order.
+#[test]
+fn a_call_reaching_two_declared_sources_names_the_first_in_document_order() {
+    let sources = [
+        r#"
+{attribute 'reads_host_clock'}
+FUNCTION FuGetDateAndTime : DT
+FuGetDateAndTime := FuGetDateAndTime;
+END_FUNCTION
+{attribute 'reads_host_clock'}
+FUNCTION FuGetLocalDateAndTime : DT
+FuGetLocalDateAndTime := FuGetLocalDateAndTime;
+END_FUNCTION
+"#,
+        r#"
+FUNCTION Wrapper : DT
+VAR
+    A : DT;
+    B : DT;
+END_VAR
+A := FuGetDateAndTime();
+B := FuGetLocalDateAndTime();
+Wrapper := A;
+END_FUNCTION
+PROGRAM Main
+VAR
+    Stamp : DT;
+END_VAR
+Stamp := Wrapper();
+END_PROGRAM
+"#,
+    ];
+    let app_file = time_warnings_in(&sources, 1);
+
+    // Every call site of a reader warns: the two calls inside Wrapper and
+    // Wrapper's own call site.
+    assert_eq!(app_file.len(), 3, "{app_file:?}");
+    let wrapper_call = app_file
+        .iter()
+        .find(|diagnostic| {
+            diagnostic
+                .message
+                .contains("'Wrapper' reads the host clock through")
+        })
+        .expect("{app_file:?}");
+    assert!(
+        wrapper_call
+            .message
+            .contains("through 'FuGetDateAndTime', which declares reads_host_clock")
+            && !wrapper_call.message.contains("FuGetLocalDateAndTime"),
+        "{wrapper_call:?}"
+    );
+    assert!(
+        app_file.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("'FuGetLocalDateAndTime' declares reads_host_clock")),
+        "{app_file:?}"
+    );
+}

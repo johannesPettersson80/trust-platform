@@ -131,12 +131,25 @@ truST's own clock contract, specification 07, "Runtime Clock Sources":
   replay controls (specification 07 recommends it for exactly that reason).
   Neither it nor what is built on it warns: `T_PLC_MS`, `T_PLC_US`, `RTC_MS`,
   `RTC_2` and the timers read runtime clock sources, not the host clock.
-- There is no declaration-level fallback, and a value whose source cannot be
-  traced does not warn either. A function that exists only as a body-less
-  library stub reads no clock; tracing through a vendor-stub boundary is out
-  of scope. A call that cannot be resolved does not warn, for the same
-  reason: a lint does not name a clock that is not there. This section keeps
-  the library-surface decision of #180: a clock read in a library body still
+- There is no declaration-level fallback: a TIME/DATE-typed declaration never
+  warns, and a value whose source cannot be traced does not warn either. A
+  call that cannot be resolved does not warn, for the same reason: a lint does
+  not name a clock that is not there. One declaration is a source in its own
+  right: a POU carrying the `reads_host_clock` pragma attribute (specification
+  07, "Declared Clock Sources") declares that it samples the host clock, so a
+  body-less library stub that carries it is a source. The attribute is read
+  from the pragma trivia before the POU's declaration keyword, never from the
+  body. The stub's own file does not warn — the declaration speaks for the
+  body it replaces, and the warnings appear at the call sites, as with a
+  linked library body. When a call reaches a declared source, the message
+  names it: at the call of the declared POU itself, "`FuGetDateAndTime`
+  declares reads_host_clock and reads the host clock, which replay does not
+  control"; at a call site the source reaches through other POUs, "'mHandle'
+  reads the host clock through 'FuGetDateAndTime', which declares
+  reads_host_clock, which replay does not control". A call that reaches more
+  than one source names the one whose direct reader comes first in the
+  project's file order and document order. This section keeps the
+  library-surface decision of #180: a clock read in a library body still
   warns where that body is linked into the project.
 
 Call-site ranges select the called name, and the call graph is computed from
