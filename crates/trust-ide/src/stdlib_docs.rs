@@ -312,6 +312,8 @@ const STANDARD_FB_NAMES: &[(&str, &str)] = &[
     ("SR", DOC_FB_BISTABLE),
     ("R_TRIG", DOC_FB_EDGE),
     ("F_TRIG", DOC_FB_EDGE),
+    ("DIFU", DOC_FB_EDGE),
+    ("DIFD", DOC_FB_EDGE),
     ("CTU", DOC_FB_COUNTER),
     ("CTD", DOC_FB_COUNTER),
     ("CTUD", DOC_FB_COUNTER),
@@ -333,6 +335,9 @@ const STANDARD_FB_NAMES: &[(&str, &str)] = &[
     ("TP", DOC_FB_TIMER),
     ("TON", DOC_FB_TIMER),
     ("TOF", DOC_FB_TIMER),
+    ("TP_TIME", DOC_FB_TIMER),
+    ("TON_TIME", DOC_FB_TIMER),
+    ("TOF_TIME", DOC_FB_TIMER),
     ("TP_LTIME", DOC_FB_TIMER),
     ("TON_LTIME", DOC_FB_TIMER),
     ("TOF_LTIME", DOC_FB_TIMER),
@@ -352,9 +357,12 @@ static STANDARD_FUNCTION_NAMES: Lazy<Vec<String>> = Lazy::new(|| {
         .collect()
 });
 
+// The `iec` profile's blocks: every standard function block but the vendor aliases (specification
+// 14, `stdlib` profiles).
 static STANDARD_FB_NAME_LIST: Lazy<Vec<String>> = Lazy::new(|| {
     standard_fb_names()
         .iter()
+        .filter(|name| !trust_hir::symbols::STANDARD_FUNCTION_BLOCK_ALIASES.contains(name))
         .map(|name| (*name).to_string())
         .collect()
 });
@@ -391,39 +399,10 @@ pub fn standard_fb_doc(name: &str) -> Option<&'static str> {
         .map(|(_, doc)| *doc)
 }
 
-/// Returns the standard function block names (for completion/docs).
+/// Returns the standard function block names (for completion/docs): the analyzer's list of
+/// specification 08.
 pub fn standard_fb_names() -> &'static [&'static str] {
-    const NAMES: &[&str] = &[
-        "RS",
-        "SR",
-        "R_TRIG",
-        "F_TRIG",
-        "CTU",
-        "CTD",
-        "CTUD",
-        "CTU_INT",
-        "CTD_INT",
-        "CTUD_INT",
-        "CTU_DINT",
-        "CTD_DINT",
-        "CTUD_DINT",
-        "CTU_LINT",
-        "CTD_LINT",
-        "CTUD_LINT",
-        "CTU_UDINT",
-        "CTD_UDINT",
-        "CTUD_UDINT",
-        "CTU_ULINT",
-        "CTD_ULINT",
-        "CTUD_ULINT",
-        "TP",
-        "TON",
-        "TOF",
-        "TP_LTIME",
-        "TON_LTIME",
-        "TOF_LTIME",
-    ];
-    NAMES
+    &trust_hir::symbols::STANDARD_FUNCTION_BLOCKS
 }
 
 fn normalize_name(name: &str) -> SmolStr {
@@ -467,3 +446,7 @@ pub fn typed_literal_doc(prefix: &str) -> Option<&'static str> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+#[path = "stdlib_docs_tests.rs"]
+mod tests;

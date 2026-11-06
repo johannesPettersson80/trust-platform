@@ -343,6 +343,8 @@ Runtime assertion note:
 ## Table 44 - Edge Detection Function Blocks
 - [x] R_TRIG
 - [x] F_TRIG
+- [x] DIFU (the alias of R_TRIG; specification 08, section 3)
+- [x] DIFD (the alias of F_TRIG; specification 08, section 3)
 
 ## Table 45 - Counter Function Blocks
 - [x] CTU (row 1a: the INT counter `CTU_INT`; an untyped literal PV is an INT)
