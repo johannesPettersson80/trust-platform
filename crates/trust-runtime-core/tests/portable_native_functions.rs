@@ -269,11 +269,18 @@ fn round_2_codesys_families_produce_the_measured_vendor_values() {
             Value::Int(1234),
             Ok(Value::Time(Duration::from_millis(1234))),
         ),
-        // A negative integer count follows the measured REAL saturation.
+        // Measured in the review round: a negative integer count reads its
+        // low-order 32 bits (the vendor TIME is a 32-bit unsigned count),
+        // unlike the measured REAL saturation to T#0ms.
         (
             "INT_TO_TIME",
-            Value::Int(-5),
-            Ok(Value::Time(Duration::from_millis(0))),
+            Value::Int(-1),
+            Ok(Value::Time(Duration::from_millis(4_294_967_295))),
+        ),
+        (
+            "DINT_TO_TIME",
+            Value::DInt(-1),
+            Ok(Value::Time(Duration::from_millis(4_294_967_295))),
         ),
         (
             "DWORD_TO_TOD",
@@ -293,6 +300,9 @@ fn round_2_codesys_families_produce_the_measured_vendor_values() {
             Value::String("123abc".into()),
             Ok(Value::Byte(123)),
         ),
+        // Measured in the review round: `_` inside the number is a digit
+        // separator.
+        ("TO_BYTE", Value::String("1_0".into()), Ok(Value::Byte(10))),
         // One parse rule per profile: the typed spelling joins the
         // overloaded one under CODESYS.
         (
