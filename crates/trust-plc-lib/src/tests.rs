@@ -212,6 +212,98 @@ fn the_codesys_rules_count_durations_and_times_of_day() {
     assert_eq!(code(ltod_to_dword(&mut cx, -1_000_000)), OVERFLOW);
 }
 
+/// Round 2 of the CODESYS conversions (specification 07 §2.10, `docs/IEC_DEVIATIONS.md` DEV-045),
+/// with the values measured on a WAGO PFC200: a real count of milliseconds is truncated toward
+/// zero, not rounded (2.5 and 2.9 ms are 2 ms), a negative one is no time, unlike a negative
+/// integer count, and one that is not finite is an overflow; a count beyond `TIME` is its longest
+/// duration. 86,400,000 ms after midnight are midnight again and 16#FFFFFFFF ms are 17:02:47.295
+/// (61,367,295 ms), modulo a day. A wrong conversion rounds 2.5 to 3, reads a negative value's
+/// magnitude, or passes a `DWORD` beyond a day as a time of day.
+#[test]
+fn the_codesys_rules_read_counts_as_times_and_times_of_day() {
+    let mut cx = cx();
+    assert_eq!(real_ms_to_time(&mut cx, 2.5), Ok(2_000_000));
+    assert_eq!(real_ms_to_time(&mut cx, 2.9), Ok(2_000_000));
+    assert_eq!(real_ms_to_time(&mut cx, -1.0), Ok(0));
+    assert_eq!(real_ms_to_time(&mut cx, 1.0e300), Ok(i64::MAX));
+    assert_eq!(code(real_ms_to_time(&mut cx, f64::INFINITY)), OVERFLOW);
+    assert_eq!(code(real_ms_to_time(&mut cx, f64::NAN)), OVERFLOW);
+    assert_eq!(dword_to_tod(3_600_000), 3_600_000);
+    assert_eq!(dword_to_tod(86_400_000), 0);
+    assert_eq!(dword_to_tod(u32::MAX), 61_367_295);
+}
+
+/// The number a text spells under the CODESYS rules.
+fn vendor_number(text: &[u8]) -> i128 {
+    let value = Str::<32>::new();
+    assign_bytes(value.view(), text);
+    let mut scratch = [0u8; 32];
+    parse_int_codesys(value.view(), &mut scratch)
+}
+
+/// The one CODESYS text parse of an integer or a bit string (specification 07 §2.10, DEV-045),
+/// measured on a PFC200: '123abc' is 123, '300' is 300, which a `BYTE` keeps as 44, `'1_0'` is 10,
+/// and 'abc' and '' are 0. Leading spaces and a sign are read; `16#FF` is 255, `16#F_F` too, `8#17`
+/// 15 and `2#101` 5; another base is read as a decimal number up to its `#`, and a byte that is no
+/// UTF-8 ends the number. A wrong parse faults on '123abc' as the IEC rules do, stops at a `_`,
+/// reads digits after a letter, or reads `16#` numbers as decimal.
+#[test]
+fn the_codesys_rules_read_the_number_at_the_front_of_a_text() {
+    assert_eq!(vendor_number(b"123abc"), 123);
+    assert_eq!(vendor_number(b"300"), 300);
+    assert_eq!(vendor_number(b"300") & 0xFF, 44);
+    assert_eq!(vendor_number(b"abc"), 0);
+    assert_eq!(vendor_number(b""), 0);
+    assert_eq!(vendor_number(b"  -42xyz"), -42);
+    assert_eq!(vendor_number(b"+7"), 7);
+    assert_eq!(vendor_number(b"1_0"), 10);
+    assert_eq!(vendor_number(b"16#FF"), 255);
+    assert_eq!(vendor_number(b"16#F_F"), 255);
+    assert_eq!(vendor_number(b"8#17"), 15);
+    assert_eq!(vendor_number(b"2#101"), 5);
+    assert_eq!(vendor_number(b"16#G"), 0);
+    assert_eq!(vendor_number(b"10#5"), 10);
+    assert_eq!(vendor_number(b"12\xFF3"), 12);
+}
+
+/// A duration's text under the CODESYS rules (specification 07 §2.7, `docs/IEC_DEVIATIONS.md`
+/// DEV-036), the eleven values measured on a WAGO PFC200 first: each unit that is not zero from days
+/// down to milliseconds (nanoseconds for an `LTIME`), `T#0ms` and `LTIME#0ns` for no time. A
+/// `TIME`'s part below a millisecond is left out; a negative duration has its sign after the `#`;
+/// the longest texts fit [`TIME_TEXT`] and [`LTIME_TEXT`]. A wrong text writes the largest single
+/// unit that divides (`T#1500ms`), writes a zero unit, or is cut.
+#[test]
+fn durations_are_written_as_the_vendor_writes_them() {
+    for (nanos, long, expected) in [
+        (0, false, "T#0ms"),
+        (5 * MS, false, "T#5ms"),
+        (1500 * MS, false, "T#1s500ms"),
+        (2000 * MS, false, "T#2s"),
+        (3_723_004 * MS, false, "T#1h2m3s4ms"),
+        (2 * 86_400_000 * MS, false, "T#2d"),
+        (4_294_967_295 * MS, false, "T#49d17h2m47s295ms"),
+        (0, true, "LTIME#0ns"),
+        (1500 * MS, true, "LTIME#1s500ms"),
+        (3_723_004_005_006, true, "LTIME#1h2m3s4ms5us6ns"),
+        (1_500_000, false, "T#1ms"),
+        (999_999, false, "T#0ms"),
+        (-1500 * MS, false, "T#-1s500ms"),
+        (-999_999, false, "T#0ms"),
+        (i64::MIN, false, "T#-106751d23h47m16s854ms"),
+        (i64::MIN, true, "LTIME#-106751d23h47m16s854ms775us808ns"),
+    ] {
+        let value = Str::<64>::new();
+        write_duration(value.view(), nanos, long);
+        assert_text(&value, expected);
+    }
+    // The longest texts fill their room exactly, so a smaller room would cut them.
+    for (long, room) in [(false, TIME_TEXT), (true, LTIME_TEXT)] {
+        let value = Str::<64>::new();
+        write_duration(value.view(), i64::MIN, long);
+        assert_eq!(text(&value).1, room);
+    }
+}
+
 fn text<const N: usize>(value: &Str<N>) -> ([u8; 64], usize) {
     let view = value.view();
     let mut bytes = [0u8; 64];

@@ -184,10 +184,11 @@ fn vendor_extension_conversions_cover_enum_bool_time_and_tod() {
             Value::Bool(true),
             Ok(Value::String("TRUE".into())),
         ),
+        // The vendor's text, measured (specification 07 2.7): each unit that is not zero.
         (
             "TO_STRING",
             Value::Time(Duration::from_millis(1250)),
-            Ok(Value::String("T#1250ms".into())),
+            Ok(Value::String("T#1s250ms".into())),
         ),
         (
             "TIME_TO_DINT",
@@ -339,6 +340,41 @@ fn round_2_codesys_families_produce_the_measured_vendor_values() {
             conversions::call_conversion_spec_with(spec, &[input], ConversionProfile::Codesys),
             expected,
             "{name}"
+        );
+    }
+}
+
+#[test]
+fn codesys_durations_as_text_are_the_measured_vendor_text() {
+    // Specification 07 2.7 and DEV-036: TO_STRING and TIME_TO_STRING of a TIME or an LTIME, measured
+    // on a live e!COCKPIT runtime on a WAGO PFC200 (2026-11-06): each unit that is not zero from
+    // days down to milliseconds (nanoseconds for an LTIME), `T#0ms` and `LTIME#0ns` for no time, the
+    // `LTIME#` prefix. The wrong behaviour this catches is the largest single unit that divides
+    // (`T#1500ms`, `LT#1500ms`), which the evaluator wrote before.
+    let time = |millis: i64| Value::Time(Duration::from_millis(millis));
+    let ltime = |nanos: i64| Value::LTime(Duration::from_nanos(nanos));
+    for (name, input, expected) in [
+        ("TO_STRING", time(0), "T#0ms"),
+        ("TO_STRING", time(5), "T#5ms"),
+        ("TO_STRING", time(1500), "T#1s500ms"),
+        ("TO_STRING", time(2000), "T#2s"),
+        ("TO_STRING", time(3_723_004), "T#1h2m3s4ms"),
+        ("TO_STRING", time(2 * 86_400_000), "T#2d"),
+        ("TO_STRING", time(4_294_967_295), "T#49d17h2m47s295ms"),
+        ("TIME_TO_STRING", time(1500), "T#1s500ms"),
+        ("TO_STRING", ltime(0), "LTIME#0ns"),
+        ("TO_STRING", ltime(1_500_000_000), "LTIME#1s500ms"),
+        (
+            "TO_STRING",
+            ltime(3_723_004_005_006),
+            "LTIME#1h2m3s4ms5us6ns",
+        ),
+    ] {
+        let spec = conversions::conversion_spec(name).expect("prepared native conversion");
+        assert_eq!(
+            conversions::call_conversion_spec_with(spec, &[input], ConversionProfile::Codesys),
+            Ok(Value::String(expected.into())),
+            "{name} {expected}"
         );
     }
 }

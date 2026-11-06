@@ -229,6 +229,67 @@ pub fn parse_int(cx: &mut Cx, text: StrView<'_>, scratch: &mut [u8]) -> Result<i
         .ok_or_else(|| type_mismatch(cx))
 }
 
+/// `STRING_TO_<int>`, `STRING_TO_<bit string>` and the overloaded `TO_<int>` and
+/// `TO_<bit string>` of a text under the CODESYS conversion rules (specification 07 §2.10, round
+/// 2, `docs/IEC_DEVIATIONS.md` DEV-045), in 128 bits; the caller keeps the destination's low-order
+/// bits. After leading white space come an optional sign and a decimal number or a `2#`, `8#` or
+/// `16#` literal, read up to the first character that is neither a digit of its base nor a `_`,
+/// which separates digits; the rest is ignored, and a text with no digit is 0:
+/// `TO_BYTE('123abc')` is 123, `TO_BYTE('1_0')` 10 and `TO_BYTE('abc')` 0.
+/// `scratch` holds the text's capacity.
+#[must_use]
+pub fn parse_int_codesys(text: StrView<'_>, scratch: &mut [u8]) -> i128 {
+    let bytes = copied(text, scratch);
+    // A byte that is no UTF-8 ends the number, as any character that is no digit does.
+    let valid = match core::str::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(error) => bytes
+            .get(..error.valid_up_to())
+            .and_then(|valid| core::str::from_utf8(valid).ok())
+            .unwrap_or_default(),
+    };
+    vendor_int_text(valid)
+}
+
+/// The runtime's `parse_int_text_codesys`.
+fn vendor_int_text(text: &str) -> i128 {
+    let trimmed = text.trim();
+    let (negative, rest) = match trimmed.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, trimmed.strip_prefix('+').unwrap_or(trimmed)),
+    };
+    // The vendor's radix prefixes; any other `N#` text is read as a decimal number up to its `#`.
+    let (radix, digits) = match rest.split_once('#') {
+        Some(("2", digits)) => (2, digits),
+        Some(("8", digits)) => (8, digits),
+        Some(("16", digits)) => (16, digits),
+        _ => (10, rest),
+    };
+    let mut value: i128 = 0;
+    let mut seen = false;
+    for character in digits.chars() {
+        // Measured `TO_BYTE('1_0') = BYTE#10`: `_` inside the number separates digits.
+        if character == '_' {
+            continue;
+        }
+        let Some(digit) = character.to_digit(radix) else {
+            break;
+        };
+        seen = true;
+        value = value
+            .saturating_mul(i128::from(radix))
+            .saturating_add(i128::from(digit));
+    }
+    if !seen {
+        return 0;
+    }
+    if negative {
+        value.checked_neg().unwrap_or(i128::MIN)
+    } else {
+        value
+    }
+}
+
 /// The runtime's `parse_int_text`: `None` where it gives a type mismatch.
 fn parse_int_text(text: &str) -> Option<i128> {
     let trimmed = text.trim();

@@ -972,6 +972,103 @@ END_TEST_PROGRAM
     let _ = std::fs::remove_dir_all(project);
 }
 
+// docs/specs/07-standard-functions.md 2.10 and docs/IEC_DEVIATIONS.md DEV-045 (round 2), with the
+// values measured on a WAGO PFC200: under the CODESYS rules an integer is a count of milliseconds as
+// a TIME through its low-order 32 bits (DINT#1500 is T#1500ms, DINT#-1 and INT#-1 are
+// T#49d17h2m47s295ms), a REAL or an LREAL is truncated toward zero (2.5 is T#2ms) and a negative one
+// is T#0ms, a DWORD is milliseconds after midnight modulo a day (16#FFFFFFFF is TOD#17:02:47.295,
+// 86,400,000 is midnight), and a text gives the number at its front, `_` separating digits, kept to
+// the destination's low-order bits ('123abc' is 123, '1_0' is 10, '300' is BYTE 44, 'abc' and '' are
+// 0), for STRING_TO_DINT as for TO_BYTE. A wrong generator refuses to build them, which it did until
+// this change, rounds 2.5 to T#3ms, saturates a negative integer count, or faults on '123abc' as the
+// IEC rules do.
+#[test]
+fn run_test_compiles_the_round_2_codesys_conversions() {
+    let project = codesys_project(
+        "codesys-round-2",
+        r#"
+TEST_PROGRAM CountsBecomeDurations
+ASSERT_EQUAL(T#1500ms, DINT_TO_TIME(DINT#1500));
+ASSERT_EQUAL(T#49d17h2m47s295ms, DINT_TO_TIME(DINT#-1));
+ASSERT_EQUAL(T#49d17h2m47s295ms, INT_TO_TIME(INT#-1));
+ASSERT_EQUAL(T#2ms, REAL_TO_TIME(REAL#2.5));
+ASSERT_EQUAL(T#0ms, REAL_TO_TIME(REAL#-1.0));
+ASSERT_EQUAL(T#2ms, LREAL_TO_TIME(LREAL#2.5));
+END_TEST_PROGRAM
+
+TEST_PROGRAM DwordsBecomeTimesOfDay
+ASSERT_EQUAL(TOD#17:02:47.295, DWORD_TO_TOD(DWORD#16#FFFFFFFF));
+ASSERT_EQUAL(TOD#00:00:00, DWORD_TO_TOD(DWORD#86400000));
+END_TEST_PROGRAM
+
+TEST_PROGRAM TextsGiveTheNumberAtTheirFront
+VAR
+    Text : STRING := '123abc';
+END_VAR
+ASSERT_EQUAL(BYTE#123, TO_BYTE(Text));
+ASSERT_EQUAL(DINT#123, STRING_TO_DINT(Text));
+ASSERT_EQUAL(BYTE#44, TO_BYTE('300'));
+ASSERT_EQUAL(BYTE#10, TO_BYTE('1_0'));
+ASSERT_EQUAL(BYTE#0, TO_BYTE('abc'));
+ASSERT_EQUAL(BYTE#0, TO_BYTE(''));
+ASSERT_EQUAL(WORD#16#FF, STRING_TO_WORD('16#FF'));
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["total"], 3, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 3, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+// docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036, with the eleven values
+// measured on a WAGO PFC200: under the CODESYS rules TO_STRING and TIME_TO_STRING of a duration
+// write each unit that is not zero from days down to milliseconds (nanoseconds for an LTIME), T#0ms
+// and LTIME#0ns for no time. A wrong generator refuses to build them ("not compiled yet",
+// specification 44 NX-09, until this change), or writes the largest single unit that divides,
+// 'T#1500ms', as the evaluator did.
+#[test]
+fn run_test_writes_a_duration_as_the_vendor_does_under_the_codesys_rules() {
+    let project = codesys_project(
+        "codesys-duration-text",
+        r#"
+TEST_PROGRAM DurationsAsText
+VAR
+    Text : STRING;
+END_VAR
+Text := TO_STRING(T#0ms);
+ASSERT_EQUAL(EXPECTED := 'T#0ms', ACTUAL := Text);
+Text := TO_STRING(T#5ms);
+ASSERT_EQUAL(EXPECTED := 'T#5ms', ACTUAL := Text);
+Text := TO_STRING(T#1500ms);
+ASSERT_EQUAL(EXPECTED := 'T#1s500ms', ACTUAL := Text);
+Text := TO_STRING(T#2000ms);
+ASSERT_EQUAL(EXPECTED := 'T#2s', ACTUAL := Text);
+Text := TO_STRING(T#1h2m3s4ms);
+ASSERT_EQUAL(EXPECTED := 'T#1h2m3s4ms', ACTUAL := Text);
+Text := TO_STRING(T#2d);
+ASSERT_EQUAL(EXPECTED := 'T#2d', ACTUAL := Text);
+Text := TO_STRING(T#49d17h2m47s295ms);
+ASSERT_EQUAL(EXPECTED := 'T#49d17h2m47s295ms', ACTUAL := Text);
+Text := TIME_TO_STRING(T#1500ms);
+ASSERT_EQUAL(EXPECTED := 'T#1s500ms', ACTUAL := Text);
+Text := TO_STRING(LTIME#0ns);
+ASSERT_EQUAL(EXPECTED := 'LTIME#0ns', ACTUAL := Text);
+Text := TO_STRING(LTIME#1500ms);
+ASSERT_EQUAL(EXPECTED := 'LTIME#1s500ms', ACTUAL := Text);
+Text := TO_STRING(LTIME#1h2m3s4ms5us6ns);
+ASSERT_EQUAL(EXPECTED := 'LTIME#1h2m3s4ms5us6ns', ACTUAL := Text);
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["total"], 1, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 1, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn filtered_configured_test_registers_all_test_declarations_but_executes_only_selected() {
     let project = unique_temp_dir("configured-filtered-declarations");

@@ -10,8 +10,12 @@
 //! `LWORD_TO_LREAL` convert the number, and a bit string to `BOOL` tests for zero. The same rules
 //! carry the vendor conversions of specification 07 §2.4 and §2.7, which the IEC rules refuse: a
 //! duration to an integer as its milliseconds (an `LTIME` its nanoseconds), a time of day to a
-//! `DWORD` as its milliseconds of the day, and a `BOOL` or an enumerated value to text as `TRUE` or
-//! `FALSE` and as its value's name. Every other conversion is the same under both rules.
+//! `DWORD` as its milliseconds of the day, a `BOOL` or an enumerated value to text as `TRUE` or
+//! `FALSE` and as its value's name, and a duration to text as the vendor writes it (`T#1s500ms`);
+//! and round 2's of §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045): an integer or a real to a `TIME` as a
+//! count of milliseconds, a `DWORD` to a time of day as its milliseconds of the day, and a text to
+//! an integer or a bit string by the one vendor parse. Every other conversion is the same under
+//! both rules.
 
 use std::collections::BTreeSet;
 
@@ -220,11 +224,14 @@ impl Lowerer<'_, '_> {
         Ok(Called::Scalar(converted))
     }
 
-    /// Under the CODESYS rules (`codesys`), the vendor conversions of specification 07 §2.4 that
-    /// count a time, which the IEC rules refuse (`docs/IEC_DEVIATIONS.md` DEV-036): a duration to
-    /// an integer as a `TIME`'s whole milliseconds or an `LTIME`'s nanoseconds, kept to the
-    /// destination's low-order bits, a negative duration an overflow; a time of day to a `DWORD`
-    /// as its milliseconds of the day. `None` for every other conversion.
+    /// Under the CODESYS rules (`codesys`), the vendor conversions of specification 07 §2.4 and
+    /// §2.10 that count a time, which the IEC rules refuse (`docs/IEC_DEVIATIONS.md` DEV-036 and
+    /// DEV-045): a duration to an integer as a `TIME`'s whole milliseconds or an `LTIME`'s
+    /// nanoseconds, kept to the destination's low-order bits, a negative duration an overflow; a
+    /// time of day to a `DWORD` as its milliseconds of the day; an integer to a `TIME` as a count
+    /// of milliseconds, its low-order 32 bits; a real to a `TIME` as milliseconds truncated toward
+    /// zero, a negative one no time; a `DWORD` to a time of day as its milliseconds after midnight,
+    /// modulo a day. `None` for every other conversion.
     fn vendor_count(
         &mut self,
         codesys: bool,
@@ -247,6 +254,17 @@ impl Lowerer<'_, '_> {
                 "ltod_to_dword"
             };
             return Some(self.bind(&format!("lib::{function}(cx, {source})?")));
+        }
+        if src.is_integer() && dst == Elem::Time {
+            // The vendor's `TIME` is an unsigned 32-bit count of milliseconds: the count's low-order
+            // 32 bits, so `DINT_TO_TIME(DINT#-1)` is `T#49d17h2m47s295ms`.
+            return Some(format!("lib::dword_to_time(({source}) as u32)"));
+        }
+        if src.is_real() && dst == Elem::Time {
+            return Some(self.bind(&format!("lib::real_ms_to_time(cx, f64::from({source}))?")));
+        }
+        if src == Elem::DWord && dst == Elem::Tod {
+            return Some(format!("lib::dword_to_tod({source})"));
         }
         None
     }
@@ -298,6 +316,19 @@ impl Lowerer<'_, '_> {
             (
                 format!("lib::write_bool(TEXT.view(), u8::from({source}) != 0)"),
                 5,
+            )
+        } else if src.is_duration() {
+            // The vendor's text of a duration under the CODESYS rules, `T#1s500ms` and
+            // `LTIME#0ns` (specification 07 §2.7, DEV-036); the IEC rules accept no such conversion.
+            let long = src == Elem::LTime;
+            let room = if long {
+                trust_plc_lib::LTIME_TEXT
+            } else {
+                trust_plc_lib::TIME_TEXT
+            };
+            (
+                format!("lib::write_duration(TEXT.view(), {source}, {long})"),
+                u32::try_from(room).unwrap_or(u32::MAX),
             )
         } else {
             return Err(self.unsupported(node, format!("{name}: {} as text", src.name())));
@@ -394,7 +425,8 @@ impl Lowerer<'_, '_> {
     }
 
     /// `STRING_TO_DST(value)`: the number or the character a text spells, read as the runtime
-    /// reads it in a copy of the text the size of its capacity (specification 07 §2.8).
+    /// reads it in a copy of the text the size of its capacity (specification 07 §2.8); under the
+    /// CODESYS rules an integer or a bit string by the vendor parse of §2.10.
     fn read_text(
         &mut self,
         node: &SyntaxNode,
@@ -425,7 +457,17 @@ impl Lowerer<'_, '_> {
             return Err(self.unsupported(node, format!("{name} to a type that is no scalar")));
         };
         let rust = dst.rust();
-        let converted = if dst.is_integer() {
+        let codesys = self.model.conversions == ConversionProfile::Codesys;
+        let converted = if codesys && (dst.is_integer() || dst.is_bits()) {
+            // One CODESYS parse for every integer and bit string (specification 07 §2.10, round 2,
+            // `docs/IEC_DEVIATIONS.md` DEV-045): the number's digits up to the first character that
+            // is none, the rest ignored, no number 0, kept to the destination's low-order bits.
+            let copy = self.scratch(capacity);
+            let parsed = self.bind(&format!(
+                "lib::parse_int_codesys(({text}).view(), &mut {copy})"
+            ));
+            format!("({parsed} as {rust})")
+        } else if dst.is_integer() {
             let copy = self.scratch(capacity);
             let parsed = self.bind(&format!(
                 "lib::parse_int(cx, ({text}).view(), &mut {copy})?"

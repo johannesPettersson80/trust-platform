@@ -745,7 +745,9 @@ re-check them against this rule when touched.
   (specification 14), truST accepts — matching the CODESYS / TwinCAT vendor
   toolchain — (a) `TO_STRING`/`*_TO_STRING` over an enumerated value
   (yields the variant name), over `BOOL` (`'TRUE'`/`'FALSE'`) and over
-  `TIME`/`LTIME` (`T#`/`LT#` duration text); (b) `TIME_TO_<int>` /
+  `TIME`/`LTIME` (the vendor's duration text, measured on a WAGO PFC200 on
+  2026-11-06: each unit that is not zero, `'T#1s500ms'`, `'T#0ms'`,
+  `'LTIME#1h2m3s4ms5us6ns'`; specification 07 2.7); (b) `TIME_TO_<int>` /
   `LTIME_TO_<int>` (ms / ns magnitude truncated into the destination,
   negative durations overflow); (c) `TOD_TO_DWORD` / `LTOD_TO_DWORD`
   (ms-of-day magnitude). The strict table reading rejects vendor-project
@@ -756,10 +758,10 @@ re-check them against this rule when touched.
   converts as (a) to (c) say: the native generator lowers each entry under the
   CODESYS rules (specification 44 §6.8, since 6 November 2026; before, it
   refused (b), (c) and a `BOOL` as text, and spelled an enumerated value as
-  its number), and the runtime's evaluator (`trust-runtime-core`) gives the
-  same values. `TO_STRING` of a `TIME`/`LTIME` is the exception: its text is
-  to be measured on the vendor runtime first, and the build refuses it until
-  then (specification 44 NX-09).
+  its number, and refused a `TIME`/`LTIME` as text until the vendor's text
+  was measured), and the runtime's evaluator (`trust-runtime-core`) gives the
+  same values; before the measurement it wrote a duration with the largest
+  single unit that divides (`'T#1500ms'`).
 - Mitigation: the IEC dialect keeps the tables' reading and rejects all
   of (a) to (c); `TO_STRING` over a `STRING[n]` value is an identity copy
   in every dialect, since a `STRING[n]` is a `STRING`. The extension set is
@@ -1112,11 +1114,14 @@ re-check them against this rule when touched.
   `DWORD_TO_TOD(DWORD#86400000) = TOD#0:0:0`,
   `DWORD_TO_TOD(DWORD#16#FFFFFFFF) = TOD#17:02:47.295`.
 - Impact: vendor-project call sites of these families compile clean in the
-  vendor toolchain and now pass the compile gate; the runtime conversion
-  dispatch implements the same entries, so executed conversions produce the
-  measured values. Under the profile the strict and vendor parse rules
-  collapse into one: `TO_BYTE('123abc')` and `STRING_TO_DINT('123abc')` are
-  both `123`.
+  vendor toolchain and now pass the compile gate. A program runs compiled
+  (specification 44): the native generator lowers each family onto a
+  `trust-plc-lib` function (specification 44 §6.8), and the runtime
+  conversion dispatch in `trust-runtime-core` gives the same values to the
+  evaluator (starting values and the harness), so executed conversions
+  produce the measured values. Under the profile the strict and vendor parse
+  rules collapse into one: `TO_BYTE('123abc')` and `STRING_TO_DINT('123abc')`
+  are both `123`.
 - Mitigation: the IEC dialect keeps the tables' reading and rejects every
   new pair, keeps the strict representative parse, and string to a bit
   string stays rejected; the extension set is deliberately bounded —
