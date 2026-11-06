@@ -675,8 +675,9 @@ README that passes fails the check until it is taken off the list.
   sends nothing and asks for a value.
 - The header identifies the selected target, current scan, and DEC/HEX/BIN
   format. The table identifies `Name`, `Value`, `Type`, `State`, and `Actions`.
-- Standard target labels are `Simulator`, `Connected runtime`,
-  `Runtime at <endpoint>`, and `Local runtime (control socket)`. Scan labels
+- Standard target labels are `Simulator`, `This project's runtime` (§6.9),
+  `Connected runtime`, `Runtime at <endpoint>`, and
+  `Local runtime (control socket)`. Scan labels
   use `scan #N`, and accessible context states
   `Rows are from runtime scan #N`.
 - BYTE, WORD, and DWORD values use uppercase IEC-style `16#…` and padded
@@ -860,7 +861,10 @@ README that passes fails the check until it is taken off the list.
   first, saying that the runtime is not reachable, and `Set auth token` for the
   second. The extension never reads the failure's text to choose.
 - A runtime that answers Connect but reports debugging disabled becomes the
-  selected target without an attach session. Live Values then says that
+  selected target without an attach session. The sidebar shows it as
+  `Debugging disabled`, with Connect enabled for when debugging is enabled, and
+  the status bar names it `<runtime> · debugging disabled` (§6.9). Live Values
+  then says that
   debugging is disabled on that runtime and names `debug_enabled` under
   `[runtime.control]` in its `runtime.toml`; the graph's issue gives the same
   reason and does not direct the user to Devices & Connections.
@@ -1950,15 +1954,24 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   the managed runtimes with their states, the outcome of a managed Start or Stop
   and the managed logs (`managed`, `managedOutcome`, `managedLogs`).
 - The status bar names a runtime connected while a debug session is attached
-  to it, or while the extension is online with a runtime that answers, such as
-  one started outside the extension. The language server gives the name
+  to it, or while a runtime that answered Connect keeps debugging disabled. A
+  runtime that answers without a session, such as one started outside the
+  extension or the project's own runtime right after it is selected, is not
+  connected: the status bar shows the selected target's status as the sidebar
+  shows it, `Not connected` with Connect, until Connect attaches a session. The
+  language server gives the name
   (`selection`'s `connectedLabel`): the project's own runtime by that name;
   else the name the extension gave the runtime, which is the debug session's
   target name or, for a runtime that answered Connect but keeps debugging
   disabled, the name Connect was given; else `runtime` for a local control
   socket, else the endpoint without its scheme. The runtime's entry in the
   side panel's list has the same name, and HMI Live names its run target the
-  same way (specification 39 §11 item 6). `connectedDebuggingDisabled` says
+  same way (specification 39 §11 item 6). Live Values' header names the
+  runtime it shows the same way (`liveValues`' `targetLabel`, §4.3): online
+  with or connected to the project's own runtime, by that name, whichever
+  action connected it (the side panel's Connect, Live Values' Start or the
+  canvas's) and whatever name that action gave the debug session; else the
+  debug session's target name. `connectedDebuggingDisabled` says
   that the runtime keeps debugging disabled, so that the bar reads
   `<runtime> · debugging disabled` (§4.4).
 

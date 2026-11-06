@@ -661,6 +661,18 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
       !shown.options.some((option) => option.id === fake.endpoint),
       `the runtime has one entry: ${JSON.stringify(shown.options)}`,
     );
+    // One state for one runtime: it answers without a session, so the side panel says "Not connected" with Connect,
+    // and the status bar says the same instead of "connected" (specification 25, section 6.9; G12, 30 October).
+    const notConnected = await waitFor("the side panel's Target not connected", () =>
+      sidebar.states().reverse().find(
+        (candidate) => candidate.selectedId === PROJECT_ID && candidate.selected.statusLabel === "Not connected",
+      ));
+    assert.ok(notConnected.selected.primary.enabled, "Connect is offered");
+    const statusBar = await waitFor("the status bar with the side panel's state", async () => {
+      const text = (await statusText(STATUS_CONTEXT, await runtimeLifecycleService.snapshot())).text;
+      return text.endsWith(`${PROJECT_LABEL} not connected`) && text;
+    });
+    assert.ok(!statusBar.includes("$(plug)"), `the status bar does not show the runtime connected: ${statusBar}`);
   });
 
   test("Connect on the project's own runtime connects with the endpoint and token trust-runtime reports", async () => {
@@ -836,12 +848,15 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     assert.strictEqual(lastStatus(live), reason, "no later message replaces the reason with a request to connect");
     const rendered = renderLiveValues(live.posted);
     assert.strictEqual(rendered.status, reason, "the panel shows the reason");
-    assert.strictEqual(rendered.target, `Runtime at ${fake.hostPort}`, "beside the runtime it is about");
+    // The project's own runtime has one name: Live Values gives it the side panel's and the status bar's, not the name
+    // the canvas gave its Connect nor "Runtime at <endpoint>" (specification 25, section 6.9; G14).
+    assert.strictEqual(rendered.target, PROJECT_LABEL, "beside the runtime it is about");
     // The re-run of 26 October: the status bar said "connected" while Live Values said "Not connected". Both name the
     // state instead (specification 25, section 4.4).
     assert.strictEqual(rendered.state, "Debugging disabled");
     const statusBar = (await statusText(STATUS_CONTEXT, await runtimeLifecycleService.snapshot())).text;
     assert.ok(statusBar.endsWith("· debugging disabled") && !/connected/.test(statusBar), `the status bar names the state: ${statusBar}`);
+    assert.ok(statusBar.includes(rendered.target), `the status bar names the runtime as Live Values does: ${statusBar}`);
 
     // Devices & Connections gives the same reason without sending the user to itself.
     const issue = await waitFor("the reason in Devices & Connections", () =>
