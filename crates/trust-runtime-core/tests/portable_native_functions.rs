@@ -199,6 +199,13 @@ fn vendor_extension_conversions_cover_enum_bool_time_and_tod() {
             Value::Time(Duration::from_millis(1500)),
             Ok(Value::UDInt(1500)),
         ),
+        // The count keeps the destination's low-order bits (specification 07 2.4): 300 ms in a
+        // SINT is 300 - 256 = 44, where a checked conversion would overflow.
+        (
+            "TIME_TO_SINT",
+            Value::Time(Duration::from_millis(300)),
+            Ok(Value::SInt(44)),
+        ),
         (
             "LTIME_TO_LINT",
             Value::LTime(Duration::from_nanos(9)),

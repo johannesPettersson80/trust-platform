@@ -451,6 +451,31 @@ impl Forward {
     }
 }
 
+/// The request that a session forwarded to a runtime, until a request of the session takes its answer
+/// (specification 25 §2): the same request asked again waits for this answer, so the runtime receives it
+/// once however often the panel asks.
+#[derive(Debug)]
+pub(super) struct Unanswered {
+    /// The runtime's control endpoint.
+    endpoint: String,
+    /// The control method, such as `comm.search.start`.
+    kind: &'static str,
+    /// The parameters of the method.
+    params: Value,
+    /// The runtime's answer, kept for the request that waits next.
+    answer: Arc<Handoff<SearchReply>>,
+}
+
+impl Unanswered {
+    /// Whether `forward` asks what this request asked: the same method with the same parameters, of the
+    /// same runtime.
+    fn asks(&self, forward: &Forward) -> bool {
+        self.endpoint == forward.endpoint
+            && self.kind == forward.kind
+            && self.params == forward.params
+    }
+}
+
 impl DevicesEngine {
     /// One search (design §1.4.1): on this computer in the language-server process, or inside the
     /// runtime the session showed under the request's origin. A reply that carries a status also
@@ -757,14 +782,53 @@ impl DevicesEngine {
     }
 
     /// One search that the runtime runs (design §1.4.1), with the advertised protocols `beyond` that the panel runs
-    /// beside it when it starts. The forwarded request runs on a thread of its own. The answer is awaited for at
-    /// most `ANSWER_WAIT`, so a runtime that does not answer in time reports `runtime_pending`, and the answer it
-    /// gives later is kept for the session's close.
+    /// beside it when it starts. The answer is awaited for at most `ANSWER_WAIT`, so a runtime that does not answer
+    /// in time reports `runtime_pending`, and the panel asks again. The same request asked again is not sent again:
+    /// it waits for the answer of the one already sent, which is kept until a request takes it (specification 25
+    /// §2).
     fn forwarded(&self, call: &SearchCall, item: &str, beyond: Vec<Protocol>) -> SearchReply {
         let (panel, forward) = match self.forward_to_runtime(call, item) {
             Ok(forwarded) => forwarded,
             Err(refused) => return refused,
         };
+        let joined = lock(&panel)
+            .unanswered
+            .as_ref()
+            .filter(|unanswered| unanswered.asks(&forward))
+            .map(|unanswered| Arc::clone(&unanswered.answer));
+        let answer = match joined {
+            Some(answer) => answer,
+            None => match Self::send(&panel, forward, call, beyond) {
+                Ok(answer) => answer,
+                Err(failed) => return failed,
+            },
+        };
+        let Some(reply) = answer.wait_again(ANSWER_WAIT) else {
+            return SearchReply::failed(
+                "runtime_pending",
+                "The runtime has not answered yet; the panel asks again.",
+            );
+        };
+        let mut shown = lock(&panel);
+        if shown
+            .unanswered
+            .as_ref()
+            .is_some_and(|unanswered| Arc::ptr_eq(&unanswered.answer, &answer))
+        {
+            shown.unanswered = None;
+        }
+        reply
+    }
+
+    /// Sends `forward` on a thread of its own, as the session's unanswered request, and returns where its answer
+    /// arrives. A search that the runtime started is the session's, so closing the session ends it, and the
+    /// advertised protocols `beyond` start beside it.
+    fn send(
+        panel: &Arc<Mutex<Panel>>,
+        forward: Forward,
+        call: &SearchCall,
+        beyond: Vec<Protocol>,
+    ) -> Result<Arc<Handoff<SearchReply>>, SearchReply> {
         let beyond = (!beyond.is_empty()).then(|| {
             (
                 beyond,
@@ -773,7 +837,14 @@ impl DevicesEngine {
             )
         });
         let handoff: Arc<Handoff<SearchReply>> = Handoff::open();
+        let unanswered = Unanswered {
+            endpoint: forward.endpoint.clone(),
+            kind: forward.kind,
+            params: forward.params.clone(),
+            answer: Arc::clone(&handoff),
+        };
         let job = Arc::clone(&handoff);
+        let session = Arc::clone(panel);
         let spawned = thread::Builder::new()
             .name("devices-search".to_owned())
             .spawn(move || {
@@ -781,7 +852,7 @@ impl DevicesEngine {
                 // A search that the runtime started is the session's, so closing the session can
                 // end it, even when this answer comes after the request has left.
                 if let Some(search_id) = answer.search_id.clone().filter(|_| forward.is_start()) {
-                    lock(&panel).searches.push(OwnedSearch::Runtime {
+                    lock(&session).searches.push(OwnedSearch::Runtime {
                         endpoint: forward.endpoint.clone(),
                         token: forward.token.clone(),
                         search_id: search_id.clone(),
@@ -794,28 +865,25 @@ impl DevicesEngine {
                             scopes: request_scopes,
                             deadline: limit,
                         };
-                        lock(&panel).searches.push(OwnedSearch::Advertised {
+                        lock(&session).searches.push(OwnedSearch::Advertised {
                             search_id,
                             scan: AdvertisedSearch::start(request),
                             engine_only: false,
                         });
                     }
                 }
-                // A late answer has no request left to wait for it, so it is dropped here.
+                // The requests wait with `wait_again`, which keeps an answer that comes after they
+                // left for the request asked again, so the hand-over always takes it.
                 let _ = job.finish(answer);
             });
         if spawned.is_err() {
-            return SearchReply::failed(
+            return Err(SearchReply::failed(
                 "search_not_started",
                 "The panel could not start the search's thread.",
-            );
+            ));
         }
-        handoff.wait(ANSWER_WAIT).unwrap_or_else(|| {
-            SearchReply::failed(
-                "runtime_pending",
-                "The runtime has not answered yet; the panel asks again.",
-            )
-        })
+        lock(panel).unanswered = Some(unanswered);
+        Ok(handoff)
     }
 
     /// The runtime that the session showed under `item`, with the request that reaches its control

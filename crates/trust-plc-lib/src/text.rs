@@ -127,6 +127,13 @@ pub fn write_uint(dst: StrView<'_>, value: u64) {
     write_parts(dst, 0, &[Piece::Bytes(digits)]);
 }
 
+/// `TRUE` or `FALSE` into `dst`, cut at its capacity: `BOOL_TO_STRING` under the CODESYS
+/// conversion rules (specification 07 §2.7, `docs/IEC_DEVIATIONS.md` DEV-036).
+pub fn write_bool(dst: StrView<'_>, value: bool) {
+    let text: &[u8] = if value { b"TRUE" } else { b"FALSE" };
+    write_parts(dst, 0, &[Piece::Bytes(text)]);
+}
+
 /// Writes the decimal digits of `value` at the end of `digits` and returns how many.
 fn decimal(digits: &mut [u8; 20], mut value: u64) -> usize {
     let mut used = 0;

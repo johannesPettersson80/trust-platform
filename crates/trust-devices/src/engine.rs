@@ -145,6 +145,9 @@ struct Panel {
     refresh_due: bool,
     /// The searches this session started, which closing the session ends (design §1.4.1).
     searches: Vec<OwnedSearch>,
+    /// The request this session forwarded to a runtime whose answer no request has taken yet: the
+    /// same request asked again waits for that answer (specification 25 §2).
+    unanswered: Option<search::Unanswered>,
     /// What the user chose in the Discover pane (specification 25 §2).
     choices: PaneChoices,
 }
@@ -371,6 +374,7 @@ impl Panel {
             pending: 0,
             refresh_due: false,
             searches: Vec::new(),
+            unanswered: None,
             choices: PaneChoices::default(),
         }
     }

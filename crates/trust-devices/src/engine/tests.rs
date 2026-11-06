@@ -843,7 +843,11 @@ fn runtime_origin_forwards_the_same_body() {
         .into_iter()
         .filter(|request| request["type"] == "comm.search.start")
         .collect();
-    assert!(!forwarded.is_empty(), "the runtime received the start");
+    assert_eq!(
+        forwarded.len(),
+        1,
+        "the runtime receives the start once, however often the panel asked"
+    );
     for request in forwarded {
         assert_eq!(
             request["params"],
@@ -856,6 +860,58 @@ fn runtime_origin_forwards_the_same_body() {
             "the same body, with the origin the runtime runs it at"
         );
     }
+}
+
+#[test]
+fn a_start_asked_again_before_the_runtime_answers_reaches_the_runtime_once() {
+    // Specification 25 §2: a `devicesSearch` with origin `runtime` waits at most 25 ms; a start the
+    // runtime has not answered by then answers `runtime_pending`, and the start asked again is not
+    // sent to the runtime a second time but takes the answer of the one already sent. This runtime
+    // answers its start after 300 ms, so the panel asks about ten times. A wrong implementation
+    // sends `comm.search.start` on every ask, which starts a search in the runtime each time (up to
+    // eight run at once, specification 11 "One search"), and no ask is ever answered in time.
+    let runtime = FakeRuntime::start(
+        Script::running()
+            .answer(
+                "comm.search.start",
+                Reply::Result(json!({ "search_id": "s-7" })),
+            )
+            .trickled("comm.search.start", Duration::from_millis(100), 3),
+    );
+    let folder = TempFolder::new("asked-again");
+    folder.write(
+        "cell/runtime.toml",
+        &runtime_toml("cell", &runtime.endpoint, Some("token-1")),
+    );
+    let project = folder.join("cell");
+    let engine = DevicesEngine::new();
+    let mut seq = 0_u64;
+    let card = answering_card(
+        &engine,
+        &folder.path,
+        &project,
+        &online(&runtime.endpoint),
+        &mut seq,
+    );
+    let start = start_at(&card, json!({ "only": ["modbus_tcp"] }));
+
+    let first = engine.search(&start);
+    assert_eq!(
+        first.error.as_ref().map(|error| error.code.as_str()),
+        Some("runtime_pending"),
+        "the runtime answers after 300 ms, so the first ask is pending"
+    );
+    let reply = answered(&engine, &start);
+    assert_eq!(
+        reply.search_id.as_deref(),
+        Some("s-7"),
+        "the start asked again takes the runtime's answer"
+    );
+    assert_eq!(
+        runtime.count("comm.search.start"),
+        1,
+        "the runtime receives the start once"
+    );
 }
 
 #[test]

@@ -1591,7 +1591,11 @@ so the other commands answer meanwhile:
   and `Working…` for any other action.
 - A `devicesSearch` with origin `runtime` waits at most 25 ms for that runtime.
   If the runtime has not answered, the answer is the error `runtime_pending`,
-  and the panel asks again. An answer that comes later is still kept, so that
+  and the panel asks again. The request asked again, with the same verb and
+  body, is not sent to the runtime a second time: it waits at most 25 ms for
+  the answer of the request already sent, and takes that answer once it has
+  come. A Start therefore starts one search in the runtime however long the
+  runtime takes to answer. An answer that comes later is still kept, so that
   `devicesClose` cancels a search the runtime started.
 
 The final reply of a pending action arrives once, in `operations_done` of a
