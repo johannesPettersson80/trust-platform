@@ -298,6 +298,44 @@ pub fn ltod_to_dword(cx: &mut Cx, nanos: i64) -> Result<u32, Fault> {
     u32::try_from(nanos / 1_000_000).map_err(|_| overflow(cx, nanos))
 }
 
+/// `<ANY_INT>_TO_TIME` under the CODESYS conversion rules (specification 07 §2.10, round 2,
+/// `docs/IEC_DEVIATIONS.md` DEV-045): a duration of `millis` milliseconds, in nanoseconds. A
+/// negative count is no time (`T#0ms`), and a count beyond the range of `TIME` is its longest
+/// duration, as the runtime's evaluator takes it.
+#[must_use]
+pub fn ms_count_to_time(millis: i128) -> i64 {
+    i64::try_from(millis.max(0))
+        .unwrap_or(i64::MAX)
+        .saturating_mul(1_000_000)
+}
+
+/// `REAL_TO_TIME` and `LREAL_TO_TIME` under the CODESYS conversion rules (specification 07 §2.10,
+/// round 2, DEV-045): `millis` milliseconds truncated toward zero, not rounded, so
+/// `REAL_TO_TIME(2.5)` is `T#2ms`; a negative value is no time, and one beyond the range of `TIME`
+/// is its longest duration.
+///
+/// # Errors
+///
+/// `Overflow` for a value that is not finite.
+#[allow(clippy::cast_possible_truncation)]
+pub fn real_ms_to_time(cx: &mut Cx, millis: f64) -> Result<i64, Fault> {
+    if !millis.is_finite() {
+        return Err(overflow(cx, 0));
+    }
+    let whole = libm::trunc(millis);
+    let whole = if whole > 0.0 { whole } else { 0.0 };
+    // `as` takes a value beyond `i64` to its bound, as the evaluator does.
+    Ok((whole as i64).saturating_mul(1_000_000))
+}
+
+/// `DWORD_TO_TOD` under the CODESYS conversion rules (specification 07 §2.10, round 2, DEV-045):
+/// the time of day `millis` milliseconds after midnight, modulo a day, so
+/// `DWORD_TO_TOD(DWORD#16#FFFFFFFF)` is `TOD#17:02:47.295`.
+#[must_use]
+pub fn dword_to_tod(millis: u32) -> i64 {
+    i64::from(millis) % crate::dates::TICKS_PER_DAY
+}
+
 /// An integer a text spells, in 128 bits, as the integer type `T`: `STRING_TO_INT`.
 ///
 /// # Errors

@@ -972,6 +972,52 @@ END_TEST_PROGRAM
     let _ = std::fs::remove_dir_all(project);
 }
 
+// docs/specs/07-standard-functions.md 2.10 and docs/IEC_DEVIATIONS.md DEV-045 (round 2), with the
+// values measured on a WAGO PFC200: under the CODESYS rules an integer is a count of milliseconds as
+// a TIME (DINT#1500 is T#1500ms, a negative count T#0ms), a REAL or an LREAL is truncated toward
+// zero (2.5 is T#2ms, -1.0 is T#0ms), a DWORD is milliseconds after midnight modulo a day
+// (16#FFFFFFFF is TOD#17:02:47.295, 86,400,000 is midnight), and a text gives the number at its
+// front, kept to the destination's low-order bits ('123abc' is 123, '300' is BYTE 44, 'abc' and ''
+// are 0), for STRING_TO_DINT as for TO_BYTE. A wrong generator refuses to build them, which it did
+// until this change, rounds 2.5 to T#3ms, or faults on '123abc' as the IEC rules do.
+#[test]
+fn run_test_compiles_the_round_2_codesys_conversions() {
+    let project = codesys_project(
+        "codesys-round-2",
+        r#"
+TEST_PROGRAM CountsBecomeDurations
+ASSERT_EQUAL(T#1500ms, DINT_TO_TIME(DINT#1500));
+ASSERT_EQUAL(T#0ms, DINT_TO_TIME(DINT#-1));
+ASSERT_EQUAL(T#2ms, REAL_TO_TIME(REAL#2.5));
+ASSERT_EQUAL(T#0ms, REAL_TO_TIME(REAL#-1.0));
+ASSERT_EQUAL(T#2ms, LREAL_TO_TIME(LREAL#2.5));
+END_TEST_PROGRAM
+
+TEST_PROGRAM DwordsBecomeTimesOfDay
+ASSERT_EQUAL(TOD#17:02:47.295, DWORD_TO_TOD(DWORD#16#FFFFFFFF));
+ASSERT_EQUAL(TOD#00:00:00, DWORD_TO_TOD(DWORD#86400000));
+END_TEST_PROGRAM
+
+TEST_PROGRAM TextsGiveTheNumberAtTheirFront
+VAR
+    Text : STRING := '123abc';
+END_VAR
+ASSERT_EQUAL(BYTE#123, TO_BYTE(Text));
+ASSERT_EQUAL(DINT#123, STRING_TO_DINT(Text));
+ASSERT_EQUAL(BYTE#44, TO_BYTE('300'));
+ASSERT_EQUAL(BYTE#0, TO_BYTE('abc'));
+ASSERT_EQUAL(BYTE#0, TO_BYTE(''));
+ASSERT_EQUAL(WORD#16#FF, STRING_TO_WORD('16#FF'));
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["total"], 3, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 3, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn filtered_configured_test_registers_all_test_declarations_but_executes_only_selected() {
     let project = unique_temp_dir("configured-filtered-declarations");

@@ -1109,11 +1109,14 @@ re-check them against this rule when touched.
   `DWORD_TO_TOD(DWORD#86400000) = TOD#0:0:0`,
   `DWORD_TO_TOD(DWORD#16#FFFFFFFF) = TOD#17:02:47.295`.
 - Impact: vendor-project call sites of these families compile clean in the
-  vendor toolchain and now pass the compile gate; the runtime conversion
-  dispatch implements the same entries, so executed conversions produce the
-  measured values. Under the profile the strict and vendor parse rules
-  collapse into one: `TO_BYTE('123abc')` and `STRING_TO_DINT('123abc')` are
-  both `123`.
+  vendor toolchain and now pass the compile gate. A program runs compiled
+  (specification 44): the native generator lowers each family onto a
+  `trust-plc-lib` function (specification 44 §6.8), and the runtime
+  conversion dispatch in `trust-runtime-core` gives the same values to the
+  evaluator (starting values and the harness), so executed conversions
+  produce the measured values. Under the profile the strict and vendor parse
+  rules collapse into one: `TO_BYTE('123abc')` and `STRING_TO_DINT('123abc')`
+  are both `123`.
 - Mitigation: the IEC dialect keeps the tables' reading and rejects every
   new pair, keeps the strict representative parse, and string to a bit
   string stays rejected; the extension set is deliberately bounded —
