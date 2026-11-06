@@ -22,3 +22,9 @@ threads-required = "num-test-threads"
 [[profile.ci.overrides]]
 filter = 'binary(web_ide_performance_gate)'
 threads-required = "num-test-threads"
+
+# The scan supervisor's tests time real cycles against a watchdog; beside other tests a loaded
+# runner held a cycle past its timeout (6 November 2026, macOS, G56).
+[[profile.ci.overrides]]
+filter = 'binary(concurrency_supervisor)'
+threads-required = "num-test-threads"
