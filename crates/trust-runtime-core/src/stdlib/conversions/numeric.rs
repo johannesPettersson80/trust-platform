@@ -4,7 +4,7 @@ use crate::stdlib::helpers::round_ties_to_even;
 use crate::value::Value;
 
 use super::bitstring::bit_string_to_int;
-use super::string::{parse_int_text, parse_real_text, string_input};
+use super::string::{parse_int_text, parse_int_text_codesys, parse_real_text, string_input};
 use super::{ConversionMode, ConversionProfile};
 
 pub(super) fn convert_to_int(
@@ -29,6 +29,14 @@ pub(super) fn convert_to_int(
         };
         if let Some(int) = int {
             return wrap_int(int, dst);
+        }
+        if let Value::String(_) | Value::WString(_) = value {
+            // One parse rule per profile (IEC_DEVIATIONS 2026-11-06): the
+            // vendor text parse — trailing characters ignored, no number
+            // yielding 0 — then the low-order bits of the target width, so
+            // `TO_BYTE('123abc')` is `123` and `TO_BYTE('300')` is `44`.
+            let text = string_input(value)?;
+            return wrap_int(parse_int_text_codesys(text), dst);
         }
     }
     match value {

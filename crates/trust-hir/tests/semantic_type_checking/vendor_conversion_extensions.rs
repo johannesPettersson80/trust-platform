@@ -227,9 +227,10 @@ END_VAR
         );
     }
     // Pre-existing in both dialects: the typed string-to-integer acceptance.
-    check_no_errors_in(Dialect::Iec, &format!(
-        "{declarations}i := STRING_TO_DINT(text);\nEND_PROGRAM\n"
-    ));
+    check_no_errors_in(
+        Dialect::Iec,
+        &format!("{declarations}i := STRING_TO_DINT(text);\nEND_PROGRAM\n"),
+    );
 }
 
 #[test]

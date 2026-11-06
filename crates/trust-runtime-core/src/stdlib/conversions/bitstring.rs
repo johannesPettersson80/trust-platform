@@ -75,6 +75,27 @@ pub(super) fn convert_to_bit_string(
             let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
             Ok(Value::DWord(millis))
         }
+        // Round 2 (IEC_DEVIATIONS 2026-11-06): under the CODESYS profile a
+        // string converts with the one vendor parse rule and keeps the
+        // destination's low-order bits: `TO_BYTE('300')` is `44`,
+        // `TO_BYTE('123abc')` is `123`, `TO_BYTE('abc')` is `0`. WSTRING
+        // stays out (the acceptance gate rejects it).
+        Value::String(_) if !iec => {
+            let unsigned = match dst {
+                ConversionType::Byte => ConversionType::USInt,
+                ConversionType::Word => ConversionType::UInt,
+                ConversionType::DWord => ConversionType::UDInt,
+                ConversionType::LWord => ConversionType::ULInt,
+                _ => return Err(RuntimeError::TypeMismatch),
+            };
+            let int = super::numeric::convert_to_int(
+                value,
+                unsigned,
+                super::ConversionMode::Round,
+                profile,
+            )?;
+            convert_to_bit_string(&int, dst, profile)
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

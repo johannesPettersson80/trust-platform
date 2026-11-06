@@ -170,6 +170,27 @@ fn is_temporal_conversion(src: ConversionType, dst: ConversionType) -> bool {
     if matches!(src, ConversionType::Tod | ConversionType::LTod) && dst == ConversionType::DWord {
         return true;
     }
+    // Round 2 (IEC_DEVIATIONS 2026-11-06): the integer and REAL/LREAL ms
+    // counts into TIME, and the DWORD ms-of-day count into TOD.
+    if matches!(
+        src,
+        ConversionType::SInt
+            | ConversionType::Int
+            | ConversionType::DInt
+            | ConversionType::LInt
+            | ConversionType::USInt
+            | ConversionType::UInt
+            | ConversionType::UDInt
+            | ConversionType::ULInt
+            | ConversionType::Real
+            | ConversionType::LReal
+    ) && dst == ConversionType::Time
+    {
+        return true;
+    }
+    if src == ConversionType::DWord && dst == ConversionType::Tod {
+        return true;
+    }
     if src == ConversionType::Ldt && dst == ConversionType::Dt {
         return true;
     }
@@ -223,6 +244,20 @@ fn is_textual_conversion(src: ConversionType, dst: ConversionType) -> bool {
         return true;
     }
     if matches!(src, ConversionType::String | ConversionType::WString) && is_numeric_type(dst) {
+        return true;
+    }
+    // Round 2 (IEC_DEVIATIONS 2026-11-06): string to a bit string, under the
+    // CODESYS profile gate at the caller, with the vendor parse. WSTRING
+    // stays out.
+    if src == ConversionType::String
+        && matches!(
+            dst,
+            ConversionType::Byte
+                | ConversionType::Word
+                | ConversionType::DWord
+                | ConversionType::LWord
+        )
+    {
         return true;
     }
     if matches!(dst, ConversionType::Char | ConversionType::WChar)

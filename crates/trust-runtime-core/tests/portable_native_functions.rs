@@ -1,8 +1,8 @@
 //! Compiler-free scalar native contracts retained through the A4 extraction.
 
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::stdlib::{conversions, time, StandardLibrary};
 use trust_runtime_core::stdlib::conversions::ConversionProfile;
+use trust_runtime_core::stdlib::{conversions, time, StandardLibrary};
 use trust_runtime_core::value::{
     DateTimeValue, Duration, EnumValue, LTimeOfDayValue, TimeOfDayValue, Value,
 };
@@ -278,21 +278,9 @@ fn round_2_codesys_families_produce_the_measured_vendor_values() {
             Value::DWord(u32::MAX),
             Ok(Value::Tod(TimeOfDayValue::new(61_367_295))),
         ),
-        (
-            "TO_BYTE",
-            Value::String("abc".into()),
-            Ok(Value::Byte(0)),
-        ),
-        (
-            "TO_BYTE",
-            Value::String("".into()),
-            Ok(Value::Byte(0)),
-        ),
-        (
-            "TO_BYTE",
-            Value::String("300".into()),
-            Ok(Value::Byte(44)),
-        ),
+        ("TO_BYTE", Value::String("abc".into()), Ok(Value::Byte(0))),
+        ("TO_BYTE", Value::String("".into()), Ok(Value::Byte(0))),
+        ("TO_BYTE", Value::String("300".into()), Ok(Value::Byte(44))),
         (
             "TO_BYTE",
             Value::String("123abc".into()),
@@ -310,16 +298,8 @@ fn round_2_codesys_families_produce_the_measured_vendor_values() {
             Value::String("  -42".into()),
             Ok(Value::DInt(-42)),
         ),
-        (
-            "TO_SINT",
-            Value::String("2#101".into()),
-            Ok(Value::SInt(5)),
-        ),
-        (
-            "TO_WORD",
-            Value::String("8#17".into()),
-            Ok(Value::Word(15)),
-        ),
+        ("TO_SINT", Value::String("2#101".into()), Ok(Value::SInt(5))),
+        ("TO_WORD", Value::String("8#17".into()), Ok(Value::Word(15))),
         (
             "TO_DWORD",
             Value::String("16#FF".into()),
@@ -339,11 +319,7 @@ fn round_2_codesys_families_produce_the_measured_vendor_values() {
     ] {
         let spec = conversions::conversion_spec(name).expect("prepared native conversion");
         assert_eq!(
-            conversions::call_conversion_spec_with(
-                spec,
-                &[input],
-                ConversionProfile::Codesys
-            ),
+            conversions::call_conversion_spec_with(spec, &[input], ConversionProfile::Codesys),
             expected,
             "{name}"
         );
@@ -363,16 +339,15 @@ fn round_2_keeps_the_strict_iec_parse_and_the_in_day_tod_arithmetic() {
     // TOD#18:00:00 minus T#2h as DWORDs reads back as TOD#16:00:00. The
     // idiom does not wrap at midnight (2^32 ms is not a whole day), which
     // the measured out-of-day values in the sibling test pin.
-    let to_dword = conversions::conversion_spec("TOD_TO_DWORD").expect("prepared native conversion");
+    let to_dword =
+        conversions::conversion_spec("TOD_TO_DWORD").expect("prepared native conversion");
     let time_to_dword =
         conversions::conversion_spec("TIME_TO_DWORD").expect("prepared native conversion");
     let dword_to_tod =
         conversions::conversion_spec("DWORD_TO_TOD").expect("prepared native conversion");
-    let day = conversions::call_conversion_spec(
-        to_dword,
-        &[Value::Tod(TimeOfDayValue::new(64_800_000))],
-    )
-    .unwrap();
+    let day =
+        conversions::call_conversion_spec(to_dword, &[Value::Tod(TimeOfDayValue::new(64_800_000))])
+            .unwrap();
     let hours = conversions::call_conversion_spec(
         time_to_dword,
         &[Value::Time(Duration::from_millis(7_200_000))],
@@ -383,10 +358,7 @@ fn round_2_keeps_the_strict_iec_parse_and_the_in_day_tod_arithmetic() {
         _ => unreachable!("both helpers yield DWORD"),
     };
     assert_eq!(
-        conversions::call_conversion_spec(
-            dword_to_tod,
-            &[Value::DWord(difference)],
-        ),
+        conversions::call_conversion_spec(dword_to_tod, &[Value::DWord(difference)],),
         Ok(Value::Tod(TimeOfDayValue::new(57_600_000))),
     );
 }
