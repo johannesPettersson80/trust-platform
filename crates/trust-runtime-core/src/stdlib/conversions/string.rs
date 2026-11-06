@@ -33,7 +33,8 @@ pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Va
                 Some("FALSE".to_string())
             }
         }
-        Value::Time(_) | Value::LTime(_) => Some(crate::value::format_user_value(value)),
+        Value::Time(duration) => Some(vendor_duration_text(duration.as_nanos(), false)),
+        Value::LTime(duration) => Some(vendor_duration_text(duration.as_nanos(), true)),
         Value::Enum(v) => Some(v.variant_name().to_string()),
         _ => None,
     };
@@ -116,6 +117,48 @@ pub(super) fn parse_int_text(text: &str) -> Result<i128, RuntimeError> {
 /// The value of the digits of `text` in `radix`, its separators skipped, as `from_str_radix`
 /// reads the text without them: `None` for no digit, a character that is no digit of `radix`, a
 /// sign, and a value above `i128::MAX`.
+/// A duration of `nanos` as the CODESYS Development System writes it (specification 07 §2.7,
+/// `docs/IEC_DEVIATIONS.md` DEV-036, measured on a WAGO PFC200): `T#` (`LTIME#` for an `LTIME`,
+/// `long`) and each unit that is not zero from days down to milliseconds (nanoseconds), so
+/// `T#1s500ms`, `T#2d` and `LTIME#1h2m3s4ms5us6ns`, and `T#0ms` (`LTIME#0ns`) for no time. A
+/// `TIME`'s part below a millisecond is left out, as the vendor's `TIME` counts milliseconds; a
+/// negative duration, which the vendor's unsigned types cannot hold, has its sign after the `#`.
+fn vendor_duration_text(nanos: i64, long: bool) -> String {
+    const UNITS: [(u64, &str); 7] = [
+        (86_400_000_000_000, "d"),
+        (3_600_000_000_000, "h"),
+        (60_000_000_000, "m"),
+        (1_000_000_000, "s"),
+        (1_000_000, "ms"),
+        (1_000, "us"),
+        (1, "ns"),
+    ];
+    let (mut text, units, zero) = if long {
+        (String::from("LTIME#"), &UNITS[..], "0ns")
+    } else {
+        (String::from("T#"), &UNITS[..5], "0ms")
+    };
+    let smallest = units.last().map_or(1, |(unit, _)| *unit);
+    let magnitude = nanos.unsigned_abs() / smallest * smallest;
+    if magnitude == 0 {
+        text.push_str(zero);
+        return text;
+    }
+    if nanos < 0 {
+        text.push('-');
+    }
+    let mut rest = magnitude;
+    for (unit, suffix) in units {
+        let count = rest / unit;
+        rest %= unit;
+        if count > 0 {
+            text.push_str(&count.to_string());
+            text.push_str(suffix);
+        }
+    }
+    text
+}
+
 fn digits_value(text: &str, radix: u32) -> Option<i128> {
     let mut value: Option<i128> = None;
     for character in text.chars().filter(|character| *character != '_') {

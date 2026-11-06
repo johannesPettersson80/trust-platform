@@ -65,7 +65,8 @@ pub use math::{atan2_32, atan2_64, expt32, expt64, real32, real64, Math};
 pub use number_text::{parse_int, parse_int_codesys, parse_real, write_real, REAL_TEXT};
 pub use select::{at, fabs, limit, max, min, mux_index, subrange};
 pub use text::{
-    assign, assign_bytes, compare, concat, len, write_bool, write_int, write_uint, Piece, MAX_TEXT,
+    assign, assign_bytes, compare, concat, len, write_bool, write_duration, write_int, write_uint,
+    Piece, LTIME_TEXT, MAX_TEXT, TIME_TEXT,
 };
 pub use text_functions::{
     char_at, delete, find, insert, left, len_int, mid, replace, right, set_char, text_to_char,

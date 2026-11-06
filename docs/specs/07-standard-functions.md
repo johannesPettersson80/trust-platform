@@ -243,8 +243,21 @@ representatives:
 Vendor-extension representatives (`IEC_DEVIATIONS.md` 2026-10-28), under a
 CODESYS `vendor_profile` only: `TO_STRING` and the typed `*_TO_STRING`
 spellings accept a `BOOL` (`'TRUE'`/`'FALSE'`), a `TIME`/`LTIME` (the
-`T#`/`LT#` duration text), and an enumerated value (its variant name); the
-IEC dialect rejects them. In every dialect, `TO_STRING` over a `STRING[n]`
+vendor's duration text), and an enumerated value (its variant name); the
+IEC dialect rejects them. The duration text is `T#` and each unit that is
+not zero from days down to milliseconds, `T#0ms` for no time; an `LTIME`
+has the prefix `LTIME#` and units down to nanoseconds, `LTIME#0ns` for none
+(measured on a live e!COCKPIT runtime on a WAGO PFC200, 2026-11-06:
+`TO_STRING(T#1500ms) = 'T#1s500ms'`, `TO_STRING(T#2000ms) = 'T#2s'`,
+`TO_STRING(T#1h2m3s4ms) = 'T#1h2m3s4ms'`, `TO_STRING(T#2d) = 'T#2d'`,
+`TO_STRING(T#49d17h2m47s295ms) = 'T#49d17h2m47s295ms'`,
+`TO_STRING(T#0ms) = 'T#0ms'`, `TIME_TO_STRING(T#1500ms) = 'T#1s500ms'`,
+`TO_STRING(LTIME#1500ms) = 'LTIME#1s500ms'`,
+`TO_STRING(LTIME#1h2m3s4ms5us6ns) = 'LTIME#1h2m3s4ms5us6ns'`,
+`TO_STRING(LTIME#0ns) = 'LTIME#0ns'`). A `TIME`'s part below a millisecond
+is left out, as the vendor's `TIME` counts milliseconds, and a negative
+duration, which the vendor's unsigned types cannot hold, has its sign after
+the `#` as an IEC literal does (`'T#-1s500ms'`). In every dialect, `TO_STRING` over a `STRING[n]`
 value is an identity copy. Time-of-day and date string forms are
 deliberately not provided.
 

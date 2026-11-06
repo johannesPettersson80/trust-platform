@@ -10,11 +10,12 @@
 //! `LWORD_TO_LREAL` convert the number, and a bit string to `BOOL` tests for zero. The same rules
 //! carry the vendor conversions of specification 07 §2.4 and §2.7, which the IEC rules refuse: a
 //! duration to an integer as its milliseconds (an `LTIME` its nanoseconds), a time of day to a
-//! `DWORD` as its milliseconds of the day, and a `BOOL` or an enumerated value to text as `TRUE` or
-//! `FALSE` and as its value's name; and round 2's of §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045): an
-//! integer or a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day as its
-//! milliseconds of the day, and a text to an integer or a bit string by the one vendor parse. Every
-//! other conversion is the same under both rules.
+//! `DWORD` as its milliseconds of the day, a `BOOL` or an enumerated value to text as `TRUE` or
+//! `FALSE` and as its value's name, and a duration to text as the vendor writes it (`T#1s500ms`);
+//! and round 2's of §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045): an integer or a real to a `TIME` as a
+//! count of milliseconds, a `DWORD` to a time of day as its milliseconds of the day, and a text to
+//! an integer or a bit string by the one vendor parse. Every other conversion is the same under
+//! both rules.
 
 use std::collections::BTreeSet;
 
@@ -315,6 +316,19 @@ impl Lowerer<'_, '_> {
             (
                 format!("lib::write_bool(TEXT.view(), u8::from({source}) != 0)"),
                 5,
+            )
+        } else if src.is_duration() {
+            // The vendor's text of a duration under the CODESYS rules, `T#1s500ms` and
+            // `LTIME#0ns` (specification 07 §2.7, DEV-036); the IEC rules accept no such conversion.
+            let long = src == Elem::LTime;
+            let room = if long {
+                trust_plc_lib::LTIME_TEXT
+            } else {
+                trust_plc_lib::TIME_TEXT
+            };
+            (
+                format!("lib::write_duration(TEXT.view(), {source}, {long})"),
+                u32::try_from(room).unwrap_or(u32::MAX),
             )
         } else {
             return Err(self.unsupported(node, format!("{name}: {} as text", src.name())));

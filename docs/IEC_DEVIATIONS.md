@@ -745,7 +745,9 @@ re-check them against this rule when touched.
   (specification 14), truST accepts — matching the CODESYS / TwinCAT vendor
   toolchain — (a) `TO_STRING`/`*_TO_STRING` over an enumerated value
   (yields the variant name), over `BOOL` (`'TRUE'`/`'FALSE'`) and over
-  `TIME`/`LTIME` (`T#`/`LT#` duration text); (b) `TIME_TO_<int>` /
+  `TIME`/`LTIME` (the vendor's duration text, measured on a WAGO PFC200 on
+  2026-11-06: each unit that is not zero, `'T#1s500ms'`, `'T#0ms'`,
+  `'LTIME#1h2m3s4ms5us6ns'`; specification 07 2.7); (b) `TIME_TO_<int>` /
   `LTIME_TO_<int>` (ms / ns magnitude truncated into the destination,
   negative durations overflow); (c) `TOD_TO_DWORD` / `LTOD_TO_DWORD`
   (ms-of-day magnitude). The strict table reading rejects vendor-project
@@ -756,10 +758,10 @@ re-check them against this rule when touched.
   converts as (a) to (c) say: the native generator lowers each entry under the
   CODESYS rules (specification 44 §6.8, since 6 November 2026; before, it
   refused (b), (c) and a `BOOL` as text, and spelled an enumerated value as
-  its number), and the runtime's evaluator (`trust-runtime-core`) gives the
-  same values. `TO_STRING` of a `TIME`/`LTIME` is the exception: its text is
-  to be measured on the vendor runtime first, and the build refuses it until
-  then (specification 44 NX-09).
+  its number, and refused a `TIME`/`LTIME` as text until the vendor's text
+  was measured), and the runtime's evaluator (`trust-runtime-core`) gives the
+  same values; before the measurement it wrote a duration with the largest
+  single unit that divides (`'T#1500ms'`).
 - Mitigation: the IEC dialect keeps the tables' reading and rejects all
   of (a) to (c); `TO_STRING` over a `STRING[n]` value is an identity copy
   in every dialect, since a `STRING[n]` is a `STRING`. The extension set is

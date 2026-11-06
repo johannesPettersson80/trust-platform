@@ -266,6 +266,44 @@ fn the_codesys_rules_read_the_number_at_the_front_of_a_text() {
     assert_eq!(vendor_number(b"12\xFF3"), 12);
 }
 
+/// A duration's text under the CODESYS rules (specification 07 §2.7, `docs/IEC_DEVIATIONS.md`
+/// DEV-036), the eleven values measured on a WAGO PFC200 first: each unit that is not zero from days
+/// down to milliseconds (nanoseconds for an `LTIME`), `T#0ms` and `LTIME#0ns` for no time. A
+/// `TIME`'s part below a millisecond is left out; a negative duration has its sign after the `#`;
+/// the longest texts fit [`TIME_TEXT`] and [`LTIME_TEXT`]. A wrong text writes the largest single
+/// unit that divides (`T#1500ms`), writes a zero unit, or is cut.
+#[test]
+fn durations_are_written_as_the_vendor_writes_them() {
+    for (nanos, long, expected) in [
+        (0, false, "T#0ms"),
+        (5 * MS, false, "T#5ms"),
+        (1500 * MS, false, "T#1s500ms"),
+        (2000 * MS, false, "T#2s"),
+        (3_723_004 * MS, false, "T#1h2m3s4ms"),
+        (2 * 86_400_000 * MS, false, "T#2d"),
+        (4_294_967_295 * MS, false, "T#49d17h2m47s295ms"),
+        (0, true, "LTIME#0ns"),
+        (1500 * MS, true, "LTIME#1s500ms"),
+        (3_723_004_005_006, true, "LTIME#1h2m3s4ms5us6ns"),
+        (1_500_000, false, "T#1ms"),
+        (999_999, false, "T#0ms"),
+        (-1500 * MS, false, "T#-1s500ms"),
+        (-999_999, false, "T#0ms"),
+        (i64::MIN, false, "T#-106751d23h47m16s854ms"),
+        (i64::MIN, true, "LTIME#-106751d23h47m16s854ms775us808ns"),
+    ] {
+        let value = Str::<64>::new();
+        write_duration(value.view(), nanos, long);
+        assert_text(&value, expected);
+    }
+    // The longest texts fill their room exactly, so a smaller room would cut them.
+    for (long, room) in [(false, TIME_TEXT), (true, LTIME_TEXT)] {
+        let value = Str::<64>::new();
+        write_duration(value.view(), i64::MIN, long);
+        assert_eq!(text(&value).1, room);
+    }
+}
+
 fn text<const N: usize>(value: &Str<N>) -> ([u8; 64], usize) {
     let view = value.view();
     let mut bytes = [0u8; 64];

@@ -1022,6 +1022,53 @@ END_TEST_PROGRAM
     let _ = std::fs::remove_dir_all(project);
 }
 
+// docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036, with the eleven values
+// measured on a WAGO PFC200: under the CODESYS rules TO_STRING and TIME_TO_STRING of a duration
+// write each unit that is not zero from days down to milliseconds (nanoseconds for an LTIME), T#0ms
+// and LTIME#0ns for no time. A wrong generator refuses to build them ("not compiled yet",
+// specification 44 NX-09, until this change), or writes the largest single unit that divides,
+// 'T#1500ms', as the evaluator did.
+#[test]
+fn run_test_writes_a_duration_as_the_vendor_does_under_the_codesys_rules() {
+    let project = codesys_project(
+        "codesys-duration-text",
+        r#"
+TEST_PROGRAM DurationsAsText
+VAR
+    Text : STRING;
+END_VAR
+Text := TO_STRING(T#0ms);
+ASSERT_EQUAL(EXPECTED := 'T#0ms', ACTUAL := Text);
+Text := TO_STRING(T#5ms);
+ASSERT_EQUAL(EXPECTED := 'T#5ms', ACTUAL := Text);
+Text := TO_STRING(T#1500ms);
+ASSERT_EQUAL(EXPECTED := 'T#1s500ms', ACTUAL := Text);
+Text := TO_STRING(T#2000ms);
+ASSERT_EQUAL(EXPECTED := 'T#2s', ACTUAL := Text);
+Text := TO_STRING(T#1h2m3s4ms);
+ASSERT_EQUAL(EXPECTED := 'T#1h2m3s4ms', ACTUAL := Text);
+Text := TO_STRING(T#2d);
+ASSERT_EQUAL(EXPECTED := 'T#2d', ACTUAL := Text);
+Text := TO_STRING(T#49d17h2m47s295ms);
+ASSERT_EQUAL(EXPECTED := 'T#49d17h2m47s295ms', ACTUAL := Text);
+Text := TIME_TO_STRING(T#1500ms);
+ASSERT_EQUAL(EXPECTED := 'T#1s500ms', ACTUAL := Text);
+Text := TO_STRING(LTIME#0ns);
+ASSERT_EQUAL(EXPECTED := 'LTIME#0ns', ACTUAL := Text);
+Text := TO_STRING(LTIME#1500ms);
+ASSERT_EQUAL(EXPECTED := 'LTIME#1s500ms', ACTUAL := Text);
+Text := TO_STRING(LTIME#1h2m3s4ms5us6ns);
+ASSERT_EQUAL(EXPECTED := 'LTIME#1h2m3s4ms5us6ns', ACTUAL := Text);
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["total"], 1, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 1, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn filtered_configured_test_registers_all_test_declarations_but_executes_only_selected() {
     let project = unique_temp_dir("configured-filtered-declarations");

@@ -4,6 +4,7 @@
 //! compare by their bytes.
 
 use core::cmp::Ordering;
+use core::num::NonZeroU64;
 
 use trust_plc_abi::module::fault;
 use trust_plc_abi::{Cx, Fault, FaultCode, StrView};
@@ -132,6 +133,82 @@ pub fn write_uint(dst: StrView<'_>, value: u64) {
 pub fn write_bool(dst: StrView<'_>, value: bool) {
     let text: &[u8] = if value { b"TRUE" } else { b"FALSE" };
     write_parts(dst, 0, &[Piece::Bytes(text)]);
+}
+
+/// The room of a `TIME`'s text: `T#-106751d23h47m16s854ms`, the longest a `TIME` of 64-bit
+/// nanoseconds gives.
+pub const TIME_TEXT: usize = 24;
+/// The room of an `LTIME`'s text: `LTIME#-106751d23h47m16s854ms775us808ns`.
+pub const LTIME_TEXT: usize = 38;
+
+/// The units of a duration's text from days down, each its nanoseconds and its one or two letters: a
+/// `TIME`'s text ends with milliseconds, an `LTIME`'s with nanoseconds. The table holds no pointers,
+/// so it stays in a module's read-only data, which has no relocation (specification 44 §5.3), and
+/// its units are not zero by type, so dividing by them cannot panic (§8.6).
+const DURATION_UNITS: [(NonZeroU64, [u8; 2], usize); 7] = [
+    (nanoseconds(86_400_000_000_000), *b"d ", 1),
+    (nanoseconds(3_600_000_000_000), *b"h ", 1),
+    (nanoseconds(60_000_000_000), *b"m ", 1),
+    (nanoseconds(1_000_000_000), *b"s ", 1),
+    (nanoseconds(1_000_000), *b"ms", 2),
+    (nanoseconds(1_000), *b"us", 2),
+    (nanoseconds(1), *b"ns", 2),
+];
+
+/// A unit of `nanos` nanoseconds, which is not zero.
+const fn nanoseconds(nanos: u64) -> NonZeroU64 {
+    match NonZeroU64::new(nanos) {
+        Some(unit) => unit,
+        None => NonZeroU64::MIN,
+    }
+}
+
+/// A duration of `nanos` as text into `dst`, cut at its capacity: `TO_STRING` and `TIME_TO_STRING`
+/// of a `TIME`, and of an `LTIME` (`long`), under the CODESYS conversion rules (specification 07
+/// §2.7, `docs/IEC_DEVIATIONS.md` DEV-036), as measured on a WAGO PFC200: the prefix `T#`
+/// (`LTIME#`), then each unit that is not zero from days down to milliseconds (nanoseconds), so
+/// `T#1s500ms`, `T#2d` and `LTIME#1h2m3s4ms5us6ns`, and `T#0ms` (`LTIME#0ns`) for no time. A
+/// `TIME`'s part below a millisecond is left out, as the vendor's `TIME` counts milliseconds; a
+/// negative duration, which the vendor's unsigned types cannot hold, has its sign after the `#`, as
+/// an IEC literal does.
+pub fn write_duration(dst: StrView<'_>, nanos: i64, long: bool) {
+    let prefix: &[u8] = if long { b"LTIME#" } else { b"T#" };
+    let zero: &[u8] = if long { b"0ns" } else { b"0ms" };
+    let units = DURATION_UNITS
+        .get(..if long { DURATION_UNITS.len() } else { 5 })
+        .unwrap_or(&[]);
+    let smallest = units.last().map_or(NonZeroU64::MIN, |(unit, _, _)| *unit);
+    let magnitude = nanos.unsigned_abs() / smallest * smallest.get();
+    let mut text = [0u8; LTIME_TEXT];
+    let mut at = 0;
+    let mut push = |bytes: &[u8]| {
+        for byte in bytes {
+            if let Some(cell) = text.get_mut(at) {
+                *cell = *byte;
+            }
+            at += 1;
+        }
+    };
+    push(prefix);
+    if magnitude == 0 {
+        push(zero);
+    } else {
+        if nanos < 0 {
+            push(b"-");
+        }
+        let mut rest = magnitude;
+        for &(unit, letters, used_letters) in units {
+            let count = rest / unit;
+            rest %= unit;
+            if count > 0 {
+                let mut digits = [0u8; 20];
+                let used = decimal(&mut digits, count);
+                push(digits.get(digits.len() - used..).unwrap_or(&[]));
+                push(letters.get(..used_letters).unwrap_or(&[]));
+            }
+        }
+    }
+    assign_bytes(dst, text.get(..at).unwrap_or(&[]));
 }
 
 /// Writes the decimal digits of `value` at the end of `digits` and returns how many.
