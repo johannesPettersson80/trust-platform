@@ -31,7 +31,3 @@ pub mod string {
 pub mod validate {
     pub use super::super::validate::*;
 }
-/// Declared native function-block state layouts used by hosted source lowering.
-pub mod state {
-    pub use super::super::fbs::state::*;
-}
