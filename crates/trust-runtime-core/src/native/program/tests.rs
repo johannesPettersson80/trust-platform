@@ -525,10 +525,7 @@ fn a_recursion_takes_the_depth_its_task_stack_holds() {
     let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
     program.cold_start(Duration::ZERO).unwrap();
     let result = program.scan(Duration::from_nanos(10 * MS), &mut NoHooks);
-    assert_eq!(
-        result,
-        Err(crate::error::RuntimeError::call_depth_exceeded())
-    );
+    assert_eq!(result, Err(crate::error::RuntimeError::CallDepthExceeded));
     assert_eq!(program.value("MAIN.COUNT"), Some(Value::USInt(12)));
     let again = program.scan(Duration::from_nanos(20 * MS), &mut NoHooks);
     assert!(again.is_err());

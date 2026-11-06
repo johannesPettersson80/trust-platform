@@ -1030,8 +1030,7 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
         Some(FaultCode::AssertionFailed | FaultCode::AssertionNear) => {
             RuntimeError::AssertionFailed("assertion failed".into())
         }
-        // A recursion beyond the depth is the bytecode engine's call beyond its call levels.
-        Some(FaultCode::CallDepth) => RuntimeError::call_depth_exceeded(),
+        Some(FaultCode::CallDepth) => RuntimeError::CallDepthExceeded,
         Some(
             FaultCode::StackOverflow | FaultCode::MemoryProtection | FaultCode::ModuleInternal,
         )
