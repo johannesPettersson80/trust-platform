@@ -210,27 +210,45 @@ impl Lowerer<'_, '_> {
             }
         } else if src.is_duration() && dst == Elem::DWord {
             self.bind(&format!("lib::time_to_dword(cx, {source})?"))
-        } else if codesys && src.is_duration() && dst.is_integer() {
-            // The CODESYS rules: a `TIME`'s whole milliseconds, an `LTIME`'s nanoseconds, kept to
-            // the destination's low-order bits; a negative duration is an overflow (specification
-            // 07 §2.4, `docs/IEC_DEVIATIONS.md` DEV-036).
-            let per = if src == Elem::LTime { 1 } else { 1_000_000 };
-            let count = self.bind(&format!("lib::duration_count(cx, {source}, {per})?"));
-            format!("({count} as {rust})")
-        } else if codesys && matches!(src, Elem::Tod | Elem::LTod) && dst == Elem::DWord {
-            // The CODESYS rules: the milliseconds of the day (specification 07 §2.4, DEV-036).
-            let function = if src == Elem::Tod {
-                "tod_to_dword"
-            } else {
-                "ltod_to_dword"
-            };
-            self.bind(&format!("lib::{function}(cx, {source})?"))
+        } else if let Some(converted) = self.vendor_count(codesys, src, dst, &source) {
+            converted
         } else if src == Elem::DWord && dst.is_duration() {
             format!("lib::dword_to_time({source})")
         } else {
             return Err(self.unsupported(node, format!("{name}: {} to {}", src.name(), dst.name())));
         };
         Ok(Called::Scalar(converted))
+    }
+
+    /// Under the CODESYS rules (`codesys`), the vendor conversions of specification 07 §2.4 that
+    /// count a time, which the IEC rules refuse (`docs/IEC_DEVIATIONS.md` DEV-036): a duration to
+    /// an integer as a `TIME`'s whole milliseconds or an `LTIME`'s nanoseconds, kept to the
+    /// destination's low-order bits, a negative duration an overflow; a time of day to a `DWORD`
+    /// as its milliseconds of the day. `None` for every other conversion.
+    fn vendor_count(
+        &mut self,
+        codesys: bool,
+        src: Elem,
+        dst: Elem,
+        source: &str,
+    ) -> Option<String> {
+        if !codesys {
+            return None;
+        }
+        if src.is_duration() && dst.is_integer() {
+            let per = if src == Elem::LTime { 1 } else { 1_000_000 };
+            let count = self.bind(&format!("lib::duration_count(cx, {source}, {per})?"));
+            return Some(format!("({count} as {})", dst.rust()));
+        }
+        if matches!(src, Elem::Tod | Elem::LTod) && dst == Elem::DWord {
+            let function = if src == Elem::Tod {
+                "tod_to_dword"
+            } else {
+                "ltod_to_dword"
+            };
+            return Some(self.bind(&format!("lib::{function}(cx, {source})?")));
+        }
+        None
     }
 
     /// The real `source` as the integer or bit string of Rust type `rust` by the CODESYS rules
