@@ -42,9 +42,11 @@ class CiTestJobTests(unittest.TestCase):
             "single_test_feedback_is_under_two_seconds_for_small_project",
             "run_all_tests_scales_roughly_linearly_for_small_projects",
             "binary(web_ide_performance_gate)",
+            # The scan supervisor's watchdog tests time real cycles (G56).
+            "binary(concurrency_supervisor)",
         ):
             self.assertIn(measuring, config)
-        self.assertEqual(config.count('threads-required = "num-test-threads"'), 2)
+        self.assertEqual(config.count('threads-required = "num-test-threads"'), 3)
 
     def test_the_mesh_tls_gate_is_the_last_cargo_step(self) -> None:
         # Catches the gate's own variant of trust-runtime built before the full suite, which then

@@ -231,7 +231,11 @@ fn without_a_call_the_screens_get_nothing_and_commands_wait() {
 }
 
 /// A one-off read (a faceplate's instance type, a command's readback, Live mode) waits for the
-/// next call instead of asking the PLC thread between scans.
+/// next call instead of asking the PLC thread between scans: it is answered at a call of the
+/// slow task, every tenth cycle, with the counter as that call read it. The plant steps until the
+/// read is answered, so the reader thread's start delay changes only which call answers it: on 6
+/// November 2026 a Windows runner started it after the ten steps the test then made, and the read
+/// waited out its timeout (G57).
 #[test]
 fn a_one_off_read_waits_for_the_next_call() {
     let mut plant = Plant::new(PLANT);
@@ -239,18 +243,29 @@ fn a_one_off_read_waits_for_the_next_call() {
     let reader = std::thread::spawn(move || {
         exchange.read_next(&[path("Main.Counter")], std::time::Duration::from_secs(5))
     });
-    for _ in 0..10 {
-        std::thread::sleep(std::time::Duration::from_millis(5));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !reader.is_finished() {
+        assert!(std::time::Instant::now() < deadline, "the reader returns");
         plant.step();
+        std::thread::sleep(std::time::Duration::from_millis(1));
     }
     let read = reader
         .join()
         .expect("the reader")
-        .expect("answered by the call");
+        .expect("answered by a call");
+    // The runtime numbers its cycles from 0, so the slow task calls in the cycles numbered 9, 19,
+    // ..., and by then the counter has counted every cycle including the call's.
+    let cycles = read.cycle + 1;
+    assert!(
+        cycles % 10 == 0,
+        "answered at a call of the slow task, cycle {}",
+        read.cycle
+    );
     let value = read.values.into_iter().next().flatten().expect("a value");
     assert_eq!(
         serde_json::to_value(value).expect("wire")["value"],
-        json!(10)
+        json!(cycles),
+        "the counter as the call read it"
     );
 }
 

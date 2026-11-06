@@ -28,6 +28,9 @@ use concurrency_support::{stop_and_join, wait_until, WAIT};
 
 /// Cycles that must complete before a short-cycle run counts as meaningful.
 const CYCLES: usize = 40;
+/// The cycles of 5 ms that must together outlast the 500 ms timeout of
+/// `many_short_cycles_inside_their_timeout_are_never_declared_hung`.
+const SHORT_CYCLES: usize = 200;
 
 /// A program whose process image holds one input byte, which no statement reads.
 const ONE_INPUT_SOURCE: &str = r#"
@@ -154,19 +157,20 @@ fn many_short_cycles_inside_their_timeout_are_never_declared_hung() {
         }),
     );
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
-    // Each cycle needs 5 ms, far inside the 100 ms timeout even when a CI host oversleeps or
-    // preempts the scan thread; a cycle that really overruns is a true hang, so the margin must
-    // cover OS jitter. The 40 cycles together take at least 200 ms, so a supervisor that carried
-    // elapsed time across cycles instead of restarting it would still declare a hang here.
+    // Each cycle needs 5 ms, a hundredth of the 500 ms timeout: a cycle that really overruns is a
+    // true hang, so the margin must cover what a loaded CI host does to the scan thread, which on
+    // 6 November 2026 held one past 100 ms on macOS (G56). The 200 cycles together take at least
+    // a second, so a supervisor that carried elapsed time across cycles instead of restarting it
+    // would still declare a hang here.
     runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
-        timeout: Duration::from_millis(100),
+        timeout: Duration::from_millis(500),
         action: WatchdogAction::Halt,
     });
     let handle = runner.spawn("short-cycles").expect("spawn resource");
     let control = handle.control();
 
-    wait_until("forty cycles inside their timeout", || {
+    wait_until("two hundred cycles inside their timeout", || {
         assert!(
             !control.is_hung(),
             "a cycle that finishes inside its timeout is never declared hung"
@@ -179,7 +183,7 @@ fn many_short_cycles_inside_their_timeout_are_never_declared_hung() {
             "no fault is declared for a cycle inside its timeout, found {:?}",
             control.state()
         );
-        reads.load(Ordering::SeqCst) >= CYCLES
+        reads.load(Ordering::SeqCst) >= SHORT_CYCLES
     });
     assert_eq!(control.last_error(), None, "no error is recorded");
     stop_and_join(handle);
