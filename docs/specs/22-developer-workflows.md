@@ -436,7 +436,10 @@ all programs in parallel. A test that asserts how long something takes runs alon
 profile names it and gives it every test thread, so that no other test runs beside it.
 Under `cargo test`, which runs one program at a time, the test holds its program's
 measurement lock alone while the program's other tests share it, or it runs in a test
-program of its own. The suite has two hours on macOS and Windows and one hour on Linux,
+program of its own. The build of every target before it has 30 minutes on Linux, 45 on macOS
+and an hour on Windows, and Linux builds with two jobs, which its 16 GB runner holds (one job
+took 22 minutes and ran out of the 30 in a third of the runs of 6 November 2026, two jobs 14).
+The suite has two hours on macOS and Windows and one hour on Linux,
 which `CI_FULL_TEST_TIMEOUT_SECONDS` may change: their runners are slower, and a macOS
 runner took longer than an hour (28 October 2026). An attempt that exceeds its limit
 fails.
