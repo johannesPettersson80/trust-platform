@@ -88,7 +88,9 @@ creates none.
 
 ### Release rehearsal on pull requests
 
-A pull request whose head changes the workspace version, or changes the
+A pull request whose head changes the workspace version from the version
+where it branched from its base (so a branch from before a version bump on
+`main` changes nothing), or changes the
 Release workflow, its `release-files` action or a script either runs (listed in
 `.github/paths/release.txt`), runs the Release workflow as a rehearsal on its
 head: the preflight, every build, every test and
@@ -121,7 +123,12 @@ the packaged extension"); it skips the runtime validation, which CI's tests
 hold. Any other pull request skips the jobs after the workflow's plan. The plan
 names the platforms that the toolchain-bundle and build jobs build: the five of
 the platform support matrix for a rehearsal or a release, linux-x64 for a
-package. A rehearsal and a release that builds its packages run the
+package. Each build starts beside the toolchain-bundle jobs and takes its own
+platform's bundle when it packages the extension, once that platform's bundle
+job has uploaded it (`scripts/wait_for_run_artifact.py`); a bundle job that ends
+without it fails that build at once. The slowest bundle therefore delays only
+its own platform's package: on 6 November 2026 every build waited 49 minutes for
+the Intel-Mac bundle. A rehearsal and a release that builds its packages run the
 acceptance journeys on their linux-x64 package too, and the rehearsal's files
 and the release's publishing wait for them. A version change merges only with a passed rehearsal on its
 exact head that kept that artifact. A pull request from a fork is not rehearsed on the project's

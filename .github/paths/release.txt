@@ -22,3 +22,4 @@ scripts/render_conformance_summary.py
 scripts/runtime_vm_bench_gate.sh
 scripts/runtime_vm_determinism_reliability_gate.sh
 scripts/validate_conformance_summary_schema.py
+scripts/wait_for_run_artifact.py
