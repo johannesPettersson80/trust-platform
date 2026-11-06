@@ -28,3 +28,23 @@ threads-required = "num-test-threads"
 [[profile.ci.overrides]]
 filter = 'binary(concurrency_supervisor)'
 threads-required = "num-test-threads"
+
+# The debugger's pause tests run 1 ms cycles against a 20 ms watchdog and expect no fault. Beside other
+# tests a loaded Windows runner held the scan thread past the watchdog once (6 November 2026, G58).
+# Under `cargo test` each was a program of its own and ran alone.
+[[profile.ci.overrides]]
+filter = 'binary(debug_pause_watchdog) | binary(debug_pause_watchdog_trace_cases)'
+threads-required = "num-test-threads"
+
+# On Windows, native-tls 0.2.18 keeps the key of an identity it builds from a PKCS#8 PEM pair in a key
+# container of the user, which it names by a count kept in its own process (`native-tls-0` first) and
+# creates when it is missing. Every test runs in its own process, so two tests that build an identity at
+# the same time use the same container: one of them fails, or one key replaces the other (6 November
+# 2026, G59). The MQTT tests build these identities, so on Windows they run one at a time.
+[[profile.ci.overrides]]
+platform = 'cfg(windows)'
+filter = 'package(trust-runtime) & (test(/mqtt/) | binary(device_in_the_loop))'
+test-group = 'native-tls-identity'
+
+[test-groups]
+native-tls-identity = { max-threads = 1 }

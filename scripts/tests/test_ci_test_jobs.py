@@ -3,6 +3,7 @@ contract"). Like the release workflow's tests, these read the workflow's text.""
 
 from __future__ import annotations
 
+import tomllib
 import unittest
 
 from scripts.tests.test_release_workflow import CI, ROOT, jobs, step_texts, steps
@@ -44,9 +45,11 @@ class CiTestJobTests(unittest.TestCase):
             "binary(web_ide_performance_gate)",
             # The scan supervisor's watchdog tests time real cycles (G56).
             "binary(concurrency_supervisor)",
+            # So do the debugger's pause tests, against a 20 ms watchdog (G58).
+            "binary(debug_pause_watchdog) | binary(debug_pause_watchdog_trace_cases)",
         ):
             self.assertIn(measuring, config)
-        self.assertEqual(config.count('threads-required = "num-test-threads"'), 3)
+        self.assertEqual(config.count('threads-required = "num-test-threads"'), 4)
 
     def test_the_mesh_tls_gate_is_the_last_cargo_step(self) -> None:
         # Catches the gate's own variant of trust-runtime built before the full suite, which then
@@ -57,6 +60,26 @@ class CiTestJobTests(unittest.TestCase):
         self.assertGreater(mesh, names.index("Doc tests with checked compile-fail codes"))
         for name in names[mesh + 1 :]:
             self.assertNotRegex(steps(self.job)[name], r"\bcargo\b", name)
+
+
+class NativeTlsIdentityTests(unittest.TestCase):
+    def test_on_windows_the_tests_that_build_a_native_tls_identity_run_one_at_a_time(self) -> None:
+        # Catches the MQTT tests back in parallel on Windows: native-tls names the key container of each
+        # identity by a count kept in its own process, so two test processes used `native-tls-0` at the
+        # same time and tls_transport_test_builds_the_native_tls_client failed (#286's run, G59).
+        config = tomllib.loads((ROOT / ".config" / "nextest.toml").read_text(encoding="utf-8"))
+        self.assertEqual(config.get("test-groups", {}).get("native-tls-identity"), {"max-threads": 1})
+        grouped = [
+            override
+            for override in config["profile"]["ci"]["overrides"]
+            if override.get("test-group") == "native-tls-identity"
+        ]
+        self.assertEqual(len(grouped), 1)
+        self.assertEqual(grouped[0]["platform"], "cfg(windows)")
+        self.assertEqual(
+            grouped[0]["filter"],
+            "package(trust-runtime) & (test(/mqtt/) | binary(device_in_the_loop))",
+        )
 
 
 if __name__ == "__main__":
