@@ -224,10 +224,13 @@ pull request. The release guard's `prepare`, `preflight` and `check-merge` were 
     them;
   - compare paths through the normalization helpers;
   - make temporary directories collision-proof, not timestamp-based.
-- **Tests that measure time**: every system runs a test program's tests in parallel, so a test that
-  asserts how long something takes holds its program's measurement lock alone while the program's
+- **Tests that measure time**: CI runs the suite under cargo-nextest, every test in its own process
+  and all programs in parallel. A test that asserts how long something takes is named in
+  `.config/nextest.toml`'s `ci` profile with `threads-required = "num-test-threads"`, which runs it
+  alone. For `cargo test` it also holds its program's measurement lock alone while the program's
   other tests share it (`ci_cicd_contract`), or runs in a program of its own
-  (`web_ide_performance_gate`). Never make a system's whole suite serial for one test.
+  (`web_ide_performance_gate`). Never make a system's whole suite serial for one test. Reproduce a
+  CI test failure with `cargo nextest run --profile ci -E 'test(=<name>)'`.
 - **Child processes**: decode their output with an explicit encoding and a non-throwing error policy.
   Keep draining pipes even when a reader fails.
 - **Raw HTTP/TCP test servers**: read the whole request before replying or closing. Otherwise Windows

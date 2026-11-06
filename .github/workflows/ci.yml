@@ -350,6 +350,11 @@ jobs:
           else
             echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
           fi
+      - name: Install cargo-nextest
+        # The full suite's runner (specification 22). The Rust cache keeps the binary, so it compiles only when
+        # the cache is cold.
+        shell: bash
+        run: cargo install cargo-nextest --version 0.9.140 --locked
       - name: Run full test suite
         shell: bash
         run: |
@@ -363,15 +368,16 @@ jobs:
           : > "${LOG_PATH}"
           for attempt in 1 2; do
             echo "=== full test suite attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
-            # Every system runs each test program's tests in parallel; the Windows and macOS runners
-            # are slower, and a macOS runner took longer than an hour (28 October 2026).
+            # cargo-nextest runs every test in its own process and the tests of all programs in parallel;
+            # `.config/nextest.toml`'s ci profile runs a test that measures time alone. The Windows and
+            # macOS runners are slower, and a macOS runner took longer than an hour (28 October 2026).
             # Specification 22 records the limits.
             budget=7200
             if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-              command=(cargo test --all-targets --no-fail-fast --jobs 1)
+              command=(cargo nextest run --all-targets --no-fail-fast --profile ci --build-jobs 1)
               budget=3600
             else
-              command=(cargo test --all-targets --no-fail-fast)
+              command=(cargo nextest run --all-targets --no-fail-fast --profile ci)
             fi
             if "${PYTHON_BIN}" scripts/run_with_progress.py \
               --phase ci-full-test \

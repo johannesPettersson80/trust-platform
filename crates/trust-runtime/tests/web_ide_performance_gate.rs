@@ -7,7 +7,8 @@
 
 include!("web_ide_integration/helpers.rs");
 
-/// Held by each gate while it measures, so that the gates take turns and neither measures the other.
+/// Held by each gate while it measures, so that under `cargo test` the gates take turns and neither
+/// measures the other; CI's cargo-nextest profile runs each gate alone (`.config/nextest.toml`).
 static MEASURING: Mutex<()> = Mutex::new(());
 
 #[path = "web_ide_integration/web_ide_integration_part_03.rs"]

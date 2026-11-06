@@ -11,9 +11,11 @@ include!("../../../tests/support/repository_source_oracle.rs");
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 /// Held alone by each test that asserts how long a command takes, and shared by every other test of
-/// this program, so that no test runs beside a measurement on any system (specification 22, "CI
-/// reliability and release-gate artifact contract"). Without it the two-second feedback budget would
-/// also measure the tests beside it; Windows ran its whole suite one test at a time for that reason.
+/// this program, so that under `cargo test` no test of this program runs beside a measurement
+/// (specification 22, "CI reliability and release-gate artifact contract"). CI's cargo-nextest runs
+/// each test in its own process, and its `ci` profile runs these three alone
+/// (`.config/nextest.toml`). Without either, the two-second feedback budget would also measure the
+/// tests beside it.
 static MEASURING: RwLock<()> = RwLock::new(());
 
 fn measuring_alone() -> RwLockWriteGuard<'static, ()> {
