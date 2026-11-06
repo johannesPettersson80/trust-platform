@@ -94,6 +94,18 @@ disabled, except that an empty ALPN list has no effect. The broker host name is
 used for TLS server-name verification. Successful TLS object construction does
 not by itself prove a broker handshake.
 
+A computer's TLS client is rustls, the same on Windows, macOS and Linux (owner,
+6 November 2026). It trusts every certificate in the PEM file `tls_ca_path` and
+no other: the system's trusted certificates play no part. It speaks TLS 1.2 and
+1.3. For mutual TLS, `tls_client_cert_path` holds the client's certificate in
+PEM, then any intermediate certificates, and `tls_client_key_path` holds its
+private key in PEM, as PKCS#8, PKCS#1 (RSA) or SEC1 (EC). The client is built,
+and its files are read, when the driver is validated and when it starts: a file
+without a certificate where one is named, a key file without a key, and a key
+that does not belong to the certificate refuse the configuration. The key stays
+in the runtime's memory and is never written to a key store of the system, so
+two runtimes of one user never share a key.
+
 Username and password are an all-or-nothing pair. Secrets must not appear in
 connector reports, audit details, discovery results, or diagnostics.
 

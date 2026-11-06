@@ -167,10 +167,18 @@ tls_client_key_path = "/etc/trust/private/runtime-client-key.pem"
 tls_alpn = ["mqtt"]
 ```
 
-MQTT TLS uses the broker host name as the TLS server name/SNI value. Use a DNS
-name in `broker`; do not rely on a raw IP address matching a self-signed
-certificate. `tls_client_cert_path` and `tls_client_key_path` must be provided
-together when mutual TLS is required.
+MQTT TLS uses the broker host name as the TLS server name/SNI value, so the
+broker's certificate must name that host: a DNS name, or an IP address among its
+IP addresses. The runtime trusts only the certificates in `tls_ca_path`, every
+one the file holds, not the computer's trusted certificates, and it speaks TLS
+1.2 and 1.3, the same on Windows, macOS and Linux.
+
+`tls_client_cert_path` and `tls_client_key_path` must be provided together when
+mutual TLS is required. The certificate file holds the client's certificate in
+PEM, then any intermediate certificates; the key file holds its private key in
+PEM, as PKCS#8, PKCS#1 (RSA) or SEC1 (EC). The runtime refuses the configuration
+when the key does not belong to the certificate, and keeps the key in its own
+memory.
 
 ### `ethercat`
 

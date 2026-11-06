@@ -1,8 +1,12 @@
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
+
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::{ServerConfig, ServerConnection};
 
 use super::super::probe::{CONFIRMED, LIKELY, PORT_REACHABLE};
 use super::super::scope::resolve_authority_all;
@@ -481,27 +485,41 @@ fn mqtt_probes_every_resolved_address() {
 
 #[test]
 fn mqtts_tls_handshake_result() {
-    let cert = std::fs::read(concat!(
+    let chain = CertificateDer::pem_file_iter(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/tls/server-cert.pem"
     ))
-    .expect("read TLS test certificate");
-    let key = std::fs::read(concat!(
+    .expect("read TLS test certificate")
+    .collect::<Result<Vec<_>, _>>()
+    .expect("parse TLS test certificate");
+    let key = PrivateKeyDer::from_pem_file(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/tls/server-key.pem"
     ))
     .expect("read TLS test key");
-    let identity = native_tls::Identity::from_pkcs8(&cert, &key).expect("build TLS identity");
-    let acceptor = native_tls::TlsAcceptor::new(identity).expect("build TLS acceptor");
+    let config = Arc::new(
+        ServerConfig::builder_with_provider(
+            Arc::new(rustls::crypto::aws_lc_rs::default_provider()),
+        )
+        .with_safe_default_protocol_versions()
+        .expect("TLS versions")
+        .with_no_client_auth()
+        .with_single_cert(chain, key)
+        .expect("build TLS server"),
+    );
 
     // A completed TLS handshake on 8883 proves reachability, never an MQTT broker.
     let listener = TcpListener::bind("127.0.0.1:8883").expect("bind MQTTS test port");
     let address = listener.local_addr().expect("MQTTS address");
     let (tx, rx) = mpsc::channel();
     let server = thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("accept MQTTS client");
-        tx.send(acceptor.accept(stream).is_ok())
-            .expect("send TLS outcome");
+        let (mut stream, _) = listener.accept().expect("accept MQTTS client");
+        let mut session = ServerConnection::new(config).expect("TLS session");
+        let mut handshake = Ok(());
+        while handshake.is_ok() && session.is_handshaking() {
+            handshake = session.complete_io(&mut stream).map(drop);
+        }
+        tx.send(handshake.is_ok()).expect("send TLS outcome");
     });
     let outcome = probe_mqtt(address, Duration::from_millis(1_000)).expect("MQTTS outcome");
     assert_eq!(outcome.confidence, PORT_REACHABLE);

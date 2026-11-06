@@ -143,7 +143,9 @@ pub fn rustls_client_config(
     Ok(Arc::new(config))
 }
 
-fn ensure_rustls_crypto_provider() -> Result<(), RuntimeError> {
+/// Installs aws-lc-rs as the process's rustls crypto provider, unless one is installed: the
+/// runtime's TLS servers and clients build their configurations with it.
+pub(crate) fn ensure_rustls_crypto_provider() -> Result<(), RuntimeError> {
     static INSTALL_RESULT: OnceLock<Result<(), String>> = OnceLock::new();
     let result = INSTALL_RESULT.get_or_init(|| {
         if rustls::crypto::CryptoProvider::get_default().is_some() {

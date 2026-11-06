@@ -1,5 +1,5 @@
 //! The worker thread of a computer's `mqtt` driver: the transport that carries the shared
-//! exchange's bytes over a `std::net::TcpStream`, with TLS through `native-tls` when the
+//! exchange's bytes over a `std::net::TcpStream`, with the driver's TLS client (`tls`) when the
 //! parameters ask for it, so that connecting, sending and receiving happen on the worker and never
 //! on the scan (specification 32 §8; specification 11 §6.5). The worker asks the exchange for its
 //! next step with `poll`, opens and closes the connection as the exchange says, sends the
@@ -20,9 +20,9 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::{MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use native_tls::{HandshakeError, TlsConnector, TlsStream};
 use trust_runtime_services::io_drivers::mqtt::{BrokerEndpoint, MqttPoll, CONNECT_TIMEOUT_MS};
 
+use super::tls::{TlsClient, TlsConnection};
 use super::{Shared, State};
 
 /// The longest the worker waits between two looks at an open connection: a message from the
@@ -63,7 +63,7 @@ enum Connection {
     /// A plain TCP connection.
     Plain(TcpStream),
     /// A TLS connection over TCP.
-    Tls(Box<TlsStream<TcpStream>>),
+    Tls(Box<TlsConnection>),
 }
 
 impl Connection {
@@ -71,7 +71,7 @@ impl Connection {
     fn socket(&self) -> &TcpStream {
         match self {
             Self::Plain(stream) => stream,
-            Self::Tls(stream) => stream.get_ref(),
+            Self::Tls(stream) => stream.socket(),
         }
     }
 
@@ -79,7 +79,7 @@ impl Connection {
     /// from the closed connection either way.
     fn close(self) {
         if let Self::Tls(mut stream) = self {
-            let _ = stream.shutdown();
+            stream.close();
         }
     }
 }
@@ -112,7 +112,7 @@ impl Write for Connection {
 /// Carries the exchange of `shared` with the TLS client `tls` until the driver is dropped and the
 /// session is over: one step of the exchange at a time, on the connection that the exchange asked
 /// for, if it is open.
-pub(super) fn run(shared: &Shared, tls: Option<&TlsConnector>) {
+pub(super) fn run(shared: &Shared, tls: Option<&TlsClient>) {
     let mut connection: Option<Connection> = None;
     let mut stopping = false;
     let mut buffer = vec![0_u8; READ_BYTES];
@@ -235,12 +235,9 @@ fn carry(shared: &Shared, connection: &mut Connection, outgoing: &[u8], buffer: 
 }
 
 /// Writes `outgoing` to `connection` until it takes no more without waiting; the bytes it took,
-/// and the failure of the connection, if it failed.
-///
-/// A TLS write that cannot go on keeps the record it encrypted and completes it with the next
-/// write of the same bytes, which the exchange gives again, since bytes not reported sent stay at
-/// the front of its outgoing bytes. So the worker never flushes a TLS connection between two
-/// writes: a flush that sent such a record would make the next write encrypt its bytes twice.
+/// and the failure of the connection, if it failed. A TLS connection takes bytes into its records
+/// once the socket took the records before them, and sends what the socket did not take yet with
+/// its next read or write, so the bytes it took reach the broker without another write.
 fn send(connection: &mut Connection, outgoing: &[u8]) -> (usize, Option<String>) {
     let mut sent = 0;
     while let Some(rest) = outgoing.get(sent..).filter(|rest| !rest.is_empty()) {
@@ -277,11 +274,11 @@ fn waits(error: &io::Error) -> bool {
     matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)
 }
 
-/// A connection to `broker`, with TLS through `tls` when it is given, made non-blocking; or why
+/// A connection to `broker`, with the TLS client `tls` when it is given, made non-blocking; or why
 /// there is none. The host is resolved, each of its addresses is tried in turn, and the TLS
 /// handshake verifies the broker's host, all within the exchange's connect timeout
 /// [`CONNECT_TIMEOUT_MS`].
-fn open(broker: &BrokerEndpoint, tls: Option<&TlsConnector>) -> Result<Connection, String> {
+fn open(broker: &BrokerEndpoint, tls: Option<&TlsClient>) -> Result<Connection, String> {
     let deadline = Instant::now() + Duration::from_millis(CONNECT_TIMEOUT_MS);
     let stream = connect(broker, deadline)?;
     stream
@@ -289,12 +286,9 @@ fn open(broker: &BrokerEndpoint, tls: Option<&TlsConnector>) -> Result<Connectio
         .map_err(|error| error.to_string())?;
     let connection = match tls {
         None => Connection::Plain(stream),
-        Some(connector) => Connection::Tls(Box::new(handshake(
-            connector,
-            &broker.host,
-            stream,
-            deadline,
-        )?)),
+        Some(client) => {
+            Connection::Tls(Box::new(handshake(client, &broker.host, stream, deadline)?))
+        }
     };
     connection
         .socket()
@@ -321,32 +315,27 @@ fn connect(broker: &BrokerEndpoint, deadline: Instant) -> Result<TcpStream, Stri
     Err(failure)
 }
 
-/// The TLS handshake over `stream` with `connector`, which verifies the broker's certificate for
+/// The TLS handshake over `stream` with `client`, which verifies the broker's certificate for
 /// `host`, done before `deadline`.
 fn handshake(
-    connector: &TlsConnector,
+    client: &TlsClient,
     host: &str,
     stream: TcpStream,
     deadline: Instant,
-) -> Result<TlsStream<TcpStream>, String> {
+) -> Result<TlsConnection, String> {
     let timed_out = || format!("TLS handshake took more than {CONNECT_TIMEOUT_MS} ms");
-    let left = time_left(deadline).ok_or_else(timed_out)?;
-    limit(&stream, left)?;
-    let mut attempt = connector.connect(host, stream);
-    loop {
-        match attempt {
-            Ok(tls) => return Ok(tls),
-            Err(HandshakeError::Failure(error)) => {
-                return Err(format!("TLS handshake failed: {error}"));
-            }
+    let mut connection = client.connection(host, stream)?;
+    while connection.handshaking() {
+        let left = time_left(deadline).ok_or_else(timed_out)?;
+        limit(connection.socket(), left)?;
+        match connection.handshake() {
+            Ok(()) => {}
             // A read or a write of the handshake reached its time limit.
-            Err(HandshakeError::WouldBlock(pending)) => {
-                let left = time_left(deadline).ok_or_else(timed_out)?;
-                limit(pending.get_ref(), left)?;
-                attempt = pending.handshake();
-            }
+            Err(error) if waits(&error) || error.kind() == ErrorKind::Interrupted => {}
+            Err(error) => return Err(format!("TLS handshake failed: {error}")),
         }
     }
+    Ok(connection)
 }
 
 /// Limits each blocking read and write of `stream` to `left`.
