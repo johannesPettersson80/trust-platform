@@ -307,7 +307,16 @@ jobs:
           build_command=(cargo build --all-targets)
           build_budget=1800
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            build_command+=(--jobs 1)
+            # Two jobs: on the 16 GB runner the build of every target took 1,339 s with one job,
+            # 862 s with two and 868 s with four, its largest process 4.5 GB and no rust-lld bus
+            # error (probe run 42251508042, 6 November 2026). One job had held it since 8 July,
+            # for bus errors that came with a full disk before the disk is freed above; with one
+            # job a third of main's builds ran out of the 30 minutes (checklist W42).
+            build_command+=(--jobs 2)
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            # A macOS build of every target took longer than 30 minutes on main (run
+            # 42202513941, 6 November 2026).
+            build_budget=2700
           elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             # A cold Windows build of every target takes longer than 30 minutes.
             build_budget=3600
@@ -376,7 +385,7 @@ jobs:
             # Specification 22 records the limits.
             budget=7200
             if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-              command=(cargo nextest run --all-targets --no-fail-fast --profile ci --build-jobs 1)
+              command=(cargo nextest run --all-targets --no-fail-fast --profile ci --build-jobs 2)
               budget=3600
             else
               command=(cargo nextest run --all-targets --no-fail-fast --profile ci)

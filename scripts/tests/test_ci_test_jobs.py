@@ -48,6 +48,16 @@ class CiTestJobTests(unittest.TestCase):
             self.assertIn(measuring, config)
         self.assertEqual(config.count('threads-required = "num-test-threads"'), 3)
 
+    def test_the_build_fits_its_budget_on_every_system(self) -> None:
+        # Catches the Ubuntu build back on one job: it took 1,339 s against 862 s with two jobs (probe run
+        # 42251508042) and ran out of its 1,800 s in a third of main's runs of 6 November 2026; and a macOS
+        # budget of 30 minutes, which a macOS build exceeded on main the same day (run 42202513941).
+        build = steps(self.job)["Run cargo build --all-targets (retry once on transient failure)"]
+        self.assertIn("build_command+=(--jobs 2)", build)
+        self.assertNotIn("--jobs 1", build)
+        self.assertRegex(build, r'"macos-latest" \]\]; then\n(?:\s*#[^\n]*\n)*\s*build_budget=2700')
+        self.assertIn("--build-jobs 2", steps(self.job)["Run full test suite"])
+
     def test_the_mesh_tls_gate_is_the_last_cargo_step(self) -> None:
         # Catches the gate's own variant of trust-runtime built before the full suite, which then
         # compiled seven crates again: 14.5 minutes on Linux and 21 on macOS (main, 4 November 2026).
