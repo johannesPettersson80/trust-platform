@@ -1073,3 +1073,54 @@ re-check them against this rule when touched.
     unchanged and both associations are pinned by native tests.
   - The analyzer and the compiled-program generator bind with the same rule,
     so the compiled program stores what the analyzer accepted.
+
+## 2026-11-06 - CODESYS conversion profile: integer/real to TIME, DWORD to TOD, one string parse rule
+
+- ID: DEV-045
+- Area: typed `*_TO_*`/`TO_*` standard conversion functions (round 2 of
+  DEV-036)
+- Normative IEC requirement: IEC 61131-3 Ed.3 Tables 22-27 enumerate the
+  typed conversions; none of `ANY_INT` to `TIME`, `REAL`/`LREAL` to `TIME`,
+  `DWORD` to `TOD` or `STRING` to a bit string appears in them (Table 26
+  lists the time-type pairs, Table 27 the character-string pairs), and the
+  string conversions of section 6.6.2.5.2 use the external representation,
+  whose error handling stays implementer-specific. The standard text was
+  unavailable on the authoring machine; the clause numbers mirror the
+  citations already used in `docs/specs/07-standard-functions.md`.
+- truST behavior and conflict: under a CODESYS `vendor_profile`
+  (specification 14), truST accepts — matching the CODESYS toolchain —
+  (a) `<ANY_INT>_TO_TIME`, the integer read as a millisecond count through
+  its low-order 32 bits (the vendor TIME is a 32-bit unsigned count);
+  (b) `REAL_TO_TIME`/`LREAL_TO_TIME`, the value read as milliseconds
+  truncated toward zero, a negative value saturating to `T#0ms`;
+  (c) `DWORD_TO_TOD`, the ms-of-day magnitude modulo 24 h; (d) string to an
+  integer or a bit string, typed and overloaded, all with one parse rule:
+  leading spaces, an optional sign, a decimal or `2#`/`8#`/`16#` literal,
+  trailing characters ignored, no number yielding `0`, an out-of-range
+  value keeping the low-order bits of the destination. Each of (a) to (d)
+  conflicts with the tables' enumeration of the typed conversions; outside
+  the profile the IEC dialect keeps rejecting them, and the strict
+  representative parse of `STRING_TO_<int>` (specification 07 2.7) keeps
+  faulting. The values are measured vendor results from a live e!COCKPIT
+  runtime on a WAGO PFC200 (2026-11-06), recorded in specification 07 2.10:
+  `REAL_TO_TIME(2.5) = T#2ms` (truncated, not the DEV-024 rounding of
+  `REAL`/`LREAL` to an integer), `REAL_TO_TIME(-1.0) = T#0ms`,
+  `LREAL_TO_TIME(2.5) = T#2ms`, `DINT_TO_TIME(DINT#-1) =
+  T#49d17h2m47s295ms` and `INT_TO_TIME(INT#-1) = T#49d17h2m47s295ms` (the
+  low-order 32 bits), `TO_BYTE('abc') = 0`, `TO_BYTE('') = 0`,
+  `TO_BYTE('300') = 44`, `TO_BYTE('123abc') = 123`, `TO_BYTE('1_0') = 10`,
+  `DWORD_TO_TOD(DWORD#86400000) = TOD#0:0:0`,
+  `DWORD_TO_TOD(DWORD#16#FFFFFFFF) = TOD#17:02:47.295`.
+- Impact: vendor-project call sites of these families compile clean in the
+  vendor toolchain and now pass the compile gate; the runtime conversion
+  dispatch implements the same entries, so executed conversions produce the
+  measured values. Under the profile the strict and vendor parse rules
+  collapse into one: `TO_BYTE('123abc')` and `STRING_TO_DINT('123abc')` are
+  both `123`.
+- Mitigation: the IEC dialect keeps the tables' reading and rejects every
+  new pair, keeps the strict representative parse, and string to a bit
+  string stays rejected; the extension set is deliberately bounded —
+  `LTIME`/`LTOD` inverses and `WSTRING` stay out until a project needs
+  them, and out-of-family pairs (`REAL_TO_LWORD` per DEV-025, an integer
+  `TO_BYTE`) keep their existing rules. A non-finite `REAL`/`LREAL` source
+  still returns `RuntimeError::Overflow`.

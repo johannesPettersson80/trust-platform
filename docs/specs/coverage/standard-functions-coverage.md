@@ -162,6 +162,10 @@ compared them with the registration, went with that engine. No row below changes
 - [x] Under a CODESYS `vendor_profile` only (`docs/IEC_DEVIATIONS.md` 2026-10-28): TO_STRING and the
   typed *_TO_STRING of an enumerated value, BOOL, TIME and LTIME; TIME_TO_<int> and LTIME_TO_<int>;
   TOD_TO_DWORD and LTOD_TO_DWORD
+- [x] Under a CODESYS `vendor_profile` only (`docs/IEC_DEVIATIONS.md` 2026-11-06, round 2 of DEV-036,
+  values measured on a live e!COCKPIT runtime, spec 07 2.10): <ANY_INT>_TO_TIME;
+  REAL_TO_TIME and LREAL_TO_TIME; DWORD_TO_TOD; STRING_TO_<int>/STRING_TO_<bit string> and the
+  overloaded TO_<int>(STRING)/TO_<bit string>(STRING) with the one CODESYS parse rule
 
 ## Table 26 - Data Type Conversion of Date and Time Types
 - [x] LTIME_TO_TIME

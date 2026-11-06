@@ -1,6 +1,7 @@
 //! Compiler-free scalar native contracts retained through the A4 extraction.
 
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::stdlib::conversions::ConversionProfile;
 use trust_runtime_core::stdlib::{conversions, time, StandardLibrary};
 use trust_runtime_core::value::{
     DateTimeValue, Duration, EnumValue, LTimeOfDayValue, TimeOfDayValue, Value,
@@ -233,4 +234,148 @@ fn vendor_extension_conversions_cover_enum_bool_time_and_tod() {
             "{name}"
         );
     }
+}
+
+#[test]
+fn round_2_codesys_families_produce_the_measured_vendor_values() {
+    // IEC_DEVIATIONS 2026-11-06 (DEV-045, round 2 of DEV-036): every value
+    // below is measured on a live e!COCKPIT runtime on a WAGO PFC200
+    // (2026-11-06) and recorded in specification 07 2.10. The wrong
+    // behaviours this catches: rounding where the vendor truncates
+    // (REAL_TO_TIME(2.5) is T#2ms, not the DEV-024 T#3ms), wrapping a
+    // negative count where the vendor saturates (T#0ms), faulting a string
+    // where the vendor parses (no number 0, trailing ignored), and
+    // overflowing an out-of-range string where the vendor keeps the
+    // low-order bits (300 -> 44).
+    for (name, input, expected) in [
+        (
+            "REAL_TO_TIME",
+            Value::Real(2.5),
+            Ok(Value::Time(Duration::from_millis(2))),
+        ),
+        (
+            "REAL_TO_TIME",
+            Value::Real(-1.0),
+            Ok(Value::Time(Duration::from_millis(0))),
+        ),
+        (
+            "LREAL_TO_TIME",
+            Value::LReal(2.5),
+            Ok(Value::Time(Duration::from_millis(2))),
+        ),
+        // The ms-count rule of the integer family (spec 07 2.4).
+        (
+            "INT_TO_TIME",
+            Value::Int(1234),
+            Ok(Value::Time(Duration::from_millis(1234))),
+        ),
+        // Measured in the review round: a negative integer count reads its
+        // low-order 32 bits (the vendor TIME is a 32-bit unsigned count),
+        // unlike the measured REAL saturation to T#0ms.
+        (
+            "INT_TO_TIME",
+            Value::Int(-1),
+            Ok(Value::Time(Duration::from_millis(4_294_967_295))),
+        ),
+        (
+            "DINT_TO_TIME",
+            Value::DInt(-1),
+            Ok(Value::Time(Duration::from_millis(4_294_967_295))),
+        ),
+        (
+            "DWORD_TO_TOD",
+            Value::DWord(86_400_000),
+            Ok(Value::Tod(TimeOfDayValue::new(0))),
+        ),
+        (
+            "DWORD_TO_TOD",
+            Value::DWord(u32::MAX),
+            Ok(Value::Tod(TimeOfDayValue::new(61_367_295))),
+        ),
+        ("TO_BYTE", Value::String("abc".into()), Ok(Value::Byte(0))),
+        ("TO_BYTE", Value::String("".into()), Ok(Value::Byte(0))),
+        ("TO_BYTE", Value::String("300".into()), Ok(Value::Byte(44))),
+        (
+            "TO_BYTE",
+            Value::String("123abc".into()),
+            Ok(Value::Byte(123)),
+        ),
+        // Measured in the review round: `_` inside the number is a digit
+        // separator.
+        ("TO_BYTE", Value::String("1_0".into()), Ok(Value::Byte(10))),
+        // One parse rule per profile: the typed spelling joins the
+        // overloaded one under CODESYS.
+        (
+            "STRING_TO_DINT",
+            Value::String("123abc".into()),
+            Ok(Value::DInt(123)),
+        ),
+        (
+            "STRING_TO_DINT",
+            Value::String("  -42".into()),
+            Ok(Value::DInt(-42)),
+        ),
+        ("TO_SINT", Value::String("2#101".into()), Ok(Value::SInt(5))),
+        ("TO_WORD", Value::String("8#17".into()), Ok(Value::Word(15))),
+        (
+            "TO_DWORD",
+            Value::String("16#FF".into()),
+            Ok(Value::DWord(255)),
+        ),
+        // A non-finite REAL keeps the overflow fault (spec 07 2.10).
+        (
+            "REAL_TO_TIME",
+            Value::Real(f32::NAN),
+            Err(RuntimeError::Overflow),
+        ),
+        (
+            "REAL_TO_TIME",
+            Value::Real(f32::INFINITY),
+            Err(RuntimeError::Overflow),
+        ),
+    ] {
+        let spec = conversions::conversion_spec(name).expect("prepared native conversion");
+        assert_eq!(
+            conversions::call_conversion_spec_with(spec, &[input], ConversionProfile::Codesys),
+            expected,
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn round_2_keeps_the_strict_iec_parse_and_the_in_day_tod_arithmetic() {
+    // The IEC representative parse stays strict outside the profile:
+    // trailing characters fault (specification 07 2.7).
+    let spec = conversions::conversion_spec("STRING_TO_DINT").expect("prepared native conversion");
+    assert_eq!(
+        conversions::call_conversion_spec(spec, &[Value::String("123abc".into())]),
+        Err(RuntimeError::TypeMismatch),
+    );
+    // The in-day arithmetic of the vendor midnight idiom works end to end:
+    // TOD#18:00:00 minus T#2h as DWORDs reads back as TOD#16:00:00. The
+    // idiom does not wrap at midnight (2^32 ms is not a whole day), which
+    // the measured out-of-day values in the sibling test pin.
+    let to_dword =
+        conversions::conversion_spec("TOD_TO_DWORD").expect("prepared native conversion");
+    let time_to_dword =
+        conversions::conversion_spec("TIME_TO_DWORD").expect("prepared native conversion");
+    let dword_to_tod =
+        conversions::conversion_spec("DWORD_TO_TOD").expect("prepared native conversion");
+    let day =
+        conversions::call_conversion_spec(to_dword, &[Value::Tod(TimeOfDayValue::new(64_800_000))])
+            .unwrap();
+    let hours = conversions::call_conversion_spec(
+        time_to_dword,
+        &[Value::Time(Duration::from_millis(7_200_000))],
+    )
+    .unwrap();
+    let difference = match (day, hours) {
+        (Value::DWord(day), Value::DWord(hours)) => day - hours,
+        _ => unreachable!("both helpers yield DWORD"),
+    };
+    assert_eq!(
+        conversions::call_conversion_spec(dword_to_tod, &[Value::DWord(difference)],),
+        Ok(Value::Tod(TimeOfDayValue::new(57_600_000))),
+    );
 }

@@ -228,6 +228,33 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         if codesys && matches!(src, TypeId::TOD | TypeId::LTOD) && dst == TypeId::DWORD {
             return true;
         }
+        // Round 2 of the vendor conversions (IEC_DEVIATIONS 2026-11-06): the
+        // inverses of the admitted duration families, under the CODESYS
+        // profile. An integer or a REAL/LREAL value reads as a millisecond
+        // count, and a DWORD reads as a ms-of-day count. DWORD_TO_TIME is
+        // the older both-dialect helper above.
+        if codesys
+            && matches!(
+                src,
+                TypeId::SINT
+                    | TypeId::INT
+                    | TypeId::DINT
+                    | TypeId::LINT
+                    | TypeId::USINT
+                    | TypeId::UINT
+                    | TypeId::UDINT
+                    | TypeId::ULINT
+            )
+            && dst == TypeId::TIME
+        {
+            return true;
+        }
+        if codesys && matches!(src, TypeId::REAL | TypeId::LREAL) && dst == TypeId::TIME {
+            return true;
+        }
+        if codesys && src == TypeId::DWORD && dst == TypeId::TOD {
+            return true;
+        }
         if matches!(src, TypeId::LDT) && dst == TypeId::DT {
             return true;
         }
@@ -281,6 +308,12 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             return true;
         }
         if matches!(src, TypeId::STRING | TypeId::WSTRING) && (self.is_numeric_type(dst)) {
+            return true;
+        }
+        // Round 2 (IEC_DEVIATIONS 2026-11-06): string to a bit string, under
+        // the CODESYS profile only, parsed with the one vendor rule
+        // (specification 07 2.7). WSTRING stays out.
+        if codesys && src == TypeId::STRING && bit_string(dst) {
             return true;
         }
         if matches!(dst, TypeId::CHAR | TypeId::WCHAR)

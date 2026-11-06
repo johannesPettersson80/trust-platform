@@ -15,8 +15,55 @@ pub(super) fn convert_to_time(value: &Value, dst: ConversionType) -> Result<Valu
         (Value::DWord(value), ConversionType::Time) => Ok(Value::Time(
             crate::value::Duration::from_millis(i64::from(*value)),
         )),
+        // Round 2 (IEC_DEVIATIONS 2026-11-06): an integer is a millisecond
+        // count read through its low-order 32 bits — measured
+        // `DINT_TO_TIME(DINT#-1) = T#49d17h2m47s295ms` and
+        // `INT_TO_TIME(INT#-1) = T#49d17h2m47s295ms` (the vendor TIME is a
+        // 32-bit unsigned count). A REAL/LREAL value is read as milliseconds
+        // truncated toward zero — measured `REAL_TO_TIME(2.5) = T#2ms`, not
+        // the DEV-024 rounding — and a non-finite value keeps the overflow
+        // fault (specification 07 2.10).
+        (Value::SInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
+        (Value::Int(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
+        (Value::DInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
+        (Value::LInt(value), ConversionType::Time) => time_from_ms_count(*value),
+        (Value::USInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
+        (Value::UInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
+        (Value::UDInt(value), ConversionType::Time) => time_from_ms_count(i64::from(*value)),
+        (Value::ULInt(value), ConversionType::Time) => {
+            // The vendor TIME is a 32-bit unsigned millisecond count: the
+            // low-order 32 bits of the count, measured on `-1`.
+            let millis = (*value & u64::from(u32::MAX)) as i64;
+            Ok(Value::Time(crate::value::Duration::from_millis(millis)))
+        }
+        (Value::Real(value), ConversionType::Time) => time_from_real_millis(f64::from(*value)),
+        (Value::LReal(value), ConversionType::Time) => time_from_real_millis(*value),
         _ => Err(RuntimeError::TypeMismatch),
     }
+}
+
+/// The duration of a millisecond count read through its low-order 32 bits:
+/// `DINT_TO_TIME(DINT#-1)` is `T#49d17h2m47s295ms` (measured; the vendor
+/// TIME is a 32-bit unsigned count).
+fn time_from_ms_count(millis: i64) -> Result<Value, RuntimeError> {
+    Ok(Value::Time(crate::value::Duration::from_millis(
+        (millis as u64 & u64::from(u32::MAX)) as i64,
+    )))
+}
+
+/// The duration of a REAL/LREAL millisecond value: truncated toward zero, a
+/// negative value saturated to zero, a non-finite value an overflow fault.
+fn time_from_real_millis(value: f64) -> Result<Value, RuntimeError> {
+    if !value.is_finite() {
+        return Err(RuntimeError::Overflow);
+    }
+    // The locked libm primitive: a bare `f64::trunc` has no portable core
+    // implementation (specification 34 A1).
+    let millis = crate::numeric::math::trunc(value);
+    let millis = if millis > 0.0 { millis } else { 0.0 };
+    Ok(Value::Time(crate::value::Duration::from_millis(
+        millis as i64,
+    )))
 }
 
 pub(super) fn convert_to_date(value: &Value, dst: ConversionType) -> Result<Value, RuntimeError> {
@@ -40,7 +87,15 @@ pub(super) fn convert_to_date(value: &Value, dst: ConversionType) -> Result<Valu
 
 pub(super) fn convert_to_tod(value: &Value, dst: ConversionType) -> Result<Value, RuntimeError> {
     let profile = DateTimeProfile::default();
+    let day_ticks = ticks_per_day(profile)?;
     match (value, dst) {
+        // Round 2 (IEC_DEVIATIONS 2026-11-06): a DWORD reads as a ms-of-day
+        // count modulo 24 h — measured
+        // `DWORD_TO_TOD(DWORD#86400000) = TOD#0:0:0` and
+        // `DWORD_TO_TOD(DWORD#16#FFFFFFFF) = TOD#17:02:47.295`.
+        (Value::DWord(value), ConversionType::Tod) => Ok(Value::Tod(TimeOfDayValue::new(
+            i64::from(*value) % day_ticks,
+        ))),
         (Value::Tod(tod), ConversionType::Tod) => Ok(Value::Tod(*tod)),
         (Value::LTod(tod), ConversionType::LTod) => Ok(Value::LTod(*tod)),
         (Value::LTod(tod), ConversionType::Tod) => {

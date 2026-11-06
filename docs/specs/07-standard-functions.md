@@ -176,6 +176,18 @@ Implementer extension note:
   `TOD_TO_DWORD(TOD#01:00:00) = 3600000`.
   A negative duration rejects with an overflow fault, matching the
   `TIME_TO_DWORD` contract.
+- Round 2 (`IEC_DEVIATIONS.md` 2026-11-06), under the CODESYS profile only,
+  the remaining inverses as whole families; the IEC dialect rejects them:
+  `<ANY_INT>_TO_TIME` reads the integer as a millisecond count through its
+  low-order 32 bits (measured: `DINT_TO_TIME(DINT#-1) = T#49d17h2m47s295ms`,
+  `INT_TO_TIME(INT#-1) = T#49d17h2m47s295ms`);
+  `REAL_TO_TIME`/`LREAL_TO_TIME` read the value as milliseconds truncated
+  toward zero — truncation, not the DEV-024 rounding applied to
+  `REAL`/`LREAL` to integer — and a negative value saturates to `T#0ms`
+  (measured: `REAL_TO_TIME(2.5) = T#2ms`, `REAL_TO_TIME(-1.0) = T#0ms`,
+  section 2.10); `DWORD_TO_TOD` yields the ms-of-day magnitude modulo 24 h
+  (measured: `DWORD_TO_TOD(DWORD#86400000) = TOD#0:0:0`,
+  `DWORD_TO_TOD(DWORD#16#FFFFFFFF) = TOD#17:02:47.295`).
 
 ### 2.5 Character Type Conversions (Table 27)
 
@@ -235,6 +247,18 @@ spellings accept a `BOOL` (`'TRUE'`/`'FALSE'`), a `TIME`/`LTIME` (the
 IEC dialect rejects them. In every dialect, `TO_STRING` over a `STRING[n]`
 value is an identity copy. Time-of-day and date string forms are
 deliberately not provided.
+
+Round 2 representatives (`IEC_DEVIATIONS.md` 2026-11-06), under a CODESYS
+`vendor_profile` only: `STRING_TO_<int>`, `STRING_TO_<bit string>` and the
+overloaded `TO_<int>`/`TO_<bit string>` spellings accept a `STRING`, all
+with one parse rule — leading spaces, an optional sign, a decimal or
+`2#`/`8#`/`16#` literal, trailing characters ignored; text with no number
+yields `0` and an out-of-range value keeps the low-order bits of the
+destination (measured on a live e!COCKPIT runtime:
+`TO_BYTE('123abc') = 123`, `TO_BYTE('300') = 44`, `TO_BYTE('abc') = 0`,
+`TO_BYTE('') = 0`). The IEC dialect keeps the strict representative parse
+(`STRING_TO_DINT('123abc')` faults) and rejects string-to-bit-string
+conversions.
 
 These representatives do not define canonical output spelling for every
 numeric or bit-string value. `STRING_TO_REAL('NaN')` and
@@ -358,6 +382,26 @@ instead of the IEC rules and truST policies above:
 | `REAL_TO_DWORD`, `LREAL_TO_LWORD` | Table 25 binary transfer | the number: `REAL_TO_DWORD(3.7) = 4` |
 | `DWORD_TO_REAL`, `LWORD_TO_LREAL` | Table 25 binary transfer | the number: `DWORD_TO_REAL(5) = 5.0` |
 | `BYTE/WORD/DWORD/LWORD_TO_BOOL` (and `TO_BOOL` of a bit string) | Table 24: the rightmost bit | `TRUE` when the value is not zero: `BYTE_TO_BOOL(16#80) = TRUE` |
+| `<ANY_INT>_TO_TIME` (an integer read as a millisecond count) | Table 26 lists none | the low-order 32 bits of the count: `DINT_TO_TIME(DINT#-1) = T#49d17h2m47s295ms` (measured) |
+| `REAL_TO_TIME`, `LREAL_TO_TIME` (the value read as milliseconds) | Table 26 lists none | truncated toward zero, negative saturates to `T#0ms`: `REAL_TO_TIME(2.5) = T#2ms`, `REAL_TO_TIME(-1.0) = T#0ms` (measured) |
+| `DWORD_TO_TOD` | Table 26 lists none | the ms-of-day magnitude modulo 24 h: `DWORD_TO_TOD(DWORD#86400000) = TOD#0:0:0`, `DWORD_TO_TOD(DWORD#16#FFFFFFFF) = TOD#17:02:47.295` (measured) |
+| `STRING_TO_<int>`, `STRING_TO_<bit string>`, `TO_<int>(STRING)`, `TO_<bit string>(STRING)` | `STRING_TO_<int>` keeps the strict representative parse of section 2.7; string to a bit string rejects | one CODESYS parse rule: leading spaces, an optional sign, a decimal or `2#`/`8#`/`16#` literal, trailing characters ignored, no number yields `0`, out of range keeps the low-order bits: `TO_BYTE('123abc') = 123`, `TO_BYTE('300') = 44`, `TO_BYTE('abc') = 0` (measured) |
+
+The round-2 values above (2026-11-06) are measured on a live e!COCKPIT
+runtime on a WAGO PFC200, not derived from the vendor documentation
+(`IEC_DEVIATIONS.md` 2026-11-06). The rounding row does not extend to
+`REAL_TO_TIME`/`LREAL_TO_TIME`: the vendor truncates toward zero there
+(`REAL_TO_TIME(2.5) = T#2ms`, measured — despite the DEV-024 rounding of
+`REAL`/`LREAL` to an integer), and a negative `REAL`/`LREAL` value
+saturates to `T#0ms` (`REAL_TO_TIME(-1.0)`, measured). A negative integer
+count is different: the vendor TIME is a 32-bit unsigned count, so the
+integer reads through its low-order 32 bits
+(`DINT_TO_TIME(DINT#-1) = T#49d17h2m47s295ms`, measured). The vendor
+string parse applies to every string-to-integer and string-to-bit-string
+conversion under the profile, typed and overloaded alike, and consumes `_`
+inside the number as a digit separator (`TO_BYTE('1_0') = 10`, measured):
+`TO_BYTE('123abc')` and `STRING_TO_DINT('123abc')` are both `123` — one
+parse rule per profile.
 
 A non-finite `REAL`/`LREAL` source still returns `RuntimeError::Overflow`, and conversions
 whose CODESYS result is "undefined, target system-dependent" keep the low-order bits. The

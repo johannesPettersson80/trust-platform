@@ -141,6 +141,53 @@ fn signed_digits_value(text: &str) -> Option<i128> {
     value
 }
 
+/// The CODESYS text parse (IEC_DEVIATIONS 2026-11-06, specification 07 2.7):
+/// after leading whitespace an optional sign, then a decimal literal or a
+/// `2#`/`8#`/`16#` literal; the digits of that radix (and their `_`
+/// separators) are consumed and everything after the number is ignored. Text
+/// with no digit yields `0`. The magnitude saturates at `i128`; the
+/// destination's low-order-bit rule cuts the value afterwards.
+pub(super) fn parse_int_text_codesys(text: &str) -> i128 {
+    let trimmed = text.trim();
+    let (negative, rest) = match trimmed.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, trimmed.strip_prefix('+').unwrap_or(trimmed)),
+    };
+    let (radix, digits) = match rest.split_once('#') {
+        // The vendor radix prefixes: `2#`, `8#` and `16#`. Any other `N#`
+        // text falls through to the decimal scan, which reads its leading
+        // digits and ignores the rest.
+        Some(("2", digits)) => (2, digits),
+        Some(("8", digits)) => (8, digits),
+        Some(("16", digits)) => (16, digits),
+        _ => (10, rest),
+    };
+    let mut value: i128 = 0;
+    let mut seen = false;
+    for character in digits.chars() {
+        // Measured `TO_BYTE('1_0') = BYTE#10`: the vendor consumes `_` as a
+        // digit separator inside the number.
+        if character == '_' {
+            continue;
+        }
+        let Some(digit) = character.to_digit(radix) else {
+            break;
+        };
+        seen = true;
+        value = value
+            .saturating_mul(i128::from(radix))
+            .saturating_add(i128::from(digit));
+    }
+    if !seen {
+        return 0;
+    }
+    if negative {
+        value.checked_neg().unwrap_or(i128::MIN)
+    } else {
+        value
+    }
+}
+
 pub(super) fn parse_real_text(text: &str) -> Result<f64, RuntimeError> {
     parse_real_text_with(text, &mut String::new())
 }
