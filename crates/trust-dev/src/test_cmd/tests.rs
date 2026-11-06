@@ -974,12 +974,14 @@ END_TEST_PROGRAM
 
 // docs/specs/07-standard-functions.md 2.10 and docs/IEC_DEVIATIONS.md DEV-045 (round 2), with the
 // values measured on a WAGO PFC200: under the CODESYS rules an integer is a count of milliseconds as
-// a TIME (DINT#1500 is T#1500ms, a negative count T#0ms), a REAL or an LREAL is truncated toward
-// zero (2.5 is T#2ms, -1.0 is T#0ms), a DWORD is milliseconds after midnight modulo a day
-// (16#FFFFFFFF is TOD#17:02:47.295, 86,400,000 is midnight), and a text gives the number at its
-// front, kept to the destination's low-order bits ('123abc' is 123, '300' is BYTE 44, 'abc' and ''
-// are 0), for STRING_TO_DINT as for TO_BYTE. A wrong generator refuses to build them, which it did
-// until this change, rounds 2.5 to T#3ms, or faults on '123abc' as the IEC rules do.
+// a TIME through its low-order 32 bits (DINT#1500 is T#1500ms, DINT#-1 and INT#-1 are
+// T#49d17h2m47s295ms), a REAL or an LREAL is truncated toward zero (2.5 is T#2ms) and a negative one
+// is T#0ms, a DWORD is milliseconds after midnight modulo a day (16#FFFFFFFF is TOD#17:02:47.295,
+// 86,400,000 is midnight), and a text gives the number at its front, `_` separating digits, kept to
+// the destination's low-order bits ('123abc' is 123, '1_0' is 10, '300' is BYTE 44, 'abc' and '' are
+// 0), for STRING_TO_DINT as for TO_BYTE. A wrong generator refuses to build them, which it did until
+// this change, rounds 2.5 to T#3ms, saturates a negative integer count, or faults on '123abc' as the
+// IEC rules do.
 #[test]
 fn run_test_compiles_the_round_2_codesys_conversions() {
     let project = codesys_project(
@@ -987,7 +989,8 @@ fn run_test_compiles_the_round_2_codesys_conversions() {
         r#"
 TEST_PROGRAM CountsBecomeDurations
 ASSERT_EQUAL(T#1500ms, DINT_TO_TIME(DINT#1500));
-ASSERT_EQUAL(T#0ms, DINT_TO_TIME(DINT#-1));
+ASSERT_EQUAL(T#49d17h2m47s295ms, DINT_TO_TIME(DINT#-1));
+ASSERT_EQUAL(T#49d17h2m47s295ms, INT_TO_TIME(INT#-1));
 ASSERT_EQUAL(T#2ms, REAL_TO_TIME(REAL#2.5));
 ASSERT_EQUAL(T#0ms, REAL_TO_TIME(REAL#-1.0));
 ASSERT_EQUAL(T#2ms, LREAL_TO_TIME(LREAL#2.5));
@@ -1005,6 +1008,7 @@ END_VAR
 ASSERT_EQUAL(BYTE#123, TO_BYTE(Text));
 ASSERT_EQUAL(DINT#123, STRING_TO_DINT(Text));
 ASSERT_EQUAL(BYTE#44, TO_BYTE('300'));
+ASSERT_EQUAL(BYTE#10, TO_BYTE('1_0'));
 ASSERT_EQUAL(BYTE#0, TO_BYTE('abc'));
 ASSERT_EQUAL(BYTE#0, TO_BYTE(''));
 ASSERT_EQUAL(WORD#16#FF, STRING_TO_WORD('16#FF'));

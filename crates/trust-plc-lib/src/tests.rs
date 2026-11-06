@@ -213,19 +213,15 @@ fn the_codesys_rules_count_durations_and_times_of_day() {
 }
 
 /// Round 2 of the CODESYS conversions (specification 07 §2.10, `docs/IEC_DEVIATIONS.md` DEV-045),
-/// with the values measured on a WAGO PFC200: an integer count is milliseconds (1,500 ms are
-/// 1,500,000,000 ns) and a negative one no time; a real count is truncated toward zero, not
-/// rounded (2.5 and 2.9 ms are 2 ms), a negative one is no time and one that is not finite an
-/// overflow; a count beyond `TIME` is its longest duration. 86,400,000 ms after midnight are
-/// midnight again and 16#FFFFFFFF ms are 17:02:47.295 (61,367,295 ms), modulo a day. A wrong
-/// conversion rounds 2.5 to 3, reads a negative count's magnitude, wraps a large count, or passes a
-/// `DWORD` beyond a day as a time of day.
+/// with the values measured on a WAGO PFC200: a real count of milliseconds is truncated toward
+/// zero, not rounded (2.5 and 2.9 ms are 2 ms), a negative one is no time, unlike a negative
+/// integer count, and one that is not finite is an overflow; a count beyond `TIME` is its longest
+/// duration. 86,400,000 ms after midnight are midnight again and 16#FFFFFFFF ms are 17:02:47.295
+/// (61,367,295 ms), modulo a day. A wrong conversion rounds 2.5 to 3, reads a negative value's
+/// magnitude, or passes a `DWORD` beyond a day as a time of day.
 #[test]
 fn the_codesys_rules_read_counts_as_times_and_times_of_day() {
     let mut cx = cx();
-    assert_eq!(ms_count_to_time(1500), 1_500_000_000);
-    assert_eq!(ms_count_to_time(-1), 0);
-    assert_eq!(ms_count_to_time(i128::from(u64::MAX)), i64::MAX);
     assert_eq!(real_ms_to_time(&mut cx, 2.5), Ok(2_000_000));
     assert_eq!(real_ms_to_time(&mut cx, 2.9), Ok(2_000_000));
     assert_eq!(real_ms_to_time(&mut cx, -1.0), Ok(0));
@@ -246,11 +242,11 @@ fn vendor_number(text: &[u8]) -> i128 {
 }
 
 /// The one CODESYS text parse of an integer or a bit string (specification 07 §2.10, DEV-045),
-/// measured on a PFC200: '123abc' is 123, '300' is 300, which a `BYTE` keeps as 44, and 'abc' and
-/// '' are 0. Leading spaces and a sign are read; `16#FF` is 255, `8#17` 15 and `2#101` 5; another
-/// base is read as a decimal number up to its `#`, and a byte that is no UTF-8 ends the number. A
-/// wrong parse faults on '123abc' as the IEC rules do, reads digits after a letter, or reads `16#`
-/// numbers as decimal.
+/// measured on a PFC200: '123abc' is 123, '300' is 300, which a `BYTE` keeps as 44, `'1_0'` is 10,
+/// and 'abc' and '' are 0. Leading spaces and a sign are read; `16#FF` is 255, `16#F_F` too, `8#17`
+/// 15 and `2#101` 5; another base is read as a decimal number up to its `#`, and a byte that is no
+/// UTF-8 ends the number. A wrong parse faults on '123abc' as the IEC rules do, stops at a `_`,
+/// reads digits after a letter, or reads `16#` numbers as decimal.
 #[test]
 fn the_codesys_rules_read_the_number_at_the_front_of_a_text() {
     assert_eq!(vendor_number(b"123abc"), 123);
@@ -260,7 +256,9 @@ fn the_codesys_rules_read_the_number_at_the_front_of_a_text() {
     assert_eq!(vendor_number(b""), 0);
     assert_eq!(vendor_number(b"  -42xyz"), -42);
     assert_eq!(vendor_number(b"+7"), 7);
+    assert_eq!(vendor_number(b"1_0"), 10);
     assert_eq!(vendor_number(b"16#FF"), 255);
+    assert_eq!(vendor_number(b"16#F_F"), 255);
     assert_eq!(vendor_number(b"8#17"), 15);
     assert_eq!(vendor_number(b"2#101"), 5);
     assert_eq!(vendor_number(b"16#G"), 0);

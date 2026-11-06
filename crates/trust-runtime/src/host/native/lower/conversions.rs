@@ -228,7 +228,7 @@ impl Lowerer<'_, '_> {
     /// DEV-045): a duration to an integer as a `TIME`'s whole milliseconds or an `LTIME`'s
     /// nanoseconds, kept to the destination's low-order bits, a negative duration an overflow; a
     /// time of day to a `DWORD` as its milliseconds of the day; an integer to a `TIME` as a count
-    /// of milliseconds, a negative one no time; a real to a `TIME` as milliseconds truncated toward
+    /// of milliseconds, its low-order 32 bits; a real to a `TIME` as milliseconds truncated toward
     /// zero, a negative one no time; a `DWORD` to a time of day as its milliseconds after midnight,
     /// modulo a day. `None` for every other conversion.
     fn vendor_count(
@@ -255,7 +255,9 @@ impl Lowerer<'_, '_> {
             return Some(self.bind(&format!("lib::{function}(cx, {source})?")));
         }
         if src.is_integer() && dst == Elem::Time {
-            return Some(format!("lib::ms_count_to_time(i128::from({source}))"));
+            // The vendor's `TIME` is an unsigned 32-bit count of milliseconds: the count's low-order
+            // 32 bits, so `DINT_TO_TIME(DINT#-1)` is `T#49d17h2m47s295ms`.
+            return Some(format!("lib::dword_to_time(({source}) as u32)"));
         }
         if src.is_real() && dst == Elem::Time {
             return Some(self.bind(&format!("lib::real_ms_to_time(cx, f64::from({source}))?")));

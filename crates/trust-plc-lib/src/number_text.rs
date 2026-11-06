@@ -233,8 +233,9 @@ pub fn parse_int(cx: &mut Cx, text: StrView<'_>, scratch: &mut [u8]) -> Result<i
 /// `TO_<bit string>` of a text under the CODESYS conversion rules (specification 07 §2.10, round
 /// 2, `docs/IEC_DEVIATIONS.md` DEV-045), in 128 bits; the caller keeps the destination's low-order
 /// bits. After leading white space come an optional sign and a decimal number or a `2#`, `8#` or
-/// `16#` literal, read up to the first character that is no digit of its base; the rest is
-/// ignored, and a text with no digit is 0: `TO_BYTE('123abc')` is 123 and `TO_BYTE('abc')` is 0.
+/// `16#` literal, read up to the first character that is neither a digit of its base nor a `_`,
+/// which separates digits; the rest is ignored, and a text with no digit is 0:
+/// `TO_BYTE('123abc')` is 123, `TO_BYTE('1_0')` 10 and `TO_BYTE('abc')` 0.
 /// `scratch` holds the text's capacity.
 #[must_use]
 pub fn parse_int_codesys(text: StrView<'_>, scratch: &mut [u8]) -> i128 {
@@ -267,6 +268,10 @@ fn vendor_int_text(text: &str) -> i128 {
     let mut value: i128 = 0;
     let mut seen = false;
     for character in digits.chars() {
+        // Measured `TO_BYTE('1_0') = BYTE#10`: `_` inside the number separates digits.
+        if character == '_' {
+            continue;
+        }
         let Some(digit) = character.to_digit(radix) else {
             break;
         };
