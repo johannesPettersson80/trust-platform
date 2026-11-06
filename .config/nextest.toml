@@ -1,0 +1,24 @@
+# cargo-nextest's profiles. CI's Test jobs run the full suite with `--profile ci`: every test in its own
+# process, the tests of all programs in parallel (specification 22, "CI reliability and release-gate
+# artifact contract").
+
+[profile.ci]
+# Every failing test is reported, not only the first.
+fail-fast = false
+
+# A test that asserts how long something takes runs alone: it takes every test thread, so that no
+# other test of any program runs beside it (specification 22). Under `cargo test` the program's own
+# measurement lock does that for its program.
+[[profile.ci.overrides]]
+filter = '''
+binary(ci_cicd_contract) & (
+    test(=ci_clean_setup_first_passing_test_is_under_ten_minutes)
+    | test(=ci_single_test_feedback_is_under_two_seconds_for_small_project)
+    | test(=ci_run_all_tests_scales_roughly_linearly_for_small_projects)
+)
+'''
+threads-required = "num-test-threads"
+
+[[profile.ci.overrides]]
+filter = 'binary(web_ide_performance_gate)'
+threads-required = "num-test-threads"
