@@ -752,9 +752,14 @@ re-check them against this rule when touched.
   call sites that compile clean in the vendor toolchain (the downstream
   tree carries ~130 such sites: `TO_STRING(eArea)` families, boot-report
   `TIME_TO_DINT` chains, `TOD_TO_DWORD` day-phase math).
-- Impact: those call sites pass the compile gate; the runtime conversion
-  dispatch (`trust-runtime-core`) implements the same entries so executed
-  conversions produce the documented values.
+- Impact: those call sites pass the compile gate, and a compiled program
+  converts as (a) to (c) say: the native generator lowers each entry under the
+  CODESYS rules (specification 44 §6.8, since 6 November 2026; before, it
+  refused (b), (c) and a `BOOL` as text, and spelled an enumerated value as
+  its number), and the runtime's evaluator (`trust-runtime-core`) gives the
+  same values. `TO_STRING` of a `TIME`/`LTIME` is the exception: its text is
+  to be measured on the vendor runtime first, and the build refuses it until
+  then (specification 44 NX-09).
 - Mitigation: the IEC dialect keeps the tables' reading and rejects all
   of (a) to (c); `TO_STRING` over a `STRING[n]` value is an identity copy
   in every dialect, since a `STRING[n]` is a `STRING`. The extension set is
