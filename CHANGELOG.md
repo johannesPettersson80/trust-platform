@@ -6,6 +6,111 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-06
+
+### Added
+
+- `trust-dev agent serve-mcp` serves the Agent API v1 as MCP tools over the
+  platform's shared MCP connection layer (`trust_lsp::mcp`): a 1:1 tool
+  mapping of the contract's methods (dots become underscores), advisory
+  generated input schemas, contract errors as error tool results whose text
+  carries the stable `{code, message, data}` object, sequential serving with
+  one shared harness session per instance, and no configuration beyond the
+  `--project`/`--bundle` flag. The binding is specified in specification 20
+  §8 and `docs/guides/AGENT_MCP_BINDING_V1.md`.
+- `runtime.build`, `runtime.validate`, and `runtime.compile_reload` accept an
+  opt-in `issues_limit` cap, so large projects stay under agent hosts'
+  message limits. An applied limit truncates `issues[]` to the first entries
+  of the deterministic order, bounds the failed-build error text and the
+  compile_reload build-failure `runtimeMessage`, and adds `issuesTruncated`
+  and `totalIssues`. An omitted limit preserves the whole-list responses.
+
+### Changed
+
+- Devices & Connections: selecting a simulated plant opens it in the inspector, like every other
+  runtime child, instead of opening its setup editor. The inspector shows the plant's exact ID,
+  every state the runtime reports (not only the first), its model, its command and feedback mapping
+  in order with live values when there are any, its parameters, and its saved configuration apart
+  from the running one. **Configure plant** opens the setup editor, and **Open in Control Studio**
+  is offered in both (specification 47 §5, §6.1).
+- An HMI agent simulator journey reads its draft in the language server. A draft at another revision, or a program
+  that changed since the draft was composed, ends the journey before its first step with `CONFLICT` in its answer, and
+  a program that does not compile with `COMPILATION_FAILED`; the journey no longer loads the project's render context
+  first (specification 43, AT-08).
+- W010 tracks clock sources instead of declarations (issue #250). A
+  TIME, LTIME, DATE, LDATE, TOD or DT declaration no longer warns. A
+  call of CURRENT_DT() warns, and so does the call site of a function,
+  method, function block or program whose body reaches one, directly or
+  through the POUs it calls; the message names the source: "CURRENT_DT
+  reads the host clock, which replay does not control". TIME() and what
+  is built on it (T_PLC_MS, T_PLC_US, RTC_MS, RTC_2, the timers) stays
+  warning-free, as does a value whose source cannot be traced, such as a
+  body-less library stub (specification 28 section 5).
+
+### Removed
+
+- The bytecode engine's built-in import contracts, with the stable error code
+  `runtime_import_unsupported`. A compiled program image imports nothing, because the program
+  library is compiled into it, so a device checks no import contract; a deployment record that
+  lists an import is refused as a record of another program (specification 34 §5.2.1).
+
+### Fixed
+
+- On a Mac with Apple silicon, a compiled program could compute a wrong value or crash at random, more often the
+  busier the computer. Functions of the program library that a program links kept values in the processor register
+  x18, which macOS may overwrite when it switches threads; among them were the functions behind `CONCAT`, `FIND`,
+  numbers as text and the trigonometric functions. The library now leaves x18 alone, as the program's own code
+  already did (specification 44 §4.4).
+- Under a CODESYS `vendor_profile`, `TO_STRING` of an enumerated value gives the value's name in a running
+  program, as specification 07 says; it gave the number (`'1'` for `Color#Green`).
+- Under a CODESYS `vendor_profile`, `TIME_TO_<integer>`, `LTIME_TO_<integer>`, `TOD_TO_DWORD`, `LTOD_TO_DWORD` and
+  `TO_STRING` of a `BOOL` build and run; the build refused them as not compiled yet. A duration's count that does
+  not fit its integer keeps the low-order bits (`TIME_TO_SINT(T#300ms)` is `44`), as specification 07 says, where
+  the runtime's evaluator stopped with an overflow.
+- Completion and hover know `DIFU`, `DIFD`, `TP_TIME`, `TON_TIME` and `TOF_TIME` as standard
+  function blocks. They show the standard documentation, and the `stdlib` setting of
+  `trust-lsp.toml` now applies to them: `none` hides them like every other standard block, and
+  `iec` offers the `_TIME` timers but not Mitsubishi's `DIFU` and `DIFD`, which are not IEC names
+  (specifications 08 and 14).
+- The HMI authoring MCP server (`trust-lsp hmi-agent`) refused a tool call without `arguments`,
+  which MCP allows for a tool that takes none. It now runs the call with no arguments
+  (specification 43 §3.1).
+- When the simulated plants could not be read, for example after a session timeout or a plant file
+  that changed between two reads, Devices & Connections dropped every plant from the canvas until
+  the next good read. It now keeps the last saved plants, shown as Status unavailable without live
+  values (specification 47 §20.6).
+- Live Values shows a failed Start or Stop, a debug session that did not launch and an unreadable settings value as
+  errors even when their text holds no word like "failed", and keeps the runtime's access reason in view over the
+  active-force summary: each message's colour comes from where it comes from, never from its words (specification 25
+  §4.2).
+- Live Values keeps the runtime's name and endpoint in its header when its debug session ends or another debug
+  session becomes active, instead of showing an unnamed target; a lost-connection or debugging-disabled message goes
+  once live values arrive again; and a release on a target that stays armed keeps saying so instead of disappearing
+  after 5 seconds (specification 25 §4.2, §4.4).
+- An HMI agent's cancellation that reaches VS Code before its tool call no longer gets lost: the call then starts
+  cancelled and its tool answers at once, instead of running to its end (specification 43 §3.1).
+- Under the CODESYS profile, `ADR(STRING[n])` at the string's base now binds a plain `POINTER TO BYTE` formal (or a byte-pointer variable target) with the DEV-039 pointer-binding warning instead of an error, matching the vendor `MemCopy` copy-loop idiom. Every other pointee mismatch keeps its error.
+- Clients that send a running runtime a new request as soon as one is answered no longer hold its cycles back. Between
+  two cycles the scan thread serves the commands queued when it begins to serve them, at most 1,024, and a command
+  queued meanwhile waits for the next boundary. Before, it served commands until the queue was empty, so a steady
+  stream of requests, such as three readers of the program's variables on a busy Windows machine, could keep any cycle
+  from running (specification 11 §6.9).
+
+### Security
+
+- While the language server trace logs each message's parameters (`trust.languageServer.trace` at `verbose`, or
+  `trust-lsp.trace.server` at `verbose`, at `compact` or in the `json` format), the extension refuses every command
+  that would carry a credential to the language server, before anything is sent, and says so once a minute with the
+  setting to change:
+  - an HMI deployment, a run target's connection and Live Values with their runtime token;
+  - Devices & Connections with its runtime token or a protocol form's password;
+  - the HMI users editor with the project's `runtime.toml`;
+  - a simulator journey's session and its cookie;
+  - a new simulator's control token. A simulator launch then stops instead of starting without a token.
+  Before, only a simulator journey was refused, and the others reached VS Code's log folder. A language-model tool
+  never sends or receives such a command. The language server names these credentials in its `initialize` answer
+  (specification 25 §6.4).
+
 ## [0.31.0] - 2026-11-05
 
 ### Added
