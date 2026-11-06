@@ -11,7 +11,7 @@ use trust_runtime::control::ControlState;
 use trust_runtime::value::Value;
 
 use super::simulation_speed_tests::{project_with, published_output, simulator};
-use super::tests_part_02::{assert_control_ok, reserve_loopback_addr, send_control_request};
+use super::tests_part_02::{assert_control_ok, send_control_request};
 
 /// Counts its scans at `%QD0`, from its starting value 0.
 const COUNTER: &str =
@@ -45,9 +45,8 @@ fn wait_for_count(state: &ControlState, wanted: impl Fn(i64) -> bool) -> Option<
 #[test]
 fn a_restart_request_restarts_the_simulators_program() {
     let root = project_with("restart", COUNTER, None, None);
-    let addr = reserve_loopback_addr();
     let auth = "restart-token";
-    let (_session, simulator) = simulator(&root, addr, auth);
+    let (_session, simulator, addr) = simulator(&root, auth);
     let state = simulator.control_server().state();
 
     let reached = wait_for_count(&state, |count| count >= 20);

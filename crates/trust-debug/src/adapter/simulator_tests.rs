@@ -207,14 +207,6 @@ fn a_launch_runs_the_program_compiled_and_debugs_it_through_the_control_protocol
     assert!(adapter.simulator.is_none());
 }
 
-/// A loopback address that no listener holds when it is returned.
-fn reserve_loopback_addr() -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
-    let addr = listener.local_addr().expect("address");
-    drop(listener);
-    addr
-}
-
 /// The adapter after the launch of `project` with its control server at `endpoint`, authenticated
 /// with `auth`, and `configurationDone`.
 fn launched(project: &Project, endpoint: &str, auth: &str) -> DebugAdapter {
@@ -325,9 +317,16 @@ fn the_simulator_applies_communication_settings_to_the_launch_project() {
     trust_runtime::native::Toolchain::find()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let project = Project::new();
-    let addr = reserve_loopback_addr();
     let auth = "debug-control-token";
-    let mut adapter = launched(&project, &format!("tcp://{addr}"), auth);
+    // The operating system chooses the port when the control server binds it, so that no other test
+    // can take a port reserved before (G53); the test asks the server for it.
+    let mut adapter = launched(&project, "tcp://127.0.0.1:0", auth);
+    let addr = adapter
+        .simulator
+        .as_ref()
+        .expect("the launch runs the simulator")
+        .control_server()
+        .tcp_addr();
 
     let schema = send_control_request(
         addr,
