@@ -661,6 +661,18 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
       !shown.options.some((option) => option.id === fake.endpoint),
       `the runtime has one entry: ${JSON.stringify(shown.options)}`,
     );
+    // One state for one runtime: it answers without a session, so the side panel says "Not connected" with Connect,
+    // and the status bar says the same instead of "connected" (specification 25, section 6.9; G12, 30 October).
+    const notConnected = await waitFor("the side panel's Target not connected", () =>
+      sidebar.states().reverse().find(
+        (candidate) => candidate.selectedId === PROJECT_ID && candidate.selected.statusLabel === "Not connected",
+      ));
+    assert.ok(notConnected.selected.primary.enabled, "Connect is offered");
+    const statusBar = await waitFor("the status bar with the side panel's state", async () => {
+      const text = (await statusText(STATUS_CONTEXT, await runtimeLifecycleService.snapshot())).text;
+      return text.endsWith(`${PROJECT_LABEL} not connected`) && text;
+    });
+    assert.ok(!statusBar.includes("$(plug)"), `the status bar does not show the runtime connected: ${statusBar}`);
   });
 
   test("Connect on the project's own runtime connects with the endpoint and token trust-runtime reports", async () => {

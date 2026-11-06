@@ -279,10 +279,12 @@ fn the_connected_label() {
 
 /// The status bar and the side panel's Target name a connected runtime by the name the extension
 /// gave it: the debug session's target name, else the name a Connect was given to a runtime that
-/// keeps debugging disabled, which the answer also flags; the project's own runtime keeps its name.
-/// Without a name, or with a debugging-disabled failure of another endpoint, the endpoint names
-/// it. Catches the name Connect was given lost without a session (the status bar showed
-/// `127.0.0.1:<port>` where Connect said `Cpu`), the project's runtime renamed, another runtime's
+/// keeps debugging disabled, which the answer also flags and the side panel shows as `Debugging
+/// disabled` with Connect; the project's own runtime keeps its name. Without a name the endpoint
+/// names it; a debugging-disabled failure of another endpoint leaves the runtime not connected.
+/// Catches the name Connect was given lost without a session (the status bar showed
+/// `127.0.0.1:<port>` where Connect said `Cpu`), the side panel saying `Not connected` where the
+/// status bar says that debugging is disabled, the project's runtime renamed, another runtime's
 /// failure applied, and an attached session told that debugging is disabled.
 #[test]
 fn the_connected_label_is_the_name_the_extension_gave() {
@@ -311,6 +313,9 @@ fn the_connected_label_is_the_name_the_extension_gave() {
         answer["selected"]["label"], "Cpu",
         "the side panel's Target agrees"
     );
+    assert_eq!(answer["selected"]["statusLabel"], "Debugging disabled");
+    assert_eq!(answer["selected"]["primary"]["action"], "connect");
+    assert_eq!(answer["selected"]["primary"]["enabled"], true);
 
     // The project's own runtime keeps that name on every surface, whatever Connect called it.
     let mut own = with_project(disabled.clone(), true);
@@ -328,7 +333,7 @@ fn the_connected_label_is_the_name_the_extension_gave() {
     let mut elsewhere = disabled.clone();
     elsewhere["failure"]["endpoint"] = json!("tcp://10.0.0.2:9901");
     let answer = select(json!({ "action": "selection", "snapshot": elsewhere }));
-    assert_eq!(answer["connectedLabel"], "127.0.0.1:18093");
+    assert_eq!(answer["connectedLabel"], Value::Null);
     assert_eq!(answer["connectedDebuggingDisabled"], false);
 
     let mut attached = disabled;
@@ -338,10 +343,10 @@ fn the_connected_label_is_the_name_the_extension_gave() {
     assert_eq!(answer["connectedDebuggingDisabled"], false);
 }
 
-/// The extension is connected while its session is attached or while it is online with a runtime
-/// that answers, such as one started outside the extension; else the status bar names no
-/// connected runtime. Catches a reachable runtime started outside the extension shown as
-/// stopped, and a running Simulator or an unreachable online target shown as connected.
+/// The extension is connected while its session is attached, or while a runtime that answered
+/// Connect keeps debugging disabled; a runtime that merely answers is not connected, and the
+/// status bar names no connected runtime then (§6.9, G12). Catches a running Simulator, an
+/// unreachable online target or an answering runtime without a session shown as connected.
 #[test]
 fn connected_or_not() {
     let mut unreachable = snapshot("online", "stopped", "tcp://10.0.0.2:9901");
@@ -349,7 +354,7 @@ fn connected_or_not() {
     let cases = [
         (
             snapshot("online", "stopped", "unix:///tmp/trust-runtime.sock"),
-            json!("runtime"),
+            Value::Null,
         ),
         (
             snapshot("simulate", "connected", "tcp://10.0.0.2:9901"),
@@ -374,6 +379,34 @@ fn with_project(mut snapshot: Value, reachable: bool) -> Value {
     snapshot["projectEndpoint"] = json!(PROJECT_ENDPOINT);
     snapshot["projectReachable"] = json!(reachable);
     snapshot
+}
+
+/// A runtime that answers without a session, such as the project's own runtime right after it is
+/// selected, is `Not connected` with Connect in the side panel, and the status bar names no
+/// connected runtime, so it shows the side panel's state (specification 25 §6.9). Catches the
+/// status bar saying `This project's runtime connected` while the side panel says `Not connected`
+/// for the same runtime (30 October, G12).
+#[test]
+fn a_runtime_that_answers_without_a_session_is_not_connected_on_any_surface() {
+    let endpoint = "tcp://10.0.0.2:9901";
+    let answer = select(json!({
+        "action": "selection",
+        "snapshot": snapshot("online", "stopped", endpoint),
+        "selectedId": endpoint,
+    }));
+    assert_eq!(answer["selected"]["statusLabel"], "Not connected");
+    assert_eq!(answer["selected"]["primary"]["action"], "connect");
+    assert_eq!(answer["connectedLabel"], Value::Null);
+
+    let own = with_project(snapshot("online", "stopped", PROJECT_ENDPOINT), true);
+    let answer = select(json!({
+        "action": "selection",
+        "snapshot": own,
+        "selectedId": "project",
+    }));
+    assert_eq!(answer["selected"]["label"], "This project's runtime");
+    assert_eq!(answer["selected"]["statusLabel"], "Not connected");
+    assert_eq!(answer["connectedLabel"], Value::Null);
 }
 
 /// The project's own runtime is listed as `This project's runtime` after the managed runtimes and

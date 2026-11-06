@@ -13,11 +13,13 @@
 //! points the runtime settings at and whether it is the project's own runtime; the
 //! configured runtimes; the selected target (the Simulator when `selectedId` names none) with its
 //! status, its status label and its primary action; whether `selectedId` names an option; and,
-//! while the extension is connected to a runtime (its session is attached, or it is online with a
-//! runtime that answers), the name the status bar gives that runtime (`connectedLabel`, `null` when
-//! it is connected to none, see [`runtime_name`]) and whether that runtime answered Connect but
-//! keeps debugging disabled (`connectedDebuggingDisabled`). The project's control endpoint as
-//! `selectedId` names the project's entry.
+//! while the extension is connected to a runtime (its session is attached, or the runtime answered
+//! Connect but keeps debugging disabled), the name the status bar gives that runtime
+//! (`connectedLabel`, `null` when it is connected to none, see [`runtime_name`]) and whether it
+//! keeps debugging disabled (`connectedDebuggingDisabled`). A runtime that answers without a
+//! session is not connected: the status bar shows the selected target's status, as the side panel
+//! does (specification 25 §6.9). The project's control endpoint as `selectedId` names the project's
+//! entry.
 //!
 //! `select` `{ snapshot, id, endpoint? }` answers what selecting target `id`, whose control
 //! endpoint is `endpoint`, does (§5.1): `{ ok: true, changesTarget, settings, endpoint }`.
@@ -269,11 +271,14 @@ pub(super) fn stop(argument: Value) -> Result<Value, String> {
     Ok(json!({ "ok": true, "settings": settings, "message": message }))
 }
 
-/// Whether the extension is connected to a runtime: its session is attached, or it is online with a
-/// runtime that answers, such as one started outside the extension.
+/// Whether the extension is connected to a runtime: its session is attached, or the runtime answered
+/// Connect but keeps debugging disabled and still answers. A runtime that answers without a session
+/// is `Not connected` with Connect in the side panel, and the status bar says the same (§6.9).
 fn connected(snapshot: &Snapshot) -> bool {
     snapshot.runtime_state == "connected"
-        || (snapshot.runtime_mode == "online" && snapshot.endpoint_reachable)
+        || (snapshot.runtime_mode == "online"
+            && snapshot.endpoint_reachable
+            && debugging_disabled(snapshot))
 }
 
 /// The name of the runtime the extension is connected to, as the side panel's list, the status
@@ -536,6 +541,15 @@ fn remote(endpoint: &str, snapshot: &Snapshot) -> (&'static str, &'static str, P
                     "Not reachable — open Devices & Connections to start or diagnose this runtime.",
                 ),
             },
+        );
+    }
+    if active && debugging_disabled(snapshot) {
+        // It answered Connect but keeps debugging disabled: the status bar and Live Values say so
+        // (§4.4), and Connect stays for when debugging is enabled.
+        return (
+            "disconnected",
+            "Debugging disabled",
+            enabled("connect", "Connect"),
         );
     }
     (
