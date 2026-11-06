@@ -6,6 +6,40 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-06
+
+### Added
+
+- W010 recognizes a body-less library stub that declares it reads the host clock: the
+  `{attribute 'reads_host_clock'}` pragma (specification 07, "Declared Clock Sources") makes the
+  stub's call sites warn, and the message names the declared source instead of `CURRENT_DT`. The
+  stub's own file stays silent, and the pragma-attribute parser now accepts CODESYS-style flags
+  that carry no value (issue #264).
+- Under the CODESYS conversion profile, the round-2 conversion families of
+  DEV-036: `<ANY_INT>_TO_TIME` (a millisecond count), `REAL_TO_TIME` and
+  `LREAL_TO_TIME` (milliseconds truncated toward zero, negative counts
+  saturating to `T#0ms`), `DWORD_TO_TOD` (the ms-of-day magnitude modulo
+  24 h), and string-to-integer/bit-string conversions (typed `STRING_TO_*`
+  and overloaded `TO_*`) with the one CODESYS parse rule: leading spaces,
+  an optional sign, a decimal or `2#`/`8#`/`16#` literal, trailing
+  characters ignored, no number yielding `0`, out of range keeping the
+  low-order bits. The values are measured on a live e!COCKPIT runtime and
+  recorded in specification 07 section 2.10.
+
+### Fixed
+
+- Under the CODESYS conversion rules, `TO_STRING` and `TIME_TO_STRING` of a `TIME` or an `LTIME` give
+  the text the CODESYS runtime gives, measured on a WAGO PFC200: each unit that is not zero, as in
+  `T#1s500ms`, `T#2d` and `LTIME#1h2m3s4ms5us6ns`, and `T#0ms` for no time. A compiled program
+  refused to build them, and the evaluator wrote `T#1500ms` (specification 07 §2.7).
+- The status bar no longer says a runtime is connected while the side panel says "Not connected" for
+  the same runtime. A runtime that answers without a debug session is "Not connected" on both until
+  Connect attaches one, and a runtime that keeps debugging disabled is "Debugging disabled" in the
+  side panel too, as in the status bar and Live Values (specification 25 §5.1, §6.9).
+- Live Values now names the project's own runtime "This project's runtime", as the side panel and the
+  status bar do. Before, it called that runtime "Runtime at <endpoint>" after a Start from Live Values
+  or Devices & Connections, or after a Connect that kept debugging disabled (specification 25 §6.9).
+
 ## [0.32.0] - 2026-11-06
 
 ### Added
