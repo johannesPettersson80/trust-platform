@@ -430,9 +430,13 @@ A run that passes without a passing test of every filter fails the gate. Until
 5 November 2026 its filter named a test deleted long before, so every run
 reported "0 passed" and the gate passed without testing anything.
 
-The full test suite has two hours on macOS and Windows and one hour on Linux, which
-`CI_FULL_TEST_TIMEOUT_SECONDS` may change: Windows runs one test at a time, and a macOS
-runner took longer than an hour (28 October 2026). An attempt that exceeds its limit fails.
+The full test suite runs the tests of each test program in parallel on every system. A
+test that asserts how long something takes never runs beside another test of its
+program: it holds its program's measurement lock alone while the program's other tests
+share it, or it runs in a test program of its own. The suite has two hours on macOS and
+Windows and one hour on Linux, which `CI_FULL_TEST_TIMEOUT_SECONDS` may change: their
+runners are slower, and a macOS runner took longer than an hour (28 October 2026). An
+attempt that exceeds its limit fails.
 
 Every job that builds Structured Text programs provisions the toolchain of
 specification 44 §4.6 itself and names it in `TRUST_TOOLCHAIN`, the release's

@@ -20,6 +20,13 @@ class CiTestJobTests(unittest.TestCase):
         for text in step_texts(self.job):
             self.assertNotIn("RUSTFLAGS", text)
 
+    def test_every_system_runs_each_programs_tests_in_parallel(self) -> None:
+        # Catches a system's whole suite made serial again: Windows ran one test at a time from
+        # February 2026, with no recorded reason, which was 56 minutes of #268's 98-minute Windows
+        # job (5 November 2026); its trust-runtime unit tests alone took 610 s, against 171 s in
+        # parallel on Linux. A test that measures time takes its program's measurement lock instead.
+        self.assertNotIn("--test-threads", steps(self.job)["Run full test suite"])
+
     def test_the_mesh_tls_gate_is_the_last_cargo_step(self) -> None:
         # Catches the gate's own variant of trust-runtime built before the full suite, which then
         # compiled seven crates again: 14.5 minutes on Linux and 21 on macOS (main, 4 November 2026).

@@ -224,7 +224,10 @@ pull request. The release guard's `prepare`, `preflight` and `check-merge` were 
     them;
   - compare paths through the normalization helpers;
   - make temporary directories collision-proof, not timestamp-based.
-- **Windows**: run `ci_cicd_contract` with `-- --test-threads=1`.
+- **Tests that measure time**: every system runs a test program's tests in parallel, so a test that
+  asserts how long something takes holds its program's measurement lock alone while the program's
+  other tests share it (`ci_cicd_contract`), or runs in a program of its own
+  (`web_ide_performance_gate`). Never make a system's whole suite serial for one test.
 - **Child processes**: decode their output with an explicit encoding and a non-throwing error policy.
   Keep draining pipes even when a reader fails.
 - **Raw HTTP/TCP test servers**: read the whole request before replying or closing. Otherwise Windows

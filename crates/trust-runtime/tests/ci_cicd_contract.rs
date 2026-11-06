@@ -3,11 +3,26 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 include!("../../../tests/support/repository_source_oracle.rs");
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+/// Held alone by each test that asserts how long a command takes, and shared by every other test of
+/// this program, so that no test runs beside a measurement on any system (specification 22, "CI
+/// reliability and release-gate artifact contract"). Without it the two-second feedback budget would
+/// also measure the tests beside it; Windows ran its whole suite one test at a time for that reason.
+static MEASURING: RwLock<()> = RwLock::new(());
+
+fn measuring_alone() -> RwLockWriteGuard<'static, ()> {
+    MEASURING.write().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn beside_measurements() -> RwLockReadGuard<'static, ()> {
+    MEASURING.read().unwrap_or_else(PoisonError::into_inner)
+}
 
 fn unique_temp_dir(prefix: &str) -> PathBuf {
     for _ in 0..64 {
@@ -153,6 +168,7 @@ fn assert_success(output: &Output, context: &str) {
 
 #[test]
 fn ci_json_summary_mode_contract_is_stable() {
+    let _shared = beside_measurements();
     let project = copy_fixture("green");
 
     let build = run_trust_runtime(&project, &["build", "--ci"]);
@@ -210,6 +226,7 @@ fn ci_json_summary_mode_contract_is_stable() {
 
 #[test]
 fn ci_template_workflow_passes_on_green_fixture() {
+    let _shared = beside_measurements();
     let project = copy_fixture("green");
 
     let build = run_trust_runtime(&project, &["build", "--ci"]);
@@ -235,6 +252,7 @@ fn ci_template_workflow_passes_on_green_fixture() {
 
 #[test]
 fn ci_clean_setup_first_passing_test_is_under_ten_minutes() {
+    let _alone = measuring_alone();
     let project = copy_fixture("green");
     let started = Instant::now();
 
@@ -259,6 +277,7 @@ fn ci_clean_setup_first_passing_test_is_under_ten_minutes() {
 
 #[test]
 fn ci_single_test_feedback_is_under_two_seconds_for_small_project() {
+    let _alone = measuring_alone();
     let project = copy_fixture("green");
     let started = Instant::now();
 
@@ -288,6 +307,7 @@ fn ci_single_test_feedback_is_under_two_seconds_for_small_project() {
 
 #[test]
 fn ci_run_all_tests_scales_roughly_linearly_for_small_projects() {
+    let _alone = measuring_alone();
     let small = copy_fixture("green");
     write_generated_tests(&small, 10);
     let started_small = Instant::now();
@@ -337,6 +357,7 @@ fn ci_run_all_tests_scales_roughly_linearly_for_small_projects() {
 
 #[test]
 fn ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report() {
+    let _shared = beside_measurements();
     let project = copy_fixture("broken");
 
     let build = run_trust_runtime(&project, &["build", "--ci"]);
@@ -375,6 +396,7 @@ fn ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report() 
 
 #[test]
 fn ci_template_file_contains_expected_command_sequence() {
+    let _shared = beside_measurements();
     let template = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
@@ -414,6 +436,7 @@ fn ci_template_file_contains_expected_command_sequence() {
 
 #[test]
 fn ci_flake_probe_script_emits_machine_readable_sample() {
+    let _shared = beside_measurements();
     let project = copy_fixture("green");
     let report_dir = unique_temp_dir("ci-flake-probe");
     std::fs::create_dir_all(&report_dir).expect("create flake probe report dir");
@@ -480,6 +503,7 @@ fn ci_flake_probe_script_emits_machine_readable_sample() {
 
 #[test]
 fn ci_release_gate_report_fails_when_required_gate_artifact_is_missing() {
+    let _shared = beside_measurements();
     let report_dir = unique_temp_dir("ci-gate-report-missing");
     let artifacts_dir = unique_temp_dir("ci-gate-artifacts-missing");
     std::fs::create_dir_all(artifacts_dir.join("gate-fmt")).expect("create gate-fmt marker dir");
@@ -518,6 +542,7 @@ fn ci_release_gate_report_fails_when_required_gate_artifact_is_missing() {
 
 #[test]
 fn ci_release_gate_report_passes_when_required_gate_artifacts_are_present() {
+    let _shared = beside_measurements();
     let report_dir = unique_temp_dir("ci-gate-report-pass");
     let artifacts_dir = unique_temp_dir("ci-gate-artifacts-pass");
     std::fs::create_dir_all(artifacts_dir.join("gate-fmt")).expect("create gate-fmt marker dir");
@@ -558,6 +583,7 @@ fn ci_release_gate_report_passes_when_required_gate_artifacts_are_present() {
 
 #[test]
 fn ci_nightly_workflow_exposes_dispatch_artifacts_and_gate_enforcement() {
+    let _shared = beside_measurements();
     let workflow = repo_root()
         .join(".github")
         .join("workflows")
@@ -616,6 +642,7 @@ fn ci_nightly_workflow_exposes_dispatch_artifacts_and_gate_enforcement() {
 
 #[test]
 fn ci_reliability_summary_gate_returns_non_zero_on_budget_breach() {
+    let _shared = beside_measurements();
     let report_dir = unique_temp_dir("ci-reliability-summary");
     std::fs::create_dir_all(&report_dir).expect("create reliability summary dir");
     let load_log = report_dir.join("load.log");
@@ -681,6 +708,7 @@ fn ci_reliability_summary_gate_returns_non_zero_on_budget_breach() {
 
 #[test]
 fn ci_vscode_extension_job_contract_wires_failure_to_release_gate() {
+    let _shared = beside_measurements();
     let workflow = repo_root().join(".github").join("workflows").join("ci.yml");
     let text = repository_source_tree_read_to_string!(
         (workflow, repo_root()),
