@@ -56,6 +56,19 @@ errors. They are not ignored. Configuration and every symbolic mapping must be
 validated completely before the MQTT worker starts; failure leaves no partial
 binding or partially started MQTT session.
 
+One set of rules, shared by every runtime, checks the parameters. A refusal names
+the key and the reason, `<key>: <reason>`; a runtime refuses the driver with the
+first refusal. A connection form (`comm.apply`, specification 11) marks every
+key that a rule refuses at once, each with that refusal, in the order of the
+rules, so that a save never finds one more. A rule that needs the value of a
+refused key is not checked: TLS needs the broker's scheme, which a broker
+refused for its host or port still names, and the plaintext rule needs the
+broker and TLS. On a computer the TLS files are read after the
+rules, and a file's refusal marks its key. The form checks the parameters as
+it applies them, without empty optional values, and keeps the bounds that
+`comm.schema` advertises for its number fields, which are narrower than the
+driver's: `reconnect_ms` at most 60,000 and `keep_alive_s` at least 1.
+
 The shipped traffic-light mapping is:
 
 ```toml
@@ -83,7 +96,8 @@ direction = "write"
 
 ## 3. Endpoint, credentials, and transport security
 
-The broker endpoint supplies host and port. A plain `mqtt://` or `tcp://`
+The broker endpoint supplies host and port: a host that is not empty and holds
+no white space, and a port from 1 to 65535. A plain `mqtt://` or `tcp://`
 endpoint is permitted for loopback/local authority. A remote plaintext broker
 requires `allow_insecure_remote = true`. `mqtts://` and `ssl://` imply TLS, and
 an explicit `tls = false` conflicts with a TLS scheme.
@@ -97,7 +111,9 @@ not by itself prove a broker handshake.
 A computer's TLS client is rustls, the same on Windows, macOS and Linux (owner,
 6 November 2026). It trusts every certificate in the PEM file `tls_ca_path` and
 no other: the system's trusted certificates play no part. It speaks TLS 1.2 and
-1.3. For mutual TLS, `tls_client_cert_path` holds the client's certificate in
+1.3; its TLS 1.2 offers ECDHE key exchange with AES-GCM or ChaCha20-Poly1305
+only, so a broker that offers only CBC or RSA key-exchange cipher suites does not
+connect. For mutual TLS, `tls_client_cert_path` holds the client's certificate in
 PEM, then any intermediate certificates, and `tls_client_key_path` holds its
 private key in PEM, as PKCS#8, PKCS#1 (RSA) or SEC1 (EC). The client is built,
 and its files are read, when the driver is validated and when it starts: a file

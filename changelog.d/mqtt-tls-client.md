@@ -2,9 +2,9 @@
 
 - The MQTT driver's TLS client is the same on Windows, macOS and Linux (specification 32 §3). It
   trusts only the certificates in `tls_ca_path`, every one the file holds, and no longer the
-  computer's trusted certificates, and it speaks TLS 1.2 and 1.3. A client's key may be PKCS#8,
-  PKCS#1 or SEC1 PEM, and a key that does not belong to the client's certificate is refused with
-  the configuration.
+  computer's trusted certificates, and it speaks TLS 1.2 and 1.3, TLS 1.2 with ECDHE and AES-GCM or
+  ChaCha20-Poly1305 cipher suites only. A client's key may be PKCS#8, PKCS#1 or SEC1 PEM, and a key
+  that does not belong to the client's certificate is refused with the configuration.
 
 ### Fixed
 

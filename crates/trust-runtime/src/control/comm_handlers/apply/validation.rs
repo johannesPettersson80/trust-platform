@@ -1,3 +1,6 @@
+use trust_runtime_services::io_drivers::mqtt::MqttParams;
+use trust_runtime_services::io_drivers::ParamsError;
+
 use super::{field_error, CommFieldError};
 
 pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Vec<CommFieldError> {
@@ -17,29 +20,22 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
                 validate_string_field(table, expected, false, &mut errors);
             }
         }
+        // The rules of the driver itself, shared by every runtime (specification 32 §2), on the
+        // parameters as they are applied, without empty optional values; then the bounds that
+        // `comm.schema` advertises for the form's number fields, where the driver's rules took the
+        // field, since they are narrower than the driver's.
         "mqtt" => {
-            validate_required_endpoint_with_example(table, "broker", "127.0.0.1:1883", &mut errors);
-            validate_string_field(table, "topic_in", true, &mut errors);
-            validate_string_field(table, "topic_out", true, &mut errors);
-            validate_integer_range(table, "reconnect_ms", 1, 60000, &mut errors);
-            validate_integer_range(table, "keep_alive_s", 1, 65535, &mut errors);
-            validate_error_policy(table, &mut errors);
-            let has_username = table
-                .get("username")
-                .and_then(toml::Value::as_str)
-                .is_some_and(|value| !value.trim().is_empty());
-            let has_password = table
-                .get("password")
-                .and_then(toml::Value::as_str)
-                .is_some_and(|value| !value.trim().is_empty());
-            if has_username ^ has_password {
-                errors.push(field_error(
-                    "password",
-                    "MQTT username and password must be set together.",
-                ));
+            let mut applied = params.clone();
+            super::strip_empty_optional_values(&mut applied);
+            errors.extend(shared_refusals(&applied, MqttParams::refusals));
+            if let Some(applied) = applied.as_table() {
+                for (field, min, max) in [("reconnect_ms", 1, 60_000), ("keep_alive_s", 1, 65_535)]
+                {
+                    if !errors.iter().any(|error| error.field == field) {
+                        validate_integer_range(applied, field, min, max, &mut errors);
+                    }
+                }
             }
-            validate_array_field(table, "tls_alpn", &mut errors);
-            validate_mqtt_tls_fields(table, &mut errors);
         }
         "ethercat" => {
             validate_string_field(table, "adapter", true, &mut errors);
@@ -220,60 +216,32 @@ pub(super) fn validate_runtime_file_fields(
     errors
 }
 
-fn validate_mqtt_tls_fields(
-    table: &toml::map::Map<String, toml::Value>,
-    errors: &mut Vec<CommFieldError>,
-) {
-    let tls = table
-        .get("tls")
-        .and_then(toml::Value::as_bool)
-        .unwrap_or(false);
-    let ca_path = string_field_present(table, "tls_ca_path");
-    let client_cert = string_field_present(table, "tls_client_cert_path");
-    let client_key = string_field_present(table, "tls_client_key_path");
-    let alpn = non_empty_array_field(table, "tls_alpn");
-
-    if tls {
-        if !ca_path {
-            errors.push(field_error(
-                "tls_ca_path",
-                "TLS CA path is required when TLS is true.",
-            ));
-        }
-        if client_cert ^ client_key {
-            errors.push(field_error(
-                if client_cert {
-                    "tls_client_key_path"
-                } else {
-                    "tls_client_cert_path"
-                },
-                "MQTT client certificate and key path must be set together.",
-            ));
-        }
-    } else if ca_path || client_cert || client_key || alpn {
-        errors.push(field_error(
-            "tls",
-            "Turn TLS on before setting TLS certificate or ALPN fields.",
-        ));
+/// The refusals of `params` by the shared rules `refusals`, every one at once, each a field error
+/// on the first key of the path it names, in the words that the runtime refuses the driver with
+/// (`<key>: <reason>`).
+fn shared_refusals(
+    params: &toml::Value,
+    refusals: fn(&str) -> Vec<ParamsError>,
+) -> Vec<CommFieldError> {
+    match crate::io::params_text(params) {
+        Ok(text) => refusals(&text)
+            .into_iter()
+            .map(|refusal| {
+                let field = refusal.key.split(['[', '.']).next().unwrap_or_default();
+                field_error(field, refusal.to_string())
+            })
+            .collect(),
+        Err(reason) => vec![field_error("params", reason)],
     }
-}
-
-fn string_field_present(table: &toml::map::Map<String, toml::Value>, field: &str) -> bool {
-    table
-        .get(field)
-        .and_then(toml::Value::as_str)
-        .is_some_and(|value| !value.trim().is_empty())
-}
-
-fn non_empty_array_field(table: &toml::map::Map<String, toml::Value>, field: &str) -> bool {
-    table
-        .get(field)
-        .and_then(toml::Value::as_array)
-        .is_some_and(|values| !values.is_empty())
 }
 
 pub(super) fn field_from_error(message: &str) -> &str {
     for field in [
+        // The computer's refusals of an MQTT driver's TLS files name the key first, before a path
+        // that might hold another key's name.
+        "tls_ca_path",
+        "tls_client_cert_path",
+        "tls_client_key_path",
         "address",
         "broker",
         "unit_id",
@@ -480,13 +448,20 @@ mod tests {
             .collect()
     }
 
+    /// The field error of `field` in the driver's own words.
+    fn on(field: &str, message: &str) -> (String, String) {
+        (field.to_owned(), message.to_owned())
+    }
+
+    /// TLS without an authority marks `tls_ca_path` with the driver's refusal (specification 32
+    /// §3). Catches a form that lets TLS on without the broker's authority through to the save.
     #[test]
     fn mqtt_tls_without_ca_path_is_field_specific() {
         let errors = mqtt_errors(
             toml::toml! {
                 broker = "127.0.0.1:1883"
-                input_topic = "trust/io/in"
-                output_topic = "trust/io/out"
+                topic_in = "trust/io/in"
+                topic_out = "trust/io/out"
                 tls = true
                 reconnect_ms = 500
                 keep_alive_s = 5
@@ -494,22 +469,26 @@ mod tests {
             }
             .into(),
         );
-
-        assert!(
-            errors.iter().any(|(field, message)| {
-                field == "tls_ca_path" && message.contains("TLS CA path")
-            }),
-            "expected field-specific tls_ca_path error, got {errors:?}"
+        assert_eq!(
+            errors,
+            [on(
+                "tls_ca_path",
+                "tls_ca_path: is required with TLS, the path of the PEM file of the broker's \
+                 certificate authority"
+            )]
         );
     }
 
+    /// A broker without a port marks `broker` with the driver's refusal and nothing else: its
+    /// scheme still lets the TLS rules judge the TLS keys, which are in order (specification 32
+    /// §2). Catches a broker refusal on another field.
     #[test]
-    fn mqtt_broker_validation_uses_mqtt_port_example() {
+    fn mqtt_broker_without_a_port_is_refused_on_its_field() {
         let errors = mqtt_errors(
             toml::toml! {
                 broker = "not-a-host"
-                input_topic = "trust/io/in"
-                output_topic = "trust/io/out"
+                topic_in = "trust/io/in"
+                topic_out = "trust/io/out"
                 tls = false
                 reconnect_ms = 500
                 keep_alive_s = 5
@@ -517,22 +496,24 @@ mod tests {
             }
             .into(),
         );
-
-        assert!(
-            errors.iter().any(|(field, message)| {
-                field == "broker" && message.contains("127.0.0.1:1883")
-            }),
-            "expected MQTT broker error to use MQTT port example, got {errors:?}"
+        assert_eq!(
+            errors,
+            [on(
+                "broker",
+                "broker: must be host:port, not \"not-a-host\""
+            )]
         );
     }
 
+    /// A TLS file named with TLS off marks that file's key (specification 32 §3). Catches a TLS
+    /// setting that a form takes and the driver then ignores.
     #[test]
     fn mqtt_tls_fields_require_tls_enabled() {
         let errors = mqtt_errors(
             toml::toml! {
                 broker = "127.0.0.1:1883"
-                input_topic = "trust/io/in"
-                output_topic = "trust/io/out"
+                topic_in = "trust/io/in"
+                topic_out = "trust/io/out"
                 tls = false
                 reconnect_ms = 500
                 keep_alive_s = 5
@@ -541,22 +522,24 @@ mod tests {
             }
             .into(),
         );
-
-        assert!(
-            errors
-                .iter()
-                .any(|(field, message)| { field == "tls" && message.contains("Turn TLS on") }),
-            "expected field-specific tls toggle error, got {errors:?}"
+        assert_eq!(
+            errors,
+            [on(
+                "tls_ca_path",
+                "tls_ca_path: needs TLS: set tls = true or use an mqtts:// or ssl:// broker"
+            )]
         );
     }
 
+    /// Half a mutual-TLS pair marks the missing half (specification 32 §3). Catches a client that
+    /// would connect without its identity.
     #[test]
     fn mqtt_mtls_cert_and_key_are_validated_together() {
         let errors = mqtt_errors(
             toml::toml! {
                 broker = "127.0.0.1:1883"
-                input_topic = "trust/io/in"
-                output_topic = "trust/io/out"
+                topic_in = "trust/io/in"
+                topic_out = "trust/io/out"
                 tls = true
                 reconnect_ms = 500
                 keep_alive_s = 5
@@ -566,12 +549,46 @@ mod tests {
             }
             .into(),
         );
+        assert_eq!(
+            errors,
+            [on(
+                "tls_client_key_path",
+                "tls_client_key_path: is required with tls_client_cert_path: mutual TLS takes both"
+            )]
+        );
+    }
 
-        assert!(
-            errors.iter().any(|(field, message)| {
-                field == "tls_client_key_path" && message.contains("certificate and key")
-            }),
-            "expected field-specific client-key error, got {errors:?}"
+    /// Every key that the driver refuses is marked at once, in the order of its rules
+    /// (specification 32 §2): the missing authority, the missing half of the pair, an empty ALPN
+    /// protocol on `tls_alpn` (its refusal names `tls_alpn[1]`), the missing password, a keep alive
+    /// above 65535 and an unknown policy. Catches a form that marks only the first refused key, so
+    /// that each save finds one more, and a refusal of an item marked on no field of the form.
+    #[test]
+    fn every_key_the_driver_refuses_is_marked_at_once() {
+        let errors = mqtt_errors(
+            toml::toml! {
+                broker = "127.0.0.1:1883"
+                tls = true
+                tls_client_cert_path = "/tmp/client.pem"
+                tls_alpn = ["mqtt", ""]
+                username = "line"
+                keep_alive_s = 70000
+                on_error = "explode"
+            }
+            .into(),
+        );
+        let fields: Vec<&str> = errors.iter().map(|(field, _)| field.as_str()).collect();
+        assert_eq!(
+            fields,
+            [
+                "tls_ca_path",
+                "tls_client_key_path",
+                "tls_alpn",
+                "password",
+                "keep_alive_s",
+                "on_error"
+            ],
+            "{errors:?}"
         );
     }
 

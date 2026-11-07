@@ -2,6 +2,7 @@
 //! and refusals of trust-runtime's driver.
 
 use alloc::format;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -541,4 +542,70 @@ fn the_credential_context_is_broker_tls_user_client_and_allowance() {
     ] {
         assert!(!same(changed), "{changed}");
     }
+}
+
+/// Every key that breaks a rule is refused at once, in the order of the rules, and `from_json`
+/// refuses with the first of them (specification 32 §2): an unknown key, then the TLS keys (the
+/// missing authority, the missing half of the pair, an empty ALPN protocol), the missing password,
+/// a keep alive above 65535 and an unknown policy. Catches a form that marks only the first broken
+/// key, and a `from_json` whose refusal is not the first of them.
+#[test]
+fn every_broken_key_is_refused_in_the_order_of_the_rules() {
+    let text = r#"{"broker":"127.0.0.1:1883","speed":1,"tls":true,"tls_client_cert_path":"/c.pem","tls_alpn":["mqtt",""],"username":"line","keep_alive_s":70000,"on_error":"explode"}"#;
+    let refusals = MqttParams::refusals(text);
+    let keys: Vec<&str> = refusals
+        .iter()
+        .map(|refusal| refusal.key.as_str())
+        .collect();
+    assert_eq!(
+        keys,
+        [
+            "speed",
+            "tls_ca_path",
+            "tls_client_key_path",
+            "tls_alpn[1]",
+            "password",
+            "keep_alive_s",
+            "on_error"
+        ]
+    );
+    assert_eq!(MqttParams::from_json(text), Err(refusals[0].clone()));
+}
+
+/// A rule that needs the value of a refused key is not checked (specification 32 §2): TLS needs the
+/// broker's scheme, so a broker of another scheme leaves the TLS keys unjudged, while a broker
+/// refused for its host still names its scheme and the TLS keys are judged with it. Catches a TLS
+/// refusal made up from a broker whose scheme was refused, and TLS refusals hidden behind a
+/// broker's bad host.
+#[test]
+fn a_rule_that_needs_a_refused_key_is_not_checked() {
+    let keys = |text: &str| -> Vec<String> {
+        MqttParams::refusals(text)
+            .into_iter()
+            .map(|refusal| refusal.key)
+            .collect()
+    };
+    assert_eq!(
+        keys(r#"{"broker":"wss://b.example:8883","tls_ca_path":"/ca.pem"}"#),
+        ["broker"]
+    );
+    assert_eq!(
+        keys(r#"{"broker":"bad broker:1883","tls_alpn":"mqtt"}"#),
+        ["broker", "tls_alpn"]
+    );
+}
+
+/// A broker's host holds no white space (specification 32 §3): such a host is refused when the
+/// parameters are checked, where the driver could only fail to resolve it. Catches a host with a
+/// space taken as a broker.
+#[test]
+fn a_broker_host_with_white_space_is_refused() {
+    assert_eq!(
+        local_with(r#""topic_in":"line/in""#).map(|params| params.broker.port),
+        Ok(1883)
+    );
+    assert_eq!(
+        MqttParams::from_json(r#"{"broker":"bad broker:1883"}"#),
+        refused("broker", "has white space in its host: \"bad broker:1883\"")
+    );
 }
