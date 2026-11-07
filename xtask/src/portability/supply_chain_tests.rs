@@ -13,8 +13,10 @@ fn fixture() -> Fixture {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let root =
-        trust_test_support::unique_temp_path(&format!("trust-lock-audits-{}-{nonce}", std::process::id()));
+    let root = trust_test_support::unique_temp_path(&format!(
+        "trust-lock-audits-{}-{nonce}",
+        std::process::id()
+    ));
     fs::create_dir_all(root.join("scripts")).unwrap();
     fs::create_dir(root.join("bin")).unwrap();
     fs::write(
