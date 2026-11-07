@@ -61,8 +61,9 @@ the key and the reason, `<key>: <reason>`; a runtime refuses the driver with the
 first refusal. A connection form (`comm.apply`, specification 11) marks every
 key that a rule refuses at once, each with that refusal, in the order of the
 rules, so that a save never finds one more. A rule that needs the value of a
-refused key is not checked: TLS needs the broker's scheme, and the plaintext
-rule needs the broker and TLS. On a computer the TLS files are read after the
+refused key is not checked: TLS needs the broker's scheme, which a broker
+refused for its host or port still names, and the plaintext rule needs the
+broker and TLS. On a computer the TLS files are read after the
 rules, and a file's refusal marks its key. The form checks the parameters as
 it applies them, without empty optional values, and keeps the bounds that
 `comm.schema` advertises for its number fields, which are narrower than the
@@ -95,7 +96,8 @@ direction = "write"
 
 ## 3. Endpoint, credentials, and transport security
 
-The broker endpoint supplies host and port. A plain `mqtt://` or `tcp://`
+The broker endpoint supplies host and port: a host that is not empty and holds
+no white space, and a port from 1 to 65535. A plain `mqtt://` or `tcp://`
 endpoint is permitted for loopback/local authority. A remote plaintext broker
 requires `allow_insecure_remote = true`. `mqtts://` and `ssl://` imply TLS, and
 an explicit `tls = false` conflicts with a TLS scheme.

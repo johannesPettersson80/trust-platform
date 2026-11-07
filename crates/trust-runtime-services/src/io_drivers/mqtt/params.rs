@@ -190,8 +190,9 @@ impl MqttParams {
     /// Every refusal of the JSON text `text` by the rules of [`MqttParams::from_json`], in the
     /// order it checks them, so that a form can mark every key that breaks a rule at once
     /// (specification 32 §2). A rule that needs the value of a key that is refused is not
-    /// checked: TLS needs the broker's scheme, and the plaintext rule needs the broker and TLS.
-    /// Empty when the parameters are taken.
+    /// checked: TLS needs the broker's scheme, which a broker refused for its host or port still
+    /// names, and the plaintext rule needs the broker and TLS. Empty when the parameters are
+    /// taken.
     #[must_use]
     pub fn refusals(text: &str) -> Vec<ParamsError> {
         check(text).1
@@ -259,9 +260,14 @@ fn check(text: &str) -> (Option<MqttParams>, Vec<ParamsError>) {
     let refused = &mut refusals;
     kept(root.only(&KEYS, "the mqtt driver"), refused);
     let broker = kept(broker(&root), refused);
-    let tls = broker
-        .as_ref()
-        .and_then(|(_, scheme_tls)| tls(&root, *scheme_tls, refused).ok());
+    // TLS needs only the broker's scheme, which a broker refused for its host or port still names.
+    let scheme_tls = match &broker {
+        Some((_, scheme_tls)) => Some(*scheme_tls),
+        None => broker_scheme(&root)
+            .ok()
+            .map(|(_, _, scheme_tls)| scheme_tls),
+    };
+    let tls = scheme_tls.and_then(|scheme_tls| tls(&root, scheme_tls, refused).ok());
     let allow_insecure_remote =
         kept(root.boolean("allow_insecure_remote"), refused).map(|flag| flag.unwrap_or(false));
     if let (Some((broker, _)), Some(None), Some(false)) = (&broker, &tls, allow_insecure_remote)
@@ -330,39 +336,8 @@ fn kept<T>(result: Result<T, ParamsError>, refusals: &mut Vec<ParamsError>) -> O
 /// `ssl://` (TLS) scheme, and the host of an IPv6 address in brackets; with whether the scheme is
 /// TLS. A broker with user information is refused without its text.
 fn broker(root: &Table<'_>) -> Result<(BrokerEndpoint, bool), ParamsError> {
-    let Some(value) = root.get("broker") else {
-        return Err(root.refuse("broker", format!("is required, {BROKER}")));
-    };
-    let Some(text) = value.as_str() else {
-        return Err(root.refuse("broker", format!("must be a string, {BROKER}, not {value}")));
-    };
-    if text.contains('@') {
-        return Err(root.refuse(
-            "broker",
-            "must not carry user information: give username and password instead",
-        ));
-    }
+    let (text, rest, scheme_tls) = broker_scheme(root)?;
     let shown = quoted(text);
-    let trimmed = text.trim();
-    let (rest, scheme_tls) = if let Some(rest) = trimmed
-        .strip_prefix("tcp://")
-        .or_else(|| trimmed.strip_prefix("mqtt://"))
-    {
-        (rest, false)
-    } else if let Some(rest) = trimmed
-        .strip_prefix("ssl://")
-        .or_else(|| trimmed.strip_prefix("mqtts://"))
-    {
-        (rest, true)
-    } else {
-        (trimmed, false)
-    };
-    if rest.contains("://") {
-        return Err(root.refuse(
-            "broker",
-            format!("must use mqtt://, tcp://, mqtts:// or ssl://, or no scheme, not {shown}"),
-        ));
-    }
     let refuse_shape = || root.refuse("broker", format!("must be host:port, not {shown}"));
     let (host, port) = if let Some(inner) = rest.strip_prefix('[') {
         inner.split_once("]:").ok_or_else(refuse_shape)?
@@ -372,6 +347,9 @@ fn broker(root: &Table<'_>) -> Result<(BrokerEndpoint, bool), ParamsError> {
     };
     if host.is_empty() {
         return Err(root.refuse("broker", format!("has an empty host: {shown}")));
+    }
+    if host.contains(char::is_whitespace) {
+        return Err(root.refuse("broker", format!("has white space in its host: {shown}")));
     }
     let port = port.trim().parse::<u16>().map_err(|error| {
         root.refuse("broker", format!("has an invalid port in {shown}: {error}"))
@@ -389,6 +367,47 @@ fn broker(root: &Table<'_>) -> Result<(BrokerEndpoint, bool), ParamsError> {
         },
         scheme_tls,
     ))
+}
+
+/// `broker`'s text, the text after its scheme, and whether the scheme is TLS: the part of the
+/// broker that TLS needs, which a broker refused for its host or port still names.
+fn broker_scheme<'a>(root: &Table<'a>) -> Result<(&'a str, &'a str, bool), ParamsError> {
+    let Some(value) = root.get("broker") else {
+        return Err(root.refuse("broker", format!("is required, {BROKER}")));
+    };
+    let Some(text) = value.as_str() else {
+        return Err(root.refuse("broker", format!("must be a string, {BROKER}, not {value}")));
+    };
+    if text.contains('@') {
+        return Err(root.refuse(
+            "broker",
+            "must not carry user information: give username and password instead",
+        ));
+    }
+    let trimmed = text.trim();
+    let (rest, scheme_tls) = if let Some(rest) = trimmed
+        .strip_prefix("tcp://")
+        .or_else(|| trimmed.strip_prefix("mqtt://"))
+    {
+        (rest, false)
+    } else if let Some(rest) = trimmed
+        .strip_prefix("ssl://")
+        .or_else(|| trimmed.strip_prefix("mqtts://"))
+    {
+        (rest, true)
+    } else {
+        (trimmed, false)
+    };
+    if rest.contains("://") {
+        return Err(root.refuse(
+            "broker",
+            format!(
+                "must use mqtt://, tcp://, mqtts:// or ssl://, or no scheme, not {}",
+                quoted(text)
+            ),
+        ));
+    }
+    Ok((text, rest, scheme_tls))
 }
 
 /// Whether the broker `host` is local: `localhost` in any case, `127.0.0.1` or `::1`.

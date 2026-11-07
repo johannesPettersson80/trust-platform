@@ -479,9 +479,9 @@ mod tests {
         );
     }
 
-    /// A broker without a port marks `broker` with the driver's refusal, and the TLS rules, which
-    /// need its scheme, are not checked (specification 32 §2). Catches a broker refusal on another
-    /// field, and TLS refusals made up from a refused broker.
+    /// A broker without a port marks `broker` with the driver's refusal and nothing else: its
+    /// scheme still lets the TLS rules judge the TLS keys, which are in order (specification 32
+    /// §2). Catches a broker refusal on another field.
     #[test]
     fn mqtt_broker_without_a_port_is_refused_on_its_field() {
         let errors = mqtt_errors(
