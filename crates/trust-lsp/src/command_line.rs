@@ -185,8 +185,10 @@ mod tests {
 
     impl Project {
         fn new(name: &str) -> Self {
-            let root = std::env::temp_dir()
-                .join(format!("trust-lsp-command-{name}-{}", std::process::id()));
+            let root = trust_test_support::unique_temp_path(&format!(
+                "trust-lsp-command-{name}-{}",
+                std::process::id()
+            ));
             let _ = std::fs::remove_dir_all(&root);
             std::fs::create_dir_all(root.join("src")).expect("src dir");
             std::fs::write(
@@ -373,8 +375,10 @@ mod tests {
 
     #[tokio::test]
     async fn a_project_without_source_files_is_a_usage_error() {
-        let root =
-            std::env::temp_dir().join(format!("trust-lsp-command-empty-{}", std::process::id()));
+        let root = trust_test_support::unique_temp_path(&format!(
+            "trust-lsp-command-empty-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("empty project");
         let (status, out, err) = command_output(

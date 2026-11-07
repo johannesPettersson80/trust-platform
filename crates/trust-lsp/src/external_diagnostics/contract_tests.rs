@@ -12,7 +12,7 @@ struct DiagnosticProject {
 impl DiagnosticProject {
     fn new(label: &str) -> Self {
         let id = NEXT_DIAGNOSTIC_ID.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-external-diagnostic-contract-{}-{label}-{id}",
             std::process::id()
         ));

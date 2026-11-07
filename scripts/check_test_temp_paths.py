@@ -26,7 +26,7 @@ HELPER_CRATE = "crates/trust-test-support/"
 SCANNED = ("crates", "xtask")
 # Crates whose tests still take temporary paths of their own: checklist G72 converts them part by part, and
 # this list is empty when every test takes its path from trust-test-support.
-NOT_YET = ("crates/trust-lsp/", "crates/trust-runtime/")
+NOT_YET = ("crates/trust-runtime/",)
 TEMP_DIR_CALL = re.compile(r"\benv::temp_dir\(\)")
 TEST_GATE = re.compile(r"#\[cfg\((?:test|all\(\s*test\b[^\]]*)\)\]")
 

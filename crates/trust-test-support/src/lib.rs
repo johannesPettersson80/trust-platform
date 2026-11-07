@@ -20,6 +20,15 @@ pub fn unique_temp_path(name: &str) -> PathBuf {
     ))
 }
 
+/// A path under the system's temporary directory for one name in this process: `name`, after this
+/// process's tag. The same name gives the same path within the process, for a test that reopens what
+/// it wrote, as across a restart, or that names one path twice; processes keep apart by their tags,
+/// and the name must be the test's own. The path is not created.
+#[must_use]
+pub fn process_temp_path(name: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("{}-{name}", process_tag()))
+}
+
 /// This process among the processes of every run: its id, and the microsecond of the second in which
 /// it first asked for a path, so that a later process given the same id does not take a path that an
 /// earlier run left behind.
@@ -35,7 +44,7 @@ fn process_tag() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::unique_temp_path;
+    use super::{process_temp_path, unique_temp_path};
 
     /// Two paths of one name in one process are two, both start with the process's id, and a file
     /// name keeps its extension. Catches a path that two tests of one name share, which the first to
@@ -57,6 +66,20 @@ mod tests {
         assert!(
             file_name.starts_with(&format!("{}-", std::process::id())),
             "{file_name}"
+        );
+    }
+
+    /// One name gives one path within the process, and two names give two. Catches a test that names
+    /// one path twice and finds two, and two tests of two names on one path.
+    #[test]
+    fn a_name_keeps_its_path_within_the_process() {
+        assert_eq!(
+            process_temp_path("trust-store.bin"),
+            process_temp_path("trust-store.bin")
+        );
+        assert_ne!(
+            process_temp_path("trust-store.bin"),
+            process_temp_path("trust-other.bin")
         );
     }
 }

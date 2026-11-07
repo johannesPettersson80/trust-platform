@@ -11,7 +11,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-st-tests-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
@@ -318,7 +318,8 @@ fn a_named_test_is_identified_by_the_same_key() {
 #[test]
 fn a_missing_path_keys_without_dot_segments() {
     // A file that does not exist (yet) keys by its absolute path with `.` and `..` resolved.
-    let base = std::env::temp_dir().join(format!("trust-lsp-missing-{}", std::process::id()));
+    let base =
+        trust_test_support::unique_temp_path(&format!("trust-lsp-missing-{}", std::process::id()));
     let key = path_key(&base.join("a/../b/./c.st"));
     let expected = lexical_absolute(&base.join("b/c.st")).display().to_string();
     let expected = if cfg!(windows) {

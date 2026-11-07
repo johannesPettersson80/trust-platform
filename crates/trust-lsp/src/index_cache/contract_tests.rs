@@ -12,7 +12,7 @@ struct CacheProject {
 impl CacheProject {
     fn new(label: &str) -> Self {
         let id = NEXT_CACHE_ID.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-index-cache-contract-{}-{label}-{id}",
             std::process::id()
         ));

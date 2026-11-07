@@ -26,7 +26,10 @@ pub(crate) const EXAMPLE: &str =
 
 /// A project folder with the example loop, and the arguments of `open` and `page` for it.
 pub(crate) fn example_project(name: &str) -> (std::path::PathBuf, LoopDefinition, Value) {
-    let root = std::env::temp_dir().join(format!("trust-control-{name}-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path(&format!(
+        "trust-control-{name}-{}",
+        std::process::id()
+    ));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("project");
     fs::write(root.join("control-loop.json"), EXAMPLE).expect("loop");

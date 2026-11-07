@@ -40,7 +40,7 @@ struct TempDir(PathBuf);
 impl TempDir {
     fn new(label: &str) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-hmi-drafts-{label}-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::SeqCst)

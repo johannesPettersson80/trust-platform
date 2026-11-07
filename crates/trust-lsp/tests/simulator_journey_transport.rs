@@ -233,7 +233,7 @@ struct Project(PathBuf);
 
 impl Project {
     fn new(label: &str) -> Self {
-        let folder = std::env::temp_dir().join(format!(
+        let folder = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-journey-transport-{label}-{}",
             std::process::id()
         ));

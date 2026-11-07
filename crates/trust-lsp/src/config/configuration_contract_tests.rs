@@ -12,7 +12,7 @@ struct ConfigProject {
 impl ConfigProject {
     fn new(label: &str) -> Self {
         let id = NEXT_PROJECT_ID.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-config-contract-{}-{label}-{id}",
             std::process::id()
         ));
@@ -222,7 +222,7 @@ fn relative_index_cache_directory_resolves_against_root() {
 #[test]
 fn absolute_index_cache_directory_is_preserved() {
     let project = ConfigProject::new("cache-absolute");
-    let cache_dir = std::env::temp_dir().join("trust-lsp-absolute-cache");
+    let cache_dir = trust_test_support::unique_temp_path("trust-lsp-absolute-cache");
     let config = project.config(&format!(
         "[indexing]\ncache_dir = {}",
         toml::Value::String(cache_dir.to_string_lossy().into_owned())
