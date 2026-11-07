@@ -1,6 +1,6 @@
 //! Guarded, task-bound controller transfer transactions.
 
-use super::mode::{self, Mode};
+use super::mode::Mode;
 use super::program_facts::{self, BindingLeaf, ProgramTask};
 use super::{parameters, DebugControl};
 use crate::io::IoAddress;
@@ -414,7 +414,7 @@ fn observed(binding: &Binding, program: &dyn ProgramRead) -> Result<JsonValue, S
     for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
         let value = parameters::resolve_path(program, &mode.symbol)?.value;
         mode.check(&value, &image)?;
-        values.insert(mode.symbol.clone(), mode::shown(&mode.symbol, &value)?);
+        values.insert(mode.symbol.clone(), mode.reading(&value)?);
     }
     for member in binding
         .states

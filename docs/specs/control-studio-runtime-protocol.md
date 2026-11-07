@@ -538,7 +538,7 @@ Access: Viewer. Request: `binding`.
 Response:
 
 - `program_revision`, `binding_revision` and `runtime_time_ns`.
-- `values`: an object with one entry for each member and each mode. A BOOL mode is a boolean, and an enumeration mode is the name of its member as its type declares it. A BOOL member is 0 or 1.
+- `values`: an object with one entry for each member and each mode. A BOOL mode is its boolean. An enumeration mode is TRUE in its Manual member and FALSE in its Auto member, so a reading means Manual exactly where a BOOL binding with `manual_value` TRUE reads TRUE. A status read of an enumeration mode in another member is refused, with the member's name: the loop is in neither mode (specification 35 A6.1). A BOOL member is 0 or 1.
 - `supported_tracking`: `["proportional", "parallel-pid-v1", "declared-state-v1", "declared-initialization-formulas"]`.
 - `transaction_id`: the identifier of the last transaction, or null.
 - `status`: the status of the last transaction, or `idle`.

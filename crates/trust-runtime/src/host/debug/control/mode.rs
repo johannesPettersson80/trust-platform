@@ -99,6 +99,28 @@ impl Mode {
         }
     }
 
+    /// The signal's value `current` as status reports it (E6.3): a BOOL as its boolean; an
+    /// enumeration as TRUE in its Manual member and FALSE in its Auto member, so that the reading
+    /// means Manual where it equals a BOOL binding's `manual_value` of TRUE. A loop whose
+    /// enumeration mode is in another member is in neither mode, and the read is refused with the
+    /// member's name (specification 35 A6.1).
+    pub(super) fn reading(&self, current: &Value) -> Result<JsonValue, String> {
+        match current {
+            Value::Bool(value) => Ok(JsonValue::Bool(*value)),
+            Value::Enum(_) if self.holds(true, current) => Ok(JsonValue::Bool(true)),
+            Value::Enum(_) if self.holds(false, current) => Ok(JsonValue::Bool(false)),
+            Value::Enum(enumeration) => Err(format!(
+                "mode {} is {}, neither Manual nor Auto",
+                self.symbol,
+                enumeration.variant_name()
+            )),
+            _ => Err(format!(
+                "mode {} must be BOOL or an enumeration",
+                self.symbol
+            )),
+        }
+    }
+
     /// Whether `current` is the value that means Manual (`manual`) or Auto. An enumeration's
     /// other members are neither.
     pub(super) fn holds(&self, manual: bool, current: &Value) -> bool {
@@ -114,15 +136,5 @@ impl Mode {
             }
             _ => false,
         }
-    }
-}
-
-/// The signal's value `current` as status reports it (E6.3): a BOOL as a boolean, an enumeration
-/// as the name of its member as its type declares it.
-pub(super) fn shown(symbol: &str, current: &Value) -> Result<JsonValue, String> {
-    match current {
-        Value::Bool(value) => Ok(JsonValue::Bool(*value)),
-        Value::Enum(enumeration) => Ok(JsonValue::String(enumeration.variant_name().to_string())),
-        _ => Err(format!("mode {symbol} must be BOOL or an enumeration")),
     }
 }

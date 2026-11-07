@@ -1,5 +1,5 @@
 // Protocol annex E6.2, E6.3 and E7.1 (specification 35 A6.1): a transfer and a parameter transaction bind an enumeration mode by
-// the members that mean Manual and Auto, and status shows the member's name.
+// the members that mean Manual and Auto, and status reads it as TRUE in Manual and FALSE in Auto.
 
 /// A loop whose mode is an enumeration with a third member, as CODESYS and TwinCAT code often has: in `Manual` the output is the
 /// manual command, in `Auto` the law, and in `Off` zero. The mode starts at `mode`.
@@ -29,7 +29,7 @@ fn enum_transfer_status(state: &ControlState, binding: &serde_json::Value) -> Co
 }
 
 /// Catches an enumeration mode refused as "transfer mode must be BOOL", the Auto member not written (the law would not run),
-/// another member written, and a status that shows the mode as anything but its member's name.
+/// another member written, and a status that reads the mode otherwise than TRUE in Manual and FALSE in Auto.
 #[test]
 fn controller_transfer_switches_an_enumeration_mode_by_its_manual_and_auto_members() {
     let (state, mut harness) = enum_mode_fixture("Manual");
@@ -39,7 +39,7 @@ fn controller_transfer_switches_an_enumeration_mode_by_its_manual_and_auto_membe
     let before = enum_transfer_status(&state, &binding);
     assert!(before.ok, "{:?}", before.error);
     let before = before.result.unwrap();
-    assert_eq!(before["values"]["Main.Mode"], "Manual");
+    assert_eq!(before["values"]["Main.Mode"], true, "Manual reads TRUE");
     assert_eq!(before["values"]["Main.MV"], 2.0);
     let apply = handle_request_value(
         json!({"id":8701,"type":"control.transfer.apply","params":{
@@ -54,9 +54,29 @@ fn controller_transfer_switches_an_enumeration_mode_by_its_manual_and_auto_membe
     assert!(harness.cycle().errors.is_empty());
     let after = enum_transfer_status(&state, &binding).result.unwrap();
     assert_eq!(after["status"], "applied", "{after}");
-    assert_eq!(after["values"]["Main.Mode"], "Auto");
+    assert_eq!(after["values"]["Main.Mode"], false, "Auto reads FALSE");
     // Worked by hand: in Auto the law gives Kp·(SP − PV) = 2·(11 − 10) = 2, the manual command the loop held.
     assert_eq!(after["values"]["Main.MV"], 2.0);
+}
+
+/// Catches a loop in a third member, here `Off`, read as Manual or Auto: its status is refused with the member's name, so no
+/// transfer starts from it (specification 35 A6.1).
+#[test]
+fn controller_transfer_status_refuses_a_mode_in_neither_member() {
+    let (state, _harness) = enum_mode_fixture("Off");
+    let binding = enum_transfer_binding(
+        json!({"symbol":"Main.Mode","manual_value":"Manual","auto_value":"Auto"}),
+    );
+    let response = enum_transfer_status(&state, &binding);
+    assert!(!response.ok, "a loop in Off is in neither mode");
+    let error = response.error.unwrap_or_default();
+    // The member's name as the image stores it; its case is the compiler's.
+    assert!(
+        error
+            .to_ascii_lowercase()
+            .contains("mode main.mode is off, neither manual nor auto"),
+        "{error}"
+    );
 }
 
 /// Catches an enumeration mode accepted without its Auto member (a transfer to Auto would have nothing to write), with a name its
