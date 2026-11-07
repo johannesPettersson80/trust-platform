@@ -70,6 +70,51 @@ END_PROGRAM
     harness.assert_eq("out_super", 10i16);
 }
 
+/// Specification 04: an interface that extends CODESYS's `__SYSTEM.IQueryInterface`, and a block
+/// that names it among its interfaces, build and run as without it. Worked by hand: three calls of
+/// Toggle through the interface turn the lamp on, off and on again. Catches the build refusing the
+/// system interface, or losing the block's own interface beside it.
+#[test]
+fn an_interface_that_extends_the_system_query_interface_runs() {
+    let source = r#"
+INTERFACE ILamp EXTENDS __SYSTEM.IQueryInterface
+METHOD Toggle : BOOL
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS __SYSTEM.IQueryInterface, ILamp
+VAR
+    isOn : BOOL;
+END_VAR
+METHOD PUBLIC Toggle : BOOL
+isOn := NOT isOn;
+Toggle := isOn;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    lamp : FB_Lamp;
+    itf : ILamp;
+    first : BOOL;
+    second : BOOL;
+    third : BOOL;
+END_VAR
+itf := lamp;
+first := itf.Toggle();
+second := itf.Toggle();
+third := itf.Toggle();
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    harness.assert_eq("first", true);
+    harness.assert_eq("second", false);
+    harness.assert_eq("third", true);
+}
+
 /// IEC 61131-3 Edition 3, 6.6.5.3: a derived function block inherits its base's input and output
 /// variables, so a call of the derived block binds them like its own (specification 04).
 #[test]

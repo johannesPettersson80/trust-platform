@@ -185,6 +185,7 @@ NEW, __NEW, __DELETE, __ISVALIDREF
 ADR, SIZEOF
 TEST_PROGRAM, END_TEST_PROGRAM
 TEST_FUNCTION_BLOCK, END_TEST_FUNCTION_BLOCK
+__SYSTEM
 ```
 
 `REFERENCE` is a **contextual** vendor keyword, not a reserved word: it is

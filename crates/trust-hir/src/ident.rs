@@ -97,6 +97,7 @@ pub fn is_reserved_keyword(name: &str) -> bool {
             | "TO"
             | "EXTENDS"
             | "IMPLEMENTS"
+            | "__SYSTEM"
             | "THIS"
             | "SUPER"
             | "NEW"
