@@ -99,7 +99,12 @@ END_FUNCTION
 
 1. **No state retention**: Variables in VAR/VAR_TEMP are re-initialized each call (VAR and VAR_TEMP are equivalent in functions/methods)
 2. **Return value**: Assigned through the IEC function-name result variable or
-   through the truST value-bearing RETURN extension recorded as `DEV-022`
+   through the truST value-bearing RETURN extension recorded as `DEV-022`.
+   The IEC profile requires the assignment (`E206`); IEC 61131-3 Ed.3 §6.6.2.2
+   does not, so this is truST's own rule. Under the CODESYS profiles a function
+   or method whose body leaves its result unassigned, or reaches a bare `RETURN`
+   before assigning it, returns the default value of its result type, without a
+   diagnostic, as CODESYS does with the methods it scaffolds.
 3. **VAR_IN_OUT and VAR_EXTERNAL**: May be modified inside the function; VAR_EXTERNAL CONSTANT shall not be modified
 4. **CONSTANT restriction**: Function block instances shall not be declared in variable sections with CONSTANT qualifier
 5. **Return type**: the declared type names a data type of specification 02.
@@ -1002,7 +1007,8 @@ redefine the IEC POU taxonomy.
 4. **Override without base**: OVERRIDE on non-virtual method
 5. **FINAL violation**: Extending FINAL class/overriding FINAL method
 6. **Access violation**: Calling PRIVATE/PROTECTED inappropriately
-7. **Return value**: Function/method must assign return value
+7. **Return value**: Function/method must assign return value (IEC profile; see rule 2 of
+   section 6.6.1.2's rules for the CODESYS profiles)
 8. **Parameter matching**: Call arguments match declaration
 
 ### Error Conditions

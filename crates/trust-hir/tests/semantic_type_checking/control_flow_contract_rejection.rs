@@ -405,3 +405,35 @@ fn control_flow_rejects_missing_function_return() {
         DiagnosticCode::MissingReturn,
     );
 }
+
+/// The IEC profile also refuses a method that never assigns its result. Catches the CODESYS
+/// acceptance leaking into the IEC profile.
+#[test]
+fn control_flow_rejects_a_method_that_never_assigns_its_result() {
+    check_has_error(
+        "FUNCTION_BLOCK FB_A\nMETHOD GetValue : INT\nEND_METHOD\nEND_FUNCTION_BLOCK\n",
+        DiagnosticCode::MissingReturn,
+    );
+}
+
+/// Specification 04: under the CODESYS profile an unassigned result is the default of its type,
+/// as CODESYS builds the methods it scaffolds: an empty method, an empty function and a bare
+/// `RETURN` before any assignment. Catches E206 raised under the CODESYS profile.
+#[test]
+fn the_codesys_profile_accepts_an_unassigned_result() {
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+FUNCTION_BLOCK FB_A
+METHOD GetValue : INT
+END_METHOD
+METHOD Early : DINT
+RETURN;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION Pick : REAL
+END_FUNCTION
+"#,
+    );
+}
