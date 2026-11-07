@@ -1,11 +1,13 @@
 //! Reuse the declarations of a project's sources (specification 44 §6.7) between reads of
-//! unchanged source text. A mutable borrow irrevocably excludes those declarations from reuse.
+//! unchanged source text under the same vendor profile. A mutable borrow irrevocably excludes
+//! those declarations from reuse.
 use super::LoadedSource;
 use std::collections::VecDeque;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use trust_runtime::harness::Declarations;
+use trust_runtime::stdlib::conversions::ConversionProfile;
 
 const CAPACITY: usize = 2;
 const MAX_SOURCE_BYTES: usize = 16 * 1024 * 1024;
@@ -13,6 +15,7 @@ const MAX_SOURCE_BYTES: usize = 16 * 1024 * 1024;
 #[derive(Clone, PartialEq, Eq)]
 struct Key {
     root: PathBuf,
+    profile: ConversionProfile,
     sources: Vec<(PathBuf, String)>,
 }
 struct Entry {
@@ -98,6 +101,7 @@ impl Cache {
     fn compile(
         self: &Arc<Self>,
         root: &Path,
+        profile: ConversionProfile,
         sources: &[LoadedSource],
         build: impl FnOnce() -> Result<Declarations, String>,
     ) -> Result<CachedRuntime, String> {
@@ -111,6 +115,7 @@ impl Cache {
         }
         let key = Key {
             root: root.to_owned(),
+            profile,
             sources: sources
                 .iter()
                 .map(|source| (source.path.clone(), source.text.clone()))
@@ -158,13 +163,14 @@ impl Cache {
 
 pub(super) fn compile(
     root: &Path,
+    profile: ConversionProfile,
     sources: &[LoadedSource],
     build: impl FnOnce() -> Result<Declarations, String>,
 ) -> Result<CachedRuntime, String> {
     static CACHE: OnceLock<Arc<Cache>> = OnceLock::new();
     CACHE
         .get_or_init(|| Arc::new(Cache::default()))
-        .compile(root, sources, build)
+        .compile(root, profile, sources, build)
 }
 
 /// Bindings include a bounded alarm-message inspection. Retain its immutable response
@@ -182,6 +188,7 @@ fn binding_responses() -> &'static Mutex<BindingResponses> {
 pub(super) fn bindings_key(
     root: &Path,
     sources_root: &Path,
+    profile: ConversionProfile,
     sources: &[LoadedSource],
 ) -> Option<BindingsKey> {
     (sources
@@ -192,6 +199,7 @@ pub(super) fn bindings_key(
         .then(|| BindingsKey {
             source: Key {
                 root: root.to_owned(),
+                profile,
                 sources: sources
                     .iter()
                     .map(|source| (source.path.clone(), source.text.clone()))
@@ -252,7 +260,7 @@ mod tests {
         let one = source("1");
         let two = source("2");
         let compile = |root: &str, sources: &[LoadedSource]| {
-            cache.compile(Path::new(root), sources, || {
+            cache.compile(Path::new(root), ConversionProfile::Iec, sources, || {
                 builds.set(builds.get() + 1);
                 declarations(&sources[0].text)
             })
@@ -285,6 +293,34 @@ mod tests {
         );
     }
 
+    /// The same sources under another vendor profile build again (specification 14 §6.6.2): the
+    /// method without an access specifier is PUBLIC under the CODESYS rules and PROTECTED under
+    /// the IEC rules. Catches a compilation reused after the project's `vendor_profile` changed.
+    #[test]
+    fn a_compilation_is_not_reused_under_another_vendor_profile() {
+        let cache = Arc::new(Cache::default());
+        let builds = Cell::new(0);
+        let sources = vec![LoadedSource {
+            path: "src/main.st".into(),
+            text: "FUNCTION_BLOCK FB_PI\nVAR\n    integral : REAL;\nEND_VAR\nMETHOD Reset\nintegral := 0.0;\nEND_METHOD\nEND_FUNCTION_BLOCK\nPROGRAM Main\nVAR\n    pi : FB_PI;\nEND_VAR\npi.Reset();\nEND_PROGRAM\n".into(),
+        }];
+        let compile = |profile: ConversionProfile| {
+            cache.compile(Path::new("profiles"), profile, &sources, || {
+                builds.set(builds.get() + 1);
+                CompileSession::from_source(&sources[0].text)
+                    .with_conversion_profile(profile)
+                    .declarations()
+                    .map_err(|error| error.to_string())
+            })
+        };
+        drop(compile(ConversionProfile::Codesys).expect("PUBLIC under the CODESYS rules"));
+        assert!(
+            compile(ConversionProfile::Iec).is_err(),
+            "PROTECTED under the IEC rules"
+        );
+        assert_eq!(builds.get(), 2);
+    }
+
     #[test]
     fn concurrent_unchanged_reads_compile_once() {
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -300,10 +336,15 @@ mod tests {
                 scope.spawn(|| {
                     start.wait();
                     let runtime = cache
-                        .compile(Path::new("concurrent"), &sources, || {
-                            builds.fetch_add(1, Ordering::SeqCst);
-                            declarations(&sources[0].text)
-                        })
+                        .compile(
+                            Path::new("concurrent"),
+                            ConversionProfile::Iec,
+                            &sources,
+                            || {
+                                builds.fetch_add(1, Ordering::SeqCst);
+                                declarations(&sources[0].text)
+                            },
+                        )
                         .unwrap();
                     assert_eq!(
                         resolve_member(
@@ -329,10 +370,15 @@ mod tests {
         }];
         let builds = Cell::new(0);
         let compile = || {
-            cache.compile(Path::new("execution"), &sources, || {
-                builds.set(builds.get() + 1);
-                declarations(&sources[0].text)
-            })
+            cache.compile(
+                Path::new("execution"),
+                ConversionProfile::Iec,
+                &sources,
+                || {
+                    builds.set(builds.get() + 1);
+                    declarations(&sources[0].text)
+                },
+            )
         };
         let mut first = compile().unwrap();
         let borrowed: &mut Declarations = &mut first;
