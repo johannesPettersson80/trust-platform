@@ -69,6 +69,77 @@ fn codesys_run(source: &str, cycles: usize) -> TestHarness {
     harness
 }
 
+// CG-A1: the dotted form `E_Mode.AUTO` of an enumeration value, which CODESYS writes everywhere and
+// requires for a `qualified_only` type, compiles wherever a value does: an initializer, a
+// comparison, a CASE label, a call argument and an assignment, under the CODESYS and the IEC
+// profiles (two-part access is IEC §6.4.4.2's type prefix). Worked by hand: the mode starts AUTO,
+// so the comparison is TRUE, CASE takes its second label (2), the call is TRUE, and SERVICE is
+// assigned. Catches the build refusing the type name as a variable ("the name E_Mode is not
+// compiled yet") and a member taken for another value.
+const DOTTED_ENUM: &str = r#"
+{attribute 'qualified_only'}
+TYPE E_Mode : (MANUAL, AUTO, SERVICE); END_TYPE
+
+FUNCTION IsAuto : BOOL
+VAR_INPUT
+    mode : E_Mode;
+END_VAR
+IsAuto := mode = E_Mode.AUTO;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    mode : E_Mode := E_Mode.AUTO;
+    viaCompare : BOOL;
+    viaCase : INT;
+    viaCall : BOOL;
+    assigned : E_Mode;
+    isService : BOOL;
+END_VAR
+viaCompare := mode = E_Mode.AUTO;
+CASE mode OF
+    E_Mode.MANUAL: viaCase := 1;
+    E_Mode.AUTO: viaCase := 2;
+ELSE
+    viaCase := 3;
+END_CASE
+viaCall := IsAuto(E_Mode.AUTO);
+assigned := E_Mode.SERVICE;
+isService := assigned = E_Mode#SERVICE;
+END_PROGRAM
+"#;
+
+#[test]
+fn a_dotted_enumeration_value_compiles_wherever_a_value_does() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(DOTTED_ENUM).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        assert_eq!(
+            harness.get_output("viaCompare"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("viaCase"),
+            Some(Value::Int(2)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("viaCall"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("isService"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+    }
+}
+
 // DEV-028: under the CODESYS profile another POU writes and reads a function block's `VAR` member
 // through the instance. Worked by hand: Main sets `stored` to 10, the call adds 1, Main reads 11.
 // Catches the write not reaching the instance (the call would read 0 and give 1) and the read

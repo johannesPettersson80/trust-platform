@@ -159,6 +159,20 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             .resolve_ref()
             .resolve_qualified_enum_member(node)
         {
+            // The member's value is the expression's symbol, as for a bare member, so that the
+            // build and the editor see an enumeration value, not a type used as a variable.
+            if let Some(member) = children.last().and_then(|member| {
+                member
+                    .descendants_with_tokens()
+                    .filter_map(|element| element.into_token())
+                    .find(|token| token.kind() == SyntaxKind::Ident)
+            }) && let Some(symbol) = self
+                .checker
+                .symbols
+                .enum_member_symbol(enum_type, member.text())
+            {
+                self.checker.record_resolved_symbol(node, symbol);
+            }
             return SemanticOutcome::Resolved(enum_type);
         }
 

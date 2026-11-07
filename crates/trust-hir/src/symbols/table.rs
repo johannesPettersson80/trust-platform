@@ -774,6 +774,21 @@ impl SymbolTable {
         None
     }
 
+    /// The symbol of the value `member` of the enumerated type `enum_type`, so that a qualified
+    /// `EnumType.Member` names the same value as the bare member (IEC 61131-3 Ed.3 §6.4.4.2).
+    #[must_use]
+    pub fn enum_member_symbol(&self, enum_type: TypeId, member: &str) -> Option<SymbolId> {
+        let enum_type = self.resolve_alias_type(enum_type);
+        self.symbols
+            .iter()
+            .find(|symbol| {
+                matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                    && symbol.name.eq_ignore_ascii_case(member)
+                    && self.resolve_alias_type(symbol.type_id) == enum_type
+            })
+            .map(|symbol| symbol.id)
+    }
+
     /// Resolves `EnumType.Member` (CODESYS qualified access) to the enum's
     /// type id. The base resolves through the scope chain, then the global
     /// map, then — for namespace-nested types reached from outside their
