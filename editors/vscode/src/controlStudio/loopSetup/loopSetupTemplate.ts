@@ -54,14 +54,21 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
   const pidNames = model.pids.map(pid => pid.instance);
   // Studio writes a manual output by name, so any REAL/LREAL serves; it needs no I/O address (Specification 35 §17.1).
   const manualOutputs = model.signals;
-  // Apply switches the Auto/Manual signal directly, so only a BOOL without an I/O address can be one.
-  const modes = model.modes;
+  // Apply switches the Auto/Manual signal directly, so only a BOOL or an enumeration without an I/O address can be one (A6.1).
+  const modeMembers: Readonly<Record<string, readonly string[]>> = model.modeMembers;
+  /** An Auto/Manual signal (A6.1): the signal, what a BOOL's TRUE value means and, for an enumeration, the members that mean Manual
+   * and Auto, which the page shows in place of the TRUE value's meaning. Each enumeration's option carries its members. */
+  const modeChoice = (prefix: string, label: string) => `<label class="studio-field">${escape(label)}<select data-setup-field="${prefix}mode">
+   <option value="">${escape("Choose…")}</option>${model.modes.map(mode => `<option value="${escape(mode)}"${modeMembers[mode]
+     ? ` data-members="${escape(modeMembers[mode].join(" "))}"` : ""}>${escape(mode)}</option>`).join("")}</select></label>
+  <div data-mode-when-true="${prefix}">${modeWhenTrue(`${prefix}modeWhenTrue`)}</div>
+  <label class="studio-field" data-mode-member="${prefix}" hidden>Member that means Manual<select data-setup-field="${prefix}modeManual"></select></label>
+  <label class="studio-field" data-mode-member="${prefix}" hidden>Member that means Auto<select data-setup-field="${prefix}modeAuto"></select></label>`;
   // A cascade's outer controller has no manual output: nothing in its structure uses one (C6).
   const controller = (prefix: string, label: string, selected?: string, manual = true) => `
   ${select(`${prefix}instance`, label, pidNames, selected)}
   ${select(`${prefix}parameterRecord`, "Parameter record", model.records)}
-  ${select(`${prefix}mode`, "Auto/Manual signal", modes)}
-  ${modeWhenTrue(`${prefix}modeWhenTrue`)}
+  ${modeChoice(prefix, "Auto/Manual signal")}
   ${manual ? select(`${prefix}manualOutput`, "Manual output", manualOutputs) : ""}`;
   const prefill = model.prefill;
   // The structures the engine offers for this program, in its order, with its words.
@@ -89,7 +96,7 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
    ${found("processVariable", "Measurement", select("processVariable", "Measurement", model.measurements, prefill?.processValue))}
    ${found("manipulatedVariable", "Output", select("manipulatedVariable", "Output", model.signals, prefill?.manipulatedVariable))}
    ${found("setpoint", "Setpoint", select("setpoint", "Setpoint", model.signals, prefill?.setpoint))}
-   ${found("mode", "Auto/Manual signal", `${select("mode", "Auto/Manual signal", modes)}${modeWhenTrue("modeWhenTrue")}`)}
+   ${found("mode", "Auto/Manual signal", modeChoice("", "Auto/Manual signal"))}
    ${found("manualOutput", "Manual output", select("manualOutput", "Manual output", manualOutputs, prefill?.manualOutput))}
    <div class="studio-setup-found" data-setup-found="task"><span class="studio-setup-found-label">Task</span><span class="studio-setup-found-value" data-setup-found-value="task"></span></div>
    <ul hidden data-setup-tasks>${model.pids.map(pid => `<li data-instance="${escape(pid.instance)}" data-task="${escape(pid.task ? `${pid.task.name} (${pid.task.intervalMs} ms)` : "")}"></li>`).join("")}</ul>
@@ -140,8 +147,7 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
  </section>
  <section class="studio-fields" data-setup-section="group">
   ${model.pids.map((pid, index) => member(pid.instance, index)).join("")}
-  ${select("group.mode", "Shared Auto/Manual signal", modes)}
-  ${modeWhenTrue("group.modeWhenTrue")}
+  ${modeChoice("group.", "Shared Auto/Manual signal")}
   <label class="studio-field studio-group-include"><input type="checkbox" data-setup-field="group.decoupled"> The program applies a static decoupler, u = D·v in Auto</label>
   <div class="studio-fields" data-group-decoupler hidden>
    ${Array.from({ length: model.decoupler.rows }, (_, row) => Array.from({ length: model.decoupler.columns }, (_, column) => `<div data-decoupler-entry="${row}.${column}" hidden>${select(`group.decoupler.${row}.${column}`,
@@ -157,8 +163,7 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
    <label class="studio-field">Low output level<input type="text" placeholder="Output minimum" data-setup-field="onoff.lowOutput"></label>
    <label class="studio-field">High output level<input type="text" placeholder="Output maximum" data-setup-field="onoff.highOutput"></label>
   </div>
-  ${select("onoff.mode", "Auto/Manual signal", modes)}
-  ${modeWhenTrue("onoff.modeWhenTrue")}
+  ${modeChoice("onoff.", "Auto/Manual signal")}
   ${select("onoff.manualOutput", "Manual output", manualOutputs)}
   ${select("onoff.hysteresis", "Hysteresis", model.reals)}
   ${choice("onoff.bandConvention", "Hysteresis holds", band, defaults.bandConvention)}
@@ -194,8 +199,7 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
    ${signal(`feedback.state.${index}`, `Further measured output ${index + 1}`)}
    ${select(`feedback.state.${index}.gain`, "Gain on this output", model.reals)}
   </div>`).join("")}
-  ${select("feedback.mode", "Auto/Manual signal", modes)}
-  ${modeWhenTrue("feedback.modeWhenTrue")}
+  ${modeChoice("feedback.", "Auto/Manual signal")}
   ${select("feedback.manualOutput", "Manual output", manualOutputs)}
  </section>
  <section class="studio-fields" data-setup-section="own-law">
@@ -204,8 +208,7 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
   ${signal("own.processVariable", "Measurement")}
   ${select("own.setpoint", "Setpoint", model.signals)}
   ${signal("own.manipulatedVariable", "Output", undefined, model.signals)}
-  ${select("own.mode", "Auto/Manual signal", modes)}
-  ${modeWhenTrue("own.modeWhenTrue")}
+  ${modeChoice("own.", "Auto/Manual signal")}
   ${select("own.manualOutput", "Manual output", manualOutputs)}
   ${gain("own.proportionalGain", "Proportional gain Kp")}
   <div class="studio-fields" data-own-integral>
@@ -232,8 +235,7 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
   ${signal("search.processVariable", "Measurement")}
   ${select("search.setpoint", "Setpoint", model.signals)}
   ${signal("search.manipulatedVariable", "Output", undefined, model.signals)}
-  ${select("search.mode", "Auto/Manual signal", modes)}
-  ${modeWhenTrue("search.modeWhenTrue")}
+  ${modeChoice("search.", "Auto/Manual signal")}
   ${select("search.manualOutput", "Manual output", manualOutputs)}
   ${Array.from({ length: limits.searchCoefficients }, (_, index) => `<div class="studio-fields" data-search-coefficient="${index}">
    ${select(`search.coefficient.${index}`, `Coefficient ${index + 1}`, model.reals)}

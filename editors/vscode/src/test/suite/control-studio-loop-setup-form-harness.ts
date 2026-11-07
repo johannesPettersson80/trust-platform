@@ -60,7 +60,7 @@ function form(): any {
 }
 
 /** The lists of the form model the engine answers for every program: empty unless a fixture names them (SetupFormModel). */
-const EMPTY_LISTS = { booleans: [], instances: [], loopNames: [], modes: [], pids: [], prefills: [], records: [], reals: [],
+const EMPTY_LISTS = { booleans: [], instances: [], loopNames: [], modes: [], modeMembers: {}, pids: [], prefills: [], records: [], reals: [],
   startupFlagInstances: [] };
 
 /** The setup form rendered in a DOM, with a setter that fires the events a user's edit fires. The model is the engine's answer (the

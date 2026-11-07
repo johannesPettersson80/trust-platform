@@ -206,7 +206,14 @@ export interface SetupFormModel {
    */
   measurements: string[];
   /**
-   * The BOOL symbols without an I/O address: the only ones the controller transfer switches.
+   * The members of each enumeration among `modes`, in declaration order, keyed by its symbol: the page offers them for the
+   * members that mean Manual and Auto (A6.1). A BOOL mode has none.
+   */
+  modeMembers: {
+    [k: string]: string[];
+  };
+  /**
+   * The BOOL and enumeration symbols without an I/O address: the only ones the controller transfer switches (A6.1).
    */
   modes: string[];
   /**

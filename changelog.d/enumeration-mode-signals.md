@@ -7,6 +7,7 @@
   start and names the member it found (specification 35 A6.1).
   - Transfers, Apply, Identify's experiments, Validate's and Tune's isolated runs, the monitor and
     recordings write and read the mode by its members.
-  - A setup draft names an enumeration mode by `manualValue` and `autoValue`, for the loop's own mode
-    and for a cascade's outer controller. Setup and discovery check both members against the
-    compiled enumeration.
+  - The setup page and the step-by-step setup offer an enumeration without an I/O address as the
+    Auto/Manual signal and ask for its Manual and Auto members. A setup draft names them as
+    `manualValue` and `autoValue`, for the loop's own mode and for a cascade's outer controller.
+    Setup and discovery check both members against the compiled enumeration.

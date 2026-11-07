@@ -53,6 +53,18 @@ pub fn not_compiled_bool(symbol: &str) -> String {
     format!("{symbol} is not a compiled BOOL symbol.")
 }
 
+/// A member that the chosen enumeration mode's type does not have (A6.1).
+#[must_use]
+pub fn not_a_member(symbol: &str, member: &str) -> String {
+    format!("{member} is not a member of {symbol}'s enumeration.")
+}
+
+/// The same member chosen for Manual and Auto (A6.1).
+#[must_use]
+pub fn members_differ(symbol: &str) -> String {
+    format!("{symbol} needs two different members for Manual and Auto.")
+}
+
 /// The multiple-channel setup is not available in the Rust engine yet (`configureLoopChannels.ts`, parked).
 #[must_use]
 pub fn multiple_channels_not_available() -> &'static str {
