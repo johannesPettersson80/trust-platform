@@ -13,7 +13,7 @@ pub(crate) struct TempFolder {
 
 impl TempFolder {
     pub(crate) fn new(label: &str) -> Self {
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-devices-{label}-{}-{}",
             std::process::id(),
             NEXT_FOLDER.fetch_add(1, Ordering::Relaxed)

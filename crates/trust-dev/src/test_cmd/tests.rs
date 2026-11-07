@@ -19,7 +19,7 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("system time before unix epoch")
         .as_nanos();
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-runtime-{prefix}-{}-{nanos}",
         std::process::id()
     ))
@@ -1119,8 +1119,10 @@ END_TEST_PROGRAM
 /// §4.6 at `TRUST_TOOLCHAIN`.
 #[test]
 fn compiled_tests_pass_and_fail_with_the_runtimes_words() {
-    let project =
-        std::env::temp_dir().join(format!("trust-dev-native-tests-{}", std::process::id()));
+    let project = trust_test_support::unique_temp_path(&format!(
+        "trust-dev-native-tests-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(
@@ -1283,7 +1285,10 @@ fn the_test_image_is_the_kind_of_image_the_project_builds() {
     use trust_runtime::native::{Target, Toolchain};
     use trust_runtime_core::native::image::Image;
 
-    let project = std::env::temp_dir().join(format!("trust-dev-image-kind-{}", std::process::id()));
+    let project = trust_test_support::unique_temp_path(&format!(
+        "trust-dev-image-kind-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(

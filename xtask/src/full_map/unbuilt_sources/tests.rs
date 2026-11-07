@@ -9,8 +9,10 @@ struct Fixture {
 
 impl Fixture {
     fn new(name: &str) -> Self {
-        let root =
-            std::env::temp_dir().join(format!("trust-unbuilt-{name}-{}", std::process::id()));
+        let root = trust_test_support::unique_temp_path(&format!(
+            "trust-unbuilt-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("create fixture root");
         Self { root }

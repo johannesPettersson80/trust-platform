@@ -208,6 +208,11 @@ jobs:
         run: python3 -m unittest scripts.tests.test_docs_captures_artifact scripts.tests.test_docs_captures_workflow -v
       - name: Guard workspace integration-test binary paths
         run: python3 ./scripts/runtime_test_binary_path_contract_tests.py
+      - name: Guard each test's own temporary path
+        # Test code takes its temporary paths from trust-test-support (specification 22).
+        run: |
+          python3 -m unittest scripts.tests.test_check_test_temp_paths -v
+          python3 ./scripts/check_test_temp_paths.py
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}

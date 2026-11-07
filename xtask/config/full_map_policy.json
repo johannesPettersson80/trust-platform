@@ -625,6 +625,62 @@
       "status": "allowed",
       "owner": "visual editors",
       "rationale": "visual programs check names and durations with the real Structured Text lexer"
+    },
+    {
+      "from": "trust-debug",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "trust-dev",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "xtask",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "verification-cases",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "trust-plcopen",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "trust-hir",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
     }
   ],
   "forbidden_workspace_edges": [

@@ -33,6 +33,7 @@ members = [
     "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
     "crates/trust-visual",
+    "crates/trust-test-support",
 ]
 exclude = [
     "third_party/tiverse-mmap",
@@ -156,6 +157,7 @@ trust-control-studio = { path = "crates/trust-control-studio" }
 trust-devices = { path = "crates/trust-devices" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
+trust-test-support = { path = "crates/trust-test-support" }
 trust-visual = { path = "crates/trust-visual" }
 
 [workspace.lints.rust]

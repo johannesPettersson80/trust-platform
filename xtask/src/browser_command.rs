@@ -235,7 +235,7 @@ mod host {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let marker = std::env::temp_dir().join(format!(
+            let marker = trust_test_support::unique_temp_path(&format!(
                 "trust-browser-descendant-{}-{nonce}",
                 std::process::id()
             ));
@@ -314,7 +314,7 @@ mod host {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let marker = std::env::temp_dir().join(format!(
+            let marker = trust_test_support::unique_temp_path(&format!(
                 "trust-browser-descendant-{}-{nonce}",
                 std::process::id()
             ));
@@ -346,7 +346,7 @@ mod host {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let marker = std::env::temp_dir().join(format!(
+            let marker = trust_test_support::unique_temp_path(&format!(
                 "trust-browser-descendant-{}-{nonce}",
                 std::process::id()
             ));

@@ -8,7 +8,7 @@ fn record(fresh: bool, executable: Value) -> String {
 
 #[test]
 fn only_a_new_exact_firmware_binary_can_supply_the_executable() {
-    let path = std::env::temp_dir().join("firmware with spaces");
+    let path = trust_test_support::unique_temp_path("firmware with spaces");
     let current = record(false, serde_json::json!(path));
     assert_eq!(executable(&current, BIN).unwrap(), path);
     assert!(executable(&record(true, serde_json::json!(path)), BIN).is_err());
@@ -27,7 +27,7 @@ fn map_output_changes_only_the_final_binary_link_destination() {
         report: PathBuf::new(),
         elf: PathBuf::new(),
         cargo_log: PathBuf::new(),
-        map: std::env::temp_dir().join("new map with spaces"),
+        map: trust_test_support::unique_temp_path("new map with spaces"),
     };
     let mut flags = vec![
         "-C".into(),
@@ -61,7 +61,7 @@ fn map_output_changes_only_the_final_binary_link_destination() {
 
 #[test]
 fn existing_evidence_is_not_overwritten() {
-    let parent = std::env::temp_dir().join(format!(
+    let parent = trust_test_support::unique_temp_path(&format!(
         "trust-link-evidence-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
@@ -99,7 +99,7 @@ fn existing_evidence_is_not_overwritten() {
 #[cfg(unix)]
 #[test]
 fn dangling_evidence_symlinks_are_occupied_destinations() {
-    let parent = std::env::temp_dir().join(format!(
+    let parent = trust_test_support::unique_temp_path(&format!(
         "trust-link-symlink-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
@@ -125,7 +125,7 @@ fn dangling_evidence_symlinks_are_occupied_destinations() {
 
 #[test]
 fn executable_is_selected_by_the_board_binary_name() {
-    let path = std::env::temp_dir().join("c6 firmware");
+    let path = trust_test_support::unique_temp_path("c6 firmware");
     let c6 = serde_json::json!({
         "reason": "compiler-artifact",
         "target": {"name": "trust-esp32c6", "kind": ["bin"]},

@@ -15,7 +15,7 @@ fn worker_import_tests_require_the_locked_frontend_install_to_succeed() {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let fixture = Fixture(std::env::temp_dir().join(format!(
+        let fixture = Fixture(trust_test_support::unique_temp_path(&format!(
             "trust-worker-prerequisite-{}-{nonce}",
             std::process::id()
         )));

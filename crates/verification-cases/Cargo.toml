@@ -15,5 +15,8 @@ hex.workspace = true
 thiserror = { workspace = true, features = ["std"] }
 toml.workspace = true
 
+[dev-dependencies]
+trust-test-support.workspace = true
+
 [lints]
 workspace = true

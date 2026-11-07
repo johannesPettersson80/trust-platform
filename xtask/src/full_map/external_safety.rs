@@ -338,7 +338,7 @@ mod tests {
     struct Fixture(PathBuf);
     impl Fixture {
         fn new() -> Self {
-            let root = std::env::temp_dir().join(format!(
+            let root = trust_test_support::unique_temp_path(&format!(
                 "unsafe-scope-{}-{}",
                 std::process::id(),
                 NEXT.fetch_add(1, Ordering::Relaxed)

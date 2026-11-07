@@ -6,7 +6,7 @@
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards")
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("trust-runtime-{prefix}-{stamp}"));
+        let dir = trust_test_support::unique_temp_path(&format!("trust-runtime-{prefix}-{stamp}"));
         std::fs::create_dir_all(&dir).expect("create temp directory");
         dir
     }

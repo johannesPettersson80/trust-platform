@@ -1,14 +1,9 @@
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
     fn temp_project_root(label: &str) -> std::path::PathBuf {
-        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let mut dir = std::env::temp_dir();
-        dir.push(format!("trust-debug-{label}-{id}"));
+        let dir = trust_test_support::unique_temp_path(&format!("trust-debug-{label}"));
         let _ = std::fs::create_dir_all(&dir);
         dir
     }

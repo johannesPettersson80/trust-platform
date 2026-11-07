@@ -747,7 +747,7 @@ mod client_source_path_tests {
     /// cannot open, and paths that the adapter would move although the runtime named the file.
     #[test]
     fn a_label_resolves_under_the_project_root_and_a_path_stays() {
-        let root = std::env::temp_dir().join("project");
+        let root = trust_test_support::unique_temp_path("project");
         assert_eq!(
             client_source_path(Some(&root), String::from("src/lib/Main.st")),
             root.join("src")
@@ -775,7 +775,8 @@ mod client_source_path_tests {
     #[cfg(unix)]
     #[test]
     fn a_file_the_build_resolved_through_a_link_keeps_the_clients_path() {
-        let folder = std::env::temp_dir().join(format!("trust-dap-link-{}", std::process::id()));
+        let folder =
+            trust_test_support::unique_temp_path(&format!("trust-dap-link-{}", std::process::id()));
         let target = folder.join("target");
         std::fs::create_dir_all(target.join("src")).expect("project folder");
         let link = folder.join("link");

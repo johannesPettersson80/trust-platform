@@ -7,7 +7,7 @@ fn contract_temp_dir(prefix: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("time before Unix epoch")
         .as_nanos();
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-dev-docs-{prefix}-{}-{stamp}",
         std::process::id()
     ));

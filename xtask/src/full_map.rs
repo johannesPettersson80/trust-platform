@@ -4923,7 +4923,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-full-map-module-summary-{}-{suffix}",
             std::process::id()
         ));
@@ -5169,7 +5169,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         let suffix = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-firmware-safety-{}-{suffix}",
             std::process::id()
         ));

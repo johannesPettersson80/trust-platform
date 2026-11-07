@@ -268,7 +268,7 @@ mod tests {
         fn new() -> Self {
             static NEXT: AtomicUsize = AtomicUsize::new(0);
             loop {
-                let path = std::env::temp_dir().join(format!(
+                let path = trust_test_support::unique_temp_path(&format!(
                     "trust-source-freeze-{}-{}",
                     std::process::id(),
                     NEXT.fetch_add(1, Ordering::Relaxed)

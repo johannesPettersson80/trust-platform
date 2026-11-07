@@ -7728,6 +7728,7 @@ dependencies = [
  "tracing-subscriber",
  "trust-hir",
  "trust-runtime",
+ "trust-test-support",
 ]
 
 [[package]]
@@ -7748,6 +7749,7 @@ dependencies = [
  "trust-runtime",
  "trust-runtime-core",
  "trust-syntax",
+ "trust-test-support",
  "trust-wasm-analysis",
  "verification-cases",
 ]
@@ -7763,6 +7765,7 @@ dependencies = [
  "trust-chips",
  "trust-runtime",
  "trust-runtime-client",
+ "trust-test-support",
 ]
 
 [[package]]
@@ -7781,6 +7784,7 @@ dependencies = [
  "toml",
  "tracing",
  "trust-syntax",
+ "trust-test-support",
  "verification-cases",
 ]
 
@@ -7938,6 +7942,7 @@ dependencies = [
  "serde",
  "serde_json",
  "trust-syntax",
+ "trust-test-support",
 ]
 
 [[package]]
@@ -8103,6 +8108,10 @@ version = "0.33.0"
 dependencies = [
  "libloading 0.9.0",
 ]
+
+[[package]]
+name = "trust-test-support"
+version = "0.33.0"
 
 [[package]]
 name = "trust-visual"
@@ -8469,6 +8478,7 @@ dependencies = [
  "sha2 0.11.0",
  "thiserror 2.0.21",
  "toml",
+ "trust-test-support",
 ]
 
 [[package]]
@@ -9244,6 +9254,7 @@ dependencies = [
  "trust-chips",
  "trust-runtime-core",
  "trust-runtime-services",
+ "trust-test-support",
 ]
 
 [[package]]

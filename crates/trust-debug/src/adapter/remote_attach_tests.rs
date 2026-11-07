@@ -28,7 +28,7 @@ struct ScratchProject(PathBuf);
 impl ScratchProject {
     fn new(label: &str) -> Self {
         let sequence = PROJECT_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-debug-attach-{label}-{}-{sequence}",
             std::process::id()
         ));

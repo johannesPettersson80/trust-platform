@@ -411,7 +411,10 @@ mod search_provenance_tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root = std::env::temp_dir().join(format!("{label}-{}-{stamp}", std::process::id()));
+        let root = trust_test_support::unique_temp_path(&format!(
+            "{label}-{}-{stamp}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(root.join("src")).unwrap();
         std::fs::write(root.join("src/Main.st"), main).unwrap();
         std::fs::write(root.join("simulation.toml"), simulation).unwrap();
@@ -535,8 +538,10 @@ mod display_read_tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("debug-hmi-read-{}-{stamp}", std::process::id()));
+        let root = trust_test_support::unique_temp_path(&format!(
+            "debug-hmi-read-{}-{stamp}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(root.join("src")).unwrap();
         std::fs::write(
             root.join("src/hmi.st"),

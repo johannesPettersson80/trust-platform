@@ -85,7 +85,7 @@ fn agent_serve_mcp_serves_one_json_rpc_message_per_line_and_refuses_an_overlappi
     use std::io::{BufRead, BufReader, Write};
     use std::process::Stdio;
 
-    let workspace = std::env::temp_dir().join(format!(
+    let workspace = trust_test_support::unique_temp_path(&format!(
         "trust-dev-mcp-serve-mcp-e2e-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()

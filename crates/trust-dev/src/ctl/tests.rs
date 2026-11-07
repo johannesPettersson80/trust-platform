@@ -20,8 +20,10 @@ struct ScratchProject(PathBuf);
 impl ScratchProject {
     fn new() -> Self {
         let sequence = PROJECT_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path =
-            std::env::temp_dir().join(format!("trust-dev-ctl-{}-{sequence}", std::process::id()));
+        let path = trust_test_support::unique_temp_path(&format!(
+            "trust-dev-ctl-{}-{sequence}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&path).expect("create ctl test project");
         Self(path)
     }
