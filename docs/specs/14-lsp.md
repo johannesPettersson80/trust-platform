@@ -1427,7 +1427,9 @@ Runtime exposes an ST-complete PLCopen XML profile through `trust-runtime plcope
     - `pouinheritance` addData emits `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK
       declarations (synthesized headers and raw ST bodies alike)
     - project-level `<Interface>` objects import as declaration-only `INTERFACE`
-      blocks (METHOD signature stubs, `EXTENDS` honored, properties rendered as METHODs)
+      blocks (METHOD signature stubs with their `VAR_INPUT`, `VAR_OUTPUT` and
+      `VAR_IN_OUT` sections in that order, `EXTENDS` honored, properties rendered as
+      METHODs)
     - `globalVars` container qualifiers (`retain`/`persistent`/`constant`) carry into
       the rendered `VAR_GLOBAL` header
     - e!COCKPIT `MixedAttrsVarList` attributes views and identical whole-list

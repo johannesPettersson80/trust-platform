@@ -194,8 +194,13 @@ fn render_interface_member(
         block.push_str(return_type.trim());
     }
     if let Some(member_interface) = member_interface {
-        for (section_xml, st_keyword) in [("inputVars", "VAR_INPUT"), ("inOutVars", "VAR_IN_OUT")]
-        {
+        // A method's signature is all three of its parameter sections, in the stable order of
+        // the POU interface translation (specification 22).
+        for (section_xml, st_keyword) in [
+            ("inputVars", "VAR_INPUT"),
+            ("outputVars", "VAR_OUTPUT"),
+            ("inOutVars", "VAR_IN_OUT"),
+        ] {
             for section in member_interface
                 .children()
                 .filter(|child| is_element_named_ci(*child, section_xml))
