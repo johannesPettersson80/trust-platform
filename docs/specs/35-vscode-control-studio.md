@@ -831,8 +831,14 @@ name. Every role is declared in the loop definition (§B1).
 
 ### A6. Mode, transfer and live checks
 
-**A6.1 One mode binding per loop**: the mode signal and its Manual value. A
-cascade or loop group also lists the mode signals of its further controllers.
+**A6.1 One mode binding per loop**: the mode signal and the value that means
+Manual. A BOOL mode signal's other value means Auto. An enumeration mode signal
+names the member that means Manual and the member that means Auto, as CODESYS
+and TwinCAT code selects a controller's mode by an enumeration (TwinCAT's
+`E_CTRL_MODE`, a project's own `E_Mode`); its other members, such as `Off`,
+mean neither mode. An operation that finds the loop in neither mode does not
+start, and names the member it found (owner, 7 November 2026). A cascade or
+loop group also lists the mode signals of its further controllers.
 
 **A6.2 Return to the starting mode.** An operation that changes the loop's
 mode records the mode it found. When it ends, whether completed, failed or
