@@ -24,7 +24,12 @@ use super::pid_bindings::{
 use super::pid_loop::{pid_seeded_symbols, setpoint_signal, ModeChoice, SignalChoice};
 use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind, InitialSource, InitialValue, InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, Parameter, ParameterBinding, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION};
+use crate::loop_definition::{
+    Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller,
+    ControllerProject, Design, Direction, Execution, ExperimentKind, InitialSource, InitialValue,
+    InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, Parameter, ParameterBinding,
+    SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+};
 use crate::model::{ActuatorCapabilities, ActuatorKind};
 
 /// The seed kind of a cascade in the loop file (C6).
