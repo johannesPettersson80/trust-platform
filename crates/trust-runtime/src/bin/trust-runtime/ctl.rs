@@ -713,72 +713,6 @@ mod tests {
                 json!({"id": 1, "type": "resume", "auth": "token"}),
             ),
             (
-                ControlAction::StepIn,
-                json!({"id": 1, "type": "step_in", "auth": "token"}),
-            ),
-            (
-                ControlAction::StepOver,
-                json!({"id": 1, "type": "step_over", "auth": "token"}),
-            ),
-            (
-                ControlAction::StepOut,
-                json!({"id": 1, "type": "step_out", "auth": "token"}),
-            ),
-            (
-                // Lines 3 and 8 as an editor shows them are the protocol's zero-based 2 and 7.
-                ControlAction::BreakpointsSet {
-                    source: "main.st".into(),
-                    lines: vec![3, 8],
-                },
-                json!({
-                    "id": 1,
-                    "type": "breakpoints.set",
-                    "auth": "token",
-                    "params": { "source": "main.st", "lines": [2, 7] }
-                }),
-            ),
-            (
-                ControlAction::BreakpointsClear {
-                    source: "main.st".into(),
-                },
-                json!({
-                    "id": 1,
-                    "type": "breakpoints.clear",
-                    "auth": "token",
-                    "params": { "source": "main.st", "lines": [] }
-                }),
-            ),
-            (
-                ControlAction::BreakpointsList,
-                json!({"id": 1, "type": "breakpoints.list", "auth": "token"}),
-            ),
-            (
-                ControlAction::Location,
-                json!({"id": 1, "type": "debug.state", "auth": "token"}),
-            ),
-            (
-                ControlAction::Stack,
-                json!({"id": 1, "type": "debug.stack", "auth": "token"}),
-            ),
-            (
-                ControlAction::Scopes { frame_id: 2 },
-                json!({
-                    "id": 1,
-                    "type": "debug.scopes",
-                    "auth": "token",
-                    "params": { "frame_id": 2 }
-                }),
-            ),
-            (
-                ControlAction::Variables { reference: 7 },
-                json!({
-                    "id": 1,
-                    "type": "debug.variables",
-                    "auth": "token",
-                    "params": { "variables_reference": 7 }
-                }),
-            ),
-            (
                 ControlAction::IoRead,
                 json!({"id": 1, "type": "io.read", "auth": "token"}),
             ),
@@ -910,6 +844,84 @@ mod tests {
             build_request(&ControlAction::Status, None),
             json!({"id": 1, "type": "status", "auth": null})
         );
+    }
+
+    /// The debugger's actions (specification 11, 6.8.1): stepping, breakpoints with their lines counted from 1 here and from 0 on
+    /// the wire, and the reads of a held program, each one request of the debug table.
+    #[test]
+    fn debugger_actions_map_to_the_registered_wire_contract() {
+        let cases = vec![
+            (
+                ControlAction::StepIn,
+                json!({"id": 1, "type": "step_in", "auth": "token"}),
+            ),
+            (
+                ControlAction::StepOver,
+                json!({"id": 1, "type": "step_over", "auth": "token"}),
+            ),
+            (
+                ControlAction::StepOut,
+                json!({"id": 1, "type": "step_out", "auth": "token"}),
+            ),
+            (
+                // Lines 3 and 8 as an editor shows them are the protocol's zero-based 2 and 7.
+                ControlAction::BreakpointsSet {
+                    source: "main.st".into(),
+                    lines: vec![3, 8],
+                },
+                json!({
+                    "id": 1,
+                    "type": "breakpoints.set",
+                    "auth": "token",
+                    "params": { "source": "main.st", "lines": [2, 7] }
+                }),
+            ),
+            (
+                ControlAction::BreakpointsClear {
+                    source: "main.st".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "breakpoints.clear",
+                    "auth": "token",
+                    "params": { "source": "main.st", "lines": [] }
+                }),
+            ),
+            (
+                ControlAction::BreakpointsList,
+                json!({"id": 1, "type": "breakpoints.list", "auth": "token"}),
+            ),
+            (
+                ControlAction::Location,
+                json!({"id": 1, "type": "debug.state", "auth": "token"}),
+            ),
+            (
+                ControlAction::Stack,
+                json!({"id": 1, "type": "debug.stack", "auth": "token"}),
+            ),
+            (
+                ControlAction::Scopes { frame_id: 2 },
+                json!({
+                    "id": 1,
+                    "type": "debug.scopes",
+                    "auth": "token",
+                    "params": { "frame_id": 2 }
+                }),
+            ),
+            (
+                ControlAction::Variables { reference: 7 },
+                json!({
+                    "id": 1,
+                    "type": "debug.variables",
+                    "auth": "token",
+                    "params": { "variables_reference": 7 }
+                }),
+            ),
+        ];
+
+        for (action, expected) in cases {
+            assert_eq!(build_request(&action, Some("token")), expected);
+        }
     }
 
     #[test]
