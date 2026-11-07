@@ -174,6 +174,22 @@ fn the_search_law_writes_a_project_controller_that_tries_every_combination_on_th
     ));
 }
 
+/// Specification 35 C5: the trial and job budgets follow A7, which no component may lower: 10,000,000 scans for the search's trials
+/// together and 60 min of wall time. Catches setup's old 50,000 scans and 60 s, which a loop that settles in 250 s at a 10 ms task
+/// spends before its second trial ends.
+#[test]
+fn the_search_law_declares_the_budgets_of_a7() {
+    let loop_definition = search_loop_definition(&oven(), &scope(), &draft_of(oven_json()))
+        .expect("the searched law is written");
+    let project = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("a project controller");
+    assert_eq!(project.maximum_cycles, 10_000_000);
+    assert_eq!(project.wall_budget_ms, 3_600_000);
+}
+
 #[test]
 fn the_kept_values_start_as_validation_starts_them_and_the_startup_flag_is_an_application_state() {
     // searchLawLoopGenerator.ts's `retained` and C5 Setup: the output's start is bounded by ten output spans, the measurement's by one
