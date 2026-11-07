@@ -35,3 +35,14 @@ threads-required = "num-test-threads"
 [[profile.ci.overrides]]
 filter = 'binary(debug_pause_watchdog) | binary(debug_pause_watchdog_trace_cases)'
 threads-required = "num-test-threads"
+
+# The hung-driver tests time the supervisor's record of a hang against a 400 ms budget (G74).
+[[profile.ci.overrides]]
+filter = 'binary(failure_injection_hung_driver_watchdog)'
+threads-required = "num-test-threads"
+
+# Accelerated scans must raise no fault from a 200 ms real-time watchdog; beside other tests a
+# loaded runner can hold one scan that long (G74).
+[[profile.ci.overrides]]
+filter = 'binary(simulation_workflow) & test(=accelerated_clock_keeps_watchdog_semantics)'
+threads-required = "num-test-threads"

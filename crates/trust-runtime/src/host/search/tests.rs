@@ -429,7 +429,9 @@ fn registry_keeps_at_most_8_searches() {
 
 #[test]
 fn ended_search_is_forgotten_after_its_retention() {
-    let registry = SearchRegistry::with_limits(KEPT_SEARCHES, Duration::from_millis(100));
+    // A second's retention, against the default five minutes: room for the first check below on a
+    // loaded runner, and still far apart from a registry that keeps the default.
+    let registry = SearchRegistry::with_limits(KEPT_SEARCHES, Duration::from_secs(1));
     let ended = registry
         .start(quick_request(), SearchHost::ThisHost)
         .expect("start");
@@ -441,11 +443,15 @@ fn ended_search_is_forgotten_after_its_retention() {
         )
         .expect("start");
     assert!(registry.status(&ended, None).is_ok());
-    std::thread::sleep(Duration::from_millis(400));
-    assert!(
-        matches!(registry.status(&ended, None), Err(SearchError::NotFound(_))),
-        "an ended search is kept only for its retention"
-    );
+    // The quick search ends on its own, and a second later it is forgotten.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !matches!(registry.status(&ended, None), Err(SearchError::NotFound(_))) {
+        assert!(
+            Instant::now() < deadline,
+            "an ended search is kept only for its retention"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
     assert!(
         registry.status(&running, None).is_ok(),
         "a running search is kept until it ends"

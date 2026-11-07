@@ -447,6 +447,13 @@ fails.
 A test that expects no watchdog fault from real cycles against a short watchdog runs alone
 too, as the debugger's pause tests do with their 20 ms watchdog.
 
+A test that waits for something to happen waits for that event, receiving or polling
+until a generous deadline of ten seconds, never for a short fixed window: a loaded runner
+can be slow without anything being wrong, and a passing run still ends as soon as the
+event arrives. A test that asserts that something took less than a bound keeps the bound
+far from both what it expects and what it rules out, such as a call that waits for a
+silent peer, or it runs alone.
+
 Every job that builds Structured Text programs provisions the toolchain of
 specification 44 §4.6 itself and names it in `TRUST_TOOLCHAIN`, the release's
 self-hosted OpenOT database matrix and the documentation captures included; a

@@ -46,9 +46,13 @@ class CiTestJobTests(unittest.TestCase):
             "binary(concurrency_supervisor)",
             # So do the debugger's pause tests, against a 20 ms watchdog (G58).
             "binary(debug_pause_watchdog) | binary(debug_pause_watchdog_trace_cases)",
+            # The hung-driver tests time the supervisor's record of a hang (G74).
+            "binary(failure_injection_hung_driver_watchdog)",
+            # Accelerated scans against a 200 ms real-time watchdog (G74).
+            "binary(simulation_workflow) & test(=accelerated_clock_keeps_watchdog_semantics)",
         ):
             self.assertIn(measuring, config)
-        self.assertEqual(config.count('threads-required = "num-test-threads"'), 4)
+        self.assertEqual(config.count('threads-required = "num-test-threads"'), 6)
 
     def test_the_build_fits_its_budget_on_every_system(self) -> None:
         # Catches the Ubuntu build back on one job: it took 1,339 s against 862 s with two jobs (probe run
