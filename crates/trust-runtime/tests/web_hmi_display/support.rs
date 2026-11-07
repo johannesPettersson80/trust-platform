@@ -1,7 +1,6 @@
 //! A project with HMI files and a running program behind the runtime's web server.
 
 use std::collections::VecDeque;
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -343,15 +342,15 @@ fn start_inner(
         transfers: trust_runtime::control::new_transfer_session(),
     });
     let control = Arc::clone(&state);
-    let listen = format!("127.0.0.1:{}", free_port());
+    // Port 0: the operating system chooses a free port, and the server reports the one it bound.
     let config = WebConfig {
         enabled: true,
-        listen: SmolStr::new(listen.clone()),
+        listen: SmolStr::new("127.0.0.1:0"),
         auth,
         tls: false,
         hmi: access,
     };
-    let _server = start_web_server(
+    let server = start_web_server(
         &config,
         state,
         None,
@@ -360,7 +359,7 @@ fn start_inner(
         None,
     )
     .expect("the web server starts");
-    let base = format!("http://{listen}");
+    let base = format!("http://{}", server.listen);
     for _ in 0..80 {
         if ureq::get(&format!("{base}/")).call().is_ok() {
             return Running {
@@ -372,11 +371,6 @@ fn start_inner(
         thread::sleep(Duration::from_millis(25));
     }
     panic!("the web server did not start at {base}");
-}
-
-fn free_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
-    listener.local_addr().expect("the local address").port()
 }
 
 fn settings() -> RuntimeSettings {

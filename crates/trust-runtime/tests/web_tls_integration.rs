@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -167,13 +167,6 @@ fn control_state(source: &str) -> Arc<ControlState> {
     })
 }
 
-fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("local addr").port();
-    drop(listener);
-    port
-}
-
 fn https_get_raw(listen: &str, path: &str, materials: &TlsMaterials) -> anyhow::Result<String> {
     let config = rustls_client_config(materials)
         .map_err(|err| anyhow::anyhow!("build tls client config: {err}"))?;
@@ -220,17 +213,18 @@ fn tls_materials() -> Arc<TlsMaterials> {
 #[test]
 fn web_tls_handshake_and_downgrade_prevention() {
     let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
-    let listen = format!("127.0.0.1:{}", reserve_loopback_port());
+    // Port 0: the operating system chooses a free port, and the server reports the one it bound.
     let config = WebConfig {
         enabled: true,
-        listen: SmolStr::new(listen.clone()),
+        listen: SmolStr::new("127.0.0.1:0"),
         auth: WebAuthMode::Local,
         tls: true,
         hmi: Default::default(),
     };
     let tls = tls_materials();
-    let _server = start_web_server(&config, state, None, None, None, Some(tls.clone()))
+    let server = start_web_server(&config, state, None, None, None, Some(tls.clone()))
         .expect("start tls web server");
+    let listen = server.listen.clone();
 
     let mut response = None;
     let mut last_error = String::new();

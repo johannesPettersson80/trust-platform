@@ -86,7 +86,34 @@ fn fixture_snapshot() -> trust_runtime::debug::DebugSnapshot {
 }
 
 fn start_fixture_server(name: &str) -> trust_runtime::opcua::OpcUaWireServer {
-    start_fixture_server_on(name, reserve_loopback_port())
+    start_fixture_server_with(name, snapshot_provider())
+}
+
+/// The fixture server `name` on a free loopback port, serving `provider`'s snapshots. The server
+/// binds the port after the reservation released it, so another process can take the port in
+/// between; the server refuses a port in use at once, and the fixture tries another, ten times at
+/// most. An OPC UA server cannot listen on port 0: its endpoint URL names its port.
+fn start_fixture_server_with(
+    name: &str,
+    provider: Arc<dyn Fn() -> Option<trust_runtime::debug::DebugSnapshot> + Send + Sync>,
+) -> trust_runtime::opcua::OpcUaWireServer {
+    let mut taken = Vec::new();
+    for _ in 0..10 {
+        let port = reserve_loopback_port();
+        let runtime = load_runtime_fixture(name, port);
+        let runtime_root = temp_runtime_root(name);
+        match start_wire_server(
+            runtime.resource_name.as_str(),
+            &runtime.opcua,
+            Arc::clone(&provider),
+            Some(runtime_root.as_path()),
+        ) {
+            Ok(server) => return server.expect("opcua enabled"),
+            Err(error) if error.to_string().contains("is unavailable") => taken.push(port),
+            Err(error) => panic!("start opcua wire server: {error}"),
+        }
+    }
+    panic!("another process took each reserved port before the server bound it: {taken:?}");
 }
 
 /// The fixture server `name` on the loopback port `port`.
@@ -143,8 +170,8 @@ fn opcua_interop_reads_exposed_scalars_with_reference_client() {
 
 #[test]
 fn opcua_server_start_refuses_a_listen_address_in_use() {
-    let port = reserve_loopback_port();
-    let occupant = TcpListener::bind(("127.0.0.1", port)).expect("occupy the fixture port");
+    let occupant = TcpListener::bind("127.0.0.1:0").expect("occupy a loopback port");
+    let port = occupant.local_addr().expect("occupant address").port();
     let runtime = load_runtime_fixture("interop", port);
     let runtime_root = temp_runtime_root("in-use");
 
@@ -171,9 +198,6 @@ fn opcua_server_start_refuses_a_listen_address_in_use() {
 
 #[test]
 fn opcua_server_cold_starts_before_first_runtime_snapshot() {
-    let port = reserve_loopback_port();
-    let runtime = load_runtime_fixture("interop", port);
-    let runtime_root = temp_runtime_root("cold-start");
     let snapshot_slot = Arc::new(Mutex::new(None));
     let provider_slot = snapshot_slot.clone();
     let provider: Arc<dyn Fn() -> Option<trust_runtime::debug::DebugSnapshot> + Send + Sync> =
@@ -185,14 +209,7 @@ fn opcua_server_cold_starts_before_first_runtime_snapshot() {
                 .cloned()
         });
 
-    let mut server = start_wire_server(
-        runtime.resource_name.as_str(),
-        &runtime.opcua,
-        provider,
-        Some(runtime_root.as_path()),
-    )
-    .expect("cold-start opcua wire server")
-    .expect("opcua enabled");
+    let mut server = start_fixture_server_with("interop", provider);
 
     *snapshot_slot.lock().expect("snapshot slot") = Some(fixture_snapshot());
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
@@ -469,6 +486,8 @@ fn a_client_gets_its_values_again_after_its_server_restarts() {
         let _ = worker.tick(opcua_client_now_ms());
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
+    // The restart binds the same port, where the client looks for its server; the port has been
+    // free for a second, and no other test of this process is handed it again.
     let mut restarted = start_fixture_server_on("interop", port);
 
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
