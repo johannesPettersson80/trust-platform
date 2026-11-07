@@ -9,7 +9,6 @@ mod tests {
     use serde_json::json;
     use std::collections::HashMap;
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use trust_hir::db::FileId;
 
     #[derive(Clone, Default)]
@@ -96,21 +95,9 @@ mod tests {
         )
     }
 
-    /// A new directory for one test: the process and a counter make it this test's alone, since tests
-    /// run at once in one process and in several, where a clock stamp alone gave two of them one
-    /// directory; the stamp keeps it apart from one that an earlier run with the same process id
-/// left.
+    /// A new directory for one test, created: the shared helper's path (specification 22).
     fn temp_dir(prefix: &str) -> PathBuf {
-        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock before UNIX_EPOCH")
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!(
-            "{prefix}-{}-{}-{stamp}",
-            std::process::id(),
-            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        ));
+        let path = trust_test_support::unique_temp_path(prefix);
         std::fs::create_dir_all(&path).expect("create temp dir");
         path
     }

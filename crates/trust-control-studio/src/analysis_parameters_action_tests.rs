@@ -442,8 +442,10 @@ fn settings_of(step: f64, hold: f64) -> BTreeMap<String, f64> {
 
 /// The folder of one test's journals and project: empty, and not created yet.
 fn scratch(name: &str) -> PathBuf {
-    let folder =
-        std::env::temp_dir().join(format!("trust-parameters-{name}-{}", std::process::id()));
+    let folder = trust_test_support::unique_temp_path(&format!(
+        "trust-parameters-{name}-{}",
+        std::process::id()
+    ));
     let _ = fs::remove_dir_all(&folder);
     folder
 }

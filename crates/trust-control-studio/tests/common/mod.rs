@@ -33,7 +33,7 @@ pub fn control_socket(project: &Path) -> PathBuf {
     if socket.as_os_str().len() <= 100 {
         return socket;
     }
-    let short = std::env::temp_dir().join(format!(
+    let short = trust_test_support::unique_temp_path(&format!(
         "tcs-{}-{}.sock",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)

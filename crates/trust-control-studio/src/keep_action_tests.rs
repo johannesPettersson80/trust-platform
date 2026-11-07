@@ -29,7 +29,7 @@ impl UpdateSink for Ignore {
 
 /// A project folder with the example loop, and the arguments of `keep` for it, with `connection` when one is given.
 fn example_project(name: &str, connection: Option<Value>) -> (PathBuf, LoopDefinition, Value) {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-control-keep-action-{name}-{}",
         std::process::id()
     ));

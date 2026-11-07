@@ -161,7 +161,7 @@ struct Engine {
 
 impl Engine {
     fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-parameter-tool-{name}-{}",
             std::process::id()
         ));

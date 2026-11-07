@@ -17,7 +17,7 @@ fn lesson_45() -> LoopDefinition {
 
 /// A folder of the test's own, empty at its start.
 fn folder(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-parameter-write-journal-{name}-{}",
         std::process::id()
     ));

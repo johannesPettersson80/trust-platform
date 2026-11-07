@@ -42,9 +42,10 @@ fn copy_dir(from: &Path, to: &Path) {
 
 /// A copy of the example as a project, in a folder of its own.
 fn project_copy(name: &str) -> (Scratch, String, String) {
-    let scratch = Scratch(
-        std::env::temp_dir().join(format!("trust-engine-cli-{name}-{}", std::process::id())),
-    );
+    let scratch = Scratch(trust_test_support::unique_temp_path(&format!(
+        "trust-engine-cli-{name}-{}",
+        std::process::id()
+    )));
     let _ = fs::remove_dir_all(&scratch.0);
     let project = scratch.0.join("project");
     copy_dir(Path::new(EXAMPLE), &project);

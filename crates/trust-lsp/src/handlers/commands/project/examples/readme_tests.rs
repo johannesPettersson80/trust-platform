@@ -13,7 +13,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-copied-readme-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)

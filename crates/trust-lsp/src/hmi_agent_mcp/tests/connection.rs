@@ -94,7 +94,7 @@ fn a_connection_names_its_workspace() {
 
 /// A file path of this test that no other test uses.
 fn temporary(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-hmi-agent-{}-{name}.json",
         std::process::id()
     ))

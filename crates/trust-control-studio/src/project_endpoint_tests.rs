@@ -21,7 +21,7 @@ fn scratch(name: &str) -> Scratch {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_nanos())
         .unwrap_or_default();
-    let folder = std::env::temp_dir().join(format!(
+    let folder = trust_test_support::unique_temp_path(&format!(
         "trust-cs-endpoint-{name}-{}-{nanos}",
         std::process::id()
     ));

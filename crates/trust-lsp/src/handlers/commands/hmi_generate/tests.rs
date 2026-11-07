@@ -43,7 +43,7 @@ impl Folder {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |elapsed| elapsed.as_nanos());
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-create-plc-code-{}-{unique}-{nanos}",
             std::process::id()
         ));

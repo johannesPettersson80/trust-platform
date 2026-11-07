@@ -153,7 +153,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trustlsp-hmi-faceplates-{}-{stamp}",
             std::process::id()
         ));

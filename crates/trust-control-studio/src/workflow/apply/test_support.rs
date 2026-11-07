@@ -286,8 +286,10 @@ pub(crate) fn instant(wall_ms: &dyn Fn() -> u64) -> ApplyTiming<'_> {
 /// A folder of its own for one test's journal.
 #[must_use]
 pub(crate) fn scratch(name: &str) -> PathBuf {
-    let folder =
-        std::env::temp_dir().join(format!("trust-control-apply-{name}-{}", std::process::id()));
+    let folder = trust_test_support::unique_temp_path(&format!(
+        "trust-control-apply-{name}-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&folder);
     folder
 }

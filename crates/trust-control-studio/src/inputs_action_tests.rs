@@ -48,7 +48,7 @@ impl Project {
 
     /// A project folder holding the loop file `text`.
     fn with_loop(name: &str, text: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-control-studio-{name}-{}",
             std::process::id()
         ));

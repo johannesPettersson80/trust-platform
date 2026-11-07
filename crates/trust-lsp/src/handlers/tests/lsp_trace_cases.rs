@@ -454,7 +454,7 @@ fn test_runtime() -> tokio::runtime::Runtime {
 
 fn temp_dir(prefix: &str) -> Result<PathBuf, String> {
     static NEXT: AtomicU64 = AtomicU64::new(1);
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "{prefix}-{}-{}",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)

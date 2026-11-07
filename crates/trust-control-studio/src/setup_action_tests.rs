@@ -15,8 +15,10 @@ const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/
 
 /// An empty folder for one test, removed before it runs.
 fn scratch(name: &str) -> PathBuf {
-    let root =
-        std::env::temp_dir().join(format!("trust-setup-action-{name}-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path(&format!(
+        "trust-setup-action-{name}-{}",
+        std::process::id()
+    ));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("a scratch folder");
     root

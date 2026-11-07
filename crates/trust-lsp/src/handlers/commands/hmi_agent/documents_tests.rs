@@ -28,7 +28,7 @@ struct Workspace(PathBuf);
 impl Workspace {
     fn new(label: &str) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-hmi-documents-{label}-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::SeqCst)
@@ -152,7 +152,7 @@ fn rejects_a_symbolic_link_escape_including_a_new_page_below_it() {
 #[test]
 fn a_dangling_symbolic_link_is_refused_and_not_followed() {
     let workspace = Workspace::new("dangling");
-    let target = std::env::temp_dir().join(format!(
+    let target = trust_test_support::unique_temp_path(&format!(
         "trust-hmi-dangling-target-{}-missing",
         std::process::id()
     ));

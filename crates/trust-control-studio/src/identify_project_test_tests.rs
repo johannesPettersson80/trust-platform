@@ -100,7 +100,7 @@ struct Project {
 
 impl Project {
     fn new(name: &str, document: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-control-studio-{name}-{}",
             std::process::id()
         ));

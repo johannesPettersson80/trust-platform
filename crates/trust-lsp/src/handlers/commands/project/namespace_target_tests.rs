@@ -168,7 +168,10 @@ fn answer_for(state: &ServerState, uri: &Url, line: u32) -> Value {
 
 #[test]
 fn a_closed_file_is_read_from_disk() {
-    let path = std::env::temp_dir().join(format!("trust-lsp-namespace-{}.st", std::process::id()));
+    let path = trust_test_support::unique_temp_path(&format!(
+        "trust-lsp-namespace-{}.st",
+        std::process::id()
+    ));
     std::fs::write(&path, "NAMESPACE Disk.Only\nEND_NAMESPACE\n").expect("file");
     let uri = Url::from_file_path(&path).expect("uri");
     let state = ServerState::new();

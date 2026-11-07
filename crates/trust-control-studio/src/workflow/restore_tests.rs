@@ -45,8 +45,10 @@ struct Folder(PathBuf);
 
 impl Folder {
     fn new(name: &str) -> Self {
-        let path =
-            std::env::temp_dir().join(format!("trust-cs-restore-{name}-{}", std::process::id()));
+        let path = trust_test_support::unique_temp_path(&format!(
+            "trust-cs-restore-{name}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&path);
         Self(path)
     }

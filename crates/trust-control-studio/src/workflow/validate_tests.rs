@@ -34,7 +34,7 @@ const QUICK: JobTiming = JobTiming {
 
 /// A fresh folder for the journals, named for the test.
 fn storage(name: &str) -> PathBuf {
-    let folder = std::env::temp_dir().join(format!(
+    let folder = trust_test_support::unique_temp_path(&format!(
         "trust-control-validate-{name}-{}",
         std::process::id()
     ));

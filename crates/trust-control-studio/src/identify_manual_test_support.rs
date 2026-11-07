@@ -124,7 +124,7 @@ impl Drop for Project {
 
 impl Project {
     pub(super) fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-identify-manual-{name}-{}",
             std::process::id()
         ));
