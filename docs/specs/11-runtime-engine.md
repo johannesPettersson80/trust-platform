@@ -1098,6 +1098,12 @@ correlated validation rejection terminally removes that exact generation,
 faults the affected point visibly, and does not reconnect the otherwise
 healthy session.
 
+The worker sends the captured outputs while its session is up, whether the
+connection is connected or stale. Staleness describes the read values, not the
+session: a server whose values do not change sends no samples, and the
+program's outputs still reach it. A write that fails at the transport
+reconnects the session, as any transport failure does.
+
 For scalar `Float`/`REAL` and `Double`/`LREAL` outputs, the value must be finite
 at the declared width before it enters the pending-write cache. A non-finite
 output cancels any older queued intent for that point, advances the local write
