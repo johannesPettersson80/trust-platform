@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "supportedOpenOtRevision": "137f0e765f085c262651f479be35298b836ac891",
+  "supportedOpenOtRevision": "cf6135830e7dbb01626e35f6804ed2429b127baa",
   "workload": "src/Main.st",
   "cycles": 12,
   "producerInstances": [
