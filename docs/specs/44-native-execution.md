@@ -831,6 +831,12 @@ kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
   in the retain area too; the warm-init entry runs.
 - **Online change:** §12.
 
+Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
+type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
+the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. An `FB_init` with
+inputs beyond those two, which CODESYS gives at the instance's declaration (`com1 :
+serialdevice(iCOMnum := 1)`), or with outputs, is not compiled yet (NX-09).
+
 At both restarts the process images keep their bytes; they take `INIT` once, when the program is
 constructed. After the initialization, every variable located at `%M` is published into the marker
 image, so that the first scan's sample finds the variable's starting or retained value there
