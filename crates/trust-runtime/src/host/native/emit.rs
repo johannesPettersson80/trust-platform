@@ -94,7 +94,7 @@ pub(super) fn generate<'a>(
     let mut work: Vec<Work<'a>> = (0..model.program_types.len()).map(Work::Program).collect();
     // CODESYS's implicit `FB_init`: the initializations call the method of every instance whose
     // type declares it (specification 10 §4.8).
-    let fb_init = super::fb_init::calls(model)?;
+    let fb_init = super::fb_init::calls(front, model)?;
     for need in fb_init.needs {
         queue(model, need, &mut queued, &mut work)?;
     }

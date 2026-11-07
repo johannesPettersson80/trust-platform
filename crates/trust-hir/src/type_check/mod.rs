@@ -19,6 +19,7 @@ mod calls;
 mod compatibility;
 mod const_eval;
 mod expr;
+mod fb_init_args;
 mod helpers;
 mod literal_range;
 mod literals;
@@ -28,6 +29,7 @@ mod stmt;
 mod symbol_resolve;
 mod validation;
 
+pub(crate) use fb_init_args::check_fb_init_arguments;
 pub(crate) use literal_range::untyped_literal_out_of_range_message;
 pub(crate) use literals::{exact_int_literal_value, integer_type_range_fits, string_literal_info};
 pub use ops::{BinaryOp, UnaryOp};

@@ -86,3 +86,38 @@ END_FUNCTION_BLOCK
         .count();
     assert_eq!(names, 3);
 }
+
+/// Specification 10 §4.8: parentheses after a named type hold the instance's `FB_init` arguments,
+/// an `ArgList` of the declaration, also before an initial value; parentheses that hold `lo..hi`
+/// stay the type's subrange. Catches the arguments parsed as a broken subrange, and a subrange
+/// taken for arguments.
+#[test]
+fn fb_init_arguments_follow_the_type_and_subranges_stay_subranges() {
+    let parsed = parse(
+        "PROGRAM Main\nVAR\n    com1 : serialdevice(iCOMnum := 1);\n    com2 : serialdevice(2, TRUE) := (Speed := 9600);\n    level : Percent(0..100);\nEND_VAR\nEND_PROGRAM",
+    );
+    assert!(parsed.ok(), "{:?}", parsed.errors());
+    let declarations: Vec<_> = parsed
+        .syntax()
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::VarDecl)
+        .collect();
+    let arguments: Vec<usize> = declarations
+        .iter()
+        .map(|declaration| {
+            declaration
+                .children()
+                .filter(|child| child.kind() == SyntaxKind::ArgList)
+                .map(|list| {
+                    list.children()
+                        .filter(|arg| arg.kind() == SyntaxKind::Arg)
+                        .count()
+                })
+                .sum()
+        })
+        .collect();
+    assert_eq!(arguments, vec![1, 2, 0]);
+    assert!(declarations[2]
+        .descendants()
+        .any(|node| node.kind() == SyntaxKind::Subrange));
+}

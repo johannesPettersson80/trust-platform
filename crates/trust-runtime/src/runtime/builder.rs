@@ -386,6 +386,7 @@ mod tests {
                 in_out: false,
                 constant: false,
                 address: None,
+                init_args: Vec::new(),
             }],
             temps: Vec::new(),
             using: Vec::new(),
