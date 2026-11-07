@@ -2,8 +2,8 @@ use rustc_hash::FxHashMap;
 
 use super::super::queries::*;
 use super::super::*;
+use super::attributes::declares_attribute;
 use super::context::find_symbol_by_name_range;
-use crate::openot_authoring::parse_attribute_entries_from_text;
 use crate::types::Type;
 
 /// Canonical identity of a POU: the file that declares it and the symbol id in
@@ -211,7 +211,7 @@ pub(in crate::db) fn compute_host_clock_sources(
                         source: ClockSource::CurrentDt,
                     },
                 );
-            } else if declares_host_clock(&pou) {
+            } else if declares_attribute(&pou, "reads_host_clock") {
                 direct.insert(
                     key,
                     ClockEntry {
@@ -253,100 +253,6 @@ pub(in crate::db) fn compute_host_clock_sources(
         }
     }
     HostClockSources { sources }
-}
-
-/// Whether the pragma trivia preceding the POU's declaration keyword carries
-/// `reads_host_clock` (specification 07, "Declared Clock Sources"). The scan
-/// walks backwards over trivia and over the trailing trivia of the element
-/// the parser parked it in: a pragma before a header may sit in the leading
-/// trivia of the POU node, in the trailing trivia of the preceding construct
-/// (the previous POU in a file, the namespace head), so the keyword's
-/// immediate trivia is what counts. A pragma inside the body — behind the
-/// declaration keyword, before other statements — never declares.
-fn declares_host_clock(pou: &SyntaxNode) -> bool {
-    let reads = |token: &trust_syntax::syntax::SyntaxToken| {
-        token.kind() == SyntaxKind::Pragma
-            && parse_attribute_entries_from_text(token.text(), token.text_range())
-                .iter()
-                .any(|entry| entry.key == "reads_host_clock")
-    };
-    // The trivia the POU node itself holds before its declaration keyword —
-    // the whole leading trivia when the declaration opens a file or follows
-    // a header the parser closed cleanly.
-    for element in pou.children_with_tokens() {
-        let Some(token) = element.into_token() else {
-            break;
-        };
-        if !token.kind().is_trivia() {
-            break;
-        }
-        if reads(&token) {
-            return true;
-        }
-    }
-    // The trivia immediately preceding the keyword, however the parser
-    // nested it: backwards over trivia tokens, then through the trailing
-    // trivia of the construct the parser parked the pragma in — the previous
-    // POU in a file, or the namespace head. Rowan's sibling walk is
-    // parent-scoped, so the walk climbs parents to stay in document order.
-    let keyword = pou
-        .children_with_tokens()
-        .filter_map(|element| element.into_token())
-        .find(|token| !token.kind().is_trivia());
-    let Some(keyword) = keyword else {
-        return false;
-    };
-    let mut cursor = rowan::NodeOrToken::Token(keyword);
-    loop {
-        let Some(prev) = prev_in_document_order(cursor.clone()) else {
-            return false;
-        };
-        match prev {
-            rowan::NodeOrToken::Token(token) => {
-                if !token.kind().is_trivia() {
-                    return false;
-                }
-                if reads(&token) {
-                    return true;
-                }
-                cursor = rowan::NodeOrToken::Token(token);
-            }
-            rowan::NodeOrToken::Node(node) => {
-                // The previous construct swallowed the trivia that precedes
-                // this declaration as its own trailing trivia. Look only
-                // there: beyond its last non-trivia token lies an earlier
-                // construct, separated from this declaration by a keyword.
-                let children: Vec<_> = node.children_with_tokens().collect();
-                for element in children.into_iter().rev() {
-                    let Some(token) = element.into_token() else {
-                        break;
-                    };
-                    if !token.kind().is_trivia() {
-                        break;
-                    }
-                    if reads(&token) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        }
-    }
-}
-
-/// The previous element in document order: the sibling walk inside one
-/// parent, climbing through the parent chain when the element is its
-/// parent's first child.
-fn prev_in_document_order(
-    element: rowan::NodeOrToken<SyntaxNode, trust_syntax::syntax::SyntaxToken>,
-) -> Option<rowan::NodeOrToken<SyntaxNode, trust_syntax::syntax::SyntaxToken>> {
-    if let Some(prev) = element.prev_sibling_or_token() {
-        return Some(prev);
-    }
-    element
-        .parent()
-        .map(rowan::NodeOrToken::Node)
-        .and_then(prev_in_document_order)
 }
 
 enum BodyCall {
