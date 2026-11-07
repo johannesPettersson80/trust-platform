@@ -135,7 +135,7 @@ impl Read for FaultingReader {
 
 fn test_path(name: &str) -> PathBuf {
     let sequence = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let directory = std::env::temp_dir().join(format!(
+    let directory = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-retain-store-{}-{sequence}-{name}",
         std::process::id()
     ));

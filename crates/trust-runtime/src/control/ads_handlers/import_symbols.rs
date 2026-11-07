@@ -958,7 +958,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("trust-{name}-{stamp}"));
+        let path = trust_test_support::unique_temp_path(&format!("trust-{name}-{stamp}"));
         fs::create_dir_all(&path).expect("create temp dir");
         path
     }

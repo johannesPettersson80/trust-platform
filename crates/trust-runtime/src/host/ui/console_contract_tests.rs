@@ -81,7 +81,7 @@ fn unique_console_root(label: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("system clock after epoch")
         .as_nanos();
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-runtime-console-contract-{label}-{}-{nonce}",
         std::process::id()
     ))

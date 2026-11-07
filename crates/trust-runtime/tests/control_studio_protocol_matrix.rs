@@ -1264,7 +1264,8 @@ fn control_socket(project: &Path) -> PathBuf {
 
 /// A fresh folder under the temporary directory. The name stays short because a unix socket path has a length limit.
 fn unique_dir(name: &str) -> PathBuf {
-    let path = std::env::temp_dir().join(format!("trust-{name}-{}", std::process::id()));
+    let path =
+        trust_test_support::unique_temp_path(&format!("trust-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&path);
     fs::create_dir_all(&path).expect("create the protocol matrix folder");
     path

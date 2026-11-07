@@ -380,7 +380,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system time after epoch")
             .as_nanos();
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-runtime-config-ui-{name}-{}-{stamp}",
             std::process::id()
         ));

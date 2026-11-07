@@ -1532,7 +1532,7 @@ access = "read"
 }
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "{prefix}-{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1704,7 +1704,7 @@ drivers = []
 
 #[test]
 fn runtime_config_load_records_execution_backend_source_from_config() {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-config-backend-source-{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1724,7 +1724,7 @@ fn runtime_config_load_records_execution_backend_source_from_config() {
 
 #[test]
 fn runtime_config_load_defaults_execution_backend_source_when_omitted() {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-config-backend-default-{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

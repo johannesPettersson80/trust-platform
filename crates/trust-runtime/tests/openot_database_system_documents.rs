@@ -27,7 +27,7 @@ fn private_root(label: &str) -> std::path::PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-system-documents-{label}-{}-{stamp}",
         std::process::id()
     ));

@@ -25,7 +25,7 @@ static FILE_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// A file in the temporary folder that holds `bytes`, for a test to hand to the command.
 fn container_file(bytes: &[u8]) -> PathBuf {
     let sequence = FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-ctl-install-{}-{sequence}.trsta",
         std::process::id()
     ));

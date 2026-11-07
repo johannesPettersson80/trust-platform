@@ -5,7 +5,7 @@ static REGISTRY_CONTRACT_TEMP_COUNTER: AtomicU64 = AtomicU64::new(1);
 fn registry_contract_temp_dir(label: &str) -> PathBuf {
     for _ in 0..64 {
         let sequence = REGISTRY_CONTRACT_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-registry-contract-{label}-{}-{sequence}",
             std::process::id()
         ));

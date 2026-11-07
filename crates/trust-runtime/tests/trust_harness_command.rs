@@ -677,7 +677,7 @@ struct VendorProject(std::path::PathBuf);
 
 impl VendorProject {
     fn new(name: &str, vendor_profile: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-harness-project-{name}-{}",
             std::process::id()
         ));
@@ -810,7 +810,7 @@ fn trust_harness_refuses_a_project_with_an_unknown_vendor_profile() {
         "stderr was:\n{stderr}"
     );
 
-    let missing = std::env::temp_dir().join(format!(
+    let missing = trust_test_support::unique_temp_path(&format!(
         "trust-harness-project-missing-{}",
         std::process::id()
     ));

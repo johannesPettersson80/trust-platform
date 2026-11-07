@@ -8,7 +8,7 @@ use crate::control::fleet_handlers::host::host_name_from_sources;
 use crate::runtime_id;
 
 fn unique_temp_dir(prefix: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "{prefix}-{}-{}",
         std::process::id(),
         SystemTime::now()

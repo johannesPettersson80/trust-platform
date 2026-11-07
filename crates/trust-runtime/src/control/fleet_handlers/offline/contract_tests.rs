@@ -18,7 +18,7 @@ impl TestProject {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-fleet-offline-{label}-{}-{sequence}-{nanos}",
             std::process::id()
         ));

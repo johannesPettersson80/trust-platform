@@ -1,5 +1,3 @@
-use std::env;
-
 use smol_str::SmolStr;
 use trust_hir::types::TypeRegistry;
 use trust_hir::TypeId;
@@ -8,10 +6,7 @@ use trust_runtime::value::{ArrayValue, EnumValue, StructValue, Value};
 use trust_runtime::RetainSnapshot;
 
 fn temp_path(name: &str) -> std::path::PathBuf {
-    let mut path = env::temp_dir();
-    let pid = std::process::id();
-    path.push(format!("trust_runtime_retain_{pid}_{name}.bin"));
-    path
+    trust_test_support::process_temp_path(&format!("trust_runtime_retain_{name}.bin"))
 }
 
 #[test]

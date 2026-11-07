@@ -114,7 +114,7 @@ fn rejects_invalid_security_profile_combinations() {
 
 #[test]
 fn opcua_client_trust_store_can_be_listed_and_cleared() {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-opcua-client-pki-{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -140,7 +140,7 @@ fn opcua_client_trust_store_can_be_listed_and_cleared() {
 
 #[test]
 fn opcua_client_explicit_trust_promotes_rejected_certificates() {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-opcua-client-pki-promote-{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

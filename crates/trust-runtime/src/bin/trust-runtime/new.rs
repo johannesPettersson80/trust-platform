@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn the_answer_names_the_project_folder_and_its_main_program() {
-        let project = std::env::temp_dir().join("my-plc");
+        let project = trust_test_support::unique_temp_path("my-plc");
         let encoded = serde_json::to_string(&project_answer(&project)).expect("encode answer");
         let answer: serde_json::Value = serde_json::from_str(&encoded).expect("decode answer");
         let project_text = project.display().to_string();

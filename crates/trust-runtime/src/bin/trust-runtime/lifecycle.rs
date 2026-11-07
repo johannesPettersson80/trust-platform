@@ -676,7 +676,7 @@ mod tests {
     }
 
     fn temp_dir(prefix: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "{prefix}-{}",
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

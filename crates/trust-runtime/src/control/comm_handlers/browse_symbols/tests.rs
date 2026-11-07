@@ -430,7 +430,8 @@ fn temp_dir(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!("trust-browse-symbols-{name}-{stamp}"));
+    let path =
+        trust_test_support::unique_temp_path(&format!("trust-browse-symbols-{name}-{stamp}"));
     fs::create_dir_all(&path).expect("create temp dir");
     path
 }

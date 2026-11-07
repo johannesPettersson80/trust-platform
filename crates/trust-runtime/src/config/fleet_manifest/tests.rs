@@ -229,7 +229,7 @@ fn managed_token_only_from_root_runtime_control() {
 }
 
 fn temp_dir(prefix: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "{prefix}-{}-{}",
         std::process::id(),
         SystemTime::now()

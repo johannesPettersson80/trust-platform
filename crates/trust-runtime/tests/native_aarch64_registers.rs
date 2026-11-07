@@ -99,7 +99,7 @@ fn an_aarch64_module_names_no_x18() {
     // '2026-0 4-15 13:14'. A build that leaves any library or compiler function without the
     // reservation names x18 again.
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let folder = Folder(std::env::temp_dir().join(format!(
+    let folder = Folder(trust_test_support::unique_temp_path(&format!(
         "trust-aarch64-x18-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()

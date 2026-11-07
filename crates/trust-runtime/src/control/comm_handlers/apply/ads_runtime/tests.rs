@@ -8,7 +8,7 @@ static NEXT_PROJECT_ID: AtomicU64 = AtomicU64::new(0);
 
 fn project(label: &str) -> PathBuf {
     let id = NEXT_PROJECT_ID.fetch_add(1, Ordering::Relaxed);
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-ads-runtime-enabled-{}-{label}-{id}",
         std::process::id()
     ));

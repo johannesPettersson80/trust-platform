@@ -28,7 +28,7 @@ fn temp_history_path(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    std::env::temp_dir().join(format!("trust-control-{name}-{stamp}.jsonl"))
+    trust_test_support::unique_temp_path(&format!("trust-control-{name}-{stamp}.jsonl"))
 }
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -36,7 +36,7 @@ fn temp_dir(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!("trust-control-{name}-{stamp}"));
+    let path = trust_test_support::unique_temp_path(&format!("trust-control-{name}-{stamp}"));
     fs::create_dir_all(&path).expect("create temp dir");
     path
 }
@@ -317,7 +317,7 @@ fn pairing_file(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    std::env::temp_dir().join(format!("trust-pairing-control-{name}-{stamp}.json"))
+    trust_test_support::unique_temp_path(&format!("trust-pairing-control-{name}-{stamp}.json"))
 }
 
 fn engineer_token(name: &str, state: &mut ControlState) -> String {

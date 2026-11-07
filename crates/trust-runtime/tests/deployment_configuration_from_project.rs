@@ -111,7 +111,7 @@ policy = "halt"
 
 /// A built project with `runtime` as its `runtime.toml` and, when given, `io` as its `io.toml`.
 fn project(name: &str, runtime: Option<&str>, io: Option<&str>) -> PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-deployment-configuration-{name}-{}-{}",
         std::process::id(),
         COUNTER.fetch_add(1, Ordering::Relaxed)

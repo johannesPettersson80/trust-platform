@@ -7,7 +7,7 @@ fn omitted_initial_state_resolves_to_exact_zero_dimensions_for_every_model() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let directory = std::env::temp_dir().join(format!(
+    let directory = trust_test_support::unique_temp_path(&format!(
         "trust-omitted-plant-state-{}-{stamp}",
         std::process::id()
     ));

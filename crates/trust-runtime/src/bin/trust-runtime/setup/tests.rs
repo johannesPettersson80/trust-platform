@@ -5,7 +5,7 @@ static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 fn temp_dir(name: &str) -> std::path::PathBuf {
     let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-setup-{name}-{}-{sequence}",
         std::process::id()
     ));

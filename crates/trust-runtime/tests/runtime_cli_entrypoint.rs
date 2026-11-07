@@ -24,7 +24,7 @@ fn unique_missing_project(name: &str) -> std::path::PathBuf {
         .expect("system time after epoch")
         .as_nanos();
     let sequence = TEMP_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-runtime-{name}-{}-{stamp}-{sequence}",
         std::process::id()
     ))
@@ -242,7 +242,7 @@ fn ide_serve_reports_invalid_primary_runtime_before_server_start() {
         .duration_since(UNIX_EPOCH)
         .expect("system time after epoch")
         .as_nanos();
-    let project = std::env::temp_dir().join(format!(
+    let project = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-invalid-ide-project-{}-{stamp}",
         std::process::id()
     ));

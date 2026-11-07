@@ -54,7 +54,8 @@ fn arrays_of_one_storage_keep_their_bounds_and_elements() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
-    let work = std::env::temp_dir().join(format!("trust-native-types-{}", std::process::id()));
+    let work =
+        trust_test_support::unique_temp_path(&format!("trust-native-types-{}", std::process::id()));
     let built = build(
         &[SourceFile::new(ARRAYS)],
         &Options {
@@ -127,7 +128,8 @@ fn a_bit_string_takes_an_integer_literal_of_its_width() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
-    let work = std::env::temp_dir().join(format!("trust-native-words-{}", std::process::id()));
+    let work =
+        trust_test_support::unique_temp_path(&format!("trust-native-words-{}", std::process::id()));
     let built = build(
         &[SourceFile::new(WORDS)],
         &Options {

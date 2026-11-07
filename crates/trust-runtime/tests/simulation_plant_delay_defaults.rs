@@ -8,7 +8,7 @@ fn delayed_output(initial_history: Option<f64>) -> f64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let config_path = std::env::temp_dir().join(format!(
+    let config_path = trust_test_support::unique_temp_path(&format!(
         "trust-plant-delay-default-{}-{stamp}.toml",
         std::process::id()
     ));

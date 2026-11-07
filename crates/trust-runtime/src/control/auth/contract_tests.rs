@@ -30,7 +30,7 @@ fn request(auth: Option<&str>) -> ControlRequest {
 }
 
 fn temp_pairing_path(label: &str) -> PathBuf {
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-auth-contract-{}-{label}-{}.json",
         std::process::id(),
         NEXT_PATH.fetch_add(1, Ordering::Relaxed)

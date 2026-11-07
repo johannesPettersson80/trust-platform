@@ -533,7 +533,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system time before unix epoch")
             .as_nanos();
-        std::env::temp_dir().join(format!(
+        trust_test_support::unique_temp_path(&format!(
             "trust-runtime-{prefix}-{}-{nanos}",
             std::process::id()
         ))

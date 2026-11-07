@@ -630,7 +630,7 @@ fn unique_root() -> PathBuf {
         .expect("system time before unix epoch")
         .as_nanos();
     let sequence = COPY_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-ctl-{}-{nanos}-{sequence}",
         std::process::id()
     ));

@@ -11,7 +11,7 @@ fn unique_build_script_binary() -> PathBuf {
         .expect("system time before unix epoch")
         .as_nanos();
     let sequence = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-runtime-build-script-{}-{nanos}-{sequence}{}",
         std::process::id(),
         std::env::consts::EXE_SUFFIX

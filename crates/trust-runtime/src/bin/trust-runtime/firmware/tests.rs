@@ -6,7 +6,10 @@ use super::*;
 
 /// A firmware folder with the three files, each beginning with its magic.
 fn folder(name: &str) -> std::path::PathBuf {
-    let folder = std::env::temp_dir().join(format!("trust-firmware-{name}-{}", std::process::id()));
+    let folder = trust_test_support::unique_temp_path(&format!(
+        "trust-firmware-{name}-{}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&folder).expect("a folder");
     std::fs::write(folder.join("bootloader.bin"), [0xE9, 1, 2, 3]).expect("a file");
     std::fs::write(folder.join("partitions.bin"), [0xAA, 0x50, 1, 1]).expect("a file");

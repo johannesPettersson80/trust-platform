@@ -47,7 +47,7 @@ struct PairingFixture {
 
 impl PairingFixture {
     fn new(role: AccessRole) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-web-auth-contract-{}-{}",
             std::process::id(),
             NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)

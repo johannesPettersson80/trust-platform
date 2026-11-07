@@ -27,7 +27,7 @@ fn project() -> PathBuf {
 }
 
 fn empty_project() -> PathBuf {
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-hmi-test-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()

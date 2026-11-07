@@ -18,9 +18,18 @@ pub fn unique_temp_path(name: &str) -> PathBuf {
     ))
 }
 
+/// A path under the system's temporary directory for one name in this process: `name`, after the
+/// process id. The same name gives the same path within the process, for a test that reopens what it
+/// wrote, as across a restart, and processes keep apart by their ids; the name must be the test's
+/// own. The path is not created.
+#[must_use]
+pub fn process_temp_path(name: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("{}-{name}", std::process::id()))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::unique_temp_path;
+    use super::{process_temp_path, unique_temp_path};
 
     /// Two paths of one name in one process are two, and a file name keeps its extension. Catches a
     /// path that two tests of one name share, which the first to finish removed under the other.
@@ -34,5 +43,19 @@ mod tests {
             Some("jsonl")
         );
         assert_eq!(first.parent(), Some(std::env::temp_dir().as_path()));
+    }
+
+    /// One name gives one path within the process, and two names give two. Catches a test that reopens
+    /// what it wrote and finds another path, and two tests of two names on one path.
+    #[test]
+    fn a_name_keeps_its_path_within_the_process() {
+        assert_eq!(
+            process_temp_path("trust-store.bin"),
+            process_temp_path("trust-store.bin")
+        );
+        assert_ne!(
+            process_temp_path("trust-store.bin"),
+            process_temp_path("trust-other.bin")
+        );
     }
 }

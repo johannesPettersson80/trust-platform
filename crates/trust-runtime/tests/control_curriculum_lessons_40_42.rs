@@ -144,7 +144,7 @@ fn lesson41_run_from(level: f64, rest: u64, updates: u64) -> Vec<Drained> {
         text.contains("initial_state = [0.25]"),
         "the shipped tank starts at 0.25 m"
     );
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-lesson45-start-{}-{}.toml",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)

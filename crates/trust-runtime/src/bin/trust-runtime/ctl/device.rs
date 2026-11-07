@@ -77,7 +77,10 @@ mod tests {
     /// text, which the chip would refuse, and settings printed as raw JSON.
     #[test]
     fn device_toml_goes_as_its_json_and_comes_back_as_toml() {
-        let path = std::env::temp_dir().join(format!("trust-device-{}.toml", std::process::id()));
+        let path = trust_test_support::unique_temp_path(&format!(
+            "trust-device-{}.toml",
+            std::process::id()
+        ));
         std::fs::write(
             &path,
             "[device]\nname = \"line-3\"\n\n[network.wifi]\nssid = \"Plant\"\npassword = \"secret-pass\"\n",

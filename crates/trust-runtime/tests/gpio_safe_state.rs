@@ -16,7 +16,7 @@ fn temp_sysfs_base() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    std::env::temp_dir().join(format!("trust-gpio-safe-{nanos}"))
+    trust_test_support::unique_temp_path(&format!("trust-gpio-safe-{nanos}"))
 }
 
 fn create_gpio_files(base: &Path, line: u32) -> std::io::Result<()> {

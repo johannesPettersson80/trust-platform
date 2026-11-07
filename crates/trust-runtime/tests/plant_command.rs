@@ -7,7 +7,7 @@ fn plant_serve_exchanges_one_response_per_request_until_eof() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("system time after epoch")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-plant-command-{}-{stamp}",
         std::process::id()
     ));

@@ -39,7 +39,7 @@ struct TempFolder(PathBuf);
 impl TempFolder {
     /// A folder that does not exist yet.
     fn new(label: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-devices-engine-{label}-{}-{}",
             std::process::id(),
             FOLDER_SEQUENCE.fetch_add(1, Ordering::Relaxed)

@@ -69,7 +69,7 @@ fn temp_shm_path(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    std::env::temp_dir().join(format!("trust-runtime-openot-{name}-{stamp}.shm"))
+    trust_test_support::unique_temp_path(&format!("trust-runtime-openot-{name}-{stamp}.shm"))
 }
 
 /// A program with no body, whose scans only publish the telemetry's heartbeats.

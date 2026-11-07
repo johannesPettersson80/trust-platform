@@ -8034,6 +8034,7 @@ dependencies = [
  "trust-runtime-services",
  "trust-syntax",
  "trust-tcads-native",
+ "trust-test-support",
  "trust-wasm-analysis",
  "tungstenite",
  "ureq",

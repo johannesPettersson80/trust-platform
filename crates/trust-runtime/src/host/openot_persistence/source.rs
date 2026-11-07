@@ -168,7 +168,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-openot-persistence-source-{}-{stamp}.shm",
             std::process::id()
         ));
@@ -193,7 +193,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-openot-persistence-batch-source-{}-{stamp}.shm",
             std::process::id()
         ));

@@ -153,11 +153,7 @@ fn a_warm_restart_keeps_the_state_of_retained_library_blocks() {
 
 #[test]
 fn retained_library_blocks_keep_their_state_over_a_power_loss() {
-    let mut path = std::env::temp_dir();
-    path.push(format!(
-        "trust_retain_library_blocks_{}_power_loss.bin",
-        std::process::id()
-    ));
+    let path = trust_test_support::unique_temp_path("trust_retain_library_blocks_power_loss.bin");
     let _ = std::fs::remove_file(&path);
     let mut before = before_restart();
     before

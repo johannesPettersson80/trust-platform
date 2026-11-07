@@ -15,7 +15,7 @@ struct FleetFixture {
 
 impl FleetFixture {
     fn new() -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "fleet-stop-confirmation-{}-{}",
             std::process::id(),
             NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)

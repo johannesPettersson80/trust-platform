@@ -12,7 +12,7 @@ fn temp_simulation_path(name: &str) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("unix epoch")
         .as_nanos();
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-simulation-plant-{name}-{}-{stamp}.toml",
         std::process::id()
     ))

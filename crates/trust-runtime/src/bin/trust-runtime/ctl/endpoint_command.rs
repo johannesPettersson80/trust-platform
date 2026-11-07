@@ -117,7 +117,7 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|elapsed| elapsed.as_nanos())
                 .unwrap_or_default();
-            let path = std::env::temp_dir().join(format!(
+            let path = trust_test_support::unique_temp_path(&format!(
                 "trust-ctl-endpoint-{label}-{}-{nanos}",
                 std::process::id()
             ));

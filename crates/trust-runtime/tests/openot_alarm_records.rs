@@ -50,7 +50,7 @@ fn ring_path(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    std::env::temp_dir().join(format!("trust-runtime-openot-alarms-{name}-{stamp}.shm"))
+    trust_test_support::unique_temp_path(&format!("trust-runtime-openot-alarms-{name}-{stamp}.shm"))
 }
 
 fn telemetry(path: PathBuf) -> OpenOtTelemetryConfig {

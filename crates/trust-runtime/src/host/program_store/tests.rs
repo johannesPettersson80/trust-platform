@@ -50,7 +50,7 @@ const COUNTING_PROGRAM: &str =
     "PROGRAM Main\nVAR\n    Counter : DINT;\nEND_VAR\nCounter := Counter + 1;\nEND_PROGRAM\n";
 
 fn scratch(name: &str) -> PathBuf {
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-program-store-{name}-{}",
         default_bundle_label()
     ));

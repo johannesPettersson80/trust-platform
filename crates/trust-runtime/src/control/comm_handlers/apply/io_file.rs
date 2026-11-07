@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn render_io_toml_adds_nested_drivers_to_safe_state_only_file() {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-comm-io-file-{}",
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

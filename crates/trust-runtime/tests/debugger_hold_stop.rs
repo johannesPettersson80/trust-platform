@@ -65,7 +65,10 @@ fn load() -> CompiledRuntime {
     let image = IMAGE.get_or_init(|| {
         let toolchain = Toolchain::find()
             .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-        let work = std::env::temp_dir().join(format!("trust-hold-stop-{}", std::process::id()));
+        let work = trust_test_support::unique_temp_path(&format!(
+            "trust-hold-stop-{}",
+            std::process::id()
+        ));
         let built = build(
             &[SourceFile::with_path(PATH, SOURCE)],
             &Options {

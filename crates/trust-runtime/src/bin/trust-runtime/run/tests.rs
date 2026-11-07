@@ -498,11 +498,7 @@ END_VAR
 PROGRAM Main
 END_PROGRAM
 "#;
-    let mut path = std::env::temp_dir();
-    path.push(format!(
-        "trust_runtime_startup_retain_{}.bin",
-        std::process::id()
-    ));
+    let path = trust_test_support::unique_temp_path("trust_runtime_startup_retain.bin");
     let _ = std::fs::remove_file(&path);
     let retain_file = || -> Option<Box<dyn trust_runtime::retain::RetainStore>> {
         Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path)))
@@ -1154,18 +1150,7 @@ fn runtime_settings_project_effective_bundle_and_cli_selection() {
 /// A folder of its own for each call: the clock alone is not enough, as macOS counts it in whole
 /// microseconds, and two tests that built at once in one folder removed it under each other.
 fn unique_temp_dir(name: &str) -> std::path::PathBuf {
-    static CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let mut path = std::env::temp_dir();
-    path.push(format!(
-        "trust_runtime_{name}_{}_{call}_{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system clock before unix epoch")
-            .as_nanos()
-    ));
-    path
+    trust_test_support::unique_temp_path(&format!("trust_runtime_{name}"))
 }
 
 fn assert_enum_variant(value: &Value, expected: &str) {

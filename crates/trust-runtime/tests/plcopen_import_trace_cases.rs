@@ -228,7 +228,7 @@ fn contains_st_file(root: &Path) -> bool {
 
 fn unique_temp_dir(prefix: &str) -> Result<PathBuf, String> {
     let serial = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
-    let root = env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-plcopen-case-{}-{serial}-{prefix}",
         std::process::id()
     ));

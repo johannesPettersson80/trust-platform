@@ -52,7 +52,10 @@ fn a_built_image_names_its_sources_and_this_releases_program_library() {
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let sources = [SourceFile::with_path("src/counter.st", COUNTER)];
     let host = Target::this_cpu().expect("a computer target");
-    let work = std::env::temp_dir().join(format!("trust-native-header-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path(&format!(
+        "trust-native-header-{}",
+        std::process::id()
+    ));
     let built = build(
         &sources,
         &Options {

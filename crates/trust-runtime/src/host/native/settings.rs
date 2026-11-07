@@ -121,7 +121,7 @@ mod tests {
 
     /// A folder of its own with `text` as its `trust-lsp.toml`, or none for `None`.
     fn project(name: &str, text: Option<&str>) -> std::path::PathBuf {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-native-settings-{name}-{}",
             std::process::id()
         ));

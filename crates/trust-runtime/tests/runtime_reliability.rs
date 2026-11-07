@@ -4,7 +4,6 @@
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use std::env;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration as StdDuration, Instant};
@@ -55,10 +54,7 @@ impl Clock for StepClock {
 }
 
 fn temp_path(name: &str) -> PathBuf {
-    let mut path = env::temp_dir();
-    let pid = std::process::id();
-    path.push(format!("trust_runtime_reliability_{pid}_{name}.bin"));
-    path
+    trust_test_support::process_temp_path(&format!("trust_runtime_reliability_{name}.bin"))
 }
 
 #[test]

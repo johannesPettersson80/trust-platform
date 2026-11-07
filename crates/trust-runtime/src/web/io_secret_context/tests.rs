@@ -158,8 +158,10 @@ impl TempDirectory {
         static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         loop {
             let next = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let path = std::env::temp_dir()
-                .join(format!("trust-io-context-{}-{next}", std::process::id()));
+            let path = trust_test_support::unique_temp_path(&format!(
+                "trust-io-context-{}-{next}",
+                std::process::id()
+            ));
             match std::fs::create_dir(&path) {
                 Ok(()) => return Self(path),
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
