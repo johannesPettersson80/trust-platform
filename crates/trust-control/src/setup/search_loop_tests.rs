@@ -40,7 +40,12 @@ fn decode(control: Value) -> CompiledCatalog {
 
 /// The oven of `control-studio-loop-setup-search-law.test.ts`: the program computes a law whose coefficients no formula designs.
 fn oven() -> CompiledCatalog {
-    decode(json!({
+    decode(oven_control())
+}
+
+/// The oven's control symbols as `trust-lsp.hmiBindings` answers them.
+fn oven_control() -> Value {
+    json!({
         "symbols": [
             { "symbol": "P1.OvenC", "type": "LREAL", "address": "%IL0" },
             { "symbol": "P1.HeaterPct", "type": "LREAL", "address": "%QL0" },
@@ -58,7 +63,7 @@ fn oven() -> CompiledCatalog {
         ],
         "links": [],
         "writes": ["P1.HeaterPct", "P1.Integral", "P1.Filtered", "P1.Started"]
-    }))
+    })
 }
 
 /// The searched law of the oven, as the form sends it: two coefficients with their value lists, two kept values and a startup flag.
@@ -233,6 +238,34 @@ fn the_kept_values_start_as_validation_starts_them_and_the_startup_flag_is_an_ap
         flag.initial,
         InitialValue::Constant(1.0),
         "the flag starts TRUE"
+    );
+}
+
+/// Specification 35 C1: setup declares the startup flag at the value the code gives it once the startup has run, here FALSE as
+/// CODESYS's `IF Started THEN … Started := FALSE` gives it, read from the compiled catalog. Catches the flag declared TRUE whatever
+/// the code says, which would run that startup code in Validate's first scan and overwrite the values Control Studio seeds.
+#[test]
+fn the_startup_flag_starts_at_the_value_the_code_gives_it_once_the_startup_has_run() {
+    let mut control = oven_control();
+    control["startupFlags"] = json!({ "P1.STARTED": false });
+    let loop_definition =
+        search_loop_definition(&decode(control), &scope(), &draft_of(oven_json()))
+            .expect("the searched law is written");
+    let project = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("a project controller");
+    let flag = project
+        .initialization
+        .states()
+        .iter()
+        .find(|state| state.symbol == "P1.Started")
+        .expect("the flag is declared");
+    assert_eq!(
+        flag.initial,
+        InitialValue::Constant(0.0),
+        "the flag starts FALSE, its value once the startup has run; the path compares without regard to case"
     );
 }
 

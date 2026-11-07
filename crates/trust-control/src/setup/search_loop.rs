@@ -354,7 +354,7 @@ fn search_law(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty())
-        .map(startup_state);
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)));
     let project = project_block(&draft.family, &states, startup, &axes)?;
     let controller = Controller {
         instance: draft.instance.clone(),

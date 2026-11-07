@@ -3,6 +3,7 @@
 //! served (C3 to C6); a structure that is still parked is refused by name. The write assertions (files, `wx`) belong to the engine.
 
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 
 use super::{
     check_setup_targets, decode_estimator_model, estimator_model_path, parse_setup_draft,
@@ -135,6 +136,7 @@ fn save_catalog() -> CompiledCatalog {
             },
         ],
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     }
 }
 
@@ -290,6 +292,7 @@ fn cold_room_catalog() -> CompiledCatalog {
         controllers: vec![controller("P1", "Main")],
         links: Vec::new(),
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     }
 }
 

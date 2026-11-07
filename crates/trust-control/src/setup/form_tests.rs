@@ -151,6 +151,7 @@ fn single_loop() -> CompiledCatalog {
         ],
         // The program computes the checked measurement from the temperature and writes the PID output.
         writes: strings(&["P1.SafeProcessValueC", "P1.AppliedPowerPct"]),
+        startup_flags: BTreeMap::new(),
     }
 }
 
@@ -219,6 +220,7 @@ fn cascade() -> CompiledCatalog {
             ),
         ],
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     }
 }
 
@@ -641,6 +643,7 @@ fn the_decoupler_has_a_row_and_a_column_for_each_library_pid_of_the_program() {
         controllers: Vec::new(),
         links: Vec::new(),
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     };
     assert_eq!(shape(&identify_only), (0, 0));
 }
@@ -753,6 +756,7 @@ fn the_instances_that_can_hold_switching_logic_and_every_real_setting_are_offere
         ],
         links: Vec::new(),
         writes: strings(&["P1.CompressorPct", "P1.CoolingOn", "P1.DwellS"]),
+        startup_flags: BTreeMap::new(),
     };
     let model = setup_form_model(&catalog);
     assert_eq!(

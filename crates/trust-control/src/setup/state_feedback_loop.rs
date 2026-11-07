@@ -353,7 +353,7 @@ fn law_loop(
     }
     let manual = compiled(catalog, &draft.manual_output)?;
     let setpoint = setpoint_signal(&draft.setpoint, process);
-    let startup = startup_states(draft.startup_flag.as_deref());
+    let startup = startup_states(catalog, draft.startup_flag.as_deref());
     let record = law_record(draft.family, &gain_symbols(draft, further), draft, &startup);
     let controller = Controller {
         instance: draft.instance.clone(),
@@ -428,9 +428,12 @@ pub(super) fn law_record(
 }
 
 /// The startup-done flag as a declared state of a law's initialization, when the draft names one (C1 Setup).
-pub(super) fn startup_states(flag: Option<&str>) -> Vec<InitializedState> {
+pub(super) fn startup_states(
+    catalog: &CompiledCatalog,
+    flag: Option<&str>,
+) -> Vec<InitializedState> {
     flag.filter(|flag| !flag.is_empty())
-        .map(startup_state)
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
         .into_iter()
         .collect()
 }

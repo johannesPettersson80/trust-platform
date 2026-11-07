@@ -453,7 +453,7 @@ fn the_startup_flag_is_an_application_state_that_validation_starts_true() {
         "validation starts with the program's startup already done, so its startup code keeps the candidate"
     );
     assert_eq!(
-        startup_state("P1.Initialized"),
+        startup_state("P1.Initialized", true),
         application_states.as_ref().expect("one state")[0]
     );
 }
