@@ -32,10 +32,7 @@ fn binding() -> TransferBinding {
     TransferBinding {
         loop_id: "loop:tank".to_owned(),
         task_name: "MainTask".to_owned(),
-        mode: TransferModeBinding {
-            symbol: "P1.Manual".to_owned(),
-            manual_value: true,
-        },
+        mode: TransferModeBinding::boolean("P1.Manual".to_owned(), true),
         additional_modes: Vec::new(),
         tracking_outputs: BTreeMap::new(),
         states: vec![
@@ -640,10 +637,7 @@ fn a_further_controllers_mode_follows_the_loop_it_is_switched_with() {
     // Ported from `control-studio-parameter-application.test.ts`: a further controller's mode is part of the transfer (Specification 35,
     // §17.11), so an Auto transfer must leave it in the mode that is the reverse of its Manual value.
     let mut binding = binding();
-    binding.additional_modes = vec![TransferModeBinding {
-        symbol: "P1.OuterManual".to_owned(),
-        manual_value: true,
-    }];
+    binding.additional_modes = vec![TransferModeBinding::boolean("P1.OuterManual".to_owned(), true)];
     let states = map(&[("P1.Ref", 0.0), ("P1.ManualCommand", 0.0)]);
     let mut observed = coherent_values(false);
     observed.insert("P1.OuterManual".to_owned(), flag(false));

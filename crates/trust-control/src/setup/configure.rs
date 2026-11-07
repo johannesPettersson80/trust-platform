@@ -467,10 +467,7 @@ fn parameter_binding(parts: &Assembly<'_>, proportional: &Proportional<'_>) -> P
             minimum: proportional.gain_minimum,
             maximum: proportional.gain_maximum,
         }],
-        mode: ModeBinding {
-            symbol: proportional.mode.symbol.clone(),
-            manual_value: proportional.manual_when_true,
-        },
+        mode: ModeBinding::boolean(proportional.mode.symbol.clone(), proportional.manual_when_true),
     }
 }
 

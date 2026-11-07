@@ -707,11 +707,11 @@ fn the_fixture_loop_is_in_manual_when_its_mode_reads_its_manual_value() {
         }
     );
     assert_eq!(
-        found_mode_of(Some(false), binding.mode.manual_value),
+        found_mode_of(Some(false), binding.mode.manual_reading()),
         Some(FoundMode::Manual)
     );
     assert_eq!(
-        found_mode_of(Some(true), binding.mode.manual_value),
+        found_mode_of(Some(true), binding.mode.manual_reading()),
         Some(FoundMode::Auto)
     );
 }

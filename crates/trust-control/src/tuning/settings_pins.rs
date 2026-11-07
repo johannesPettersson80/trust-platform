@@ -673,10 +673,7 @@ mod tests {
                 bound("Main.Beta", RealType::Lreal),
                 bound("Main.Tf", RealType::Real),
             ],
-            mode: ModeBinding {
-                symbol: "Main.Mode".to_owned(),
-                manual_value: false,
-            },
+            mode: ModeBinding::boolean("Main.Mode".to_owned(), false),
         });
         let mapped: Vec<(String, GainKey, bool)> = mapped_parameters(&loop_definition)
             .into_iter()

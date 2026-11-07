@@ -136,7 +136,7 @@ impl<'a> RecoveryStart<'a> {
         };
         let kept = self.start.profile.references(&self.start.binding);
         let references = original_references(&self.initial, &kept)?;
-        let reviewed_mode = reviewed_mode_of(self.found_mode, self.start.binding.mode.manual_value);
+        let reviewed_mode = reviewed_mode_of(self.found_mode, self.start.binding.mode.manual_reading());
         let recovery_values = self.start.review.values.clone();
         Ok(PidCampaign {
             start: self.start,
@@ -159,7 +159,7 @@ pub fn assert_recovery_needed(
 ) -> Result<(), Failure> {
     // The rule is the proportional campaign's (`assert_recovery_needed`): the same check of the recorded transfers. This run words its
     // refusal in its own sentence.
-    proportional_recovery::assert_recovery_needed(report, &mode.symbol, mode.manual_value).map_err(
+    proportional_recovery::assert_recovery_needed(report, &mode.symbol, mode.manual_reading()).map_err(
         |_| {
             Failure::new(
                 &texts::pid_commission_already_recovered(),
@@ -275,7 +275,7 @@ impl PidCampaign<'_> {
     ) -> Result<Option<TransferStep>, Failure> {
         let binding = &self.start.binding;
         let mode_held = current.values.get(&binding.mode.symbol)
-            == Some(&TransferValue::Boolean(binding.mode.manual_value));
+            == Some(&TransferValue::Boolean(binding.mode.manual_reading()));
         if mode_held && self.references_held(&current.values)? {
             return Ok(None);
         }

@@ -475,10 +475,7 @@ fn a_declared_controller_symbol_must_exist_with_the_declared_type() {
             minimum: 0.0,
             maximum: 10.0,
         }],
-        mode: ModeBinding {
-            symbol: "Main.Auto".to_string(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("Main.Auto".to_string(), false),
     });
     let mut compiled = catalog();
     compiled.control.symbols.push(symbol("Main.Auto", "BOOL"));

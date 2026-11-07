@@ -72,7 +72,7 @@ pub fn reenter_found_mode(
     if found != Some(FoundMode::Auto) {
         return None;
     }
-    if current.get(&mode.symbol) != Some(&TransferValue::Boolean(mode.manual_value)) {
+    if current.get(&mode.symbol) != Some(&TransferValue::Boolean(mode.manual_reading())) {
         return None;
     }
     entry(current)

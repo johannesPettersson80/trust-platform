@@ -189,10 +189,7 @@ pub fn feedforward_loop_definition(
                 &process,
                 &manipulated,
             )?,
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: ModeBinding::boolean(draft.mode.symbol.clone(), draft.mode.when_true == ModeWhenTrue::Manual),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),

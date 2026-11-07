@@ -50,10 +50,7 @@ fn bound_pi_loop(with_filter: bool) -> LoopDefinition {
         loop_id: "tank".to_owned(),
         task_name: "MainTask".to_owned(),
         parameters,
-        mode: ModeBinding {
-            symbol: "Main.Mode".to_owned(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("Main.Mode".to_owned(), false),
     });
     loop_definition
 }

@@ -2556,7 +2556,7 @@ Aliases and shared global ownership need a different adapter.
 
 - A set has one to 64 bindings. No symbol may appear twice. The set MUST NOT contain the mode symbol.
 - Every binding in a set MUST belong to a program owned exclusively by the declared task. `$background` selects unscheduled programs.
-- The mode binding is a `BOOL` symbol with its Manual value (A1).
+- The mode binding is a `BOOL` symbol with its Manual value, or an enumeration symbol with the member that means Manual and the member that means Auto (A6.1). The loop file names them as `manual_value` and `auto_value`; a `BOOL` binding has no `auto_value`.
 - The binding identity is a hash of the complete declaration, including units and limits. The adapter reports three revisions: the program revision (A2.2), the binding revision, and the active revision, which is the last confirmed set.
 - Values MUST be finite, within their bounds, and representable in their IEC type. A `REAL` value MUST be rounded to single precision before it is submitted. Integer and enumeration gains are rejected.
 - A write is queued with the expected revisions and the expected current values. At the task boundary the runtime rechecks them and commits the whole set or nothing (A6.3, A6.8). Control Studio reads the values back after the task has executed. A program that rewrites any value is handled by A6.8.

@@ -11,7 +11,8 @@ fn gain_binding() -> RuntimeBinding {
         parameters: vec![gain_parameter("P1.Gain", RealType::Real, 0.0, 20.0)],
         mode: RuntimeMode {
             symbol: "P1.Enabled".to_owned(),
-            manual_value: false,
+            manual_value: ModeValue::Bool(false),
+            auto_value: None,
         },
     }
 }
@@ -560,4 +561,30 @@ fn the_values_of_a_review_text_are_an_object_of_numbers_and_each_other_text_has_
     };
     assert!(reviewed(r#"{"P1.Gain": 99}"#).is_err());
     assert!(reviewed(r#"{"P1.Gain": 2.5}"#).is_ok());
+}
+
+/// Specification 35 A6.1 and annex E7.1: an enumeration mode names its Manual and its Auto member, two different members, and a
+/// BOOL mode names its Manual value alone. Catches an enumeration binding without its Auto member, with one member for both modes,
+/// or a BOOL binding with an Auto member, any of which the runtime would refuse only after a request.
+#[test]
+fn a_mode_is_a_bool_with_its_manual_value_or_an_enumeration_with_two_members() {
+    let with_mode = |manual_value: ModeValue, auto_value: Option<&str>| RuntimeBinding {
+        mode: RuntimeMode {
+            symbol: "P1.eMode".to_owned(),
+            manual_value,
+            auto_value: auto_value.map(str::to_owned),
+        },
+        ..gain_binding()
+    };
+    let member = |name: &str| ModeValue::Member(name.to_owned());
+    assert!(check_binding(&with_mode(member("Manual"), Some("Auto")), "engineer-loop").is_ok());
+    assert!(check_binding(&with_mode(ModeValue::Bool(true), None), "engineer-loop").is_ok());
+    for refused in [
+        with_mode(member("Manual"), None),
+        with_mode(member("Manual"), Some("manual")),
+        with_mode(ModeValue::Bool(true), Some("Auto")),
+    ] {
+        let failure = check_binding(&refused, "engineer-loop").expect_err("refused");
+        assert_eq!(failure.message, texts::PARAMETER_BINDING_MODE, "{refused:?}");
+    }
 }

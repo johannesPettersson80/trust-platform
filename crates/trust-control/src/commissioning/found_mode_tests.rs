@@ -30,7 +30,7 @@ fn restoring_a_control_pid_found_in_auto_returns_it_to_auto_with_the_noise_allow
     let loop_definition = parallel_pid_loop();
     let binding = pid_transfer_binding(&loop_definition).expect("the fixture binds");
     let task = requirements();
-    let found = found_mode_of(Some(true), binding.mode.manual_value);
+    let found = found_mode_of(Some(true), binding.mode.manual_reading());
     assert_eq!(found, Some(FoundMode::Auto));
 
     let noise = 0.05;
@@ -83,7 +83,7 @@ fn restoring_a_control_pid_found_in_auto_returns_it_to_auto_with_the_noise_allow
 fn a_proportional_loop_found_in_auto_returns_to_auto_with_its_proportional_tracking() {
     let loop_definition = proportional_loop();
     let binding = proportional_transfer_binding(&loop_definition).expect("the fixture binds");
-    let found = found_mode_of(Some(true), binding.mode.manual_value);
+    let found = found_mode_of(Some(true), binding.mode.manual_reading());
     let current = reading(&binding.mode.symbol, false);
     let reentry = reenter_found_mode(found, &binding.mode, &current, |_| {
         Some(AutoReentry {

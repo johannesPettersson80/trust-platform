@@ -70,9 +70,9 @@ pub fn mode_binding(loop_definition: &LoopDefinition) -> Result<TransferBinding,
 #[must_use]
 pub fn in_mode(binding: &TransferBinding, status: &TransferStatus, manual: bool) -> bool {
     let wanted = if manual {
-        binding.mode.manual_value
+        binding.mode.manual_reading()
     } else {
-        !binding.mode.manual_value
+        !binding.mode.manual_reading()
     };
     status.values.get(&binding.mode.symbol) == Some(&TransferValue::Boolean(wanted))
 }
@@ -88,7 +88,7 @@ pub fn found_in_auto(binding: &TransferBinding, original: &TransferStatus) -> bo
             TransferValue::Boolean(flag) => Some(*flag),
             TransferValue::Number(_) => None,
         });
-    found_mode_of(mode, binding.mode.manual_value) == Some(FoundMode::Auto)
+    found_mode_of(mode, binding.mode.manual_reading()) == Some(FoundMode::Auto)
 }
 
 /// Whether every output that `binding` holds reads the same in `earlier` and `later`, two readings of different scans of the

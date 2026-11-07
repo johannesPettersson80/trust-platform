@@ -9,7 +9,7 @@ use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_
 use super::{
     Activation, AuxiliaryRole, ControllerLaw, Direction, Execution, Experiment, ExperimentKind,
     InitialSource, InitialValue, InitializedState, LoopDefinition, LoopRejection, LoopSignal,
-    ParameterBinding, ParameterPurpose, PidInitialization, PostScan, Range, StateType, Topology,
+    ParameterBinding, ParameterPurpose, PidInitialization, PostScan, Range, StateType, Topology, ModeValue,
 };
 
 impl LoopDefinition {
@@ -224,7 +224,9 @@ impl LoopDefinition {
                 .filter(|experiment| experiment.execution == Execution::ProjectScripted)
                 .and_then(|experiment| experiment.activation.as_ref())
                 .ok_or("experiment parameters need a project experiment with an activation")?;
-            if binding.mode.symbol != activation.symbol || binding.mode.manual_value {
+            if binding.mode.symbol != activation.symbol
+                || binding.mode.manual_value != ModeValue::Bool(false)
+            {
                 return Err("experiment parameters are bound to the activation, whose Manual value is FALSE".into());
             }
         }

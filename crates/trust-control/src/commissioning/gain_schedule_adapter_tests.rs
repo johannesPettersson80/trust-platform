@@ -67,10 +67,7 @@ fn record(iec_type: RealType) -> ParameterBinding {
             parameter("P1.KpLow", "%/m", iec_type),
             parameter("P1.KiLow", "%/(m*s)", iec_type),
         ],
-        mode: ModeBinding {
-            symbol: "P1.AutoMode".to_owned(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("P1.AutoMode".to_owned(), false),
     }
 }
 
@@ -103,10 +100,7 @@ fn own_binding() -> TransferBinding {
     TransferBinding {
         loop_id: "loop:low".to_owned(),
         task_name: "MainTask".to_owned(),
-        mode: TransferModeBinding {
-            symbol: "P1.AutoMode".to_owned(),
-            manual_value: false,
-        },
+        mode: TransferModeBinding::boolean("P1.AutoMode".to_owned(), false),
         additional_modes: Vec::new(),
         tracking_outputs: BTreeMap::new(),
         states: vec![
