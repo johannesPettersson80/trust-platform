@@ -20,12 +20,9 @@ fn generated_ads_globals_are_first_class_product_surface_variables() {
         None,
     );
     assert!(eval.ok, "control eval should succeed: {:?}", eval.error);
-    assert!(eval
-        .result
-        .as_ref()
-        .and_then(|value| value.get("value"))
-        .and_then(serde_json::Value::as_str)
-        .is_some_and(|value| value.contains("Real")));
+    let typed = eval.result.as_ref().expect("eval result");
+    assert_eq!(typed.get("type").and_then(serde_json::Value::as_str), Some("REAL"));
+    assert!(typed.get("value").is_some_and(serde_json::Value::is_number), "{typed}");
 
     let globals = debug_global_variables(&state);
     assert!(

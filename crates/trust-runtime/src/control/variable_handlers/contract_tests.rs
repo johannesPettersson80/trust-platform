@@ -71,6 +71,9 @@ eval_invalid_params_case!(eval_rejects_null_expression, json!({"expr": null}));
 eval_invalid_params_case!(eval_rejects_numeric_expression, json!({"expr": 7}));
 eval_invalid_params_case!(eval_rejects_object_expression, json!({"expr": {}}));
 
+// Specification 11, 6.8.1: `eval` answers the value's type and the value as JSON, a number for a
+// DINT. Catches the value answered as the runtime's debug text (`DInt(7)`), which a script cannot
+// read as a number.
 #[test]
 fn eval_trims_and_reads_a_global() {
     assert_eq!(
@@ -79,7 +82,7 @@ fn eval_trims_and_reads_a_global() {
             Some(json!({"expr": " \tglobal_value\n"})),
             &state(),
         )),
-        json!({"value": "DInt(7)"})
+        json!({"type": "DINT", "value": 7})
     );
 }
 
@@ -91,7 +94,7 @@ fn eval_reads_retained_storage_after_global_lookup() {
             Some(json!({"expr": "retained_value"})),
             &state(),
         )),
-        json!({"value": "DInt(9)"})
+        json!({"type": "DINT", "value": 9})
     );
 }
 

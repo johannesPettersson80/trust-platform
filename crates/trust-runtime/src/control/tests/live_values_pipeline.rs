@@ -111,7 +111,7 @@ fn declared_retain_targets_keep_control_status_labels_and_apply_to_real_storage(
             Some(json!({"expr":"Main.member"})),
             &state
         )),
-        json!({"value":"LInt(8)"})
+        json!({"type": "LINT", "value": 8})
     );
     assert_eq!(
         runtime.read_variable("kept"),

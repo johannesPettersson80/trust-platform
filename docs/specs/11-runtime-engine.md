@@ -4328,7 +4328,14 @@ name read, not general expression execution, and it keeps its text `expr`
 field; `debug.evaluate` and the other expression surfaces use the compiled form
 of section 6.13.2. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
-Successful values use the stable runtime debug representation.
+A successful read answers the value's type and the value as JSON,
+`{"type": "LREAL", "value": 0.738}`: `type` is the IEC name of the type, or a
+structure's or an enumeration's own name; `value` is a number for an integer,
+a bit string or a finite real, a boolean, a string, an array or an object of
+the fields; an enumeration's `value` is its name and `numeric` its number; a
+duration's `value` is its nanoseconds and `text` its IEC text; a date, a time
+of day, a real that is no finite number, a reference and an instance are their
+IEC text. Every runtime, a chip too, answers in this form.
 
 Installed retained targets are declaration-qualified views of ordinary PLC
 storage, not a second retain bank. The label for a retained global is its global
