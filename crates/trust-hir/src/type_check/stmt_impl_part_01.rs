@@ -148,13 +148,16 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 .is_pointer_target_lenient_binding(target_type, value_type)
             {
                 // CODESYS binds vendor-idiom pointer targets (CHAR↔BYTE,
-                // STRING vs byte buffers) with a warning; the signal
-                // stays as a warning (IEC_DEVIATIONS DEV-039).
-                self.checker.diagnostics.warning(
-                    DiagnosticCode::IncompatibleAssignment,
-                    node.text_range(),
-                    message,
-                );
+                // STRING vs byte buffers): silently from an explicit
+                // ADR(...), with a warning from any other pointer source
+                // (IEC_DEVIATIONS DEV-039).
+                if !is_explicit_adr(value) {
+                    self.checker.diagnostics.warning(
+                        DiagnosticCode::IncompatibleAssignment,
+                        node.text_range(),
+                        message,
+                    );
+                }
             } else {
                 self.checker.diagnostics.error(
                     DiagnosticCode::IncompatibleAssignment,

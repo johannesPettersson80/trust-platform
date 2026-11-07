@@ -864,10 +864,17 @@ re-check them against this rule when touched.
   reading requires identical pointee types. The standard text was
   unavailable on the authoring machine; the clause mirrors the citation
   style already used in `docs/specs/09-semantic-rules.md`.
-- truST behavior and conflict: those two binding forms are diagnosed as
-  a **warning** with the same code and message, not an error — matching
-  CODESYS, which compiles them as implicit pointer conversions with a
-  compiler warning. `ADR` keeps its pointee typing (`ADR(str[1])` stays
+- truST behavior and conflict: under the CODESYS profiles those two
+  binding forms are accepted, matching CODESYS, which compiles them as
+  implicit pointer conversions without a compiler diagnostic; only its
+  optional Static Analysis rule SA0019 "Implicit pointer conversions"
+  reports them (corrected 7 November 2026, #295: this entry said that the
+  CODESYS compiler warns). A binding whose source is an explicit `ADR(...)`
+  call, inside any parentheses, is silent, the whole object and an element
+  alike (round 2, #295); a binding from any other pointer source, such as a
+  pointer variable, is a **warning** with the same code and message, not an
+  error. `ADR` is a keyword, so no user POU can stand in for the operator.
+  Under the other profiles both forms stay errors. `ADR` keeps its pointee typing (`ADR(str[1])` stays
   `POINTER TO CHAR`, `ADR(str)` stays `POINTER TO STRING[n]`), so the
   vendor `MemCopy`/`MemCopySecure` `POINTER TO BYTE` formals bind an
   `ADR` of a string element, and the string's base address binds both
@@ -878,8 +885,8 @@ re-check them against this rule when touched.
 - Impact: the downstream tree's pointer sites (2×
   `MemCopy`/`MemCopySecure` string-offset byte-pointer bindings, 1×
   JSON-parser data binding, 1× `MemCopy` string-base copy loop whose
-  payload must start at the string's first byte) pass the compile gate
-  while each binding stays individually visible. The base-address form
+  payload must start at the string's first byte) pass the compile gate,
+  silently since round 2, as all of them bind an `ADR` call. The base-address form
   is the correct vendor usage, not a variant to rewrite away: indexing
   the string (`ADR(s[1])`) copies from offset one and loses the first
   byte, which a vendor project observed live as a broken payload on the
@@ -887,8 +894,12 @@ re-check them against this rule when touched.
   conversion dispatch is involved and the pointer value is copied
   verbatim, so only the compile contract changes.
 - Mitigation: the demotion is form-scoped, not blanket — element/record
-  boundary mismatches keep their errors, and each lenient binding still
-  produces one warning so recurrence is loud. Function/method
+  boundary mismatches keep their errors. A lenient binding whose source is
+  a pointer value, not an `ADR` call, still produces one warning, so a
+  reinterpretation hidden in a pointer variable stays loud. An `ADR` source
+  names the object whose address it takes; whether the base address or an
+  element is right is the program's intent, which a test of the payload
+  checks, not a lint (the warning fired for both forms alike). Function/method
   `VAR_OUT`/`VAR_IN_OUT` pointer arms and variable initializers are not
   wired (mirroring the narrowing record's scoping (DEV-037)) and keep the error until a
   downstream need appears.

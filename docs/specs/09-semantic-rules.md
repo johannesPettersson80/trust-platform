@@ -423,15 +423,20 @@ The semantic reference boundary also enforces:
 - reference arithmetic and reference ordering comparisons are invalid.
 
 Pointer-target vendor leniency (IEC_DEVIATIONS DEV-039): the family rule
-above has one CODESYS-parity carve-out for pointer bindings — a call
-argument or assignment binding between `POINTER TO CHAR` and
-`POINTER TO BYTE`, and between `POINTER TO STRING[n]` and a byte-buffer
-pointer — a `POINTER TO ARRAY[i..j] OF BYTE` or a plain
-`POINTER TO BYTE` — is diagnosed as a warning carrying the
-ordinary mismatch code (`E205`/`E203`), not an error; the vendor
-`MemCopy` byte-pointer formals (element and base-address idiom) and the
-vendor JSON parser's data-buffer formal bind without source contortions.
-Every other pointee mismatch (wider scalar classes, array bound
+above has one CODESYS-parity carve-out for pointer bindings. Under the
+CODESYS profiles, a call argument or assignment binding between
+`POINTER TO CHAR` and `POINTER TO BYTE`, and between `POINTER TO STRING[n]`
+and a byte-buffer pointer — a `POINTER TO ARRAY[i..j] OF BYTE` or a plain
+`POINTER TO BYTE` — is accepted; the vendor `MemCopy` byte-pointer formals
+(element and base-address idiom) and the vendor JSON parser's data-buffer
+formal bind without source contortions. A binding whose source is an
+explicit `ADR(...)` call, inside any parentheses, is silent, the whole
+object and an element alike, as the CODESYS compiler binds it: the call
+names the object whose address it takes. Any other source, such as a
+pointer variable, is diagnosed as a warning carrying the ordinary mismatch
+code (`E205`/`E203`). `ADR` is a keyword, so no user POU can stand in for
+the operator. Under every other profile these bindings are errors, and
+every other pointee mismatch (wider scalar classes, array bound
 widening, records, other families) stays an error.
 
 At runtime, a failed dynamic OOP assignment attempt stores `NULL`; it is not a
