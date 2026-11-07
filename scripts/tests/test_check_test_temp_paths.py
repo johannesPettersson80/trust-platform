@@ -66,9 +66,9 @@ class Exceptions(unittest.TestCase):
         text = (
             '// std::env::temp_dir() in a comment\n'
             'let name = "std::env::temp_dir()";\n'
-            '// product temp path\n'
+            '// temp-root-ok: a product path\n'
             'assert!(path.starts_with(std::env::temp_dir()));\n'
-            'let also = std::env::temp_dir(); // product temp path\n'
+            'let also = std::env::temp_dir(); // temp-root-ok: the socket budget\n'
         )
         self.assertEqual(check.violations("crates/x/tests/a.rs", text), [])
         self.assertEqual(check.violations("crates/trust-test-support/src/lib.rs", "std::env::temp_dir()\n"), [])
