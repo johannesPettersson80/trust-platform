@@ -102,6 +102,7 @@ pub fn is_reserved_keyword(name: &str) -> bool {
             | "NEW"
             | "__NEW"
             | "__DELETE"
+            | "__ISVALIDREF"
             | "IF"
             | "THEN"
             | "ELSIF"

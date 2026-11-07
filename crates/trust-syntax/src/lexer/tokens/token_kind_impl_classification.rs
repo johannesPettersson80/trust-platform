@@ -82,6 +82,7 @@ impl TokenKind {
                 | Self::KwNew
                 | Self::KwNewDunder
                 | Self::KwDeleteDunder
+                | Self::KwIsValidRefDunder
                 | Self::KwIf
                 | Self::KwThen
                 | Self::KwElsif

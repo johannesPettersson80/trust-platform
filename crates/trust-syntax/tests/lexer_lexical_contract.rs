@@ -410,3 +410,17 @@ fn lexical_contract_retains_shape_valid_invalid_calendar_date_as_date_token() {
 fn lexical_contract_retains_shape_valid_invalid_clock_as_tod_token() {
     assert_single("TOD#24:00:00", TokenKind::TimeOfDayLiteral);
 }
+
+/// Specification 01: CODESYS's `__ISVALIDREF` is one reserved token in any case, as `__NEW` and
+/// `__DELETE` are, while a longer name with `__` stays a malformed identifier. Catches the operator
+/// lexed as a malformed identifier, which the parser reported as "expected expression".
+#[test]
+fn lexical_contract_codesys_isvalidref_is_one_reserved_token() {
+    for source in ["__ISVALIDREF", "__isvalidref", "__IsValidRef"] {
+        assert_single(source, TokenKind::KwIsValidRefDunder);
+    }
+    assert_rejected_candidate(
+        "__ISVALIDREFS",
+        &[TokenKind::Ident, TokenKind::KwIsValidRefDunder],
+    );
+}
