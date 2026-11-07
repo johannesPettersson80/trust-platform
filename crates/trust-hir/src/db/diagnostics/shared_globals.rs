@@ -1,5 +1,6 @@
 use super::super::queries::*;
 use super::super::*;
+use super::attributes::declares_attribute;
 use super::configuration::{
     collect_tasks_in_scope, normalize_task_name, program_config_task_name, resolve_program_type,
     ProgramTypeResolution,
@@ -97,6 +98,20 @@ pub(in crate::db) fn check_shared_global_task_hazards(
         if global.origin.file_id != file_id {
             continue;
         }
+        // One task writing a value that one access reads and writes is how tasks share data
+        // safely; several writers, or data that one access does not cover, are not (as CODESYS
+        // Static Analysis SA0006 and SA0103 judge them).
+        let data = symbols
+            .get(global.symbol_id)
+            .map_or(DataKind::Unknown, |symbol| {
+                data_kind(symbols, symbol.type_id)
+            });
+        if usage.writes.len() == 1 && data != DataKind::NonAtomic {
+            continue;
+        }
+        if declared_cross_task(project_roots, global) {
+            continue;
+        }
 
         let access_list = format_task_list(&access_tasks, &task_info);
         let write_list = format_task_list(&usage.writes, &task_info);
@@ -121,6 +136,75 @@ pub(in crate::db) fn check_shared_global_task_hazards(
 
         diagnostics.add(diagnostic);
     }
+}
+
+/// How a global's value is read and written (specification 28 section 6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DataKind {
+    /// One access on every truST target: an elementary value of 32 bits or less, or an
+    /// enumeration or subrange of one.
+    Atomic,
+    /// More than one access on some target: strings, arrays, structures, unions, function block
+    /// and class instances and the interfaces that designate them, and 64-bit values. truST also
+    /// runs on 32-bit chips, where a 64-bit access takes two, and it stores TIME, DATE, TOD and DT
+    /// in eight bytes (specification 02).
+    NonAtomic,
+    /// The type did not resolve, and nothing is guessed from it (specification 28 section 9).
+    Unknown,
+}
+
+/// A pointer or reference counts as its target: the tasks share the data they reach through it.
+fn data_kind(symbols: &SymbolTable, type_id: TypeId) -> DataKind {
+    match symbols.type_by_id(symbols.resolve_alias_type(type_id)) {
+        Some(
+            Type::Bool
+            | Type::SInt
+            | Type::Int
+            | Type::DInt
+            | Type::USInt
+            | Type::UInt
+            | Type::UDInt
+            | Type::Real
+            | Type::Byte
+            | Type::Word
+            | Type::DWord
+            | Type::Char
+            | Type::WChar,
+        ) => DataKind::Atomic,
+        Some(Type::Enum { base, .. } | Type::Subrange { base, .. }) => data_kind(symbols, *base),
+        Some(Type::Pointer { target } | Type::Reference { target }) => data_kind(symbols, *target),
+        Some(Type::Unknown) | None => DataKind::Unknown,
+        Some(_) => DataKind::NonAtomic,
+    }
+}
+
+/// Whether the global's declaration, or the `VAR_GLOBAL` list that holds it, carries
+/// `{attribute 'cross_task'}`: the project declares that the global is shared between tasks by
+/// design, and owns the protocol (specification 28 section 6).
+fn declared_cross_task(roots: &[(FileId, SyntaxNode)], global: &GlobalCandidate) -> bool {
+    let Some((_, root)) = roots
+        .iter()
+        .find(|(file_id, _)| *file_id == global.origin.file_id)
+    else {
+        return false;
+    };
+    if !root.text_range().contains_range(global.range) {
+        return false;
+    }
+    let node = match root.covering_element(global.range) {
+        rowan::NodeOrToken::Node(node) => Some(node),
+        rowan::NodeOrToken::Token(token) => token.parent(),
+    };
+    let Some(declaration) =
+        node.and_then(|node| node.ancestors().find(|n| n.kind() == SyntaxKind::VarDecl))
+    else {
+        return false;
+    };
+    declares_attribute(&declaration, "cross_task")
+        || declaration
+            .ancestors()
+            .find(|n| n.kind() == SyntaxKind::VarBlock)
+            .is_some_and(|list| declares_attribute(&list, "cross_task"))
 }
 
 fn collect_global_candidates(

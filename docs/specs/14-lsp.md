@@ -205,7 +205,7 @@ External diagnostics can be merged from `[diagnostics].external_paths` JSON file
 - Missing ELSE in CASE (IEC 61131-3 Ed.3, 7.3.3.3.3)
 - Implicit type conversion (IEC 61131-3 Ed.3, 6.4.2)
 - Non-determinism checks for time/date usage and direct I/O bindings (tooling lint; IEC 61131-3 Ed.3 §6.4.2 Table 10; §6.5.5 Table 16)
-- Shared global access across tasks with writes (tooling lint; IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62)
+- Shared global access across tasks that can race: two writing tasks, or non-atomic data that one task writes and another reads (tooling lint; IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62)
 
 ##### 6.2.4 Diagnostic Explainability
 
@@ -232,7 +232,7 @@ Initial explainer coverage:
 | W008/W009 | Tooling quality lint (non-IEC) | `docs/specs/09-semantic-rules.md` |
 | W010 | Tooling lint; host-clock reads (`CURRENT_DT`, the POUs that reach it, and the POUs that declare `reads_host_clock`) per specification 07 "Runtime Clock Sources", IEC 61131-3 Ed.3 §6.4.2 (Table 10) for the TIME/DATE family | `docs/specs/28-hir-warning-policy.md` |
 | W011 | Tooling lint; Direct variables per IEC 61131-3 Ed.3 §6.5.5 (Table 16) | `docs/specs/09-semantic-rules.md` |
-| W012 | Tooling lint; shared global access across tasks (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62) | `docs/specs/09-semantic-rules.md` |
+| W012 | Tooling lint; shared global access across tasks (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62) | `docs/specs/28-hir-warning-policy.md` |
 | W013/W014 | Tooling numeric-hazard lints (non-IEC) | `docs/specs/09-semantic-rules.md` |
 | L001–L003 | Tooling config lint (non-IEC) | `docs/specs/10-runtime-semantics.md` |
 

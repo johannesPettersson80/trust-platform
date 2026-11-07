@@ -170,11 +170,42 @@ receive a guessed I/O warning.
 
 ## 6. Shared global task hazards
 
-`SharedGlobalTaskHazard` is emitted when one resolved global is accessed by
-programs assigned to more than one task and at least one participating task
-writes it. Multiple programs on the same task do not by themselves trigger
-the warning. Cross-file and namespaced globals are compared by resolved
-identity, not by an unqualified spelling guess.
+`SharedGlobalTaskHazard` (`W012`) is emitted for a resolved global that
+programs assigned to more than one task access, when that access can race:
+
+- two or more of those tasks write it, as the CODESYS Static Analysis rule
+  SA0006 "Write access from several tasks" reports; or
+- one task writes it, another task reads it, and its data is not atomic, as
+  SA0103 reports for non-atomic data: `STRING` and `WSTRING`, arrays,
+  structures, unions, function block and class instances, and 64-bit values.
+  The 64-bit values are `LINT`, `ULINT`, `LWORD`, `LREAL`, `LTIME`, `LDATE`,
+  `LTOD` and `LDT`, and also `TIME`, `DATE`, `TOD` and `DT`, which truST
+  stores in eight bytes (specification 02). truST also runs on 32-bit chips,
+  where a 64-bit access takes two, so no project target makes 64-bit data
+  atomic.
+
+A global that one task writes and other tasks only read is silent when its
+data is atomic: an elementary value of 32 bits or less, or an enumeration or
+subrange of one. A pointer or reference counts as its target, the data the
+tasks reach through it, and an interface as the function block instance it
+designates. A one-word read cannot tear, and the consistency between several
+such globals is the program's protocol, which no lint can judge; CODESYS has
+no rule for it either. A global that no task writes is silent, and so is a
+single-written global whose type does not resolve (section 9).
+
+`{attribute 'cross_task'}` declares a global shared between tasks by design,
+and the warning is silent for it in every pattern, several writers included:
+the project owns the protocol, such as a hand-off flag or a ring buffer with
+one consumer. Before a `VAR_GLOBAL` list the attribute covers every global of
+the list; before a single global inside the list, that global. It carries no
+value and names no tasks: which program runs in which task belongs to the
+configuration and changes with it, while the attribute states a property of
+the data. Undeclared globals keep the rule above, so an unexpected cross-task
+access still surfaces.
+
+Multiple programs on the same task do not by themselves trigger the warning.
+Cross-file and namespaced globals are compared by resolved identity, not by an
+unqualified spelling guess.
 
 Task identity includes its enclosing configuration and resource and compares
 the task name case-insensitively. Consequently, two spellings of one task in
