@@ -717,33 +717,6 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
         validate_opcua_write_statuses(values, statuses.as_slice())
     }
 
-    fn recover_after_disconnect(
-        &mut self,
-        connection: &OpcUaClientConnectionConfig,
-        _read_points: &[OpcUaClientPointConfig],
-        _sink: OpcUaClientEventSink,
-    ) -> Result<Option<OpcUaClientSessionInfo>, OpcUaClientBridgeError> {
-        let Some(session) = self.session.as_ref() else {
-            return Ok(None);
-        };
-        let recovered = {
-            let mut session = session.write();
-            session.reconnect_and_activate()
-        };
-        match recovered {
-            Ok(()) => Ok(Some(OpcUaClientSessionInfo {
-                requested_timeout_ms: connection.timeout_ms,
-                revised_timeout_ms: None,
-                recovery_detail: Some(
-                    "reconnect_and_activate transferred subscriptions with send_initial_values=true or recreated them; explicit RepublishRequest is unavailable because opcua 0.12 keeps publish sequence state private",
-                ),
-            })),
-            Err(status) => Err(OpcUaClientBridgeError::transport(format!(
-                "OPC UA reconnect_and_activate failed: {status}"
-            ))),
-        }
-    }
-
     /// Stops the session's run loop first, since the loop reconnects a session that it finds
     /// disconnected, and waits for it; then disconnects the session from this thread, which holds
     /// its last reference, so that the session's drop finds it disconnected (specification 11).

@@ -605,7 +605,9 @@ fn build_opcua_client(
         .create_sample_keypair(true)
         .trust_server_certs(trust_server_certificate)
         .verify_server_certs(!trust_server_certificate)
-        .session_retry_limit(1)
+        // The session never reconnects by itself: a client connection's worker reconnects it with a
+        // new session (specification 11), and a one-shot operation connects once either way.
+        .session_retry_limit(0)
         .client()
         .ok_or_else(|| RuntimeError::ControlError("failed to build OPC UA client".into()))
 }
