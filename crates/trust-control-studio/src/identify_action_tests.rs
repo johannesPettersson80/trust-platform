@@ -272,7 +272,7 @@ impl Drop for Project {
 
 impl Project {
     fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-identify-action-{name}-{}",
             std::process::id()
         ));

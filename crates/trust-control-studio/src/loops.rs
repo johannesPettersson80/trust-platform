@@ -263,8 +263,10 @@ mod tests {
         include_str!("../../../examples/control-pid-commissioning/control-loop.json");
 
     fn project(name: &str) -> PathBuf {
-        let root =
-            std::env::temp_dir().join(format!("trust-control-loops-{name}-{}", std::process::id()));
+        let root = trust_test_support::unique_temp_path(&format!(
+            "trust-control-loops-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("control-loops")).expect("project folder");
         root

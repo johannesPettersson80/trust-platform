@@ -69,8 +69,10 @@ fn read_answer(output: &mut impl BufRead) -> Value {
 
 #[test]
 fn serve_answers_each_message_and_ends_when_its_input_closes() {
-    let scratch =
-        Scratch(std::env::temp_dir().join(format!("trust-engine-serve-{}", std::process::id())));
+    let scratch = Scratch(trust_test_support::unique_temp_path(&format!(
+        "trust-engine-serve-{}",
+        std::process::id()
+    )));
     let _ = fs::remove_dir_all(&scratch.0);
     let project = scratch.0.join("project");
     copy_dir(Path::new(EXAMPLE), &project);

@@ -7713,6 +7713,7 @@ dependencies = [
  "signal-hook 0.3.18",
  "trust-control",
  "trust-runtime-client",
+ "trust-test-support",
 ]
 
 [[package]]

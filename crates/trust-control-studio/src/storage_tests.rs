@@ -23,7 +23,7 @@ use trust_control::study::StudySection;
 use super::*;
 
 fn project(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-control-storage-{name}-{}",
         std::process::id()
     ));

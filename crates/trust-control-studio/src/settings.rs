@@ -197,8 +197,10 @@ mod tests {
     }
 
     fn scratch(name: &str) -> Scratch {
-        let folder =
-            std::env::temp_dir().join(format!("trust-cs-settings-{name}-{}", std::process::id()));
+        let folder = trust_test_support::unique_temp_path(&format!(
+            "trust-cs-settings-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&folder);
         fs::create_dir_all(&folder).expect("the scratch folder");
         Scratch(folder)

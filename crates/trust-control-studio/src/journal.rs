@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn an_identification_campaign_takes_the_place_of_its_recording_owner() {
-        let folder = std::env::temp_dir().join(format!(
+        let folder = trust_test_support::unique_temp_path(&format!(
             "trust-control-journal-campaign-{}",
             std::process::id()
         ));
@@ -345,8 +345,10 @@ mod tests {
 
     #[test]
     fn a_journaled_operation_survives_a_restart_until_its_owner_is_cleared() {
-        let folder =
-            std::env::temp_dir().join(format!("trust-control-journal-{}", std::process::id()));
+        let folder = trust_test_support::unique_temp_path(&format!(
+            "trust-control-journal-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&folder);
         let mut journal = Journal::open(&folder, "project:sha256:abc", "loop:tank").expect("empty");
         assert_eq!(journal.entries(), [] as [JournalEntry; 0]);
@@ -380,7 +382,7 @@ mod tests {
 
     #[test]
     fn a_recording_owner_is_replaced_not_repeated_and_an_experiment_is_journaled_in_two_steps() {
-        let folder = std::env::temp_dir().join(format!(
+        let folder = trust_test_support::unique_temp_path(&format!(
             "trust-control-journal-owners-{}",
             std::process::id()
         ));
@@ -466,7 +468,7 @@ mod tests {
     fn clearing_one_owner_keeps_the_other_journaled_operations() {
         // control-studio-study-store.test.ts: the Test journal clears only its owner (A8.5); another journaled operation
         // of the loop keeps its identity.
-        let folder = std::env::temp_dir().join(format!(
+        let folder = trust_test_support::unique_temp_path(&format!(
             "trust-control-journal-clear-one-{}",
             std::process::id()
         ));

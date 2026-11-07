@@ -158,8 +158,10 @@ impl Scratch {
 
     /// A folder of one test with a copy of `example` in it.
     fn copy_of(name: &str, example: &str) -> Self {
-        let folder =
-            std::env::temp_dir().join(format!("trust-cs-id-{name}-{}", std::process::id()));
+        let folder = trust_test_support::unique_temp_path(&format!(
+            "trust-cs-id-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&folder);
         let remove = RemoveDir(folder.clone());
         let project = folder.join("project");

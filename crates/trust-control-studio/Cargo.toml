@@ -23,6 +23,7 @@ trust-control.workspace = true
 trust-runtime-client.workspace = true
 
 [dev-dependencies]
+trust-test-support.workspace = true
 # A workspace build turns on serde_json's `arbitrary_precision` (through the runtime's OPC UA library). The tests run
 # with it too, so a document decoded around `trust_control::json` fails here as it would in that build.
 serde_json = { workspace = true, features = ["arbitrary_precision", "float_roundtrip"] }
