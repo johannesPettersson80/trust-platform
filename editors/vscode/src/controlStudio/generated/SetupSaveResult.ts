@@ -865,9 +865,14 @@ export interface ParameterBinding {
  */
 export interface ModeBinding {
   /**
-   * The value that means Manual.
+   * The member that means Auto, for an enumeration only. A BOOL binding omits it, so its file is the one it was before
+   * enumerations.
    */
-  manual_value: boolean;
+  auto_value?: string | null;
+  /**
+   * The value that means Manual: a boolean for a BOOL, the name of a member for an enumeration.
+   */
+  manual_value: boolean | string;
   /**
    * The mode variable's path.
    */
