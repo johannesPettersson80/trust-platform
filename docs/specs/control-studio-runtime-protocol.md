@@ -161,7 +161,7 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 | Operation | Permitted IEC types |
 |---|---|
 | Reads: inspection, recordings, isolated observations | BOOL, signed and unsigned integers, REAL, LREAL, and enumerations read as numbers |
-| Transfer modes | BOOL |
+| Transfer and parameter modes | BOOL, or an enumeration named by its Manual and Auto members (E6.2, E7.1) |
 | Transfer states, guards and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
 | Parameters | REAL and LREAL |
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
