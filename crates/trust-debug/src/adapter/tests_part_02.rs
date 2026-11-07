@@ -602,7 +602,7 @@ pub(super) fn unique_project_root(label: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-debug-{label}-{}-{nanos}",
         std::process::id()
     ));

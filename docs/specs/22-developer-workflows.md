@@ -567,7 +567,8 @@ stamp may follow them, so that a directory an earlier run with the same process
 id left is not reused.
 
 Test code takes these paths from the dev-only crate `trust-test-support`
-(`unique_temp_path`), and the Format job's check
+(`unique_temp_path`, whose stamp is the microsecond in which the process first
+asked for a path), and the Format job's check
 `scripts/check_test_temp_paths.py` refuses a `temp_dir()` call in test code
 anywhere else. A call that must take the temporary directory itself says why
 with `// temp-root-ok: <why>`, such as a socket path that the 100-byte budget
