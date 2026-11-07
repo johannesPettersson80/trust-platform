@@ -573,6 +573,7 @@ END_TYPE
 | 4 | Assignment | `ref := REF(var)` | Assign reference |
 | 5 | Assignment attempt | `ref ?= other_ref` | Attempt to assign reference; result may be `NULL` |
 | 6 | Rebinding | `ref REF= value` (vendor extension) | Rebind reference to `value`'s storage; see `06-statements.md` |
+| 7 | Bound check | `__ISVALIDREF(ref)` (vendor extension) | `TRUE` when the reference is bound, `FALSE` when it is `NULL` |
 
 **Example**:
 ```
@@ -612,6 +613,11 @@ refInt^ := 100;  // myInt is now 100
 - References are not valid `VAR_IN_OUT` variables or parameters (IEC
   61131-3 Ed.3, 6.4.4.10.3).
 - Dereferencing `NULL` is a runtime error (IEC 61131-3 Ed.3, 6.4.4.10.3).
+- `__ISVALIDREF(ref)` (CODESYS vendor extension) is `ref <> NULL`: `TRUE` when the
+  reference is bound, `FALSE` when it is `NULL`. It takes one positional `REF_TO` or
+  `REFERENCE TO` value; a `POINTER TO` (which `ptr <> 0` tests), any other value and
+  more arguments are refused. It holds under every profile: `__ISVALIDREF` is a reserved
+  word (specification 01), and IEC forbids `__` in a name, so no valid IEC program changes.
 
 ### 4.2 POINTER TO (Non-IEC Extension)
 

@@ -102,6 +102,7 @@ macro_rules! for_each_token_kind {
             KwNew,
             KwNewDunder,
             KwDeleteDunder,
+            KwIsValidRefDunder,
             KwIf,
             KwThen,
             KwElsif,

@@ -1089,3 +1089,53 @@ fn declaration_sizes_from_plain_variables_are_iec_errors() {
         check_no_errors_in(Dialect::Codesys, source);
     }
 }
+
+/// Specification 02 §4.1: CODESYS's `__ISVALIDREF` takes one `REF_TO` or `REFERENCE TO` value, in
+/// any case, and gives a `BOOL`. Catches the call taken for an unknown function, and its result
+/// typed as anything but `BOOL` (the `AND` and the assignments need one). The lexer's and the
+/// runtime's tests catch the name refused as malformed, which these diagnostics do not include.
+#[test]
+fn test_is_valid_ref_tests_a_reference() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    value : INT;
+    byName : REFERENCE TO INT;
+    byRef : REF_TO INT;
+    bound : BOOL;
+    both : BOOL;
+END_VAR
+byName REF= value;
+byRef := REF(value);
+bound := __ISVALIDREF(byName);
+both := __isvalidref(byRef) AND __ISVALIDREF(byName);
+END_PROGRAM
+"#,
+    );
+}
+
+/// Specification 02 §4.1: `__ISVALIDREF` refuses a pointer, which `ptr <> 0` tests, a value that is
+/// no reference, a named argument and a second argument. Catches a check that takes any argument.
+#[test]
+fn test_is_valid_ref_refuses_what_is_no_single_reference() {
+    for (call, code) in [
+        ("__ISVALIDREF(address)", DiagnosticCode::InvalidArgumentType),
+        ("__ISVALIDREF(value)", DiagnosticCode::InvalidArgumentType),
+        (
+            "__ISVALIDREF(IN := byRef)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__ISVALIDREF(byRef, byRef)",
+            DiagnosticCode::WrongArgumentCount,
+        ),
+    ] {
+        check_has_error(
+            &format!(
+                "PROGRAM Test\nVAR\n    value : INT;\n    address : POINTER TO INT;\n    byRef : REF_TO INT;\n    bound : BOOL;\nEND_VAR\nbound := {call};\nEND_PROGRAM\n"
+            ),
+            code,
+        );
+    }
+}

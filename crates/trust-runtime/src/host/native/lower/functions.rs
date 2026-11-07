@@ -65,6 +65,17 @@ impl Lowerer<'_, '_> {
         if super::assertions::assertion(name).is_some() {
             return self.call_assertion(node, name, args);
         }
+        // `__ISVALIDREF(ref)` is `ref <> NULL`: whether the reference is bound (specification 02
+        // §4.1).
+        if name == "__ISVALIDREF" {
+            let [arg] = args.as_slice() else {
+                return Err(self.unsupported(node, "__ISVALIDREF with other than one argument"));
+            };
+            let reference = self.reference(&arg.value)?;
+            return Ok(Called::Scalar(format!(
+                "(!same_target({reference}, abi::RefValue::NULL_REF))"
+            )));
+        }
         let values = self.standard_arguments(node, name, args)?;
         if name == "CONCAT" {
             let mut parts = Vec::new();

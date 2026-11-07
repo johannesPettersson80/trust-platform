@@ -382,3 +382,55 @@ END_PROGRAM
         );
     }
 }
+
+// Specification 02 §4.1: `__ISVALIDREF(ref)` is TRUE once a reference is bound and FALSE while it is
+// NULL, for a `REFERENCE TO` and a `REF_TO`, under the CODESYS and the IEC profiles. Worked by hand:
+// both references start NULL (FALSE, FALSE over flags that started TRUE), are bound in the cycle
+// (TRUE, TRUE), and `byRef := NULL` unbinds one again (FALSE). Catches the test inverted, NULL taken
+// as bound, and the result fixed by the first binding.
+const IS_VALID_REF: &str = r#"
+PROGRAM Main
+VAR
+    value : INT;
+    byName : REFERENCE TO INT;
+    byRef : REF_TO INT;
+    nameBefore : BOOL := TRUE;
+    refBefore : BOOL := TRUE;
+    nameAfter : BOOL;
+    refAfter : BOOL;
+    refCleared : BOOL := TRUE;
+END_VAR
+nameBefore := __ISVALIDREF(byName);
+refBefore := __ISVALIDREF(byRef);
+byName REF= value;
+byRef := REF(value);
+nameAfter := __ISVALIDREF(byName);
+refAfter := __ISVALIDREF(byRef);
+byRef := NULL;
+refCleared := __ISVALIDREF(byRef);
+END_PROGRAM
+"#;
+
+#[test]
+fn is_valid_ref_tells_a_bound_reference_from_null() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(IS_VALID_REF).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        for (name, expected) in [
+            ("nameBefore", false),
+            ("refBefore", false),
+            ("nameAfter", true),
+            ("refAfter", true),
+            ("refCleared", false),
+        ] {
+            assert_eq!(
+                harness.get_output(name),
+                Some(Value::Bool(expected)),
+                "{profile:?}: {name}"
+            );
+        }
+    }
+}
