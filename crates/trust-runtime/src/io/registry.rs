@@ -322,9 +322,15 @@ pub(super) fn shared_params<P>(
     params: &toml::Value,
     parse: fn(&str) -> Result<P, ParamsError>,
 ) -> Result<P, RuntimeError> {
-    let json = params_json(params, "").map_err(|reason| params_refused(driver, &reason))?;
-    let text = serde_json::to_string(&json).map_err(|error| params_refused(driver, &error))?;
+    let text = params_text(params).map_err(|reason| params_refused(driver, &reason))?;
     parse(&text).map_err(|error| params_refused(driver, &error))
+}
+
+/// The JSON text of a driver's `params` table, which the shared rules read, as the deployment
+/// record carries it (specification 34 §5.1.1); or why it has none.
+pub(crate) fn params_text(params: &toml::Value) -> Result<String, String> {
+    let json = params_json(params, "")?;
+    serde_json::to_string(&json).map_err(|error| error.to_string())
 }
 
 /// `value`, the table at `key` or a value in it, as JSON, as the deployment record carries a

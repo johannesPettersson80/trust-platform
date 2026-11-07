@@ -542,3 +542,44 @@ fn the_credential_context_is_broker_tls_user_client_and_allowance() {
         assert!(!same(changed), "{changed}");
     }
 }
+
+/// Every key that breaks a rule is refused at once, in the order of the rules, and `from_json`
+/// refuses with the first of them (specification 32 §2): an unknown key, then the TLS keys (the
+/// missing authority, the missing half of the pair, an empty ALPN protocol), the missing password,
+/// a keep alive above 65535 and an unknown policy. Catches a form that marks only the first broken
+/// key, and a `from_json` whose refusal is not the first of them.
+#[test]
+fn every_broken_key_is_refused_in_the_order_of_the_rules() {
+    let text = r#"{"broker":"127.0.0.1:1883","speed":1,"tls":true,"tls_client_cert_path":"/c.pem","tls_alpn":["mqtt",""],"username":"line","keep_alive_s":70000,"on_error":"explode"}"#;
+    let refusals = MqttParams::refusals(text);
+    let keys: Vec<&str> = refusals
+        .iter()
+        .map(|refusal| refusal.key.as_str())
+        .collect();
+    assert_eq!(
+        keys,
+        [
+            "speed",
+            "tls_ca_path",
+            "tls_client_key_path",
+            "tls_alpn[1]",
+            "password",
+            "keep_alive_s",
+            "on_error"
+        ]
+    );
+    assert_eq!(MqttParams::from_json(text), Err(refusals[0].clone()));
+}
+
+/// A rule that needs the value of a refused key is not checked: without a broker, TLS, which
+/// depends on the broker's scheme, is not judged. Catches a TLS refusal made up from a broker
+/// that was refused.
+#[test]
+fn a_rule_that_needs_a_refused_key_is_not_checked() {
+    let refusals = MqttParams::refusals(r#"{"broker":"","tls_ca_path":"/ca.pem"}"#);
+    let keys: Vec<&str> = refusals
+        .iter()
+        .map(|refusal| refusal.key.as_str())
+        .collect();
+    assert_eq!(keys, ["broker"]);
+}

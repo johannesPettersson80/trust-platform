@@ -41,6 +41,7 @@ pub use identify::{
 };
 pub use link_names::{io_link_name, link_protocol};
 pub use loopback::LoopbackIoDriver;
+pub(crate) use registry::params_text;
 pub use registry::{is_nonphysical_driver, IoDriverRegistry};
 
 use crate::error::RuntimeError;

@@ -15,6 +15,10 @@ engine's built-in import contracts are gone. A compiled image imports nothing (s
 after its version check, so a bytecode program's record still gets "rebuild the project". The record format,
 section 6 included, is unchanged. I4 (S9 Modbus RTU next) stays open.
 
+**7 November 2026 (lead): S9 waits for RS-485 hardware** (owner: "i dont have rs485 right now, it has
+to wait"). The S7 note's duplicate MQTT rules in the connection form are removed (Rust-logic checklist
+G63).
+
 **31 October 2026 (lead): the lines below are merged, and their worktrees are archived.** Native execution
 (specification 44), the chips (C6, STM32U5A9) and S1 to S7 reached `main` with the I-ALL integration and shipped in
 0.25.x and 0.26.0 (30 October); PRs #140 and #141 shipped in 0.26.0. Before the old worktrees were removed (owner's yes,
@@ -455,11 +459,15 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     bench (run3) with the combined check's firmware; the verification catalogs still name the old
     MQTT and Modbus test paths (release prep); `rumqttc` is only used by
     `tests/device_in_the_loop.rs` (dev-dependency); `control/comm_handlers/apply/validation.rs`
-    keeps its own copy of the MQTT TLS rules, a duplicate of the shared rules to remove.
+    keeps its own copy of the MQTT TLS rules, a duplicate of the shared rules to remove. (7 November
+    2026: removed in the Rust-logic checklist's G63: the form marks every refusal of the shared rules,
+    `MqttParams::refusals`, each on its key; specification 32 §2.)
 - [ ] S8 Web pages and HMI.
 - [ ] S9 Modbus RTU (owner, 16 October 2026): the `modbus-rtu` driver of specification 11, built-in
   driver 6, on Linux, macOS and Windows serial ports and on the chips' UARTs, sharing the Modbus
-  application layer with `modbus-tcp`.
+  application layer with `modbus-tcp`. WAITS for RS-485 hardware (owner, 7 November 2026: "i dont
+  have rs485 right now, it has to wait"): its device-in-the-loop case needs an RS-485 line on the
+  bench.
 - [ ] S10 EtherCAT on chips with an Ethernet controller (owner, 16 October 2026): the `ethercat`
   driver of specification 11 with EtherCrab's `no_std` build on the STM32F407, after L2. Needs an
   F407 board with an Ethernet PHY. Test device: the owner's STEPPERONLINE A6-EC400H2B1-M17 servo

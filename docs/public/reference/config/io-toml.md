@@ -171,7 +171,9 @@ MQTT TLS uses the broker host name as the TLS server name/SNI value, so the
 broker's certificate must name that host: a DNS name, or an IP address among its
 IP addresses. The runtime trusts only the certificates in `tls_ca_path`, every
 one the file holds, not the computer's trusted certificates, and it speaks TLS
-1.2 and 1.3, the same on Windows, macOS and Linux.
+1.2 and 1.3, the same on Windows, macOS and Linux. Over TLS 1.2 the broker must
+offer an ECDHE cipher suite with AES-GCM or ChaCha20-Poly1305; CBC suites and RSA
+key exchange are not offered.
 
 `tls_client_cert_path` and `tls_client_key_path` must be provided together when
 mutual TLS is required. The certificate file holds the client's certificate in

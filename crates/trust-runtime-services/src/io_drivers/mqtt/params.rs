@@ -3,6 +3,7 @@
 //! password, a user name or a broker's user information (specification 32 §3).
 
 use alloc::format;
+use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt;
 
@@ -177,60 +178,23 @@ impl MqttParams {
     ///
     /// # Errors
     ///
-    /// The first key that breaks a rule, with the reason.
+    /// The first key that breaks a rule, with the reason: the first of [`MqttParams::refusals`].
     pub fn from_json(text: &str) -> Result<Self, ParamsError> {
-        let map = parse_root(text)?;
-        let root = Table::root(&map);
-        root.only(&KEYS, "the mqtt driver")?;
-        let (broker, scheme_tls) = broker(&root)?;
-        let tls = tls(&root, scheme_tls)?;
-        let allow_insecure_remote = root.boolean("allow_insecure_remote")?.unwrap_or(false);
-        if tls.is_none() && !allow_insecure_remote && !is_local_host(&broker.host) {
-            return Err(root.refuse(
-                "allow_insecure_remote",
-                format!(
-                    "must be true for the remote broker {} without TLS; only localhost, \
-                     127.0.0.1 and ::1 are local",
-                    quoted(&broker.host)
-                ),
-            ));
+        let (params, mut refusals) = check(text);
+        match params {
+            Some(params) => Ok(params),
+            None => Err(refusals.remove(0)),
         }
-        let credentials = credentials(&root)?;
-        let client_id = client_id(&root)?;
-        let topic_in = raw_topic(&root, "topic_in", DEFAULT_TOPIC_IN)?;
-        let topic_out = raw_topic(&root, "topic_out", DEFAULT_TOPIC_OUT)?;
-        let reconnect_ms = root
-            .integer("reconnect_ms", 0_u64, MAX_JSON_INTEGER)?
-            .unwrap_or(DEFAULT_RECONNECT_MS)
-            .max(1);
-        let keep_alive_s = root
-            .integer("keep_alive_s", 0_u16, u16::MAX)?
-            .unwrap_or(DEFAULT_KEEP_ALIVE_S)
-            .max(1);
-        let on_error = on_error(&root)?;
-        let mappings = mappings(&root)?;
-        let input_points = points::input_points(&root)?;
-        let output_points = points::output_points(&root)?;
-        let sparkplug = sparkplug::params(&root)?;
-        if sparkplug.is_some() {
-            sparkplug::check_profile(&root, &input_points, &output_points)?;
-        }
-        Ok(Self {
-            broker,
-            allow_insecure_remote,
-            client_id,
-            topic_in,
-            topic_out,
-            credentials,
-            reconnect_ms,
-            keep_alive_s,
-            on_error,
-            tls,
-            mappings,
-            input_points,
-            output_points,
-            sparkplug,
-        })
+    }
+
+    /// Every refusal of the JSON text `text` by the rules of [`MqttParams::from_json`], in the
+    /// order it checks them, so that a form can mark every key that breaks a rule at once
+    /// (specification 32 §2). A rule that needs the value of a key that is refused is not
+    /// checked: TLS needs the broker's scheme, and the plaintext rule needs the broker and TLS.
+    /// Empty when the parameters are taken.
+    #[must_use]
+    pub fn refusals(text: &str) -> Vec<ParamsError> {
+        check(text).1
     }
 
     /// Whether the driver reads inputs: always without `mappings`, and with them only when it has
@@ -281,6 +245,85 @@ impl MqttParams {
             && self.client_id == other.client_id
             && self.allow_insecure_remote == other.allow_insecure_remote
     }
+}
+
+/// The parameters of `text` when no rule refuses them, and every refusal, in the order of the
+/// rules ([`MqttParams::refusals`]).
+fn check(text: &str) -> (Option<MqttParams>, Vec<ParamsError>) {
+    let map = match parse_root(text) {
+        Ok(map) => map,
+        Err(error) => return (None, vec![error]),
+    };
+    let root = Table::root(&map);
+    let mut refusals = Vec::new();
+    let refused = &mut refusals;
+    kept(root.only(&KEYS, "the mqtt driver"), refused);
+    let broker = kept(broker(&root), refused);
+    let tls = broker
+        .as_ref()
+        .and_then(|(_, scheme_tls)| tls(&root, *scheme_tls, refused).ok());
+    let allow_insecure_remote =
+        kept(root.boolean("allow_insecure_remote"), refused).map(|flag| flag.unwrap_or(false));
+    if let (Some((broker, _)), Some(None), Some(false)) = (&broker, &tls, allow_insecure_remote)
+        && !is_local_host(&broker.host)
+    {
+        refused.push(root.refuse(
+            "allow_insecure_remote",
+            format!(
+                "must be true for the remote broker {} without TLS; only localhost, \
+                 127.0.0.1 and ::1 are local",
+                quoted(&broker.host)
+            ),
+        ));
+    }
+    let credentials = kept(credentials(&root), refused);
+    let client_id = kept(client_id(&root), refused);
+    let topic_in = kept(raw_topic(&root, "topic_in", DEFAULT_TOPIC_IN), refused);
+    let topic_out = kept(raw_topic(&root, "topic_out", DEFAULT_TOPIC_OUT), refused);
+    let reconnect_ms = kept(
+        root.integer("reconnect_ms", 0_u64, MAX_JSON_INTEGER),
+        refused,
+    )
+    .map(|value| value.unwrap_or(DEFAULT_RECONNECT_MS).max(1));
+    let keep_alive_s = kept(root.integer("keep_alive_s", 0_u16, u16::MAX), refused)
+        .map(|value| value.unwrap_or(DEFAULT_KEEP_ALIVE_S).max(1));
+    let on_error = kept(on_error(&root), refused);
+    let mappings = kept(mappings(&root), refused);
+    let input_points = kept(points::input_points(&root), refused);
+    let output_points = kept(points::output_points(&root), refused);
+    let sparkplug = kept(sparkplug::params(&root), refused);
+    if let (Some(Some(_)), Some(inputs), Some(outputs)) =
+        (&sparkplug, &input_points, &output_points)
+    {
+        kept(sparkplug::check_profile(&root, inputs, outputs), refused);
+    }
+    if !refusals.is_empty() {
+        return (None, refusals);
+    }
+    let params = (|| {
+        Some(MqttParams {
+            broker: broker?.0,
+            allow_insecure_remote: allow_insecure_remote?,
+            client_id: client_id?,
+            topic_in: topic_in?,
+            topic_out: topic_out?,
+            credentials: credentials?,
+            reconnect_ms: reconnect_ms?,
+            keep_alive_s: keep_alive_s?,
+            on_error: on_error?,
+            tls: tls?,
+            mappings: mappings?,
+            input_points: input_points?,
+            output_points: output_points?,
+            sparkplug: sparkplug?,
+        })
+    })();
+    (params, refusals)
+}
+
+/// The value of `result`, or `None` with its refusal added to `refusals`.
+fn kept<T>(result: Result<T, ParamsError>, refusals: &mut Vec<ParamsError>) -> Option<T> {
+    result.map_err(|refusal| refusals.push(refusal)).ok()
 }
 
 /// `broker`: `host:port` after an optional `mqtt://` or `tcp://` (plain) or `mqtts://` or
@@ -353,87 +396,115 @@ fn is_local_host(host: &str) -> bool {
     host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
 }
 
-/// The TLS settings: on with `tls = true` or a TLS scheme, which `tls = false` contradicts. With
-/// TLS off, a path or a non-empty `tls_alpn` is refused; with it on, `tls_ca_path` is required and
-/// the client's certificate and key come together (specification 32 §3).
-fn tls(root: &Table<'_>, scheme_tls: bool) -> Result<Option<MqttTls>, ParamsError> {
-    let flag = root.boolean("tls")?;
+/// TLS (specification 32 §3), on with `tls = true` or, without `tls`, with a TLS scheme: its
+/// settings, `None` without TLS; or [`Refused`] with every refusal of its keys added to
+/// `refusals`.
+fn tls(
+    root: &Table<'_>,
+    scheme_tls: bool,
+    refusals: &mut Vec<ParamsError>,
+) -> Result<Option<MqttTls>, Refused> {
+    let before = refusals.len();
+    let flag = kept(root.boolean("tls"), refusals).ok_or(Refused)?;
     if scheme_tls && flag == Some(false) {
-        return Err(root.refuse(
+        refusals.push(root.refuse(
             "tls",
             "is false, but the broker's mqtts:// or ssl:// scheme is TLS",
         ));
     }
-    let ca = path(root, "tls_ca_path")?;
-    let cert = path(root, "tls_client_cert_path")?;
-    let key = path(root, "tls_client_key_path")?;
-    let alpn = alpn(root)?;
+    let ca = kept(path(root, "tls_ca_path"), refusals);
+    let cert = kept(path(root, "tls_client_cert_path"), refusals);
+    let key = kept(path(root, "tls_client_key_path"), refusals);
+    let alpn = kept(alpn(root), refusals);
     if !flag.unwrap_or(scheme_tls) {
         let given = [
-            ("tls_ca_path", ca.is_some()),
-            ("tls_client_cert_path", cert.is_some()),
-            ("tls_client_key_path", key.is_some()),
+            ("tls_ca_path", matches!(ca, Some(Some(_)))),
+            ("tls_client_cert_path", matches!(cert, Some(Some(_)))),
+            ("tls_client_key_path", matches!(key, Some(Some(_)))),
             (
                 "tls_alpn",
-                alpn.as_ref().is_some_and(|list| !list.is_empty()),
+                matches!(&alpn, Some(Some(list)) if !list.is_empty()),
             ),
         ];
-        if let Some((field, _)) = given.iter().find(|(_, present)| *present) {
-            return Err(root.refuse(
+        for (field, _) in given.iter().filter(|(_, present)| *present) {
+            refusals.push(root.refuse(
                 field,
                 "needs TLS: set tls = true or use an mqtts:// or ssl:// broker",
             ));
         }
-        return Ok(None);
+        return if refusals.len() == before {
+            Ok(None)
+        } else {
+            Err(Refused)
+        };
     }
-    let Some(ca) = ca else {
-        return Err(root.refuse(
-            "tls_ca_path",
-            "is required with TLS, the path of the PEM file of the broker's certificate authority",
-        ));
+    let ca_path = match ca {
+        Some(Some(ca)) => kept(filled(root, "tls_ca_path", ca), refusals),
+        Some(None) => {
+            refusals.push(root.refuse(
+                "tls_ca_path",
+                "is required with TLS, the path of the PEM file of the broker's certificate authority",
+            ));
+            None
+        }
+        None => None,
     };
-    let ca_path = filled(root, "tls_ca_path", ca)?;
     let client_auth = match (cert, key) {
-        (None, None) => None,
-        (Some(cert), Some(key)) => Some(ClientAuth {
-            cert_path: filled(root, "tls_client_cert_path", cert)?,
-            key_path: filled(root, "tls_client_key_path", key)?,
-        }),
-        (Some(_), None) => {
-            return Err(root.refuse(
+        (Some(None), Some(None)) => Some(None),
+        (Some(Some(cert)), Some(Some(key))) => {
+            let cert_path = kept(filled(root, "tls_client_cert_path", cert), refusals);
+            let key_path = kept(filled(root, "tls_client_key_path", key), refusals);
+            cert_path.zip(key_path).map(|(cert_path, key_path)| {
+                Some(ClientAuth {
+                    cert_path,
+                    key_path,
+                })
+            })
+        }
+        (Some(Some(_)), Some(None)) => {
+            refusals.push(root.refuse(
                 "tls_client_key_path",
                 "is required with tls_client_cert_path: mutual TLS takes both",
             ));
+            None
         }
-        (None, Some(_)) => {
-            return Err(root.refuse(
+        (Some(None), Some(Some(_))) => {
+            refusals.push(root.refuse(
                 "tls_client_cert_path",
                 "is required with tls_client_key_path: mutual TLS takes both",
             ));
+            None
         }
+        _ => None,
     };
     let alpn = match alpn {
+        Some(Some(list)) => {
+            let mut protocols = Vec::new();
+            for (index, protocol) in list.iter().enumerate() {
+                let protocol = protocol.trim();
+                if protocol.is_empty() {
+                    refusals.push(root.refuse(&format!("tls_alpn[{index}]"), "must not be empty"));
+                } else {
+                    protocols.push(SmolStr::new(protocol));
+                }
+            }
+            Some(Some(protocols))
+        }
+        Some(None) => Some(None),
         None => None,
-        Some(list) => Some(
-            list.iter()
-                .enumerate()
-                .map(|(index, protocol)| {
-                    let protocol = protocol.trim();
-                    if protocol.is_empty() {
-                        Err(root.refuse(&format!("tls_alpn[{index}]"), "must not be empty"))
-                    } else {
-                        Ok(SmolStr::new(protocol))
-                    }
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-        ),
     };
+    if refusals.len() > before {
+        return Err(Refused);
+    }
     Ok(Some(MqttTls {
-        ca_path,
-        client_auth,
-        alpn,
+        ca_path: ca_path.ok_or(Refused)?,
+        client_auth: client_auth.ok_or(Refused)?,
+        alpn: alpn.ok_or(Refused)?,
     }))
 }
+
+/// A group of rules refused its keys; the refusals are in the list that it was given.
+struct Refused;
 
 /// The path `key` gives, when the key is given: any string, checked when TLS is on.
 fn path<'a>(root: &Table<'a>, key: &str) -> Result<Option<&'a str>, ParamsError> {
