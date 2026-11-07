@@ -113,7 +113,12 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
             OpcUaClientConnectionState::Connected | OpcUaClientConnectionState::Stale => {}
         }
 
-        if self.shared.state() == OpcUaClientConnectionState::Connected {
+        // The session is up while the connection is connected or stale: staleness judges the read
+        // values, and a server whose values do not change sends no samples (specification 11).
+        if matches!(
+            self.shared.state(),
+            OpcUaClientConnectionState::Connected | OpcUaClientConnectionState::Stale
+        ) {
             self.publish_pending_writes(now_ms)?;
             self.mark_stale_if_due(now_ms);
         }

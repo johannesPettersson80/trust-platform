@@ -502,6 +502,57 @@ fn persistent_worker_marks_stale_then_recovers_on_subscription_update() {
     assert_eq!(storage.0.get("line1_temp"), Some(&Value::Real(12.0)));
 }
 
+/// Specification 11's OPC UA client: a stale connection still sends the program's outputs. The
+/// server's baseline 10 is its last sample; with no sample for the 50 ms timeout the connection is
+/// stale at 61, the program then sets 31, and the worker's next tick writes 31 through the session,
+/// which is still up, and completes the write, while the read values stay stale. Catches a worker
+/// that holds the program's outputs back until a read value changes on the server, which a server
+/// whose values do not change never does.
+#[test]
+fn a_stale_connection_still_sends_the_programs_outputs() {
+    let mut storage = storage_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
+    let point = opcua_point(
+        "line1_setpoint",
+        "ns=2;i=3",
+        OpcUaDataType::Float,
+        OpcUaClientPointAccess::ReadWrite,
+    );
+    let mut connection = opcua_connection(vec![point.clone()]);
+    connection.timeout_ms = 50;
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
+    let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        MockOpcUaClientTransport::default(),
+        bindings,
+    )
+    .expect("bridge");
+
+    worker.tick(0).expect("connect");
+    worker
+        .transport_mut()
+        .emit_sample(&point, Value::Real(10.0), 10);
+    worker.tick(10).expect("drain baseline");
+    bridge
+        .apply_inputs_compiled(&mut storage, 11)
+        .expect("apply baseline");
+    worker.tick(61).expect("stale timeout");
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Stale);
+
+    write_global(&mut storage, "line1_setpoint", Value::Real(31.0));
+    bridge
+        .capture_outputs_compiled(&mut storage, 62)
+        .expect("queue the write");
+    worker.tick(63).expect("publish while stale");
+
+    assert_eq!(
+        worker.transport().write_batches,
+        vec![vec![("line1_setpoint".into(), Value::Real(31.0))]]
+    );
+    assert_eq!(bridge.pending_write("line1_setpoint"), None);
+    assert_eq!(bridge.state(), OpcUaClientConnectionState::Stale);
+    assert_eq!(worker.transport().connect_count, 1);
+}
+
 #[test]
 fn persistent_worker_reconnects_after_session_loss_without_scan_thread_io() {
     let storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
