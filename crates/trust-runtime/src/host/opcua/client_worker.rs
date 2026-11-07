@@ -263,6 +263,11 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
                     }
                     self.mark_reconnecting(at_ms, detail);
                 }
+                OpcUaClientWorkerEvent::Heartbeat { generation, at_ms } => {
+                    if self.event_is_current(generation, at_ms) {
+                        self.shared.apply_heartbeat(at_ms);
+                    }
+                }
             }
         }
         self.mark_stale_if_due(now_ms);
@@ -316,11 +321,14 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
         Ok(())
     }
 
+    /// Marks the connection stale when no notification, a point's sample or the heartbeat, arrived
+    /// for its timeout, and for at least three publishing intervals, so that one late heartbeat is
+    /// not silence (specification 11).
     fn mark_stale_if_due(&self, now_ms: u64) {
         let timeout_ms = self
             .connection
             .timeout_ms
-            .max(self.connection.poll_interval_ms);
+            .max(self.connection.poll_interval_ms.saturating_mul(3));
         let reference_ms = self
             .shared
             .last_seen_ms()
@@ -329,8 +337,8 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
         if now_ms.saturating_sub(reference_ms) > timeout_ms
             && self.shared.state() == OpcUaClientConnectionState::Connected
         {
-            self.shared.mark_stale(format!(
-                "OPC UA client connection '{}' has no fresh subscription update within {} ms.",
+            self.shared.mark_silent(format!(
+                "OPC UA client connection '{}' has no notification of its subscription, a value or the heartbeat, within {} ms.",
                 self.connection.name, timeout_ms
             ));
         }
@@ -449,6 +457,8 @@ impl<T: OpcUaClientTransport + Send + 'static> OpcUaClientWorker<T> {
 pub struct OpcUaWireClientTransport {
     session: Option<std::sync::Arc<::opcua::sync::RwLock<::opcua::client::prelude::Session>>>,
     runner: Option<std::thread::JoinHandle<()>>,
+    /// The subscription's publishing interval, the connection's `poll_interval_ms`.
+    publishing_interval_ms: u64,
 }
 
 #[cfg(feature = "opcua-wire")]
@@ -458,7 +468,41 @@ impl OpcUaWireClientTransport {
         Self {
             session: None,
             runner: None,
+            publishing_interval_ms: 250,
         }
+    }
+}
+
+/// The subscription's heartbeat, the server's `Server_ServerStatus_CurrentTime` (ns=0;i=2258),
+/// which every server keeps current: sampled at the publishing interval, it reports in every
+/// publish, so that silence of the subscription is evidence (specification 11).
+#[cfg(feature = "opcua-wire")]
+fn opcua_heartbeat_node() -> ::opcua::client::prelude::NodeId {
+    ::opcua::client::prelude::NodeId::new(0, 2258_u32)
+}
+
+/// A monitored item that reports the value of `node_id`, sampled every `sampling_interval`
+/// milliseconds, the newest value only.
+#[cfg(feature = "opcua-wire")]
+fn monitored_value(
+    node_id: ::opcua::client::prelude::NodeId,
+    sampling_interval: f64,
+) -> ::opcua::client::prelude::MonitoredItemCreateRequest {
+    ::opcua::client::prelude::MonitoredItemCreateRequest {
+        item_to_monitor: ::opcua::client::prelude::ReadValueId {
+            node_id,
+            attribute_id: ::opcua::client::prelude::AttributeId::Value as u32,
+            index_range: ::opcua::client::prelude::UAString::null(),
+            data_encoding: ::opcua::client::prelude::QualifiedName::null(),
+        },
+        monitoring_mode: ::opcua::client::prelude::MonitoringMode::Reporting,
+        requested_parameters: ::opcua::client::prelude::MonitoringParameters {
+            client_handle: 0,
+            sampling_interval,
+            filter: ::opcua::client::prelude::ExtensionObject::null(),
+            queue_size: 1,
+            discard_oldest: true,
+        },
     }
 }
 
@@ -477,6 +521,7 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
         sink: OpcUaClientEventSink,
     ) -> Result<OpcUaClientSessionInfo, OpcUaClientBridgeError> {
         let _ = self.disconnect();
+        self.publishing_interval_ms = connection.poll_interval_ms;
         let session = connect_opcua_client_session(
             connection.endpoint_url.as_str(),
             connection.security,
@@ -557,11 +602,14 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let callback_points = point_map.clone();
+        let heartbeat = opcua_heartbeat_node();
+        let callback_heartbeat = heartbeat.clone();
+        let publishing_interval = self.publishing_interval_ms as f64;
         let subscription_id = {
             let session = session.read();
             ::opcua::client::prelude::SubscriptionService::create_subscription(
                 &*session,
-                250.0,
+                publishing_interval,
                 10,
                 30,
                 0,
@@ -569,9 +617,12 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
                 true,
                 ::opcua::client::prelude::DataChangeCallback::new(move |items| {
                     for item in items {
-                        let Some((_, point)) = callback_points
-                            .iter()
-                            .find(|(node_id, _)| node_id == &item.item_to_monitor().node_id)
+                        let node_id = &item.item_to_monitor().node_id;
+                        if node_id == &callback_heartbeat {
+                            let _ = sink.publish_heartbeat(opcua_client_now_ms());
+                        }
+                        let Some((_, point)) =
+                            callback_points.iter().find(|(point_node, _)| point_node == node_id)
                         else {
                             continue;
                         };
@@ -584,24 +635,11 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
         };
         let items = point_map
             .into_iter()
-            .map(
-                |(node_id, _)| ::opcua::client::prelude::MonitoredItemCreateRequest {
-                    item_to_monitor: ::opcua::client::prelude::ReadValueId {
-                        node_id,
-                        attribute_id: ::opcua::client::prelude::AttributeId::Value as u32,
-                        index_range: ::opcua::client::prelude::UAString::null(),
-                        data_encoding: ::opcua::client::prelude::QualifiedName::null(),
-                    },
-                    monitoring_mode: ::opcua::client::prelude::MonitoringMode::Reporting,
-                    requested_parameters: ::opcua::client::prelude::MonitoringParameters {
-                        client_handle: 0,
-                        sampling_interval: 0.0,
-                        filter: ::opcua::client::prelude::ExtensionObject::null(),
-                        queue_size: 1,
-                        discard_oldest: true,
-                    },
-                },
-            )
+            .map(|(node_id, _)| monitored_value(node_id, 0.0))
+            .chain(std::iter::once(monitored_value(
+                heartbeat,
+                publishing_interval,
+            )))
             .collect::<Vec<_>>();
         {
             let session = session.read();

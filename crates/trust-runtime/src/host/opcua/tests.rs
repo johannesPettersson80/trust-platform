@@ -4,6 +4,7 @@ use crate::value::{EnumValue, Value};
 use smol_str::SmolStr;
 
 mod client_contracts;
+mod subscription_freshness;
 mod worker_integrity;
 
 #[test]
@@ -776,6 +777,11 @@ impl MockOpcUaClientTransport {
     fn emit_connection_status(&mut self, connected: bool, now_ms: u64, detail: &str) {
         let sink = self.sink.as_ref().expect("event sink");
         assert!(sink.publish_connection_status(connected, now_ms, detail));
+    }
+
+    fn emit_heartbeat(&mut self, now_ms: u64) {
+        let sink = self.sink.as_ref().expect("event sink");
+        assert!(sink.publish_heartbeat(now_ms));
     }
 }
 
