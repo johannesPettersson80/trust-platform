@@ -434,3 +434,97 @@ fn is_valid_ref_tells_a_bound_reference_from_null() {
         }
     }
 }
+
+// Specification 04: `__QUERYINTERFACE(source, target)` is `target ?= source` then `target <> NULL`,
+// under the CODESYS and the IEC profiles. Worked by hand: the lamp implements IDimmer, so the first
+// query is TRUE and the dimmer gives the lamp's level 3; it does not implement IFan, so the second
+// query is FALSE and the fan, which named another block, is NULL afterwards. Catches the answer
+// inverted, the target left unchanged on a failed query (CODESYS sets it to 0), and a query that
+// never names the instance.
+const QUERY_INTERFACE: &str = r#"
+INTERFACE ILamp
+METHOD Toggle : BOOL
+END_METHOD
+END_INTERFACE
+
+INTERFACE IDimmer
+METHOD Dim : INT
+END_METHOD
+END_INTERFACE
+
+INTERFACE IFan
+METHOD Spin : BOOL
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS ILamp, IDimmer
+VAR
+    level : INT := 3;
+END_VAR
+METHOD PUBLIC Toggle : BOOL
+Toggle := TRUE;
+END_METHOD
+METHOD PUBLIC Dim : INT
+Dim := level;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Fan IMPLEMENTS IFan
+METHOD PUBLIC Spin : BOOL
+Spin := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    lamp : FB_Lamp;
+    fanBlock : FB_Fan;
+    lampItf : ILamp;
+    dimmer : IDimmer;
+    fan : IFan;
+    found : BOOL;
+    level : INT;
+    missing : BOOL := TRUE;
+    fanCleared : BOOL;
+END_VAR
+lampItf := lamp;
+found := __QUERYINTERFACE(lampItf, dimmer);
+IF found THEN
+    level := dimmer.Dim();
+END_IF
+fan := fanBlock;
+missing := __QUERYINTERFACE(lampItf, fan);
+fanCleared := fan = NULL;
+END_PROGRAM
+"#;
+
+#[test]
+fn query_interface_answers_and_sets_the_target() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(QUERY_INTERFACE).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        assert_eq!(
+            harness.get_output("found"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("level"),
+            Some(Value::Int(3)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("missing"),
+            Some(Value::Bool(false)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("fanCleared"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+    }
+}

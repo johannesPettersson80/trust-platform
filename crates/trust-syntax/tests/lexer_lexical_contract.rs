@@ -424,3 +424,16 @@ fn lexical_contract_codesys_isvalidref_is_one_reserved_token() {
         &[TokenKind::Ident, TokenKind::KwIsValidRefDunder],
     );
 }
+
+/// Specification 01: CODESYS's `__QUERYINTERFACE` is one reserved token in any case. Catches the
+/// operator lexed as a malformed identifier, which the parser reported as "expected expression".
+#[test]
+fn lexical_contract_codesys_queryinterface_is_one_reserved_token() {
+    for source in ["__QUERYINTERFACE", "__queryinterface", "__QueryInterface"] {
+        assert_single(source, TokenKind::KwQueryInterfaceDunder);
+    }
+    assert_rejected_candidate(
+        "__QUERYINTERFACES",
+        &[TokenKind::Ident, TokenKind::KwQueryInterfaceDunder],
+    );
+}

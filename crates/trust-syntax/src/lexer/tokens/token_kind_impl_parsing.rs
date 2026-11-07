@@ -53,6 +53,7 @@ impl TokenKind {
                 | Self::KwNewDunder
                 | Self::KwDeleteDunder
                 | Self::KwIsValidRefDunder
+                | Self::KwQueryInterfaceDunder
                 | Self::KwRef
                 | Self::KwAdr
                 | Self::KwSizeOf
@@ -73,6 +74,7 @@ impl TokenKind {
                 | Self::KwNew
                 | Self::KwNewDunder
                 | Self::KwDeleteDunder
+                | Self::KwQueryInterfaceDunder
                 | Self::KwRef
                 | Self::KwAdr
                 | Self::KwSizeOf

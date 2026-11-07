@@ -696,6 +696,17 @@ Controller := MyPump;          // Assign implementing instance
 Controller.Start();            // Call through interface
 ```
 
+CODESYS's `__QUERYINTERFACE(source, target)` asks whether the instance the interface
+`source` names implements the interface of the variable `target`. It is
+`target ?= source` followed by `target <> NULL`: when the instance implements the
+target's interface, the target names it and the call is `TRUE`; otherwise the target
+is `NULL`, whatever it held, and the call is `FALSE`, also for a `NULL` source
+(IEC 61131-3 Ed.3 §6.6.6.7, Table 52). Both arguments are positional and of interface
+types, and the target is a variable. Every interface may be queried: CODESYS requires
+both to extend `__SYSTEM.IQueryInterface`, which adds nothing in truST. It holds under
+every profile: `__QUERYINTERFACE` is a reserved word (specification 01), and IEC
+forbids `__` in a name, so no valid IEC program changes.
+
 ### Rules
 
 1. Interfaces contain only method prototypes (no implementation) per IEC 61131-3 Ed.3 §6.6.6.1. Property signatures are accepted as a documented truST extension.
