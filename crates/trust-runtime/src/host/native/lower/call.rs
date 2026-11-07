@@ -267,6 +267,10 @@ impl<'a> Lowerer<'_, 'a> {
                 }
                 Err(self.unsupported(target, "a call of a value that is not callable"))
             }
+            // `SUPER^()` calls the base's body as `SUPER()` does (specification 04).
+            SyntaxKind::DerefExpr if Self::is_super(target) => {
+                Ok(Callee::BaseBody(self.super_place(target)?))
+            }
             // An instance that is an element of an array (`Pumps[i](...)`) or that a reference
             // names (`ref^(...)`).
             SyntaxKind::IndexExpr | SyntaxKind::DerefExpr | SyntaxKind::ParenExpr => {

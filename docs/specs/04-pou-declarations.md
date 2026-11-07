@@ -798,6 +798,13 @@ METHOD PUBLIC Example
 END_METHOD
 ```
 
+CODESYS declares `THIS` and `SUPER` as pointers and writes `THIS^.Speed`,
+`SUPER^.Initialize()` and, in a body, `SUPER^()`. Under every profile `THIS^` is
+`THIS` and `SUPER^` is `SUPER`: the same member access, the same direct call of
+the base's method, and `SUPER^()` calls the base's body as `SUPER()` does. No
+valid IEC program changes, as no other value of an instance's type can be
+dereferenced.
+
 ### truST PROPERTY access extension
 
 `PROPERTY`, `GET`, and `SET` are a documented truST language extension; IEC

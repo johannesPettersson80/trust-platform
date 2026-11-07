@@ -343,7 +343,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
     fn infer_deref_expr_outcome(&mut self, node: &SyntaxNode) -> SemanticOutcome<TypeId> {
         let operand = match node.children().next() {
-            Some(child) => self.checker.expr().check_expression(&child),
+            Some(child) => {
+                let operand = self.checker.expr().check_expression(&child);
+                // CODESYS's `THIS^` and `SUPER^` name the instance and its base part, as `THIS`
+                // and `SUPER` do (specification 04).
+                if is_this_or_super(node) && operand != TypeId::UNKNOWN {
+                    return SemanticOutcome::Resolved(operand);
+                }
+                operand
+            }
             None => return self.checker.unknown_type_outcome(node.text_range()),
         };
 

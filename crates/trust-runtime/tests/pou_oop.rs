@@ -216,3 +216,57 @@ END_PROGRAM
     harness.assert_eq("IsRunning", true);
     harness.assert_eq("Count", 2i32);
 }
+
+/// Specification 04: CODESYS's `THIS^` and `SUPER^` are `THIS` and `SUPER` under every profile.
+/// Worked by hand: `fb.Advance()` runs the base's Advance through `SUPER^` (n = 1), adds 10 through
+/// `THIS^` (n = 11) and copies it (m = 11); `fb()` runs the derived body, whose `SUPER^()` runs the
+/// base's body once (bodyRuns = 1). Catches `SUPER^.Advance()` dispatched to the derived method (it
+/// would recurse), and `SUPER^()` refused or run as anything but the base's body.
+#[test]
+fn this_and_super_with_a_caret_run_as_this_and_super() {
+    let source = r#"
+FUNCTION_BLOCK FB_Base
+VAR_OUTPUT
+    n : INT;
+    bodyRuns : INT;
+END_VAR
+bodyRuns := bodyRuns + 1;
+METHOD PUBLIC Advance
+n := n + 1;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Derived EXTENDS FB_Base
+VAR_OUTPUT
+    m : INT;
+END_VAR
+SUPER^();
+METHOD PUBLIC Advance
+SUPER^.Advance();
+THIS^.n := THIS^.n + 10;
+m := THIS^.n;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    fb : FB_Derived;
+    n : INT;
+    m : INT;
+    runs : INT;
+END_VAR
+fb.Advance();
+fb();
+n := fb.n;
+m := fb.m;
+runs := fb.bodyRuns;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    harness.assert_eq("n", 11i16);
+    harness.assert_eq("m", 11i16);
+    harness.assert_eq("runs", 1i16);
+}
