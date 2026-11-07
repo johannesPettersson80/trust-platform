@@ -34,12 +34,7 @@ pub(in crate::db) fn collect_used_symbols(
         .descendants()
         .filter(|node| matches!(node.kind(), SyntaxKind::Program | SyntaxKind::FunctionBlock))
     {
-        let is_test = pou.children_with_tokens().any(|child| {
-            matches!(
-                child.kind(),
-                SyntaxKind::KwTestProgram | SyntaxKind::KwTestFunctionBlock
-            )
-        });
+        let is_test = crate::test_pous::test_kind(&pou).is_some();
         if is_test && let Some(symbol_id) = pou_context(symbols, &pou).symbol_id {
             used.insert(symbol_id);
         }

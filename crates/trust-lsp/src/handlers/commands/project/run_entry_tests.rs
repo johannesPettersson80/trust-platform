@@ -296,6 +296,40 @@ fn the_default_configuration_runs_a_program_of_the_active_file_else_of_the_sourc
 }
 
 #[test]
+fn a_program_with_the_test_attribute_is_neither_run_nor_a_program_type() {
+    // Specification 22: `{attribute 'test'}` makes `PRG_TestTank` a test program, and specification
+    // 25 §11 says a test program declares no PROGRAM type. Catches: a default CONFIGURATION that
+    // runs a CODESYS project's test, two programs to pick from where the project has one, and a
+    // configuration entry of the test accepted, which the production build would leave unbound.
+    let project = Project::new();
+    let active = project.write(
+        "src/Tank.st",
+        "{attribute 'test'}\nPROGRAM PRG_TestTank\nEND_PROGRAM\nPROGRAM PRG_Tank\nEND_PROGRAM\n",
+    );
+    let options = SourceOptionsArgs {
+        runtime_root: Some(project.0.clone()),
+        ..SourceOptionsArgs::default()
+    };
+    let answer = program_candidates(Some(&active), &options, true, &disk).expect("programs");
+    assert_eq!(answer["chosen"]["name"], json!("PRG_Tank"));
+    let names: Vec<&str> = answer["programs"]
+        .as_array()
+        .expect("programs")
+        .iter()
+        .filter_map(|program| program["name"].as_str())
+        .collect();
+    assert_eq!(names, ["PRG_Tank"]);
+
+    let config = project.write(
+        "src/config.st",
+        "CONFIGURATION Config\nRESOURCE Res ON PLC\n  PROGRAM P1 : PRG_Tank;\n  PROGRAM P2 : PRG_TestTank;\nEND_RESOURCE\nEND_CONFIGURATION\n",
+    );
+    assert!(project
+        .problem(&config)
+        .is_some_and(|problem| problem.starts_with("Unknown PROGRAM type(s): PRG_TestTank.")));
+}
+
+#[test]
 fn without_any_program_no_default_configuration_is_offered() {
     let project = Project::new();
     project.write("src/Lib.st", "FUNCTION Helper : INT\nEND_FUNCTION\n");

@@ -2092,9 +2092,10 @@ The HMI Builder editor and its pages are specified in
 
 ### 11.1 Native Testing and snippets
 
-- Native Testing MUST discover `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK`
-  declarations, run all or one selected test through the registered test
-  command, and project pass/fail results into the test-controller state.
+- Native Testing MUST discover the test declarations of specification 22
+  ("Test POU discovery": `TEST_PROGRAM`, `TEST_FUNCTION_BLOCK` and a `PROGRAM`
+  with `{attribute 'test'}`), run all or one selected test through the registered
+  test command, and project pass/fail results into the test-controller state.
 - Refresh MUST remove results for declarations that disappeared and preserve
   results for declarations that remain.
 - The language server finds the tests (`trust-lsp.testDiscovery`) by
@@ -2369,8 +2370,8 @@ HMI authoring workflows are specified in `docs/specs/39-hmi-builder.md`.
 - Before a debug session starts, every `PROGRAM … : <type>` entry of its
   CONFIGURATION names a PROGRAM that those sources declare, by its
   namespace-qualified name or, for a type without a namespace, by its own
-  name; `TEST_PROGRAM` declarations and configuration instances declare no
-  PROGRAM type. Otherwise the session does not start, and the message names
+  name; test programs (`TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`,
+  specification 22) and configuration instances declare no PROGRAM type. Otherwise the session does not start, and the message names
   the unknown types (`trust-lsp.runEntry`). An open editor's text counts
   instead of its file.
 - A debug session starts from a CONFIGURATION file: a Structured Text file

@@ -1845,7 +1845,8 @@ artifact (owner, 23 October 2026).
 `trust-dev test` runs a project's tests compiled for the computer (specification 22, the test
 POUs), with the toolchain, which it installs as `trust-runtime build` does (§4.6, NX-15): one
 image, a debug or a release image as the project's `[build] debug` chooses (§13.2), holds every
-`TEST_PROGRAM` as an instance of its name that no task runs, and each test runs after a cold
+test program (a `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`) as an instance of its
+name that no task runs, and each test runs after a cold
 restart, its program's body once (`NativeProgram::run_instance`); a test passes, fails with the
 runtime's message of its failed assertion, or ends with its error. The assertions are compiled as
 the runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs

@@ -198,19 +198,14 @@ pub(crate) fn lower_application_and_frontend(
     ))
 }
 
-/// The upper-case names of the sources' `TEST_PROGRAM` declarations.
+/// The upper-case names of the sources' test programs: `TEST_PROGRAM` declarations and programs
+/// with `{attribute 'test'}` (specification 22, "Test POU discovery").
 fn test_program_names(
     syntaxes: &[SyntaxNode],
 ) -> Result<std::collections::BTreeSet<String>, CompileError> {
     let mut names = std::collections::BTreeSet::new();
     for node in syntaxes.iter().flat_map(SyntaxNode::descendants) {
-        let test = node.kind() == trust_syntax::SyntaxKind::Program
-            && node
-                .children_with_tokens()
-                .filter_map(|element| element.into_token())
-                .find(|token| !token.kind().is_trivia())
-                .is_some_and(|token| token.kind() == trust_syntax::SyntaxKind::KwTestProgram);
-        if test {
+        if trust_hir::test_pous::test_kind(&node) == Some(trust_hir::test_pous::TestKind::Program) {
             names.insert(super::compiler::qualified_pou_name(&node)?.to_ascii_uppercase());
         }
     }
