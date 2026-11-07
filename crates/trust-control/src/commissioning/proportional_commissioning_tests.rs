@@ -701,10 +701,7 @@ fn the_fixture_loop_is_in_manual_when_its_mode_reads_its_manual_value() {
     let (_, binding) = fixture();
     assert_eq!(
         binding.mode,
-        TransferModeBinding {
-            symbol: "Main.Auto".to_owned(),
-            manual_value: false
-        }
+        TransferModeBinding::boolean("Main.Auto", false)
     );
     assert_eq!(
         found_mode_of(Some(false), binding.mode.manual_reading()),

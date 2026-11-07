@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::identification::campaign::plant_input_range;
 use crate::loop_definition::{
     AuxiliaryRole, AuxiliarySignal, Direction, Execution, ExperimentKind, LoopDefinition,
-    ManualOutputType, Topology, ModeValue,
+    ManualOutputType, ModeValue, Topology,
 };
 use crate::recording::EvidenceSource;
 use crate::signals::Quality;

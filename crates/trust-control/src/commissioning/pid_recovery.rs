@@ -136,7 +136,8 @@ impl<'a> RecoveryStart<'a> {
         };
         let kept = self.start.profile.references(&self.start.binding);
         let references = original_references(&self.initial, &kept)?;
-        let reviewed_mode = reviewed_mode_of(self.found_mode, self.start.binding.mode.manual_reading());
+        let reviewed_mode =
+            reviewed_mode_of(self.found_mode, self.start.binding.mode.manual_reading());
         let recovery_values = self.start.review.values.clone();
         Ok(PidCampaign {
             start: self.start,
@@ -159,15 +160,14 @@ pub fn assert_recovery_needed(
 ) -> Result<(), Failure> {
     // The rule is the proportional campaign's (`assert_recovery_needed`): the same check of the recorded transfers. This run words its
     // refusal in its own sentence.
-    proportional_recovery::assert_recovery_needed(report, &mode.symbol, mode.manual_reading()).map_err(
-        |_| {
+    proportional_recovery::assert_recovery_needed(report, &mode.symbol, mode.manual_reading())
+        .map_err(|_| {
             Failure::new(
                 &texts::pid_commission_already_recovered(),
                 Cause::Unclassified,
                 NextAction::None,
             )
-        },
-    )
+        })
 }
 
 /// Whether a recovery has anything to write back (`cancel` and `recover`; B6.4): a run that applied no record and owns no transfer has

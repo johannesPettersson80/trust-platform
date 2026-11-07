@@ -18,7 +18,7 @@ fn binding(output: TransferMember, guards: Vec<TransferMember>) -> TransferBindi
     TransferBinding {
         loop_id: "loop:tank".into(),
         task_name: "MainTask".into(),
-        mode: TransferModeBinding::boolean("Main.Auto".into(), false),
+        mode: TransferModeBinding::boolean("Main.Auto", false),
         additional_modes: Vec::new(),
         tracking_outputs: BTreeMap::new(),
         states: Vec::new(),

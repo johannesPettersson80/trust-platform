@@ -559,7 +559,10 @@ fn the_generated_loop_on_the_pids_own_measurement_follows_its_output() {
         .parameter_binding
         .as_ref()
         .expect("a PID loop binds its record");
-    assert!(binding.mode.manual_reading(), "TIC101_Manual is TRUE in Manual");
+    assert!(
+        binding.mode.manual_reading(),
+        "TIC101_Manual is TRUE in Manual"
+    );
     let elsewhere =
         pid_loop_definition(&catalog, &scope(), &generated_draft("Main.TIC101_Setpoint"))
             .expect("the other manual output is generated");

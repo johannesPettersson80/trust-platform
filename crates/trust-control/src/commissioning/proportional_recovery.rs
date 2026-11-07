@@ -266,7 +266,8 @@ pub fn manual_transfer_needed(
     step: &TransferStep,
     current: &BTreeMap<String, TransferValue>,
 ) -> bool {
-    current.get(&binding.mode.symbol) != Some(&TransferValue::Boolean(binding.mode.manual_reading()))
+    current.get(&binding.mode.symbol)
+        != Some(&TransferValue::Boolean(binding.mode.manual_reading()))
         || step.values.iter().any(|(symbol, value)| {
             current
                 .get(symbol)

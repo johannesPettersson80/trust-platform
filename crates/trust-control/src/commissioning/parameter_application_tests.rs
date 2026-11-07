@@ -585,6 +585,11 @@ fn a_mode_is_a_bool_with_its_manual_value_or_an_enumeration_with_two_members() {
         with_mode(ModeValue::Bool(true), Some("Auto")),
     ] {
         let failure = check_binding(&refused, "engineer-loop").expect_err("refused");
-        assert_eq!(failure.message, texts::PARAMETER_BINDING_MODE, "{refused:?}");
+        // The first sentence is the message, and the whole text the detail.
+        assert_eq!(
+            failure.detail.as_deref(),
+            Some(texts::PARAMETER_BINDING_MODE),
+            "{refused:?}"
+        );
     }
 }

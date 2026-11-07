@@ -426,7 +426,8 @@ impl World {
 
     /// Whether the loop is in Auto.
     pub(super) fn in_auto(&self) -> bool {
-        self.values.get(&self.binding.mode.symbol) == Some(&json!(!self.binding.mode.manual_reading()))
+        self.values.get(&self.binding.mode.symbol)
+            == Some(&json!(!self.binding.mode.manual_reading()))
     }
 
     /// The values in force of the parameter record.
