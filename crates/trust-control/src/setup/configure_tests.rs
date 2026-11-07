@@ -292,7 +292,7 @@ fn a_proportional_setup_declares_the_existing_law_its_gain_its_mode_and_its_manu
                 minimum: 0.0,
                 maximum: 25.0,
             }],
-            mode: ModeBinding::boolean("Main.Manual".into(), true),
+            mode: ModeBinding::boolean("Main.Manual", true),
         })
     );
     assert_eq!(

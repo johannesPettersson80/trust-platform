@@ -170,7 +170,10 @@ pub fn pid_loop_definition(
                 &process_variable,
                 &manipulated_variable,
             ),
-            mode: ModeBinding::boolean(draft.mode.symbol.clone(), draft.mode.when_true == ModeWhenTrue::Manual),
+            mode: ModeBinding::boolean(
+                draft.mode.symbol.clone(),
+                draft.mode.when_true == ModeWhenTrue::Manual,
+            ),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),

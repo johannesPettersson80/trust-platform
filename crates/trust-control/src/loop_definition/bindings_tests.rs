@@ -9,12 +9,18 @@ use super::ModeBinding;
 /// file changes (an `auto_value` written for it would change every BOOL loop's revision).
 #[test]
 fn a_mode_binding_keeps_its_file_form() {
-    let enumeration = json!({ "symbol": "PRG_Tank.eMode", "manual_value": "Manual", "auto_value": "Auto" });
-    let decoded: ModeBinding = serde_json::from_value(enumeration.clone()).expect("an enumeration binding decodes");
-    assert_eq!(serde_json::to_value(&decoded).expect("it encodes"), enumeration);
+    let enumeration =
+        json!({ "symbol": "PRG_Tank.eMode", "manual_value": "Manual", "auto_value": "Auto" });
+    let decoded: ModeBinding =
+        serde_json::from_value(enumeration.clone()).expect("an enumeration binding decodes");
+    assert_eq!(
+        serde_json::to_value(&decoded).expect("it encodes"),
+        enumeration
+    );
 
     let boolean = json!({ "symbol": "P1.Manual", "manual_value": true });
-    let decoded: ModeBinding = serde_json::from_value(boolean.clone()).expect("a BOOL binding decodes");
+    let decoded: ModeBinding =
+        serde_json::from_value(boolean.clone()).expect("a BOOL binding decodes");
     assert_eq!(serde_json::to_value(&decoded).expect("it encodes"), boolean);
 }
 

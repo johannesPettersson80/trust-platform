@@ -9,7 +9,8 @@ use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_
 use super::{
     Activation, AuxiliaryRole, ControllerLaw, Direction, Execution, Experiment, ExperimentKind,
     InitialSource, InitialValue, InitializedState, LoopDefinition, LoopRejection, LoopSignal,
-    ParameterBinding, ParameterPurpose, PidInitialization, PostScan, Range, StateType, Topology, ModeValue,
+    ModeValue, ParameterBinding, ParameterPurpose, PidInitialization, PostScan, Range, StateType,
+    Topology,
 };
 
 impl LoopDefinition {

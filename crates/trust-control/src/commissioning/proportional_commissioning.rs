@@ -407,7 +407,8 @@ pub fn stages_manual(
     binding: &TransferBinding,
     observed: &BTreeMap<String, TransferValue>,
 ) -> bool {
-    observed.get(&binding.mode.symbol) != Some(&TransferValue::Boolean(binding.mode.manual_reading()))
+    observed.get(&binding.mode.symbol)
+        != Some(&TransferValue::Boolean(binding.mode.manual_reading()))
 }
 
 /// The transfer that sets the loop to Manual and tracks its held output with the previous reference (`recover` and the first
