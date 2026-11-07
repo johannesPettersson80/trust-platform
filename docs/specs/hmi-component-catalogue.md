@@ -512,9 +512,9 @@ application edits retain their normal editable and undoable document behavior.
 ### Reusing unchanged PLC metadata
 
 The language server may retain at most two pristine driverless compilations, each with at
-most 16 MiB of source text, for HMI checks. A cache key contains the project root plus every
-collected source path and its exact edited text; changed or invalid source must never reuse
-stale metadata. HMI page geometry alone does not invalidate PLC compilation. A compilation
+most 16 MiB of source text, for HMI checks. A cache key contains the project root, its vendor
+profile (specification 14 §6.6.2) and every collected source path and its exact edited text;
+changed or invalid source must never reuse stale metadata. HMI page geometry alone does not invalidate PLC compilation. A compilation
 is borrowed exclusively and returned only if it remained read-only. Any mutable borrow,
 including the existing initial-scan alarm inspection, permanently excludes that runtime from
 reuse. This is an LSP optimization; it changes no deployed runtime or IEC execution behavior.

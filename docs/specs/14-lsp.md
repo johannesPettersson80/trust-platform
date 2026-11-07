@@ -405,6 +405,11 @@ change IEC 61131-3 program semantics.
   returns the deterministic external binding catalogue of process-image and
   control symbols. Its `processImage` lists the numeric plant candidates as `commands`, `feedbacks` and `memory`, and every addressed
   BOOL variable as `booleans`, so that a declared state can name a bit.
+- The catalogue, and every other command that compiles the project (the HMI checks and bundles,
+  page proposals, program edits and rename), compiles it as its build does: under the rules of its
+  `vendor_profile` (§7.6, specification 07 §2.10). A `vendor_profile` that is no profile is refused
+  with its name, as the build refuses it. Control Studio's setup reads this catalogue
+  (specification 35 §0.1a), so a CODESYS project is set up under the CODESYS rules.
 - HMI page validation is specified in `docs/specs/39-hmi-builder.md`.
 
 ##### 6.6.3 URI and virtual-document handling
