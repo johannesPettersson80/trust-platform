@@ -232,19 +232,31 @@ fn live(id: u64, kind: &str, params: Value) -> String {
     json!({"id": id, "type": kind, "params": params}).to_string()
 }
 
-/// Sends `line` to both compositions, replays the host's scans on the device and requires the same
-/// reply; then requires the same `reads`. A one-shot write is overwritten by the program, a force
-/// holds across scans, so a few scans make the effect settle in both before the reads.
+/// Sends `line` to both compositions and requires the same reply; then requires the same `reads`.
+///
+/// The request reaches the host after three scans that the test has not taken yet, as a test
+/// thread that a loaded machine holds back finds them. The device gets the request where the host
+/// did: after replaying the host's scans that started before it, then the scans after it. A
+/// one-shot write is overwritten by the program and a force holds across scans, so three scans
+/// that start after the request make the effect settle in both before the reads. Catches a device
+/// that takes the request before scans that the host ran without it (checklist G62: the device
+/// forced an output in scan 28, which the host ran unforced).
 fn live_request(
     host: &mut HostComposition,
     device: &mut Device,
     line: &str,
     reads: &[(u64, &str)],
 ) {
+    host.wait_for_untaken(3);
+    let requested_at = host.now();
     let host_reply = host.request(line);
-    let device_reply = device.request(line);
-    assert_same_reply(line, &host_reply, &device_reply);
-    device.replay(&host.settle_until(|scans| scans.len() >= 3));
+    let scans =
+        host.settle_until(|scans| scans.iter().filter(|scan| scan.at > requested_at).count() >= 3);
+    let (before, after): (Vec<HostScan>, Vec<HostScan>) =
+        scans.into_iter().partition(|scan| scan.at <= requested_at);
+    device.replay(&before);
+    assert_same_reply(line, &host_reply, &device.request(line));
+    device.replay(&after);
     compare_reads(host, device, reads);
 }
 
