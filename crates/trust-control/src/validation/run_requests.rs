@@ -33,8 +33,9 @@ use crate::validation::engineer_verification_plan::VerificationPlan;
 use crate::validation::gain_schedule_case;
 use crate::validation::group_case;
 use crate::validation::isolated_run_protocol::{
-    IsolatedExecution, IsolatedParameterOverride, IsolatedParameterType, IsolatedRunEvent,
-    IsolatedRunObservation, IsolatedRunRecord, IsolatedRunRequest, IsolatedRunSample, IsolatedModeBinding,
+    IsolatedExecution, IsolatedModeBinding, IsolatedParameterOverride, IsolatedParameterType,
+    IsolatedRunEvent, IsolatedRunObservation, IsolatedRunRecord, IsolatedRunRequest,
+    IsolatedRunSample,
 };
 use crate::validation::on_off_case;
 use crate::validation::search_case::candidate_coefficients;
@@ -128,14 +129,16 @@ pub fn mode_bindings(loop_definition: &LoopDefinition) -> Vec<IsolatedModeBindin
     loop_definition
         .parameter_binding
         .as_ref()
-        .and_then(|binding| match (&binding.mode.manual_value, &binding.mode.auto_value) {
-            (ModeValue::Member(manual), Some(auto)) => Some(IsolatedModeBinding {
-                symbol: binding.mode.symbol.clone(),
-                manual_value: manual.clone(),
-                auto_value: auto.clone(),
-            }),
-            _ => None,
-        })
+        .and_then(
+            |binding| match (&binding.mode.manual_value, &binding.mode.auto_value) {
+                (ModeValue::Member(manual), Some(auto)) => Some(IsolatedModeBinding {
+                    symbol: binding.mode.symbol.clone(),
+                    manual_value: manual.clone(),
+                    auto_value: auto.clone(),
+                }),
+                _ => None,
+            },
+        )
         .into_iter()
         .collect()
 }

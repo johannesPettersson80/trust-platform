@@ -33,7 +33,9 @@ pub(super) fn validate(channels: &[ModeChannel]) -> Result<(), String> {
         if channel.symbol.trim().is_empty()
             || channel.manual_value.trim().is_empty()
             || channel.auto_value.trim().is_empty()
-            || channel.manual_value.eq_ignore_ascii_case(&channel.auto_value)
+            || channel
+                .manual_value
+                .eq_ignore_ascii_case(&channel.auto_value)
             || !symbols.insert(channel.symbol.to_ascii_uppercase())
         {
             return Err(format!(
@@ -101,6 +103,8 @@ pub(super) fn read(
     } else if member.eq_ignore_ascii_case(&channel.auto_value) {
         Ok(0.0)
     } else {
-        Err(format!("mode {symbol} is {member}, neither Manual nor Auto"))
+        Err(format!(
+            "mode {symbol} is {member}, neither Manual nor Auto"
+        ))
     }
 }

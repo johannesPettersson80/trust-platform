@@ -360,7 +360,11 @@ fn execute(
             hold_candidate(&mut program, &input.parameters, &mut started_programs)?;
             let mut readings = Vec::with_capacity(input.settings.observations.len());
             for channel in &input.settings.observations {
-                readings.push(super::mode_channels::read(&mut program, modes, &channel.symbol)?);
+                readings.push(super::mode_channels::read(
+                    &mut program,
+                    modes,
+                    &channel.symbol,
+                )?);
             }
             if let Some(evaluation) = &input.evaluation {
                 let error = program.read(&evaluation.objective.reference_symbol)?
