@@ -572,6 +572,7 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         let facts = control_links::facts(&texts, &instances);
         control_symbols["links"] = json!(facts.links);
         control_symbols["writes"] = json!(facts.writes);
+        control_symbols["startupFlags"] = json!(facts.startup_flags);
     }
     // Dynamic alarm text belongs to the running PLC. Metadata discovery must never execute
     // a scan merely to discover text (including callers outside the visual builder).

@@ -156,7 +156,10 @@ pub fn own_law_loop_definition(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty());
-    let application: Vec<InitializedState> = startup.map(startup_state).into_iter().collect();
+    let application: Vec<InitializedState> = startup
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
+        .into_iter()
+        .collect();
     let controller = own_law_controller(
         draft,
         program,

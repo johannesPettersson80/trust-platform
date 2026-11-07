@@ -478,8 +478,11 @@ fn project_block(shared: &Shared<'_>, point: &SchedulePoint, schedule: &GainSche
         "states": serde_json::to_value(&states).unwrap_or_default(),
     });
     if let Some(flag) = startup_flag(draft) {
-        initialization["applicationStates"] =
-            serde_json::to_value(vec![startup_state(flag)]).unwrap_or_default();
+        initialization["applicationStates"] = serde_json::to_value(vec![startup_state(
+            flag,
+            shared.catalog.startup_done_value(flag),
+        )])
+        .unwrap_or_default();
     }
     json!({
         "family": FAMILY,

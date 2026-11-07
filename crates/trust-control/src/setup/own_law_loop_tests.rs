@@ -212,7 +212,7 @@ fn the_program_pi_is_a_project_controller_whose_seed_names_its_gains() {
             .expect("the application states decode");
     assert_eq!(
         application,
-        vec![startup_state("P1.Started")],
+        vec![startup_state("P1.Started", true)],
         "the startup flag is an application state, which the switch to Auto sets TRUE"
     );
     assert_eq!(
