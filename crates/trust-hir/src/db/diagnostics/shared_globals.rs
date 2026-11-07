@@ -9,6 +9,7 @@ use super::context::{
     expression_context, find_symbol_by_name_range, is_pou_kind, namespace_path_for_symbol,
     normalized_name,
 };
+use crate::access::{access_of, Access};
 
 const MAX_TASKS_IN_MESSAGE: usize = 3;
 const MAX_RELATED_TASKS: usize = 3;
@@ -58,10 +59,14 @@ struct GlobalCandidate {
     name: SmolStr,
 }
 
+/// W012 for the globals that `file_id` declares (specification 28 §6). `written_arguments` gives a
+/// file's argument expressions that its calls bind to output and in-out parameters
+/// (`FileAnalysis::written_arguments`), from which `crate::access` tells a write.
 pub(in crate::db) fn check_shared_global_task_hazards(
     symbols: &SymbolTable,
     project_roots: &[(FileId, SyntaxNode)],
     file_id: FileId,
+    written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
     diagnostics: &mut DiagnosticBuilder,
 ) {
     let (globals_by_key, globals_by_id) = collect_global_candidates(symbols, file_id);
@@ -74,7 +79,8 @@ pub(in crate::db) fn check_shared_global_task_hazards(
         return;
     }
 
-    let program_accesses = collect_program_accesses(symbols, project_roots, &globals_by_key);
+    let program_accesses =
+        collect_program_accesses(symbols, project_roots, &globals_by_key, written_arguments);
     if program_accesses.is_empty() {
         return;
     }
@@ -317,10 +323,18 @@ fn collect_program_accesses(
     symbols: &SymbolTable,
     roots: &[(FileId, SyntaxNode)],
     globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
 ) -> FxHashMap<SymbolId, ProgramAccess> {
     let mut accesses: FxHashMap<SymbolId, ProgramAccess> = FxHashMap::default();
 
     for (file_id, root) in roots {
+        if !root
+            .descendants()
+            .any(|node| node.kind() == SyntaxKind::Program)
+        {
+            continue;
+        }
+        let written = written_arguments(*file_id);
         for program in root
             .descendants()
             .filter(|node| node.kind() == SyntaxKind::Program)
@@ -339,7 +353,7 @@ fn collect_program_accesses(
                 reads: FxHashSet::default(),
                 writes: FxHashSet::default(),
             };
-            collect_pou_accesses(symbols, globals_by_key, &program, &mut access);
+            collect_pou_accesses(symbols, globals_by_key, &program, &written, &mut access);
             if !access.reads.is_empty() || !access.writes.is_empty() {
                 accesses.insert(program_id, access);
             }
@@ -371,6 +385,7 @@ fn collect_pou_accesses(
     symbols: &SymbolTable,
     globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
     pou: &SyntaxNode,
+    written: &FxHashSet<(u32, u32)>,
     access: &mut ProgramAccess,
 ) {
     for node in pou
@@ -385,7 +400,7 @@ fn collect_pou_accesses(
         else {
             continue;
         };
-        access.record(symbol_id, is_write_context(&node));
+        access.record(symbol_id, writes(&node, written));
     }
 
     for node in pou
@@ -406,8 +421,29 @@ fn collect_pou_accesses(
         else {
             continue;
         };
-        access.record(symbol_id, is_write_context(&node));
+        access.record(symbol_id, writes(&node, written));
     }
+
+    // A FOR loop's control variable is a name of the loop's own, which the loop assigns.
+    for node in pou.descendants().filter(|n| {
+        n.kind() == SyntaxKind::Name && n.parent().is_some_and(|p| p.kind() == SyntaxKind::ForStmt)
+    }) {
+        if !belongs_to_pou(&node, pou) {
+            continue;
+        }
+        let scope_id = expression_context(symbols, &node).scope_id;
+        let Some(symbol_id) = resolve_name_ref_global(symbols, globals_by_key, &node, scope_id)
+        else {
+            continue;
+        };
+        access.record(symbol_id, writes(&node, written));
+    }
+}
+
+/// Whether a use writes the global it names (specification 28 §6): it writes it (`crate::access`),
+/// or it calls it, a call of the global instance or of a method of it, which may change it.
+fn writes(node: &SyntaxNode, written: &FxHashSet<(u32, u32)>) -> bool {
+    matches!(access_of(node, written), Access::Write | Access::Call)
 }
 
 fn collect_global_usage(
@@ -608,27 +644,6 @@ fn belongs_to_pou(node: &SyntaxNode, pou: &SyntaxNode) -> bool {
         .find(|ancestor| is_pou_kind(ancestor.kind()))
         .map(|ancestor| ancestor == *pou)
         .unwrap_or(false)
-}
-
-fn is_write_context(expr: &SyntaxNode) -> bool {
-    let mut current = expr.clone();
-    while let Some(parent) = current.parent() {
-        if parent.kind() == SyntaxKind::AssignStmt {
-            if let Some(first_child) = parent.first_child() {
-                return first_child.text_range() == current.text_range();
-            }
-            return false;
-        }
-        if matches!(
-            parent.kind(),
-            SyntaxKind::FieldExpr | SyntaxKind::IndexExpr | SyntaxKind::DerefExpr
-        ) {
-            current = parent;
-            continue;
-        }
-        break;
-    }
-    false
 }
 
 #[cfg(test)]
