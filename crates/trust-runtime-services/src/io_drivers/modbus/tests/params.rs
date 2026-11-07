@@ -351,3 +351,54 @@ fn on_error_reads_as_the_can_driver_reads_it_and_the_ranges_reach_their_ends() {
     let ends = server_with(r#""unit_id":255,"output_start":65535"#).expect("the ends are taken");
     assert_eq!((ends.unit_id, ends.output_start), (255, 65_535));
 }
+
+/// The keys of every refusal of `text`.
+fn refused_keys(text: &str) -> alloc::vec::Vec<alloc::string::String> {
+    ModbusTcpParams::refusals(text)
+        .into_iter()
+        .map(|refusal| refusal.key)
+        .collect()
+}
+
+/// Every key that breaks a rule is refused at once, in the order of the rules, and `from_json`
+/// refuses with the first of them (specification 11 §6.5): an unknown key, an identity that is no
+/// text, port 0, a unit above 255, a timeout of 0, an unknown policy and an unknown output
+/// function. Catches a form that marks only the first broken key, so that each save finds one
+/// more, and a `from_json` whose refusal is not the first of them.
+#[test]
+fn every_broken_key_is_refused_in_the_order_of_the_rules() {
+    let text = r#"{"address":"10.0.0.5:0","speed":1,"product_code":7,"unit_id":256,"timeout_ms":0,"on_error":"explode","output_function":"fc99"}"#;
+    assert_eq!(
+        refused_keys(text),
+        [
+            "speed",
+            "product_code",
+            "address",
+            "unit_id",
+            "timeout_ms",
+            "on_error",
+            "output_function"
+        ]
+    );
+    assert_eq!(
+        ModbusTcpParams::from_json(text),
+        Err(ModbusTcpParams::refusals(text).remove(0))
+    );
+}
+
+/// A list of points needs its function, so a refused function leaves its points unjudged, and a
+/// taken function judges them (specification 11 §6.5). Catches a point refusal made up from a
+/// function that was refused, and points never judged behind a good function.
+#[test]
+fn a_point_list_needs_its_function() {
+    assert_eq!(
+        refused_keys(
+            r#"{"address":"10.0.0.5:502","input_function":"fc99","input_points":[{"bogus":1}]}"#
+        ),
+        ["input_function"]
+    );
+    assert_eq!(
+        refused_keys(r#"{"address":"10.0.0.5:502","input_points":[{"bogus":1}]}"#),
+        ["input_points[0].bogus"]
+    );
+}

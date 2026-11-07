@@ -3,6 +3,7 @@
 //! 34 §5.1.1, section 8) and checked fail-closed, with the key and the reason.
 
 use alloc::format;
+use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt;
 use core::net::SocketAddr;
@@ -12,7 +13,7 @@ use trust_modbus::FunctionCode;
 use super::plan::RawPlan;
 use super::point_map::{self, InputPoint, OutputPoint};
 use super::word;
-use crate::io_drivers::{parse_root, OnError, ParamsError, Table};
+use crate::io_drivers::{kept, parse_root, OnError, ParamsError, Table};
 
 /// The keys of the parameter table.
 const KEYS: [&str; 13] = [
@@ -228,47 +229,24 @@ impl ModbusTcpParams {
     ///
     /// # Errors
     ///
-    /// The first key that breaks a rule, with the reason.
+    /// The first key that breaks a rule, with the reason: the first of
+    /// [`ModbusTcpParams::refusals`].
     pub fn from_json(text: &str) -> Result<Self, ParamsError> {
-        let map = parse_root(text)?;
-        let root = Table::root(&map);
-        root.only(&KEYS, "the modbus-tcp driver")?;
-        for key in EXPECTED_IDENTITY {
-            if root.get(key).is_some_and(|value| !value.is_string()) {
-                return Err(root.refuse(
-                    key,
-                    "must be text, the identity the device is expected to report",
-                ));
-            }
+        let (params, mut refusals) = check(text);
+        match params {
+            Some(params) => Ok(params),
+            None => Err(refusals.remove(0)),
         }
-        let address = address(&root)?;
-        let unit_id = root
-            .integer("unit_id", 0, u8::MAX)?
-            .unwrap_or(DEFAULT_UNIT_ID);
-        let input_start = root.integer("input_start", 0, u16::MAX)?.unwrap_or(0);
-        let output_start = root.integer("output_start", 0, u16::MAX)?.unwrap_or(0);
-        let timeout_ms = root
-            .integer("timeout_ms", 1, u32::MAX)?
-            .unwrap_or(DEFAULT_TIMEOUT_MS);
-        let on_error = on_error(&root)?;
-        let input_function = word(&root, "input_function", &INPUT_WORDS, INPUT_WHAT)?
-            .unwrap_or(InputFunction::InputRegisters);
-        let output_function = word(&root, "output_function", &OUTPUT_WORDS, OUTPUT_WHAT)?
-            .unwrap_or(OutputFunction::MultipleRegisters);
-        let input_points = point_map::points(&root, input_function)?;
-        let output_points = point_map::points(&root, output_function)?;
-        Ok(Self {
-            address,
-            unit_id,
-            input_start,
-            output_start,
-            timeout_ms,
-            on_error,
-            input_function,
-            output_function,
-            input_points,
-            output_points,
-        })
+    }
+
+    /// Every refusal of the JSON text `text` by the rules of [`ModbusTcpParams::from_json`], in
+    /// the order it checks them, so that a form can mark every key that breaks a rule at once
+    /// (specification 11 §6.5). A list of points needs its function, so a refused function leaves
+    /// its points unjudged; each list reports its first refusal. Empty when the parameters are
+    /// taken.
+    #[must_use]
+    pub fn refusals(text: &str) -> Vec<ParamsError> {
+        check(text).1
     }
 
     /// Checks the parameters against an input image of `input_len` bytes and an output image of
@@ -298,6 +276,69 @@ impl ModbusTcpParams {
         }
         Ok(())
     }
+}
+
+/// The parameters of `text` when no rule refuses them, and every refusal, in the order of the
+/// rules ([`ModbusTcpParams::refusals`]).
+fn check(text: &str) -> (Option<ModbusTcpParams>, Vec<ParamsError>) {
+    let map = match parse_root(text) {
+        Ok(map) => map,
+        Err(error) => return (None, vec![error]),
+    };
+    let root = Table::root(&map);
+    let mut refusals = Vec::new();
+    let refused = &mut refusals;
+    kept(root.only(&KEYS, "the modbus-tcp driver"), refused);
+    for key in EXPECTED_IDENTITY {
+        if root.get(key).is_some_and(|value| !value.is_string()) {
+            refused.push(root.refuse(
+                key,
+                "must be text, the identity the device is expected to report",
+            ));
+        }
+    }
+    let address = kept(address(&root), refused);
+    let unit_id =
+        kept(root.integer("unit_id", 0, u8::MAX), refused).map(|id| id.unwrap_or(DEFAULT_UNIT_ID));
+    let input_start =
+        kept(root.integer("input_start", 0, u16::MAX), refused).map(|start| start.unwrap_or(0));
+    let output_start =
+        kept(root.integer("output_start", 0, u16::MAX), refused).map(|start| start.unwrap_or(0));
+    let timeout_ms = kept(root.integer("timeout_ms", 1, u32::MAX), refused)
+        .map(|timeout| timeout.unwrap_or(DEFAULT_TIMEOUT_MS));
+    let on_error = kept(on_error(&root), refused);
+    let input_function = kept(
+        word(&root, "input_function", &INPUT_WORDS, INPUT_WHAT),
+        refused,
+    )
+    .map(|function| function.unwrap_or(InputFunction::InputRegisters));
+    let output_function = kept(
+        word(&root, "output_function", &OUTPUT_WORDS, OUTPUT_WHAT),
+        refused,
+    )
+    .map(|function| function.unwrap_or(OutputFunction::MultipleRegisters));
+    let input_points =
+        input_function.and_then(|function| kept(point_map::points(&root, function), refused));
+    let output_points =
+        output_function.and_then(|function| kept(point_map::points(&root, function), refused));
+    if !refusals.is_empty() {
+        return (None, refusals);
+    }
+    let params = (|| {
+        Some(ModbusTcpParams {
+            address: address?,
+            unit_id: unit_id?,
+            input_start: input_start?,
+            output_start: output_start?,
+            timeout_ms: timeout_ms?,
+            on_error: on_error?,
+            input_function: input_function?,
+            output_function: output_function?,
+            input_points: input_points?,
+            output_points: output_points?,
+        })
+    })();
+    (params, refusals)
 }
 
 /// `address`: an IPv4 address and a port, such as `192.168.1.10:502`, or an IPv6 address in
