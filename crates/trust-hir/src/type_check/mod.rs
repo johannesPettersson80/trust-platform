@@ -255,6 +255,19 @@ fn first_expression_child(node: &SyntaxNode) -> Option<SyntaxNode> {
         .find(|child| is_expression_kind(child.kind()))
 }
 
+/// Whether `node`, inside any parentheses, is an `ADR(...)` call. `ADR` is a keyword, so the call
+/// is always the address-of operator: no user POU can take its name.
+fn is_explicit_adr(node: &SyntaxNode) -> bool {
+    let mut node = node.clone();
+    while node.kind() == SyntaxKind::ParenExpr {
+        match node.children().next() {
+            Some(inner) => node = inner,
+            None => return false,
+        }
+    }
+    node.kind() == SyntaxKind::AddrExpr
+}
+
 fn last_expression_child(node: &SyntaxNode) -> Option<SyntaxNode> {
     node.children()
         .filter(|child| is_expression_kind(child.kind()))

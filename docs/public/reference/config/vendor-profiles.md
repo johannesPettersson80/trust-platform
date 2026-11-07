@@ -43,6 +43,16 @@ rules conflict with IEC 61131-3 (`docs/IEC_DEVIATIONS.md`, DEV-024 to DEV-026); 
 A `vendor_profile` that is not listed above stops these tools from running the project,
 and the language server reports `C006` in `trust-lsp.toml`.
 
+## Pointer bindings
+
+Under `codesys`, `beckhoff` and `twincat`, a pointer whose target differs from the formal's or the
+variable's only as CODESYS allows binds: `POINTER TO CHAR` and `POINTER TO BYTE` either way, and a
+string's address against a `POINTER TO BYTE` or a `POINTER TO ARRAY[i..j] OF BYTE`. When the source
+is an explicit `ADR(...)`, such as `MemCopy(pSource := ADR(sPayload))`, the binding is silent, as
+CODESYS compiles it. Any other source, such as a pointer variable, gives the warning `E205` for an
+argument or `E203` for an assignment. The other profiles report these bindings as errors
+(`docs/IEC_DEVIATIONS.md`, DEV-039).
+
 ## Switching profiles safely
 
 1. change `vendor_profile`
