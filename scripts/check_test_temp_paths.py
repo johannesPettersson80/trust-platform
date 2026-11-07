@@ -8,8 +8,8 @@ from `trust_test_support::unique_temp_path`, which puts the process id and a cou
 
 - test code is a file in a `tests` directory, a `tests.rs`, a `*_tests.rs` or a `*_test.rs`, and the items of any
   other file that `#[cfg(test)]` or `#[cfg(all(test, ...))]` gates;
-- a call that names a product's own path rather than a test's carries the comment `// product temp path` on its line
-  or on the line before.
+- a call that must take the temporary directory itself carries the comment `// temp-root-ok: <why>` on its line or on
+  the line before: a product's own path, or a socket path that the 100-byte socket budget keeps short.
 
 Usage: check_test_temp_paths.py [ROOT]
 """
@@ -20,7 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-MARKER = "// product temp path"
+MARKER = "temp-root-ok:"
 HELPER_CRATE = "crates/trust-test-support/"
 SCANNED = ("crates", "xtask")
 # Crates whose tests still take temporary paths of their own: checklist G72 converts them part by part, and
@@ -151,7 +151,7 @@ def main(argv: list[str]) -> int:
                 failures.append(f"{relative}:{number}: {line}")
     if failures:
         print("Test code takes its temporary paths from trust_test_support::unique_temp_path "
-              "(specification 22); mark a product's own path with `// product temp path`:")
+              "(specification 22), or say why a call takes the temporary directory itself with `// temp-root-ok: <why>`:")
         print("\n".join(failures))
         return 1
     print("every test's temporary path is its own")
