@@ -42,7 +42,7 @@ const ANSWER_SELF: &str = r#"{"api_version":"1.0","runtime_id":"rt-self-mesh","s
 const MESH_WARNING: &str =
     "Runtime found through the mesh without a control endpoint; adopt may require manual endpoint entry.";
 
-/// A free loopback TCP port for a Zenoh endpoint.
+/// A free loopback TCP port for a Zenoh endpoint, when it is chosen.
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .expect("bind a loopback port")
@@ -51,9 +51,24 @@ fn free_port() -> u16 {
         .port()
 }
 
-/// A Zenoh peer that listens on `port` and connects to the peers in `connect`. Multicast scouting
-/// is off, so the test sessions see only each other.
-fn open_peer(port: u16, connect: &[u16]) -> Session {
+/// A Zenoh peer on a free loopback port that connects to the peers listening on `connect`, and
+/// its port. Multicast scouting is off, so the test sessions see only each other. Another test can
+/// take a port between its choice and Zenoh's bind ("Address already in use"), so the peer tries
+/// another port, ten times at most.
+fn open_peer(connect: &[u16]) -> (Session, u16) {
+    let mut refused = None;
+    for _ in 0..10 {
+        let port = free_port();
+        match zenoh::open(peer_config(port, connect)).wait() {
+            Ok(session) => return (session, port),
+            Err(error) => refused = Some(error),
+        }
+    }
+    panic!("open a Zenoh session: {refused:?}");
+}
+
+/// The configuration of a peer that listens on `port` and connects to the peers in `connect`.
+fn peer_config(port: u16, connect: &[u16]) -> Config {
     let mut config = Config::default();
     config.insert_json5("mode", "\"peer\"").expect("peer mode");
     config
@@ -72,7 +87,7 @@ fn open_peer(port: u16, connect: &[u16]) -> Session {
     config
         .insert_json5("scouting/multicast/enabled", "false")
         .expect("multicast scouting off");
-    zenoh::open(config).wait().expect("open a Zenoh session")
+    config
 }
 
 /// Declares the identity queryable of `runtime_id` on `session`, which answers `answer`.
@@ -166,14 +181,13 @@ fn device_of<'a>(status: &'a SearchStatus, runtime_id: &str) -> Option<&'a Found
 /// an answer dropped for lacking the optional fields, or a warning for a silent peer.
 #[test]
 fn mesh_peers_answer_their_identity_query() {
-    let search_port = free_port();
-    let searcher = open_peer(search_port, &[]);
-    let peer_a = open_peer(free_port(), &[search_port]);
+    let (searcher, search_port) = open_peer(&[]);
+    let (peer_a, _) = open_peer(&[search_port]);
     answer_identity(&peer_a, "peer-a", ANSWER_A);
-    let peer_b = open_peer(free_port(), &[search_port]);
+    let (peer_b, _) = open_peer(&[search_port]);
     answer_identity(&peer_b, "peer-b", ANSWER_B);
     // Peer C is a mesh peer that never answers: it declares no identity queryable.
-    let _peer_c = open_peer(free_port(), &[search_port]);
+    let (_peer_c, _) = open_peer(&[search_port]);
     let mesh = MeshTopologyEvidence::for_test_with_session(
         searcher.clone(),
         &["peer-a", "peer-b", "peer-c"],
@@ -236,9 +250,8 @@ fn mesh_peers_answer_their_identity_query() {
 /// search that publishes to a peer to probe it.
 #[test]
 fn mesh_peers_are_only_queried_never_written() {
-    let search_port = free_port();
-    let searcher = open_peer(search_port, &[]);
-    let peer_a = open_peer(free_port(), &[search_port]);
+    let (searcher, search_port) = open_peer(&[]);
+    let (peer_a, _) = open_peer(&[search_port]);
     answer_identity(&peer_a, "peer-a", ANSWER_A);
     let writes = record_writes(&peer_a);
     let mesh = MeshTopologyEvidence::for_test_with_session(searcher.clone(), &["peer-a"]);
@@ -265,9 +278,8 @@ fn mesh_peers_are_only_queried_never_written() {
 /// find and its control endpoint. Wrong behaviour: the mesh answer overwrites the mDNS find.
 #[test]
 fn mesh_find_joins_the_mdns_find_of_its_runtime_id() {
-    let search_port = free_port();
-    let searcher = open_peer(search_port, &[]);
-    let peer_a = open_peer(free_port(), &[search_port]);
+    let (searcher, search_port) = open_peer(&[]);
+    let (peer_a, _) = open_peer(&[search_port]);
     answer_identity(&peer_a, "peer-a", ANSWER_A);
     let discovery = Arc::new(DiscoveryState::new());
     discovery.replace_entries(vec![DiscoveryEntry {
@@ -320,9 +332,8 @@ fn mesh_find_joins_the_mdns_find_of_its_runtime_id() {
 /// mesh name, which makes a second device, or named by the stable ID.
 #[test]
 fn bundled_runtime_mesh_find_merges_with_its_mdns_find() {
-    let search_port = free_port();
-    let searcher = open_peer(search_port, &[]);
-    let line_a = open_peer(free_port(), &[search_port]);
+    let (searcher, search_port) = open_peer(&[]);
+    let (line_a, _) = open_peer(&[search_port]);
     answer_identity(&line_a, "line-a", ANSWER_LINE_A);
     let discovery = Arc::new(DiscoveryState::new());
     discovery.replace_entries(vec![DiscoveryEntry {
@@ -381,9 +392,8 @@ fn bundled_runtime_mesh_find_merges_with_its_mdns_find() {
 /// empty name or by a derived ID.
 #[test]
 fn mesh_answer_without_a_stable_id_is_named_by_its_mesh_name() {
-    let search_port = free_port();
-    let searcher = open_peer(search_port, &[]);
-    let ring = open_peer(free_port(), &[search_port]);
+    let (searcher, search_port) = open_peer(&[]);
+    let (ring, _) = open_peer(&[search_port]);
     answer_identity(&ring, "ring-7", ANSWER_RING_7);
     let mesh = MeshTopologyEvidence::for_test_with_session(searcher.clone(), &["ring-7"]);
     let (registry, search_id) =
@@ -417,11 +427,10 @@ fn mesh_answer_without_a_stable_id_is_named_by_its_mesh_name() {
 /// Wrong behaviour: the runtime finds itself through its own mesh session.
 #[test]
 fn mesh_answer_of_the_runtime_itself_is_left_out() {
-    let search_port = free_port();
-    let searcher = open_peer(search_port, &[]);
-    let itself = open_peer(free_port(), &[search_port]);
+    let (searcher, search_port) = open_peer(&[]);
+    let (itself, _) = open_peer(&[search_port]);
     answer_identity(&itself, "rt-self-mesh", ANSWER_SELF);
-    let peer_x = open_peer(free_port(), &[search_port]);
+    let (peer_x, _) = open_peer(&[search_port]);
     answer_identity(&peer_x, "peer-x", ANSWER_X);
     let mesh =
         MeshTopologyEvidence::for_test_with_session(searcher.clone(), &["rt-self-mesh", "peer-x"]);
