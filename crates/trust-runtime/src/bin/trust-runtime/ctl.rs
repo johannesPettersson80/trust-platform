@@ -486,7 +486,11 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 );
             }
         }
-        ControlAction::BreakpointsSet { .. } | ControlAction::BreakpointsList => {
+        ControlAction::BreakpointsSet { .. }
+        | ControlAction::BreakpointsList
+        | ControlAction::Location
+        | ControlAction::Stack
+        | ControlAction::Scopes { .. } => {
             let mut response = response.clone();
             if let Some(result) = response.get_mut("result") {
                 one_based_positions(result);
@@ -551,6 +555,20 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         ControlAction::BreakpointsList => {
             json!({"id": 1, "type": "breakpoints.list", "auth": auth})
         }
+        ControlAction::Location => json!({"id": 1, "type": "debug.state", "auth": auth}),
+        ControlAction::Stack => json!({"id": 1, "type": "debug.stack", "auth": auth}),
+        ControlAction::Scopes { frame_id } => json!({
+            "id": 1,
+            "type": "debug.scopes",
+            "auth": auth,
+            "params": { "frame_id": frame_id }
+        }),
+        ControlAction::Variables { reference } => json!({
+            "id": 1,
+            "type": "debug.variables",
+            "auth": auth,
+            "params": { "variables_reference": reference }
+        }),
         ControlAction::IoRead => json!({"id": 1, "type": "io.read", "auth": auth}),
         ControlAction::IoWrite { address, value } => json!({
             "id": 1,
@@ -733,6 +751,32 @@ mod tests {
             (
                 ControlAction::BreakpointsList,
                 json!({"id": 1, "type": "breakpoints.list", "auth": "token"}),
+            ),
+            (
+                ControlAction::Location,
+                json!({"id": 1, "type": "debug.state", "auth": "token"}),
+            ),
+            (
+                ControlAction::Stack,
+                json!({"id": 1, "type": "debug.stack", "auth": "token"}),
+            ),
+            (
+                ControlAction::Scopes { frame_id: 2 },
+                json!({
+                    "id": 1,
+                    "type": "debug.scopes",
+                    "auth": "token",
+                    "params": { "frame_id": 2 }
+                }),
+            ),
+            (
+                ControlAction::Variables { reference: 7 },
+                json!({
+                    "id": 1,
+                    "type": "debug.variables",
+                    "auth": "token",
+                    "params": { "variables_reference": 7 }
+                }),
             ),
             (
                 ControlAction::IoRead,

@@ -28,6 +28,16 @@ pub enum ControlAction {
     },
     /// List the breakpoints, with one-based lines and columns.
     BreakpointsList,
+    /// Where the program is held: the reason, and the file, line and column of the stop, the line
+    /// and column counted from 1.
+    Location,
+    /// The call stack of the held program, its frames' lines and columns counted from 1.
+    Stack,
+    /// The scopes of a frame of the stack, by the frame's id that `stack` prints.
+    Scopes { frame_id: u32 },
+    /// The variables of a scope or of a structured variable, by the reference that `scopes` or
+    /// `variables` prints.
+    Variables { reference: u32 },
     IoRead,
     IoWrite {
         address: String,

@@ -3398,6 +3398,13 @@ higher. The console's `break <file>:<line>` takes its line the same way and
 refuses a line that is no number from 1, and `breaks` lists each breakpoint's
 file and its line counted from 1.
 
+`ctl` reads a held program with four more actions, each one request of the
+debug table (section 6.13.3): `location` sends `debug.state`, `stack` sends
+`debug.stack`, `scopes <frame-id>` sends `debug.scopes` with `frame_id`, and
+`variables <reference>` sends `debug.variables` with `variables_reference`.
+The replies of `location`, `stack` and `scopes` are printed with their lines
+and columns counted from 1, as the breakpoint replies are.
+
 `--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
 endpoint on another host, such as a chip's control connection over its network (specification 34
 ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial

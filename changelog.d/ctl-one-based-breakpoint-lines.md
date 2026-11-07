@@ -1,3 +1,9 @@
+### Added
+
+- `trust-runtime ctl location`, `stack`, `scopes <frame-id>` and `variables <reference>` read a held
+  program: where it stopped, its call stack, a frame's scopes and a scope's variables, with lines and
+  columns counted from 1.
+
 ### Changed
 
 - `trust-runtime ctl breakpoints-set` takes one-based lines, as an editor shows them, and
