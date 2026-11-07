@@ -562,6 +562,7 @@ impl FakeRecording {
                     symbol: binding.symbol.clone(),
                     iec_type: binding.iec_type.clone(),
                     unit: None,
+                    mode: None,
                 })
                 .collect(),
             stop_reason: StopReason::Stopped,

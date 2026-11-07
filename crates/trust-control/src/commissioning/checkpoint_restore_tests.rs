@@ -779,6 +779,7 @@ fn a_recording_the_runtime_no_longer_holds_is_kept_as_incomplete_evidence() {
             address: Some("%IL0".to_owned()),
             symbol: None,
             iec_type: "LREAL".to_owned(),
+            mode: None,
         }],
     };
     let identity = retained_recording_request(&owner);

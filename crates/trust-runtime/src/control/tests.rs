@@ -65,6 +65,7 @@ include!("tests/control_studio_search.rs");
 
 include!("tests/control_studio_symbolic_acquisition.rs");
 include!("tests/control_studio_signal_paths.rs");
+include!("tests/control_studio_enum_mode_signals.rs");
 include!("tests/control_studio_experiment_symbol.rs");
 
 #[cfg(target_os = "linux")]

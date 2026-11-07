@@ -174,18 +174,21 @@ fn a_test_recording_is_recovered_only_with_its_exact_reviewed_plan_and_recording
                     address: Some("%ML0".to_string()),
                     symbol: None,
                     iec_type: "LREAL".to_string(),
+                    mode: None,
                 },
                 RecordingRecoveryBinding {
                     id: "processVariable".to_string(),
                     address: Some("%IL0".to_string()),
                     symbol: None,
                     iec_type: "LREAL".to_string(),
+                    mode: None,
                 },
                 RecordingRecoveryBinding {
                     id: "manipulatedVariable".to_string(),
                     address: Some("%QL0".to_string()),
                     symbol: None,
                     iec_type: "LREAL".to_string(),
+                    mode: None,
                 },
             ],
         })
@@ -310,6 +313,7 @@ fn a_recording_owner_is_recovered_only_for_the_loop_it_was_journaled_for() {
             address: Some("%ML0".into()),
             symbol: None,
             iec_type: "LREAL".into(),
+            mode: None,
         }],
     };
     assert!(check_recording_owner_scope(&owner, &loop_definition).is_ok());
@@ -368,6 +372,7 @@ fn a_stored_test_recovery_restores_its_plan_and_its_recording_together() {
             address: Some("%IL0".to_string()),
             symbol: None,
             iec_type: "LREAL".to_string(),
+            mode: None,
         }],
     };
     let stored = ControlExperimentRecovery {

@@ -17,6 +17,35 @@ pub struct SignalBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
     pub iec_type: String,
+    /// The members of an enumeration mode signal that mean Manual and Auto (protocol annex E3,
+    /// E4; specification 35 A6.1): the channel reads 1 in Manual and 0 in Auto, as a BOOL mode
+    /// reads, and has no usable value in another member.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<SignalMode>,
+}
+/// The Manual and Auto members of an enumeration mode signal.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SignalMode {
+    pub manual_value: String,
+    pub auto_value: String,
+}
+impl SignalMode {
+    /// The channel's reading of `value`: 1 in the Manual member, 0 in the Auto member, and none
+    /// in another member or for a value that is no enumeration.
+    fn reading(&self, value: &Value) -> Option<f64> {
+        let Value::Enum(enumeration) = value else {
+            return None;
+        };
+        let member = enumeration.variant_name();
+        if member.eq_ignore_ascii_case(&self.manual_value) {
+            Some(1.0)
+        } else if member.eq_ignore_ascii_case(&self.auto_value) {
+            Some(0.0)
+        } else {
+            None
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub(super) enum Target {
@@ -111,6 +140,9 @@ pub(super) fn resolve_bindings(
             return Err("signal IDs must be bounded and unique".into());
         }
         let target = match (&binding.address, &binding.symbol) {
+            (Some(_), None) if binding.mode.is_some() => {
+                return Err("a mode channel names its enumeration by its symbol".into());
+            }
             (Some(address), None) => {
                 let address = IoAddress::parse(address).map_err(|e| e.to_string())?;
                 if address.wildcard
@@ -139,7 +171,9 @@ pub(super) fn resolve_bindings(
                     return Err("duplicate symbolic target".into());
                 }
                 selectors.push(resolved.at);
-                if numeric(&resolved.value).is_none()
+                if let Some(mode) = &binding.mode {
+                    check_mode_channel(binding, mode, &resolved.value, program)?;
+                } else if numeric(&resolved.value).is_none()
                     || !of_declared_type(&resolved.value, &binding.iec_type)
                 {
                     return Err("symbolic signal type mismatch".into());
@@ -154,6 +188,37 @@ pub(super) fn resolve_bindings(
         targets.push(target);
     }
     Ok(targets)
+}
+/// Checks a mode channel at its selection: a BOOL reading of an enumeration whose type has both
+/// named members, and they differ.
+fn check_mode_channel(
+    binding: &SignalBinding,
+    mode: &SignalMode,
+    value: &Value,
+    program: Option<&dyn ProgramRead>,
+) -> Result<(), String> {
+    let refused = || {
+        format!(
+            "mode channel {}: an enumeration read as BOOL with two of its members",
+            binding.id
+        )
+    };
+    let Value::Enum(enumeration) = value else {
+        return Err(refused());
+    };
+    let image = program.ok_or("current symbolic storage unavailable")?.program_image();
+    let known = |member: &str| {
+        trust_runtime_core::native::memory::enum_value(&image, enumeration.type_name(), member)
+            .is_some()
+    };
+    if !binding.iec_type.eq_ignore_ascii_case("BOOL")
+        || mode.manual_value.eq_ignore_ascii_case(&mode.auto_value)
+        || !known(&mode.manual_value)
+        || !known(&mode.auto_value)
+    {
+        return Err(refused());
+    }
+    Ok(())
 }
 /// The values of `targets` in one scan: an address from its I/O snapshot, a variable from
 /// `program`, the program as the scan left it, whose forces `forces` holds with the program
@@ -210,7 +275,11 @@ pub(super) fn capture_values(
         let (number, quality) = match value {
             None => (None, Quality::Missing),
             Some(value) => {
-                match numeric(&value).filter(|_| of_declared_type(&value, &binding.iec_type)) {
+                let number = match &binding.mode {
+                    Some(mode) => mode.reading(&value),
+                    None => numeric(&value).filter(|_| of_declared_type(&value, &binding.iec_type)),
+                };
+                match number {
                     Some(number) => (
                         Some(number),
                         if forced {

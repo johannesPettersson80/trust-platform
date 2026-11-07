@@ -41,6 +41,7 @@ fn address(id: &str, address: &str, iec_type: &str) -> RecordingRecoveryBinding 
         address: Some(address.into()),
         symbol: None,
         iec_type: iec_type.into(),
+        mode: None,
     }
 }
 
@@ -50,6 +51,7 @@ fn symbol(id: &str, symbol: &str, iec_type: &str) -> RecordingRecoveryBinding {
         address: None,
         symbol: Some(symbol.into()),
         iec_type: iec_type.into(),
+        mode: None,
     }
 }
 
