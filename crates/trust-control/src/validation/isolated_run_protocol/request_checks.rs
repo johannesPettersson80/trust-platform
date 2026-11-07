@@ -47,6 +47,30 @@ const MAXIMUM_SIMULATION_TOML_BYTES: usize = 262_144;
 ///
 /// # Errors
 /// A limit or rule is broken; the failure names the field and the values involved.
+/// The most enumeration mode signals one run translates (E8.3): the loop's own and its further controllers'.
+const MAXIMUM_MODE_BINDINGS: usize = 9;
+
+/// The run's enumeration mode signals (E8.3): at most nine, each symbol once, without regard to case, each with two different
+/// members, none of them blank.
+fn check_mode_bindings(request: &IsolatedRunRequest) -> Result<(), Failure> {
+    let mut symbols = std::collections::BTreeSet::new();
+    let valid = request.mode_bindings.len() <= MAXIMUM_MODE_BINDINGS
+        && request.mode_bindings.iter().all(|binding| {
+            !binding.symbol.trim().is_empty()
+                && !binding.manual_value.trim().is_empty()
+                && !binding.auto_value.trim().is_empty()
+                && !binding.manual_value.eq_ignore_ascii_case(&binding.auto_value)
+                && symbols.insert(binding.symbol.to_uppercase())
+        });
+    if valid {
+        Ok(())
+    } else {
+        Err(refuse_request(
+            "The run's enumeration mode signals are at most nine, each named once, with two different members.",
+        ))
+    }
+}
+
 pub(super) fn check_request(request: &IsolatedRunRequest) -> Result<(), Failure> {
     check_request_id(&request.request_id)?;
     if request.expected_project_revision.is_empty() {
@@ -60,6 +84,7 @@ pub(super) fn check_request(request: &IsolatedRunRequest) -> Result<(), Failure>
     let parameters = parameter_symbols(&request.parameter_overrides);
     check_initial_values(&request.initial_values, &parameters)?;
     check_events(request, &parameters)?;
+    check_mode_bindings(request)?;
     if let Some(relay) = &request.feedback_relay {
         check_feedback_relay(request, relay, &parameters)?;
     }

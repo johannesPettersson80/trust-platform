@@ -150,6 +150,44 @@ impl IsolatedProgram {
             .map_err(|error| format!("{symbol}: {error}"))
     }
 
+    /// The name of the member of the enumeration `symbol` holds, as its type declares it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::value`], and a value that is no enumeration's.
+    pub(super) fn member(&mut self, symbol: &str) -> Result<String, String> {
+        match self.value(symbol)? {
+            Value::Enum(value) => Ok(value.variant_name().to_string()),
+            _ => Err(format!("{symbol} is no enumeration")),
+        }
+    }
+
+    /// Writes the member `member` of the enumeration `symbol` holds, a mode signal's Manual or Auto
+    /// member (protocol annex E8.3). A mode signal has no process-image address (E6.2).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::member`], a name its type lacks, and a write the program refuses.
+    pub(super) fn assign_member(&mut self, symbol: &str, member: &str) -> Result<(), String> {
+        let place = self.place(symbol)?;
+        let Value::Enum(current) = self.value(symbol)? else {
+            return Err(format!("{symbol} is no enumeration"));
+        };
+        let value = self
+            .runtime
+            .with_program_view(|program| {
+                trust_runtime_core::native::memory::enum_value(
+                    &program.program_image(),
+                    current.type_name(),
+                    member,
+                )
+            })
+            .ok_or_else(|| format!("{member} is not a value of {}", current.type_name()))?;
+        self.runtime
+            .with_program(|program| program.write_at(&place, &value))
+            .map_err(|_| format!("cannot assign scalar binding {symbol}"))
+    }
+
     /// The finite number `symbol` holds (a BOOL reads as 0 or 1).
     ///
     /// # Errors
