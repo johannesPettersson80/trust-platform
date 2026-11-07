@@ -348,8 +348,9 @@ fn save_writes_to_the_runtime_chosen_in_the_form() {
 #[test]
 fn validate_reports_field_errors_without_writing() {
     // Design §3.3 I7: the runtime's own `comm.apply` `validate` replaces the panel's client-side
-    // check (specification 25 §5.9); a refused field is a field error of that field and nothing is
-    // written. A wrong implementation reports success, or writes the io.toml.
+    // check (specification 25 §5.9); a refused field is a field error of that field, in the words of
+    // the driver's own rule (specification 11 §6.5), and nothing is written. A wrong implementation
+    // reports success, or writes the io.toml.
     let project = TempFolder::new("validate");
     let (mut panel, _view) = seen(Some(configured_topology(false)), Vec::new());
     let session = panel.session("dc-test", Instant::now());
@@ -377,7 +378,8 @@ fn validate_reports_field_errors_without_writing() {
             .map(|notice| notice.field_errors.clone()),
         Some(vec![FieldError {
             field: "address".to_owned(),
-            message: "Use an IP address and port, for example 127.0.0.1:502.".to_owned(),
+            message: "address: must be an IPv4 address with a port from 1 to 65535, such as \"192.168.1.10:502\", not \"not-an-address\""
+                .to_owned(),
         }])
     );
     assert!(
