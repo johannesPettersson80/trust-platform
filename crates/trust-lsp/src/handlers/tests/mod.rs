@@ -48,12 +48,21 @@ fn inlay_label_contains(label: &tower_lsp::lsp_types::InlayHintLabel, needle: &s
     }
 }
 
+/// A new directory for one test: the process and a counter make it this test's alone, since tests
+/// run at once in one process and in several, where a clock stamp alone gave two of them one
+/// directory; the stamp keeps it apart from one that an earlier run with the same process id
+/// left.
 fn temp_dir(prefix: &str) -> PathBuf {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_millis();
-    let dir = std::env::temp_dir().join(format!("{prefix}-{stamp}"));
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!(
+        "{prefix}-{}-{}-{stamp}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     dir
 }
