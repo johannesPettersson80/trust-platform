@@ -21,6 +21,7 @@
 
 pub mod call_hierarchy;
 pub mod completion;
+pub mod cross_references;
 pub mod diagnostics;
 pub mod goto_def;
 pub mod hover;

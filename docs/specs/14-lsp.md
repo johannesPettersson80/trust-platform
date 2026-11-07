@@ -313,7 +313,17 @@ contract, including when a newer document or workspace request supersedes it.
   §3), so find references, rename and the call hierarchy's incoming calls agree with go to
   definition.
 - Include/exclude declaration
-- Filter by read/write
+- Each reference has its access, by the one rule of specification 28 §6 (`trust_hir::access`): a
+  write (an assignment's or a FOR loop's target, an argument that a call binds to an output or
+  in-out parameter), a call (a call's callee, or the instance whose body or method a call runs) or
+  a read. Document highlights mark the writes as writes and the rest as reads.
+- The `trust-lsp.crossReferences` command gives a symbol's cross-reference list, as CODESYS's
+  cross-reference list does, for a client without an editor as for one with it. Its argument is
+  the position, `{ "uri": ..., "position": { "line": ..., "character": ... } }`. Its answer names
+  the symbol and lists the declaration and every reference: `uri`, `range`, `access` (`declaration`,
+  `read`, `write` or `call`) and `pou`, the qualified name of the POU, method or action the
+  reference sits in (`FB_Tank.Start`), or null outside one. The entries are ordered by file and
+  offset. A position on no symbol answers null.
 
 ##### 6.3.3 Document Symbols
 

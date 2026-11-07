@@ -34,6 +34,7 @@ mod control_keep;
 mod control_links;
 #[path = "commands/control_symbols.rs"]
 mod control_symbols;
+mod cross_references;
 mod hmi_agent;
 #[path = "commands/hmi_authoring/mod.rs"]
 pub(crate) mod hmi_authoring;
@@ -91,6 +92,8 @@ mod hmi_builder;
 pub use hmi_builder::HMI_BUILDER_COMMANDS;
 
 pub const MOVE_NAMESPACE_COMMAND: &str = "trust-lsp.moveNamespace";
+/// The cross-reference list of the symbol at a position (specification 14 §6.3.2).
+pub const CROSS_REFERENCES_COMMAND: &str = "trust-lsp.crossReferences";
 pub const PROJECT_INFO_COMMAND: &str = "trust-lsp.projectInfo";
 pub const HMI_BINDINGS_COMMAND: &str = "trust-lsp.hmiBindings";
 pub const HMI_FILE_PARSE_COMMAND: &str = "trust-lsp.hmiFileParse";
@@ -164,6 +167,7 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     "trust-lsp.hmiAgent.admitSimulatorLogin",
     HMI_AGENT_RUN_JOURNEY_COMMAND,
     "trust-lsp.hmiAgent.cancelSimulatorJourney",
+    CROSS_REFERENCES_COMMAND,
 ];
 
 #[derive(Debug, Deserialize)]
@@ -227,6 +231,7 @@ pub async fn execute_command(
 pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -> Option<Value> {
     match params.command.as_str() {
         PROJECT_INFO_COMMAND => project_info_value(state, params.arguments),
+        CROSS_REFERENCES_COMMAND => cross_references::value(state, params.arguments),
         HMI_BINDINGS_COMMAND => hmi_bindings_value(state, params.arguments),
         HMI_FILE_PARSE_COMMAND => Some(hmi_files::parse_value(params.arguments)),
         HMI_CATALOGUE_COMMAND => Some(hmi_catalogue::catalogue_value(params.arguments)),

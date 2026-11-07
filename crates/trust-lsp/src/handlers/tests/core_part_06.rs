@@ -313,6 +313,59 @@ END_PROGRAM
     assert!(highlights.len() >= 3);
 }
 
+/// Specification 14 §6.3.2: document highlights mark a variable's writes by the rule of
+/// specification 28 §6. An assignment's target, an in-out argument and an output binding (`=>`)
+/// are writes; an index and an assignment's value are reads. Catches highlights that knew only the
+/// targets of `:=`.
+#[test]
+pub(super) fn lsp_document_highlight_marks_outputs_and_in_outs_as_writes() {
+    let source = "FUNCTION Bump : BOOL\nVAR_IN_OUT\n    v : INT;\nEND_VAR\nv := v + 1;\nBump := TRUE;\nEND_FUNCTION\n\nPROGRAM Test\nVAR\n    t : TON;\n    level : INT;\n    done : BOOL;\n    table : ARRAY[0..3] OF INT;\n    ok : BOOL;\nEND_VAR\nlevel := 1;\nok := Bump(level);\nt(IN := ok, PT := T#1s, Q => done);\ntable[level] := 0;\nok := done;\nEND_PROGRAM\n";
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///highlights.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let body_highlights = |at: &str| {
+        let params = tower_lsp::lsp_types::DocumentHighlightParams {
+            text_document_position_params: tower_lsp::lsp_types::TextDocumentPositionParams {
+                text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri: uri.clone() },
+                position: position_at(source, at),
+            },
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        };
+        let mut found: Vec<(
+            u32,
+            u32,
+            Option<tower_lsp::lsp_types::DocumentHighlightKind>,
+        )> = document_highlight(&state, params)
+            .expect("document highlights")
+            .into_iter()
+            .filter(|highlight| highlight.range.start.line >= 16)
+            .map(|highlight| {
+                (
+                    highlight.range.start.line,
+                    highlight.range.start.character,
+                    highlight.kind,
+                )
+            })
+            .collect();
+        found.sort_by_key(|(line, character, _)| (*line, *character));
+        found
+    };
+    use tower_lsp::lsp_types::DocumentHighlightKind as Kind;
+    assert_eq!(
+        body_highlights("level := 1"),
+        [
+            (16, 0, Some(Kind::WRITE)),
+            (17, 11, Some(Kind::WRITE)),
+            (19, 6, Some(Kind::READ))
+        ]
+    );
+    assert_eq!(
+        body_highlights("done);"),
+        [(18, 29, Some(Kind::WRITE)), (20, 6, Some(Kind::READ))]
+    );
+}
+
 #[test]
 pub(super) fn lsp_semantic_tokens_delta() {
     let source = r#"
