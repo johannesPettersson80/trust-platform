@@ -20,7 +20,7 @@ use crate::tuning::cascade_candidate::{cascade_outer_gains, served_cascade};
 use crate::tuning::project_candidate::{
     served_feedforward, served_smith, served_trajectory, ProjectCandidate,
 };
-use crate::tuning::project_seed::{ParallelPidSeed, SmithTerms};
+use crate::tuning::project_seed::{GainForm, ParallelPidSeed, SmithTerms};
 
 /// A program's own law that this engine serves (C2): its controller block and the seed that names its gain variables.
 #[derive(Debug, Clone, Copy)]
@@ -134,15 +134,42 @@ pub fn has_pid_terms(seed: &ParallelPidSeed) -> bool {
 }
 
 /// The gain variables of a loop's law, by term. The proportional variable is always named; the integral and derivative ones
-/// only where the law has those terms.
+/// only where the law has those terms. A program's own law in standard form holds the reset and derivative times there (N6.8),
+/// so their values are read as gains through [`GainSymbols::integral_gain`] and [`GainSymbols::derivative_gain`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GainSymbols<'a> {
     /// The variable of the proportional gain `Kp`.
     pub proportional: &'a str,
-    /// The variable of the integral gain `Ki`, when the law has an integral term.
+    /// The variable of the integral gain `Ki`, or of the reset time `Ti`, when the law has an integral term.
     pub integral: Option<&'a str>,
-    /// The variable of the derivative gain `Kd`, when the law has a derivative term.
+    /// The variable of the derivative gain `Kd`, or of the derivative time `Td`, when the law has a derivative term.
     pub derivative: Option<&'a str>,
+    /// The form the variables hold the settings in.
+    pub form: GainForm,
+}
+
+impl GainSymbols<'_> {
+    /// The integral gain `Ki` that the variables hold, each variable's value read by `value` (N6.8): the integral variable's value
+    /// in parallel form, `Kp/Ti` in standard form. `None` when the law has no integral term or a value it needs is missing.
+    #[must_use]
+    pub fn integral_gain(&self, value: impl Fn(&str) -> Option<f64>) -> Option<f64> {
+        let integral = value(self.integral?)?;
+        Some(match self.form {
+            GainForm::Parallel => integral,
+            GainForm::Standard => value(self.proportional)? / integral,
+        })
+    }
+
+    /// The derivative gain `Kd` that the variables hold (N6.8): the derivative variable's value in parallel form, `Kp·Td` in standard
+    /// form. `None` when the law has no derivative term or a value it needs is missing.
+    #[must_use]
+    pub fn derivative_gain(&self, value: impl Fn(&str) -> Option<f64>) -> Option<f64> {
+        let derivative = value(self.derivative?)?;
+        Some(match self.form {
+            GainForm::Parallel => derivative,
+            GainForm::Standard => value(self.proportional)? * derivative,
+        })
+    }
 }
 
 /// The gain variables of a loop's law: a `Control.PID` or parallel PID record names all three, a proportional law names its
@@ -154,16 +181,19 @@ pub fn gain_symbols(loop_definition: &LoopDefinition) -> Option<GainSymbols<'_>>
             proportional: &law.proportional_gain_symbol,
             integral: Some(&law.integral_gain_symbol),
             derivative: Some(&law.derivative_gain_symbol),
+            form: GainForm::Parallel,
         }),
         Some(ControllerLaw::Proportional { gain_symbol }) => Some(GainSymbols {
             proportional: gain_symbol,
             integral: None,
             derivative: None,
+            form: GainForm::Parallel,
         }),
         None => served_law(loop_definition).map(|law| GainSymbols {
             proportional: &law.seed.proportional_symbol,
             integral: law.seed.integral_symbol.as_deref(),
             derivative: law.seed.derivative_symbol.as_deref(),
+            form: law.seed.form,
         }),
     }
 }
@@ -177,6 +207,7 @@ pub fn connected_p_gain(loop_definition: &LoopDefinition) -> Option<&str> {
             proportional,
             integral: None,
             derivative: None,
+            ..
         } => Some(proportional),
         GainSymbols { .. } => None,
     }

@@ -391,6 +391,7 @@ fn gain_limits(loop_definition: &LoopDefinition, gains: &CascadeGains) -> GainLi
         proportional: limit(gains.proportional_symbol.as_str()),
         integral: limit(gains.integral_symbol.as_str()),
         derivative: limit(gains.derivative_symbol.as_str()),
+        form: crate::tuning::project_seed::GainForm::Parallel,
     }
 }
 

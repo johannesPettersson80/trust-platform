@@ -226,6 +226,38 @@ pub fn project_pi_loop_on_p1() -> LoopDefinition {
     ))
 }
 
+/// The loop of [`project_pi_loop_on_p1`] in standard form (C2, N6.8): its seed names the gain `P1.Kp` and the reset time `P1.Ti`,
+/// which the binding bounds in seconds from 0.01 to 1,000.
+#[must_use]
+pub fn project_standard_pi_loop_on_p1() -> LoopDefinition {
+    let integral = InitializedState {
+        symbol: "P1.Integral".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "%".to_owned(),
+        minimum: -110.0,
+        maximum: 110.0,
+        initial: InitialValue::From(InitialSource::PidIntegral {
+            index: 0,
+            input_index: 0,
+            gain_symbol: "P1.Kp".to_owned(),
+            weight_symbol: None,
+            weight: None,
+        }),
+        post_scan: PostScan::Bounded,
+    };
+    decode(&project_loop_file(
+        "PI",
+        json!({ "kind": "parallel-pid", "form": "standard", "family": "PI", "proportionalSymbol": "P1.Kp",
+            "resetTimeSymbol": "P1.Ti" }),
+        &[integral],
+        &[],
+        json!([
+            gain("P1.Kp", "standard proportional gain"),
+            { "symbol": "P1.Ti", "iec_type": "LREAL", "unit": "s", "convention": "reset time", "minimum": 0.01, "maximum": 1000 }
+        ]),
+    ))
+}
+
 /// A closed loop of a program's own PID law (C2): its seed names the variables `Main.Program.Kp`, `Ki` and `Kd`, and its declared
 /// states are the integral and the previous error.
 #[must_use]

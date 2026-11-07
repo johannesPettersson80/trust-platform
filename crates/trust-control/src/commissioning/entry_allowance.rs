@@ -180,7 +180,9 @@ pub fn auto_entry_error_gain(
     let symbols = gain_symbols(loop_definition)?;
     let gain = |symbol: &str| values.get(symbol).copied().filter(|gain| gain.is_finite());
     gain(symbols.proportional)?;
-    let integral = symbols.integral.and_then(gain)?;
+    let integral = symbols
+        .integral_gain(gain)
+        .filter(|gain| gain.is_finite())?;
     let cycle = loop_definition.controller.task_period_ms / 1000.0;
     (cycle > 0.0).then(|| integral.abs() * cycle)
 }
@@ -316,8 +318,8 @@ fn law_entry_tolerance(
             gain(symbols.proportional),
             process_noise,
             AllowanceTerms {
-                integral_gain: symbols.integral.and_then(gain),
-                derivative_gain: symbols.derivative.and_then(gain),
+                integral_gain: symbols.integral_gain(gain),
+                derivative_gain: symbols.derivative_gain(gain),
                 cycle_seconds,
                 entry_error,
             },

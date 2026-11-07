@@ -1075,6 +1075,20 @@ N0.4, `e = r − y`.
 non-PID law is given by its Part C template. The check of N6.3 still applies to the
 model.
 
+**N6.8 Standard form.** A program's own law in the standard form (specification 35
+C2) holds the gain and two times in seconds:
+
+```text
+Ti = Kp / Ki        Ki = Kp / Ti
+Td = Kd / Kp        Kd = Kp · Td
+```
+
+`Ki` and `Kd` take the sign of `Kp` (N6.4), so `Ti > 0` and `Td ≥ 0` for either
+action. A design with `Kp = 0` or `Ki = 0` has no standard form. The bounds of the
+variables apply to `|Kp|` and to `Ti` and `Td` as times. Read back, the variables
+give the parallel gains by the right-hand formulas, from which the initialization
+(C2, `parallel-pid-v1`) and the entry allowance (A6.4) are computed.
+
 ## N7. Stability and margins
 
 **N7.1 Routh-Hurwitz scope.** The test applies to a declared, delay-free, scalar,

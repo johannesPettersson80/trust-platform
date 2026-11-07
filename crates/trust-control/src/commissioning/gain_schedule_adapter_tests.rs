@@ -449,6 +449,7 @@ fn law_candidate(other_values: &[(&str, f64)]) -> LawCandidate {
         proportional_symbol: "P1.KpLow".to_owned(),
         integral_symbol: Some("P1.KiLow".to_owned()),
         derivative_symbol: None,
+        form: crate::tuning::project_seed::GainForm::Parallel,
     };
     let mut candidate = project_candidate(&seed, CandidateSource::Simc, gains(2.0, 0.2));
     candidate.values.extend(

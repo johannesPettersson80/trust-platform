@@ -2853,7 +2853,9 @@ When `controller.manualOutputFollowsOutput` is declared, the program copies the 
 
 ### C2. Program-owned P, PI or PID law (the parallel-pid seed)
 
-The program computes the law itself, in parallel form, with its gains in program variables. Control Studio sets those variables through the parameter binding (C0).
+The program computes the law itself, with its settings in program variables: in parallel form (gains `Kp`, `Ki`, `Kd`), or in the
+standard form that CODESYS's and many vendors' PID blocks use (gain `Kp`, reset time `Ti`, derivative time `Td`; see The standard
+form below). Control Studio sets those variables through the parameter binding (C0).
 
 #### Setup
 
@@ -2862,14 +2864,42 @@ The program computes the law itself, in parallel form, with its gains in program
   - its measurement, output and setpoint;
   - its Auto/Manual signal and manual output;
   - the law: P, PI or PID;
-  - for each gain, the variable that holds it, with the range Tune may choose from;
+  - the form: parallel or standard (The standard form, below);
+  - for each gain, or in the standard form each time, the variable that holds it, with the range Tune may choose from;
   - for PI and PID, the variable that holds the integral term;
   - for PID, the variable that holds the previous error or the previous measurement that the derivative uses, and which of the two it is;
   - the startup flag (C1); identification sizes and durations are chosen by Identify (B3.3, B3.4).
 - The law is `u = Kp·e + I + D`, with `I = u₀ + Ki·∫e dt`, and `D = Kd·de/dt`. When the derivative acts on the measurement `y`, `D = −Kd·dy/dt`. `e` is the control error in the measurement's unit. `I` is in the output's unit. Time is in seconds. Each scan updates the integral as `I_new = I_old + Ki·e·Δt`.
 - The loop is a project-owned controller (`design: project`). Its `parallel-pid` seed names the gain variables of the law.
 - The engine serves a `controller.project` block whose seed is `parallel-pid` (or `trajectory-feedforward-pid`, C11; `feedforward-pid`, C8; `cascade-pid`, C6), whose family is P, PI, PD or PID, and which declares no `axes`, `components` or `modelParameters` (those are C5). Its families are P always, and PI, PD and PID where the seed names the integral and derivative variables. The page lists these families from the engine's `setupDiscover` answer, and takes its list from the TypeScript adapter only for a loop the engine does not serve. The page asks for the settings that `setupDiscover` names for each family (`familySettings`): for P its proportional variable, for PI also its integral variable, for PD its derivative variable, and for PID both, and Tune refuses a pin or an entered setting of any other variable. The other served forms are their structures' own: `cascade-pid` (C6), `smith-pid` (C9), `decentralized-pid` and `decoupled-pid` with their `controller.group` (C7), `feedforward-pid` (C8), `trajectory-feedforward-pid` (C11), a `parallel-pid` point of the `gain-scheduled` family (C10), and a block without a seed that declares tuning axes, the finite search (C5). Any other program's own law is parked by its name and refused with the cause `controller-capability`: a block without a seed or axes, a seed whose family its structure does not take, or a block with components or model parameters. A loop with a program's own law is never a C12 loop. A loop declares one controller structure: a controller law, the program's own law (with its PID group, C7), state feedback, or an ON/OFF controller; a loop that declares two is refused, because the engine cannot tell which one tunes it.
-- A law with reset or derivative times, a derivative filter or further retained states uses the step-by-step setup.
+- A law with a derivative filter or further retained states uses the step-by-step setup.
+
+#### The standard form
+
+A program may compute the law in the standard (ideal) form, `u = Kp·(e + (1/Ti)·∫e dt + Td·de/dt)`, with the reset time `Ti` and the
+derivative time `Td` in seconds, as CODESYS's `PID` (`KP`, `TN`, `TV`) and a project's own block such as `FB_PI` (`Kp`, `Ti`) do
+(owner, 7 November 2026). It is the parallel law with `Ki = Kp/Ti` and `Kd = Kp·Td`, so everything above holds with those gains:
+
+- **The integral term.** The program's integral variable holds the integral term `I` in the output's unit, updated each scan as
+  `I_new = I_old + (Kp/Ti)·e·Δt`, as in the parallel form. Validate and Apply start it as the `parallel-pid-v1` adapter does, with
+  `Ki = Kp/Ti`. A program that integrates the error instead (`∫e dt`, scaled at the output) is not this form.
+- **Setup** asks for the variable that holds the reset time and, for PID, the variable that holds the derivative time, each REAL or
+  LREAL in seconds, with the range Tune may choose from; the reset time's range lies above zero and the derivative time's starts at
+  zero or above. The form offers the choice (`gainForms`, preselected `parallel`), and the draft names it as `form` with the times
+  as `resetTime` and `derivativeTime`, each a variable with its range as the gains are; the engine takes the gains or the times the
+  form needs (B1.3). A trajectory feedforward's law (C11) stays in parallel form. The seed is `parallel-pid` with
+  `"form": "standard"`, `proportionalSymbol`, `resetTimeSymbol` and, for PID, `derivativeTimeSymbol`; a seed without `form` is in
+  parallel form, as before. A standard seed names no `integralSymbol` or `derivativeSymbol`, and a parallel seed no time.
+- **Families.** A standard-form law always integrates: its families are PI and, with a derivative time, PID. Control Studio never
+  writes a reset time of zero, whose meaning differs between programs (no integral action in some, a division by zero in others).
+- **Tune** designs `Kp`, `Ki` and `Kd` from the model as for the parallel form and writes the program's settings `Kp`,
+  `Ti = Kp/Ki` and `Td = Kd/Kp` (numerics annex N6.8). `Ki` and `Kd` take the sign of `Kp` for either action (N6.4), so `Ti` is above
+  zero and `Td` is zero or above. A design without a finite `Ti` above zero (a `Kp` or a `Ki` of zero) has no standard form, and Tune
+  refuses it with that reason. The ranges Tune may choose from are the variables' own: `Kp` by magnitude, `Ti` and `Td` in seconds. A
+  pin or an entered setting of `Ti` or `Td` is a time in seconds.
+- **Apply, Restore and Keep in project** write and keep the variables' values, `Kp`, `Ti` and `Td`, as for the parallel form.
+- A reset or derivative time held as a `TIME` value (TwinCAT's `FB_CTRL_PI` takes `tTn : TIME`) is not a REAL or LREAL parameter
+  (C0), so such a law is not served yet; it is on the checklist.
 
 #### Identify
 
