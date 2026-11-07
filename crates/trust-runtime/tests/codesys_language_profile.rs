@@ -59,16 +59,6 @@ fn the_iec_rules_refuse_a_block_that_assigns_its_own_input() {
 }
 
 /// The program of `source` built under the CODESYS profile and run for `cycles` cycles.
-fn codesys_run(source: &str, cycles: usize) -> TestHarness {
-    let session =
-        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
-    let mut harness = TestHarness::from_session(session).expect("the CODESYS profile builds it");
-    for _ in 0..cycles {
-        harness.cycle();
-    }
-    harness
-}
-
 // CG-A1: the dotted form `E_Mode.AUTO` of an enumeration value, which CODESYS writes everywhere and
 // requires for a `qualified_only` type, compiles wherever a value does: an initializer, a
 // comparison, a CASE label, a call argument and an assignment, under the CODESYS and the IEC
@@ -138,6 +128,16 @@ fn a_dotted_enumeration_value_compiles_wherever_a_value_does() {
             "{profile:?}"
         );
     }
+}
+
+fn codesys_run(source: &str, cycles: usize) -> TestHarness {
+    let session =
+        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session).expect("the CODESYS profile builds it");
+    for _ in 0..cycles {
+        harness.cycle();
+    }
+    harness
 }
 
 // DEV-028: under the CODESYS profile another POU writes and reads a function block's `VAR` member
