@@ -15,7 +15,7 @@ use super::loop_bindings::{
 use super::pid_loop::setpoint_signal;
 use super::state_feedback_loop::{
     assemble, check_startup, gain_parameter, identification_policy, instance_program, json_of,
-    manipulated_input, mode_and_manual, mode_binding, output_limits, settings, startup_states,
+    manipulated_input, mode_and_manual, output_limits, settings, startup_states,
     zero_started_state, EstimatorState, StateFeedbackLoopDraft, StateLawParts, CONVENTION,
 };
 use super::texts::save as texts;
@@ -258,7 +258,7 @@ fn lqg_law(
             limits: output_limits(manipulated),
             period_ms: task.interval_ms,
             task_name: task.name.clone(),
-            mode: mode_binding(&draft.mode),
+            mode: draft.mode.binding(),
             parameters,
             experiment,
         },

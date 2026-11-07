@@ -17,7 +17,7 @@ use super::{
 };
 use crate::failure::{Cause, NextAction};
 use crate::loop_definition::{
-    ControllerLaw, LoopScope, ModeBinding, Parameter, ParameterBinding, RealType,
+    ControllerLaw, LoopScope, ModeBinding, ModeValue, Parameter, ParameterBinding, RealType,
 };
 use crate::setup::binding_route::answer_selection;
 use crate::setup::catalog::{
@@ -34,6 +34,7 @@ fn symbol(name: &str, iec_type: &str) -> CompiledSymbol {
         symbol: name.to_string(),
         iec_type: iec_type.to_string(),
         address: None,
+        members: Vec::new(),
     }
 }
 
@@ -500,6 +501,61 @@ fn a_declared_controller_symbol_must_exist_with_the_declared_type() {
         refusal,
         "Compiled controller symbol Main.Parameters.Kp has type REAL, expected LREAL."
     );
+}
+
+/// Specification 35 A6.1 and C0: an enumeration mode is a compiled enumeration with the members the loop names, not a BOOL, so
+/// discovery checks it by its members. Catches an enumeration loop refused because its mode is not a BOOL, and one accepted although
+/// its type lacks a member it names or its symbol is a BOOL.
+#[test]
+fn an_enumeration_mode_is_discovered_by_its_members() {
+    let mut loop_definition = loop_of(&tank_json("loop:tank"));
+    loop_definition.parameter_binding = Some(ParameterBinding {
+        loop_id: "loop:tank".to_string(),
+        task_name: "MainTask".to_string(),
+        parameters: vec![Parameter {
+            symbol: "Main.Parameters.Kp".to_string(),
+            iec_type: RealType::Lreal,
+            unit: "%/degC".to_string(),
+            convention: "proportional gain".to_string(),
+            minimum: 0.0,
+            maximum: 10.0,
+        }],
+        mode: ModeBinding {
+            symbol: "Main.Mode".to_string(),
+            manual_value: ModeValue::Member("Manual".to_string()),
+            auto_value: Some("Auto".to_string()),
+        },
+    });
+    let compiled_with = |iec_type: &str, members: &[&str]| {
+        let mut compiled = catalog();
+        compiled
+            .control
+            .symbols
+            .push(symbol("Main.Parameters.Kp", "LREAL"));
+        let mut mode = symbol("Main.Mode", iec_type);
+        mode.members = members.iter().map(|member| (*member).to_string()).collect();
+        compiled.control.symbols.push(mode);
+        compiled
+    };
+    target_for_loop(
+        "/project/control-loop.json",
+        loop_definition.clone(),
+        &compiled_with("E_Mode", &["Off", "Manual", "Auto"]),
+    )
+    .expect("an enumeration with both members is the loop's mode");
+    for (iec_type, members) in [("E_Mode", &["Off", "Manual"][..]), ("BOOL", &[][..])] {
+        let refusal = target_for_loop(
+            "/project/control-loop.json",
+            loop_definition.clone(),
+            &compiled_with(iec_type, members),
+        )
+        .expect_err("the mode lacks a member");
+        assert_eq!(
+            refusal,
+            "Compiled mode signal Main.Mode is no enumeration with the members Manual and Auto.",
+            "{iec_type} {members:?}"
+        );
+    }
 }
 
 #[test]

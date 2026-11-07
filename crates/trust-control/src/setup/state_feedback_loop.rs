@@ -23,8 +23,8 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller, Design,
     Direction, Execution, Experiment, ExperimentKind, InitialValue, InitializedState, Limits,
-    LoopChannels, LoopDefinition, LoopScope, LoopSignal, ModeBinding, ModeWhenTrue, Parameter,
-    ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    LoopChannels, LoopDefinition, LoopScope, LoopSignal, ModeBinding, Parameter, ParameterBinding,
+    PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::model::simulation::{ActuatorCapabilities, ActuatorKind};
 use crate::model::GeneralModel;
@@ -396,7 +396,7 @@ fn law_loop(
             limits: output_limits(manipulated),
             period_ms: task.interval_ms,
             task_name: task.name.clone(),
-            mode: mode_binding(&draft.mode),
+            mode: draft.mode.binding(),
             parameters,
             experiment,
         },
@@ -679,11 +679,6 @@ pub(super) fn output_limits(manipulated: &MeasuredSignal) -> Limits {
         rate_down_per_s: None,
         expected_settling_seconds: None,
     }
-}
-
-/// The Auto/Manual binding of a state law: its signal, and whether TRUE means Manual (C0).
-pub(super) fn mode_binding(mode: &ModeChoice) -> ModeBinding {
-    ModeBinding::boolean(mode.symbol.clone(), mode.when_true == ModeWhenTrue::Manual)
 }
 
 /// The compiled program or function block that runs the law, with the instance's name (`stateFeedbackLoopDefinition`).

@@ -100,6 +100,18 @@ pub fn controller_symbol_type(symbol: &str, compiled: &str, expected: &str) -> S
     format!("Compiled controller symbol {symbol} has type {compiled}, expected {expected}.")
 }
 
+/// The loop's enumeration mode is not a compiled enumeration with the members the loop names for Manual and Auto (A6.1).
+#[must_use]
+pub fn mode_members_unavailable(symbol: &str, manual: &str, auto: &str) -> String {
+    format!("Compiled mode signal {symbol} is no enumeration with the members {manual} and {auto}.")
+}
+
+/// The loop binds an enumeration mode as a BOOL (A6.1): the sentence asks for the members.
+#[must_use]
+pub fn mode_members_needed(symbol: &str) -> String {
+    format!("Mode signal {symbol} is an enumeration: name the members that mean Manual and Auto.")
+}
+
 /// The loop has no input or no output to select (B1.4).
 #[must_use]
 pub fn needs_input_and_output() -> &'static str {

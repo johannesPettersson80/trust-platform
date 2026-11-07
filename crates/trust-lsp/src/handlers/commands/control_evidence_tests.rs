@@ -72,6 +72,58 @@ END_CONFIGURATION
     std::fs::remove_dir_all(root).expect("remove temp dir");
 }
 
+/// Specification 35 A6.1 and B1.3: setup offers an enumeration as a mode signal with the members it chooses Manual and Auto from,
+/// so the catalog lists an enumeration's members in declaration order, also for a variable declared through an alias. Catches an
+/// enumeration listed without its members (setup could not check or offer them) and members taken from another type.
+#[test]
+fn control_symbols_list_an_enumerations_members() {
+    let (root, context) = control_project(
+        "trustlsp-control-enum-members",
+        r#"
+TYPE E_Mode : (Off, Manual, Auto); END_TYPE
+TYPE E_Other : (Idle, Running); END_TYPE
+TYPE E_ModeAlias : E_Mode; END_TYPE
+
+PROGRAM Main
+VAR
+    Mode : E_Mode := E_Mode#Auto;
+    Aliased : E_ModeAlias;
+    Other : E_Other;
+    Flag : BOOL;
+END_VAR
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE Res ON PLC
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    let result = hmi_bindings_value_with_context(&context, Vec::new())
+        .expect("compiled bindings response");
+    let symbols = result["controlSymbols"]["symbols"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let entry = |symbol: &str| {
+        symbols
+            .iter()
+            .find(|entry| entry["symbol"] == symbol)
+            .cloned()
+            .unwrap_or_else(|| panic!("{symbol} is listed: {symbols:?}"))
+    };
+    assert_eq!(entry("P1.Mode")["members"], json!(["Off", "Manual", "Auto"]));
+    assert_eq!(entry("P1.Aliased")["members"], json!(["Off", "Manual", "Auto"]));
+    assert_eq!(entry("P1.Other")["members"], json!(["Idle", "Running"]));
+    assert!(
+        entry("P1.Flag").get("members").is_none(),
+        "a BOOL has no members"
+    );
+    std::fs::remove_dir_all(root).expect("remove temp dir");
+}
+
 const KEEP_LESSON: &str = "PROGRAM Main\nVAR\n    Controller : Control.PID;\n    Parameters : Control.PIDParameters := (\n        ProportionalGain := LREAL#1.0,\n        IntegralGain := LREAL#0.2,\n        DerivativeGain := 0.0\n    );\n    Gains : Control.PIDParameters;\nEND_VAR\nController.Configure(Parameters := Parameters);\nEND_PROGRAM\n\nCONFIGURATION Config\nRESOURCE Res ON PLC\n    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM P1 WITH MainTask : Main;\nEND_RESOURCE\nEND_CONFIGURATION\n";
 
 fn keep_value(context: &MockContext, root: &std::path::Path, record: &str, values: Value) -> Value {

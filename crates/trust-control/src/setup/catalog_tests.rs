@@ -598,3 +598,22 @@ fn the_own_measurement_is_the_pids_process_value_state() {
         "P1.Controller.StateValue.ProcessValue"
     );
 }
+
+/// Specification 35 A6.1: the compiled answer names an enumeration's members, from which a loop's enumeration mode is checked;
+/// any other symbol has none. Catches the members dropped as the answer is read, which would refuse every enumeration mode.
+#[test]
+fn an_enumerations_members_are_read_from_the_compiled_answer() {
+    let catalog = decode(json!({
+        "symbols": [
+            { "symbol": "P1.Mode", "type": "E_Mode", "members": ["Off", "Manual", "Auto"] },
+            { "symbol": "P1.AutoMode", "type": "BOOL" }
+        ],
+        "controllers": [],
+        "links": [],
+        "writes": []
+    }));
+    let mode = &catalog.symbols[0];
+    assert_eq!(mode.members, ["Off", "Manual", "Auto"]);
+    assert!(mode.has_member("MANUAL") && mode.has_member("auto") && !mode.has_member("Automatic"));
+    assert_eq!(catalog.symbols[1].members, Vec::<String>::new());
+}

@@ -21,9 +21,8 @@ use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
-    GainSchedule, Limits, LoopDefinition, LoopScope, ModeBinding, ModeWhenTrue, Parameter,
-    ParameterBinding, SampleTiming, SchedulePoint, SchedulingVariable, Signals, Topology,
-    LOOP_SCHEMA_VERSION,
+    GainSchedule, Limits, LoopDefinition, LoopScope, Parameter, ParameterBinding, SampleTiming,
+    SchedulePoint, SchedulingVariable, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::tuning::structures::gain_schedule::{
     check_operating_points, check_point_order, check_tolerance, scheduled_gain_bounds,
@@ -398,10 +397,7 @@ fn point_loop(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: shared.task.name.clone(),
-            mode: ModeBinding::boolean(
-                draft.mode.symbol.clone(),
-                draft.mode.when_true == ModeWhenTrue::Manual,
-            ),
+            mode: draft.mode.binding(),
             parameters: gain_parameters(shared, point)?,
         }),
         parameter_purpose: None,

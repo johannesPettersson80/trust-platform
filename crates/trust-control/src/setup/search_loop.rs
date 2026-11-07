@@ -15,7 +15,7 @@ use super::loop_bindings::{
 use super::pid_bindings::startup_state;
 use super::pid_loop::{setpoint_signal, ModeChoice, SignalChoice};
 use super::state_feedback_loop::{
-    assemble, check_startup, form_signal, instance_program, json_of, mode_and_manual, mode_binding,
+    assemble, check_startup, form_signal, instance_program, json_of, mode_and_manual,
     output_limits, settings, StateLawParts,
 };
 use super::texts::save as texts;
@@ -407,7 +407,7 @@ fn search_law(
             limits: output_limits(manipulated),
             period_ms: task.interval_ms,
             task_name: task.name.clone(),
-            mode: mode_binding(&draft.mode),
+            mode: draft.mode.binding(),
             parameters: axis_parameters(&axes),
             experiment,
         },

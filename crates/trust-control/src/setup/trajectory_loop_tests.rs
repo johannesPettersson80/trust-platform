@@ -94,10 +94,7 @@ fn draft() -> TrajectoryLoopDraft {
                 minimum: None,
                 maximum: None,
             },
-            mode: ModeChoice {
-                symbol: "P1.AutoMode".to_string(),
-                when_true: ModeWhenTrue::Auto,
-            },
+            mode: ModeChoice::boolean("P1.AutoMode".to_string(), ModeWhenTrue::Auto),
             manual_output: "P1.ManualTorqueNm".to_string(),
             proportional_gain: gain("P1.Parameters.Kp", 0.0, 100.0),
             integral_gain: Some(gain("P1.Parameters.Ki", 0.0, 100.0)),

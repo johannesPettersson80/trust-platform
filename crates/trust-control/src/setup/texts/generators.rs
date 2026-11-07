@@ -227,6 +227,12 @@ pub fn mode_needs_bool() -> &'static str {
     "It must be a BOOL without an I/O address, because Apply switches it directly; declare one without AT."
 }
 
+/// A mode choice that is neither a BOOL's nor an enumeration's (A6.1): the draft names one of the two shapes.
+#[must_use]
+pub fn mode_choice_shape() -> &'static str {
+    "The mode is a BOOL with the mode its TRUE value means (whenTrue), or an enumeration with the two different members that mean Manual (manualValue) and Auto (autoValue)."
+}
+
 /// A gain's variable is blank (`loopSetupForm.ts`, `gainValue`): the label names the gain, such as "proportional gain".
 #[must_use]
 pub fn gain_symbol_needed(label: &str) -> String {

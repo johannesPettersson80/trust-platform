@@ -104,10 +104,7 @@ fn pi_draft() -> OwnLawLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.AutoMode".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.AutoMode".to_string(), ModeWhenTrue::Auto),
         manual_output: "P1.ManualPct".to_string(),
         proportional_gain: gain("P1.Kp", 0.0, 20.0),
         integral_gain: Some(gain("P1.Ki", 0.0, 2.0)),

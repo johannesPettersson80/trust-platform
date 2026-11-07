@@ -52,6 +52,7 @@ fn symbol(name: &str, iec_type: &str, address: Option<&str>) -> CompiledSymbol {
         symbol: name.to_string(),
         iec_type: iec_type.to_string(),
         address: address.map(str::to_string),
+        members: Vec::new(),
     }
 }
 
