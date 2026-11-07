@@ -16,13 +16,17 @@ pub enum ControlAction {
     StepIn,
     StepOver,
     StepOut,
+    /// Set the breakpoints of a source file, in place of its earlier ones. Lines are one-based,
+    /// as an editor shows them, and so are the lines and columns the reply prints.
     BreakpointsSet {
         source: String,
+        #[arg(value_parser = clap::value_parser!(u32).range(1..))]
         lines: Vec<u32>,
     },
     BreakpointsClear {
         source: String,
     },
+    /// List the breakpoints, with one-based lines and columns.
     BreakpointsList,
     IoRead,
     IoWrite {

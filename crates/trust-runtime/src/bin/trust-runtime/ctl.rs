@@ -486,9 +486,35 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 );
             }
         }
+        ControlAction::BreakpointsSet { .. } | ControlAction::BreakpointsList => {
+            let mut response = response.clone();
+            if let Some(result) = response.get_mut("result") {
+                one_based_positions(result);
+            }
+            println!("{}", serde_json::to_string(&response)?);
+        }
         _ => println!("{}", serde_json::to_string(response)?),
     }
     Ok(())
+}
+
+/// Turns the zero-based lines and columns of a breakpoint reply into the one-based ones an editor
+/// shows (specification 11, 6.8.1), wherever they stand in it.
+fn one_based_positions(value: &mut JsonValue) {
+    match value {
+        JsonValue::Object(fields) => {
+            for (name, field) in fields.iter_mut() {
+                match (name.as_str(), field.as_u64()) {
+                    ("line" | "column" | "end_line" | "end_column", Some(position)) => {
+                        *field = JsonValue::from(position.saturating_add(1));
+                    }
+                    _ => one_based_positions(field),
+                }
+            }
+        }
+        JsonValue::Array(items) => items.iter_mut().for_each(one_based_positions),
+        _ => {}
+    }
 }
 
 fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json::Value {
@@ -505,11 +531,16 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         ControlAction::StepIn => json!({"id": 1, "type": "step_in", "auth": auth}),
         ControlAction::StepOver => json!({"id": 1, "type": "step_over", "auth": auth}),
         ControlAction::StepOut => json!({"id": 1, "type": "step_out", "auth": auth}),
+        // The protocol's lines are zero-based (specification 11, 6.13.3); the command's are
+        // one-based, as an editor shows them.
         ControlAction::BreakpointsSet { source, lines } => json!({
             "id": 1,
             "type": "breakpoints.set",
             "auth": auth,
-            "params": { "source": source, "lines": lines }
+            "params": {
+                "source": source,
+                "lines": lines.iter().map(|line| line.saturating_sub(1)).collect::<Vec<_>>(),
+            }
         }),
         ControlAction::BreakpointsClear { source } => json!({
             "id": 1,
@@ -676,6 +707,7 @@ mod tests {
                 json!({"id": 1, "type": "step_out", "auth": "token"}),
             ),
             (
+                // Lines 3 and 8 as an editor shows them are the protocol's zero-based 2 and 7.
                 ControlAction::BreakpointsSet {
                     source: "main.st".into(),
                     lines: vec![3, 8],
@@ -684,7 +716,7 @@ mod tests {
                     "id": 1,
                     "type": "breakpoints.set",
                     "auth": "token",
-                    "params": { "source": "main.st", "lines": [3, 8] }
+                    "params": { "source": "main.st", "lines": [2, 7] }
                 }),
             ),
             (
@@ -1058,6 +1090,65 @@ mod tests {
                 .to_string()
                 .starts_with(&format!("connect control endpoint tcp://{addr}")),
             "{error:#}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod breakpoint_line_tests {
+    use super::*;
+    use clap::Parser;
+
+    // Specification 11, 6.8.1: the replies of the breakpoint actions are printed with one-based
+    // lines and columns. A statement the protocol places at zero-based line 2, column 0 is the
+    // editor's line 3, column 1; everything else in the reply is left as it is. Catches the reply
+    // printed as the protocol gives it, and other numbers (the file, the generation) changed too.
+    #[test]
+    fn breakpoint_replies_print_one_based_lines_and_columns() {
+        let mut set = json!({
+            "status": "ok",
+            "file_id": 0,
+            "resolved": [{"line": 2, "column": 0}, {"line": 7, "column": 4}],
+            "generation": 5,
+        });
+        one_based_positions(&mut set);
+        assert_eq!(
+            set,
+            json!({
+                "status": "ok",
+                "file_id": 0,
+                "resolved": [{"line": 3, "column": 1}, {"line": 8, "column": 5}],
+                "generation": 5,
+            })
+        );
+        let mut list = json!({"breakpoints": [
+            {"file_id": 1, "line": 2, "column": 0, "end_line": 2, "end_column": 9, "start": 40},
+        ]});
+        one_based_positions(&mut list);
+        assert_eq!(
+            list,
+            json!({"breakpoints": [
+                {"file_id": 1, "line": 3, "column": 1, "end_line": 3, "end_column": 10, "start": 40},
+            ]})
+        );
+    }
+
+    // Specification 11, 6.8.1: a line 0 is no line an editor shows, so the command refuses it
+    // before it sends anything. Catches it sent as the protocol's line -1 or 0.
+    #[test]
+    fn breakpoints_set_refuses_line_zero() {
+        let error = crate::cli::Cli::try_parse_from([
+            "trust-runtime",
+            "ctl",
+            "breakpoints-set",
+            "main.st",
+            "0",
+        ])
+        .expect_err("a line counts from 1");
+        assert_eq!(
+            error.kind(),
+            clap::error::ErrorKind::ValueValidation,
+            "{error}"
         );
     }
 }

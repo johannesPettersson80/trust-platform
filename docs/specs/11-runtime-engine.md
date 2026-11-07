@@ -3389,6 +3389,15 @@ printed as a successful scripted result. A TCP connection attempt is bounded to
 after a TCP or Unix connection is established, reads and writes are bounded to
 750 milliseconds, and a response line may not exceed 1 MiB.
 
+The breakpoint actions count lines as an editor shows them, from 1, while the
+protocol counts lines and columns from 0 (section 6.13.3): `ctl breakpoints-set
+<source> <line>...` sends each line less one and refuses a line 0 before it
+sends anything, and `ctl` prints the replies of `breakpoints-set` and
+`breakpoints-list` with each `line`, `column`, `end_line` and `end_column` one
+higher. The console's `break <file>:<line>` takes its line the same way and
+refuses a line that is no number from 1, and `breaks` lists each breakpoint's
+file and its line counted from 1.
+
 `--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
 endpoint on another host, such as a chip's control connection over its network (specification 34
 ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial

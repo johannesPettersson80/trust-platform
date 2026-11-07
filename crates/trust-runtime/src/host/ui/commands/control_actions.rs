@@ -53,11 +53,19 @@ pub(super) fn handle_control_command(
             if let Some(loc) = args.get(1)
                 && let Some((file, line)) = loc.split_once(':')
             {
-                let line_num = line.parse::<u32>().unwrap_or(1);
+                // A one-based line, as an editor shows it; the protocol's are zero-based
+                // (specification 11, 6.8.1).
+                let Some(line) = line.parse::<u32>().ok().filter(|line| *line > 0) else {
+                    state.prompt.set_output(vec![PromptLine::plain(
+                        "break takes <file>:<line>, the line counted from 1".to_string(),
+                        Style::default().fg(COLOR_RED),
+                    )]);
+                    return Ok(());
+                };
                 let response = client.request(json!({
                     "id": 1,
                     "type": "breakpoints.set",
-                    "params": { "source": file, "lines": [line_num] }
+                    "params": { "source": file, "lines": [line - 1] }
                 }));
                 set_simple_response(state, response, "Breakpoint set.");
             }
@@ -86,9 +94,9 @@ pub(super) fn handle_control_command(
                             for bp in list {
                                 let file_id =
                                     bp.get("file_id").and_then(|v| v.as_u64()).unwrap_or(0);
-                                let start = bp.get("start").and_then(|v| v.as_u64()).unwrap_or(0);
+                                let line = bp.get("line").and_then(|v| v.as_u64()).unwrap_or(0);
                                 lines.push(PromptLine::plain(
-                                    format!("file {file_id} @ {start}"),
+                                    format!("file {file_id} line {}", line + 1),
                                     Style::default().fg(COLOR_INFO),
                                 ));
                             }
