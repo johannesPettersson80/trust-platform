@@ -168,7 +168,7 @@ impl<'a> TypeChecker<'a> {
                     return Ok(None);
                 }
             }
-            SyntaxKind::ThisExpr | SyntaxKind::SuperExpr => {}
+            _ if is_this_or_super(node) => {}
             _ if self.is_valid_lvalue(node) => {}
             _ => return Ok(None),
         };
