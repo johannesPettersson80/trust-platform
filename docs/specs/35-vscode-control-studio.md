@@ -494,7 +494,15 @@ is the same: a verb adds none and drops none.
     setup proposes; with `--draft <file>`, a JSON draft of the confirmed choices as the setup form
     writes it, checks it, writes the loop definitions to `control-loops/` (all or none, never over an
     existing definition) and prints their ids. It compiles the project through `trust-lsp command`
-    (§0.1a) and never writes anything else.
+    (§0.1a) and never writes anything else;
+  - `inputs` (A8.1, B4.3): `--change <file>`, or `-` for standard input, is one change of the loop's
+    study inputs, the JSON object the page's editors send to `controlStudio/inputs`: the requirements
+    record that `referenceChange` marks, the acquisition settings, the controller family, the tuning
+    preferences or the pinned values. The engine merges it by the method's rules and refuses what the
+    method refuses, under the field it names. The verb prints whether the study changed, the
+    requirements it now holds, each value Automatic filled marked so, and the stages. It starts
+    nothing and needs no runtime. A change that cannot be read, or is no JSON object, is a usage
+    error (owner, 7 November 2026: an agent or a script declares the requirements Tune designs to).
 - Common arguments: `--project <folder>` (default: the current folder), `--loop <id>`,
   `--journal-dir <folder>` (default: truST's folder in the user's local state folder, by the
   platform's convention, where the extension's engine keeps them too, A8.3), `--json`.
