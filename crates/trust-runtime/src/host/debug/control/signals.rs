@@ -206,7 +206,9 @@ fn check_mode_channel(
     let Value::Enum(enumeration) = value else {
         return Err(refused());
     };
-    let image = program.ok_or("current symbolic storage unavailable")?.program_image();
+    let image = program
+        .ok_or("current symbolic storage unavailable")?
+        .program_image();
     let known = |member: &str| {
         trust_runtime_core::native::memory::enum_value(&image, enumeration.type_name(), member)
             .is_some()

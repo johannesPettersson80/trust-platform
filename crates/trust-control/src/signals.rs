@@ -8,7 +8,9 @@ use serde_json::Value;
 
 use crate::failure::Failure;
 use crate::limits::RECORDING_CHANNEL_LIMIT;
-use crate::loop_definition::{LoopDefinition, ModeValue, ModeWhenTrue, RealType, SchedulingVariable};
+use crate::loop_definition::{
+    LoopDefinition, ModeValue, ModeWhenTrue, RealType, SchedulingVariable,
+};
 
 /// A signal Control Studio reads: its identifier in the request, its IEC type and exactly one
 /// selector, an address or a symbol (E2.4).
