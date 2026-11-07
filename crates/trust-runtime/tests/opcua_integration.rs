@@ -366,7 +366,11 @@ fn a_steady_subscription_stays_live_through_its_heartbeat() {
             bridge.snapshot().detail,
             first.elapsed()
         );
-        assert!(counter_is_live(&bridge), "the point after {:?}", first.elapsed());
+        assert!(
+            counter_is_live(&bridge),
+            "the point after {:?}",
+            first.elapsed()
+        );
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     drop(worker);
