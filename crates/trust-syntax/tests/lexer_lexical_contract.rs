@@ -57,6 +57,15 @@ fn lexical_contract_keywords_are_case_insensitive() {
     }
 }
 
+/// Specification 01: CODESYS's `VAR_INST` is one reserved section keyword in any case, as `VAR_STAT`
+/// is. Catches it lexed as an identifier, which made a method's `VAR_INST` section a parse error.
+#[test]
+fn lexical_contract_codesys_var_inst_is_one_reserved_token() {
+    for source in ["VAR_INST", "var_inst", "Var_Inst"] {
+        assert_single(source, TokenKind::KwVarInst);
+    }
+}
+
 #[test]
 fn lexical_contract_underscore_position_remains_identifier_significant() {
     assert_eq!(

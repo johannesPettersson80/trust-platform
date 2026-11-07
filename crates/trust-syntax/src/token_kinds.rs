@@ -69,6 +69,7 @@ macro_rules! for_each_token_kind {
             KwVarAccess,
             KwVarConfig,
             KwVarStat,
+            KwVarInst,
             KwConstant,
             KwRetain,
             KwNonRetain,

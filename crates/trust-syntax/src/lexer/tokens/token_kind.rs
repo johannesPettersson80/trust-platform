@@ -140,6 +140,8 @@ pub enum TokenKind {
     KwVarConfig,
     #[token("VAR_STAT", ignore(case))]
     KwVarStat,
+    #[token("VAR_INST", ignore(case))]
+    KwVarInst,
     #[token("CONSTANT", ignore(case))]
     KwConstant,
     #[token("RETAIN", ignore(case))]
