@@ -278,18 +278,7 @@ fn format_symbol(
                 .map(str::to_string)
                 .or(info.declared_type.clone())
                 .unwrap_or_else(|| "?".to_string());
-            let mut qual = match qualifier {
-                VarQualifier::Input => "VAR_INPUT",
-                VarQualifier::Output => "VAR_OUTPUT",
-                VarQualifier::InOut => "VAR_IN_OUT",
-                VarQualifier::Local => "VAR",
-                VarQualifier::Temp => "VAR_TEMP",
-                VarQualifier::Global => "VAR_GLOBAL",
-                VarQualifier::External => "VAR_EXTERNAL",
-                VarQualifier::Access => "VAR_ACCESS",
-                VarQualifier::Static => "VAR_STAT",
-            }
-            .to_string();
+            let mut qual = qualifier.keyword().to_string();
             if symbol_is_constant(symbol) {
                 qual.push_str(" CONSTANT");
             }
