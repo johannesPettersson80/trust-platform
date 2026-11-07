@@ -11,7 +11,8 @@ fn debug_mesh_catalogue_returns_an_explicit_unavailable_result() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("debug-mesh-{}-{stamp}", std::process::id()));
+    let root =
+        trust_test_support::unique_temp_path(&format!("debug-mesh-{}-{stamp}", std::process::id()));
     std::fs::create_dir_all(root.join("src")).unwrap();
     std::fs::write(
         root.join("src/Main.st"),

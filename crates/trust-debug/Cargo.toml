@@ -25,3 +25,4 @@ ads-server = ["trust-runtime/ads-server"]
 ads-wire = ["trust-runtime/ads-wire"]
 
 [dev-dependencies]
+trust-test-support.workspace = true

@@ -9,7 +9,7 @@ use std::{
 fn vsix_contract_rejects_unlocked_tool_missing_target_and_missing_binaries() {
     let workspace = super::workspace_root();
     let workflow = fs::read_to_string(workspace.join(".github/workflows/release.yml")).unwrap();
-    let fixture = std::env::temp_dir().join(format!(
+    let fixture = trust_test_support::unique_temp_path(&format!(
         "trust-vsix-contract-{}-{}",
         std::process::id(),
         SystemTime::now()

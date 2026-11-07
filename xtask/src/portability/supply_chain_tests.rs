@@ -14,7 +14,7 @@ fn fixture() -> Fixture {
         .unwrap()
         .as_nanos();
     let root =
-        std::env::temp_dir().join(format!("trust-lock-audits-{}-{nonce}", std::process::id()));
+        trust_test_support::unique_temp_path(&format!("trust-lock-audits-{}-{nonce}", std::process::id()));
     fs::create_dir_all(root.join("scripts")).unwrap();
     fs::create_dir(root.join("bin")).unwrap();
     fs::write(
@@ -72,16 +72,20 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             let log = fixture.0.join("commands.txt");
             let mut paths = vec![fixture.0.join("bin")];
             paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
-            // Exercise the native system shell, including macOS's Bash 3.2.
+            // Exercise the native system shell, including macOS's Bash 3.2, from a directory
+            // outside the fixture, so that the script finds its repository by its own path.
+            let elsewhere = trust_test_support::unique_temp_path("trust-supply-chain-cwd");
+            std::fs::create_dir_all(&elsewhere).unwrap();
             let result = Command::new("/bin/bash")
                 .arg(fixture.0.join("scripts/supply_chain_gate.sh"))
-                .current_dir(std::env::temp_dir())
+                .current_dir(&elsewhere)
                 .env("PATH", std::env::join_paths(paths).unwrap())
                 .env("AUDIT_COMMAND_LOG", &log)
                 .env("FAIL_FRAGMENT", failure)
                 .env("EMIT_EXCEPTION", if exceptions { "1" } else { "0" })
                 .output()
                 .unwrap();
+            let _ = std::fs::remove_dir_all(&elsewhere);
             assert_eq!(
                 result.status.success(),
                 failure.is_empty(),

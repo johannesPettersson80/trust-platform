@@ -11,7 +11,7 @@ struct HarnessWorkspace {
 impl HarnessWorkspace {
     fn new(label: &str) -> Self {
         let id = NEXT_HARNESS_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-dev-agent-harness-contract-{label}-{}-{id}",
             std::process::id()
         ));

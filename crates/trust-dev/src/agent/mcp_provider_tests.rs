@@ -21,7 +21,7 @@ use crate::agent::{resolve_workspace_root, AgentServer};
 
 fn temp_workspace(tag: &str) -> PathBuf {
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
-    let dir = std::env::temp_dir().join(format!(
+    let dir = trust_test_support::unique_temp_path(&format!(
         "trust-dev-mcp-provider-{}-{}-{}",
         tag,
         std::process::id(),

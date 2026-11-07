@@ -14,7 +14,7 @@ fn project(label: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf) {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("system clock before unix epoch")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-debug-{label}-{}-{nanos}",
         std::process::id()
     ));

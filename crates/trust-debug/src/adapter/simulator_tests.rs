@@ -46,20 +46,21 @@ impl Project {
                 .map_or(0, |elapsed| elapsed.as_nanos()),
             PROJECTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         );
-        let root = std::env::temp_dir().join(format!("trust-simulator-{stamp}"));
+        let root = trust_test_support::unique_temp_path(&format!("trust-simulator-{stamp}"));
         std::fs::create_dir_all(root.join("src")).expect("project folder");
         std::fs::write(root.join("src/types.st"), TYPES).expect("types");
         std::fs::write(root.join("src/main.st"), main).expect("program");
         // A Unix socket path holds at most 107 bytes, so the socket's name stays short whatever
         // the temporary folder's path.
-        let socket = std::env::temp_dir().join(format!(
+        let socket = trust_test_support::unique_temp_path(&format!(
             "ts-{}-{}.sock",
             std::process::id(),
             SOCKETS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         #[cfg(unix)]
         let link = {
-            let link = std::env::temp_dir().join(format!("trust-simulator-{stamp}-link"));
+            let link =
+                trust_test_support::unique_temp_path(&format!("trust-simulator-{stamp}-link"));
             std::os::unix::fs::symlink(&root, &link).expect("link to the project");
             link
         };

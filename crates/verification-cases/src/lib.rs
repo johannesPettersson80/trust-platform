@@ -904,7 +904,7 @@ spec_gap_ref = "SPEC_GAP_VALUE"
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "verification_cases_{label}_{}_{}",
             std::process::id(),
             nanos + u128::from(id)

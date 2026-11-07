@@ -82,7 +82,7 @@ struct Project(PathBuf);
 
 impl Project {
     fn new(name: &str) -> Self {
-        let folder = std::env::temp_dir().join(format!(
+        let folder = trust_test_support::unique_temp_path(&format!(
             "trust-debug-{name}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()

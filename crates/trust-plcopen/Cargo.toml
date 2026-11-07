@@ -14,3 +14,6 @@ roxmltree.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 trust-syntax.workspace = true
+
+[dev-dependencies]
+trust-test-support.workspace = true
