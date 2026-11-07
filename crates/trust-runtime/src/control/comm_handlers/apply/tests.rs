@@ -152,7 +152,10 @@ fn a_modbus_driver_keeps_the_expected_identity_it_states_and_writes_no_blank_one
             .iter()
             .map(|error| (error.field.as_str(), error.message.as_str()))
             .collect::<Vec<_>>(),
-        vec![("product_code", "Enter text.")]
+        vec![(
+            "product_code",
+            "product_code: must be text, the identity the device is expected to report"
+        )]
     );
     fs::remove_dir_all(&root).ok();
 }

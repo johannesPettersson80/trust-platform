@@ -196,6 +196,12 @@ impl ParamsError {
     }
 }
 
+/// The value of `result`, or `None` with its refusal added to `refusals`: a rule group's answer
+/// when a driver's rules collect every refusal (specification 32 §2).
+fn kept<T>(result: Result<T, ParamsError>, refusals: &mut Vec<ParamsError>) -> Option<T> {
+    result.map_err(|refusal| refusals.push(refusal)).ok()
+}
+
 /// The parameter table of the JSON text `text`, the driver's `params` (specification 34 §5.1.1).
 fn parse_root(text: &str) -> Result<Map<String, Value>, ParamsError> {
     match serde_json::from_str(text) {

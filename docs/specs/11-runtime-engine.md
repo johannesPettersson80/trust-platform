@@ -875,6 +875,15 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
   `input_function`, `output_function`, `input_points` and `output_points`. An
   unknown key is refused, as for every driver of §6.5, with the key and the
   reason (`modbus-tcp: <key>: <reason>`).
+- One set of rules, shared by every runtime, checks these parameters; a runtime
+  refuses the driver with the first refusal. A connection form (`comm.apply`)
+  marks every key that a rule refuses at once, each with that refusal, in the
+  order of the rules, the same way as for MQTT (specification 32 §2). A list of
+  points needs its function, so a refused function leaves its points unjudged,
+  and each list reports its first refusal. The form checks the parameters as it
+  applies them, without empty optional values, and keeps the bound that
+  `comm.schema` advertises for `timeout_ms`, at most 60,000, which is narrower
+  than the driver's.
 - Default profile uses **input registers** (FC04) for input image.
 - Default profile uses **multiple holding-register writes** (FC16) for output image.
 - Explicit `io.toml` options can select `read_coils` (FC01),
