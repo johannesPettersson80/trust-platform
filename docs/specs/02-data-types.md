@@ -245,7 +245,9 @@ END_TYPE
   optionally namespace-qualified to any depth (`Ns.TrafficLight.Red`); an
   unknown member is rejected. The base name resolves through the enclosing
   scope chain, so enums declared inside namespaces are reachable by their
-  bare type name
+  bare type name. The analysis records the member as the value, so a compiled
+  program takes `TrafficLight.Red` exactly as `TrafficLight#Red`, with or
+  without `{attribute 'qualified_only'}` (specification 44, NX-09)
 - Value position (CODESYS parity, vendor extension, IEC_DEVIATIONS
   2026-10-26): an enumerated value converts to its declared integer base in
   assignments, comparisons, and call arguments — including base-less
