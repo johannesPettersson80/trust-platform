@@ -24,6 +24,7 @@ impl Scratch {
             .map(|elapsed| elapsed.as_nanos())
             .unwrap_or_default();
         Self::under(
+            // temp-root-ok: `under` names the folder with the process id and a counter.
             &std::env::temp_dir(),
             &format!("trust-endpoint-{label}-{nanos}"),
         )

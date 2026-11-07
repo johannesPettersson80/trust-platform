@@ -8,8 +8,10 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
         .expect("TRUST_TEST_OPENOT_INFLUX_TOKEN must hold the reviewed test token");
     let ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA")
         .expect("TRUST_TEST_OPENOT_INFLUX_CA must identify its CA certificate");
-    let spool_root =
-        std::env::temp_dir().join(format!("trust-logging-influx-spool-{}", std::process::id()));
+    let spool_root = trust_test_support::unique_temp_path(&format!(
+        "trust-logging-influx-spool-{}",
+        std::process::id()
+    ));
     let spool = spool_root.join("spool.sqlite3");
     let checkpoint = PersistenceCheckpoint {
         buffer_id: 7,
@@ -116,8 +118,10 @@ fn influxdb3_sink_accepts_during_outage_then_catches_up_in_order() {
     let host = std::env::var("TRUST_TEST_OPENOT_INFLUX_HOST").expect("real InfluxDB host");
     let token = std::env::var("TRUST_TEST_OPENOT_INFLUX_TOKEN").expect("real InfluxDB token");
     let ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA").expect("real InfluxDB CA");
-    let spool_root =
-        std::env::temp_dir().join(format!("trust-openot-influx-outage-{}", std::process::id()));
+    let spool_root = trust_test_support::unique_temp_path(&format!(
+        "trust-openot-influx-outage-{}",
+        std::process::id()
+    ));
     let spool = spool_root.join("spool.sqlite3");
     let checkpoint = PersistenceCheckpoint {
         buffer_id: 7,
@@ -161,7 +165,7 @@ fn influxdb3_sink_rejects_a_spool_limit_smaller_than_its_schema() {
     let host = std::env::var("TRUST_TEST_OPENOT_INFLUX_HOST").expect("real InfluxDB host");
     let token = std::env::var("TRUST_TEST_OPENOT_INFLUX_TOKEN").expect("real InfluxDB token");
     let ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA").expect("real InfluxDB CA");
-    let spool_root = std::env::temp_dir().join(format!(
+    let spool_root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-influx-tiny-spool-{}",
         std::process::id()
     ));
@@ -187,7 +191,7 @@ fn influxdb3_spool_full_rolls_back_documents_and_checkpoint() {
     let host = std::env::var("TRUST_TEST_OPENOT_INFLUX_HOST").expect("real InfluxDB host");
     let token = std::env::var("TRUST_TEST_OPENOT_INFLUX_TOKEN").expect("real InfluxDB token");
     let ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA").expect("real InfluxDB CA");
-    let spool_root = std::env::temp_dir().join(format!(
+    let spool_root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-influx-full-spool-{}",
         std::process::id()
     ));
@@ -241,7 +245,7 @@ fn influxdb3_spool_full_rolls_back_documents_and_checkpoint() {
 #[test]
 fn sink_factory_opens_toml_selected_influxdb3_adapter() {
     let ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA").expect("real InfluxDB CA");
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-influx-factory-{}",
         std::process::id()
     ));

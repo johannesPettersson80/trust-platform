@@ -162,7 +162,7 @@ fn assert_real_product_restart_recovery(product: RealRestartProduct) {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos() as u64;
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-{}-restart-{}-{stamp}",
         product.label(),
         std::process::id()
@@ -366,7 +366,7 @@ fn every_real_network_backend_rejects_incompatible_generation_without_repair() {
     .into_iter()
     .enumerate()
     {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-openot-{}-schema-{}-{stamp}",
             product.label(),
             std::process::id()
