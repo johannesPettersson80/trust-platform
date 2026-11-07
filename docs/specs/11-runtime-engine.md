@@ -1120,6 +1120,12 @@ worker thread. Raw values may remain available for diagnostics. This local
 wakeup guarantee does not claim cancellation of a transport call already in
 flight.
 
+The wire transport's disconnect, at shutdown and before a reconnect, first
+stops the session's run loop and waits for it, because the loop reconnects a
+session that it finds disconnected; then it closes the session. A session that
+the loop reopened while it was being closed is never left to be dropped half
+open.
+
 Whether pending outputs replay after reconnect and how server source
 timestamps are ordered remain unresolved product decisions. This contract does
 not provide authority for tests that select those behaviors.

@@ -243,7 +243,7 @@ full = [
 ]
 development = ["full", "debug"]
 debug = ["full"]
-opcua-wire = ["full", "dep:opcua"]
+opcua-wire = ["full", "dep:opcua", "dep:tokio"]
 ethercat-wire = ["full", "dep:ethercrab", "dep:tokio", "dep:pnet_datalink"]
 ads-wire = ["full", "dep:ads", "dep:encoding_rs"]
 ads-server = ["full", "dep:trust-ads-server"]

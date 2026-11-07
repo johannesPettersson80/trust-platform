@@ -278,3 +278,95 @@ fn opcua_load_fixture_rejects_writes_to_snapshot_backed_variables() {
     );
     server.stop();
 }
+
+/// A client connection of this server's `counter` 42, a value that never changes, publishing every
+/// `poll_interval_ms` with the stale timeout `timeout_ms`, whose worker has taken the first value.
+fn steady_client(
+    server: &trust_runtime::opcua::OpcUaWireServer,
+    poll_interval_ms: u64,
+    timeout_ms: u64,
+) -> (
+    trust_runtime::opcua::OpcUaClientBridge,
+    trust_runtime::opcua::OpcUaClientWorker<trust_runtime::opcua::OpcUaWireClientTransport>,
+) {
+    use trust_runtime::opcua::{
+        opcua_client_now_ms, OpcUaClientAuthConfig, OpcUaClientBinding, OpcUaClientBridge,
+        OpcUaClientConnectionConfig, OpcUaClientPointAccess, OpcUaClientPointConfig,
+        OpcUaWireClientTransport,
+    };
+    let node = server
+        .exposed_nodes()
+        .iter()
+        .find(|node| node.name == "counter")
+        .expect("the counter node")
+        .clone();
+    let point = OpcUaClientPointConfig {
+        var: node.name.clone(),
+        node_id: node.node_id.clone(),
+        data_type: node.data_type,
+        access: OpcUaClientPointAccess::Read,
+    };
+    let connection = OpcUaClientConnectionConfig {
+        name: "steady".into(),
+        endpoint_url: server.endpoint_url().to_string(),
+        security: server.security_profile(),
+        auth: OpcUaClientAuthConfig::Anonymous,
+        trust_server_certificate: true,
+        poll_interval_ms,
+        timeout_ms,
+        points: vec![point.clone()],
+    };
+    let binding = OpcUaClientBinding {
+        point,
+        target: trust_runtime::BoundGlobal(node.name.clone()),
+    };
+    let (bridge, mut worker) = OpcUaClientBridge::with_transport(
+        connection,
+        OpcUaWireClientTransport::new(),
+        vec![binding],
+    )
+    .expect("the client bridge");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while !counter_is_live(&bridge) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "no value within 10 s: {}",
+            bridge.snapshot().detail
+        );
+        let _ = worker.tick(opcua_client_now_ms());
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    (bridge, worker)
+}
+
+/// Whether the point `counter` is live with its value 42.
+fn counter_is_live(bridge: &trust_runtime::opcua::OpcUaClientBridge) -> bool {
+    let snapshot = bridge.snapshot();
+    snapshot.point_statuses[0].state == trust_runtime::opcua::OpcUaClientConnectionState::Connected
+        && snapshot.values.get("counter") == Some(&trust_runtime::value::Value::DInt(42))
+}
+
+/// Specification 11's OPC UA client: a wire client's session ends cleanly while its server runs.
+/// Twice, a client connection takes this server's `counter` 42, and its transport's disconnect
+/// stops the session's run loop, which reconnects a session that it finds disconnected, and closes
+/// the session within ten seconds. Catches a teardown that lets the run loop reconnect the session
+/// it is closing, which aborted the process (opcua's session, dropped half reconnected, panicked in
+/// its drop), or that waits for that loop forever.
+#[test]
+fn a_wire_client_disconnects_while_its_server_runs() {
+    use trust_runtime::opcua::OpcUaClientTransport;
+    let mut server = start_fixture_server("interop");
+    for round in 1..=2 {
+        let (bridge, mut worker) = steady_client(&server, 250, 2_000);
+        let (done, finished) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = done.send(worker.transport_mut().disconnect());
+        });
+        let disconnected = finished
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .unwrap_or_else(|_| panic!("round {round}: no disconnect within 10 s"));
+        assert_eq!(disconnected, Ok(()), "round {round}");
+        drop(bridge);
+    }
+    server.stop();
+}
