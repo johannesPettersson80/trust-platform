@@ -164,6 +164,56 @@ END_PROGRAM
     harness.assert_eq("Formal", 21i16);
 }
 
+/// Specification 04: a method's `VAR_INST` variable lives in the instance, one per instance and
+/// method, starts at its initial value and keeps its value between calls and cycles; CODESYS's
+/// example method returns the input of the call before. Worked by hand: in cycle 1, `a` answers its
+/// starting 42, then 5, then 7; `b`, another instance, answers its own 42. In cycle 2, `a` answers 1,
+/// the input of its last call in cycle 1, and `b` answers 9. Catches the variable started again at
+/// each call (42 each time), shared by the instances (`b` would answer 7), or started again each
+/// cycle.
+#[test]
+fn a_var_inst_variable_is_kept_per_instance_between_calls() {
+    let source = r#"
+FUNCTION_BLOCK FB_Memory
+METHOD PUBLIC Remember : INT
+VAR_INPUT
+    value : INT;
+END_VAR
+VAR_INST
+    previous : INT := 42;
+END_VAR
+Remember := previous;
+previous := value;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    a : FB_Memory;
+    b : FB_Memory;
+    a1 : INT;
+    a2 : INT;
+    b1 : INT;
+    a3 : INT;
+END_VAR
+a1 := a.Remember(5);
+a2 := a.Remember(7);
+b1 := b.Remember(9);
+a3 := a.Remember(1);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    for (a1, a2, b1, a3) in [(42i16, 5i16, 42i16, 7i16), (1, 5, 9, 7)] {
+        let result = harness.cycle();
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        harness.assert_eq("a1", a1);
+        harness.assert_eq("a2", a2);
+        harness.assert_eq("b1", b1);
+        harness.assert_eq("a3", a3);
+    }
+}
+
 /// A function block may extend a base declared in a namespace; its body calls the base's methods
 /// and its callers bind the inherited parameters (IEC 61131-3 Edition 3, 6.6.5.3, Tables 64–66).
 #[test]

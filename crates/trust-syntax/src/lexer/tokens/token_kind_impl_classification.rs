@@ -48,6 +48,7 @@ impl TokenKind {
                 | Self::KwVarAccess
                 | Self::KwVarConfig
                 | Self::KwVarStat
+                | Self::KwVarInst
                 | Self::KwConstant
                 | Self::KwRetain
                 | Self::KwNonRetain

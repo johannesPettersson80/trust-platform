@@ -149,7 +149,12 @@ IEC 61131-3 Ed.3 Table 19 and the Annex A function production permit
 `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`, `VAR_EXTERNAL`, `VAR`, and
 `VAR_TEMP` in a function. A method has the same variable-section set under the
 Annex A method production. truST additionally accepts `VAR_STAT` in both as
-the documented persistent-static extension.
+the documented persistent-static extension. A method also accepts CODESYS's
+`VAR_INST`, which is the method's `VAR_STAT` under CODESYS's name: one variable
+per instance and method, kept between calls, initialized with the instance,
+reachable only inside the method, with `VAR_STAT`'s qualifiers. A `VAR_INST`
+section anywhere else, in a function, a body or an interface, is refused
+(E202), as CODESYS allows it only in a method.
 
 Neither owner accepts `VAR_GLOBAL`, `VAR_ACCESS`, or `VAR_CONFIG`. Encountering
 one of those sections rejects the complete function or method declaration;

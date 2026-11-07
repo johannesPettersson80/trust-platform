@@ -304,6 +304,20 @@ impl SymbolCollector<'_> {
                     | SyntaxKind::Class => Some(ancestor.kind()),
                     _ => None,
                 });
+            // CODESYS's `VAR_INST` is a method's variable kept per instance, nowhere else
+            // (specification 04).
+            if owner != Some(SyntaxKind::Method)
+                && block
+                    .descendants_with_tokens()
+                    .filter_map(|element| element.into_token())
+                    .any(|token| token.kind() == SyntaxKind::KwVarInst)
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    block.text_range(),
+                    "VAR_INST is allowed only in a METHOD",
+                );
+            }
             let retention_allowed = match qualifier {
                 VarQualifier::Global | VarQualifier::Static => true,
                 VarQualifier::Local => matches!(

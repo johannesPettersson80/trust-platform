@@ -70,6 +70,7 @@ pub fn is_reserved_keyword(name: &str) -> bool {
             | "VAR_ACCESS"
             | "VAR_CONFIG"
             | "VAR_STAT"
+            | "VAR_INST"
             | "CONSTANT"
             | "RETAIN"
             | "NON_RETAIN"
