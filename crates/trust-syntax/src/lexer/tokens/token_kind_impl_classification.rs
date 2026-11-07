@@ -77,6 +77,7 @@ impl TokenKind {
                 | Self::KwTo
                 | Self::KwExtends
                 | Self::KwImplements
+                | Self::KwSystemDunder
                 | Self::KwThis
                 | Self::KwSuper
                 | Self::KwNew

@@ -684,6 +684,16 @@ INTERFACE IAdvancedControl EXTENDS IControllable
 END_INTERFACE
 ```
 
+CODESYS lets an interface extend its system interface `__SYSTEM.IQueryInterface`, which
+there allows `__QUERYINTERFACE` on it, and lets a function block or class name the
+system interface among the interfaces it implements. Under every profile truST accepts
+`__SYSTEM.IQueryInterface` after an interface's `EXTENDS` and in an `IMPLEMENTS` list,
+where it has no effect: it adds no method, and the other names of the list keep their
+meaning. Any other `__SYSTEM` name is refused (E102), and so is
+`__SYSTEM.IQueryInterface` after a function block's or class's `EXTENDS`.
+`__SYSTEM` is a reserved word (specification 01); IEC forbids `__` in a name, so no
+valid IEC program changes.
+
 ### Interface as Variable Type
 
 ```

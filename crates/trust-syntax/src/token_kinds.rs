@@ -97,6 +97,7 @@ macro_rules! for_each_token_kind {
             KwTo,
             KwExtends,
             KwImplements,
+            KwSystemDunder,
             KwThis,
             KwSuper,
             KwNew,

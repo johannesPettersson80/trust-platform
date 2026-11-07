@@ -196,6 +196,8 @@ pub enum TokenKind {
     KwExtends,
     #[token("IMPLEMENTS", ignore(case))]
     KwImplements,
+    #[token("__SYSTEM", ignore(case))]
+    KwSystemDunder,
     #[token("THIS", ignore(case))]
     KwThis,
     #[token("SUPER", ignore(case))]

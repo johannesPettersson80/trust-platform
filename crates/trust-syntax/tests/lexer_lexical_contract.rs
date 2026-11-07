@@ -73,6 +73,17 @@ fn lexical_contract_rejects_multiple_leading_underscores_as_one_candidate() {
     assert_rejected_candidate("__LIM_SW5", &[TokenKind::Ident]);
 }
 
+/// Specification 01: CODESYS's `__SYSTEM` is one reserved token in any case, while another name
+/// that starts with `__` stays a malformed identifier. Catches `__SYSTEM` lexed as a malformed
+/// identifier, which made an interface that extends `__SYSTEM.IQueryInterface` a parse error.
+#[test]
+fn lexical_contract_codesys_system_namespace_is_one_reserved_token() {
+    for source in ["__SYSTEM", "__system", "__System"] {
+        assert_single(source, TokenKind::KwSystemDunder);
+    }
+    assert_rejected_candidate("__SYSTEMS", &[TokenKind::Ident, TokenKind::KwSystemDunder]);
+}
+
 #[test]
 fn lexical_contract_rejects_multiple_embedded_underscores_as_one_candidate() {
     assert_rejected_candidate("LIM__SW5", &[TokenKind::Ident]);
