@@ -59,7 +59,9 @@ fn check_mode_bindings(request: &IsolatedRunRequest) -> Result<(), Failure> {
             !binding.symbol.trim().is_empty()
                 && !binding.manual_value.trim().is_empty()
                 && !binding.auto_value.trim().is_empty()
-                && !binding.manual_value.eq_ignore_ascii_case(&binding.auto_value)
+                && !binding
+                    .manual_value
+                    .eq_ignore_ascii_case(&binding.auto_value)
                 && symbols.insert(binding.symbol.to_uppercase())
         });
     if valid {
