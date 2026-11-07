@@ -3,7 +3,7 @@ struct Project(PathBuf);
 impl Project {
     fn new() -> Self {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-hmi-bundle-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()

@@ -10,7 +10,7 @@ struct Project(PathBuf);
 
 impl Project {
     fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-check-command-{name}-{}",
             std::process::id()
         ));
@@ -84,7 +84,7 @@ fn check_prints_each_diagnostic_with_its_native_relative_path() {
 #[test]
 fn check_rejects_a_file_outside_the_project() {
     let project = Project::new("outside");
-    let outside = std::env::temp_dir().join(format!(
+    let outside = trust_test_support::unique_temp_path(&format!(
         "trust-lsp-check-command-outside-{}.st",
         std::process::id()
     ));

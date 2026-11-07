@@ -162,12 +162,9 @@ mod tests {
     use std::fs;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+    /// A new directory for one test, created: the shared helper's path (specification 22).
     fn temp_dir(prefix: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-        let dir = std::env::temp_dir().join(format!("{prefix}-{stamp}"));
+        let dir = trust_test_support::unique_temp_path(prefix);
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
     }

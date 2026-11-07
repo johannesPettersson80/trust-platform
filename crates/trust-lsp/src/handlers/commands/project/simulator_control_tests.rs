@@ -24,7 +24,10 @@ fn each_workspace_has_its_own_socket_in_the_temporary_folder() {
             .expect("an endpoint")
             .to_owned()
     };
-    let socket = |name: &str| format!("unix://{}", std::env::temp_dir().join(name).display());
+    let socket = |name: &str| {
+        // temp-root-ok: the simulator's own socket path in the temporary folder.
+        format!("unix://{}", std::env::temp_dir().join(name).display())
+    };
     assert_eq!(
         endpoint(Some("/work/plant")),
         socket("trust-debug-4a5761d4.sock")

@@ -16,5 +16,8 @@ serde_json.workspace = true
 toml.workspace = true
 base64 = "0.23.1"
 
+[dev-dependencies]
+trust-test-support.workspace = true
+
 [lints]
 workspace = true

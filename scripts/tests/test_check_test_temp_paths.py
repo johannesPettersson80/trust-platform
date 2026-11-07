@@ -13,16 +13,43 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import check_test_temp_paths as check  # noqa: E402
 
+CALL = 'fn helper() -> PathBuf {\n    std::env::temp_dir().join("a")\n}\n'
 
-class TestCode(unittest.TestCase):
-    """What counts as test code."""
 
-    def test_a_test_file_is_test_code_throughout(self) -> None:
-        """Catches a guard that misses the calls of a whole test file."""
-        text = 'fn helper() -> PathBuf {\n    std::env::temp_dir().join("a")\n}\n'
-        for relative in ["crates/x/tests/cli.rs", "crates/x/src/tests.rs", "crates/x/src/a_tests.rs",
-                         "crates/x/src/b_test.rs"]:
-            self.assertEqual(check.violations(relative, text), [(2, 'std::env::temp_dir().join("a")')], relative)
+class TestFiles(unittest.TestCase):
+    """Which files are test code as a whole: the module tree decides, not the file's name."""
+
+    def test_the_module_tree_decides_which_files_are_tests(self) -> None:
+        """A gated module, a gated `#[path]` module, a child of a test file and an integration test are test files;
+        a `hmi_test.rs`, and a `tests.rs` that a product module declares without a gate, are product modules. Catches
+        a guard that takes a file's name or folder for proof and so flags product code, and one that misses a gated or
+        a nested test file."""
+        sources = {
+            "crates/x/src/lib.rs": '#[cfg(test)]\nmod checks;\nmod hmi_test;\nmod product;\n'
+                                   '#[cfg(all(test, unix))]\n#[path = "helpers/support.rs"]\nmod support;\n',
+            "crates/x/src/checks.rs": "mod nested;\n",
+            "crates/x/src/checks/nested.rs": "",
+            "crates/x/src/hmi_test.rs": "",
+            "crates/x/src/product.rs": "mod tests;\n",
+            "crates/x/src/product/tests/mod.rs": "",
+            "crates/x/src/helpers/support.rs": "",
+            "crates/x/tests/cli.rs": "",
+        }
+        self.assertEqual(
+            check.test_module_files(sources),
+            {"crates/x/src/checks.rs", "crates/x/src/checks/nested.rs", "crates/x/src/helpers/support.rs",
+             "crates/x/tests/cli.rs"},
+        )
+
+    def test_a_test_file_is_test_code_throughout_and_a_product_file_is_not(self) -> None:
+        """Catches a guard that misses the calls of a whole test file, and one that flags a product file's call."""
+        self.assertEqual(check.violations("crates/x/src/tests.rs", CALL, {"crates/x/src/tests.rs"}),
+                         [(2, 'std::env::temp_dir().join("a")')])
+        self.assertEqual(check.violations("crates/x/src/hmi_test.rs", CALL, set()), [])
+
+
+class GatedItems(unittest.TestCase):
+    """Which items of a product file are test code."""
 
     def test_only_the_gated_items_of_a_product_file_are_test_code(self) -> None:
         """A product path stays allowed, and a gated module's call is found though a raw string and a character
@@ -41,7 +68,7 @@ class TestCode(unittest.TestCase):
             '    }\n'
             '}\n'
         )
-        self.assertEqual(check.violations("crates/x/src/lib.rs", text), [(10, 'env::temp_dir().join("x")')])
+        self.assertEqual(check.violations("crates/x/src/lib.rs", text, set()), [(10, 'env::temp_dir().join("x")')])
 
     def test_a_gated_function_is_test_code_and_a_gated_import_ends_at_its_semicolon(self) -> None:
         """Catches a gate read as covering the rest of the file."""
@@ -54,15 +81,14 @@ class TestCode(unittest.TestCase):
             '    std::env::temp_dir()\n'
             '}\n'
         )
-        self.assertEqual(check.violations("crates/x/src/lib.rs", text), [(6, "std::env::temp_dir()")])
+        self.assertEqual(check.violations("crates/x/src/lib.rs", text, set()), [(6, "std::env::temp_dir()")])
 
 
 class Exceptions(unittest.TestCase):
     """What the guard leaves alone."""
 
     def test_the_marker_a_comment_and_the_helper_crate_are_allowed(self) -> None:
-        """Catches a guard that refuses a marked product path, one that reads comments, and one that refuses the
-        helper itself."""
+        """Catches a guard that refuses a marked call, one that reads comments, and one that refuses the helper."""
         text = (
             '// std::env::temp_dir() in a comment\n'
             'let name = "std::env::temp_dir()";\n'
@@ -70,13 +96,14 @@ class Exceptions(unittest.TestCase):
             'assert!(path.starts_with(std::env::temp_dir()));\n'
             'let also = std::env::temp_dir(); // temp-root-ok: the socket budget\n'
         )
-        self.assertEqual(check.violations("crates/x/tests/a.rs", text), [])
-        self.assertEqual(check.violations("crates/trust-test-support/src/lib.rs", "std::env::temp_dir()\n"), [])
+        self.assertEqual(check.violations("crates/x/tests/a.rs", text, {"crates/x/tests/a.rs"}), [])
+        helper = "crates/trust-test-support/src/lib.rs"
+        self.assertEqual(check.violations(helper, "std::env::temp_dir()\n", {helper}), [])
 
     def test_a_local_helper_named_temp_dir_is_not_the_system_call(self) -> None:
         """Catches a guard that flags a test's own function of that name."""
         text = 'fn temp_dir() -> PathBuf {\n    unique()\n}\nlet root = temp_dir();\n'
-        self.assertEqual(check.violations("crates/x/tests/a.rs", text), [])
+        self.assertEqual(check.violations("crates/x/tests/a.rs", text, {"crates/x/tests/a.rs"}), [])
 
 
 class Command(unittest.TestCase):

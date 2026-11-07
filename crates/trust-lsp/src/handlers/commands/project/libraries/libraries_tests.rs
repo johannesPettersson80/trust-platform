@@ -33,7 +33,7 @@ fn the_word_under_the_cursor_is_an_identifier() {
 /// A server with one open document in a project whose manifest is `manifest`.
 fn server_with(manifest: &str, source: &str) -> (ServerState, Url, PathBuf) {
     static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-lsp-library-quick-fix-{}-{}",
         std::process::id(),
         NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -124,8 +124,10 @@ fn no_quick_fix_when_the_manifest_names_the_library_or_quick_fixes_are_not_asked
 
 #[test]
 fn the_command_answers_the_view_and_refuses_unknown_actions() {
-    let root =
-        std::env::temp_dir().join(format!("trust-lsp-libraries-answer-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path(&format!(
+        "trust-lsp-libraries-answer-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("project");
     std::fs::write(root.join("trust-lsp.toml"), "include_paths = [\"src\"]\n").expect("manifest");

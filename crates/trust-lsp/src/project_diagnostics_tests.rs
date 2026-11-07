@@ -18,7 +18,7 @@ struct Project {
 
 impl Project {
     fn new(config: &str, files: &[(&str, &str)]) -> Self {
-        let base = std::env::temp_dir().join(format!(
+        let base = trust_test_support::unique_temp_path(&format!(
             "trust-lsp-project-diagnostics-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)

@@ -15,7 +15,6 @@ use std::net::TcpListener;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 fn position_at(source: &str, needle: &str) -> tower_lsp::lsp_types::Position {
     let offset = source
@@ -48,12 +47,9 @@ fn inlay_label_contains(label: &tower_lsp::lsp_types::InlayHintLabel, needle: &s
     }
 }
 
+/// A new directory for one test, created: the shared helper's path (specification 22).
 fn temp_dir(prefix: &str) -> PathBuf {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-    let dir = std::env::temp_dir().join(format!("{prefix}-{stamp}"));
+    let dir = trust_test_support::unique_temp_path(prefix);
     std::fs::create_dir_all(&dir).expect("create temp dir");
     dir
 }

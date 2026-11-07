@@ -53,6 +53,7 @@ native-tls.workspace = true
 tungstenite = "0.30.0"
 
 [dev-dependencies]
+trust-test-support.workspace = true
 expect-test.workspace = true
 insta.workspace = true
 verification-cases.workspace = true

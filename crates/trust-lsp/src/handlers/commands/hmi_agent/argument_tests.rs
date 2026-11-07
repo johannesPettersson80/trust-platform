@@ -16,8 +16,7 @@ use super::*;
 
 /// The storage folder the tests name: an absolute path that reading the argument does not create.
 fn temp_storage() -> String {
-    std::env::temp_dir()
-        .join("trust-agent-argument-storage")
+    trust_test_support::process_temp_path("trust-agent-argument-storage")
         .display()
         .to_string()
 }
@@ -25,7 +24,7 @@ fn temp_storage() -> String {
 /// The project folder the tests name: a local folder of this computer, in its own form, that reading
 /// the argument does not create.
 fn tank_folder() -> PathBuf {
-    std::env::temp_dir().join("trust-agent-argument-tank")
+    trust_test_support::process_temp_path("trust-agent-argument-tank")
 }
 
 /// The file address of [`tank_folder`], as an editor names a local project on this computer.

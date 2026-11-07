@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn the_project_catalogue_gives_shared_formats_and_unsaved_text_wins() {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "hmi-formats-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn library_and_project_symbols_use_unsaved_drawings_without_writing_files() {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "hmi-customer-symbol-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()

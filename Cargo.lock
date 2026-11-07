@@ -7766,6 +7766,7 @@ dependencies = [
  "trust-chips",
  "trust-runtime",
  "trust-runtime-client",
+ "trust-test-support",
 ]
 
 [[package]]
@@ -7837,6 +7838,7 @@ dependencies = [
  "trust-runtime",
  "trust-runtime-client",
  "trust-syntax",
+ "trust-test-support",
  "trust-visual",
  "tungstenite",
  "ureq",
