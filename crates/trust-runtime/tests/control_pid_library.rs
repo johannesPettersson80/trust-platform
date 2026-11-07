@@ -51,6 +51,8 @@ TYPE E_Order : (FirstOrder, SecondOrder); END_TYPE
 TYPE E_Form : (Parallel, Ideal, Series); END_TYPE
 TYPE E_Status : (Valid, InvalidDomain, NonRepresentable); END_TYPE
 
+USING Control;
+
 PROGRAM Main
 VAR
     Mode : E_Mode := E_Mode#Manual;
@@ -59,11 +61,11 @@ VAR
     Filter : Control.LowPass;
     Parameters : Control.PIDParameters := (ProportionalGain := LREAL#2.0, IntegralGain := LREAL#1.0,
         OutputMinimum := LREAL#0.0, OutputMaximum := LREAL#100.0, RateMinimum := LREAL#-1000.0,
-        RateMaximum := LREAL#1000.0, TrackingTime := LREAL#1.0, AntiWindup := Control.PIDAntiWindup#Combined);
+        RateMaximum := LREAL#1000.0, TrackingTime := LREAL#1.0, AntiWindup := PIDAntiWindup#Combined);
     Input : Control.PIDInput := (Setpoint := LREAL#50.0, ProcessValue := LREAL#50.0, ManualOutput := LREAL#30.0,
         TrackingOutput := LREAL#70.0, CycleTime := LREAL#0.1);
     Start : Control.PIDInitialState := (Setpoint := LREAL#50.0, ProcessValue := LREAL#50.0, SaturatedOutput := LREAL#70.0);
-    Smoothing : Control.LowPassParameters := (TimeConstant := LREAL#1.0, Order := Control.FilterOrder#SecondOrder);
+    Smoothing : Control.LowPassParameters := (TimeConstant := LREAL#1.0, Order := FilterOrder#SecondOrder);
 END_VAR
 VAR_OUTPUT
     ManualOut : LREAL;
@@ -71,11 +73,11 @@ VAR_OUTPUT
     Filtered : LREAL;
 END_VAR
 Hand.Configure(Parameters := Parameters);
-Input.Mode := Control.PIDMode#Manual;
+Input.Mode := PIDMode#Manual;
 ManualOut := Hand.Update(Input := Input);
 Follow.Configure(Parameters := Parameters);
 Follow.Initialize(State := Start);
-Input.Mode := Control.PIDMode#Track;
+Input.Mode := PIDMode#Track;
 TrackOut := Follow.Update(Input := Input);
 Filter.Configure(Parameters := Smoothing);
 Filter.Initialize(Input := LREAL#0.0);
