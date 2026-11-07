@@ -305,7 +305,13 @@ contract, including when a newer document or workspace request supersedes it.
 
 ##### 6.3.2 Find References
 
-- All usages of a symbol
+- All usages of a symbol: every name, member and callee that the analysis resolves to it, in every
+  file of the project. A global used through its namespace's qualifier (`GVL_IO.level`, a CODESYS
+  GVL), a member or method of an instance declared in another file (`gTank.level`,
+  `gTank.Start()`) and a method call count as a plain name does. The references come from the
+  names the type check resolved (the map the compiled-program generator reads, specification 44
+  §3), so find references, rename and the call hierarchy's incoming calls agree with go to
+  definition.
 - Include/exclude declaration
 - Filter by read/write
 
