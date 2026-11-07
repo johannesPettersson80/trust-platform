@@ -1,5 +1,6 @@
 //! Guarded, task-bound controller transfer transactions.
 
+use super::mode::{self, Mode};
 use super::program_facts::{self, BindingLeaf, ProgramTask};
 use super::{parameters, DebugControl};
 use crate::io::IoAddress;
@@ -48,13 +49,6 @@ struct NumberMember {
     unit: String,
     minimum: f64,
     maximum: f64,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Mode {
-    symbol: String,
-    manual_value: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -415,12 +409,12 @@ fn number(program: &dyn ProgramRead, member: &NumberMember) -> Result<f64, Strin
 }
 
 fn observed(binding: &Binding, program: &dyn ProgramRead) -> Result<JsonValue, String> {
+    let image = program.program_image();
     let mut values = Map::new();
     for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
-        let Value::Bool(value) = parameters::resolve_path(program, &mode.symbol)?.value else {
-            return Err("transfer mode must be BOOL".into());
-        };
-        values.insert(mode.symbol.clone(), JsonValue::Bool(value));
+        let value = parameters::resolve_path(program, &mode.symbol)?.value;
+        mode.check(&value, &image)?;
+        values.insert(mode.symbol.clone(), mode::shown(&mode.symbol, &value)?);
     }
     for member in binding
         .states
@@ -486,8 +480,8 @@ fn same_values(
         return Err("stale program, binding, or expected values: the member sets differ".into());
     }
     for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
-        let left = expected.get(&mode.symbol).and_then(JsonValue::as_bool);
-        let right = actual.get(&mode.symbol).and_then(JsonValue::as_bool);
+        let left = expected.get(&mode.symbol);
+        let right = actual.get(&mode.symbol);
         if left != right {
             return Err(stale_value(&mode.symbol, shown(left), shown(right)));
         }
@@ -1028,14 +1022,11 @@ impl DebugControl {
                 .chain(request.binding.additional_modes.iter())
             {
                 let resolved = parameters::resolve_path(program, &mode.symbol)?;
+                let target = mode.target(request.manual, &resolved.value, &image)?;
                 planned.push((
                     resolved.at,
                     resolved.value,
-                    Value::Bool(if request.manual {
-                        mode.manual_value
-                    } else {
-                        !mode.manual_value
-                    }),
+                    target,
                     "transfer mode is not writable".to_string(),
                 ));
             }
@@ -1123,14 +1114,10 @@ impl DebugControl {
             for mode in std::iter::once(&request.binding.mode)
                 .chain(request.binding.additional_modes.iter())
             {
-                let expected_mode = if request.manual {
-                    mode.manual_value
-                } else {
-                    !mode.manual_value
-                };
-                if parameters::resolve_path(program, &mode.symbol)?.value
-                    != Value::Bool(expected_mode)
-                {
+                if !mode.holds(
+                    request.manual,
+                    &parameters::resolve_path(program, &mode.symbol)?.value,
+                ) {
                     return Err("controller changed transfer mode before confirmation".into());
                 }
             }
