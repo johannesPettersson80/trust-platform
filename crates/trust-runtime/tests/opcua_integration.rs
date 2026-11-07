@@ -346,6 +346,65 @@ fn counter_is_live(bridge: &trust_runtime::opcua::OpcUaClientBridge) -> bool {
         && snapshot.values.get("counter") == Some(&trust_runtime::value::Value::DInt(42))
 }
 
+/// Specification 11's OPC UA client against this server, whose values do not change: the
+/// subscription's heartbeat, the server's current time, keeps the connection and its point live for
+/// three seconds, past the stale bound of two seconds (the default timeout, more than three
+/// publishing intervals of 50 ms), though the point reports its value 42 only once. Catches a client
+/// that calls a steady subscription stale, and a heartbeat that the server never reports.
+#[test]
+fn a_steady_subscription_stays_live_through_its_heartbeat() {
+    use trust_runtime::opcua::{opcua_client_now_ms, OpcUaClientConnectionState};
+    let mut server = start_fixture_server("interop");
+    let (bridge, mut worker) = steady_client(&server, 50, 2_000);
+    let first = std::time::Instant::now();
+    while first.elapsed() < std::time::Duration::from_secs(3) {
+        worker.tick(opcua_client_now_ms()).expect("a tick");
+        assert_eq!(
+            bridge.state(),
+            OpcUaClientConnectionState::Connected,
+            "{} after {:?}",
+            bridge.snapshot().detail,
+            first.elapsed()
+        );
+        assert!(
+            counter_is_live(&bridge),
+            "the point after {:?}",
+            first.elapsed()
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    drop(worker);
+    server.stop();
+}
+
+/// Specification 11's OPC UA client: its subscription publishes at the connection's
+/// `poll_interval_ms`, here 1,000 ms, so its heartbeat arrives about once a second. Over five
+/// seconds at least three heartbeats arrive, and the median gap between them is at least 600 ms
+/// (a busy computer only lengthens the gaps). Catches a subscription that publishes at a fixed rate
+/// whatever the connection asks (it published every 250 ms), and a heartbeat that never arrives.
+#[test]
+fn the_subscription_publishes_at_the_poll_interval() {
+    use trust_runtime::opcua::opcua_client_now_ms;
+    let mut server = start_fixture_server("interop");
+    let (bridge, mut worker) = steady_client(&server, 1_000, 60_000);
+    let mut seen = Vec::new();
+    let first = std::time::Instant::now();
+    while first.elapsed() < std::time::Duration::from_secs(5) {
+        worker.tick(opcua_client_now_ms()).expect("a tick");
+        let last_seen = bridge.snapshot().last_seen_ms.expect("a notification time");
+        if seen.last() != Some(&last_seen) {
+            seen.push(last_seen);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let mut gaps: Vec<u64> = seen.windows(2).map(|pair| pair[1] - pair[0]).collect();
+    gaps.sort_unstable();
+    assert!(gaps.len() >= 3, "heartbeats at {seen:?}");
+    assert!(gaps[gaps.len() / 2] >= 600, "gaps {gaps:?}");
+    drop(worker);
+    server.stop();
+}
+
 /// Specification 11's OPC UA client: a wire client's session ends cleanly while its server runs.
 /// Twice, a client connection takes this server's `counter` 42, and its transport's disconnect
 /// stops the session's run loop, which reconnects a session that it finds disconnected, and closes

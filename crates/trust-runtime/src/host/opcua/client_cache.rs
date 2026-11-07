@@ -27,6 +27,9 @@ pub enum OpcUaClientWorkerEvent {
         at_ms: u64,
         detail: String,
     },
+    /// A notification of the subscription's heartbeat, the server's current time: evidence that
+    /// the subscription is alive, though no point's value changed (specification 11).
+    Heartbeat { generation: u64, at_ms: u64 },
 }
 
 #[derive(Clone)]
@@ -77,6 +80,17 @@ impl OpcUaClientEventSink {
             })
             .is_ok()
     }
+
+    /// Publishes a notification of the subscription's heartbeat at `at_ms`.
+    #[must_use]
+    pub fn publish_heartbeat(&self, at_ms: u64) -> bool {
+        self.sender
+            .try_send(OpcUaClientWorkerEvent::Heartbeat {
+                generation: self.generation,
+                at_ms,
+            })
+            .is_ok()
+    }
 }
 
 #[derive(Clone)]
@@ -91,6 +105,8 @@ struct OpcUaClientCacheState {
     last_seen_ms: Option<u64>,
     values: std::collections::BTreeMap<SmolStr, Value>,
     point_statuses: std::collections::BTreeMap<(SmolStr, String), OpcUaClientPointStatus>,
+    /// The readable points that silence made stale, which the next notification makes live again.
+    silenced: std::collections::BTreeSet<(SmolStr, String)>,
     pending_writes: std::collections::BTreeMap<SmolStr, OpcUaPendingWrite>,
     next_write_generation: u64,
 }
@@ -139,6 +155,7 @@ impl OpcUaSharedClientCache {
                 last_seen_ms: None,
                 values: std::collections::BTreeMap::new(),
                 point_statuses,
+                silenced: std::collections::BTreeSet::new(),
                 pending_writes: std::collections::BTreeMap::new(),
                 next_write_generation: 0,
             })),
@@ -200,8 +217,33 @@ impl OpcUaSharedClientCache {
         );
     }
 
-    fn mark_stale(&self, detail: impl Into<String>) {
-        self.mark_all_points(OpcUaClientConnectionState::Stale, None, None, detail);
+    /// Marks the connection stale after silence, no notification for its stale bound
+    /// (specification 11). Only the readable points that were live become stale, and they are
+    /// remembered, so that the next notification makes them live again; a point's fault, its
+    /// server's status or a point without a first value stays as it is.
+    fn mark_silent(&self, detail: impl Into<String>) {
+        let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        let detail = detail.into();
+        guard.state = OpcUaClientConnectionState::Stale;
+        guard.detail = detail.clone();
+        let mut silenced = Vec::new();
+        for (key, status) in &mut guard.point_statuses {
+            if status.access.can_read() && status.state == OpcUaClientConnectionState::Connected {
+                status.state = OpcUaClientConnectionState::Stale;
+                status.detail = detail.clone();
+                silenced.push(key.clone());
+            }
+        }
+        guard.silenced.extend(silenced);
+    }
+
+    /// A notification of the subscription's heartbeat at `at_ms` (specification 11): the
+    /// subscription is alive, so the connection is fresh, and live again after silence.
+    fn apply_heartbeat(&self, at_ms: u64) {
+        let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        if revive(&mut guard, Some(at_ms)) {
+            guard.detail = "OPC UA client subscription heartbeat received after silence.".to_string();
+        }
     }
 
     fn mark_shutdown(&self, detail: impl Into<String>) {
@@ -209,6 +251,7 @@ impl OpcUaSharedClientCache {
         let detail = detail.into();
         guard.state = OpcUaClientConnectionState::Stale;
         guard.detail = detail.clone();
+        guard.silenced.clear();
         for status in guard.point_statuses.values_mut() {
             if status.access.can_read() && status.state == OpcUaClientConnectionState::Connected {
                 status.state = OpcUaClientConnectionState::Stale;
@@ -237,6 +280,7 @@ impl OpcUaSharedClientCache {
         let detail = detail.into();
         guard.state = state;
         guard.detail = detail.clone();
+        guard.silenced.clear();
         if state == OpcUaClientConnectionState::Connected {
             guard.last_seen_ms = transition_ms.or(guard.last_seen_ms);
         }
@@ -272,17 +316,16 @@ impl OpcUaSharedClientCache {
                 sample.access
             ));
         }
+        // A live sample proves the subscription alive; a sample that is not live changes only its
+        // point, which the connection reports among its degraded points (specification 23).
         if sample.state == OpcUaClientConnectionState::Connected {
-            guard.state = OpcUaClientConnectionState::Connected;
+            revive(&mut guard, sample.last_seen_ms);
             guard.detail = "OPC UA client subscription update received.".to_string();
-            guard.last_seen_ms = sample.last_seen_ms.or(guard.last_seen_ms);
             if let Some(value) = sample.value.clone() {
                 guard.values.insert(sample.var.clone(), value);
             }
-        } else if guard.state != OpcUaClientConnectionState::Faulted {
-            guard.state = sample.state;
-            guard.detail = sample.detail.clone();
         }
+        guard.silenced.remove(&key);
         let status = guard
             .point_statuses
             .get_mut(&key)
@@ -379,6 +422,27 @@ impl OpcUaSharedClientCache {
         status.detail = detail.into();
         true
     }
+}
+
+/// A live notification at `at_ms`, a point's sample or the heartbeat, proves the subscription alive
+/// (specification 11): the connection is fresh and connected, and the points that silence made
+/// stale are live again with their last values. Whether the connection was stale.
+fn revive(state: &mut OpcUaClientCacheState, at_ms: Option<u64>) -> bool {
+    if let Some(at_ms) = at_ms {
+        state.last_seen_ms = Some(state.last_seen_ms.map_or(at_ms, |seen| seen.max(at_ms)));
+    }
+    let was_stale = state.state == OpcUaClientConnectionState::Stale;
+    state.state = OpcUaClientConnectionState::Connected;
+    for key in std::mem::take(&mut state.silenced) {
+        if let Some(status) = state.point_statuses.get_mut(&key)
+            && status.state == OpcUaClientConnectionState::Stale
+        {
+            status.state = OpcUaClientConnectionState::Connected;
+            status.detail =
+                "The subscription's notifications resumed; the last value is live.".to_string();
+        }
+    }
+    was_stale
 }
 
 fn next_write_generation(state: &mut OpcUaClientCacheState) -> Result<u64, OpcUaClientBridgeError> {

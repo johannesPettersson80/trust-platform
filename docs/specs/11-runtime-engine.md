@@ -1104,6 +1104,22 @@ session: a server whose values do not change sends no samples, and the
 program's outputs still reach it. A write that fails at the transport
 reconnects the session, as any transport failure does.
 
+A subscription reports a value only when it changes, so silence alone is no
+evidence that a value is stale (specification 23, "Projection Rules"). The
+subscription publishes at the connection's `poll_interval_ms` and also monitors
+the server's `Server_ServerStatus_CurrentTime` (ns=0;i=2258), sampled at that
+interval, as its heartbeat: the server keeps the node current, so it reports in
+every publish while the subscription lives. The heartbeat is no point and
+reaches no global. A connection is stale when no notification, of a point or
+of the heartbeat, arrived for its timeout and for at least three publishing
+intervals; its readable points that were live become stale, and the input
+phase does not apply their values. A point whose server reported a status that
+is not good, a faulted point and a point without a first value keep their
+states. The next live notification makes the connection live again, and with
+it the points that silence made stale, with their last values. A point's
+notification that is not live changes only that point, which the connection
+reports among its degraded points; the connection stays live.
+
 For scalar `Float`/`REAL` and `Double`/`LREAL` outputs, the value must be finite
 at the declared width before it enters the pending-write cache. A non-finite
 output cancels any older queued intent for that point, advances the local write

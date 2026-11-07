@@ -468,10 +468,16 @@ END_RESOURCE
 END_CONFIGURATION
 ";
 
-/// An OPC UA server that answers the subscription with `Speed` 42 and `Doubled` 0, and records
-/// every value written to it.
+/// An OPC UA server that answers the subscription with `Speed` 42 and `Doubled` 0, then reports
+/// only its heartbeat, every 5 ms, as a server reports its current time (specification 11), and
+/// records every value written to it.
 struct SampleServer {
     written: std::sync::Arc<std::sync::Mutex<Vec<(SmolStr, Value)>>>,
+    /// The thread that reports the heartbeat, and the flag that stops it at the disconnect.
+    heartbeat: Option<(
+        std::sync::Arc<std::sync::atomic::AtomicBool>,
+        std::thread::JoinHandle<()>,
+    )>,
 }
 
 impl trust_runtime::opcua::OpcUaClientTransport for SampleServer {
@@ -510,6 +516,15 @@ impl trust_runtime::opcua::OpcUaClientTransport for SampleServer {
             });
             assert!(taken, "the client takes the sample of {}", point.var);
         }
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stopped = std::sync::Arc::clone(&stop);
+        let beat = std::thread::spawn(move || {
+            while !stopped.load(std::sync::atomic::Ordering::SeqCst) {
+                let _ = sink.publish_heartbeat(trust_runtime::opcua::opcua_client_now_ms());
+                std::thread::sleep(WallDuration::from_millis(5));
+            }
+        });
+        self.heartbeat = Some((stop, beat));
         Ok(())
     }
 
@@ -527,6 +542,10 @@ impl trust_runtime::opcua::OpcUaClientTransport for SampleServer {
     }
 
     fn disconnect(&mut self) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        if let Some((stop, beat)) = self.heartbeat.take() {
+            stop.store(true, std::sync::atomic::Ordering::SeqCst);
+            beat.join().expect("the heartbeat thread");
+        }
         Ok(())
     }
 }
@@ -573,6 +592,7 @@ fn an_opcua_client_binds_a_compiled_programs_globals() {
         &connection(vec![point("Missing", OpcUaClientPointAccess::Read)]),
         SampleServer {
             written: std::sync::Arc::clone(&written),
+            heartbeat: None,
         },
         WallDuration::from_millis(5),
     );
@@ -585,6 +605,7 @@ fn an_opcua_client_binds_a_compiled_programs_globals() {
             ]),
             SampleServer {
                 written: std::sync::Arc::clone(&written),
+                heartbeat: None,
             },
             WallDuration::from_millis(5),
         )
