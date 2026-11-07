@@ -248,6 +248,43 @@ selected test body; merely compiling or locating it is not success.
 These runner and assertion behaviors are truST product extensions. They do not
 change IEC 61131-3 program execution outside the developer test workflow.
 
+## Multi-cycle tests
+
+A test program may run for many cycles, as a PLC program does, and decide itself when it has seen enough: it
+calls `TEST_FINISHED()` (specification 07, "Non-IEC Extensions (MP-014)") once its checks are done. Its cycles run
+in simulated time, so a test of a timer, a ramp or a sequence takes the cycles it needs and no wall-clock time
+beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's requirements).
+
+- **What makes a test multi-cycle.** A `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`, whose body
+  calls `TEST_FINISHED()`, or whose declaration carries `{attribute 'test_cycle' := '<duration>'}` or
+  `{attribute 'test_max_cycles' := '<count>'}` in the pragma where `{attribute 'test'}` counts. Every other test
+  runs its body once, as before. A `TEST_FUNCTION_BLOCK` runs once; it may not carry the two attributes.
+- **Its cycle and its budget.** `test_cycle` is a duration literal (`T#10ms`) above zero and at most one hour;
+  without it the cycle is 10 ms. `test_max_cycles` is a whole number from 1 to 10,000,000; without it the
+  budget is 10,000 cycles. A value that does not read as such is a compile error that names the attribute.
+  CODESYS ignores the two attributes, so the same source builds there.
+- **How it runs.** After the cold restart, the runner runs the test program's body once per cycle and nothing
+  else in between. The program's time starts at zero and advances by the cycle before each later cycle, so
+  cycle `n` (counted from 1) runs at the time `(n − 1)·cycle`. Timers, `TIME()` and every other reader of the
+  program's time see that time, never the wall clock.
+- **How it ends.**
+  - The cycle that calls `TEST_FINISHED()` runs to its end; the test then passes unless an assertion failed.
+  - A failed assertion ends the test at once as failed; its message names the cycle and the time:
+    `<assertion message> (cycle <n>, t = <time>)`, the time as the runtime writes a duration (`T#200ms`).
+  - A test that has not called `TEST_FINISHED()` when its budget runs out fails with
+    `did not finish within <count> cycles (t = <time>)`. It never runs past its budget, so it cannot hang.
+  - Any other runtime error ends it as an error, with the cycle and the time as above.
+  - The per-case deadline (`--timeout`) still bounds the whole test in wall-clock time, and reaching it is the
+    timeout result.
+- **Results.** The JSON report gives a multi-cycle test `cycles` (the cycles it ran) and `simulated_time_ms` (the
+  time of its last cycle); TAP, JUnit and the human output carry the cycle and the time in the message.
+- **On a device** a multi-cycle test runs alike, by one `cycle.step` per cycle (specification 11 §6.8.1): the
+  first restarts the program cold at time zero, each later one runs at the next cycle's time without a
+  restart, and each reads back whether the test called `TEST_FINISHED()`.
+- **The finished mark.** The test build declares the global `TRUST_TEST_FINISHED` (BOOL), which
+  `TEST_FINISHED()` sets and the runner reads after each cycle; a cold restart clears it. A project does not
+  declare a global of that name.
+
 ## Test reporting and CI output
 
 The test command preserves three result states: `passed`, `failed`, and

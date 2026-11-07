@@ -44,4 +44,6 @@ struct ExecutedTest {
     outcome: TestOutcome,
     message: Option<String>,
     duration_ms: u64,
+    /// The cycles a multi-cycle test ran (specification 22); `None` for a test that runs its body once.
+    cycles: Option<CyclesRun>,
 }

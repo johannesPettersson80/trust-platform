@@ -65,6 +65,9 @@ impl Lowerer<'_, '_> {
         if super::assertions::assertion(name).is_some() {
             return self.call_assertion(node, name, args);
         }
+        if name == "TEST_FINISHED" {
+            return self.call_test_finished(node, &args);
+        }
         let values = self.standard_arguments(node, name, args)?;
         if name == "CONCAT" {
             let mut parts = Vec::new();

@@ -4,10 +4,11 @@ use super::diagnostics::{
     check_configuration_semantics, check_cyclomatic_complexity, check_dut_extends_semantics,
     check_empty_named_actuals, check_extends_implements_semantics,
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
-    check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
-    check_using_directives, collect_used_symbols, compute_host_clock_sources, expression_by_id,
-    expression_context, resolve_pending_types_with_table, type_check_file, used_external_globals,
-    ExpressionIndex, HostClockSources,
+    check_property_accessors, check_shared_global_task_hazards, check_test_attributes,
+    check_unreachable_statements, check_using_directives, collect_used_symbols,
+    compute_host_clock_sources, expression_by_id, expression_context,
+    resolve_pending_types_with_table, type_check_file, used_external_globals, ExpressionIndex,
+    HostClockSources,
 };
 use super::project_configuration::project_config_roots;
 use super::project_constants::{project_constant_expressions, project_declared_expressions};
@@ -514,6 +515,7 @@ pub(super) fn analyze_query(
 
     let mut builder = DiagnosticBuilder::new();
     check_configuration_semantics(&symbols, &root, &mut builder);
+    check_test_attributes(&root, &mut builder);
     diagnostics.extend(builder.finish());
 
     let project_used = project_used_symbols_query(db, project);

@@ -157,3 +157,29 @@ fn assertion_comparison_functions_coerce_numeric_types() {
     let value = lib.call("ASSERT_GREATER", &[Value::Int(5), Value::DInt(3)]);
     assert_eq!(value.unwrap(), Value::Null);
 }
+
+/// Specification 07: `TEST_FINISHED()` takes no input and returns nothing; outside the test runner it has no effect. A production
+/// program that calls it builds, runs and changes nothing by it: the program declares no finished mark, so the call lowers to
+/// nothing. Catches the call refused outside a test (a project could not keep a helper that ends its tests) and an effect on the
+/// running program.
+#[test]
+fn test_finished_has_no_effect_outside_the_test_runner() {
+    let lib = StandardLibrary::new();
+    assert_eq!(lib.call("TEST_FINISHED", &[]).unwrap(), Value::Null);
+    let mut harness = trust_runtime::harness::TestHarness::from_source(
+        r#"
+PROGRAM Main
+VAR_OUTPUT
+    Cycles : INT;
+END_VAR
+Cycles := Cycles + 1;
+TEST_FINISHED();
+END_PROGRAM
+"#,
+    )
+    .expect("a program that calls TEST_FINISHED() builds");
+    for _ in 0..3 {
+        assert!(harness.cycle().errors.is_empty());
+    }
+    assert_eq!(harness.get_output("Cycles"), Some(Value::Int(3)));
+}

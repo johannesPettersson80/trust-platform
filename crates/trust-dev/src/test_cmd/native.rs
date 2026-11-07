@@ -70,6 +70,16 @@ fn build_test_image(
             runners,
         ));
     }
+    // The mark `TEST_FINISHED()` sets, which the runner reads after each cycle of a multi-cycle test (specification 22).
+    if discovered.iter().any(|case| case.cycles.is_some()) {
+        sources.push(SourceFile::with_path(
+            "trust-test-finished.st",
+            format!(
+                "VAR_GLOBAL\n    {} : BOOL;\nEND_VAR\n",
+                trust_runtime::native::TEST_FINISHED_GLOBAL
+            ),
+        ));
+    }
     let programs: Vec<SmolStr> = discovered
         .iter()
         .map(test_program)
@@ -141,6 +151,10 @@ fn execute_native_tests(
             .iter()
             .position(|instance| instance.eq_ignore_ascii_case(name.as_str()))
             .and_then(|index| u32::try_from(index).ok());
+        if let (Some(instance), Some(cycles)) = (instance, case.cycles) {
+            results.push(cycles_here(&mut program, instance, case, cycles, timeout, started));
+            continue;
+        }
         let result = match instance {
             Some(instance) => program
                 .cold_start(Duration::ZERO)
@@ -150,6 +164,45 @@ fn execute_native_tests(
         results.push(executed(case, result, timeout, started));
     }
     Ok(results)
+}
+
+/// Runs the multi-cycle test `case`, test program `instance` of `program`, on this computer (specification 22, "Multi-cycle
+/// tests"): a cold restart at time zero, then its body once per cycle at the program's time, with the finished mark read after
+/// each cycle.
+fn cycles_here(
+    program: &mut trust_runtime::native::NativeProgram<'_, trust_runtime::native::HostCode>,
+    instance: u32,
+    case: &DiscoveredTest,
+    cycles: TestCycles,
+    timeout: u64,
+    started: Instant,
+) -> ExecutedTest {
+    use trust_runtime::value::{Duration, Value};
+    let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
+        let now = Duration::from_nanos(i64::try_from(time_ns).unwrap_or(i64::MAX));
+        let ran = if n == 1 {
+            program
+                .cold_start(now)
+                .and_then(|()| program.run_instance(instance, now))
+        } else {
+            program.run_instance(instance, now)
+        };
+        match ran {
+            Ok(()) => CycleResult::Ran(matches!(
+                program.value(trust_runtime::native::TEST_FINISHED_GLOBAL),
+                Some(Value::Bool(true))
+            )),
+            Err(RuntimeError::AssertionFailed(message)) => CycleResult::Failed(message.to_string()),
+            Err(error) => CycleResult::Error(error.to_string()),
+        }
+    });
+    ExecutedTest {
+        case: case.clone(),
+        outcome,
+        message,
+        duration_ms: elapsed_ms(started.elapsed()),
+        cycles: Some(run),
+    }
 }
 
 /// Runs `tests` of `discovered` on the device at `port` (specification 44 §14.2): the same image,
@@ -192,6 +245,10 @@ fn execute_native_tests_on_device(
     let mut results = Vec::with_capacity(tests.len());
     for case in tests {
         let started = Instant::now();
+        if let Some(cycles) = case.cycles {
+            results.push(cycles_on_device(&mut link, case, cycles, timeout, started));
+            continue;
+        }
         let stepped = link.call(
             "cycle.step",
             Some(json!({"time_ns": 0, "restart": "cold", "run": test_program(case).as_str()})),
@@ -232,5 +289,52 @@ fn executed_on_device(
         outcome,
         message,
         duration_ms: elapsed_ms(started.elapsed()),
+        cycles: None,
+    }
+}
+
+/// Runs the multi-cycle test `case` on the device behind `link` (specification 22, "Multi-cycle tests"): one `cycle.step` per
+/// cycle, the first restarting the program cold at time zero and each later one at the next cycle's time, each reading the
+/// finished mark back (specification 11 §6.8.1).
+fn cycles_on_device(
+    link: &mut trust_runtime::device_link::DeviceLink,
+    case: &DiscoveredTest,
+    cycles: TestCycles,
+    timeout: u64,
+    started: Instant,
+) -> ExecutedTest {
+    use trust_runtime::device_link;
+    use trust_runtime::native::TEST_FINISHED_GLOBAL;
+    let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
+        let mut params = json!({
+            "time_ns": time_ns,
+            "run": test_program(case).as_str(),
+            "watch": [TEST_FINISHED_GLOBAL],
+        });
+        if n == 1 {
+            params["restart"] = json!("cold");
+        }
+        match link.call("cycle.step", Some(params), device_link::REPLY_WAIT) {
+            Ok(result) => match result["errors"].get(0) {
+                Some(error) => {
+                    let text = error.as_str().unwrap_or_default();
+                    match text.strip_prefix("assertion failed: ") {
+                        Some(message) => CycleResult::Failed(message.to_string()),
+                        None => CycleResult::Error(text.to_string()),
+                    }
+                }
+                None => CycleResult::Ran(
+                    result["values"][TEST_FINISHED_GLOBAL]["value"] == json!(true),
+                ),
+            },
+            Err(error) => CycleResult::Error(error.to_string()),
+        }
+    });
+    ExecutedTest {
+        case: case.clone(),
+        outcome,
+        message,
+        duration_ms: elapsed_ms(started.elapsed()),
+        cycles: Some(run),
     }
 }

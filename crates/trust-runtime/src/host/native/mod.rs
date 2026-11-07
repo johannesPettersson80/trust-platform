@@ -47,6 +47,10 @@ pub use trust_runtime_core::native::image::Target;
 use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure, SectionId};
 pub use trust_runtime_core::native::program::{Device, NativeProgram, NoHooks, ScanHooks};
 
+/// The global the test build declares for the mark of a finished multi-cycle test (specification 22, "Multi-cycle tests"):
+/// `TEST_FINISHED()` sets it, and the test runner reads it after each cycle. A project may not declare it itself.
+pub const TEST_FINISHED_GLOBAL: &str = "TRUST_TEST_FINISHED";
+
 /// The file of a project's program image for the computer that runs it, where the project kept
 /// `program.stbc` (specification 44 §8.8, NX-15).
 pub const PROGRAM_IMAGE_FILE: &str = "program.tpi";

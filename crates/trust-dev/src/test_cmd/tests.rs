@@ -703,10 +703,12 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 0,
                 line: 4,
                 source_line: Some("ASSERT_TRUE(TRUE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Passed,
             message: None,
             duration_ms: 1,
+            cycles: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -716,10 +718,12 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 10,
                 line: 12,
                 source_line: Some("ASSERT_EQUAL(INT#2, X);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Failed,
             message: Some("ASSERT_EQUAL failed: expected <2> & got 3".to_string()),
             duration_ms: 2,
+            cycles: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -729,10 +733,12 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 20,
                 line: 20,
                 source_line: Some("ASSERT_TRUE(FALSE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Error,
             message: Some("runtime <panic>".to_string()),
             duration_ms: 3,
+            cycles: None,
         },
     ]
 }
@@ -789,6 +795,7 @@ fn list_output_contract() {
             byte_offset: 0,
             line: 1,
             source_line: None,
+            cycles: None,
         },
         DiscoveredTest {
             kind: TestKind::FunctionBlock,
@@ -797,6 +804,7 @@ fn list_output_contract() {
             byte_offset: 12,
             line: 24,
             source_line: None,
+            cycles: None,
         },
     ];
     let text = render_list_output(Path::new("/tmp/project"), &tests, 2, None);
