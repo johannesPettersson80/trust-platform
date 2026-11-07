@@ -30,7 +30,9 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 }
             }
             (Some(expected), None)
-                if expected != TypeId::VOID && !self.checker.return_value_definitely_assigned =>
+                if expected != TypeId::VOID
+                    && !self.checker.return_value_definitely_assigned
+                    && !self.checker.symbols.dialect().is_codesys() =>
             {
                 self.checker.diagnostics.error(
                     DiagnosticCode::MissingReturn,
@@ -49,11 +51,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-    /// Emits missing return diagnostics after statement checks.
+    /// Emits missing return diagnostics after statement checks. Under the CODESYS profile an
+    /// unassigned result is the default value of its type, without a diagnostic (specification 04).
     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {
         if let Some(expected) = self.checker.current_function_return
             && expected != TypeId::VOID
             && !self.checker.saw_return_value
+            && !self.checker.symbols.dialect().is_codesys()
         {
             self.checker.diagnostics.error(
                 DiagnosticCode::MissingReturn,

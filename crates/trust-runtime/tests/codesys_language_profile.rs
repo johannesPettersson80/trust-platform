@@ -69,6 +69,55 @@ fn codesys_run(source: &str, cycles: usize) -> TestHarness {
     harness
 }
 
+// Specification 04: under the CODESYS profile a method or function that never assigns its result
+// returns the default of its result type: 0, the first enumerator, the empty string, and 0 after a
+// bare `RETURN`. The variables start elsewhere (7, 'x', 9, 1.5), so a call that left them as they
+// were, or returned anything but the default, is caught; so is the build refusing the POUs (E206).
+#[test]
+fn an_unassigned_result_is_the_default_of_its_type() {
+    let harness = codesys_run(
+        r#"
+TYPE E_Mode : (MANUAL, AUTO); END_TYPE
+FUNCTION_BLOCK FB_A
+METHOD GetCount : INT
+END_METHOD
+METHOD GetMode : E_Mode
+END_METHOD
+METHOD GetText : STRING
+END_METHOD
+METHOD Early : DINT
+RETURN;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION Pick : REAL
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    fb : FB_A;
+    count : INT := 7;
+    isManual : BOOL;
+    text : STRING := 'x';
+    early : DINT := 9;
+    picked : REAL := 1.5;
+END_VAR
+count := fb.GetCount();
+isManual := fb.GetMode() = E_Mode#MANUAL;
+text := fb.GetText();
+early := fb.Early();
+picked := Pick();
+END_PROGRAM
+"#,
+        1,
+    );
+    assert_eq!(harness.get_output("count"), Some(Value::Int(0)));
+    assert_eq!(harness.get_output("isManual"), Some(Value::Bool(true)));
+    assert_eq!(harness.get_output("text"), Some(Value::String("".into())));
+    assert_eq!(harness.get_output("early"), Some(Value::DInt(0)));
+    assert_eq!(harness.get_output("picked"), Some(Value::Real(0.0)));
+}
+
 // DEV-028: under the CODESYS profile another POU writes and reads a function block's `VAR` member
 // through the instance. Worked by hand: Main sets `stored` to 10, the call adds 1, Main reads 11.
 // Catches the write not reaching the instance (the call would read 0 and give 1) and the read
