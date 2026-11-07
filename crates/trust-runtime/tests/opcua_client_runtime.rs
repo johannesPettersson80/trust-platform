@@ -11,7 +11,7 @@ macro_rules! assert_opcua_subscription_api_contract {
     () => {{
         use opcua::client::prelude::{
             DataChangeCallback, MonitoredItemCreateRequest, MonitoredItemService, NodeId,
-            RepublishRequest, RequestHeader, Service, Session, SubscriptionService,
+            RepublishRequest, RequestHeader, Service, Session, SessionCommand, SubscriptionService,
             SupportedMessage, TimestampsToReturn,
         };
         use opcua::sync::RwLock;
@@ -49,9 +49,8 @@ macro_rules! assert_opcua_subscription_api_contract {
                 let _last_value = item.last_value();
             }
         });
-        let _run: fn(Arc<RwLock<Session>>) = Session::run;
-        let _reconnect: fn(&mut Session) -> Result<(), StatusCode> =
-            Session::reconnect_and_activate;
+        let _run: fn(Arc<RwLock<Session>>, u64, tokio::sync::oneshot::Receiver<SessionCommand>) =
+            Session::run_loop;
     }};
 }
 

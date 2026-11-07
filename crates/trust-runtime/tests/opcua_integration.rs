@@ -86,7 +86,11 @@ fn fixture_snapshot() -> trust_runtime::debug::DebugSnapshot {
 }
 
 fn start_fixture_server(name: &str) -> trust_runtime::opcua::OpcUaWireServer {
-    let port = reserve_loopback_port();
+    start_fixture_server_on(name, reserve_loopback_port())
+}
+
+/// The fixture server `name` on the loopback port `port`.
+fn start_fixture_server_on(name: &str, port: u16) -> trust_runtime::opcua::OpcUaWireServer {
     let runtime = load_runtime_fixture(name, port);
     let runtime_root = temp_runtime_root(name);
     start_wire_server(
@@ -428,4 +432,64 @@ fn a_wire_client_disconnects_while_its_server_runs() {
         drop(bridge);
     }
     server.stop();
+}
+
+/// The port of `server`'s endpoint, `opc.tcp://127.0.0.1:<port>/<path>`.
+fn port_of(server: &trust_runtime::opcua::OpcUaWireServer) -> u16 {
+    let authority = server
+        .endpoint_url()
+        .trim_start_matches("opc.tcp://")
+        .split('/')
+        .next()
+        .expect("the endpoint's authority");
+    authority
+        .rsplit_once(':')
+        .expect("the endpoint's port")
+        .1
+        .parse()
+        .expect("a port number")
+}
+
+/// Specification 11's OPC UA client: a client connection whose server restarts gets its values
+/// again. A steady client of this server's `counter` 42 is live; the server stops, and a new server
+/// takes the same port a second later, before the worker's first reconnect, 2 s after the loss.
+/// Within twenty seconds the client is live again, and it stays live for three seconds, past its
+/// stale bound of two, so its subscription notifies again. Catches a client that reconnects its
+/// session with no run loop left to drive its subscription, so that it falls silent, and one that
+/// never reconnects.
+#[test]
+fn a_client_gets_its_values_again_after_its_server_restarts() {
+    use trust_runtime::opcua::{opcua_client_now_ms, OpcUaClientConnectionState};
+    let mut server = start_fixture_server("interop");
+    let port = port_of(&server);
+    let (bridge, mut worker) = steady_client(&server, 250, 2_000);
+    server.stop();
+    let down = std::time::Instant::now();
+    while down.elapsed() < std::time::Duration::from_secs(1) {
+        let _ = worker.tick(opcua_client_now_ms());
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let mut restarted = start_fixture_server_on("interop", port);
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let mut live_since: Option<std::time::Instant> = None;
+    while live_since.is_none_or(|since| since.elapsed() < std::time::Duration::from_secs(3)) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "not live for 3 s within 20 s of the restart: {:?}, {}",
+            bridge.state(),
+            bridge.snapshot().detail
+        );
+        let _ = worker.tick(opcua_client_now_ms());
+        let live =
+            bridge.state() == OpcUaClientConnectionState::Connected && counter_is_live(&bridge);
+        live_since = match (live, live_since) {
+            (true, None) => Some(std::time::Instant::now()),
+            (true, since) => since,
+            (false, _) => None,
+        };
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    drop(worker);
+    restarted.stop();
 }

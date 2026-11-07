@@ -1148,6 +1148,10 @@ session that it finds disconnected; then it closes the session. A session that
 the loop reopened while it was being closed is never left to be dropped half
 open.
 
+After a loss, the worker closes the lost session and connects a new one, with
+its own run loop and subscription, whose initial values and heartbeat make the
+connection live again. It never reopens the lost session in place.
+
 Whether pending outputs replay after reconnect and how server source
 timestamps are ordered remain unresolved product decisions. This contract does
 not provide authority for tests that select those behaviors.
