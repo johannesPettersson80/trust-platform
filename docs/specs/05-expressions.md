@@ -285,6 +285,9 @@ MyEnum#Value        // Enumerated value
   real type when its value is representable by that type (`d := 16#FFFF_FFFF` for a
   `DWORD`, `b := 256` stays an error for a `BYTE`). IEC 61131-3 Ed.3 §6.3.2 lets numeric
   literals that represent a positive integer be used as bit string literals.
+- In the same places an untyped real literal takes the expected `REAL` or `LREAL` type, and
+  the input of a typed conversion function is a call argument like any other:
+  `REAL_TO_INT(2.5)` passes `2.5` as a `REAL`, and `SINT_TO_INT(5)` passes `5` as a `SINT`.
 - The untyped integer literals `0` and `1` (and `BOOL#0`, `BOOL#1`) are Boolean data
   where a `BOOL` is expected: IEC 61131-3 Ed.3 §6.3.2 and Table 5 features 7 and 9.
   Another value, a typed integer such as `INT#1`, or an expression such as `1 + 0` is not.

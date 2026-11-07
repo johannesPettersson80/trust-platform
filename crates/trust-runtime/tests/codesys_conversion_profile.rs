@@ -66,6 +66,32 @@ packed := REAL_TO_DWORD(half);
 END_PROGRAM
 "#;
 
+/// Specification 05 §5.2.1: an untyped literal passed to a conversion takes its input's type, so
+/// it converts as a variable of that type does. Under the CODESYS rules `REAL_TO_INT(2.5)` is 3 and
+/// under the IEC rules 2, the tie to even, as for the `REAL` variable above. Catches the literal
+/// refused with E205, and a literal compiled as the `LREAL` it defaults to.
+#[test]
+fn a_literal_converts_like_a_variable_of_the_input_type() {
+    const LITERALS: &str = "PROGRAM Main\nVAR\n    rounded : INT;\n    widened : INT;\nEND_VAR\n\
+                            rounded := REAL_TO_INT(2.5);\nwidened := SINT_TO_INT(5);\nEND_PROGRAM\n";
+    for (profile, expected) in [(ConversionProfile::Codesys, 3), (ConversionProfile::Iec, 2)] {
+        let session = CompileSession::from_source(LITERALS).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session).expect("the image builds");
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        assert_eq!(
+            harness.get_output("rounded"),
+            Some(Value::Int(expected)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("widened"),
+            Some(Value::Int(5)),
+            "{profile:?}"
+        );
+    }
+}
+
 /// The image a computer runs of `source`, built with the IEC rules, for an online change.
 fn iec_image(source: &str) -> Vec<u8> {
     use trust_runtime::native::{build, Options, Target, Toolchain};
