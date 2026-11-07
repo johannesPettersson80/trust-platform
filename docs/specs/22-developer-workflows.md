@@ -560,6 +560,19 @@ path that stays within the portable 100-byte pathname budget even when the
 configured temporary directory is longer. A long `TMPDIR` must not turn an
 otherwise valid runtime test into a socket-bind setup failure.
 
+A test's temporary directory is its own. Its name holds the process id and a
+counter, not a clock stamp alone, because tests run at once in one process and
+in several, and two tests given one directory remove it under each other. A
+stamp may follow them, so that a directory an earlier run with the same process
+id left is not reused.
+
+Test code takes these paths from the dev-only crate `trust-test-support`
+(`unique_temp_path`), and the Format job's check
+`scripts/check_test_temp_paths.py` refuses a `temp_dir()` call in test code
+anywhere else. A call that must take the temporary directory itself says why
+with `// temp-root-ok: <why>`, such as a socket path that the 100-byte budget
+above keeps short.
+
 The automated docs-capture launcher owns every browser, runtime, and Docker
 process that it starts. On success, command failure, interruption, or timeout,
 it must terminate the complete owned process session and remove the named
