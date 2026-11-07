@@ -7766,6 +7766,7 @@ dependencies = [
  "trust-chips",
  "trust-runtime",
  "trust-runtime-client",
+ "trust-test-support",
 ]
 
 [[package]]

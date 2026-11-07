@@ -7,7 +7,7 @@ use super::*;
 /// program type (IEC 61131-3 §6.8.2, Table 62 6a).
 #[test]
 fn dispatch_threads_maps_tasks() {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-debug-threads-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
