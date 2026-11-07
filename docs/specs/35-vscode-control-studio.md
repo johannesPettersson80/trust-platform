@@ -876,11 +876,18 @@ legitimately change are compared exactly:
   measurement in Manual makes a bump, which stays refused. An entry that aligns
   the controller's states to the measurement has no such step, and Δy is zero.
   Other laws use the allowance of their
-  Part C template. A reviewed tolerance replaces the allowance. Validate's
-  initialization case, Apply's Auto entry and the return to Auto after a failed
-  Apply use the same allowance. The runtime reads e and Δy in the scan of the
-  Auto entry (annex E6.9), because values read before the transfer are out of
-  date once the plant moves;
+  Part C template. A reviewed tolerance (the requirements' `transferTolerance`,
+  B4.3) replaces the allowance. Every Auto entry uses the same allowance:
+  Validate's initialization case, Apply's Auto entry, the return to Auto after a
+  failed Apply, and Identify's mode changes with the independent model check
+  that runs through them (B3.4 step 1), a return that a Cancel or a reopened
+  panel makes included (A8.6). No allowance, reviewed or not, is below the
+  output's resolution: the exact check, a millionth of the output span (of 1
+  when the span is smaller), and the spacing of single-precision values at the larger
+  magnitude of the output's limits, 2⁻²³ times that magnitude, so that the
+  rounding of a REAL output never reads as a bump. The runtime reads e and Δy
+  in the scan of the Auto entry (annex E6.9), because values read before the
+  transfer are out of date once the plant moves;
 - a state declared as bounded, for example a manual output that the program
   copies from the output, stays within its declared bounds.
 

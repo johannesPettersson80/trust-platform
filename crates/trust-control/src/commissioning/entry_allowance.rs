@@ -34,7 +34,8 @@ pub struct AllowanceTerms {
 }
 
 /// The tolerance of an Auto entry's output: the reviewed value when there is one, otherwise the exact check of
-/// `1e-6` times the larger of 1 and the output span (`transferTolerance`, A6.4).
+/// `1e-6` times the larger of 1 and the output span (`transferTolerance`, A6.4); either never below the output's
+/// [`output_resolution`].
 ///
 /// # Errors
 /// The reviewed tolerance is not finite or lies outside `0..=span`, or an output limit is not set.
@@ -44,15 +45,25 @@ pub fn transfer_tolerance(
 ) -> Result<f64, Failure> {
     let (minimum, maximum) = output_limits(loop_definition)?;
     let span = maximum - minimum;
-    match manual {
-        Some(value) if !value.is_finite() || !(0.0..=span).contains(&value) => Err(Failure::new(
-            &texts::entry_tolerance_outside_span(),
-            Cause::Settings,
-            NextAction::OpenRequirements,
-        )),
-        Some(value) => Ok(value),
-        None => Ok(1e-6 * span.max(1.0)),
-    }
+    let tolerance = match manual {
+        Some(value) if !value.is_finite() || !(0.0..=span).contains(&value) => {
+            return Err(Failure::new(
+                &texts::entry_tolerance_outside_span(),
+                Cause::Settings,
+                NextAction::OpenRequirements,
+            ));
+        }
+        Some(value) => value,
+        None => 1e-6 * span.max(1.0),
+    };
+    Ok(tolerance.max(output_resolution(minimum, maximum)))
+}
+
+/// The resolution of an output whose limits are `minimum` and `maximum` (A6.4): the spacing of single-precision values at
+/// the larger magnitude of the limits, at most `2⁻²³` times it, so that the rounding of a REAL output never reads as a bump.
+#[must_use]
+pub fn output_resolution(minimum: f64, maximum: f64) -> f64 {
+    minimum.abs().max(maximum.abs()) * f64::from(f32::EPSILON)
 }
 
 /// The allowance of an Auto entry for a proportional or PID law, from the measured output noise `n` (`processNoise`), the

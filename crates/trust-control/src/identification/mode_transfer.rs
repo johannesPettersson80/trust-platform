@@ -27,7 +27,9 @@ use crate::commissioning::commissioning_result::TransferStatus;
 use crate::commissioning::declared_initialization::{
     declared_states, further_channels, DeclaredStateTracking, FurtherChannels,
 };
-use crate::commissioning::entry_allowance::{noise_aware_transfer_tolerance, AllowanceTerms};
+use crate::commissioning::entry_allowance::{
+    noise_aware_transfer_tolerance, transfer_tolerance, AllowanceTerms,
+};
 use crate::commissioning::found_mode::{found_mode_of, FoundMode};
 use crate::commissioning::project_law::gain_symbols;
 use crate::commissioning::proportional_commissioning::binding_failure;
@@ -43,7 +45,7 @@ const MODE_LOOP_SUFFIX: &str = ":identification-mode";
 /// The suffix of the transfer loop that writes the references and commands back (`:commands`).
 const COMMANDS_LOOP_SUFFIX: &str = ":commands";
 
-/// The smallest output change a mode transfer allows (`1e-6`).
+/// The output change a mode transfer allows for a loop without output limits, whose exact check has no span (`1e-6`).
 const MINIMUM_OUTPUT_CHANGE: f64 = 1e-6;
 
 /// The headroom of the change an additional output is allowed, as a factor: the runtime scales the tolerance of an additional output
@@ -230,17 +232,27 @@ fn state_of(binding: &TransferBinding, symbol: &str) -> Result<TransferMember, F
 }
 
 /// The output change a mode transfer allows at its first execution (`maximum_output_change`, annex E6.9; `transfer` of
-/// `ConnectedIdentificationMode`): the larger of `1e-6`, the loop's faster rate limit over one execution of its task, and, for an
-/// Auto entry reviewed on `observed`, the controller's own response in that execution ([`auto_entry_response`]). A transfer to
-/// Manual, or an Auto entry without a reviewed status, allows no response. The integral step on the error the controller enters
-/// with is the runtime's to add ([`mode_entry_error_gain`]).
+/// `ConnectedIdentificationMode`). An Auto entry with a reviewed tolerance (`reviewed`, the requirements' `transferTolerance`)
+/// allows that tolerance, which replaces the allowance (A6.4). Otherwise the change allowed is the larger of the exact check of
+/// [`transfer_tolerance`] (`1e-6` for a loop without output limits), the loop's faster rate limit over one execution of its task,
+/// and, for an Auto entry reviewed on `observed`, the controller's own response in that execution ([`auto_entry_response`]). No
+/// allowance is below the output's resolution. A transfer to Manual, or an Auto entry without a reviewed status, allows no
+/// response. Without a reviewed tolerance, the integral step on the error the controller enters with is the runtime's to add
+/// ([`mode_entry_error_gain`]).
 #[must_use]
 pub fn mode_output_change(
     loop_definition: &LoopDefinition,
     manual: bool,
     observed: Option<&TransferStatus>,
     process_noise: Option<f64>,
+    reviewed: Option<f64>,
 ) -> f64 {
+    if !manual && let Some(reviewed) = reviewed {
+        // The requirements keep a reviewed tolerance within the output span (B4.3), so only a loop without output limits
+        // falls back to the value as reviewed.
+        return transfer_tolerance(loop_definition, Some(reviewed)).unwrap_or(reviewed);
+    }
+    let exact = transfer_tolerance(loop_definition, None).unwrap_or(MINIMUM_OUTPUT_CHANGE);
     let limits = &loop_definition.limits;
     let rate = limits
         .rate_up_per_s
@@ -250,7 +262,7 @@ pub fn mode_output_change(
     let response = observed.filter(|_| !manual).map_or(0.0, |observed| {
         auto_entry_response(loop_definition, observed, process_noise)
     });
-    MINIMUM_OUTPUT_CHANGE.max(rated).max(response)
+    exact.max(rated).max(response)
 }
 
 /// The response of a PID in its first execution after an Auto entry to the measured noise (`autoEntryResponse`, A6.4): the

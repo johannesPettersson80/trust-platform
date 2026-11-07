@@ -1196,19 +1196,31 @@ impl DebugControl {
                 } else {
                     0.0
                 };
-                let initial = pending
+                let initial = *pending
                     .initial_outputs
                     .get(&member.symbol)
                     .ok_or("initial actuator output is missing")?;
-                if !tolerance.is_finite()
-                    || output < member.minimum
-                    || output > member.maximum
-                    || (output - initial).abs() > tolerance
-                {
-                    return Err(format!(
-                        "first controller output {} violates reviewed transfer tolerance",
+                // The refusal names what the runtime measured and allowed (annex E6.9).
+                let refused = |detail: String| {
+                    format!(
+                        "first controller output {} violates reviewed transfer tolerance: {detail}",
                         member.symbol
-                    ));
+                    )
+                };
+                if !tolerance.is_finite() {
+                    return Err(refused("its tolerance is not a finite number".into()));
+                }
+                if output < member.minimum || output > member.maximum {
+                    return Err(refused(format!(
+                        "{output} lies outside {} to {}",
+                        member.minimum, member.maximum
+                    )));
+                }
+                let change = (output - initial).abs();
+                if change > tolerance {
+                    return Err(refused(format!(
+                        "it changed by {change} (from {initial} to {output}), more than {tolerance}"
+                    )));
                 }
             }
             observed(&request.binding, program)

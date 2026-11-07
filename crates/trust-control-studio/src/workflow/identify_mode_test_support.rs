@@ -588,6 +588,7 @@ pub(crate) fn run_with_transfers(
         loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     run(
         RunPorts {
