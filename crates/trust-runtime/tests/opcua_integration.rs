@@ -400,3 +400,28 @@ fn the_subscription_publishes_at_the_poll_interval() {
     drop(worker);
     server.stop();
 }
+
+/// Specification 11's OPC UA client: a wire client's session ends cleanly while its server runs.
+/// Twice, a client connection takes this server's `counter` 42, and its transport's disconnect
+/// stops the session's run loop, which reconnects a session that it finds disconnected, and closes
+/// the session within ten seconds. Catches a teardown that lets the run loop reconnect the session
+/// it is closing, which aborted the process (opcua's session, dropped half reconnected, panicked in
+/// its drop), or that waits for that loop forever.
+#[test]
+fn a_wire_client_disconnects_while_its_server_runs() {
+    use trust_runtime::opcua::OpcUaClientTransport;
+    let mut server = start_fixture_server("interop");
+    for round in 1..=2 {
+        let (bridge, mut worker) = steady_client(&server, 250, 2_000);
+        let (done, finished) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = done.send(worker.transport_mut().disconnect());
+        });
+        let disconnected = finished
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .unwrap_or_else(|_| panic!("round {round}: no disconnect within 10 s"));
+        assert_eq!(disconnected, Ok(()), "round {round}");
+        drop(bridge);
+    }
+    server.stop();
+}

@@ -453,10 +453,18 @@ impl<T: OpcUaClientTransport + Send + 'static> OpcUaClientWorker<T> {
     }
 }
 
+/// How often the session's run loop polls, as opcua's `Session::run` polls.
+#[cfg(feature = "opcua-wire")]
+const OPCUA_SESSION_POLL_MS: u64 = 10;
+
 #[cfg(feature = "opcua-wire")]
 pub struct OpcUaWireClientTransport {
     session: Option<std::sync::Arc<::opcua::sync::RwLock<::opcua::client::prelude::Session>>>,
-    runner: Option<std::thread::JoinHandle<()>>,
+    /// The thread that runs the session's loop, and the sender that stops the loop.
+    runner: Option<(
+        tokio::sync::oneshot::Sender<::opcua::client::prelude::SessionCommand>,
+        std::thread::JoinHandle<()>,
+    )>,
     /// The subscription's publishing interval, the connection's `poll_interval_ms`.
     publishing_interval_ms: u64,
 }
@@ -559,10 +567,15 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
             );
         }
         let runner_session = session.clone();
+        let (stop, stopped) = tokio::sync::oneshot::channel();
         let runner = std::thread::Builder::new()
             .name("trust-opcua-session-runner".to_string())
             .spawn(move || {
-                ::opcua::client::prelude::Session::run(runner_session);
+                ::opcua::client::prelude::Session::run_loop(
+                    runner_session,
+                    OPCUA_SESSION_POLL_MS,
+                    stopped,
+                );
             })
             .map_err(|err| {
                 OpcUaClientBridgeError::transport(format!(
@@ -570,7 +583,7 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
                 ))
             })?;
         self.session = Some(session);
-        self.runner = Some(runner);
+        self.runner = Some((stop, runner));
         // opcua 0.12 logs the revised session timeout internally when the
         // session is created, but does not expose it through the public
         // Session API. The worker therefore records None and uses the existing
@@ -731,16 +744,27 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
         }
     }
 
+    /// Stops the session's run loop first, since the loop reconnects a session that it finds
+    /// disconnected, and waits for it; then disconnects the session from this thread, which holds
+    /// its last reference, so that the session's drop finds it disconnected (specification 11).
     fn disconnect(&mut self) -> Result<(), OpcUaClientBridgeError> {
+        let joined = match self.runner.take() {
+            Some((stop, runner)) => {
+                let _ = stop.send(::opcua::client::prelude::SessionCommand::Stop);
+                runner.join().is_ok()
+            }
+            None => true,
+        };
         if let Some(session) = self.session.take() {
             session.read().disconnect();
         }
-        if let Some(runner) = self.runner.take() {
-            runner
-                .join()
-                .map_err(|_| OpcUaClientBridgeError::transport("OPC UA session runner panicked"))?;
+        if joined {
+            Ok(())
+        } else {
+            Err(OpcUaClientBridgeError::transport(
+                "OPC UA session runner panicked",
+            ))
         }
-        Ok(())
     }
 }
 
