@@ -92,6 +92,12 @@ pub(super) fn generate<'a>(
     let mut frame_types = String::new();
     let mut done_blocks: Vec<Ty> = Vec::new();
     let mut work: Vec<Work<'a>> = (0..model.program_types.len()).map(Work::Program).collect();
+    // CODESYS's implicit `FB_init`: the initializations call the method of every instance whose
+    // type declares it (specification 10 §4.8).
+    let fb_init = super::fb_init::calls(model)?;
+    for need in fb_init.needs {
+        queue(model, need, &mut queued, &mut work)?;
+    }
     let mut index = 0;
     loop {
         // Every function block type the bodies use needs its body; a class has none.
@@ -196,7 +202,7 @@ pub(super) fn generate<'a>(
     areas(&mut source, model, images);
     source.push_str(&functions);
     let references = reference_initializers(front, model)?;
-    let mut entries = entries(&mut source, model, target, &references)?;
+    let mut entries = entries(&mut source, model, target, &references, &fb_init.statements)?;
     entries.extend(super::tools::emit(&mut source, model, &tools, target));
     source.push_str(
         "\n#[panic_handler]\nfn panic(_: &core::panic::PanicInfo<'_>) -> ! {\n    loop {}\n}\n",
