@@ -225,7 +225,12 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         if arg_type == TypeId::UNKNOWN {
             return false;
         }
-        if !self.checker.is_assignable(expected, arg_type) {
+        // An untyped literal takes the parameter's type when its value fits, as in every other
+        // call (specification 05 §5.2.1): `REAL_TO_INT(2.5)`, `SINT_TO_INT(5)`.
+        let contextual_literal = self.checker.is_contextual_int_literal(expected, &arg.expr)
+            || self.checker.is_contextual_real_literal(expected, &arg.expr)
+            || self.checker.is_contextual_char_literal(expected, &arg.expr);
+        if !self.checker.is_assignable(expected, arg_type) && !contextual_literal {
             self.checker.diagnostics.error(
                 DiagnosticCode::InvalidArgumentType,
                 arg.range,
