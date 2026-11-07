@@ -1466,8 +1466,10 @@ write to the running controller.
 | Coefficient combinations tried in a finite search | at most 64 | count | C5 |
 | Candidates of a finite search | 64 | count | C5 |
 | Candidates of a single-design structure | 1 | count | C6 to C10 |
-| Cycle budget of a project block | 50,000 | cycles | C2, C5 to C10 |
-| Wall-clock budget of a project block | 60,000 | ms | C2, C5 to C10 |
+| Cycle budget of a project block | 50,000 | cycles | C2, C6 to C10 |
+| Wall-clock budget of a project block | 60,000 | ms | C2, C6 to C10 |
+| Cycle budget of a finite search: the scans of its trials together | 10,000,000 (A7, isolated simulation, scans per job) | scans | C5 |
+| Wall-clock budget of a finite search | 3,600,000 (A7, parameter search, wall time per job: 60 min) | ms | C5 |
 | Axes of a project tune | at most 8 | count | C2, C5 |
 | Candidates field of a project tune | 1 to 64 | count | C2, C5 |
 | Model parameters of a project block | at most 64 | count | C2 |
