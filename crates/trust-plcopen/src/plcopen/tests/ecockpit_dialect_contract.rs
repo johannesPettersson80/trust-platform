@@ -462,6 +462,62 @@ END_FUNCTION_BLOCK]]></ST></body>
     assert!(unsupported_diagnostic_codes(&report).contains(&"PLCO225".to_string()));
 }
 
+// #309: an interface method's `outputVars` are part of its signature (specification 14), and
+// every function block that implements the interface declares them; the import dropped them, so
+// the language server refused every implementer (E208). Catches the section left out again, and
+// the sections out of the stable order input, output, in-out.
+#[test]
+fn an_interface_method_keeps_its_output_variables() {
+    let fixture = dialect_fixture(
+        "interface-method-outputs",
+        r#"<Interface name="itfProbe">
+  <Methods>
+    <Method name="mGetState">
+      <interface>
+        <outputVars>
+          <variable name="stState"><type><derived name="stLightState" /></type></variable>
+        </outputVars>
+      </interface>
+      <addData />
+    </Method>
+    <Method name="mExchange">
+      <interface>
+        <returnType><BOOL /></returnType>
+        <inOutVars>
+          <variable name="buffer"><type><derived name="stBuffer" /></type></variable>
+        </inOutVars>
+        <outputVars>
+          <variable name="count"><type><INT /></type></variable>
+        </outputVars>
+        <inputVars>
+          <variable name="request"><type><DINT /></type></variable>
+        </inputVars>
+      </interface>
+    </Method>
+  </Methods>
+  <addData />
+</Interface>"#,
+    );
+
+    let report = fixture.import().expect("import succeeds");
+    assert_eq!(report.imported_interfaces, 1);
+    let source = fixture.source("itfProbe.st");
+    assert!(
+        source.contains("METHOD mGetState\n    VAR_OUTPUT stState : stLightState; END_VAR\nEND_METHOD"),
+        "{source}"
+    );
+    let input = source
+        .find("    VAR_INPUT request : DINT; END_VAR")
+        .unwrap_or_else(|| panic!("{source}"));
+    let output = source
+        .find("    VAR_OUTPUT count : INT; END_VAR")
+        .unwrap_or_else(|| panic!("{source}"));
+    let in_out = source
+        .find("    VAR_IN_OUT buffer : stBuffer; END_VAR")
+        .unwrap_or_else(|| panic!("{source}"));
+    assert!(input < output && output < in_out, "{source}");
+}
+
 // s4 ask 7: project-level `<Interface>` objects must import as INTERFACE
 // declarations instead of failing the whole file as empty.
 #[test]
