@@ -603,6 +603,16 @@ impl CompiledRuntime {
         Ok(())
     }
 
+    /// Leaves the program before a load in place replaces it, a download: its instances'
+    /// `FB_exit` once it has run (specification 44 §6.7).
+    ///
+    /// # Errors
+    ///
+    /// The fault of the exit, which the next program records; the program is replaced all the same.
+    pub fn leave_program(&mut self) -> Result<(), RuntimeError> {
+        self.cycle.leave()
+    }
+
     /// Whether a fault is latched.
     #[must_use]
     pub fn faulted(&self) -> bool {

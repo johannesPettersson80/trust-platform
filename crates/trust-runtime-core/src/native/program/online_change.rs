@@ -52,8 +52,10 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
         }
         self.live = old.live;
         // The candidate holds the running program's values, so that its next restart gives the
-        // variables marked `noinit` back what they hold (§6.7).
+        // variables marked `noinit` back what they hold (§6.7), and its instances, which have lived
+        // when the running program's had, so that its next restart leaves them first.
         self.started = old.started;
+        self.ran = old.ran;
         // The candidate's markers start where the running program left them; a `TIME` there that
         // the image cannot hold leaves its byte as it was, which the next scan's publication
         // refuses.

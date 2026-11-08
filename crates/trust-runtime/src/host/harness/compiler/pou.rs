@@ -21,7 +21,7 @@ use super::model::{
     ProgramVars,
 };
 use super::vars::{
-    declares_instance_path, declares_noinit, lower_init_args, parse_var_decl,
+    declares_instance_path, declares_no_exit, declares_noinit, lower_init_args, parse_var_decl,
     reject_borrowed_storage_initializer, validate_retention_policy, validate_special_var_sections,
     var_block_kind, var_block_qualifiers, VarBlockKind,
 };

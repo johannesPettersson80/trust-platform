@@ -13,6 +13,7 @@ mod classes;
 mod dispatch;
 mod emit;
 mod entries;
+mod fb_exit;
 mod fb_init;
 mod frame_init;
 mod front;

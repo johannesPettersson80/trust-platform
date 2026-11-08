@@ -4711,6 +4711,7 @@ pub trust_runtime::program_model::VarDef::init_args: alloc::vec::Vec<trust_runti
 pub trust_runtime::program_model::VarDef::initializer: core::option::Option<trust_runtime_core::program_model::expr::Expr>
 pub trust_runtime::program_model::VarDef::instance_path: bool
 pub trust_runtime::program_model::VarDef::name: smol_str::SmolStr
+pub trust_runtime::program_model::VarDef::no_exit: bool
 pub trust_runtime::program_model::VarDef::noinit: bool
 pub trust_runtime::program_model::VarDef::retain: trust_runtime_core::retain::RetainPolicy
 pub trust_runtime::program_model::VarDef::static_storage: bool
@@ -6194,6 +6195,7 @@ pub fn trust_runtime::CompiledRuntime::fault_policy(&self) -> trust_runtime_core
 pub fn trust_runtime::CompiledRuntime::faulted(&self) -> bool
 pub fn trust_runtime::CompiledRuntime::find_variable(&self, name: &str) -> core::result::Result<u32, trust_runtime_core::native::variables::NameError>
 pub fn trust_runtime::CompiledRuntime::last_fault(&self) -> core::option::Option<trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime::CompiledRuntime::leave_program(&mut self) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::CompiledRuntime::load(bytes: alloc::vec::Vec<u8>, resource_name: impl core::convert::Into<smol_str::SmolStr>) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::CompiledRuntime::load_deployed(bytes: alloc::vec::Vec<u8>, resource_name: impl core::convert::Into<smol_str::SmolStr>, budget: u32) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::CompiledRuntime::load_with_statement_budget(bytes: alloc::vec::Vec<u8>, resource_name: impl core::convert::Into<smol_str::SmolStr>, budget: u32) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>

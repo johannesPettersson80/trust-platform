@@ -162,7 +162,8 @@ pub(super) fn entry_abi(target: Target) -> &'static str {
 }
 
 /// The entry points of the module for `target`, written to `source`, the initializations setting
-/// `references` and then making the calls `blocks` of `FB_init`.
+/// `references` and then making the calls `blocks` of `FB_init`, and the exit making the calls
+/// `exits` of `FB_exit`.
 ///
 /// # Errors
 ///
@@ -173,6 +174,7 @@ pub(super) fn entries(
     target: Target,
     references: &[String],
     blocks: &[String],
+    exits: &[String],
 ) -> Result<Vec<Entry>, NativeError> {
     let abi = entry_abi(target);
     let mut entries = Vec::new();
@@ -256,6 +258,24 @@ pub(super) fn entries(
         entries.push(Entry {
             symbol: symbol.to_string(),
             kind,
+            index: 0,
+        });
+    }
+    // The exit leaves the instances before a restart or a download starts or replaces their memory
+    // (specification 44 §6.7); a program with no `FB_exit` to call has none.
+    if !exits.is_empty() {
+        let _ = writeln!(
+            source,
+            "fn exit_blocks(cx: &mut Cx, w: &World<'_>) -> R<()> {{\n    {}\n    Ok(())\n}}\n",
+            exits.join("\n    ")
+        );
+        let _ = writeln!(
+            source,
+            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn trust_entry_exit(cx: *mut Cx) -> u32 {{\n    run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        exit_blocks(cx, &w)\n    }})\n}}\n"
+        );
+        entries.push(Entry {
+            symbol: "trust_entry_exit".to_string(),
+            kind: EntryKind::Exit,
             index: 0,
         });
     }
