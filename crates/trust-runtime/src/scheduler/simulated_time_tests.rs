@@ -138,6 +138,32 @@ fn late_simulated_cycles_advance_one_interval_each_and_none_are_skipped() {
     assert_eq!(*seen.lock().expect("cycle times"), expected);
 }
 
+/// Specification 46 §6.1 item 1 (the CODESYS toolkit's B9): simulation time is never read from the wall clock, so
+/// the first cycle runs at simulation time zero however long the runtime took to start. Here the host clock reads
+/// 180 ms when the loop starts, at speed 10; the cycles of a 10 ms resource see 0, 10 and 20 ms. Catches a first
+/// cycle at the scaled wall clock, 1,800 ms here, whose distance from time zero the tasks counted as missed
+/// intervals right after the start (the toolkit saw 17 of a 100 ms task).
+#[test]
+fn the_first_simulated_cycle_runs_at_time_zero_however_long_the_start_took() {
+    let host = HostClock::with_late_ms(0);
+    host.state.lock().expect("host clock").now_nanos = 180 * NANOS_PER_MS;
+    let runner = ResourceRunner::new(
+        crate::runtime::empty_runtime(),
+        host,
+        Duration::from_millis(10),
+    )
+    .with_simulation_speed(SimulationSpeed::new(10), None);
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let recorded = Arc::clone(&seen);
+    run_cycles(runner, 3, move |_, runtime| {
+        recorded
+            .lock()
+            .expect("cycle times")
+            .push(runtime.current_time().as_nanos());
+    });
+    assert_eq!(*seen.lock().expect("cycle times"), millis(&[0, 10, 20]));
+}
+
 #[test]
 fn pausing_holds_simulation_time_and_resuming_continues_without_a_jump() {
     let host = HostClock::with_late_ms(0);

@@ -506,7 +506,10 @@ substep. A dropout is initially inactive.
 
 A cold runtime start and a cold restart recreate every plant from configuration
 and reset all plant-local random streams. Given the same effective seed and
-input history, both produce the same trace.
+input history, both produce the same trace. A restart's plants start at the
+process time the restarted runtime continues from (§6.1 item 4): its first cycle
+finds them in their initial state, as the first cycle of a start does, and they
+integrate no time from before the restart.
 
 A warm PLC restart also resets simulated plants in the first version. Plant
 state is not retained through the PLC retain store. Runtime status shall expose
@@ -527,7 +530,9 @@ experiment uses (specification 35, A3.1). Wall-clock time and CPU execution
 duration do not enter plant equations.
 
 1. **Exact steps.** Simulation time advances by exactly one resource cycle
-   interval for each executed cycle. It is never read from the wall clock. A
+   interval for each executed cycle. It is never read from the wall clock: the
+   first cycle runs at simulation time zero, however long the runtime took to
+   start, so a slow start counts no missed interval. A
    cycle that starts late therefore does not lengthen the interval that the
    next cycle sees, and no cycle is skipped. A free-running resource (cycle
    interval 0) has no step to take: its process time is the wall clock times
