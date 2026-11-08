@@ -191,10 +191,10 @@ pub fn cascade_loop_definition(
             loop_id: id,
             task_name: task.name.clone(),
             parameters: cascade_parameters(draft, &process_inner, &process_outer, &manipulated),
-            mode: ModeBinding {
-                symbol: draft.inner.mode.symbol.clone(),
-                manual_value: draft.inner.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: ModeBinding::boolean(
+                draft.inner.mode.symbol.clone(),
+                draft.inner.mode.when_true == ModeWhenTrue::Manual,
+            ),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),

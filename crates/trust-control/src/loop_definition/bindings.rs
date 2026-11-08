@@ -36,14 +36,58 @@ pub struct Parameter {
     pub maximum: f64,
 }
 
-/// The mode variable of a parameter binding.
+/// The mode variable of a parameter binding (specification 35 A6.1): a BOOL with the value that means Manual, whose other value
+/// means Auto, or an enumeration with the member that means Manual and the member that means Auto, whose other members mean
+/// neither mode.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModeBinding {
     /// The mode variable's path.
     pub symbol: String,
-    /// The value that means Manual.
-    pub manual_value: bool,
+    /// The value that means Manual: a boolean for a BOOL, the name of a member for an enumeration.
+    pub manual_value: ModeValue,
+    /// The member that means Auto, for an enumeration only. A BOOL binding omits it, so its file is the one it was before
+    /// enumerations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_value: Option<String>,
+}
+
+impl ModeBinding {
+    /// A BOOL mode, `manual_value` being the value that means Manual.
+    #[must_use]
+    pub fn boolean(symbol: impl Into<String>, manual_value: bool) -> Self {
+        Self {
+            symbol: symbol.into(),
+            manual_value: ModeValue::Bool(manual_value),
+            auto_value: None,
+        }
+    }
+
+    /// The value that means Manual in a runtime's reading of the mode (protocol annex E6.3): a BOOL's Manual value, and TRUE for
+    /// an enumeration, which the runtime reads as TRUE in its Manual member and FALSE in its Auto member.
+    #[must_use]
+    pub fn manual_reading(&self) -> bool {
+        match &self.manual_value {
+            ModeValue::Bool(value) => *value,
+            ModeValue::Member(_) => true,
+        }
+    }
+
+    /// Whether the mode is an enumeration's, named by its members.
+    #[must_use]
+    pub fn is_enumeration(&self) -> bool {
+        matches!(self.manual_value, ModeValue::Member(_))
+    }
+}
+
+/// A value of a mode signal as a binding names it (specification 35 A6.1).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ModeValue {
+    /// A BOOL's value.
+    Bool(bool),
+    /// The name of an enumeration's member.
+    Member(String),
 }
 
 /// A real IEC type.
@@ -314,3 +358,7 @@ pub struct Activation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asserted_value: Option<bool>,
 }
+
+#[cfg(test)]
+#[path = "bindings_tests.rs"]
+mod tests;

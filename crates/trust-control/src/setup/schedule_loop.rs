@@ -398,10 +398,10 @@ fn point_loop(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: shared.task.name.clone(),
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: ModeBinding::boolean(
+                draft.mode.symbol.clone(),
+                draft.mode.when_true == ModeWhenTrue::Manual,
+            ),
             parameters: gain_parameters(shared, point)?,
         }),
         parameter_purpose: None,

@@ -426,7 +426,8 @@ impl World {
 
     /// Whether the loop is in Auto.
     pub(super) fn in_auto(&self) -> bool {
-        self.values.get(&self.binding.mode.symbol) == Some(&json!(!self.binding.mode.manual_value))
+        self.values.get(&self.binding.mode.symbol)
+            == Some(&json!(!self.binding.mode.manual_reading()))
     }
 
     /// The values in force of the parameter record.
@@ -456,9 +457,9 @@ impl World {
     pub(super) fn set_mode(&mut self, manual: bool) {
         for mode in std::iter::once(&self.binding.mode).chain(&self.binding.additional_modes) {
             let value = if manual {
-                mode.manual_value
+                mode.manual_reading()
             } else {
-                !mode.manual_value
+                !mode.manual_reading()
             };
             self.values.insert(mode.symbol.clone(), json!(value));
         }

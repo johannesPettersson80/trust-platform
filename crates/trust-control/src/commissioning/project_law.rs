@@ -85,10 +85,7 @@ pub fn additional_mode_members(loop_definition: &LoopDefinition) -> Vec<Transfer
             project
                 .additional_modes
                 .iter()
-                .map(|mode| TransferModeBinding {
-                    symbol: mode.symbol.clone(),
-                    manual_value: mode.manual_value,
-                })
+                .map(|mode| TransferModeBinding::boolean(mode.symbol.clone(), mode.manual_value))
                 .collect()
         })
 }
@@ -99,7 +96,12 @@ pub fn additional_mode_members(loop_definition: &LoopDefinition) -> Vec<Transfer
 pub fn additional_mode_values(loop_definition: &LoopDefinition) -> Vec<(String, f64)> {
     additional_mode_members(loop_definition)
         .into_iter()
-        .map(|mode| (mode.symbol, f64::from(u8::from(!mode.manual_value))))
+        .map(|mode| {
+            (
+                mode.symbol.clone(),
+                f64::from(u8::from(!mode.manual_reading())),
+            )
+        })
         .collect()
 }
 

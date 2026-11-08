@@ -469,7 +469,7 @@ impl Plant {
         .into_iter()
         .map(|(symbol, value)| (symbol.to_owned(), value))
         .collect();
-        let manual_value = binding.mode.manual_value;
+        let manual_value = binding.mode.manual_reading();
         let world = World {
             program: "program-1".into(),
             physical: false,

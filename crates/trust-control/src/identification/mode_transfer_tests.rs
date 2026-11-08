@@ -79,7 +79,7 @@ fn the_mode_binding_is_the_adapters_binding_on_its_own_transfer_loop() {
         (
             binding.task_name.as_str(),
             binding.mode.symbol.as_str(),
-            binding.mode.manual_value
+            binding.mode.manual_reading()
         ),
         ("MainTask", "Main.Auto", false)
     );

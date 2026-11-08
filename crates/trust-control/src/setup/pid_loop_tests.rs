@@ -372,7 +372,7 @@ fn the_generated_pid_loop_is_accepted_and_meets_the_contracts_it_is_tuned_by() {
         "Studio's own identification methods drive the plant"
     );
     assert!(
-        !binding.mode.manual_value,
+        !binding.mode.manual_reading(),
         "the Auto signal is FALSE in Manual"
     );
 }
@@ -559,7 +559,10 @@ fn the_generated_loop_on_the_pids_own_measurement_follows_its_output() {
         .parameter_binding
         .as_ref()
         .expect("a PID loop binds its record");
-    assert!(binding.mode.manual_value, "TIC101_Manual is TRUE in Manual");
+    assert!(
+        binding.mode.manual_reading(),
+        "TIC101_Manual is TRUE in Manual"
+    );
     let elsewhere =
         pid_loop_definition(&catalog, &scope(), &generated_draft("Main.TIC101_Setpoint"))
             .expect("the other manual output is generated");

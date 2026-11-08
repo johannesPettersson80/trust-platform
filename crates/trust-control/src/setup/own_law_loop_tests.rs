@@ -547,7 +547,7 @@ fn the_mode_and_the_manual_output_are_bound_as_the_engineer_chose() {
         .expect("the gains are bound");
     assert_eq!(binding.mode.symbol, "P1.AutoMode");
     assert!(
-        !binding.mode.manual_value,
+        !binding.mode.manual_reading(),
         "Auto is the FALSE value of the mode"
     );
     assert_eq!(
