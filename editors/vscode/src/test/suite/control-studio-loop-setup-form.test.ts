@@ -121,9 +121,34 @@ suite("Control Studio loop setup form", () => {
   test("shows the engine's Auto/Manual refusal, which says why no signal is offered when every BOOL has an I/O address", () => {
     const view = open({ ...singleModel, modes: [] });
     try {
-      view.showError("Choose the Auto/Manual signal. It must be a BOOL without an I/O address, because Apply switches it directly; declare one without AT.", "mode");
+      view.showError("Choose the Auto/Manual signal. It must be a BOOL or an enumeration without an I/O address, because Apply switches it directly; declare one without AT.", "mode");
       // The Auto/Manual selector sits in its closed Change panel, so the engine's sentence shows in the message area.
       assert.match(view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "", /Auto\/Manual signal.*without an I\/O address/);
+    } finally { view.close(); }
+  });
+
+  test("offers an enumeration's members in place of what TRUE means, and posts the members chosen (A6.1, B1.3)", () => {
+    // The engine offers an unaddressed enumeration as a mode signal with its members in declaration order (`modeMembers`).
+    const view = open({ ...singleModel, modes: ["P1.AutoMode", "P1.Mode"], modeMembers: { "P1.Mode": ["Off", "Manual", "Auto"] } });
+    try {
+      const shown = (selector: string) => Array.from(view.root.querySelectorAll<HTMLElement>(selector)).map(element => !element.hidden);
+      const options = (field: string) => Array.from(view.root.querySelector<HTMLSelectElement>(`[data-setup-field="${field}"]`)!.options)
+        .map(option => option.value);
+      assert.deepStrictEqual(shown('[data-mode-member=""]'), [false, false], "a BOOL mode asks what its TRUE value means");
+      assert.deepStrictEqual(shown('[data-mode-when-true=""]'), [true]);
+      view.set("mode", "P1.Mode");
+      assert.deepStrictEqual(shown('[data-mode-member=""]'), [true, true], "an enumeration asks for its Manual and Auto members");
+      assert.deepStrictEqual(shown('[data-mode-when-true=""]'), [false]);
+      assert.deepStrictEqual(options("modeManual"), ["", "Off", "Manual", "Auto"], "nothing is preselected; the members in their order");
+      view.set("modeManual", "Manual");
+      view.set("modeAuto", "Auto");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts.at(-1).draft.mode, { symbol: "P1.Mode", whenTrue: "Auto", manualValue: "Manual", autoValue: "Auto" });
+      // Back to the BOOL: the members are gone, and the choice posts what TRUE means alone.
+      view.set("mode", "P1.AutoMode");
+      assert.deepStrictEqual(shown('[data-mode-member=""]'), [false, false]);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts.at(-1).draft.mode, { symbol: "P1.AutoMode", whenTrue: "Auto" });
     } finally { view.close(); }
   });
 

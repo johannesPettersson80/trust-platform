@@ -180,10 +180,7 @@ fn draft() -> GroupLoopDraft {
     GroupLoopDraft {
         name: "Zone temperatures".to_string(),
         action: Action::Direct,
-        mode: ModeChoice {
-            symbol: "P1.ZonesAuto".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.ZonesAuto".to_string(), ModeWhenTrue::Auto),
         experiment_step: Some(10.0),
         experiment_duration_seconds: Some(40.0),
         startup_flag: Some("P1.Initialized".to_string()),

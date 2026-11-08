@@ -17,6 +17,12 @@ through DAP.
 - VS Code debug sessions
 - other DAP-capable editors or tools
 
+## Where to get it
+
+Each release's language-server archive, `trust-lsp-<platform>.tar.gz` or
+`trust-lsp-<platform>.zip`, holds `trust-debug` beside `trust-lsp`. The VS Code
+extension carries its own copy.
+
 ## Typical launch shape
 
 This tool is usually started by an editor, not by typing directly into a shell.

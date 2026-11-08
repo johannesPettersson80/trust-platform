@@ -24,6 +24,7 @@ export function run(): Promise<void> {
   mocha.suite.emit("pre-require", global, "nofile", mocha);
   // The runtime display keeps the language of the page it drew; each test starts in English.
   mocha.suite.afterEach(() => setSpeech({}, "en"));
+  require("./acceptance-download.test");
   require("./control-studio-three-page.integration.test");
   require("./control-studio-three-page-native.integration.test");
   require("./control-studio-three-page-periodic.integration.test");

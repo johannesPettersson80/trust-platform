@@ -91,10 +91,7 @@ fn tank_draft() -> ScheduleLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.Auto".to_owned(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.Auto".to_owned(), ModeWhenTrue::Auto),
         manual_output: "P1.ManualPct".to_owned(),
         points: vec![
             point("Low", 0.09, "P1.KpLow", "P1.KiLow"),

@@ -212,6 +212,8 @@ pub enum TokenKind {
     KwDeleteDunder,
     #[token("__ISVALIDREF", ignore(case))]
     KwIsValidRefDunder,
+    #[token("__QUERYINTERFACE", ignore(case))]
+    KwQueryInterfaceDunder,
     #[token("IF", ignore(case))]
     KwIf,
     #[token("THEN", ignore(case))]

@@ -20,8 +20,8 @@ use super::pid_loop::{setpoint_signal, ModeChoice, SignalChoice};
 use super::state_feedback_loop::check_startup;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
-    Action, Direction, Execution, ExperimentKind, LoopDefinition, LoopScope, ModeWhenTrue,
-    RealType, DWELL_TIMER_MAXIMUM_SECONDS, LOOP_SCHEMA_VERSION, MINIMUM_TIME_MAXIMUM_SECONDS,
+    Action, Direction, Execution, ExperimentKind, LoopDefinition, LoopScope, RealType,
+    DWELL_TIMER_MAXIMUM_SECONDS, LOOP_SCHEMA_VERSION, MINIMUM_TIME_MAXIMUM_SECONDS,
 };
 
 /// The refusal of a latch that is not a BOOL: the latch holds whether the output is on (C3).
@@ -149,7 +149,6 @@ pub fn on_off_loop_definition(
         draft.startup_flag.as_deref(),
     )?;
     let setpoint = setpoint_signal(&draft.setpoint, &pv);
-    let when_true_manual = draft.mode.when_true == ModeWhenTrue::Manual;
     let (low, high) = (
         draft.low_output.unwrap_or(mv.minimum),
         draft.high_output.unwrap_or(mv.maximum),
@@ -171,7 +170,7 @@ pub fn on_off_loop_definition(
         "limits": { "outputMinimum": mv.minimum, "outputMaximum": mv.maximum },
         "observedSampleTiming": { "nominalPeriodMs": task.interval_ms },
         "channels": channels_json(draft, &pv, &mv),
-        "parameterBinding": parameter_binding_json(catalog, draft, &pv, &task.name, when_true_manual)?,
+        "parameterBinding": parameter_binding_json(catalog, draft, &pv, &task.name)?,
     });
     Ok(with_revision(with_experiment(draft, text)?))
 }
@@ -339,7 +338,6 @@ fn parameter_binding_json(
     draft: &OnOffLoopDraft,
     pv: &MeasuredSignal,
     task_name: &str,
-    when_true_manual: bool,
 ) -> Result<Value, Failure> {
     let span = pv.maximum - pv.minimum;
     let hysteresis = setting(
@@ -367,7 +365,7 @@ fn parameter_binding_json(
         "loop_id": loop_id(&draft.name),
         "task_name": task_name,
         "parameters": [hysteresis, minimum_on, minimum_off],
-        "mode": { "symbol": draft.mode.symbol, "manual_value": when_true_manual },
+        "mode": draft.mode.binding(),
     }))
 }
 
