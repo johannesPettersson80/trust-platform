@@ -62,7 +62,9 @@ fn build_test_image(
     let hooks = debug_hooks(project_root)?;
     // A `vendor_profile` that names no conversion rules refuses the run before anything builds.
     let conversions = conversion_profile(project_root)?;
-    let mut sources = collect_project_source_files(project_root, None)?;
+    // Each file by its path relative to the project folder, as `trust-runtime build` labels it
+    // (specification 44 §5.3): a compile error and a device's statement name `src/tests.st`.
+    let mut sources = trust_runtime::bundle_builder::collect_project_sources_labelled(project_root, None)?;
     let runners = function_block_runners(discovered);
     if !runners.is_empty() {
         sources.push(SourceFile::with_path(

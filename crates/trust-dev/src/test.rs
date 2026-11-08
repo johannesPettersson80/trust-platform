@@ -11,7 +11,7 @@ use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use smol_str::SmolStr;
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::{collect_project_source_files, resolve_sources_root};
+use trust_runtime::bundle_builder::resolve_sources_root;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::test_discovery::{DiscoveredTest, TestKind};
 
@@ -27,6 +27,10 @@ include!("test_cmd/native.rs");
 #[cfg(test)]
 #[path = "test_cmd/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "test_cmd/test_build_tests.rs"]
+mod test_build_tests;
 
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,
