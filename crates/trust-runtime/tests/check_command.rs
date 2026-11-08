@@ -131,8 +131,23 @@ END_PROGRAM
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// An issue without its `file`, whose form depends on where the test's project lies.
+fn issue_without_file(issue: &JsonValue) -> JsonValue {
+    let mut issue = issue.clone();
+    if let Some(object) = issue.as_object_mut() {
+        object.remove("file");
+    }
+    issue
+}
+
+/// Specification 11 §6.8.1c (the CODESYS toolkit's B16): a compile that fails on its sources'
+/// diagnostics gives one issue per diagnostic, where it is. Worked by hand: the statement
+/// `Counter := 1` on line 6 lacks its `;`, so the parser reports `expected ';'` at the next token,
+/// `END_PROGRAM`, on line 7 from column 1 to before column 12: a missing token, E002. Catches the
+/// diagnostics joined into one `compile` issue that names byte offsets in its text, which the
+/// toolkit had to parse.
 #[test]
-fn check_reports_compile_error_as_json_issue() {
+fn check_reports_each_compile_diagnostic_where_it_is() {
     let project = unique_temp_dir("check-compile-error");
     write_project_fixture(
         &project,
@@ -141,7 +156,7 @@ PROGRAM Main
 VAR
     Counter : INT := 0;
 END_VAR
-Counter :=
+Counter := 1
 END_PROGRAM
 "#,
     );
@@ -151,11 +166,24 @@ END_PROGRAM
     let payload = json_stdout(&output);
     assert_eq!(payload["ok"], false);
     assert_eq!(payload["status"], "failed");
-    assert_eq!(payload["issues"][0]["code"], "compile");
-    assert!(payload["issues"][0]["message"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("program compile failed"));
+    assert_eq!(payload["errors"], 1);
+    let issues = payload["issues"].as_array().expect("issues");
+    assert_eq!(issues.len(), 1, "{issues:?}");
+    assert!(
+        reported_path_ends_with(
+            issues[0]["file"].as_str().unwrap_or_default(),
+            "src/main.st"
+        ),
+        "{}",
+        issues[0]
+    );
+    assert_eq!(
+        issue_without_file(&issues[0]),
+        serde_json::json!({
+            "severity": "error", "code": "E002", "message": "expected ';'",
+            "line": 7, "column": 1, "end_line": 7, "end_column": 12
+        })
+    );
     assert!(payload["source_count"].as_u64().unwrap_or_default() >= 1);
     assert!(
         payload.get("bytecode_size").is_none(),
@@ -164,6 +192,54 @@ END_PROGRAM
     assert!(
         !project.join("program.tpi").exists(),
         "failed check must not write program.tpi"
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
+/// Specification 11 §6.8.1c: each diagnostic is its own issue, and a column counts UTF-16 code
+/// units, as `trust-lsp check` and the editor count it. Worked by hand: `Missing` on line 6
+/// follows `Counter := (`, 12 characters, so it spans columns 13 to before 20; `Absent` on line 7
+/// follows `(* größe *) Counter := (`, 24 code units (`ö` and `ß` one each, two bytes each), so it
+/// spans columns 25 to before 31. Catches a column counted in bytes (27 and 33 for `Absent`), and
+/// the two diagnostics joined into one issue.
+#[test]
+fn check_reports_each_undefined_name_at_its_utf16_column() {
+    let project = unique_temp_dir("check-two-names");
+    write_project_fixture(
+        &project,
+        r#"
+PROGRAM Main
+VAR
+    Counter : INT := 0;
+END_VAR
+Counter := (Missing);
+(* größe *) Counter := (Absent) + 1;
+END_PROGRAM
+"#,
+    );
+
+    let output = run_check(&project);
+    assert_eq!(output.status.code(), Some(11));
+    let payload = json_stdout(&output);
+    let undefined: Vec<JsonValue> = payload["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .filter(|issue| issue["code"] == "E101")
+        .map(issue_without_file)
+        .collect();
+    assert_eq!(
+        undefined,
+        [
+            serde_json::json!({
+                "severity": "error", "code": "E101", "message": "undefined identifier 'Missing'",
+                "line": 6, "column": 13, "end_line": 6, "end_column": 20
+            }),
+            serde_json::json!({
+                "severity": "error", "code": "E101", "message": "undefined identifier 'Absent'",
+                "line": 7, "column": 25, "end_line": 7, "end_column": 31
+            }),
+        ]
     );
     let _ = std::fs::remove_dir_all(project);
 }
@@ -402,8 +478,14 @@ END_PROGRAM
     let payload = json_stdout(&output);
     let issues = payload["issues"].as_array().expect("issues");
     assert!(issues.iter().any(|issue| issue["code"] == "config.io"));
-    assert!(issues.iter().any(|issue| issue["code"] == "compile"));
-    assert_eq!(payload["errors"], 2);
+    // `Main :=` lacks its expression, reported at `END_PROGRAM` on line 4.
+    assert!(
+        issues
+            .iter()
+            .any(|issue| issue["code"] == "E002" && issue["line"] == 4 && issue["column"] == 1),
+        "{issues:?}"
+    );
+    assert_eq!(payload["errors"], issues.len());
     assert!(payload["source_count"].as_u64().unwrap_or_default() >= 1);
     assert!(
         payload.get("bytecode_size").is_none(),
@@ -443,7 +525,11 @@ END_PROGRAM
     assert_eq!(failure.status.code(), Some(11));
     let failure_stderr = String::from_utf8_lossy(&failure.stderr);
     assert!(failure_stderr.contains("Project check failed"));
-    assert!(failure_stderr.contains("program compile failed"));
+    // An issue with a position reads `file:line:column: message` (specification 11 §6.8.1c).
+    assert!(
+        failure_stderr.contains("main.st:4:1: expected expression"),
+        "{failure_stderr}"
+    );
 
     let _ = std::fs::remove_dir_all(valid_project);
     let _ = std::fs::remove_dir_all(invalid_project);

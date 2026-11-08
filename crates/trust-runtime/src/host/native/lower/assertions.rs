@@ -8,7 +8,7 @@ use trust_syntax::syntax::SyntaxNode;
 use super::call::{Arg, Called};
 use super::Lowerer;
 use crate::native::types::{Elem, Kind, Ty};
-use crate::native::NativeError;
+use crate::native::{NativeError, TEST_FINISHED_GLOBAL};
 
 /// The assertion `name` this module lowers: its formal parameters and its comparison, `None` for
 /// `ASSERT_TRUE`, `ASSERT_FALSE` and `ASSERT_NEAR`.
@@ -43,6 +43,26 @@ fn variant(name: &str) -> &'static str {
 }
 
 impl Lowerer<'_, '_> {
+    /// `TEST_FINISHED()` (specification 07): sets the test build's finished mark, [`TEST_FINISHED_GLOBAL`]. A program built
+    /// without the test runner declares no such global, and the call does nothing there.
+    pub(super) fn call_test_finished(
+        &mut self,
+        node: &SyntaxNode,
+        args: &[Arg],
+    ) -> Result<Called, NativeError> {
+        if !args.is_empty() {
+            return Err(self.unsupported(node, "TEST_FINISHED with inputs"));
+        }
+        if let Some(global) = self.model.global(TEST_FINISHED_GLOBAL) {
+            let area = if global.retained { "w.r" } else { "w.g" };
+            self.line(&format!(
+                "{area}.{}.set(1);",
+                crate::native::types::rust_field(&global.name)
+            ));
+        }
+        Ok(Called::Nothing)
+    }
+
     /// The call of assertion `name` with `args`; its inputs are evaluated in their order.
     pub(super) fn call_assertion(
         &mut self,

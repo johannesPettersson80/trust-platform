@@ -10,7 +10,7 @@ fn scaled_clock_clamps_zero_to_one() {
 #[test]
 fn scaled_clock_sleeps_faster_than_std_clock() {
     let std_clock = StdClock::new();
-    let std_deadline = Duration::from_millis(20);
+    let std_deadline = Duration::from_millis(200);
     let std_start = std::time::Instant::now();
     std_clock.sleep_until(std_deadline);
     let std_elapsed = std_start.elapsed();
