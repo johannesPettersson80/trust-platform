@@ -24,6 +24,9 @@ use trust_control_studio::runtime_client::RuntimeClient;
 /// The helpers of the engine's real-runtime tests of stages V4.6 to V4.8 (a lab on a copy of a project, the command line, findings).
 pub mod engine;
 
+/// Lesson 30's heater as the real-runtime journeys drive it: its model, its transfers and the wait for its operating point.
+pub mod lesson_30;
+
 /// The control socket of a test project: `.control.sock` in the project while that path fits a socket address (100 bytes,
 /// under Linux's 108 and macOS's 104); under a long `TMPDIR`, such as the release guard's in its build folder, a short name
 /// in `TMPDIR` itself, one for each process and call.
