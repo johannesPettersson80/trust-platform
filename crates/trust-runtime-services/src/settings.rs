@@ -59,6 +59,8 @@ pub struct RuntimeSettings {
     pub control_mode: ControlMode,
     /// `runtime.control.debug_enabled`.
     pub debug_enabled: bool,
+    /// `runtime.control.start_paused`: the program starts paused, until `resume`.
+    pub start_paused: bool,
 }
 
 impl RuntimeSettings {
@@ -78,6 +80,7 @@ impl RuntimeSettings {
             retain_save_interval: Some(config.retain_save_interval),
             control_mode: config.control_mode,
             debug_enabled: config.control_debug_enabled,
+            start_paused: config.control_start_paused,
         }
     }
 

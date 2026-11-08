@@ -442,3 +442,43 @@ fn stopped_faulted_runtime_exits_with_status_one() {
         runtime.diagnostics()
     );
 }
+
+/// Specification 11 §6.8 (the CODESYS toolkit's B14): `play --paused`, and `[runtime.control]
+/// start_paused = true`, start the program paused: `status` reports paused and no scan runs, so
+/// `io-read` has no snapshot, for longer than six of the counter's 50 ms periods; `resume` then
+/// starts the scans and the counter counts. Catches the flag or the setting ignored (a snapshot
+/// at once) and a pause that `resume` cannot end.
+#[test]
+fn play_paused_and_start_paused_hold_before_the_first_scan() {
+    for (flag, setting) in [(true, false), (false, true)] {
+        // `resume`, which ends the pause, is a debug operation (specification 11 §6.8).
+        let mut example = ExampleRuntime::new("memory_marker_counter").debug_enabled(true);
+        if flag {
+            example = example.play_arg("--paused");
+        }
+        if setting {
+            example = example.start_paused(true);
+        }
+        let mut runtime = example.start();
+        runtime.wait_until(WAIT, "status to report paused", || {
+            runtime.status().state == "paused"
+        });
+        hold_for(Duration::from_millis(300));
+        assert_eq!(
+            runtime.status().state,
+            "paused",
+            "flag {flag}, setting {setting}"
+        );
+        assert!(
+            runtime.snapshot().is_none(),
+            "no scan ran before resume (flag {flag}, setting {setting})"
+        );
+
+        runtime.ctl_ok(&["resume"]);
+        runtime.wait_for_snapshot(WAIT, "the scans to start after resume", |s| s.scan() >= 2);
+        runtime.wait_until(WAIT, "status to report running", || {
+            runtime.status().state == "running"
+        });
+        runtime.assert_running_without_fault();
+    }
+}

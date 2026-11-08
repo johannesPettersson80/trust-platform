@@ -14,6 +14,7 @@ pub fn run_runtime(
     beginner: bool,
     simulation: bool,
     time_scale: u32,
+    paused: bool,
 ) -> anyhow::Result<()> {
     let restart_mode = validate_runtime_launch_options(&restart, time_scale)?;
     // Where the program comes from, kept for a `restart` that finds the resource Stopped: it loads
@@ -468,6 +469,28 @@ pub fn run_runtime(
         None
     };
 
+    // `--paused` or `[runtime.control] start_paused` pauses the resource before its first scan, so
+    // that no scan runs until `resume` (specification 11 §6.8): the pause waits in the queue the
+    // scan thread drains before its first scan.
+    if paused
+        || bundle
+            .as_ref()
+            .is_some_and(|bundle| bundle.runtime.control_start_paused)
+    {
+        // As the debug surface is set above: a launch without a project keeps it on.
+        let debug_surface = bundle
+            .as_ref()
+            .is_none_or(|bundle| bundle.runtime.control_debug_enabled);
+        if paused && !debug_surface {
+            anyhow::bail!(
+                "--paused needs the debug surface, since only `resume`, a debug operation, ends the \
+                 pause: set runtime.control.debug_enabled = true or mode = \"debug\""
+            );
+        }
+        control
+            .pause()
+            .map_err(|error| anyhow::anyhow!("pause the resource before its first scan: {error}"))?;
+    }
     start_gate.open();
 
     #[cfg(feature = "ads-server")]

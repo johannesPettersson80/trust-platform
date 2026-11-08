@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 
 use serde_json::{json, Value};
 use smol_str::SmolStr;
-use trust_runtime_core::deployment::HangAction;
+use trust_runtime_core::deployment::{Configuration, HangAction};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
@@ -20,6 +20,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogAction, WatchdogPolicy};
 
 use super::RetainSource;
 use crate::capabilities::{LastReset, ResetCauseName};
+use crate::settings::RuntimeSettings;
 use crate::tests::runner_ports::{ms, CycleCall, Fixture, TestPlatform, TestRunner};
 
 /// The location a chip's panic path keeps in its reset record.
@@ -226,6 +227,47 @@ fn a_boot_after_a_power_on_or_a_requested_reset_runs_the_program() {
         fixture.pass_at(&mut runner, 0);
         assert_eq!(fixture.take_scan_times(), [0], "{cause:?}");
     }
+}
+
+/// Specification 11 §6.8: a device whose record sets `runtime.control.start_paused` starts its
+/// program paused at its boot: no scan runs at the boundary at 0 ms, and a `resume` at 5 ms is
+/// taken at the next boundary, 10 ms on the 10 ms grid, which scans. Without the setting the
+/// program runs at 0 ms. Catches the setting ignored on a device, and a pause that `resume` cannot
+/// end.
+#[test]
+fn a_boot_whose_record_sets_start_paused_holds_before_the_first_scan() {
+    let fixture = Fixture::board_probe();
+    let settings = |start_paused: bool| {
+        let record = Configuration {
+            control_debug_enabled: true,
+            control_start_paused: start_paused,
+            ..Configuration::default()
+        };
+        // `resume` is a debug operation, as `pause` is, so the device's record enables the debug
+        // surface, which a record with `start_paused` always does (specification 11 §6.8).
+        TestPlatform {
+            runtime: Some(RuntimeSettings::from_record(&record)),
+            debug_enabled: true,
+            ..after(ResetCauseName::PowerOn, "")
+        }
+    };
+    let (mut runner, _) = booted(&fixture, settings(true));
+    runner.pause_at_boot();
+    assert_eq!(runner.resource_state(), ResourceState::Paused);
+    fixture.pass_at(&mut runner, 0);
+    assert_eq!(fixture.take_scan_times(), [] as [u128; 0]);
+    let resumed = fixture.call_at(&mut runner, 5, &request(1, "resume"));
+    assert_eq!(resumed["ok"], json!(true), "{resumed}");
+    fixture.pass_at(&mut runner, 10);
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(fixture.take_scan_times(), [10]);
+
+    let fixture = Fixture::board_probe();
+    let (mut runner, _) = booted(&fixture, settings(false));
+    runner.pause_at_boot();
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    fixture.pass_at(&mut runner, 0);
+    assert_eq!(fixture.take_scan_times(), [0]);
 }
 
 /// A boot after a reset that ended the last boot while it loaded the program leaves the program

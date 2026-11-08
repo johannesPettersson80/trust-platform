@@ -177,6 +177,7 @@ where
         if let Ok(events) = self.reload(mode) {
             self.begin_program(events);
             self.fault_after_reset();
+            self.pause_at_boot();
         } else {
             let refused = self.shell.install.newest_sequence();
             self.shell.install.set_loaded(refused);

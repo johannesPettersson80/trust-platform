@@ -176,6 +176,7 @@ fn run() -> anyhow::Result<()> {
             restart,
             simulation,
             time_scale,
+            paused,
         }) => run::run_runtime(
             project,
             config,
@@ -187,6 +188,7 @@ fn run() -> anyhow::Result<()> {
             false,
             simulation,
             time_scale,
+            paused,
         ),
         Some(Command::Play {
             project,
@@ -196,6 +198,7 @@ fn run() -> anyhow::Result<()> {
             beginner,
             simulation,
             time_scale,
+            paused,
         }) => {
             let console_mode = if no_console {
                 run::ConsoleMode::Disabled
@@ -213,6 +216,7 @@ fn run() -> anyhow::Result<()> {
                     beginner,
                     simulation,
                     time_scale,
+                    paused,
                 },
             )
         }

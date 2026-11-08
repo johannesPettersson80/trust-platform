@@ -39,6 +39,9 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
+        /// Start paused: no scan runs until `resume` (specification 11 §6.8).
+        #[arg(long, action = ArgAction::SetTrue)]
+        paused: bool,
     },
     /// Start the runtime with project auto-detection (production UX).
     #[command(
@@ -66,6 +69,9 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
+        /// Start paused: no scan runs until `resume` (specification 11 §6.8).
+        #[arg(long, action = ArgAction::SetTrue)]
+        paused: bool,
     },
     /// Interactive TUI for monitoring and control.
     Ui {

@@ -202,6 +202,7 @@ pub fn trust_runtime_core::deployment::Capabilities::fmt(&self, formatter: &mut 
 pub struct trust_runtime_core::deployment::Configuration
 pub trust_runtime_core::deployment::Configuration::control_debug_enabled: bool
 pub trust_runtime_core::deployment::Configuration::control_mode: trust_runtime_core::deployment::ControlMode
+pub trust_runtime_core::deployment::Configuration::control_start_paused: bool
 pub trust_runtime_core::deployment::Configuration::cycle_interval_nanos: u64
 pub trust_runtime_core::deployment::Configuration::event_capacity: u32
 pub trust_runtime_core::deployment::Configuration::fault_policy: trust_runtime_core::watchdog::FaultPolicy

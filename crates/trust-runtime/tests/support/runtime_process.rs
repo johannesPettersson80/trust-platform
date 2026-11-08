@@ -94,6 +94,8 @@ pub struct ExampleRuntime {
     source_edits: Vec<(&'static str, &'static str, &'static str)>,
     mode: Option<&'static str>,
     debug_enabled: Option<bool>,
+    start_paused: Option<bool>,
+    play_args: Vec<&'static str>,
     web_enabled: bool,
     store: bool,
 }
@@ -107,9 +109,23 @@ impl ExampleRuntime {
             source_edits: Vec::new(),
             mode: None,
             debug_enabled: None,
+            start_paused: None,
+            play_args: Vec::new(),
             web_enabled: false,
             store: false,
         }
+    }
+
+    /// `[runtime.control] start_paused` in the copy's runtime.toml (specification 11 §6.8).
+    pub fn start_paused(mut self, paused: bool) -> Self {
+        self.start_paused = Some(paused);
+        self
+    }
+
+    /// An argument of `play` after the project and `--no-console`, such as `--paused`.
+    pub fn play_arg(mut self, arg: &'static str) -> Self {
+        self.play_args.push(arg);
+        self
     }
 
     /// Also copies a repository directory that the project depends on, to the same relative path
@@ -190,6 +206,7 @@ impl ExampleRuntime {
             &token,
             self.mode,
             self.debug_enabled,
+            self.start_paused,
             self.web_enabled,
         );
         runtime.control_port = ports[0];
@@ -199,7 +216,7 @@ impl ExampleRuntime {
         if self.store {
             runtime.move_into_store();
         }
-        runtime.spawn_play();
+        runtime.spawn_play(&self.play_args);
         runtime.await_control();
         runtime
     }
@@ -265,7 +282,7 @@ impl Runtime {
         unreachable!("a program store needs symbolic links");
     }
 
-    fn spawn_play(&mut self) {
+    fn spawn_play(&mut self, args: &[&str]) {
         let stdout = File::create(self.root.join("runtime.stdout.log")).expect("stdout log");
         let stderr = File::create(self.root.join("runtime.stderr.log")).expect("stderr log");
         let child = trust_runtime_command()
@@ -273,6 +290,7 @@ impl Runtime {
             .arg("--project")
             .arg(&self.project)
             .arg("--no-console")
+            .args(args)
             .env_remove("TRUST_CTL_TOKEN")
             .stdin(Stdio::null())
             .stdout(Stdio::from(stdout))
@@ -710,6 +728,7 @@ fn configure_runtime_toml(
     token: &str,
     mode: Option<&str>,
     debug_enabled: Option<bool>,
+    start_paused: Option<bool>,
     web_enabled: bool,
 ) {
     let text = fs::read_to_string(path).expect("read runtime.toml");
@@ -726,6 +745,9 @@ fn configure_runtime_toml(
     }
     if let Some(enabled) = debug_enabled {
         control.insert("debug_enabled".into(), toml::Value::Boolean(enabled));
+    }
+    if let Some(paused) = start_paused {
+        control.insert("start_paused".into(), toml::Value::Boolean(paused));
     }
     for section in ["web", "discovery"] {
         if let Some(table) = runtime.get_mut(section).and_then(toml::Value::as_table_mut) {

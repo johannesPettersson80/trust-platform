@@ -77,7 +77,8 @@ impl Configuration {
     pub(super) fn encode(&self, out: &mut Vec<u8>) -> Result<(), Error> {
         write_text(out, &self.resource_name, "the resource name")?;
         out.extend_from_slice(&self.cycle_interval_nanos.to_le_bytes());
-        out.push(u8::from(self.control_debug_enabled));
+        // The control flags: bit 0 debug enabled, bit 1 start paused (specification 34 §5.1.1).
+        out.push(u8::from(self.control_debug_enabled) | (u8::from(self.control_start_paused) << 1));
         out.push(self.control_mode as u8);
         out.push(self.log_level as u8);
         out.extend_from_slice(&self.event_capacity.to_le_bytes());
@@ -103,7 +104,12 @@ impl Configuration {
 pub(super) fn read(reader: &mut Reader<'_>) -> Result<Configuration, Error> {
     let resource_name = read_text(reader, "the resource name")?;
     let cycle_interval_nanos = reader.u64()?;
-    let control_debug_enabled = read_flag(reader, "the control debug flag")?;
+    let control_flags = reader.u8()?;
+    if control_flags > 0b11 {
+        return Err(Error::Field("the control flags"));
+    }
+    let control_debug_enabled = control_flags & 0b01 != 0;
+    let control_start_paused = control_flags & 0b10 != 0;
     let control_mode = match reader.u8()? {
         1 => ControlMode::Production,
         2 => ControlMode::Debug,
@@ -151,6 +157,7 @@ pub(super) fn read(reader: &mut Reader<'_>) -> Result<Configuration, Error> {
         resource_name,
         cycle_interval_nanos,
         control_debug_enabled,
+        control_start_paused,
         control_mode,
         log_level,
         event_capacity,

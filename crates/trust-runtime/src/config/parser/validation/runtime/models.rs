@@ -2,6 +2,7 @@ struct ParsedControl {
     auth_token: Option<SmolStr>,
     mode: ControlMode,
     debug_enabled: bool,
+    start_paused: bool,
 }
 
 struct ParsedTls {

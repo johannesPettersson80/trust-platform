@@ -426,6 +426,21 @@ where
         self.halt(reported);
     }
 
+    /// Pauses the program at the device's boot, before its first scan, when its record sets
+    /// `runtime.control.start_paused`, as `trust-runtime play` starts a project that sets it
+    /// (specification 11 §6.8): no scan runs until `resume`. A program that the boot left faulted
+    /// stays faulted. A device calls it once, after [`Self::fault_after_reset`].
+    pub fn pause_at_boot(&mut self) {
+        let start_paused = self
+            .shell
+            .with_platform(|platform| platform.runtime_settings())
+            .flatten()
+            .is_some_and(|settings| settings.start_paused);
+        if start_paused && self.shell.resource.state() == ResourceState::Running {
+            self.shell.resource.set_state(ResourceState::Paused);
+        }
+    }
+
     /// Leaves the installed program unloaded at the device's boot, with `reason`, because the reset
     /// that ended the last boot came while that boot loaded it (specification 34 TARGET-08): loading
     /// it again would end this boot the same way, at every boot. The reset ended the program as a

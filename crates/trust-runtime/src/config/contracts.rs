@@ -15,6 +15,9 @@ pub struct RuntimeConfig {
     pub control_endpoint: Option<SmolStr>,
     pub control_auth_token: Option<SmolStr>,
     pub control_debug_enabled: bool,
+    /// `[runtime.control] start_paused`: the runtime starts the program paused, before its first
+    /// scan, until `resume` (specification 11 §6.8).
+    pub control_start_paused: bool,
     pub control_mode: ControlMode,
     pub log_level: SmolStr,
     /// `runtime.events.capacity`: the newest events the event store keeps. `None` uses the
