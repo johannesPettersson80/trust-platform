@@ -14,17 +14,17 @@ INTERFACE I_RunFast EXTENDS I_Run
 END_INTERFACE
 
 FUNCTION_BLOCK FB_A IMPLEMENTS I_Run
-METHOD Run
+METHOD PUBLIC Run
 END_METHOD
 END_FUNCTION_BLOCK
 
 FUNCTION_BLOCK FB_C IMPLEMENTS I_RunFast
-METHOD Run
+METHOD PUBLIC Run
 END_METHOD
 END_FUNCTION_BLOCK
 
 FUNCTION_BLOCK FB_Other
-METHOD Run
+METHOD PUBLIC Run
 END_METHOD
 END_FUNCTION_BLOCK
 ";
@@ -54,7 +54,11 @@ fn method_of(block: &str) -> usize {
     let start = BLOCKS
         .find(&format!("FUNCTION_BLOCK {block}"))
         .expect("the block");
-    start + BLOCKS[start..].find("METHOD Run").expect("its method") + "METHOD ".len()
+    start
+        + BLOCKS[start..]
+            .find("METHOD PUBLIC Run")
+            .expect("its method")
+        + "METHOD PUBLIC ".len()
 }
 
 /// The range of `Run` in the call `call` of `CALLS`.
@@ -100,21 +104,30 @@ fn a_call_through_an_interface_is_a_reference_of_each_implementing_method() {
     );
 }
 
-/// Specification 14 §6.3.2: the incoming calls of `FB_C.Run`, whose block implements `I_RunFast`, which extends
-/// `I_Run`, hold the program's call through a variable of `I_Run`, the only call it may receive. Catches the
-/// interface call missing from the call hierarchy, and an interface reached through another left out.
+/// Specification 14 §6.3.2: the incoming calls of `FB_A.Run` hold the program's call through a variable of `I_Run`
+/// beside its direct call, and those of `FB_C.Run`, whose block implements `I_RunFast`, which extends `I_Run`, hold
+/// the interface call alone. Catches the interface call missing from the call hierarchy, and an interface reached
+/// through another left out.
 #[test]
 fn the_incoming_calls_of_an_implementing_method_hold_its_calls_through_an_interface() {
     let db = project();
-    let item = prepare_call_hierarchy(&db, FileId(0), TextSize::from(method_of("FB_C") as u32))
-        .expect("the method is a call hierarchy item");
-    let calls = incoming_calls(&db, &item);
-    assert_eq!(calls.len(), 1, "{calls:?}");
-    assert_eq!(calls[0].from.name.as_str(), "P");
-    let texts: Vec<&str> = calls[0]
-        .from_ranges
-        .iter()
-        .map(|range| CALLS[usize::from(range.start())..usize::from(range.end())].trim())
-        .collect();
-    assert_eq!(texts, ["itf.Run()"]);
+    let calls_of = |block: &str| {
+        let item = prepare_call_hierarchy(&db, FileId(0), TextSize::from(method_of(block) as u32))
+            .expect("the method is a call hierarchy item");
+        let calls = incoming_calls(&db, &item);
+        assert_eq!(calls.len(), 1, "{block}: {calls:?}");
+        assert_eq!(calls[0].from.name.as_str(), "P");
+        let mut ranges = calls[0].from_ranges.clone();
+        ranges.sort_by_key(|range| range.start());
+        ranges
+            .iter()
+            .map(|range| {
+                CALLS[usize::from(range.start())..usize::from(range.end())]
+                    .trim()
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(calls_of("FB_A"), ["itf.Run()", "a.Run()"]);
+    assert_eq!(calls_of("FB_C"), ["itf.Run()"]);
 }
