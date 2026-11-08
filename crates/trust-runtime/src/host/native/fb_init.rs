@@ -131,6 +131,38 @@ pub(super) fn calls(front: &Front, model: &mut Model<'_>) -> Result<FbInit, Nati
     Ok(calls)
 }
 
+/// The calls of `FB_init` for the instances of the frame variable at `place` of type `ty`, which
+/// a call starts again (specification 10 §4.8), declared with the `FB_init` arguments `args` and the
+/// initial value `initializer`: Rust statements that pass `retains` and `copy`, and the methods they
+/// need; none outside the CODESYS profiles.
+///
+/// # Errors
+///
+/// [`NativeError`] as for [`calls`].
+pub(super) fn frame_calls(
+    model: &mut Model<'_>,
+    place: &str,
+    ty: Ty,
+    args: &[InitArg],
+    initializer: Option<&Expr>,
+) -> Result<(Vec<String>, Vec<Need>), NativeError> {
+    let mut calls = FbInit::default();
+    if crate::harness::dialect_of(model.conversions).is_codesys() {
+        calls.instance(
+            model,
+            place,
+            ty,
+            Declaration {
+                args,
+                initializer,
+                retained: false,
+            },
+            0,
+        )?;
+    }
+    Ok((calls.statements, calls.needs))
+}
+
 /// What an instance's declaration gives it: the `FB_init` arguments in parentheses after its type,
 /// its initial value, and whether a warm restart keeps it whole.
 #[derive(Clone, Copy)]

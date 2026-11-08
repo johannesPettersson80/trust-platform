@@ -1696,6 +1696,20 @@ deleted instances"):
   returns a `BOOL` or nothing; the build refuses another signature, as it
   refuses an `FB_init` it cannot call (specification 44 NX-09).
 
+An instance that a function or a method declares, or the `VAR_TEMP` of a
+program or a function block, lives for one call: CODESYS starts it again at each
+call (CODESYS help, "Object: Method": the method's variables are "reinitialized
+each time the method is called"). Under the CODESYS profiles each call starts
+it at its starting values and then calls `FB_init(bInitRetains := FALSE,
+bInCopyCode := FALSE)` of its instances, in `FB_init`'s order, with their
+after-init methods and the declaration's values as for a global; and the call
+calls `FB_exit(bInCopyCode := FALSE)` of them when it returns, at its end or at
+a `RETURN`, in the reverse order, leaving out a declaration marked
+`{attribute 'no-exit'}`. A call that faults returns nothing, and calls no
+`FB_exit`. The help documents the new start at each call; the flags, and the
+`FB_exit` at the return, are a vendor decision (owner, 8 November 2026) for the
+CODESYS toolkit to confirm.
+
 At an online change under the same profiles, CODESYS's calls follow the
 instances that the change copies (CODESYS help, "Method: FB_Init, FB_Reinit,
 FB_Exit": "The following calls occur in succession during an online change:

@@ -9,6 +9,8 @@ mod call_after_init;
 mod fb_exit;
 #[path = "codesys_language_profile/fb_init.rs"]
 mod fb_init;
+#[path = "codesys_language_profile/frame_instances.rs"]
+mod frame_instances;
 #[path = "codesys_language_profile/init_after_fb_init.rs"]
 mod init_after_fb_init;
 #[path = "codesys_language_profile/instance_path.rs"]
