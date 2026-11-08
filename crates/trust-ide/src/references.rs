@@ -87,12 +87,20 @@ pub fn find_references(
                         options,
                     )
                 } else {
-                    find_references_to_symbol_across_project(
+                    let mut references = find_references_to_symbol_across_project(
                         db,
                         identity,
                         target_symbol.name.clone(),
                         options,
-                    )
+                    );
+                    let dispatched: Vec<SymbolIdentity> = symbols
+                        .implemented_interface_methods(symbol_id)
+                        .into_iter()
+                        .filter_map(|id| symbol_identity(symbols, id, file_id))
+                        .collect();
+                    let calls = dispatched_call_references(db, &dispatched, &references);
+                    references.extend(calls);
+                    references
                 }
             }
             ResolvedTarget::Field(field) => find_references_to_field(db, file_id, &field, options),
@@ -177,6 +185,36 @@ fn find_references_to_symbol_across_project(
         ));
     }
 
+    references
+}
+
+/// The calls through an interface variable that a method may receive (specification 14 §6.3.2):
+/// every use that the analysis resolved to one of the interface methods `dispatched` that it
+/// implements, in every file, leaving out a range already in `found`. The interfaces' own
+/// declarations are no references of the method.
+fn dispatched_call_references(
+    db: &Database,
+    dispatched: &[SymbolIdentity],
+    found: &[Reference],
+) -> Vec<Reference> {
+    let mut references: Vec<Reference> = Vec::new();
+    if dispatched.is_empty() {
+        return references;
+    }
+    for file_id in db.file_ids() {
+        let source = db.source_text(file_id);
+        let root = parse(&source).syntax();
+        for &identity in dispatched {
+            for reference in resolved_name_references(db, file_id, identity, &root) {
+                let known = found.iter().chain(references.iter()).any(|known| {
+                    known.file_id == reference.file_id && known.range == reference.range
+                });
+                if !known {
+                    references.push(reference);
+                }
+            }
+        }
+    }
     references
 }
 

@@ -312,6 +312,11 @@ contract, including when a newer document or workspace request supersedes it.
   names the type check resolved (the map the compiled-program generator reads, specification 44
   §3), so find references, rename and the call hierarchy's incoming calls agree with go to
   definition.
+- A call through an interface variable (`itf.Run()`, IEC 61131-3 Ed.3 §6.6.6) resolves to the
+  interface's method. It is a call that each implementing method may receive, so the references and
+  the incoming calls of a method of a function block or class include the calls of the same-named
+  method of each interface the block implements, directly, through the blocks it extends, or
+  through the interfaces those extend; the interface's own declaration is no reference of it.
 - Include/exclude declaration
 - Each reference has its access, by the one rule of specification 28 §6 (`trust_hir::access`): a
   write (an assignment's or a FOR loop's target, an argument that a call binds to an output or
