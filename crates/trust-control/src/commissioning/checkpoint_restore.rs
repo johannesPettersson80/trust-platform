@@ -650,6 +650,7 @@ pub fn retained_recording_request(owner: &RecordingRecoveryOwner) -> RecordingRe
                 symbol: binding.symbol.clone(),
                 iec_type: binding.iec_type.clone(),
                 unit: None,
+                mode: binding.mode.clone(),
             })
             .collect(),
         maximum_samples: RECORDING_SAMPLE_LIMIT,

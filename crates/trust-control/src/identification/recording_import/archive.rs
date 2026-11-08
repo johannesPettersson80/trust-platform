@@ -474,6 +474,7 @@ fn archived_binding(
         // The archive names no IEC type; an analogue signal of the loop is read as REAL.
         iec_type: "REAL".to_string(),
         unit,
+        mode: None,
     }
 }
 

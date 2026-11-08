@@ -439,6 +439,7 @@ fn owner(recording_id: &str) -> RecordingRecoveryOwner {
             address: None,
             symbol: Some("Main.TT101.Value".to_owned()),
             iec_type: "LREAL".to_owned(),
+            mode: None,
         }],
     }
 }
@@ -455,6 +456,7 @@ fn stopped(recording_owner: &RecordingRecoveryOwner) -> RecordedRun {
             symbol: Some("Main.TT101.Value".to_owned()),
             iec_type: "LREAL".to_owned(),
             unit: None,
+            mode: None,
         }],
         stop_reason: StopReason::Stopped,
         samples: Vec::new(),

@@ -227,7 +227,8 @@ Request:
 - `bindings`: array, required, 1 to 32 entries. Each entry has:
   - `id`: string, required, 1 to 128 bytes, unique in the request;
   - `iec_type`: string, required, the upper-case type name (E2.2);
-  - exactly one of `address` (string) or `symbol` (string, at most 256 bytes). An explicit `null` selector counts as absent.
+  - exactly one of `address` (string) or `symbol` (string, at most 256 bytes). An explicit `null` selector counts as absent;
+  - `mode`: optional `{manual_value, auto_value}`, the names of two different members of an enumeration mode signal (specification 35 A6.1). Such a mode channel names its enumeration by `symbol`, with `iec_type` BOOL, the reading it gives: 1 in its Manual member and 0 in its Auto member, as Control Studio reads a mode (E6.3). In another member it has no usable value and its quality is `bad`. A mode channel whose type is not BOOL, whose symbol is no enumeration, or whose members its type lacks or repeats is refused.
 - `expected_program_revision`: optional string. A value that differs from the current program revision is refused.
 
 Response before the first complete scan:
@@ -272,7 +273,7 @@ Request:
 
 - `recording_id`: string, required (E0.2).
 - `loop_revision`: string, required, not empty.
-- `bindings`: array, required, 1 to 32 entries. Each entry has `id`, `iec_type` and exactly one selector, as in E3.
+- `bindings`: array, required, 1 to 32 entries. Each entry has `id`, `iec_type`, exactly one selector and an optional `mode`, as in E3.
 - `maximum_samples`: integer, required, 2 to 100,000 samples per channel.
 - `maximum_duration_ms`: integer, required, 10 to 86,400,000 (24 h of process time).
 - `task`: optional string, the name of a configured task, matched without regard to case. When it is absent, the recording samples at the end of every resource cycle.
@@ -333,7 +334,7 @@ Status never changes the recording. A recording keeps running when clients disco
 
 Stop (Viewer). Request: `recording_id` and `loop_revision`, both required. The loop revision MUST match the recording's loop revision. A mismatch is refused.
 
-Stop response: `recording_id`, `loop_revision`, `program_revision` (when the recording has one), `bindings` (an echo of `id`, `address`, `symbol` and `iec_type`), `stop_reason`, `samples` (all of them) and `acquisition` (E4.5). A stop is idempotent. A repeated stop returns the same result.
+Stop response: `recording_id`, `loop_revision`, `program_revision` (when the recording has one), `bindings` (an echo of `id`, `address`, `symbol`, `iec_type` and `mode`), `stop_reason`, `samples` (all of them) and `acquisition` (E4.5). A stop is idempotent. A repeated stop returns the same result.
 
 Release (Viewer). Request: the same fields as stop. Response: `recording_id` and `status` set to `released`. A recording that still runs is refused with the text `Stop the recording before releasing it.`. Release frees the recording and its slot. Release of an unknown `recording_id` succeeds.
 

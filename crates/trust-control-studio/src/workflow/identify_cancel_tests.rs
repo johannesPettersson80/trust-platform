@@ -31,6 +31,7 @@ fn owner(recording_id: &str) -> RecordingRecoveryOwner {
             address: None,
             symbol: Some("Main.TT101.Value".to_owned()),
             iec_type: "LREAL".to_owned(),
+            mode: None,
         }],
     }
 }
