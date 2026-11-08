@@ -127,8 +127,8 @@ END_CONFIGURATION
 /// Specification 35 B1.3 (protocol annex E2.3; the CODESYS toolkit's S9): the catalog states each global's owner with its symbols,
 /// a member of a global with its global's, so that setup refuses up front what a loop's task may not write. Worked from the
 /// source: `Main`, which `MainTask` runs, alone writes `GVL_IO.lrValve` and the field of `GVL_IO.ptPos`; `Slow`, in `SlowTask`,
-/// writes `GVL_IO.lrSlow`; no program writes `GVL_Par.lrKp`; the function block `FB_Drive` writes `GVL_IO.lrBlock`; `P1.Local` is
-/// a program's member. Catches an owner left out, one given to a program's member, and a global's member without its global's.
+/// writes `GVL_IO.lrSlow`; no program writes `GVL_Par.lrKp`; the function block `FB_Drive`, which both programs call, writes
+/// `GVL_IO.lrBlock`; `P1.Local` is a program's member. Catches an owner left out, one given to a program's member, and a global's member without its global's.
 #[test]
 fn control_symbols_state_each_globals_owner() {
     let (root, context) = control_project(
@@ -164,7 +164,9 @@ Drive();
 END_PROGRAM
 
 PROGRAM Slow
+VAR Drive : FB_Drive; END_VAR
 GVL_IO.lrSlow := 1.0;
+Drive();
 END_PROGRAM
 
 CONFIGURATION Config

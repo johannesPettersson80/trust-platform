@@ -1,11 +1,11 @@
 // Protocol annex E2.3 (the CODESYS toolkit's S9): a transfer binds the members of a loop that a CODESYS project keeps in a GVL
 // when the loop's task owns each global it writes (specification 44 §5.7): no program writes it, or only the programs that task
-// runs do. A global that another task's program writes, or one that a function block writes, which any task may run, is refused
+// runs do. A global that another task's program writes, or one that a function block writes from two tasks' programs, is refused
 // with its reason. A guard, which the transfer only reads, may be any declared member.
 
 /// A CODESYS-style tank: its mode, setpoint, measurement and valve in the GVL `GVL_IO`, its law in `Tank`, which task `Fast`
 /// runs; `Other`, in task `Slow`, writes `lrSlowValve` and `lrSlowLimit`, and the function block `FB_Drive` writes
-/// `lrBlockValve`. `lrSlowLimit`, `lrBlockValve` and `OtherInst.rLimit` keep their values from scan to scan.
+/// `lrBlockValve` from both programs. `lrSlowLimit`, `lrBlockValve` and `OtherInst.rLimit` keep their values from scan to scan.
 const GVL_LOOP_SOURCE: &str = r#"
 NAMESPACE GVL_IO
 VAR_GLOBAL
@@ -40,9 +40,11 @@ END_PROGRAM
 PROGRAM Other
 VAR
     rLimit : LREAL := 4.0;
+    Drive : FB_Drive;
 END_VAR
 GVL_IO.lrSlowValve := GVL_IO.lrSlowValve + 1.0;
 GVL_IO.lrSlowLimit := 5.0;
+Drive();
 END_PROGRAM
 
 CONFIGURATION Plant
@@ -75,7 +77,8 @@ fn gvl_transfer_status(state: &ControlState, binding: &serde_json::Value) -> Con
 }
 
 /// Worked from the project: task `Fast` (index 0) owns `lrValve`, so its symbol's owner byte is 1; `Slow` (index 1) owns
-/// `lrSlowValve`, byte 2; no program writes `bManual`, byte 128; `FB_Drive` writes `lrBlockValve`, which no task owns, byte 0
+/// `lrSlowValve`, byte 2; no program writes `bManual`, byte 128; `FB_Drive`, which programs of both tasks call, writes
+/// `lrBlockValve`, so no task owns it, byte 0
 /// (specification 44 §5.7). The transfer of the loop in task `Fast` then reads Manual and the valve's 2.0, and to Auto after the
 /// setpoint 11 gives the law's 2·(11 − 10) = 2. Its guards, which another task, a function block and another program write or
 /// hold, are only read. Catches a GVL loop refused as "transfer members must belong to one compiled program" (the toolkit's S9),
@@ -133,7 +136,8 @@ fn a_transfer_binds_a_gvl_loop_whose_task_owns_its_globals() {
 }
 
 /// Worked from the project: the loop in task `Slow` may not hold `lrValve`, which `Fast` writes; the loop in `Fast` may not hold
-/// `lrSlowValve`, which `Slow` writes, nor `lrBlockValve`, which `FB_Drive` writes, as its output, nor `lrSlowLimit` as a state.
+/// `lrSlowValve`, which `Slow` writes, nor `lrBlockValve`, which `FB_Drive` writes from both tasks, as its output, nor `lrSlowLimit`
+/// as a state.
 /// Each refusal names the global and why. Catches a transfer that writes a global another task writes at the same time, and one
 /// that a block in any task writes.
 #[test]

@@ -234,6 +234,17 @@ Every other use is a read. A local declaration that shadows a global remains a
 distinct symbol. Read-only access from any number of tasks is not a write
 hazard.
 
+A program also accesses what the POUs its calls run access, along the whole
+call tree, as CODESYS Static Analysis follows calls for SA0006 and SA0103: a
+function it calls, the body of a function block instance it calls, a method or
+an action it calls, and the POUs those call in turn. A function block called
+by the programs of two tasks therefore writes its globals from both. A call's
+callee is the POU the type check resolved it to; a call through an interface
+names no body, so the methods it may run are reached by no program, and their
+accesses count for no task here (the owner analysis of control-studio-runtime-
+protocol annex E2.3, which shares this rule, counts their writes for no single
+task).
+
 The warning is reported on the owning global declaration. Its message lists
 task labels in lexical order, includes at most three labels per access/write
 list followed by the remaining count, and retains at most three writing tasks
