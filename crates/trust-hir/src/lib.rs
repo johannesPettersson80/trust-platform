@@ -34,6 +34,7 @@ pub mod attributes;
 pub mod db;
 pub mod diagnostics;
 pub mod dialect;
+pub mod duration_text;
 pub mod ident;
 pub mod openot_authoring;
 /// Project-wide source registry and database helpers.

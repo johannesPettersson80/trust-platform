@@ -2,7 +2,7 @@
 
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::openot_authoring::parse_attribute_entries_from_text;
+use crate::openot_authoring::{parse_attribute_entries_from_text, AttributeEntry};
 
 /// Whether the pragma trivia preceding `node`'s first token carries the flag
 /// `key`: a POU's `reads_host_clock` (specification 07, "Declared Clock
@@ -15,11 +15,20 @@ use crate::openot_authoring::parse_attribute_entries_from_text;
 /// counts. A pragma behind that token — inside a body or a list — never
 /// declares the node.
 pub fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
-    let reads = |token: &SyntaxToken| {
-        token.kind() == SyntaxKind::Pragma
-            && parse_attribute_entries_from_text(token.text(), token.text_range())
-                .iter()
-                .any(|entry| entry.key == key)
+    attribute_entry(node, key).is_some()
+}
+
+/// The entry `key` of the pragma trivia preceding `node`'s first token, with its value and the pragma's range, found as
+/// [`declares_attribute`] finds it; `None` when no such pragma names `key`.
+#[must_use]
+pub fn attribute_entry(node: &SyntaxNode, key: &str) -> Option<AttributeEntry> {
+    let read = |token: &SyntaxToken| {
+        if token.kind() != SyntaxKind::Pragma {
+            return None;
+        }
+        parse_attribute_entries_from_text(token.text(), token.text_range())
+            .into_iter()
+            .find(|entry| entry.key == key)
     };
     // The trivia the node itself holds before its first token — the whole
     // leading trivia when the declaration opens a file or follows a
@@ -34,13 +43,11 @@ pub fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
             first = Some(token);
             break;
         }
-        if reads(&token) {
-            return true;
+        if let Some(entry) = read(&token) {
+            return Some(entry);
         }
     }
-    let Some(keyword) = first else {
-        return false;
-    };
+    let keyword = first?;
     // The trivia immediately preceding that token, however the parser
     // nested it: backwards over trivia tokens, then through the trailing
     // trivia of the construct the parser parked the pragma in — the previous
@@ -48,16 +55,14 @@ pub fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
     // parent-scoped, so the walk climbs parents to stay in document order.
     let mut cursor = rowan::NodeOrToken::Token(keyword);
     loop {
-        let Some(prev) = prev_in_document_order(cursor.clone()) else {
-            return false;
-        };
+        let prev = prev_in_document_order(cursor.clone())?;
         match prev {
             rowan::NodeOrToken::Token(token) => {
                 if !token.kind().is_trivia() {
-                    return false;
+                    return None;
                 }
-                if reads(&token) {
-                    return true;
+                if let Some(entry) = read(&token) {
+                    return Some(entry);
                 }
                 cursor = rowan::NodeOrToken::Token(token);
             }
@@ -74,11 +79,11 @@ pub fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
                     if !token.kind().is_trivia() {
                         break;
                     }
-                    if reads(&token) {
-                        return true;
+                    if let Some(entry) = read(&token) {
+                        return Some(entry);
                     }
                 }
-                return false;
+                return None;
             }
         }
     }

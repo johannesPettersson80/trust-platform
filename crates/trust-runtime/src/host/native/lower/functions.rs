@@ -65,6 +65,9 @@ impl Lowerer<'_, '_> {
         if super::assertions::assertion(name).is_some() {
             return self.call_assertion(node, name, args);
         }
+        if name == "TEST_FINISHED" {
+            return self.call_test_finished(node, &args);
+        }
         // `__ISVALIDREF(ref)` is `ref <> NULL`: whether the reference is bound (specification 02
         // §4.1).
         if name == "__ISVALIDREF" {

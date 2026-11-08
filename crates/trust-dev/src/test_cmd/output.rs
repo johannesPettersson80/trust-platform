@@ -228,7 +228,7 @@ fn render_json_output(
     let tests = results
         .iter()
         .map(|result| {
-            json!({
+            let mut test = json!({
                 "name": result.case.name.as_str(),
                 "kind": result.case.kind.label(),
                 "status": result.outcome.as_str(),
@@ -237,7 +237,13 @@ fn render_json_output(
                 "source": result.case.source_line.as_deref(),
                 "message": result.message.as_deref(),
                 "duration_ms": result.duration_ms,
-            })
+            });
+            // A multi-cycle test reports the cycles it ran and the time of the last (specification 22).
+            if let Some(run) = result.cycles {
+                test["cycles"] = json!(run.cycles);
+                test["simulated_time_ms"] = json!(run.time_ns / 1_000_000);
+            }
+            test
         })
         .collect::<Vec<_>>();
     let payload = json!({
