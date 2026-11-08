@@ -173,9 +173,10 @@ The `iec_type` of a binding MUST equal the name of the variable's type in upper 
 
 ### E2.3 Ownership and mutability
 
-- Every symbol in one operation belongs to one compiled program, except a transfer's guards and globals (below).
-- What a transfer writes, its modes, states and outputs, belongs to the declared task, or to `$background`, and to no other
-  owner. Such a member may be a global, a member of a GVL included (`GVL_IO.lrValve`), when the declared task owns it: no
+- Every symbol in one operation belongs to one compiled program, except globals and a transfer's guards (below).
+- What a transfer writes, its modes, states and outputs, and what a parameter set writes, its parameters and its mode
+  (E7.1), belongs to the declared task, or to `$background`, and to no other owner. Such a member may be a global, a
+  member of a GVL included (`GVL_IO.lrValve`, `GVL_Par.lrKp`), when the declared task owns it: no
   program writes it, or only the bodies of the programs that task runs do, their actions included (`$background`: only
   programs outside every task). A global that a function, a function block, a method, a property or a class writes, which
   any task may run, or that the programs of several tasks write, belongs to no task and is refused with its reason, as is
@@ -694,8 +695,8 @@ The binding is `{loop_id, task_name, parameters, mode}`.
 
 Rules:
 
-- Parameters are scalar members of program or function block instances. Aliases, addressed members and shared global members are refused.
-- Every path belongs to a program owned exclusively by `task_name` (E2.3).
+- Parameters are scalar members of program or function block instances, or globals that `task_name` owns (E2.3), a GVL's members included. Aliases, addressed members and globals that another task or no single task owns are refused, a global with its reason (E2.3).
+- Every path belongs to a program owned exclusively by `task_name`, or is a global that `task_name` owns (E2.3).
 - Symbols are unique without regard to case, and the mode symbol is not a parameter.
 - The binding revision covers the whole binding, including units, conventions and bounds.
 

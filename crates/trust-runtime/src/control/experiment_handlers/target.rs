@@ -192,8 +192,8 @@ impl SymbolTarget {
         let program = program.ok_or_else(|| refuse("no runtime scan has been captured yet"))?;
         if !crate::debug::control_parameter_writable(&program.program_image(), path) {
             return Err(refuse(
-                "name a variable of a compiled program that is not constant, external, IN_OUT \
-                 or addressed",
+                "name a variable of a compiled program, or a global, that is not constant, \
+                 external, IN_OUT or addressed",
             ));
         }
         let resolved = crate::debug::resolve_control_parameter_path(program, path)
