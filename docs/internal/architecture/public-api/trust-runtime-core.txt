@@ -1127,6 +1127,7 @@ pub const trust_runtime_core::native::image::FLAG_WALL_CLOCK: u32
 pub const trust_runtime_core::native::image::FORMAT_VERSION: u16
 pub const trust_runtime_core::native::image::HEADER_BYTES: usize
 pub const trust_runtime_core::native::image::MAGIC: [u8; 8]
+pub const trust_runtime_core::native::image::MEMBER_ALIAS: u32
 pub const trust_runtime_core::native::image::MEMBER_BYTES: usize
 pub const trust_runtime_core::native::image::NONE: u32
 pub const trust_runtime_core::native::image::SECTION_ALIGNMENT: usize

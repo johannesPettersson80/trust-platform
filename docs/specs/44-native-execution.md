@@ -572,7 +572,15 @@ interfaces it implements (4) and each interface's declared name (string offset, 
 interface it implements itself, through a base or through an interface that extends one (IEC
 61131-3 §6.6.6.4), so that a tool finds the instances of a block and of the blocks derived from it,
 and the instances that implement an interface, without the sources; a standard function block has
-no base and no interface. A `STRUCT OVERLAP` lists its members at
+no base and no interface. A function block's or class's members are followed, before its base, by
+the aliases of its properties whose GET only returns one of its variables (`Prop := Var;`, a
+`VAR_IN_OUT` excepted), as CODESYS monitors such a property (specification 11): each the property's
+name with that variable's type, offset and flags and the flag `MEMBER_ALIAS` (bit 8 of the member's
+flags), and `SYMBOL_CONSTANT` too unless the property's SET only assigns that variable
+(`Var := Prop;`). The record's count includes them. A name lookup finds an alias, so that a read of
+the property reads the variable and a write writes it; the values, the retain store, online change
+and the layout skip it. A property whose GET does more is not listed, and a name lookup does not
+find it. A `STRUCT OVERLAP` lists its members at
 the byte offsets their relative addresses name, so that members share bytes, and a `BOOL` member
 that takes one bit of its byte has a `BOOL` record whose count is that bit plus one (any other
 record's count of an elementary type is 0); a type with named values of an integer type is its

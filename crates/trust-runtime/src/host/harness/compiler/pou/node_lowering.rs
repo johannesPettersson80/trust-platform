@@ -94,11 +94,20 @@ fn lower_function_block_node(
     {
         methods.push(lower_method_node(&method_node, ctx)?);
     }
+    let mut property_aliases = Vec::new();
+    // A property can alias any variable of the block but a VAR_IN_OUT, which holds a reference.
+    let variables: Vec<&str> = params
+        .iter()
+        .filter(|param| param.direction != ParamDirection::InOut)
+        .map(|param| param.name.as_str())
+        .chain(vars.iter().map(|var| var.name.as_str()))
+        .collect();
     for property_node in node
         .children()
         .filter(|child| child.kind() == SyntaxKind::Property)
     {
         methods.extend(lower_property_methods(&property_node, ctx)?);
+        property_aliases.extend(property_alias(&property_node, &variables));
     }
     for action_node in node
         .children()
@@ -117,6 +126,7 @@ fn lower_function_block_node(
         using: ctx.using.clone(),
         methods,
         body,
+        property_aliases,
     })
 }
 
@@ -147,11 +157,14 @@ fn lower_class_node(
     {
         methods.push(lower_method_node(&method_node, ctx)?);
     }
+    let variables: Vec<&str> = vars.iter().map(|var| var.name.as_str()).collect();
+    let mut property_aliases = Vec::new();
     for property_node in node
         .children()
         .filter(|child| child.kind() == SyntaxKind::Property)
     {
         methods.extend(lower_property_methods(&property_node, ctx)?);
+        property_aliases.extend(property_alias(&property_node, &variables));
     }
 
     Ok(ClassDef {
@@ -161,6 +174,7 @@ fn lower_class_node(
         vars,
         using: ctx.using.clone(),
         methods,
+        property_aliases,
     })
 }
 
@@ -319,6 +333,55 @@ fn lower_action_node(
         static_locals: Vec::new(),
         using: ctx.using.clone(),
         body,
+    })
+}
+
+/// The alias of a property whose GET only returns one of `variables` (`Prop := Var;`), writable when its
+/// SET only assigns that variable (`Var := Prop;`) (specification 44 §5.8); `None` for a property whose
+/// GET does anything else, which a name read does not find.
+fn property_alias(property: &SyntaxNode, variables: &[&str]) -> Option<PropertyAlias> {
+    let name: SmolStr = node_text(
+        &property
+            .children()
+            .find(|child| child.kind() == SyntaxKind::Name)?,
+    )
+    .into();
+    // The one assignment of an accessor, as its target's and its value's names.
+    let only_assignment = |accessor: SyntaxKind| -> Option<(String, String)> {
+        let node = property.children().find(|child| child.kind() == accessor)?;
+        let mut statements = node
+            .descendants()
+            .filter(|statement| statement.kind().is_statement_node());
+        let assignment = statements.next()?;
+        if statements.next().is_some() || assignment.kind() != SyntaxKind::AssignStmt {
+            return None;
+        }
+        let names: Vec<String> = assignment
+            .children()
+            .filter(|side| side.kind() == SyntaxKind::NameRef)
+            .map(|side| node_text(&side))
+            .collect();
+        match names.as_slice() {
+            [target, value] if assignment.children().count() == 2 => {
+                Some((target.clone(), value.clone()))
+            }
+            _ => None,
+        }
+    };
+    let (target, value) = only_assignment(SyntaxKind::PropertyGet)?;
+    if !target.eq_ignore_ascii_case(&name) {
+        return None;
+    }
+    let member = variables
+        .iter()
+        .find(|variable| variable.eq_ignore_ascii_case(&value))?;
+    let writable = only_assignment(SyntaxKind::PropertySet).is_some_and(|(target, value)| {
+        target.eq_ignore_ascii_case(member) && value.eq_ignore_ascii_case(&name)
+    });
+    Some(PropertyAlias {
+        name,
+        member: SmolStr::new(member),
+        writable,
     })
 }
 

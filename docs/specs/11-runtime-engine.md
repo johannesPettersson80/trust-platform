@@ -4351,6 +4351,12 @@ name read, not general expression execution, and it keeps its text `expr`
 field; `debug.evaluate` and the other expression surfaces use the compiled form
 of section 6.13.2. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
+A property of a function block or class whose GET only returns one of its
+variables is a name too, as CODESYS monitors it: reading it reads that variable,
+and `set`, `var.force` and the debugger's writes write it when the property's SET
+only assigns that variable; otherwise the property reads as constant. A property
+whose GET does more runs code, which no name read runs, so it is an unknown
+identifier (specification 44 §5.8).
 A successful read answers the value's type and the value as JSON,
 `{"type": "LREAL", "value": 0.738}`: `type` is the IEC name of the type, or a
 structure's or an enumeration's own name; `value` is a number for an integer,

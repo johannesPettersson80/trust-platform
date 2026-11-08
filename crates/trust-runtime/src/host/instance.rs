@@ -978,6 +978,7 @@ mod tests {
             using: Vec::new(),
             methods: Vec::new(),
             body: Vec::new(),
+            property_aliases: Vec::new(),
         };
         let function_blocks: IndexMap<SmolStr, FunctionBlockDef> = IndexMap::new();
         let functions: IndexMap<SmolStr, crate::program_model::FunctionDef> = IndexMap::new();
@@ -1026,6 +1027,7 @@ mod tests {
             vars: Vec::new(),
             using: Vec::new(),
             methods: Vec::new(),
+            property_aliases: Vec::new(),
         };
         let fb = FunctionBlockDef {
             name: "Adjust".into(),
@@ -1037,6 +1039,7 @@ mod tests {
             using: Vec::new(),
             methods: Vec::new(),
             body: Vec::new(),
+            property_aliases: Vec::new(),
         };
         let mut storage = crate::memory::VariableStorage::new();
         let existing = storage

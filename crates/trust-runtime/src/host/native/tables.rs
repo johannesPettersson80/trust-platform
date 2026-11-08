@@ -18,8 +18,8 @@ use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::image::{
     type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, Image, ImageWriter, IoBindRecord,
     MemberDetail, MemoryFigure, Record, RetainRecord, SectionId, StmtRecord, StringPool,
-    SymbolRecord, TaskRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, NONE, SYMBOL_CONSTANT,
-    SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
+    SymbolRecord, TaskRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, MEMBER_ALIAS, NONE,
+    SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
 };
 use trust_runtime_core::native::retain::payload_bound;
 use trust_runtime_core::native::tool::TOOL_SYMBOL_PREFIX;
@@ -621,6 +621,46 @@ fn member_detail(
     offset
 }
 
+/// The aliases of a function block's or class's properties after its members (specification 44 §5.8):
+/// each the place and type of the variable its GET returns, with `MEMBER_ALIAS`, and constant unless
+/// its SET only assigns that variable. Returns how many it wrote.
+fn alias_detail(
+    pool: &mut StringPool,
+    details: &mut Vec<u8>,
+    model: &Model<'_>,
+    def: &str,
+    members: &[Member],
+) -> usize {
+    let Some(owner) = model.types.owner(def) else {
+        return 0;
+    };
+    let mut written = 0;
+    for alias in owner.property_aliases() {
+        let Some(member) = members
+            .iter()
+            .find(|member| member.name.eq_ignore_ascii_case(&alias.member))
+        else {
+            continue;
+        };
+        let constant = if alias.writable {
+            0
+        } else {
+            u32::from(SYMBOL_CONSTANT)
+        };
+        details.extend_from_slice(
+            &MemberDetail {
+                name: pool.add(&alias.name),
+                type_index: member.ty.0,
+                offset: member.offset,
+                flags: u32::from(member.flags) | constant | MEMBER_ALIAS,
+            }
+            .bytes(),
+        );
+        written += 1;
+    }
+    written
+}
+
 /// What follows a function block's or class's members in the detail (specification 44 §5.8): the
 /// type it extends (`NONE` without one), the number of interfaces it implements and each one's name.
 fn class_detail(
@@ -720,6 +760,7 @@ fn type_record(
             ..
         } => {
             let detail = member_detail(pool, details, base, members);
+            let aliases = alias_detail(pool, details, model, def, members);
             let interfaces = model.types.implemented_interfaces(def);
             class_detail(pool, details, *extends, &interfaces);
             (
@@ -729,7 +770,7 @@ fn type_record(
                     type_kind::FUNCTION_BLOCK
                 },
                 detail,
-                count(members.len()),
+                count(members.len() + aliases),
             )
         }
         Kind::Interface => (type_kind::INTERFACE, 0, 0),
