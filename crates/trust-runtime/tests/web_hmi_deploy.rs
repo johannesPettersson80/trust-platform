@@ -172,8 +172,11 @@ fn after_a_deployment_the_new_bundles_trended_values_are_kept() {
         &[],
     );
     assert_eq!(status, 200, "{answer}");
-    std::thread::sleep(std::time::Duration::from_millis(1_500));
-    assert!(!samples(&plant).is_empty(), "kept since the deployment");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while samples(&plant).is_empty() {
+        assert!(Instant::now() < deadline, "kept since the deployment");
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 #[test]
@@ -372,9 +375,19 @@ fn deploying_needs_the_deploy_permission_and_is_audited() {
         &[("X-Trust-Token", "admin-token")],
     );
     assert_eq!(status, 200, "the administrator: {answer}");
-    let deadline = Instant::now() + Duration::from_secs(2);
+    // Collect until every record the test reads has arrived, as a loaded runner can be slow.
+    let has = |records: &[(String, Value)], kind: &str, outcome: &str| {
+        records
+            .iter()
+            .any(|(seen, record)| seen == kind && record["outcome"] == json!(outcome))
+    };
+    let deadline = Instant::now() + Duration::from_secs(10);
     let mut records = Vec::new();
-    while Instant::now() < deadline {
+    while !(has(&records, "hmi.deploy", "activated")
+        && has(&records, "hmi.rollback", "activated")
+        && has(&records, "hmi.deploy", "refused"))
+        && Instant::now() < deadline
+    {
         if let Ok(event) = audit.recv_timeout(Duration::from_millis(100))
             && (event.request_type == "hmi.deploy" || event.request_type == "hmi.rollback")
         {
