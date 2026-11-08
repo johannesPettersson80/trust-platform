@@ -23,12 +23,24 @@ use crate::value::Value;
 /// The method CODESYS calls implicitly.
 const FB_INIT: &str = "FB_init";
 
+/// The calls a start or an online change makes for the instances of one top-level variable, a
+/// global or a program instance's variable (specification 44 §6.7, §12.3).
+pub(super) struct VariableCalls {
+    /// The variable's canonical name in the symbol table (§5.7): `NAME`, `INSTANCE.NAME`.
+    pub(super) canonical: String,
+    /// Rust statements on `cx` and `w`.
+    pub(super) statements: Vec<String>,
+}
+
 /// The calls of `FB_init` the initializations make, and the methods they need.
 #[derive(Default)]
 pub(super) struct FbInit {
-    /// Rust statements on `cx` and `w`, passing `retains` as `bInitRetains`.
-    pub(super) statements: Vec<String>,
+    /// The variables with calls, in the initialization's order; their statements pass `retains`
+    /// as `bInitRetains` and `copy` as `bInCopyCode`.
+    pub(super) variables: Vec<VariableCalls>,
     pub(super) needs: Vec<Need>,
+    /// The statements of the variable the walk is in.
+    statements: Vec<String>,
 }
 
 /// The calls of `FB_init` for every instance of `model`, none outside the CODESYS profiles.
@@ -75,6 +87,7 @@ pub(super) fn calls(front: &Front, model: &mut Model<'_>) -> Result<FbInit, Nati
             },
             0,
         )?;
+        calls.close(name.to_ascii_uppercase());
     }
     let mut variables = Vec::new();
     for instance in &model.instances {
@@ -93,21 +106,27 @@ pub(super) fn calls(front: &Front, model: &mut Model<'_>) -> Result<FbInit, Nati
                 member.ty,
                 var.clone(),
                 retained,
+                format!(
+                    "{}.{}",
+                    instance.name.to_ascii_uppercase(),
+                    var.name.to_ascii_uppercase()
+                ),
             ));
         }
     }
-    for (place, ty, var, retained) in &variables {
+    for (place, ty, var, retained, canonical) in variables {
         calls.instance(
             model,
-            place,
-            *ty,
+            &place,
+            ty,
             Declaration {
                 args: &var.init_args,
                 initializer: var.initializer.as_ref(),
-                retained: *retained,
+                retained,
             },
             0,
         )?;
+        calls.close(canonical);
     }
     Ok(calls)
 }
@@ -132,6 +151,17 @@ impl Declaration<'_> {
 }
 
 impl FbInit {
+    /// Ends the walk of the variable `canonical`: its statements, when it has any, become its calls.
+    fn close(&mut self, canonical: String) {
+        let statements = std::mem::take(&mut self.statements);
+        if !statements.is_empty() {
+            self.variables.push(VariableCalls {
+                canonical,
+                statements,
+            });
+        }
+    }
+
     /// The calls for the value at `place` of type `ty`, as `declaration` declares it: an instance,
     /// or what holds instances.
     fn instance(
@@ -388,7 +418,7 @@ impl FbInit {
         }
         Need::Method(owner.name().clone(), method.name.clone()).add_to(&mut self.needs);
         self.statements.push(format!(
-            "{}(cx, w, &{place}, retains, false{arguments})?;",
+            "{}(cx, w, &{place}, retains, copy{arguments})?;",
             super::emit::method_function(owner, method)
         ));
         Ok(())

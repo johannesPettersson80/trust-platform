@@ -17,11 +17,21 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
     ///
     /// The fault of the cold-init entry, or the error of an area table that does not read.
     pub(crate) fn start_as_replacement(&mut self, now: Duration) -> Result<(), RuntimeError> {
-        self.start_memory(|id| !super::process_image(id))?;
+        self.start_replacement_memory()?;
         if let Some(entry) = self.cold {
             self.call(entry, u32::MAX, now, None)?;
         }
         Ok(())
+    }
+
+    /// The program's own areas take their starting memory; its process images keep what they hold
+    /// (§12.3, step 4).
+    ///
+    /// # Errors
+    ///
+    /// The error of an area table that does not read.
+    pub(crate) fn start_replacement_memory(&mut self) -> Result<(), RuntimeError> {
+        self.start_memory(|id| !super::process_image(id))
     }
 
     /// Takes over from `old` at the logical time `now`: the images the drivers fill and drive keep

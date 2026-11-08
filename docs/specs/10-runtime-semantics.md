@@ -1696,8 +1696,59 @@ deleted instances"):
   returns a `BOOL` or nothing; the build refuses another signature, as it
   refuses an `FB_init` it cannot call (specification 44 NX-09).
 
-Under the IEC profile `FB_init` and `FB_exit` are ordinary methods that nothing
-calls implicitly, since a valid IEC program may declare methods of those names.
+At an online change under the same profiles, CODESYS's calls follow the
+instances that the change copies (CODESYS help, "Method: FB_Init, FB_Reinit,
+FB_Exit": "The following calls occur in succession during an online change:
+1. FB_Exit: `old_inst.FB_Exit(bInCopyCode := TRUE);` 2. FB_Init:
+`new_inst.FB_Init(bInitRetains := FALSE, bInCopyCode := TRUE);` 3. Copy
+operation: `copy(&old_inst, &new_inst);` 4. FB_Reinit: `new_inst.FB_Reinit();`"):
+- what the change copies: a top-level variable that holds instances, a global
+  or a variable of a program instance, matched by name in both programs as
+  specification 44 §12.2 matches it, is copied when its type's layout differs
+  between the two programs (its members, their types, its base, compared
+  through the type tables), with every instance it holds. One whose type's
+  layout is the same is not, and nothing is called for it: "If no changes were
+  made to the declaration part of a function block in the application before
+  login, but in the implementation only, then the data areas are not replaced.
+  Only code blocks are replaced. Then the methods FB_Exit, FB_Init, and
+  FB_Reinit are not called." CODESYS copies an instance whose memory moves;
+  truST gives every online change new memory and repoints the references
+  itself (specification 44 §12.2), so it counts the change of a declaration,
+  where the help places the copy ("after changes to the function block
+  declaration (signature change)"). An array or a structure that holds
+  instances counts as one variable;
+- the calls for a copied variable: `FB_exit(bInCopyCode := TRUE)` of each of
+  its instances in the running program; `FB_init(bInitRetains := FALSE,
+  bInCopyCode := TRUE)` of each of its instances in the new program, with the
+  after-init methods; the carry of specification 44 §12.2; then `FB_reinit()`
+  of each of its instances in the new program: the method a call
+  `inst.FB_reinit()` reaches, the instance's own or one it inherits, once,
+  since the help leaves the base's to the block ("To reinitialize the basic
+  implementation of the function block, you have to call FB_Reinit
+  explicitly"). `FB_reinit` takes no input and returns a `BOOL` or nothing;
+- a variable only the running program declares is left with
+  `FB_exit(bInCopyCode := FALSE)`, since TRUE is documented for "the instance
+  which will be copied afterwards", which a dropped variable is not; a variable
+  only the new program declares starts with `FB_init(bInitRetains := TRUE,
+  bInCopyCode := FALSE)` and its after-init methods, as at a download, since
+  nothing of it existed. The help is silent on both;
+- the order: every `FB_exit`, in the reverse of `FB_init`'s order over the
+  running program; then every `FB_init`, in `FB_init`'s order over the new
+  program; then the carry; then every `FB_reinit`, in `FB_init`'s order. The
+  help orders one instance's calls and is silent across instances;
+- `{attribute 'no-exit'}` leaves an instance out at an online change too;
+- a fault in any of these calls is recorded as an event of the new program and
+  the change goes on: the calls run once every check of the change has passed,
+  the running program's instances have left by then, and a change, like a
+  download, must always be able to replace a program whose methods fault.
+
+The four decisions above that the help is silent on (an array or a structure as
+one variable, the flags of a dropped and of a new variable, the order across
+instances, a fault) are vendor decisions for the CODESYS toolkit to confirm.
+
+Under the IEC profile `FB_init`, `FB_exit` and `FB_reinit` are ordinary methods
+that nothing calls implicitly, since a valid IEC program may declare methods of
+those names.
 
 A variable marked `{attribute 'noinit'}`, which CODESYS also spells `no_init`
 and `no-init`, on the line above its declaration is not initialized by a

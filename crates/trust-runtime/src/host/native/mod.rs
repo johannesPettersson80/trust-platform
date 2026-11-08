@@ -15,6 +15,7 @@ mod emit;
 mod entries;
 mod fb_exit;
 mod fb_init;
+mod fb_reinit;
 mod frame_init;
 mod front;
 mod init;

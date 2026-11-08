@@ -50,6 +50,17 @@ use crate::native::values::MAX_TYPE_NESTING;
 /// event, so that the change takes a bounded amount of memory for them.
 pub const MAX_CARRIED_VALUE_EVENTS: usize = 32;
 
+/// What an online change reports (specification 44 §12.3): the variables that did not go on with
+/// the running program's value as it was, and the faults of CODESYS's calls at the change, which
+/// the new program records as events while the change goes on (specification 10 §4.8).
+#[derive(Debug, Default)]
+pub struct ChangeReport {
+    /// The variables that did not go on with the running program's value as it was (§12.2).
+    pub events: Vec<CarriedValueEvent>,
+    /// The faults of the change entries, in the order they ran (§12.3).
+    pub faults: Vec<RuntimeError>,
+}
+
 /// What an online change did with the value of one variable of the new program that does not go
 /// on with the running program's value as it was (specification 34 §11.3, specification 44 §12.2).
 /// `name` is the variable's path: `total`, `Plant.motor.speed`, `Plant.table[3]`.
@@ -87,6 +98,7 @@ pub enum CarriedValueEvent {
 }
 
 mod fit;
+mod lifecycle;
 mod plan;
 mod references;
 mod replace;

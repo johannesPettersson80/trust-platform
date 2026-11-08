@@ -104,6 +104,12 @@ pub(super) fn generate<'a>(
     for need in fb_exit.needs {
         queue(model, need, &mut queued, &mut work)?;
     }
+    // CODESYS's implicit `FB_reinit`: an online change calls the method of every instance it
+    // copied.
+    let fb_reinit = super::fb_reinit::calls(model)?;
+    for need in fb_reinit.needs {
+        queue(model, need, &mut queued, &mut work)?;
+    }
     let mut index = 0;
     loop {
         // Every function block type the bodies use needs its body; a class has none.
@@ -208,14 +214,12 @@ pub(super) fn generate<'a>(
     areas(&mut source, model, images);
     source.push_str(&functions);
     let references = reference_initializers(front, model)?;
-    let mut entries = entries(
-        &mut source,
-        model,
-        target,
-        &references,
-        &fb_init.statements,
-        &fb_exit.statements,
-    )?;
+    let lifecycle = super::entries::Lifecycle {
+        inits: &fb_init.variables,
+        exits: &fb_exit.variables,
+        reinits: &fb_reinit.variables,
+    };
+    let mut entries = entries(&mut source, model, target, &references, &lifecycle)?;
     entries.extend(super::tools::emit(&mut source, model, &tools, target));
     source.push_str(
         "\n#[panic_handler]\nfn panic(_: &core::panic::PanicInfo<'_>) -> ! {\n    loop {}\n}\n",

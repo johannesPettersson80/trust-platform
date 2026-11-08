@@ -15,6 +15,8 @@ mod init_after_fb_init;
 mod instance_path;
 #[path = "codesys_language_profile/noinit.rs"]
 mod noinit;
+#[path = "codesys_language_profile/online_change_calls.rs"]
+mod online_change_calls;
 
 // Specification 14: the project's `vendor_profile` selects the language rules of the runtime build
 // with its conversion rules. A function block that assigns its own input in its body is refused
