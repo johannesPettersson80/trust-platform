@@ -176,11 +176,24 @@ expression: output
                 }
               },
               "uri": "file:///workspace/golden/alpha/Main.st"
+            },
+            {
+              "range": {
+                "end": {
+                  "character": 12,
+                  "line": 41
+                },
+                "start": {
+                  "character": 9,
+                  "line": 41
+                }
+              },
+              "uri": "file:///workspace/golden/alpha/Main.st"
             }
           ]
         ],
         "command": "editor.action.showReferences",
-        "title": "References: 1"
+        "title": "References: 2"
       },
       "range": {
         "end": {
@@ -1000,6 +1013,16 @@ expression: output
           "character": 0,
           "line": 17
         }
+      },
+      {
+        "end": {
+          "character": 12,
+          "line": 41
+        },
+        "start": {
+          "character": 9,
+          "line": 41
+        }
       }
     ],
     "wordPattern": "[A-Za-z_][A-Za-z0-9_]*"
@@ -1103,6 +1126,19 @@ expression: output
         "start": {
           "character": 0,
           "line": 17
+        }
+      },
+      "uri": "file:///workspace/golden/alpha/Main.st"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 12,
+          "line": 41
+        },
+        "start": {
+          "character": 9,
+          "line": 41
         }
       },
       "uri": "file:///workspace/golden/alpha/Main.st"
