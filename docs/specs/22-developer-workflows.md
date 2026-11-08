@@ -294,7 +294,10 @@ beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's require
 - **A plant in the loop.** `{attribute 'test_simulation'}`, in the pragma where `{attribute 'test'}` counts, runs
   the project's simulation, its `simulation.toml` (specification 46), in lockstep with the test, as `trust-runtime
   run --simulation` runs it with a program: the cold restart before the first cycle starts the simulation at time
-  zero, and the runner does the simulation's work before and after each cycle (specification 46 §2). Before it,
+  zero, and the runner does the simulation's work before and after each cycle (specification 46 §2). Each cycle
+  samples the inputs into the test program's located variables before its body and publishes its outputs after it,
+  as a scan does (a step's `io`, specification 11 §6.8.1), so that a plant wired to a process-image address
+  reaches the test as one wired to a variable does; a test without a simulation runs its body alone. Before it,
   the plants publish their feedback and the due disturbances and coupling effects are written; after it, the
   couplings read the outputs and each plant reads its commands and advances to the cycle's time. So a test of a
   loop checks it against its plant, cycle by cycle, in simulated time (a CODESYS toolkit's requirement, the owner

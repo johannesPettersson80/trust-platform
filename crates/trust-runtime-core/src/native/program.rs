@@ -920,6 +920,28 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.call(entry, u32::MAX, now, None)
     }
 
+    /// Runs the body of program instance `instance` at logical time `now` as a scan runs its tasks'
+    /// programs: the inputs checked and sampled into the located variables before it and the outputs
+    /// published after it, so that a value written at an input address reaches the program and a
+    /// located output reaches the output image (a step's `io`, specification 11 §6.8.1), as a test
+    /// that runs the project's simulation steps (specification 22).
+    ///
+    /// # Errors
+    ///
+    /// The refusal of an input the scan would refuse, [`RuntimeError::UndefinedProgram`] for an
+    /// instance that has no body, and the fault of the body, which publishes nothing.
+    pub fn run_instance_with_io(
+        &mut self,
+        instance: u32,
+        now: Duration,
+    ) -> Result<(), RuntimeError> {
+        self.check_declared()?;
+        self.check_finite()?;
+        self.sample();
+        self.run_instance(instance, now)?;
+        self.publish()
+    }
+
     /// The value of the variable whose canonical name is `canonical`, read through the symbol and
     /// type tables as the interpreter holds it (specification 44 §5.7, §5.8, §13.3); `None` for a
     /// name the image does not declare or a symbol that holds no value.

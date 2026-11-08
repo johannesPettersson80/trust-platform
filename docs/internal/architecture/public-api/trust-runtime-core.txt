@@ -1330,6 +1330,7 @@ pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::read(&self, id
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::read_symbol(&self, index: u32) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::reset_task_timing(&mut self, now: trust_runtime_core::value::Duration)
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::run_instance(&mut self, instance: u32, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::run_instance_with_io(&mut self, instance: u32, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::scan(&mut self, now: trust_runtime_core::value::Duration, hooks: &mut dyn trust_runtime_core::native::program::ScanHooks) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::statement_count(&self) -> u32
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::tasks(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, u32)>

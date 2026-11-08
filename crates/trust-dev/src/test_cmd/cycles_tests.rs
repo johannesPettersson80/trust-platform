@@ -442,6 +442,93 @@ fn stepping_runtime_device(image: Vec<u8>) -> String {
     port
 }
 
+/// The results of running every test of a project whose only source is `source`, with `simulation` as its
+/// `simulation.toml`, on a device that steps a real program (`stepping_runtime_device`).
+fn results_on_a_stepping_device(label: &str, source: &str, simulation: &str) -> Vec<ExecutedTest> {
+    let project = trust_test_support::unique_temp_path(&format!(
+        "trust-dev-device-{label}-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(project.join("src/tests.st"), source).expect("write the tests");
+    std::fs::write(project.join("simulation.toml"), simulation).expect("write the simulation");
+    let sources =
+        load_sources(&resolve_sources_root(&project, None).expect("sources")).expect("load");
+    let discovered = discover_tests(&sources);
+    let toolchain = trust_runtime::native::Toolchain::find().expect("the toolchain");
+    let host = trust_runtime::native::Target::this_cpu().expect("this computer's target");
+    let image = build_test_image(&project, &discovered, host, &toolchain)
+        .expect("the tests build for this computer")
+        .image;
+    let port = stepping_runtime_device(image);
+    let results =
+        execute_native_tests_on_device(&project, &discovered, &discovered, 5, &port, "host", None)
+            .expect("the run on the device");
+    let _ = std::fs::remove_dir_all(&project);
+    results
+}
+
+/// A plant wired to the process image: a static gain of 3 from the test's command at `%QL0` to its
+/// feedback at `%IL0`.
+const ADDRESS_PLANT: &str = r#"
+[simulation]
+enabled = false
+plant_step_ms = 10
+
+[[plants]]
+id = "tripler"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+[plants.parameters]
+gain = 3.0
+"#;
+
+/// A test whose command and feedback are located variables at `%QL0` and `%IL0`.
+const ON_ADDRESSES: &str = "{attribute 'test_simulation'}\n\
+     TEST_PROGRAM PlantOnAddresses\n\
+     VAR\n    cmd AT %QL0 : LREAL;\n    fb AT %IL0 : LREAL;\n    n : INT;\nEND_VAR\n\
+     n := n + 1;\n\
+     IF n = 1 THEN\n    cmd := LREAL#3.0;\nEND_IF\n\
+     IF n = 3 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#9.0, ACTUAL := fb);\n    TEST_FINISHED();\nEND_IF\n\
+     END_TEST_PROGRAM\n";
+
+/// Specification 22, "A plant in the loop", with a plant wired to process-image addresses: each cycle
+/// samples the test's inputs before its body and publishes its outputs after it, as a scan does
+/// (specification 11 §6.8.1, a step's `io`). Worked from specification 46 §2's order: the command 3.0
+/// that cycle 1 publishes at `%QL0` reaches the plant after it, the plant advances one step at 10 ms to
+/// 3 × 3.0 = 9.0, which reaches `%IL0` before cycle 3, so the test passes in 3 cycles at 20 ms. Catches
+/// a test cycle that runs the body alone, as on the C6 on 8 November: the feedback read 0.0 in cycle 3.
+#[test]
+fn a_test_with_test_simulation_reaches_a_plant_wired_to_addresses() {
+    let results = results_with_simulation(
+        "addresses",
+        ON_ADDRESSES,
+        Some(ADDRESS_PLANT),
+        &["PlantOnAddresses"],
+    );
+    assert_eq!(
+        outcome(&results[0]),
+        (TestOutcome::Passed, String::new(), Some((3, 20))),
+        "{:?}",
+        results[0].message
+    );
+}
+
+/// The same plant on a device: the step carries the feedback the plant writes at `%IL0` as a direct
+/// input and the device samples it into the test, and the reply reads the command the test published at
+/// `%QL0` back; 9.0 in cycle 3 as on the computer. Catches a device step without `io`.
+#[test]
+fn a_test_with_test_simulation_reaches_a_plant_wired_to_addresses_on_a_device() {
+    let results = results_on_a_stepping_device("addresses", ON_ADDRESSES, ADDRESS_PLANT);
+    assert_eq!(
+        outcome(&results[0]),
+        (TestOutcome::Passed, String::new(), Some((3, 20))),
+        "{:?}",
+        results[0].message
+    );
+}
+
 /// Specification 22, "A plant in the loop", on a device: the plants run on this computer and the test on the device, which
 /// the step carries the plants' feedback to and reads the test's command back from, so the run is the run on this computer:
 /// worked as there, the feedback reads 0 in cycle 1, 5.0 in cycle 3 and 2.0 in cycle 5, which finishes the test at t = 40 ms.
@@ -458,26 +545,7 @@ fn a_test_with_test_simulation_runs_on_a_device_in_lockstep_with_its_plants() {
          IF n = 3 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#5.0, ACTUAL := fb);\n    cmd := LREAL#1.0;\nEND_IF\n\
          IF n = 5 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#2.0, ACTUAL := fb);\n    TEST_FINISHED();\nEND_IF\n\
          END_TEST_PROGRAM\n";
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-device-plant-{}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(project.join("src")).expect("project folder");
-    std::fs::write(project.join("src/tests.st"), source).expect("write the tests");
-    std::fs::write(project.join("simulation.toml"), DOUBLING_PLANT).expect("write the simulation");
-    let sources =
-        load_sources(&resolve_sources_root(&project, None).expect("sources")).expect("load");
-    let discovered = discover_tests(&sources);
-    let toolchain = trust_runtime::native::Toolchain::find().expect("the toolchain");
-    let host = trust_runtime::native::Target::this_cpu().expect("this computer's target");
-    let image = build_test_image(&project, &discovered, host, &toolchain)
-        .expect("the tests build for this computer")
-        .image;
-    let port = stepping_runtime_device(image);
-    let results =
-        execute_native_tests_on_device(&project, &discovered, &discovered, 5, &port, "host", None)
-            .expect("the run on the device");
-    let _ = std::fs::remove_dir_all(&project);
+    let results = results_on_a_stepping_device("plant", source, DOUBLING_PLANT);
     assert_eq!(
         outcome(&results[0]),
         (TestOutcome::Passed, String::new(), Some((5, 40))),

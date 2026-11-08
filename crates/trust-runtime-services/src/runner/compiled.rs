@@ -580,6 +580,9 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         }
         self.now = request.time;
         let mut error = match run {
+            Some(instance) if request.io => {
+                self.program.run_instance_with_io(instance, request.time)
+            }
             Some(instance) => self.program.run_instance(instance, request.time),
             None => self.program.scan(request.time, &mut NoHooks),
         }

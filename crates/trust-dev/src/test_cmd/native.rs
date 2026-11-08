@@ -255,6 +255,8 @@ fn cycles_simulated(
         watch: vec![SmolStr::new(TEST_FINISHED_GLOBAL)],
         watch_direct: Vec::new(),
         run: Some(test_program(case)),
+        // The plants reach the program's located variables through its process image, as in a scan.
+        io: true,
     };
     let (mut failed_at, mut assertion) = (None, None);
     let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
@@ -523,6 +525,7 @@ fn cycles_simulated_on_device(
             "direct_inputs": direct_inputs,
             "watch": watch,
             "watch_direct": watch_direct,
+            "io": true,
         });
         if n == 1 {
             params["restart"] = json!("cold");
