@@ -186,11 +186,12 @@ fn find_references_to_symbol_in_file_by_identity(
     identity: SymbolIdentity,
     target_name: &SmolStr,
 ) -> Vec<Reference> {
-    let written = Arc::clone(&db.analyze(file_id).written_arguments);
     let source = db.source_text(file_id);
     if !contains_ascii_case_insensitive(&source, target_name) {
         return Vec::new();
     }
+    // Only a file that names the symbol is analyzed for its written arguments.
+    let written = Arc::clone(&db.analyze(file_id).written_arguments);
     let parsed = parse(&source);
     let root = parsed.syntax();
     let symbols = db.file_symbols_with_project(file_id);
