@@ -10,6 +10,7 @@
 //! The constants are worked out first, in declaration order, so that an initial value may name one.
 
 mod elements;
+mod instance_path;
 
 use smol_str::SmolStr;
 use trust_hir::TypeId;
@@ -734,36 +735,6 @@ impl Start {
             )?;
         }
         Ok(())
-    }
-
-    /// Writes the path of the instance `instance` into its variable `variable`, of the program's
-    /// type `ty`, at `offset` of `bytes`, as an `instance-path` variable starts (specification 10
-    /// §4.8): after the configuration's and the resource's names, cut to the variable's length;
-    /// nothing for an instance a call creates, which has no place in the configuration.
-    ///
-    /// # Errors
-    ///
-    /// [`NativeError::Compile`] for a variable that is no `STRING`.
-    fn instance_path(
-        &self,
-        model: &mut Model<'_>,
-        bytes: &mut [u8],
-        offset: usize,
-        ty: Ty,
-        instance: &str,
-        variable: &str,
-    ) -> Result<(), NativeError> {
-        let Some(prefix) = &self.prefix else {
-            return Ok(());
-        };
-        if !matches!(model.types.info(ty).kind, Kind::Str(_)) {
-            return Err(NativeError::Compile(format!(
-                "{instance}.{variable} is marked instance-path, which takes a STRING (specification \
-                 10 §4.8)"
-            )));
-        }
-        let path = Value::String(SmolStr::new(format!("{prefix}{instance}")));
-        encode(model, &path, ty, bytes, offset)
     }
 
     /// Writes the variables of a standard function block's instance at `offset`: zero, which is
