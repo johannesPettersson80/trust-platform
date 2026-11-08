@@ -506,7 +506,10 @@ substep. A dropout is initially inactive.
 
 A cold runtime start and a cold restart recreate every plant from configuration
 and reset all plant-local random streams. Given the same effective seed and
-input history, both produce the same trace.
+input history, both produce the same trace. A restart's plants start at the
+process time the restarted runtime continues from (§6.1 item 4): its first cycle
+finds them in their initial state, as the first cycle of a start does, and they
+integrate no time from before the restart.
 
 A warm PLC restart also resets simulated plants in the first version. Plant
 state is not retained through the PLC retain store. Runtime status shall expose
@@ -527,17 +530,23 @@ experiment uses (specification 35, A3.1). Wall-clock time and CPU execution
 duration do not enter plant equations.
 
 1. **Exact steps.** Simulation time advances by exactly one resource cycle
-   interval for each executed cycle. It is never read from the wall clock. A
+   interval for each executed cycle. It is never read from the wall clock: the
+   first cycle runs at simulation time zero, however long the runtime took to
+   start, so a slow start counts no missed interval. A
    cycle that starts late therefore does not lengthen the interval that the
    next cycle sees, and no cycle is skipped. A free-running resource (cycle
    interval 0) has no step to take: its process time is the wall clock times
    the speed.
 2. **Speed.** The scheduler paces cycles against the wall clock at the
    configured speed `time_scale`, a whole number from 1 to 100. At speed `s`
-   a cycle is due every cycle interval ÷ `s` of wall time. A cycle that starts
-   within one paced interval of its due time keeps the schedule. A cycle that
-   starts later restarts the schedule from its own start. The scheduler never
-   runs extra cycles to recover lost wall time.
+   a cycle is due every cycle interval ÷ `s` of wall time. The scheduler waits
+   for a due time only when it lies at least 2 ms ahead, the wait floor: an
+   operating system's wait wakes late by up to about a millisecond, so the
+   cycles due sooner run back to back instead. A cycle that starts within the
+   larger of one paced interval and the wait floor of its due time keeps the
+   schedule, so a wait that wakes late costs no speed. A cycle that starts
+   later restarts the schedule from its own start. The scheduler never runs
+   extra cycles to recover lost wall time.
 3. **A host that cannot keep the pace** runs the simulation more slowly than
    configured, with unchanged results. The runtime measures the **achieved
    speed**: the simulation time advanced divided by the wall time elapsed, over

@@ -73,13 +73,11 @@ pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
         .project_root
         .as_ref()
         .ok_or("active project path is unavailable")?;
-    let (sender, receiver) = std::sync::mpsc::channel();
-    state
+    // The search's trials are isolated runs, so a held live program does not keep it: the snapshot
+    // is read from the simulation itself (specification 13, "Pause").
+    let native = state
         .resource
-        .send_command(crate::scheduler::ResourceCommand::SimulationSnapshot { respond_to: sender })
-        .map_err(|e| e.to_string())?;
-    let native = receiver
-        .recv_timeout(std::time::Duration::from_millis(250))
+        .simulation_snapshot()
         .map_err(|_| "native simulation host status timed out")?;
     admit_simulated_host(native.as_ref())?;
     let files = state.sources.files();

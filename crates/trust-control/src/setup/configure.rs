@@ -13,8 +13,8 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerLaw, Design, Direction, Execution, Experiment, ExperimentKind,
     Limits, LoopDefinition, LoopRejection, LoopScope, LoopSignal, ManualOutputType, ModeBinding,
-    ModeWhenTrue, Parameter, ParameterBinding, Range, RealType, SampleTiming, Signals, Topology,
-    LOOP_SCHEMA_VERSION,
+    ModeValue, ModeWhenTrue, Parameter, ParameterBinding, Range, RealType, SampleTiming, Signals,
+    Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::setup::catalog::{CatalogAnswer, CompiledSignal, CompiledSymbol};
 use crate::setup::configure_adapter;
@@ -241,7 +241,8 @@ struct Proportional<'a> {
     manual_output_type: ManualOutputType,
     manual_output_address: Option<String>,
     mode: &'a CompiledSymbol,
-    manual_when_true: bool,
+    /// The binding of the mode: a BOOL's Manual value, or an enumeration's Manual and Auto members (A6.1).
+    mode_binding: ModeBinding,
     task_name: String,
 }
 
@@ -266,13 +267,7 @@ fn proportional_parts<'a>(
     )?;
     let manual_output_type = manual_output_of(numeric_type(manual_command)?);
     let mode = required(answers.manual_mode.as_ref(), texts::prompts::manual_mode())?;
-    if mode.iec_type != "BOOL" {
-        return Err(refusal(&texts::configure::not_compiled_bool(&mode.symbol)));
-    }
-    let manual_when_true = required(
-        answers.manual_when_true,
-        texts::prompts::manual_mode_polarity(),
-    )?;
+    let mode_binding = mode_binding(mode, answers)?;
     let task_name = match task_name {
         Some(name) => name.to_owned(),
         None => accept_text(required(
@@ -297,8 +292,50 @@ fn proportional_parts<'a>(
         manual_output_type,
         manual_output_address,
         mode,
-        manual_when_true,
+        mode_binding,
         task_name,
+    })
+}
+
+/// The binding of the chosen mode (A6.1): a BOOL with the answer to what its TRUE value means, or an enumeration with the two
+/// different members of its type that the answers name for Manual and Auto.
+///
+/// # Errors
+/// A mode that is neither a BOOL nor an enumeration, a question left unanswered, or a member its type does not have.
+fn mode_binding(mode: &CompiledSymbol, answers: &SetupStepAnswers) -> Result<ModeBinding, Failure> {
+    if mode.members.is_empty() {
+        if mode.iec_type != "BOOL" {
+            return Err(refusal(&texts::configure::not_compiled_bool(&mode.symbol)));
+        }
+        let manual_when_true = required(
+            answers.manual_when_true,
+            texts::prompts::manual_mode_polarity(),
+        )?;
+        return Ok(ModeBinding::boolean(mode.symbol.clone(), manual_when_true));
+    }
+    let manual = required(
+        answers.manual_member.as_deref(),
+        texts::prompts::manual_member(),
+    )?;
+    let auto = required(
+        answers.auto_member.as_deref(),
+        texts::prompts::auto_member(),
+    )?;
+    for member in [manual, auto] {
+        if !mode.has_member(member) {
+            return Err(refusal(&texts::configure::not_a_member(
+                &mode.symbol,
+                member,
+            )));
+        }
+    }
+    if manual.eq_ignore_ascii_case(auto) {
+        return Err(refusal(&texts::configure::members_differ(&mode.symbol)));
+    }
+    Ok(ModeBinding {
+        symbol: mode.symbol.clone(),
+        manual_value: ModeValue::Member(manual.to_owned()),
+        auto_value: Some(auto.to_owned()),
     })
 }
 
@@ -398,8 +435,9 @@ fn controller(parts: &Assembly<'_>) -> Controller {
             gain_symbol: proportional.gain.symbol.clone(),
         }),
         mode_signal: proportional.map(|proportional| proportional.mode.symbol.clone()),
+        // The runtime reads an enumeration mode TRUE in its Manual member (protocol annex E6.3).
         mode_when_true: proportional.map(|proportional| {
-            if proportional.manual_when_true {
+            if proportional.mode_binding.manual_reading() {
                 ModeWhenTrue::Manual
             } else {
                 ModeWhenTrue::Auto
@@ -467,10 +505,7 @@ fn parameter_binding(parts: &Assembly<'_>, proportional: &Proportional<'_>) -> P
             minimum: proportional.gain_minimum,
             maximum: proportional.gain_maximum,
         }],
-        mode: ModeBinding::boolean(
-            proportional.mode.symbol.clone(),
-            proportional.manual_when_true,
-        ),
+        mode: proportional.mode_binding.clone(),
     }
 }
 

@@ -30,8 +30,8 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller,
     ControllerProject, Design, Direction, Execution, ExperimentKind, InitialSource, InitialValue,
-    InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, ModeBinding, ModeWhenTrue,
-    Parameter, ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, Parameter, ParameterBinding,
+    PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::model::{ActuatorCapabilities, ActuatorKind};
 
@@ -189,10 +189,7 @@ pub fn feedforward_loop_definition(
                 &process,
                 &manipulated,
             )?,
-            mode: ModeBinding::boolean(
-                draft.mode.symbol.clone(),
-                draft.mode.when_true == ModeWhenTrue::Manual,
-            ),
+            mode: draft.mode.binding(),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),

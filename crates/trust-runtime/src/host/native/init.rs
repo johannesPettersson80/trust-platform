@@ -881,7 +881,7 @@ fn encode(
 }
 
 /// The little-endian bytes of a scalar's value, eight long.
-fn scalar(elem: Elem, value: &Value) -> Option<[u8; 8]> {
+pub(super) fn scalar(elem: Elem, value: &Value) -> Option<[u8; 8]> {
     let wide: i128 = match value {
         Value::Bool(value) => i128::from(*value),
         Value::SInt(value) => i128::from(*value),

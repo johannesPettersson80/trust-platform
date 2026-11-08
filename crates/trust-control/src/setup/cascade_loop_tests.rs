@@ -5,7 +5,9 @@
 use serde_json::{json, Value};
 
 use super::*;
-use crate::setup::catalog::decode_catalog_answer;
+use crate::json::decode_value;
+use crate::loop_definition::{ModeValue, ModeWhenTrue};
+use crate::setup::catalog::{decode_catalog_answer, CompiledSymbol};
 
 fn scope() -> LoopScope {
     LoopScope {
@@ -108,10 +110,7 @@ fn draft() -> CascadeLoopDraft {
         outer: CascadeOuterDraft {
             instance: "P1.Outer".to_string(),
             parameter_record: "P1.OuterParameters".to_string(),
-            mode: ModeChoice {
-                symbol: "P1.OuterAuto".to_string(),
-                when_true: ModeWhenTrue::Auto,
-            },
+            mode: ModeChoice::boolean("P1.OuterAuto".to_string(), ModeWhenTrue::Auto),
             process_variable: signal("P1.VesselC", "degC", 0.0, 90.0),
             setpoint: SignalChoice {
                 symbol: "P1.VesselSetpointC".to_string(),
@@ -123,10 +122,7 @@ fn draft() -> CascadeLoopDraft {
         inner: CascadeInnerDraft {
             instance: "P1.Inner".to_string(),
             parameter_record: "P1.InnerParameters".to_string(),
-            mode: ModeChoice {
-                symbol: "P1.InnerAuto".to_string(),
-                when_true: ModeWhenTrue::Auto,
-            },
+            mode: ModeChoice::boolean("P1.InnerAuto".to_string(), ModeWhenTrue::Auto),
             manual_output: "P1.InnerManual".to_string(),
             process_variable: signal("P1.JacketC", "degC", 0.0, 90.0),
             manipulated_variable: signal("P1.HeaterPct", "%", 0.0, 100.0),
@@ -189,9 +185,9 @@ fn the_draft_generates_a_cascade_block_whose_seed_names_both_controllers_pi_gain
         project
             .additional_modes
             .iter()
-            .map(|mode| (mode.symbol.as_str(), mode.manual_value))
+            .map(|mode| (mode.symbol.as_str(), mode.manual_value.clone()))
             .collect::<Vec<_>>(),
-        vec![("P1.OuterAuto", false)],
+        vec![("P1.OuterAuto", ModeValue::Bool(false))],
         "the outer controller's mode switches with the inner one"
     );
 }
@@ -328,5 +324,56 @@ fn two_controllers_that_are_the_same_instance_are_refused() {
             .clone()
             .unwrap_or_else(|| refusal.message.clone()),
         "Choose two different controllers."
+    );
+}
+
+/// Specification 35 A6.1: each controller of a cascade may select its mode by an enumeration, named by its Manual and Auto members;
+/// the outer controller's mode is the program's further mode. Catches the outer enumeration written as a BOOL's Manual value, which
+/// the runtime would write into the enumeration as a number.
+#[test]
+fn a_cascades_enumeration_modes_are_written_by_their_members() {
+    let mut catalog = vessel();
+    for symbol in ["P1.OuterMode", "P1.InnerMode"] {
+        catalog.symbols.push(CompiledSymbol {
+            symbol: symbol.to_string(),
+            iec_type: "E_Mode".to_string(),
+            address: None,
+            members: vec!["Off".to_string(), "Manual".to_string(), "Auto".to_string()],
+        });
+    }
+    let enumeration = |symbol: &str| -> ModeChoice {
+        decode_value(json!({ "symbol": symbol, "manualValue": "Manual", "autoValue": "Auto" }))
+            .expect("an enumeration's choice")
+    };
+    let mut cascade = draft();
+    cascade.outer.mode = enumeration("P1.OuterMode");
+    cascade.inner.mode = enumeration("P1.InnerMode");
+    let loop_definition =
+        cascade_loop_definition(&catalog, &scope(), &cascade).expect("the cascade is generated");
+    let binding = loop_definition
+        .parameter_binding
+        .as_ref()
+        .expect("a parameter binding");
+    assert_eq!(
+        binding.mode.manual_value,
+        ModeValue::Member("Manual".to_string())
+    );
+    let project = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("the cascade block");
+    let further = &project.additional_modes[0];
+    assert_eq!(
+        (
+            further.symbol.as_str(),
+            &further.manual_value,
+            further.auto_value.as_deref()
+        ),
+        (
+            "P1.OuterMode",
+            &ModeValue::Member("Manual".to_string()),
+            Some("Auto")
+        )
     );
 }

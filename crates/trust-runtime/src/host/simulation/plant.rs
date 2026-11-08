@@ -925,6 +925,12 @@ impl PlantSystem {
         }
     }
 
+    /// Starts the plants' time at `origin`, the process time a restarted runtime continues from, so
+    /// that their next advance integrates only the time after it (specification 46 §5.3).
+    pub(super) fn start_at(&mut self, origin: Duration) {
+        self.last_time = origin;
+    }
+
     /// Publishes every plant's completed feedback before the next scan, in plant order
     /// (Specification 46 §13.2, §14). In a program generation the plants have not published into,
     /// the measurements held for Control.PID instances are removed first: a restart or a newly

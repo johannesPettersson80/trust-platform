@@ -356,7 +356,9 @@ user installs, not on the development build that the VS Code suites test.
 `editors/vscode/src/acceptance/runAcceptance.ts` (`npm run acceptance --
 --vsix <file> --out <folder>`, under a display) installs the VSIX into an empty
 extensions folder of a VS Code that has never run truST (the stable release,
-or the executable that `E2E_VSCODE` names) and runs each session in its own
+or the executable that `E2E_VSCODE` names; the download is tried three times
+with a pause between, since the update service's version lookup fails now and
+then, and a failure prints the error's whole value) and runs each session in its own
 window, with its own profile and Control Studio state folder, one truST data
 folder that is empty at the start, and no Rust toolchain: the runner removes
 Cargo and rustup from `PATH` and fails when a Rust compiler is still found.
