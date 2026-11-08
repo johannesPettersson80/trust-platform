@@ -194,11 +194,20 @@ fn every_report_names_the_failing_statement() {
     );
 }
 
+/// The values of a failed `ASSERT_TRUE` as a device's step names them (specification 11 §6.8.1).
+fn assertion_true_failed() -> serde_json::Value {
+    json!({
+        "name": "ASSERT_TRUE",
+        "expected": {"type": "BOOL", "value": true},
+        "actual": {"type": "BOOL", "value": false},
+    })
+}
+
 /// A device behind a TCP bridge that runs nothing and answers each test's steps as a device whose program raised the
 /// failures would (specification 11 §6.8.1): `FailsOnce` fails in its step at `src/tests.st` line 2, and
 /// `FailsInCycleTwo` passes its first cycle and fails in its second at line 10, each naming the statement in
-/// `error_at`. Every other request succeeds, a status names the state that `restart` and `shutdown` set, and every reply
-/// writes `id` first, as a device does.
+/// `error_at` and the failed `ASSERT_TRUE`'s values in `assertion`. Every other request succeeds, a status names the
+/// state that `restart` and `shutdown` set, and every reply writes `id` first, as a device does.
 fn failing_device() -> String {
     use std::io::{BufRead, Write as _};
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind the device's bridge");
@@ -214,6 +223,7 @@ fn failing_device() -> String {
             json!({
                 "errors": ["assertion failed: ASSERT_TRUE expected TRUE, got FALSE"],
                 "error_at": {"file": "src/tests.st", "line": line},
+                "assertion": assertion_true_failed(),
                 "values": {},
             })
         };
@@ -255,10 +265,11 @@ fn failing_device() -> String {
     port
 }
 
-/// Specification 22: a device's run names the failing statement as this computer's does, from the statement its step
-/// names in `error_at` (specification 11 §6.8.1). Worked by hand from the fake device's replies: `FailsOnce` fails at
-/// `src/tests.st` line 2, and `FailsInCycleTwo` fails in its second cycle at line 10. Catches a device run that drops the
-/// statement and reports the test's declaration, lines 1 and 5.
+/// Specification 22: a device's run names the failing statement and the failed assertion's values as this computer's
+/// does, from the statement its step names in `error_at` and the values in `assertion` (specification 11 §6.8.1). Worked
+/// by hand from the fake device's replies: `FailsOnce` fails at `src/tests.st` line 2, and `FailsInCycleTwo` fails in its
+/// second cycle at line 10, each an `ASSERT_TRUE` that expected TRUE and found FALSE. Catches a device run that drops the
+/// statement and reports the test's declaration, lines 1 and 5, and one that drops the values.
 #[test]
 fn a_device_run_names_the_statement_its_step_names() {
     let project = trust_test_support::unique_temp_path(&format!(
@@ -314,5 +325,13 @@ fn a_device_run_names_the_statement_its_step_names() {
                 Some(("src/tests.st".to_string(), 10))
             ),
         ]
+    );
+    let values: Vec<_> = results
+        .iter()
+        .map(|result| result.assertion.clone())
+        .collect();
+    assert_eq!(
+        values,
+        [Some(assertion_true_failed()), Some(assertion_true_failed())]
     );
 }

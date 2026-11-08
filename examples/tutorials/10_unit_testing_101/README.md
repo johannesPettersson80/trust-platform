@@ -128,7 +128,8 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 ```
 
 JSON includes test-level and summary `duration_ms` fields, and a failed test's `failure` object:
-the file, line and source line of the assertion that failed.
+the file, line and source line of the assertion that failed. A failed assertion's `assertion`
+object gives its `expected` and `actual` values, typed (`{"type": "INT", "value": 2}`).
 
 ## Step 8: Practice red-green-refactor
 

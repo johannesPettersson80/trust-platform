@@ -28,7 +28,9 @@ use trust_runtime_core::native::image::{
     Target, TaskRecord, TypeRecord, AREA_HAS_INIT, NONE, SYMBOL_PROGRAM,
 };
 use trust_runtime_core::native::memory::{read_place, symbol_place};
-use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
+use trust_runtime_core::native::program::{
+    admit, Device, FailedAssertion, ModuleCode, NativeProgram,
+};
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
@@ -78,6 +80,17 @@ entry!(dividing_by_zero, |cx, _| Err(fault(
 
 entry!(nothing, |_, _| Ok(()));
 
+// A body whose `ASSERT_EQUAL` fails, expecting the USINT 5 and finding 6: the operands in the
+// record's first two numbers, and the assertion's kind, 3, with both operands' type, 0, the image's
+// USINT, in its third (specification 44 Appendix A).
+entry!(failing_an_assertion, |cx, _| Err(fault(
+    cx,
+    FaultCode::AssertionFailed,
+    5,
+    6,
+    3
+)));
+
 // A body of a debug image whose second statement, id 1 on line 2 of `main.st`, divides by zero: it
 // calls the statement hook before each statement, as a debug image's body does.
 entry!(faulting_in_its_second_statement, |cx, _| {
@@ -112,7 +125,7 @@ entry!(stopping, |cx, areas| {
 });
 
 /// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 counts as
-/// a debug image does, and 56 divides by zero in its second statement.
+/// a debug image does, 56 divides by zero in its second statement, and 60 fails an assertion.
 pub(super) struct StandIn;
 
 impl ModuleCode for StandIn {
@@ -123,6 +136,7 @@ impl ModuleCode for StandIn {
             32 => Some(Entry::from_fn(nothing)),
             48 => Some(Entry::from_fn(stopping)),
             56 => Some(Entry::from_fn(faulting_in_its_second_statement)),
+            60 => Some(Entry::from_fn(failing_an_assertion)),
             _ => None,
         }
     }
@@ -858,6 +872,7 @@ fn a_step_restarts_writes_scans_and_reads_without_the_drivers() {
             direct: vec![("%QX0.1".into(), Value::Bool(true))],
             error: None,
             error_at: None,
+            assertion: None,
         }
     );
     assert_eq!(
@@ -956,6 +971,41 @@ fn a_stepped_fault_names_the_statement_that_raised_it() {
 }
 
 #[test]
+fn a_stepped_failed_assertion_gives_its_values() {
+    // Specification 22 and specification 11 §6.8.1: the outcome of a stepped scan that an assertion
+    // failed carries the assertion's values, read through the type table: `ASSERT_EQUAL` expected the
+    // USINT 5 and found 6. The reply writes them as `assertion`. Catches the values left out, the
+    // expected and the actual swapped, and a value written untyped.
+    let bytes = image(60);
+    let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+    let outcome = cycle
+        .step(
+            &step(10, Some(RestartMode::Cold), Vec::new(), &[]),
+            Duration::ZERO,
+            None,
+        )
+        .expect("the step runs");
+    assert_eq!(
+        outcome.assertion,
+        Some(FailedAssertion {
+            name: "ASSERT_EQUAL",
+            expected: Some(Value::USInt(5)),
+            actual: Some(Value::USInt(6)),
+            bound: None,
+            delta: None,
+        })
+    );
+    assert_eq!(
+        crate::cycle_step::reply(Duration::from_millis(10), &outcome)["assertion"],
+        serde_json::json!({
+            "name": "ASSERT_EQUAL",
+            "expected": {"type": "USINT", "value": 5},
+            "actual": {"type": "USINT", "value": 6},
+        })
+    );
+}
+
+#[test]
 fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
     // Specification 11 §6.8.1, `run`, and specification 44 §5.7: the body of `MAIN`, found by the
     // instance number its root symbol carries, runs once per step at time 0, when the task `Fast`
@@ -989,6 +1039,7 @@ fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
             direct: vec![("%QX0.1".into(), Value::Bool(false))],
             error: None,
             error_at: None,
+            assertion: None,
         }
     );
     request.run = Some("NOPE".into());

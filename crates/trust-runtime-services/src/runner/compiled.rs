@@ -609,11 +609,13 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
             })
             .collect::<Result<Vec<_>, _>>()?;
         let error_at = error.as_ref().and_then(|_| fault_at(&self.program));
+        let assertion = error.as_ref().and_then(|_| self.program.failed_assertion());
         Ok(StepOutcome {
             values,
             direct,
             error,
             error_at,
+            assertion,
         })
     }
 

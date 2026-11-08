@@ -166,6 +166,9 @@ fn execute_native_tests(
         // that ran nothing has none, whatever an earlier test's run left.
         if instance.is_some() {
             done.failed_at = trust_runtime::native::fault_at(&program);
+            done.assertion = program
+                .failed_assertion()
+                .map(|assertion| trust_runtime::native::assertion_json(&assertion));
         }
         results.push(done);
     }
@@ -184,7 +187,7 @@ fn cycles_here(
     started: Instant,
 ) -> ExecutedTest {
     use trust_runtime::value::{Duration, Value};
-    let mut failed_at = None;
+    let (mut failed_at, mut assertion) = (None, None);
     let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
         let now = Duration::from_nanos(i64::try_from(time_ns).unwrap_or(i64::MAX));
         let ran = if n == 1 {
@@ -201,6 +204,9 @@ fn cycles_here(
             )),
             Err(error) => {
                 failed_at = trust_runtime::native::fault_at(program);
+                assertion = program
+                    .failed_assertion()
+                    .map(|failed| trust_runtime::native::assertion_json(&failed));
                 match error {
                     RuntimeError::AssertionFailed(message) => CycleResult::Failed(message.to_string()),
                     error => CycleResult::Error(error.to_string()),
@@ -215,6 +221,7 @@ fn cycles_here(
         duration_ms: elapsed_ms(started.elapsed()),
         cycles: Some(run),
         failed_at,
+        assertion,
     }
 }
 
@@ -287,6 +294,10 @@ fn execute_native_tests_on_device(
         };
         let mut done = executed_on_device(case, error.as_deref(), timeout, started);
         done.failed_at = stepped.as_ref().ok().and_then(step_error_at);
+        done.assertion = stepped
+            .as_ref()
+            .ok()
+            .and_then(|result| result.get("assertion").cloned());
         results.push(done);
     }
     Ok(results)
@@ -318,6 +329,7 @@ fn executed_on_device(
         duration_ms: elapsed_ms(started.elapsed()),
         cycles: None,
         failed_at: None,
+        assertion: None,
     }
 }
 
@@ -335,7 +347,7 @@ fn cycles_on_device(
 ) -> ExecutedTest {
     use trust_runtime::device_link;
     use trust_runtime::native::TEST_FINISHED_GLOBAL;
-    let mut failed_at = None;
+    let (mut failed_at, mut assertion) = (None, None);
     let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
         let mut params = json!({
             "time_ns": start_ns.saturating_add(time_ns),
@@ -349,6 +361,7 @@ fn cycles_on_device(
             Ok(result) => match result["errors"].get(0) {
                 Some(error) => {
                     failed_at = step_error_at(&result);
+                    assertion = result.get("assertion").cloned();
                     let text = error.as_str().unwrap_or_default();
                     match text.strip_prefix("assertion failed: ") {
                         Some(message) => CycleResult::Failed(message.to_string()),
@@ -369,6 +382,7 @@ fn cycles_on_device(
         duration_ms: elapsed_ms(started.elapsed()),
         cycles: Some(run),
         failed_at,
+        assertion,
     }
 }
 

@@ -710,6 +710,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             duration_ms: 1,
             cycles: None,
             failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -726,6 +727,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             duration_ms: 2,
             cycles: None,
             failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -742,6 +744,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             duration_ms: 3,
             cycles: None,
             failed_at: None,
+            assertion: None,
         },
     ]
 }

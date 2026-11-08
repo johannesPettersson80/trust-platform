@@ -41,6 +41,10 @@ mod report_paths_tests;
 #[path = "test_cmd/failed_at_tests.rs"]
 mod failed_at_tests;
 
+#[cfg(test)]
+#[path = "test_cmd/assertion_values_tests.rs"]
+mod assertion_values_tests;
+
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,
     filter: Option<String>,
