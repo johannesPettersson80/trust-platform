@@ -260,17 +260,38 @@ fn a_rollback_restores_the_previous_bundle() {
     );
 }
 
-#[test]
-fn a_browser_showing_the_old_bundle_is_told_to_reload() {
-    let plant = plant("deploy-reload", WebAuthMode::Local, None);
+/// The page's value stream, opened on the overview page.
+fn open_overview_stream(plant: &Plant) -> tungstenite::WebSocket<TcpStream> {
     let address = plant.running.base.trim_start_matches("http://").to_string();
     let stream = TcpStream::connect(&address).expect("connect");
     stream
         .set_read_timeout(Some(Duration::from_millis(300)))
         .expect("timeout");
-    let (mut socket, _) =
-        tungstenite::client(format!("ws://{address}/ws/hmi?page=overview"), stream)
-            .expect("the stream opens");
+    let (socket, _) = tungstenite::client(format!("ws://{address}/ws/hmi?page=overview"), stream)
+        .expect("the stream opens");
+    socket
+}
+
+/// The versions the stream names in its `bundle` messages, read until it names `wanted` or 10 s
+/// pass (a loaded runner can be slow).
+fn bundles_told(socket: &mut tungstenite::WebSocket<TcpStream>, wanted: &Value) -> Vec<Value> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut told = Vec::new();
+    while Instant::now() < deadline && told.last() != Some(wanted) {
+        if let Ok(Message::Text(text)) = socket.read() {
+            let message: Value = serde_json::from_str(text.as_str()).expect("JSON");
+            told.extend(message.get("bundle").cloned());
+        }
+    }
+    told
+}
+
+/// Specification 39, §16.2 item 5: a browser whose stream is open when a bundle is deployed is told
+/// the new version. Catches a deployment that streams never hear of.
+#[test]
+fn a_browser_showing_the_old_bundle_is_told_to_reload() {
+    let plant = plant("deploy-reload", WebAuthMode::Local, None);
+    let mut socket = open_overview_stream(&plant);
     let second = bundle("Second", "Main.Level");
     post(
         &plant.running.base,
@@ -278,15 +299,37 @@ fn a_browser_showing_the_old_bundle_is_told_to_reload() {
         second.to_json(),
         &[],
     );
-    let deadline = Instant::now() + Duration::from_secs(3);
-    let mut told = None;
-    while Instant::now() < deadline && told.is_none() {
-        if let Ok(Message::Text(text)) = socket.read() {
-            let message: Value = serde_json::from_str(text.as_str()).expect("JSON");
-            told = message.get("bundle").cloned();
-        }
-    }
-    assert_eq!(told, Some(json!(second.short_version())));
+    let wanted = json!(second.short_version());
+    let told = bundles_told(&mut socket, &wanted);
+    assert_eq!(told.last(), Some(&wanted), "{told:?}");
+}
+
+/// Specification 39, §16.2 item 5: a page drawn from the first bundle opens its stream only after
+/// the second was deployed. The stream names the active bundle when it opens, so the page learns
+/// that its own version is no longer the active one. Catches the race of 8 November 2026: the
+/// stream counted activations from its own start, so a deployment between loading the page and
+/// opening its stream was never told, and the page kept the old bundle (G110).
+#[test]
+fn a_stream_opened_after_a_deployment_names_the_new_bundle() {
+    let plant = plant("deploy-late-stream", WebAuthMode::Local, None);
+    let drawn = page_data(&plant.running.base, &[])["bundle"].clone();
+    assert_eq!(drawn, json!(bundle("First", "Main.Level").short_version()));
+    let second = bundle("Second", "Main.Level");
+    let (status, answer, _) = post(
+        &plant.running.base,
+        "/api/hmi/deploy",
+        second.to_json(),
+        &[],
+    );
+    assert_eq!(status, 200, "{answer}");
+    let mut socket = open_overview_stream(&plant);
+    let wanted = json!(second.short_version());
+    let told = bundles_told(&mut socket, &wanted);
+    assert_eq!(told, [wanted], "named once, at the start");
+    assert_ne!(
+        told[0], drawn,
+        "the page's own version is no longer the active one"
+    );
 }
 
 #[test]
