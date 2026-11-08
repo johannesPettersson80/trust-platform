@@ -102,7 +102,7 @@ fn comparison_of() -> ComparisonPresentation {
 }
 
 /// A complete recording of two consecutive samples; `first` makes recordings differ.
-fn recording_file(source: EvidenceSource, first: f64) -> RecordingFile {
+pub(crate) fn recording_file(source: EvidenceSource, first: f64) -> RecordingFile {
     let recorded = run(
         vec![binding("processVariable", "%IL0", "LREAL")],
         vec![
@@ -114,7 +114,7 @@ fn recording_file(source: EvidenceSource, first: f64) -> RecordingFile {
     RecordingFile::new("loop:tank", source, recorded, evidence)
 }
 
-fn id_of(file: &RecordingFile) -> String {
+pub(crate) fn id_of(file: &RecordingFile) -> String {
     file.id().expect("identified")
 }
 
@@ -127,7 +127,7 @@ fn signals() -> IdentifySignals {
 }
 
 /// The provisional result of a live step on a simulated plant, fitted on `estimation`.
-fn provisional(estimation: &RecordingFile) -> IdentifySection {
+pub(crate) fn provisional(estimation: &RecordingFile) -> IdentifySection {
     let model = fitted_model("unvalidated", &["sha256:recording-fingerprint"]);
     let comparison = comparison_of();
     IdentifySection::new(
@@ -574,7 +574,7 @@ fn a_document_over_the_storage_limit_is_refused() {
 }
 
 /// The request of a connected record of the runtime recording `runtime_recording_id`.
-fn record_request(runtime_recording_id: &str) -> StoredRecordRequest {
+pub(crate) fn record_request(runtime_recording_id: &str) -> StoredRecordRequest {
     let record = setpoint_record(
         runtime_recording_id,
         &[("Plant.Command", "V"), ("Plant.Position", "m")],
@@ -693,7 +693,8 @@ fn the_model_is_current_while_the_loop_has_the_signals_it_was_identified_with() 
     assert!(open_loop.is_current_for(&without_setpoint));
 }
 
-// Specification 35, B3.6: only the recording of the Identify result is fitted again, from the request the section keeps.
+// Specification 35, B3.6: the section answers the request of its own recording only; the study's other live recordings answer
+// from the requests the study keeps (`record_requests`).
 #[test]
 fn only_the_estimation_recording_whose_request_the_section_keeps_is_fitted_again() {
     let estimation = recording_file(EvidenceSource::SimulatedPlant, 20.0);
@@ -716,7 +717,7 @@ fn only_the_estimation_recording_whose_request_the_section_keeps_is_fitted_again
     let refusal = refit_refusal(&estimation_id);
     assert_eq!(
         refusal.message,
-        format!("Recording {estimation_id} cannot be fitted again: the study keeps the experiment request only for the recording of its Identify result.")
+        format!("Recording {estimation_id} cannot be fitted again: the study keeps no experiment request for it.")
     );
     assert_eq!(
         refusal.detail,

@@ -417,13 +417,14 @@ impl StudySection for IdentifySection {
     }
 }
 
-/// The refusal of fitting the recording `recording_id` again when the study keeps no request for it (B3.6): only the recording
-/// of the study's Identify result can be fitted again, and Identify plant records a new one.
+/// The refusal of fitting the recording `recording_id` again when the study keeps no request for it (B3.6): a recording that is
+/// no live recording of the study, or one the study kept before it kept requests (`record_requests`). Identify plant records a new
+/// one.
 #[must_use]
 pub fn refit_refusal(recording_id: &str) -> Failure {
     Failure::new(
         &format!(
-            "Recording {recording_id} cannot be fitted again: the study keeps the experiment request only for the recording of its Identify result. Identify plant records a new one."
+            "Recording {recording_id} cannot be fitted again: the study keeps no experiment request for it. Identify plant records a new one."
         ),
         Cause::ModelOrData,
         NextAction::Identify,
@@ -448,4 +449,4 @@ fn refuse(reason: &str) -> Failure {
 
 #[cfg(test)]
 #[path = "identify_tests.rs"]
-mod tests;
+pub(crate) mod tests;

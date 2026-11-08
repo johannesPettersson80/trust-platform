@@ -27,8 +27,9 @@ use trust_control::recording::{EvidenceSource, RecordingFile};
 use trust_control::setup::discovery::study_tune_methods;
 use trust_control::study::current_model::CurrentModel;
 use trust_control::study::identify::{
-    refit_refusal, IdentifyMethod, IdentifySection, IdentifySignals, StoredRecordRequest,
+    IdentifyMethod, IdentifySection, IdentifySignals, StoredRecordRequest,
 };
+use trust_control::study::record_requests::refit_request;
 use trust_control::study::Study;
 
 use crate::busy_loops::LoopClaim;
@@ -89,10 +90,7 @@ pub(super) fn open_recording_answer(
             run_opened_fit(context, &work, &file, &selection)
         });
     }
-    let section = working_study(&work)?.section::<IdentifySection>()?;
-    section
-        .ok_or_else(|| refit_refusal(&recording_id))?
-        .refit_request(&recording_id)?;
+    refit_request(&working_study(&work)?, &recording_id)?;
     started(operations, claim, move |context| {
         run_refit(context, &work, &recording_id)
     })
@@ -169,10 +167,10 @@ pub(super) fn last_opened_recording_if_any(work: &LoopWork) -> Result<Option<Str
     Ok(None)
 }
 
-/// The recording of the study's Identify result fitted again, without live excitation (B3.6): the kept file, checked against
-/// the section (B10.3), becomes the connected record of the request the section keeps, from the fit window that request was
-/// taken with; it meets the same limits check (B3.4 step 6), is fitted and qualified, and the section is kept again with the
-/// same request.
+/// A live recording the study keeps fitted again, without live excitation (B3.6): the kept file, checked against the request the
+/// study keeps for it (its runtime recording, complete evidence, B10.3), becomes the connected record of that request, from the fit
+/// window the request was taken with; it meets the same limits check (B3.4 step 6), is fitted and qualified, and becomes the
+/// Identify result, which keeps the same request.
 fn run_refit(
     context: &OperationContext,
     work: &LoopWork,
@@ -180,14 +178,14 @@ fn run_refit(
 ) -> Result<Value, Failure> {
     let loop_definition = &work.loop_definition;
     let study = working_study(work)?;
-    let Some(stored) = storage::read_identify(&work.project_root, &study)? else {
-        return Err(refit_refusal(recording_id));
-    };
-    let request = &stored.section.refit_request(recording_id)?.request;
+    let kept = refit_request(&study, recording_id)?;
+    let file = storage::read_recording(&work.project_root, &loop_definition.id, recording_id)?;
+    kept.check_recording(recording_id, &file)?;
+    let request = &kept.record_request.request;
     let evaluate: RunEvaluator<'_, RecordedLimitsEvaluation> = &evaluate_recorded_limits;
     let record = connected_record(
         loop_definition,
-        &stored.estimation.run,
+        &file.run,
         None,
         &request.experiment,
         stored_fit_window(request),
@@ -199,12 +197,13 @@ fn run_refit(
         work,
         &study,
         Fitted {
-            method: stored.section.method,
-            source: stored.section.source,
-            recording_file_id: stored.section.estimation_recording_id.clone(),
+            // A live recording was taken with the experiment of its reviewed plan (B3.4).
+            method: IdentifyMethod::Live(request.experiment.kind),
+            source: file.source,
+            recording_file_id: recording_id.to_string(),
             result,
-            // The refit fits the recording of the stored section, so the value its start read is the one it keeps.
-            scheduling_value: stored.section.scheduling_value,
+            // The refit fits the recording its request was taken for, so the value its start read is the one it keeps.
+            scheduling_value: kept.scheduling_value,
         },
     )
 }
