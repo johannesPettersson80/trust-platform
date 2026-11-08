@@ -21,6 +21,7 @@ fn lower_global_var_block(
                 })
             })
             .transpose()?;
+        let init_args = lower_init_args(&parts, ctx)?;
         if qualifiers.constant
             && matches!(kind, VarBlockKind::Global)
             && let Some(expr) = init_expr.as_ref()
@@ -41,6 +42,7 @@ fn lower_global_var_block(
                         retain: qualifiers.retain,
                         address: parts.address.clone(),
                         constant: qualifiers.constant,
+                        init_args: init_args.clone(),
                         noinit,
                     });
                 }
@@ -114,6 +116,7 @@ pub(super) fn lower_var_access_block(
                     retain: crate::RetainPolicy::Unspecified,
                     address: Some(text.clone()),
                     constant: false,
+                    init_args: Vec::new(),
                     noinit: false,
                 });
             }

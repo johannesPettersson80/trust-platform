@@ -34,6 +34,7 @@ fn lower_class_var_blocks(
                     })
                 })
                 .transpose()?;
+            let init_args = lower_init_args(&parts, ctx)?;
             if qualifiers.constant
                 && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat)
                 && let Some(expr) = init_expr.as_ref()
@@ -72,6 +73,7 @@ fn lower_class_var_blocks(
                             in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            init_args: init_args.clone(),
                             noinit,
                         });
                     }

@@ -461,3 +461,51 @@ END_PROGRAM
 "#,
     );
 }
+
+/// Specification 10 §4.8: under the CODESYS profile an instance's declaration gives its `FB_init`
+/// the inputs after the first two, by name in any order or all in order, as a call does, in a
+/// program, a function block and the globals. Catches the arguments refused, or bound to
+/// bInitRetains and bInCopyCode.
+#[test]
+fn fb_init_arguments_bind_after_the_runtime_inputs() {
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+FUNCTION_BLOCK FB_Port
+VAR
+    port : INT;
+    fast : BOOL;
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    iPort : INT;
+    bFast : BOOL;
+END_VAR
+port := iPort;
+fast := bFast;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Holder
+VAR
+    inner : FB_Port(iPort := 9);
+END_VAR
+END_FUNCTION_BLOCK
+
+VAR_GLOBAL
+    gPort : FB_Port(11, TRUE);
+END_VAR
+
+PROGRAM Main
+VAR
+    named : FB_Port(bFast := TRUE, iPort := 3);
+    positional : FB_Port(7, FALSE);
+    holder : FB_Holder;
+END_VAR
+END_PROGRAM
+"#,
+    );
+}

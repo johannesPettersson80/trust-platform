@@ -2,8 +2,11 @@ use smol_str::SmolStr;
 use trust_hir::symbols::EdgeQualifier;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
+use super::super::lower::lower_expr_with_context;
 use super::super::types::CompileError;
 use super::super::util::{is_expression_kind, node_text};
+use super::model::LoweringContext;
+use crate::program_model::InitArg;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum VarBlockKind {
@@ -30,6 +33,40 @@ pub(super) struct VarDeclParts {
     pub(super) type_ref: SyntaxNode,
     pub(super) initializer: Option<SyntaxNode>,
     pub(super) address: Option<SmolStr>,
+    /// The `FB_init` arguments, `fb : FB_X(5)` (specification 10 §4.8).
+    pub(super) arguments: Option<SyntaxNode>,
+}
+
+/// The `FB_init` arguments of a declaration, as the program model holds them: each argument's
+/// input name when it names one, and its value.
+pub(super) fn lower_init_args(
+    parts: &VarDeclParts,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Vec<InitArg>, CompileError> {
+    let Some(arguments) = parts.arguments.as_ref() else {
+        return Ok(Vec::new());
+    };
+    let mut lowered = Vec::new();
+    for arg in arguments
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Arg)
+    {
+        let name = arg
+            .children()
+            .find(|child| child.kind() == SyntaxKind::Name)
+            .map(|name| SmolStr::new(node_text(&name).trim()));
+        let Some(value) = arg
+            .children()
+            .find(|child| is_expression_kind(child.kind()))
+        else {
+            return Err(CompileError::new("an FB_init argument without its value"));
+        };
+        lowered.push(InitArg {
+            name,
+            value: lower_expr_with_context(&value, ctx, None)?,
+        });
+    }
+    Ok(lowered)
 }
 
 pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileError> {
@@ -176,6 +213,9 @@ pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, Comp
     let initializer = var_decl
         .children()
         .find(|child| is_expression_kind(child.kind()));
+    let arguments = var_decl
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ArgList);
 
     let mut address = None;
     let mut seen_at = false;
@@ -200,6 +240,7 @@ pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, Comp
         type_ref,
         initializer,
         address,
+        arguments,
     })
 }
 

@@ -26,6 +26,7 @@ fn variable(name: &str) -> VarDef {
         in_out: false,
         constant: true,
         address: Some(IoAddress::parse("%IW2").expect("test address")),
+        init_args: Vec::new(),
         noinit: false,
     }
 }
@@ -106,6 +107,7 @@ fn variable_flags_are_not_inferred_from_each_other() {
         in_out: false,
         constant: false,
         address: None,
+        init_args: Vec::new(),
         noinit: false,
     };
     let cloned = variable.clone();
