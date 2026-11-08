@@ -1,6 +1,6 @@
 /// What runs the tests: the kernel on this computer, or a device's kernel over its control link
 /// (specification 44 §14.2).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum TestRunner {
     /// The project compiled for this computer and run by the kernel.
     Native,
@@ -10,16 +10,42 @@ pub enum TestRunner {
         port: String,
         /// The device's target, as `trust-runtime build --target` names it.
         target: String,
+        /// The control token of `--token` or `TRUST_CTL_TOKEN`, without which the project's
+        /// `runtime.control.auth_token` is the device's (specification 11 §6.8.1).
+        token: Option<String>,
     },
 }
 
+/// A runner as a log shows it, the token only as whether there is one (specification 34 PORT-06).
+impl std::fmt::Debug for TestRunner {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Native => formatter.write_str("Native"),
+            Self::Device {
+                port,
+                target,
+                token,
+            } => formatter
+                .debug_struct("Device")
+                .field("port", port)
+                .field("target", target)
+                .field("token", &token.as_ref().map(|_| "<set>"))
+                .finish(),
+        }
+    }
+}
+
 impl TestRunner {
-    /// The runner on the device that `device` names with its target, when it names one, and on this
-    /// computer otherwise.
+    /// The runner on the device that `device` names with its target, with the control token
+    /// `token`, when it names one, and on this computer otherwise.
     #[must_use]
-    pub fn of(device: Option<(String, String)>) -> Self {
+    pub fn of(device: Option<(String, String)>, token: Option<String>) -> Self {
         match device {
-            Some((port, target)) => Self::Device { port, target },
+            Some((port, target)) => Self::Device {
+                port,
+                target,
+                token,
+            },
             None => Self::Native,
         }
     }
@@ -96,13 +122,18 @@ pub fn run_test(
 
     let total_started = Instant::now();
     let results = match &runner {
-        TestRunner::Device { port, target } => execute_native_tests_on_device(
+        TestRunner::Device {
+            port,
+            target,
+            token,
+        } => execute_native_tests_on_device(
             &project_root,
             &discovered,
             &tests,
             timeout,
             port,
             target,
+            token.as_deref(),
         )?,
         TestRunner::Native => execute_native_tests(&project_root, &discovered, &tests, timeout)?,
     };
@@ -148,5 +179,6 @@ fn executed(
         outcome,
         message,
         duration_ms: elapsed_ms(started.elapsed()),
+        cycles: None,
     }
 }

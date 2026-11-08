@@ -131,6 +131,8 @@ pub(crate) struct ProgramVars {
 }
 
 pub(crate) struct ConfigModel {
+    /// The `CONFIGURATION`'s name; `None` for a project that declares none.
+    pub(crate) name: Option<SmolStr>,
     pub(crate) resource_name: Option<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) tasks: Vec<crate::task::TaskConfig>,
@@ -248,6 +250,8 @@ pub(crate) struct GlobalInit {
     pub(crate) constant: bool,
     /// The `FB_init` arguments of an instance's declaration (specification 10 §4.8).
     pub(crate) init_args: Vec<crate::program_model::InitArg>,
+    /// `{attribute 'noinit'}` on the line above its declaration (specification 10 §4.8).
+    pub(crate) noinit: bool,
 }
 
 #[derive(Clone)]

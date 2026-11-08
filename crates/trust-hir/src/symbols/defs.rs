@@ -165,6 +165,24 @@ pub enum VarQualifier {
     Static,
 }
 
+impl VarQualifier {
+    /// The keyword of the variable section: `VAR`, `VAR_INPUT` and so on.
+    #[must_use]
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::Local => "VAR",
+            Self::Input => "VAR_INPUT",
+            Self::Output => "VAR_OUTPUT",
+            Self::InOut => "VAR_IN_OUT",
+            Self::Temp => "VAR_TEMP",
+            Self::Global => "VAR_GLOBAL",
+            Self::External => "VAR_EXTERNAL",
+            Self::Access => "VAR_ACCESS",
+            Self::Static => "VAR_STAT",
+        }
+    }
+}
+
 /// Parameter direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParamDirection {
@@ -174,6 +192,18 @@ pub enum ParamDirection {
     Out,
     /// In-out parameter.
     InOut,
+}
+
+impl ParamDirection {
+    /// The keyword of the parameter's section: `VAR_INPUT`, `VAR_OUTPUT` or `VAR_IN_OUT`.
+    #[must_use]
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::In => "VAR_INPUT",
+            Self::Out => "VAR_OUTPUT",
+            Self::InOut => "VAR_IN_OUT",
+        }
+    }
 }
 
 /// Visibility of a symbol.
@@ -190,7 +220,8 @@ pub enum Visibility {
     Internal,
 }
 
-/// Modifiers applied to symbols (classes, methods, function blocks).
+/// Modifiers applied to symbols (classes, methods, function blocks), and the CODESYS attributes
+/// that change the rules of a declaration (specification 02 §3.1, specification 04 "Rules").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SymbolModifiers {
     /// FINAL modifier (class/function block/method).
@@ -199,6 +230,11 @@ pub struct SymbolModifiers {
     pub is_abstract: bool,
     /// OVERRIDE modifier (method).
     pub is_override: bool,
+    /// `{attribute 'qualified_only'}`: an enumeration type's values, or the globals of a
+    /// namespace's `VAR_GLOBAL` list, are named only qualified.
+    pub qualified_only: bool,
+    /// `{attribute 'strict'}`: an enumeration type keeps CODESYS's strict programming rules.
+    pub strict: bool,
 }
 
 /// Edge transformation applied to an accepted `VAR_INPUT BOOL` declaration.

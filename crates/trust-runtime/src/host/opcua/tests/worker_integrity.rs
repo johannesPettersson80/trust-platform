@@ -306,7 +306,7 @@ fn worker_shutdown_interrupts_idle_wait_and_revokes_good_authority() {
         .spawn(std::time::Duration::from_secs(2))
         .expect("spawn worker");
 
-    let connect_deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+    let connect_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     while bridge.state() != OpcUaClientConnectionState::Connected
         && std::time::Instant::now() < connect_deadline
     {

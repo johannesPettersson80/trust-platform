@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 from scripts.release_claim_contract import (
     ReleaseEvidenceError,
+    _text,
     audit_dependency_policy,
+    audit_paths,
     audit_source_build,
 )
 
@@ -24,6 +26,21 @@ OWNED_REPORT = {
 
 
 class ReleaseClaimContractTests(unittest.TestCase):
+    # Specification 24: the language-server archive of every platform holds trust-debug beside
+    # trust-lsp. Catches a release workflow that packs the language server alone again, on Unix or
+    # on Windows, which left a DAP-capable editor outside VS Code without the debug adapter.
+    def test_archive_contract_requires_the_debug_adapter_beside_the_language_server(self) -> None:
+        release = _text(".github/workflows/release.yml")
+        self.assertEqual(audit_paths()["windows_suffix"], ".exe")
+        for copy in [
+            "cp target/${{ matrix.target }}/release/trust-debug dist/trust-lsp-${{ matrix.platform }}/\n",
+            "Copy-Item target/${{ matrix.target }}/release/trust-debug.exe dist/trust-lsp-${{ matrix.platform }}/\n",
+        ]:
+            self.assertIn(copy, release)
+            with patch("scripts.release_claim_contract._text", return_value=release.replace(copy, "")):
+                with self.assertRaises(ReleaseEvidenceError):
+                    audit_paths()
+
     def test_source_build_allows_additional_pinned_openot_support_packages(self) -> None:
         result = audit_source_build()
         self.assertFalse(result["sibling_required"])

@@ -775,6 +775,19 @@ impl SymbolTable {
         None
     }
 
+    /// The modifiers of the `TYPE` symbol that declares the type `type_id`, an alias resolved: an
+    /// enumeration's `{attribute 'qualified_only'}` and `{attribute 'strict'}` among them
+    /// (specification 02 §3.1). The defaults for a type that no `TYPE` symbol declares.
+    #[must_use]
+    pub fn type_modifiers(&self, type_id: TypeId) -> SymbolModifiers {
+        let type_id = self.resolve_alias_type(type_id);
+        self.symbols
+            .iter()
+            .find(|symbol| matches!(symbol.kind, SymbolKind::Type) && symbol.type_id == type_id)
+            .map(|symbol| symbol.modifiers)
+            .unwrap_or_default()
+    }
+
     /// The symbol of the value `member` of the enumerated type `enum_type`, so that a qualified
     /// `EnumType.Member` names the same value as the bare member (IEC 61131-3 Ed.3 §6.4.4.2).
     #[must_use]
