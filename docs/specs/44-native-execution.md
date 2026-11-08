@@ -1015,7 +1015,9 @@ an instance's own variables first, which no compiled program reads. New here: th
 the layout as Rust types and asserts it (§6.3), and a `BOOL` in an array or structure takes 1 byte
 (no packing of bits), as MEM-12 says. `SIZEOF` is specification 29's, a constant the build works out
 for the target: a reference or a pointer takes the target's address width, 4 bytes on the chips and
-8 on a 64-bit computer.
+8 on a 64-bit computer. A packed structure (specification 02 §3.5.2) keeps this layout in its
+storage; its pack mode gives the relative addresses at which it lies in an overlap's backing and on
+the wire (`types::pack`), as a structure's declared relative addresses do.
 
 ### 7.3 References
 

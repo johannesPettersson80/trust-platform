@@ -610,7 +610,11 @@ pub(crate) fn import_hir_type_to_runtime(
                     default_initializer: field.default_initializer,
                 });
             }
-            Ok(registry.register_struct(name, lowered))
+            let id = registry.register_struct(name, lowered);
+            if let Some(mode) = symbols.struct_pack(hir_type_id) {
+                registry.register_struct_pack(id, mode);
+            }
+            Ok(id)
         }
         Type::Union { name, variants } => {
             let mut lowered = Vec::with_capacity(variants.len());

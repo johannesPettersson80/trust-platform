@@ -4,7 +4,7 @@ impl SymbolTable {
     pub fn declaration_types(&self) -> crate::types::TypeRegistry {
         crate::types::TypeRegistry::declaration_snapshot(
             self.types.clone(), self.type_names.clone(), self.named_value_types.clone(),
-            self.overlapping_struct_types.clone(),
+            self.overlapping_struct_types.clone(), self.struct_packs.clone(),
         )
     }
 
