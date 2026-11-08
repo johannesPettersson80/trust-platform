@@ -190,10 +190,34 @@ async function stopRuntime(runtime: child.ChildProcess): Promise<void> {
 
 type Result = { session: string; passed: boolean; error?: string; seconds: number };
 
+/** VS Code of `version`. The update service's version lookup fails now and then (specification 22; checklist G102), so a
+ * failed download is tried again after a pause, three times in all, and the last failure is the run's. */
+async function downloadVSCode(version: string): Promise<string> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await downloadAndUnzipVSCode(version);
+    } catch (error) {
+      if (attempt === 3) throw error;
+      console.log(`acceptance: downloading VS Code ${version} failed (attempt ${attempt} of 3): ${describe(error)}`);
+      await new Promise((resolve) => setTimeout(resolve, attempt * 15_000));
+    }
+  }
+}
+
+/** An error's own words, or its whole value when it has none, so that an empty message hides nothing. */
+function describe(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  try {
+    return JSON.stringify(error) ?? String(error);
+  } catch {
+    return String(error);
+  }
+}
+
 async function main(): Promise<number> {
   const { vsix, out, only } = options(process.argv.slice(2));
   withoutRust();
-  const vscodeExecutable = process.env.E2E_VSCODE?.trim() || await downloadAndUnzipVSCode(process.env.TRUST_VSCODE_TEST_VERSION?.trim() || "stable");
+  const vscodeExecutable = process.env.E2E_VSCODE?.trim() || await downloadVSCode(process.env.TRUST_VSCODE_TEST_VERSION?.trim() || "stable");
   // Short paths: a project's default control endpoint and the window's sockets live under them.
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "trust-acc-"));
   const extensions = path.join(scratch, "ext");
@@ -271,7 +295,7 @@ async function main(): Promise<number> {
   return failed.length ? 1 : 0;
 }
 
-main().then((code) => process.exit(code), (error: Error) => {
-  console.error(`acceptance: ${error.message}`);
+main().then((code) => process.exit(code), (error: unknown) => {
+  console.error(`acceptance: ${describe(error)}`);
   process.exit(2);
 });
