@@ -157,6 +157,15 @@ pub(super) fn declares_noinit(var_decl: &SyntaxNode) -> bool {
         .any(|key| trust_hir::attributes::declares_attribute(var_decl, key))
 }
 
+/// Whether the declaration `var_decl` of the POU `pou` starts with its instance's path: marked
+/// `{attribute 'instance-path'}` and `noinit` in a POU marked `{attribute 'reflection'}`, the three
+/// the vendor requires together (specification 10 §4.8).
+pub(super) fn declares_instance_path(pou: &SyntaxNode, var_decl: &SyntaxNode) -> bool {
+    declares_noinit(var_decl)
+        && trust_hir::attributes::declares_attribute(var_decl, "instance-path")
+        && trust_hir::attributes::declares_attribute(pou, "reflection")
+}
+
 pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, CompileError> {
     let mut names = Vec::new();
     for child in var_decl.children() {

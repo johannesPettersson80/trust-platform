@@ -4705,6 +4705,7 @@ pub trust_runtime::program_model::VarDef::constant: bool
 pub trust_runtime::program_model::VarDef::external: bool
 pub trust_runtime::program_model::VarDef::in_out: bool
 pub trust_runtime::program_model::VarDef::initializer: core::option::Option<trust_runtime_core::program_model::expr::Expr>
+pub trust_runtime::program_model::VarDef::instance_path: bool
 pub trust_runtime::program_model::VarDef::name: smol_str::SmolStr
 pub trust_runtime::program_model::VarDef::noinit: bool
 pub trust_runtime::program_model::VarDef::retain: trust_runtime_core::retain::RetainPolicy

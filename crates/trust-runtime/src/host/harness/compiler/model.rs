@@ -131,6 +131,8 @@ pub(crate) struct ProgramVars {
 }
 
 pub(crate) struct ConfigModel {
+    /// The `CONFIGURATION`'s name; `None` for a project that declares none.
+    pub(crate) name: Option<SmolStr>,
     pub(crate) resource_name: Option<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) tasks: Vec<crate::task::TaskConfig>,

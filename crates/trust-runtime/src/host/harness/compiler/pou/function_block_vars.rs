@@ -32,6 +32,7 @@ fn lower_function_block_var_blocks(
         {
             let parts = parse_var_decl(&var_decl)?;
             let noinit = declares_noinit(&var_decl);
+            let instance_path = declares_instance_path(node, &var_decl);
             reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
@@ -124,6 +125,7 @@ fn lower_function_block_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             noinit,
+                            instance_path,
                         });
                     }
                 }
@@ -140,6 +142,7 @@ fn lower_function_block_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             noinit,
+                            instance_path,
                         });
                     }
                 }
@@ -156,6 +159,7 @@ fn lower_function_block_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             noinit: false,
+                            instance_path: false,
                         });
                     }
                 }

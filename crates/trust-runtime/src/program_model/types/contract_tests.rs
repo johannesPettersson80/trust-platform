@@ -27,6 +27,7 @@ fn variable(name: &str) -> VarDef {
         constant: true,
         address: Some(IoAddress::parse("%IW2").expect("test address")),
         noinit: false,
+        instance_path: false,
     }
 }
 
@@ -107,6 +108,7 @@ fn variable_flags_are_not_inferred_from_each_other() {
         constant: false,
         address: None,
         noinit: false,
+        instance_path: false,
     };
     let cloned = variable.clone();
 

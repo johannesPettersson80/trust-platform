@@ -51,8 +51,23 @@ pub(super) fn starting_memory(
                 .flat_map(|configuration| configuration.globals.iter()),
         )
         .collect();
+    // An `instance-path` variable's path begins with the names of the configuration and of its
+    // resource, as CODESYS's begins with the device's and the application's (specification 10
+    // §4.8).
+    let prefix = lowered
+        .configuration
+        .iter()
+        .flat_map(|configuration| {
+            configuration
+                .name
+                .iter()
+                .chain(&configuration.resource_name)
+        })
+        .map(|name| format!("{name}."))
+        .collect();
     let mut start = Start {
         constants: VariableStorage::new(),
+        prefix: Some(prefix),
     };
     // The constants first, so that the initial values after them may name them.
     for global in declared.iter().filter(|global| global.constant) {
@@ -125,11 +140,18 @@ pub(super) fn starting_memory(
         let p_offset = field_offset(&model.area_p, &name)? as usize;
         let r_offset = field_offset(&model.area_r, &name).map_or(0, |offset| offset as usize);
         let def = model.program_types[program].def;
-        let variables: Vec<(SmolStr, TypeId, Option<Expr>)> = def
+        let variables: Vec<(SmolStr, TypeId, Option<Expr>, bool)> = def
             .vars
             .iter()
             .filter(|var| !var.external)
-            .map(|var| (var.name.clone(), var.type_id, var.initializer.clone()))
+            .map(|var| {
+                (
+                    var.name.clone(),
+                    var.type_id,
+                    var.initializer.clone(),
+                    var.instance_path,
+                )
+            })
             // Its methods' `VAR_STAT` variables, members of hidden names (`model::program_type`).
             .chain(def.methods.iter().flat_map(|method| {
                 method.static_locals.iter().map(|local| {
@@ -137,11 +159,12 @@ pub(super) fn starting_memory(
                         super::types::method_static_name(&def.name, &method.name, &local.name),
                         local.type_id,
                         local.initializer.clone(),
+                        false,
                     )
                 })
             }))
             .collect();
-        for (variable, type_id, initializer) in variables {
+        for (variable, type_id, initializer, instance_path) in variables {
             let Some((member, in_retain)) = model.program_types[program].member(&variable) else {
                 continue;
             };
@@ -151,6 +174,10 @@ pub(super) fn starting_memory(
             } else {
                 (&mut instances, p_offset + place)
             };
+            if instance_path {
+                start.instance_path(model, bytes, offset, ty, &name, &variable)?;
+                continue;
+            }
             let path = format!("{name}.{variable}");
             start.write(
                 model,
@@ -309,6 +336,10 @@ fn field_offset(layout: &AreaLayout, name: &str) -> Result<u32, NativeError> {
 /// The values the build has worked out: the constants an initial value may name.
 struct Start {
     constants: VariableStorage,
+    /// What an `instance-path` variable's path begins with: the configuration's and the resource's
+    /// names, each with a dot, where the project declares them (specification 10 §4.8); `None` for
+    /// an instance a call creates, which has no place in the configuration.
+    prefix: Option<String>,
 }
 
 /// The bytes, at the program's layout, of a frame variable of `ty`, named `name`, that holds a
@@ -327,6 +358,7 @@ pub(super) fn instance_bytes(
 ) -> Result<Vec<u8>, NativeError> {
     let start = Start {
         constants: model.builder.storage().clone(),
+        prefix: None,
     };
     let mut bytes = vec![0u8; model.types.info(ty).size as usize];
     start.write(model, &mut bytes, 0, ty, type_id, initializer, name)?;
@@ -642,17 +674,24 @@ impl Start {
         if class != 0 {
             put(bytes, offset, &class.to_le_bytes())?;
         }
-        let declared: Vec<(SmolStr, TypeId, Option<Expr>)> = owner
+        let declared: Vec<(SmolStr, TypeId, Option<Expr>, bool)> = owner
             .params()
             .iter()
             .filter(|param| param.direction != ParamDirection::InOut)
-            .map(|param| (param.name.clone(), param.type_id, param.default.clone()))
+            .map(|param| (param.name.clone(), param.type_id, param.default.clone(), false))
             .chain(
                 owner
                     .vars()
                     .iter()
                     .filter(|var| !var.external && !var.in_out)
-                    .map(|var| (var.name.clone(), var.type_id, var.initializer.clone())),
+                    .map(|var| {
+                        (
+                            var.name.clone(),
+                            var.type_id,
+                            var.initializer.clone(),
+                            var.instance_path,
+                        )
+                    }),
             )
             // Its methods' `VAR_STAT` variables, members of hidden names (`Types::own_members`).
             .chain(owner.methods().iter().flat_map(|method| {
@@ -661,11 +700,12 @@ impl Start {
                         super::types::method_static_name(owner.name(), &method.name, &local.name),
                         local.type_id,
                         local.initializer.clone(),
+                        false,
                     )
                 })
             }))
             .collect();
-        for (variable, type_id, initializer) in declared {
+        for (variable, type_id, initializer, instance_path) in declared {
             // A variable the instance does not hold (a `VAR_TEMP`) lies in a frame.
             let Some(member) = members.iter().find(|member| {
                 member.via.is_empty() && member.name.eq_ignore_ascii_case(&variable)
@@ -673,6 +713,10 @@ impl Start {
                 continue;
             };
             let (place, member_ty) = (member.offset as usize, member.ty);
+            if instance_path {
+                self.instance_path(model, bytes, offset + place, member_ty, name, &variable)?;
+                continue;
+            }
             let value = given
                 .iter()
                 .find(|(given, _)| given.eq_ignore_ascii_case(&variable))
@@ -690,6 +734,36 @@ impl Start {
             )?;
         }
         Ok(())
+    }
+
+    /// Writes the path of the instance `instance` into its variable `variable`, of the program's
+    /// type `ty`, at `offset` of `bytes`, as an `instance-path` variable starts (specification 10
+    /// §4.8): after the configuration's and the resource's names, cut to the variable's length;
+    /// nothing for an instance a call creates, which has no place in the configuration.
+    ///
+    /// # Errors
+    ///
+    /// [`NativeError::Compile`] for a variable that is no `STRING`.
+    fn instance_path(
+        &self,
+        model: &mut Model<'_>,
+        bytes: &mut [u8],
+        offset: usize,
+        ty: Ty,
+        instance: &str,
+        variable: &str,
+    ) -> Result<(), NativeError> {
+        let Some(prefix) = &self.prefix else {
+            return Ok(());
+        };
+        if !matches!(model.types.info(ty).kind, Kind::Str(_)) {
+            return Err(NativeError::Compile(format!(
+                "{instance}.{variable} is marked instance-path, which takes a STRING (specification \
+                 10 §4.8)"
+            )));
+        }
+        let path = Value::String(SmolStr::new(format!("{prefix}{instance}")));
+        encode(model, &path, ty, bytes, offset)
     }
 
     /// Writes the variables of a standard function block's instance at `offset`: zero, which is

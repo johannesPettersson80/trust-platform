@@ -119,6 +119,7 @@ fn lower_function_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             noinit: false,
+                            instance_path: false,
                         });
                     }
                 }
@@ -135,6 +136,7 @@ fn lower_function_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             noinit,
+                            instance_path: false,
                         });
                     }
                 }

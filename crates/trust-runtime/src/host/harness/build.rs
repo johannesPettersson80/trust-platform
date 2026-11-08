@@ -541,6 +541,7 @@ impl LoweredApplication {
                     return Err(CompileError::new("missing PROGRAM declaration"));
                 }
                 super::compiler::ConfigModel {
+                    name: None,
                     resource_name: None,
                     globals: Vec::new(),
                     tasks: Vec::new(),

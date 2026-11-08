@@ -51,6 +51,9 @@ pub struct VarDef {
     /// `{attribute 'noinit'}` on the line above its declaration: a restart gives the variable back
     /// the value it held (specification 10 §4.8).
     pub noinit: bool,
+    /// `{attribute 'instance-path'}` with `noinit` on a variable of a POU marked
+    /// `{attribute 'reflection'}`: it starts with the path of its instance (specification 10 §4.8).
+    pub instance_path: bool,
 }
 
 /// Function definition (used by tests and runtime).

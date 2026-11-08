@@ -1649,6 +1649,30 @@ block's or class's `VAR`, `VAR_STAT`, input or output:
   each call whatever their attribute, as truST never leaves a value from an
   earlier call on the stack.
 
+A `STRING` variable of a program, a function block or a class marked
+`{attribute 'instance-path'}` and `{attribute 'noinit'}`, in a POU marked
+`{attribute 'reflection'}`, starts with the path of the instance it belongs to,
+as CODESYS initializes it with "the device tree path of the POU which it
+belongs to" (CODESYS help, "Attribute: instance-path"; the vendor requires the
+three attributes together, and without one of them the variable starts as
+declared). Under every profile, as for `noinit`:
+- the path names the instance as the program reaches it: the program
+  instance's or the global's name, then each member's name and an element's
+  subscripts (`Cell.pumps[2]`, `Cell.outer.inner`, `GVL.motor`), in the
+  declarations' spelling. The names of the configuration and of its resource
+  come first where the project declares them, as CODESYS's path begins with the
+  device's and the application's (`Plant.Line1.Cell.pumps[2]`). An
+  instance-path variable of a program holds the program instance's path;
+- a path longer than the variable is cut at its length, as an assignment cuts a
+  longer string;
+- the path is the variable's starting value (specification 44 §7.4), so a
+  restart keeps it, as `noinit` keeps any value, and an online change carries
+  it with the rest;
+- an instance that a function's or a method's own variable holds, which each
+  call creates again, has no place in the configuration, so its variable starts
+  as declared;
+- a marked variable of another type is refused at build.
+
 Restart is prepared against isolated storage before commit. A preparation,
 initializer, retained-value migration, or store-load failure leaves the live
 storage, instances, cycle count, fault state, debug mutations, and executable
