@@ -31,6 +31,7 @@ fn lower_program_var_blocks(
         {
             let parts = parse_var_decl(&var_decl)?;
             let noinit = declares_noinit(&var_decl);
+            let instance_path = declares_instance_path(program, &var_decl);
             reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
@@ -94,6 +95,7 @@ fn lower_program_var_blocks(
                             address: address_info.clone(),
                             init_args: init_args.clone(),
                             noinit: false,
+                            instance_path: false,
                         });
                     }
                 }
@@ -131,6 +133,7 @@ fn lower_program_var_blocks(
                             address: address_info.clone(),
                             init_args: init_args.clone(),
                             noinit,
+                            instance_path,
                         });
                     }
                 }

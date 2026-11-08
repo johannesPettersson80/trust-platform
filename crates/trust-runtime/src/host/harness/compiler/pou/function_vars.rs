@@ -121,6 +121,7 @@ fn lower_function_var_blocks(
                             address: address_info.clone(),
                             init_args: init_args.clone(),
                             noinit: false,
+                            instance_path: false,
                         });
                     }
                 }
@@ -138,6 +139,7 @@ fn lower_function_var_blocks(
                             address: address_info.clone(),
                             init_args: init_args.clone(),
                             noinit,
+                            instance_path: false,
                         });
                     }
                 }

@@ -1080,7 +1080,8 @@ to a frame variable (IEC
 ### 7.4 Starting memory
 
 `INIT` holds the bytes of areas `M`, `G`, `R` and `P` after every initializer the build can compute
-(§6.7); a cold-init entry computes the rest. The image builder computes `INIT` by the same layout
+(§6.7); a cold-init entry computes the rest. An `instance-path` variable holds its instance's path
+there (specification 10 §4.8). The image builder computes `INIT` by the same layout
 rules and writes it once; a device copies it with one `memcpy` per area. Its size is the areas'
 size, so a program with large zero-initialized arrays still has an `INIT` of that size; a later
 version may add run-length coding, recorded in the section flags.

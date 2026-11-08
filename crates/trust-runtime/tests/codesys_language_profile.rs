@@ -5,6 +5,8 @@ use trust_runtime::RestartMode;
 
 #[path = "codesys_language_profile/call_after_init.rs"]
 mod call_after_init;
+#[path = "codesys_language_profile/instance_path.rs"]
+mod instance_path;
 #[path = "codesys_language_profile/noinit.rs"]
 mod noinit;
 
