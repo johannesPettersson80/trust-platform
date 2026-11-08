@@ -176,6 +176,12 @@ workspace indexing.
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
 | Expression | Variables, literals, standard functions/FBs with IEC docs (IEC 61131-3 Ed.3, Tables 22-36, 43-46) |
 
+Completion does not offer a declaration that CODESYS hides from its Input Assistant and its "List components"
+(the vendor's help for `{attribute 'hide'}`): a variable, POU, method, property or action with `{attribute 'hide'}`
+before it (a variable's line, a POU's first line), nor the `VAR` locals of a POU with
+`{attribute 'hide_all_locals'}`. Code may still name them, as the vendor's help says ("without restricting the
+access"), and every other service treats them as before.
+
 #### 6.2 Diagnostics
 
 Diagnostics are delivered via both push (`textDocument/publishDiagnostics`) and pull (`textDocument/diagnostic`, `workspace/diagnostic`) APIs. Pull diagnostics return stable `resultId` values derived from content + diagnostic hashes, allowing unchanged responses when the client supplies the previous ID. On configuration/profile changes or workspace file updates, the server requests a refresh (`workspace/diagnostic/refresh`) when supported.
