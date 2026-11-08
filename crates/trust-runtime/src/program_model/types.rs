@@ -33,6 +33,14 @@ pub struct Param {
     pub retain: crate::RetainPolicy,
 }
 
+/// An argument an instance's declaration gives its `FB_init` (specification 10 §4.8): the name of
+/// the input when the argument names it, and the value.
+#[derive(Debug, Clone)]
+pub struct InitArg {
+    pub name: Option<SmolStr>,
+    pub value: expr::Expr,
+}
+
 /// Variable declaration with optional initializer.
 #[derive(Debug, Clone)]
 pub struct VarDef {
@@ -45,6 +53,8 @@ pub struct VarDef {
     pub in_out: bool,
     pub constant: bool,
     pub address: Option<IoAddress>,
+    /// The `FB_init` arguments of an instance's declaration, `fb : FB_X(5)`.
+    pub init_args: Vec<InitArg>,
 }
 
 /// Function definition (used by tests and runtime).

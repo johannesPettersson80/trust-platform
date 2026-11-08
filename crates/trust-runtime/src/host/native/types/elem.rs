@@ -36,7 +36,7 @@ pub(in crate::native) enum Elem {
 
 impl Elem {
     /// The elementary type of a registry type, when it is one.
-    pub(super) fn of(ty: &Type) -> Option<Self> {
+    pub(in crate::native) fn of(ty: &Type) -> Option<Self> {
         Some(match ty {
             Type::Bool => Self::Bool,
             Type::SInt => Self::SInt,

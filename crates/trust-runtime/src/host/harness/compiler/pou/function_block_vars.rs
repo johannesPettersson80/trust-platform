@@ -42,6 +42,7 @@ fn lower_function_block_var_blocks(
                     })
                 })
                 .transpose()?;
+            let init_args = lower_init_args(&parts, ctx)?;
             if qualifiers.constant
                 && matches!(
                     kind,
@@ -119,6 +120,7 @@ fn lower_function_block_var_blocks(
                             in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            init_args: init_args.clone(),
                         });
                     }
                 }
@@ -134,6 +136,7 @@ fn lower_function_block_var_blocks(
                             in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            init_args: init_args.clone(),
                         });
                     }
                 }
@@ -149,6 +152,7 @@ fn lower_function_block_var_blocks(
                             in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            init_args: init_args.clone(),
                         });
                     }
                 }
