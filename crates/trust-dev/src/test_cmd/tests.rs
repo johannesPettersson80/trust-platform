@@ -703,10 +703,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 0,
                 line: 4,
                 source_line: Some("ASSERT_TRUE(TRUE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Passed,
             message: None,
             duration_ms: 1,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -716,10 +720,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 10,
                 line: 12,
                 source_line: Some("ASSERT_EQUAL(INT#2, X);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Failed,
             message: Some("ASSERT_EQUAL failed: expected <2> & got 3".to_string()),
             duration_ms: 2,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -729,10 +737,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 20,
                 line: 20,
                 source_line: Some("ASSERT_TRUE(FALSE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Error,
             message: Some("runtime <panic>".to_string()),
             duration_ms: 3,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
     ]
 }
@@ -789,6 +801,7 @@ fn list_output_contract() {
             byte_offset: 0,
             line: 1,
             source_line: None,
+            cycles: None,
         },
         DiscoveredTest {
             kind: TestKind::FunctionBlock,
@@ -797,6 +810,7 @@ fn list_output_contract() {
             byte_offset: 12,
             line: 24,
             source_line: None,
+            cycles: None,
         },
     ];
     let text = render_list_output(Path::new("/tmp/project"), &tests, 2, None);
@@ -1380,9 +1394,13 @@ fn a_device_runs_the_tests_compiled_for_it() {
     let on_device = TestRunner::Device {
         port: "tcp://127.0.0.1:5555".into(),
         target: "esp32c6".into(),
+        token: None,
     };
-    assert_eq!(TestRunner::of(device()), on_device);
-    assert_eq!(TestRunner::of(None), TestRunner::Native);
+    assert_eq!(TestRunner::of(device(), None), on_device);
+    assert_eq!(TestRunner::of(None, None), TestRunner::Native);
+    // Specification 34 PORT-06: the device's token is never printed, not even in a runner's debug text.
+    let with_token = format!("{:?}", TestRunner::of(device(), Some("s3cret".into())));
+    assert!(!with_token.contains("s3cret"), "{with_token}");
 }
 
 /// IEC 61131-3 §6.1.2: an identifier is a letter or an underline followed by letters, digits

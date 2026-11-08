@@ -45,6 +45,7 @@ use super::hold::{CompiledHold, HoldHandle};
 use super::process_io::ProcessIo;
 use super::retain::{CycleRetain, RetainConfig, RetainStore};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::sources::fault_at;
 use crate::metrics::{MemoryFigure, ProgramMemory};
 use crate::status::IoDriverStatus;
 
@@ -607,10 +608,14 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
                     .map_err(|error| StepRefusal::read(text, &error))
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let error_at = error.as_ref().and_then(|_| fault_at(&self.program));
+        let assertion = error.as_ref().and_then(|_| self.program.failed_assertion());
         Ok(StepOutcome {
             values,
             direct,
             error,
+            error_at,
+            assertion,
         })
     }
 

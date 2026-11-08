@@ -60,9 +60,10 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 2. Run tests again.
 3. Read failure details:
    - test name (`TEST_PROGRAM::...`)
-   - file and line
+   - file and line of the assertion that failed, also when it lies in a function block the test
+     calls
    - `reason` (`ASSERT_EQUAL failed ...`)
-   - `source` line (assertion that failed)
+   - `source` line (the assertion that failed)
 4. Fix code.
 5. Re-run until green.
 
