@@ -363,7 +363,8 @@ fn member_with_flags(
     ) {
         return Ok(None);
     }
-    for detail in types.members(&record)? {
+    // A property's alias reads and writes the member its GET returns (specification 44 §5.8).
+    for detail in types.members_and_aliases(&record)? {
         let member_name = types.string(detail.name)?;
         if !member_name.starts_with("__") && member_name.eq_ignore_ascii_case(name) {
             let at = Located {

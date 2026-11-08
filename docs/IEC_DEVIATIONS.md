@@ -699,6 +699,10 @@ re-check them against this rule when touched.
   into closed enums, cross-enum assignment, and unknown member references
   keep their diagnostics; generic `ANY` matching still does not treat an
   enum as an integer actual beyond this base conversion.
+- Amended 8 November 2026: an enumeration declared `{attribute 'strict'}`
+  keeps CODESYS's strict programming rules (specification 02 §3.1):
+  arithmetic with its values is rejected, as CODESYS rejects it, while
+  reading a value as its base integer stays valid, as CODESYS allows it.
 
 ## 2026-10-28 - In-out string binding across declared capacities
 

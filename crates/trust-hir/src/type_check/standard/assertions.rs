@@ -70,6 +70,19 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             })
     }
 
+    /// `TEST_FINISHED()` (specification 07, "Non-IEC Extensions (MP-014)"; specification 22, "Multi-cycle tests"): no inputs, no
+    /// result.
+    pub(in crate::type_check) fn infer_test_finished_call(&mut self, node: &SyntaxNode) -> TypeId {
+        let call = self.builtin_call(node, Vec::new());
+        call.check_formal_arg_count(self, node, 0);
+        if call.arg_count() != 0 {
+            return self
+                .checker
+                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
+        }
+        TypeId::VOID
+    }
+
     fn infer_assert_bool_call(&mut self, node: &SyntaxNode, name: &str) -> TypeId {
         let params = vec![builtin_param("IN", ParamDirection::In)];
         let call = self.builtin_call(node, params);

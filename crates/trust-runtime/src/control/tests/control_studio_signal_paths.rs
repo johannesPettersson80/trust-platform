@@ -96,3 +96,57 @@ fn an_enumeration_needs_its_own_type_name_and_a_missing_member_is_refused() {
         assert!(!response.ok, "{symbol} as {iec_type} must be refused");
     }
 }
+
+const GVL_SIGNALS_SOURCE: &str = r#"
+NAMESPACE GVL_IO
+VAR_GLOBAL
+    lrLevel : LREAL;
+END_VAR
+END_NAMESPACE
+
+VAR_GLOBAL
+    gSetpoint : LREAL := 2.5;
+END_VAR
+
+PROGRAM Main
+VAR
+    Ticks : LREAL;
+END_VAR
+    Ticks := Ticks + 1.0;
+    GVL_IO.lrLevel := Ticks * 0.5;
+END_PROGRAM
+"#;
+
+/// Protocol annex E2.1 (the CODESYS toolkit's S9, its reads): a symbol's root is a global variable
+/// of the loaded program, so a global of a namespace, a CODESYS GVL member, is read by its qualified
+/// name (`GVL_IO.lrLevel`), and a global scalar by its own name (`gSetpoint`). Worked by hand: after
+/// two scans `Ticks` is 2, so `GVL_IO.lrLevel` is 1.0, and `gSetpoint` keeps its 2.5. Catches the
+/// check that took only a global or a program instance as a path's first name, which refused
+/// `GVL_IO` as "program instance not found", and the one that wanted a member after it.
+#[test]
+fn control_signals_read_a_global_of_a_namespace_and_a_global_scalar() {
+    let mut state = control_test_state(GVL_SIGNALS_SOURCE);
+    let mut harness = TestHarness::from_source(GVL_SIGNALS_SOURCE).unwrap();
+    state.debug = studio_debug(&mut harness);
+    harness.cycle();
+    let bindings = json!([
+        {"id": "gvl", "symbol": "GVL_IO.lrLevel", "iec_type": "LREAL"},
+        {"id": "global", "symbol": "gSetpoint", "iec_type": "LREAL"}
+    ]);
+    let first = handle_request_value(
+        json!({"id": 8723, "type": "control.signals.inspect", "params": {"loop_revision": "gvl", "bindings": bindings}}),
+        &state,
+        None,
+    );
+    assert!(first.ok, "a GVL member and a global are selectable: {:?}", first.error);
+    harness.advance_time(crate::value::Duration::from_millis(20));
+    assert!(harness.cycle().errors.is_empty());
+    let second = handle_request_value(
+        json!({"id": 8724, "type": "control.signals.inspect", "params": {"loop_revision": "gvl", "bindings": bindings}}),
+        &state,
+        None,
+    );
+    let second = second.result.unwrap();
+    assert_eq!(second["available"], true, "{second}");
+    assert_eq!(second["values"], json!([1.0, 2.5]));
+}

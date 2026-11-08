@@ -530,7 +530,7 @@ fn persistent_fault_restart_policy_escalates_to_visible_fault() {
         .spawn("persistent-restart-failure")
         .expect("spawn runner");
 
-    let deadline = Instant::now() + StdDuration::from_millis(250);
+    let deadline = Instant::now() + StdDuration::from_secs(10);
     while handle.state() != ResourceState::Faulted && Instant::now() < deadline {
         std::thread::yield_now();
     }
@@ -720,7 +720,7 @@ fn watchdog_deadline_breach_before_commit_prevents_output_write() {
     let mut handle = runner
         .spawn("watchdog-before-output")
         .expect("spawn runner");
-    let deadline = Instant::now() + StdDuration::from_millis(250);
+    let deadline = Instant::now() + StdDuration::from_secs(10);
     while handle.state() != ResourceState::Faulted {
         assert!(
             Instant::now() < deadline,

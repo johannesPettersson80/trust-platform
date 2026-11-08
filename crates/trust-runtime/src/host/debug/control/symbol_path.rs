@@ -18,31 +18,36 @@ pub(crate) struct ResolvedSymbol {
     pub(crate) value: Value,
 }
 
-/// The variable `symbol` names in `program`: a path of two or more names whose first is a global or
-/// a program instance and whose later names are members, a derived block's inherited members
-/// included, or fields below them.
+/// The variable `symbol` names in `program` (protocol annex E2.1): a dotted path whose root is a
+/// global variable of the program, a program instance or a global, a global of a namespace by its
+/// qualified name (`GVL_IO.lrLT101_Level`) among them, and whose later names are members, a
+/// derived block's inherited members included, or fields below them. A program instance alone
+/// holds no value and is refused.
 pub(crate) fn resolve(program: &dyn ProgramRead, symbol: &str) -> Result<ResolvedSymbol, String> {
-    let mut parts = symbol.split('.');
-    let root = parts.next().unwrap_or_default();
-    if root.is_empty() {
+    if symbol.is_empty() {
         return Err("empty symbol".into());
     }
-    if !program_facts::is_global_or_program(&program.program_image(), root) {
-        return Err("program instance not found".into());
-    }
-    let mut saw_member = false;
-    for part in parts {
-        if part.is_empty() {
-            return Err(format!("symbol {symbol} not found"));
-        }
-        saw_member = true;
-    }
-    if !saw_member {
-        return Err("symbol must name an instance member".into());
-    }
     let not_found = || format!("symbol {symbol} not found");
-    let at = program.locate(symbol).map_err(|_| not_found())?;
-    let value = program.read_at(&at).map_err(|_| not_found())?;
+    if symbol.split('.').any(str::is_empty) {
+        return Err(not_found());
+    }
+    let at = program.locate(symbol).map_err(|_| {
+        let root = symbol.split('.').next().unwrap_or_default();
+        if symbol.contains('.')
+            || program_facts::is_global_or_program(&program.program_image(), root)
+        {
+            not_found()
+        } else {
+            "program instance not found".into()
+        }
+    })?;
+    let value = program.read_at(&at).map_err(|_| {
+        if symbol.contains('.') {
+            not_found()
+        } else {
+            "symbol must name an instance member".to_string()
+        }
+    })?;
     Ok(ResolvedSymbol { at, value })
 }
 

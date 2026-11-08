@@ -13,7 +13,7 @@ use smol_str::SmolStr;
 use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::bundle_builder::{collect_project_source_files, resolve_sources_root};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::test_discovery::{DiscoveredTest, TestKind};
+use trust_runtime::test_discovery::{DiscoveredTest, TestCycles, TestKind};
 
 use crate::cli::TestOutput;
 use crate::style;
@@ -23,10 +23,15 @@ include!("test_cmd/command.rs");
 include!("test_cmd/output.rs");
 include!("test_cmd/discovery.rs");
 include!("test_cmd/native.rs");
+include!("test_cmd/cycles.rs");
 
 #[cfg(test)]
 #[path = "test_cmd/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "test_cmd/cycles_tests.rs"]
+mod cycles_tests;
 
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,

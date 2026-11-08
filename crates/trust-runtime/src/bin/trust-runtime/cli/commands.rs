@@ -149,6 +149,10 @@ pub enum Command {
         /// Enable CI-friendly behavior and machine-readable output.
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
+        /// Emit machine-readable JSON: the build report, or the sources' diagnostics when they
+        /// have errors.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
         /// Compile the project into a program image for this target, in the project's build
         /// folder, instead of this computer's program image (specification 44 §4.1): a device
         /// (esp32c6, stm32u5a9), a CPU (x86_64, aarch64, riscv32imac, thumbv8m), a Rust target

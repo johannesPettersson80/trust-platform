@@ -3053,7 +3053,9 @@ pub fn trust_runtime::boundary::BoundaryEntry::is_ok(&self) -> bool
 pub fn trust_runtime::boundary::BoundaryEntry::ok(value: trust_runtime_core::value::types::Value) -> Self
 pub struct trust_runtime::harness::CompileError
 impl trust_runtime::harness::CompileError
+pub fn trust_runtime::harness::CompileError::diagnostics(&self) -> &[trust_runtime::harness::SourceDiagnostic]
 pub fn trust_runtime::harness::CompileError::new(message: impl core::convert::Into<alloc::string::String>) -> Self
+pub fn trust_runtime::harness::CompileError::of_diagnostics(message: impl core::convert::Into<alloc::string::String>, diagnostics: alloc::vec::Vec<trust_runtime::harness::SourceDiagnostic>) -> Self
 impl core::error::Error for trust_runtime::harness::CompileError
 impl core::fmt::Display for trust_runtime::harness::CompileError
 pub fn trust_runtime::harness::CompileError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -3113,6 +3115,15 @@ pub struct trust_runtime::harness::HarnessWatchSnapshot
 pub trust_runtime::harness::HarnessWatchSnapshot::cycle_count: u64
 pub trust_runtime::harness::HarnessWatchSnapshot::elapsed_ms: i64
 pub trust_runtime::harness::HarnessWatchSnapshot::values: alloc::collections::btree::map::BTreeMap<alloc::string::String, trust_runtime::boundary::BoundaryEntry>
+pub struct trust_runtime::harness::SourceDiagnostic
+pub trust_runtime::harness::SourceDiagnostic::code: &'static str
+pub trust_runtime::harness::SourceDiagnostic::column: u32
+pub trust_runtime::harness::SourceDiagnostic::end_column: u32
+pub trust_runtime::harness::SourceDiagnostic::end_line: u32
+pub trust_runtime::harness::SourceDiagnostic::file: core::option::Option<alloc::string::String>
+pub trust_runtime::harness::SourceDiagnostic::line: u32
+pub trust_runtime::harness::SourceDiagnostic::message: alloc::string::String
+pub trust_runtime::harness::SourceDiagnostic::severity: &'static str
 pub struct trust_runtime::harness::SourceFile
 pub trust_runtime::harness::SourceFile::path: core::option::Option<alloc::string::String>
 pub trust_runtime::harness::SourceFile::text: alloc::string::String
@@ -3890,6 +3901,7 @@ pub trust_runtime::native::NativeError::Image(alloc::string::String)
 pub trust_runtime::native::NativeError::Module(alloc::string::String)
 pub trust_runtime::native::NativeError::Settings(alloc::string::String)
 pub trust_runtime::native::NativeError::Signing(alloc::string::String)
+pub trust_runtime::native::NativeError::Sources(trust_runtime::harness::CompileError)
 pub trust_runtime::native::NativeError::Toolchain(alloc::string::String)
 pub trust_runtime::native::NativeError::Unsupported
 pub trust_runtime::native::NativeError::Unsupported::at: alloc::string::String
@@ -3925,6 +3937,7 @@ pub fn trust_runtime::native::Toolchain::find_or_install(report: &mut dyn core::
 pub fn trust_runtime::native::Toolchain::locate() -> core::result::Result<(Self, trust_runtime::native::ToolchainSource), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::program_library(&self, target: trust_runtime_core::native::image::Target) -> core::result::Result<alloc::string::String, trust_runtime::native::NativeError>
 pub const trust_runtime::native::PROGRAM_IMAGE_FILE: &str
+pub const trust_runtime::native::TEST_FINISHED_GLOBAL: &str
 pub fn trust_runtime::native::admit_on_this_computer(image: &[u8]) -> core::result::Result<(), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::build(sources: &[trust_runtime::harness::SourceFile], options: &trust_runtime::native::Options, toolchain: &trust_runtime::native::Toolchain, work: &std::path::Path) -> core::result::Result<trust_runtime::native::Build, trust_runtime::native::NativeError>
 pub fn trust_runtime::native::build_with_tests(sources: &[trust_runtime::harness::SourceFile], tests: &[smol_str::SmolStr], options: &trust_runtime::native::Options, toolchain: &trust_runtime::native::Toolchain, work: &std::path::Path) -> core::result::Result<trust_runtime::native::Build, trust_runtime::native::NativeError>
@@ -4653,6 +4666,7 @@ pub trust_runtime::program_model::ClassDef::base: core::option::Option<smol_str:
 pub trust_runtime::program_model::ClassDef::interfaces: alloc::vec::Vec<smol_str::SmolStr>
 pub trust_runtime::program_model::ClassDef::methods: alloc::vec::Vec<trust_runtime::program_model::MethodDef>
 pub trust_runtime::program_model::ClassDef::name: smol_str::SmolStr
+pub trust_runtime::program_model::ClassDef::property_aliases: alloc::vec::Vec<trust_runtime::program_model::PropertyAlias>
 pub trust_runtime::program_model::ClassDef::using: alloc::vec::Vec<smol_str::SmolStr>
 pub trust_runtime::program_model::ClassDef::vars: alloc::vec::Vec<trust_runtime::program_model::VarDef>
 pub struct trust_runtime::program_model::EdgeInput
@@ -4666,6 +4680,7 @@ pub trust_runtime::program_model::FunctionBlockDef::interfaces: alloc::vec::Vec<
 pub trust_runtime::program_model::FunctionBlockDef::methods: alloc::vec::Vec<trust_runtime::program_model::MethodDef>
 pub trust_runtime::program_model::FunctionBlockDef::name: smol_str::SmolStr
 pub trust_runtime::program_model::FunctionBlockDef::params: alloc::vec::Vec<trust_runtime::program_model::Param>
+pub trust_runtime::program_model::FunctionBlockDef::property_aliases: alloc::vec::Vec<trust_runtime::program_model::PropertyAlias>
 pub trust_runtime::program_model::FunctionBlockDef::temps: alloc::vec::Vec<trust_runtime::program_model::VarDef>
 pub trust_runtime::program_model::FunctionBlockDef::using: alloc::vec::Vec<smol_str::SmolStr>
 pub trust_runtime::program_model::FunctionBlockDef::vars: alloc::vec::Vec<trust_runtime::program_model::VarDef>
@@ -4703,6 +4718,10 @@ pub trust_runtime::program_model::Param::name: smol_str::SmolStr
 pub trust_runtime::program_model::Param::noinit: bool
 pub trust_runtime::program_model::Param::retain: trust_runtime_core::retain::RetainPolicy
 pub trust_runtime::program_model::Param::type_id: trust_hir::types::defs::TypeId
+pub struct trust_runtime::program_model::PropertyAlias
+pub trust_runtime::program_model::PropertyAlias::member: smol_str::SmolStr
+pub trust_runtime::program_model::PropertyAlias::name: smol_str::SmolStr
+pub trust_runtime::program_model::PropertyAlias::writable: bool
 pub struct trust_runtime::program_model::VarDef
 pub trust_runtime::program_model::VarDef::address: core::option::Option<trust_runtime_core::io_address::IoAddress>
 pub trust_runtime::program_model::VarDef::constant: bool

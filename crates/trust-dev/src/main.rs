@@ -107,6 +107,10 @@ enum Command {
         /// The device's target, as `trust-runtime build --target` names it: `esp32c6`.
         #[arg(long, requires = "device")]
         target: Option<String>,
+        /// The device's control token, when its settings set one; else `TRUST_CTL_TOKEN`, else
+        /// the project's `runtime.control.auth_token` (specification 11 §6.8.1).
+        #[arg(long, requires = "device")]
+        token: Option<String>,
     },
 }
 
@@ -173,8 +177,10 @@ fn run() -> anyhow::Result<()> {
             ci,
             device,
             target,
+            token,
         } => {
-            let runner = test::TestRunner::of(device.zip(target));
+            let token = token.or_else(trust_runtime::control::endpoint::control_token_from_env);
+            let runner = test::TestRunner::of(device.zip(target), token);
             test::run_test(project, filter, list, timeout, output, ci, runner)
         }
     }
