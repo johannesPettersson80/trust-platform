@@ -214,7 +214,10 @@ once over the device's control link, and each selected test runs by one
 programs are instances that no task runs, the background programs' included
 (specification 44 §5.6), so a start of the device, at a reset for example, runs
 only the project's own programs, and a test runs only when it is invoked. The
-device's limits are its own, its statement budget among them. A failed assertion's error, `assertion failed: <message>`,
+device's limits are its own, its statement budget among them. The stepped scans keep one logical time across the
+tests (specification 11 §6.8.1), so each test starts where the previous test's last step was; a test's own time, which
+its timers measure and its result reports, starts there, as each test's time starts at zero on this computer.
+A failed assertion's error, `assertion failed: <message>`,
 is the test's failure with that message, and any other error is the test's
 error, as on this computer.
 

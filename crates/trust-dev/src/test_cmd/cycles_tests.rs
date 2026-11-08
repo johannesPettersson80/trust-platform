@@ -141,3 +141,130 @@ END_TEST_PROGRAM
         (TestOutcome::Passed, String::new(), None)
     );
 }
+
+/// A device behind a TCP bridge that steps as specification 11 §6.8.1 says and runs nothing: its resource state follows
+/// `restart` and `shutdown`, an install's transfer is taken whole, a cold restart after an install starts the stepped time
+/// at zero, and a step whose time is before the previous step's is refused (`time before the last step`). The finished mark
+/// reads TRUE from the sixth step after a cold restart, as in a test that finishes in its sixth cycle. Records each step's
+/// time.
+fn stepping_device() -> (String, std::sync::Arc<std::sync::Mutex<Vec<u64>>>) {
+    use std::io::{BufRead, Write as _};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind the device's bridge");
+    let port = format!(
+        "tcp://{}",
+        listener.local_addr().expect("the bridge's address")
+    );
+    let steps = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let recorded = std::sync::Arc::clone(&steps);
+    std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("the link connects");
+        let mut replies = stream.try_clone().expect("the bridge's stream");
+        let (mut state, mut last, mut installed, mut since_cold) =
+            ("stopped", None::<u64>, false, 0_u32);
+        for line in std::io::BufReader::new(stream).lines() {
+            let Ok(line) = line else { break };
+            let request: serde_json::Value = serde_json::from_str(&line).expect("a JSON request");
+            let params = &request["params"];
+            let result = match request["type"].as_str().unwrap_or_default() {
+                "status" => Ok(json!({"state": state, "version": env!("CARGO_PKG_VERSION")})),
+                "restart" => {
+                    state = "running";
+                    Ok(json!({}))
+                }
+                "shutdown" => {
+                    state = "stopped";
+                    Ok(json!({}))
+                }
+                "transfer.begin" => Ok(json!({"transfer": "t1"})),
+                "program.install" => {
+                    installed = true;
+                    Ok(json!({}))
+                }
+                "cycle.step" => {
+                    let time = params["time_ns"].as_u64().unwrap_or_default();
+                    let cold = params["restart"] == "cold";
+                    if cold && installed {
+                        installed = false;
+                        last = None;
+                    }
+                    if last.is_some_and(|last| time < last) {
+                        Err("time before the last step")
+                    } else {
+                        last = Some(time);
+                        since_cold = if cold { 1 } else { since_cold + 1 };
+                        recorded.lock().expect("the steps").push(time);
+                        Ok(json!({
+                            "errors": [],
+                            "values": {trust_runtime::native::TEST_FINISHED_GLOBAL: {"value": since_cold >= 6}},
+                        }))
+                    }
+                }
+                _ => Ok(json!({})),
+            };
+            // A device writes `id` first, and the link takes a reply by its leading `{"id"`.
+            let id = &request["id"];
+            let reply = match result {
+                Ok(result) => format!(r#"{{"id":{id},"ok":true,"result":{result}}}"#),
+                Err(error) => format!(r#"{{"id":{id},"ok":false,"error":"{error}"}}"#),
+            };
+            if writeln!(replies, "{reply}").is_err() {
+                break;
+            }
+        }
+    });
+    (port, steps)
+}
+
+/// Specification 11 §6.8.1 and specification 22 ("Multi-cycle tests"), found on the C6 on 8 November: the stepped scans
+/// keep one logical time across the tests, so after a multi-cycle test the next test starts where its last step was, not at
+/// zero. Worked by hand for a multi-cycle test that finishes in its sixth cycle of 10 ms and a single-cycle test after it:
+/// the steps run at 0, 10, 20, 30, 40 and 50 ms, and the single-cycle test's step at 50 ms; both pass, and the multi-cycle
+/// test reports its own six cycles and 50 ms. Catches the single-cycle test stepped at zero after the multi-cycle test's
+/// 50 ms, which the device refused with `time before the last step`.
+#[test]
+fn on_a_device_each_test_starts_where_the_previous_test_left_the_stepped_time() {
+    let project = trust_test_support::unique_temp_path(&format!(
+        "trust-dev-device-time-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(
+        project.join("src/tests.st"),
+        "TEST_PROGRAM Finishes\nVAR\n    Cycles : INT;\nEND_VAR\nCycles := Cycles + 1;\nIF Cycles >= 6 THEN\n    \
+         TEST_FINISHED();\nEND_IF\nEND_TEST_PROGRAM\n\nTEST_PROGRAM RunsOnce\nEND_TEST_PROGRAM\n",
+    )
+    .expect("write the tests");
+    let sources =
+        load_sources(&resolve_sources_root(&project, None).expect("sources")).expect("load");
+    let discovered = discover_tests(&sources);
+    let (port, steps) = stepping_device();
+    let results =
+        execute_native_tests_on_device(&project, &discovered, &discovered, 5, &port, "esp32c6")
+            .expect("the run on the device");
+    let _ = std::fs::remove_dir_all(&project);
+
+    let outcomes: Vec<_> = results
+        .iter()
+        .map(|result| (result.case.name.to_string(), outcome(result)))
+        .collect();
+    assert_eq!(
+        outcomes,
+        [
+            (
+                "Finishes".to_string(),
+                (TestOutcome::Passed, String::new(), Some((6, 50)))
+            ),
+            (
+                "RunsOnce".to_string(),
+                (TestOutcome::Passed, String::new(), None)
+            ),
+        ]
+    );
+    let millis: Vec<u64> = steps
+        .lock()
+        .expect("the steps")
+        .iter()
+        .map(|time| time / 1_000_000)
+        .collect();
+    assert_eq!(millis, [0, 10, 20, 30, 40, 50, 50]);
+}

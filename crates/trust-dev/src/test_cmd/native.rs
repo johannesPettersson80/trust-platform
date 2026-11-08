@@ -243,15 +243,23 @@ fn execute_native_tests_on_device(
     let _ = std::fs::remove_dir_all(&work);
     prepared.map_err(|error| anyhow::anyhow!("install the tests on the device: {error}"))?;
     let mut results = Vec::with_capacity(tests.len());
+    // The stepped scans keep one logical time across the tests (specification 11 §6.8.1), so each
+    // test starts where the previous test's last step was; a test's own time, which its timers
+    // measure and its result reports, starts there (specification 22, "Multi-cycle tests").
+    let mut stepped_ns = 0_u64;
     for case in tests {
         let started = Instant::now();
         if let Some(cycles) = case.cycles {
-            results.push(cycles_on_device(&mut link, case, cycles, timeout, started));
+            let executed = cycles_on_device(&mut link, case, cycles, timeout, started, stepped_ns);
+            if let Some(run) = executed.cycles {
+                stepped_ns = stepped_ns.saturating_add(run.time_ns);
+            }
+            results.push(executed);
             continue;
         }
         let stepped = link.call(
             "cycle.step",
-            Some(json!({"time_ns": 0, "restart": "cold", "run": test_program(case).as_str()})),
+            Some(json!({"time_ns": stepped_ns, "restart": "cold", "run": test_program(case).as_str()})),
             device_link::REPLY_WAIT,
         );
         let error = match &stepped {
@@ -294,20 +302,22 @@ fn executed_on_device(
 }
 
 /// Runs the multi-cycle test `case` on the device behind `link` (specification 22, "Multi-cycle tests"): one `cycle.step` per
-/// cycle, the first restarting the program cold at time zero and each later one at the next cycle's time, each reading the
-/// finished mark back (specification 11 §6.8.1).
+/// cycle, the first restarting the program cold at the stepped time `start_ns`, where the previous test left it, and each later
+/// one a cycle on, each reading the finished mark back (specification 11 §6.8.1). The cycles' times the result reports are the
+/// test's own, from its start.
 fn cycles_on_device(
     link: &mut trust_runtime::device_link::DeviceLink,
     case: &DiscoveredTest,
     cycles: TestCycles,
     timeout: u64,
     started: Instant,
+    start_ns: u64,
 ) -> ExecutedTest {
     use trust_runtime::device_link;
     use trust_runtime::native::TEST_FINISHED_GLOBAL;
     let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
         let mut params = json!({
-            "time_ns": time_ns,
+            "time_ns": start_ns.saturating_add(time_ns),
             "run": test_program(case).as_str(),
             "watch": [TEST_FINISHED_GLOBAL],
         });
