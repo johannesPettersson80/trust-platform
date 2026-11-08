@@ -184,15 +184,16 @@ fn restart_after_shutdown_runs_the_program_again() {
     );
 }
 
-/// Queues a write to a global the program does not declare, which the next scan refuses and the
-/// event store keeps as `write_rejected` with the scan's logical time (specification 11, the event
-/// store; specification 34 HOST-09), waits until the store holds it, and returns the logical
+/// Queues a write the next scan refuses, 40000 for the INT `Counter`, which keeps the untyped
+/// grammar and is refused at the boundary as outside the INT's range (specification 11), and which
+/// the event store keeps as `write_rejected` with the scan's logical time (specification 11, the
+/// event store; specification 34 HOST-09), waits until the store holds it, and returns the logical
 /// times of the store's events then. Requests take the numbers from `id` on.
 fn refused_write_times(runtime: &Runtime, id: u64) -> Vec<i64> {
     let queued = runtime.control_request(json!({
         "id": id,
         "type": "set",
-        "params": {"target": "global:NotDeclared", "value": "7"},
+        "params": {"target": "global:Counter", "value": "40000"},
     }));
     result_of(&queued);
     let mut times = Vec::new();

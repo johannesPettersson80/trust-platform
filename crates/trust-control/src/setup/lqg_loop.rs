@@ -203,7 +203,7 @@ fn lqg_law(
     let estimates = estimate_states(catalog, estimator)?;
     let initial: Vec<InitializedState> = estimates
         .into_iter()
-        .chain(startup_states(draft.startup_flag.as_deref()))
+        .chain(startup_states(catalog, draft.startup_flag.as_deref()))
         .collect();
     let controller = Controller {
         instance: draft.instance.clone(),

@@ -245,7 +245,10 @@ fn controller_json(
         .as_deref()
         .filter(|flag| !flag.is_empty())
     {
-        states.push(serde_json::to_value(startup_state(flag)).unwrap_or_default());
+        states.push(
+            serde_json::to_value(startup_state(flag, catalog.startup_done_value(flag)))
+                .unwrap_or_default(),
+        );
     }
     let mut block = json!({
         "hysteresisSymbol": draft.hysteresis,

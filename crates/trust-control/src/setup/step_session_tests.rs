@@ -2,6 +2,7 @@
 //! its replay, the discard of the answers after a changed one, and the finished draft with its confirmation (specification 35, B1.3).
 
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 
 use super::*;
 use crate::setup::catalog::{CompiledCatalog, CompiledController, CompiledSignal, CompiledTask};
@@ -30,6 +31,7 @@ fn catalog() -> CatalogAnswer {
             }],
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals: vec![
             signal("P1.Measure", "%IL0"),

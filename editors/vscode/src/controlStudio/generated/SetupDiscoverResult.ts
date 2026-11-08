@@ -299,6 +299,10 @@ export interface SetupFormChoices {
    */
   derivativeOn: string[];
   /**
+   * The forms a program's own law holds its settings in (`form`): parallel gains, or the standard form's times (C2, N6.8).
+   */
+  gainForms: string[];
+  /**
    * Where a kept value of a finite search starts (`start`).
    */
   keptStarts: string[];
@@ -351,6 +355,10 @@ export interface SetupFormDefaults {
    * The band convention of an ON/OFF controller the form preselects (C3): `half-band`.
    */
   bandConvention: string;
+  /**
+   * The form an own-law setup preselects (C2): `parallel`.
+   */
+  gainForm: string;
   /**
    * What an Auto/Manual signal's TRUE value means when the engineer does not choose it (B1.3): `Auto`.
    */
@@ -406,6 +414,12 @@ export interface SetupFormLabels {
    * The words of where a program's own PID law takes its derivative.
    */
   derivativeOn: {
+    [k: string]: string;
+  };
+  /**
+   * The words of the forms a program's own law holds its settings in.
+   */
+  gainForms: {
     [k: string]: string;
   };
   /**

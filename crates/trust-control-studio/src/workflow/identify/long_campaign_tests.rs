@@ -54,6 +54,7 @@ fn settled_campaign(
         loop_definition,
         expected_settling_seconds: None,
         evaluate,
+        transfer_tolerance: None,
     };
     let outcome = run_tank(state, &journal, &mut study, &request, purpose);
     assert_eq!(
@@ -517,6 +518,7 @@ fn an_unreadable_controller_mode_is_refused_before_anything_is_recorded_or_writt
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run_tank_with_sample(
         &state,
@@ -571,6 +573,7 @@ fn a_measured_output_that_leaves_its_range_keeps_the_recording_marks_it_not_qual
         loop_definition: &explicit,
         expected_settling_seconds: None,
         evaluate: &evaluate_recorded_limits,
+        transfer_tolerance: None,
     };
     let outcome = run_tank_with_sample(
         &state,

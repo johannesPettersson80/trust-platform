@@ -2,6 +2,7 @@
 //! question, and the loop the answers build is planned as the save writes it (specification 35, B1.3).
 
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 
 use super::*;
 use crate::setup::catalog::{CompiledCatalog, CompiledController, CompiledSignal, CompiledTask};
@@ -32,6 +33,7 @@ fn pump_catalog() -> CatalogAnswer {
             }],
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals: vec![
             CompiledSignal {

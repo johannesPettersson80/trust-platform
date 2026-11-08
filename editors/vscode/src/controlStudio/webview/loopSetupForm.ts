@@ -125,8 +125,9 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   const ownLawFields = (law: string): Record<string, unknown> => ({ name: value("name"), action: value("action"), law, instance: value("own.instance"),
     processVariable: rawSignal("own.processVariable"), setpoint: { symbol: value("own.setpoint") }, manipulatedVariable: rawSignal("own.manipulatedVariable"),
     mode: modeOf("own."), manualOutput: value("own.manualOutput"), proportionalGain: gainOf("own.proportionalGain"), ...startupFor(),
-    integralGain: gainOf("own.integralGain"), integralTerm: optionalText("own.integralTerm"),
-    derivativeGain: gainOf("own.derivativeGain"), derivativeState: optionalText("own.derivativeState"), derivativeOn: optionalText("own.derivativeOn") });
+    form: value("own.form"), integralGain: gainOf("own.integralGain"), resetTime: gainOf("own.resetTime"), integralTerm: optionalText("own.integralTerm"),
+    derivativeGain: gainOf("own.derivativeGain"), derivativeTime: gainOf("own.derivativeTime"), derivativeState: optionalText("own.derivativeState"),
+    derivativeOn: optionalText("own.derivativeOn") });
   /** The trajectory feedforward as the engine reads it (`TrajectoryLoopDraft`, C11): the program's PID law, the two feedforward gains, the
    * planned trajectory and the feedforward term, as typed. */
   const trajectoryDraft = (): Record<string, unknown> => ({ structure: "trajectory-feedforward", ownLaw: ownLawFields(ownLaw()),
@@ -306,6 +307,10 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (integralFields) integralFields.hidden = ownLaw() === "P";
     const derivativeFields = root.querySelector<HTMLElement>("[data-own-derivative]");
     if (derivativeFields) derivativeFields.hidden = ownLaw() !== "PID";
+    // The form chosen shows its own settings: the gains Ki and Kd, or the times Ti and Td (C2). A trajectory's law is a parallel PID.
+    const standard = value("own.form") === "standard" && structure() !== "trajectory-feedforward";
+    root.querySelectorAll<HTMLElement>("[data-own-parallel]").forEach(element => { element.hidden = standard; });
+    root.querySelectorAll<HTMLElement>("[data-own-standard]").forEach(element => { element.hidden = !standard; });
     // A trajectory feedforward's law is PID by its structure, so its law choice does not show.
     const lawChoice = root.querySelector<HTMLElement>("[data-own-law-choice]");
     if (lawChoice) lawChoice.hidden = structure() === "trajectory-feedforward";

@@ -61,6 +61,7 @@ fn catalog() -> CatalogAnswer {
             }],
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals: vec![
             signal("Main.SP", "%ML0", "LREAL"),

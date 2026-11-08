@@ -11,6 +11,18 @@ PROGRAM MainProgram
 END_PROGRAM
 "#;
 
+/// A program that declares the 1,025 globals `v0` to `v1024` and `f0` to `f1024` that the bounds of `set` and `var.force` write:
+/// the installed program refuses a target it does not resolve before anything is queued (specification 11), so the bound is
+/// reached only with targets the program has.
+fn declared_targets_source() -> String {
+    let mut source = String::from("VAR_GLOBAL\n");
+    for index in 0..=1_024 {
+        source.push_str(&format!("    v{index} : LINT;\n    f{index} : LINT;\n"));
+    }
+    source.push_str("END_VAR\nPROGRAM MainProgram\nEND_PROGRAM\n");
+    source
+}
+
 /// A program that binds `%MW0`, so a scan applies the queued `io.write`s to its image.
 const QUEUE_BOUNDS_IMAGE_SOURCE: &str = r#"
 VAR_GLOBAL
@@ -135,7 +147,7 @@ fn io_force_queue_refuses_a_new_address_past_1024_and_replaces_a_forced_one() {
 #[test]
 fn set_queue_refuses_a_new_target_past_1024_and_replaces_a_queued_one() {
     use crate::value::Value;
-    let state = control_test_state(QUEUE_BOUNDS_SOURCE);
+    let state = control_test_state(&declared_targets_source());
     for index in 0..1_024 {
         let response = queue_bounds_request(
             &state,
@@ -189,7 +201,7 @@ fn set_queue_refuses_a_new_target_past_1024_and_replaces_a_queued_one() {
 #[test]
 fn var_force_queue_refuses_a_new_target_past_1024_and_replaces_a_forced_one() {
     use crate::value::Value;
-    let state = control_test_state(QUEUE_BOUNDS_SOURCE);
+    let state = control_test_state(&declared_targets_source());
     for index in 0..1_024 {
         let response = queue_bounds_request(
             &state,

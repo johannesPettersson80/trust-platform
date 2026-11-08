@@ -204,7 +204,8 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
  </section>
  <section class="studio-fields" data-setup-section="own-law">
   ${select("own.instance", "Instance that computes the law", model.instances)}
-  <div data-own-law-choice>${choice("own.law", "Law", labelled(choices.ownLaws, labels.ownLaws), defaults.ownLaw)}</div>
+  <div data-own-law-choice>${choice("own.law", "Law", labelled(choices.ownLaws, labels.ownLaws), defaults.ownLaw)}
+   ${choice("own.form", "Settings", labelled(choices.gainForms, labels.gainForms), defaults.gainForm)}</div>
   ${signal("own.processVariable", "Measurement")}
   ${select("own.setpoint", "Setpoint", model.signals)}
   ${signal("own.manipulatedVariable", "Output", undefined, model.signals)}
@@ -212,11 +213,13 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
   ${select("own.manualOutput", "Manual output", manualOutputs)}
   ${gain("own.proportionalGain", "Proportional gain Kp")}
   <div class="studio-fields" data-own-integral>
-   ${gain("own.integralGain", "Integral gain Ki")}
+   <div data-own-parallel>${gain("own.integralGain", "Integral gain Ki")}</div>
+   <div data-own-standard hidden>${gain("own.resetTime", "Reset time Ti, in seconds")}</div>
    ${select("own.integralTerm", "Integral term I, in the output's unit", model.reals)}
   </div>
   <div class="studio-fields" data-own-derivative hidden>
-   ${gain("own.derivativeGain", "Derivative gain Kd")}
+   <div data-own-parallel>${gain("own.derivativeGain", "Derivative gain Kd")}</div>
+   <div data-own-standard hidden>${gain("own.derivativeTime", "Derivative time Td, in seconds")}</div>
    ${select("own.derivativeState", "Previous value the derivative is taken from", model.reals)}
    <label class="studio-field">That previous value is<select data-setup-field="own.derivativeOn">${options([], undefined)}${labelled(choices.derivativeOn, labels.derivativeOn).map(([value, text]) =>
      `<option value="${escape(value)}">${escape(text)}</option>`).join("")}</select></label>

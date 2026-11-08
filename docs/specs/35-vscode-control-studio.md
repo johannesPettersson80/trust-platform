@@ -494,7 +494,15 @@ is the same: a verb adds none and drops none.
     setup proposes; with `--draft <file>`, a JSON draft of the confirmed choices as the setup form
     writes it, checks it, writes the loop definitions to `control-loops/` (all or none, never over an
     existing definition) and prints their ids. It compiles the project through `trust-lsp command`
-    (§0.1a) and never writes anything else.
+    (§0.1a) and never writes anything else;
+  - `inputs` (A8.1, B4.3): `--change <file>`, or `-` for standard input, is one change of the loop's
+    study inputs, the JSON object the page's editors send to `controlStudio/inputs`: the requirements
+    record that `referenceChange` marks, the acquisition settings, the controller family, the tuning
+    preferences or the pinned values. The engine merges it by the method's rules and refuses what the
+    method refuses, under the field it names. The verb prints whether the study changed, the
+    requirements it now holds, each value Automatic filled marked so, and the stages. It starts
+    nothing and needs no runtime. A change that cannot be read, or is no JSON object, is a usage
+    error (owner, 7 November 2026: an agent or a script declares the requirements Tune designs to).
 - Common arguments: `--project <folder>` (default: the current folder), `--loop <id>`,
   `--journal-dir <folder>` (default: truST's folder in the user's local state folder, by the
   platform's convention, where the extension's engine keeps them too, A8.3), `--json`.
@@ -874,11 +882,18 @@ legitimately change are compared exactly:
   measurement in Manual makes a bump, which stays refused. An entry that aligns
   the controller's states to the measurement has no such step, and Δy is zero.
   Other laws use the allowance of their
-  Part C template. A reviewed tolerance replaces the allowance. Validate's
-  initialization case, Apply's Auto entry and the return to Auto after a failed
-  Apply use the same allowance. The runtime reads e and Δy in the scan of the
-  Auto entry (annex E6.9), because values read before the transfer are out of
-  date once the plant moves;
+  Part C template. A reviewed tolerance (the requirements' `transferTolerance`,
+  B4.3) replaces the allowance. Every Auto entry uses the same allowance:
+  Validate's initialization case, Apply's Auto entry, the return to Auto after a
+  failed Apply, and Identify's mode changes with the independent model check
+  that runs through them (B3.4 step 1), a return that a Cancel or a reopened
+  panel makes included (A8.6). No allowance, reviewed or not, is below the
+  output's resolution: the exact check, a millionth of the output span (of 1
+  when the span is smaller), and the spacing of single-precision values at the larger
+  magnitude of the output's limits, 2⁻²³ times that magnitude, so that the
+  rounding of a REAL output never reads as a bump. The runtime reads e and Δy
+  in the scan of the Auto entry (annex E6.9), because values read before the
+  transfer are out of date once the plant moves;
 - a state declared as bounded, for example a manual output that the program
   copies from the output, stays within its declared bounds.
 
@@ -2704,7 +2719,7 @@ This structure is one `Control.PID` instance in a loop with `design: "pid"`. The
 - **The measurement.** The measurement is the PID's own `<instance>.StateValue.ProcessValue`: the value that its last `Update` received, whatever the program computed it from, such as a sensor input, a sensor block or a filter. Control Studio shows, records and identifies against it. It is never refused as computed. The transfer reads it at the task boundary, and never writes it as a state. The setpoint, output and manual output remain the program variables that the code feeds into and takes from the PID.
 - **The parameter record.** When the code configures the PID from a record of its own, the PID's internal copy `<instance>.ParametersValue` is not offered as the parameter record. `Configure` would overwrite what Apply wrote on the next scan.
 - **The mode.** Setup prefills the mode signal, and the value that means Manual, from the `IF` that sets the record's `Mode`. It also prefills what the TRUE value of that condition means (B1.4).
-- **The startup flag.** When the code guards `Initialize` with `IF NOT <flag> THEN`, setup prefills that BOOL as the startup-done flag. When the program writes one of the loop's seeded values itself, or calls `Initialize` on the loop's PID, setup requires the BOOL that marks the startup as done. The flag is declared as an application state that Validate starts TRUE.
+- **The startup flag.** A startup flag is a BOOL that the code tests and sets around its startup code: `IF NOT <flag> THEN … <flag> := TRUE; END_IF`, where TRUE means the startup has run, or CODESYS's `IF <flag> THEN … <flag> := FALSE; END_IF`, where FALSE does (owner, 7 November 2026). When such an `IF` guards `Initialize`, setup prefills its BOOL as the startup flag. When the program writes one of the loop's seeded values itself, or calls `Initialize` on the loop's PID, setup requires the BOOL that marks the startup as done. The flag is declared as an application state that Validate starts at its value once the startup has run, as the code shows it, so the startup code keeps the seeded values; a flag the code tests and sets neither way starts TRUE.
 - **The manual output.** The manual output is bound by `controller.manualOutputSignal` and its `controller.manualOutputType`, with `controller.manualOutputAddress` when it has one. A missing signal or type blocks Identify with the configuration requirement. No `AT %M` mapping is needed for Control Studio.
 - **A manual output that copies the output.** When the code copies the output into a manual output, the loop declares `controller.manualOutputFollowsOutput`. The manual output is then a bounded state (see Apply and Restore).
 - **Identification.** Identify chooses the step size and how long to hold it, within the limits (B3.3, B3.4). The engineer sets the maximum duration in **Limits…**; it is never assumed silently (B3.2).
@@ -2870,7 +2885,9 @@ When `controller.manualOutputFollowsOutput` is declared, the program copies the 
 
 ### C2. Program-owned P, PI or PID law (the parallel-pid seed)
 
-The program computes the law itself, in parallel form, with its gains in program variables. Control Studio sets those variables through the parameter binding (C0).
+The program computes the law itself, with its settings in program variables: in parallel form (gains `Kp`, `Ki`, `Kd`), or in the
+standard form that CODESYS's and many vendors' PID blocks use (gain `Kp`, reset time `Ti`, derivative time `Td`; see The standard
+form below). Control Studio sets those variables through the parameter binding (C0).
 
 #### Setup
 
@@ -2879,14 +2896,42 @@ The program computes the law itself, in parallel form, with its gains in program
   - its measurement, output and setpoint;
   - its Auto/Manual signal and manual output;
   - the law: P, PI or PID;
-  - for each gain, the variable that holds it, with the range Tune may choose from;
+  - the form: parallel or standard (The standard form, below);
+  - for each gain, or in the standard form each time, the variable that holds it, with the range Tune may choose from;
   - for PI and PID, the variable that holds the integral term;
   - for PID, the variable that holds the previous error or the previous measurement that the derivative uses, and which of the two it is;
   - the startup flag (C1); identification sizes and durations are chosen by Identify (B3.3, B3.4).
 - The law is `u = Kp·e + I + D`, with `I = u₀ + Ki·∫e dt`, and `D = Kd·de/dt`. When the derivative acts on the measurement `y`, `D = −Kd·dy/dt`. `e` is the control error in the measurement's unit. `I` is in the output's unit. Time is in seconds. Each scan updates the integral as `I_new = I_old + Ki·e·Δt`.
 - The loop is a project-owned controller (`design: project`). Its `parallel-pid` seed names the gain variables of the law.
 - The engine serves a `controller.project` block whose seed is `parallel-pid` (or `trajectory-feedforward-pid`, C11; `feedforward-pid`, C8; `cascade-pid`, C6), whose family is P, PI, PD or PID, and which declares no `axes`, `components` or `modelParameters` (those are C5). Its families are P always, and PI, PD and PID where the seed names the integral and derivative variables. The page lists these families from the engine's `setupDiscover` answer, and takes its list from the TypeScript adapter only for a loop the engine does not serve. The page asks for the settings that `setupDiscover` names for each family (`familySettings`): for P its proportional variable, for PI also its integral variable, for PD its derivative variable, and for PID both, and Tune refuses a pin or an entered setting of any other variable. The other served forms are their structures' own: `cascade-pid` (C6), `smith-pid` (C9), `decentralized-pid` and `decoupled-pid` with their `controller.group` (C7), `feedforward-pid` (C8), `trajectory-feedforward-pid` (C11), a `parallel-pid` point of the `gain-scheduled` family (C10), and a block without a seed that declares tuning axes, the finite search (C5). Any other program's own law is parked by its name and refused with the cause `controller-capability`: a block without a seed or axes, a seed whose family its structure does not take, or a block with components or model parameters. A loop with a program's own law is never a C12 loop. A loop declares one controller structure: a controller law, the program's own law (with its PID group, C7), state feedback, or an ON/OFF controller; a loop that declares two is refused, because the engine cannot tell which one tunes it.
-- A law with reset or derivative times, a derivative filter or further retained states uses the step-by-step setup.
+- A law with a derivative filter or further retained states uses the step-by-step setup.
+
+#### The standard form
+
+A program may compute the law in the standard (ideal) form, `u = Kp·(e + (1/Ti)·∫e dt + Td·de/dt)`, with the reset time `Ti` and the
+derivative time `Td` in seconds, as CODESYS's `PID` (`KP`, `TN`, `TV`) and a project's own block such as `FB_PI` (`Kp`, `Ti`) do
+(owner, 7 November 2026). It is the parallel law with `Ki = Kp/Ti` and `Kd = Kp·Td`, so everything above holds with those gains:
+
+- **The integral term.** The program's integral variable holds the integral term `I` in the output's unit, updated each scan as
+  `I_new = I_old + (Kp/Ti)·e·Δt`, as in the parallel form. Validate and Apply start it as the `parallel-pid-v1` adapter does, with
+  `Ki = Kp/Ti`. A program that integrates the error instead (`∫e dt`, scaled at the output) is not this form.
+- **Setup** asks for the variable that holds the reset time and, for PID, the variable that holds the derivative time, each REAL or
+  LREAL in seconds, with the range Tune may choose from; the reset time's range lies above zero and the derivative time's starts at
+  zero or above. The form offers the choice (`gainForms`, preselected `parallel`), and the draft names it as `form` with the times
+  as `resetTime` and `derivativeTime`, each a variable with its range as the gains are; the engine takes the gains or the times the
+  form needs (B1.3). A trajectory feedforward's law (C11) stays in parallel form. The seed is `parallel-pid` with
+  `"form": "standard"`, `proportionalSymbol`, `resetTimeSymbol` and, for PID, `derivativeTimeSymbol`; a seed without `form` is in
+  parallel form, as before. A standard seed names no `integralSymbol` or `derivativeSymbol`, and a parallel seed no time.
+- **Families.** A standard-form law always integrates: its families are PI and, with a derivative time, PID. Control Studio never
+  writes a reset time of zero, whose meaning differs between programs (no integral action in some, a division by zero in others).
+- **Tune** designs `Kp`, `Ki` and `Kd` from the model as for the parallel form and writes the program's settings `Kp`,
+  `Ti = Kp/Ki` and `Td = Kd/Kp` (numerics annex N6.8). `Ki` and `Kd` take the sign of `Kp` for either action (N6.4), so `Ti` is above
+  zero and `Td` is zero or above. A design without a finite `Ti` above zero (a `Kp` or a `Ki` of zero) has no standard form, and Tune
+  refuses it with that reason. The ranges Tune may choose from are the variables' own: `Kp` by magnitude, `Ti` and `Td` in seconds. A
+  pin or an entered setting of `Ti` or `Td` is a time in seconds.
+- **Apply, Restore and Keep in project** write and keep the variables' values, `Kp`, `Ti` and `Td`, as for the parallel form.
+- A reset or derivative time held as a `TIME` value (TwinCAT's `FB_CTRL_PI` takes `tTn : TIME`) is not a REAL or LREAL parameter
+  (C0), so such a law is not served yet; it is on the checklist.
 
 #### Identify
 

@@ -515,7 +515,7 @@ fn group_controller(
     period_ms: f64,
 ) -> Result<Controller, Failure> {
     let first = &members[0];
-    let project = group_project(draft, first, states, decoupler)?;
+    let project = group_project(catalog, draft, first, states, decoupler)?;
     Ok(Controller {
         instance: first.instance.clone(),
         type_name: "Control.PID".to_owned(),
@@ -554,13 +554,16 @@ fn group_controller(
 /// # Errors
 /// The block breaks a rule of the project decoder: its states, its seed, or the decoupler's shape.
 fn group_project(
+    catalog: &CompiledCatalog,
     draft: &GroupLoopDraft,
     first: &Member,
     states: &[Vec<InitializedState>],
     decoupler: Option<&[Vec<String>]>,
 ) -> Result<ControllerProject, Failure> {
     let mut declared: Vec<InitializedState> = states.iter().flatten().cloned().collect();
-    declared.extend(startup_flag(draft).map(startup_state));
+    declared.extend(
+        startup_flag(draft).map(|flag| startup_state(flag, catalog.startup_done_value(flag))),
+    );
     let (family, seed) = match decoupler {
         Some(matrix) => (
             "decoupled-PI",

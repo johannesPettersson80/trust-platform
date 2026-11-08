@@ -10,7 +10,8 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 /// side of an assignment to `<record>.<field>` in the same body. Local names are prefixed with each
 /// compiled instance of that POU, so a cascade appears as the outer call's output among the inner
 /// call's `Setpoint` sources. A call also reports what its code shape states: `guardedBy`, the BOOL
-/// of an enclosing `IF NOT <flag> THEN` (a controller initialized once at startup); `mode`, the BOOL
+/// of an enclosing `IF NOT <flag> THEN`, or of CODESYS's `IF <flag> THEN … <flag> := FALSE; END_IF`
+/// (a controller initialized once at startup); `mode`, the BOOL
 /// an `IF` tests to set `<record>.Mode` and the mode it chooses while TRUE; and `copiesOfOutput`,
 /// the variables assigned the call's output unchanged (a manual output that follows the output).
 /// No name or role is guessed; unresolved shapes are simply not reported.
@@ -48,6 +49,11 @@ pub(super) fn facts(sources: &[&str], instances: &[(String, String)]) -> Control
                 found
                     .writes
                     .extend(body.writes.iter().map(|local| body.path(path, local)));
+                found.startup_flags.extend(
+                    body.startup_flags
+                        .iter()
+                        .map(|(local, done)| (body.path(path, local), *done)),
+                );
             }
         }
     }
@@ -61,6 +67,9 @@ pub(super) struct ControlFacts {
     /// Absolute paths, sorted: validation seeds a program's state, and code that assigns a seeded
     /// symbol (for example in a startup branch) replaces the seeded value on the first scan.
     pub(super) writes: BTreeSet<String>,
+    /// The startup flags the code tests and sets (specification 35 C1), by absolute path, with each
+    /// flag's value once the startup has run.
+    pub(super) startup_flags: BTreeMap<String, bool>,
 }
 
 /// `(instance, program type)` of every `PROGRAM <instance> [WITH <task>] : <type>` configuration entry.
@@ -135,6 +144,8 @@ struct PouBody {
     /// By upper-case record: the BOOL an `IF` tests to set `<record>.Mode`, and the mode it
     /// chooses while that BOOL is TRUE.
     modes: BTreeMap<String, (String, &'static str)>,
+    /// The startup flags the body tests and sets, with each flag's value once the startup has run.
+    startup_flags: BTreeMap<String, bool>,
 }
 
 struct Call {
@@ -143,7 +154,8 @@ struct Call {
     argument: String,
     record: String,
     output: Option<String>,
-    /// The BOOL whose FALSE value the call needs: it stands in the THEN branch of `IF NOT <flag>`.
+    /// The BOOL that marks the startup the call belongs to: it stands in the THEN branch of
+    /// `IF NOT <flag>`, or of `IF <flag> THEN … <flag> := FALSE;`.
     guard: Option<String>,
 }
 
@@ -172,6 +184,7 @@ impl PouBody {
             writes: BTreeSet::new(),
             copies: Vec::new(),
             modes: BTreeMap::new(),
+            startup_flags: BTreeMap::new(),
         };
         // Nested METHOD/ACTION bodies have their own scope; only the POU body is read.
         for node in pou
@@ -181,7 +194,7 @@ impl PouBody {
             match node.kind() {
                 SyntaxKind::CallExpr => {
                     if let Some(mut call) = controller_call(&node) {
-                        call.guard = negated_guard(&node, pou);
+                        call.guard = startup_guard(&node, pou);
                         body.calls.push(call);
                     }
                 }
@@ -190,6 +203,9 @@ impl PouBody {
                         body.modes
                             .entry(record.to_ascii_uppercase())
                             .or_insert((symbol, mode));
+                    }
+                    if let Some((flag, done)) = startup_flag(&node) {
+                        body.startup_flags.entry(flag).or_insert(done);
                     }
                 }
                 SyntaxKind::AssignStmt => {
@@ -329,9 +345,11 @@ fn controller_call(call: &SyntaxNode) -> Option<Call> {
     })
 }
 
-/// The BOOL whose FALSE value `call` needs: the nearest enclosing `IF` has the call in its THEN
-/// branch and tests `NOT <flag>`.
-fn negated_guard(call: &SyntaxNode, pou: &SyntaxNode) -> Option<String> {
+/// The startup flag of `call` (specification 35 C1): the nearest enclosing `IF` has the call in its
+/// THEN branch and tests `NOT <flag>`, or tests `<flag>` and its THEN branch sets
+/// `<flag> := FALSE`, as CODESYS's `IF bInit THEN … bInit := FALSE; END_IF` does. An `IF <flag>`
+/// that leaves the flag alone is no startup: its flag may be any enable.
+fn startup_guard(call: &SyntaxNode, pou: &SyntaxNode) -> Option<String> {
     let mut child = call.clone();
     for ancestor in call.ancestors().skip(1) {
         if ancestor == *pou {
@@ -344,16 +362,50 @@ fn negated_guard(call: &SyntaxNode, pou: &SyntaxNode) -> Option<String> {
                     child.kind(),
                     SyntaxKind::ElsifBranch | SyntaxKind::ElseBranch
                 )
-                || condition.kind() != SyntaxKind::UnaryExpr
-                || !is_not(&condition)
             {
                 return None;
             }
-            return symbol_path(&condition.children().next()?);
+            if condition.kind() == SyntaxKind::UnaryExpr && is_not(&condition) {
+                return symbol_path(&condition.children().next()?);
+            }
+            let flag = symbol_path(&condition)?;
+            return assigns(&ancestor, &flag, "FALSE").then_some(flag);
         }
         child = ancestor;
     }
     None
+}
+
+/// A startup flag and its value once the startup has run (specification 35 C1): the `IF` tests
+/// `NOT <flag>` and its THEN branch sets `<flag> := TRUE` (TRUE once run), or tests `<flag>` and its
+/// THEN branch sets `<flag> := FALSE`, CODESYS's `IF bInit THEN … bInit := FALSE; END_IF` (FALSE).
+fn startup_flag(if_stmt: &SyntaxNode) -> Option<(String, bool)> {
+    let condition = if_stmt.children().next()?;
+    let (flag, done) = if condition.kind() == SyntaxKind::UnaryExpr && is_not(&condition) {
+        (symbol_path(&condition.children().next()?)?, true)
+    } else {
+        (symbol_path(&condition)?, false)
+    };
+    let written = if done { "TRUE" } else { "FALSE" };
+    assigns(if_stmt, &flag, written).then_some((flag, done))
+}
+
+/// Whether the THEN branch of `if_stmt` assigns the literal `value` to `flag`, both compared
+/// without regard to case.
+fn assigns(if_stmt: &SyntaxNode, flag: &str, value: &str) -> bool {
+    // The THEN branch's statements are the IF's own children; ELSIF and ELSE are branch nodes.
+    if_stmt
+        .children()
+        .skip(1)
+        .filter(|node| node.kind() == SyntaxKind::AssignStmt)
+        .any(|assign| {
+            let mut parts = assign.children();
+            let (Some(target), Some(written)) = (parts.next(), parts.next()) else {
+                return false;
+            };
+            symbol_path(&target).is_some_and(|target| target.eq_ignore_ascii_case(flag))
+                && code_text(&written).eq_ignore_ascii_case(value)
+        })
 }
 
 /// `IF <condition> THEN <record>.Mode := <type>#Auto|Manual; …`: the record, the BOOL the condition
@@ -856,5 +908,59 @@ END_PROGRAM
 "#;
         let found = links(&[SOURCE], &instances(&[("P1", "Main")]));
         assert_eq!(found[0]["fields"]["Setpoint"], json!(["PlantSetpoint"]));
+    }
+
+    /// Two startups, CODESYS's `IF bInit … bInit := FALSE` around a controller's `Initialize` and
+    /// `IF NOT Initialized … Initialized := TRUE`, and an `IF Enable` that leaves its flag alone.
+    const STARTUP_FLAGS: &str = r#"
+PROGRAM Main
+VAR
+    Loop : Control.PID;
+    State : Control.PIDInitialState;
+    Initialized : BOOL;
+    bInit : BOOL := TRUE;
+    Enable : BOOL;
+    rKp : REAL;
+END_VAR
+IF bInit THEN
+    rKp := 2.0;
+    Loop.Initialize(State := State);
+    bInit := FALSE;
+END_IF;
+IF NOT Initialized THEN
+    rKp := 3.0;
+    Initialized := TRUE;
+END_IF;
+IF Enable THEN
+    rKp := 4.0;
+END_IF;
+END_PROGRAM
+"#;
+
+    /// Specification 35 C1: CODESYS's `IF bInit THEN … bInit := FALSE; END_IF` guards the
+    /// controller's `Initialize` as `IF NOT <flag>` does. Catches the CODESYS pattern missed, which
+    /// left setup without the controller's startup flag.
+    #[test]
+    fn codesys_startup_pattern_guards_the_controllers_initialize() {
+        assert_eq!(
+            links(&[STARTUP_FLAGS], &instances(&[("P1", "Main")]))[0]["guardedBy"],
+            json!("P1.bInit")
+        );
+    }
+
+    /// Specification 35 C1: a startup flag is the BOOL an `IF` tests and its THEN branch sets, with
+    /// its value once the startup has run: TRUE after `IF NOT Initialized … Initialized := TRUE`,
+    /// FALSE after `IF bInit … bInit := FALSE`. Catches the two values swapped, and an enable such as
+    /// `IF Enable THEN` that leaves its flag alone taken for a startup flag.
+    #[test]
+    fn reports_each_startup_flag_with_its_value_once_the_startup_has_run() {
+        let found = facts(&[STARTUP_FLAGS], &instances(&[("P1", "Main")]));
+        assert_eq!(
+            found.startup_flags.into_iter().collect::<Vec<_>>(),
+            vec![
+                ("P1.Initialized".to_string(), true),
+                ("P1.bInit".to_string(), false)
+            ]
+        );
     }
 }

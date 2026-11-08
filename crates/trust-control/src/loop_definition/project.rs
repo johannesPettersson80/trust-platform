@@ -999,6 +999,7 @@ fn trajectory_seed(object: &Map<String, Value>) -> Result<TrajectoryFeedforwardS
             proportional_symbol: fields.proportional_symbol,
             integral_symbol: Some(fields.integral_symbol),
             derivative_symbol: Some(fields.derivative_symbol),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         },
         rate_symbol: fields.rate_symbol,
         acceleration_symbol: fields.acceleration_symbol,

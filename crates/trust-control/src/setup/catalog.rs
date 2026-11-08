@@ -136,6 +136,21 @@ pub struct CompiledCatalog {
     pub links: Vec<CallLink>,
     /// Every symbol the program's code assigns, sorted and without repetition.
     pub writes: Vec<String>,
+    /// The startup flags the program's code tests and sets, by path, each with its value once the startup has run (C1 Setup):
+    /// TRUE for `IF NOT <flag> THEN … <flag> := TRUE`, FALSE for CODESYS's `IF <flag> THEN … <flag> := FALSE`.
+    pub startup_flags: BTreeMap<String, bool>,
+}
+
+impl CompiledCatalog {
+    /// The value of the startup flag `flag` once the startup has run (C1 Setup): the one the code shows, compared without regard
+    /// to case, and TRUE for a flag the code neither tests nor sets either way.
+    #[must_use]
+    pub fn startup_done_value(&self, flag: &str) -> bool {
+        self.startup_flags
+            .iter()
+            .find(|(symbol, _)| symbol.eq_ignore_ascii_case(flag))
+            .is_none_or(|(_, done)| *done)
+    }
 }
 
 /// A process-image signal: a symbol with the address it is bound to (`CompiledControlSignal`).
@@ -264,6 +279,7 @@ pub fn decode_catalog_answer(answer: &Value) -> Result<CatalogAnswer, Failure> {
         controllers: compiled_controllers(controllers)?,
         links: call_links(control_symbols),
         writes: writes(control_symbols),
+        startup_flags: startup_flags(control_symbols),
     };
     Ok(CatalogAnswer { control, signals })
 }
@@ -563,6 +579,21 @@ fn writes(control: Option<&Map<String, Value>>) -> Vec<String> {
         .map(str::to_string)
         .collect();
     written.into_iter().collect()
+}
+
+/// The startup flags of the answer (`startupFlags`): each flag's path and its value once the startup has run. An entry whose value
+/// is not a boolean is dropped.
+fn startup_flags(control: Option<&Map<String, Value>>) -> BTreeMap<String, bool> {
+    control
+        .and_then(|control| control.get("startupFlags"))
+        .and_then(Value::as_object)
+        .map(|flags| {
+            flags
+                .iter()
+                .filter_map(|(symbol, done)| Some((symbol.clone(), done.as_bool()?)))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The candidate of one `Control.PID` controller, from its own calls (`pidCandidates`).
