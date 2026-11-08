@@ -27,7 +27,7 @@ mod plain;
 mod reference;
 mod strings;
 
-pub use fault::{Fault, FaultCode, FaultRecord};
+pub use fault::{exception_code, Fault, FaultCode, FaultRecord};
 pub use open::{Open, OpenRef};
 pub use plain::Plain;
 pub use reference::RefValue;

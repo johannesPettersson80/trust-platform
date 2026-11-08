@@ -92,6 +92,14 @@ pub enum Stmt {
     Continue {
         location: Option<SourceLocation>,
     },
+    /// CODESYS's `__TRY` (specification 06 §15): its statements, the `__CATCH` variable and statements
+    /// when it has them, and its `__FINALLY` statements.
+    Try {
+        body: Vec<Stmt>,
+        catch: Option<(LValue, Vec<Stmt>)>,
+        finally: Vec<Stmt>,
+        location: Option<SourceLocation>,
+    },
 }
 
 impl Stmt {
@@ -110,7 +118,8 @@ impl Stmt {
             | Stmt::Jmp { location, .. }
             | Stmt::Return { location, .. }
             | Stmt::Exit { location, .. }
-            | Stmt::Continue { location, .. } => location.as_ref(),
+            | Stmt::Continue { location, .. }
+            | Stmt::Try { location, .. } => location.as_ref(),
         }
     }
 }

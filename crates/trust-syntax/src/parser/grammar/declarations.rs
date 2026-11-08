@@ -645,6 +645,9 @@ impl Parser<'_, '_> {
         } else if self.current().is_type_keyword() {
             self.bump();
             self.parse_type_subrange();
+        } else if self.at(TokenKind::KwSystemDunder) {
+            // CODESYS's system type `__SYSTEM.ExceptionCode` (specification 06 §15).
+            self.parse_system_name();
         } else if self.at(TokenKind::Ident) {
             if self.peek_kind_n(1) == TokenKind::Dot {
                 self.parse_qualified_name();

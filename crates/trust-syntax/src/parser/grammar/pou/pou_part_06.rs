@@ -175,9 +175,9 @@ impl Parser<'_, '_> {
         self.finish_node();
     }
 
-    /// Parse CODESYS's `__SYSTEM.<name>`, a system interface in an EXTENDS or IMPLEMENTS list
-    /// (specification 04).
-    fn parse_system_name(&mut self) {
+    /// Parse CODESYS's `__SYSTEM.<name>`: a system interface in an EXTENDS or IMPLEMENTS list
+    /// (specification 04), or a system type, `__SYSTEM.ExceptionCode` (specification 06 §15).
+    pub(crate) fn parse_system_name(&mut self) {
         self.start_node(SyntaxKind::SystemName);
         self.bump(); // __SYSTEM
         if self.at(TokenKind::Dot) {

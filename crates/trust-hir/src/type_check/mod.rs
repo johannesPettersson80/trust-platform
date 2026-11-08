@@ -69,6 +69,10 @@ pub struct TypeChecker<'a> {
     this_type: Option<TypeId>,
     super_type: Option<TypeId>,
     loop_stack: Vec<LoopContext>,
+    /// How many `__TRY` constructs the checked statement lies in (specification 06 §15).
+    try_depth: u32,
+    /// For each `__FINALLY` clause the checked statement lies in, the loops around it.
+    finally_loops: Vec<usize>,
     label_scopes: Vec<LabelScope>,
     expression_types: FxHashMap<(u32, u32), TypeId>,
     resolved_symbols: FxHashMap<(u32, u32), SymbolId>,

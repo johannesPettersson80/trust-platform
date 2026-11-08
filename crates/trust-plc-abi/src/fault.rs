@@ -120,6 +120,47 @@ impl FaultCode {
     }
 }
 
+/// The code that a `__CATCH` variable takes for `fault`, raised by a statement inside `__TRY`: one of
+/// CODESYS's `__SYSTEM.ExceptionCode` values (specification 06 §15). `None` for a fault that ends the
+/// scan whatever `__TRY` says: the statement budget, the task stack's margin, the CPU's memory
+/// protection, a module's internal fault and a test's failed assertion, so that a looping, exhausted
+/// or damaged program cannot hide behind `__TRY` and a test still fails.
+#[must_use]
+pub fn exception_code(fault: Fault) -> Option<u32> {
+    /// `RTSEXCPT_ACCESS_VIOLATION`.
+    const ACCESS_VIOLATION: u32 = 0x0000_0051;
+    /// `RTSEXCPT_STACK_OVERFLOW`.
+    const STACK_OVERFLOW: u32 = 0x0000_0054;
+    /// `RTSEXCPT_ARRAYBOUNDS`.
+    const ARRAY_BOUNDS: u32 = 0x0000_0101;
+    /// `RTSEXCPT_DIVIDEBYZERO`.
+    const DIVIDE_BY_ZERO: u32 = 0x0000_0102;
+    /// `RTSEXCPT_OVERFLOW`.
+    const OVERFLOW: u32 = 0x0000_0103;
+    /// `RTSEXCPT_FPU_INVALID_OPERATION`.
+    const FPU_INVALID_OPERATION: u32 = 0x0000_0154;
+    /// `RTSEXCPT_UNKNOWN`.
+    const UNKNOWN: u32 = 0xFFFF_FFFF;
+    match FaultCode::from_raw(fault.raw())? {
+        FaultCode::DivisionByZero | FaultCode::ModuloByZero => Some(DIVIDE_BY_ZERO),
+        FaultCode::Overflow | FaultCode::DateTimeRange => Some(OVERFLOW),
+        FaultCode::IndexOutOfBounds => Some(ARRAY_BOUNDS),
+        FaultCode::NullReference | FaultCode::ReferenceLifetime => Some(ACCESS_VIOLATION),
+        FaultCode::CallDepth => Some(STACK_OVERFLOW),
+        FaultCode::NonFiniteValue => Some(FPU_INVALID_OPERATION),
+        FaultCode::SubrangeViolation
+        | FaultCode::ForStepZero
+        | FaultCode::TypeMismatch
+        | FaultCode::StringCapacityExceeded => Some(UNKNOWN),
+        FaultCode::InfiniteLoop
+        | FaultCode::StackOverflow
+        | FaultCode::MemoryProtection
+        | FaultCode::ModuleInternal
+        | FaultCode::AssertionFailed
+        | FaultCode::AssertionNear => None,
+    }
+}
+
 /// The record of the fault that ended a call: its code, the statement that raised it and up to
 /// three numbers that describe it (the index and the bounds, the value and the bounds).
 #[repr(C)]
