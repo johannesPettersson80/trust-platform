@@ -238,9 +238,16 @@ fn on_a_device_each_test_starts_where_the_previous_test_left_the_stepped_time() 
         load_sources(&resolve_sources_root(&project, None).expect("sources")).expect("load");
     let discovered = discover_tests(&sources);
     let (port, steps) = stepping_device();
-    let results =
-        execute_native_tests_on_device(&project, &discovered, &discovered, 5, &port, "esp32c6")
-            .expect("the run on the device");
+    let results = execute_native_tests_on_device(
+        &project,
+        &discovered,
+        &discovered,
+        5,
+        &port,
+        "esp32c6",
+        None,
+    )
+    .expect("the run on the device");
     let _ = std::fs::remove_dir_all(&project);
 
     let outcomes: Vec<_> = results
