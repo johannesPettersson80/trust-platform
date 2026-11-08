@@ -152,7 +152,7 @@ Specification 46 §6.1 defines the simulation clock and the speed. Its rules, as
 
 ### E2.1 Symbols
 
-A symbol is a dotted path. Its root is a global variable of the loaded program, usually a program instance. The path may pass through function block instances, including members that a block inherits through `EXTENDS`, and through structure fields. Example: `Main.Mixer.Speed.Value`.
+A symbol is a dotted path. Its root is a global variable of the loaded program: usually a program instance, or a global, which a namespace may hold and which is then named by its qualified name, the form of a CODESYS GVL member (`GVL_IO.lrLT101_Level`). A global scalar is a symbol by its own name. The path may pass through function block instances, including members that a block inherits through `EXTENDS`, and through structure fields. Example: `Main.Mixer.Speed.Value`.
 
 An enumeration is read as its numeric value. Its binding names the enumeration type, with or without a namespace.
 
