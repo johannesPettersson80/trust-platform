@@ -216,6 +216,7 @@ fn execute_native_tests_on_device(
     timeout: u64,
     port: &str,
     target: &str,
+    token: Option<&str>,
 ) -> anyhow::Result<Vec<ExecutedTest>> {
     use trust_runtime::device_link::{self, DeviceLink};
     use trust_runtime::native::{target_named, Toolchain};
@@ -231,7 +232,10 @@ fn execute_native_tests_on_device(
         &trust_runtime::native::project_key(project_root)?,
     )?;
     let work = std::env::temp_dir().join(format!("trust-dev-device-{}", std::process::id()));
-    let mut link = DeviceLink::open(port)?;
+    // A device whose settings set a control token refuses a request without it (specification 34
+    // PORT-06): the caller's token, else the project's, which the device was installed with.
+    let token = trust_runtime::control::endpoint::device_token(Some(project_root), token)?;
+    let mut link = DeviceLink::open(port, token.as_deref())?;
     // Which update the device and these tools need (specification 34 TARGET-05).
     if let Some(advice) = link.version_advice() {
         eprintln!("warning: {advice}");

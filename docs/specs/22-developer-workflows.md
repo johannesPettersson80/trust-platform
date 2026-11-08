@@ -216,7 +216,10 @@ programs are instances that no task runs, the background programs' included
 only the project's own programs, and a test runs only when it is invoked. The
 device's limits are its own, its statement budget among them. The stepped scans keep one logical time across the
 tests (specification 11 §6.8.1), so each test starts where the previous test's last step was; a test's own time, which
-its timers measure and its result reports, starts there, as each test's time starts at zero on this computer.
+its timers measure and its result reports, starts there, as each test's time starts at zero on this computer. Every
+request of the link carries the device's control token when its settings set one (specification 34 PORT-06): `--token`,
+else `TRUST_CTL_TOKEN`, else the project's `runtime.control.auth_token`, the order of specification 11 §6.8.1; the token
+is never printed.
 A failed assertion's error, `assertion failed: <message>`,
 is the test's failure with that message, and any other error is the test's
 error, as on this computer.

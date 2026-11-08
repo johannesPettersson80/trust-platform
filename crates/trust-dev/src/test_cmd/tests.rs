@@ -1388,9 +1388,13 @@ fn a_device_runs_the_tests_compiled_for_it() {
     let on_device = TestRunner::Device {
         port: "tcp://127.0.0.1:5555".into(),
         target: "esp32c6".into(),
+        token: None,
     };
-    assert_eq!(TestRunner::of(device()), on_device);
-    assert_eq!(TestRunner::of(None), TestRunner::Native);
+    assert_eq!(TestRunner::of(device(), None), on_device);
+    assert_eq!(TestRunner::of(None, None), TestRunner::Native);
+    // Specification 34 PORT-06: the device's token is never printed, not even in a runner's debug text.
+    let with_token = format!("{:?}", TestRunner::of(device(), Some("s3cret".into())));
+    assert!(!with_token.contains("s3cret"), "{with_token}");
 }
 
 /// IEC 61131-3 §6.1.2: an identifier is a letter or an underline followed by letters, digits
