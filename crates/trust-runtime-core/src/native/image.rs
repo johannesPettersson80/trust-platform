@@ -27,9 +27,9 @@ pub use records::{
     type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, IoBindRecord, MemberDetail,
     MemoryFigure, Record, RetainRecord, StmtRecord, SymbolRecord, TaskRecord, TypeRecord,
     AREA_HAS_INIT, AREA_READ_ONLY, AREA_RETAINED, BACKGROUND_PRIORITY, BIND_FLAT,
-    BIND_HIERARCHICAL, BIND_OFFSET_SHIFT, BIND_RAW, BIND_TIME_MILLIS, MEMBER_BYTES, NONE,
-    SYMBOL_CONSTANT, SYMBOL_DIRECT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_IN_OUT, SYMBOL_OUTPUT,
-    SYMBOL_PROGRAM, SYMBOL_RETAINED,
+    BIND_HIERARCHICAL, BIND_OFFSET_SHIFT, BIND_RAW, BIND_TIME_MILLIS, MEMBER_ALIAS, MEMBER_BYTES,
+    NONE, SYMBOL_CONSTANT, SYMBOL_DIRECT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_IN_OUT,
+    SYMBOL_OUTPUT, SYMBOL_PROGRAM, SYMBOL_RETAINED,
 };
 use records::{u16_at, u32_at, u64_at};
 pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
@@ -38,7 +38,7 @@ pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
 pub const MAGIC: [u8; 8] = *b"TRSTI001";
 /// The format version this reader reads: 3 since a function block's or class's type record names its
 /// base and its interfaces (specification 44 §5.8).
-pub const FORMAT_VERSION: u16 = 3;
+pub const FORMAT_VERSION: u16 = 4;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
 

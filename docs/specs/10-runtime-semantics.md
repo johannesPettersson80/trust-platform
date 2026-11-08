@@ -1527,7 +1527,8 @@ use the closed form `@program/<program-path>/<variable>`; parsing splits at the
 last slash so a qualified program path is preserved, and rejects missing
 prefix, program, separator, or variable components.
 
-Only `RETAIN` and `PERSISTENT` declarations survive a warm restart.
+Only `RETAIN` and `PERSISTENT` declarations survive a warm restart, apart from
+a variable marked `{attribute 'noinit'}`, which survives both restarts (below).
 `NON_RETAIN` and unspecified declarations are reinitialized. Scalars, strings,
 dates, enums, and recursively retainable arrays/structures may be retained;
 runtime references and instance identities are never retained, including when
@@ -1592,6 +1593,16 @@ FB_Exit"):
   warm one, and `bInCopyCode := FALSE`; its result is not read. `FB_init`
   declares those two `BOOL` inputs first, under any names, since they are passed
   by position;
+- an input after those two takes the argument the instance's declaration gives
+  it in parentheses after the type, `com1 : serialdevice(iCOMnum := 1);`, by
+  name or in order, else its own initial value, else its type's default. The
+  arguments bind and are checked as the arguments of a call of `FB_init` whose
+  parameters are its inputs after the first two (E204, E205); outside the
+  CODESYS profiles a declaration's arguments are refused (E202), and so are the
+  arguments of a type that declares no `FB_init`. A base part's `FB_init` takes
+  the same arguments, as CODESYS requires a derived `FB_init` to repeat its
+  base's inputs. Parentheses after a named type that hold `lo..hi` remain that
+  type's subrange;
 - every instance that a global or a program instance's variable holds is
   called, retained or not: an element of an array of instances, and an instance
   nested in another or in a structure, at any depth. The globals come first in
@@ -1606,8 +1617,71 @@ FB_Exit"):
   initialized" when that method's code is reached;
 - a fault in `FB_init` fails the restart, like any fault of the initialization.
 
+In the same restarts, right after an instance's own `FB_init` (or where it would
+run), each of its type's methods marked `{attribute 'call_after_init'}` in its
+first line is called, in declaration order, when the block is marked so too: the
+vendor's help ("a method is called implicitly after the initialization of a
+function block instance", "after the FB_Init method and after the variable value
+of an initialization expression has been valid"; the attribute goes on both the
+function block and the method). Such a method takes no inputs, which the vendor
+refuses ("VAR_INPUT declarations ... lead to compile errors"), and gives a `BOOL`
+or no result, which is not read; any other is refused at build. A method marked
+alone, in a block that is not, is not called, as the vendor's attribute on the
+block is what enables it. The vendor's call at an online change is not made, as
+`FB_init`'s is not (§12).
+
 Under the IEC profile `FB_init` is an ordinary method that nothing calls
 implicitly, since a valid IEC program may declare a method of that name.
+
+A variable marked `{attribute 'noinit'}`, which CODESYS also spells `no_init`
+and `no-init`, on the line above its declaration is not initialized by a
+restart, as CODESYS documents the attribute (CODESYS help, "Attribute:
+noinit": it applies "to variables that should not be implicitly initialized";
+when the application is reset, the marked variable "retains its current value"
+while an unmarked one "is implicitly re-initialized"). IEC 61131-3 Ed.3 §6.2
+leaves a pragma's effect to the implementer, so it applies under every profile.
+It may mark a global, a program's variable of any section, and a function
+block's or class's `VAR`, `VAR_STAT`, input or output:
+- a cold and a warm restart give the variable back the value it held before
+  the restart, after the restart's initialization. The vendor names no
+  particular reset, and both reinitialize the variables the attribute exempts,
+  so truST keeps the value at both. The initialization's code still runs as at
+  every restart, a `REF` initializer and an instance's `FB_init` included:
+  what it writes into the variable is replaced, and what it writes elsewhere
+  stays;
+- when the runtime starts the program after an install or a power-on, the
+  variable takes its starting value, and a retained one its checkpoint's, as
+  every variable does. An online change keeps its value, as it keeps every
+  variable's;
+- the members of a marked variable are kept with it, and a marked variable of
+  a function block or class is kept in each of its instances;
+- a function's or a method's own variables and a `VAR_TEMP` are initialized at
+  each call whatever their attribute, as truST never leaves a value from an
+  earlier call on the stack.
+
+A `STRING` variable of a program, a function block or a class marked
+`{attribute 'instance-path'}` and `{attribute 'noinit'}`, in a POU marked
+`{attribute 'reflection'}`, starts with the path of the instance it belongs to,
+as CODESYS initializes it with "the device tree path of the POU which it
+belongs to" (CODESYS help, "Attribute: instance-path"; the vendor requires the
+three attributes together, and without one of them the variable starts as
+declared). Under every profile, as for `noinit`:
+- the path names the instance as the program reaches it: the program
+  instance's or the global's name, then each member's name and an element's
+  subscripts (`Cell.pumps[2]`, `Cell.outer.inner`, `GVL.motor`), in the
+  declarations' spelling. The names of the configuration and of its resource
+  come first where the project declares them, as CODESYS's path begins with the
+  device's and the application's (`Plant.Line1.Cell.pumps[2]`). An
+  instance-path variable of a program holds the program instance's path;
+- a path longer than the variable is cut at its length, as an assignment cuts a
+  longer string;
+- the path is the variable's starting value (specification 44 §7.4), so a
+  restart keeps it, as `noinit` keeps any value, and an online change carries
+  it with the rest;
+- an instance that a function's or a method's own variable holds, which each
+  call creates again, has no place in the configuration, so its variable starts
+  as declared;
+- a marked variable of another type is refused at build.
 
 Restart is prepared against isolated storage before commit. A preparation,
 initializer, retained-value migration, or store-load failure leaves the live

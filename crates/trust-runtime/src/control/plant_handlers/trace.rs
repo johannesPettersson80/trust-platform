@@ -4,7 +4,6 @@ use sha2::{Digest, Sha256};
 
 use super::{project_identity, simulation_snapshot, PlantHandlerContext, CONTRACT, SCHEMA_VERSION};
 use crate::control::ControlResponse;
-use crate::scheduler::ResourceCommand;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -238,7 +237,6 @@ fn perform_clear(
     params: PlantTraceClearParams,
     context: &PlantHandlerContext<'_>,
 ) -> Result<Value, ControlResponse> {
-    let (sender, receiver) = std::sync::mpsc::channel();
     let Some(resource) = context.resource else {
         return Err(clear_error(
             id,
@@ -247,23 +245,8 @@ fn perform_clear(
             "status_unavailable",
         ));
     };
-    if resource
-        .send_command(ResourceCommand::SimulationTraceClear {
-            plant_id: params.plant_id.clone(),
-            active_configuration_revision: params.active_configuration_revision.clone(),
-            respond_to: sender,
-        })
-        .is_err()
-    {
-        return Err(clear_error(
-            id,
-            project_id,
-            &params.plant_id,
-            "status_unavailable",
-        ));
-    }
-    let result = receiver
-        .recv_timeout(std::time::Duration::from_millis(250))
+    let result = resource
+        .clear_plant_trace(&params.plant_id, &params.active_configuration_revision)
         .map_err(|_| clear_error(id, project_id, &params.plant_id, "status_unavailable"))?;
     match result {
         Ok(cleared) => Ok(json!({

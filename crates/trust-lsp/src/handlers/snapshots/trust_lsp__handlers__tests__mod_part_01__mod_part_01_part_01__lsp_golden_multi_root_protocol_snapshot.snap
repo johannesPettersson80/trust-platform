@@ -176,11 +176,24 @@ expression: output
                 }
               },
               "uri": "file:///workspace/golden/alpha/Main.st"
+            },
+            {
+              "range": {
+                "end": {
+                  "character": 12,
+                  "line": 41
+                },
+                "start": {
+                  "character": 9,
+                  "line": 41
+                }
+              },
+              "uri": "file:///workspace/golden/alpha/Main.st"
             }
           ]
         ],
         "command": "editor.action.showReferences",
-        "title": "References: 1"
+        "title": "References: 2"
       },
       "range": {
         "end": {
@@ -702,141 +715,329 @@ expression: output
   ],
   "documentSymbol": [
     {
-      "kind": 2,
-      "location": {
-        "range": {
-          "end": {
-            "character": 18,
-            "line": 1
+      "children": [
+        {
+          "detail": "VAR_GLOBAL CONSTANT : INT",
+          "kind": 14,
+          "name": "ANSWER",
+          "range": {
+            "end": {
+              "character": 23,
+              "line": 3
+            },
+            "start": {
+              "character": 4,
+              "line": 3
+            }
           },
-          "start": {
-            "character": 14,
-            "line": 1
+          "selectionRange": {
+            "end": {
+              "character": 10,
+              "line": 3
+            },
+            "start": {
+              "character": 4,
+              "line": 3
+            }
           }
+        }
+      ],
+      "kind": 2,
+      "name": "Conf (CONFIGURATION)",
+      "range": {
+        "end": {
+          "character": 17,
+          "line": 5
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "start": {
+          "character": 0,
+          "line": 1
+        }
       },
-      "name": "Conf (CONFIGURATION)"
+      "selectionRange": {
+        "end": {
+          "character": 18,
+          "line": 1
+        },
+        "start": {
+          "character": 14,
+          "line": 1
+        }
+      }
     },
     {
       "kind": 23,
-      "location": {
-        "range": {
-          "end": {
-            "character": 10,
-            "line": 7
-          },
-          "start": {
-            "character": 5,
-            "line": 7
-          }
+      "name": "MyInt (TYPE (ALIAS))",
+      "range": {
+        "end": {
+          "character": 8,
+          "line": 8
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "start": {
+          "character": 0,
+          "line": 7
+        }
       },
-      "name": "MyInt (TYPE (ALIAS))"
+      "selectionRange": {
+        "end": {
+          "character": 10,
+          "line": 7
+        },
+        "start": {
+          "character": 5,
+          "line": 7
+        }
+      }
     },
     {
+      "children": [
+        {
+          "children": [
+            {
+              "detail": "VAR_INPUT : INT",
+              "kind": 13,
+              "name": "a",
+              "range": {
+                "end": {
+                  "character": 12,
+                  "line": 15
+                },
+                "start": {
+                  "character": 4,
+                  "line": 15
+                }
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 5,
+                  "line": 15
+                },
+                "start": {
+                  "character": 4,
+                  "line": 15
+                }
+              }
+            }
+          ],
+          "kind": 12,
+          "name": "Foo",
+          "range": {
+            "end": {
+              "character": 12,
+              "line": 18
+            },
+            "start": {
+              "character": 0,
+              "line": 13
+            }
+          },
+          "selectionRange": {
+            "end": {
+              "character": 12,
+              "line": 13
+            },
+            "start": {
+              "character": 9,
+              "line": 13
+            }
+          }
+        }
+      ],
       "kind": 3,
-      "location": {
-        "range": {
-          "end": {
-            "character": 13,
-            "line": 12
-          },
-          "start": {
-            "character": 10,
-            "line": 12
-          }
+      "name": "Lib",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 19
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "start": {
+          "character": 0,
+          "line": 12
+        }
       },
-      "name": "Lib"
-    },
-    {
-      "containerName": "Lib",
-      "kind": 12,
-      "location": {
-        "range": {
-          "end": {
-            "character": 12,
-            "line": 13
-          },
-          "start": {
-            "character": 9,
-            "line": 13
-          }
+      "selectionRange": {
+        "end": {
+          "character": 13,
+          "line": 12
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Foo"
+        "start": {
+          "character": 10,
+          "line": 12
+        }
+      }
     },
     {
       "kind": 11,
-      "location": {
-        "range": {
-          "end": {
-            "character": 15,
-            "line": 21
-          },
-          "start": {
-            "character": 10,
-            "line": 21
-          }
+      "name": "IFace",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 24
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "start": {
+          "character": 0,
+          "line": 21
+        }
       },
-      "name": "IFace"
+      "selectionRange": {
+        "end": {
+          "character": 15,
+          "line": 21
+        },
+        "start": {
+          "character": 10,
+          "line": 21
+        }
+      }
     },
     {
       "kind": 5,
-      "location": {
-        "range": {
-          "end": {
-            "character": 10,
-            "line": 26
-          },
-          "start": {
-            "character": 6,
-            "line": 26
-          }
+      "name": "Base",
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 27
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "start": {
+          "character": 0,
+          "line": 26
+        }
       },
-      "name": "Base"
+      "selectionRange": {
+        "end": {
+          "character": 10,
+          "line": 26
+        },
+        "start": {
+          "character": 6,
+          "line": 26
+        }
+      }
     },
     {
       "kind": 5,
-      "location": {
-        "range": {
-          "end": {
-            "character": 13,
-            "line": 29
-          },
-          "start": {
-            "character": 6,
-            "line": 29
-          }
+      "name": "Derived",
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 33
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "start": {
+          "character": 0,
+          "line": 29
+        }
       },
-      "name": "Derived"
+      "selectionRange": {
+        "end": {
+          "character": 13,
+          "line": 29
+        },
+        "start": {
+          "character": 6,
+          "line": 29
+        }
+      }
     },
     {
+      "children": [
+        {
+          "detail": "VAR : INT",
+          "kind": 13,
+          "name": "x",
+          "range": {
+            "end": {
+              "character": 12,
+              "line": 37
+            },
+            "start": {
+              "character": 4,
+              "line": 37
+            }
+          },
+          "selectionRange": {
+            "end": {
+              "character": 5,
+              "line": 37
+            },
+            "start": {
+              "character": 4,
+              "line": 37
+            }
+          }
+        },
+        {
+          "detail": "VAR : INT",
+          "kind": 13,
+          "name": "y",
+          "range": {
+            "end": {
+              "character": 12,
+              "line": 38
+            },
+            "start": {
+              "character": 4,
+              "line": 38
+            }
+          },
+          "selectionRange": {
+            "end": {
+              "character": 5,
+              "line": 38
+            },
+            "start": {
+              "character": 4,
+              "line": 38
+            }
+          }
+        },
+        {
+          "detail": "VAR : MyInt",
+          "kind": 13,
+          "name": "typed",
+          "range": {
+            "end": {
+              "character": 18,
+              "line": 39
+            },
+            "start": {
+              "character": 4,
+              "line": 39
+            }
+          },
+          "selectionRange": {
+            "end": {
+              "character": 9,
+              "line": 39
+            },
+            "start": {
+              "character": 4,
+              "line": 39
+            }
+          }
+        }
+      ],
       "kind": 2,
-      "location": {
-        "range": {
-          "end": {
-            "character": 12,
-            "line": 35
-          },
-          "start": {
-            "character": 8,
-            "line": 35
-          }
+      "name": "Main (PROGRAM)",
+      "range": {
+        "end": {
+          "character": 11,
+          "line": 42
         },
-        "uri": "file:///workspace/golden/alpha/Main.st"
+        "start": {
+          "character": 0,
+          "line": 35
+        }
       },
-      "name": "Main (PROGRAM)"
+      "selectionRange": {
+        "end": {
+          "character": 12,
+          "line": 35
+        },
+        "start": {
+          "character": 8,
+          "line": 35
+        }
+      }
     }
   ],
   "executeCommandProjectInfo": {
@@ -1000,6 +1201,16 @@ expression: output
           "character": 0,
           "line": 17
         }
+      },
+      {
+        "end": {
+          "character": 12,
+          "line": 41
+        },
+        "start": {
+          "character": 9,
+          "line": 41
+        }
       }
     ],
     "wordPattern": "[A-Za-z_][A-Za-z0-9_]*"
@@ -1103,6 +1314,19 @@ expression: output
         "start": {
           "character": 0,
           "line": 17
+        }
+      },
+      "uri": "file:///workspace/golden/alpha/Main.st"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 12,
+          "line": 41
+        },
+        "start": {
+          "character": 9,
+          "line": 41
         }
       },
       "uri": "file:///workspace/golden/alpha/Main.st"

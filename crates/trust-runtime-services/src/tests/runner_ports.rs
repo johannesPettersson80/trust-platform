@@ -280,6 +280,7 @@ fn board_probe_symbols(writer: &mut ImageWriter, strings: &mut StringPool) {
             type_index: ty,
             area,
             flags,
+            noinit: false,
             offset,
             size,
             parent,

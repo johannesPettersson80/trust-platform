@@ -10,6 +10,7 @@ fn lower_global_var_block(
         .filter(|child| child.kind() == SyntaxKind::VarDecl)
     {
         let parts = parse_var_decl(&var_decl)?;
+        let noinit = declares_noinit(&var_decl);
         let type_id = lower_type_ref(&parts.type_ref, ctx)?;
         let init_expr = parts
             .initializer
@@ -20,6 +21,7 @@ fn lower_global_var_block(
                 })
             })
             .transpose()?;
+        let init_args = lower_init_args(&parts, ctx)?;
         if qualifiers.constant
             && matches!(kind, VarBlockKind::Global)
             && let Some(expr) = init_expr.as_ref()
@@ -40,6 +42,8 @@ fn lower_global_var_block(
                         retain: qualifiers.retain,
                         address: parts.address.clone(),
                         constant: qualifiers.constant,
+                        init_args: init_args.clone(),
+                        noinit,
                     });
                 }
             }
@@ -112,6 +116,8 @@ pub(super) fn lower_var_access_block(
                     retain: crate::RetainPolicy::Unspecified,
                     address: Some(text.clone()),
                     constant: false,
+                    init_args: Vec::new(),
+                    noinit: false,
                 });
             }
             AccessPath::Parts(_) => {

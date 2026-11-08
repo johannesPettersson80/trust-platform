@@ -164,8 +164,13 @@ impl CycleTiming {
             self.restart_schedule();
         }
         let pace_nanos = super::scaled_sleep_interval(interval, speed).as_nanos();
-        let start_nanos =
-            super::grid_cycle_start(self.scheduled_start, wall.as_nanos(), pace_nanos);
+        // A cycle keeps the schedule within the larger of one paced interval and the wait floor of its due time, so that
+        // a wait that wakes late costs no speed (specification 46, §6.1 item 2).
+        let start_nanos = super::grid_cycle_start(
+            self.scheduled_start,
+            wall.as_nanos(),
+            pace_nanos.max(super::SIMULATION_WAIT_FLOOR_NANOS),
+        );
         let process_time = self.process_time(wall, interval, speed);
         CycleSlot {
             process_time,

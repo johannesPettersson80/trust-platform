@@ -1139,3 +1139,69 @@ fn test_is_valid_ref_refuses_what_is_no_single_reference() {
         );
     }
 }
+
+/// Specification 04: `__QUERYINTERFACE` takes an interface and an interface variable, in any case,
+/// gives a `BOOL`, and stands as a statement too. Catches the call taken for an unknown function,
+/// and its result typed as anything but `BOOL`.
+#[test]
+fn test_query_interface_queries_one_interface_for_another() {
+    check_no_errors(
+        r#"
+INTERFACE ILamp
+    METHOD Toggle : BOOL
+    END_METHOD
+END_INTERFACE
+
+INTERFACE IDimmer
+    METHOD Dim : INT
+    END_METHOD
+END_INTERFACE
+
+PROGRAM Test
+VAR
+    lamp : ILamp;
+    dimmer : IDimmer;
+    found : BOOL;
+END_VAR
+found := __QUERYINTERFACE(lamp, dimmer) AND TRUE;
+__queryinterface(lamp, dimmer);
+END_PROGRAM
+"#,
+    );
+}
+
+/// Specification 04: `__QUERYINTERFACE` refuses a source or a target that is no interface, a target
+/// that is no variable, a named argument and a third argument. Catches a check that takes any
+/// argument.
+#[test]
+fn test_query_interface_refuses_what_is_no_interface_query() {
+    for (call, code) in [
+        (
+            "__QUERYINTERFACE(count, dimmer)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, count)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, GetDimmer())",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, ITF_DEST := dimmer)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, dimmer, dimmer)",
+            DiagnosticCode::WrongArgumentCount,
+        ),
+    ] {
+        check_has_error(
+            &format!(
+                "INTERFACE ILamp\nEND_INTERFACE\nINTERFACE IDimmer\nEND_INTERFACE\nFUNCTION GetDimmer : IDimmer\nEND_FUNCTION\nPROGRAM Test\nVAR\n    lamp : ILamp;\n    dimmer : IDimmer;\n    count : INT;\n    found : BOOL;\nEND_VAR\nfound := {call};\nEND_PROGRAM\n"
+            ),
+            code,
+        );
+    }
+}

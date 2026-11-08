@@ -3,6 +3,13 @@ use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::Value;
 use trust_runtime::RestartMode;
 
+#[path = "codesys_language_profile/call_after_init.rs"]
+mod call_after_init;
+#[path = "codesys_language_profile/instance_path.rs"]
+mod instance_path;
+#[path = "codesys_language_profile/noinit.rs"]
+mod noinit;
+
 // Specification 10 §4.8: under the CODESYS profiles a restart calls FB_init of every instance whose
 // type declares it, before the first cycle; under the IEC profile nothing calls it. Catches FB_init
 // never called (the CODESYS report's A4: the lamp would read FALSE), and called under the IEC
@@ -203,30 +210,129 @@ fn fb_init_runs_for_every_instance_in_order_with_the_restart_flags() {
     }
 }
 
-// Specification 44 §6.7: an FB_init with an input of its own, which CODESYS gives at the instance's
-// declaration, is not compiled yet (NX-09), so the build refuses it rather than pass a value the
-// program never gave. Catches the build calling it with a made-up value.
-#[test]
-fn an_fb_init_with_inputs_of_its_own_is_refused_at_build() {
-    let source = r#"
+// Specification 10 §4.8: the inputs of FB_init after the first two take the arguments of the
+// instance's declaration, by name or all in order, else their initial value, else their type's default;
+// a member's declaration in a function block and a global's declaration give theirs, and a base
+// part's FB_init takes the same arguments. Worked by hand from the declarations: `named` gets port
+// 3, the default speed 50 and fast TRUE; `positional` port 7, speed 80 and fast FALSE; the
+// holder's `inner` port 9; the global `gPort` port 11 and speed 20; `derived`, whose FB_init
+// repeats FB_Port's inputs and adds a name code, has its base part set by FB_Port's FB_init to port
+// 5 and its own code 42. Catches the arguments ignored (port 0), bound one input too early (to
+// bInCopyCode), the default lost, and a base part called without them.
+const FB_INIT_ARGUMENTS: &str = r#"
 FUNCTION_BLOCK FB_Port
-VAR
+VAR_OUTPUT
     port : INT;
+    speed : INT;
+    fast : BOOL;
 END_VAR
 METHOD FB_init : BOOL
 VAR_INPUT
     bInitRetains : BOOL;
     bInCopyCode : BOOL;
     iPort : INT;
+    nSpeed : INT := 50;
+    bFast : BOOL;
 END_VAR
 port := iPort;
+speed := nSpeed;
+fast := bFast;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Coded EXTENDS FB_Port
+VAR_OUTPUT
+    code : DINT;
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    iPort : INT;
+    nSpeed : INT := 50;
+    bFast : BOOL;
+    nCode : DINT;
+END_VAR
+code := nCode;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Holder
+VAR
+    inner : FB_Port(iPort := 9);
+END_VAR
+END_FUNCTION_BLOCK
+
+VAR_GLOBAL
+    gPort : FB_Port(11, 20, FALSE);
+END_VAR
+
+PROGRAM Main
+VAR
+    named : FB_Port(bFast := TRUE, iPort := 3);
+    positional : FB_Port(7, 80, FALSE);
+    holder : FB_Holder;
+    derived : FB_Coded(iPort := 5, nCode := 42);
+    s1, s2, s3, s4, s5, s6, s7, s8, s9, s10 : DINT;
+END_VAR
+s1 := named.port;
+s2 := named.speed;
+s3 := BOOL_TO_DINT(named.fast);
+s4 := positional.port;
+s5 := positional.speed;
+s6 := BOOL_TO_DINT(positional.fast);
+s7 := holder.inner.port;
+s8 := gPort.port * 100 + gPort.speed;
+s9 := derived.port;
+s10 := derived.code;
+END_PROGRAM
+"#;
+
+#[test]
+fn fb_init_takes_the_arguments_of_the_declaration() {
+    let harness = codesys_run(FB_INIT_ARGUMENTS, 1);
+    let seen: Vec<Value> = (1..=10)
+        .map(|index| {
+            harness
+                .get_output(&format!("s{index}"))
+                .unwrap_or(Value::Null)
+        })
+        .collect();
+    assert_eq!(
+        seen,
+        [3, 50, 1, 7, 80, 0, 9, 1120, 5, 42]
+            .into_iter()
+            .map(Value::DInt)
+            .collect::<Vec<_>>()
+    );
+}
+
+// Specification 44 §6.7: an input of a type that is no scalar, here a STRING, from the instance's
+// declaration is not compiled yet (NX-09), so the build refuses it rather than pass something else.
+// Catches the argument dropped and the input left empty.
+#[test]
+fn an_fb_init_string_argument_is_refused_at_build() {
+    let source = r#"
+FUNCTION_BLOCK FB_Named
+VAR
+    title : STRING;
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    sTitle : STRING;
+END_VAR
+title := sTitle;
 FB_init := TRUE;
 END_METHOD
 END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
-    com : FB_Port;
+    named : FB_Named(sTitle := 'pump');
 END_VAR
 END_PROGRAM
 "#;
@@ -238,7 +344,7 @@ END_PROGRAM
     assert!(
         error
             .to_string()
-            .contains("FB_Port.FB_init with inputs beyond bInitRetains and bInCopyCode"),
+            .contains("FB_Named.FB_init's input sTitle, of a type that is no scalar"),
         "{error}"
     );
 }
@@ -793,5 +899,99 @@ fn is_valid_ref_tells_a_bound_reference_from_null() {
                 "{profile:?}: {name}"
             );
         }
+    }
+}
+
+// Specification 04: `__QUERYINTERFACE(source, target)` is `target ?= source` then `target <> NULL`,
+// under the CODESYS and the IEC profiles. Worked by hand: the lamp implements IDimmer, so the first
+// query is TRUE and the dimmer gives the lamp's level 3; it does not implement IFan, so the second
+// query is FALSE and the fan, which named another block, is NULL afterwards. Catches the answer
+// inverted, the target left unchanged on a failed query (CODESYS sets it to 0), and a query that
+// never names the instance.
+const QUERY_INTERFACE: &str = r#"
+INTERFACE ILamp
+METHOD Toggle : BOOL
+END_METHOD
+END_INTERFACE
+
+INTERFACE IDimmer
+METHOD Dim : INT
+END_METHOD
+END_INTERFACE
+
+INTERFACE IFan
+METHOD Spin : BOOL
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS ILamp, IDimmer
+VAR
+    level : INT := 3;
+END_VAR
+METHOD PUBLIC Toggle : BOOL
+Toggle := TRUE;
+END_METHOD
+METHOD PUBLIC Dim : INT
+Dim := level;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Fan IMPLEMENTS IFan
+METHOD PUBLIC Spin : BOOL
+Spin := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    lamp : FB_Lamp;
+    fanBlock : FB_Fan;
+    lampItf : ILamp;
+    dimmer : IDimmer;
+    fan : IFan;
+    found : BOOL;
+    level : INT;
+    missing : BOOL := TRUE;
+    fanCleared : BOOL;
+END_VAR
+lampItf := lamp;
+found := __QUERYINTERFACE(lampItf, dimmer);
+IF found THEN
+    level := dimmer.Dim();
+END_IF
+fan := fanBlock;
+missing := __QUERYINTERFACE(lampItf, fan);
+fanCleared := fan = NULL;
+END_PROGRAM
+"#;
+
+#[test]
+fn query_interface_answers_and_sets_the_target() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(QUERY_INTERFACE).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        assert_eq!(
+            harness.get_output("found"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("level"),
+            Some(Value::Int(3)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("missing"),
+            Some(Value::Bool(false)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("fanCleared"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
     }
 }

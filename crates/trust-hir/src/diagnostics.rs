@@ -5,6 +5,10 @@
 
 use text_size::TextRange;
 
+mod syntax;
+
+pub use syntax::syntax_diagnostics;
+
 /// Severity level of a diagnostic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DiagnosticSeverity {
@@ -82,6 +86,8 @@ pub enum DiagnosticCode {
     UnknownTask,
     /// Invalid OpenOT authoring attribute.
     InvalidOpenOtAttribute,
+    /// A test attribute whose value does not read, or that no test program carries (specification 22, "Multi-cycle tests").
+    InvalidTestAttribute,
 
     // Warnings (W001-W099)
     /// Unused variable.
@@ -158,6 +164,7 @@ impl DiagnosticCode {
             Self::InvalidTaskConfig => "E306",
             Self::UnknownTask => "E307",
             Self::InvalidOpenOtAttribute => "E308",
+            Self::InvalidTestAttribute => "E309",
             // Warnings
             Self::UnusedVariable => "W001",
             Self::UnusedParameter => "W002",
@@ -211,7 +218,8 @@ impl DiagnosticCode {
             | Self::CyclicDependency
             | Self::InvalidTaskConfig
             | Self::UnknownTask
-            | Self::InvalidOpenOtAttribute => DiagnosticSeverity::Error,
+            | Self::InvalidOpenOtAttribute
+            | Self::InvalidTestAttribute => DiagnosticSeverity::Error,
 
             // Warnings
             Self::UnusedVariable

@@ -541,9 +541,20 @@ fn every_command_appears_in_the_audit_log() {
     let plant = plant("audit");
     plant.command("c-audit", "sp", "write", Some(json!(42)));
     plant.command("c-refused", "sp", "write", Some(json!(500)));
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // Collect until every record the test reads has arrived: the program confirms what it applied
+    // a scan later, and a loaded runner can be slow.
+    let has = |records: &[Value], command: &str, outcome: &str| {
+        records.iter().any(|record| {
+            record["command"] == json!(command) && record["outcome"] == json!(outcome)
+        })
+    };
+    let deadline = Instant::now() + Duration::from_secs(10);
     let mut records = Vec::new();
-    while Instant::now() < deadline {
+    while !(has(&records, "c-audit", "applied")
+        && has(&records, "c-audit", "confirmed")
+        && has(&records, "c-refused", "refused"))
+        && Instant::now() < deadline
+    {
         if let Ok(event) = plant.audit.recv_timeout(Duration::from_millis(100))
             && event.request_type == "hmi.command"
         {
