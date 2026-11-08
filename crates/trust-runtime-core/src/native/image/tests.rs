@@ -141,47 +141,11 @@ fn sample(spec: &Sample) -> Vec<u8> {
         ],
         &member.bytes(),
     );
-    let mut symbols = vec![
-        SymbolRecord {
-            canonical: vat,
-            display: vat_display,
-            type_index: 1,
-            area: 6,
-            flags: SYMBOL_PROGRAM,
-            noinit: false,
-            offset: 0,
-            size: 4,
-            parent: NONE,
-            pou: 0,
-        },
-        SymbolRecord {
-            canonical: batches,
-            display: batches_display,
-            type_index: 2,
-            area: 5,
-            flags: SYMBOL_RETAINED,
-            noinit: false,
-            offset: 0,
-            size: 4,
-            parent: 0,
-            pou: 0,
-        },
-        SymbolRecord {
-            canonical: state,
-            display: state_display,
-            type_index: 0,
-            area: 6,
-            flags: 0,
-            noinit: false,
-            offset: spec.state_offset,
-            size: 2,
-            parent: 0,
-            pou: 0,
-        },
-    ];
-    if !spec.sorted {
-        symbols.swap(1, 2);
-    }
+    let symbols = sample_symbols(
+        [vat, batches, state],
+        [vat_display, batches_display, state_display],
+        spec,
+    );
     writer.table(&symbols, &[]);
     writer.table(
         &[StmtRecord {
@@ -233,6 +197,54 @@ fn sample(spec: &Sample) -> Vec<u8> {
         remove_section(&mut image, missing);
     }
     image
+}
+
+/// The sample's symbols, by their canonical and display names' string offsets: the program `Vat`, its
+/// retained `Batches` and its `State` at `spec.state_offset`, in canonical-name order unless
+/// `spec.sorted` is false.
+fn sample_symbols(canonical: [u32; 3], display: [u32; 3], spec: &Sample) -> Vec<SymbolRecord> {
+    let mut symbols = vec![
+        SymbolRecord {
+            canonical: canonical[0],
+            display: display[0],
+            type_index: 1,
+            area: 6,
+            flags: SYMBOL_PROGRAM,
+            noinit: false,
+            offset: 0,
+            size: 4,
+            parent: NONE,
+            pou: 0,
+        },
+        SymbolRecord {
+            canonical: canonical[1],
+            display: display[1],
+            type_index: 2,
+            area: 5,
+            flags: SYMBOL_RETAINED,
+            noinit: false,
+            offset: 0,
+            size: 4,
+            parent: 0,
+            pou: 0,
+        },
+        SymbolRecord {
+            canonical: canonical[2],
+            display: display[2],
+            type_index: 0,
+            area: 6,
+            flags: 0,
+            noinit: false,
+            offset: spec.state_offset,
+            size: 2,
+            parent: 0,
+            pou: 0,
+        },
+    ];
+    if !spec.sorted {
+        symbols.swap(1, 2);
+    }
+    symbols
 }
 
 /// Renames section `id` in the section table to an unused slot by turning it into a second
