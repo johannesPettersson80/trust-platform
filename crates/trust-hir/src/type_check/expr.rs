@@ -5,6 +5,7 @@ use super::literals::{
     is_long_tod_literal, is_zero_numeric_literal_expr, smallest_int_type_for_literal,
 };
 use super::*;
+use crate::symbols::Symbol;
 
 impl<'a> TypeChecker<'a> {
     /// Creates a new type checker.
@@ -241,6 +242,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                         format!("ambiguous enum value '{}'; qualify it with its type", name),
                     );
                 }
+                if let Some(message) = self.unqualified_name_refusal(symbol, name.as_str()) {
+                    return self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::CannotResolve,
+                        node.text_range(),
+                        message,
+                    );
+                }
                 if self.checker.is_return_target(node)
                     && let Some(return_type) = self.checker.current_function_return
                 {
@@ -309,6 +317,15 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         let rhs_type = self.check_expression(rhs_node);
 
         let op = BinaryOp::from_node(node);
+        if op.is_arithmetic()
+            && let Some(message) = self.strict_enum_arithmetic(&[lhs_type, rhs_type])
+        {
+            return self.checker.legacy_diagnostic_type(
+                DiagnosticCode::InvalidOperation,
+                node.text_range(),
+                message,
+            );
+        }
         let (lhs_type, rhs_type) = if op.is_comparison() || op.is_arithmetic() || op.is_logical() {
             self.contextual_numeric_operand_types(lhs_type, lhs_node, rhs_type, rhs_node)
         } else {
@@ -477,6 +494,54 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             return (lhs_type, lhs_type);
         }
         (lhs_type, rhs_type)
+    }
+
+    /// The refusal of a bare name that `{attribute 'qualified_only'}` wants qualified: a value of
+    /// such an enumeration (specification 02 §3.1), or a global of such a `VAR_GLOBAL` list of a
+    /// namespace, reached from outside the namespace through a `USING` (specification 04,
+    /// "Rules"). Inside the namespace its names are in scope without one, and stay valid.
+    fn unqualified_name_refusal(&self, symbol: &Symbol, name: &str) -> Option<String> {
+        let owner = symbol.parent.and_then(|id| self.checker.symbols.get(id))?;
+        if matches!(symbol.kind, SymbolKind::EnumValue { .. }) && owner.modifiers.qualified_only {
+            return Some(crate::attributes::unqualified_value_message(
+                name,
+                &owner.name,
+            ));
+        }
+        if symbol.declared_qualifier != Some(VarQualifier::Global)
+            || !symbol.modifiers.qualified_only
+            || !matches!(owner.kind, SymbolKind::Namespace)
+        {
+            return None;
+        }
+        let resolver = self.checker.resolve_ref();
+        let mut namespace = resolver.namespace_path_for_symbol(owner.id);
+        namespace.push(owner.name.clone());
+        if resolver.current_namespace_path().starts_with(&namespace) {
+            return None;
+        }
+        let namespace = namespace.join(".");
+        Some(format!(
+            "'{name}' is a global of the namespace {namespace}, whose list is {{attribute 'qualified_only'}}: write {namespace}.{name}"
+        ))
+    }
+
+    /// The refusal of arithmetic with a value of an enumeration declared `{attribute 'strict'}`,
+    /// one of CODESYS's strict programming rules (specification 02 §3.1).
+    fn strict_enum_arithmetic(&self, operands: &[TypeId]) -> Option<String> {
+        operands.iter().find_map(|&operand| {
+            let operand = self.checker.resolve_alias_type(operand);
+            match self.checker.symbols.type_by_id(operand) {
+                Some(Type::Enum { name, .. })
+                    if self.checker.symbols.type_modifiers(operand).strict =>
+                {
+                    Some(format!(
+                        "arithmetic with a value of {name}, which is {{attribute 'strict'}}"
+                    ))
+                }
+                _ => None,
+            }
+        })
     }
 
     fn infer_unary_expr(&mut self, node: &SyntaxNode) -> TypeId {

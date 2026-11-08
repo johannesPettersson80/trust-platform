@@ -254,6 +254,23 @@ END_TYPE
   enums, whose base is `INT`. Integer assignment INTO an enum stays
   rejected for base-less ("closed") enums; explicit-base named-value types
   follow §3.2. Cross-enum assignment stays rejected
+- `{attribute 'qualified_only'}` before the `TYPE` keyword (CODESYS, vendor extension; the
+  vendor's attribute help: such names "are addressed only by specifying" their qualifier, and this
+  "also applies to variables of the type Enumeration"): the enumeration's values are named only with
+  their type, `TrafficLight.Red` or `TrafficLight#Red`, in expressions, initializers and `CASE`
+  labels; a bare `Red` is an error (E105) whose message names the qualified form
+- `{attribute 'strict'}` before the `TYPE` keyword (CODESYS, vendor extension; the vendor's
+  "strict programming rules", which CODESYS writes into every new enumeration since V3.5 SP7):
+  - arithmetic with the enumeration's values is an error (E202): a type with named values, whose
+    arithmetic §3.2 otherwise allows, takes none, and a base-less enumeration takes none with or
+    without the attribute;
+  - assigning to a variable of the enumeration a constant that is none of its values, or a value of
+    another type that is no constant, is an error (E203); a constant that is one of its values is
+    taken, and a base-less enumeration takes no integer at all, by the rule above;
+  - reading an enumerated value as its integer base, as the rule above allows it, stays valid, since
+    the vendor's rules do not forbid it. A `FOR` loop takes no enumeration as its control variable, and
+    a negation no enumerated value, with or without the attribute
+- An attribute before `TYPE` applies to each enumeration of that `TYPE` block
 - Error if enumerated literal cannot be unambiguously determined
 
 ### 3.2 Data Types with Named Values (Section 6.4.4.3)

@@ -1,4 +1,5 @@
 use super::*;
+use crate::attributes::declares_attribute;
 use crate::db::diagnostics::is_expression_kind;
 use crate::db::queries::collector::const_utils::{
     parse_int_literal, scope_chain_for_node, ConstEvalError,
@@ -51,6 +52,10 @@ impl SymbolCollector<'_> {
             }
             _ => self.visibility_for_var_block(node),
         };
+        // A namespace's `VAR_GLOBAL` list with `{attribute 'qualified_only'}` (specification 04,
+        // "Rules"): its globals are named with the namespace.
+        let qualified_only =
+            qualifier == VarQualifier::Global && declares_attribute(node, "qualified_only");
         let use_global_scope = qualifier == VarQualifier::Global && self.in_configuration_scope();
         let previous_scope = self.table.current_scope();
         if use_global_scope {
@@ -58,7 +63,7 @@ impl SymbolCollector<'_> {
         }
         for child in node.children() {
             if child.kind() == SyntaxKind::VarDecl {
-                self.collect_var_decl(&child, qualifier, is_constant, visibility);
+                self.collect_var_decl(&child, qualifier, is_constant, visibility, qualified_only);
             }
         }
         if use_global_scope {
@@ -72,6 +77,7 @@ impl SymbolCollector<'_> {
         qualifier: VarQualifier,
         is_constant: bool,
         visibility: Visibility,
+        qualified_only: bool,
     ) {
         let mut names = Vec::new();
         let mut type_ref = None;
@@ -160,6 +166,7 @@ impl SymbolCollector<'_> {
                 symbol.edge_qualifier = edge_qualifier;
                 symbol.parent = self.current_parent();
                 symbol.visibility = visibility;
+                symbol.modifiers.qualified_only = qualified_only;
                 self.declare_symbol(symbol);
             }
         }
