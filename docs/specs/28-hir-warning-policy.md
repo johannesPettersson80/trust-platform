@@ -214,11 +214,25 @@ different resources or configurations remain distinct. A program instance
 whose task or program type cannot be resolved does not contribute guessed
 accesses.
 
-A resolved global reference is a write when it is the assignment target,
-including through a qualified field, array index, or dereference target.
-References on the assignment right-hand side and in other expression contexts
-are reads. A local declaration that shadows a global remains a distinct symbol.
-Read-only access from any number of tasks is not a write hazard.
+A program's use of a resolved global writes it when (one rule,
+`trust_hir::access`, which the access kinds of references share, specification
+14 §6.3.2):
+
+- it is the target of an assignment, a FOR loop's control variable among them,
+  also through a field, an array element or a dereference of the global:
+  `gS.a := 1` and `gArr[1] := 0` write `gS` and `gArr`, while an index such as
+  `i` in `gArr[i] := 0` is read;
+- it is an argument that a call binds to an output parameter, by `=>` or by
+  position, or to an in-out parameter, which the callee may write; the type
+  check's binding decides which parameter an argument meets;
+- it is called: a call of a global function block instance (`gTimer(IN := x)`)
+  or of a method of one (`gTank.Start()`) runs code that may change the
+  instance. Beckhoff's SA0006 counts a method call on an instance as a write to
+  it too.
+
+Every other use is a read. A local declaration that shadows a global remains a
+distinct symbol. Read-only access from any number of tasks is not a write
+hazard.
 
 The warning is reported on the owning global declaration. Its message lists
 task labels in lexical order, includes at most three labels per access/write

@@ -27,6 +27,7 @@ impl<'a> TypeChecker<'a> {
             label_scopes: Vec::new(),
             expression_types: FxHashMap::default(),
             resolved_symbols: FxHashMap::default(),
+            written_arguments: FxHashSet::default(),
         }
     }
 
