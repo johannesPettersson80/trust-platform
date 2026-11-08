@@ -408,9 +408,12 @@ contract:
 - reliability-summary enforcement returns nonzero when a configured load,
   soak, or flake budget is breached;
 - the public native CI template builds both CLIs, then performs runtime build,
-  validate, JUnit test, and report upload in the reviewed order; and
+  validate, JUnit test, and report upload in the reviewed order;
 - the VS Code extension job remains a required release-gate input, so a failed
-  or absent extension artifact cannot be aggregated as release-ready.
+  or absent extension artifact cannot be aggregated as release-ready; and
+- each native test job uploads its test log twice at most, the second time only
+  when the first upload failed, and a failed upload never fails a job whose tests
+  passed: the log is evidence of the tests, and the job's verdict is its tests'.
 
 These checks prove the named scripts, workflow wiring, machine-readable fields,
 and fail-closed aggregation boundaries. They do not prove that an unexecuted
