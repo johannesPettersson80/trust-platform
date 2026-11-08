@@ -158,15 +158,75 @@ END_PROGRAM
 
     let output = run_build(&project, &["--ci"]);
     assert_eq!(output.status.code(), Some(11));
+    // Specification 11 §6.8.1d (the CODESYS toolkit's B16): the sources' diagnostics, each where
+    // it is, as `trust-runtime check` reports them. `Counter :=` on line 6 lacks its expression,
+    // which the parser reports at `END_PROGRAM` on line 7, columns 1 to before 12.
+    let payload = json_stdout(&output);
+    assert_eq!(payload["command"], "build");
+    assert_eq!(payload["ok"], false);
+    assert_eq!(payload["status"], "failed");
+    let issues = payload["issues"].as_array().expect("issues");
     assert!(
-        String::from_utf8_lossy(&output.stderr).contains("expected expression"),
-        "expected parser failure in stderr; stderr:\n{}",
-        String::from_utf8_lossy(&output.stderr)
+        issues.iter().any(|issue| {
+            issue["code"] == "E002"
+                && issue["message"] == "expected expression"
+                && issue["line"] == 7
+                && issue["column"] == 1
+                && issue["end_line"] == 7
+                && issue["end_column"] == 12
+                && reported_path_ends_with(
+                    issue["file"].as_str().unwrap_or_default(),
+                    "src/main.st",
+                )
+        }),
+        "{issues:?}"
     );
+    assert_eq!(payload["errors"], issues.len());
     assert_eq!(
         std::fs::read(&program_path).expect("read preserved program image"),
         b"previous-image"
     );
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
+/// Specification 11 §6.8.1d (the CODESYS toolkit's B16): `build --json` prints the sources'
+/// diagnostics as `--ci` does and exits as the failure does without the JSON, 1. Worked by hand:
+/// `Missing` follows `Counter := (` on line 6, so it spans columns 13 to before 20. Catches the
+/// error text on stderr that the toolkit had to parse, and `--json` taking `--ci`'s exit class.
+#[test]
+fn build_json_reports_each_diagnostic_where_it_is() {
+    let project = unique_temp_dir("build-json-diagnostics");
+    write_file(
+        &project.join("src/main.st"),
+        r#"
+PROGRAM Main
+VAR
+    Counter : INT;
+END_VAR
+Counter := (Missing);
+END_PROGRAM
+"#,
+    );
+
+    let output = run_build(&project, &["--json"]);
+    assert_eq!(output.status.code(), Some(1));
+    let payload = json_stdout(&output);
+    assert_eq!(payload["command"], "build");
+    assert_eq!(payload["status"], "failed");
+    let undefined: Vec<&JsonValue> = payload["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .filter(|issue| issue["code"] == "E101")
+        .collect();
+    assert_eq!(undefined.len(), 1, "{payload}");
+    assert_eq!(undefined[0]["message"], "undefined identifier 'Missing'");
+    assert_eq!(undefined[0]["line"], 6);
+    assert_eq!(undefined[0]["column"], 13);
+    assert_eq!(undefined[0]["end_line"], 6);
+    assert_eq!(undefined[0]["end_column"], 20);
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
