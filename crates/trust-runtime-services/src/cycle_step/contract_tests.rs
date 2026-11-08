@@ -12,6 +12,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::{request, restart_time, StepOutcome, StepRefusal, StepRequest};
+use crate::debug::sources::StatementAt;
 use crate::tests::fake_host::FakeHost;
 
 /// A stopped resource whose platform answers every step with `answer`.
@@ -35,9 +36,10 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
     // value texts and in the order of their names, the watches in the request's order and the
     // program instance to run. The
     // reply is `time_ns`, the values and the direct values in the conformance encoding, and the
-    // text of the scan's error. Catches inputs written in the request's order instead of the
+    // text of the scan's error with the file and line of the statement that raised it
+    // (specification 11 §6.8.1). Catches inputs written in the request's order instead of the
     // names' order, a restart mode read case-sensitively, a text `1_000` read as anything but
-    // 1000, and an error reported other than by its text.
+    // 1000, an error reported other than by its text, and its statement left out.
     let host = stopped(Ok(StepOutcome {
         values: vec![
             ("b".into(), Value::Int(0)),
@@ -45,6 +47,10 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
         ],
         direct: vec![("%QX0.1".into(), Value::Bool(true))],
         error: Some(RuntimeError::Overflow),
+        error_at: Some(StatementAt {
+            file: "src/tests.st".into(),
+            line: 7,
+        }),
     }));
     let params = json!({
         "time_ns": 20_000_000,
@@ -79,6 +85,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
             },
             "direct": {"%QX0.1": {"type": "BOOL", "value": true}},
             "errors": ["arithmetic overflow"],
+            "error_at": {"file": "src/tests.st", "line": 7},
         }))
     );
 }

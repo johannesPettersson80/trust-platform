@@ -180,5 +180,6 @@ fn executed(
         message,
         duration_ms: elapsed_ms(started.elapsed()),
         cycles: None,
+        failed_at: None,
     }
 }

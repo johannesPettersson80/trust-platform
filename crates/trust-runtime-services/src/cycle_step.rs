@@ -24,6 +24,7 @@ use trust_runtime_core::value::{Duration, Value};
 
 pub use values::{encode_value, parse_typed_value};
 
+use crate::debug::sources::StatementAt;
 use crate::ports::ResourcePort;
 use crate::protocol::ControlResponse;
 use crate::resource::replies::{
@@ -73,6 +74,9 @@ pub struct StepOutcome {
     pub direct: Vec<(SmolStr, Value)>,
     /// The error the scan ended with; none for a scan that completed.
     pub error: Option<RuntimeError>,
+    /// Where that error was raised, when a statement of a debug image raised it
+    /// (specification 11 §6.8.1).
+    pub error_at: Option<StatementAt>,
 }
 
 /// Why a step ran no scan, or why its result cannot be given.
@@ -216,7 +220,8 @@ pub fn request<H: ResourcePort>(id: u64, params: Option<&JsonValue>, host: &H) -
 }
 
 /// The result of a step: `{"time_ns", "values", "direct", "errors"}`, the values in the encoding of
-/// [`encode_value`] and `errors` the text of the error the scan ended with.
+/// [`encode_value`] and `errors` the text of the error the scan ended with, and `error_at`, the file
+/// and line of the statement that raised it, when the outcome names one.
 #[must_use]
 pub fn reply(time: Duration, outcome: &StepOutcome) -> JsonValue {
     let encoded = |entries: &[(SmolStr, Value)]| {
@@ -225,12 +230,16 @@ pub fn reply(time: Duration, outcome: &StepOutcome) -> JsonValue {
             .map(|(name, value)| (name.to_string(), encode_value(value)))
             .collect::<BTreeMap<_, _>>()
     };
-    json!({
+    let mut result = json!({
         "time_ns": time.as_nanos(),
         "values": encoded(&outcome.values),
         "direct": encoded(&outcome.direct),
         "errors": outcome.error.iter().map(ToString::to_string).collect::<Vec<_>>(),
-    })
+    });
+    if let Some(at) = &outcome.error_at {
+        result["error_at"] = json!({"file": at.file.as_str(), "line": at.line});
+    }
+    result
 }
 
 /// The step `params` ask for, or why they are refused.

@@ -39,6 +39,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 use super::CompiledCycle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::expression::Names;
+use crate::debug::sources::StatementAt;
 use crate::runner::cycle::{CycleSettings, ResourceCycle, RetainSource, TaskDescriptor};
 use crate::runner::debugger::{Boundary, StatementStart, StopPoints};
 use crate::runner::hold::{CompiledHeld, HoldHandle, HoldPass};
@@ -77,6 +78,14 @@ entry!(dividing_by_zero, |cx, _| Err(fault(
 
 entry!(nothing, |_, _| Ok(()));
 
+// A body of a debug image whose second statement, id 1 on line 2 of `main.st`, divides by zero: it
+// calls the statement hook before each statement, as a debug image's body does.
+entry!(faulting_in_its_second_statement, |cx, _| {
+    stmt(cx, 0)?;
+    stmt(cx, 1)?;
+    Err(fault(cx, FaultCode::DivisionByZero, 0, 0, 0))
+});
+
 // The counting body of a debug image: it links its frame, as a POU of a debug image does
 // (specification 44 §8.2, §13.2), and calls the statement hook before each of its two statements,
 // ids 0 and 1.
@@ -98,11 +107,12 @@ entry!(stopping, |cx, areas| {
         Ok(())
     })();
     cx.frame = link.caller;
+    cx.stmt = link.call_stmt;
     result
 });
 
 /// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 counts as
-/// a debug image does.
+/// a debug image does, and 56 divides by zero in its second statement.
 pub(super) struct StandIn;
 
 impl ModuleCode for StandIn {
@@ -112,6 +122,7 @@ impl ModuleCode for StandIn {
             16 => Some(Entry::from_fn(dividing_by_zero)),
             32 => Some(Entry::from_fn(nothing)),
             48 => Some(Entry::from_fn(stopping)),
+            56 => Some(Entry::from_fn(faulting_in_its_second_statement)),
             _ => None,
         }
     }
@@ -846,6 +857,7 @@ fn a_step_restarts_writes_scans_and_reads_without_the_drivers() {
             ],
             direct: vec![("%QX0.1".into(), Value::Bool(true))],
             error: None,
+            error_at: None,
         }
     );
     assert_eq!(
@@ -910,6 +922,40 @@ fn a_stepped_fault_is_reported_and_not_latched() {
 }
 
 #[test]
+fn a_stepped_fault_names_the_statement_that_raised_it() {
+    // Specification 11 §6.8.1 and specification 44 §8.6: the outcome of a stepped scan whose fault a
+    // statement of a debug image raised names that statement's file and line from the statement
+    // table, statement 1 on line 2 of `main.st`; a release image's statements record no number
+    // (§13.2), so its fault names none. Catches a statement taken from anything but the fault's
+    // record (statement 0 is on line 1), and a release image's fault placed by the table.
+    for (release, at) in [
+        (
+            false,
+            Some(StatementAt {
+                file: "main.st".into(),
+                line: 2,
+            }),
+        ),
+        (true, None),
+    ] {
+        let bytes = image_with(56, true, release);
+        let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+        let outcome = cycle
+            .step(
+                &step(10, Some(RestartMode::Cold), Vec::new(), &[]),
+                Duration::ZERO,
+                None,
+            )
+            .expect("the step runs");
+        assert_eq!(
+            (outcome.error, outcome.error_at),
+            (Some(RuntimeError::DivisionByZero), at),
+            "release {release}"
+        );
+    }
+}
+
+#[test]
 fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
     // Specification 11 §6.8.1, `run`, and specification 44 §5.7: the body of `MAIN`, found by the
     // instance number its root symbol carries, runs once per step at time 0, when the task `Fast`
@@ -942,6 +988,7 @@ fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
             ],
             direct: vec![("%QX0.1".into(), Value::Bool(false))],
             error: None,
+            error_at: None,
         }
     );
     request.run = Some("NOPE".into());
