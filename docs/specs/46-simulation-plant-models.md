@@ -114,8 +114,8 @@ Every plant defines:
 | `name` | string | no | Human-readable display name; defaults to `id` when omitted. |
 | `description` | string | no | Optional project documentation for the simulated process. |
 | `model` | closed string enum | yes | Selects a built-in model from Section 7. |
-| `command_sources` | array of addresses or symbols | yes | Ordered numeric PLC output or memory signals, or unaddressed program variables (Section 13.1). |
-| `feedback_targets` | array of addresses or symbols | yes | Ordered numeric PLC input signals, unaddressed program variables, or `pid:` and a `Control.PID` instance's path (Section 13.2). |
+| `command_sources` | array of addresses or symbols | yes | Ordered numeric PLC output or memory signals, or unaddressed variables of the program (Section 13.1). |
+| `feedback_targets` | array of addresses or symbols | yes | Ordered numeric PLC input signals, unaddressed variables of the program, or `pid:` and a `Control.PID` instance's path (Section 13.2). |
 | `actuator_feedback_targets` | array of records | no | Optional applied-actuator PLC input address for each ordered command channel; see Section 3.2.1. |
 | `step_ms` | positive integer | no | Overrides the default fixed integration step. |
 | `initial_state` | array of finite numbers | model-dependent | Sets dynamic state at activation. |
@@ -1243,10 +1243,14 @@ source gives a plant a program variable as its input, for example the setpoint
 that an outer controller passes to an inner loop, so that a model of the inner
 loop closed around its process can be driven by the outer controller. It is
 read at the same post-cycle boundary as an output. A command source may instead
-name a compiled scalar numeric program variable that has no address, by its
-symbolic path (an address always starts with `%`), for example a controller
+name a compiled scalar numeric variable of the program that has no address, by
+its symbolic path (an address always starts with `%`), for example a controller
 output that the program maps to its physical output through further logic; it is
-read from program storage at the same boundary. `BOOL`, character, string, aggregate, reference,
+read from program storage at the same boundary. A symbolic path's root is a
+global variable of the program, as Control Studio's symbols' is (protocol annex
+E2.1): a program instance (`Main.Command`), a global (`gCommand`), or a global
+of a namespace by its qualified name, the form of a CODESYS GVL member
+(`GVL_IO.lrPumpCommand`). `BOOL`, character, string, aggregate, reference,
 and untyped byte-sequence commands are invalid. Integer, bit-string, `REAL`, and
 `LREAL` values are converted to binary64 exactly where representable and by the
 runtime's checked numeric-conversion rules otherwise.
@@ -1255,7 +1259,8 @@ runtime's checked numeric-conversion rules otherwise.
 
 Each feedback target shall be a concrete `%I` address backed by compiled scalar
 numeric process-image metadata, or the symbolic path of a compiled scalar
-numeric program variable that has no address. The completed scaled feedback is
+numeric variable of the program that has no address, rooted as a command
+source's is (`GVL_IO.lrLT101_Level`). The completed scaled feedback is
 converted to the declared target type using the runtime's checked conversion
 rules. A symbolic target is written into program storage at the same boundary as
 an input, before the program runs. The program must only read it: a value the
