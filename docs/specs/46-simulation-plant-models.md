@@ -539,10 +539,14 @@ duration do not enter plant equations.
    the speed.
 2. **Speed.** The scheduler paces cycles against the wall clock at the
    configured speed `time_scale`, a whole number from 1 to 100. At speed `s`
-   a cycle is due every cycle interval ÷ `s` of wall time. A cycle that starts
-   within one paced interval of its due time keeps the schedule. A cycle that
-   starts later restarts the schedule from its own start. The scheduler never
-   runs extra cycles to recover lost wall time.
+   a cycle is due every cycle interval ÷ `s` of wall time. The scheduler waits
+   for a due time only when it lies at least 2 ms ahead, the wait floor: an
+   operating system's wait wakes late by up to about a millisecond, so the
+   cycles due sooner run back to back instead. A cycle that starts within the
+   larger of one paced interval and the wait floor of its due time keeps the
+   schedule, so a wait that wakes late costs no speed. A cycle that starts
+   later restarts the schedule from its own start. The scheduler never runs
+   extra cycles to recover lost wall time.
 3. **A host that cannot keep the pace** runs the simulation more slowly than
    configured, with unchanged results. The runtime measures the **achieved
    speed**: the simulation time advanced divided by the wall time elapsed, over

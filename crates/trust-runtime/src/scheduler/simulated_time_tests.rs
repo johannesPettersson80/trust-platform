@@ -224,6 +224,8 @@ fn a_speed_change_repaces_the_next_cycles_and_never_moves_simulation_time() {
         expected,
         "a speed change must not move simulation time"
     );
+    // Specification 46 §6.1 item 2: at speed 10 a cycle is due every 1 ms, below the 2 ms wait floor, so the scheduler
+    // waits only every second cycle.
     let deadlines = host.deadlines();
     assert_eq!(
         deadlines[..5].to_vec(),
@@ -232,16 +234,54 @@ fn a_speed_change_repaces_the_next_cycles_and_never_moves_simulation_time() {
     );
     assert_eq!(
         deadlines[5],
-        51 * NANOS_PER_MS,
-        "the schedule restarts at the next cycle, which then waits 1 ms at speed 10"
+        52 * NANOS_PER_MS,
+        "the schedule restarts at the next cycle, due at 51 ms, which runs at once; the wait is the cycle after's, for 52 ms"
     );
     for pair in deadlines[5..].windows(2) {
         assert_eq!(
             pair[1] - pair[0],
-            NANOS_PER_MS,
-            "every later cycle waits one paced interval of 1 ms"
+            2 * NANOS_PER_MS,
+            "every later wait covers two paced intervals of 1 ms"
         );
     }
+    assert_eq!(
+        deadlines.len(),
+        8,
+        "twelve cycles wait five times at speed 1 and three times at speed 10"
+    );
+}
+
+/// Specification 46 §6.1 item 2 (the CODESYS toolkit's B18): the scheduler waits only for a due time at least the 2 ms
+/// wait floor ahead, and a cycle within that floor of its due time keeps the schedule, so a wait that wakes late costs no
+/// speed. Worked by hand for a 10 ms resource at speed 100, a cycle due every 0.1 ms, on a host whose waits wake 1 ms
+/// late, as Windows' do: the first 20 cycles run at once and the scheduler waits for 2 ms, waking at 3 ms; each later
+/// wait comes 30 cycles on, for 3 ms of schedule, and wakes 1 ms late. After 1,000 cycles, 9.99 s of simulation time,
+/// the wall clock reads 99 ms after 33 waits. Catches a wait for every cycle, each waking 1 ms late and restarting the
+/// schedule: 1,000 waits and 1.1 s, a speed of 9 instead of 100.
+#[test]
+fn a_simulation_paced_below_the_wait_floor_runs_due_cycles_back_to_back_and_keeps_its_speed() {
+    let host = HostClock::with_late_ms(1);
+    let runner = ResourceRunner::new(
+        crate::runtime::empty_runtime(),
+        host.clone(),
+        Duration::from_millis(10),
+    )
+    .with_simulation_speed(SimulationSpeed::new(100), None);
+    let last = Arc::new(Mutex::new(None));
+    let recorded = Arc::clone(&last);
+    run_cycles(runner, 1000, move |_, runtime| {
+        *recorded.lock().expect("cycle time") = Some(runtime.current_time().as_nanos());
+    });
+    assert_eq!(
+        *last.lock().expect("cycle time"),
+        Some(9_990 * NANOS_PER_MS),
+        "the last cycle runs at 9.99 s of simulation time"
+    );
+    assert_eq!(host.deadlines().len(), 33);
+    assert_eq!(
+        host.state.lock().expect("host clock").now_nanos,
+        99 * NANOS_PER_MS
+    );
 }
 
 #[test]
@@ -288,7 +328,7 @@ fn achieved_speed_reports_the_rate_of_a_host_that_cannot_keep_up() {
     let reported = Arc::new(Mutex::new(Vec::new()));
     let recorded = Arc::clone(&reported);
     let reader = Arc::clone(&sink);
-    run_cycles(runner, 250, move |_, _| {
+    run_cycles(runner, 300, move |_, _| {
         let value = reader
             .lock()
             .expect("metrics")
@@ -296,17 +336,19 @@ fn achieved_speed_reports_the_rate_of_a_host_that_cannot_keep_up() {
         recorded.lock().expect("reported speeds").push(value);
     });
     let reported = reported.lock().expect("reported speeds");
-    // Cycle n starts 6 n ms into wall time and advances simulation time by 10 ms, so the rate is 10 / 6.
+    // Specification 46 §6.1 items 2 and 3. A cycle is due every 1 ms, below the 2 ms wait floor, so the scheduler waits
+    // at every second cycle, for 2 ms ahead, and wakes 5 ms late, beyond the floor, which restarts the schedule: cycles
+    // 2k and 2k + 1 start 7 k ms into wall time, and every 7 ms advance simulation time by 20 ms.
     assert_eq!(
-        reported[166], None,
-        "996 ms of wall time is not yet one second"
+        reported[285], None,
+        "994 ms of wall time is not yet one second"
     );
-    let steady = reported[167].expect("one second of wall time is measured");
+    let steady = reported[286].expect("one second of wall time is measured");
     assert!(
-        (steady - 10.0 / 6.0).abs() < 1e-9,
-        "achieved speed {steady}"
+        (steady - 20.0 / 7.0).abs() < 1e-9,
+        "achieved speed {steady}: 2,860 ms of simulation time in 1,001 ms"
     );
-    assert!(reported[249].is_some());
+    assert!(reported[299].is_some());
 }
 
 #[test]
