@@ -1766,11 +1766,23 @@ a variable by the retain map's key (§5.10), an instance's variable and an array
 `instance:<id>:<member>` by the member's symbol under the instance whose symbol's index is `id`, a
 compiled program's instance identity, resolved in the generation the request names. The
 queued variable writes are applied at the cycle start, before the program runs, in arrival order,
-and then every active variable force; the queued image writes and the forces of the input and
-marker images after the drivers read the inputs, before the program samples them, so that a forced
-input holds over the physical one; and the forces of the marker and output images again after the
-scan, with the variable forces, before the outputs reach the drivers and the snapshot, so that a
-forced marker reads its forced value between scans (specification 11 §6.9.2). The value a request
+and then every active variable force; after the drivers read the inputs, before the program samples
+them, the queued image writes, then every active variable force again, then the forces of the input
+and marker images, so that a forced input holds over the physical one; and the forces of the marker
+and output images again after the scan, with the variable forces, before the outputs reach the
+drivers and the snapshot, so that a forced marker reads its forced value between scans
+(specification 11 §6.9.2). A variable that the program binds to an input or a marker address (§5.6;
+IEC 61131-3 §6.5.5.3: the declared name and the address name one location) takes that address's
+value when the sample copies it in. A write of such a variable, by Live Values, a protocol or the
+HMI (`CompiledVariables`), therefore also writes its value where the sample reads it: the input
+image the drivers fill, the marker area, or its slot of the hierarchical image
+(`NativeProgram::hold_bound`). A forced variable bound to an input holds over the physical input and
+over a one-shot write of its address, and a force of the address, applied after it, holds over it; a
+written marker keeps its value; and a written input keeps it until a driver's next input read
+replaces it, as an I/O update replaces a written input. A `TIME` bound in whole milliseconds that its
+address cannot hold is refused, and the variable takes back its address's value. A write at a hold
+reaches its variable for the rest of the held scan, which sampled its inputs before it stopped
+(§13.2). The value a request
 carries is an IEC 61131-3 literal of the declared type of its target, through aliases and
 subranges, or at a process-image address of the variable bound there, when the program resolves the
 target as the request arrives (specification 11, "Runtime control I/O and variable mutation
