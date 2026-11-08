@@ -107,10 +107,10 @@ fn direct_and_wrapped_assignment_targets_are_writes() {
         SyntaxKind::DerefExpr,
     );
 
-    assert!(is_write_context(&direct));
-    assert!(is_write_context(&field));
-    assert!(is_write_context(&index));
-    assert!(is_write_context(&deref));
+    assert!(writes(&direct, &FxHashSet::default()));
+    assert!(writes(&field, &FxHashSet::default()));
+    assert!(writes(&index, &FxHashSet::default()));
+    assert!(writes(&deref, &FxHashSet::default()));
 }
 
 #[test]
@@ -132,7 +132,9 @@ END_PROGRAM
         .collect::<Vec<_>>();
 
     assert_eq!(fields.len(), 2);
-    assert!(fields.iter().all(|field| !is_write_context(field)));
+    assert!(fields
+        .iter()
+        .all(|field| !writes(field, &FxHashSet::default())));
 }
 
 #[test]
@@ -648,6 +650,37 @@ END_VAR
         names,
         ["Block", "Elapsed", "Point", "Table", "Text", "Timer", "Total"]
     );
+}
+
+#[test]
+fn outputs_in_outs_loops_and_calls_write_the_global_they_reach() {
+    // Specification 28 §6, the owner's rule of 7 November 2026: an output binding (`=>`), an in-out
+    // argument by name or by position, a FOR loop's control variable, and a call of a global
+    // instance or of its method write the global. Each task writes each global here only in that
+    // way, so W012 reports a global only when both tasks write it. Catches the old rule, which
+    // counted only `:=` targets, under which two tasks writing these globals stayed silent.
+    let gvl = "FUNCTION Bump : BOOL\nVAR_IN_OUT\n    v : INT;\nEND_VAR\nv := v + 1;\nBump := TRUE;\nEND_FUNCTION\n\
+               FUNCTION_BLOCK FB_Tank\nMETHOD PUBLIC Start\nEND_METHOD\nEND_FUNCTION_BLOCK\n\
+               VAR_GLOBAL\n    Done : BOOL;\n    Named : INT;\n    Positional : INT;\n    Counter : INT;\n    Timer : TON;\n    Tank : FB_Tank;\nEND_VAR\n";
+    let body = "VAR t : TON; ok : BOOL; END_VAR\n\
+                t(IN := TRUE, PT := T#1s, Q => Done);\nok := Bump(v := Named);\nok := Bump(Positional);\n\
+                FOR Counter := 1 TO 3 DO\n    ok := TRUE;\nEND_FOR;\nTimer(IN := TRUE, PT := T#1s);\nTank.Start();";
+    assert_eq!(
+        gvl_hazard_names(gvl, body, body),
+        ["Counter", "Done", "Named", "Positional", "Tank", "Timer"]
+    );
+}
+
+#[test]
+fn input_arguments_and_indexes_are_reads() {
+    // Specification 28 §6: an argument bound to an input is read, and so is an index where its
+    // array is written. Catches the binder's record taken for every argument, and the old rule,
+    // which climbed from the index `Slot` to the assignment and counted it written by both tasks.
+    let gvl = "FUNCTION Twice : INT\nVAR_INPUT\n    a : INT;\nEND_VAR\nTwice := a * 2;\nEND_FUNCTION\n\
+               VAR_GLOBAL\n    Level : INT;\n    Slot : INT;\n    Table : ARRAY[0..3] OF INT;\nEND_VAR\n";
+    let body =
+        "VAR n : INT; END_VAR\nn := Twice(a := Level);\nn := Twice(Level);\nTable[Slot] := n;";
+    assert_eq!(gvl_hazard_names(gvl, body, body), ["Table"]);
 }
 
 #[test]
