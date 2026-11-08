@@ -646,7 +646,7 @@ END_PROGRAM
     include!("hmi_symbol_tests.rs");
     include!("hmi_program_edit_tests.rs");
     include!("hmi_page_proposal_tests.rs");
-
+    include!("catalog_profile_tests.rs");
     include!("hmi_rename_tests.rs");
     include!("control_evidence_tests.rs");
 

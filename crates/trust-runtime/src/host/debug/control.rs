@@ -30,6 +30,8 @@ use super::{DebugSnapshot, RuntimeEvent};
 #[path = "control/recording.rs"]
 mod recording;
 pub(crate) use recording::numeric as numeric_control_value;
+#[path = "control/mode.rs"]
+mod mode;
 #[path = "control/parameters.rs"]
 mod parameters;
 #[path = "control/program_facts.rs"]

@@ -139,6 +139,17 @@ fn plain(text: &str) -> Result<Literal, Bad> {
     if is_identifier(text) {
         return Ok(Literal::Name(text.to_string()));
     }
+    // CODESYS's form of an enumeration's value, `E_Mode.MANUAL`: the type, which its namespaces may qualify, a dot and the
+    // value. It means `E_Mode#MANUAL` (§6.4.4.2), as the compiler reads it under every profile.
+    if let Some((type_name, member)) = text.rsplit_once('.')
+        && is_identifier(member)
+        && type_name.split('.').all(is_identifier)
+    {
+        return Ok(Literal::Typed {
+            type_name: type_name.to_string(),
+            literal: Box::new(Literal::Name(member.to_string())),
+        });
+    }
     number(text)
 }
 

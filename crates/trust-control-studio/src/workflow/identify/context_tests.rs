@@ -78,6 +78,7 @@ fn an_identification_notes_its_experiment_and_its_plant_before_its_recording_is_
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let Err(failure) = run_tank(&state, &journal, &mut notes, &request, RunPurpose::Identify)
     else {
@@ -152,6 +153,7 @@ fn an_experiment_the_runtime_stopped_is_noted_with_its_stop_reason_and_its_recor
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run_tank(&state, &journal, &mut notes, &request, RunPurpose::Identify);
     assert!(outcome.is_err(), "a stopped experiment ends the run");
@@ -185,6 +187,7 @@ fn an_experiment_the_run_aborts_after_a_failure_is_noted_as_aborted_and_its_reco
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run_tank(&state, &journal, &mut notes, &request, RunPurpose::Identify);
     assert!(outcome.is_err(), "a lost connection ends the run");
@@ -277,6 +280,7 @@ fn the_cancel_of_a_journaled_test_experiment_notes_it_as_the_cancel_of_a_campaig
         &tank_loop("rev-1"),
         "experiment-1",
         &mut notes,
+        None,
     )
     .expect("the Cancel ends the experiment and keeps the recording");
     let [experiment] = notes.experiments.as_slice() else {

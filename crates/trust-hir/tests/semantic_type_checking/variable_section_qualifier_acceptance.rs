@@ -373,3 +373,53 @@ END_PROGRAM
 "#,
     );
 }
+
+/// Specification 04: a method of a function block, of a class and of a program declares CODESYS's
+/// `VAR_INST`, with an initial value and `VAR_STAT`'s qualifiers, and its body reads and writes it.
+/// Catches the section refused in a method, and its variables unknown to the method's body.
+#[test]
+fn a_method_declares_var_inst_variables() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK FB_Memory
+METHOD PUBLIC Remember : INT
+VAR_INPUT
+    value : INT;
+END_VAR
+VAR_INST
+    previous : INT := 42;
+END_VAR
+VAR_INST RETAIN
+    calls : DINT;
+END_VAR
+Remember := previous;
+previous := value;
+calls := calls + 1;
+END_METHOD
+END_FUNCTION_BLOCK
+
+CLASS Counter
+METHOD PUBLIC Next : DINT
+VAR_INST CONSTANT
+    increment : DINT := 2;
+END_VAR
+VAR_INST
+    count : DINT;
+END_VAR
+count := count + increment;
+Next := count;
+END_METHOD
+END_CLASS
+
+PROGRAM Main
+METHOD Tick : INT
+VAR_INST
+    ticks : INT;
+END_VAR
+ticks := ticks + 1;
+Tick := ticks;
+END_METHOD
+END_PROGRAM
+"#,
+    );
+}

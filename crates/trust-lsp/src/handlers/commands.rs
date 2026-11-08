@@ -18,6 +18,7 @@ use trust_ide::rename::{RenameResult, TextEdit as IdeTextEdit};
 use trust_runtime::bundle_builder::resolve_sources_root;
 use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::harness::{CompileSession, SourceFile as HarnessSourceFile};
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_syntax::parser::parse;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
@@ -489,8 +490,12 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
             "alarms":[],"alarmsStatus":"Runtime alarm messages are available in Live mode"}),
         );
     }
-    let cache_key =
-        hmi_compilation_cache::bindings_key(&inputs.root, &inputs.sources_root, &inputs.sources);
+    let cache_key = hmi_compilation_cache::bindings_key(
+        &inputs.root,
+        &inputs.sources_root,
+        inputs.profile,
+        &inputs.sources,
+    );
     if let Some(value) = cache_key
         .as_ref()
         .and_then(hmi_compilation_cache::read_bindings)
@@ -577,6 +582,7 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         let facts = control_links::facts(&texts, &instances);
         control_symbols["links"] = json!(facts.links);
         control_symbols["writes"] = json!(facts.writes);
+        control_symbols["startupFlags"] = json!(facts.startup_flags);
     }
     // Dynamic alarm text belongs to the running PLC. Metadata discovery must never execute
     // a scan merely to discover text (including callers outside the visual builder).
@@ -720,6 +726,9 @@ struct ProjectInputs {
     sources_root: PathBuf,
     sources: Vec<LoadedSource>,
     open: std::collections::BTreeMap<PathBuf, String>,
+    /// The rules of the project's `vendor_profile`, which its build compiles it under
+    /// (specification 14 §6.6.2).
+    profile: ConversionProfile,
 }
 
 fn project_inputs<C: ServerContext>(
@@ -729,6 +738,9 @@ fn project_inputs<C: ServerContext>(
 ) -> Result<ProjectInputs, String> {
     let root = resolve_hmi_bindings_project_root(context, selection)
         .ok_or_else(|| format!("unable to resolve workspace root for {command}"))?;
+    // Read as the build reads it, so a misspelled profile is refused here too.
+    let profile =
+        trust_runtime::native::conversion_profile(&root).map_err(|error| error.to_string())?;
     let open = hmi_snapshot::paths(&root, &selection.open)?;
     let (sources_root, sources) = load_hmi_sources_edited(root.as_path(), context, &open)?;
     Ok(ProjectInputs {
@@ -736,6 +748,7 @@ fn project_inputs<C: ServerContext>(
         sources_root,
         sources,
         open,
+        profile,
     })
 }
 
@@ -750,6 +763,7 @@ fn compile_inputs(inputs: ProjectInputs) -> Result<CompiledProject, String> {
         sources_root,
         sources,
         open,
+        profile,
     } = inputs;
     let compile_sources = sources
         .iter()
@@ -762,8 +776,9 @@ fn compile_inputs(inputs: ProjectInputs) -> Result<CompiledProject, String> {
         .collect::<Vec<_>>();
     // The project's declarations in their starting state, which the HMI commands read without
     // running the program (specification 44 §6.7).
-    let runtime = hmi_compilation_cache::compile(&root, &sources, || {
+    let runtime = hmi_compilation_cache::compile(&root, profile, &sources, || {
         CompileSession::from_sources(compile_sources)
+            .with_conversion_profile(profile)
             .declarations()
             .map_err(|error| error.to_string())
     })?;

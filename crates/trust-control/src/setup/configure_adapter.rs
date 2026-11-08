@@ -189,7 +189,7 @@ fn merged_controller(
             merged.insert(field.to_owned(), value.clone());
         }
     }
-    let mode_when_true = if binding.mode.manual_value {
+    let mode_when_true = if binding.mode.manual_reading() {
         "Manual"
     } else {
         "Auto"

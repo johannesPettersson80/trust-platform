@@ -200,6 +200,23 @@ pub struct IsolatedRunRequest {
     /// The bounded feedback relay, when the run takes one (E8.4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback_relay: Option<IsolatedFeedbackRelay>,
+    /// The loop's enumeration mode signals (E8.3; specification 35 A6.1): the runtime writes an initial value or event of 1 to
+    /// one as its Manual member and of 0 as its Auto member, and records it as 1 and 0 the same way. A BOOL mode is a number
+    /// already, so a run of a BOOL loop names none, and its request is the one it was before enumerations.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mode_bindings: Vec<IsolatedModeBinding>,
+}
+
+/// An enumeration mode signal of a run (E8.3): the member that means Manual and the member that means Auto.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IsolatedModeBinding {
+    /// The mode signal's symbol.
+    pub symbol: String,
+    /// The member that means Manual.
+    pub manual_value: String,
+    /// The member that means Auto.
+    pub auto_value: String,
 }
 
 fn one() -> u64 {

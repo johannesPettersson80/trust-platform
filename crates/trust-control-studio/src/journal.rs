@@ -253,6 +253,7 @@ mod tests {
                 address: Some("%IL0".into()),
                 symbol: None,
                 iec_type: "LREAL".into(),
+                mode: None,
             }],
         }
     }
@@ -403,6 +404,7 @@ mod tests {
                 address: Some("%IL0".into()),
                 symbol: None,
                 iec_type: "LREAL".into(),
+                mode: None,
             }],
         };
         let mut journal = Journal::open(&folder, project, "loop:tank").expect("empty");

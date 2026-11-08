@@ -18,6 +18,7 @@ fn request() -> RecordingRequest {
                 symbol: None,
                 iec_type: "LREAL".into(),
                 unit: None,
+                mode: None,
             },
             SignalBinding {
                 id: "controllerMode".into(),
@@ -25,6 +26,7 @@ fn request() -> RecordingRequest {
                 symbol: Some("P1.AutoMode".into()),
                 iec_type: "BOOL".into(),
                 unit: None,
+                mode: None,
             },
         ],
         maximum_samples: 1_000,
@@ -90,6 +92,7 @@ fn a_request_over_a_limit_is_refused_with_the_limit_named() {
                         symbol: None,
                         iec_type: "LREAL".into(),
                         unit: None,
+                        mode: None,
                     })
                     .collect();
             },

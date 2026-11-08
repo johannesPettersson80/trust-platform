@@ -20,7 +20,7 @@
   "docs/diagrams/architecture/runtime-ads-client.puml": "5cb2bf4e91101a2cf25a49c913e7e486c6150e557586b1f2f5c54c20613abf29",
   "docs/diagrams/architecture/runtime-ads-server.puml": "03be05317624422ba85b39920525baf7fcddc05b4c0a7fb660f73207ae58ca1b",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "45235244b2b1a171f9fb2dae5b88f5ba6f4c5477f3b35c003eeb20505590f4d2",
-  "docs/diagrams/architecture/runtime-native-execution.puml": "b28beec0e08114d61c90e64edf7369eda0f6da56705511c5742a0832f2796481",
+  "docs/diagrams/architecture/runtime-native-execution.puml": "7f0fb780aea303294676b9e5544bfdce8502d43dc8115f85937b2eaec051b828",
   "docs/diagrams/architecture/simulation-plant-system.puml": "3f74854f156646272880d1ebbeddd3f48202c5239dded420fc9636754f0c1379",
   "docs/diagrams/architecture/st-test-source-selection.puml": "1cc3a7be343a6af0dc54325867e3635ca374f01dd94c085914dfa809d5952179",
   "docs/diagrams/architecture/system-architecture.puml": "4c87a93dd971578b62e824fa281d81cfcc26dafe20552e84244ef30ec1f3f3dd",
@@ -31,7 +31,7 @@
   "docs/diagrams/debug/debug-state-machine.puml": "ef205c54e5cab922882cc640d0fda0687a11151cbdb8c17c4906ad0eea3a6ad6",
   "docs/diagrams/debug/debug-step-sequence.puml": "5ca64ecc44fe88ba9c41602a9eb935a3e0aa83d414d5f7aab07eacd967a9f336",
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
-  "docs/diagrams/hir/hir-semantics.puml": "4809ffcf2a559d4abc39aa44fffa0ae204f3307295ef759fac85ba4130960145",
+  "docs/diagrams/hir/hir-semantics.puml": "a7355bc64def5735ebf9636b3354419cab924f219653174aba82a4d9698ee525",
   "docs/diagrams/lsp/compiled-binding-sources.puml": "d239446b9578abb6b71b07ac1ad450e4c89374464a284ae232787f28eb1909c5",
   "docs/diagrams/lsp/lsp-request-flow.puml": "888560dff0d9986d59f08ac34bdc478d081f60e3a7d47969aaa6d73c1de9870a",
   "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"

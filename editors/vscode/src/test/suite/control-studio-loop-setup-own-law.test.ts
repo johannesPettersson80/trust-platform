@@ -18,8 +18,9 @@ const ownLawDraft = { structure: "own-law", name: "Oven", action: "direct", law:
   processVariable: { symbol: "P1.OvenC", unit: "degC", minimum: "0", maximum: "300" }, setpoint: { symbol: "P1.SetpointC" },
   manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: "0", maximum: "100" },
   mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
-  proportionalGain: { symbol: "P1.Kp", minimum: "0", maximum: "20" }, integralGain: { symbol: "P1.Ki", minimum: "0", maximum: "2" },
-  integralTerm: "P1.Integral", derivativeGain: { symbol: "", minimum: "", maximum: "" }, derivativeState: null, derivativeOn: null };
+  proportionalGain: { symbol: "P1.Kp", minimum: "0", maximum: "20" }, form: "parallel",
+  integralGain: { symbol: "P1.Ki", minimum: "0", maximum: "2" }, resetTime: { symbol: "", minimum: "", maximum: "" }, integralTerm: "P1.Integral",
+  derivativeGain: { symbol: "", minimum: "", maximum: "" }, derivativeTime: { symbol: "", minimum: "", maximum: "" }, derivativeState: null, derivativeOn: null };
 
 suite("Control Studio own P or PI law setup form", () => {
   test("sets up a P or PI law the program computes itself from its own gain variables", () => {
@@ -52,6 +53,25 @@ suite("Control Studio own P or PI law setup form", () => {
         derivativeState: "P1.PreviousErrorC", derivativeOn: "error" });
       view.set("own.law", "PI");
       assert.strictEqual(view.root.querySelector<HTMLElement>("[data-own-derivative]")!.hidden, true);
+    } finally { view.close(); }
+  });
+
+  test("asks a law in standard form for its reset time in place of its integral gain, and posts the form (C2)", () => {
+    const view = open({ ...ownLawModel, reals: [...ownLawModel.reals, "P1.Ti"].sort() });
+    try {
+      for (const [field, value] of [...ownLawFill, ["own.integralTerm", "P1.Integral"]]) view.set(field, value);
+      const shown = (selector: string) => Array.from(view.root.querySelectorAll<HTMLElement>(`[data-own-integral] ${selector}`))
+        .map(element => !element.hidden);
+      assert.deepStrictEqual([shown("[data-own-parallel]"), shown("[data-own-standard]")], [[true], [false]], "parallel shows Ki");
+      view.set("own.form", "standard");
+      assert.deepStrictEqual([shown("[data-own-parallel]"), shown("[data-own-standard]")], [[false], [true]], "standard shows Ti");
+      for (const [field, value] of [["own.resetTime", "P1.Ti"], ["own.resetTime.minimum", "0.5"], ["own.resetTime.maximum", "600"]]) {
+        view.set(field, value);
+      }
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      // The page posts every field as typed; the engine takes the gain or the time the form needs (B1.3).
+      assert.deepStrictEqual(view.posts[0].draft, { ...ownLawDraft, form: "standard",
+        resetTime: { symbol: "P1.Ti", minimum: "0.5", maximum: "600" } });
     } finally { view.close(); }
   });
 

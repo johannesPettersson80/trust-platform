@@ -200,4 +200,51 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
         SemanticOutcome::Resolved(TypeId::VOID)
     }
+
+    /// `__ISVALIDREF(ref)`, CODESYS's test whether a reference is bound: a `BOOL`, of one
+    /// positional `REF_TO` or `REFERENCE TO` argument (specification 02 §4.1).
+    pub(in crate::type_check) fn infer_is_valid_ref_call(&mut self, node: &SyntaxNode) -> TypeId {
+        let outcome = self.infer_is_valid_ref_call_outcome(node);
+        self.checker.legacy_type_from_outcome(outcome)
+    }
+
+    fn infer_is_valid_ref_call_outcome(&mut self, node: &SyntaxNode) -> SemanticOutcome<TypeId> {
+        let args = self.collect_call_args(node);
+        if args.len() != 1 {
+            return self.checker.diagnostic_type_outcome(
+                DiagnosticCode::WrongArgumentCount,
+                node.text_range(),
+                format!("expected 1 argument, found {}", args.len()),
+            );
+        }
+
+        let arg = &args[0];
+        if arg.assign != CallArgAssign::Positional {
+            return self.checker.diagnostic_type_outcome(
+                DiagnosticCode::InvalidArgumentType,
+                arg.range,
+                "__ISVALIDREF expects a single positional argument",
+            );
+        }
+
+        let arg_type = self.checker.expr().check_expression(&arg.expr);
+        let resolved = self.checker.resolve_alias_type(arg_type);
+        if resolved == TypeId::UNKNOWN {
+            return self
+                .checker
+                .suppressed_type_outcome(DiagnosticCode::CannotResolve, arg.range);
+        }
+        if !matches!(
+            self.checker.symbols.type_by_id(resolved),
+            Some(Type::Reference { .. })
+        ) {
+            return self.checker.diagnostic_type_outcome(
+                DiagnosticCode::InvalidArgumentType,
+                arg.range,
+                "__ISVALIDREF expects a REF_TO or REFERENCE TO argument",
+            );
+        }
+
+        SemanticOutcome::Resolved(TypeId::BOOL)
+    }
 }

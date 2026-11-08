@@ -456,6 +456,25 @@ pub fn seed_needs_integral(family: &str) -> String {
     format!("A {family} design needs an integral gain; the program's law has no integral gain.")
 }
 
+/// C2: a seed that mixes the variables of the parallel and the standard form.
+pub const SEED_FORM_SYMBOLS: &str = "A parallel-pid seed names integralSymbol and derivativeSymbol in parallel form, or resetTimeSymbol and derivativeTimeSymbol in standard form, never both.";
+
+/// C2: a standard-form law, which always integrates, with a family without the integral term.
+#[must_use]
+pub fn standard_form_integrates(family: &str) -> String {
+    format!("A law in standard form always integrates: its families are PI and PID, not {family}.")
+}
+
+/// C2, N6.8: a design without a finite reset time above zero, which the standard form cannot hold.
+#[must_use]
+pub fn no_standard_form(proportional: f64, integral: f64) -> String {
+    format!(
+        "A design with Kp = {} and Ki = {} has no reset time Ti = Kp/Ki above zero, which a law in standard form needs.",
+        js_number(proportional),
+        js_number(integral)
+    )
+}
+
 /// C2: a parallel law without the derivative gain a family needs.
 #[must_use]
 pub fn seed_needs_derivative(family: &str) -> String {
