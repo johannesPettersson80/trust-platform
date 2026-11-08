@@ -7,7 +7,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use crate::io::IoAddress;
 use crate::program_model::{
     ClassDef, FunctionBlockBase, FunctionBlockDef, FunctionDef, InterfaceDef, MethodDef, Param,
-    VarDef,
+    PropertyAlias, VarDef,
 };
 use crate::task::ProgramDef;
 

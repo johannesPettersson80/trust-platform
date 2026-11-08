@@ -4666,6 +4666,7 @@ pub trust_runtime::program_model::ClassDef::base: core::option::Option<smol_str:
 pub trust_runtime::program_model::ClassDef::interfaces: alloc::vec::Vec<smol_str::SmolStr>
 pub trust_runtime::program_model::ClassDef::methods: alloc::vec::Vec<trust_runtime::program_model::MethodDef>
 pub trust_runtime::program_model::ClassDef::name: smol_str::SmolStr
+pub trust_runtime::program_model::ClassDef::property_aliases: alloc::vec::Vec<trust_runtime::program_model::PropertyAlias>
 pub trust_runtime::program_model::ClassDef::using: alloc::vec::Vec<smol_str::SmolStr>
 pub trust_runtime::program_model::ClassDef::vars: alloc::vec::Vec<trust_runtime::program_model::VarDef>
 pub struct trust_runtime::program_model::EdgeInput
@@ -4679,6 +4680,7 @@ pub trust_runtime::program_model::FunctionBlockDef::interfaces: alloc::vec::Vec<
 pub trust_runtime::program_model::FunctionBlockDef::methods: alloc::vec::Vec<trust_runtime::program_model::MethodDef>
 pub trust_runtime::program_model::FunctionBlockDef::name: smol_str::SmolStr
 pub trust_runtime::program_model::FunctionBlockDef::params: alloc::vec::Vec<trust_runtime::program_model::Param>
+pub trust_runtime::program_model::FunctionBlockDef::property_aliases: alloc::vec::Vec<trust_runtime::program_model::PropertyAlias>
 pub trust_runtime::program_model::FunctionBlockDef::temps: alloc::vec::Vec<trust_runtime::program_model::VarDef>
 pub trust_runtime::program_model::FunctionBlockDef::using: alloc::vec::Vec<smol_str::SmolStr>
 pub trust_runtime::program_model::FunctionBlockDef::vars: alloc::vec::Vec<trust_runtime::program_model::VarDef>
@@ -4715,6 +4717,10 @@ pub trust_runtime::program_model::Param::name: smol_str::SmolStr
 pub trust_runtime::program_model::Param::noinit: bool
 pub trust_runtime::program_model::Param::retain: trust_runtime_core::retain::RetainPolicy
 pub trust_runtime::program_model::Param::type_id: trust_hir::types::defs::TypeId
+pub struct trust_runtime::program_model::PropertyAlias
+pub trust_runtime::program_model::PropertyAlias::member: smol_str::SmolStr
+pub trust_runtime::program_model::PropertyAlias::name: smol_str::SmolStr
+pub trust_runtime::program_model::PropertyAlias::writable: bool
 pub struct trust_runtime::program_model::VarDef
 pub trust_runtime::program_model::VarDef::address: core::option::Option<trust_runtime_core::io_address::IoAddress>
 pub trust_runtime::program_model::VarDef::constant: bool

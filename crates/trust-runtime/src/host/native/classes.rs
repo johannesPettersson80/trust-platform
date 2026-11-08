@@ -243,6 +243,14 @@ impl<'a> Owner<'a> {
         }
     }
 
+    /// The properties a name read reads as one of the owner's variables (specification 44 §5.8).
+    pub(in crate::native) fn property_aliases(self) -> &'a [crate::program_model::PropertyAlias] {
+        match self {
+            Self::Fb(def) => &def.property_aliases,
+            Self::Class(def) => &def.property_aliases,
+        }
+    }
+
     /// The name of the base it extends.
     fn base_name(self) -> Option<&'a SmolStr> {
         match self {

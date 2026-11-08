@@ -290,6 +290,12 @@ pub const SYMBOL_INSTANCE: u8 = 64;
 /// A symbol's flag: directly addressed (`AT %…`).
 pub const SYMBOL_DIRECT: u8 = 128;
 
+/// A member's flag above the symbol flags (specification 44 §5.8): the member is the alias of a
+/// property whose GET only returns another member, whose type, place and flags it repeats. A name
+/// lookup finds it; the values, the retain store, online change and the layout skip it, since it
+/// holds no bytes of its own.
+pub const MEMBER_ALIAS: u32 = 1 << 8;
+
 /// A named variable: 32 bytes, sorted by canonical name (specification 44 §5.7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SymbolRecord {
