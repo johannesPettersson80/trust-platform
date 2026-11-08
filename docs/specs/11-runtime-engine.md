@@ -6075,8 +6075,24 @@ The standalone IDE resource contract is:
   equivalent typed `too_large` error before writing.
 
 These are focused reference-environment budgets. They are regression gates for
-the shipped authoring path on the x86_64 CI reference environment, not
-universal real-time guarantees for arbitrary hardware or projects.
+the shipped authoring path, not universal real-time guarantees for arbitrary
+hardware or projects. The reference environment is CI's Linux x86_64 runner
+with an optimized build of the runtime: the release profile's optimization,
+built without its link-time optimization, which takes most of the build's time.
+There the gate program `web_ide_performance_gate` asserts the HTTP apply, p95
+and typing budgets, alone on the runner, in a workflow of its own (Web IDE
+Performance) that runs on every push to `main` and on each pull request that
+changes the web IDE, the analysis it runs (`trust-syntax`, `trust-hir`,
+`trust-ide`, `trust-wasm-analysis`) or the build settings
+(`.github/paths/web-ide-performance.txt`). Every other run of the same tests, on
+Windows, on macOS, on an ARM computer or in a debug build, checks each response
+and records each measurement beside its budget in the test log, without failing
+on a budget: such a run measures another build or another machine. In a debug
+build the 2,000-line re-analysis took 315 ms on the Linux runner, about 800 ms on
+the Windows runner and 1.37 s on a contributor's Windows computer; in the
+optimized build it took 20 ms on Linux x86_64 (8 November 2026). The in-process
+apply budget of the first item is asserted by the runtime's own tests on every
+platform.
 
 ###### Unified Web IDE shell contract
 

@@ -1527,7 +1527,8 @@ use the closed form `@program/<program-path>/<variable>`; parsing splits at the
 last slash so a qualified program path is preserved, and rejects missing
 prefix, program, separator, or variable components.
 
-Only `RETAIN` and `PERSISTENT` declarations survive a warm restart.
+Only `RETAIN` and `PERSISTENT` declarations survive a warm restart, apart from
+a variable marked `{attribute 'noinit'}`, which survives both restarts (below).
 `NON_RETAIN` and unspecified declarations are reinitialized. Scalars, strings,
 dates, enums, and recursively retainable arrays/structures may be retained;
 runtime references and instance identities are never retained, including when
@@ -1631,6 +1632,32 @@ block is what enables it. The vendor's call at an online change is not made, as
 
 Under the IEC profile `FB_init` is an ordinary method that nothing calls
 implicitly, since a valid IEC program may declare a method of that name.
+
+A variable marked `{attribute 'noinit'}`, which CODESYS also spells `no_init`
+and `no-init`, on the line above its declaration is not initialized by a
+restart, as CODESYS documents the attribute (CODESYS help, "Attribute:
+noinit": it applies "to variables that should not be implicitly initialized";
+when the application is reset, the marked variable "retains its current value"
+while an unmarked one "is implicitly re-initialized"). IEC 61131-3 Ed.3 §6.2
+leaves a pragma's effect to the implementer, so it applies under every profile.
+It may mark a global, a program's variable of any section, and a function
+block's or class's `VAR`, `VAR_STAT`, input or output:
+- a cold and a warm restart give the variable back the value it held before
+  the restart, after the restart's initialization. The vendor names no
+  particular reset, and both reinitialize the variables the attribute exempts,
+  so truST keeps the value at both. The initialization's code still runs as at
+  every restart, a `REF` initializer and an instance's `FB_init` included:
+  what it writes into the variable is replaced, and what it writes elsewhere
+  stays;
+- when the runtime starts the program after an install or a power-on, the
+  variable takes its starting value, and a retained one its checkpoint's, as
+  every variable does. An online change keeps its value, as it keeps every
+  variable's;
+- the members of a marked variable are kept with it, and a marked variable of
+  a function block or class is kept in each of its instances;
+- a function's or a method's own variables and a `VAR_TEMP` are initialized at
+  each call whatever their attribute, as truST never leaves a value from an
+  earlier call on the stack.
 
 Restart is prepared against isolated storage before commit. A preparation,
 initializer, retained-value migration, or store-load failure leaves the live

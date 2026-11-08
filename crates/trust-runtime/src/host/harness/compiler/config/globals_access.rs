@@ -10,6 +10,7 @@ fn lower_global_var_block(
         .filter(|child| child.kind() == SyntaxKind::VarDecl)
     {
         let parts = parse_var_decl(&var_decl)?;
+        let noinit = declares_noinit(&var_decl);
         let type_id = lower_type_ref(&parts.type_ref, ctx)?;
         let init_expr = parts
             .initializer
@@ -42,6 +43,7 @@ fn lower_global_var_block(
                         address: parts.address.clone(),
                         constant: qualifiers.constant,
                         init_args: init_args.clone(),
+                        noinit,
                     });
                 }
             }
@@ -115,6 +117,7 @@ pub(super) fn lower_var_access_block(
                     address: Some(text.clone()),
                     constant: false,
                     init_args: Vec::new(),
+                    noinit: false,
                 });
             }
             AccessPath::Parts(_) => {

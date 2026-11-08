@@ -189,6 +189,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             hierarchical,
             hierarchical_keys,
             enum_values,
+            started: false,
         };
         // The process images take their starting memory once; a restart carries them over
         // (specification 11 §6.7, "Directly represented variables at restart").
@@ -238,10 +239,13 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     ///
     /// The fault of the initialization.
     pub fn cold_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
+        let uninitialized = self.noinit_bytes()?;
         self.start_memory(|id| !process_image(id))?;
         if let Some(entry) = self.cold {
             self.call(entry, u32::MAX, now, None)?;
         }
+        self.keep(&uninitialized)?;
+        self.started = true;
         // After the initialization, so that a registration samples the event inputs' starting
         // values.
         self.reset_task_timing(now);
@@ -262,11 +266,14 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let kept = retain::retained_bytes(&self.image(), |id| {
             slot(id).and_then(|index| self.areas.get(index))
         })?;
+        let uninitialized = self.noinit_bytes()?;
         self.start_memory(|id| !process_image(id))?;
         self.keep(&kept)?;
         if let Some(entry) = self.warm {
             self.call(entry, u32::MAX, now, None)?;
         }
+        self.keep(&uninitialized)?;
+        self.started = true;
         // After the initialization, so that a registration samples the event inputs' retained or
         // starting values.
         self.reset_task_timing(now);
@@ -304,6 +311,42 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.keep(&staged)?;
         self.warm_start(now)?;
         Ok(events)
+    }
+
+    /// The bytes of every variable marked `noinit` (§5.7) that a restart starts again, which it
+    /// gives back after the initialization (specification 44 §6.7; specification 10 §4.8): none
+    /// before the program's first start, whose variables take their starting memory.
+    fn noinit_bytes(&self) -> Result<Vec<retain::Kept>, RuntimeError> {
+        if !self.started {
+            return Ok(Vec::new());
+        }
+        let image = self.image();
+        let symbols = image
+            .table::<SymbolRecord>()
+            .map_err(|_| super::values::damaged("symbol table"))?;
+        let mut kept = Vec::new();
+        for symbol in symbols.iter().filter(|symbol| symbol.noinit) {
+            // The process images keep their bytes at a restart anyway, and a frame variable is
+            // none a restart starts.
+            if process_image(u32::from(symbol.area)) || symbol.area == trust_plc_abi::AREA_STACK {
+                continue;
+            }
+            let Some(memory) = slot(symbol.area).and_then(|index| self.areas.get(index)) else {
+                continue;
+            };
+            let offset = usize::try_from(symbol.offset).map_err(|_| RuntimeError::Overflow)?;
+            let size = usize::try_from(symbol.size).map_err(|_| RuntimeError::Overflow)?;
+            let mut bytes = vec![0u8; size];
+            if !super::values::AreaBytes::read(memory, offset, &mut bytes) {
+                return Err(super::values::damaged("symbol table"));
+            }
+            kept.push(retain::Kept {
+                area: symbol.area,
+                offset,
+                bytes,
+            });
+        }
+        Ok(kept)
     }
 
     /// Writes the bytes of retained variables back where they lie.

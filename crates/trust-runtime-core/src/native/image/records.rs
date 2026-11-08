@@ -309,6 +309,9 @@ pub struct SymbolRecord {
     pub area: u8,
     /// The `SYMBOL_` flags.
     pub flags: u8,
+    /// `{attribute 'noinit'}`: a restart gives the variable back the value it held before it
+    /// (specification 44 §6.7; specification 10 §4.8), bit 0 of the record's byte 14.
+    pub noinit: bool,
     /// The offset in the area.
     pub offset: u32,
     /// The bytes of the variable, padding excluded.
@@ -329,6 +332,7 @@ impl Record for SymbolRecord {
             type_index: u32_at(bytes, 8),
             area: field::<1>(bytes, 12)[0],
             flags: field::<1>(bytes, 13)[0],
+            noinit: field::<1>(bytes, 14)[0] & 1 != 0,
             offset: u32_at(bytes, 16),
             size: u32_at(bytes, 20),
             parent: u32_at(bytes, 24),
@@ -339,7 +343,7 @@ impl Record for SymbolRecord {
         put(out, 0, &self.canonical.to_le_bytes());
         put(out, 4, &self.display.to_le_bytes());
         put(out, 8, &self.type_index.to_le_bytes());
-        put(out, 12, &[self.area, self.flags, 0, 0]);
+        put(out, 12, &[self.area, self.flags, u8::from(self.noinit), 0]);
         put(out, 16, &self.offset.to_le_bytes());
         put(out, 20, &self.size.to_le_bytes());
         put(out, 24, &self.parent.to_le_bytes());

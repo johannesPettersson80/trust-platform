@@ -31,6 +31,9 @@ pub struct Param {
     /// `NON_RETAIN` of its section (IEC 61131-3 Ed.3 §6.5.6.1, §6.5.6.2); unspecified for an
     /// in-out and for a function's or a method's parameters, which a call owns.
     pub retain: crate::RetainPolicy,
+    /// `{attribute 'noinit'}` on the line above a function block's input or output: a restart
+    /// gives it back the value it held (specification 10 §4.8); `false` for any other parameter.
+    pub noinit: bool,
 }
 
 /// An argument an instance's declaration gives its `FB_init` (specification 10 §4.8): the name of
@@ -55,6 +58,9 @@ pub struct VarDef {
     pub address: Option<IoAddress>,
     /// The `FB_init` arguments of an instance's declaration, `fb : FB_X(5)`.
     pub init_args: Vec<InitArg>,
+    /// `{attribute 'noinit'}` on the line above its declaration: a restart gives the variable back
+    /// the value it held (specification 10 §4.8).
+    pub noinit: bool,
 }
 
 /// Function definition (used by tests and runtime).

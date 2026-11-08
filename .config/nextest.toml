@@ -22,6 +22,9 @@ threads-required = "num-test-threads"
 [[profile.ci.overrides]]
 filter = 'binary(web_ide_performance_gate)'
 threads-required = "num-test-threads"
+# The gates record each measurement beside its budget, and only the reference environment asserts
+# them (specification 11, 6.8.1e): the log keeps the figures of every run.
+success-output = "final"
 
 # The scan supervisor's tests time real cycles against a watchdog; beside other tests a loaded
 # runner held a cycle past its timeout (6 November 2026, macOS, G56).

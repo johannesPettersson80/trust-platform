@@ -250,6 +250,7 @@ fn image(symbols: &[SymbolRow], retained: &[RetainRow]) -> Vec<u8> {
                     type_index,
                     area,
                     flags,
+                    noinit: false,
                     offset,
                     size,
                     parent,
