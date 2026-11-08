@@ -21,8 +21,9 @@ use super::model::{
     ProgramVars,
 };
 use super::vars::{
-    parse_var_decl, reject_borrowed_storage_initializer, validate_retention_policy,
-    validate_special_var_sections, var_block_kind, var_block_qualifiers, VarBlockKind,
+    lower_init_args, parse_var_decl, reject_borrowed_storage_initializer,
+    validate_retention_policy, validate_special_var_sections, var_block_kind, var_block_qualifiers,
+    VarBlockKind,
 };
 use super::{lower_type_ref, resolve_named_type, resolve_pou_local_constants};
 

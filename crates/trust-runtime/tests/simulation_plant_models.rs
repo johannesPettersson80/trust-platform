@@ -1134,9 +1134,9 @@ gain = 1.0
 
 /// Specification 46 §5.3: a cold and a warm restart recreate every plant from its configuration.
 /// An integrator with gain 1 driven by 2.0 for three 100 ms steps holds the state 0.6 at 300 ms;
-/// the controller a restart leaves (`recreated`) holds the configured initial state 0.0 at 0 ms,
-/// with an empty trace and the same policy. Catches plant state carried across a restart, which a
-/// warm restart could be mistaken for as continuity of the process.
+/// the controller a restart at 400 ms leaves (`recreated_at`) holds the configured initial state
+/// 0.0 at 0 ms of its own time, with an empty trace and the same policy. Catches plant state carried
+/// across a restart, which a warm restart could be mistaken for as continuity of the process.
 #[test]
 fn a_restart_recreates_every_plant_from_its_configuration() {
     let path = temp_simulation_path("restart-recreates");
@@ -1180,13 +1180,71 @@ gain = 1.0
     assert!((before.plants[0].state[0] - 0.6).abs() <= 1e-12);
     assert_eq!(before.plants[0].simulated_time, Duration::from_millis(300));
 
-    let restarted = simulation.recreated();
+    let restarted = simulation.recreated_at(Duration::from_millis(400));
     let after = restarted.status();
     assert_eq!(after.restart_policy, "reset_on_cold_and_warm_restart");
     assert_eq!(after.plants.len(), 1);
     assert_eq!(after.plants[0].state, vec![0.0]);
     assert_eq!(after.plants[0].simulated_time, Duration::ZERO);
     assert!(restarted.trace_snapshot().rows.is_empty());
+    let _ = std::fs::remove_file(path);
+}
+
+/// Specification 46 §5.3 and §6.1 item 4 (the CODESYS toolkit's B13): a restart's plants start at the
+/// process time the restarted runtime continues from, so they integrate no time from before it, and
+/// their trace is a fresh start's. Worked by hand for an integrator with gain 1 driven by 2.0, its
+/// state rising 0.2 per 100 ms: restarted at 400 ms, it still holds 0.0 after the advance at 400 ms
+/// and holds 0.2 after the one at 500 ms, as a fresh start holds 0.0 at 0 ms and 0.2 at 100 ms.
+/// Catches recreated plants that start at time 0 and catch up the 400 ms in their first advance
+/// (0.8, then 1.0), and with it the simulated time a restart seemed to run with no scan.
+#[test]
+fn a_restarted_plant_starts_at_the_restart_and_catches_up_nothing() {
+    let path = temp_simulation_path("restart-origin");
+    std::fs::write(
+        &path,
+        r#"
+[simulation]
+enabled = true
+seed = 42
+plant_step_ms = 100
+
+[[plants]]
+id = "observed"
+model = "integrator"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+[plants.parameters]
+gain = 1.0
+"#,
+    )
+    .unwrap();
+    let simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
+    let command = IoAddress::parse("%QL0").unwrap();
+    let feedback = IoAddress::parse("%IL0").unwrap();
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback, TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
+    let mut restarted = simulation.recreated_at(Duration::from_millis(400));
+    restarted
+        .apply_pre_cycle(Duration::from_millis(400), &mut runtime)
+        .unwrap();
+    write_lreal(&mut runtime, &command, 2.0);
+    restarted
+        .apply_post_cycle(Duration::from_millis(400), &runtime)
+        .unwrap();
+    let first = restarted.status().plants[0].state[0];
+    assert!(first.abs() <= 1e-12, "after the advance at 400 ms: {first}");
+    restarted
+        .apply_post_cycle(Duration::from_millis(500), &runtime)
+        .unwrap();
+    let second = restarted.status().plants[0].state[0];
+    assert!(
+        (second - 0.2).abs() <= 1e-12,
+        "after the advance at 500 ms: {second}"
+    );
     let _ = std::fs::remove_file(path);
 }
 

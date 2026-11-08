@@ -464,7 +464,8 @@ is the same: a verb adds none and drops none.
     working identification study;
   - `cancel`: cancels a journaled operation: it reattaches by the journaled identifier (E11.5),
     ends a running experiment through its restoration path (E5.5) and clears the owner once the
-    outcome is kept (E11.6);
+    outcome is kept (E11.6); a return of the mode that the runtime refuses ends the operation, as
+    A6.2 says;
   - `tune` (B4): designs a candidate for the loop's controller from the study's model, with
     Automatic or `--method simc|amigo|relay|manual` (`--choice faster|balanced|more-robust` for a
     formula with a response choice, `--structure p|pi|pd|pid` to fix the structure,
@@ -844,7 +845,13 @@ loop group also lists the mode signals of its further controllers.
 mode records the mode it found. When it ends, whether completed, failed or
 aborted, it returns the loop to that mode, unless the mode change is the
 operation's result: Apply leaves the loop in Auto, and Restore returns the mode
-it had before Apply.
+it had before Apply. When the runtime refuses a transfer of that return, which
+keeps the loop's mode (A6.3), the operation ends there and leaves nothing
+journaled: its answer states the runtime's reason, the mode the loop stays in
+and the mode to return it to by hand, after the operation's own failure when
+it failed too. A Cancel of the operation ends the same way. A return that the
+runtime does not confirm, because it cannot be reached or its outcome is
+unknown, stays journaled for a Cancel or a reopened panel (A8.6).
 
 **A6.3 Transfers are atomic.** A mode change together with its controller-state
 initialization is one transaction at one task boundary. If the check after the
@@ -1148,7 +1155,7 @@ Several loops, or several projects in a multi-root workspace, need a labelled
 chooser; cancelling it changes nothing. A missing or invalid definition is explained, with **Configure control loop** and **Choose an example** offered. The loop that opens is the engine's answer (`controlStudio/projectLoops`): the one configured loop, the choice among several that the engine lists, or the engine's refusal or missing file with its sentence and next action. The panel checks no loop file. The engine also refuses at open what the page's loop validator refuses, so that a loop the page refuses is not opened: a null in any field the page reads, at any depth (the page tests each present field, so a null fails it; `cascade`, `expectedSettlingSeconds` and `relayDirection` are not read by the page, and `operatingPoint` is read and ignored (B1.4), so each may be null); a plant identifier that is blank; a declared analysis that breaks the declared-analysis rules (its plant, its parameters, its sweep, and the denominator at every gain); a parameter map that does not name, for each analysis parameter, one bound parameter of the same unit whose range holds the analysis's range, each bound parameter once; an analysis whose plant units are not the loop's signal units, a blank signal unit counting as `1`; a proportional law that holds keys beyond its kind and gain symbol; a parallel PID initialization that holds other than its six keys, and a Control.PID initialization that holds keys beyond its own; the declared states, at most 32 to a block (a switching controller's, a program's, and a Control.PID's seven states with its application states), each state checked as the page checks it, and a decoupled output whose matrix is not square of one to eight rows or whose index names no row (C7); a label (the parameter binding's task, mode, symbols, units and conventions, and the law's symbols) that is blank, longer than 1024 UTF-16 code units, or holds a character below U+0020; an address whose byte offset is not a safe integer, and an initial index that is not one; a state-feedback law that is not in the project's design, that takes a controller law, or that does not decode against the parameter record (C4), and a program's own law beside a controller law, a state-feedback law or an ON/OFF controller, or outside the project's design (C2); verification scenarios of the wrong structure; and an identification policy outside its limits (`loop_definition/contract_rules.rs`, `analysis_rules.rs`, `structure_rules.rs`, `checks.rs`, `identification_policy.rs`). A missing output limit or experiment duration does not refuse a loop: the campaign's preconditions name it (B3.4 step 1), and Identify chooses the durations (B3.3). `operatingPoint` is read and ignored (B1.4).
 
 **B1.3 Setup.** **Configure control loop** sets up an existing program from the
-compiler's metadata: symbols with their IEC types and optional addresses,
+compiler's metadata: symbols with their IEC types and optional addresses (an enumeration also with its members, in declaration order),
 controller instances with their compiled types and owning tasks, task intervals,
 the code links from each `<output> := <instance>.<method>(…)` call, and every
 symbol each program body writes. The compiled process image lists every addressed numeric and BOOL variable (`booleans`, apart
@@ -1157,6 +1164,12 @@ from the plant candidates), so a declared state may be a bit such as `%MX40.0`. 
 output; a cascade where one PID's output is the only source of another's
 setpoint; a startup flag guarding `Initialize`; the mode condition; manual
 outputs that copy the output) and the engineer confirms every prefilled binding.
+A draft names a BOOL mode signal by the mode its TRUE value means (`whenTrue`), and an enumeration mode signal by the members that
+mean Manual (`manualValue`) and Auto (`autoValue`) (A6.1). As with every field, the engine takes what the choice needs: a choice that
+names both members is an enumeration's and its `whenTrue` is not read, and a blank member is not given. A choice that names one member,
+or one member twice, or a BOOL's without `whenTrue`, is refused. Before it writes anything, setup refuses a loop whose enumeration mode,
+its own or a further controller's, is no compiled enumeration with the members it names, and a loop that binds a compiled enumeration
+as a BOOL mode, with the sentences of discovery (C0).
 A link is evidence, never a silent choice. Setup saves only after a complete
 review, never overwrites an existing definition, and cancelling writes nothing. The engine checks the draft of every structure. The form posts each draft as typed, with no check of its own: every number field is
 posted as the text the engineer typed, which the engine reads (a blank field is not given, and a text that no finite number reads, such
@@ -1171,10 +1184,14 @@ where a PID law takes its derivative, the search families, the kept starts and t
 words would show as itself, never be left out. Save is always enabled, and a refusal shows under the field it names (`field`), or in the
 form's message when it names none; a refusal that names a field of a section the form hides shows in the message instead. The engine
 asks the questions in the order of the form and refuses the first blank one: a measured signal's symbol is chosen, its unit is given,
-its minimum and maximum are numbers, and the maximum is above the minimum; each refusal names that signal's field. An Auto/Manual signal
-that the form cannot offer, because the program has no BOOL without an I/O address, is refused with the sentence that says why. The
+its minimum and maximum are numbers, and the maximum is above the minimum; each refusal names that signal's field. The form offers each BOOL and each enumeration without an I/O address as an Auto/Manual signal (`modes`), with each
+enumeration's members in declaration order (`modeMembers`, A6.1). For an enumeration it asks for the member that means Manual and the
+member that means Auto in place of what a TRUE value means, and preselects neither; it posts the members chosen. An Auto/Manual signal
+that the form cannot offer, because the program has no BOOL or enumeration without an I/O address, is refused with the sentence that
+says why. The
 recording duration of an identify-only loop is posted as the text the engineer typed (`15 min`, `900`) and the engine reads it (C12).
-The step-by-step setup asks its questions in the order the engine names them through `controlStudio/setupStep`: the engine decides each question's order, its choices, what an answer must be and the refusal of an answer, which the question shows again with its words; the extension shows each question in VS Code's picker or input box and sends the answer back. Back returns to the nearest earlier answer the engineer may change: the answers before it are replayed without asking, and the questions from it on are asked again with their earlier answers shown. A changed answer discards the answers after it. When every answer is in, the engine answers the draft and the sentence the engineer confirms, which says what the loop does with the program; `setupSave` then writes the draft with the structure `step-by-step`: the engine builds the loop from the answers (`setup/configure.rs`), checks it, writes it, and answers the open request of the loop, which opens Control Studio. The answers name their identities (a controller by its instance, a signal by its address, a symbol by its name), and the engine refuses an identity the compiled program does not hold under its question. An ON/OFF controller and several channels are parked (V7): the engine refuses them with its sentence. A save and a binding selection answer the open request of the loop they write or select (`openRequest`, `selectedRequest`); the page opens the loop from that answer and never reads the loop file.
+The step-by-step setup offers a BOOL or an enumeration as the manual mode; for an enumeration it asks for the member that means
+Manual and then for a different member that means Auto, in place of the question what TRUE means (A6.1). The step-by-step setup asks its questions in the order the engine names them through `controlStudio/setupStep`: the engine decides each question's order, its choices, what an answer must be and the refusal of an answer, which the question shows again with its words; the extension shows each question in VS Code's picker or input box and sends the answer back. Back returns to the nearest earlier answer the engineer may change: the answers before it are replayed without asking, and the questions from it on are asked again with their earlier answers shown. A changed answer discards the answers after it. When every answer is in, the engine answers the draft and the sentence the engineer confirms, which says what the loop does with the program; `setupSave` then writes the draft with the structure `step-by-step`: the engine builds the loop from the answers (`setup/configure.rs`), checks it, writes it, and answers the open request of the loop, which opens Control Studio. The answers name their identities (a controller by its instance, a signal by its address, a symbol by its name), and the engine refuses an identity the compiled program does not hold under its question. An ON/OFF controller and several channels are parked (V7): the engine refuses them with its sentence. A save and a binding selection answer the open request of the loop they write or select (`openRequest`, `selectedRequest`); the page opens the loop from that answer and never reads the loop file.
 A binding selection is refused while an operation of the engine works on the selected loop: the refusal names that operation and waits for it to end (A8.5). A binding selection opens the selected loop with its own study; no model, candidate or result is carried from the loop shown before (each loop's study holds its own identification, A8.2).
 The discover answer names the structures the page offers, in order (`structures`), and the PIDs whose program needs the startup-done
 flag at the settings the form starts from (`startupFlagInstances`, C1 Setup). The page shows the flag for a chosen instance in that list,
@@ -2571,7 +2588,8 @@ Aliases and shared global ownership need a different adapter.
 
 - A set has one to 64 bindings. No symbol may appear twice. The set MUST NOT contain the mode symbol.
 - Every binding in a set MUST belong to a program owned exclusively by the declared task. `$background` selects unscheduled programs.
-- The mode binding is a `BOOL` symbol with its Manual value, or an enumeration symbol with the member that means Manual and the member that means Auto (A6.1). The loop file names them as `manual_value` and `auto_value`; a `BOOL` binding has no `auto_value`.
+- The mode binding is a `BOOL` symbol with its Manual value, or an enumeration symbol with the member that means Manual and the member that means Auto (A6.1). The loop file names them as `manual_value` and `auto_value`; a `BOOL` binding has no `auto_value`. A further mode of the program's law (`controller.project.additionalModes`, such as a cascade's outer controller's) takes the same two shapes, as `manualValue` and `autoValue`. Setup writes an enumeration loop's `controller.modeWhenTrue` as `Manual`: the runtime reads an enumeration mode TRUE in its Manual member (protocol annex E6.3), and Control Studio reads an enumeration loop's mode that way whatever the file declares.
+- Discovery checks an enumeration mode, the loop's own and each further mode, against the compiled program: a compiled enumeration whose type has both members it names. Otherwise the loop is refused with `Compiled mode signal <symbol> is no enumeration with the members <Manual> and <Auto>.` A BOOL mode is checked by its type; a BOOL mode whose signal is a compiled enumeration is refused with `Mode signal <symbol> is an enumeration: name the members that mean Manual and Auto.`
 - The binding identity is a hash of the complete declaration, including units and limits. The adapter reports three revisions: the program revision (A2.2), the binding revision, and the active revision, which is the last confirmed set.
 - Values MUST be finite, within their bounds, and representable in their IEC type. A `REAL` value MUST be rounded to single precision before it is submitted. Integer and enumeration gains are rejected.
 - A write is queued with the expected revisions and the expected current values. At the task boundary the runtime rechecks them and commits the whole set or nothing (A6.3, A6.8). Control Studio reads the values back after the task has executed. A program that rewrites any value is handled by A6.8.

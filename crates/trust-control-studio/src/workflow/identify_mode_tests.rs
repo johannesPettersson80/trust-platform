@@ -931,3 +931,129 @@ fn the_cancel_of_a_journaled_apply_is_refused_and_names_restore() {
     );
     let _ = fs::remove_dir_all(&folder);
 }
+
+/// The runtime's reason for refusing the CODESYS toolkit's hand-back (S10): its interlock had reset the PI, whose first Auto
+/// output was 0 against the 30 % held.
+const REFUSED: &str = "first controller output Main.TIC101_Output violates reviewed transfer tolerance: it changed by 30 \
+                       (from 30 to 0), more than 0.0001";
+
+/// The whole answer to a return to Auto that the runtime refuses (A6.2, A6.3): the runtime's reason and its revert, then where
+/// the loop stays and what the engineer does.
+fn refused_return() -> String {
+    format!(
+        "{REFUSED}. The runtime reverted the transfer in the same scan, so the loop kept its mode and values. The loop stays in \
+         Manual, and the identification has ended: return it to Auto yourself."
+    )
+}
+
+/// A6.2 and A6.3 (the CODESYS toolkit's S10): when the runtime refuses the return to Auto, which keeps the loop in Manual, the
+/// mode change ends there. Its checkpoint is cleared, so no Cancel is left retrying the refused transfer, and the failure states
+/// the runtime's reason, that the loop stays in Manual, and that it is to be returned to Auto by hand. Catches the checkpoint
+/// kept journaled (the toolkit's loop stayed locked until its journal was deleted) and a failure that does not say where the
+/// loop is.
+#[test]
+fn a_refused_return_to_auto_ends_the_mode_change_and_leaves_the_loop_in_manual() {
+    let folder = folder("mode-return-refused");
+    let journal = journal_in(&folder);
+    let transfers = TransferFake::start(true);
+    let loop_definition = pid_tank_loop("rev-1", false);
+    let clock = ModeClock::default();
+    let mut mode =
+        IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+            .expect("the tank transfers");
+    mode.enter(true).expect("the loop enters Manual");
+    transfers.refuse_auto(REFUSED);
+    let failure = mode
+        .restore()
+        .expect_err("the runtime refuses the Auto entry");
+
+    assert!(!transfers.auto(), "the loop stays in Manual");
+    assert_eq!(failure.detail.as_deref(), Some(refused_return().as_str()));
+    assert_eq!(
+        reopened(&folder),
+        Vec::<JournalEntry>::new(),
+        "nothing is left journaled"
+    );
+    let _ = fs::remove_dir_all(&folder);
+}
+
+/// §0.1b `cancel` and A6.2 (the toolkit's S10): a Cancel of a journaled mode change whose return the runtime refuses ends the
+/// identification instead of retrying the refused transfer at every Cancel: it answers as the return does, and nothing is left
+/// journaled. Catches the lock the toolkit met, a Cancel that could never finish.
+#[test]
+fn a_cancel_whose_return_the_runtime_refuses_ends_the_identification() {
+    let folder = folder("mode-cancel-refused");
+    let journal = journal_in(&folder);
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let transfers = TransferFake::start(true);
+    let loop_definition = pid_tank_loop("rev-1", false);
+    {
+        let clock = ModeClock::default();
+        let mut mode =
+            IdentificationMode::new(&loop_definition, transfers.connection(), &journal, &clock)
+                .expect("the tank transfers");
+        mode.enter(true).expect("the loop enters Manual");
+    }
+    let operation = mode_operation(&journal);
+    transfers.refuse_auto(REFUSED);
+    let runtime = ModeRuntime::new(&state, &transfers);
+    let mut study = LoggedStudy::new(&state, &transfers);
+    let failure = cancel_operation_on(
+        &runtime,
+        &FakeClock::new(&state),
+        &journal,
+        &loop_definition,
+        &operation,
+        &mut study,
+        None,
+    )
+    .expect_err("the runtime refuses the return to Auto");
+
+    assert_eq!(failure.detail.as_deref(), Some(refused_return().as_str()));
+    assert!(!transfers.auto(), "the loop stays in Manual");
+    assert!(
+        journal.lock().entries().is_empty(),
+        "nothing is left journaled for another Cancel"
+    );
+    let _ = fs::remove_dir_all(&folder);
+}
+
+/// A6.2 (the toolkit's S10): a run that fails, here cancelled once its loop is in Manual, still returns the loop's mode, and when
+/// the runtime refuses that return the answer states both: the run's own failure first, then the refused return, so that it says
+/// the loop stays in Manual; nothing is left journaled. Catches an answer that names only the run's failure (the toolkit saw only
+/// its fit's), and a journal left holding the mode.
+#[test]
+fn a_failed_run_whose_return_is_refused_states_both_and_leaves_nothing_journaled() {
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let transfers = TransferFake::start(true);
+    transfers.refuse_auto(REFUSED);
+    let folder = folder("mode-cancelled-return-refused");
+    let journal = journal_in(&folder);
+    let loop_definition = pid_tank_loop("rev-1", false);
+    let failure = run_with_transfers(
+        &state,
+        &transfers,
+        &journal,
+        &loop_definition,
+        Cancel::OnceInManual,
+    )
+    .expect_err("the run was cancelled");
+
+    let cancelled = identification_cancelled();
+    assert_eq!(failure.message, cancelled.message);
+    assert_eq!(
+        failure.detail,
+        Some(format!("{} {}", whole_text(&cancelled), refused_return()))
+    );
+    assert_eq!(
+        transfers.events(),
+        [
+            ENTER_MANUAL,
+            COMMANDS,
+            "transfer.refused tank:identification-mode auto"
+        ]
+    );
+    assert!(!transfers.auto(), "the loop stays in Manual");
+    assert_eq!(reopened(&folder), Vec::<JournalEntry>::new());
+    let _ = fs::remove_dir_all(&folder);
+}

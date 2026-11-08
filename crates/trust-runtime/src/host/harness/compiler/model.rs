@@ -246,6 +246,8 @@ pub(crate) struct GlobalInit {
     pub(crate) address: Option<SmolStr>,
     /// Declared in a `VAR_GLOBAL CONSTANT` block.
     pub(crate) constant: bool,
+    /// The `FB_init` arguments of an instance's declaration (specification 10 §4.8).
+    pub(crate) init_args: Vec<crate::program_model::InitArg>,
 }
 
 #[derive(Clone)]

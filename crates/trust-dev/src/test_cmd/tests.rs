@@ -1419,3 +1419,178 @@ fn a_namespaced_test_block_gets_a_runner_with_a_valid_unique_name() {
         "stable"
     );
 }
+
+// docs/specs/02-data-types.md 3.5.1 and docs/specs/44-native-execution.md §6.4, §6.6: a value of a
+// DUT that `EXTENDS` another (`TYPE Derived EXTENDS Base`, the fields of the base lying first in
+// the derived one) gives its base part where the base's type is wanted: a method's or function's
+// input (IEC §6.6.1.2.2), an assignment, into a `STRUCT OVERLAP` member included, and a call's
+// result. Worked by hand: the copy takes the base's fields, so the callee reads 'SHT-1' and
+// 'Shutter 1' of a `stSelectMaster`, an `stA` copy of an `stC` reads 'ABCDEFGH' and -5 (the own
+// fields 6 and 7 are no part of it), an overlap's `stPoint` member holds 11 and 22 of a
+// `stPoint3`, and a result's base part is 41. A wrong generator refuses to build every one of the
+// copies, which it did until this change: `an assignment between different types is not compiled
+// yet (specification 44 NX-09)`.
+#[test]
+fn run_test_compiles_the_derived_to_base_dut_copies() {
+    let project = codesys_project(
+        "codesys-dut-extends-copies",
+        r#"
+TYPE stEntity : STRUCT
+    sID : STRING[32];
+    sName : STRING[63];
+END_STRUCT
+END_TYPE
+
+TYPE stSelectMaster EXTENDS stEntity : STRUCT
+    eMode : INT;
+    sCmd : STRING[80];
+END_STRUCT
+END_TYPE
+
+TYPE stA : STRUCT
+    s : STRING[8];
+    i : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stB EXTENDS stA : STRUCT
+    j : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stC EXTENDS stB : STRUCT
+    k : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stPoint : STRUCT
+    iA : INT;
+    iB : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stPoint3 EXTENDS stPoint : STRUCT
+    iC : INT;
+END_STRUCT
+END_TYPE
+
+TYPE ovCarrier : STRUCT OVERLAP
+    stBase AT %B0 : stPoint;
+    iWords AT %B0 : ARRAY[0..1] OF INT;
+END_STRUCT
+END_TYPE
+
+FUNCTION getWide : stPoint3
+VAR
+    stLocal : stPoint3;
+END_VAR
+    stLocal.iA := 41;
+    stLocal.iB := 42;
+    stLocal.iC := 43;
+    getWide := stLocal;
+END_FUNCTION
+
+FUNCTION_BLOCK fbPayloadSelect
+VAR
+    SeenID : STRING[32];
+    SeenName : STRING[63];
+    Calls : INT;
+END_VAR
+Calls := Calls + 1;
+METHOD PUBLIC mBuildState : BOOL
+VAR_INPUT
+    stEntityIn : stEntity;
+END_VAR
+    SeenID := stEntityIn.sID;
+    SeenName := stEntityIn.sName;
+    mBuildState := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK fbTake
+VAR
+    Seen : INT;
+END_VAR
+Seen := 0;
+METHOD PUBLIC mTake : BOOL
+VAR_INPUT
+    stEntityIn : stPoint;
+END_VAR
+    Seen := stEntityIn.iA;
+    mTake := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+TEST_PROGRAM AMethodInputTakesTheDerivedValueBasePart
+VAR
+    fbPS : fbPayloadSelect;
+    stShutters : stSelectMaster;
+    Seen : STRING[63];
+    OK : BOOL;
+END_VAR
+stShutters.sID := 'SHT-1';
+stShutters.sName := 'Shutter 1';
+stShutters.eMode := 7;
+stShutters.sCmd := 'UP';
+OK := fbPS.mBuildState(stEntityIn := stShutters);
+Seen := fbPS.SeenName;
+ASSERT_TRUE(IN := OK);
+ASSERT_EQUAL(EXPECTED := 'SHT-1', ACTUAL := fbPS.SeenID);
+ASSERT_EQUAL(EXPECTED := 'Shutter 1', ACTUAL := Seen);
+END_TEST_PROGRAM
+
+TEST_PROGRAM AnAssignmentTakesTheBasePartOfTheChain
+VAR
+    stDeep : stC;
+    stBase : stA;
+    GotS : STRING[8];
+    GotI : INT;
+END_VAR
+stDeep.s := 'ABCDEFGH';
+stDeep.i := -5;
+stDeep.j := 6;
+stDeep.k := 7;
+stBase := stDeep;
+GotS := stBase.s;
+GotI := stBase.i;
+ASSERT_EQUAL(EXPECTED := 'ABCDEFGH', ACTUAL := GotS);
+ASSERT_EQUAL(EXPECTED := INT#-5, ACTUAL := GotI);
+END_TEST_PROGRAM
+
+TEST_PROGRAM AnOverlapMemberTakesTheBasePartOfADerivedValue
+VAR
+    stWide : stPoint3;
+    ov : ovCarrier;
+    GotA : INT;
+    GotB : INT;
+END_VAR
+stWide.iA := 11;
+stWide.iB := 22;
+stWide.iC := 33;
+ov.stBase := stWide;
+GotA := ov.stBase.iA;
+GotB := ov.stBase.iB;
+ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := GotA);
+ASSERT_EQUAL(EXPECTED := INT#22, ACTUAL := GotB);
+END_TEST_PROGRAM
+
+TEST_PROGRAM ACallResultGivesItsBasePart
+VAR
+    stBase : stPoint;
+    OK : BOOL;
+    fbPS : fbTake;
+END_VAR
+stBase := getWide();
+ASSERT_EQUAL(EXPECTED := INT#41, ACTUAL := stBase.iA);
+OK := fbPS.mTake(stEntityIn := getWide());
+ASSERT_TRUE(IN := OK);
+ASSERT_EQUAL(EXPECTED := INT#41, ACTUAL := fbPS.Seen);
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("DUT copies build and run");
+    assert_eq!(payload["summary"]["total"], 4, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 4, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}

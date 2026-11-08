@@ -53,8 +53,9 @@ fn names_a_symbol(key: &str) -> bool {
 }
 
 /// The types the loop declares for its controller symbols (`declaredControllerSymbolTypes`). A later declaration of a symbol replaces
-/// the type of an earlier one and keeps its place: the parameters, the mode (BOOL), the manual output, then the states the
-/// initialization and the controller declare.
+/// the type of an earlier one and keeps its place: the parameters, a BOOL mode, the manual output, then the states the
+/// initialization and the controller declare. An enumeration mode declares its members, not a type name, and discovery checks it by
+/// them (A6.1).
 pub(super) fn declared_controller_symbol_types(
     loop_definition: &LoopDefinition,
 ) -> Vec<(String, String)> {
@@ -63,7 +64,9 @@ pub(super) fn declared_controller_symbol_types(
         for parameter in &binding.parameters {
             set_type(&mut types, &parameter.symbol, real_name(parameter.iec_type));
         }
-        set_type(&mut types, &binding.mode.symbol, "BOOL");
+        if !binding.mode.is_enumeration() {
+            set_type(&mut types, &binding.mode.symbol, "BOOL");
+        }
     }
     let controller = &loop_definition.controller;
     if let (Some(symbol), Some(manual_type)) = (
