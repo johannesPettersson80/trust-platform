@@ -157,6 +157,10 @@ pub(crate) fn lower_application_and_frontend(
     let _lowering =
         trust_hir::timing::CompilerStage::new("compiler.lower_and_initialize", sources.len());
     let mut builder = RuntimeBuilder::new();
+    // The declarations' initial values convert by the program's rules through the builder's
+    // standard library (specification 07 §2.10); a body converts by them in the generator
+    // (specification 44 §6.8).
+    builder.set_conversion_profile(conversions);
     let mut statement_locations: Vec<Vec<SourceLocation>> = vec![Vec::new(); sources.len()];
     let (compile_time_consts, root_globals_per_file) =
         lower_project_types(&frontend, &mut builder, &mut statement_locations)?;
