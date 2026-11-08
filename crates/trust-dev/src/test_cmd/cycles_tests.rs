@@ -5,12 +5,26 @@ use super::*;
 
 /// The results of running the tests `run` of a project whose only source is `source`.
 fn results(label: &str, source: &str, run: &[&str]) -> Vec<ExecutedTest> {
+    results_with_simulation(label, source, None, run)
+}
+
+/// The results of running the tests `run` of a project whose only source is `source`, with `simulation` as its
+/// `simulation.toml` when given.
+fn results_with_simulation(
+    label: &str,
+    source: &str,
+    simulation: Option<&str>,
+    run: &[&str],
+) -> Vec<ExecutedTest> {
     let project = trust_test_support::unique_temp_path(&format!(
         "trust-dev-cycles-{label}-{}",
         std::process::id()
     ));
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(project.join("src/tests.st"), source).expect("write the tests");
+    if let Some(simulation) = simulation {
+        std::fs::write(project.join("simulation.toml"), simulation).expect("write the simulation");
+    }
     let sources_root = resolve_sources_root(&project, None).expect("sources");
     let sources = load_sources(&sources_root).expect("load");
     let discovered = discover_tests(&sources);
@@ -274,4 +288,65 @@ fn on_a_device_each_test_starts_where_the_previous_test_left_the_stepped_time() 
         .map(|time| time / 1_000_000)
         .collect();
     assert_eq!(millis, [0, 10, 20, 30, 40, 50, 50]);
+}
+
+/// A plant that doubles the test's command and feeds it back (specification 46, `static_gain` with `gain = 2.0`), coupled by
+/// the test program's variables.
+const DOUBLING_PLANT: &str = r#"
+[simulation]
+enabled = false
+plant_step_ms = 10
+
+[[plants]]
+id = "doubler"
+model = "static_gain"
+command_sources = ["PlantInTheLoop.cmd"]
+feedback_targets = ["PlantInTheLoop.fb"]
+[plants.parameters]
+gain = 2.0
+"#;
+
+/// Specification 22, "A plant in the loop", worked from specification 46 §2's order: before each cycle the plant publishes the
+/// feedback of its last advance, and after each cycle it reads the command and advances to the cycle's time. So the feedback
+/// reads 0 in cycle 1, before the plant has seen a command; after one plant step on the command 2.5 it reads 2 × 2.5 = 5.0 in
+/// cycle 3, when the test commands 1.0; and it reads 2.0 in cycle 5, which finishes the test at t = 40 ms. The file's
+/// `enabled = false` does not stop it, as the test asks for the simulation. Catches a test run without its plant (the feedback
+/// stays 0), a plant advanced by the wall clock or not at the cycles' times, a plant that does not follow a later command
+/// (5.0 in cycle 5), and a file's `enabled` that switches a test's plant off.
+#[test]
+fn a_test_with_test_simulation_runs_the_projects_plants_in_lockstep() {
+    let source = "{attribute 'test_simulation'}\n\
+         TEST_PROGRAM PlantInTheLoop\n\
+         VAR\n    cmd : LREAL;\n    fb : LREAL;\n    n : INT;\nEND_VAR\n\
+         n := n + 1;\n\
+         IF n = 1 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#0.0, ACTUAL := fb);\n    cmd := LREAL#2.5;\nEND_IF\n\
+         IF n = 3 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#5.0, ACTUAL := fb);\n    cmd := LREAL#1.0;\nEND_IF\n\
+         IF n = 5 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#2.0, ACTUAL := fb);\n    TEST_FINISHED();\nEND_IF\n\
+         END_TEST_PROGRAM\n";
+    let results =
+        results_with_simulation("plant", source, Some(DOUBLING_PLANT), &["PlantInTheLoop"]);
+    assert_eq!(
+        outcome(&results[0]),
+        (TestOutcome::Passed, String::new(), Some((5, 40))),
+        "{:?}",
+        results[0].message
+    );
+}
+
+/// Specification 22, "A plant in the loop": a test that asks for the project's simulation in a project without
+/// `simulation.toml` ends as an error that says so, and runs no cycle. Catches such a test run silently without a plant.
+#[test]
+fn a_test_with_test_simulation_in_a_project_without_one_is_an_error() {
+    let source =
+        "{attribute 'test_simulation'}\nTEST_PROGRAM NoPlant\nTEST_FINISHED();\nEND_TEST_PROGRAM\n";
+    let results = results_with_simulation("no-plant", source, None, &["NoPlant"]);
+    assert_eq!(
+        outcome(&results[0]),
+        (
+            TestOutcome::Error,
+            "the test runs the project's simulation ({attribute 'test_simulation'}), but the project has no simulation.toml"
+                .to_string(),
+            None
+        )
+    );
 }

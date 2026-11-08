@@ -145,6 +145,8 @@ fn execute_native_tests(
     let mut program = load(&built.image, &device)
         .map_err(|error| anyhow::anyhow!("the program image does not load: {error}"))?;
     let mut results = Vec::with_capacity(tests.len());
+    // The project's simulation, read once for the tests that run it (specification 22, "A plant in the loop").
+    let mut simulation = None;
     for case in tests {
         let started = Instant::now();
         let name = test_program(case);
@@ -153,6 +155,18 @@ fn execute_native_tests(
             .iter()
             .position(|instance| instance.eq_ignore_ascii_case(name.as_str()))
             .and_then(|index| u32::try_from(index).ok());
+        if let (Some(_), Some(cycles)) = (instance, case.cycles)
+            && cycles.simulation
+        {
+            let config = simulation.get_or_insert_with(|| project_simulation(project_root));
+            results.push(match config {
+                Ok(config) => {
+                    cycles_simulated(&built.image, case, cycles, config, timeout, started)
+                }
+                Err(text) => error_result(case, text.clone(), started),
+            });
+            continue;
+        }
         if let (Some(instance), Some(cycles)) = (instance, case.cycles) {
             results.push(cycles_here(&mut program, instance, case, cycles, timeout, started));
             continue;
@@ -175,6 +189,120 @@ fn execute_native_tests(
         results.push(done);
     }
     Ok(results)
+}
+
+/// The project's simulation for the tests that run it (specification 22, "A plant in the loop"): its `simulation.toml`, run
+/// whatever the file's `enabled` says, as the test asks for it; the text of the error that ends such a test otherwise.
+fn project_simulation(
+    project_root: &Path,
+) -> Result<trust_runtime::simulation::SimulationConfig, String> {
+    let path = project_root.join("simulation.toml");
+    match trust_runtime::simulation::SimulationConfig::load_optional(&path) {
+        Ok(Some(mut config)) => {
+            config.enabled = true;
+            Ok(config)
+        }
+        Ok(None) => Err(
+            "the test runs the project's simulation ({attribute 'test_simulation'}), but the project has no simulation.toml"
+                .to_string(),
+        ),
+        Err(error) => Err(format!("the project's simulation.toml does not load: {error}")),
+    }
+}
+
+/// The result of the test `case` that the error `text` ended before it ran.
+fn error_result(case: &DiscoveredTest, text: String, started: Instant) -> ExecutedTest {
+    ExecutedTest {
+        case: case.clone(),
+        outcome: TestOutcome::Error,
+        message: Some(text),
+        duration_ms: elapsed_ms(started.elapsed()),
+        cycles: None,
+        failed_at: None,
+        assertion: None,
+    }
+}
+
+/// Runs the multi-cycle test `case` with the project's simulation `config` in lockstep (specification 22, "A plant in the
+/// loop"): the test image loaded as a runtime of its own and restarted cold at time zero, and each cycle the simulation's work
+/// before a scan, the test program's body by one step, then the simulation's work after it (specification 46 §2), as
+/// `trust-runtime run --simulation` runs a scan.
+fn cycles_simulated(
+    image: &[u8],
+    case: &DiscoveredTest,
+    cycles: TestCycles,
+    config: &trust_runtime::simulation::SimulationConfig,
+    timeout: u64,
+    started: Instant,
+) -> ExecutedTest {
+    use trust_runtime::native::TEST_FINISHED_GLOBAL;
+    use trust_runtime::scheduler::StepRequest;
+    use trust_runtime::simulation::SimulationController;
+    use trust_runtime::value::{Duration, Value};
+    use trust_runtime::{CompiledRuntime, RestartMode};
+    let mut runtime = match CompiledRuntime::load(image.to_vec(), "RESOURCE") {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            return error_result(case, format!("the program image does not load: {error}"), started);
+        }
+    };
+    let mut simulation = SimulationController::new(config.clone());
+    let request = |now: Duration| StepRequest {
+        time: now,
+        restart: None,
+        inputs: Vec::new(),
+        direct_inputs: Vec::new(),
+        watch: vec![SmolStr::new(TEST_FINISHED_GLOBAL)],
+        watch_direct: Vec::new(),
+        run: Some(test_program(case)),
+    };
+    let (mut failed_at, mut assertion) = (None, None);
+    let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
+        let now = Duration::from_nanos(i64::try_from(time_ns).unwrap_or(i64::MAX));
+        // The cold restart comes first, so that the plants' first feedback reaches the first cycle.
+        if n == 1
+            && let Err(error) = runtime.restart(RestartMode::Cold)
+        {
+            return CycleResult::Error(error.to_string());
+        }
+        if let Err(error) = simulation.apply_pre_cycle(now, &mut runtime) {
+            return CycleResult::Error(error.to_string());
+        }
+        let stepped = match runtime.step(&request(now), Duration::ZERO) {
+            Ok(stepped) => stepped,
+            Err(refusal) => {
+                return CycleResult::Error(format!("the step was refused: {refusal:?}"));
+            }
+        };
+        if let Some(error) = stepped.error {
+            failed_at = stepped.error_at;
+            assertion = stepped
+                .assertion
+                .map(|failed| trust_runtime::native::assertion_json(&failed));
+            return match error {
+                RuntimeError::AssertionFailed(message) => CycleResult::Failed(message.to_string()),
+                error => CycleResult::Error(error.to_string()),
+            };
+        }
+        if let Err(error) = simulation.apply_post_cycle(now, &runtime) {
+            return CycleResult::Error(error.to_string());
+        }
+        CycleResult::Ran(
+            stepped
+                .values
+                .iter()
+                .any(|(name, value)| name == TEST_FINISHED_GLOBAL && *value == Value::Bool(true)),
+        )
+    });
+    ExecutedTest {
+        case: case.clone(),
+        outcome,
+        message,
+        duration_ms: elapsed_ms(started.elapsed()),
+        cycles: Some(run),
+        failed_at,
+        assertion,
+    }
 }
 
 /// Runs the multi-cycle test `case`, test program `instance` of `program`, on this computer (specification 22, "Multi-cycle
@@ -275,6 +403,17 @@ fn execute_native_tests_on_device(
     let mut stepped_ns = 0_u64;
     for case in tests {
         let started = Instant::now();
+        // The plants of a test that runs the project's simulation run where the runner runs (specification 22).
+        if case.cycles.is_some_and(|cycles| cycles.simulation) {
+            results.push(error_result(
+                case,
+                "the test runs the project's simulation ({attribute 'test_simulation'}), which runs on this computer, not \
+                 on a device"
+                    .to_string(),
+                started,
+            ));
+            continue;
+        }
         if let Some(cycles) = case.cycles {
             let executed = cycles_on_device(&mut link, case, cycles, timeout, started, stepped_ns);
             if let Some(run) = executed.cycles {

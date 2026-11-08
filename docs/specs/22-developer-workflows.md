@@ -265,8 +265,9 @@ in simulated time, so a test of a timer, a ramp or a sequence takes the cycles i
 beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's requirements).
 
 - **What makes a test multi-cycle.** A `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`, whose body
-  calls `TEST_FINISHED()`, or whose declaration carries `{attribute 'test_cycle' := '<duration>'}` or
-  `{attribute 'test_max_cycles' := '<count>'}` in the pragma where `{attribute 'test'}` counts. Every other test
+  calls `TEST_FINISHED()`, or whose declaration carries `{attribute 'test_cycle' := '<duration>'}`,
+  `{attribute 'test_max_cycles' := '<count>'}` or `{attribute 'test_simulation'}` (below) in the pragma where
+  `{attribute 'test'}` counts. Every other test
   runs its body once, as before. A `TEST_FUNCTION_BLOCK` runs once; it may not carry the two attributes.
 - **Its cycle and its budget.** `test_cycle` is a duration literal (`T#10ms`) above zero and at most one hour;
   without it the cycle is 10 ms. `test_max_cycles` is a whole number from 1 to 10,000,000; without it the
@@ -290,6 +291,17 @@ beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's require
 - **On a device** a multi-cycle test runs alike, by one `cycle.step` per cycle (specification 11 §6.8.1): the
   first restarts the program cold at time zero, each later one runs at the next cycle's time without a
   restart, and each reads back whether the test called `TEST_FINISHED()`.
+- **A plant in the loop.** `{attribute 'test_simulation'}`, in the pragma where `{attribute 'test'}` counts, runs
+  the project's simulation, its `simulation.toml` (specification 46), in lockstep with the test, as `trust-runtime
+  run --simulation` runs it with a program: the cold restart before the first cycle starts the simulation at time
+  zero, and the runner does the simulation's work before and after each cycle (specification 46 §2). Before it,
+  the plants publish their feedback and the due disturbances and coupling effects are written; after it, the
+  couplings read the outputs and each plant reads its commands and advances to the cycle's time. So a test of a
+  loop checks it against its plant, cycle by cycle, in simulated time (a CODESYS toolkit's requirement, the owner
+  on 7 November 2026). The attribute takes no value and makes the test multi-cycle; on any other declaration than
+  a test program it is a compile error. The simulation runs whatever its file's `enabled` says, as the test asks
+  for it; a project without `simulation.toml` ends the test as an error that says so. Such a test runs on this
+  computer; on a device (`--device`) it ends as an error that says so, as the plants run where the runner runs.
 - **The finished mark.** The test build declares the global `TRUST_TEST_FINISHED` (BOOL), which
   `TEST_FINISHED()` sets and the runner reads after each cycle; a cold restart clears it. A project does not
   declare a global of that name.
