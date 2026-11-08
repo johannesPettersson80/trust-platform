@@ -165,6 +165,24 @@ pub enum VarQualifier {
     Static,
 }
 
+impl VarQualifier {
+    /// The keyword of the variable section: `VAR`, `VAR_INPUT` and so on.
+    #[must_use]
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::Local => "VAR",
+            Self::Input => "VAR_INPUT",
+            Self::Output => "VAR_OUTPUT",
+            Self::InOut => "VAR_IN_OUT",
+            Self::Temp => "VAR_TEMP",
+            Self::Global => "VAR_GLOBAL",
+            Self::External => "VAR_EXTERNAL",
+            Self::Access => "VAR_ACCESS",
+            Self::Static => "VAR_STAT",
+        }
+    }
+}
+
 /// Parameter direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParamDirection {
@@ -174,6 +192,18 @@ pub enum ParamDirection {
     Out,
     /// In-out parameter.
     InOut,
+}
+
+impl ParamDirection {
+    /// The keyword of the parameter's section: `VAR_INPUT`, `VAR_OUTPUT` or `VAR_IN_OUT`.
+    #[must_use]
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::In => "VAR_INPUT",
+            Self::Out => "VAR_OUTPUT",
+            Self::InOut => "VAR_IN_OUT",
+        }
+    }
 }
 
 /// Visibility of a symbol.

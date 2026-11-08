@@ -1083,11 +1083,15 @@ The following functions are non-IEC additions for the user-facing ST test framew
 | `ASSERT_GREATER_OR_EQUAL` | `ASSERT_GREATER_OR_EQUAL(VALUE: ANY_ELEMENTARY, BOUND: ANY_ELEMENTARY) : VOID` | Fails test unless `VALUE >= BOUND` |
 | `ASSERT_LESS_OR_EQUAL` | `ASSERT_LESS_OR_EQUAL(VALUE: ANY_ELEMENTARY, BOUND: ANY_ELEMENTARY) : VOID` | Fails test unless `VALUE <= BOUND` |
 | `ASSERT_NEAR` | `ASSERT_NEAR(EXPECTED: ANY_NUM, ACTUAL: ANY_NUM, DELTA: ANY_NUM) : VOID` | Fails test when `ABS(EXPECTED-ACTUAL) > DELTA` |
+| `TEST_FINISHED` | `TEST_FINISHED() : VOID` | Marks a multi-cycle test finished at the end of the current cycle (specification 22, "Multi-cycle tests") |
 
 Compatibility notes:
 - These assertions are truST test-workflow extensions and are not part of IEC
   61131-3 Tables 22-36 or Table 39.
 - They are intended for `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK` execution paths.
+- `TEST_FINISHED()` marks the running test finished: the cycle that calls it runs to its end, and the runner runs
+  no further cycle (specification 22). A call from code that the test program drives, such as a function block
+  it calls, counts as the test's own. In a program that runs without the test runner it has no effect.
 - On success, every `ASSERT_*` runtime call returns `Value::Null`, the runtime
   representation of the IEC-facing `VOID` result.
 - The reviewed mixed numeric comparisons are lossless `INT`/`DINT` equality

@@ -105,7 +105,7 @@ fn enabled_watchdog_faults_the_resource_while_an_input_read_is_hung() {
     let mut runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
     runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
-        timeout: Duration::from_millis(100),
+        timeout: Duration::from_secs(1),
         action: WatchdogAction::Halt,
     });
     let mut handle = runner.spawn("hung-driver-watchdog").expect("spawn runner");
@@ -117,9 +117,10 @@ fn enabled_watchdog_faults_the_resource_while_an_input_read_is_hung() {
     assert_eq!(handle.state(), ResourceState::Running);
     assert_eq!(handle.last_error(), None);
 
-    // Expectation: the 100 ms watchdog faults the resource while the read is
-    // still blocked. The wait is bounded at two seconds, far above the timeout.
-    let wait_deadline = Instant::now() + StdDuration::from_secs(2);
+    // Expectation: the 1 s watchdog faults the resource while the read is still
+    // blocked. With 100 ms, a loaded runner could hold this thread past the
+    // timeout before the Running check above; the wait is bounded at ten seconds.
+    let wait_deadline = Instant::now() + StdDuration::from_secs(10);
     while handle.state() != ResourceState::Faulted && Instant::now() < wait_deadline {
         std::thread::sleep(StdDuration::from_millis(1));
     }
@@ -225,7 +226,7 @@ fn release_and_join(hung: HungResource) {
 /// Waits for the fault that the supervisor records while the read is still blocked, and returns
 /// the instant that the fault was observed.
 fn wait_for_fault(handle: &ResourceHandle<StepClock>) -> Instant {
-    let deadline = Instant::now() + StdDuration::from_secs(2);
+    let deadline = Instant::now() + StdDuration::from_secs(10);
     while handle.state() != ResourceState::Faulted {
         assert!(
             Instant::now() < deadline,
@@ -248,7 +249,7 @@ fn supervisor_records_the_hang_within_timeout_plus_two_check_intervals() {
     // The deadline is armed before the read starts, so the fault is due within the timeout plus two
     // check intervals of clamp(100 ms / 4, 1 ms, 100 ms) = 25 ms. The slack covers polling and
     // the wake delay of a loaded host, which on a CI runner reaches a hundred milliseconds and more;
-    // a hang that is never recorded, or only once the read returns, fails at the 2 s wait.
+    // a hang that is never recorded, or only once the read returns, fails at the 10 s wait.
     let budget = StdDuration::from_millis(100)
         + StdDuration::from_millis(2 * 25)
         + StdDuration::from_millis(250);
