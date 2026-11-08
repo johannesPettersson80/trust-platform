@@ -27,6 +27,7 @@ fn lower_function_var_blocks(
         {
             let parts = parse_var_decl(&var_decl)?;
             let noinit = declares_noinit(&var_decl);
+            let hidden = declares_hidden(Some(node), &var_decl, kind);
             reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
@@ -78,6 +79,7 @@ fn lower_function_var_blocks(
                             default: init_expr.clone(),
                             retain: crate::RetainPolicy::Unspecified,
                             noinit: false,
+                            hidden,
                         });
                     }
                 }
@@ -91,6 +93,7 @@ fn lower_function_var_blocks(
                             default: init_expr.clone(),
                             retain: crate::RetainPolicy::Unspecified,
                             noinit: false,
+                            hidden,
                         });
                     }
                 }
@@ -104,6 +107,7 @@ fn lower_function_var_blocks(
                             default: None,
                             retain: crate::RetainPolicy::Unspecified,
                             noinit: false,
+                            hidden,
                         });
                     }
                 }
@@ -121,6 +125,7 @@ fn lower_function_var_blocks(
                             address: address_info.clone(),
                             init_args: init_args.clone(),
                             noinit: false,
+                            hidden,
                             instance_path: false,
                         });
                     }
@@ -139,6 +144,7 @@ fn lower_function_var_blocks(
                             address: address_info.clone(),
                             init_args: init_args.clone(),
                             noinit,
+                            hidden,
                             instance_path: false,
                         });
                     }

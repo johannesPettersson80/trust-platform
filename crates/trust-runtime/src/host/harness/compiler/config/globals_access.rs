@@ -11,6 +11,7 @@ fn lower_global_var_block(
     {
         let parts = parse_var_decl(&var_decl)?;
         let noinit = declares_noinit(&var_decl);
+        let hidden = declares_hidden(None, &var_decl, kind);
         let type_id = lower_type_ref(&parts.type_ref, ctx)?;
         let init_expr = parts
             .initializer
@@ -44,6 +45,7 @@ fn lower_global_var_block(
                         constant: qualifiers.constant,
                         init_args: init_args.clone(),
                         noinit,
+                        hidden,
                     });
                 }
             }
@@ -118,6 +120,7 @@ pub(super) fn lower_var_access_block(
                     constant: false,
                     init_args: Vec::new(),
                     noinit: false,
+                    hidden: false,
                 });
             }
             AccessPath::Parts(_) => {

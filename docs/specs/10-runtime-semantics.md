@@ -1659,6 +1659,23 @@ block's or class's `VAR`, `VAR_STAT`, input or output:
   each call whatever their attribute, as truST never leaves a value from an
   earlier call on the stack.
 
+A variable marked `{attribute 'hide'}` on the line above its declaration, and a
+`VAR` local of a POU marked `{attribute 'hide_all_locals'}` in its first line, is
+hidden as CODESYS documents the attributes: code reaches it as any variable, and
+the lists that offer variables leave it out (the Input Assistant, "List
+components", the symbol configuration, online monitoring and debugging, in the
+vendor's words). IEC 61131-3 Ed.3 §6.2 leaves a pragma's effect to the
+implementer, so it applies under every profile. It may mark a global, a program's
+variable and a function block's, class's, method's or function's variable,
+input or output:
+- completion leaves it out (specification 14 §6.1.2);
+- the debugger's lists of variables leave it out on every runtime, a board
+  included: the globals, a frame's locals, a program's or an instance's members
+  and the instances (specification 44 §5.7, §5.8), and the HMI Builder's variable
+  picker (specification 39 §7);
+- it is read and written by its name as any other variable: in code, by `eval`,
+  `set` and `var.force`, in a watch, and by an HMI binding that names it.
+
 A `STRING` variable of a program, a function block or a class marked
 `{attribute 'instance-path'}` and `{attribute 'noinit'}`, in a POU marked
 `{attribute 'reflection'}`, starts with the path of the instance it belongs to,

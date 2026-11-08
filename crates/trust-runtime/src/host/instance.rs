@@ -973,6 +973,7 @@ mod tests {
                 default: Some(Expr::Literal(Value::Int(5))),
                 retain: crate::RetainPolicy::Unspecified,
                 noinit: false,
+                hidden: false,
             }],
             vars: Vec::new(),
             temps: Vec::new(),

@@ -281,6 +281,7 @@ fn board_probe_symbols(writer: &mut ImageWriter, strings: &mut StringPool) {
             area,
             flags,
             noinit: false,
+            hidden: false,
             offset,
             size,
             parent,

@@ -21,8 +21,8 @@ use super::model::{
     GlobalInit, LoweringContext, LoweringInputs, ProgramConnection, ProgramInstanceConfig,
 };
 use super::vars::{
-    declares_noinit, lower_init_args, parse_var_decl, var_block_kind, var_block_qualifiers,
-    VarBlockKind,
+    declares_hidden, declares_noinit, lower_init_args, parse_var_decl, var_block_kind,
+    var_block_qualifiers, VarBlockKind,
 };
 
 include!("config/entry.rs");

@@ -568,7 +568,7 @@ fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String, of: PouOf) 
 fn declare_locals(lowerer: &mut Lowerer<'_, '_>, temps: &[VarDef]) -> Result<(), NativeError> {
     for temp in temps {
         let ty = local_type(lowerer, &temp.name, temp.type_id)?;
-        let variable = lowerer.declare(&temp.name, ty);
+        let variable = lowerer.declare(&temp.name, ty, temp.hidden);
         let place = Place {
             expr: variable,
             ty,
@@ -616,7 +616,7 @@ fn frame(
     if let (Some(ret_id), Some(ret)) = (ret, return_type(lowerer.model, ret)?) {
         let info = lowerer.info(ret).clone();
         let own = SmolStr::new(name.rsplit('.').next().unwrap_or(name));
-        let variable = lowerer.declare(&own, ret);
+        let variable = lowerer.declare(&own, ret, false);
         let place = Place {
             expr: variable.clone(),
             ty: ret,
@@ -640,7 +640,7 @@ fn frame(
         // `EN` reads TRUE in the body, which runs only when the call is enabled (specification 10
         // §7.5).
         if param.name.eq_ignore_ascii_case("EN") {
-            let local = lowerer.declare(&param.name, ty);
+            let local = lowerer.declare(&param.name, ty, param.hidden);
             lowerer.line(&format!("{local}.set(1);"));
             continue;
         }
@@ -690,7 +690,7 @@ fn frame(
             lowerer.declare_reference(&param.name, ty, &argument);
             continue;
         }
-        let local = lowerer.declare(&param.name, ty);
+        let local = lowerer.declare(&param.name, ty, param.hidden);
         if crate::native::lower::is_scalar(&info.kind) {
             let elem = info.scalar().map_or("u8", |elem| elem.rust());
             let stored = if elem == "bool" {
@@ -709,7 +709,7 @@ fn frame(
             continue;
         }
         let ty = local_type(lowerer, &local.name, local.type_id)?;
-        let variable = lowerer.declare(&local.name, ty);
+        let variable = lowerer.declare(&local.name, ty, local.hidden);
         let place = Place {
             expr: variable,
             ty,

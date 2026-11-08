@@ -306,6 +306,10 @@ pub struct SymbolRecord {
     /// `{attribute 'noinit'}`: a restart gives the variable back the value it held before it
     /// (specification 44 §6.7; specification 10 §4.8), bit 0 of the record's byte 14.
     pub noinit: bool,
+    /// `{attribute 'hide'}`: the variable is left out of the lists of variables a reader browses, and
+    /// is read and written by its name as any other (specification 44 §5.7; specification 10 §4.8),
+    /// bit 1 of the record's byte 14.
+    pub hidden: bool,
     /// The offset in the area.
     pub offset: u32,
     /// The bytes of the variable, padding excluded.
@@ -327,6 +331,7 @@ impl Record for SymbolRecord {
             area: field::<1>(bytes, 12)[0],
             flags: field::<1>(bytes, 13)[0],
             noinit: field::<1>(bytes, 14)[0] & 1 != 0,
+            hidden: field::<1>(bytes, 14)[0] & 2 != 0,
             offset: u32_at(bytes, 16),
             size: u32_at(bytes, 20),
             parent: u32_at(bytes, 24),
@@ -337,7 +342,8 @@ impl Record for SymbolRecord {
         put(out, 0, &self.canonical.to_le_bytes());
         put(out, 4, &self.display.to_le_bytes());
         put(out, 8, &self.type_index.to_le_bytes());
-        put(out, 12, &[self.area, self.flags, u8::from(self.noinit), 0]);
+        let marks = u8::from(self.noinit) | (u8::from(self.hidden) << 1);
+        put(out, 12, &[self.area, self.flags, marks, 0]);
         put(out, 16, &self.offset.to_le_bytes());
         put(out, 20, &self.size.to_le_bytes());
         put(out, 24, &self.parent.to_le_bytes());
@@ -482,9 +488,15 @@ pub struct MemberDetail {
     pub type_index: u32,
     /// The member's offset in its owner.
     pub offset: u32,
-    /// The member's `SYMBOL_` flags.
+    /// The member's `SYMBOL_` flags, and [`MEMBER_HIDDEN`] above them.
     pub flags: u32,
 }
+
+/// A member's flag above its `SYMBOL_` flags: `{attribute 'hide'}` on its declaration, or
+/// `{attribute 'hide_all_locals'}` on its type for a `VAR` local. The member is left out of the
+/// lists of members a reader browses, and is read and written by its name as any other
+/// (specification 44 §5.8; specification 10 §4.8).
+pub const MEMBER_HIDDEN: u32 = 1 << 9;
 
 impl MemberDetail {
     /// The member in `bytes`, [`MEMBER_BYTES`] long.

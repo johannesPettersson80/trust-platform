@@ -149,6 +149,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
             area: 6,
             flags: SYMBOL_PROGRAM,
             noinit: false,
+            hidden: false,
             offset: 0,
             size: 4,
             parent: NONE,
@@ -161,6 +162,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
             area: 5,
             flags: SYMBOL_RETAINED,
             noinit: false,
+            hidden: false,
             offset: 0,
             size: 4,
             parent: 0,
@@ -173,6 +175,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
             area: 6,
             flags: 0,
             noinit: false,
+            hidden: false,
             offset: spec.state_offset,
             size: 2,
             parent: 0,
@@ -490,6 +493,7 @@ fn a_symbols_noinit_mark_is_bit_0_of_its_byte_14() {
             area: 5,
             flags: SYMBOL_RETAINED,
             noinit,
+            hidden: false,
             offset: 8,
             size: 4,
             parent: NONE,
@@ -498,6 +502,32 @@ fn a_symbols_noinit_mark_is_bit_0_of_its_byte_14() {
         let mut bytes = [0u8; SymbolRecord::BYTES];
         symbol.write(&mut bytes);
         assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, u8::from(noinit), 0]);
+        assert_eq!(SymbolRecord::read(&bytes), symbol);
+    }
+}
+
+/// Specification 44 §5.7: a symbol's `hide` mark is bit 1 of its record's byte 14, beside the
+/// `noinit` mark at bit 0, and byte 15 stays reserved; a record reads back with both marks. Catches
+/// the mark in another byte or bit, or one mark read as the other.
+#[test]
+fn a_symbols_hide_mark_is_bit_1_of_its_byte_14() {
+    for (noinit, hidden, marks) in [(false, true, 2u8), (true, true, 3), (true, false, 1)] {
+        let symbol = SymbolRecord {
+            canonical: 1,
+            display: 2,
+            type_index: 3,
+            area: 5,
+            flags: SYMBOL_RETAINED,
+            noinit,
+            hidden,
+            offset: 8,
+            size: 4,
+            parent: NONE,
+            pou: NONE,
+        };
+        let mut bytes = [0u8; SymbolRecord::BYTES];
+        symbol.write(&mut bytes);
+        assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, marks, 0]);
         assert_eq!(SymbolRecord::read(&bytes), symbol);
     }
 }

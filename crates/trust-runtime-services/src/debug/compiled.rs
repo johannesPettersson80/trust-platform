@@ -359,7 +359,8 @@ impl<'m> Reader<'m> {
     }
 
     /// The variables that `members` names for the instance at `place`, in order: a program root's
-    /// child symbols in the symbol table's order, or the type's members in their declared order.
+    /// child symbols in the symbol table's order, or the type's members in their declared order,
+    /// without the hidden ones (`{attribute 'hide'}`, specification 44 §5.7, §5.8).
     fn children<'a>(
         &'a self,
         members: &'a Members,
@@ -375,10 +376,11 @@ impl<'m> Reader<'m> {
         };
         let of_root = root.into_iter().flat_map(move |parent| {
             self.symbols()
-                .filter(move |(_, symbol)| symbol.parent == parent)
+                .filter(move |(_, symbol)| symbol.parent == parent && !symbol.hidden)
                 .map(move |(_, symbol)| self.child(&symbol, area_place(&symbol)))
         });
-        of_root.chain(of_type.iter().map(move |member| Child {
+        let shown = of_type.iter().filter(|member| !member.hidden);
+        of_root.chain(shown.map(move |member| Child {
             name: member.name.as_str(),
             type_index: member.type_index,
             place: place.at(member.offset),
@@ -444,7 +446,7 @@ impl<'m> Reader<'m> {
             .flat_map(|(members, place)| self.children(members, *place));
         let own = self
             .symbols()
-            .filter(|(_, variable)| frame.locals && variable.parent == pou)
+            .filter(|(_, variable)| frame.locals && variable.parent == pou && !variable.hidden)
             .map(|(_, variable)| {
                 let place = Place::Frame {
                     frame: index,
@@ -459,11 +461,11 @@ impl<'m> Reader<'m> {
     }
 
     /// The globals that `page` lists: the global symbols in the table's order, each by its display
-    /// name at its place (specification 44 §5.7).
+    /// name at its place, without the hidden ones (specification 44 §5.7).
     fn globals(&self, handles: &mut DebugVariableHandles, page: Page) -> Vec<DebugVariable> {
         let globals = self
             .symbols()
-            .filter(|(_, symbol)| self.is_global(symbol))
+            .filter(|(_, symbol)| self.is_global(symbol) && !symbol.hidden)
             .map(|(_, symbol)| Child {
                 name: self.display(&symbol),
                 type_index: symbol.type_index,
@@ -496,7 +498,9 @@ impl<'m> Reader<'m> {
     /// `<type>#<index>` with its type as its value and its type, as the interpreter lists its
     /// instances. The index is the instance's identity, which Live Values' `instance:<id>` takes.
     fn instances(&self, handles: &mut DebugVariableHandles, page: Page) -> Vec<DebugVariable> {
-        let instances = self.symbols().filter(|(_, symbol)| is_instance(symbol));
+        let instances = self
+            .symbols()
+            .filter(|(_, symbol)| is_instance(symbol) && !symbol.hidden);
         page.select(ChildKind::Named, instances)
             .map(|(index, symbol)| {
                 let named = type_name(&self.image, symbol.type_index);

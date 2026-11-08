@@ -204,6 +204,7 @@ pub(crate) fn image() -> Vec<u8> {
                 area: 4,
                 flags,
                 noinit: false,
+                hidden: false,
                 offset,
                 size,
                 parent: NONE,
