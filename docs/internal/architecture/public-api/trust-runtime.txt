@@ -3925,6 +3925,7 @@ pub fn trust_runtime::native::Toolchain::find_or_install(report: &mut dyn core::
 pub fn trust_runtime::native::Toolchain::locate() -> core::result::Result<(Self, trust_runtime::native::ToolchainSource), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::program_library(&self, target: trust_runtime_core::native::image::Target) -> core::result::Result<alloc::string::String, trust_runtime::native::NativeError>
 pub const trust_runtime::native::PROGRAM_IMAGE_FILE: &str
+pub const trust_runtime::native::TEST_FINISHED_GLOBAL: &str
 pub fn trust_runtime::native::admit_on_this_computer(image: &[u8]) -> core::result::Result<(), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::build(sources: &[trust_runtime::harness::SourceFile], options: &trust_runtime::native::Options, toolchain: &trust_runtime::native::Toolchain, work: &std::path::Path) -> core::result::Result<trust_runtime::native::Build, trust_runtime::native::NativeError>
 pub fn trust_runtime::native::build_with_tests(sources: &[trust_runtime::harness::SourceFile], tests: &[smol_str::SmolStr], options: &trust_runtime::native::Options, toolchain: &trust_runtime::native::Toolchain, work: &std::path::Path) -> core::result::Result<trust_runtime::native::Build, trust_runtime::native::NativeError>
