@@ -77,6 +77,7 @@ fn request_with(job: &str, wall_budget_ms: u64) -> IsolatedRunRequest {
         parameter_overrides: Vec::new(),
         simulation_override: None,
         feedback_relay: None,
+        mode_bindings: Vec::new(),
     }
 }
 

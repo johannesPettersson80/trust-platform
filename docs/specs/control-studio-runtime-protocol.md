@@ -813,6 +813,7 @@ Test runs (E8.4) and searches (E8.5) share these rules.
 - The parameter values of a run (a test run's `parameter_overrides`, E8.4; a search trial's `parameters`, E8.5) are written before the first scan. A program MAY set such a parameter during its first execution, its startup, as a program that designs or loads its own record at startup does. Its first execution is the first scan in which its task runs: a periodic task first runs one interval after the start, and a program without a task runs in every scan. The runtime then writes the run's value again at the task boundary after that scan, as Apply writes a complete record at a task boundary of a running program (E7), and from that boundary the value MUST hold to the end of the run. This adds no preparation cycle: the run's scans are those of its grid from time zero. A program that changes such a parameter after its first execution would not keep an applied candidate either, and the run fails with the reason `ST changed controller parameter <symbol>; candidate not adopted`.
 - `events` is a list of `{at_ms, symbol, value}`. Events are ordered, unique by time and symbol, scan-aligned (each `at_ms` is a multiple of `step_ms`), and no later than `duration_ms`. An event applies at its scan.
 - `observations` is a list of `{symbol, unit}`, with 1 to 64 entries. Symbols are unique. Each observed channel counts toward the limit of 64.
+- A loop's enumeration mode signal (specification 35 A6.1) is written and recorded as Control Studio reads a mode: 1 in Manual and 0 in Auto (E6.3). A test run names each in `mode_bindings`, a list of at most nine `{symbol, manual_value, auto_value}`, each symbol once and with two different members. An initial value or event of 1 for it writes its Manual member and 0 its Auto member, and any other number is refused. An observation of it records 1 in its Manual member and 0 in its Auto member, and a run that finds it in another member fails with the member's name. A BOOL mode is a number already and is not named. A search (E8.5) runs the project's own simulation and names none.
 - A write targets a writable, scalar member. A duplicate or ambiguous write is refused.
 - A BOOL value of 0 or 1 MAY start a project-owned sequence. An integer process value is coerced with exact and range checks. An integer gain is never written.
 - A seed is an integer of at most 9,007,199,254,740,991.
@@ -841,6 +842,7 @@ Start request:
 - `wall_budget_ms`: 1 to 600,000 (10 min).
 - `record_every`: optional, 1 to 100,000. The default is 1.
 - `initial_values`, `events` and `observations`, as E8.3 defines them.
+- `mode_bindings`: optional, default `[]`, as E8.3 defines it.
 - `parameter_overrides`: optional, default `[]`, at most 64 entries.
 - `simulation_override`: optional object `{model_revision, model_provenance, simulation_toml}`. Its fields are limited to 256, 4,096 and 262,144 bytes. `feedback_relay`: optional object, checked against its declared bounds.
 
