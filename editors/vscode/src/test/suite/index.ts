@@ -11,6 +11,10 @@ export function run(): Promise<void> {
   const mocha = new Mocha({
     ui: "tdd",
     color: true,
+    // The webview form suites render a page and fill it field by field in one synchronous test, which takes 1.3 to
+    // 1.9 s on CI's runners; Mocha's default of 2 s failed the own-law PID setup test twice in a row on #331. A test that
+    // needs longer sets its own timeout.
+    timeout: 10000,
   });
   const selectedTests = configuredMochaGrep(process.env);
   if (selectedTests) {
