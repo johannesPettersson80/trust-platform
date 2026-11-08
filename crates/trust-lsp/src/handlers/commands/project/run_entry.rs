@@ -514,12 +514,17 @@ fn program_config_type(node: &SyntaxNode) -> Option<String> {
     None
 }
 
-/// The PROGRAM declarations of `text` (not `TEST_PROGRAM`).
+/// The PROGRAM declarations of `text`, without its test programs: a `TEST_PROGRAM`, or a `PROGRAM`
+/// with `{attribute 'test'}` (specification 22, "Test POU discovery").
 fn declared_programs(text: &str) -> Vec<DeclaredProgram> {
     parse(text)
         .syntax()
         .descendants()
-        .filter(|node| node.kind() == SyntaxKind::Program && starts_with_program_keyword(node))
+        .filter(|node| {
+            node.kind() == SyntaxKind::Program
+                && starts_with_program_keyword(node)
+                && trust_hir::test_pous::test_kind(node).is_none()
+        })
         .filter_map(|node| {
             let name = node
                 .children()

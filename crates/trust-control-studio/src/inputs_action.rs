@@ -223,7 +223,7 @@ fn keep_automatic_requirements(
         shown = current_model(study)?
             .filter(|current| current.is_current_for(loop_definition))
             .and_then(|current| {
-                study_requirements(loop_definition, &current, tune.as_ref(), before.as_ref())
+                study_requirements(loop_definition, &current, tune.as_ref(), before.as_ref()).ok()
             });
     }
     if let Some(shown) = shown {

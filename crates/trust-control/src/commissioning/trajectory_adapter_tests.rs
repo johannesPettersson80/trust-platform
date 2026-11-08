@@ -73,6 +73,7 @@ fn a_parallel_pid_law_refuses_a_nonzero_feedforward_gain_it_has_no_variable_for(
             proportional_symbol: "P1.Parameters.ProportionalGain".to_owned(),
             integral_symbol: Some("P1.Parameters.IntegralGain".to_owned()),
             derivative_symbol: Some("P1.Parameters.DerivativeGain".to_owned()),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         }));
     }
     let adapter = controller_adapter(&loop_definition).expect("the parallel law is served");

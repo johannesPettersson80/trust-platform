@@ -1534,6 +1534,36 @@ END_CONFIGURATION
     }
 }
 
+/// Specification 22: a `PROGRAM` with `{attribute 'test'}` is a test program, which a production
+/// build leaves unbound and does not instantiate. Catches a CODESYS project refused for its tests
+/// ("unbound PROGRAM declaration(s)"), and its tests run in production.
+#[test]
+fn configuration_contract_leaves_programs_with_the_test_attribute_unbound() {
+    let runtime = compile_runtime(
+        r#"
+PROGRAM Main
+VAR Count : INT; END_VAR
+Count := Count + 1;
+END_PROGRAM
+{attribute 'test'}
+PROGRAM PRG_TestCount
+ASSERT_TRUE(FALSE);
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Line ON PLC
+TASK Scan (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Main WITH Scan : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    assert!(runtime.storage().get_global("Main").is_some());
+    assert!(
+        runtime.storage().get_global("PRG_TestCount").is_none(),
+        "the test program is not instantiated"
+    );
+}
+
 /// Specification 22: a production build leaves a configured project's `TEST_PROGRAM`s unbound
 /// and does not instantiate them, while an unbound ordinary PROGRAM is still refused. Catches a
 /// build that refuses a runnable project for its tests, or one that runs its tests in production.

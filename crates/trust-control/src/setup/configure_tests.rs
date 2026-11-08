@@ -13,6 +13,7 @@ use crate::setup::catalog::{
 use crate::setup::prompts::{
     ActuatorChoice, ChannelMode, ControllerChoice, FeedbackChoice, RateAnswer, SetpointChoice,
 };
+use std::collections::BTreeMap;
 
 fn scope() -> LoopScope {
     LoopScope {
@@ -60,6 +61,7 @@ fn fixture(
             controllers,
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals,
     }

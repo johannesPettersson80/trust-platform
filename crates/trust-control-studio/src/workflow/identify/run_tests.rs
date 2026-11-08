@@ -545,6 +545,7 @@ fn identify(
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     run(
         RunPorts {
@@ -798,6 +799,7 @@ fn cancel_of_a_journaled_test_experiment_aborts_it_keeps_its_recording_and_clear
         &tank_loop(),
         "experiment-1",
         &mut kept,
+        None,
     )
     .expect("cancelled");
     assert_eq!(
@@ -833,6 +835,7 @@ fn cancel_of_a_journaled_test_experiment_the_runtime_does_not_hold_aborts_nothin
         &tank_loop(),
         "experiment-1",
         &mut kept,
+        None,
     )
     .expect("cancelled");
     assert_eq!(
@@ -864,6 +867,7 @@ fn cancel_of_the_steps_experiment_is_the_campaigns_cancel() {
         &tank_loop(),
         "experiment-1",
         &mut kept,
+        None,
     )
     .expect("cancelled");
     assert_eq!(
@@ -912,6 +916,7 @@ fn a_cancelled_run_records_starts_and_keeps_nothing_and_says_it_was_cancelled() 
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run(
         RunPorts {
@@ -1021,6 +1026,7 @@ fn a_two_input_campaign_steps_each_input_in_turn_in_one_recording() {
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run(
         RunPorts {
@@ -1106,6 +1112,7 @@ fn run_two_inputs(
         loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     run(
         RunPorts {

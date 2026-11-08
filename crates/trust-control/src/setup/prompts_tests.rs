@@ -4,6 +4,7 @@
 use super::*;
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
 use crate::setup::catalog::{CompiledCatalog, CompiledController, CompiledSymbol, CompiledTask};
+use std::collections::BTreeMap;
 
 fn signal(symbol: &str, address: &str, iec_type: &str) -> CompiledSignal {
     CompiledSignal {
@@ -47,6 +48,7 @@ fn fixture(
             controllers,
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals,
     }

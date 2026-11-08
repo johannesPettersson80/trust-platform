@@ -150,7 +150,7 @@ pub fn cascade_loop_definition(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty())
-        .map(startup_state)
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
         .into_iter()
         .collect();
     let project = ControllerProject::from_value(&project_block(

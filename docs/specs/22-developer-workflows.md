@@ -140,21 +140,40 @@ result.
 
 ## Test POU discovery
 
-After loading supported source files, `trust-dev test` discovers only truST
-`TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` declarations. Discovery reports the
-test kind, namespace-qualified name, source path, one-based declaration line,
-and declaration source line. Comments and other parser trivia following a test
-name do not change its identity. Results are ordered by source path, declaration
-offset, and name so repeated discovery of the same source set is deterministic.
-One implementation (`trust_runtime::test_discovery`) serves `trust-dev test` and
-the VS Code Testing view (specification 25 §11.1), so a test has one name in both.
+After loading supported source files, `trust-dev test` discovers only test
+declarations: truST `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` declarations, and
+an ordinary `PROGRAM` whose declaration carries `{attribute 'test'}`.
+
+The attribute is the form of a test that a CODESYS project can hold. CODESYS
+has no `TEST_PROGRAM` and ignores an attribute it does not know, so such a test
+lives, and is versioned, in the CODESYS project itself. The attribute counts in
+the pragma before the `PROGRAM` keyword, read as `{attribute 'cross_task'}` is
+(specification 28 section 6), under every vendor profile. Before a function
+block or any other declaration, and inside a body, it declares no test. A
+`PROGRAM` with the attribute is a test program wherever this specification says
+`TEST_PROGRAM`: discovery reports it with that kind and with the line of its
+`PROGRAM` keyword, the runner invokes it as a program, unused-POU analysis
+counts it as an entry point, and a production build leaves it unbound.
+
+Discovery reports the test kind, namespace-qualified name, source path,
+one-based declaration line, and declaration source line. Comments and other
+parser trivia following a test name do not change its identity. Results are
+ordered by source path, declaration offset, and name so repeated discovery of
+the same source set is deterministic. One implementation
+(`trust_runtime::test_discovery`) serves `trust-dev test` and the VS Code
+Testing view (specification 25 §11.1), so a test has one name in both. It asks
+one rule which declarations are tests (`trust_hir::test_pous`), as the build,
+unused-POU analysis and the language server's run entry do.
 
 `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` are truST test-workflow extensions,
-not additional IEC 61131-3 POU kinds and not IEC deviations.
-They are executable entry points for the test runner. Unused-POU analysis must
-not report W009 for either declaration merely because no production program
-instance or function-block variable references it. Unreferenced production
-POUs and unused local variables inside tests retain their ordinary warnings.
+not additional IEC 61131-3 POU kinds and not IEC deviations. The attribute is a
+pragma, whose syntax and semantics IEC 61131-3 leaves to the implementer (§6.2,
+Table 4).
+Test declarations are executable entry points for the test runner. Unused-POU
+analysis must not report W009 for a test declaration merely because no
+production program instance or function-block variable references it.
+Unreferenced production POUs and unused local variables inside tests retain
+their ordinary warnings.
 
 ## Test case execution
 
@@ -204,7 +223,7 @@ as additional program instances for the test session. A case filter selects
 invocation and reporting, not which declarations participate in whole-project
 compilation; unselected tests are not executed. A production build of the same
 project (`trust-runtime build`, `run`, a debug or Control Studio session) leaves
-its `TEST_PROGRAM` declarations unbound and does not instantiate them: they are
+its test programs unbound and does not instantiate them: they are
 test entry points, not part of the production program, so a runnable project
 may keep its tests beside its configuration. An unbound ordinary `PROGRAM`
 under a `CONFIGURATION` is still refused. The test runner does not silently

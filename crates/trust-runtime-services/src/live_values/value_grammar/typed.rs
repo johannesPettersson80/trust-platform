@@ -241,7 +241,7 @@ impl<'i, 't> Target<'i, 't> {
             return self.elementary(kind, literal, true);
         }
         match &self.shape {
-            TypeShape::Enumeration { name, .. } if name.eq_ignore_ascii_case(prefix) => {
+            TypeShape::Enumeration { name, .. } if names_enumeration(name, prefix) => {
                 self.enumeration(name, literal)
             }
             _ => Err(self.mismatch()),
@@ -640,6 +640,21 @@ impl ProgramMemory for Scratch<'_> {
     fn write_image(&mut self, _address: &IoAddress, _value: Value) -> Result<(), RuntimeError> {
         Err(RuntimeError::TypeMismatch)
     }
+}
+
+/// Whether the type name `prefix` of a typed value names the enumeration `name` (§6.4.4.2): its name, or, for an enumeration
+/// that a namespace holds, its own name after the namespaces, as `E_Mode#MANUAL` and `E_Mode.MANUAL` name it where a `USING`
+/// makes the namespace's names visible. A type table that keeps the enumeration's name without its namespaces takes a prefix
+/// that its namespaces qualify, since it cannot tell them apart.
+fn names_enumeration(name: &str, prefix: &str) -> bool {
+    name.eq_ignore_ascii_case(prefix)
+        || own_name(name).eq_ignore_ascii_case(prefix)
+        || (!name.contains('.') && own_name(prefix).eq_ignore_ascii_case(name))
+}
+
+/// The last name of a name that namespaces may qualify: `Color` of `Lib.Color`.
+fn own_name(name: &str) -> &str {
+    name.rsplit('.').next().unwrap_or(name)
 }
 
 #[cfg(test)]

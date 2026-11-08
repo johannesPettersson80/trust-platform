@@ -52,6 +52,9 @@ END_TEST_FUNCTION_BLOCK
 Current parser/HIR behavior:
 - `TEST_PROGRAM` is parsed with PROGRAM structure and collected as `SymbolKind::Program`.
 - `TEST_FUNCTION_BLOCK` is parsed with FUNCTION_BLOCK structure and collected as `SymbolKind::FunctionBlock`.
+- An ordinary `PROGRAM` whose declaration carries `{attribute 'test'}` is parsed and collected as
+  any `PROGRAM`, and is a test program as a `TEST_PROGRAM` is: the form a CODESYS project can
+  hold (specification 22, "Test POU discovery").
 - Mismatched end markers produce actionable diagnostics (`expected END_TEST_PROGRAM` / `expected END_TEST_FUNCTION_BLOCK`).
 - End-of-file before the matching test-POU terminator produces the same
   actionable required-terminator diagnostic; an unterminated `TEST_PROGRAM`

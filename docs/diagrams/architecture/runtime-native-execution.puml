@@ -24,7 +24,7 @@ package "Engineering computer: trust-runtime build" as buildPkg #LightYellow {
     artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure with the call level,\nheader flag release, sources hash,\nprogram library hash, SIGN last" as image
     component "host/native/signing (§5.11)\nthe project's [signing] key or the user's\nsigning-key.pem (truST configuration folder);\nfills SIGN in place, before the record" as signing
     artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record
-    component "trust-dev test\nTEST_PROGRAMs as instances without a task;\neach test: cold start, run_instance once" as testRunner
+    component "trust-dev test\ntest programs as instances without a task;\neach test: cold start, run_instance once" as testRunner
     hir --> model
     model --> generator
     generator --> recursion : call graph

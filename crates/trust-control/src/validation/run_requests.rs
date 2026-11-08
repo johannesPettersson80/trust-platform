@@ -590,6 +590,13 @@ fn candidate_value(candidate: &LawCandidate, mapped: &MappedParameter) -> Result
                 (None, GainKey::ProportionalGain) => Ok(candidate.gains.proportional_gain),
                 (None, GainKey::IntegralGain) => Ok(candidate.gains.integral_gain),
                 (None, GainKey::DerivativeGain) => Ok(candidate.gains.derivative_gain),
+                // A standard-form law's times (N6.8): a structure without the derivative term writes a derivative time of zero.
+                (None, GainKey::ResetTime) => {
+                    Ok(candidate.gains.proportional_gain / candidate.gains.integral_gain)
+                }
+                (None, GainKey::DerivativeTime) => {
+                    Ok(candidate.gains.derivative_gain / candidate.gains.proportional_gain)
+                }
                 (None, _) => Err(Failure::new(
                     "A program's own law holds no gain of this kind.",
                     Cause::Implementation,
@@ -621,6 +628,12 @@ fn pid_value(candidate: &ControlPidCandidate, key: GainKey) -> Result<f64, Failu
                 Failure::new(FILTER_MISSING, Cause::Settings, NextAction::OpenLoopSetup)
             })
         }
+        // A program's own law in standard form holds these times (C2); a Control.PID record holds gains.
+        GainKey::ResetTime | GainKey::DerivativeTime => Err(Failure::new(
+            "A Control.PID record holds no reset or derivative time.",
+            Cause::Implementation,
+            NextAction::None,
+        )),
     }
 }
 

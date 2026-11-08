@@ -1,4 +1,3 @@
-mod attributes;
 mod call_bindings;
 mod configuration;
 mod context;
