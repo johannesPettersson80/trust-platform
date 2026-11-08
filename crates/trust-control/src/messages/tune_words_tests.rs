@@ -98,6 +98,7 @@ fn parallel(
         proportional_symbol: proportional.to_owned(),
         integral_symbol: integral.map(str::to_owned),
         derivative_symbol: derivative.map(str::to_owned),
+        form: crate::tuning::project_seed::GainForm::Parallel,
     }
 }
 

@@ -686,10 +686,7 @@ pub(super) fn output_limits(manipulated: &MeasuredSignal) -> Limits {
 
 /// The Auto/Manual binding of a state law: its signal, and whether TRUE means Manual (C0).
 pub(super) fn mode_binding(mode: &ModeChoice) -> ModeBinding {
-    ModeBinding {
-        symbol: mode.symbol.clone(),
-        manual_value: mode.when_true == ModeWhenTrue::Manual,
-    }
+    ModeBinding::boolean(mode.symbol.clone(), mode.when_true == ModeWhenTrue::Manual)
 }
 
 /// The compiled program or function block that runs the law, with the instance's name (`stateFeedbackLoopDefinition`).

@@ -318,6 +318,24 @@ END_FUNCTION_BLOCK
     );
 }
 
+/// Specification 22, "Test POU discovery": a `PROGRAM` with `{attribute 'test'}` is a runner
+/// entry point as a `TEST_PROGRAM` is. Catches W009 on a CODESYS project's every test, and the
+/// attribute hiding a production program that follows it.
+#[test]
+fn a_program_with_the_test_attribute_is_a_runner_entry_point() {
+    let messages = messages_for(
+        r#"
+{attribute 'test'}
+PROGRAM PRG_TestTank
+END_PROGRAM
+PROGRAM PRG_Forgotten
+END_PROGRAM
+"#,
+        DiagnosticCode::UnusedPou,
+    );
+    assert_eq!(messages, vec!["unused program 'PRG_Forgotten'"]);
+}
+
 #[test]
 fn function_result_assignment_does_not_make_function_externally_used() {
     let messages = messages_for(

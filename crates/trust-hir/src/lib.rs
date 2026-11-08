@@ -29,6 +29,7 @@
 #![warn(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod attributes;
 pub mod db;
 pub mod diagnostics;
 pub mod dialect;
@@ -38,6 +39,7 @@ pub mod openot_authoring;
 pub mod project;
 pub mod semantic;
 pub mod symbols;
+pub mod test_pous;
 pub mod timing;
 pub mod type_check;
 pub mod types;

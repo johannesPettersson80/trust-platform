@@ -72,9 +72,9 @@ pub fn mode_binding(loop_definition: &LoopDefinition) -> Result<TransferBinding,
 #[must_use]
 pub fn in_mode(binding: &TransferBinding, status: &TransferStatus, manual: bool) -> bool {
     let wanted = if manual {
-        binding.mode.manual_value
+        binding.mode.manual_reading()
     } else {
-        !binding.mode.manual_value
+        !binding.mode.manual_reading()
     };
     status.values.get(&binding.mode.symbol) == Some(&TransferValue::Boolean(wanted))
 }
@@ -90,7 +90,7 @@ pub fn found_in_auto(binding: &TransferBinding, original: &TransferStatus) -> bo
             TransferValue::Boolean(flag) => Some(*flag),
             TransferValue::Number(_) => None,
         });
-    found_mode_of(mode, binding.mode.manual_value) == Some(FoundMode::Auto)
+    found_mode_of(mode, binding.mode.manual_reading()) == Some(FoundMode::Auto)
 }
 
 /// Whether every output that `binding` holds reads the same in `earlier` and `later`, two readings of different scans of the
@@ -328,17 +328,18 @@ fn entry_response_terms(
     let symbols = gain_symbols(loop_definition)
         .filter(|symbols| symbols.integral.is_some() || symbols.derivative.is_some())?;
     loop_definition.signals.setpoint.as_ref()?;
-    let value = |symbol: &str| observed_number(observed, symbol);
-    // An absent integral term contributes nothing; a reported-missing gain stays NaN and so allows no response.
-    let integral_gain = symbols.integral.map_or(0.0, value);
+    let value = |symbol: &str| Some(observed_number(observed, symbol));
+    // An absent integral term contributes nothing; a reported-missing gain stays NaN and so allows no response. A standard-form law
+    // holds its times, which give the gains (N6.8).
+    let integral_gain = symbols.integral_gain(value).unwrap_or(0.0);
     let allowance = noise_aware_transfer_tolerance(
         loop_definition,
         None,
-        Some(value(symbols.proportional)),
+        Some(observed_number(observed, symbols.proportional)),
         process_noise,
         AllowanceTerms {
-            integral_gain: symbols.integral.map(value),
-            derivative_gain: symbols.derivative.map(value),
+            integral_gain: symbols.integral_gain(value),
+            derivative_gain: symbols.derivative_gain(value),
             cycle_seconds: Some(loop_definition.controller.task_period_ms / 1000.0),
             entry_error: None,
         },

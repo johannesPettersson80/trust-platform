@@ -14,7 +14,7 @@ use crate::loop_definition::{
     ProjectSeedBlock,
 };
 use crate::tuning::project_components::ProjectTuningComponent;
-use crate::tuning::project_seed::ParallelPidSeed;
+use crate::tuning::project_seed::{GainForm, ParallelPidSeed};
 use crate::tuning::state_controller::design::{HorizonPolicy, StateHorizon};
 use crate::tuning::structure::Structure;
 
@@ -24,6 +24,10 @@ const PROPORTIONAL_LABEL: &str = "Proportional gain (Kp)";
 const INTEGRAL_LABEL: &str = "Integral gain (Ki)";
 /// The label of the derivative gain, as `Control.PID` names it (`PID_GAIN_LABELS.DerivativeGain`).
 const DERIVATIVE_LABEL: &str = "Derivative gain (Kd)";
+/// The label of the reset time of a program's own law in standard form (C2, N6.8).
+const RESET_TIME_LABEL: &str = "Reset time (Ti)";
+/// The label of the derivative time of a program's own law in standard form (C2, N6.8).
+const DERIVATIVE_TIME_LABEL: &str = "Derivative time (Td)";
 /// The label of the proportional setpoint weight `β` in the manual editor (`manualTuneSettings.ts`).
 const SETPOINT_WEIGHT_LABEL: &str = "Setpoint weight (β)";
 /// The label of the derivative setpoint weight `γ` in the manual editor (`manualTuneSettings.ts`).
@@ -324,15 +328,19 @@ fn seeded_labels(seed: &ProjectSeedBlock) -> Option<BTreeMap<String, String>> {
     Some(pairs.into_iter().collect())
 }
 
-/// The labelled gains of a parallel seed: its proportional gain, its integral gain when it has one, and its derivative gain when
-/// `derivative` is set.
+/// The labelled settings of a parallel seed: its proportional gain, its integral gain when it has one, and its derivative gain when
+/// `derivative` is set; in standard form its reset and derivative times (N6.8).
 fn pid_pairs(pid: &ParallelPidSeed, derivative: bool) -> Vec<(String, String)> {
+    let (integral_label, derivative_label) = match pid.form {
+        GainForm::Parallel => (INTEGRAL_LABEL, DERIVATIVE_LABEL),
+        GainForm::Standard => (RESET_TIME_LABEL, DERIVATIVE_TIME_LABEL),
+    };
     let mut pairs = vec![pair(&pid.proportional_symbol, PROPORTIONAL_LABEL)];
     if let Some(symbol) = &pid.integral_symbol {
-        pairs.push(pair(symbol, INTEGRAL_LABEL));
+        pairs.push(pair(symbol, integral_label));
     }
     if let Some(symbol) = pid.derivative_symbol.as_ref().filter(|_| derivative) {
-        pairs.push(pair(symbol, DERIVATIVE_LABEL));
+        pairs.push(pair(symbol, derivative_label));
     }
     pairs
 }

@@ -55,6 +55,7 @@ include!("tests/control_studio_runtime_facts.rs");
 include!("tests/control_studio_parameters.rs");
 include!("tests/control_studio_transfer.rs");
 include!("tests/control_studio_transfer_formulas.rs");
+include!("tests/control_studio_enum_mode.rs");
 
 // The isolated runs below use this test program as their worker. Its allocator is the system's,
 // so only Linux limits that worker (protocol annex E8.1); the trust-runtime and trust-debug
@@ -68,6 +69,8 @@ include!("tests/control_studio_experiment_symbol.rs");
 
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_isolated_run.rs");
+#[cfg(target_os = "linux")]
+include!("tests/control_studio_isolated_enum_mode.rs");
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_isolated_live_inputs.rs");
 // The delayed integrator runs as an isolated run, with the search fixture and the run's channel readers above.

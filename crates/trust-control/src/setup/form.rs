@@ -151,6 +151,8 @@ pub struct SetupFormChoices {
     pub state_families: Vec<String>,
     /// The laws of a program's own controller (`law`).
     pub own_laws: Vec<String>,
+    /// The forms a program's own law holds its settings in (`form`): parallel gains, or the standard form's times (C2, N6.8).
+    pub gain_forms: Vec<String>,
     /// Where a program's own PID law takes its derivative (`derivativeOn`).
     pub derivative_on: Vec<String>,
     /// The laws a finite search may name (`family` of the search structure).
@@ -178,6 +180,8 @@ pub struct SetupFormLabels {
     pub state_families: BTreeMap<String, String>,
     /// The words of the laws of a program's own controller.
     pub own_laws: BTreeMap<String, String>,
+    /// The words of the forms a program's own law holds its settings in.
+    pub gain_forms: BTreeMap<String, String>,
     /// The words of where a program's own PID law takes its derivative.
     pub derivative_on: BTreeMap<String, String>,
     /// The words of the laws a finite search may name.
@@ -211,6 +215,8 @@ pub struct SetupFormDefaults {
     pub threshold_equality: String,
     /// The law an own-law setup preselects (C2): `PI`.
     pub own_law: String,
+    /// The form an own-law setup preselects (C2): `parallel`.
+    pub gain_form: String,
     /// The law a trajectory feedforward's program computes, which the form does not offer to change (C11): `PID`.
     pub trajectory_own_law: String,
 }
@@ -486,6 +492,7 @@ fn defaults(structure: &str) -> SetupFormDefaults {
         band_convention: BandConvention::HalfBand.word().to_string(),
         threshold_equality: ThresholdEquality::AtOrBeyond.word().to_string(),
         own_law: own_law_loop::family_name(OwnLawFamily::Pi).to_string(),
+        gain_form: "parallel".to_string(),
         trajectory_own_law: own_law_loop::family_name(OwnLawFamily::Pid).to_string(),
     }
 }
@@ -527,6 +534,7 @@ fn choices() -> SetupFormChoices {
         threshold_equalities: words(&["at-or-beyond", "beyond"]),
         state_families: words(&["LQR", "state-feedback", "LQG"]),
         own_laws: words(&["PI", "P", "PID"]),
+        gain_forms: words(&["parallel", "standard"]),
         derivative_on: words(&["error", "measurement"]),
         search_families: words(&search_loop::SEARCH_FAMILIES),
         kept_starts: words(&["zero", "output", "measurement"]),
@@ -552,6 +560,7 @@ fn labels(structures: &[String], choices: &SetupFormChoices) -> SetupFormLabels 
         ),
         state_families: labelled(&choices.state_families, &words_of::STATE_FAMILIES),
         own_laws: labelled(&choices.own_laws, &words_of::OWN_LAWS),
+        gain_forms: labelled(&choices.gain_forms, &words_of::GAIN_FORMS),
         derivative_on: labelled(&choices.derivative_on, &words_of::DERIVATIVE_ON),
         search_families: labelled(&choices.search_families, &words_of::SEARCH_FAMILIES),
         kept_starts: labelled(&choices.kept_starts, &words_of::KEPT_STARTS),

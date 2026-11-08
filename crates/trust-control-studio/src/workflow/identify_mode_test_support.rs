@@ -239,9 +239,9 @@ impl World {
         }
         self.values.extend(applied.clone());
         self.mode = if manual {
-            binding.mode.manual_value
+            binding.mode.manual_reading()
         } else {
-            !binding.mode.manual_value
+            !binding.mode.manual_reading()
         };
         let word = if manual { "manual" } else { "auto" };
         self.log

@@ -80,6 +80,8 @@ impl Request {
             initial_values: self.initial_values.clone(),
             events: self.events.clone(),
             observations: self.observations.clone(),
+            // A search job runs the project's own simulation and binds no loop's mode.
+            mode_bindings: Vec::new(),
         }
     }
 

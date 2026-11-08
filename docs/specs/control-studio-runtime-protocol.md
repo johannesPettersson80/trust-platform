@@ -161,7 +161,7 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 | Operation | Permitted IEC types |
 |---|---|
 | Reads: inspection, recordings, isolated observations | BOOL, signed and unsigned integers, REAL, LREAL, and enumerations read as numbers |
-| Transfer modes | BOOL |
+| Transfer and parameter modes | BOOL, or an enumeration named by its Manual and Auto members (E6.2, E7.1) |
 | Transfer states, guards and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
 | Parameters | REAL and LREAL |
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
@@ -400,7 +400,7 @@ Access: Engineer. Unknown fields are refused with `invalid_experiment`.
 | `minimum`, `maximum` | number | Required. Finite, with `minimum` below `maximum`. |
 | `duration_ms` | integer | Required. 1,000 to 86,400,000 (1 s to 24 h of process time). |
 | `expected_scan` | integer | Required. The runtime stores it as `reviewed_scan`. It does not compare it. |
-| `mode_binding` | object | `{symbol, manual_value}`. Required for the kinds that need a mode (E5.2), and ignored for the others. `manual_value` is a boolean or a finite number. The mode symbol may be BOOL, numeric or an enumeration. |
+| `mode_binding` | object | `{symbol, manual_value, auto_value}`. Required for the kinds that need a mode (E5.2), and ignored for the others. The mode symbol may be BOOL, numeric or an enumeration. `manual_value` is a boolean or a finite number, or for an enumeration the name of a member of its type. `auto_value` is optional: for an enumeration, the name of another member of its type, which means Auto (E6.2). Without it, every value other than `manual_value` means Auto. |
 | `physical_approval` | object | Optional. `{user_approved, topology_reviewed}`, both booleans. Both MUST be true for a `physical` source. |
 | `trajectory` | array | Optional, default empty. Entries `{at_ms, value}`. At most 10,000 entries. |
 | `relay_feedback` | object | Required for `relay` only, and refused for the other kinds. `{address, value_type, center, hysteresis, low_value, high_value}`. |
@@ -508,7 +508,9 @@ The status, apply and cancel operations take the same binding.
 
 - `loop_id`: string, not blank, at most 128 characters.
 - `task_name`: string. It names the one task that owns the program of every member, or `$background` for an unscheduled program.
-- `mode`: `{symbol, manual_value}`. `symbol` is a mutable BOOL variable that is not external and not addressed. `manual_value` is a boolean.
+- `mode`: `{symbol, manual_value, auto_value}`. `symbol` is a mutable BOOL or enumeration variable that is not external and not addressed (specification 35 A6.1).
+  - For a BOOL, `manual_value` is a boolean and `auto_value` is absent: the other boolean means Auto.
+  - For an enumeration, `manual_value` and `auto_value` are the names of two different members of its type, without regard to case. Its other members mean neither mode: a transfer writes only `manual_value` or `auto_value`, and it never reads another member as Manual or Auto.
 - `additional_modes`: optional array of 0 to 8 modes, in the same form. They are written with `mode` at the same boundary.
 - `states`: 1 to 64 distinct members.
 - `guards`: 1 to 64 members.
@@ -536,7 +538,7 @@ Access: Viewer. Request: `binding`.
 Response:
 
 - `program_revision`, `binding_revision` and `runtime_time_ns`.
-- `values`: an object with one entry for each member and each mode. Modes are booleans. A BOOL member is 0 or 1.
+- `values`: an object with one entry for each member and each mode. A BOOL mode is its boolean. An enumeration mode is TRUE in its Manual member and FALSE in its Auto member, so a reading means Manual exactly where a BOOL binding with `manual_value` TRUE reads TRUE. A status read of an enumeration mode in another member is refused, with the member's name: the loop is in neither mode (specification 35 A6.1). A BOOL member is 0 or 1.
 - `supported_tracking`: `["proportional", "parallel-pid-v1", "declared-state-v1", "declared-initialization-formulas"]`.
 - `transaction_id`: the identifier of the last transaction, or null.
 - `status`: the status of the last transaction, or `idle`.
@@ -676,7 +678,7 @@ The binding is `{loop_id, task_name, parameters, mode}`.
 - `loop_id`: string, not blank.
 - `task_name`: string. `$background` selects unscheduled programs.
 - `parameters`: 1 to 64 members. Each is `{symbol, iec_type, unit, convention, minimum, maximum}`. `iec_type` is REAL or LREAL. `unit` and `convention` are not blank. `minimum` and `maximum` are finite, and `minimum` does not exceed `maximum`. Unknown fields are refused.
-- `mode`: `{symbol, manual_value}`. `symbol` is a BOOL variable, and `manual_value` is a boolean.
+- `mode`: `{symbol, manual_value, auto_value}`, as a transfer's mode (E6.2): a BOOL variable with its Manual boolean, or an enumeration variable with the names of its Manual and its Auto member.
 
 Rules:
 
@@ -811,6 +813,7 @@ Test runs (E8.4) and searches (E8.5) share these rules.
 - The parameter values of a run (a test run's `parameter_overrides`, E8.4; a search trial's `parameters`, E8.5) are written before the first scan. A program MAY set such a parameter during its first execution, its startup, as a program that designs or loads its own record at startup does. Its first execution is the first scan in which its task runs: a periodic task first runs one interval after the start, and a program without a task runs in every scan. The runtime then writes the run's value again at the task boundary after that scan, as Apply writes a complete record at a task boundary of a running program (E7), and from that boundary the value MUST hold to the end of the run. This adds no preparation cycle: the run's scans are those of its grid from time zero. A program that changes such a parameter after its first execution would not keep an applied candidate either, and the run fails with the reason `ST changed controller parameter <symbol>; candidate not adopted`.
 - `events` is a list of `{at_ms, symbol, value}`. Events are ordered, unique by time and symbol, scan-aligned (each `at_ms` is a multiple of `step_ms`), and no later than `duration_ms`. An event applies at its scan.
 - `observations` is a list of `{symbol, unit}`, with 1 to 64 entries. Symbols are unique. Each observed channel counts toward the limit of 64.
+- A loop's enumeration mode signal (specification 35 A6.1) is written and recorded as Control Studio reads a mode: 1 in Manual and 0 in Auto (E6.3). A test run names each in `mode_bindings`, a list of at most nine `{symbol, manual_value, auto_value}`, each symbol once and with two different members. An initial value or event of 1 for it writes its Manual member and 0 its Auto member, and any other number is refused. An observation of it records 1 in its Manual member and 0 in its Auto member, and a run that finds it in another member fails with the member's name. A BOOL mode is a number already and is not named. A search (E8.5) runs the project's own simulation and names none.
 - A write targets a writable, scalar member. A duplicate or ambiguous write is refused.
 - A BOOL value of 0 or 1 MAY start a project-owned sequence. An integer process value is coerced with exact and range checks. An integer gain is never written.
 - A seed is an integer of at most 9,007,199,254,740,991.
@@ -839,6 +842,7 @@ Start request:
 - `wall_budget_ms`: 1 to 600,000 (10 min).
 - `record_every`: optional, 1 to 100,000. The default is 1.
 - `initial_values`, `events` and `observations`, as E8.3 defines them.
+- `mode_bindings`: optional, default `[]`, as E8.3 defines it.
 - `parameter_overrides`: optional, default `[]`, at most 64 entries.
 - `simulation_override`: optional object `{model_revision, model_provenance, simulation_toml}`. Its fields are limited to 256, 4,096 and 262,144 bytes. `feedback_relay`: optional object, checked against its declared bounds.
 

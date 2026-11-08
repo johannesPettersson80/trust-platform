@@ -239,3 +239,31 @@ fn typed_literals_and_names_keep_their_type_and_their_spelling() {
         assert_eq!(parse_literal(source), Ok(expected), "{source}");
     }
 }
+
+#[test]
+fn an_enumeration_value_in_codesys_dotted_form_is_its_typed_value() {
+    // Specification 11 (the CODESYS toolkit's B12): CODESYS writes an enumeration's value as its type,
+    // a dot and the value, and the type may carry its namespaces; each means the typed value. A number
+    // with a decimal point stays a number, and a dotted text whose parts are no names is no literal.
+    // Catches `E_TankMode.AUTO` refused, a namespace taken for the value, and `1.5` read as a name.
+    for (source, expected) in [
+        (
+            "E_TankMode.AUTO",
+            typed("E_TankMode", Literal::Name(String::from("AUTO"))),
+        ),
+        (
+            "Lib.Color.Red",
+            typed("Lib.Color", Literal::Name(String::from("Red"))),
+        ),
+        ("1.5", Literal::Real(String::from("1.5"))),
+    ] {
+        assert_eq!(parse_literal(source), Ok(expected), "{source}");
+    }
+    for source in ["Color.", ".Red", "Color..Red", "Color.1"] {
+        assert_eq!(
+            parse_literal(source),
+            Err(format!("unsupported value '{source}'")),
+            "{source}"
+        );
+    }
+}

@@ -43,6 +43,26 @@ END_NAMESPACE
     );
 }
 
+/// Specification 22: a `PROGRAM` with `{attribute 'test'}` is a test program, reported at the line
+/// of its `PROGRAM` keyword. Catches a CODESYS project's test missing from `trust-dev test` and the
+/// Testing view, a test placed at its attribute's line, and a production program or a function
+/// block with the attribute listed as a test.
+#[test]
+fn discovery_finds_a_program_with_the_test_attribute() {
+    let discovered = discover(&[(
+        "tank.st",
+        "NAMESPACE Plant\n{attribute 'test'}\nPROGRAM PRG_TestTank\nEND_PROGRAM\nPROGRAM PRG_Tank\nEND_PROGRAM\n{attribute 'test'}\nFUNCTION_BLOCK FB_Check\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\n",
+    )]);
+    assert_eq!(discovered.len(), 1, "{discovered:?}");
+    assert_eq!(discovered[0].name, "Plant.PRG_TestTank");
+    assert_eq!(discovered[0].kind, TestKind::Program);
+    assert_eq!(discovered[0].line, 3);
+    assert_eq!(
+        discovered[0].source_line.as_deref(),
+        Some("PROGRAM PRG_TestTank")
+    );
+}
+
 #[test]
 fn discovery_ignores_comments_after_test_name() {
     let discovered = discover(&[(

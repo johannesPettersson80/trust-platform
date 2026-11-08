@@ -131,7 +131,7 @@ fn a_control_pid_loop_found_in_auto_returns_to_auto_through_its_declared_initial
     // The loop reads Manual, as after an Apply that left it in Manual, so the return to Auto is due.
     let current = BTreeMap::from([(
         binding.mode.symbol.clone(),
-        TransferValue::Boolean(binding.mode.manual_value),
+        TransferValue::Boolean(binding.mode.manual_reading()),
     )]);
     let entry = reenter_found_mode(Some(FoundMode::Auto), &binding.mode, &current, |_| {
         Some(AutoReentry {

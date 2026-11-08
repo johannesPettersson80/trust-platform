@@ -39,7 +39,8 @@ pub fn runtime_binding_of(loop_definition: &LoopDefinition) -> Result<RuntimeBin
             .collect(),
         mode: RuntimeMode {
             symbol: declared.mode.symbol.clone(),
-            manual_value: declared.mode.manual_value,
+            manual_value: declared.mode.manual_value.clone(),
+            auto_value: declared.mode.auto_value.clone(),
         },
     };
     check_binding(&binding, &loop_definition.id)?;

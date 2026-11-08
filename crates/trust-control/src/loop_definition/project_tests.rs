@@ -484,3 +484,67 @@ fn a_program_law_is_written_back_as_the_block_it_reads() {
         value["controller"]["project"]
     );
 }
+
+/// The served loop in standard form (C2, N6.8): the seed names `Main.Parameters.Kp` and the reset time `Main.Parameters.Ti`, and the
+/// derivative time `Main.Parameters.Td` when `derivative` is set; the binding bounds both times in seconds.
+fn standard_loop(family: &str, derivative: bool) -> Value {
+    let mut project = served_project(family, false, false);
+    project["seed"]["form"] = json!("standard");
+    project["seed"]["resetTimeSymbol"] = json!("Main.Parameters.Ti");
+    if derivative {
+        project["seed"]["derivativeTimeSymbol"] = json!("Main.Parameters.Td");
+    }
+    let mut value = project_loop(project);
+    let parameters = value["parameterBinding"]["parameters"]
+        .as_array_mut()
+        .expect("the parameters");
+    for (symbol, convention) in [
+        ("Main.Parameters.Ti", "reset time"),
+        ("Main.Parameters.Td", "derivative time"),
+    ] {
+        parameters.push(json!({
+            "symbol": symbol, "iec_type": "LREAL", "unit": "s", "convention": convention, "minimum": 0.01, "maximum": 1000
+        }));
+    }
+    value
+}
+
+/// C2 and N6.8: a seed in standard form names its reset and derivative times, offers only the families that integrate, and writes
+/// back as the loop file holds it. Catches a standard law offered as P or PD (Control Studio would have to write a reset time of
+/// zero, which some programs divide by), and the times lost or renamed on the way back.
+#[test]
+fn a_standard_seed_names_its_times_and_offers_only_the_families_that_integrate() {
+    let pi = decoded_project(&standard_loop("PI", false));
+    assert_eq!(pi.parked_feature(), None, "a standard PI is served");
+    assert_eq!(pi.offered_families(), vec![Structure::PI]);
+    let pid = decoded_project(&standard_loop("PID", true));
+    assert_eq!(pid.offered_families(), vec![Structure::PI, Structure::PID]);
+    assert_eq!(
+        pid.to_value()["seed"],
+        json!({ "kind": "parallel-pid", "family": "PID", "form": "standard", "proportionalSymbol": "Main.Parameters.Kp",
+            "resetTimeSymbol": "Main.Parameters.Ti", "derivativeTimeSymbol": "Main.Parameters.Td" })
+    );
+}
+
+/// C2: a standard seed names no gain of the parallel form and a parallel seed no time, and a law in standard form always integrates.
+/// Catches a seed that mixes the forms, read with one of its variables silently dropped, and a standard P accepted.
+#[test]
+fn a_seed_that_mixes_the_forms_or_a_standard_p_is_refused() {
+    let mut mixed = standard_loop("PI", false);
+    mixed["controller"]["project"]["seed"]["integralSymbol"] = json!("Main.Parameters.Ki");
+    assert!(
+        malformed(&mixed).contains("never both"),
+        "{}",
+        malformed(&mixed)
+    );
+    let mut parallel_with_time = project_loop(served_project("PI", true, false));
+    parallel_with_time["controller"]["project"]["seed"]["resetTimeSymbol"] =
+        json!("Main.Parameters.Ti");
+    assert!(malformed(&parallel_with_time).contains("never both"));
+    let standard_p = standard_loop("P", false);
+    assert!(
+        malformed(&standard_p).contains("A law in standard form always integrates"),
+        "{}",
+        malformed(&standard_p)
+    );
+}

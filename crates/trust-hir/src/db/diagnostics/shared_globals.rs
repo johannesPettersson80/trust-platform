@@ -1,6 +1,5 @@
 use super::super::queries::*;
 use super::super::*;
-use super::attributes::declares_attribute;
 use super::configuration::{
     collect_tasks_in_scope, normalize_task_name, program_config_task_name, resolve_program_type,
     ProgramTypeResolution,
@@ -9,6 +8,7 @@ use super::context::{
     expression_context, find_symbol_by_name_range, is_pou_kind, namespace_path_for_symbol,
     normalized_name,
 };
+use crate::attributes::declares_attribute;
 
 const MAX_TASKS_IN_MESSAGE: usize = 3;
 const MAX_RELATED_TASKS: usize = 3;

@@ -75,10 +75,7 @@ fn binding() -> TransferBinding {
     TransferBinding {
         loop_id: "loop:tank".to_owned(),
         task_name: "MainTask".to_owned(),
-        mode: TransferModeBinding {
-            symbol: "Main.Auto".to_owned(),
-            manual_value: false,
-        },
+        mode: TransferModeBinding::boolean("Main.Auto".to_owned(), false),
         additional_modes: Vec::new(),
         tracking_outputs: BTreeMap::from([("ValveMV".to_owned(), "ValvePosition".to_owned())]),
         states: Vec::new(),

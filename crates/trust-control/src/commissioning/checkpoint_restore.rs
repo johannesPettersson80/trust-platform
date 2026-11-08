@@ -304,7 +304,7 @@ pub fn restore_transfer_needed(
     current: &BTreeMap<String, TransferValue>,
 ) -> bool {
     let mode = &checkpoint.binding.mode;
-    current.get(&mode.symbol) != Some(&TransferValue::Boolean(mode.manual_value))
+    current.get(&mode.symbol) != Some(&TransferValue::Boolean(mode.manual_reading()))
         || checkpoint.references.iter().any(|(symbol, value)| {
             current
                 .get(symbol)
@@ -576,7 +576,7 @@ pub fn reported_mode(
         Some(TransferValue::Boolean(value)) => Some(*value),
         _ => None,
     };
-    found_mode_of(reading, mode.manual_value)
+    found_mode_of(reading, mode.manual_reading())
 }
 
 /// Each bound parameter of a Restore's review (§0.1b; B6.4): its symbol and unit as the loop's parameter binding declares them, the value
