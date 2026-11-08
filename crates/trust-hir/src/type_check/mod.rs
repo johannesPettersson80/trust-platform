@@ -268,6 +268,19 @@ fn is_explicit_adr(node: &SyntaxNode) -> bool {
     node.kind() == SyntaxKind::AddrExpr
 }
 
+/// Whether `node` is `THIS` or `SUPER`, or CODESYS's `THIS^` or `SUPER^`, which name the same
+/// (specification 04).
+fn is_this_or_super(node: &SyntaxNode) -> bool {
+    let node = match node.kind() {
+        SyntaxKind::DerefExpr => match node.children().next() {
+            Some(inner) => inner,
+            None => return false,
+        },
+        _ => node.clone(),
+    };
+    matches!(node.kind(), SyntaxKind::ThisExpr | SyntaxKind::SuperExpr)
+}
+
 fn last_expression_child(node: &SyntaxNode) -> Option<SyntaxNode> {
     node.children()
         .filter(|child| is_expression_kind(child.kind()))

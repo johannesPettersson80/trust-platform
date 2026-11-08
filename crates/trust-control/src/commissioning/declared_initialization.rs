@@ -305,10 +305,7 @@ pub fn declared_transfer_binding(
         .chain(channels.measurements())
         .chain(cascade_guards(loop_definition)?)
         .collect();
-    let mode = TransferModeBinding {
-        symbol: parameters.mode.symbol.clone(),
-        manual_value: parameters.mode.manual_value,
-    };
+    let mode = parameters.mode.clone();
     if !roles_distinct(&mode, &states, &guards, &channels.output) {
         return Err(Failure::new(
             &texts::declared_roles_overlap(),
@@ -494,7 +491,7 @@ pub fn declared_initialization_plan(
         .map(|member| member.symbol.clone())
         .chain(std::iter::once(binding.mode.symbol.clone()))
         .collect();
-    let mode = (binding.mode.symbol.as_str(), binding.mode.manual_value);
+    let mode = (binding.mode.symbol.as_str(), binding.mode.manual_reading());
     let (run, base_requirements) = start_run(&timing, base, mode, starting, observed, events);
     let requirements = declared_requirements(
         &binding,
@@ -523,7 +520,7 @@ fn declared_requirements(
     owned: &[&InitializedState],
     base: Vec<RunRequirement>,
 ) -> Vec<RunRequirement> {
-    let auto = f64::from(u8::from(!binding.mode.manual_value));
+    let auto = f64::from(u8::from(!binding.mode.manual_reading()));
     let mut requirements = vec![
         bounds(
             "transfer-continuity",
@@ -569,8 +566,8 @@ fn allowance_gains(
     (
         gain(symbols.proportional),
         AllowanceTerms {
-            integral_gain: symbols.integral.and_then(gain),
-            derivative_gain: symbols.derivative.and_then(gain),
+            integral_gain: symbols.integral_gain(gain),
+            derivative_gain: symbols.derivative_gain(gain),
             cycle_seconds: Some(loop_definition.controller.task_period_ms / 1000.0),
             entry_error: None,
         },

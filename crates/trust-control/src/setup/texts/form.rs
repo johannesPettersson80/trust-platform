@@ -82,6 +82,15 @@ pub const OWN_LAWS: [(&str, &str); 3] = [
     ),
 ];
 
+/// The forms a program's own law holds its settings in (C2, N6.8), each with its words.
+pub const GAIN_FORMS: [(&str, &str); 2] = [
+    ("parallel", "Parallel: the gains Kp, Ki and Kd"),
+    (
+        "standard",
+        "Standard: the gain Kp, the reset time Ti and the derivative time Td, in seconds",
+    ),
+];
+
 /// Where a program's own PID law takes its derivative (`derivativeOn`, C2), each with its words.
 pub const DERIVATIVE_ON: [(&str, &str); 2] =
     [("error", "The error"), ("measurement", "The measurement")];

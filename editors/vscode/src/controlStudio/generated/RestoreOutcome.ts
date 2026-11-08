@@ -221,6 +221,11 @@ export interface SignalBinding {
    */
   iec_type: string;
   /**
+   * The members of an enumeration mode signal that mean Manual and Auto (annex E3, E4; specification 35 A6.1): the runtime
+   * reads the channel 1 in Manual and 0 in Auto, as a BOOL mode reads, and gives it no usable value in another member.
+   */
+  mode?: SignalMode | null;
+  /**
    * The variable's path.
    */
   symbol?: string | null;
@@ -229,6 +234,19 @@ export interface SignalBinding {
    * so a file without such a channel keeps its bytes and its identifier. The runtime neither reads nor writes it.
    */
   unit?: string | null;
+}
+/**
+ * The Manual and Auto members of an enumeration mode signal (annex E3, E4).
+ */
+export interface SignalMode {
+  /**
+   * The member that means Auto.
+   */
+  auto_value: string;
+  /**
+   * The member that means Manual.
+   */
+  manual_value: string;
 }
 /**
  * One sample of a recording (E4.4, E4.6).

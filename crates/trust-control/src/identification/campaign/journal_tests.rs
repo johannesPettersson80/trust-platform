@@ -20,6 +20,7 @@ fn owner() -> RecordingRecoveryOwner {
             address: None,
             symbol: Some("Main.TIC101_Setpoint".to_owned()),
             iec_type: "LREAL".to_owned(),
+            mode: None,
         }],
     }
 }

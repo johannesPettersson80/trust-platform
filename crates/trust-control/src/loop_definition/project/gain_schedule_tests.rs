@@ -38,6 +38,7 @@ fn pi_seed(proportional: &str, integral: &str) -> ProjectSeedBlock {
         proportional_symbol: proportional.to_owned(),
         integral_symbol: Some(integral.to_owned()),
         derivative_symbol: None,
+        form: crate::tuning::project_seed::GainForm::Parallel,
     })
 }
 
@@ -141,6 +142,7 @@ fn the_gain_scheduled_family_needs_its_schedule_and_its_own_pi_seed() {
         proportional_symbol: "P1.KpLow".to_owned(),
         integral_symbol: None,
         derivative_symbol: None,
+        form: crate::tuning::project_seed::GainForm::Parallel,
     });
     assert!(check_block(FAMILY, Some(&schedule), Some(&proportional_only)).is_err());
     assert!(

@@ -8,7 +8,9 @@ use serde_json::Value;
 
 use crate::failure::Failure;
 use crate::limits::RECORDING_CHANNEL_LIMIT;
-use crate::loop_definition::{LoopDefinition, ModeWhenTrue, RealType, SchedulingVariable};
+use crate::loop_definition::{
+    LoopDefinition, ModeValue, ModeWhenTrue, RealType, SchedulingVariable,
+};
 
 /// A signal Control Studio reads: its identifier in the request, its IEC type and exactly one
 /// selector, an address or a symbol (E2.4).
@@ -29,6 +31,20 @@ pub struct SignalBinding {
     /// so a file without such a channel keeps its bytes and its identifier. The runtime neither reads nor writes it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit: Option<String>,
+    /// The members of an enumeration mode signal that mean Manual and Auto (annex E3, E4; specification 35 A6.1): the runtime
+    /// reads the channel 1 in Manual and 0 in Auto, as a BOOL mode reads, and gives it no usable value in another member.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<SignalMode>,
+}
+
+/// The Manual and Auto members of an enumeration mode signal (annex E3, E4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SignalMode {
+    /// The member that means Manual.
+    pub manual_value: String,
+    /// The member that means Auto.
+    pub auto_value: String,
 }
 
 impl SignalBinding {
@@ -39,6 +55,7 @@ impl SignalBinding {
             symbol: address.is_none().then(|| symbol.to_string()),
             iec_type: iec_type.to_string(),
             unit: None,
+            mode: None,
         }
     }
 
@@ -279,10 +296,7 @@ impl InspectionSample {
         loop_definition: &LoopDefinition,
         mode_id: &str,
     ) -> Option<ModeWhenTrue> {
-        let when_true = loop_definition
-            .controller
-            .mode_when_true
-            .unwrap_or(ModeWhenTrue::Auto);
+        let when_true = mode_when_true(loop_definition);
         let value = self.usable(mode_id)?;
         Some(match (value == 1.0, when_true) {
             (true, mode) => mode,
@@ -382,12 +396,9 @@ pub fn loop_inspection_bindings(loop_definition: &LoopDefinition) -> Vec<SignalB
             id.push('_');
         }
         let address = controller_mode_address(loop_definition, symbol);
-        bindings.push(SignalBinding::addressed(
-            &id,
-            address.as_deref(),
-            symbol,
-            "BOOL",
-        ));
+        let mut binding = SignalBinding::addressed(&id, address.as_deref(), symbol, "BOOL");
+        binding.mode = enumeration_mode(loop_definition, symbol);
+        bindings.push(binding);
     }
     if let Some(scheduling) = scheduling_variable(loop_definition) {
         // A scheduled loop also reads the variable it is scheduled by (C10 Identify, D-21), so the start of Identify reads it from the
@@ -452,6 +463,39 @@ pub fn loop_inspection_mode_id<'a>(
                 }
         })
         .map(|binding| binding.id.as_str())
+}
+
+/// The members of the loop's enumeration mode when `symbol` is its mode signal, for its channel (annex E3, E4); `None` for a BOOL
+/// mode and for any other symbol.
+#[must_use]
+pub fn enumeration_mode(loop_definition: &LoopDefinition, symbol: &str) -> Option<SignalMode> {
+    let mode = &loop_definition.parameter_binding.as_ref()?.mode;
+    match (&mode.manual_value, &mode.auto_value) {
+        (ModeValue::Member(manual), Some(auto)) if mode.symbol.eq_ignore_ascii_case(symbol) => {
+            Some(SignalMode {
+                manual_value: manual.clone(),
+                auto_value: auto.clone(),
+            })
+        }
+        _ => None,
+    }
+}
+
+/// What a reading of 1 of the loop's mode channel means: Manual for an enumeration mode, whose channel reads 1 in its Manual
+/// member (annex E3), and otherwise what the loop declares its mode signal's TRUE to mean, Auto when it declares nothing.
+#[must_use]
+pub fn mode_when_true(loop_definition: &LoopDefinition) -> ModeWhenTrue {
+    if loop_definition
+        .parameter_binding
+        .as_ref()
+        .is_some_and(|binding| binding.mode.is_enumeration())
+    {
+        return ModeWhenTrue::Manual;
+    }
+    loop_definition
+        .controller
+        .mode_when_true
+        .unwrap_or(ModeWhenTrue::Auto)
 }
 
 /// The address of a mode variable: that of a further BOOL signal that names it, or the mode

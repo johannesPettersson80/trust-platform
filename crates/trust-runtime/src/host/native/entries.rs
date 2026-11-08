@@ -1,6 +1,7 @@
 //! The module's entry points (specification 44 §6.3, §8.3): one for each program instance's body,
 //! and the cold-start and warm-start initializations, which set the `REF` initializers that the
-//! starting memory cannot hold.
+//! starting memory cannot hold and, under the CODESYS profiles, call `FB_init` (specification 10
+//! §4.8).
 
 use std::fmt::Write as _;
 
@@ -161,7 +162,7 @@ pub(super) fn entry_abi(target: Target) -> &'static str {
 }
 
 /// The entry points of the module for `target`, written to `source`, the initializations setting
-/// `references`.
+/// `references` and then making the calls `blocks` of `FB_init`.
 ///
 /// # Errors
 ///
@@ -171,6 +172,7 @@ pub(super) fn entries(
     model: &Model<'_>,
     target: Target,
     references: &[String],
+    blocks: &[String],
 ) -> Result<Vec<Entry>, NativeError> {
     let abi = entry_abi(target);
     let mut entries = Vec::new();
@@ -212,20 +214,41 @@ pub(super) fn entries(
             index: u32::try_from(block.instance).unwrap_or(u32::MAX),
         });
     }
-    let initialization = if references.is_empty() {
-        "run(cx, |_, _| Ok(()))".to_string()
-    } else {
+    if !references.is_empty() {
         let _ = writeln!(
             source,
             "fn init_references(cx: &mut Cx, w: &World<'_>) -> R<()> {{\n    {}\n    Ok(())\n}}\n",
             references.join("\n    ")
         );
-        "run(cx, |cx, areas| {\n        let w = World::new(cx, &areas)?;\n        init_references(cx, &w)\n    })".to_string()
-    };
-    for (symbol, kind) in [
-        ("trust_entry_cold", EntryKind::ColdInit),
-        ("trust_entry_warm", EntryKind::WarmInit),
+    }
+    if !blocks.is_empty() {
+        let _ = writeln!(
+            source,
+            "fn init_blocks(cx: &mut Cx, w: &World<'_>, retains: bool) -> R<()> {{\n    {}\n    Ok(())\n}}\n",
+            blocks.join("\n    ")
+        );
+    }
+    // `bInitRetains` is TRUE at a cold restart, which initializes the retained variables, and
+    // FALSE at a warm one, which keeps them (specification 10 §4.8).
+    for (symbol, kind, retains) in [
+        ("trust_entry_cold", EntryKind::ColdInit, true),
+        ("trust_entry_warm", EntryKind::WarmInit, false),
     ] {
+        let mut steps = Vec::new();
+        if !references.is_empty() {
+            steps.push("init_references(cx, &w)?;".to_string());
+        }
+        if !blocks.is_empty() {
+            steps.push(format!("init_blocks(cx, &w, {retains})?;"));
+        }
+        let initialization = if steps.is_empty() {
+            "run(cx, |_, _| Ok(()))".to_string()
+        } else {
+            format!(
+                "run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        {}\n        Ok(())\n    }})",
+                steps.join("\n        ")
+            )
+        };
         let _ = writeln!(
             source,
             "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    {initialization}\n}}\n"

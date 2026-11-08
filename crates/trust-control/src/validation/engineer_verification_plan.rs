@@ -213,7 +213,7 @@ pub fn engineer_verification_plan(
     let mut initial_values = controller_initial.clone();
     initial_values.insert(
         binding.mode.symbol.clone(),
-        f64::from(u8::from(!binding.mode.manual_value)),
+        f64::from(u8::from(!binding.mode.manual_reading())),
     );
     // A cascade's outer controller starts in Auto with the inner one, as its additional mode (C6).
     initial_values.extend(additional_mode_values(loop_definition));

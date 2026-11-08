@@ -598,3 +598,28 @@ fn the_own_measurement_is_the_pids_process_value_state() {
         "P1.Controller.StateValue.ProcessValue"
     );
 }
+
+/// Specification 35 C1: the answer's `startupFlags` give each startup flag's value once the startup has run, and a flag the code
+/// shows neither way is TRUE, as `IF NOT <flag> THEN … <flag> := TRUE` gives it. Catches the facts dropped in decoding, an entry
+/// that is no boolean taken for one, and an unknown flag taken for FALSE.
+#[test]
+fn startup_flags_decode_with_their_values_once_the_startup_has_run() {
+    let mut control = single_loop_json();
+    control["startupFlags"] =
+        json!({ "Main.bInit": false, "Main.Initialized": true, "Main.Broken": 1 });
+    let catalog = decode(control);
+    assert_eq!(
+        catalog.startup_flags.into_iter().collect::<Vec<_>>(),
+        vec![
+            ("Main.Initialized".to_owned(), true),
+            ("Main.bInit".to_owned(), false)
+        ]
+    );
+    let catalog = decode({
+        let mut control = single_loop_json();
+        control["startupFlags"] = json!({ "Main.bInit": false });
+        control
+    });
+    assert!(!catalog.startup_done_value("MAIN.BINIT"));
+    assert!(catalog.startup_done_value("Main.Other"));
+}

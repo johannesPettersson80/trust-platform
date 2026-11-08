@@ -11,6 +11,7 @@ mod apply;
 mod cancel;
 mod follow;
 mod identify;
+mod inputs;
 mod keep;
 mod output;
 mod restore;
@@ -20,6 +21,7 @@ mod tune_output;
 mod validate;
 
 pub use application::ReviewArgs;
+pub use inputs::InputsArgs;
 pub use setup::SetupArgs;
 
 use std::ffi::OsString;
@@ -72,6 +74,9 @@ pub enum Verb {
     /// Cancels the loop's journaled operation: a running experiment ends through its restoration path, and the journal
     /// is cleared once the outcome is kept.
     Cancel(CancelArgs),
+    /// Records one change of the loop's study inputs, as the page's editors send it, for example the requirements that `tune`
+    /// designs to (§0.1b; A8.1, B4.3), and prints what the study then holds. It starts nothing and needs no runtime.
+    Inputs(InputsArgs),
     /// Designs the loop's controller candidate from its study's model: the loop's method, or the one named, against the
     /// requirements (§0.1b). It never writes to the controller.
     Tune(TuneArgs),
@@ -458,6 +463,9 @@ where
         }),
         Verb::Setup(args) => watched(stderr, |stderr| {
             setup::run(&args, environment, stdout, stderr)
+        }),
+        Verb::Inputs(args) => watched(stderr, |stderr| {
+            inputs::run(&args, environment, stdout, stderr)
         }),
     }
 }

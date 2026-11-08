@@ -442,6 +442,7 @@ fn parameter_tool_actions_follow_its_state() {
                     address: Some("%IL0".to_owned()),
                     symbol: None,
                     iec_type: "LREAL".to_owned(),
+                    mode: None,
                 }],
             },
         })

@@ -1582,6 +1582,33 @@ An instance initializer may name a variable, input or output that the block
 declares or inherits from a block it extends (IEC 61131-3 Ed.3 §6.6.5.3):
 `P102 : FB_Pump := (StartTimeout := T#10s)`.
 
+Under the CODESYS profiles (`vendor_profile` `codesys`, `beckhoff` or `twincat`;
+specification 14) a cold and a warm restart call the method `FB_init` of every
+instance whose type declares it, once, after the initial or kept values are in
+place and the `REF` initializers have run, and before the first cycle, as
+CODESYS calls it implicitly (CODESYS help, "Method: FB_Init, FB_Reinit,
+FB_Exit"):
+- the call passes `bInitRetains := TRUE` at a cold restart and `FALSE` at a
+  warm one, and `bInCopyCode := FALSE`; its result is not read. `FB_init`
+  declares those two `BOOL` inputs first, under any names, since they are passed
+  by position;
+- every instance that a global or a program instance's variable holds is
+  called, retained or not: an element of an array of instances, and an instance
+  nested in another or in a structure, at any depth. The globals come first in
+  their declaration order, then the program instances in configuration order,
+  each with its variables in declaration order; an array's elements follow in
+  row-major order;
+- an instance's base part is called first, completely, then its own nested
+  instances in declaration order, then its own `FB_init`. Each type calls only
+  the `FB_init` it declares, so an inherited `FB_init` runs once, for the base
+  part, and the instances nested in an instance are initialized when its
+  `FB_init` runs, as CODESYS documents an instance "already completely
+  initialized" when that method's code is reached;
+- a fault in `FB_init` fails the restart, like any fault of the initialization.
+
+Under the IEC profile `FB_init` is an ordinary method that nothing calls
+implicitly, since a valid IEC program may declare a method of that name.
+
 Restart is prepared against isolated storage before commit. A preparation,
 initializer, retained-value migration, or store-load failure leaves the live
 storage, instances, cycle count, fault state, debug mutations, and executable
