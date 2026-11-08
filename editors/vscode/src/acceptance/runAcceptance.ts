@@ -15,6 +15,7 @@ import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath, runTests } from "@vscode/test-electron";
+import { describeError, withRetries } from "./download";
 
 const REPO = path.resolve(__dirname, "..", "..", "..", "..");
 const PID_EXAMPLE = "control-pid-commissioning";
@@ -190,10 +191,21 @@ async function stopRuntime(runtime: child.ChildProcess): Promise<void> {
 
 type Result = { session: string; passed: boolean; error?: string; seconds: number };
 
+/** VS Code of `version`. The update service's version lookup fails now and then (specification 22; checklist G102), so a
+ * failed download is tried again after 15 s and after 30 s, and the last failure is the run's. */
+function downloadVSCode(version: string): Promise<string> {
+  return withRetries(
+    () => downloadAndUnzipVSCode(version),
+    3,
+    (failed) => new Promise((resolve) => setTimeout(resolve, failed * 15_000)),
+    (line) => console.log(`acceptance: downloading VS Code ${version}: ${line}`),
+  );
+}
+
 async function main(): Promise<number> {
   const { vsix, out, only } = options(process.argv.slice(2));
   withoutRust();
-  const vscodeExecutable = process.env.E2E_VSCODE?.trim() || await downloadAndUnzipVSCode(process.env.TRUST_VSCODE_TEST_VERSION?.trim() || "stable");
+  const vscodeExecutable = process.env.E2E_VSCODE?.trim() || await downloadVSCode(process.env.TRUST_VSCODE_TEST_VERSION?.trim() || "stable");
   // Short paths: a project's default control endpoint and the window's sockets live under them.
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "trust-acc-"));
   const extensions = path.join(scratch, "ext");
@@ -271,7 +283,7 @@ async function main(): Promise<number> {
   return failed.length ? 1 : 0;
 }
 
-main().then((code) => process.exit(code), (error: Error) => {
-  console.error(`acceptance: ${error.message}`);
+main().then((code) => process.exit(code), (error: unknown) => {
+  console.error(`acceptance: ${describeError(error)}`);
   process.exit(2);
 });

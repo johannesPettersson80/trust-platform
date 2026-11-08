@@ -5,8 +5,6 @@
 //! `control/tests/live_values_pipeline.rs` (specification 11, "Live Values"; specification 34
 //! §4.3.1).
 
-use serde_json::json;
-
 use super::types::EvalParams;
 use super::{ControlResponse, ControlState};
 
@@ -35,7 +33,10 @@ pub(super) fn handle_eval(
     };
     let value = program.value(params.expr.trim());
     match value {
-        Some(value) => ControlResponse::ok(id, json!({ "value": format!("{value:?}") })),
+        Some(value) => ControlResponse::ok(
+            id,
+            trust_runtime_services::debug::projection::typed_value(&value),
+        ),
         None => ControlResponse::error(id, "unknown identifier".into()),
     }
 }

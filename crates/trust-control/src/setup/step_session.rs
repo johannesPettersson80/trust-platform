@@ -380,6 +380,8 @@ pub fn key_of(step: StepId) -> &'static str {
         StepId::ManualCommand => "manualCommand",
         StepId::ManualMode => "manualMode",
         StepId::ManualModePolarity => "manualWhenTrue",
+        StepId::ManualMember => "manualMember",
+        StepId::AutoMember => "autoMember",
         StepId::ControllerTask => "controllerTask",
         StepId::ObservationDuration => "observationDurationSeconds",
         StepId::AdapterFile => "adapterMapping",

@@ -86,10 +86,7 @@ fn draft() -> FeedforwardLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.AutoMode".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.AutoMode".to_string(), ModeWhenTrue::Auto),
         manual_output: "P1.ManualPct".to_string(),
         disturbance: signal("P1.LoadKw", "kW", 0.0, 50.0),
         disturbance_command: "P1.LoadKw".to_string(),

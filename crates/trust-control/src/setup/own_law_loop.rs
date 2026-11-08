@@ -22,9 +22,8 @@ use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
-    InitialSource, InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, ModeBinding,
-    ModeWhenTrue, Parameter, ParameterBinding, PostScan, SampleTiming, Signals, Topology,
-    LOOP_SCHEMA_VERSION,
+    InitialSource, InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, Parameter,
+    ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::tuning::project_seed::GainForm;
 
@@ -221,10 +220,7 @@ pub fn own_law_loop_definition(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: task.name.clone(),
-            mode: ModeBinding::boolean(
-                draft.mode.symbol.clone(),
-                draft.mode.when_true == ModeWhenTrue::Manual,
-            ),
+            mode: draft.mode.binding(),
             parameters,
         }),
         parameter_purpose: None,

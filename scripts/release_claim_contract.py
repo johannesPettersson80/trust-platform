@@ -190,6 +190,10 @@ def audit_paths() -> dict[str, Any]:
             "trust-lsp-${{ matrix.platform }}.tar.gz",
             "trust-lsp-${{ matrix.platform }}.zip",
             "trust-runtime.exe",
+            # Specification 24: the language-server archive holds the debug adapter beside the
+            # language server, the two programs an editor starts.
+            "cp target/${{ matrix.target }}/release/trust-debug dist/trust-lsp-${{ matrix.platform }}/",
+            "Copy-Item target/${{ matrix.target }}/release/trust-debug.exe dist/trust-lsp-${{ matrix.platform }}/",
         ],
         "platform archive contract",
     )

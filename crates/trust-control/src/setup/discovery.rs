@@ -17,9 +17,10 @@ use super::save::validation_reason_code;
 use super::texts::discovery as texts;
 use super::tune_method_offers::{family_settings_of, method_titles_of, named_methods_of};
 use crate::commissioning::adapters::controller_adapter;
+use crate::commissioning::project_law::additional_mode_members;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::json::parse_text;
-use crate::loop_definition::{AuxiliaryRole, LoopDefinition, LoopScope, Range};
+use crate::loop_definition::{AuxiliaryRole, LoopDefinition, LoopScope, ModeValue, Range};
 use crate::tuning::structure::Structure;
 
 pub use super::estimator_model_files::{estimator_model_files, EstimatorModelFile, ModelFileText};
@@ -520,7 +521,8 @@ fn check_signals(loop_definition: &LoopDefinition, catalog: &CatalogAnswer) -> R
     Ok(())
 }
 
-/// Every controller symbol the loop declares is in the compiled catalog, and has the type the loop declares for it (C0).
+/// Every controller symbol the loop declares is in the compiled catalog, and has the type the loop declares for it (C0); an
+/// enumeration mode is a compiled enumeration with the members the loop names for Manual and Auto (A6.1).
 fn check_controller_symbols(
     loop_definition: &LoopDefinition,
     compiled: &CompiledCatalog,
@@ -539,6 +541,48 @@ fn check_controller_symbols(
                 &entry.iec_type,
                 &expected,
             ));
+        }
+    }
+    check_enumeration_modes(loop_definition, compiled)
+}
+
+/// Every enumeration mode the loop names, its own and the further modes of its program's law, is a compiled enumeration with the
+/// members the loop names for Manual and Auto, and no BOOL mode is a compiled enumeration (A6.1). Setup checks a draft's loops the
+/// same way before it writes them.
+///
+/// # Errors
+/// The sentence that names the first mode whose compiled symbol is no enumeration with both members, or an enumeration that the loop
+/// binds as a BOOL.
+pub(super) fn check_enumeration_modes(
+    loop_definition: &LoopDefinition,
+    compiled: &CompiledCatalog,
+) -> Result<(), String> {
+    let own = loop_definition
+        .parameter_binding
+        .as_ref()
+        .map(|binding| binding.mode.clone());
+    for mode in own
+        .into_iter()
+        .chain(additional_mode_members(loop_definition))
+    {
+        let compiled_mode = compiled
+            .symbols
+            .iter()
+            .find(|entry| entry.symbol == mode.symbol);
+        match &mode.manual_value {
+            ModeValue::Member(manual) => {
+                let auto = mode.auto_value.as_deref().unwrap_or_default();
+                if !compiled_mode
+                    .is_some_and(|entry| entry.has_member(manual) && entry.has_member(auto))
+                {
+                    return Err(texts::mode_members_unavailable(&mode.symbol, manual, auto));
+                }
+            }
+            ModeValue::Bool(_) => {
+                if compiled_mode.is_some_and(|entry| !entry.members.is_empty()) {
+                    return Err(texts::mode_members_needed(&mode.symbol));
+                }
+            }
         }
     }
     Ok(())

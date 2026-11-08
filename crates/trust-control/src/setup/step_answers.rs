@@ -86,6 +86,8 @@ fn set_answer(
         "manualCommand" => answers.manual_command = symbol(catalog, key, value)?,
         "manualMode" => answers.manual_mode = symbol(catalog, key, value)?,
         "manualWhenTrue" => answers.manual_when_true = boolean(key, value)?,
+        "manualMember" => answers.manual_member = text(key, value)?,
+        "autoMember" => answers.auto_member = text(key, value)?,
         "controllerTask" => answers.controller_task = text(key, value)?,
         "observationDurationSeconds" => {
             answers.observation_duration_seconds = number(key, value)?;

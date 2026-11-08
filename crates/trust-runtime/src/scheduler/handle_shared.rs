@@ -34,6 +34,13 @@ fn release_hold_and_wake<C: Clock>(debug: Option<&DebugControl>, clock: &C) {
     clock.wake();
 }
 
+/// How long a host without a scan thread of its own may take to answer a simulation request.
+const SIMULATION_ANSWER: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// A host without a scan thread of its own that did not answer a simulation request in time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SimulationUnanswered;
+
 /// Handle to a running resource thread.
 #[derive(Debug)]
 pub struct ResourceHandle<C: Clock + Clone> {
@@ -49,6 +56,8 @@ pub struct ResourceHandle<C: Clock + Clone> {
     pub(crate) hmi: Arc<crate::hmi::exchange::HmiExchange>,
     /// The shared speed of the resource's simulation, when it runs on simulation time.
     simulation_speed: Option<SimulationSpeed>,
+    /// The simulation the resource runs, which its controls read without the scan thread.
+    simulation: LiveSimulation,
     /// The debugger of the resource's runtime, which a stop releases from its hold.
     debug: Option<DebugControl>,
 }
@@ -66,6 +75,7 @@ impl<C: Clock + Clone> ResourceHandle<C> {
             cmd_tx: self.cmd_tx.clone(),
             hmi: self.hmi.clone(),
             simulation_speed: self.simulation_speed.clone(),
+            simulation: Some(self.simulation.clone()),
             debug: self.debug.clone(),
         }
     }
@@ -128,6 +138,8 @@ pub struct ResourceControl<C: Clock + Clone> {
     cmd_tx: std::sync::mpsc::SyncSender<ResourceCommand>,
     hmi: Arc<crate::hmi::exchange::HmiExchange>,
     simulation_speed: Option<SimulationSpeed>,
+    /// The simulation of a resource with a scan thread; a stub has none and is asked by command.
+    simulation: Option<LiveSimulation>,
     /// The debugger of the resource's runtime, which a stop releases from its hold. A stub has no
     /// scan thread and so no debugger.
     debug: Option<DebugControl>,
@@ -145,6 +157,58 @@ impl<C: Clock + Clone> ResourceControl<C> {
     #[must_use]
     pub fn simulation_speed(&self) -> Option<SimulationSpeed> {
         self.simulation_speed.clone()
+    }
+
+    /// The plants' status and trace (specification 47, `plant.status`): read from the simulation
+    /// the resource runs, so that a debugger hold of its scan does not keep the answer
+    /// (specification 13, "Pause"); `None` when it runs none. A host without a scan thread of its
+    /// own is asked by command and answers within 250 ms.
+    ///
+    /// # Errors
+    ///
+    /// [`SimulationUnanswered`] when such a host does not answer.
+    pub fn simulation_snapshot(
+        &self,
+    ) -> Result<Option<crate::simulation::SimulationRuntimeSnapshot>, SimulationUnanswered> {
+        if let Some(simulation) = &self.simulation {
+            return Ok(simulation.snapshot(self.simulation_speed.as_ref()));
+        }
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.send_command(ResourceCommand::SimulationSnapshot { respond_to: sender })
+            .map_err(|_| SimulationUnanswered)?;
+        receiver
+            .recv_timeout(SIMULATION_ANSWER)
+            .map_err(|_| SimulationUnanswered)
+    }
+
+    /// Clears the trace of the plant `plant_id` when the active configuration is the revision
+    /// `revision` (specification 47, `plant.trace.clear`), in the simulation itself as
+    /// [`Self::simulation_snapshot`] reads it.
+    ///
+    /// # Errors
+    ///
+    /// [`SimulationUnanswered`] when a host without a scan thread of its own does not answer.
+    pub fn clear_plant_trace(
+        &self,
+        plant_id: &str,
+        revision: &str,
+    ) -> Result<
+        Result<crate::simulation::PlantTraceClearResult, crate::simulation::PlantTraceClearError>,
+        SimulationUnanswered,
+    > {
+        if let Some(simulation) = &self.simulation {
+            return Ok(simulation.clear_plant_trace(plant_id, revision));
+        }
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.send_command(ResourceCommand::SimulationTraceClear {
+            plant_id: plant_id.to_string(),
+            active_configuration_revision: revision.to_string(),
+            respond_to: sender,
+        })
+        .map_err(|_| SimulationUnanswered)?;
+        receiver
+            .recv_timeout(SIMULATION_ANSWER)
+            .map_err(|_| SimulationUnanswered)
     }
 
     /// Attaches the speed of a resource that runs on simulation time.
@@ -176,6 +240,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 cmd_tx,
                 hmi: Arc::new(crate::hmi::exchange::HmiExchange::new()),
                 simulation_speed: None,
+                simulation: None,
                 debug: None,
             },
             cmd_rx,
@@ -208,6 +273,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 cmd_tx,
                 hmi: Arc::new(crate::hmi::exchange::HmiExchange::new()),
                 simulation_speed: None,
+                simulation: None,
                 debug: None,
             },
             cmd_rx,

@@ -77,7 +77,11 @@ and `SHA256SUMS` covers the provenance record and the listed artifacts. The
 released distributables are the VS Code packages, the runtime and language
 server archives, and the toolchain bundles of specification 44 §4.6, one per
 platform; each kind is named in the record, and a release file of no reviewed
-kind fails the provenance step.
+kind fails the provenance step. The runtime archive holds `trust-runtime`,
+`trust-dev` and `trust-bundle-gen`; the language-server archive holds the two
+programs an editor starts, the language server `trust-lsp` and the debug
+adapter `trust-debug`, so that a DAP-capable editor other than VS Code, whose
+package carries both, can debug a truST runtime.
 
 The workspace, VS Code package and lockfile versions, annotated tag, successful
 release workflow, published GitHub release, required assets, and GitHub

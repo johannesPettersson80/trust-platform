@@ -87,6 +87,30 @@ fn unique_console_root(label: &str) -> PathBuf {
     ))
 }
 
+// Specification 11, 6.8.1: the watch list shows what `eval` answers: a number as a number, a
+// duration as its IEC text, a string without its quotes. Catches the JSON shown raw, and the
+// duration shown as its nanoseconds.
+#[test]
+fn watch_list_shows_typed_eval_values() {
+    let (mut client, _requests, server) = scripted_client(vec![
+        json!({"ok": true, "result": {"type": "LREAL", "value": 0.738}}),
+        json!({"ok": true, "result": {"type": "TIME", "value": 1_500_000_000_i64, "text": "T#1500ms"}}),
+        json!({"ok": true, "result": {"type": "STRING", "value": "pump"}}),
+    ]);
+    let mut state = state();
+    state.watch_list = vec!["speed".into(), "delay".into(), "name".into()];
+    update_watch_values(&mut client, &mut state);
+    finish_scripted_client(client, server);
+    assert_eq!(
+        state.watch_values,
+        vec![
+            ("speed".to_string(), "0.738".to_string()),
+            ("delay".to_string(), "T#1500ms".to_string()),
+            ("name".to_string(), "pump".to_string()),
+        ]
+    );
+}
+
 #[test]
 fn panel_names_are_trimmed_case_insensitive_and_closed() {
     let cases = [

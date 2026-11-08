@@ -7,7 +7,6 @@
 //! the instance before it, through the type table. An enumeration literal takes its number from
 //! the type table.
 
-use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -19,7 +18,7 @@ use trust_runtime_core::native::memory::{
 use trust_runtime_core::value::Value;
 
 use super::super::expression::{self, ExpressionError, Names, EXPR_VERSION};
-use super::super::projection::{format_value, value_type_name};
+use super::super::projection::{format_value, typed_value, value_type_name};
 use super::super::replies;
 use super::super::requests::{failed, parse};
 use super::{frame_index, Reader};
@@ -139,9 +138,7 @@ pub(in crate::debug) fn evaluate(
             Err(error) => return failed(id, error),
         };
         return match FrameNames::new(memory, None).read(params.expr.trim()) {
-            Some(value) => {
-                ControlResponse::ok(id, serde_json::json!({ "value": format!("{value:?}") }))
-            }
+            Some(value) => ControlResponse::ok(id, typed_value(&value)),
             None => failed(id, String::from("unknown identifier")),
         };
     }

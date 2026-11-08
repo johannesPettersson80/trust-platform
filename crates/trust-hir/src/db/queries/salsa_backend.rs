@@ -526,6 +526,7 @@ pub(super) fn checked_file_query(
 
     let mut builder = DiagnosticBuilder::new();
     let expression_types = type_check_file(&mut symbols, &root, &mut builder);
+    crate::type_check::check_fb_init_arguments(&mut symbols, &root, &mut builder);
     diagnostics.extend(builder.finish());
 
     Some(Arc::new(CheckedFile {

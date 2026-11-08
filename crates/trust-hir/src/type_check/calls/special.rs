@@ -247,4 +247,64 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
         SemanticOutcome::Resolved(TypeId::BOOL)
     }
+
+    /// `__QUERYINTERFACE(source, target)`, CODESYS's query whether the instance an interface names
+    /// implements another interface: a `BOOL`, of two positional arguments, an interface value and
+    /// a variable of an interface type that takes the answer (specification 04).
+    pub(in crate::type_check) fn infer_query_interface_call(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> TypeId {
+        let outcome = self.infer_query_interface_call_outcome(node);
+        self.checker.legacy_type_from_outcome(outcome)
+    }
+
+    fn infer_query_interface_call_outcome(&mut self, node: &SyntaxNode) -> SemanticOutcome<TypeId> {
+        let args = self.collect_call_args(node);
+        if args.len() != 2 {
+            return self.checker.diagnostic_type_outcome(
+                DiagnosticCode::WrongArgumentCount,
+                node.text_range(),
+                format!("expected 2 arguments, found {}", args.len()),
+            );
+        }
+        if let Some(arg) = args
+            .iter()
+            .find(|arg| arg.assign != CallArgAssign::Positional)
+        {
+            return self.checker.diagnostic_type_outcome(
+                DiagnosticCode::InvalidArgumentType,
+                arg.range,
+                "__QUERYINTERFACE expects two positional arguments",
+            );
+        }
+        for (arg, what) in args.iter().zip(["its source", "its target"]) {
+            let arg_type = self.checker.expr().check_expression(&arg.expr);
+            let resolved = self.checker.resolve_alias_type(arg_type);
+            if resolved == TypeId::UNKNOWN {
+                return self
+                    .checker
+                    .suppressed_type_outcome(DiagnosticCode::CannotResolve, arg.range);
+            }
+            if !matches!(
+                self.checker.symbols.type_by_id(resolved),
+                Some(Type::Interface { .. })
+            ) {
+                return self.checker.diagnostic_type_outcome(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    format!("__QUERYINTERFACE expects an interface as {what}"),
+                );
+            }
+        }
+        if !self.checker.is_valid_lvalue(&args[1].expr) {
+            return self.checker.diagnostic_type_outcome(
+                DiagnosticCode::InvalidArgumentType,
+                args[1].range,
+                "__QUERYINTERFACE expects a variable as its target",
+            );
+        }
+
+        SemanticOutcome::Resolved(TypeId::BOOL)
+    }
 }
