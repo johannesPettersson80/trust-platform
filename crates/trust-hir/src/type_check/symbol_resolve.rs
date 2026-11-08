@@ -34,6 +34,7 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                     | SyntaxKind::KwNewDunder
                     | SyntaxKind::KwDeleteDunder
                     | SyntaxKind::KwIsValidRefDunder
+                    | SyntaxKind::KwQueryInterfaceDunder
                     | SyntaxKind::KwTime
             ) {
                 return Some(SmolStr::new(token.text()));
