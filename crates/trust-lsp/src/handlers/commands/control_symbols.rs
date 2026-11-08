@@ -1,12 +1,15 @@
 use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
+use trust_hir::types::TypeRegistry;
+use trust_hir::Type;
 use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::memory::InstanceId;
 use trust_runtime::value::Value;
 use trust_runtime::RuntimeMetadata;
 
 /// Compiled controller identity and symbolic leaves for explicit Control Studio binding, an
-/// instance's inherited members among its own (Specification 35 §17.1).
+/// instance's inherited members among its own (Specification 35 §17.1). An enumeration lists its
+/// type's members, from which setup chooses the ones that mean Manual and Auto (A6.1).
 pub(super) fn catalog(
     metadata: &RuntimeMetadata,
     snapshot: &DebugSnapshot,
@@ -23,6 +26,7 @@ pub(super) fn catalog(
         .collect::<HashMap<_, _>>();
     let mut collector = Collector {
         snapshot,
+        registry: metadata.registry(),
         addresses,
         symbols: Vec::new(),
         controllers: Vec::new(),
@@ -47,6 +51,7 @@ pub(super) fn catalog(
 
 struct Collector<'a> {
     snapshot: &'a DebugSnapshot,
+    registry: &'a TypeRegistry,
     addresses: HashMap<String, JsonValue>,
     symbols: Vec<JsonValue>,
     controllers: Vec<JsonValue>,
@@ -141,10 +146,28 @@ impl Collector<'_> {
                     if let Some(address) = self.addresses.get(&path.to_ascii_uppercase()) {
                         entry["address"] = address.clone();
                     }
+                    if let Value::Enum(enumeration) = value {
+                        entry["members"] = json!(members(self.registry, enumeration.type_name()));
+                    }
                     self.symbols.push(entry);
                 }
             }
         }
         Ok(())
     }
+}
+
+/// The members of the enumeration type `type_name`, in declaration order, through its aliases.
+fn members(registry: &TypeRegistry, type_name: &str) -> Vec<String> {
+    let mut current = registry.lookup(type_name);
+    for _ in 0..16 {
+        match current.and_then(|id| registry.get(id)) {
+            Some(Type::Alias { target, .. }) => current = Some(*target),
+            Some(Type::Enum { values, .. }) => {
+                return values.iter().map(|(name, _)| name.to_string()).collect();
+            }
+            _ => break,
+        }
+    }
+    Vec::new()
 }

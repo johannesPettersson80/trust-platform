@@ -50,6 +50,19 @@ pub struct CompiledSymbol {
     /// The direct address, when the variable has one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    /// The members of an enumeration, in declaration order; empty for any other type (A6.1).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<String>,
+}
+
+impl CompiledSymbol {
+    /// Whether the symbol is an enumeration with the member `member`, compared without regard to case as IEC names are.
+    #[must_use]
+    pub fn has_member(&self, member: &str) -> bool {
+        self.members
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(member))
+    }
 }
 
 /// A task of the compiled program: its name and its interval in ms.
@@ -417,13 +430,24 @@ fn compiled_symbols(entries: &[Value]) -> Result<Vec<CompiledSymbol>, Failure> {
     Ok(symbols)
 }
 
-/// A control symbol with its path and IEC type, and its address when it has one (`decodeCompiledCatalog`).
+/// A control symbol with its path and IEC type, its address when it has one, and an enumeration's members (`decodeCompiledCatalog`).
 fn compiled_symbol(entry: &Value) -> Option<CompiledSymbol> {
     let object = entry.as_object()?;
     Some(CompiledSymbol {
         symbol: text(object, "symbol")?,
         iec_type: text(object, "type")?,
         address: text(object, "address"),
+        members: object
+            .get("members")
+            .and_then(Value::as_array)
+            .map(|members| {
+                members
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
     })
 }
 

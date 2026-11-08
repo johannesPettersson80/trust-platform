@@ -51,6 +51,7 @@ fn symbol(name: &str, iec_type: &str, address: Option<&str>) -> CompiledSymbol {
         symbol: name.to_string(),
         iec_type: iec_type.to_string(),
         address: address.map(str::to_string),
+        members: Vec::new(),
     }
 }
 
@@ -253,9 +254,12 @@ fn a_cascade_draft_is_saved_as_one_loop_on_the_cascade_block() {
         project
             .additional_modes
             .iter()
-            .map(|mode| (mode.symbol.as_str(), mode.manual_value))
+            .map(|mode| (mode.symbol.as_str(), mode.manual_value.clone()))
             .collect::<Vec<_>>(),
-        vec![("P1.OuterAuto", false)]
+        vec![(
+            "P1.OuterAuto",
+            crate::loop_definition::ModeValue::Bool(false)
+        )]
     );
 }
 

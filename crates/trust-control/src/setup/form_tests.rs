@@ -52,6 +52,7 @@ fn symbol(name: &str, iec_type: &str, address: Option<&str>) -> CompiledSymbol {
         symbol: name.to_string(),
         iec_type: iec_type.to_string(),
         address: address.map(str::to_string),
+        members: Vec::new(),
     }
 }
 
@@ -357,6 +358,31 @@ fn an_auto_manual_signal_is_a_bool_without_an_address_and_booleans_keep_every_bo
         model.booleans,
         strings(&["P1.AutoMode", "P1.Enabled"]),
         "a startup flag or a switching state may be addressed"
+    );
+}
+
+/// Specification 35 A6.1 and B1.3: an enumeration without an I/O address is a mode signal as an unaddressed BOOL is, and the form
+/// offers its members for the members that mean Manual and Auto; an addressed enumeration is no mode, and a BOOL has no members.
+/// Catches an enumeration mode the form cannot offer (the engineer could only reach it through a draft file), an addressed one
+/// offered, and members missing or out of declaration order.
+#[test]
+fn an_enumeration_without_an_address_is_a_mode_signal_offered_with_its_members() {
+    let mut catalog = single_loop();
+    let enumeration = |name: &str, address: Option<&str>| {
+        let mut entry = symbol(name, "E_Mode", address);
+        entry.members = strings(&["Off", "Manual", "Auto"]);
+        entry
+    };
+    catalog.symbols.push(enumeration("P1.Mode", None));
+    catalog
+        .symbols
+        .push(enumeration("P1.WiredMode", Some("%MW4")));
+    catalog.symbols.push(symbol("P1.Enabled", "BOOL", None));
+    let model = setup_form_model(&catalog);
+    assert_eq!(model.modes, strings(&["P1.Enabled", "P1.Mode"]));
+    assert_eq!(
+        model.mode_members,
+        BTreeMap::from([("P1.Mode".to_string(), strings(&["Off", "Manual", "Auto"]))])
     );
 }
 
