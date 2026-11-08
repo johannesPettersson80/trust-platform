@@ -123,7 +123,16 @@ impl Lowerer<'_, '_> {
                 if place.ty == region || Some(place.ty) == natural {
                     return Ok(place);
                 }
-                Err(self.unsupported(value, "an assignment between different types"))
+                // A structure of a type that extends the region's own type (`TYPE Derived
+                // EXTENDS Base`, specification 02 §3.5.1) gives its base part, which lies
+                // first in it (`base_part`); `copy_region` pairs the region's members with
+                // the value's.
+                match natural {
+                    Some(own) if matches!(self.info(own).kind, Kind::Struct { .. }) => {
+                        self.aggregate(value, own)
+                    }
+                    _ => Err(self.unsupported(value, "an assignment between different types")),
+                }
             }
             _ => self.aggregate(value, natural.unwrap_or(region)),
         }
