@@ -1770,7 +1770,11 @@ and then every active variable force; the queued image writes and the forces of 
 marker images after the drivers read the inputs, before the program samples them, so that a forced
 input holds over the physical one; and the forces of the marker and output images again after the
 scan, with the variable forces, before the outputs reach the drivers and the snapshot, so that a
-forced marker reads its forced value between scans (specification 11 §6.9.2). The value a request
+forced marker reads its forced value between scans (specification 11 §6.9.2). A write at an output
+address, a queued write or a force, also writes the program's output area there and every
+variable bound to the bytes or the bit it writes, through its binding's codec, so that the program
+reads it and each scan's publication carries it to the drivers until the program writes the
+variable itself, as CODESYS writes the variable of an output. The value a request
 carries is an IEC 61131-3 literal of the declared type of its target, through aliases and
 subranges, or at a process-image address of the variable bound there, when the program resolves the
 target as the request arrives (specification 11, "Runtime control I/O and variable mutation

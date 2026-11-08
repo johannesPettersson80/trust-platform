@@ -28,7 +28,7 @@ use super::values::{AreaBytes, Types};
 use super::variables::CompiledVariables;
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
-use crate::io_address::IoAddress;
+use crate::io_address::{IoAddress, IoSize};
 use crate::io_image::{read_flat_image, write_flat_image, FlatImages, IoAddressKey};
 use crate::retain::capture::RetainCapture;
 use crate::task::{evaluate_task_readiness, TaskState};
@@ -567,30 +567,65 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         // By index: a scan allocates nothing (specification 34, "The allocation count").
         for index in 0..self.bindings.len() {
             let binding = self.bindings[index];
-            if binding.image == 2 {
-                continue;
-            }
-            let Some(area) = slot(binding.area) else {
-                continue;
-            };
-            if binding.width == 0 {
-                let mut byte = [0u8];
-                self.image_read(&binding, &mut byte);
-                let value = (byte[0] >> binding.bit) & 1;
-                self.areas[area].write(binding.offset as usize, &[value]);
-            } else if binding.codec == BIND_TIME_MILLIS {
-                // Whole milliseconds in, nanoseconds in the variable.
-                let mut millis = [0u8; 4];
-                self.image_read(&binding, &mut millis);
-                let nanos = i64::from(u32::from_le_bytes(millis)) * 1_000_000;
-                self.areas[area].write(binding.offset as usize, &nanos.to_le_bytes());
-            } else {
-                let mut bytes = [0u8; 8];
-                let width = binding.width as usize;
-                self.image_read(&binding, &mut bytes[..width]);
-                self.areas[area].write(binding.offset as usize, &bytes[..width]);
+            if binding.image != 2 {
+                self.sample_binding(binding);
             }
         }
+    }
+
+    /// Copies the image of `binding` in to its variable: a bit, a `TIME` from whole milliseconds, or the binding's bytes.
+    fn sample_binding(&mut self, binding: Binding) {
+        let Some(area) = slot(binding.area) else {
+            return;
+        };
+        if binding.width == 0 {
+            let mut byte = [0u8];
+            self.image_read(&binding, &mut byte);
+            let value = (byte[0] >> binding.bit) & 1;
+            self.areas[area].write(binding.offset as usize, &[value]);
+        } else if binding.codec == BIND_TIME_MILLIS {
+            // Whole milliseconds in, nanoseconds in the variable.
+            let mut millis = [0u8; 4];
+            self.image_read(&binding, &mut millis);
+            let nanos = i64::from(u32::from_le_bytes(millis)) * 1_000_000;
+            self.areas[area].write(binding.offset as usize, &nanos.to_le_bytes());
+        } else {
+            let mut bytes = [0u8; 8];
+            let width = binding.width as usize;
+            self.image_read(&binding, &mut bytes[..width]);
+            self.areas[area].write(binding.offset as usize, &bytes[..width]);
+        }
+    }
+
+    /// Carries a write at the flat output `address`, which the output image already holds, into the program: the output
+    /// area's bytes there and every variable bound to the bytes, or to the bit, that it wrote. The program then reads the
+    /// written value, and each scan's publication carries it to the drivers until the program writes the variable itself
+    /// (specification 44 §13.3). Before, the publication of the variable bound there replaced the write after one scan.
+    pub(super) fn take_output_write(&mut self, address: &IoAddress) -> Result<(), RuntimeError> {
+        let Some(end) = address.flat_byte_end()? else {
+            return Ok(());
+        };
+        let (start, end) = (address.byte as usize, end as usize);
+        let length = self.outputs.len().min(self.areas[1].len);
+        if start < length {
+            self.areas[1].write(start, &self.outputs[start..end.min(length)]);
+        }
+        let bit = (address.size == IoSize::Bit).then_some(address.bit);
+        for index in 0..self.bindings.len() {
+            let binding = self.bindings[index];
+            if binding.image != 2 || binding.hierarchical {
+                continue;
+            }
+            let binding_start = binding.byte as usize;
+            let binding_end = binding_start + (binding.width as usize).max(1);
+            let covered = binding_start < end
+                && start < binding_end
+                && (binding.width != 0 || bit.is_none_or(|bit| bit == binding.bit));
+            if covered {
+                self.sample_binding(binding);
+            }
+        }
+        Ok(())
     }
 
     /// Reads `out.len()` bytes of the image of `binding` from its byte: its process image, or its
