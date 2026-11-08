@@ -17,11 +17,13 @@ use std::fmt;
 use parking_lot::Mutex;
 use trust_control::commissioning::application::ApplySource;
 use trust_control::commissioning::checkpoint::{IdentificationModeCheckpoint, ModeTransferOwner};
-use trust_control::commissioning::commissioning_result::{TransferOwner, TransferStatus};
+use trust_control::commissioning::commissioning_result::{
+    TransferOwner, TransferState, TransferStatus,
+};
 use trust_control::commissioning::transfer::TransferBinding;
 use trust_control::commissioning::transfer_protocol::check_transfer_status;
 use trust_control::commissioning::transfer_tracking::TransferTracking;
-use trust_control::failure::Failure;
+use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::POLL_MILLISECONDS;
 use trust_control::identification::mode_transfer::{
     check_mode_loop, check_mode_program, command_return, found_in_auto, held_outputs_arrival_ms,
@@ -167,7 +169,7 @@ impl<'a> IdentificationMode<'a> {
         };
         checkpoint.persist(self.journal)?;
         let held = self.held.insert(checkpoint);
-        transfer(&mut client, self.journal, held, &self.binding, &write)
+        transfer(&mut client, self.journal, held, &self.binding, &write).map_err(Failure::from)
     }
 
     /// Returns the loop to the mode Identify found it in (`restore`; A6.2, A8.6, E11.9). Without a held checkpoint nothing is
@@ -181,10 +183,23 @@ impl<'a> IdentificationMode<'a> {
     /// every transfer.
     ///
     /// # Errors
-    /// The loop's revision or the runtime's program changed; the runtime cannot be reached, or it refuses or does not confirm a
-    /// transfer or the cancel of the owned one; a value does not fit its member; or the journal cannot be written. The checkpoint
-    /// then stays held and journaled, so that a later return, a Cancel or a reopened panel returns the mode (A8.6).
+    /// The runtime refuses a transfer of the return, which keeps the loop's mode (A6.3): the mode change then ends, its
+    /// checkpoint is cleared, and the failure states the runtime's reason, the mode the loop stays in and the mode to return it
+    /// to by hand (A6.2), so that nothing is left journaled that no Cancel could finish. Otherwise the loop's revision or the
+    /// runtime's program changed; the runtime cannot be reached, or it does not confirm a transfer or the cancel of the owned
+    /// one; a value does not fit its member; or the journal cannot be written. The checkpoint then stays held and journaled, so
+    /// that a later return, a Cancel or a reopened panel returns the mode (A8.6).
     pub fn restore(&mut self) -> Result<(), Failure> {
+        match self.return_held() {
+            Ok(()) => Ok(()),
+            Err(TransferFailure::Unresolved(failure)) => Err(failure),
+            Err(TransferFailure::Refused(refusal)) => Err(self.end_refused(&refusal)),
+        }
+    }
+
+    /// The return of [`Self::restore`]: a transfer the runtime refuses ends it with [`TransferFailure::Refused`], every other
+    /// failure with [`TransferFailure::Unresolved`].
+    fn return_held(&mut self) -> Result<(), TransferFailure> {
         let Some(held) = self.held.as_mut() else {
             return Ok(());
         };
@@ -260,6 +275,47 @@ impl<'a> IdentificationMode<'a> {
         self.journal.lock().clear(&held.operation_id)?;
         self.held = None;
         Ok(())
+    }
+
+    /// Ends the mode change after the runtime refused a transfer of its return (A6.2, A6.3): the loop keeps the mode the
+    /// runtime left it in, the checkpoint is cleared from the journal, and the failure states the runtime's reason, that mode,
+    /// and the mode the loop was found in, to return it to by hand.
+    fn end_refused(&mut self, refusal: &Failure) -> Failure {
+        let Some(held) = self.held.take() else {
+            return refusal.clone();
+        };
+        let found_manual = !found_in_auto(&self.binding, &held.checkpoint.original);
+        let stays_manual = RuntimeClient::connect(&self.connection)
+            .and_then(|mut client| read_status(&mut client, &self.binding))
+            .ok()
+            .map(|status| in_mode(&self.binding, &status, true));
+        if let Err(failure) = self.journal.lock().clear(&held.operation_id) {
+            return failure;
+        }
+        let reason = refusal.detail.as_deref().unwrap_or(&refusal.message);
+        let word = |manual: bool| if manual { "Manual" } else { "Auto" };
+        let outcome = match stays_manual {
+            Some(manual) if manual == found_manual => {
+                format!(
+                    "The loop stays in {}, and the identification has ended.",
+                    word(manual)
+                )
+            }
+            Some(manual) => format!(
+                "The loop stays in {}, and the identification has ended: return it to {} yourself.",
+                word(manual),
+                word(found_manual)
+            ),
+            None => format!(
+                "The identification has ended: return the loop to {} yourself.",
+                word(found_manual)
+            ),
+        };
+        Failure::new(
+            &format!("{reason} {outcome}"),
+            Cause::Runtime,
+            NextAction::None,
+        )
     }
 }
 
@@ -346,19 +402,60 @@ fn transfer(
     held: &mut HeldCheckpoint,
     binding: &TransferBinding,
     write: &TransferWrite,
-) -> Result<(), Failure> {
+) -> Result<(), TransferFailure> {
     let program = held.checkpoint.original.program_revision.clone();
     let mut session = TransferSession::new(client, binding.clone(), program);
-    session.apply(
+    let applied = session.apply(
         write,
         &mut CheckpointSink {
             journal,
             held: &mut *held,
             binding,
         },
-    )?;
+    );
+    // A terminal outcome the runtime did not commit, refused before any write or failed and reverted in the same scan (annex
+    // E6.6, E6.8), leaves the loop in its mode (A6.3) and no transfer owned.
+    let refused = applied.is_err()
+        && session.outcomes().last().is_some_and(|outcome| {
+            matches!(
+                outcome.status,
+                TransferState::Rejected | TransferState::Failed
+            )
+        });
+    if let Err(failure) = applied {
+        if !refused {
+            return Err(TransferFailure::Unresolved(failure));
+        }
+        held.checkpoint.transfer = None;
+        held.persist(journal)?;
+        return Err(TransferFailure::Refused(failure));
+    }
     held.checkpoint.transfer = None;
-    held.persist(journal)
+    held.persist(journal)?;
+    Ok(())
+}
+
+/// How a transfer of the mode change failed: the runtime refused it, which ended it without committing it and kept the loop's
+/// mode (A6.3, annex E6.6, E6.8), or it is unresolved, and the checkpoint keeps it for a later reconciliation (E11.4).
+enum TransferFailure {
+    /// The runtime refused the transfer, with its reason.
+    Refused(Failure),
+    /// Any other failure: the runtime could not be reached or did not confirm the transfer, or the journal failed.
+    Unresolved(Failure),
+}
+
+impl From<Failure> for TransferFailure {
+    fn from(failure: Failure) -> Self {
+        Self::Unresolved(failure)
+    }
+}
+
+impl From<TransferFailure> for Failure {
+    fn from(failure: TransferFailure) -> Self {
+        match failure {
+            TransferFailure::Refused(failure) | TransferFailure::Unresolved(failure) => failure,
+        }
+    }
 }
 
 /// The write of a transfer of the mode binding at the states `current` reports (`transfer` with `stateValues` and `tracking`):

@@ -286,7 +286,7 @@ pub struct IdentifyOutcome<E> {
 /// The journal cannot be read; the sample, the method, a mode that cannot be read, a limit or the target refuses the run before
 /// anything is recorded; the loop cannot be moved to the mode the method needs; the recording, the baseline, the start, the
 /// hold, the restoration, the record or the fit fails; the settling fails, whose failure then replaces the run's; or the loop
-/// cannot be returned to its mode, whose failure replaces only a run that succeeded.
+/// cannot be returned to its mode, whose failure replaces a run that succeeded and ends a failed run's detail (A6.2).
 pub fn run_identification<S, K, E>(
     context: &OperationContext,
     connection: &RuntimeConnection,
