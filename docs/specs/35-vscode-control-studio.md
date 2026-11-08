@@ -464,7 +464,8 @@ is the same: a verb adds none and drops none.
     working identification study;
   - `cancel`: cancels a journaled operation: it reattaches by the journaled identifier (E11.5),
     ends a running experiment through its restoration path (E5.5) and clears the owner once the
-    outcome is kept (E11.6);
+    outcome is kept (E11.6); a return of the mode that the runtime refuses ends the operation, as
+    A6.2 says;
   - `tune` (B4): designs a candidate for the loop's controller from the study's model, with
     Automatic or `--method simc|amigo|relay|manual` (`--choice faster|balanced|more-robust` for a
     formula with a response choice, `--structure p|pi|pd|pid` to fix the structure,
@@ -838,7 +839,13 @@ cascade or loop group also lists the mode signals of its further controllers.
 mode records the mode it found. When it ends, whether completed, failed or
 aborted, it returns the loop to that mode, unless the mode change is the
 operation's result: Apply leaves the loop in Auto, and Restore returns the mode
-it had before Apply.
+it had before Apply. When the runtime refuses a transfer of that return, which
+keeps the loop's mode (A6.3), the operation ends there and leaves nothing
+journaled: its answer states the runtime's reason, the mode the loop stays in
+and the mode to return it to by hand, after the operation's own failure when
+it failed too. A Cancel of the operation ends the same way. A return that the
+runtime does not confirm, because it cannot be reached or its outcome is
+unknown, stays journaled for a Cancel or a reopened panel (A8.6).
 
 **A6.3 Transfers are atomic.** A mode change together with its controller-state
 initialization is one transaction at one task boundary. If the check after the
