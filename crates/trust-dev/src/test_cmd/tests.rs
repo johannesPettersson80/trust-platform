@@ -456,6 +456,60 @@ END_TEST_PROGRAM
     );
 }
 
+/// Specification 22: a `PROGRAM` with `{attribute 'test'}` runs as a test program beside the
+/// project's configuration, and its assertions decide its outcome with specification 07's words.
+/// Catches a CODESYS project's test discovered but never invoked, the configuration refused for it
+/// ("unbound PROGRAM"), and a failed assertion of such a test reported as a pass.
+#[test]
+fn a_program_with_the_test_attribute_runs_as_a_test() {
+    let outcomes = compiled_outcomes(
+        "test-attribute",
+        r#"
+CONFIGURATION Cfg
+    RESOURCE Res ON PLC
+        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM MainInst WITH MainTask : PRG_Tank;
+    END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM PRG_Tank
+END_PROGRAM
+
+{attribute 'test'}
+PROGRAM PRG_TestLevelStartsAt40
+VAR
+    level : INT := 40;
+END_VAR
+ASSERT_EQUAL(EXPECTED := INT#40, ACTUAL := level);
+END_PROGRAM
+
+{attribute 'test'}
+PROGRAM PRG_TestLevelIsFull
+VAR
+    level : INT := 40;
+END_VAR
+ASSERT_EQUAL(EXPECTED := INT#100, ACTUAL := level);
+END_PROGRAM
+"#,
+        &["PRG_TestLevelStartsAt40", "PRG_TestLevelIsFull"],
+    );
+    assert_eq!(
+        outcomes,
+        vec![
+            (
+                "PRG_TestLevelStartsAt40".to_owned(),
+                TestOutcome::Passed,
+                String::new()
+            ),
+            (
+                "PRG_TestLevelIsFull".to_owned(),
+                TestOutcome::Failed,
+                "ASSERT_EQUAL failed: expected 100, actual 40".to_owned()
+            ),
+        ]
+    );
+}
+
 #[test]
 fn run_test_executes_test_program_when_configuration_is_present() {
     let project = unique_temp_dir("config-test-program-project");

@@ -2,8 +2,8 @@ use rustc_hash::FxHashMap;
 
 use super::super::queries::*;
 use super::super::*;
-use super::attributes::declares_attribute;
 use super::context::find_symbol_by_name_range;
+use crate::attributes::declares_attribute;
 use crate::types::Type;
 
 /// Canonical identity of a POU: the file that declares it and the symbol id in
