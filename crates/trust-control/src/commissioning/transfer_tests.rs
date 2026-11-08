@@ -103,10 +103,7 @@ fn the_proportional_binding_writes_the_setpoint_and_the_manual_command_and_holds
     );
     assert_eq!(
         binding.mode,
-        TransferModeBinding {
-            symbol: "Main.Auto".into(),
-            manual_value: false
-        }
+        TransferModeBinding::boolean("Main.Auto", false)
     );
     assert_eq!(
         binding.tracking_outputs,

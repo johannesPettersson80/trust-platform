@@ -830,3 +830,36 @@ END_PROGRAM
 "#,
     );
 }
+
+/// Specification 04: CODESYS's pointer spelling `THIS^` and `SUPER^` is `THIS` and `SUPER` under
+/// every profile: a member of the own instance through `THIS^`, read and written, the base's method
+/// through `SUPER^`, and the base's body through `SUPER^()`. Catches the dereference refused (E201,
+/// "dereference requires pointer type") and `THIS^.n` taken for an access from outside the block.
+#[test]
+fn this_and_super_with_a_caret_name_the_instance_and_its_base() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK FB_Base
+VAR
+    n : INT;
+END_VAR
+n := n + 1;
+METHOD Advance
+n := n + 1;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Derived EXTENDS FB_Base
+VAR
+    m : INT;
+END_VAR
+SUPER^();
+METHOD Advance
+SUPER^.Advance();
+THIS^.n := THIS^.n + 10;
+m := THIS^.n;
+END_METHOD
+END_FUNCTION_BLOCK
+"#,
+    );
+}

@@ -181,7 +181,7 @@ pub fn identify_answer(
     let previous = study.section::<TuneSection>()?;
     let inputs = study.section::<InputsSection>()?;
     let requirements =
-        study_requirements(loop_definition, current, previous.as_ref(), inputs.as_ref());
+        study_requirements(loop_definition, current, previous.as_ref(), inputs.as_ref()).ok();
     Ok(match &current.identify {
         Some(section) => identify_result(section, evidence, requirements),
         None => supplied_result(&current.model, evidence, requirements),

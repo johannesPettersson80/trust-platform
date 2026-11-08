@@ -57,6 +57,15 @@ fn lexical_contract_keywords_are_case_insensitive() {
     }
 }
 
+/// Specification 01: CODESYS's `VAR_INST` is one reserved section keyword in any case, as `VAR_STAT`
+/// is. Catches it lexed as an identifier, which made a method's `VAR_INST` section a parse error.
+#[test]
+fn lexical_contract_codesys_var_inst_is_one_reserved_token() {
+    for source in ["VAR_INST", "var_inst", "Var_Inst"] {
+        assert_single(source, TokenKind::KwVarInst);
+    }
+}
+
 #[test]
 fn lexical_contract_underscore_position_remains_identifier_significant() {
     assert_eq!(
@@ -71,6 +80,17 @@ fn lexical_contract_underscore_position_remains_identifier_significant() {
 #[test]
 fn lexical_contract_rejects_multiple_leading_underscores_as_one_candidate() {
     assert_rejected_candidate("__LIM_SW5", &[TokenKind::Ident]);
+}
+
+/// Specification 01: CODESYS's `__SYSTEM` is one reserved token in any case, while another name
+/// that starts with `__` stays a malformed identifier. Catches `__SYSTEM` lexed as a malformed
+/// identifier, which made an interface that extends `__SYSTEM.IQueryInterface` a parse error.
+#[test]
+fn lexical_contract_codesys_system_namespace_is_one_reserved_token() {
+    for source in ["__SYSTEM", "__system", "__System"] {
+        assert_single(source, TokenKind::KwSystemDunder);
+    }
+    assert_rejected_candidate("__SYSTEMS", &[TokenKind::Ident, TokenKind::KwSystemDunder]);
 }
 
 #[test]
@@ -409,4 +429,18 @@ fn lexical_contract_retains_shape_valid_invalid_calendar_date_as_date_token() {
 #[test]
 fn lexical_contract_retains_shape_valid_invalid_clock_as_tod_token() {
     assert_single("TOD#24:00:00", TokenKind::TimeOfDayLiteral);
+}
+
+/// Specification 01: CODESYS's `__ISVALIDREF` is one reserved token in any case, as `__NEW` and
+/// `__DELETE` are, while a longer name with `__` stays a malformed identifier. Catches the operator
+/// lexed as a malformed identifier, which the parser reported as "expected expression".
+#[test]
+fn lexical_contract_codesys_isvalidref_is_one_reserved_token() {
+    for source in ["__ISVALIDREF", "__isvalidref", "__IsValidRef"] {
+        assert_single(source, TokenKind::KwIsValidRefDunder);
+    }
+    assert_rejected_candidate(
+        "__ISVALIDREFS",
+        &[TokenKind::Ident, TokenKind::KwIsValidRefDunder],
+    );
 }

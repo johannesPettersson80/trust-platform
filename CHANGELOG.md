@@ -6,6 +6,79 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-07
+
+### Changed
+
+- Under the CODESYS profiles a method or function that never assigns its result returns the
+  default value of its result type, as CODESYS builds the methods it scaffolds, where it failed with
+  E206 "missing return value" (specification 04). The IEC profile keeps E206.
+- W012 follows CODESYS's rules for globals that tasks share (#294). It warns when two or more tasks
+  write a global, or when one task writes data that one access does not cover (a string, an array,
+  a structure, a function block instance or a 64-bit value, `TIME` included, which truST stores in
+  eight bytes) and another task reads it. A global that one task writes and others read is silent
+  when its value is 32 bits or less. `{attribute 'cross_task'}` before a global, or before its
+  `VAR_GLOBAL` list, declares it shared by design and silences W012 for it.
+- Under the CODESYS profiles (`codesys`, `beckhoff`, `twincat`), a pointer binding that CODESYS
+  accepts across targets, `CHAR` and `BYTE` or a string and a byte buffer, is silent when its
+  source is an explicit `ADR(...)`, as the CODESYS compiler binds it (#295). A pointer variable as
+  the source keeps the warning, and the other profiles keep the error.
+- The MQTT driver's TLS client is the same on Windows, macOS and Linux (specification 32 §3). It
+  trusts only the certificates in `tls_ca_path`, every one the file holds, and no longer the
+  computer's trusted certificates, and it speaks TLS 1.2 and 1.3, TLS 1.2 with ECDHE and AES-GCM or
+  ChaCha20-Poly1305 cipher suites only. A client's key may be PKCS#8, PKCS#1 or SEC1 PEM, and a key
+  that does not belong to the client's certificate is refused with the configuration.
+
+### Fixed
+
+- The PLCopen XML import keeps the `VAR_OUTPUT` section of an interface's methods (#309). It
+  dropped them, so every function block that implements such an interface, declaring the outputs as
+  CODESYS does, was refused with E208, and every call that passes the outputs with E204.
+- A program that names an enumeration value in CODESYS's dotted form, `E_Mode.MANUAL`, builds and
+  runs: the build refused it with "the name E_Mode is not compiled yet" though the editor accepted
+  it, with or without `{attribute 'qualified_only'}`. It works in initializers, comparisons, CASE
+  labels, call arguments and assignments, under every profile.
+- A typed conversion function takes an untyped literal as its input when the value fits, as every
+  other call does (specification 05 §5.2.1): `REAL_TO_INT(2.5)` compiles, and gives 3 under the
+  CODESYS profiles and 2 under the IEC rules, where it failed with E205.
+- OpenOT database persistence no longer counts a record that the program overwrote while the reader
+  was reading it as rejected. Such a record is overwritten, as the OpenOT carriage contract orders,
+  so the source's rejected count holds only records that fail validation (specification 33 §1). On
+  ARM processors the reader's snapshot of the shared ring's control block is now always coherent.
+- The connection form of a Modbus TCP driver checks it by the driver's own rules (specification 11
+  §6.5), as the MQTT form does: it marks every key that the driver would refuse at once, in the
+  driver's words. It no longer takes a device address with port 0, which the driver refused, and
+  it takes a policy written as the driver reads it, such as `Warning`, which it refused.
+- An OPC UA client connection whose server came back within about two seconds of a loss, as after
+  a quick server restart or a short network outage, stayed `reconnecting` until the runtime
+  restarted: its recovery reopened the lost session in place, which panicked inside the opcua
+  library and ended the connection's worker. The client now closes the lost session and connects a
+  new one with its own subscription (specification 11).
+- An OPC UA client connection whose read values did not change for its timeout was reported stale,
+  and its points' values were no longer applied, though the server was healthy. Its subscription now
+  also watches the server's current time as a heartbeat, so a steady value stays live and a stale
+  connection means that the subscription stopped; when notifications resume, the connection and its
+  points are live again with their last values. The subscription publishes at the connection's
+  `poll_interval_ms`, which it ignored before (it published every 250 ms), and a connection is
+  stale only after at least three publishing intervals without a notification. A point whose server
+  reports a bad status no longer makes the whole connection stale or faulted (specification 11).
+- Closing an OPC UA client connection while its server was still reachable, as a runtime does when
+  it stops and before it reconnects, could abort the runtime process: the session's run loop
+  reconnected the session that the client was closing, and the opcua library panicked when it
+  dropped the half-reopened session. The client now stops the run loop before it closes the
+  session (specification 11).
+- An OPC UA client connection whose read values had not changed for its timeout (2 seconds by
+  default) was marked stale and then held back the program's outputs until a read value changed on
+  the server, which a server with steady values never sends. The client now writes the outputs
+  while its session is up, whether the connection is connected or stale (specification 11).
+- The connection form of an MQTT driver checks it by the driver's own rules (specification 32 §2):
+  it marks every key that the driver would refuse at once, in the driver's words, and a TLS file
+  that cannot be read or used marks its own key. The driver refuses a broker whose host holds white
+  space when its parameters are checked, where it failed to resolve the host before.
+- On Windows, two truST runtimes of one user that start MQTT drivers with client certificates at
+  the same time no longer share a key store of the system: one of them could fail to start its
+  driver, or present the other's key.
+
 ## [0.33.0] - 2026-11-06
 
 ### Added

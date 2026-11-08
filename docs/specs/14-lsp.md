@@ -405,6 +405,11 @@ change IEC 61131-3 program semantics.
   returns the deterministic external binding catalogue of process-image and
   control symbols. Its `processImage` lists the numeric plant candidates as `commands`, `feedbacks` and `memory`, and every addressed
   BOOL variable as `booleans`, so that a declared state can name a bit.
+- The catalogue, and every other command that compiles the project (the HMI checks and bundles,
+  page proposals, program edits and rename), compiles it as its build does: under the rules of its
+  `vendor_profile` (§7.6, specification 07 §2.10). A `vendor_profile` that is no profile is refused
+  with its name, as the build refuses it. Control Studio's setup reads this catalogue
+  (specification 35 §0.1a), so a CODESYS project is set up under the CODESYS rules.
 - HMI page validation is specified in `docs/specs/39-hmi-builder.md`.
 
 ##### 6.6.3 URI and virtual-document handling
@@ -695,7 +700,7 @@ program execution or an IEC 61131-3 deviation.
   - `codesys`, `beckhoff`, `twincat`: the IEC rules with CODESYS's departures, each recorded in `docs/IEC_DEVIATIONS.md`: function block members public by default (DEV-028), a function block's or program's body assigning its own inputs (DEV-029), a program reached by its name (`Program.member`, `Program.action()`, `Program();`, DEV-030), references dereferenced without `^` (DEV-031), and a named actual without a value leaving the input unbound or discarding the output (DEV-032).
   - A misspelled profile keeps the IEC rules in the editor and reports `C006`.
   - With several workspace folders the analysis follows the `vendor_profile` of the highest-priority folder's configuration (`[workspace] priority`).
-  - Vendor extensions that change no valid IEC program are accepted under every profile: textual actions called by name, `REF=`, the `REFERENCE TO` spelling, `EnumType.Member`, enum-typed subscripts, `RETAIN PERSISTENT` and `TYPE … EXTENDS` on structures.
+  - Vendor extensions that change no valid IEC program are accepted under every profile: textual actions called by name, `REF=`, the `REFERENCE TO` spelling, `THIS^` and `SUPER^` (specification 04), `EnumType.Member`, enum-typed subscripts, `RETAIN PERSISTENT` and `TYPE … EXTENDS` on structures.
 - `stdlib` profiles: `full` (default), `iec` (IEC standard functions/FBs only; Tables 22–36, 43–46), `none` (no standard library completions/hover), or an explicit allow-list array.
 - When `vendor_profile` is set and no explicit stdlib allow-list/profile is provided, the server defaults to the IEC profile for completions/hover.
 - `[[libraries]]` entries include `name`, `path`, and optional `version` for external library indexing.

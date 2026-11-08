@@ -717,16 +717,16 @@ fn check_observed(
     };
     let observed = observed.ok_or_else(mismatch)?;
     let mode = if manual {
-        binding.mode.manual_value
+        binding.mode.manual_reading()
     } else {
-        !binding.mode.manual_value
+        !binding.mode.manual_reading()
     };
     let mode_matches = observed.get(&binding.mode.symbol) == Some(&TransferValue::Boolean(mode));
     let further_modes_match = binding.additional_modes.iter().all(|further| {
         let expected_mode = if manual {
-            further.manual_value
+            further.manual_reading()
         } else {
-            !further.manual_value
+            !further.manual_reading()
         };
         observed.get(&further.symbol) == Some(&TransferValue::Boolean(expected_mode))
     });

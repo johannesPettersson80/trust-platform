@@ -416,3 +416,26 @@ END_CONFIGURATION
 "#,
     );
 }
+
+/// Specification 04: CODESYS allows `VAR_INST` only in a method, so a function, a function block's
+/// body and a program's body refuse it (E202). Catches `VAR_INST` taken as `VAR_STAT` wherever
+/// `VAR_STAT` stands.
+#[test]
+fn var_inst_outside_a_method_is_rejected() {
+    for source in [
+        "FUNCTION F : INT\nVAR_INST\n    kept : INT;\nEND_VAR\nF := kept;\nEND_FUNCTION\n",
+        "FUNCTION_BLOCK FB\nVAR_INST\n    kept : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+        "PROGRAM P\nVAR_INST\n    kept : INT;\nEND_VAR\nEND_PROGRAM\n",
+    ] {
+        let diagnostics = diagnostics(source);
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == DiagnosticCode::InvalidOperation
+                    && diagnostic
+                        .message
+                        .contains("VAR_INST is allowed only in a METHOD")
+            }),
+            "{source}: {diagnostics:?}"
+        );
+    }
+}

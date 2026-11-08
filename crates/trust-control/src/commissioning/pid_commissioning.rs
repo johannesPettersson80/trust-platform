@@ -299,7 +299,7 @@ impl<'a> PidStart<'a> {
     ) -> Result<StartingPoint<'_>, Failure> {
         let found = found_mode_of(
             boolean_at(values, &self.binding.mode.symbol),
-            self.binding.mode.manual_value,
+            self.binding.mode.manual_reading(),
         );
         Ok(StartingPoint {
             loop_definition: self.loop_definition,
@@ -457,7 +457,7 @@ impl PidCampaign<'_> {
     /// The mode the loop was found in (A6.2), or `None` when the review did not read the mode.
     #[must_use]
     pub fn found_mode(&self) -> Option<FoundMode> {
-        found_mode_of(self.reviewed_mode, self.start.binding.mode.manual_value)
+        found_mode_of(self.reviewed_mode, self.start.binding.mode.manual_reading())
     }
 
     /// Whether the loop was found in Auto, so that Restore returns it there (A6.2, B6.4).

@@ -52,10 +52,7 @@ fn binding() -> ParameterBinding {
                 maximum: 1e6,
             })
             .collect(),
-        mode: ModeBinding {
-            symbol: "P1.InnerAuto".to_owned(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("P1.InnerAuto".to_owned(), false),
     }
 }
 

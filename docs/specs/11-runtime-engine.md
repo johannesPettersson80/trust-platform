@@ -3389,6 +3389,22 @@ printed as a successful scripted result. A TCP connection attempt is bounded to
 after a TCP or Unix connection is established, reads and writes are bounded to
 750 milliseconds, and a response line may not exceed 1 MiB.
 
+The breakpoint actions count lines as an editor shows them, from 1, while the
+protocol counts lines and columns from 0 (section 6.13.3): `ctl breakpoints-set
+<source> <line>...` sends each line less one and refuses a line 0 before it
+sends anything, and `ctl` prints the replies of `breakpoints-set` and
+`breakpoints-list` with each `line`, `column`, `end_line` and `end_column` one
+higher. The console's `break <file>:<line>` takes its line the same way and
+refuses a line that is no number from 1, and `breaks` lists each breakpoint's
+file and its line counted from 1.
+
+`ctl` reads a held program with four more actions, each one request of the
+debug table (section 6.13.3): `location` sends `debug.state`, `stack` sends
+`debug.stack`, `scopes <frame-id>` sends `debug.scopes` with `frame_id`, and
+`variables <reference>` sends `debug.variables` with `variables_reference`.
+The replies of `location`, `stack` and `scopes` are printed with their lines
+and columns counted from 1, as the breakpoint replies are.
+
 `--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
 endpoint on another host, such as a chip's control connection over its network (specification 34
 ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial
@@ -4278,7 +4294,9 @@ value text, trimmed, is an IEC 61131-3 literal of that type, read as the languag
   `$` combinations of Table 7 and `$hh` and `$hhhh` codes (§6.3.3, Table 6), typed `STRING#'OK'`,
   `WSTRING#"OK"` and `WSTRING#'OK'`; a `CHAR` takes one character in single quotes and a `WCHAR` one
   in double quotes;
-- an enumeration's value, bare (`Red`) or typed (`Color#Red`, §6.4.4.2, Table 11).
+- an enumeration's value, bare (`Red`), typed (`Color#Red`, §6.4.4.2, Table 11), or in CODESYS's form,
+  the type and the value with a dot (`Color.Red`), whose type its namespaces may qualify
+  (`Lib.Color.Red`); an enumeration that a namespace holds is also named by its own name.
 
 A literal of another type, outside the range of the destination's type or subrange, longer than the
 text the destination holds, or no value of its enumeration, is refused with a plain reason before
@@ -4289,8 +4307,13 @@ variable is bound to, the admitted value is written as the image holds that vari
 for a `TIME` bound in whole milliseconds those milliseconds. The parser is the shared one of every
 runtime (specification 34), so a board takes a text exactly as trust-runtime does.
 
+A `set`, `var.force` or `retain:` target that the installed program does not resolve is refused at once
+with the path's reason, which names it (`PRG_Tank.fbPI.Kp names no member`), so that no request that
+cannot change a variable is acknowledged; the scan boundary still refuses a target that a program loaded
+since no longer resolves.
+
 **The untyped grammar.** Where the destination's type is not known (an address no variable is bound
-to, a target the installed program does not resolve, a runtime without its program at hand), after
+to, or a runtime without its program at hand), after
 trimming, `TRUE` and `FALSE` match ASCII-case-insensitively and produce Boolean values.
 A base-ten signed integer accepted exactly by the `i64` domain produces a
 `LINT`; optional leading sign and leading zeroes are accepted, while an empty

@@ -70,6 +70,51 @@ END_PROGRAM
     harness.assert_eq("out_super", 10i16);
 }
 
+/// Specification 04: an interface that extends CODESYS's `__SYSTEM.IQueryInterface`, and a block
+/// that names it among its interfaces, build and run as without it. Worked by hand: three calls of
+/// Toggle through the interface turn the lamp on, off and on again. Catches the build refusing the
+/// system interface, or losing the block's own interface beside it.
+#[test]
+fn an_interface_that_extends_the_system_query_interface_runs() {
+    let source = r#"
+INTERFACE ILamp EXTENDS __SYSTEM.IQueryInterface
+METHOD Toggle : BOOL
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS __SYSTEM.IQueryInterface, ILamp
+VAR
+    isOn : BOOL;
+END_VAR
+METHOD PUBLIC Toggle : BOOL
+isOn := NOT isOn;
+Toggle := isOn;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    lamp : FB_Lamp;
+    itf : ILamp;
+    first : BOOL;
+    second : BOOL;
+    third : BOOL;
+END_VAR
+itf := lamp;
+first := itf.Toggle();
+second := itf.Toggle();
+third := itf.Toggle();
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    harness.assert_eq("first", true);
+    harness.assert_eq("second", false);
+    harness.assert_eq("third", true);
+}
+
 /// IEC 61131-3 Edition 3, 6.6.5.3: a derived function block inherits its base's input and output
 /// variables, so a call of the derived block binds them like its own (specification 04).
 #[test]
@@ -117,6 +162,56 @@ END_PROGRAM
     harness.cycle();
     harness.assert_eq("Named", 21i16);
     harness.assert_eq("Formal", 21i16);
+}
+
+/// Specification 04: a method's `VAR_INST` variable lives in the instance, one per instance and
+/// method, starts at its initial value and keeps its value between calls and cycles; CODESYS's
+/// example method returns the input of the call before. Worked by hand: in cycle 1, `a` answers its
+/// starting 42, then 5, then 7; `b`, another instance, answers its own 42. In cycle 2, `a` answers 1,
+/// the input of its last call in cycle 1, and `b` answers 9. Catches the variable started again at
+/// each call (42 each time), shared by the instances (`b` would answer 7), or started again each
+/// cycle.
+#[test]
+fn a_var_inst_variable_is_kept_per_instance_between_calls() {
+    let source = r#"
+FUNCTION_BLOCK FB_Memory
+METHOD PUBLIC Remember : INT
+VAR_INPUT
+    value : INT;
+END_VAR
+VAR_INST
+    previous : INT := 42;
+END_VAR
+Remember := previous;
+previous := value;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    a : FB_Memory;
+    b : FB_Memory;
+    a1 : INT;
+    a2 : INT;
+    b1 : INT;
+    a3 : INT;
+END_VAR
+a1 := a.Remember(5);
+a2 := a.Remember(7);
+b1 := b.Remember(9);
+a3 := a.Remember(1);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    for (a1, a2, b1, a3) in [(42i16, 5i16, 42i16, 7i16), (1, 5, 9, 7)] {
+        let result = harness.cycle();
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        harness.assert_eq("a1", a1);
+        harness.assert_eq("a2", a2);
+        harness.assert_eq("b1", b1);
+        harness.assert_eq("a3", a3);
+    }
 }
 
 /// A function block may extend a base declared in a namespace; its body calls the base's methods
@@ -215,4 +310,58 @@ END_PROGRAM
     }
     harness.assert_eq("IsRunning", true);
     harness.assert_eq("Count", 2i32);
+}
+
+/// Specification 04: CODESYS's `THIS^` and `SUPER^` are `THIS` and `SUPER` under every profile.
+/// Worked by hand: `fb.Advance()` runs the base's Advance through `SUPER^` (n = 1), adds 10 through
+/// `THIS^` (n = 11) and copies it (m = 11); `fb()` runs the derived body, whose `SUPER^()` runs the
+/// base's body once (bodyRuns = 1). Catches `SUPER^.Advance()` dispatched to the derived method (it
+/// would recurse), and `SUPER^()` refused or run as anything but the base's body.
+#[test]
+fn this_and_super_with_a_caret_run_as_this_and_super() {
+    let source = r#"
+FUNCTION_BLOCK FB_Base
+VAR_OUTPUT
+    n : INT;
+    bodyRuns : INT;
+END_VAR
+bodyRuns := bodyRuns + 1;
+METHOD PUBLIC Advance
+n := n + 1;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Derived EXTENDS FB_Base
+VAR_OUTPUT
+    m : INT;
+END_VAR
+SUPER^();
+METHOD PUBLIC Advance
+SUPER^.Advance();
+THIS^.n := THIS^.n + 10;
+m := THIS^.n;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    fb : FB_Derived;
+    n : INT;
+    m : INT;
+    runs : INT;
+END_VAR
+fb.Advance();
+fb();
+n := fb.n;
+m := fb.m;
+runs := fb.bodyRuns;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    harness.assert_eq("n", 11i16);
+    harness.assert_eq("m", 11i16);
+    harness.assert_eq("runs", 1i16);
 }

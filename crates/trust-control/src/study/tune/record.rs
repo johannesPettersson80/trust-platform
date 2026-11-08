@@ -15,6 +15,7 @@ use crate::tuning::candidate::{
     ControlPidParameters, LawCandidate, DEFAULT_RATE_LIMIT_PER_S,
 };
 use crate::tuning::prediction::RecordShaping;
+use crate::tuning::project_seed::GainForm;
 use crate::tuning::settings_pins::{apply_pins, ControllerSettingsPins, GainKey, MappedParameter};
 use crate::tuning::shortfall::OutputLimits;
 use crate::tuning::structure::{is_exactly_zero, ParallelGains, Structure};
@@ -227,13 +228,40 @@ pub(crate) fn gains_map(gains: ParallelGains) -> BTreeMap<GainKey, f64> {
     ])
 }
 
-/// The gains of a record's settings: each gain the settings hold, zero where they hold none.
+/// The gains of a record's settings: each gain the settings hold, zero where they hold none. Settings in standard form hold the
+/// reset time and the derivative time instead, which give `Ki = Kp/Ti` and `Kd = Kp·Td` (N6.8).
 pub(crate) fn gains_of_map(values: &BTreeMap<GainKey, f64>) -> ParallelGains {
     let value = |key: GainKey| values.get(&key).copied().unwrap_or(0.0);
+    let proportional_gain = value(GainKey::ProportionalGain);
     ParallelGains {
-        proportional_gain: value(GainKey::ProportionalGain),
-        integral_gain: value(GainKey::IntegralGain),
-        derivative_gain: value(GainKey::DerivativeGain),
+        proportional_gain,
+        integral_gain: values.get(&GainKey::ResetTime).map_or_else(
+            || value(GainKey::IntegralGain),
+            |reset| proportional_gain / reset,
+        ),
+        derivative_gain: values.get(&GainKey::DerivativeTime).map_or_else(
+            || value(GainKey::DerivativeGain),
+            |time| proportional_gain * time,
+        ),
+    }
+}
+
+/// The settings of `gains` in `form` (C2, N6.8): the three gains in parallel form; `Kp` with the reset time `Kp/Ki` and the
+/// derivative time `Kd/Kp` in standard form, so that a pin of a time replaces the designed time and the gain keeps its value.
+pub(crate) fn form_settings(form: GainForm, gains: ParallelGains) -> BTreeMap<GainKey, f64> {
+    match form {
+        GainForm::Parallel => gains_map(gains),
+        GainForm::Standard => BTreeMap::from([
+            (GainKey::ProportionalGain, gains.proportional_gain),
+            (
+                GainKey::ResetTime,
+                gains.proportional_gain / gains.integral_gain,
+            ),
+            (
+                GainKey::DerivativeTime,
+                gains.derivative_gain / gains.proportional_gain,
+            ),
+        ]),
     }
 }
 
@@ -259,6 +287,8 @@ pub(crate) fn record_settings(
                     candidate.parameters.derivative_setpoint_weight
                 }
                 GainKey::MeasurementFilterSeconds => candidate.measurement_filter_seconds?,
+                // A Control.PID record holds gains; only a program's own law in standard form holds times (C2).
+                GainKey::ResetTime | GainKey::DerivativeTime => return None,
             };
             Some((parameter.symbol.clone(), value))
         })

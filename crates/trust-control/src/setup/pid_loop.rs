@@ -170,10 +170,10 @@ pub fn pid_loop_definition(
                 &process_variable,
                 &manipulated_variable,
             ),
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: ModeBinding::boolean(
+                draft.mode.symbol.clone(),
+                draft.mode.when_true == ModeWhenTrue::Manual,
+            ),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),
@@ -384,7 +384,8 @@ fn pid_controller(
         pid_initialization: Some(PidInitialization::ControlPid {
             maximum_snapshot_age_ms: snapshot_age_ms(period_ms),
             states: pid_states(&draft.instance, process_variable, manipulated_variable, 0),
-            application_states: startup.map(|flag| vec![startup_state(flag)]),
+            application_states: startup
+                .map(|flag| vec![startup_state(flag, catalog.startup_done_value(flag))]),
         }),
         state_feedback: None,
         on_off: None,

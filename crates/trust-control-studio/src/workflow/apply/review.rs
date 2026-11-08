@@ -406,7 +406,7 @@ pub(crate) fn prepare(
             Some(TransferValue::Boolean(mode)) => Some(*mode),
             _ => None,
         },
-        binding.mode.manual_value,
+        binding.mode.manual_reading(),
     );
     let identity = review_identity(&apply_identity_parts(
         &review.observed,

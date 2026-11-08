@@ -681,6 +681,7 @@ fn loaded_shaft_design(structure: Option<Structure>) -> Result<Design, Failure> 
         proportional: Some(declared(0.0, 100.0, "V/m")),
         integral: Some(declared(0.0, 100.0, "V/(m·s)")),
         derivative: Some(declared(0.0, 100.0, "V·s/m")),
+        form: crate::tuning::project_seed::GainForm::Parallel,
     };
     design_on(&shaft(), &requirements, gain_limits, structure)
 }
@@ -758,6 +759,7 @@ fn a_pd_is_the_alternative_when_the_integral_gain_cannot_be_realized() {
         proportional: Some(declared(0.0, 100.0, "V/m")),
         integral: Some(declared(0.0, 0.0, "V/(m·s)")),
         derivative: Some(declared(0.0, 100.0, "V·s/m")),
+        form: crate::tuning::project_seed::GainForm::Parallel,
     };
     let task = |maximum_error: f64| TuningRequirements {
         maximum_error,

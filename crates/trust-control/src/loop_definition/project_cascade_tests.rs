@@ -131,7 +131,7 @@ fn the_outer_controllers_mode_is_the_transfer_additional_mode() {
     assert_eq!(
         members
             .iter()
-            .map(|mode| (mode.symbol.as_str(), mode.manual_value))
+            .map(|mode| (mode.symbol.as_str(), mode.manual_reading()))
             .collect::<Vec<_>>(),
         vec![("Main.OuterAuto", false)],
         "the outer controller's mode switches at the same boundary as the inner one's"
