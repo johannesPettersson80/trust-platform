@@ -90,8 +90,11 @@ pub struct SetupFormModel {
     pub measurements: Vec<String>,
     /// The BOOL symbols.
     pub booleans: Vec<String>,
-    /// The BOOL symbols without an I/O address: the only ones the controller transfer switches.
+    /// The BOOL and enumeration symbols without an I/O address: the only ones the controller transfer switches (A6.1).
     pub modes: Vec<String>,
+    /// The members of each enumeration among `modes`, in declaration order, keyed by its symbol: the page offers them for the
+    /// members that mean Manual and Auto (A6.1). A BOOL mode has none.
+    pub mode_members: BTreeMap<String, Vec<String>>,
     /// The parameter records of complete library PIDs.
     pub records: Vec<String>,
     /// The program and function block instances, other than library PIDs, that run in one cyclic task.
@@ -319,14 +322,24 @@ pub fn setup_form_model(catalog: &CompiledCatalog) -> SetupFormModel {
             .map(symbol_of)
             .collect(),
     );
+    let is_mode = |entry: &&CompiledSymbol| {
+        (entry.iec_type == "BOOL" || !entry.members.is_empty()) && !has_address(entry)
+    };
     let modes = sorted(
         catalog
             .symbols
             .iter()
-            .filter(|entry| entry.iec_type == "BOOL" && !has_address(entry))
+            .filter(is_mode)
             .map(symbol_of)
             .collect(),
     );
+    let mode_members = catalog
+        .symbols
+        .iter()
+        .filter(is_mode)
+        .filter(|entry| !entry.members.is_empty())
+        .map(|entry| (entry.symbol.clone(), entry.members.clone()))
+        .collect();
     let reals = sorted(
         catalog
             .symbols
@@ -412,6 +425,7 @@ pub fn setup_form_model(catalog: &CompiledCatalog) -> SetupFormModel {
         measurements,
         booleans,
         modes,
+        mode_members,
         records,
         instances,
         reals,

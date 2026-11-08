@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use toml_edit::{ArrayOfTables, DocumentMut, Item};
 
 use super::{ControlResponse, ControlState, PlantControlService};
-use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
+use crate::scheduler::{ResourceControl, StdClock};
 
 mod edit;
 mod editor;
@@ -498,15 +498,9 @@ fn plant_save_fingerprint(params: &PlantSaveParams) -> String {
 fn simulation_snapshot(
     context: &PlantHandlerContext<'_>,
 ) -> Option<crate::simulation::SimulationRuntimeSnapshot> {
-    let resource = context.resource?;
-    let (sender, receiver) = std::sync::mpsc::channel();
-    resource
-        .send_command(ResourceCommand::SimulationSnapshot { respond_to: sender })
-        .ok()?;
-    receiver
-        .recv_timeout(std::time::Duration::from_millis(250))
-        .ok()
-        .flatten()
+    // Read from the simulation itself, so that a debugger hold of the scan does not keep the
+    // answer (specification 13, "Pause").
+    context.resource?.simulation_snapshot().ok().flatten()
 }
 
 pub(super) fn handle_plant_validate(

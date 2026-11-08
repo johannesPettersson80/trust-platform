@@ -299,10 +299,14 @@ impl SimulationController {
     /// The controller as a restart of the program leaves it (specification 46 §5.3): every plant
     /// recreated from its configuration, the plant-local random streams, the disturbances, the
     /// couplings and the pending effects back at their start, and the same configuration revision,
-    /// so that a cold and a warm restart do not carry plant state across.
+    /// so that a cold and a warm restart do not carry plant state across. The plants start at
+    /// `origin`, the process time the restarted runtime continues from (§6.1 item 4), so that its
+    /// first cycle finds them in their initial state and they integrate no time from before the
+    /// restart: a restart and a fresh start give the same trace.
     #[must_use]
-    pub fn recreated(&self) -> Self {
-        let fresh = Self::new(self.config.clone());
+    pub fn recreated_at(&self, origin: Duration) -> Self {
+        let mut fresh = Self::new(self.config.clone());
+        fresh.plants.start_at(origin);
         match &self.active_configuration_revision {
             Some(revision) => fresh.with_active_configuration_revision(revision.clone()),
             None => fresh,
