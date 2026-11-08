@@ -1,5 +1,6 @@
 use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
+use trust_hir::db::GlobalOwner;
 use trust_hir::types::TypeRegistry;
 use trust_hir::Type;
 use trust_runtime::debug::DebugSnapshot;
@@ -9,7 +10,8 @@ use trust_runtime::RuntimeMetadata;
 
 /// Compiled controller identity and symbolic leaves for explicit Control Studio binding, an
 /// instance's inherited members among its own (Specification 35 §17.1). An enumeration lists its
-/// type's members, from which setup chooses the ones that mean Manual and Auto (A6.1).
+/// type's members, from which setup chooses the ones that mean Manual and Auto (A6.1). A global's
+/// leaves carry its owner, from which setup refuses what a task may not write (protocol annex E2.3).
 pub(super) fn catalog(
     metadata: &RuntimeMetadata,
     snapshot: &DebugSnapshot,
@@ -32,12 +34,14 @@ pub(super) fn catalog(
         controllers: Vec::new(),
         ancestors: HashSet::new(),
         visited: 0,
+        owner: None,
     };
     for (name, value) in snapshot.storage.globals() {
         let tasks = metadata.tasks().iter()
             .filter(|task| task.programs.iter().any(|program| program.eq_ignore_ascii_case(name)))
             .map(|task| json!({ "name": task.name.as_str(), "intervalMs": task.interval.as_nanos() as f64 / 1_000_000.0 }))
             .collect::<Vec<_>>();
+        collector.owner = metadata.global_owner(name).map(owner_json);
         collector.walk(name.as_str(), value, &tasks, 0)?;
     }
     collector
@@ -57,6 +61,9 @@ struct Collector<'a> {
     controllers: Vec<JsonValue>,
     ancestors: HashSet<InstanceId>,
     visited: usize,
+    /// The owner of the global being walked, which each of its leaves carries; `None` under a
+    /// program instance.
+    owner: Option<JsonValue>,
 }
 
 impl Collector<'_> {
@@ -149,11 +156,27 @@ impl Collector<'_> {
                     if let Value::Enum(enumeration) = value {
                         entry["members"] = json!(members(self.registry, enumeration.type_name()));
                     }
+                    if let Some(owner) = &self.owner {
+                        entry["owner"] = owner.clone();
+                    }
                     self.symbols.push(entry);
                 }
             }
         }
         Ok(())
+    }
+}
+
+/// A global's owner as the catalog states it (specification 35 §17.1; protocol annex E2.3):
+/// `{"kind": "task", "task"}` for the one task whose programs alone write it, `unwritten` when no
+/// program writes it, `background` when only programs outside every task do, and `shared` when
+/// several tasks or a function, block, method or class do.
+fn owner_json(owner: &GlobalOwner) -> JsonValue {
+    match owner {
+        GlobalOwner::Task(task) => json!({ "kind": "task", "task": task.as_str() }),
+        GlobalOwner::Unwritten => json!({ "kind": "unwritten" }),
+        GlobalOwner::Background => json!({ "kind": "background" }),
+        GlobalOwner::Shared => json!({ "kind": "shared" }),
     }
 }
 

@@ -833,6 +833,7 @@ fn enumeration_catalog() -> CompiledCatalog {
         iec_type: "E_Mode".to_string(),
         address: None,
         members: vec!["Off".to_string(), "Manual".to_string(), "Auto".to_string()],
+        owner: None,
     });
     catalog
 }

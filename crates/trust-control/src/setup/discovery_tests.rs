@@ -22,7 +22,7 @@ use crate::loop_definition::{
 use crate::setup::binding_route::answer_selection;
 use crate::setup::catalog::{
     CatalogAnswer, CompiledCatalog, CompiledController, CompiledSignal, CompiledSymbol,
-    CompiledTask,
+    CompiledTask, GlobalOwner,
 };
 use crate::setup::discovery_test_support::{
     loop_json, loop_of, simc_amigo_manual, simc_amigo_manual_titles, tank_json, CONTROLLER, RUNTIME,
@@ -35,6 +35,7 @@ fn symbol(name: &str, iec_type: &str) -> CompiledSymbol {
         iec_type: iec_type.to_string(),
         address: None,
         members: Vec::new(),
+        owner: None,
     }
 }
 
@@ -963,4 +964,64 @@ fn a_project_designed_loop_is_not_refused_for_the_type_that_describes_its_contro
         "{:?}",
         reasons(&discovered)
     );
+}
+
+/// B1.2 (protocol annex E2.3; the CODESYS toolkit's S9): a loop whose parameter set writes a gain that a CODESYS project keeps in a
+/// GVL is discovered when the set's task owns the gain, and refused, with the sentence that names the gain, its writer and the
+/// loop's task, when another task writes it, as Apply would refuse it; a mode that no single task owns is refused too. Worked from
+/// the catalog: the set runs in `MainTask`. Catches a GVL gain that setup offers and Apply then refuses.
+#[test]
+fn a_loop_whose_parameter_set_writes_a_global_another_task_writes_is_refused_by_name() {
+    let mut value = tank_json("loop:tank");
+    value["parameterBinding"] = json!({
+        "loop_id": "loop:tank", "task_name": "MainTask",
+        "parameters": [
+            { "symbol": "GVL_Par.lrKp", "iec_type": "LREAL", "unit": "%/%", "convention": "proportional gain", "minimum": 0, "maximum": 100 }
+        ],
+        "mode": { "symbol": "GVL_IO.bAuto", "manual_value": false }
+    });
+    let files = [text_file("/project/control-loop.json", &value)];
+    let discover = |gain: GlobalOwner, mode: GlobalOwner| {
+        let mut compiled = catalog();
+        compiled.control.symbols = vec![
+            CompiledSymbol {
+                owner: Some(gain),
+                ..symbol("GVL_Par.lrKp", "LREAL")
+            },
+            CompiledSymbol {
+                owner: Some(mode),
+                ..symbol("GVL_IO.bAuto", "BOOL")
+            },
+        ];
+        discover_bindings("/project", &compiled, RUNTIME, &files)
+    };
+    let main_task = || GlobalOwner::Task {
+        task: "MainTask".to_string(),
+    };
+
+    let written_by_slow = discover(
+        GlobalOwner::Task {
+            task: "SlowTask".to_string(),
+        },
+        GlobalOwner::Unwritten,
+    );
+    assert_eq!(
+        reasons(&written_by_slow),
+        ["GVL_Par.lrKp is a global that task SlowTask writes, so the loop's task MainTask cannot write it. Run the loop in task \
+          SlowTask, or let only the loop's task write GVL_Par.lrKp."]
+    );
+    let shared_mode = discover(main_task(), GlobalOwner::Shared);
+    assert_eq!(
+        reasons(&shared_mode),
+        ["GVL_IO.bAuto is a global that no single task owns: a function, a function block, a method or a class writes it, or \
+          the programs of several tasks do. Let only the loop's task write GVL_IO.bAuto."]
+    );
+    for (gain, mode) in [
+        (main_task(), GlobalOwner::Unwritten),
+        (GlobalOwner::Unwritten, main_task()),
+    ] {
+        let discovered = discover(gain, mode);
+        assert_eq!(reasons(&discovered), Vec::<&str>::new());
+        assert_eq!(discovered.targets.len(), 1);
+    }
 }
