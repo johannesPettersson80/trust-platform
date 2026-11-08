@@ -203,12 +203,14 @@ where
         let journaled = mode_journaled(&self.ports.journal.lock());
         if journaled || mode.is_some_and(|mode| needs_mode_change(loop_definition, method, mode)) {
             let connection = self.ports.runtime.transfer_connection()?;
-            self.mode = Some(IdentificationMode::new(
+            let mut mode = IdentificationMode::new(
                 loop_definition,
                 connection,
                 self.ports.journal,
                 self.ports.clock,
-            )?);
+            )?;
+            mode.set_reviewed_tolerance(self.request.transfer_tolerance);
+            self.mode = Some(mode);
         }
         self.note_run_plant(sample.as_ref());
         let worked = self.work(method, purpose, sample.as_ref());

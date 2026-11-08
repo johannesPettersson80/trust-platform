@@ -7,6 +7,7 @@ use crate::loop_definition::{
     Direction, Execution, ExperimentKind, LoopDefinition, PidInitialization, RealType,
 };
 use crate::setup::catalog::{CompiledCatalog, CompiledSymbol};
+use std::collections::BTreeMap;
 
 /// The example of the connected PID commissioning, `examples/control-pid-commissioning/control-loop.json`.
 const EXAMPLE: &str =
@@ -69,6 +70,7 @@ fn catalog_for(loop_definition: &LoopDefinition) -> CompiledCatalog {
         controllers: Vec::new(),
         links: Vec::new(),
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     }
 }
 

@@ -311,7 +311,8 @@ pub(in crate::db) fn var_qualifier_from_block(node: &SyntaxNode) -> VarQualifier
             SyntaxKind::KwVarTemp => return VarQualifier::Temp,
             SyntaxKind::KwVarGlobal => return VarQualifier::Global,
             SyntaxKind::KwVarExternal => return VarQualifier::External,
-            SyntaxKind::KwVarStat => return VarQualifier::Static,
+            // CODESYS's `VAR_INST` is a method's per-instance static (specification 04).
+            SyntaxKind::KwVarStat | SyntaxKind::KwVarInst => return VarQualifier::Static,
             SyntaxKind::KwVar | SyntaxKind::KwVarAccess | SyntaxKind::KwVarConfig => {
                 return VarQualifier::Local
             }

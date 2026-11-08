@@ -17,6 +17,7 @@ use serde_json::Value;
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::connected_run::unfinished_operation_refusal;
 use trust_control::identification::independent_validation::RequirementStatus;
+use trust_control::identification::refusal::Refusal;
 use trust_control::limits::ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS;
 use trust_control::loop_definition::{ControllerProject, LoopDefinition};
 use trust_control::messages::TuneRequest;
@@ -25,6 +26,7 @@ use trust_control::runtime::RuntimeConnection;
 use trust_control::study::current_model::{current_model, CurrentModel};
 use trust_control::study::inputs::stage_evidence_of;
 use trust_control::study::inputs::InputsSection;
+use trust_control::study::tune::requirements::study_requirements;
 use trust_control::study::tune::search_record::search_section;
 use trust_control::study::tune::{resolve_pins, TuneSection};
 use trust_control::tuning::requirements::{response_deadline_seconds, TuningRequirements};
@@ -64,8 +66,6 @@ const NO_CONNECTION: &str =
     "The finite search runs its trials on the connected runtime. Connect a runtime, then tune again.";
 /// The refusal of a search whose study holds no model for the loop's current signals.
 const NO_MODEL: &str = "The study has no model for the loop's current signals. Identify the plant first, so Tune has a model to design on.";
-/// The refusal of a search whose study holds no requirements, which the search needs for its bounds.
-const NO_REQUIREMENTS: &str = "The finite search needs the requirements: set the setpoint change, the error and settling limits and the validation duration.";
 /// The refusal of a loop without a parameter binding, which every trial's settings need.
 const NO_LOOP_BINDING: &str = "The loop declares no parameter binding.";
 /// The progress text that starts the search's trials.
@@ -108,8 +108,9 @@ struct TrialPlan {
 /// final update carries the search's answer. A refusal before the start lets the claim go at once.
 ///
 /// # Errors
-/// The request names a method, has no runtime connection or pins another loop revision; the study holds no current model or no
-/// requirements; the journal holds an unfinished operation; the grid breaks a budget; or no trial has a valid plan.
+/// The request names a method, has no runtime connection or pins another loop revision; the study holds no current model, or no
+/// requirements while Automatic cannot form them from the model; the journal holds an unfinished operation; the grid breaks a
+/// budget; or no trial has a valid plan.
 pub fn answer(
     operations: &Operations,
     claims: &LoopClaims,
@@ -194,18 +195,18 @@ fn search_work(
             )
         })
         .transpose()?;
-    let requirements = held
-        .or_else(|| previous.map(|section| section.requirements))
-        .ok_or_else(|| {
-            Failure::new(
-                NO_REQUIREMENTS,
-                Cause::Settings,
-                NextAction::OpenRequirements,
-            )
-        })?;
-    requirements.validate().map_err(|refusal| {
-        Failure::new(&refusal.0, Cause::Settings, NextAction::OpenRequirements)
-    })?;
+    let requirements_refused =
+        |refusal: Refusal| Failure::new(&refusal.0, Cause::Settings, NextAction::OpenRequirements);
+    let requirements = match held.or_else(|| previous.map(|section| section.requirements)) {
+        Some(requirements) => {
+            requirements.validate().map_err(requirements_refused)?;
+            requirements
+        }
+        // Nothing declared yet: Automatic fills the test from the model, as for every Tune and by the rule of the Identify answer
+        // (B4.3), or names the prerequisite it lacks.
+        None => study_requirements(&loop_definition, &model, None, inputs.as_ref())
+            .map_err(requirements_refused)?,
+    };
     let journal = Journal::open(
         &storage_folder,
         &loop_definition.project_id,
@@ -528,3 +529,7 @@ fn keep_candidate(work: &SearchWork, candidate: SearchCandidate) -> Result<(), F
     study.set_section(&section)?;
     storage::save_study(&work.project_root, &study, &[])
 }
+
+#[cfg(test)]
+#[path = "tune_search_tests.rs"]
+mod tests;

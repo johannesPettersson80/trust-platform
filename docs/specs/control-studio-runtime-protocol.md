@@ -161,7 +161,7 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 | Operation | Permitted IEC types |
 |---|---|
 | Reads: inspection, recordings, isolated observations | BOOL, signed and unsigned integers, REAL, LREAL, and enumerations read as numbers |
-| Transfer modes | BOOL |
+| Transfer and parameter modes | BOOL, or an enumeration named by its Manual and Auto members (E6.2, E7.1) |
 | Transfer states, guards and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
 | Parameters | REAL and LREAL |
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
@@ -227,7 +227,8 @@ Request:
 - `bindings`: array, required, 1 to 32 entries. Each entry has:
   - `id`: string, required, 1 to 128 bytes, unique in the request;
   - `iec_type`: string, required, the upper-case type name (E2.2);
-  - exactly one of `address` (string) or `symbol` (string, at most 256 bytes). An explicit `null` selector counts as absent.
+  - exactly one of `address` (string) or `symbol` (string, at most 256 bytes). An explicit `null` selector counts as absent;
+  - `mode`: optional `{manual_value, auto_value}`, the names of two different members of an enumeration mode signal (specification 35 A6.1). Such a mode channel names its enumeration by `symbol`, with `iec_type` BOOL, the reading it gives: 1 in its Manual member and 0 in its Auto member, as Control Studio reads a mode (E6.3). In another member it has no usable value and its quality is `bad`. A mode channel whose type is not BOOL, whose symbol is no enumeration, or whose members its type lacks or repeats is refused.
 - `expected_program_revision`: optional string. A value that differs from the current program revision is refused.
 
 Response before the first complete scan:
@@ -272,7 +273,7 @@ Request:
 
 - `recording_id`: string, required (E0.2).
 - `loop_revision`: string, required, not empty.
-- `bindings`: array, required, 1 to 32 entries. Each entry has `id`, `iec_type` and exactly one selector, as in E3.
+- `bindings`: array, required, 1 to 32 entries. Each entry has `id`, `iec_type`, exactly one selector and an optional `mode`, as in E3.
 - `maximum_samples`: integer, required, 2 to 100,000 samples per channel.
 - `maximum_duration_ms`: integer, required, 10 to 86,400,000 (24 h of process time).
 - `task`: optional string, the name of a configured task, matched without regard to case. When it is absent, the recording samples at the end of every resource cycle.
@@ -333,7 +334,7 @@ Status never changes the recording. A recording keeps running when clients disco
 
 Stop (Viewer). Request: `recording_id` and `loop_revision`, both required. The loop revision MUST match the recording's loop revision. A mismatch is refused.
 
-Stop response: `recording_id`, `loop_revision`, `program_revision` (when the recording has one), `bindings` (an echo of `id`, `address`, `symbol` and `iec_type`), `stop_reason`, `samples` (all of them) and `acquisition` (E4.5). A stop is idempotent. A repeated stop returns the same result.
+Stop response: `recording_id`, `loop_revision`, `program_revision` (when the recording has one), `bindings` (an echo of `id`, `address`, `symbol`, `iec_type` and `mode`), `stop_reason`, `samples` (all of them) and `acquisition` (E4.5). A stop is idempotent. A repeated stop returns the same result.
 
 Release (Viewer). Request: the same fields as stop. Response: `recording_id` and `status` set to `released`. A recording that still runs is refused with the text `Stop the recording before releasing it.`. Release frees the recording and its slot. Release of an unknown `recording_id` succeeds.
 
@@ -400,7 +401,7 @@ Access: Engineer. Unknown fields are refused with `invalid_experiment`.
 | `minimum`, `maximum` | number | Required. Finite, with `minimum` below `maximum`. |
 | `duration_ms` | integer | Required. 1,000 to 86,400,000 (1 s to 24 h of process time). |
 | `expected_scan` | integer | Required. The runtime stores it as `reviewed_scan`. It does not compare it. |
-| `mode_binding` | object | `{symbol, manual_value}`. Required for the kinds that need a mode (E5.2), and ignored for the others. `manual_value` is a boolean or a finite number. The mode symbol may be BOOL, numeric or an enumeration. |
+| `mode_binding` | object | `{symbol, manual_value, auto_value}`. Required for the kinds that need a mode (E5.2), and ignored for the others. The mode symbol may be BOOL, numeric or an enumeration. `manual_value` is a boolean or a finite number, or for an enumeration the name of a member of its type. `auto_value` is optional: for an enumeration, the name of another member of its type, which means Auto (E6.2). Without it, every value other than `manual_value` means Auto. |
 | `physical_approval` | object | Optional. `{user_approved, topology_reviewed}`, both booleans. Both MUST be true for a `physical` source. |
 | `trajectory` | array | Optional, default empty. Entries `{at_ms, value}`. At most 10,000 entries. |
 | `relay_feedback` | object | Required for `relay` only, and refused for the other kinds. `{address, value_type, center, hysteresis, low_value, high_value}`. |
@@ -508,7 +509,9 @@ The status, apply and cancel operations take the same binding.
 
 - `loop_id`: string, not blank, at most 128 characters.
 - `task_name`: string. It names the one task that owns the program of every member, or `$background` for an unscheduled program.
-- `mode`: `{symbol, manual_value}`. `symbol` is a mutable BOOL variable that is not external and not addressed. `manual_value` is a boolean.
+- `mode`: `{symbol, manual_value, auto_value}`. `symbol` is a mutable BOOL or enumeration variable that is not external and not addressed (specification 35 A6.1).
+  - For a BOOL, `manual_value` is a boolean and `auto_value` is absent: the other boolean means Auto.
+  - For an enumeration, `manual_value` and `auto_value` are the names of two different members of its type, without regard to case. Its other members mean neither mode: a transfer writes only `manual_value` or `auto_value`, and it never reads another member as Manual or Auto.
 - `additional_modes`: optional array of 0 to 8 modes, in the same form. They are written with `mode` at the same boundary.
 - `states`: 1 to 64 distinct members.
 - `guards`: 1 to 64 members.
@@ -536,7 +539,7 @@ Access: Viewer. Request: `binding`.
 Response:
 
 - `program_revision`, `binding_revision` and `runtime_time_ns`.
-- `values`: an object with one entry for each member and each mode. Modes are booleans. A BOOL member is 0 or 1.
+- `values`: an object with one entry for each member and each mode. A BOOL mode is its boolean. An enumeration mode is TRUE in its Manual member and FALSE in its Auto member, so a reading means Manual exactly where a BOOL binding with `manual_value` TRUE reads TRUE. A status read of an enumeration mode in another member is refused, with the member's name: the loop is in neither mode (specification 35 A6.1). A BOOL member is 0 or 1.
 - `supported_tracking`: `["proportional", "parallel-pid-v1", "declared-state-v1", "declared-initialization-formulas"]`.
 - `transaction_id`: the identifier of the last transaction, or null.
 - `status`: the status of the last transaction, or `idle`.
@@ -643,7 +646,7 @@ The `transaction` object has these fields: `id`, `program_revision`, `binding_re
 
 ### E6.9 Output-change tolerance
 
-`maximum_output_change` is the reviewed tolerance for the output change at the first execution after the transfer. A reviewed value replaces the allowance of A6.4. Studio computes or reviews the value. The runtime checks against the value it receives. For additional outputs, the tolerance is scaled by the ratio of the output spans.
+`maximum_output_change` is the reviewed tolerance for the output change at the first execution after the transfer. A reviewed value replaces the allowance of A6.4. Studio computes or reviews the value, never below the output's resolution (A6.4). The runtime checks against the value it receives. For additional outputs, the tolerance is scaled by the ratio of the output spans. A refusal names the output, the change the runtime measured from the value held before the transfer and the tolerance it allowed, its entry terms included: `first controller output <symbol> violates reviewed transfer tolerance: it changed by <change> (from <held> to <first>), more than <tolerance>`. A first output outside the output's bounds names those bounds: `first controller output <symbol> violates reviewed transfer tolerance: <first> lies outside <minimum> to <maximum>`.
 
 The A6.4 allowance of an Auto entry has a term on the error the controller enters with, `Ki·Δt·|e|`. Only the runtime reads that error: a status that Studio reads before the apply is out of date once the plant moves before the task boundary. Studio therefore sends the allowance without that term as `maximum_output_change`, and `|Ki|·Δt` as `entry_error_gain`. The runtime then checks the first output against `maximum_output_change + entry_error_gain × |r − y|`, where r is the tracking's reference as the transfer writes it and y is the tracking's process variable, both read at the commit, in the scan the controller executes with them. Studio sends no `entry_error_gain` with a reviewed tolerance, which replaces the allowance, or when the allowance has no integral term.
 
@@ -676,7 +679,7 @@ The binding is `{loop_id, task_name, parameters, mode}`.
 - `loop_id`: string, not blank.
 - `task_name`: string. `$background` selects unscheduled programs.
 - `parameters`: 1 to 64 members. Each is `{symbol, iec_type, unit, convention, minimum, maximum}`. `iec_type` is REAL or LREAL. `unit` and `convention` are not blank. `minimum` and `maximum` are finite, and `minimum` does not exceed `maximum`. Unknown fields are refused.
-- `mode`: `{symbol, manual_value}`. `symbol` is a BOOL variable, and `manual_value` is a boolean.
+- `mode`: `{symbol, manual_value, auto_value}`, as a transfer's mode (E6.2): a BOOL variable with its Manual boolean, or an enumeration variable with the names of its Manual and its Auto member.
 
 Rules:
 
@@ -811,6 +814,7 @@ Test runs (E8.4) and searches (E8.5) share these rules.
 - The parameter values of a run (a test run's `parameter_overrides`, E8.4; a search trial's `parameters`, E8.5) are written before the first scan. A program MAY set such a parameter during its first execution, its startup, as a program that designs or loads its own record at startup does. Its first execution is the first scan in which its task runs: a periodic task first runs one interval after the start, and a program without a task runs in every scan. The runtime then writes the run's value again at the task boundary after that scan, as Apply writes a complete record at a task boundary of a running program (E7), and from that boundary the value MUST hold to the end of the run. This adds no preparation cycle: the run's scans are those of its grid from time zero. A program that changes such a parameter after its first execution would not keep an applied candidate either, and the run fails with the reason `ST changed controller parameter <symbol>; candidate not adopted`.
 - `events` is a list of `{at_ms, symbol, value}`. Events are ordered, unique by time and symbol, scan-aligned (each `at_ms` is a multiple of `step_ms`), and no later than `duration_ms`. An event applies at its scan.
 - `observations` is a list of `{symbol, unit}`, with 1 to 64 entries. Symbols are unique. Each observed channel counts toward the limit of 64.
+- A loop's enumeration mode signal (specification 35 A6.1) is written and recorded as Control Studio reads a mode: 1 in Manual and 0 in Auto (E6.3). A test run names each in `mode_bindings`, a list of at most nine `{symbol, manual_value, auto_value}`, each symbol once and with two different members. An initial value or event of 1 for it writes its Manual member and 0 its Auto member, and any other number is refused. An observation of it records 1 in its Manual member and 0 in its Auto member, and a run that finds it in another member fails with the member's name. A BOOL mode is a number already and is not named. A search (E8.5) runs the project's own simulation and names none.
 - A write targets a writable, scalar member. A duplicate or ambiguous write is refused.
 - A BOOL value of 0 or 1 MAY start a project-owned sequence. An integer process value is coerced with exact and range checks. An integer gain is never written.
 - A seed is an integer of at most 9,007,199,254,740,991.
@@ -839,6 +843,7 @@ Start request:
 - `wall_budget_ms`: 1 to 600,000 (10 min).
 - `record_every`: optional, 1 to 100,000. The default is 1.
 - `initial_values`, `events` and `observations`, as E8.3 defines them.
+- `mode_bindings`: optional, default `[]`, as E8.3 defines it.
 - `parameter_overrides`: optional, default `[]`, at most 64 entries.
 - `simulation_override`: optional object `{model_revision, model_provenance, simulation_toml}`. Its fields are limited to 256, 4,096 and 262,144 bytes. `feedback_relay`: optional object, checked against its declared bounds.
 
@@ -1083,7 +1088,7 @@ For a proportional controller, Apply runs these runtime operations in order.
 8. Observe with the recording for the declared duration, plus two task periods of process time. Assess the samples against the requirements.
 9. On a passing observation, the loop stays in Auto. A rollback is a fresh review. It covers a Manual tracking transfer that holds the freshly observed output, restoration of the previous reference, and restoration of the previous gain set.
 
-The continuity tolerance works as follows. Studio's review proposes `1e-6 × max(1, output maximum − output minimum)` as `maximum_output_change` (E6.9). The engineer MAY choose another finite value from zero to the output span. The reviewed value is kept in the record. It is used for the first-output check of the Auto entry, for the continuity check, and for recovery. Editing it invalidates the review.
+The continuity tolerance works as follows. Studio's review proposes `1e-6 × max(1, output maximum − output minimum)` as `maximum_output_change` (E6.9), and at least `2⁻²³ × max(|output minimum|, |output maximum|)`, the output's resolution (A6.4). The engineer MAY choose another finite value from zero to the output span. The reviewed value is kept in the record. It is used for the first-output check of the Auto entry, for the continuity check, and for recovery. Editing it invalidates the review.
 
 Cancel resolves the owned transfer and keeps its real outcome. If Auto was already entered, Studio uses the reviewed Manual tracking recovery. Studio never repeats the Auto entry or the target step.
 

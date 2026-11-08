@@ -210,11 +210,7 @@ pub fn sample_controller_mode(
     } else {
         None
     };
-    let when_true = loop_definition
-        .controller
-        .mode_when_true
-        .unwrap_or(ModeWhenTrue::Auto);
-    mode_from_value(value, when_true)
+    mode_from_value(value, crate::signals::mode_when_true(loop_definition))
 }
 
 /// The index of the loop's mode channel in `run`: the BOOL binding at the mode signal's address, or the one with its symbol

@@ -831,6 +831,12 @@ kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
   in the retain area too; the warm-init entry runs.
 - **Online change:** §12.
 
+Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
+type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
+the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. An `FB_init` with
+inputs beyond those two, which CODESYS gives at the instance's declaration (`com1 :
+serialdevice(iCOMnum := 1)`), or with outputs, is not compiled yet (NX-09).
+
 At both restarts the process images keep their bytes; they take `INIT` once, when the program is
 constructed. After the initialization, every variable located at `%M` is published into the marker
 image, so that the first scan's sample finds the variable's starting or retained value there
@@ -1845,7 +1851,8 @@ artifact (owner, 23 October 2026).
 `trust-dev test` runs a project's tests compiled for the computer (specification 22, the test
 POUs), with the toolchain, which it installs as `trust-runtime build` does (§4.6, NX-15): one
 image, a debug or a release image as the project's `[build] debug` chooses (§13.2), holds every
-`TEST_PROGRAM` as an instance of its name that no task runs, and each test runs after a cold
+test program (a `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`) as an instance of its
+name that no task runs, and each test runs after a cold
 restart, its program's body once (`NativeProgram::run_instance`); a test passes, fails with the
 runtime's message of its failed assertion, or ends with its error. The assertions are compiled as
 the runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs

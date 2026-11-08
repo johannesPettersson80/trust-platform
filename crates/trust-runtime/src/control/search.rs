@@ -5,6 +5,7 @@ mod execution_plan;
 mod execution_settings;
 mod feedback_relay;
 mod limits;
+mod mode_channels;
 mod process_inputs;
 mod program;
 mod record_period;

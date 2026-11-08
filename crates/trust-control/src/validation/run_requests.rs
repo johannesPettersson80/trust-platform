@@ -20,7 +20,7 @@ use crate::identification::connected_record::{
     RunConditions, ValidationRun, ValidationSample, ValidationValue,
 };
 use crate::limits::ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS;
-use crate::loop_definition::{LoopDefinition, ParameterBinding, RealType};
+use crate::loop_definition::{LoopDefinition, ModeValue, ParameterBinding, RealType};
 use crate::model::{GeneralModel, SimulationOverride};
 use crate::recording::channels::ChannelQuality;
 use crate::signals::Quality;
@@ -33,8 +33,9 @@ use crate::validation::engineer_verification_plan::VerificationPlan;
 use crate::validation::gain_schedule_case;
 use crate::validation::group_case;
 use crate::validation::isolated_run_protocol::{
-    IsolatedExecution, IsolatedParameterOverride, IsolatedParameterType, IsolatedRunEvent,
-    IsolatedRunObservation, IsolatedRunRecord, IsolatedRunRequest, IsolatedRunSample,
+    IsolatedExecution, IsolatedModeBinding, IsolatedParameterOverride, IsolatedParameterType,
+    IsolatedRunEvent, IsolatedRunObservation, IsolatedRunRecord, IsolatedRunRequest,
+    IsolatedRunSample,
 };
 use crate::validation::on_off_case;
 use crate::validation::search_case::candidate_coefficients;
@@ -115,9 +116,31 @@ pub fn isolated_run_request(input: &RunRequestInput<'_>) -> Result<IsolatedRunRe
         parameter_overrides: parameter_overrides(input.loop_definition, input.settings)?,
         simulation_override: simulation_override(input)?,
         feedback_relay: None,
+        mode_bindings: mode_bindings(input.loop_definition),
     };
     request.check()?;
     Ok(request)
+}
+
+/// The loop's enumeration mode signal for a run (E8.3; specification 35 A6.1), which the runtime writes and records as 1 in
+/// Manual and 0 in Auto; none for a BOOL mode, whose value is the number already.
+#[must_use]
+pub fn mode_bindings(loop_definition: &LoopDefinition) -> Vec<IsolatedModeBinding> {
+    loop_definition
+        .parameter_binding
+        .as_ref()
+        .and_then(
+            |binding| match (&binding.mode.manual_value, &binding.mode.auto_value) {
+                (ModeValue::Member(manual), Some(auto)) => Some(IsolatedModeBinding {
+                    symbol: binding.mode.symbol.clone(),
+                    manual_value: manual.clone(),
+                    auto_value: auto.clone(),
+                }),
+                _ => None,
+            },
+        )
+        .into_iter()
+        .collect()
 }
 
 /// The seed of the loop's experiment, or 1 when the loop declares none (`loop.experiment?.seed ?? 1`).
@@ -567,6 +590,13 @@ fn candidate_value(candidate: &LawCandidate, mapped: &MappedParameter) -> Result
                 (None, GainKey::ProportionalGain) => Ok(candidate.gains.proportional_gain),
                 (None, GainKey::IntegralGain) => Ok(candidate.gains.integral_gain),
                 (None, GainKey::DerivativeGain) => Ok(candidate.gains.derivative_gain),
+                // A standard-form law's times (N6.8): a structure without the derivative term writes a derivative time of zero.
+                (None, GainKey::ResetTime) => {
+                    Ok(candidate.gains.proportional_gain / candidate.gains.integral_gain)
+                }
+                (None, GainKey::DerivativeTime) => {
+                    Ok(candidate.gains.derivative_gain / candidate.gains.proportional_gain)
+                }
                 (None, _) => Err(Failure::new(
                     "A program's own law holds no gain of this kind.",
                     Cause::Implementation,
@@ -598,6 +628,12 @@ fn pid_value(candidate: &ControlPidCandidate, key: GainKey) -> Result<f64, Failu
                 Failure::new(FILTER_MISSING, Cause::Settings, NextAction::OpenLoopSetup)
             })
         }
+        // A program's own law in standard form holds these times (C2); a Control.PID record holds gains.
+        GainKey::ResetTime | GainKey::DerivativeTime => Err(Failure::new(
+            "A Control.PID record holds no reset or derivative time.",
+            Cause::Implementation,
+            NextAction::None,
+        )),
     }
 }
 

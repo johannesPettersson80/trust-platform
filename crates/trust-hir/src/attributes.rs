@@ -1,20 +1,21 @@
 //! The attributes a declaration carries in the pragma before it, `{attribute 'name'}`.
 
-use super::super::*;
+use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
+
 use crate::openot_authoring::parse_attribute_entries_from_text;
 
 /// Whether the pragma trivia preceding `node`'s first token carries the flag
 /// `key`: a POU's `reads_host_clock` (specification 07, "Declared Clock
 /// Sources"), a global's or a `VAR_GLOBAL` list's `cross_task` (specification
-/// 28 section 6). The scan walks backwards over trivia and over the trailing
+/// 28 section 6), a program's `test` (specification 22, "Test POU discovery"). The scan walks backwards over trivia and over the trailing
 /// trivia of the element the parser parked it in: a pragma before a
 /// declaration may sit in the leading trivia of its node, in the trailing
 /// trivia of the preceding construct (the previous POU or declaration in a
 /// file, the namespace head), so the first token's immediate trivia is what
 /// counts. A pragma behind that token — inside a body or a list — never
 /// declares the node.
-pub(super) fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
-    let reads = |token: &trust_syntax::syntax::SyntaxToken| {
+pub fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
+    let reads = |token: &SyntaxToken| {
         token.kind() == SyntaxKind::Pragma
             && parse_attribute_entries_from_text(token.text(), token.text_range())
                 .iter()
@@ -87,8 +88,8 @@ pub(super) fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
 /// parent, climbing through the parent chain when the element is its
 /// parent's first child.
 fn prev_in_document_order(
-    element: rowan::NodeOrToken<SyntaxNode, trust_syntax::syntax::SyntaxToken>,
-) -> Option<rowan::NodeOrToken<SyntaxNode, trust_syntax::syntax::SyntaxToken>> {
+    element: rowan::NodeOrToken<SyntaxNode, SyntaxToken>,
+) -> Option<rowan::NodeOrToken<SyntaxNode, SyntaxToken>> {
     if let Some(prev) = element.prev_sibling_or_token() {
         return Some(prev);
     }

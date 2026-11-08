@@ -112,6 +112,36 @@ pub fn integral_gain_needed(law: &str) -> String {
     format!("A {law} law needs the variable holding its integral gain.")
 }
 
+/// A law in standard form always integrates (C2, N6.8).
+#[must_use]
+pub fn standard_form_integrates() -> &'static str {
+    "A law in standard form always integrates: choose PI or PID."
+}
+
+/// A law in standard form needs its reset time's variable (C2).
+#[must_use]
+pub fn reset_time_needed(law: &str) -> String {
+    format!("A {law} law in standard form needs the variable holding its reset time Ti in seconds.")
+}
+
+/// A reset time's range lies above zero (C2, N6.8): a reset time of zero is no value Control Studio writes.
+#[must_use]
+pub fn reset_time_above_zero() -> &'static str {
+    "The reset time's minimum must be above zero."
+}
+
+/// A PID law in standard form needs its derivative time's variable (C2).
+#[must_use]
+pub fn derivative_time_needed() -> &'static str {
+    "A PID law in standard form needs the variable holding its derivative time Td in seconds."
+}
+
+/// A derivative time's range starts at zero or above (C2, N6.8).
+#[must_use]
+pub fn derivative_time_not_negative() -> &'static str {
+    "The derivative time's minimum must not be below zero."
+}
+
 /// A law that integrates needs its integral term variable (`ownLawLoopGenerator.ts`).
 #[must_use]
 pub fn integral_term_needed(law: &str) -> String {

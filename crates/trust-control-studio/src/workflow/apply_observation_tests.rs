@@ -572,6 +572,7 @@ fn held_owner(
                 address: binding.address.clone(),
                 symbol: binding.symbol.clone(),
                 iec_type: binding.iec_type.clone(),
+                mode: None,
             })
             .collect(),
     }

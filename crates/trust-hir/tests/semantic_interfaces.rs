@@ -292,3 +292,77 @@ END_CLASS
         DiagnosticCode::InterfaceConformance,
     );
 }
+
+/// Specification 04: `__SYSTEM.IQueryInterface` after an interface's EXTENDS and in an IMPLEMENTS
+/// list adds nothing, so a block that implements the interface conforms with the interface's own
+/// method, and an interface variable takes the block. Catches the system name taken for a base the
+/// analysis cannot find (E102), and the block's own interface lost beside it.
+#[test]
+fn test_system_query_interface_extends_and_implements_add_nothing() {
+    check_no_errors(
+        r#"
+INTERFACE ILamp EXTENDS __SYSTEM.IQueryInterface
+    METHOD Toggle : BOOL
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS __SYSTEM.IQueryInterface, ILamp
+VAR
+    isOn : BOOL;
+END_VAR
+    METHOD PUBLIC Toggle : BOOL
+        isOn := NOT isOn;
+        Toggle := isOn;
+    END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    lamp : FB_Lamp;
+    itf : ILamp;
+    lit : BOOL;
+END_VAR
+    itf := lamp;
+    lit := itf.Toggle();
+END_PROGRAM
+"#,
+    );
+}
+
+/// Specification 04: a block still implements every method of its ordinary interfaces beside the
+/// system interface. Catches the system name hiding the conformance check of the names after it.
+#[test]
+fn test_system_query_interface_keeps_the_other_interfaces_checked() {
+    check_has_error(
+        r#"
+INTERFACE ILamp
+    METHOD Toggle : BOOL
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS __SYSTEM.IQueryInterface, ILamp
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::InterfaceConformance,
+    );
+}
+
+/// Specification 04: truST knows only `__SYSTEM.IQueryInterface`, and only an interface extends
+/// it. Catches any `__SYSTEM` name accepted, and a function block's EXTENDS of it accepted.
+#[test]
+fn test_unknown_system_names_are_refused() {
+    check_has_error(
+        r#"
+INTERFACE ILamp EXTENDS __SYSTEM.IUnknown
+END_INTERFACE
+"#,
+        DiagnosticCode::UndefinedType,
+    );
+    check_has_error(
+        r#"
+FUNCTION_BLOCK FB_Lamp EXTENDS __SYSTEM.IQueryInterface
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::InvalidOperation,
+    );
+}

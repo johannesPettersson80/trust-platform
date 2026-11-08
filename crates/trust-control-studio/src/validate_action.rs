@@ -68,6 +68,7 @@ use crate::runtime_client::RuntimeClient;
 use crate::storage;
 use crate::workflow::apply::{candidate_gains, materialize_values, measured_noise};
 use crate::workflow::identify::IdentifyPorts;
+use crate::workflow::identify_mode::reviewed_tolerance;
 use crate::workflow::validate::{
     new_job_id, run_job, run_scenarios, JobTiming, RunIdentity, RunSession, ScenarioRuns, Settings,
 };
@@ -839,6 +840,7 @@ fn model_check_part(
         current,
         stored: stored.as_ref(),
         expected_settling_seconds,
+        transfer_tolerance: reviewed_tolerance(study)?,
     };
     let check = run_model_check(
         context,

@@ -459,10 +459,7 @@ fn unselected_loop(loop_definition: &LoopDefinition) -> LoopDefinition {
         loop_id: group.loop_id.clone(),
         task_name: group.task_name.clone(),
         parameters,
-        mode: ModeBinding {
-            symbol: format!("{UNSELECTED}.AutoMode"),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean(format!("{UNSELECTED}.AutoMode"), false),
     });
     unselected
 }

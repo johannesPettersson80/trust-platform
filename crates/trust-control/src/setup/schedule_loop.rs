@@ -398,10 +398,10 @@ fn point_loop(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: shared.task.name.clone(),
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: ModeBinding::boolean(
+                draft.mode.symbol.clone(),
+                draft.mode.when_true == ModeWhenTrue::Manual,
+            ),
             parameters: gain_parameters(shared, point)?,
         }),
         parameter_purpose: None,
@@ -478,8 +478,11 @@ fn project_block(shared: &Shared<'_>, point: &SchedulePoint, schedule: &GainSche
         "states": serde_json::to_value(&states).unwrap_or_default(),
     });
     if let Some(flag) = startup_flag(draft) {
-        initialization["applicationStates"] =
-            serde_json::to_value(vec![startup_state(flag)]).unwrap_or_default();
+        initialization["applicationStates"] = serde_json::to_value(vec![startup_state(
+            flag,
+            shared.catalog.startup_done_value(flag),
+        )])
+        .unwrap_or_default();
     }
     json!({
         "family": FAMILY,

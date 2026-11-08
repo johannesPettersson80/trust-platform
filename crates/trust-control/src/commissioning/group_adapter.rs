@@ -365,10 +365,7 @@ pub fn group_transfer_binding(
         .map(|member| member_channels(loop_definition, member))
         .collect::<Result<Vec<MemberChannels>, Failure>>()?;
     let (reference, output) = primary_members(loop_definition, &members)?;
-    let mode = TransferModeBinding {
-        symbol: parameters.mode.symbol.clone(),
-        manual_value: parameters.mode.manual_value,
-    };
+    let mode = parameters.mode.clone();
     let additional_modes = further_modes(loop_definition, group, &mode);
     let mut states = vec![
         members[reference].reference.clone(),
@@ -622,7 +619,7 @@ fn further_modes(
         if !named {
             modes.push(TransferModeBinding {
                 symbol: member.mode_symbol.clone(),
-                manual_value: mode.manual_value,
+                ..mode.clone()
             });
         }
     }

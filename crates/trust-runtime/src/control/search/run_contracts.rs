@@ -74,6 +74,10 @@ pub(super) struct RunRequest {
     pub simulation_override: Option<SimulationOverride>,
     #[serde(default)]
     pub feedback_relay: Option<super::feedback_relay::FeedbackRelay>,
+    /// The loop's enumeration mode signals, written and recorded as 1 in Manual and 0 in Auto
+    /// (protocol annex E8.3).
+    #[serde(default)]
+    pub mode_bindings: Vec<super::mode_channels::ModeChannel>,
 }
 impl RunRequest {
     pub fn settings(&self) -> ExecutionSettings {
@@ -89,9 +93,11 @@ impl RunRequest {
             initial_values: self.initial_values.clone(),
             events: self.events.clone(),
             observations: self.observations.clone(),
+            mode_bindings: self.mode_bindings.clone(),
         }
     }
     pub fn validate(&self) -> Result<BTreeMap<String, f64>, String> {
+        super::mode_channels::validate(&self.mode_bindings)?;
         if self.request_id.as_ref().is_some_and(|id| {
             id.is_empty()
                 || id.len() > 128

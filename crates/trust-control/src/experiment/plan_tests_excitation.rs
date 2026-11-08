@@ -66,10 +66,7 @@ fn a_concise_bounded_setpoint_plan_is_built_from_the_current_loop_evidence() {
             duration_ms: 30_000.0,
             expected_scan: 41,
             task: Some("MainTask".to_string()),
-            mode_binding: Some(ExperimentModeBinding {
-                symbol: "P1.Run".to_string(),
-                manual_value: false,
-            }),
+            mode_binding: Some(ExperimentModeBinding::boolean("P1.Run".to_string(), false)),
             stop_conditions: setpoint_stop_conditions("30"),
             restoration_value: ExperimentValue::Number(50.0),
             requires_physical_approval: false,

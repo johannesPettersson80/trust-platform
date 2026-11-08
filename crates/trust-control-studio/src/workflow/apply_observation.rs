@@ -102,6 +102,7 @@ impl AppliedRecording for RuntimeRecordingSession {
                 symbol: binding.symbol,
                 iec_type: binding.iec_type,
                 unit: None,
+                mode: binding.mode,
             })
             .collect()
     }
