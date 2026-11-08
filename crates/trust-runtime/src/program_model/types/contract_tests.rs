@@ -45,6 +45,7 @@ fn method(name: &str) -> MethodDef {
         static_locals: vec![variable("static")],
         using: vec!["Lib.One".into(), "Lib.Two".into()],
         body: vec![statement(1), statement(2)],
+        call_after_init: false,
     }
 }
 
@@ -189,6 +190,7 @@ fn function_block_preserves_all_ordered_definition_groups() {
         using: vec!["Control.Lib".into(), "Math.Lib".into()],
         methods: vec![method("Start"), method("Stop")],
         body: vec![statement(3), statement(4)],
+        call_after_init: false,
     }
     .clone();
 

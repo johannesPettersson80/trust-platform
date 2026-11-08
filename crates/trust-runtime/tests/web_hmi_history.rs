@@ -1,7 +1,7 @@
 //! Specification 39, §5.7 item 1: a trend's history from the runtime's historian
 //! (`GET /api/hmi/history`).
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 use trust_runtime::config::WebAuthMode;
@@ -297,8 +297,16 @@ fn a_trended_value_is_kept_without_a_historian_and_without_an_open_screen() {
         PROGRAM,
         None,
     );
-    std::thread::sleep(Duration::from_millis(3_300));
-    let (status, body) = history(&running.base, "path=Main.T&path=Main.Lamp&span=60");
+    // A sample about each second: wait for two, as a loaded runner may start the program late.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let (status, body) = loop {
+        let (status, body) = history(&running.base, "path=Main.T&path=Main.Lamp&span=60");
+        let count = body["samples"]["Main.T"].as_array().map_or(0, Vec::len);
+        if status != 200 || count >= 2 || Instant::now() >= deadline {
+            break (status, body);
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    };
     assert_eq!(status, 200, "{body}");
     assert_eq!(
         body["enabled"],
@@ -394,8 +402,16 @@ fn a_panels_trend_is_kept_for_the_instance_an_object_opens_it_for() {
         HEATER_PROGRAM,
         None,
     );
-    std::thread::sleep(Duration::from_millis(3_300));
-    let (status, body) = history(&running.base, "path=Main.H1.T&span=60");
+    // A sample about each second: wait for two, as a loaded runner may start the program late.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let (status, body) = loop {
+        let (status, body) = history(&running.base, "path=Main.H1.T&span=60");
+        let count = body["samples"]["Main.H1.T"].as_array().map_or(0, Vec::len);
+        if status != 200 || count >= 2 || Instant::now() >= deadline {
+            break (status, body);
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    };
     assert_eq!(status, 200, "{body}");
     let samples = body["samples"]["Main.H1.T"]
         .as_array()

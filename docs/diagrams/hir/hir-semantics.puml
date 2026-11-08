@@ -39,8 +39,15 @@ package "Database Layer" as dbLayer #LightGreen {
         -> project_type_catalog_query
         -> file_symbols_query(project, file)
         -> project_symbol_tables_query
-        -> merged_project_symbols / analyze_query
+        -> merged_project_symbols
+        -> checked_file_query (the type check;
+           the arguments calls write, W012's)
+        -> analyze_query (reads other files'
+           checked_file_query, never their
+           analysis: no cycle)
         -> diagnostics_query / type_of_query
+        One read/write/call rule (access.rs)
+        serves W012 and references.
 
         Catalog source ranges locate imported
         declarations directly; no library-wide

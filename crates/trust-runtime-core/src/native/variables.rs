@@ -12,7 +12,7 @@ use super::memory::{
     member_symbol, read_place, retained_place, symbol_place, write_by_symbol, write_place, Place,
     ProgramMemory,
 };
-use super::program::{ModuleCode, NativeProgram};
+use super::program::{slot, Binding, ModuleCode, NativeProgram};
 use super::reflect::{
     is_instance_type, resolve_for_write, resolve_path, symbol_constant, Located, PathError,
 };
@@ -146,6 +146,50 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
         }
     }
 
+    /// Writes the variable at `place` out to each input or marker image that binds it, where the
+    /// next sample reads it (specification 44 §5.6, §13.3): the input image the drivers fill, the
+    /// marker area, or its slot of the hierarchical image. The sample, which copies such a variable
+    /// in from its address before the tasks run, then hands the program the value a write or a
+    /// force gave it, until a driver's input read replaces an input. A place that no input or
+    /// marker binding holds is left as it is.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] for a `TIME` that whole unsigned 32-bit milliseconds cannot
+    /// hold: its image keeps its bytes, and the variable takes back the value they hold, as the
+    /// next sample would give it, so that the refused write leaves the variable as its address has
+    /// it.
+    pub fn hold_bound(&mut self, place: Place) -> Result<(), RuntimeError> {
+        let Place::Area { area, offset } = place else {
+            return Ok(());
+        };
+        // By index: holding allocates nothing, as the sample does.
+        for index in 0..self.bindings.len() {
+            let binding = self.bindings[index];
+            if binding.image != 2
+                && binding.area == area
+                && binding.offset == offset
+                && let Err(error) = self.publish_binding(binding)
+            {
+                self.resample_millis(binding);
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
+    /// Copies the whole milliseconds of the image of `binding` back into its `TIME` variable, as the
+    /// sample does.
+    fn resample_millis(&mut self, binding: Binding) {
+        let Some(area) = slot(binding.area) else {
+            return;
+        };
+        let mut millis = [0u8; 4];
+        self.sampled_read(&binding, &mut millis);
+        let nanos = i64::from(u32::from_le_bytes(millis)) * 1_000_000;
+        self.areas[area].write(binding.offset as usize, &nanos.to_le_bytes());
+    }
+
     /// A copy of the marker area.
     fn markers(&self) -> alloc::vec::Vec<u8> {
         let mut markers = vec![0u8; self.area_length(trust_plc_abi::AREA_MARKERS)];
@@ -263,13 +307,20 @@ impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
         self.write_address(address, value)
     }
+
+    fn hold_bound(&mut self, place: Place) -> Result<(), RuntimeError> {
+        NativeProgram::hold_bound(self, place)
+    }
 }
 
 /// Every program memory takes Live Values' writes the same way: between scans, and while a
 /// debugger holds a scan (specification 44 §13.2, §13.3).
 /// An integer that Live Values writes is an untyped literal, which takes the declared type of its
 /// variable or of the variable bound at its address (specification 11, "An admitted integer is an
-/// untyped literal"; specification 44 §13.3).
+/// untyped literal"; specification 44 §13.3). A write of a variable that the program binds to an
+/// input or a marker address is written where the sample reads it as well
+/// ([`ProgramMemory::hold_bound`]), since the sample copies the variable in from there before the
+/// tasks run.
 impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
     fn read_named(&self, name: &str) -> Result<Value, RuntimeError> {
         let image = self.image();
@@ -367,21 +418,25 @@ fn writable(image: &Image<'_>, name: &str) -> Result<Writable, RuntimeError> {
 }
 
 /// Writes `value`, an integer literal typed for the variable first, into the variable of symbol
-/// `index`, as [`write_by_symbol`] writes it.
+/// `index`, as [`write_by_symbol`] writes it, and holds its bound images as [`write_admitted`] does.
 fn write_symbol_admitted<M: ProgramMemory + ?Sized>(
     memory: &mut M,
     index: u32,
     value: &Value,
 ) -> Result<(), RuntimeError> {
-    let typed = {
+    let (place, typed) = {
         let image = memory.image();
-        let (_, type_index) = symbol_place(&image, index)?;
-        literal::for_variable(&image, type_index, value)?
+        let (place, type_index) = symbol_place(&image, index)?;
+        (place, literal::for_variable(&image, type_index, value)?)
     };
-    write_by_symbol(memory, index, typed.as_ref().unwrap_or(value))
+    write_by_symbol(memory, index, typed.as_ref().unwrap_or(value))?;
+    memory.hold_bound(place)
 }
 
-/// Writes `value`, an integer literal typed for the variable first, at `place`.
+/// Writes `value`, an integer literal typed for the variable first, at `place`, and holds the
+/// input and marker images that bind the place at it ([`ProgramMemory::hold_bound`]): the sample
+/// copies such a variable in from its address before the tasks run, and would otherwise replace
+/// what was written (specification 44 §13.3).
 fn write_admitted<M: ProgramMemory + ?Sized>(
     memory: &mut M,
     place: Place,
@@ -389,9 +444,10 @@ fn write_admitted<M: ProgramMemory + ?Sized>(
     value: &Value,
 ) -> Result<(), RuntimeError> {
     match literal::for_variable(&memory.image(), type_index, value)? {
-        Some(typed) => write_place(memory, place, type_index, &typed),
-        None => write_place(memory, place, type_index, value),
+        Some(typed) => write_place(memory, place, type_index, &typed)?,
+        None => write_place(memory, place, type_index, value)?,
     }
+    memory.hold_bound(place)
 }
 
 /// The boundaries of a compiled program's scan at which Live Values reach its variables
@@ -402,9 +458,10 @@ pub enum CompiledAccessPoint {
     /// The cycle start, before the program runs: the queued variable writes and the variable
     /// forces.
     CycleStart,
-    /// After the drivers read the inputs, before the program samples them: the queued image writes
-    /// and the forces of the input and marker images, so a forced input holds over the physical
-    /// one.
+    /// After the drivers read the inputs, before the program samples them: the queued image writes,
+    /// the variable forces again and the forces of the input and marker images, so that a forced
+    /// input, and a forced variable that the program binds to an input or a marker address, hold
+    /// over the physical input.
     AfterInputs,
     /// After the scan, before the outputs reach the drivers and the snapshot: the forces of the
     /// output image.
