@@ -336,7 +336,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability S7 (shared Modbus TCP driver)",
-      "rationale": "The shared modbus-tcp driver's exchange builds and checks every frame with the one Modbus protocol crate (spec 11 §6.5, \"the protocol is one implementation on every runtime\"); trust-modbus has no dependencies and no heap, so the chips and the computer build it alike."
+      "rationale": "The shared modbus-tcp driver's exchange builds and checks every frame with the one Modbus protocol crate (spec 11 \u00a76.5, \"the protocol is one implementation on every runtime\"); trust-modbus has no dependencies and no heap, so the chips and the computer build it alike."
     },
     {
       "from": "xtask",
@@ -464,7 +464,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "VS Code Devices & Connections (V7)",
-      "rationale": "The five `trust-lsp.devices*` commands decode their arguments, run the panel engine on a blocking thread and return its JSON (design §1.4.1 and §1.6)."
+      "rationale": "The five `trust-lsp.devices*` commands decode their arguments, run the panel engine on a blocking thread and return its JSON (design \u00a71.4.1 and \u00a71.6)."
     },
     {
       "from": "trust-runtime",
@@ -536,7 +536,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "native execution (specification 44)",
-      "rationale": "The program library is compiled into every program module together with the kernel interface whose cells, strings and faults its functions use (specification 44 §6.9)."
+      "rationale": "The program library is compiled into every program module together with the kernel interface whose cells, strings and faults its functions use (specification 44 \u00a76.9)."
     },
     {
       "from": "trust-runtime-core",
@@ -544,7 +544,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "native execution (specification 44)",
-      "rationale": "The kernel fills the context of the module interface and calls a compiled program's entry points through it (specification 44 §8.2, §8.3); the interface crate has no dependencies and builds on every chip."
+      "rationale": "The kernel fills the context of the module interface and calls a compiled program's entry points through it (specification 44 \u00a78.2, \u00a78.3); the interface crate has no dependencies and builds on every chip."
     },
     {
       "from": "trust-runtime",
@@ -552,7 +552,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "native execution (specification 44)",
-      "rationale": "The build lays out compiled programs against the module interface and the computer's kernel maps a module's code executable through its host side (specification 44 §4, §10.3)."
+      "rationale": "The build lays out compiled programs against the module interface and the computer's kernel maps a module's code executable through its host side (specification 44 \u00a74, \u00a710.3)."
     },
     {
       "from": "trust-runtime",
@@ -560,7 +560,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "native execution (specification 44)",
-      "rationale": "The build lays out the standard function blocks at the program library's own offsets, which every module links (specification 44 §6.8)."
+      "rationale": "The build lays out the standard function blocks at the program library's own offsets, which every module links (specification 44 \u00a76.8)."
     },
     {
       "from": "trust-platform-esp32",
@@ -568,7 +568,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "native execution (specification 44)",
-      "rationale": "The C6 calls a compiled program's module where its image lies in the mapped slot, through the interface's in-place code (specification 44 §10.3)."
+      "rationale": "The C6 calls a compiled program's module where its image lies in the mapped slot, through the interface's in-place code (specification 44 \u00a710.3)."
     },
     {
       "from": "trust-runtime-services",
@@ -608,7 +608,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "visual editors",
-      "rationale": "the language server answers the trust-lsp.visual* commands with the visual programs' rules (specification 25 §11.4)"
+      "rationale": "the language server answers the trust-lsp.visual* commands with the visual programs' rules (specification 25 \u00a711.4)"
     },
     {
       "from": "trust-visual",
@@ -946,13 +946,13 @@
       "name": "Hmi",
       "class": "product",
       "owner": "runtime/HMI",
-      "rationale": "HMI file checks and screenshot tests for a project's own CI (specification 39, §18)"
+      "rationale": "HMI file checks and screenshot tests for a project's own CI (specification 39, \u00a718)"
     },
     {
       "name": "HmiPassword",
       "class": "product",
       "owner": "runtime/HMI",
-      "rationale": "prints the stored hash of an HMI user's password for runtime.toml (specification 39, §12.8)"
+      "rationale": "prints the stored hash of an HMI user's password for runtime.toml (specification 39, \u00a712.8)"
     },
     {
       "name": "Plant",
@@ -970,7 +970,7 @@
       "name": "Toolchain",
       "class": "product",
       "owner": "runtime/native",
-      "rationale": "the compiler toolchain bundle: status, install and bundle (specification 44 §4.6)"
+      "rationale": "the compiler toolchain bundle: status, install and bundle (specification 44 \u00a74.6)"
     },
     {
       "name": "Firmware",
@@ -2170,7 +2170,7 @@
         "module_name": "scheduler",
         "path": "crates/trust-runtime/src/scheduler",
         "owner": "runtime/scheduler",
-        "rationale": "The resource scheduler owns one responsibility, the scan thread of a resource (specification 10 §4, specification 46 §6.1): its state machine (stopped, stopping, faulted), the command queue, the cycle timing and the simulation clock, supervision and the shared handles. Its aggregate passed 5000 lines with the simulated-time fixes of 0.35.0 (sim1, B18), most of them tests (pacing, simulated time, restart storage, command drain); runner_loop.rs is the only file over 1000 lines.",
+        "rationale": "The resource scheduler owns one responsibility, the scan thread of a resource (specification 10 \u00a74, specification 46 \u00a76.1): its state machine (stopped, stopping, faulted), the command queue, the cycle timing and the simulation clock, supervision and the shared handles. Its aggregate passed 5000 lines with the simulated-time fixes of 0.35.0 (sim1, B18), most of them tests (pacing, simulated time, restart storage, command drain); runner_loop.rs is the only file over 1000 lines.",
         "review_date": "2026-11-08",
         "split_plan": "Keep the state machine, timing, queue and handles in their focused files. When the loop grows, move the cycle pacing out of runner_loop.rs into its own module beside cycle_timing.rs and simulation_clock.rs; never merge the handles or the state files back into the loop."
       },
@@ -2179,7 +2179,7 @@
         "module_name": "io_drivers",
         "path": "crates/trust-runtime-services/src/io_drivers",
         "owner": "runtime portability T1 and S7 (shared I/O drivers)",
-        "rationale": "Spec 11 §6.5 and spec 34 TARGET-01 put every I/O driver's parameters and logic in one shared implementation that the computer and the chips call. The module is one focused child module per driver (analog, pwm, counter, can, modbus, mqtt), each with its tests beside it; the aggregate crosses 5000 lines as the sum of these drivers, not as one implementation file or a mixed owner, and about a third of the lines are tests.",
+        "rationale": "Spec 11 \u00a76.5 and spec 34 TARGET-01 put every I/O driver's parameters and logic in one shared implementation that the computer and the chips call. The module is one focused child module per driver (analog, pwm, counter, can, modbus, mqtt), each with its tests beside it; the aggregate crosses 5000 lines as the sum of these drivers, not as one implementation file or a mixed owner, and about a third of the lines are tests.",
         "review_date": "2026-10-25",
         "split_plan": "Keep one child module per driver and split a driver's own module by responsibility (parameters, point maps, request plan, exchange, protocol codec) before any file approaches 1000 lines; the shared parameter reader stays in io_drivers.rs."
       },
@@ -2196,7 +2196,7 @@
         "crate_name": "trust-runtime-services",
         "module_name": "debug",
         "path": "crates/trust-runtime-services/src/debug",
-        "owner": "runtime portability debugging (specification 11 §6.13, specification 44 §13.2)",
+        "owner": "runtime portability debugging (specification 11 \u00a76.13, specification 44 \u00a713.2)",
         "rationale": "The shared debug operations of every runtime: the breakpoint record and its hit rule, the run control, the statement identity, the line sources, the request parsing, the reply shapes, the variable projection and its pages, and the reads of the interpreter's held state and of a compiled program's memory. Each is a real child module with its own tests beside it; the aggregate's size comes from those tests and from two read paths (the interpreter's and the compiled program's), not from one large implementation file or a mixed owner.",
         "review_date": "2026-10-24",
         "split_plan": "Keep requests.rs, replies.rs, reads.rs, compiled.rs, projection.rs, paging.rs, sources.rs, run.rs, breakpoint.rs and statement.rs on their own responsibilities. The interpreter's read path (reads.rs and its VariableStorage projection in projection.rs) goes with the bytecode engine at the one list's N11, which brings the module under the threshold; split any file approaching 1000 lines, a test file included, by the rules it pins."
@@ -2215,7 +2215,7 @@
         "module_name": "view",
         "path": "crates/trust-devices/src/view",
         "owner": "VS Code Devices & Connections (V7)",
-        "rationale": "The view namespace is the panel contract of specification 25 §5.15 and its projection, in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, connections, devices and links, the filter and search, issues, status reading and addresses, with their tests and golden scenarios beside them. The pane builders (add dialog, forms, USB tray) live in the sibling `panes` namespace and answer the pane types of this contract. No single file or mixed owner; about a third of the lines are tests.",
+        "rationale": "The view namespace is the panel contract of specification 25 \u00a75.15 and its projection, in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, connections, devices and links, the filter and search, issues, status reading and addresses, with their tests and golden scenarios beside them. The pane builders (add dialog, forms, USB tray) live in the sibling `panes` namespace and answer the pane types of this contract. No single file or mixed owner; about a third of the lines are tests.",
         "review_date": "2026-10-17",
         "split_plan": "Keep one child module per panel concern; B5 added connections, devices, links, search and issues as their own files. The panes now live in the sibling `panes` namespace beside `view` (add dialog, forms, USB tray; later Discover and browse), and new panes go there; their contract types stay in `view/types/panes.rs`. Split any file approaching 1000 lines by its responsibility."
       },
@@ -2224,7 +2224,7 @@
         "module_name": "actions",
         "path": "crates/trust-devices/src/actions",
         "owner": "VS Code Devices & Connections (V7)",
-        "rationale": "The panel's action path of specification 25 §5.4, §5.9, §5.13 and §5.14, in focused child modules: the closed action set and its dispatch, the host-effect lists, the forms and connection actions, the connection plans, the ADS route action, the runtime actions, and the one write path they share, each with its tests beside it. No single file or mixed owner; about half the lines are tests.",
+        "rationale": "The panel's action path of specification 25 \u00a75.4, \u00a75.9, \u00a75.13 and \u00a75.14, in focused child modules: the closed action set and its dispatch, the host-effect lists, the forms and connection actions, the connection plans, the ADS route action, the runtime actions, and the one write path they share, each with its tests beside it. No single file or mixed owner; about half the lines are tests.",
         "review_date": "2026-10-18",
         "split_plan": "Keep one child module per action family; B7 added `ads.rs` for the browse pane's `Create route` beside the plans. Split any file approaching 1000 lines by its responsibility, and put a new action family in its own child module."
       },
@@ -2233,7 +2233,7 @@
         "module_name": "panes",
         "path": "crates/trust-devices/src/panes",
         "owner": "VS Code Devices & Connections (V7)",
-        "rationale": "The panes beside the graph of specification 25 §2 and §5.12-§5.14, in focused child modules: the add dialog, the forms, the USB tray, and the browse panes (OPC UA nodes, EtherCAT channels, exposed globals and, with B8b1, the ADS tag browser in `browse/ads.rs`), each with its tests beside it. The aggregate crosses 5000 lines as the sum of these focused modules; no single file is near 1000 lines and about a third of the lines are tests.",
+        "rationale": "The panes beside the graph of specification 25 \u00a72 and \u00a75.12-\u00a75.14, in focused child modules: the add dialog, the forms, the USB tray, and the browse panes (OPC UA nodes, EtherCAT channels, exposed globals and, with B8b1, the ADS tag browser in `browse/ads.rs`), each with its tests beside it. The aggregate crosses 5000 lines as the sum of these focused modules; no single file is near 1000 lines and about a third of the lines are tests.",
         "review_date": "2026-10-18",
         "split_plan": "Keep one child module per pane concern; the browse panes keep one child per protocol family under `browse/`. Split any file approaching 1000 lines by its own responsibility."
       },
@@ -2533,7 +2533,7 @@
         "path": "crates/trust-runtime/src/control/plant_handlers/editor/actions.rs",
         "name": "apply",
         "owner": "runtime/plant editor",
-        "rationale": "one match over the plant editor's actions (specification 47 §20.1), each arm a short call into its module",
+        "rationale": "one match over the plant editor's actions (specification 47 \u00a720.1), each arm a short call into its module",
         "review_date": "2026-10-26",
         "split_plan": "move each group of arms (rows, matrices, starting point) into a function of its own module"
       },
@@ -3627,7 +3627,7 @@
         "path": "firmware/trust-stm32u5a9/src/main.rs",
         "line": 203,
         "owner": "native execution (specification 44)",
-        "invariant": "The module is the CODE section of an image the loader admitted on this device (specification 44 §10.2), in internal flash the CPU executes in place and that nothing writes while the program runs (§10.3).",
+        "invariant": "The module is the CODE section of an image the loader admitted on this device (specification 44 \u00a710.2), in internal flash the CPU executes in place and that nothing writes while the program runs (\u00a710.3).",
         "test_evidence": "cargo run -p xtask -- portability build-firmware stm32u5a9 (links); the device run is open: the STM32U5A9 is not connected.",
         "review_date": "2026-10-25"
       },
@@ -3667,7 +3667,7 @@
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
         "line": 151,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
-        "invariant": "NVIC::unmask enables OTG_HS only after bind has put the device in DEVICE, so the handler always finds it; the interrupt is the PAC's Interrupt::OTG_HS, number 73 (design §2.1).",
+        "invariant": "NVIC::unmask enables OTG_HS only after bind has put the device in DEVICE, so the handler always finds it; the interrupt is the PAC's Interrupt::OTG_HS, number 73 (design \u00a72.1).",
         "test_evidence": "The handler and the unmask are proved on the bench (S1b-9u); the servicing pass the handler runs is host-tested (tests/usb_service.rs).",
         "review_date": "2026-10-18"
       },
@@ -3675,7 +3675,7 @@
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
         "line": 184,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
-        "invariant": "read_volatile reads the three words of the chip's read-only 96-bit unique ID at 0x0BFA_0700 (design §2.5), in address order, and writes nothing.",
+        "invariant": "read_volatile reads the three words of the chip's read-only 96-bit unique ID at 0x0BFA_0700 (design \u00a72.5), in address order, and writes nothing.",
         "test_evidence": "The serial text the words build is host-tested (tests/usb_descriptors.rs); the read is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       },
@@ -3715,7 +3715,7 @@
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
         "line": 227,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
-        "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the on-chip high-speed PHY, driven at full speed with HIGH_SPEED false (design §2.1 and §2.2; PAC DIEPCTL0 to DIEPCTL8).",
+        "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the on-chip high-speed PHY, driven at full speed with HIGH_SPEED false (design \u00a72.1 and \u00a72.2; PAC DIEPCTL0 to DIEPCTL8).",
         "test_evidence": "Host test the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints pins the constants, and tests/usb_phy.rs pins the PHY values; the driver's use of them is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       },
@@ -3724,7 +3724,7 @@
         "line": 244,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the RCC read-modify-writes set only OTGEN (bit 14) and USBPHYCEN (bit 15) in RCC_AHB2ENR1, and SYSCFGEN (bit 1) in RCC_APB3ENR, so the OTG_HS, PHY and SYSCFG clocks run before the USB core is configured (PAC 0.16.0 field descriptions; stm32u5a9xx.h).",
-        "test_evidence": "The clock enables are proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "test_evidence": "The clock enables are proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design \u00a72.2).",
         "review_date": "2026-10-18"
       },
       {
@@ -3732,7 +3732,7 @@
         "line": 248,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the PWR read-modify-writes set only USV (PWR_SVMCR bit 28) and USBPWREN and USBBOOSTEN (PWR_VOSR bits 19 and 20), the USB supply, before the USB core is configured (PAC 0.16.0 field descriptions).",
-        "test_evidence": "The supply sequence is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "test_evidence": "The supply sequence is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design \u00a72.2).",
         "review_date": "2026-10-18"
       },
       {
@@ -3875,7 +3875,7 @@
         "path": "crates/trust-platform-esp32/src/hardware/image_window.rs",
         "line": 74,
         "owner": "runtime portability P1 (MEM-14, the program image in place)",
-        "invariant": "Builds the slice of the mapped bytes: the entries written above map len bytes of flash from address at this virtual address, readable through the cache. Nothing writes them while they are read: the program store writes no slot whose image a held program reads (spec 34 §5.1); each slot has a window of its own, mapped again only after the program that read it is dropped (ProgramFlash::map); and the install maps an upload written into a slot after its last write, with the window's cache lines dropped first.",
+        "invariant": "Builds the slice of the mapped bytes: the entries written above map len bytes of flash from address at this virtual address, readable through the cache. Nothing writes them while they are read: the program store writes no slot whose image a held program reads (spec 34 \u00a75.1); each slot has a window of its own, mapped again only after the program that read it is dropped (ProgramFlash::map); and the install maps an upload written into a slot after its last write, with the window's cache lines dropped first.",
         "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
         "review_date": "2026-10-22"
       },
@@ -3891,16 +3891,16 @@
         "path": "crates/trust-plc-abi/src/kernel.rs",
         "line": 26,
         "owner": "native execution (specification 44)",
-        "invariant": "Turning an address into an entry function is sound only for the address of an entry point of an admitted image in executable memory that stays mapped; the caller (the kernel's loader after the checks of specification 44 §10.2) promises it.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "Turning an address into an entry function is sound only for the address of an entry point of an admitted image in executable memory that stays mapped; the caller (the kernel's loader after the checks of specification 44 \u00a710.2) promises it.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
         "line": 29,
         "owner": "native execution (specification 44)",
-        "invariant": "The address is a function of the module with the EntryFn signature, as the caller of from_address promises; a data pointer and a function pointer have the same size on every target of specification 44 §4.4.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "The address is a function of the module with the EntryFn signature, as the caller of from_address promises; a data pointer and a function pointer have the same size on every target of specification 44 \u00a74.4.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -3908,7 +3908,7 @@
         "line": 100,
         "owner": "native execution (specification 44)",
         "invariant": "A context's raw pointers name memory its owning cycle owns with it (areas, breakpoint bits, function table); the cycle moves them as one and a module reads them only during a call on the cycle's thread.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -3916,7 +3916,7 @@
         "line": 172,
         "owner": "native execution (specification 44)",
         "invariant": "A module calls read_real with its own copy of the text, len bytes at text that it holds for the call (module::read_real), and null is refused before; the kernel only reads them during the call.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -3932,15 +3932,15 @@
         "line": 176,
         "owner": "native execution (specification 44)",
         "invariant": "out is the module's own aligned f64, which it holds for the call (module::read_real); null is refused before.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
         "line": 270,
         "owner": "native execution (specification 44)",
-        "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 §10.2) promises it.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 \u00a710.2) promises it.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -3948,7 +3948,7 @@
         "line": 285,
         "owner": "native execution (specification 44)",
         "invariant": "The module is executable and unchanged as the caller of InPlace::new promised, and offset is checked inside the module.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -3956,7 +3956,7 @@
         "line": 324,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -4027,7 +4027,7 @@
         "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
         "line": 112,
         "owner": "native execution (specification 44)",
-        "invariant": "The module lies in the slot the image window maps from flash, which the C6 executes in place; the program store never writes the running program's slot and the window is remapped only after that program is dropped (specification 34 §5.1, MEM-14).",
+        "invariant": "The module lies in the slot the image window maps from flash, which the C6 executes in place; the program store never writes the running program's slot and the window is remapped only after that program is dropped (specification 34 \u00a75.1, MEM-14).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 (24 October 2026, N4 bench): the program region of the heap holds the installed module's copy and the change's image, whose module runs where it lies.",
         "review_date": "2026-10-24"
       },
@@ -4043,7 +4043,7 @@
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
         "line": 351,
         "owner": "native execution (specification 44)",
-        "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 §12.3).",
+        "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
         "review_date": "2026-10-24"
       },
@@ -4076,14 +4076,14 @@
         "line": 52,
         "owner": "native execution (specification 44)",
         "invariant": "The view is created only after checking that the area is at least size_of::<T>() bytes, its base non-null and aligned for T; T: Plain makes every bit pattern a value that changes only through cells; the 's lifetime cannot outlive the entry call, during which the kernel keeps the area in place and writes nothing.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
         "line": 260,
         "owner": "native execution (specification 44)",
-        "invariant": "The elements of an open array are viewed only after checking that the reference is not NULL and of the current generation, and that count elements of size_of::<T>() bytes at its offset lie inside an existing area and are aligned for T (specification 44 §7.3); T: Plain makes every bit pattern a value of T, and the 's lifetime of the entry call makes the shared view sound as for view.",
+        "invariant": "The elements of an open array are viewed only after checking that the reference is not NULL and of the current generation, and that count elements of size_of::<T>() bytes at its offset lie inside an existing area and are aligned for T (specification 44 \u00a77.3); T: Plain makes every bit pattern a value of T, and the 's lifetime of the entry call makes the shared view sound as for view.",
         "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --test var_vla --test pointer_to_open_array.",
         "review_date": "2026-10-25"
       },
@@ -4091,24 +4091,24 @@
         "path": "crates/trust-plc-abi/src/module.rs",
         "line": 269,
         "owner": "native execution (specification 44)",
-        "invariant": "A reference's target is viewed only after checking that the reference is not NULL and of the current generation, and that size_of::<T>() bytes at its offset lie inside an existing area and are aligned for T; a dereference also checks that the reference spans exactly those bytes, and an instance view that the instance holds the expected class id (specification 44 §6.4, §7.3); T: Plain makes every bit pattern of those bytes a value of T, and the 's lifetime of the entry call makes the shared view sound as for view.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "A reference's target is viewed only after checking that the reference is not NULL and of the current generation, and that size_of::<T>() bytes at its offset lie inside an existing area and are aligned for T; a dereference also checks that the reference spans exactly those bytes, and an instance view that the instance holds the expected class id (specification 44 \u00a76.4, \u00a77.3); T: Plain makes every bit pattern of those bytes a value of T, and the 's lifetime of the entry call makes the shared view sound as for view.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
         "line": 340,
         "owner": "native execution (specification 44)",
-        "invariant": "The kernel calls an entry point with its own non-null context, valid and used by nothing else until the call returns (specification 44 §8.3); null is refused before.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "The kernel calls an entry point with its own non-null context, valid and used by nothing else until the call returns (specification 44 \u00a78.3); null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
         "line": 441,
         "owner": "native execution (specification 44)",
-        "invariant": "index is below breakpoint_bytes and the kernel keeps breakpoint_bytes readable bytes at breakpoints for the call (specification 44 §13.2); null is refused before.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "index is below breakpoint_bytes and the kernel keeps breakpoint_bytes readable bytes at breakpoints for the call (specification 44 \u00a713.2); null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -4116,7 +4116,7 @@
         "line": 446,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -4124,7 +4124,7 @@
         "line": 466,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
@@ -4242,7 +4242,7 @@
       {
         "path_prefix": "crates/trust-plc-mem/src/lib.rs",
         "owner": "native execution (specification 44)",
-        "invariant": "The memory functions of a computer's module (specification 44 §4.5): memcpy, memmove, memset, memcmp and bcmp, each exported with #[unsafe(no_mangle)] under the C name and with the C contract the compiler calls it by, which the AST scan sees as unsafe functions and the full map's token scan as unsafe attributes, so the file is owned whole. Each reads and writes through the raw pointers of its contract, valid for n bytes, with volatile accesses at indexes below n; memmove copies in the direction that reads every byte before it is overwritten. Only a computer's module links the crate, and such a module links no C library that defines these names. No other unsafe code lives in the file.",
+        "invariant": "The memory functions of a computer's module (specification 44 \u00a74.5): memcpy, memmove, memset, memcmp and bcmp, each exported with #[unsafe(no_mangle)] under the C name and with the C contract the compiler calls it by, which the AST scan sees as unsafe functions and the full map's token scan as unsafe attributes, so the file is owned whole. Each reads and writes through the raw pointers of its contract, valid for n bytes, with volatile accesses at indexes below n; memmove copies in the direction that reads every byte before it is overwritten. Only a computer's module links the crate, and such a module links no C library that defines these names. No other unsafe code lives in the file.",
         "test_evidence": "cargo test -p trust-runtime --test native_stdlib: the text family's module for x86-64 calls memset and memcpy for its 340-byte texts, and every value matches the runtime's.",
         "review_date": "2026-10-22"
       },
@@ -4256,21 +4256,21 @@
       {
         "path_prefix": "crates/trust-plc-abi/src/plain.rs",
         "owner": "native execution (specification 44)",
-        "invariant": "The Plain contract of the area types (specification 44 §6.3): the unsafe trait declaration and its implementations for cells of integers, floats and RefValue, arrays of Plain, Str and WStr, and plain_struct!'s implementation for a #[repr(C)] structure whose ZEROED value names each field's <$ty as Plain>::ZEROED, which fails the build for a field that is not Plain. No other unsafe code lives in the file.",
-        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "The Plain contract of the area types (specification 44 \u00a76.3): the unsafe trait declaration and its implementations for cells of integers, floats and RefValue, arrays of Plain, Str and WStr, and plain_struct!'s implementation for a #[repr(C)] structure whose ZEROED value names each field's <$ty as Plain>::ZEROED, which fails the build for a field that is not Plain. No other unsafe code lives in the file.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
       },
       {
         "path_prefix": "crates/trust-plc-abi/src/kernel/icache.rs",
         "owner": "native execution (specification 44)",
-        "invariant": "The instruction cache made coherent with a module the computer's kernel copied into its own mapping, before the code runs (specification 44 §10.3): the declaration of Apple's sys_icache_invalidate (libSystem, compiled only for AArch64 macOS) and its call on the caller's readable and writable mapping, and on AArch64 Linux the reading of CTR_EL0 and the cache maintenance by address (DC CVAU, IC IVAU, DSB, ISB) that EL0 may do, on addresses inside that mapping, which change no memory. No other unsafe code lives in the file.",
-        "test_evidence": "cargo test -p trust-plc-abi --features host (a_module_mapped_where_another_ran_runs_its_own_instructions); every generated module is mapped through this function in the pasteurizer runs of specification 44 §14.1.",
+        "invariant": "The instruction cache made coherent with a module the computer's kernel copied into its own mapping, before the code runs (specification 44 \u00a710.3): the declaration of Apple's sys_icache_invalidate (libSystem, compiled only for AArch64 macOS) and its call on the caller's readable and writable mapping, and on AArch64 Linux the reading of CTR_EL0 and the cache maintenance by address (DC CVAU, IC IVAU, DSB, ISB) that EL0 may do, on addresses inside that mapping, which change no memory. No other unsafe code lives in the file.",
+        "test_evidence": "cargo test -p trust-plc-abi --features host (a_module_mapped_where_another_ran_runs_its_own_instructions); every generated module is mapped through this function in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-28"
       },
       {
         "path_prefix": "crates/trust-plc-abi/src/open.rs",
         "owner": "native execution (specification 44)",
-        "invariant": "The Plain contract of the open-array reference (specification 44 §7.3): OpenRef is #[repr(C)] of a RefValue cell and i64 cells, every bit pattern of which is a value, and all zeros is NULL with no bounds.",
+        "invariant": "The Plain contract of the open-array reference (specification 44 \u00a77.3): OpenRef is #[repr(C)] of a RefValue cell and i64 cells, every bit pattern of which is a value, and all zeros is NULL with no bounds.",
         "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --test var_vla --test pointer_to_open_array.",
         "review_date": "2026-10-25"
       },
