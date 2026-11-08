@@ -22,7 +22,7 @@ use serde::Serialize;
 use serde_json::json;
 
 use crate::commissioning::application_records::review_identity;
-use crate::experiment::plan::project_stop_conditions;
+use crate::experiment::plan::{permitted_range, project_stop_conditions};
 use crate::experiment::{ControlExperimentKind, ExperimentSample};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::acquisition_settings::{
@@ -174,7 +174,7 @@ pub struct AbortReview {
 
 /// The stop conditions of an identification campaign that Control Studio runs, in the words its approval shows (B3.4 step 6, B3.9).
 const CAMPAIGN_STOP_CONDITIONS: [&str; 2] = [
-    "The runtime stops the campaign when the plant input it writes leaves its limits (B3.4 step 6).",
+    "The runtime stops the campaign when the plant input it writes leaves its limits, or when the measured output leaves its permitted range (B3.4 step 6).",
     "Abort, a failure, a forced signal, a mode left, a reload or a restart stops it at once, and the runtime restores what it wrote (B3.9).",
 ];
 
@@ -277,8 +277,9 @@ pub fn campaign_review(
     let execution = experiment.map_or(Execution::ControlStudio, |experiment| experiment.execution);
     let amplitude = experiment.map_or(0.0, |experiment| experiment.amplitude);
     let output_range = configured.signals.process_variable.range;
-    let scripted = project_scripted(&configured)
-        .map(|experiment| project_scripted_review(experiment, maximum_duration_seconds));
+    let scripted = project_scripted(&configured).map(|experiment| {
+        project_scripted_review(experiment, maximum_duration_seconds, &configured)
+    });
     let approval = sample
         .is_some_and(|sample| sample.source == EvidenceSource::PhysicalPlant)
         .then(|| {
@@ -327,6 +328,7 @@ pub fn campaign_review(
 fn project_scripted_review(
     experiment: &Experiment,
     duration_seconds: f64,
+    loop_definition: &LoopDefinition,
 ) -> ProjectScriptedReview {
     ProjectScriptedReview {
         baseline_seconds: experiment.baseline_seconds,
@@ -343,6 +345,7 @@ fn project_scripted_review(
                     .asserted_value
                     .map(|asserted| (abort.symbol.as_str(), asserted))
             }),
+            loop_definition,
         ),
         test_signal: Some(experiment.activation.as_ref().map_or_else(
             || OBSERVATION_ONLY.to_owned(),
@@ -388,9 +391,18 @@ fn campaign_approval(
     };
     let stop_conditions = match project_scripted {
         Some(scripted) => scripted.stop_conditions.clone(),
+        // The measured output's permitted range is named, so the engineer approves the band the runtime stops at (B3.4
+        // step 6, B9.3).
         None => CAMPAIGN_STOP_CONDITIONS
             .iter()
             .map(|text| (*text).to_owned())
+            .chain((!signals.is_empty()).then(|| {
+                format!(
+                    "Here it stops the campaign when {} leaves {}.",
+                    loop_definition.signals.process_variable.symbol,
+                    permitted_range(loop_definition)
+                )
+            }))
             .collect(),
     };
     let message = if project_scripted.is_some() {

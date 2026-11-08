@@ -107,8 +107,56 @@ fn setpoint_stop_conditions(seconds: &str) -> Vec<String> {
         "Bad runtime data".to_string(),
         "Signal force".to_string(),
         "Signal outside its limits".to_string(),
+        "LevelPV outside 0 to 100 %".to_string(),
         "Runtime fault".to_string(),
     ]
+}
+
+/// The guard of a plan on the fixture loop: its measured output `LevelPV` at `%IL0`, within its permitted range of 0 to
+/// 100 % (B3.4 step 6).
+fn level_guard() -> PlanMeasurementGuard {
+    PlanMeasurementGuard {
+        symbol: "LevelPV".to_string(),
+        address: Some("%IL0".to_string()),
+        minimum: 0.0,
+        maximum: 100.0,
+        unit: "%".to_string(),
+    }
+}
+
+/// B3.4 step 6, annex E5.3: every plan that writes carries the measured output's guard, `LevelPV` within 0 to 100 %, and
+/// lists it among its stop conditions; an observation writes nothing and carries none. Wrong behaviour caught: a plan whose
+/// runtime would hold a step while the measurement leaves its permitted range.
+#[test]
+fn a_plan_that_writes_is_guarded_by_the_measured_outputs_permitted_range_and_an_observation_is_not()
+{
+    let manual_sample = manual(sample());
+    for (kind, sample) in [
+        (ControlExperimentRequestKind::SetpointStep, sample()),
+        (ControlExperimentRequestKind::MvStep, manual_sample.clone()),
+        (ControlExperimentRequestKind::MvPulse, manual_sample),
+    ] {
+        let plan = accepted(request(&loop_definition(), &sample, kind, 5.0, 30.0));
+        assert_eq!(plan.measurement_guard, Some(level_guard()), "{kind:?}");
+        assert!(
+            plan.stop_conditions
+                .contains(&"LevelPV outside 0 to 100 %".to_string()),
+            "{kind:?}: {:?}",
+            plan.stop_conditions
+        );
+    }
+    let observation = accepted(request(
+        &loop_definition(),
+        &sample(),
+        ControlExperimentRequestKind::Observation,
+        0.0,
+        30.0,
+    ));
+    assert_eq!(observation.measurement_guard, None);
+    assert!(!observation
+        .stop_conditions
+        .iter()
+        .any(|condition| condition.starts_with("LevelPV")));
 }
 
 #[test]

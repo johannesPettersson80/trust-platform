@@ -12,7 +12,7 @@
 use trust_control_math::sampling::statistics::TimedValue;
 
 use crate::experiment::number_text::{js_number, js_round, js_to_fixed, js_to_precision};
-use crate::experiment::{experiment_recording_window_ms, RestorationState};
+use crate::experiment::{experiment_recording_window_ms, PlanMeasurementGuard, RestorationState};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::acquisition_settings::{AcquisitionError, DURATION_FIELD};
 use crate::identification::connected_run::recording_settling_ms;
@@ -380,9 +380,21 @@ pub fn experiment_stop_failure(completed: bool, stop_reason: Option<&str>) -> Op
     ))
 }
 
+/// Why an experiment that its measurement guard stopped does not qualify its recording (B3.4 step 6, B3.9): the measured
+/// output, the value the runtime read and the limit it passed, and the smaller step to try.
+#[must_use]
+pub fn measurement_stop_failure(guard: &PlanMeasurementGuard, value: Option<f64>) -> String {
+    format!(
+        "The experiment stopped before its hold ended: {}, so the runtime restored what it wrote. The recording is kept and \
+         is not qualified for a fit. Identify again with a smaller step.",
+        guard.stop_reason(value)
+    )
+}
+
 fn stop_reason_text(reason: &str) -> String {
     match reason {
         "user_abort" => "it was aborted".to_string(),
+        "measurement_outside_limits" => "the measured output left its permitted range".to_string(),
         "mode_changed" => "the loop left the mode the experiment requires".to_string(),
         "physical_approval_required" => "physical approval was not given".to_string(),
         "stale_scan" => "runtime data went stale".to_string(),

@@ -4,7 +4,7 @@ use serde_json::json;
 
 use super::*;
 use crate::experiment::{
-    ControlEvidenceSource, ExperimentValue, PlanAuxiliarySignal, PlanSignal,
+    ControlEvidenceSource, ExperimentValue, PlanAuxiliarySignal, PlanMeasurementGuard, PlanSignal,
     RecordingRecoveryBinding,
 };
 use crate::identification::connected_record::connected_identification_record;
@@ -444,11 +444,11 @@ fn a_start_whose_review_changed_is_refused_with_no_next_action() {
 #[test]
 fn a_hold_completes_only_when_its_command_is_restored_after_its_planned_end() {
     let finished = json!({ "status": "completed", "restoration": "restored", "stop_reason": "finished_early" });
-    assert_eq!(hold_end(&finished), HoldEnd::Completed);
+    assert_eq!(hold_end(&plan(), &finished), HoldEnd::Completed);
     assert!(ended_and_restored(&finished));
     let aborted =
         json!({ "status": "aborted", "restoration": "restored", "stop_reason": "user_abort" });
-    let HoldEnd::Stopped(stopped) = hold_end(&aborted) else {
+    let HoldEnd::Stopped(stopped) = hold_end(&plan(), &aborted) else {
         panic!("an aborted hold stopped early");
     };
     assert_eq!(
@@ -461,7 +461,7 @@ fn a_hold_completes_only_when_its_command_is_restored_after_its_planned_end() {
     );
     let unrestored = json!({ "status": "failed_to_restore", "restoration": "failed", "stop_reason": "duration_complete" });
     assert_eq!(
-        hold_end(&unrestored),
+        hold_end(&plan(), &unrestored),
         HoldEnd::Unrestored(Failure::new(
             UNRESTORED_TEXT,
             Cause::Unclassified,
@@ -970,13 +970,74 @@ fn a_step_on_a_loop_without_a_plant_input_range_is_refused_with_open_limits() {
     );
 }
 
+/// B3.4 step 6, B3.9: a stop by the measurement guard names the measured output, the value the runtime read (annex E5.6)
+/// and the limit it passed, and says that the runtime restored what it wrote; the detail asks for a smaller step. Worked from
+/// the guard `LevelPV` within 0 to 100 %: 104.2 is above the maximum, -3 below the minimum, and a stop without a value
+/// names the range. Wrong behaviour caught: a guard stop reported as "stop reason `measurement_outside_limits`", which names
+/// neither the value nor what to do.
+#[test]
+fn a_hold_stopped_by_the_measurement_guard_names_the_value_the_limit_and_a_smaller_step() {
+    let mut guarded = plan();
+    guarded.measurement_guard = Some(PlanMeasurementGuard {
+        symbol: "LevelPV".to_string(),
+        address: Some("%IL0".to_string()),
+        minimum: 0.0,
+        maximum: 100.0,
+        unit: "%".to_string(),
+    });
+    let stopped_at = |value: Value| {
+        let state = json!({
+            "status": "failed", "restoration": "restored", "stop_reason": "measurement_outside_limits",
+            "measurement_guard": { "address": "%IL0", "minimum": 0.0, "maximum": 100.0, "value": value }
+        });
+        match hold_end(&guarded, &state) {
+            HoldEnd::Stopped(failure) => failure,
+            other => panic!("a guard stop stopped the hold, got {other:?}"),
+        }
+    };
+    let above = stopped_at(json!(104.2));
+    assert_eq!(
+        above.message,
+        "The experiment stopped before its hold ended: LevelPV reached 104.2 %, above its permitted maximum of 100 %, so \
+         the runtime restored what it wrote."
+    );
+    assert!(
+        above
+            .detail
+            .as_deref()
+            .is_some_and(|detail| detail.ends_with(
+                "The recording is kept and is not qualified for a fit. Identify again with a smaller step."
+            )),
+        "{above:?}"
+    );
+    assert_eq!(
+        stopped_at(json!(-3)).message,
+        "The experiment stopped before its hold ended: LevelPV reached -3 %, below its permitted minimum of 0 %, so the \
+         runtime restored what it wrote."
+    );
+    assert_eq!(
+        stopped_at(json!(null)).message,
+        "The experiment stopped before its hold ended: LevelPV left its permitted range of 0 to 100 %, so the runtime \
+         restored what it wrote."
+    );
+    // A plan kept before plans had guards still words the stop.
+    let unguarded = json!({ "status": "failed", "restoration": "restored", "stop_reason": "measurement_outside_limits" });
+    let HoldEnd::Stopped(stopped) = hold_end(&plan(), &unguarded) else {
+        panic!("a guard stop stopped the hold");
+    };
+    assert_eq!(
+        stopped.message,
+        "The experiment stopped before its hold ended: the measured output left its permitted range."
+    );
+}
+
 // Section 0.1b and the layer contract's D6: a hold that the engineer's Cancel aborted ends as the cancellation, so the verb
 // ends as interrupted (130); a hold that stopped for another reason keeps its failure (1).
 #[test]
 fn a_hold_stopped_by_the_engineers_cancel_is_the_cancellation() {
     let aborted =
         json!({ "status": "aborted", "restoration": "restored", "stop_reason": "user_abort" });
-    let HoldEnd::Stopped(stopped) = hold_end(&aborted) else {
+    let HoldEnd::Stopped(stopped) = hold_end(&plan(), &aborted) else {
         panic!("an aborted hold stopped early");
     };
     assert_eq!(
