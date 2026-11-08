@@ -132,7 +132,9 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_extends_clause(&mut self) {
         self.start_node(SyntaxKind::ExtendsClause);
         self.bump(); // EXTENDS
-        if self.at(TokenKind::Ident) {
+        if self.at(TokenKind::KwSystemDunder) {
+            self.parse_system_name();
+        } else if self.at(TokenKind::Ident) {
             if self.peek_kind_n(1) == TokenKind::Dot {
                 self.parse_qualified_name();
             } else {
@@ -147,7 +149,9 @@ impl Parser<'_, '_> {
         self.start_node(SyntaxKind::ImplementsClause);
         self.bump(); // IMPLEMENTS
 
-        if self.at(TokenKind::Ident) {
+        if self.at(TokenKind::KwSystemDunder) {
+            self.parse_system_name();
+        } else if self.at(TokenKind::Ident) {
             if self.peek_kind_n(1) == TokenKind::Dot {
                 self.parse_qualified_name();
             } else {
@@ -157,7 +161,9 @@ impl Parser<'_, '_> {
 
         while self.at(TokenKind::Comma) {
             self.bump();
-            if self.at(TokenKind::Ident) {
+            if self.at(TokenKind::KwSystemDunder) {
+                self.parse_system_name();
+            } else if self.at(TokenKind::Ident) {
                 if self.peek_kind_n(1) == TokenKind::Dot {
                     self.parse_qualified_name();
                 } else {
@@ -166,6 +172,24 @@ impl Parser<'_, '_> {
             }
         }
 
+        self.finish_node();
+    }
+
+    /// Parse CODESYS's `__SYSTEM.<name>`, a system interface in an EXTENDS or IMPLEMENTS list
+    /// (specification 04).
+    fn parse_system_name(&mut self) {
+        self.start_node(SyntaxKind::SystemName);
+        self.bump(); // __SYSTEM
+        if self.at(TokenKind::Dot) {
+            self.bump();
+            if self.at(TokenKind::Ident) {
+                self.bump();
+            } else {
+                self.error("expected name after '.'");
+            }
+        } else {
+            self.error("expected '.' after __SYSTEM");
+        }
         self.finish_node();
     }
 }

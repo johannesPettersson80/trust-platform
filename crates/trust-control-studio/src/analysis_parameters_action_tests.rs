@@ -602,6 +602,7 @@ fn recording_owner(loop_definition: &LoopDefinition, recording_id: &str) -> Reco
             address: Some("%IL0".to_string()),
             symbol: None,
             iec_type: "LREAL".to_string(),
+            mode: None,
         }],
     }
 }

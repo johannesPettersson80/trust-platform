@@ -180,6 +180,9 @@ pub struct RecordingRecoveryBinding {
     pub symbol: Option<String>,
     /// The signal's IEC type.
     pub iec_type: String,
+    /// The members of an enumeration mode signal (annex E3, E4), which the runtime reads as 1 in Manual and 0 in Auto.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::signals::SignalMode>,
 }
 
 /// The persistable identity of a recording a reopened panel stops, with no credentials and no data

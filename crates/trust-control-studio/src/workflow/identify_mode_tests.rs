@@ -93,7 +93,8 @@ fn mode_operation(journal: &Mutex<Journal>) -> String {
 /// B3.4 step 1, A6.3 and E11.2: a plant-input method on a loop in Auto enters Manual through one transfer of the mode binding,
 /// which writes every state as the runtime holds it and carries the declared states unaligned, so the Manual command takes the
 /// held output of 30 %. The mode found is journaled as the checkpoint before anything is sent, the transfer's owner is in the
-/// journal before its apply reaches the runtime, and the confirmed owner is let go. A transfer to Manual allows 1e-6 (E6.9).
+/// journal before its apply reaches the runtime, and the confirmed owner is let go. A transfer to Manual allows the exact check, a
+/// millionth of the 0..100 % output span, 1e-4 (A6.4, E6.9).
 #[test]
 fn entering_manual_journals_the_mode_found_and_the_transfers_owner_before_its_apply() {
     let folder = folder("mode-enter");
@@ -118,7 +119,8 @@ fn entering_manual_journals_the_mode_found_and_the_transfers_owner_before_its_ap
     let apply = &applies[0];
     assert_eq!(apply["binding"]["loop_id"], "tank:identification-mode");
     assert_eq!(apply["manual"].as_bool(), Some(true));
-    assert_eq!(apply["maximum_output_change"].as_f64(), Some(1e-6));
+    let allowed = apply["maximum_output_change"].as_f64().expect("a number");
+    assert!((allowed - 1e-4).abs() < 1e-12, "{allowed}");
     assert_eq!(
         numbers(&apply["values"]),
         BTreeMap::from([
@@ -156,7 +158,7 @@ fn entering_manual_journals_the_mode_found_and_the_transfers_owner_before_its_ap
 /// A6.2, A6.4, C1 and E11.9: the return of a loop found in Auto writes its setpoint back in Manual, on the transfer loop of the
 /// commands with the record's gains as guards and no tracking, and not its Manual command: written in Manual, the found command
 /// (12) would move the held output (30) by 18 before the Auto entry. That write moves no output, so it allows the mode change's
-/// own 1e-6. The loop then enters Auto from the output it holds, with the states as they are. With the baseline's noise
+/// own exact check, 1e-4. The loop then enters Auto from the output it holds, with the states as they are. With the baseline's noise
 /// n = 0.05 and no error, the first output may move by the PID's response 2·|Kp|·n + |Ki|·Δt·n = 2·2·0.05 + 0.1·0.1·0.05 =
 /// 0.2005. The checkpoint is cleared once the runtime confirmed every transfer.
 #[test]
@@ -195,7 +197,10 @@ fn the_return_writes_the_setpoint_back_in_manual_and_enters_auto_from_the_output
         applies[1].get("tracking").is_none(),
         "the commands carry no tracking"
     );
-    assert_eq!(applies[1]["maximum_output_change"].as_f64(), Some(1e-6));
+    let written_back = applies[1]["maximum_output_change"]
+        .as_f64()
+        .expect("a number");
+    assert!((written_back - 1e-4).abs() < 1e-12, "{written_back}");
     assert_eq!(applies[2]["manual"].as_bool(), Some(false));
     let allowance = applies[2]["maximum_output_change"]
         .as_f64()
@@ -421,6 +426,7 @@ fn a_runtime_without_transfers_refuses_a_method_that_needs_the_other_mode() {
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let failure = run_tank(
         &state,
@@ -689,6 +695,7 @@ fn after_a_restart_the_cancel_of_the_journaled_mode_returns_the_loop_to_auto() {
         &loop_definition,
         &operation_id,
         &mut study,
+        None,
     )
     .expect("the Cancel returns the mode");
 
@@ -725,6 +732,7 @@ fn reopening_follows_the_experiment_returns_the_mode_and_then_fits() {
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let resumed = resume(
         RecoveryPorts {
@@ -787,6 +795,7 @@ fn reopening_an_identification_whose_experiment_never_started_returns_the_mode()
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let Err(failure) = resume(
         RecoveryPorts {
@@ -896,6 +905,7 @@ fn the_cancel_of_a_journaled_apply_is_refused_and_names_restore() {
         &loop_definition,
         "checkpoint-1",
         &mut study,
+        None,
     )
     .expect_err("an Apply is ended by Restore");
 

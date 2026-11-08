@@ -59,10 +59,7 @@ fn binding() -> ParameterBinding {
             parameter("P1.MinimumOnS", "s"),
             parameter("P1.MinimumOffS", "s"),
         ],
-        mode: ModeBinding {
-            symbol: "P1.AutoMode".to_owned(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("P1.AutoMode".to_owned(), false),
     }
 }
 

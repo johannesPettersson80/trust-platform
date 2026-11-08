@@ -164,6 +164,7 @@ impl Lab {
                 symbol: Some(symbol.into()),
                 iec_type: "LREAL".into(),
                 unit: None,
+                mode: None,
             })
             .collect();
         let mut client = RuntimeClient::connect(&self.connection).expect("connected");
@@ -241,6 +242,7 @@ fn run_request(
         parameter_overrides: Vec::new(),
         simulation_override: None,
         feedback_relay: None,
+        mode_bindings: Vec::new(),
     }
 }
 

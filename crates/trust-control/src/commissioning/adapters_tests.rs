@@ -145,6 +145,7 @@ fn pd_seed() -> ParallelPidSeed {
         proportional_symbol: "Main.Program.Kp".to_owned(),
         integral_symbol: None,
         derivative_symbol: Some("Main.Program.Kd".to_owned()),
+        form: crate::tuning::project_seed::GainForm::Parallel,
     }
 }
 

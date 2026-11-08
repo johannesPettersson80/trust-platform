@@ -71,15 +71,9 @@ pub struct TransferMember {
     pub maximum: f64,
 }
 
-/// A mode of a transfer: a BOOL variable, and the value that means Manual (E6.2).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct TransferModeBinding {
-    /// The mode variable's path.
-    pub symbol: String,
-    /// The value that means Manual.
-    pub manual_value: bool,
-}
+/// A mode of a transfer (E6.2): the loop file's mode binding, a BOOL with its Manual value or an enumeration with its Manual and
+/// Auto members (specification 35 A6.1).
+pub type TransferModeBinding = crate::loop_definition::ModeBinding;
 
 /// The binding of one transfer (annex E6.2): the loop, its task, its mode and the members it writes or checks. An
 /// omitted optional field of the protocol is an empty list or map here.
@@ -313,10 +307,7 @@ fn command_binding(loop_definition: &LoopDefinition) -> Option<(String, Transfer
 }
 
 fn mode_binding(parameters: &ParameterBinding) -> TransferModeBinding {
-    TransferModeBinding {
-        symbol: parameters.mode.symbol.clone(),
-        manual_value: parameters.mode.manual_value,
-    }
+    parameters.mode.clone()
 }
 
 /// The binding of a proportional commissioning (`proportionalTransferBinding`, A6.3). The reference and the Manual command

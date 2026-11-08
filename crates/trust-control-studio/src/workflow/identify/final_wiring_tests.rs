@@ -64,6 +64,7 @@ fn an_identification_keeps_its_recording_in_the_study_with_its_verdict_before_re
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let Err(failure) = run_tank(&state, &journal, &mut study, &request, RunPurpose::Identify)
     else {
@@ -142,6 +143,7 @@ fn a_recording_the_study_cannot_keep_stays_in_the_runtime_and_journaled_until_th
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let Err(failure) = run_tank(&state, &journal, &mut study, &request, RunPurpose::Identify)
     else {

@@ -1,5 +1,6 @@
 //! The test declarations of a project's Structured Text (specification 22, "Test POU discovery";
-//! specification 25 §11.1): every `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK`, with its kind, its
+//! specification 25 §11.1): every `TEST_PROGRAM`, `TEST_FUNCTION_BLOCK` and `PROGRAM` with
+//! `{attribute 'test'}`, as `trust_hir::test_pous` decides them, with its kind, its
 //! namespace-qualified name, its file, its one-based declaration line and that line's text.
 //!
 //! `trust-dev test` runs what this finds, and the VS Code extension's Testing view and its Run Test
@@ -8,28 +9,10 @@
 use std::path::{Path, PathBuf};
 
 use smol_str::SmolStr;
+use trust_hir::test_pous::test_kind;
+pub use trust_hir::test_pous::TestKind;
 use trust_syntax::parser;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
-
-/// The kind of a test declaration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TestKind {
-    /// `TEST_PROGRAM`.
-    Program,
-    /// `TEST_FUNCTION_BLOCK`.
-    FunctionBlock,
-}
-
-impl TestKind {
-    /// The keyword that declares the kind: `TEST_PROGRAM` or `TEST_FUNCTION_BLOCK`.
-    #[must_use]
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Program => "TEST_PROGRAM",
-            Self::FunctionBlock => "TEST_FUNCTION_BLOCK",
-        }
-    }
-}
 
 /// One test declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,11 +41,7 @@ pub fn discover_tests<'a>(
         let parse = parser::parse(text);
         let syntax = parse.syntax();
         for node in syntax.descendants() {
-            let kind = match node.kind() {
-                SyntaxKind::Program | SyntaxKind::FunctionBlock => test_kind_for_node(&node),
-                _ => None,
-            };
-            let Some(kind) = kind else {
+            let Some(kind) = test_kind(&node) else {
                 continue;
             };
             let Some(name) = qualified_pou_name(&node) else {
@@ -93,18 +72,6 @@ pub fn discover_tests<'a>(
             .then(left.name.cmp(&right.name))
     });
     tests
-}
-
-fn test_kind_for_node(node: &SyntaxNode) -> Option<TestKind> {
-    let first_token = node
-        .children_with_tokens()
-        .filter_map(|element| element.into_token())
-        .find(|token| !token.kind().is_trivia())?;
-    match first_token.kind() {
-        SyntaxKind::KwTestProgram => Some(TestKind::Program),
-        SyntaxKind::KwTestFunctionBlock => Some(TestKind::FunctionBlock),
-        _ => None,
-    }
 }
 
 /// The name of a test POU with the namespaces around it, outermost first. A dotted namespace name,

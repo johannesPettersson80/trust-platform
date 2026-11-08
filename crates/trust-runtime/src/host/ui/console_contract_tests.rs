@@ -581,3 +581,35 @@ fn fetch_transaction_uses_stable_order_ids_limit_and_auth() {
     drop(captured);
     finish_scripted_client(client, server);
 }
+
+// Specification 11, 6.8.1: the console's `break <file>:<line>` takes the line an editor shows,
+// from 1, and asks for the protocol's zero-based line; a line 0 is refused with no request sent.
+// Catches line 12 sent as 12 (the next statement), and line 0 sent as line 1.
+#[test]
+fn console_break_takes_a_one_based_line() {
+    let (mut client, requests, server) =
+        scripted_client(vec![json!({"ok": true, "result": {"status": "ok"}})]);
+    let mut state = state();
+    state.prompt.activate_with("/control break main.st:0");
+    handle_prompt_key(KeyEvent::from(KeyCode::Enter), &mut client, &mut state)
+        .expect("refuse line 0");
+    assert!(
+        output_text(&state).contains("counted from 1"),
+        "{}",
+        output_text(&state)
+    );
+    state.prompt.activate_with("/control break main.st:12");
+    handle_prompt_key(KeyEvent::from(KeyCode::Enter), &mut client, &mut state)
+        .expect("set the breakpoint");
+    finish_scripted_client(client, server);
+    let requests = requests.lock().expect("lock request log");
+    let sets: Vec<_> = requests
+        .iter()
+        .filter(|request| request["type"] == "breakpoints.set")
+        .collect();
+    assert_eq!(sets.len(), 1, "{requests:?}");
+    assert_eq!(
+        sets[0]["params"],
+        json!({"source": "main.st", "lines": [11]})
+    );
+}

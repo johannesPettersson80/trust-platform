@@ -208,6 +208,10 @@ pub fn start_request(
             "symbol": mode.symbol,
             "manual_value": mode.manual_value,
         });
+        // An enumeration names its Auto member too (protocol annex E5.3).
+        if let Some(auto) = &mode.auto_value {
+            request["mode_binding"]["auto_value"] = json!(auto);
+        }
     }
     if let Some(relay) = &plan.relay_feedback {
         request["relay_feedback"] = json!({

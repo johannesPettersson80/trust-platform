@@ -74,10 +74,14 @@ package "Database Layer" as dbLayer #LightGreen {
         the symbol table.
 
         Unused-POU analysis reuses scoped
-        POU identity. Native TEST_PROGRAM
-        and TEST_FUNCTION_BLOCK declarations
-        are test-runner entry points; unused
-        production POUs and test locals still warn.
+        POU identity. Test declarations
+        (test_pous: TEST_PROGRAM,
+        TEST_FUNCTION_BLOCK, a PROGRAM with
+        {attribute 'test'}) are test-runner
+        entry points; unused production POUs
+        and test locals still warn. Test
+        discovery, the build and the language
+        server's run entry ask the same rule.
 
         Observability/cancellation:
         - `TRUST_HIR_SALSA_EVENT_METRICS=1`

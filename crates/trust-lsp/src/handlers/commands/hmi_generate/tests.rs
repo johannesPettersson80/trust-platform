@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use super::super::{LoadedSource, ProjectInputs};
 use super::*;
+use trust_runtime::stdlib::conversions::ConversionProfile;
 
 /// The Plant library and the libraries it uses, as sources.
 fn library_sources() -> Vec<LoadedSource> {
@@ -111,6 +112,7 @@ impl Fixture {
             root,
             sources,
             open,
+            profile: ConversionProfile::Iec,
         }
     }
 

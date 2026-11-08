@@ -123,17 +123,19 @@ pub(crate) fn requirements_with(
 
 /// The requirements the study's current model needs now, as Tune designs to them (B4.3; the answers name them): the values the
 /// study records as given, the method and the declared response its inputs name (the request that the automatic run's Tune is
-/// given from the same inputs), and Automatic's values for the rest, listed in `automaticCriteria`. `None` when Automatic cannot
-/// form the record or the record breaks its rules: Tune then names the missing prerequisite when it runs (B4.7). Before the engineer
-/// has changed any requirement, this is the record the page shows, which a first change is compared with (`keep_generated_fields`).
-#[must_use]
+/// given from the same inputs), and Automatic's values for the rest, listed in `automaticCriteria`. Before the engineer has changed
+/// any requirement, this is the record the page shows, which a first change is compared with (`keep_generated_fields`).
+///
+/// # Errors
+/// Returns the [`Refusal`] that names the missing prerequisite (B4.7) when Automatic cannot form the record, or the rule the record
+/// breaks.
 pub fn study_requirements(
     loop_definition: &LoopDefinition,
     current: &CurrentModel,
     previous: Option<&TuneSection>,
     inputs: Option<&InputsSection>,
-) -> Option<TuningRequirements> {
-    let model = tuning_model(current).ok()?;
+) -> Result<TuningRequirements, Refusal> {
+    let model = tuning_model(current)?;
     let requirements = requirements_with(
         loop_definition,
         &model,
@@ -142,10 +144,9 @@ pub fn study_requirements(
         inputs.and_then(|inputs| inputs.requirements.as_ref()),
         inputs.and_then(|inputs| inputs.method),
         inputs.and_then(InputsSection::declared_response),
-    )
-    .ok()?;
-    requirements.validate().ok()?;
-    Some(requirements)
+    )?;
+    requirements.validate()?;
+    Ok(requirements)
 }
 
 /// The values Tune keeps (B4.3; Tune page, "Control requirements"): every value of the previous record, the request's

@@ -12,7 +12,7 @@ use trust_control::commissioning::parameter_application::{
 };
 use trust_control::commissioning::parameter_status::RecordState;
 use trust_control::failure::NextAction;
-use trust_control::loop_definition::{ParameterBinding, RealType};
+use trust_control::loop_definition::{ModeValue, ParameterBinding, RealType};
 
 use super::*;
 use crate::runtime_client::fake_runtime::{answer, refusal, FakeRuntime};
@@ -35,7 +35,8 @@ fn binding() -> RuntimeBinding {
         }],
         mode: RuntimeMode {
             symbol: "Main.Auto".to_owned(),
-            manual_value: false,
+            manual_value: ModeValue::Bool(false),
+            auto_value: None,
         },
     }
 }

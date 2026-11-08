@@ -74,6 +74,7 @@ pub(super) fn owner(recording_id: &str) -> RecordingRecoveryOwner {
         address: None,
         symbol: Some(symbol.to_owned()),
         iec_type: "LREAL".to_owned(),
+        mode: None,
     };
     RecordingRecoveryOwner {
         schema_version: 1,

@@ -35,10 +35,7 @@ fn binding() -> TransferBinding {
     TransferBinding {
         loop_id: "loop:tank".to_owned(),
         task_name: "MainTask".to_owned(),
-        mode: TransferModeBinding {
-            symbol: "P1.Manual".to_owned(),
-            manual_value: true,
-        },
+        mode: TransferModeBinding::boolean("P1.Manual".to_owned(), true),
         additional_modes: Vec::new(),
         tracking_outputs: std::collections::BTreeMap::new(),
         states: vec![member("P1.Ref"), member("P1.ManualCommand")],
