@@ -354,8 +354,9 @@ impl DebugControl {
 
     /// Apply the queued Live Values of the program at `point` of its scan, through its symbol table
     /// (specification 44 §13.3): the variable writes and forces at the cycle start and when a hold
-    /// ends, the image writes and the input and marker forces after the drivers read the inputs,
-    /// and the output forces before the outputs reach the drivers. An instance target of another
+    /// ends; the image writes, the variable forces again and the input and marker forces after the
+    /// drivers read the inputs; and the variable forces again and the marker and output forces
+    /// before the outputs reach the drivers. An instance target of another
     /// generation than `generation` is refused. Control Studio's task-boundary transactions are no
     /// Live Values: they commit at their task's start ([`Self::commit_parameters`],
     /// [`Self::commit_transfer`]) and are confirmed at its end.
@@ -379,6 +380,7 @@ impl DebugControl {
                 }
                 CompiledAccessPoint::AfterInputs => apply::compiled_images(
                     queues,
+                    generation,
                     &[IoArea::Input, IoArea::Memory],
                     variables,
                     time,
@@ -392,6 +394,7 @@ impl DebugControl {
                 .and_then(|()| {
                     apply::compiled_images(
                         queues,
+                        generation,
                         &[IoArea::Memory, IoArea::Output],
                         variables,
                         time,

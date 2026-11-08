@@ -1620,6 +1620,19 @@ FB_Exit"):
   initialized" when that method's code is reached;
 - a fault in `FB_init` fails the restart, like any fault of the initialization.
 
+In the same restarts, right after an instance's own `FB_init` (or where it would
+run), each of its type's methods marked `{attribute 'call_after_init'}` in its
+first line is called, in declaration order, when the block is marked so too: the
+vendor's help ("a method is called implicitly after the initialization of a
+function block instance", "after the FB_Init method and after the variable value
+of an initialization expression has been valid"; the attribute goes on both the
+function block and the method). Such a method takes no inputs, which the vendor
+refuses ("VAR_INPUT declarations ... lead to compile errors"), and gives a `BOOL`
+or no result, which is not read; any other is refused at build. A method marked
+alone, in a block that is not, is not called, as the vendor's attribute on the
+block is what enables it. The vendor's call at an online change is not made, as
+`FB_init`'s is not (§12).
+
 Under the IEC profile `FB_init` is an ordinary method that nothing calls
 implicitly, since a valid IEC program may declare a method of that name.
 

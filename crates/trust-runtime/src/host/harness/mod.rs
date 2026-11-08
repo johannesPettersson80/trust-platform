@@ -40,7 +40,7 @@ pub use protocol::{
     HarnessLoadSummary, HarnessRunUntilSummary, HarnessStateSummary, HarnessValueSnapshot,
     HarnessWatchSnapshot,
 };
-pub use types::{CompileError, CycleResult, SourceFile};
+pub use types::{CompileError, CycleResult, SourceDiagnostic, SourceFile};
 
 use compiler::{
     add_struct_bases, collect_edge_declarations, interface_type_name, lower_classes,

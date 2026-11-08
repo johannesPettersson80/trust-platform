@@ -15,14 +15,14 @@ use crate::openot_authoring::{parse_attribute_entries_from_text, AttributeEntry}
 /// counts. A pragma behind that token — inside a body or a list — never
 /// declares the node.
 pub fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
-    find_attribute(node, key).is_some()
+    attribute_entry(node, key).is_some()
 }
 
-/// The attribute `key` that the pragma trivia preceding `node`'s first token carries, found as
-/// [`declares_attribute`] finds it, with its value: the `1` of `{attribute 'pack_mode' := '1'}`
-/// (specification 02 §3.5.2).
-pub fn find_attribute(node: &SyntaxNode, key: &str) -> Option<AttributeEntry> {
-    let reads = |token: &SyntaxToken| {
+/// The entry `key` of the pragma trivia preceding `node`'s first token, with its value and the pragma's range, found as
+/// [`declares_attribute`] finds it; `None` when no such pragma names `key`.
+#[must_use]
+pub fn attribute_entry(node: &SyntaxNode, key: &str) -> Option<AttributeEntry> {
+    let read = |token: &SyntaxToken| {
         if token.kind() != SyntaxKind::Pragma {
             return None;
         }
@@ -43,7 +43,7 @@ pub fn find_attribute(node: &SyntaxNode, key: &str) -> Option<AttributeEntry> {
             first = Some(token);
             break;
         }
-        if let Some(entry) = reads(&token) {
+        if let Some(entry) = read(&token) {
             return Some(entry);
         }
     }
@@ -61,7 +61,7 @@ pub fn find_attribute(node: &SyntaxNode, key: &str) -> Option<AttributeEntry> {
                 if !token.kind().is_trivia() {
                     return None;
                 }
-                if let Some(entry) = reads(&token) {
+                if let Some(entry) = read(&token) {
                     return Some(entry);
                 }
                 cursor = rowan::NodeOrToken::Token(token);
@@ -79,7 +79,7 @@ pub fn find_attribute(node: &SyntaxNode, key: &str) -> Option<AttributeEntry> {
                     if !token.kind().is_trivia() {
                         break;
                     }
-                    if let Some(entry) = reads(&token) {
+                    if let Some(entry) = read(&token) {
                         return Some(entry);
                     }
                 }

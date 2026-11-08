@@ -4,10 +4,11 @@ use super::diagnostics::{
     check_configuration_semantics, check_cyclomatic_complexity, check_dut_extends_semantics,
     check_empty_named_actuals, check_extends_implements_semantics,
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
-    check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
-    check_using_directives, collect_used_symbols, compute_host_clock_sources, expression_by_id,
-    expression_context, resolve_pending_types_with_table, type_check_file, used_external_globals,
-    ExpressionIndex, HostClockSources,
+    check_property_accessors, check_shared_global_task_hazards, check_test_attributes,
+    check_unreachable_statements, check_using_directives, collect_used_symbols,
+    compute_host_clock_sources, expression_by_id, expression_context,
+    resolve_pending_types_with_table, type_check_file, used_external_globals, ExpressionIndex,
+    HostClockSources,
 };
 use super::project_configuration::project_config_roots;
 use super::project_constants::{project_constant_expressions, project_declared_expressions};
@@ -395,23 +396,31 @@ pub(super) fn project_used_symbols_query(
     Arc::new(used)
 }
 
+/// What checking one file gives before the rules that read other files' checks: its merged and
+/// checked symbols, its diagnostics so far in their order, and the type check's maps. W012 reads
+/// the written arguments of the files whose programs run in tasks from here, so it needs no other
+/// file's analysis and adds no cycle (specification 28 §6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct CheckedFile {
+    symbols: Arc<SymbolTable>,
+    diagnostics: Vec<Diagnostic>,
+    expression_types: Arc<FxHashMap<(u32, u32), TypeId>>,
+    resolved_symbols: Arc<FxHashMap<(u32, u32), SymbolId>>,
+    written_arguments: Arc<FxHashSet<(u32, u32)>>,
+}
+
 #[salsa::tracked(returns(ref))]
-pub(super) fn analyze_query(
+pub(super) fn checked_file_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
     file_id: FileId,
-) -> Arc<FileAnalysis> {
-    let _trace = crate::timing::CompilerStage::new("hir.analyze_file", 1);
-    crate::timing::event("file_id", file_id.0 as usize);
+) -> Option<Arc<CheckedFile>> {
     cancellation_checkpoint(db);
-    let Some(ProjectState {
+    let ProjectState {
         target_input,
-        project_source_inputs,
         project_tables,
-    }) = collect_project_state(db, project, file_id)
-    else {
-        return empty_analysis();
-    };
+        ..
+    } = collect_project_state(db, project, file_id)?;
 
     let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
     let catalog = project_type_catalog_query(db, project);
@@ -514,37 +523,87 @@ pub(super) fn analyze_query(
 
     let mut builder = DiagnosticBuilder::new();
     check_configuration_semantics(&symbols, &root, &mut builder);
+    check_test_attributes(&root, &mut builder);
     diagnostics.extend(builder.finish());
 
-    let project_used = project_used_symbols_query(db, project);
     let mut builder = DiagnosticBuilder::new();
     let expression_types = type_check_file(&mut symbols, &root, &mut builder);
     crate::type_check::check_fb_init_arguments(&mut symbols, &root, &mut builder);
+    diagnostics.extend(builder.finish());
+
+    Some(Arc::new(CheckedFile {
+        symbols: Arc::new(symbols),
+        diagnostics,
+        expression_types: Arc::new(expression_types.types),
+        resolved_symbols: Arc::new(expression_types.symbols),
+        written_arguments: Arc::new(expression_types.written_arguments),
+    }))
+}
+
+#[salsa::tracked(returns(ref))]
+pub(super) fn analyze_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<FileAnalysis> {
+    let _trace = crate::timing::CompilerStage::new("hir.analyze_file", 1);
+    crate::timing::event("file_id", file_id.0 as usize);
+    cancellation_checkpoint(db);
+    let Some(checked) = checked_file_query(db, project, file_id).clone() else {
+        return empty_analysis();
+    };
+    let Some(ProjectState {
+        target_input,
+        project_source_inputs,
+        ..
+    }) = collect_project_state(db, project, file_id)
+    else {
+        return empty_analysis();
+    };
+    let root = SyntaxNode::new_root(parse_green(db, target_input).clone());
+    let symbols = checked.symbols.as_ref();
+    let mut diagnostics = checked.diagnostics.clone();
+
+    let project_used = project_used_symbols_query(db, project);
+    let mut builder = DiagnosticBuilder::new();
     check_unreachable_statements(&root, &mut builder);
     check_cyclomatic_complexity(&root, &mut builder);
     let clock_sources = host_clock_sources_query(db, project);
     check_nondeterminism(
-        &symbols,
+        symbols,
         &root,
         file_id,
-        &expression_types.symbols,
+        &checked.resolved_symbols,
         clock_sources.as_ref(),
         &mut builder,
     );
-    if has_owned_global_variables(&symbols, file_id) && project_has_task_configs_query(db, project)
-    {
+    if has_owned_global_variables(symbols, file_id) && project_has_task_configs_query(db, project) {
         let project_roots = project_roots_from_inputs(db, &project_source_inputs);
-        check_shared_global_task_hazards(&symbols, &project_roots, file_id, &mut builder);
+        let written_arguments = |file: FileId| {
+            checked_file_query(db, project, file)
+                .as_ref()
+                .map_or_else(Default::default, |checked| {
+                    Arc::clone(&checked.written_arguments)
+                })
+        };
+        check_shared_global_task_hazards(
+            symbols,
+            &project_roots,
+            file_id,
+            &written_arguments,
+            &mut builder,
+        );
     }
-    add_unused_symbol_warnings(&symbols, file_id, project_used.as_ref(), &mut builder);
+    add_unused_symbol_warnings(symbols, file_id, project_used.as_ref(), &mut builder);
     diagnostics.extend(builder.finish());
 
     let declaration_catalog = symbols.declaration_catalog(file_id);
     Arc::new(FileAnalysis {
-        symbols: Arc::new(symbols),
+        symbols: Arc::clone(&checked.symbols),
         diagnostics: Arc::new(diagnostics),
-        expression_types: Arc::new(expression_types.types),
-        resolved_symbols: Arc::new(expression_types.symbols),
+        expression_types: Arc::clone(&checked.expression_types),
+        resolved_symbols: Arc::clone(&checked.resolved_symbols),
+        written_arguments: Arc::clone(&checked.written_arguments),
         declaration_catalog: Arc::new(declaration_catalog),
     })
 }
@@ -622,6 +681,7 @@ fn empty_analysis() -> Arc<FileAnalysis> {
         diagnostics: Arc::new(Vec::new()),
         expression_types: Arc::new(FxHashMap::default()),
         resolved_symbols: Arc::new(FxHashMap::default()),
+        written_arguments: Arc::new(FxHashSet::default()),
         declaration_catalog: Arc::new(DeclarationCatalog::default()),
     })
 }

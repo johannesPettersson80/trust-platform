@@ -334,10 +334,11 @@ pub(super) fn instance_bytes(
 }
 
 /// Refuses a program built with the CODESYS conversion rules whose declarations call a type
-/// conversion outside a body: in an initial value, a bound or the configuration. The build works
-/// such values out with the runtime's evaluator, which converts by the IEC rules, so it computes
-/// them only for a program built with those (specification 07 §2.10; specification 44 §6.7,
-/// NX-09); a body converts by the program's rules.
+/// conversion outside a body and outside an initial value: in an array's bounds, a string's
+/// length, a task's interval, the program configuration, an enumerated value. An initial value's
+/// conversion the build works out with the runtime's evaluator, whose standard library converts
+/// by the program's rules (specification 07 §2.10; specification 44 §6.7); the rest the build
+/// does not fold (specification 44 §6.7, NX-09).
 ///
 /// # Errors
 ///
@@ -362,6 +363,11 @@ pub(super) fn check_declared_conversions(
             {
                 continue;
             }
+            // An initial value may call one: the build works it out by the program's rules
+            // (specification 44 §6.7).
+            if in_initial_value(&call) {
+                continue;
+            }
             let Some(target) = call.children().next() else {
                 continue;
             };
@@ -381,6 +387,23 @@ pub(super) fn check_declared_conversions(
         }
     }
     Ok(())
+}
+
+/// Whether the conversion `call` stands in a declaration's initial value: under a variable
+/// declaration or a `VAR_CONFIG` entry, with no type of the declaration in between — an array's
+/// bounds and a string's length are the type, not the value (IEC §6.5.1, Table 14).
+fn in_initial_value(call: &trust_syntax::syntax::SyntaxNode) -> bool {
+    use trust_syntax::syntax::SyntaxKind as K;
+    for ancestor in call.ancestors().skip(1) {
+        match ancestor.kind() {
+            K::VarDecl | K::ConfigInit => return true,
+            K::ArrayType | K::Subrange | K::StringType | K::PointerType | K::ReferenceType => {
+                return false;
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Whether trust-hir's type `type_id` is a named type that declares an initial value of its own,

@@ -39,22 +39,143 @@ END_FUNCTION_BLOCK
         partial_result_params: Default::default(),
     };
     let response = document_symbol(&state, params).expect("document symbols");
-    let symbols = match response {
-        tower_lsp::lsp_types::DocumentSymbolResponse::Flat(symbols) => symbols,
-        tower_lsp::lsp_types::DocumentSymbolResponse::Nested(_) => {
-            panic!("expected flat document symbols")
-        }
+    let tower_lsp::lsp_types::DocumentSymbolResponse::Nested(outline) = response else {
+        panic!("expected the outline as a tree (specification 14 §6.3.3)")
+    };
+    assert_eq!(child_names(entry(&outline, "ICounter")), ["Next", "Value"]);
+    assert_eq!(
+        child_names(entry(&outline, "CounterFb")),
+        ["x", "Next", "Value"]
+    );
+}
+
+/// The entry of `level` named `name`, with or without its kind label (`Main (PROGRAM)`).
+fn entry<'a>(
+    level: &'a [tower_lsp::lsp_types::DocumentSymbol],
+    name: &str,
+) -> &'a tower_lsp::lsp_types::DocumentSymbol {
+    level
+        .iter()
+        .find(|entry| entry.name == name || entry.name.starts_with(&format!("{name} (")))
+        .unwrap_or_else(|| {
+            panic!(
+                "{name} among {:?}",
+                level.iter().map(|e| &e.name).collect::<Vec<_>>()
+            )
+        })
+}
+
+fn child_names(entry: &tower_lsp::lsp_types::DocumentSymbol) -> Vec<&str> {
+    entry
+        .children
+        .iter()
+        .flatten()
+        .map(|child| child.name.as_str())
+        .collect()
+}
+
+fn children(
+    entry: &tower_lsp::lsp_types::DocumentSymbol,
+) -> &[tower_lsp::lsp_types::DocumentSymbol] {
+    entry.children.as_deref().unwrap_or_default()
+}
+
+/// The LSP range of the `len` bytes of `source` at `offset` (one-line ASCII text).
+fn text_range(source: &str, offset: usize, len: usize) -> tower_lsp::lsp_types::Range {
+    let position = |at: usize| {
+        let line = source[..at].matches('\n').count() as u32;
+        let column = at - source[..at].rfind('\n').map_or(0, |newline| newline + 1);
+        tower_lsp::lsp_types::Position::new(line, column as u32)
+    };
+    tower_lsp::lsp_types::Range::new(position(offset), position(offset + len))
+}
+
+/// Specification 14 §6.3.3: the outline is a tree that holds variables, a GVL's globals under its
+/// namespace, a program's and a function block's variables with their sections and types, a
+/// method's own variables under the method, and an enumeration's values under its type. Each
+/// entry's range is its whole declaration and its selection range its name. Catches the gap a
+/// CODESYS toolkit reported on 7 November (no variables in the outline), globals at the top instead
+/// of under their GVL, a lost section or type, and a range that is only the name, with which an
+/// editor's breadcrumbs lose the cursor inside a POU.
+#[test]
+pub(super) fn lsp_document_symbols_hold_variables_in_a_tree() {
+    let source = "NAMESPACE GVL_IO\nVAR_GLOBAL\n    lrLevel : LREAL;\nEND_VAR\nEND_NAMESPACE\n\nTYPE E_Mode : (AUTO, MANUAL);\nEND_TYPE\n\nFUNCTION_BLOCK FB_Valve\nVAR_INPUT\n    bOpen : BOOL;\nEND_VAR\nMETHOD PUBLIC Toggle\nVAR\n    nCount : INT;\nEND_VAR\nEND_METHOD\nEND_FUNCTION_BLOCK\n\nPROGRAM PRG_Tank\nVAR_INPUT\n    rSetpoint : REAL;\nEND_VAR\nVAR\n    fbValve : FB_Valve;\nEND_VAR\nEND_PROGRAM\n";
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///tank.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let params = tower_lsp::lsp_types::DocumentSymbolParams {
+        text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+    };
+    let response = document_symbol(&state, params).expect("document symbols");
+    let tower_lsp::lsp_types::DocumentSymbolResponse::Nested(outline) = response else {
+        panic!("expected the outline as a tree (specification 14 §6.3.3)")
     };
 
-    let has_next = symbols.iter().any(|symbol| symbol.name.contains("Next"));
-    let has_value = symbols.iter().any(|symbol| symbol.name.contains("Value"));
-    assert!(has_next, "expected Next in document symbols");
-    assert!(has_value, "expected Value in document symbols");
+    let names: Vec<&str> = outline.iter().map(|entry| entry.name.as_str()).collect();
+    assert_eq!(
+        names,
+        [
+            "GVL_IO",
+            "E_Mode",
+            "FB_Valve (FUNCTION_BLOCK)",
+            "PRG_Tank (PROGRAM)"
+        ]
+    );
+    let detail = |entry: &tower_lsp::lsp_types::DocumentSymbol| entry.detail.clone();
 
-    let has_next_in_fb = symbols.iter().any(|symbol| {
-        symbol.name.contains("Next") && symbol.container_name.as_deref() == Some("CounterFb")
-    });
-    assert!(has_next_in_fb, "expected Next under CounterFb");
+    let globals = children(entry(&outline, "GVL_IO"));
+    assert_eq!(globals.len(), 1);
+    assert_eq!(globals[0].name, "lrLevel");
+    assert_eq!(detail(&globals[0]).as_deref(), Some("VAR_GLOBAL : LREAL"));
+
+    assert_eq!(child_names(entry(&outline, "E_Mode")), ["AUTO", "MANUAL"]);
+
+    let valve = entry(&outline, "FB_Valve");
+    assert_eq!(child_names(valve), ["bOpen", "Toggle"]);
+    assert_eq!(
+        detail(entry(children(valve), "bOpen")).as_deref(),
+        Some("VAR_INPUT : BOOL")
+    );
+    let toggle = entry(children(valve), "Toggle");
+    assert_eq!(child_names(toggle), ["nCount"]);
+    assert_eq!(
+        detail(entry(children(toggle), "nCount")).as_deref(),
+        Some("VAR : INT")
+    );
+
+    let tank = entry(&outline, "PRG_Tank");
+    assert_eq!(child_names(tank), ["rSetpoint", "fbValve"]);
+    assert_eq!(
+        detail(entry(children(tank), "rSetpoint")).as_deref(),
+        Some("VAR_INPUT : REAL")
+    );
+    assert_eq!(
+        detail(entry(children(tank), "fbValve")).as_deref(),
+        Some("VAR : FB_Valve")
+    );
+
+    let program_at = source.find("PROGRAM PRG_Tank").unwrap();
+    let program_end = source.rfind("END_PROGRAM").unwrap() + "END_PROGRAM".len();
+    assert_eq!(
+        tank.range,
+        text_range(source, program_at, program_end - program_at)
+    );
+    assert_eq!(
+        tank.selection_range,
+        text_range(source, program_at + "PROGRAM ".len(), "PRG_Tank".len())
+    );
+    let setpoint = entry(children(tank), "rSetpoint");
+    let setpoint_at = source.find("rSetpoint : REAL;").unwrap();
+    assert_eq!(
+        setpoint.range,
+        text_range(source, setpoint_at, "rSetpoint : REAL;".len())
+    );
+    assert_eq!(
+        setpoint.selection_range,
+        text_range(source, setpoint_at, "rSetpoint".len())
+    );
 }
 
 #[test]

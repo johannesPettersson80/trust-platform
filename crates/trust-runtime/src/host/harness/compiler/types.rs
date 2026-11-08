@@ -158,7 +158,7 @@ fn lower_type_decl_node(
                 }
                 // `{attribute 'pack_mode' := 'n'}` before the block's `TYPE` keyword
                 // (specification 02 §3.5.2); trust-hir reports a value that is no pack mode.
-                if let Some(mode) = trust_hir::attributes::find_attribute(node, "pack_mode")
+                if let Some(mode) = trust_hir::attributes::attribute_entry(node, "pack_mode")
                     .and_then(|entry| trust_hir::types::parse_pack_mode(&entry.value))
                 {
                     ctx.registry.register_struct_pack(type_id, mode);

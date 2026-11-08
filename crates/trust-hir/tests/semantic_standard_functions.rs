@@ -646,6 +646,39 @@ END_PROGRAM
     );
 }
 
+/// Specification 07 and 22: `TEST_FINISHED()` takes no inputs and returns nothing, and the compile refuses a test attribute
+/// whose value does not read (E309). Catches the function unknown to the checker (every multi-cycle test would fail to compile),
+/// an input accepted, and a zero cycle accepted.
+#[test]
+fn test_test_finished_and_the_test_attributes() {
+    check_no_errors(
+        r#"
+{attribute 'test_cycle' := 'T#20ms'}
+{attribute 'test_max_cycles' := '500'}
+TEST_PROGRAM Finishes
+TEST_FINISHED();
+END_TEST_PROGRAM
+"#,
+    );
+    check_has_error(
+        r#"
+TEST_PROGRAM Finishes
+TEST_FINISHED(TRUE);
+END_TEST_PROGRAM
+"#,
+        DiagnosticCode::WrongArgumentCount,
+    );
+    check_has_error(
+        r#"
+{attribute 'test_cycle' := 'T#0ms'}
+TEST_PROGRAM Finishes
+TEST_FINISHED();
+END_TEST_PROGRAM
+"#,
+        DiagnosticCode::InvalidTestAttribute,
+    );
+}
+
 #[test]
 fn test_assert_true_requires_bool() {
     check_has_error(

@@ -445,7 +445,7 @@ impl SymbolCollector<'_> {
         let Some(entry) = node
             .ancestors()
             .find(|ancestor| ancestor.kind() == SyntaxKind::TypeDecl)
-            .and_then(|block| crate::attributes::find_attribute(&block, "pack_mode"))
+            .and_then(|block| crate::attributes::attribute_entry(&block, "pack_mode"))
         else {
             return;
         };

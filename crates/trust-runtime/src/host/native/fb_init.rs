@@ -1,10 +1,12 @@
 //! CODESYS's implicit `FB_init` (specification 10 §4.8; specification 44 §6.7): under the CODESYS
 //! profiles the cold-start and the warm-start initializations call `FB_init` of every instance
-//! whose type declares it, after the `REF` initializers. The globals come first, then the program
-//! instances' variables, an array's elements in row-major order; in an instance its base part
-//! first, then its own nested instances, then its own `FB_init`. The inputs after `bInitRetains`
-//! and `bInCopyCode` take the arguments of the instance's declaration, `com1 :
-//! serialdevice(iCOMnum := 1)`, which the build works out as it works out initial values.
+//! whose type declares it, after the `REF` initializers, and then each of its methods marked
+//! `{attribute 'call_after_init'}` when its block is marked too. The globals come first, then the
+//! program instances' variables, an array's elements in row-major order; in an instance its base
+//! part first, then its own nested instances, then its own `FB_init` and after-init methods. The
+//! inputs after `bInitRetains` and `bInCopyCode` take the arguments of the instance's
+//! declaration, `com1 : serialdevice(iCOMnum := 1)`, which the build works out as it works out
+//! initial values.
 
 use trust_hir::symbols::ParamDirection;
 use trust_hir::TypeId;
@@ -170,8 +172,9 @@ impl FbInit {
         Ok(())
     }
 
-    /// The call of the `FB_init` the type `def` declares itself, on its part at `place`, with the
-    /// arguments `args` of the instance's declaration.
+    /// The calls of the `FB_init` the type `def` declares itself, with the arguments `args` of the
+    /// instance's declaration, and then of its methods marked `{attribute 'call_after_init'}`, on
+    /// its part at `place`.
     fn own(
         &mut self,
         model: &Model<'_>,
@@ -182,6 +185,67 @@ impl FbInit {
         let Some(owner) = model.types.owner(def) else {
             return Ok(());
         };
+        self.fb_init(model, owner, place, args)?;
+        self.after_init(model, owner, place)
+    }
+
+    /// The method CODESYS calls after an instance's initialization (the vendor's help for
+    /// `call_after_init`): each method marked so, when its block is marked too, with no inputs
+    /// (the vendor refuses one) and a `BOOL` or no result, called after the instance's `FB_init`.
+    fn after_init(
+        &mut self,
+        model: &Model<'_>,
+        owner: super::classes::Owner<'_>,
+        place: &str,
+    ) -> Result<(), NativeError> {
+        if !owner.calls_after_init() {
+            return Ok(());
+        }
+        let registry = model.types.registry();
+        for method in owner
+            .methods()
+            .iter()
+            .filter(|method| method.call_after_init)
+        {
+            let inputs = method.params.iter().any(|param| {
+                !param.name.eq_ignore_ascii_case("EN") && !param.name.eq_ignore_ascii_case("ENO")
+            });
+            let result = method.return_type.is_some_and(|ty| {
+                !matches!(
+                    registry.get(ty),
+                    Some(trust_hir::Type::Bool | trust_hir::Type::Void)
+                )
+            });
+            if inputs || result {
+                return Err(NativeError::unsupported(format!(
+                    "{}.{} with {}: a method called after the initialization takes no inputs",
+                    owner.name(),
+                    method.name,
+                    if inputs {
+                        "inputs"
+                    } else {
+                        "a result other than BOOL"
+                    }
+                )));
+            }
+            Need::Method(owner.name().clone(), method.name.clone()).add_to(&mut self.needs);
+            self.statements.push(format!(
+                "{}(cx, w, &{place})?;",
+                super::emit::method_function(owner, method)
+            ));
+        }
+        Ok(())
+    }
+
+    /// The call of the `FB_init` the type `def` declares itself, on its part at `place`, with the
+    /// arguments `args` of the instance's declaration.
+    fn fb_init(
+        &mut self,
+        model: &Model<'_>,
+        owner: super::classes::Owner<'_>,
+        place: &str,
+        args: &[InitArg],
+    ) -> Result<(), NativeError> {
         let Some(method) = owner
             .methods()
             .iter()

@@ -4403,7 +4403,11 @@ the delimiter is trimmed. Every name must remain non-empty. Instance names
 retain all text after the second delimiter, after surrounding whitespace is
 removed.
 
-An accepted `set` queues a one-shot variable write for the next scan. A later
+An accepted `set` queues a one-shot variable write for the next scan. A write
+of a variable that the program binds to an input or a marker address is written
+at that address too (specification 44 §13.3): a marker keeps it, and an input
+keeps it until a driver's next input read replaces it, which `var.force`
+holds the input against. A later
 pending write to the same exact target replaces the earlier value in place;
 different targets retain arrival order. Force uses the same target identity
 and scalar grammar. `var.forced` returns active variable forces in stable
@@ -5887,9 +5891,17 @@ command and project; exposes `ok`/`status`, error and warning counts, stable
 issue codes and optional file locations; and reports the exact source count,
 source paths, dependency roots, and resolved dependency names. `source_count`
 equals the number of reported source
-paths. `ok` is true exactly when the error count is zero. Human output is
-derived from the same response and reports either the successful source list
-or every accumulated issue.
+paths. `ok` is true exactly when the error count is zero. A compile that fails
+on its sources' diagnostics gives one issue per diagnostic, as
+`trust-lsp check` reports it (specification 14 §7.7): the compiler's `code`
+(`E101`), its `severity` and `message`, the source's `file`, and where it is,
+`line`, `column`, `end_line` and `end_column`, 1-based, a column counted in
+UTF-16 code units; a syntax error has the code of its kind (E001 an unexpected
+token, E002 a missing one, E106 an invalid identifier). A compile failure that
+names no place in the sources is one issue with the code `compile`. Human
+output is derived from the same response and reports either the successful
+source list or every accumulated issue, an issue with a position as
+`file:line:column: message`.
 
 Success exits 0. Any configuration or source-layout error exits with the
 invalid-configuration class 10, including a response that also contains a
@@ -5928,7 +5940,12 @@ names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
 `signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
 `bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
 (`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
-number of reported source paths, and `--ci` prints the same object. Human mode
+number of reported source paths, and `--ci` and `--json` print the same object.
+A build whose sources have errors writes no image, and with `--json` or `--ci`
+it prints, in place of the error text, version 1, command `build`, `ok` false,
+status `failed`, the `project`, the error and warning counts and the `issues`,
+one per diagnostic as `trust-runtime check` reports them (section 6.8.1c); it
+exits as the failure does without the JSON. Human mode
 reports the written image, whether it is a debug or a release image, its bytes
 with its code, read-only data and starting memory, the memory figure with its
 parts, the public key that signed it, and the source count with at most the
@@ -6503,7 +6520,11 @@ start of the scan, after its writes and inputs, and again after the scan's last
 task, before the outputs are sampled (specification 10 §4.7, steps 2 and 6). A
 forced variable therefore reads its forced value between scans, and a forced
 variable that lies at an output address reaches the output, whatever the
-program wrote to it during the scan. Release
+program wrote to it during the scan. A forced variable that the program binds
+to an input or a marker address (`AT %IW0`) is written at that address as well
+once the drivers have read the inputs, so that the program reads its forced
+value, not the physical input, until the force is released; a force of the
+address itself holds over it (specification 44 §13.3). Release
 removes the force without writing a replacement value; normal program and I/O
 evaluation determine the value at the next scan.
 
