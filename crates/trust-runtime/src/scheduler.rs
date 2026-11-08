@@ -37,7 +37,10 @@ use trust_runtime_services::resource::supervisor::{
 };
 
 mod cycle_timing;
+mod live_simulation;
 mod simulation_clock;
+
+use self::live_simulation::LiveSimulation;
 
 pub use self::simulation_clock::{
     simulation_warning, time_scale_not_whole_message, validate_time_scale, AchievedSpeedWindow,

@@ -5,11 +5,15 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::bundle_builder::{check_program, inspect_project_layout};
+use trust_runtime::harness::{CompileError, SourceDiagnostic};
+use trust_runtime::native::NativeError;
 
 use crate::{ci, style};
 
+/// One finding of a check or a failed build (specification 11 §6.8.1c): a compile diagnostic
+/// carries the compiler's code and where it is, its 1-based lines and columns.
 #[derive(Debug, Clone, Serialize)]
-struct CheckIssue {
+pub(crate) struct CheckIssue {
     severity: &'static str,
     message: String,
     code: &'static str,
@@ -19,6 +23,10 @@ struct CheckIssue {
     line: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     column: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    end_line: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    end_column: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -64,11 +72,7 @@ pub fn run_check(
     } else {
         eprintln!("{}", style::error("Project check failed"));
         for issue in &response.issues {
-            let location = issue
-                .file
-                .as_deref()
-                .map_or_else(String::new, |file| format!("{file}: "));
-            eprintln!(" - {location}{}", issue.message);
+            eprintln!(" - {}{}", issue.location(), issue.message);
         }
     }
 
@@ -104,12 +108,15 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
                     dependency_roots = paths_to_strings(report.dependency_roots);
                     resolved_dependencies = report.resolved_dependencies;
                 }
-                Err(error) => issues.push(issue(
-                    "error",
-                    format!("program compile failed: {error}"),
-                    "compile",
-                    None,
-                )),
+                Err(error) => match compile_issues(&error) {
+                    Some(found) => issues.extend(found),
+                    None => issues.push(issue(
+                        "error",
+                        format!("program compile failed: {error}"),
+                        "compile",
+                        None,
+                    )),
+                },
             }
         }
         Err(error) => issues.push(issue(
@@ -303,6 +310,51 @@ fn issue(
         file: file.map(|path| path.display().to_string()),
         line: None,
         column: None,
+        end_line: None,
+        end_column: None,
+    }
+}
+
+impl CheckIssue {
+    /// Whether the issue is an error.
+    pub(crate) fn is_error(&self) -> bool {
+        self.severity == "error"
+    }
+
+    /// Where the issue is, as a person reads it before its message: `file:line:column: `, or
+    /// `file: ` without a position, or nothing.
+    pub(crate) fn location(&self) -> String {
+        match (self.file.as_deref(), self.line, self.column) {
+            (Some(file), Some(line), Some(column)) => format!("{file}:{line}:{column}: "),
+            (Some(file), _, _) => format!("{file}: "),
+            (None, _, _) => String::new(),
+        }
+    }
+}
+
+/// The issues of a compile that failed on its sources' diagnostics, one each, where it is
+/// (specification 11 §6.8.1c); `None` for a failure that names no place in the sources.
+pub(crate) fn compile_issues(error: &anyhow::Error) -> Option<Vec<CheckIssue>> {
+    let diagnostics = error.chain().find_map(|cause| {
+        let compile = match cause.downcast_ref::<NativeError>() {
+            Some(NativeError::Sources(compile)) => Some(compile),
+            _ => cause.downcast_ref::<CompileError>(),
+        };
+        compile.map(CompileError::diagnostics)
+    })?;
+    (!diagnostics.is_empty()).then(|| diagnostics.iter().map(diagnostic_issue).collect())
+}
+
+fn diagnostic_issue(diagnostic: &SourceDiagnostic) -> CheckIssue {
+    CheckIssue {
+        severity: diagnostic.severity,
+        message: diagnostic.message.clone(),
+        code: diagnostic.code,
+        file: diagnostic.file.clone(),
+        line: Some(diagnostic.line),
+        column: Some(diagnostic.column),
+        end_line: Some(diagnostic.end_line),
+        end_column: Some(diagnostic.end_column),
     }
 }
 

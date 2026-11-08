@@ -80,6 +80,9 @@ pub struct FileAnalysis {
     /// The symbol each name, member and call of the file resolved to, by text range; for a call,
     /// the POU whose parameters it binds.
     pub resolved_symbols: Arc<FxHashMap<(u32, u32), SymbolId>>,
+    /// The argument expressions that the file's calls bind to an output or in-out parameter, by
+    /// text range: the calls write them (`crate::access`).
+    pub written_arguments: Arc<FxHashSet<(u32, u32)>>,
     /// The file's declarations as the authoring tools read them.
     pub declaration_catalog: Arc<DeclarationCatalog>,
 }

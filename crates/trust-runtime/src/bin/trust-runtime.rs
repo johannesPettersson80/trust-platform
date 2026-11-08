@@ -251,6 +251,7 @@ fn run() -> anyhow::Result<()> {
             project,
             sources,
             ci,
+            json,
             target,
             emit_source,
             install_toolchain,
@@ -258,7 +259,7 @@ fn run() -> anyhow::Result<()> {
             if install_toolchain {
                 toolchain::consent_to_install();
             }
-            build::run_build_command(project, sources, ci, target, emit_source)
+            build::run_build_command(project, sources, ci, json, target, emit_source)
         }
         Some(Command::HmiPassword { iterations }) => hmi_password::run_hmi_password(iterations),
         Some(Command::Hmi {

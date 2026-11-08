@@ -73,3 +73,30 @@ fn an_unknown_program_variable_faults_the_plant_with_its_name() {
         .expect_err("the target does not exist");
     assert!(error.to_string().contains("Main.Missing"), "{error}");
 }
+
+/// Specification 46 §13.1 and §13.2 (the CODESYS toolkit's B10): a plant is wired to a global of a
+/// namespace, a CODESYS GVL member, by its qualified name, as to a program variable. Worked by hand:
+/// the static gain 0.5 of the command `GVL_IO.Command`, 38.0, is 19.0 in `GVL_IO.Measurement`.
+/// Catches a path whose first name had to be a global or a program instance, which refused
+/// `GVL_IO.Measurement` as "program instance not found".
+#[test]
+fn a_global_of_a_namespace_commands_the_plant_and_receives_its_feedback() {
+    let source =
+        "NAMESPACE GVL_IO VAR_GLOBAL Command : LREAL := 38.0; Measurement : LREAL; END_VAR \
+                  END_NAMESPACE PROGRAM Main END_PROGRAM";
+    let config = load(
+        "[simulation]\nenabled = true\nplant_step_ms = 100\n\n[[plants]]\nid = \"gvl\"\n\
+         model = \"static_gain\"\ncommand_sources = [\"GVL_IO.Command\"]\n\
+         feedback_targets = [\"GVL_IO.Measurement\"]\n[plants.parameters]\ngain = 0.5\n",
+    )
+    .expect("a GVL member is a valid command source and feedback target");
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let mut system = PlantSystem::new(&config.plant_system);
+
+    system
+        .advance(Duration::from_millis(100), harness.runtime())
+        .unwrap();
+    system.publish(harness.runtime_mut()).unwrap();
+
+    assert!((value(harness.runtime(), "GVL_IO.Measurement") - 19.0).abs() < 1e-12);
+}
