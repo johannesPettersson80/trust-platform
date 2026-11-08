@@ -39,6 +39,10 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
+        /// Install the truST toolchain without asking when the build needs it and none is
+        /// installed (specification 44, NX-08).
+        #[arg(long, action = ArgAction::SetTrue)]
+        install_toolchain: bool,
     },
     /// Start the runtime with project auto-detection (production UX).
     #[command(
@@ -66,6 +70,10 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
+        /// Install the truST toolchain without asking when the build needs it and none is
+        /// installed (specification 44, NX-08).
+        #[arg(long, action = ArgAction::SetTrue)]
+        install_toolchain: bool,
     },
     /// Interactive TUI for monitoring and control.
     Ui {
@@ -158,6 +166,10 @@ pub enum Command {
         /// With --target: keep the generated Rust crate next to the image.
         #[arg(long, action = ArgAction::SetTrue)]
         emit_source: bool,
+        /// Install the truST toolchain without asking when the build needs it and none is
+        /// installed (specification 44, NX-08).
+        #[arg(long, action = ArgAction::SetTrue)]
+        install_toolchain: bool,
     },
     /// Deprecated alias for `trust-dev test`.
     #[command(

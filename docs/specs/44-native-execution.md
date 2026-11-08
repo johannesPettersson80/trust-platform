@@ -281,7 +281,13 @@ the global offset table only when nothing reads it after and its relocations are
 in its package, beside its tools in `bin/`, and installs it on the first build that needs it,
 with no download (owner, 27 October 2026: "this complete toolchain must be shipped in our vs code
 extension. the user shall not have to install rust by himself"). `trust-runtime` installed on
-its own downloads the same bundle from truST's release server on the first build that needs it.
+its own installs the same bundle, beside its tools or downloaded from truST's release server, on
+the first build that needs it once the person agrees, and never silently: in a terminal the build
+asks first, naming where the bundle comes from, its size and its folder; without a terminal, as
+in a script or CI, the build fails with the advice to run `trust-runtime toolchain install`,
+unless `--install-toolchain` on `build`, `play` or `run` gives the consent. The extension keeps
+its own consent flow: it installs the bundle with `trust-runtime toolchain install` before a build
+that needs it.
 There is one bundle per computer platform: rustc and rust-lld of the pinned version, `rust-std` for the targets of §4.4, the program library
 and interface crates (§6.9, §8.2) of the kernel version with the crates they link (`libm`, `ryu`,
 and `trust-plc-mem` for the computers' targets, §4.5), for each target a `LIBRARY` file naming its
@@ -1849,7 +1855,8 @@ control link, the first step's cold restart loading it; its trace must equal the
 artifact (owner, 23 October 2026).
 
 `trust-dev test` runs a project's tests compiled for the computer (specification 22, the test
-POUs), with the toolchain, which it installs as `trust-runtime build` does (§4.6, NX-15): one
+POUs), with the toolchain, which it finds and never installs, failing without one with the advice
+to install it (§4.6, NX-15; specification 22): one
 image, a debug or a release image as the project's `[build] debug` chooses (§13.2), holds every
 test program (a `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`) as an instance of its
 name that no task runs, and each test runs after a cold
