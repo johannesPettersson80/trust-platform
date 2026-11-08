@@ -4288,7 +4288,9 @@ value text, trimmed, is an IEC 61131-3 literal of that type, read as the languag
   `$` combinations of Table 7 and `$hh` and `$hhhh` codes (§6.3.3, Table 6), typed `STRING#'OK'`,
   `WSTRING#"OK"` and `WSTRING#'OK'`; a `CHAR` takes one character in single quotes and a `WCHAR` one
   in double quotes;
-- an enumeration's value, bare (`Red`) or typed (`Color#Red`, §6.4.4.2, Table 11).
+- an enumeration's value, bare (`Red`), typed (`Color#Red`, §6.4.4.2, Table 11), or in CODESYS's form,
+  the type and the value with a dot (`Color.Red`), whose type its namespaces may qualify
+  (`Lib.Color.Red`); an enumeration that a namespace holds is also named by its own name.
 
 A literal of another type, outside the range of the destination's type or subrange, longer than the
 text the destination holds, or no value of its enumeration, is refused with a plain reason before
@@ -4299,8 +4301,13 @@ variable is bound to, the admitted value is written as the image holds that vari
 for a `TIME` bound in whole milliseconds those milliseconds. The parser is the shared one of every
 runtime (specification 34), so a board takes a text exactly as trust-runtime does.
 
+A `set`, `var.force` or `retain:` target that the installed program does not resolve is refused at once
+with the path's reason, which names it (`PRG_Tank.fbPI.Kp names no member`), so that no request that
+cannot change a variable is acknowledged; the scan boundary still refuses a target that a program loaded
+since no longer resolves.
+
 **The untyped grammar.** Where the destination's type is not known (an address no variable is bound
-to, a target the installed program does not resolve, a runtime without its program at hand), after
+to, or a runtime without its program at hand), after
 trimming, `TRUE` and `FALSE` match ASCII-case-insensitively and produce Boolean values.
 A base-ten signed integer accepted exactly by the `i64` domain produces a
 `LINT`; optional leading sign and leading zeroes are accepted, while an empty
