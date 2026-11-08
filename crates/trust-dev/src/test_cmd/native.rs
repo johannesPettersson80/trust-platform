@@ -401,17 +401,31 @@ fn execute_native_tests_on_device(
     // test starts where the previous test's last step was; a test's own time, which its timers
     // measure and its result reports, starts there (specification 22, "Multi-cycle tests").
     let mut stepped_ns = 0_u64;
+    // The project's simulation and a copy of the tests built for this computer, which its plants run against, made once for
+    // the tests that run it (specification 22, "A plant in the loop").
+    let mut simulated: Option<Result<(trust_runtime::simulation::SimulationConfig, Vec<u8>), String>> =
+        None;
     for case in tests {
         let started = Instant::now();
-        // The plants of a test that runs the project's simulation run where the runner runs (specification 22).
-        if case.cycles.is_some_and(|cycles| cycles.simulation) {
-            results.push(error_result(
-                case,
-                "the test runs the project's simulation ({attribute 'test_simulation'}), which runs on this computer, not \
-                 on a device"
-                    .to_string(),
-                started,
-            ));
+        if let Some(cycles) = case.cycles.filter(|cycles| cycles.simulation) {
+            let setup = simulated.get_or_insert_with(|| {
+                let config = project_simulation(project_root)?;
+                let host = trust_runtime::native::Target::this_cpu()
+                    .ok_or_else(|| "this computer's CPU has no native target".to_string())?;
+                let copy = build_test_image(project_root, discovered, host, &toolchain)
+                    .map_err(|error| error.to_string())?;
+                Ok((config, copy.image))
+            });
+            let executed = match setup {
+                Ok((config, copy)) => cycles_simulated_on_device(
+                    &mut link, copy, case, cycles, config, timeout, started, stepped_ns,
+                ),
+                Err(text) => error_result(case, text.clone(), started),
+            };
+            if let Some(run) = executed.cycles {
+                stepped_ns = stepped_ns.saturating_add(run.time_ns);
+            }
+            results.push(executed);
             continue;
         }
         if let Some(cycles) = case.cycles {
@@ -442,6 +456,175 @@ fn execute_native_tests_on_device(
         results.push(done);
     }
     Ok(results)
+}
+
+/// Runs the multi-cycle test `case` with the project's simulation `config` on the device behind `link` (specification 22, "A
+/// plant in the loop"): the plants run on this computer, against a copy of the tests built for it (`copy`) that holds the
+/// values the simulation reaches and runs no scan. Each cycle the simulation's work before a scan writes into the copy, the
+/// step carries every value the simulation writes to the device (`inputs`, `direct_inputs`) and watches every value the
+/// simulation reaches, the reply sets those values in the copy, and the simulation's work after the scan reads them there.
+/// So the program on the device takes the plants' feedback, and the plants its commands, at the moments a run on this
+/// computer has them, and a value the simulation leaves alone goes back to the device as the device last had it. The device
+/// restarts cold at the first step, before the step's values are written (specification 11 §6.8.1).
+#[allow(clippy::too_many_arguments)] // One test's run: its link, its plants' copy and its own time are separate inputs.
+fn cycles_simulated_on_device(
+    link: &mut trust_runtime::device_link::DeviceLink,
+    copy: &[u8],
+    case: &DiscoveredTest,
+    cycles: TestCycles,
+    config: &trust_runtime::simulation::SimulationConfig,
+    timeout: u64,
+    started: Instant,
+    start_ns: u64,
+) -> ExecutedTest {
+    use trust_runtime::device_link;
+    use trust_runtime::native::TEST_FINISHED_GLOBAL;
+    use trust_runtime::simulation::{ProgramSignal, SimulationController};
+    use trust_runtime::value::Duration;
+    use trust_runtime::{CompiledRuntime, RestartMode};
+    let mut copy = match CompiledRuntime::load(copy.to_vec(), "RESOURCE") {
+        Ok(copy) => copy,
+        Err(error) => {
+            return error_result(case, format!("the program image does not load: {error}"), started);
+        }
+    };
+    let mut simulation = SimulationController::new(config.clone());
+    let signals = config.program_signals();
+    let mut watch = vec![json!(TEST_FINISHED_GLOBAL)];
+    let mut watch_direct = Vec::new();
+    for signal in signals.written.iter().chain(signals.read.iter()) {
+        let (list, name) = match signal {
+            ProgramSignal::Variable(path) => (&mut watch, path.clone()),
+            ProgramSignal::Address(address) => (&mut watch_direct, address.to_string()),
+        };
+        if !list.contains(&json!(name)) {
+            list.push(json!(name));
+        }
+    }
+    let (mut failed_at, mut assertion) = (None, None);
+    let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
+        let now = Duration::from_nanos(i64::try_from(time_ns).unwrap_or(i64::MAX));
+        if n == 1
+            && let Err(error) = copy.restart(RestartMode::Cold)
+        {
+            return CycleResult::Error(error.to_string());
+        }
+        if let Err(error) = simulation.apply_pre_cycle(now, &mut copy) {
+            return CycleResult::Error(error.to_string());
+        }
+        let (inputs, direct_inputs) = match written_values(&copy, &signals.written) {
+            Ok(values) => values,
+            Err(error) => return CycleResult::Error(error),
+        };
+        let mut params = json!({
+            "time_ns": start_ns.saturating_add(time_ns),
+            "run": test_program(case).as_str(),
+            "inputs": inputs,
+            "direct_inputs": direct_inputs,
+            "watch": watch,
+            "watch_direct": watch_direct,
+        });
+        if n == 1 {
+            params["restart"] = json!("cold");
+        }
+        let result = match link.call("cycle.step", Some(params), device_link::REPLY_WAIT) {
+            Ok(result) => result,
+            Err(error) => return CycleResult::Error(error.to_string()),
+        };
+        if let Some(error) = result["errors"].get(0) {
+            failed_at = step_error_at(&result);
+            assertion = result.get("assertion").cloned();
+            let text = error.as_str().unwrap_or_default();
+            return match text.strip_prefix("assertion failed: ") {
+                Some(message) => CycleResult::Failed(message.to_string()),
+                None => CycleResult::Error(text.to_string()),
+            };
+        }
+        if let Err(error) = take_values(&mut copy, &result) {
+            return CycleResult::Error(error);
+        }
+        if let Err(error) = simulation.apply_post_cycle(now, &copy) {
+            return CycleResult::Error(error.to_string());
+        }
+        CycleResult::Ran(result["values"][TEST_FINISHED_GLOBAL]["value"] == json!(true))
+    });
+    ExecutedTest {
+        case: case.clone(),
+        outcome,
+        message,
+        duration_ms: elapsed_ms(started.elapsed()),
+        cycles: Some(run),
+        failed_at,
+        assertion,
+    }
+}
+
+/// A step's typed value texts by the variable or the address each writes (specification 11 §6.8.1).
+type ValueTexts = serde_json::Map<String, serde_json::Value>;
+
+/// The values the simulation wrote into `copy` for the program's signals `written`, as a step's `inputs` and
+/// `direct_inputs`: each as a typed value text (specification 11 §6.8.1).
+fn written_values(
+    copy: &trust_runtime::CompiledRuntime,
+    written: &[trust_runtime::simulation::ProgramSignal],
+) -> Result<(ValueTexts, ValueTexts), String> {
+    use trust_runtime::device_link::typed_value_text;
+    use trust_runtime::simulation::ProgramSignal;
+    let (mut inputs, mut direct_inputs) = (ValueTexts::new(), ValueTexts::new());
+    for signal in written {
+        match signal {
+            ProgramSignal::Variable(path) => {
+                let value = copy
+                    .with_program_view(|program| {
+                        program
+                            .locate(path)
+                            .map_err(|error| error.to_string())
+                            .and_then(|at| program.read_at(&at).map_err(|error| error.to_string()))
+                    })
+                    .map_err(|error| format!("the plants' {path}: {error}"))?;
+                let text = typed_value_text(&value).map_err(|error| format!("the plants' {path}: {error}"))?;
+                inputs.insert(path.clone(), json!(text));
+            }
+            ProgramSignal::Address(address) => {
+                let value = copy
+                    .read_io(address)
+                    .map_err(|error| format!("the plants' {address}: {error}"))?;
+                let text =
+                    typed_value_text(&value).map_err(|error| format!("the plants' {address}: {error}"))?;
+                direct_inputs.insert(address.to_string(), json!(text));
+            }
+        }
+    }
+    Ok((inputs, direct_inputs))
+}
+
+/// Sets in `copy` the values that the step's reply `result` read back, its `values` but the finished mark and its `direct`,
+/// through the writes the plants use themselves.
+fn take_values(copy: &mut trust_runtime::CompiledRuntime, result: &serde_json::Value) -> Result<(), String> {
+    use trust_runtime::device_link::decode_value;
+    use trust_runtime::native::TEST_FINISHED_GLOBAL;
+    let empty = serde_json::Map::new();
+    for (path, encoded) in result["values"].as_object().unwrap_or(&empty) {
+        if path == TEST_FINISHED_GLOBAL {
+            continue;
+        }
+        let value = decode_value(encoded).map_err(|error| format!("the device's {path}: {error}"))?;
+        copy.with_program(|program| {
+            program
+                .locate(path)
+                .map_err(|error| error.to_string())
+                .and_then(|at| program.write_at(&at, &value).map_err(|error| error.to_string()))
+        })
+        .map_err(|error| format!("the device's {path}: {error}"))?;
+    }
+    for (text, encoded) in result["direct"].as_object().unwrap_or(&empty) {
+        let address = trust_runtime::io::IoAddress::parse(text)
+            .map_err(|error| format!("the device's {text}: {error}"))?;
+        let value = decode_value(encoded).map_err(|error| format!("the device's {text}: {error}"))?;
+        copy.write_io(&address, value)
+            .map_err(|error| format!("the device's {text}: {error}"))?;
+    }
+    Ok(())
 }
 
 /// The outcome of `case` from the error text a device's step ended with, by the rules of

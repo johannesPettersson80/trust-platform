@@ -62,6 +62,101 @@ fn simulation_contract_optional_and_required_file_loading_are_path_qualified() {
         .is_none());
 }
 
+/// Specification 22, "A plant in the loop on a device": the program signals a runner carries in each step are those the
+/// simulation writes before a scan (the plants' feedback, a `pid:` target as the instance's `HeldMeasurement` and
+/// `MeasurementHeld` of specification 46 §13.2, the couplings' and the set-input disturbances' targets, the physics'
+/// encoders) and those it reads after one (the plants' commands, the couplings' sources, the physics' enable inputs), each
+/// once. Worked by hand from the file below, the plants in the order of their ids: a disabled plant runs nowhere and adds
+/// none, a fault disturbance writes no signal, and `Main.Valve`, which two plants read, is read once. Catches a `pid:` target
+/// carried by its instance's name (a step cannot write a function block), a signal kind left out (a coupling's target would
+/// never reach the device), and a command carried twice.
+#[test]
+fn the_program_signals_of_a_simulation_are_its_writes_before_a_scan_and_its_reads_after_one() {
+    let config = load_text(
+        r#"
+[simulation]
+enabled = true
+plant_step_ms = 10
+
+[[plants]]
+id = "a-level"
+model = "static_gain"
+command_sources = ["Main.Valve"]
+feedback_targets = ["pid:Main.Level"]
+[plants.parameters]
+gain = 2.0
+
+[[plants]]
+id = "b-pump"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+[plants.parameters]
+gain = 1.0
+
+[[plants]]
+id = "c-flow"
+model = "static_gain"
+command_sources = ["Main.Valve"]
+feedback_targets = ["Main.Flow"]
+[plants.parameters]
+gain = 0.5
+
+[[plants]]
+id = "d-off"
+enabled = false
+model = "static_gain"
+command_sources = ["Main.Other"]
+feedback_targets = ["Main.OtherFlow"]
+[plants.parameters]
+gain = 1.0
+
+[[couplings]]
+source = "%QX8.0"
+target = "%IX8.0"
+
+[[disturbances]]
+at_ms = 30
+target = "%IX8.1"
+value = "TRUE"
+
+[[disturbances]]
+at_ms = 40
+kind = "FAULT"
+
+[physics]
+enabled = true
+[[physics.joints]]
+id = "axis"
+kind = "revolute"
+enable_source = "%QX9.0"
+feedback_target = "%IW10"
+"#,
+    );
+    let variable = |path: &str| ProgramSignal::Variable(path.to_string());
+    let address = |text: &str| ProgramSignal::Address(IoAddress::parse(text).unwrap());
+    assert_eq!(
+        config.program_signals(),
+        ProgramSignals {
+            written: vec![
+                variable("Main.Level.HeldMeasurement"),
+                variable("Main.Level.MeasurementHeld"),
+                address("%IL0"),
+                variable("Main.Flow"),
+                address("%IX8.0"),
+                address("%IX8.1"),
+                address("%IW10"),
+            ],
+            read: vec![
+                variable("Main.Valve"),
+                address("%QL0"),
+                address("%QX8.0"),
+                address("%QX9.0"),
+            ],
+        }
+    );
+}
+
 #[test]
 fn simulation_contract_malformed_toml_is_rejected_with_path() {
     let root = TempTree::new("trust-simulation-malformed");

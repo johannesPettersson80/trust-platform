@@ -2842,8 +2842,12 @@ pub fn trust_runtime::device_link::DeviceLink::stop(&mut self) -> core::result::
 pub fn trust_runtime::device_link::DeviceLink::version_advice(&self) -> core::option::Option<&trust_runtime_client::version::VersionAdvice>
 pub fn trust_runtime::device_link::DeviceLink::wait_for(&mut self, wanted: &str) -> core::result::Result<(), trust_runtime::device_link::DeviceLinkError>
 pub const trust_runtime::device_link::REPLY_WAIT: core::time::Duration
+pub fn trust_runtime::device_link::decode_value(encoded: &serde_json::value::Value) -> core::result::Result<trust_runtime_core::value::types::Value, alloc::string::String>
+pub fn trust_runtime::device_link::encode_value(value: &trust_runtime_core::value::types::Value) -> serde_json::value::Value
 pub fn trust_runtime::device_link::install_wait(bytes: usize) -> core::time::Duration
+pub fn trust_runtime::device_link::parse_typed_value(raw: &str) -> core::result::Result<trust_runtime_core::value::types::Value, alloc::string::String>
 pub fn trust_runtime::device_link::stepping_container(image: &[u8], work: &std::path::Path) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime::device_link::DeviceLinkError>
+pub fn trust_runtime::device_link::typed_value_text(value: &trust_runtime_core::value::types::Value) -> core::result::Result<alloc::string::String, alloc::string::String>
 pub mod trust_runtime::discovery
 pub struct trust_runtime::discovery::DiscoveryEntry
 pub trust_runtime::discovery::DiscoveryEntry::addresses: alloc::vec::Vec<core::net::ip_addr::IpAddr>
@@ -5860,6 +5864,9 @@ pub enum trust_runtime::simulation::PhysicsBackend
 pub trust_runtime::simulation::PhysicsBackend::InTreeRapier
 pub enum trust_runtime::simulation::PhysicsJointKind
 pub trust_runtime::simulation::PhysicsJointKind::Revolute
+pub enum trust_runtime::simulation::ProgramSignal
+pub trust_runtime::simulation::ProgramSignal::Address(trust_runtime_core::io_address::IoAddress)
+pub trust_runtime::simulation::ProgramSignal::Variable(alloc::string::String)
 pub enum trust_runtime::simulation::SimulationDisturbanceKind
 pub trust_runtime::simulation::SimulationDisturbanceKind::Fault
 pub trust_runtime::simulation::SimulationDisturbanceKind::Fault::message: smol_str::SmolStr
@@ -5881,6 +5888,9 @@ pub trust_runtime::simulation::PhysicsJointConfig::kind: trust_runtime::simulati
 pub trust_runtime::simulation::PhysicsJointConfig::lower_rad: f64
 pub trust_runtime::simulation::PhysicsJointConfig::upper_rad: f64
 pub trust_runtime::simulation::PhysicsJointConfig::velocity_rad_per_s: f64
+pub struct trust_runtime::simulation::ProgramSignals
+pub trust_runtime::simulation::ProgramSignals::read: alloc::vec::Vec<trust_runtime::simulation::ProgramSignal>
+pub trust_runtime::simulation::ProgramSignals::written: alloc::vec::Vec<trust_runtime::simulation::ProgramSignal>
 pub struct trust_runtime::simulation::SignalCouplingRule
 pub trust_runtime::simulation::SignalCouplingRule::delay: trust_runtime_core::value::datetime::Duration
 pub trust_runtime::simulation::SignalCouplingRule::on_false: core::option::Option<trust_runtime_core::value::types::Value>
@@ -5898,6 +5908,7 @@ pub trust_runtime::simulation::SimulationConfig::time_scale: u32
 impl trust_runtime::simulation::SimulationConfig
 pub fn trust_runtime::simulation::SimulationConfig::load(path: impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::simulation::SimulationConfig::load_optional(path: impl core::convert::AsRef<std::path::Path>) -> core::result::Result<core::option::Option<Self>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime::simulation::SimulationConfig::program_signals(&self) -> trust_runtime::simulation::ProgramSignals
 impl core::default::Default for trust_runtime::simulation::SimulationConfig
 pub fn trust_runtime::simulation::SimulationConfig::default() -> Self
 pub struct trust_runtime::simulation::SimulationController

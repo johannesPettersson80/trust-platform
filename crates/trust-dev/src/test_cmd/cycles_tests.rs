@@ -333,6 +333,159 @@ fn a_test_with_test_simulation_runs_the_projects_plants_in_lockstep() {
     );
 }
 
+/// A device for the tests that steps a real program: `image`, the tests built for this computer as the runner builds them,
+/// stepped by the device's own handler of `cycle.step` (specification 11 §6.8.1), so that a run on it steps the program as a
+/// device steps it. It answers an install, a start and a stop as a device does, and steps `image` in place of the program the
+/// runner installs.
+fn stepping_runtime_device(image: Vec<u8>) -> String {
+    use std::io::{BufRead, Write as _};
+    use std::sync::Mutex;
+    use trust_runtime_services::cycle_step::{self, StepOutcome, StepRefusal, StepRequest};
+    use trust_runtime_services::ports::ResourcePort;
+    use trust_runtime_services::resource::commands::CommandSendError;
+
+    struct Device {
+        program: Mutex<trust_runtime::CompiledRuntime>,
+        last: Mutex<Option<trust_runtime::value::Duration>>,
+    }
+    impl ResourcePort for Device {
+        fn resource_state(&self) -> trust_runtime_core::scheduler::ResourceState {
+            trust_runtime_core::scheduler::ResourceState::Stopped
+        }
+        fn last_error(&self) -> Option<RuntimeError> {
+            None
+        }
+        fn is_hung(&self) -> bool {
+            false
+        }
+        fn pause_resource(&self) -> Result<(), CommandSendError> {
+            Ok(())
+        }
+        fn resume_resource(&self) -> Result<(), CommandSendError> {
+            Ok(())
+        }
+        fn debug_control_mode(&self) -> bool {
+            true
+        }
+        fn debugger_pause(&self) {}
+        fn debugger_continue(&self) {}
+        fn update_pending_restart(
+            &self,
+            _update: impl FnOnce(&mut Option<trust_runtime_core::retain::RestartMode>),
+        ) {
+        }
+        fn starts_when_stopped(&self) -> bool {
+            false
+        }
+        fn step_cycle(&self, request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
+            let mut last = self.last.lock().expect("the last step");
+            let restart_at = cycle_step::restart_time(request, *last)?;
+            let outcome = self
+                .program
+                .lock()
+                .expect("the program")
+                .step(request, restart_at)?;
+            *last = Some(request.time);
+            Ok(outcome)
+        }
+    }
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind the device's bridge");
+    let port = format!(
+        "tcp://{}",
+        listener.local_addr().expect("the bridge's address")
+    );
+    std::thread::spawn(move || {
+        let device = Device {
+            program: Mutex::new(
+                trust_runtime::CompiledRuntime::load(image, "RESOURCE").expect("the image loads"),
+            ),
+            last: Mutex::new(None),
+        };
+        let (stream, _) = listener.accept().expect("the link connects");
+        let mut replies = stream.try_clone().expect("the bridge's stream");
+        let mut state = "stopped";
+        for line in std::io::BufReader::new(stream).lines() {
+            let Ok(line) = line else { break };
+            let request: serde_json::Value = serde_json::from_str(&line).expect("a JSON request");
+            let id = request["id"].as_u64().unwrap_or_default();
+            // A device writes `id` first, as the step's response does, and the link takes a reply by its leading `{"id"`.
+            let reply = match request["type"].as_str().unwrap_or_default() {
+                "cycle.step" => serde_json::to_string(&cycle_step::request(
+                    id,
+                    Some(&request["params"]),
+                    &device,
+                ))
+                .expect("a reply"),
+                kind => {
+                    let result = match kind {
+                        "status" => json!({"state": state, "version": env!("CARGO_PKG_VERSION")}),
+                        "restart" => {
+                            state = "running";
+                            json!({})
+                        }
+                        "shutdown" => {
+                            state = "stopped";
+                            json!({})
+                        }
+                        "transfer.begin" => json!({"transfer": "t1"}),
+                        _ => json!({}),
+                    };
+                    format!(r#"{{"id":{id},"ok":true,"result":{result}}}"#)
+                }
+            };
+            if writeln!(replies, "{reply}").is_err() {
+                break;
+            }
+        }
+    });
+    port
+}
+
+/// Specification 22, "A plant in the loop", on a device: the plants run on this computer and the test on the device, which
+/// the step carries the plants' feedback to and reads the test's command back from, so the run is the run on this computer:
+/// worked as there, the feedback reads 0 in cycle 1, 5.0 in cycle 3 and 2.0 in cycle 5, which finishes the test at t = 40 ms.
+/// Catches a device run that refuses the simulation (as T1b's first version did), a plant that never sees the device's
+/// command (the feedback stays 0), and feedback that reaches the device a cycle late or is lost to the cold restart of the
+/// first step (cycle 3 would read 0).
+#[test]
+fn a_test_with_test_simulation_runs_on_a_device_in_lockstep_with_its_plants() {
+    let source = "{attribute 'test_simulation'}\n\
+         TEST_PROGRAM PlantInTheLoop\n\
+         VAR\n    cmd : LREAL;\n    fb : LREAL;\n    n : INT;\nEND_VAR\n\
+         n := n + 1;\n\
+         IF n = 1 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#0.0, ACTUAL := fb);\n    cmd := LREAL#2.5;\nEND_IF\n\
+         IF n = 3 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#5.0, ACTUAL := fb);\n    cmd := LREAL#1.0;\nEND_IF\n\
+         IF n = 5 THEN\n    ASSERT_EQUAL(EXPECTED := LREAL#2.0, ACTUAL := fb);\n    TEST_FINISHED();\nEND_IF\n\
+         END_TEST_PROGRAM\n";
+    let project = trust_test_support::unique_temp_path(&format!(
+        "trust-dev-device-plant-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(project.join("src/tests.st"), source).expect("write the tests");
+    std::fs::write(project.join("simulation.toml"), DOUBLING_PLANT).expect("write the simulation");
+    let sources =
+        load_sources(&resolve_sources_root(&project, None).expect("sources")).expect("load");
+    let discovered = discover_tests(&sources);
+    let toolchain = trust_runtime::native::Toolchain::find().expect("the toolchain");
+    let host = trust_runtime::native::Target::this_cpu().expect("this computer's target");
+    let image = build_test_image(&project, &discovered, host, &toolchain)
+        .expect("the tests build for this computer")
+        .image;
+    let port = stepping_runtime_device(image);
+    let results =
+        execute_native_tests_on_device(&project, &discovered, &discovered, 5, &port, "host", None)
+            .expect("the run on the device");
+    let _ = std::fs::remove_dir_all(&project);
+    assert_eq!(
+        outcome(&results[0]),
+        (TestOutcome::Passed, String::new(), Some((5, 40))),
+        "{:?}",
+        results[0].message
+    );
+}
+
 /// Specification 22, "A plant in the loop": a test that asks for the project's simulation in a project without
 /// `simulation.toml` ends as an error that says so, and runs no cycle. Catches such a test run silently without a plant.
 #[test]

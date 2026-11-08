@@ -300,8 +300,21 @@ beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's require
   loop checks it against its plant, cycle by cycle, in simulated time (a CODESYS toolkit's requirement, the owner
   on 7 November 2026). The attribute takes no value and makes the test multi-cycle; on any other declaration than
   a test program it is a compile error. The simulation runs whatever its file's `enabled` says, as the test asks
-  for it; a project without `simulation.toml` ends the test as an error that says so. Such a test runs on this
-  computer; on a device (`--device`) it ends as an error that says so, as the plants run where the runner runs.
+  for it; a project without `simulation.toml` ends the test as an error that says so.
+- **A plant in the loop on a device.** With `--device` such a test runs on the device and its plants on this
+  computer, in the same lockstep (the owner on 8 November 2026: no board-only refusal). The plants work against a
+  copy of the test build made for this computer, which holds the values the simulation reaches and runs no scan.
+  Each cycle the simulation's work before the cycle writes into the copy; the cycle's `cycle.step` (specification
+  11 §6.8.1) carries every program signal the simulation writes, a variable in `inputs` and an address in
+  `direct_inputs`, and watches every signal it writes or reads; the reply's values go into the copy; then the
+  simulation's work after the cycle reads them there. The signals it writes are the plants' feedback targets,
+  the couplings' and the disturbances' targets and the physics' encoders; those it reads are the plants' command
+  sources, the couplings' sources and the physics' enable inputs. A `pid:` target is carried as the instance's
+  `HeldMeasurement` and `MeasurementHeld` (specification 46 §13.2). So the program on the device takes the
+  feedback, and the plants its commands, at the moments a run on this computer has them, and a signal the
+  simulation leaves alone in a cycle goes back to the device as the device last reported it. A value no step
+  carries (a structure, an array, a character, a date, or a `STRING` with spaces at its ends) ends the test as
+  an error that names it.
 - **The finished mark.** The test build declares the global `TRUST_TEST_FINISHED` (BOOL), which
   `TEST_FINISHED()` sets and the runner reads after each cycle; a cold restart clears it. A project does not
   declare a global of that name.

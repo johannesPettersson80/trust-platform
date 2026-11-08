@@ -23,7 +23,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{Duration, Value};
 
-pub use values::{encode_value, parse_typed_value};
+pub use values::{decode_value, encode_value, parse_typed_value, typed_value_text};
 
 use crate::debug::sources::StatementAt;
 use crate::ports::ResourcePort;
