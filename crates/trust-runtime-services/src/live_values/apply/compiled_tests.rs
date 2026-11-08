@@ -276,8 +276,15 @@ fn the_image_writes_and_forces_reach_a_compiled_program_at_their_boundaries() {
     let inputs = [IoArea::Input, IoArea::Memory];
     let outputs = [IoArea::Output];
     let label = |text: &str| format!("{:?}", address(text));
-    compiled_images(&mut queues, &inputs, &mut program, at(10), &mut refusals)
-        .expect("the inputs' boundary runs");
+    compiled_images(
+        &mut queues,
+        NOW,
+        &inputs,
+        &mut program,
+        at(10),
+        &mut refusals,
+    )
+    .expect("the inputs' boundary runs");
     assert_eq!(
         program.written,
         vec![
@@ -286,8 +293,15 @@ fn the_image_writes_and_forces_reach_a_compiled_program_at_their_boundaries() {
             (label("%IX0.1"), Value::Bool(true)),
         ]
     );
-    compiled_images(&mut queues, &outputs, &mut program, at(10), &mut refusals)
-        .expect("the outputs' boundary runs");
+    compiled_images(
+        &mut queues,
+        NOW,
+        &outputs,
+        &mut program,
+        at(10),
+        &mut refusals,
+    )
+    .expect("the outputs' boundary runs");
     assert_eq!(program.written[3..], [(label("%QX0.1"), Value::Bool(true))]);
     assert_eq!(
         refusals.0,
@@ -298,10 +312,24 @@ fn the_image_writes_and_forces_reach_a_compiled_program_at_their_boundaries() {
         )]
     );
     // The next scan: the forces again, the one-shot writes not, the refused force not.
-    compiled_images(&mut queues, &inputs, &mut program, at(20), &mut refusals)
-        .expect("the inputs' boundary runs");
-    compiled_images(&mut queues, &outputs, &mut program, at(20), &mut refusals)
-        .expect("the outputs' boundary runs");
+    compiled_images(
+        &mut queues,
+        NOW,
+        &inputs,
+        &mut program,
+        at(20),
+        &mut refusals,
+    )
+    .expect("the inputs' boundary runs");
+    compiled_images(
+        &mut queues,
+        NOW,
+        &outputs,
+        &mut program,
+        at(20),
+        &mut refusals,
+    )
+    .expect("the outputs' boundary runs");
     assert_eq!(
         program.written[4..],
         [
@@ -310,4 +338,62 @@ fn the_image_writes_and_forces_reach_a_compiled_program_at_their_boundaries() {
         ]
     );
     assert_eq!(refusals.0.len(), 1);
+}
+
+#[test]
+fn a_variable_force_is_applied_again_after_the_inputs_between_the_image_writes_and_forces() {
+    // Specification 44 §13.3 (the CODESYS toolkit's B17): after the drivers read the inputs, the
+    // queued image writes come first, then every variable force again, then the forces of the input
+    // and marker images. There the program's write of a forced variable holds it at the input or
+    // marker address that binds it, so that the sample hands the program the forced value. Before
+    // the outputs, the image boundary applies no variable force, which the loop applies just before
+    // it. Catches a variable force applied only at the cycle start, which the sample of a variable
+    // bound to an input replaces before the program runs (the toolkit's forced input that its
+    // program never saw), a force applied before a one-shot write of its address, which the write
+    // would replace, and a force applied twice before the outputs.
+    let mut queues = LiveValueQueues::new();
+    queues
+        .try_enqueue_io_write(address("%IB0"), Value::Byte(5))
+        .expect("the write is queued");
+    queues
+        .try_upsert_forced_var(ForcedVarTarget::Global("MAIN.SPEED".into()), Value::Int(9))
+        .expect("the force is set");
+    queues
+        .try_upsert_forced_io(address("%IX1.0"), Value::Bool(true))
+        .expect("the force is set");
+    let mut program = Program::default();
+    let mut refusals = Refusals::default();
+    let label = |text: &str| format!("{:?}", address(text));
+    compiled_images(
+        &mut queues,
+        NOW,
+        &[IoArea::Input, IoArea::Memory],
+        &mut program,
+        at(10),
+        &mut refusals,
+    )
+    .expect("the inputs' boundary runs");
+    assert_eq!(
+        program.written,
+        vec![
+            (label("%IB0"), Value::Byte(5)),
+            ("MAIN.SPEED".to_string(), Value::Int(9)),
+            (label("%IX1.0"), Value::Bool(true)),
+        ]
+    );
+    compiled_images(
+        &mut queues,
+        NOW,
+        &[IoArea::Memory, IoArea::Output],
+        &mut program,
+        at(10),
+        &mut refusals,
+    )
+    .expect("the outputs' boundary runs");
+    assert_eq!(
+        program.written.len(),
+        3,
+        "no variable force before the outputs"
+    );
+    assert_eq!(refusals.0, Vec::new(), "nothing is refused");
 }
