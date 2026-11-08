@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::failure::{Cause, Failure, NextAction};
 use crate::json;
-use crate::loop_definition::RealType;
+use crate::loop_definition::{ModeValue, RealType};
 
 use super::parameter_status::{same_parameter_values, ParameterStatus, RecordState};
 use super::texts;
@@ -71,14 +71,17 @@ pub struct RuntimeParameter {
     pub maximum: f64,
 }
 
-/// The mode of a binding (E7.1).
+/// The mode of a binding (E7.1): a BOOL with its Manual value, or an enumeration with its Manual and Auto members.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeMode {
-    /// The BOOL variable of the mode.
+    /// The variable of the mode.
     pub symbol: String,
-    /// The value of the variable that means Manual.
-    pub manual_value: bool,
+    /// The value that means Manual: a boolean for a BOOL, a member's name for an enumeration.
+    pub manual_value: ModeValue,
+    /// The member that means Auto, for an enumeration only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_value: Option<String>,
 }
 
 /// Checks a binding before any runtime call (E7.1, C0; `decodeParameterBinding`): every label is not blank, at most 1,024 units
@@ -109,6 +112,13 @@ pub fn check_binding(binding: &RuntimeBinding, loop_id: &str) -> Result<(), Fail
         return Err(binding_failure(&texts::parameter_binding_label(
             "mode symbol",
         )));
+    }
+    // A BOOL names its Manual value alone; an enumeration names its Manual and its Auto member, which differ (A6.1).
+    match (&binding.mode.manual_value, &binding.mode.auto_value) {
+        (ModeValue::Bool(_), None) => {}
+        (ModeValue::Member(manual), Some(auto))
+            if is_label(manual) && is_label(auto) && !manual.eq_ignore_ascii_case(auto) => {}
+        _ => return Err(binding_failure(texts::PARAMETER_BINDING_MODE)),
     }
     let count = binding.parameters.len();
     if !(1..=MAXIMUM_PARAMETERS).contains(&count) {

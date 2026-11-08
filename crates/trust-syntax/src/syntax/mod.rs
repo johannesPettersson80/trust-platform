@@ -150,6 +150,10 @@ macro_rules! define_syntax_kind {
             /// A qualified name: `Namespace.Type`
             QualifiedName,
 
+            /// CODESYS's system interface in an EXTENDS or IMPLEMENTS list:
+            /// `__SYSTEM.IQueryInterface`
+            SystemName,
+
             /// A type reference
             TypeRef,
 
@@ -450,6 +454,7 @@ macro_rules! define_syntax_kinds {
             SyntaxKind::ImplementsClause,
             SyntaxKind::Name,
             SyntaxKind::QualifiedName,
+            SyntaxKind::SystemName,
             SyntaxKind::TypeRef,
             SyntaxKind::ParamList,
             SyntaxKind::Param,

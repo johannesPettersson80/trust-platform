@@ -11,7 +11,7 @@ use crate::identification::refusal::Refusal;
 use crate::loop_definition::{ControllerLaw, LoopDefinition, ParameterBinding, RealType};
 use crate::tuning::cascade_candidate::{cascade_mapped_parameters, served_cascade};
 use crate::tuning::project_candidate::{served_seed, served_trajectory};
-use crate::tuning::project_seed::ParallelPidSeed;
+use crate::tuning::project_seed::{GainForm, ParallelPidSeed};
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::structure::{is_exactly_zero, Structure};
 use crate::tuning::texts;
@@ -39,6 +39,10 @@ pub enum GainKey {
     DerivativeSetpointWeight,
     /// The measurement filter time `Tf` in seconds (C0).
     MeasurementFilterSeconds,
+    /// The reset time `Ti = Kp/Ki` in seconds of a program's own law in standard form (C2, N6.8).
+    ResetTime,
+    /// The derivative time `Td = Kd/Kp` in seconds of a program's own law in standard form (C2, N6.8).
+    DerivativeTime,
 }
 
 impl GainKey {
@@ -164,8 +168,15 @@ pub fn apply_pins(
         }
         result.insert(parameter.key, *value);
     }
-    let integral = result.get(&GainKey::IntegralGain).copied().unwrap_or(0.0);
-    let derivative = result.get(&GainKey::DerivativeGain).copied().unwrap_or(0.0);
+    let term = |gain: GainKey, time: GainKey| {
+        result
+            .get(&gain)
+            .or_else(|| result.get(&time))
+            .copied()
+            .unwrap_or(0.0)
+    };
+    let integral = term(GainKey::IntegralGain, GainKey::ResetTime);
+    let derivative = term(GainKey::DerivativeGain, GainKey::DerivativeTime);
     let proportional_only =
         matches!(family, Structure::P | Structure::PD) && !is_exactly_zero(integral);
     let no_derivative =
@@ -230,15 +241,20 @@ pub fn mapped_parameters(loop_definition: &LoopDefinition) -> Vec<MappedParamete
 }
 
 /// The bound parameters of a program's own law (C2): the seed's gain variables, each with the record field of its gain, so that
-/// the pins, the manual settings and the gain limits key on the variables the program holds.
+/// the pins, the manual settings and the gain limits key on the variables the program holds. A seed in standard form holds the
+/// reset and derivative times (N6.8).
 fn seed_parameters(seed: &ParallelPidSeed, binding: &ParameterBinding) -> Vec<MappedParameter> {
+    let (integral, derivative) = match seed.form {
+        GainForm::Parallel => (GainKey::IntegralGain, GainKey::DerivativeGain),
+        GainForm::Standard => (GainKey::ResetTime, GainKey::DerivativeTime),
+    };
     [
         (
             Some(seed.proportional_symbol.as_str()),
             GainKey::ProportionalGain,
         ),
-        (seed.integral_symbol.as_deref(), GainKey::IntegralGain),
-        (seed.derivative_symbol.as_deref(), GainKey::DerivativeGain),
+        (seed.integral_symbol.as_deref(), integral),
+        (seed.derivative_symbol.as_deref(), derivative),
     ]
     .into_iter()
     .filter_map(|(symbol, key)| mapped_parameter(binding, symbol?, key))
@@ -365,8 +381,10 @@ fn required_keys(family: Structure, parameters: &[MappedParameter]) -> Vec<&Mapp
         .iter()
         .filter(|parameter| match parameter.key {
             GainKey::ProportionalGain | GainKey::MeasurementFilterSeconds => true,
-            GainKey::IntegralGain => family.has_integral(),
-            GainKey::DerivativeGain | GainKey::DerivativeSetpointWeight => family.has_derivative(),
+            GainKey::IntegralGain | GainKey::ResetTime => family.has_integral(),
+            GainKey::DerivativeGain
+            | GainKey::DerivativeSetpointWeight
+            | GainKey::DerivativeTime => family.has_derivative(),
             GainKey::BackCalculationGain | GainKey::ProportionalSetpointWeight => {
                 family.has_integral()
             }
@@ -673,10 +691,7 @@ mod tests {
                 bound("Main.Beta", RealType::Lreal),
                 bound("Main.Tf", RealType::Real),
             ],
-            mode: ModeBinding {
-                symbol: "Main.Mode".to_owned(),
-                manual_value: false,
-            },
+            mode: ModeBinding::boolean("Main.Mode".to_owned(), false),
         });
         let mapped: Vec<(String, GainKey, bool)> = mapped_parameters(&loop_definition)
             .into_iter()

@@ -43,6 +43,7 @@ fn record(id: &str, program_revision: &str, count: u64) -> ArchivedRun {
         symbol: Some(symbol.to_string()),
         iec_type: "LREAL".to_string(),
         unit: None,
+        mode: None,
     };
     let samples = (0..count)
         .map(|index| RecordedSample {

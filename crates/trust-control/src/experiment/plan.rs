@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::identification::campaign::plant_input_range;
 use crate::loop_definition::{
     AuxiliaryRole, AuxiliarySignal, Direction, Execution, ExperimentKind, LoopDefinition,
-    ManualOutputType, Topology,
+    ManualOutputType, ModeValue, Topology,
 };
 use crate::recording::EvidenceSource;
 use crate::signals::Quality;
@@ -321,14 +321,30 @@ pub struct ControlRelayFeedbackPlan {
     pub high_output: f64,
 }
 
-/// The mode of a plan: the mode signal and the value that means Manual (`modeBinding`, A6.5).
+/// The mode of a plan: the mode signal, the value that means Manual and, for an enumeration, the member that means Auto
+/// (`modeBinding`, A6.1, A6.5; protocol annex E5.3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentModeBinding {
     /// The mode signal's symbol.
     pub symbol: String,
-    /// The value that means Manual.
-    pub manual_value: bool,
+    /// The value that means Manual: a boolean for a BOOL, a member's name for an enumeration.
+    pub manual_value: ModeValue,
+    /// The member that means Auto, for an enumeration only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_value: Option<String>,
+}
+
+impl ExperimentModeBinding {
+    /// A BOOL mode, `manual_value` being the value that means Manual.
+    #[must_use]
+    pub fn boolean(symbol: impl Into<String>, manual_value: bool) -> Self {
+        Self {
+            symbol: symbol.into(),
+            manual_value: ModeValue::Bool(manual_value),
+            auto_value: None,
+        }
+    }
 }
 
 /// The abort of a project-owned experiment: the latched variable that asserts an abort (`abortBinding`).
@@ -965,7 +981,8 @@ fn experiment_mode_binding(loop_definition: &LoopDefinition) -> Option<Experimen
         .as_ref()
         .map(|binding| ExperimentModeBinding {
             symbol: binding.mode.symbol.clone(),
-            manual_value: binding.mode.manual_value,
+            manual_value: binding.mode.manual_value.clone(),
+            auto_value: binding.mode.auto_value.clone(),
         })
 }
 

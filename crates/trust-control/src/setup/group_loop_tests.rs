@@ -336,7 +336,7 @@ fn only_the_gains_are_bound_and_each_member_brings_its_own() {
         "only the gains are bound, so validation stays within its recorded channels"
     );
     assert_eq!(binding.mode.symbol, "P1.ZonesAuto");
-    assert!(!binding.mode.manual_value, "TRUE means Auto");
+    assert!(!binding.mode.manual_reading(), "TRUE means Auto");
 }
 
 #[test]

@@ -116,7 +116,8 @@ pub fn set<Q: VariableQueuePort>(
         Err(response) => return response,
     };
     let parsed = parse_var_target(&params.target);
-    // The value is refused before the target, as it always was; a target that `set` takes types it.
+    // A target that `set` takes is checked against the installed program first and types the value; any other target's value
+    // is refused before the target, as it always was.
     let value = match &parsed {
         Ok(target @ (VarTarget::Global(_) | VarTarget::Retain(_))) => {
             admitted_value(queues, target, &params.value)
@@ -273,27 +274,29 @@ fn admitted_value<Q: VariableQueuePort>(
     }
 }
 
-/// The declared type of the variable `target` names in `image`; `None` for a target the program
-/// does not resolve, which the boundary refuses.
+/// The declared type of the variable `target` names in `image`; `None` when the image's tables do
+/// not read, which leaves the destination to the boundary.
 ///
 /// # Errors
 ///
-/// The plain reason of a target no write changes: a constant, or an instance.
+/// The plain reason of a target no write changes, a constant or an instance, and of a target the
+/// installed program does not resolve, which names it (specification 11): a request that cannot
+/// change a variable is refused at once, never acknowledged and then dropped at the boundary.
 fn declared_type(image: &Image<'_>, target: &VarTarget) -> Result<Option<u32>, String> {
     Ok(match target {
         VarTarget::Global(path) => match resolve_for_write(image, path, &|_| None) {
             Ok(at) => Some(at.type_index),
-            Err(error @ (PathError::Constant(_) | PathError::NoValue(_))) => {
-                return Err(format!("{error}"));
-            }
-            Err(_) => None,
+            Err(PathError::Damaged) => None,
+            Err(error) => return Err(format!("{error}")),
         },
-        VarTarget::Retain(label) => retained_place(image, label)
-            .ok()
-            .map(|(_, type_index)| type_index),
-        VarTarget::Instance(instance, name) => member_place(image, *instance, name)
-            .ok()
-            .map(|(_, type_index)| type_index),
+        VarTarget::Retain(label) => match retained_place(image, label) {
+            Ok((_, type_index)) => Some(type_index),
+            Err(_) => return Err(format!("{label} names no retained variable")),
+        },
+        VarTarget::Instance(instance, name) => match member_place(image, *instance, name) {
+            Ok((_, type_index)) => Some(type_index),
+            Err(_) => return Err(format!("{name} names no member of instance {instance}")),
+        },
     })
 }
 

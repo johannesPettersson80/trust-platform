@@ -6,6 +6,7 @@
 use trust_control_math::identify::gain::ControllerAction;
 
 use crate::experiment::number_text::js_to_precision;
+use crate::tuning::project_seed::GainForm;
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::requirements::{response_deadline_seconds, TuningRequirements};
 use crate::tuning::structure::{is_exactly_zero, Structure};
@@ -68,6 +69,9 @@ pub struct GainLimits {
     pub integral: Option<GainLimit>,
     /// The derivative gain's bounds.
     pub derivative: Option<GainLimit>,
+    /// The form the law's variables hold the settings in: a program's own law in standard form bounds its reset time `Ti` and its
+    /// derivative time `Td` in seconds in place of `Ki` and `Kd` (C2, N6.8).
+    pub form: GainForm,
 }
 
 /// The output limits of the loop (`limits.outputMinimum` and `limits.outputMaximum`).
@@ -286,21 +290,29 @@ fn has_integral_action(design: &TypedDesign) -> bool {
 /// The sentence of a gain whose magnitude leaves its declared range, or `None` when every gain the loop binds is within its
 /// range (`gainRangeShortfall`). The bounds apply to magnitudes (N6.4).
 fn gain_range_shortfall(design: &TypedDesign, context: &DesignContext) -> Option<String> {
+    let gains = design.gains;
+    let (integral, derivative) = match context.gain_limits.form {
+        GainForm::Parallel => (("Ki", gains.integral_gain), ("Kd", gains.derivative_gain)),
+        GainForm::Standard => (
+            ("Ti", gains.proportional_gain / gains.integral_gain),
+            ("Td", gains.derivative_gain / gains.proportional_gain),
+        ),
+    };
     let gains = [
         (
             "Kp",
             context.gain_limits.proportional.as_ref(),
-            design.gains.proportional_gain,
+            gains.proportional_gain,
         ),
         (
-            "Ki",
+            integral.0,
             context.gain_limits.integral.as_ref(),
-            design.gains.integral_gain,
+            integral.1,
         ),
         (
-            "Kd",
+            derivative.0,
             context.gain_limits.derivative.as_ref(),
-            design.gains.derivative_gain,
+            derivative.1,
         ),
     ];
     for (label, limit, value) in gains {

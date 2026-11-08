@@ -334,7 +334,7 @@ pub fn pid_initialization_plan(
         terms,
     )?;
     let mode = &bindings.parameters.mode;
-    let auto = f64::from(u8::from(!mode.manual_value));
+    let auto = f64::from(u8::from(!mode.manual_reading()));
     let reference_symbol = bindings.reference.symbol.clone();
     let integral_symbol = bindings.contract.integral_state.symbol.clone();
     let derivative_symbol = bindings.contract.derivative_state.symbol.clone();
@@ -342,7 +342,7 @@ pub fn pid_initialization_plan(
     let (run, base_requirements) = start_run(
         &timing,
         base,
-        (mode.symbol.as_str(), mode.manual_value),
+        (mode.symbol.as_str(), mode.manual_reading()),
         vec![
             (reference_symbol.clone(), point.process),
             (bindings.manual.to_owned(), point.initial_manual),
@@ -437,7 +437,7 @@ pub fn proportional_initialization_plan(
         AllowanceTerms::default(),
     )?;
     let mode = &binding.mode;
-    let auto = f64::from(u8::from(!mode.manual_value));
+    let auto = f64::from(u8::from(!mode.manual_reading()));
     let reference_member = &binding.states[0];
     let command_member = &binding.states[1];
     let command_value = rounded_transfer_value(command_member, applied)?;
@@ -469,7 +469,7 @@ pub fn proportional_initialization_plan(
     let (run, base_requirements) = start_run(
         &timing,
         base,
-        (mode.symbol.as_str(), mode.manual_value),
+        (mode.symbol.as_str(), mode.manual_reading()),
         starting,
         observed,
         written,

@@ -46,7 +46,7 @@ pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileE
             SyntaxKind::KwVarInOut => VarBlockKind::InOut,
             SyntaxKind::KwVarTemp => VarBlockKind::Temp,
             SyntaxKind::KwVar => VarBlockKind::Var,
-            SyntaxKind::KwVarStat => VarBlockKind::Stat,
+            SyntaxKind::KwVarStat | SyntaxKind::KwVarInst => VarBlockKind::Stat,
             SyntaxKind::KwVarGlobal => VarBlockKind::Global,
             SyntaxKind::KwVarExternal => VarBlockKind::External,
             _ => VarBlockKind::Unsupported,

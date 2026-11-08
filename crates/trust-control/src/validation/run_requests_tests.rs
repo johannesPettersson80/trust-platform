@@ -563,3 +563,30 @@ fn a_seed_that_the_validation_record_cannot_hold_is_refused() {
     let refused = validation_run_of(&record).expect_err("a 33-bit seed is refused");
     assert!(refused.message.contains("32-bit"), "{}", refused.message);
 }
+
+/// Annex E8.3 and specification 35 A6.1: a run of a loop whose mode is an enumeration names that mode with its Manual and Auto
+/// members, so the runtime writes and records it as 1 and 0; a BOOL loop's run names none and stays the request it was. Catches
+/// an enumeration mode left out, which would have the runtime write the plan's 0 as the type's first member.
+#[test]
+fn a_run_names_an_enumeration_mode_and_no_bool_mode() {
+    let mut loop_definition = crate::commissioning::fixture_loops::parallel_pid_loop();
+    assert!(
+        mode_bindings(&loop_definition).is_empty(),
+        "a BOOL mode is a number already"
+    );
+    let binding = loop_definition
+        .parameter_binding
+        .as_mut()
+        .expect("the fixture binds its parameters");
+    binding.mode.manual_value = crate::loop_definition::ModeValue::Member("Manual".to_owned());
+    binding.mode.auto_value = Some("Auto".to_owned());
+    let symbol = binding.mode.symbol.clone();
+    assert_eq!(
+        mode_bindings(&loop_definition),
+        vec![IsolatedModeBinding {
+            symbol,
+            manual_value: "Manual".to_owned(),
+            auto_value: "Auto".to_owned(),
+        }]
+    );
+}

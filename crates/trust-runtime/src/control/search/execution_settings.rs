@@ -38,6 +38,9 @@ pub(super) struct ExecutionSettings {
     pub initial_values: BTreeMap<String, f64>,
     pub events: Vec<Event>,
     pub observations: Vec<Channel>,
+    /// The enumeration mode signals the run writes and records as 1 in Manual and 0 in Auto
+    /// (protocol annex E8.3).
+    pub mode_bindings: Vec<super::mode_channels::ModeChannel>,
 }
 impl ExecutionSettings {
     pub fn validate(&self, count: usize, parameters: &HashSet<String>) -> Result<(), String> {

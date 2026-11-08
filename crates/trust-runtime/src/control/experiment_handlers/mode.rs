@@ -1,8 +1,11 @@
-//! The loop's mode binding (Specification 35, A6.1 and A6.5): the mode signal and the value that means Manual. An experiment
-//! that writes the plant input or the manual output runs only in Manual; a setpoint or load experiment runs only in Auto.
+//! The loop's mode binding (Specification 35, A6.1 and A6.5): the mode signal, the value that means Manual and, for an
+//! enumeration, the member that means Auto (protocol annex E5.3). An experiment that writes the plant input or the manual output
+//! runs only in Manual; a setpoint or load experiment runs only in Auto.
 
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
+
+use trust_runtime_core::native::memory::enum_value;
 
 use super::values::numeric_value;
 use crate::debug::resolve_control_parameter_path;
@@ -16,6 +19,9 @@ type Refusal = (String, &'static str);
 pub(super) struct ModeBindingParams {
     symbol: String,
     manual_value: JsonValue,
+    /// The member of an enumeration mode that means Auto. Without it, every value other than `manual_value` means Auto.
+    #[serde(default)]
+    auto_value: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -25,6 +31,8 @@ pub(super) struct ModeBinding {
     at: Located,
     /// The value that means Manual, as a number: a bool is 1 or 0, an enumeration its numeric value.
     manual: f64,
+    /// The value that means Auto, as a number, when the binding names one; otherwise every other value means Auto.
+    auto: Option<f64>,
     /// Whether the experiment needs Manual (true) or Auto (false).
     manual_required: bool,
 }
@@ -37,21 +45,6 @@ impl ModeBinding {
         manual_required: bool,
         program: Option<&dyn ProgramRead>,
     ) -> Result<Self, Refusal> {
-        let manual = match &params.manual_value {
-            JsonValue::Bool(value) => f64::from(u8::from(*value)),
-            JsonValue::Number(number) => number
-                .as_f64()
-                .filter(|value| value.is_finite())
-                .ok_or_else(|| {
-                    invalid_mode(&params.symbol, "manual_value must be a finite number")
-                })?,
-            _ => {
-                return Err(invalid_mode(
-                    &params.symbol,
-                    "manual_value must be a boolean or a number",
-                ))
-            }
-        };
         let program = program
             .ok_or_else(|| invalid_mode(&params.symbol, "no runtime scan has been captured yet"))?;
         let resolved = resolve_control_parameter_path(program, &params.symbol)
@@ -62,7 +55,45 @@ impl ModeBinding {
                 "the mode signal is not a boolean, a number or an enumeration",
             )
         })?;
-        if (mode == manual) != manual_required {
+        let member = |name: &str| -> Result<f64, Refusal> {
+            let Value::Enum(enumeration) = &resolved.value else {
+                return Err(invalid_mode(
+                    &params.symbol,
+                    "a value named by a member needs an enumeration mode signal",
+                ));
+            };
+            match enum_value(&program.program_image(), enumeration.type_name(), name) {
+                Some(Value::Enum(value)) => Ok(value.numeric_value() as f64),
+                _ => Err(invalid_mode(
+                    &params.symbol,
+                    &format!("{name} is not a value of {}", enumeration.type_name()),
+                )),
+            }
+        };
+        let manual = match &params.manual_value {
+            JsonValue::Bool(value) => f64::from(u8::from(*value)),
+            JsonValue::Number(number) => number
+                .as_f64()
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| {
+                    invalid_mode(&params.symbol, "manual_value must be a finite number")
+                })?,
+            JsonValue::String(name) => member(name)?,
+            _ => {
+                return Err(invalid_mode(
+                    &params.symbol,
+                    "manual_value must be a boolean, a number or the name of a member",
+                ))
+            }
+        };
+        let auto = params.auto_value.as_deref().map(member).transpose()?;
+        if auto == Some(manual) {
+            return Err(invalid_mode(
+                &params.symbol,
+                "manual_value and auto_value name the same value",
+            ));
+        }
+        if !holds(mode, manual, auto, manual_required) {
             let wanted = if manual_required { "Manual" } else { "Auto" };
             return Err((
                 format!(
@@ -76,6 +107,7 @@ impl ModeBinding {
             path: params.symbol,
             at: resolved.at,
             manual,
+            auto,
             manual_required,
         })
     }
@@ -91,7 +123,17 @@ impl ModeBinding {
             .filter(|resolved| resolved.at == self.at)
             .and_then(|resolved| mode_number(&resolved.value))
             .ok_or("bad_runtime_data")?;
-        Ok((mode == self.manual) == self.manual_required)
+        Ok(holds(mode, self.manual, self.auto, self.manual_required))
+    }
+}
+
+/// Whether the mode signal's value `mode` is Manual (`manual_required`) or Auto: Manual is `manual`, and Auto is `auto` when the
+/// binding names it, else any value but `manual`.
+fn holds(mode: f64, manual: f64, auto: Option<f64>, manual_required: bool) -> bool {
+    if manual_required {
+        mode == manual
+    } else {
+        auto.map_or(mode != manual, |auto| mode == auto)
     }
 }
 

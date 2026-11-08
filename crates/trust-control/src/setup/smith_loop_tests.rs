@@ -147,6 +147,7 @@ fn the_seed_names_the_pi_and_the_model_and_the_loop_keeps_the_process_measuremen
                     proportional_symbol: "P1.Parameters.ProportionalGain".to_owned(),
                     integral_symbol: Some("P1.Parameters.IntegralGain".to_owned()),
                     derivative_symbol: Some("P1.Parameters.DerivativeGain".to_owned()),
+                    form: crate::tuning::project_seed::GainForm::Parallel,
                 },
                 gain_symbol: "P1.ModelGain".to_owned(),
                 time_constant_symbol: "P1.ModelTimeConstantS".to_owned(),

@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::loop_definition::LoopDefinition;
 use crate::tuning::candidate::CandidateSource;
 use crate::tuning::project_seed::{
-    FeedforwardPidSeed, FeedforwardTerms, ParallelPidSeed, SmithPidSeed, SmithTerms,
-    TrajectoryFeedforwardSeed,
+    derivative_value, integral_value, FeedforwardPidSeed, FeedforwardTerms, ParallelPidSeed,
+    SmithPidSeed, SmithTerms, TrajectoryFeedforwardSeed,
 };
 use crate::tuning::structure::{ParallelGains, Structure};
 
@@ -111,14 +111,14 @@ pub fn project_candidate(
         .as_ref()
         .filter(|_| structure.has_integral());
     if let Some(symbol) = integral {
-        values.insert(symbol.clone(), gains.integral_gain);
+        values.insert(symbol.clone(), integral_value(seed, gains));
     }
     let derivative = seed
         .derivative_symbol
         .as_ref()
         .filter(|_| structure.has_derivative());
     if let Some(symbol) = derivative {
-        values.insert(symbol.clone(), gains.derivative_gain);
+        values.insert(symbol.clone(), derivative_value(seed, gains));
     }
     ProjectCandidate {
         applied: false,

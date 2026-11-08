@@ -478,15 +478,17 @@ fn the_study_requirements_keep_what_the_study_records_with_its_method_and_respon
     );
 }
 
-// Specification 35, B4.7: where Automatic cannot form the test, the answer names no requirements and Tune names the prerequisite.
+// Specification 35, B4.7: where Automatic cannot form the test, there is no record, and the refusal names the prerequisite.
 #[test]
-fn the_study_requirements_are_none_where_automatic_cannot_form_the_test() {
+fn the_study_requirements_name_what_automatic_lacks_to_form_the_test() {
     // The operating input is 50 %, below the 60 % output minimum the loop declares, so no test change is possible.
     let mut loop_definition = commissioning_loop();
     loop_definition.limits.output_minimum = Some(60.0);
     let (_, identify, _) = fopdt();
-    assert_eq!(
-        study_requirements(&loop_definition, &identify, None, None),
-        None
+    let refusal = study_requirements(&loop_definition, &identify, None, None)
+        .expect_err("no test change is possible");
+    assert!(
+        refusal.0.starts_with("Review the operating limits for "),
+        "{refusal:?}"
     );
 }

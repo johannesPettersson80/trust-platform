@@ -389,6 +389,7 @@ pub fn semantic_tokens(db: &Database, file_id: FileId) -> Vec<SemanticToken> {
             | TokenKind::KwVarAccess
             | TokenKind::KwVarConfig
             | TokenKind::KwVarStat
+            | TokenKind::KwVarInst
             | TokenKind::KwConstant
             | TokenKind::KwRetain
             | TokenKind::KwNonRetain

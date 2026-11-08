@@ -13,6 +13,7 @@ use crate::setup::catalog::{
 use crate::setup::prompts::{
     ActuatorChoice, ChannelMode, ControllerChoice, FeedbackChoice, RateAnswer, SetpointChoice,
 };
+use std::collections::BTreeMap;
 
 fn scope() -> LoopScope {
     LoopScope {
@@ -59,6 +60,7 @@ fn fixture(
             controllers,
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals,
     }
@@ -292,10 +294,7 @@ fn a_proportional_setup_declares_the_existing_law_its_gain_its_mode_and_its_manu
                 minimum: 0.0,
                 maximum: 25.0,
             }],
-            mode: ModeBinding {
-                symbol: "Main.Manual".into(),
-                manual_value: true,
-            },
+            mode: ModeBinding::boolean("Main.Manual", true),
         })
     );
     assert_eq!(
