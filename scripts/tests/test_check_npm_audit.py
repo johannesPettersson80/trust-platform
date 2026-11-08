@@ -4,11 +4,14 @@ the shape `npm audit --json` answers."""
 
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -104,6 +107,25 @@ class NpmAuditPolicyTests(unittest.TestCase):
         audit = report(("left-pad", [{"source": 7, "name": "left-pad", "url": "https://example.com/7"}]))
         with holder, self.assertRaisesRegex(ReleaseEvidenceError, "without a GitHub id"):
             check.findings(audit, root, TODAY)
+
+    @patch("check_npm_audit.sys.platform", "win32")
+    @patch("check_npm_audit.subprocess.run")
+    def test_the_audit_runs_npm_cmd_on_windows(self, run_mock) -> None:
+        # Catches `npm` launched by its Unix name on Windows, where only npm.cmd runs.
+        run_mock.return_value = subprocess.CompletedProcess(
+            args=["npm.cmd", "audit"], returncode=0, stdout=json.dumps({"vulnerabilities": {}}), stderr=""
+        )
+        check.run_audit(ROOT)
+        self.assertEqual(run_mock.call_args.args[0][0], "npm.cmd")
+
+    @patch("check_npm_audit.subprocess.run")
+    def test_an_audit_without_its_report_fails(self, run_mock) -> None:
+        # Catches a failed npm request (a failed name lookup answers an error, not a report) read as a clean audit.
+        run_mock.return_value = subprocess.CompletedProcess(
+            args=["npm", "audit"], returncode=1, stdout=json.dumps({"error": {"code": "ENOTFOUND"}}), stderr=""
+        )
+        with self.assertRaisesRegex(ReleaseEvidenceError, "npm audit did not answer its report"):
+            check.run_audit(ROOT)
 
     def test_the_repository_lists_valid_exceptions(self) -> None:
         # Catches a malformed or expired exception in the repository's own file.
