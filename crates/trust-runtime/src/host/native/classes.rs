@@ -268,6 +268,12 @@ impl<'a> Owner<'a> {
         }
     }
 
+    /// Whether the block is marked `{attribute 'call_after_init'}`, so that its marked methods run
+    /// after each instance's initialization (specification 10 §4.8); a class never is.
+    pub(in crate::native) fn calls_after_init(self) -> bool {
+        matches!(self, Self::Fb(def) if def.call_after_init)
+    }
+
     pub(in crate::native) fn vars(self) -> &'a [VarDef] {
         match self {
             Self::Fb(def) => &def.vars,

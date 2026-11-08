@@ -305,13 +305,29 @@ contract, including when a newer document or workspace request supersedes it.
 
 ##### 6.3.2 Find References
 
-- All usages of a symbol
+- All usages of a symbol: every name, member and callee that the analysis resolves to it, in every
+  file of the project. A global used through its namespace's qualifier (`GVL_IO.level`, a CODESYS
+  GVL), a member or method of an instance declared in another file (`gTank.level`,
+  `gTank.Start()`) and a method call count as a plain name does. The references come from the
+  names the type check resolved (the map the compiled-program generator reads, specification 44
+  §3), so find references, rename and the call hierarchy's incoming calls agree with go to
+  definition.
 - Include/exclude declaration
 - Filter by read/write
 
 ##### 6.3.3 Document Symbols
 
-- Flat list of declarations
+- A tree of the file's declarations (`DocumentSymbol` with children), so a client sees each
+  declaration's members, its variables among them:
+  - a namespace holds its declarations, a CODESYS GVL's globals among them;
+  - a configuration holds its resources and its globals, and a resource its tasks and program
+    instances;
+  - a program, function, function block, class or interface holds its variables and parameters, its
+    methods, properties and actions, and each of those its own variables;
+  - a type holds its enumeration values;
+  - a global list outside a namespace gives its globals at the top.
+- Each entry's range is its whole declaration and its selection range its name. A variable's or
+  parameter's detail is its section and its type (`VAR_INPUT : INT`).
 
 #### 6.4 Refactoring
 

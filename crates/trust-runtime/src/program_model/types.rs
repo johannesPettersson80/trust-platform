@@ -90,6 +90,9 @@ pub struct FunctionBlockDef {
     pub body: Vec<stmt::Stmt>,
     /// The properties a name read reads as one of its variables (specification 44 §5.8).
     pub property_aliases: Vec<PropertyAlias>,
+    /// `{attribute 'call_after_init'}` in the block's first line: its marked methods run after each
+    /// instance's initialization (specification 10 §4.8).
+    pub call_after_init: bool,
 }
 
 /// Method definition for classes and function blocks.
@@ -102,6 +105,8 @@ pub struct MethodDef {
     pub static_locals: Vec<VarDef>,
     pub using: Vec<SmolStr>,
     pub body: Vec<stmt::Stmt>,
+    /// `{attribute 'call_after_init'}` in the method's first line (specification 10 §4.8).
+    pub call_after_init: bool,
 }
 
 /// Class definition (used by tests and runtime).

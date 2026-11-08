@@ -239,6 +239,67 @@ fn find_references_to_symbol_in_file_by_identity(
         }
     }
 
+    for reference in resolved_name_references(db, file_id, identity, &root) {
+        if !references
+            .iter()
+            .any(|known| known.range == reference.range)
+        {
+            references.push(reference);
+        }
+    }
+
+    references
+}
+
+/// The references of `file_id` that its analysis resolved to `identity`: the names, members and
+/// callees the type check resolved (`FileAnalysis::resolved_symbols`, which the compiled-program
+/// generator reads too), so that a global used through its namespace's qualifier (`GVL.level`) and
+/// a member or method reached through one count (specification 14 §6.3.2). A call's own entry, the
+/// POU whose parameters it binds, repeats its callee's and is left out. Ordered by offset.
+fn resolved_name_references(
+    db: &Database,
+    file_id: FileId,
+    identity: SymbolIdentity,
+    root: &SyntaxNode,
+) -> Vec<Reference> {
+    let analysis = db.analyze(file_id);
+    let mut references = Vec::new();
+    for (&(start, end), &symbol_id) in analysis.resolved_symbols.iter() {
+        if symbol_identity(&analysis.symbols, symbol_id, file_id) != Some(identity) {
+            continue;
+        }
+        let range = TextRange::new(TextSize::from(start), TextSize::from(end));
+        if !root.text_range().contains_range(range) {
+            continue;
+        }
+        let element = root.covering_element(range);
+        let covering = element
+            .clone()
+            .into_node()
+            .or_else(|| element.into_token().and_then(|token| token.parent()));
+        let Some(node) = covering.and_then(|node| {
+            node.ancestors()
+                .take_while(|node| node.text_range() == range)
+                .find(|node| matches!(node.kind(), SyntaxKind::NameRef | SyntaxKind::FieldExpr))
+        }) else {
+            continue;
+        };
+        let name = if node.kind() == SyntaxKind::NameRef {
+            node.descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .find(|token| token.kind() == SyntaxKind::Ident)
+        } else {
+            field_name_from_field_expr(&node)
+        };
+        if let Some(name) = name {
+            references.push(Reference {
+                file_id,
+                range: name.text_range(),
+                is_write: is_write_context(&node),
+            });
+        }
+    }
+    references.sort_by_key(|reference| reference.range.start());
     references
 }
 

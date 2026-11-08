@@ -113,9 +113,12 @@ configuration and compile issues in one response instead of stopping at the
 first failure.
 
 `--json` and `--ci` emit response version 1 with `ok`, `status`, issue counts,
-stable issue codes, and source/dependency lists. Configuration or source-layout
-errors exit 10; compile errors exit 11. A successful check exits 0 and never
-writes a program image.
+stable issue codes, and source/dependency lists. Each compiler diagnostic is
+one issue with its code (`E101`), `severity`, `message`, `file`, and where it
+is: `line`, `column`, `end_line`, `end_column`, 1-based, columns counted as the
+editor and `trust-lsp check` count them (UTF-16 code units). Configuration or
+source-layout errors exit 10; compile errors exit 11. A successful check exits 0
+and never writes a program image.
 
 When `runtime.toml` sets `[runtime.identify] output`, `check` also makes the
 load check of `run` on the program the sources compile to: a program that uses
@@ -133,6 +136,7 @@ Primary options:
 - `--project`
 - `--sources`
 - `--ci`
+- `--json`
 - `--target`
 - `--emit-source`
 
@@ -145,10 +149,19 @@ project, and its report to `build/build.json`. `--target` builds for a device
 `build/program.<triple>.tpi` and `build/deployment-record.<triple>.bin`;
 `--emit-source` keeps the generated Rust crate in the build folder. The first
 build that needs the compiler toolchain installs it. A failed source,
-dependency, or compile step preserves any existing artifact. `--ci` prints the
+dependency, or compile step preserves any existing artifact. `--ci` and `--json` print the
 build report: response version 1 with the target, whether the image is a debug
 image, the image and record paths, the image's size, the signing key, and the
-memory figure; build failures exit 11.
+memory figure. Sources with errors print, instead of the error text, a failed
+response whose `issues` are the compiler's diagnostics as `check` reports them.
+Build failures exit 11 with `--ci`, and 1 otherwise.
+
+Every build also writes `build/install.<triple>.bin`, the container that
+`trust-runtime ctl install` sends. A computer's module is built for the Linux
+target of its CPU on every operating system, so the names read
+`x86_64-unknown-linux-gnu` or `aarch64-unknown-linux-gnu` on Windows and macOS
+too: the module is freestanding and calls nothing of the operating system
+(specification 44 §4.4).
 
 ### Validate
 

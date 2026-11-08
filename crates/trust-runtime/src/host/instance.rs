@@ -979,6 +979,7 @@ mod tests {
             methods: Vec::new(),
             body: Vec::new(),
             property_aliases: Vec::new(),
+            call_after_init: false,
         };
         let function_blocks: IndexMap<SmolStr, FunctionBlockDef> = IndexMap::new();
         let functions: IndexMap<SmolStr, crate::program_model::FunctionDef> = IndexMap::new();
@@ -1040,6 +1041,7 @@ mod tests {
             methods: Vec::new(),
             body: Vec::new(),
             property_aliases: Vec::new(),
+            call_after_init: false,
         };
         let mut storage = crate::memory::VariableStorage::new();
         let existing = storage

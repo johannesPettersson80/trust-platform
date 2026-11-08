@@ -26,6 +26,7 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
             methods: Vec::new(),
             body: Vec::new(),
             property_aliases: Vec::new(),
+            call_after_init: false,
         }
     }
 
