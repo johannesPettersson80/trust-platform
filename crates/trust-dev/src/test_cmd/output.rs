@@ -41,8 +41,8 @@ fn render_output(
             total_duration_ms,
         )),
         TestOutput::Json => render_json_output(project_root, results, summary, total_duration_ms),
-        TestOutput::Tap => Ok(render_tap_output(results)),
-        TestOutput::Junit => Ok(render_junit_output(results, summary)),
+        TestOutput::Tap => Ok(render_tap_output(project_root, results)),
+        TestOutput::Junit => Ok(render_junit_output(project_root, results, summary)),
     }
 }
 
@@ -70,7 +70,7 @@ fn render_human_output(
         style::accent(format!(
             "Running {} ST test(s) in {}",
             summary.total(),
-            project_root.display()
+            trust_lsp::check::native_path(project_root)
         ))
     );
     if results.is_empty() {
@@ -187,11 +187,24 @@ fn render_no_tests_message(output: &mut String, filter: Option<&str>, discovered
     let _ = writeln!(output, "{}", style::warning("No ST tests discovered."));
 }
 
+/// `file` as the output names it (specification 22): relative to the project folder, written as
+/// the platform writes paths and without the verbatim prefix (`\\?\`) that canonicalization adds on
+/// Windows, as `trust-lsp check` writes its paths; a file outside the project keeps its whole path.
+/// A relative `--project` names the same folder as the canonical paths the sources are found by.
 fn display_path(project_root: &Path, file: &Path) -> String {
-    file.strip_prefix(project_root)
-        .unwrap_or(file)
-        .display()
-        .to_string()
+    let root = project_root
+        .canonicalize()
+        .unwrap_or_else(|_| project_root.to_path_buf());
+    let file = file.canonicalize().unwrap_or_else(|_| file.to_path_buf());
+    trust_lsp::check::native_path(file.strip_prefix(&root).unwrap_or(&file))
+}
+
+/// The project folder as the JSON report names it: its whole path, as [`display_path`] writes one.
+fn display_project(project_root: &Path) -> String {
+    let root = project_root
+        .canonicalize()
+        .unwrap_or_else(|_| project_root.to_path_buf());
+    trust_lsp::check::native_path(&root)
 }
 
 fn render_list_output(
@@ -232,7 +245,7 @@ fn render_json_output(
                 "name": result.case.name.as_str(),
                 "kind": result.case.kind.label(),
                 "status": result.outcome.as_str(),
-                "file": result.case.file.display().to_string(),
+                "file": display_path(project_root, &result.case.file),
                 "line": result.case.line,
                 "source": result.case.source_line.as_deref(),
                 "message": result.message.as_deref(),
@@ -248,7 +261,7 @@ fn render_json_output(
         .collect::<Vec<_>>();
     let payload = json!({
         "version": 1,
-        "project": project_root.display().to_string(),
+        "project": display_project(project_root),
         "summary": {
             "total": summary.total(),
             "passed": summary.passed,
@@ -263,7 +276,7 @@ fn render_json_output(
     Ok(text)
 }
 
-fn render_tap_output(results: &[ExecutedTest]) -> String {
+fn render_tap_output(project_root: &Path, results: &[ExecutedTest]) -> String {
     let mut output = String::new();
     let _ = writeln!(output, "TAP version 13");
     let _ = writeln!(output, "1..{}", results.len());
@@ -279,7 +292,11 @@ fn render_tap_output(results: &[ExecutedTest]) -> String {
             }
             TestOutcome::Failed | TestOutcome::Error => {
                 let _ = writeln!(output, "not ok {} - {}", idx + 1, name);
-                let _ = writeln!(output, "# file: {}", result.case.file.display());
+                let _ = writeln!(
+                    output,
+                    "# file: {}",
+                    display_path(project_root, &result.case.file)
+                );
                 let _ = writeln!(output, "# line: {}", result.case.line);
                 if let Some(source_line) = result.case.source_line.as_deref() {
                     let _ = writeln!(output, "# source: {}", tap_escape(source_line));
@@ -295,7 +312,11 @@ fn render_tap_output(results: &[ExecutedTest]) -> String {
     output
 }
 
-fn render_junit_output(results: &[ExecutedTest], summary: TestSummary) -> String {
+fn render_junit_output(
+    project_root: &Path,
+    results: &[ExecutedTest],
+    summary: TestSummary,
+) -> String {
     let mut output = String::new();
     let _ = writeln!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     let _ = writeln!(
@@ -311,7 +332,7 @@ fn render_junit_output(results: &[ExecutedTest], summary: TestSummary) -> String
             result.case.kind.label(),
             result.case.name
         ));
-        let file = xml_escape(&result.case.file.display().to_string());
+        let file = xml_escape(&display_path(project_root, &result.case.file));
         let _ = writeln!(
             output,
             "  <testcase name=\"{}\" classname=\"st\" file=\"{}\" line=\"{}\">",

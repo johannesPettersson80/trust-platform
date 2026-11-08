@@ -299,7 +299,12 @@ and per-test status, source context, and duration. TAP output uses a version-13
 plan and reports each test by `TEST_PROGRAM::<name>` or
 `TEST_FUNCTION_BLOCK::<name>`, with source diagnostics for non-passing cases.
 JUnit output uses one compatibility suite named `trust-runtime`, reports
-separate failure and error counts, and XML-escapes diagnostic text.
+separate failure and error counts, and XML-escapes diagnostic text. Every
+format names a test's source file relative to the project folder, as
+`trust-lsp check` names its paths (specification 14 §7.7): written as the
+platform writes paths and without the verbatim prefix (`\\?\`) of a canonical
+Windows path, whether `--project` is relative or absolute; JSON's `project` is
+the folder's whole path in the same form.
 
 Human output identifies every non-passing test with its kind, name, source
 path, line, duration, reason, and available source line, followed by an ordered
