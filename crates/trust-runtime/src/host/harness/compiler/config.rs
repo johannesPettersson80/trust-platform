@@ -20,7 +20,9 @@ use super::model::{
     AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, ConnectionEnd, FbTaskBinding,
     GlobalInit, LoweringContext, LoweringInputs, ProgramConnection, ProgramInstanceConfig,
 };
-use super::vars::{parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind};
+use super::vars::{
+    declares_noinit, parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind,
+};
 
 include!("config/entry.rs");
 include!("config/globals_access.rs");

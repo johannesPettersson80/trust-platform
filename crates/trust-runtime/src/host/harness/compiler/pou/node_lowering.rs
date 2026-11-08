@@ -383,6 +383,7 @@ fn lower_property_methods(
                 address: None,
                 default: None,
                 retain: crate::RetainPolicy::Unspecified,
+                noinit: false,
             }],
             locals: Vec::new(),
             static_locals: Vec::new(),

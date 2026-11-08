@@ -31,6 +31,9 @@ pub struct Param {
     /// `NON_RETAIN` of its section (IEC 61131-3 Ed.3 §6.5.6.1, §6.5.6.2); unspecified for an
     /// in-out and for a function's or a method's parameters, which a call owns.
     pub retain: crate::RetainPolicy,
+    /// `{attribute 'noinit'}` on the line above a function block's input or output: a restart
+    /// gives it back the value it held (specification 10 §4.8); `false` for any other parameter.
+    pub noinit: bool,
 }
 
 /// Variable declaration with optional initializer.
@@ -45,6 +48,9 @@ pub struct VarDef {
     pub in_out: bool,
     pub constant: bool,
     pub address: Option<IoAddress>,
+    /// `{attribute 'noinit'}` on the line above its declaration: a restart gives the variable back
+    /// the value it held (specification 10 §4.8).
+    pub noinit: bool,
 }
 
 /// Function definition (used by tests and runtime).

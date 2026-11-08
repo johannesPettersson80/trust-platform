@@ -379,7 +379,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 3 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8) |
+| 16 | 2 | Image format version, 4 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` mark, §5.7) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -506,7 +506,8 @@ name in capital letters, so a lookup is one binary search), one 32-byte record p
 | 4 | Type index (§5.8) |
 | 1 | Area id (§7.1); 0 for a symbol that holds no storage (a program root, a POU) |
 | 1 | Flags: bit 0 retained, bit 1 constant, bit 2 input, bit 3 output, bit 4 in-out, bit 5 program root, bit 6 FB or class instance, bit 7 directly addressed |
-| 2 | Reserved |
+| 1 | More flags: bit 0 marked `{attribute 'noinit'}` (§6.7; specification 10 §4.8); the other bits zero |
+| 1 | Reserved |
 | 4 | Offset in the area |
 | 4 | Size in bytes (the whole variable, padding excluded) |
 | 4 | Parent symbol index, or `0xFFFF_FFFF` for a global, a program or a POU |
@@ -830,6 +831,12 @@ kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
   specification 11 §6.7, RETAIN-02); every other variable takes `INIT`, an instance or a reference
   in the retain area too; the warm-init entry runs.
 - **Online change:** §12.
+
+At both restarts, once the program has started, every variable whose symbol is marked `noinit`
+(§5.7) then takes back the bytes it held before the restart, after the init entry, so that what the
+entry wrote into it is replaced (specification 10 §4.8). The start after an install or a power-on
+gives it `INIT`, or a retained one its checkpoint, as every variable; an online change carries it
+over with the rest (§12).
 
 Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
 type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in

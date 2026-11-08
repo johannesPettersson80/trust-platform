@@ -149,6 +149,14 @@ pub(super) fn validate_special_var_sections(
     Ok(())
 }
 
+/// Whether the declaration `var_decl` is marked `{attribute 'noinit'}`, which the vendor also spells
+/// `no_init` and `no-init`, on the line above it (specification 10 §4.8).
+pub(super) fn declares_noinit(var_decl: &SyntaxNode) -> bool {
+    ["noinit", "no_init", "no-init"]
+        .into_iter()
+        .any(|key| trust_hir::attributes::declares_attribute(var_decl, key))
+}
+
 pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, CompileError> {
     let mut names = Vec::new();
     for child in var_decl.children() {

@@ -51,6 +51,9 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
                 .map_or_else(|| TaskState::new(now), |running| running.state.clone());
         }
         self.live = old.live;
+        // The candidate holds the running program's values, so that its next restart gives the
+        // variables marked `noinit` back what they hold (§6.7).
+        self.started = old.started;
         // The candidate's markers start where the running program left them; a `TIME` there that
         // the image cannot hold leaves its byte as it was, which the next scan's publication
         // refuses.

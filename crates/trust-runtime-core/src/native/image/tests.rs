@@ -148,6 +148,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
             type_index: 1,
             area: 6,
             flags: SYMBOL_PROGRAM,
+            noinit: false,
             offset: 0,
             size: 4,
             parent: NONE,
@@ -159,6 +160,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
             type_index: 2,
             area: 5,
             flags: SYMBOL_RETAINED,
+            noinit: false,
             offset: 0,
             size: 4,
             parent: 0,
@@ -170,6 +172,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
             type_index: 0,
             area: 6,
             flags: 0,
+            noinit: false,
             offset: spec.state_offset,
             size: 2,
             parent: 0,
@@ -472,4 +475,29 @@ fn the_string_pool_holds_each_string_once() {
     assert_eq!(pool.add("Vat"), first);
     assert_eq!(pool.add("Plant"), 5);
     assert_eq!(pool.into_bytes(), b"\0Vat\0Plant\0");
+}
+
+/// Specification 44 §5.7: a symbol's `noinit` mark is bit 0 of its record's byte 14, the byte after
+/// its flags, and byte 15 stays reserved; a record reads back with its mark. Catches the mark in
+/// another byte or bit, which an image of another truST would read as some other flag or none.
+#[test]
+fn a_symbols_noinit_mark_is_bit_0_of_its_byte_14() {
+    for noinit in [false, true] {
+        let symbol = SymbolRecord {
+            canonical: 1,
+            display: 2,
+            type_index: 3,
+            area: 5,
+            flags: SYMBOL_RETAINED,
+            noinit,
+            offset: 8,
+            size: 4,
+            parent: NONE,
+            pou: NONE,
+        };
+        let mut bytes = [0u8; SymbolRecord::BYTES];
+        symbol.write(&mut bytes);
+        assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, u8::from(noinit), 0]);
+        assert_eq!(SymbolRecord::read(&bytes), symbol);
+    }
 }

@@ -296,6 +296,10 @@ pub struct NativeProgram<'i, C> {
     pub(super) hierarchical_keys: Vec<(IoAddressKey, usize)>,
     /// The declared values of the enumerations of the bound variables, which their bindings name.
     pub(super) enum_values: Vec<i64>,
+    /// Whether the areas hold the values of a started program, so that a restart gives the
+    /// variables marked `noinit` back what they held (specification 44 §6.7); not before the first
+    /// start, whose areas hold nothing yet.
+    pub(super) started: bool,
 }
 
 /// The address of the value of hierarchical `address` in its slot: its first byte, a bit at bit 0.

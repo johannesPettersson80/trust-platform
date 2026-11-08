@@ -31,6 +31,8 @@ struct Pending {
     type_index: u32,
     area: u8,
     flags: u8,
+    /// Marked `{attribute 'noinit'}` (§5.7; specification 10 §4.8).
+    noinit: bool,
     offset: u32,
     size: u32,
     parent: Option<String>,
@@ -52,6 +54,8 @@ struct Variable {
     area: u8,
     offset: u32,
     flags: u8,
+    /// Marked `{attribute 'noinit'}` (§5.7; specification 10 §4.8).
+    noinit: bool,
     parent: Option<String>,
     /// The POU that declares a frame variable (§5.7), [`NONE`] for any other variable.
     pou: u32,
@@ -71,6 +75,9 @@ impl Symbols<'_, '_> {
         } else {
             0
         };
+        // A function block's or class's own variables carry their declarations' marks; a member of
+        // a variable marked `noinit` needs none, as the variable's bytes hold it.
+        let owner = self.model.types.owner_of(variable.ty);
         // A library block's own state (`__LAST` of a timer) is no variable the program declares:
         // the type table keeps it for its layout, the symbol table names none of it (§5.7).
         for member in members
@@ -88,6 +95,8 @@ impl Symbols<'_, '_> {
                 area: variable.area,
                 offset: variable.offset + member.offset,
                 flags: (variable.flags & SYMBOL_RETAINED) | member.flags,
+                noinit: owner
+                    .is_some_and(|owner| owner.declares_noinit(&self.model.types, &member.name)),
                 parent: Some(variable.canonical.clone()),
                 pou: variable.pou,
             });
@@ -98,6 +107,7 @@ impl Symbols<'_, '_> {
             type_index: variable.ty.0,
             area: variable.area,
             flags: variable.flags | instance,
+            noinit: variable.noinit,
             offset: variable.offset,
             size: info.size,
             parent: variable.parent,
@@ -107,7 +117,7 @@ impl Symbols<'_, '_> {
 
     /// The globals, then each program instance with its variables and its retained variables.
     fn collect(&mut self) {
-        let globals: Vec<(SmolStr, Ty, bool, bool)> = self
+        let globals: Vec<(SmolStr, Ty, bool, bool, bool)> = self
             .model
             .globals
             .iter()
@@ -117,10 +127,11 @@ impl Symbols<'_, '_> {
                     global.ty,
                     global.retained,
                     global.constant,
+                    global.noinit,
                 )
             })
             .collect();
-        for (name, ty, retained, constant) in globals {
+        for (name, ty, retained, constant, noinit) in globals {
             let (area, layout) = if retained {
                 (abi::AREA_RETAIN, &self.model.area_r)
             } else {
@@ -140,6 +151,7 @@ impl Symbols<'_, '_> {
                 area,
                 offset,
                 flags,
+                noinit,
                 parent: None,
                 pou: NONE,
             });
@@ -171,13 +183,26 @@ impl Symbols<'_, '_> {
             .area_r
             .field(name)
             .map_or(0, |field| field.offset);
-        let (members, retained, size) = {
+        let (members, retained, size, noinit) = {
             let program = &self.model.program_types[program];
+            let noinit: Vec<SmolStr> = program
+                .def
+                .vars
+                .iter()
+                .filter(|var| var.noinit)
+                .map(|var| var.name.clone())
+                .collect();
             (
                 program.members.clone(),
                 program.retained.clone(),
                 program.size,
+                noinit,
             )
+        };
+        let marked = |member: &Member| {
+            noinit
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(&member.name))
         };
         self.pending.push(Pending {
             canonical: canonical.clone(),
@@ -185,6 +210,7 @@ impl Symbols<'_, '_> {
             type_index: type_count + u32::try_from(program).unwrap_or(0),
             area: abi::AREA_INSTANCES,
             flags: SYMBOL_PROGRAM,
+            noinit: false,
             offset: p_offset,
             size,
             parent: None,
@@ -198,6 +224,7 @@ impl Symbols<'_, '_> {
                 area: abi::AREA_INSTANCES,
                 offset: p_offset + member.offset,
                 flags: member.flags,
+                noinit: marked(&member),
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -210,6 +237,7 @@ impl Symbols<'_, '_> {
                 area: abi::AREA_RETAIN,
                 offset: r_offset + member.offset,
                 flags: member.flags | SYMBOL_RETAINED,
+                noinit: marked(&member),
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -238,6 +266,7 @@ impl Symbols<'_, '_> {
                 type_index,
                 area: 0,
                 flags: 0,
+                noinit: false,
                 offset: 0,
                 size: pou.size,
                 parent: None,
@@ -251,6 +280,7 @@ impl Symbols<'_, '_> {
                     area: abi::AREA_STACK,
                     offset: *offset,
                     flags: 0,
+                    noinit: false,
                     parent: Some(canonical.clone()),
                     pou: id,
                 });
@@ -270,6 +300,7 @@ impl Symbols<'_, '_> {
                 type_index: tool.interface.0,
                 area: 0,
                 flags: 0,
+                noinit: false,
                 offset: 0,
                 size: tool.block.as_ref().map_or(0, |block| block.size),
                 parent: None,
@@ -286,6 +317,7 @@ impl Symbols<'_, '_> {
                     area: abi::AREA_STACK,
                     offset: part.offset,
                     flags: part.flags,
+                    noinit: false,
                     parent: Some(tool.canonical.clone()),
                     pou: NONE,
                 });
@@ -460,6 +492,7 @@ fn symbols(
             type_index: symbol.type_index,
             area: symbol.area,
             flags: symbol.flags,
+            noinit: symbol.noinit,
             offset: symbol.offset,
             size: symbol.size,
             parent: symbol

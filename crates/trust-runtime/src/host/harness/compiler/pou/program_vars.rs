@@ -30,6 +30,7 @@ fn lower_program_var_blocks(
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
             let parts = parse_var_decl(&var_decl)?;
+            let noinit = declares_noinit(&var_decl);
             reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
@@ -90,6 +91,7 @@ fn lower_program_var_blocks(
                             in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            noinit: false,
                         });
                     }
                 }
@@ -104,6 +106,7 @@ fn lower_program_var_blocks(
                             retain: qualifiers.retain,
                             address: parts.address.clone(),
                             constant: qualifiers.constant,
+                            noinit,
                         });
                     }
                 }
@@ -123,6 +126,7 @@ fn lower_program_var_blocks(
                             in_out: kind == VarBlockKind::InOut,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            noinit,
                         });
                     }
                 }

@@ -246,6 +246,8 @@ pub(crate) struct GlobalInit {
     pub(crate) address: Option<SmolStr>,
     /// Declared in a `VAR_GLOBAL CONSTANT` block.
     pub(crate) constant: bool,
+    /// `{attribute 'noinit'}` on the line above its declaration (specification 10 §4.8).
+    pub(crate) noinit: bool,
 }
 
 #[derive(Clone)]
