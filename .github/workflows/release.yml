@@ -421,10 +421,13 @@ jobs:
         run: |
           mkdir -p dist/trust-lsp-${{ matrix.platform }}
           cp target/${{ matrix.target }}/release/trust-lsp dist/trust-lsp-${{ matrix.platform }}/
+          cp target/${{ matrix.target }}/release/trust-debug dist/trust-lsp-${{ matrix.platform }}/
           cat > dist/trust-lsp-${{ matrix.platform }}/README.txt <<'README'
-          truST IEC 61131-3 Structured Text Language Server
+          truST IEC 61131-3 Structured Text Language Server and Debug Adapter
 
           Put trust-lsp on your PATH and configure your editor for .st files.
+          trust-debug is the debug adapter (Debug Adapter Protocol over stdio)
+          that a DAP-capable editor starts to debug a truST runtime.
           Claude Code users: install the trust-st-lsp plugin from
           https://github.com/johannesPettersson80/trust-claude-plugins
           README
@@ -459,10 +462,13 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist\trust-lsp-${{ matrix.platform }} | Out-Null
           Copy-Item target/${{ matrix.target }}/release/trust-lsp.exe dist/trust-lsp-${{ matrix.platform }}/
+          Copy-Item target/${{ matrix.target }}/release/trust-debug.exe dist/trust-lsp-${{ matrix.platform }}/
           @'
-          truST IEC 61131-3 Structured Text Language Server
+          truST IEC 61131-3 Structured Text Language Server and Debug Adapter
 
           Put trust-lsp.exe on your PATH and configure your editor for .st files.
+          trust-debug.exe is the debug adapter (Debug Adapter Protocol over stdio)
+          that a DAP-capable editor starts to debug a truST runtime.
           Claude Code users: install the trust-st-lsp plugin from
           https://github.com/johannesPettersson80/trust-claude-plugins
           '@ | Set-Content -Path dist/trust-lsp-${{ matrix.platform }}/README.txt
