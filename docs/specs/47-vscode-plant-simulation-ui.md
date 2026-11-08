@@ -1245,7 +1245,13 @@ plant then holds no runtime evidence and shows `Configured` (§5.2), or its
 other states such as `Disabled`, never `Status unavailable`. Any other
 unavailable answer shows `Status unavailable`. A runtime that gives no answer
 (a transport failure, a timeout) leaves the first projection, whose plants show
-`Status unavailable`. The webview shall receive only the
+`Status unavailable`. A runtime answers `plant.status`, `plant.trace.read` and
+`plant.trace.clear` from the simulation itself, which its scan thread locks only
+for a cycle's plant steps, before and after the program runs: while the debugger
+holds the scan (specification 13, "Pause") the plants stand where that cycle's
+steps left them, and the answer gives them, as do the snapshot a finite search
+reads before it starts (specification 35 C5) and the clear of a plant's trace.
+The webview shall receive only the
 `plants` of the last answer, never a runtime socket, command process,
 filesystem path, or undecoded service payload.
 
