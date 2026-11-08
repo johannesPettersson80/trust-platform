@@ -305,7 +305,7 @@ fn array(
 }
 
 /// The Rust literal of the scalar of `elem` in the first bytes of `bytes`, as its cell stores it.
-fn scalar(elem: Elem, bytes: &[u8]) -> String {
+pub(super) fn scalar(elem: Elem, bytes: &[u8]) -> String {
     let size = elem.size() as usize;
     let mut wide = [0u8; 8];
     wide[..size].copy_from_slice(&bytes[..size]);

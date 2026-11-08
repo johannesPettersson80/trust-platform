@@ -548,3 +548,59 @@ END_PROGRAM
         DiagnosticCode::WrongArgumentCount,
     );
 }
+
+/// Specification 10 §4.8: a declaration's `FB_init` arguments are checked as a call's: an input
+/// `FB_init` does not declare, bInitRetains (which the runtime passes), a third argument for two
+/// inputs and an argument of the wrong type; a type without `FB_init` takes none; outside the
+/// CODESYS profiles they are refused. Catches a declaration's arguments left unchecked.
+#[test]
+fn fb_init_arguments_are_checked_as_a_calls_are() {
+    let blocks = r#"
+FUNCTION_BLOCK FB_Port
+VAR
+    port : INT;
+    fast : BOOL;
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    iPort : INT;
+    bFast : BOOL;
+END_VAR
+port := iPort;
+fast := bFast;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Plain
+END_FUNCTION_BLOCK
+"#;
+    for (declaration, code) in [
+        ("com : FB_Port(iSpeed := 3);", DiagnosticCode::CannotResolve),
+        (
+            "com : FB_Port(bInitRetains := TRUE);",
+            DiagnosticCode::CannotResolve,
+        ),
+        (
+            "com : FB_Port(1, TRUE, 2);",
+            DiagnosticCode::WrongArgumentCount,
+        ),
+        (
+            "com : FB_Port('text', TRUE);",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        ("plain : FB_Plain(1);", DiagnosticCode::InvalidOperation),
+    ] {
+        check_has_error_in(
+            Dialect::Codesys,
+            &format!("{blocks}\nPROGRAM Main\nVAR\n    {declaration}\nEND_VAR\nEND_PROGRAM\n"),
+            code,
+        );
+    }
+    check_has_error(
+        &format!("{blocks}\nPROGRAM Main\nVAR\n    com : FB_Port(1);\nEND_VAR\nEND_PROGRAM\n"),
+        DiagnosticCode::InvalidOperation,
+    );
+}

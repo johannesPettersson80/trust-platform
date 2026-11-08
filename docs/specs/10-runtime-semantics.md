@@ -1593,6 +1593,16 @@ FB_Exit"):
   warm one, and `bInCopyCode := FALSE`; its result is not read. `FB_init`
   declares those two `BOOL` inputs first, under any names, since they are passed
   by position;
+- an input after those two takes the argument the instance's declaration gives
+  it in parentheses after the type, `com1 : serialdevice(iCOMnum := 1);`, by
+  name or in order, else its own initial value, else its type's default. The
+  arguments bind and are checked as the arguments of a call of `FB_init` whose
+  parameters are its inputs after the first two (E204, E205); outside the
+  CODESYS profiles a declaration's arguments are refused (E202), and so are the
+  arguments of a type that declares no `FB_init`. A base part's `FB_init` takes
+  the same arguments, as CODESYS requires a derived `FB_init` to repeat its
+  base's inputs. Parentheses after a named type that hold `lo..hi` remain that
+  type's subrange;
 - every instance that a global or a program instance's variable holds is
   called, retained or not: an element of an array of instances, and an instance
   nested in another or in a structure, at any depth. The globals come first in

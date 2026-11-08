@@ -43,6 +43,7 @@ fn lower_program_var_blocks(
                     })
                 })
                 .transpose()?;
+            let init_args = lower_init_args(&parts, ctx)?;
             if qualifiers.constant
                 && matches!(
                     kind,
@@ -92,6 +93,7 @@ fn lower_program_var_blocks(
                             in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            init_args: init_args.clone(),
                             noinit: false,
                             instance_path: false,
                         });
@@ -108,6 +110,7 @@ fn lower_program_var_blocks(
                             retain: qualifiers.retain,
                             address: parts.address.clone(),
                             constant: qualifiers.constant,
+                            init_args: init_args.clone(),
                             noinit,
                         });
                     }
@@ -128,6 +131,7 @@ fn lower_program_var_blocks(
                             in_out: kind == VarBlockKind::InOut,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            init_args: init_args.clone(),
                             noinit,
                             instance_path,
                         });
