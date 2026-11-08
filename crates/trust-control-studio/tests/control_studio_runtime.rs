@@ -141,6 +141,7 @@ fn opens_inspects_records_keeps_and_releases_on_a_real_runtime() {
                 address: binding.address.clone(),
                 symbol: binding.symbol.clone(),
                 iec_type: binding.iec_type.clone(),
+                mode: None,
             })
             .collect(),
     };

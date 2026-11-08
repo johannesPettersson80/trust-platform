@@ -3,6 +3,7 @@
 
 use schemars::SchemaGenerator;
 use serde_json::json;
+use std::collections::BTreeMap;
 
 use super::{AnswerValue, SetupDiscoverRequest, SetupDiscoverResult};
 use crate::setup::catalog::CompiledCatalog;
@@ -66,6 +67,7 @@ fn the_answer_names_the_selected_file_only_when_the_engine_accepts_the_selection
         controllers: Vec::new(),
         links: Vec::new(),
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     };
     let listing = SetupDiscoverResult {
         form_model: setup_form_model(&empty),

@@ -8,12 +8,10 @@ impl<'a> TypeChecker<'a> {
     /// receiver is neither THIS nor SUPER.
     fn is_external_function_block_member(&self, node: &SyntaxNode, symbol: &Symbol) -> bool {
         node.kind() == SyntaxKind::FieldExpr
-            && node.children().next().is_some_and(|receiver| {
-                !matches!(
-                    receiver.kind(),
-                    SyntaxKind::ThisExpr | SyntaxKind::SuperExpr
-                )
-            })
+            && node
+                .children()
+                .next()
+                .is_some_and(|receiver| !is_this_or_super(&receiver))
             && symbol.parent.is_some_and(|owner| {
                 self.symbols
                     .get(owner)
@@ -57,15 +55,12 @@ impl<'a> TypeChecker<'a> {
             return self.is_valid_lvalue(&inner);
         }
         match node.kind() {
+            _ if is_this_or_super(node) => false,
             SyntaxKind::NameRef | SyntaxKind::DerefExpr => true,
-            SyntaxKind::ThisExpr | SyntaxKind::SuperExpr => false,
             SyntaxKind::FieldExpr | SyntaxKind::IndexExpr => node
                 .children()
                 .next()
-                .map(|base| {
-                    matches!(base.kind(), SyntaxKind::ThisExpr | SyntaxKind::SuperExpr)
-                        || self.is_valid_lvalue(&base)
-                })
+                .map(|base| is_this_or_super(&base) || self.is_valid_lvalue(&base))
                 .unwrap_or(false),
             _ => false,
         }

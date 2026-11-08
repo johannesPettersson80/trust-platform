@@ -171,7 +171,8 @@ fn block_start_kind(kind: TokenKind) -> Option<BlockKind> {
         | TokenKind::KwVarExternal
         | TokenKind::KwVarAccess
         | TokenKind::KwVarConfig
-        | TokenKind::KwVarStat => Some(BlockKind::VarBlock),
+        | TokenKind::KwVarStat
+        | TokenKind::KwVarInst => Some(BlockKind::VarBlock),
         TokenKind::KwType => Some(BlockKind::Type),
         TokenKind::KwStruct => Some(BlockKind::Struct),
         TokenKind::KwUnion => Some(BlockKind::Union),
@@ -296,6 +297,7 @@ fn line_has_indent_start(tokens: &[Token]) -> bool {
                 | TokenKind::KwVarAccess
                 | TokenKind::KwVarConfig
                 | TokenKind::KwVarStat
+                | TokenKind::KwVarInst
                 | TokenKind::KwType
                 | TokenKind::KwStruct
                 | TokenKind::KwUnion

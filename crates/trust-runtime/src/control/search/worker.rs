@@ -268,8 +268,9 @@ fn execute(
     config.seed = input.settings.seed;
     let mut simulator = crate::simulation::SimulationController::new(config);
     check_parameters(input, &mut program)?;
+    let modes = &input.settings.mode_bindings;
     for (symbol, value) in &input.settings.initial_values {
-        program.assign(symbol, *value)?;
+        super::mode_channels::assign(&mut program, modes, symbol, *value)?;
     }
     for (symbol, value) in &input.parameters {
         program.assign(symbol, *value)?;
@@ -340,7 +341,7 @@ fn execute(
                 .iter()
                 .filter(|event| event.at_ms == ms)
             {
-                program.assign(&event.symbol, event.value)?;
+                super::mode_channels::assign(&mut program, modes, &event.symbol, event.value)?;
             }
             if let Some(relay) = &input.feedback_relay {
                 let measured = program.read(&relay.process_variable)?;
@@ -359,7 +360,11 @@ fn execute(
             hold_candidate(&mut program, &input.parameters, &mut started_programs)?;
             let mut readings = Vec::with_capacity(input.settings.observations.len());
             for channel in &input.settings.observations {
-                readings.push(program.read(&channel.symbol)?);
+                readings.push(super::mode_channels::read(
+                    &mut program,
+                    modes,
+                    &channel.symbol,
+                )?);
             }
             if let Some(evaluation) = &input.evaluation {
                 let error = program.read(&evaluation.objective.reference_symbol)?

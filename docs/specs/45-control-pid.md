@@ -71,6 +71,12 @@ The baseline defines:
 - `Control.PIDAntiWindup`; and
 - `Control.FilterOrder`.
 
+The library's own code names each of their values with its type (`PIDMode#Manual`, `PIDAntiWindup#Combined`,
+`FilterOrder#SecondOrder`). A project may declare enumerations that reuse these value names, such as a CODESYS or
+TwinCAT `E_Mode` with `Manual` and `Auto`; an unqualified value that several enumeration types name is an error
+(IEC 61131-3 Ed.3, 6.4.4.2.1: "It is an error if sufficient information is not provided in an enumerated literal to
+determine its value unambiguously"), so an unqualified value in the library would stop such a project from compiling.
+
 ### 1.6 Structured datatypes
 
 The baseline defines:

@@ -67,10 +67,7 @@ fn record(iec_type: RealType) -> ParameterBinding {
             parameter("P1.KpLow", "%/m", iec_type),
             parameter("P1.KiLow", "%/(m*s)", iec_type),
         ],
-        mode: ModeBinding {
-            symbol: "P1.AutoMode".to_owned(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("P1.AutoMode".to_owned(), false),
     }
 }
 
@@ -103,10 +100,7 @@ fn own_binding() -> TransferBinding {
     TransferBinding {
         loop_id: "loop:low".to_owned(),
         task_name: "MainTask".to_owned(),
-        mode: TransferModeBinding {
-            symbol: "P1.AutoMode".to_owned(),
-            manual_value: false,
-        },
+        mode: TransferModeBinding::boolean("P1.AutoMode".to_owned(), false),
         additional_modes: Vec::new(),
         tracking_outputs: BTreeMap::new(),
         states: vec![
@@ -449,6 +443,7 @@ fn law_candidate(other_values: &[(&str, f64)]) -> LawCandidate {
         proportional_symbol: "P1.KpLow".to_owned(),
         integral_symbol: Some("P1.KiLow".to_owned()),
         derivative_symbol: None,
+        form: crate::tuning::project_seed::GainForm::Parallel,
     };
     let mut candidate = project_candidate(&seed, CandidateSource::Simc, gains(2.0, 0.2));
     candidate.values.extend(

@@ -3,13 +3,14 @@
 //! answer, and the exit statuses hold for usage errors and refusals.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::sync::Arc;
 
 use serde_json::{json, Value};
 use trust_control::messages::OperationUpdate;
-use trust_control_studio::commands::{ControlStudio, OPEN};
+use trust_control_studio::commands::{ControlStudio, INPUTS, OPEN};
 use trust_control_studio::operation::UpdateSink;
 
 const EXAMPLE: &str = concat!(
@@ -244,4 +245,112 @@ fn cancel_names_only_an_operation_journaled_for_the_loop() {
         text(&cancelled.stderr)
     );
     drop(scratch);
+}
+
+/// The arguments as the command line takes them.
+fn borrowed(arguments: &[String]) -> Vec<&str> {
+    arguments.iter().map(String::as_str).collect()
+}
+
+/// The command line, run with `arguments` and `input` on standard input.
+fn run_with_input(arguments: &[&str], input: &str) -> Output {
+    let mut child = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-control-studio").expect(
+            "Cargo must provide trust-control-studio binary while executing integration tests",
+        ),
+    )
+    .args(arguments)
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .expect("the program runs");
+    child
+        .stdin
+        .take()
+        .expect("its standard input")
+        .write_all(input.as_bytes())
+        .expect("the input is written");
+    child.wait_with_output().expect("the program ends")
+}
+
+/// Specification 35 §0.1b, A8.1 and B4.3: `inputs` records one change of the study's inputs, from a file or from standard input,
+/// and `--json` is the method's answer. Catches a command line that cannot declare the requirements Tune designs to (only `serve`
+/// could), a change the verb reshapes, and a change that is no JSON object taken for a refusal (status 1) instead of a usage
+/// error (status 2).
+#[test]
+fn inputs_records_a_requirements_change_and_json_is_the_method_answer() {
+    let (scratch, project, journal) = project_copy("inputs");
+    let (_method, method_project, method_journal) = project_copy("inputs-method");
+    // The requirements the page's editor sends for one controlled output (B4.3).
+    let change = json!({
+        "referenceChange": 5.0,
+        "maximumError": 0.5,
+        "settlingBand": 0.2,
+        "settlingTimeSeconds": 40.0,
+        "durationSeconds": 80,
+        "scenarioDefinitions": []
+    });
+    let file = scratch.0.join("change.json");
+    fs::write(&file, change.to_string()).expect("the change file");
+    let file = file.display().to_string();
+    let inputs = |extra: &[&'static str], change: &str| -> Vec<String> {
+        let mut arguments = vec![
+            "inputs".to_owned(),
+            "--project".to_owned(),
+            project.clone(),
+            "--journal-dir".to_owned(),
+            journal.clone(),
+            "--loop".to_owned(),
+            LOOP_ID.to_owned(),
+            "--change".to_owned(),
+            change.to_owned(),
+        ];
+        arguments.extend(extra.iter().map(|argument| (*argument).to_owned()));
+        arguments
+    };
+    let recorded = run(&borrowed(&inputs(&["--json"], &file)));
+    assert_eq!(
+        recorded.status.code(),
+        Some(0),
+        "{}",
+        text(&recorded.stderr)
+    );
+    let answer: Value = serde_json::from_slice(&recorded.stdout).expect("JSON");
+    assert_eq!(
+        answer,
+        method_answer(
+            INPUTS,
+            json!({ "projectRoot": method_project, "runtimeId": "simulator", "loopId": LOOP_ID,
+                "change": change, "storageFolder": method_journal })
+        )
+    );
+    let requirements = &answer["result"]["inputs"]["requirements"];
+    assert_eq!(requirements["settlingTimeSeconds"], json!(40.0), "{answer}");
+    assert_eq!(requirements["maximumError"], json!(0.5), "{answer}");
+    assert_eq!(answer["result"]["changed"], json!(true), "{answer}");
+
+    // The same change again, from standard input: the study already holds it.
+    let again = run_with_input(&borrowed(&inputs(&[], "-")), &change.to_string());
+    assert_eq!(again.status.code(), Some(0), "{}", text(&again.stderr));
+    let shown = text(&again.stdout);
+    assert!(
+        shown.contains("The study already held these inputs."),
+        "{shown}"
+    );
+    assert!(shown.contains("settlingTimeSeconds: 40"), "{shown}");
+    assert!(shown.contains("Stages:"), "{shown}");
+
+    let not_an_object = run_with_input(&borrowed(&inputs(&[], "-")), "[1, 2]");
+    assert_eq!(
+        not_an_object.status.code(),
+        Some(2),
+        "{}",
+        text(&not_an_object.stderr)
+    );
+    assert!(
+        text(&not_an_object.stderr).contains("is not a JSON object"),
+        "{}",
+        text(&not_an_object.stderr)
+    );
 }

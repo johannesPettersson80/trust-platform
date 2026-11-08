@@ -3,6 +3,7 @@
 //! the task that runs the controller's program and confirmed after that task (E7.4), with the checks
 //! of E7.3 to E7.5 and E10, the mode the controller observed in its last `Update`, and the operating
 //! domain of its record (specification 45 §2.4).
+use super::super::mode::ModeValue;
 use super::*;
 use crate::memory::InstanceId;
 use trust_runtime_core::native::image::{NONE, SYMBOL_INSTANCE, SYMBOL_PROGRAM};
@@ -357,7 +358,8 @@ impl DebugControl {
                 .collect(),
             mode: Mode {
                 symbol: format!("{}.{MODE_VALUE}", write.instance),
-                manual_value: true,
+                manual_value: ModeValue::Bool(true),
+                auto_value: None,
             },
         };
         writable(&image, &binding)?;

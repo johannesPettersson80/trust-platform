@@ -130,6 +130,7 @@ fn run_hold(
         loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let clock = FakeClock::new(state);
     let report = FakeReport::new(state, false);

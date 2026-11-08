@@ -87,6 +87,10 @@ pub fn parameter_binding_label(field: &str) -> String {
     format!("Invalid parameter binding. The {field} is blank, longer than 1,024 characters, or holds a control character.")
 }
 
+/// Binding (E7.1, specification 35 A6.1): the mode is neither a BOOL with its Manual value nor an enumeration with two
+/// different members for Manual and Auto.
+pub const PARAMETER_BINDING_MODE: &str = "Invalid parameter binding. The mode is a BOOL with its Manual value, or an enumeration with two different members for Manual and Auto.";
+
 /// Binding (`decodeParameterBinding`, parameterBinding.ts; E7.1, C0): a parameter's unit or convention is blank or invalid.
 #[must_use]
 pub fn parameter_binding_member(field: &str, symbol: &str) -> String {

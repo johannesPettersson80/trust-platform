@@ -419,6 +419,7 @@ fn an_extra_channel_of_an_archive_is_offered_with_its_unit_and_selected_by_its_n
         symbol: Some("P1.RecordedTemperature".to_string()),
         iec_type: "REAL".to_string(),
         unit: Some("%".to_string()),
+        mode: None,
     });
     run.bindings.push(SignalBinding {
         id: "controllerMode".to_string(),
@@ -426,6 +427,7 @@ fn an_extra_channel_of_an_archive_is_offered_with_its_unit_and_selected_by_its_n
         symbol: Some("LevelAuto".to_string()),
         iec_type: "BOOL".to_string(),
         unit: None,
+        mode: None,
     });
     for sample in &mut run.samples {
         sample.values.push(Some(47.0));
@@ -473,6 +475,7 @@ fn with_extra_output(
         symbol: Some(symbol.to_string()),
         iec_type: "REAL".to_string(),
         unit: Some(unit.to_string()),
+        mode: None,
     });
     for (sample, (value, quality)) in recorded.samples.iter_mut().zip(readings) {
         sample.values.push(Some(*value));

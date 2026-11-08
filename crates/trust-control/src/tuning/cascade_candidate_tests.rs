@@ -65,10 +65,7 @@ fn binding(symbols: &[&str]) -> ParameterBinding {
         loop_id: "loop:vessel-temperature".to_owned(),
         task_name: "MainTask".to_owned(),
         parameters: symbols.iter().map(|symbol| parameter(symbol)).collect(),
-        mode: ModeBinding {
-            symbol: "P1.InnerAuto".to_owned(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("P1.InnerAuto".to_owned(), false),
     }
 }
 
