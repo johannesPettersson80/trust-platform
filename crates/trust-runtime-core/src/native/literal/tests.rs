@@ -77,6 +77,7 @@ fn image() -> Vec<u8> {
             flags: 0,
             noinit: false,
             hidden: false,
+            owner: 0,
             offset: 0,
             size: 2,
             parent: NONE,

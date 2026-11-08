@@ -379,7 +379,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 4 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks, §5.7, and a member's `hide` mark, §5.8) |
+| 16 | 2 | Image format version, 4 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks and a global's owner, §5.7, and a member's `hide` mark, §5.8) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -507,7 +507,7 @@ name in capital letters, so a lookup is one binary search), one 32-byte record p
 | 1 | Area id (§7.1); 0 for a symbol that holds no storage (a program root, a POU) |
 | 1 | Flags: bit 0 retained, bit 1 constant, bit 2 input, bit 3 output, bit 4 in-out, bit 5 program root, bit 6 FB or class instance, bit 7 directly addressed |
 | 1 | More flags: bit 0 marked `{attribute 'noinit'}` (§6.7; specification 10 §4.8); bit 1 hidden by `{attribute 'hide'}` or its POU's `{attribute 'hide_all_locals'}`, which the lists of variables a reader browses leave out (specification 10 §4.8); the other bits zero |
-| 1 | Reserved |
+| 1 | Owner of a global (control-studio-runtime-protocol annex E2.3): 0 none known, as for a variable that is no global, a global that a function, function block, method, property or class writes, or one that programs of several tasks write; 1 to 127 the task at that index less one of the task table (§5.5), whose programs' bodies are the only places that write it; 128 a global no program writes; 129 a global only programs outside every task write. A member of a global carries its global's. The build takes it from trust-hir's analysis of the programs' writes, which W012 uses too (specification 28 §6) |
 | 4 | Offset in the area |
 | 4 | Size in bytes (the whole variable, padding excluded) |
 | 4 | Parent symbol index, or `0xFFFF_FFFF` for a global, a program or a POU |

@@ -1,6 +1,8 @@
 //! The image's tables (specification 44 §5.4 to §5.10): areas and starting memory, tasks, I/O
 //! bindings, symbols, types, statements, the retain map, files and the memory figure.
 
+use std::collections::HashMap;
+
 use smol_str::SmolStr;
 
 use super::emit::{Generated, PouFrame, PouInstance};
@@ -19,7 +21,8 @@ use trust_runtime_core::native::image::{
     type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, Image, ImageWriter, IoBindRecord,
     MemberDetail, MemoryFigure, Record, RetainRecord, SectionId, StmtRecord, StringPool,
     SymbolRecord, TaskRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, MEMBER_HIDDEN, NONE,
-    SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
+    OWNER_BACKGROUND, OWNER_LAST_TASK, OWNER_UNKNOWN, OWNER_UNWRITTEN, SYMBOL_CONSTANT,
+    SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
 };
 use trust_runtime_core::native::retain::payload_bound;
 use trust_runtime_core::native::tool::TOOL_SYMBOL_PREFIX;
@@ -35,6 +38,8 @@ struct Pending {
     noinit: bool,
     /// Hidden from the lists a reader browses, `{attribute 'hide'}` (§5.7; specification 10 §4.8).
     hidden: bool,
+    /// The owning task of a global or of a member of one (§5.7), [`OWNER_UNKNOWN`] otherwise.
+    owner: u8,
     offset: u32,
     size: u32,
     parent: Option<String>,
@@ -46,6 +51,8 @@ struct Pending {
 struct Symbols<'m, 'a> {
     model: &'m mut Model<'a>,
     pending: Vec<Pending>,
+    /// The owner byte of each global, by its name in capitals (§5.7).
+    owners: HashMap<String, u8>,
 }
 
 /// One variable to add with its members.
@@ -60,6 +67,8 @@ struct Variable {
     noinit: bool,
     /// Hidden from the lists a reader browses, `{attribute 'hide'}` (§5.7; specification 10 §4.8).
     hidden: bool,
+    /// The owning task of a global or of a member of one (§5.7), [`OWNER_UNKNOWN`] otherwise.
+    owner: u8,
     parent: Option<String>,
     /// The POU that declares a frame variable (§5.7), [`NONE`] for any other variable.
     pou: u32,
@@ -104,6 +113,7 @@ impl Symbols<'_, '_> {
                     .is_some_and(|owner| owner.declares_noinit(&self.model.types, &member.name)),
                 hidden: owner
                     .is_some_and(|owner| owner.declares_hidden(&self.model.types, &member.name)),
+                owner: variable.owner,
                 parent: Some(variable.canonical.clone()),
                 pou: variable.pou,
             });
@@ -116,6 +126,7 @@ impl Symbols<'_, '_> {
             flags: variable.flags | instance,
             noinit: variable.noinit,
             hidden: variable.hidden,
+            owner: variable.owner,
             offset: variable.offset,
             size: info.size,
             parent: variable.parent,
@@ -162,6 +173,11 @@ impl Symbols<'_, '_> {
                 flags,
                 noinit,
                 hidden,
+                owner: self
+                    .owners
+                    .get(&name.to_ascii_uppercase())
+                    .copied()
+                    .unwrap_or(OWNER_UNKNOWN),
                 parent: None,
                 pou: NONE,
             });
@@ -227,6 +243,7 @@ impl Symbols<'_, '_> {
             flags: SYMBOL_PROGRAM,
             noinit: false,
             hidden: false,
+            owner: OWNER_UNKNOWN,
             offset: p_offset,
             size,
             parent: None,
@@ -242,6 +259,7 @@ impl Symbols<'_, '_> {
                 flags: member.flags,
                 noinit: marked(&member),
                 hidden: concealed(&member),
+                owner: OWNER_UNKNOWN,
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -256,6 +274,7 @@ impl Symbols<'_, '_> {
                 flags: member.flags | SYMBOL_RETAINED,
                 noinit: marked(&member),
                 hidden: concealed(&member),
+                owner: OWNER_UNKNOWN,
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -286,6 +305,7 @@ impl Symbols<'_, '_> {
                 flags: 0,
                 noinit: false,
                 hidden: false,
+                owner: OWNER_UNKNOWN,
                 offset: 0,
                 size: pou.size,
                 parent: None,
@@ -301,6 +321,7 @@ impl Symbols<'_, '_> {
                     flags: 0,
                     noinit: false,
                     hidden: var.hidden,
+                    owner: OWNER_UNKNOWN,
                     parent: Some(canonical.clone()),
                     pou: id,
                 });
@@ -322,6 +343,7 @@ impl Symbols<'_, '_> {
                 flags: 0,
                 noinit: false,
                 hidden: false,
+                owner: OWNER_UNKNOWN,
                 offset: 0,
                 size: tool.block.as_ref().map_or(0, |block| block.size),
                 parent: None,
@@ -340,6 +362,7 @@ impl Symbols<'_, '_> {
                     flags: part.flags,
                     noinit: false,
                     hidden: false,
+                    owner: OWNER_UNKNOWN,
                     parent: Some(tool.canonical.clone()),
                     pou: NONE,
                 });
@@ -470,6 +493,34 @@ fn areas(
     (areas, bytes)
 }
 
+/// The owner byte of each global that `owners` judges, by its name in capitals (§5.7): its task's
+/// index in `tasks` plus one, or the byte of a global that no program writes or that only programs
+/// outside every task write; a task the image does not run, or one past the byte's range, owns
+/// nothing ([`OWNER_UNKNOWN`]).
+fn owner_bytes(
+    owners: &[trust_hir::db::GlobalOwnership],
+    tasks: &[super::model::Task],
+) -> HashMap<String, u8> {
+    use trust_hir::db::GlobalOwner;
+    owners
+        .iter()
+        .map(|global| {
+            let byte = match &global.owner {
+                GlobalOwner::Unwritten => OWNER_UNWRITTEN,
+                GlobalOwner::Background => OWNER_BACKGROUND,
+                GlobalOwner::Shared => OWNER_UNKNOWN,
+                GlobalOwner::Task(name) => tasks
+                    .iter()
+                    .position(|task| task.name.eq_ignore_ascii_case(name))
+                    .and_then(|index| u8::try_from(index + 1).ok())
+                    .filter(|byte| *byte <= OWNER_LAST_TASK)
+                    .unwrap_or(OWNER_UNKNOWN),
+            };
+            (global.name.to_ascii_uppercase(), byte)
+        })
+        .collect()
+}
+
 /// The symbol table, sorted by canonical name, and the retain map in the order of specification 11
 /// §6.7 (specification 44 §5.10).
 ///
@@ -480,12 +531,15 @@ fn symbols(
     writer: &mut ImageWriter,
     pool: &mut StringPool,
     model: &mut Model<'_>,
+    front: &Front,
     pous: &[PouFrame],
     tools: &[Tool],
 ) -> Result<Sorted, NativeError> {
+    let owners = owner_bytes(&front.global_owners, &model.tasks);
     let mut symbols = Symbols {
         model,
         pending: Vec::new(),
+        owners,
     };
     symbols.collect();
     symbols.pous(pous);
@@ -516,6 +570,7 @@ fn symbols(
             flags: symbol.flags,
             noinit: symbol.noinit,
             hidden: symbol.hidden,
+            owner: symbol.owner,
             offset: symbol.offset,
             size: symbol.size,
             parent: symbol
@@ -904,6 +959,7 @@ pub(super) fn write(
         writer,
         &mut pool,
         model,
+        inputs.front,
         &inputs.generated.pous,
         &inputs.generated.tools,
     )?;

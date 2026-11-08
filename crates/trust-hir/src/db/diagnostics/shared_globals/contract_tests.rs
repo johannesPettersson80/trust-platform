@@ -198,6 +198,7 @@ fn task_list_is_sorted_and_bounded_with_remaining_count() {
             (
                 task.clone(),
                 TaskInfo {
+                    name: task.0.clone(),
                     label: task.0.clone(),
                     range: TextRange::default(),
                 },

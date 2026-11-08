@@ -26,6 +26,7 @@ package "Database Layer" as dbLayer #LightGreen {
         +file_symbols(file_id) → Arc<SymbolTable>
         +diagnostics(file_id) → Arc<Vec<Diagnostic>>
         +analyze(file_id) → FileAnalysis
+        +global_owners(file_id) → Arc<Vec<GlobalOwnership>>
         +type_of(file_id, expr_id) → TypeId
     }
 
@@ -46,8 +47,11 @@ package "Database Layer" as dbLayer #LightGreen {
            checked_file_query, never their
            analysis: no cycle)
         -> diagnostics_query / type_of_query
+        -> global_owners_query (each global's
+           owning task, W012's write rule; the
+           native build's owner byte)
         One read/write/call rule (access.rs)
-        serves W012 and references.
+        serves W012, references and owners.
 
         Catalog source ranges locate imported
         declarations directly; no library-wide

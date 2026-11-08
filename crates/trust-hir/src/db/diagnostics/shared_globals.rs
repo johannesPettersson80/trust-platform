@@ -20,6 +20,8 @@ struct TaskId(SmolStr);
 #[derive(Debug, Clone)]
 struct TaskInfo {
     label: SmolStr,
+    /// The task's name as declared, without its configuration's and resource's.
+    name: SmolStr,
     range: TextRange,
 }
 
@@ -142,6 +144,153 @@ pub(in crate::db) fn check_shared_global_task_hazards(
 
         diagnostics.add(diagnostic);
     }
+}
+
+/// The owner of each global that `file_id` declares (control-studio-runtime-protocol annex E2.3),
+/// by its name with its namespaces, in that order: the one task whose programs' bodies, actions
+/// included, are the only places that write it. A write in any other POU makes it shared, as any
+/// task may run that POU; so do programs of several tasks, or of a task and none. A program that no
+/// configuration runs writes nothing that counts; in a project without a configuration every
+/// program runs outside every task (specification 18 §2.2).
+pub(in crate::db) fn shared_global_owners(
+    symbols: &SymbolTable,
+    project_roots: &[(FileId, SyntaxNode)],
+    file_id: FileId,
+    written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
+) -> Vec<GlobalOwnership> {
+    let (globals_by_key, globals_by_id) = collect_global_candidates(symbols, file_id);
+    let mut declared: Vec<&GlobalCandidate> = globals_by_id
+        .values()
+        .filter(|global| global.origin.file_id == file_id)
+        .collect();
+    if declared.is_empty() {
+        return Vec::new();
+    }
+    declared.sort_by_key(|global| global.range.start());
+    let (program_tasks, task_info) = collect_program_task_assignments(symbols, project_roots);
+    let background = collect_background_programs(symbols, project_roots);
+    let program_accesses =
+        collect_program_accesses(symbols, project_roots, &globals_by_key, written_arguments);
+    let elsewhere =
+        collect_other_pou_writes(symbols, project_roots, &globals_by_key, written_arguments);
+    declared
+        .into_iter()
+        .map(|global| {
+            let mut tasks: Vec<&TaskId> = Vec::new();
+            let mut outside_every_task = false;
+            for (program, access) in &program_accesses {
+                if !access.writes.contains(&global.symbol_id) {
+                    continue;
+                }
+                for task in program_tasks.get(program).into_iter().flatten() {
+                    if !tasks.contains(&task) {
+                        tasks.push(task);
+                    }
+                }
+                outside_every_task |= background.contains(program);
+            }
+            let owner = if elsewhere.contains(&global.symbol_id) {
+                GlobalOwner::Shared
+            } else {
+                match (tasks.as_slice(), outside_every_task) {
+                    ([], false) => GlobalOwner::Unwritten,
+                    ([], true) => GlobalOwner::Background,
+                    ([task], false) => GlobalOwner::Task(
+                        task_info
+                            .get(*task)
+                            .map_or_else(|| task.0.clone(), |info| info.name.clone()),
+                    ),
+                    _ => GlobalOwner::Shared,
+                }
+            };
+            let mut name = namespace_path_for_symbol(symbols, global.symbol_id)
+                .iter()
+                .map(SmolStr::as_str)
+                .collect::<Vec<_>>()
+                .join(".");
+            if !name.is_empty() {
+                name.push('.');
+            }
+            name.push_str(global.name.as_str());
+            GlobalOwnership {
+                name: SmolStr::new(name),
+                owner,
+            }
+        })
+        .collect()
+}
+
+/// The programs that run outside every task: each that a configuration's program declaration
+/// gives no task, and every program of a project without a configuration (specification 18
+/// §2.2).
+fn collect_background_programs(
+    symbols: &SymbolTable,
+    roots: &[(FileId, SyntaxNode)],
+) -> FxHashSet<SymbolId> {
+    let mut background = FxHashSet::default();
+    let configured = roots.iter().any(|(_, root)| {
+        root.descendants()
+            .any(|node| node.kind() == SyntaxKind::Configuration)
+    });
+    for (file_id, root) in roots {
+        if configured {
+            for program in root.descendants().filter(|node| {
+                node.kind() == SyntaxKind::ProgramConfig && program_config_task_name(node).is_none()
+            }) {
+                let Some((_, type_parts)) = program_config_instance_and_type(&program) else {
+                    continue;
+                };
+                if let ProgramTypeResolution::Program(program_id) =
+                    resolve_program_type(symbols, &type_parts)
+                {
+                    background.insert(program_id);
+                }
+            }
+        } else {
+            for program in root
+                .descendants()
+                .filter(|node| node.kind() == SyntaxKind::Program)
+            {
+                let Some((name, range)) = name_from_node(&program) else {
+                    continue;
+                };
+                if let Some(program_id) = find_symbol_by_name_range(symbols, name.as_str(), range)
+                    .or_else(|| {
+                        find_imported_symbol_by_name_range(symbols, *file_id, name.as_str(), range)
+                    })
+                {
+                    background.insert(program_id);
+                }
+            }
+        }
+    }
+    background
+}
+
+/// The globals that a POU other than a program writes: a function, a function block, a class, a
+/// method (a program's included) or a property, which any task may run.
+fn collect_other_pou_writes(
+    symbols: &SymbolTable,
+    roots: &[(FileId, SyntaxNode)],
+    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
+) -> FxHashSet<SymbolId> {
+    let mut written = FxHashSet::default();
+    for (file_id, root) in roots {
+        let arguments = written_arguments(*file_id);
+        for pou in root
+            .descendants()
+            .filter(|node| is_pou_kind(node.kind()) && !matches!(node.kind(), SyntaxKind::Program))
+        {
+            let mut access = ProgramAccess {
+                reads: FxHashSet::default(),
+                writes: FxHashSet::default(),
+            };
+            collect_pou_accesses(symbols, globals_by_key, &pou, &arguments, &mut access);
+            written.extend(access.writes);
+        }
+    }
+    written
 }
 
 /// How a global's value is read and written (specification 28 section 6).
@@ -310,6 +459,7 @@ fn collect_program_task_assignments(
                     .insert(task_id.clone());
                 task_info.entry(task_id).or_insert(TaskInfo {
                     label: task_label,
+                    name: task_name.clone(),
                     range: task_range,
                 });
             }
@@ -649,3 +799,7 @@ fn belongs_to_pou(node: &SyntaxNode, pou: &SyntaxNode) -> bool {
 #[cfg(test)]
 #[path = "shared_globals/contract_tests.rs"]
 mod contract_tests;
+
+#[cfg(test)]
+#[path = "shared_globals/owner_tests.rs"]
+mod owner_tests;
