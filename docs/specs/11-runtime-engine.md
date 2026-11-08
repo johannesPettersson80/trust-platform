@@ -3405,6 +3405,21 @@ debug table (section 6.13.3): `location` sends `debug.state`, `stack` sends
 The replies of `location`, `stack` and `scopes` are printed with their lines
 and columns counted from 1, as the breakpoint replies are.
 
+`ctl` compiles debug expressions as a debugger does (section 6.13.2), with the
+types of the project that `--project` names or that the current folder holds,
+else with none, which serve names, literals and operators:
+- `breakpoints-set` takes `--condition <expression>`, `--hit-condition <=N,
+  >=N or >N>` (`==` for `=`, N from 1) and `--log-message <text>`, whose
+  `{expression}` parts give their values; the options go to each line in
+  `options`, a brace that opens or closes no part is refused before anything is
+  sent;
+- `evaluate <expression> [--frame <frame-id>]` sends `debug.evaluate` with the
+  compiled expression, in the held program or between scans in the last scan,
+  while `eval <name>` stays the read of one name;
+- `compile-expression <expression>` prints the compiled form,
+  `{"expr_version": 1, "expr": "<base64>"}`, without sending anything, for a
+  script that sends its own requests.
+
 `--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
 endpoint on another host, such as a chip's control connection over its network (specification 34
 ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial
