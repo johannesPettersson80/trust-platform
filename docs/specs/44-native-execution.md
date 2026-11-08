@@ -833,9 +833,11 @@ kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
 
 Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
 type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
-the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. An `FB_init` with
-inputs beyond those two, which CODESYS gives at the instance's declaration (`com1 :
-serialdevice(iCOMnum := 1)`), or with outputs, is not compiled yet (NX-09).
+the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. The inputs after
+those two take the arguments of the instance's declaration (`com1 : serialdevice(iCOMnum := 1)`),
+which the build works out as it works out initial values, as literals of the call. An argument
+that names a variable, an input of a type that is no scalar (a string, a structure, a reference)
+and an `FB_init` with outputs are not compiled yet (NX-09).
 
 At both restarts the process images keep their bytes; they take `INIT` once, when the program is
 constructed. After the initialization, every variable located at `%M` is published into the marker

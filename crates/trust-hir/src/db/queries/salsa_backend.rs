@@ -519,6 +519,7 @@ pub(super) fn analyze_query(
     let project_used = project_used_symbols_query(db, project);
     let mut builder = DiagnosticBuilder::new();
     let expression_types = type_check_file(&mut symbols, &root, &mut builder);
+    crate::type_check::check_fb_init_arguments(&mut symbols, &root, &mut builder);
     check_unreachable_statements(&root, &mut builder);
     check_cyclomatic_complexity(&root, &mut builder);
     let clock_sources = host_clock_sources_query(db, project);

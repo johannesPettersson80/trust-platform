@@ -203,30 +203,129 @@ fn fb_init_runs_for_every_instance_in_order_with_the_restart_flags() {
     }
 }
 
-// Specification 44 §6.7: an FB_init with an input of its own, which CODESYS gives at the instance's
-// declaration, is not compiled yet (NX-09), so the build refuses it rather than pass a value the
-// program never gave. Catches the build calling it with a made-up value.
-#[test]
-fn an_fb_init_with_inputs_of_its_own_is_refused_at_build() {
-    let source = r#"
+// Specification 10 §4.8: the inputs of FB_init after the first two take the arguments of the
+// instance's declaration, by name or all in order, else their initial value, else their type's default;
+// a member's declaration in a function block and a global's declaration give theirs, and a base
+// part's FB_init takes the same arguments. Worked by hand from the declarations: `named` gets port
+// 3, the default speed 50 and fast TRUE; `positional` port 7, speed 80 and fast FALSE; the
+// holder's `inner` port 9; the global `gPort` port 11 and speed 20; `derived`, whose FB_init
+// repeats FB_Port's inputs and adds a name code, has its base part set by FB_Port's FB_init to port
+// 5 and its own code 42. Catches the arguments ignored (port 0), bound one input too early (to
+// bInCopyCode), the default lost, and a base part called without them.
+const FB_INIT_ARGUMENTS: &str = r#"
 FUNCTION_BLOCK FB_Port
-VAR
+VAR_OUTPUT
     port : INT;
+    speed : INT;
+    fast : BOOL;
 END_VAR
 METHOD FB_init : BOOL
 VAR_INPUT
     bInitRetains : BOOL;
     bInCopyCode : BOOL;
     iPort : INT;
+    nSpeed : INT := 50;
+    bFast : BOOL;
 END_VAR
 port := iPort;
+speed := nSpeed;
+fast := bFast;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Coded EXTENDS FB_Port
+VAR_OUTPUT
+    code : DINT;
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    iPort : INT;
+    nSpeed : INT := 50;
+    bFast : BOOL;
+    nCode : DINT;
+END_VAR
+code := nCode;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Holder
+VAR
+    inner : FB_Port(iPort := 9);
+END_VAR
+END_FUNCTION_BLOCK
+
+VAR_GLOBAL
+    gPort : FB_Port(11, 20, FALSE);
+END_VAR
+
+PROGRAM Main
+VAR
+    named : FB_Port(bFast := TRUE, iPort := 3);
+    positional : FB_Port(7, 80, FALSE);
+    holder : FB_Holder;
+    derived : FB_Coded(iPort := 5, nCode := 42);
+    s1, s2, s3, s4, s5, s6, s7, s8, s9, s10 : DINT;
+END_VAR
+s1 := named.port;
+s2 := named.speed;
+s3 := BOOL_TO_DINT(named.fast);
+s4 := positional.port;
+s5 := positional.speed;
+s6 := BOOL_TO_DINT(positional.fast);
+s7 := holder.inner.port;
+s8 := gPort.port * 100 + gPort.speed;
+s9 := derived.port;
+s10 := derived.code;
+END_PROGRAM
+"#;
+
+#[test]
+fn fb_init_takes_the_arguments_of_the_declaration() {
+    let harness = codesys_run(FB_INIT_ARGUMENTS, 1);
+    let seen: Vec<Value> = (1..=10)
+        .map(|index| {
+            harness
+                .get_output(&format!("s{index}"))
+                .unwrap_or(Value::Null)
+        })
+        .collect();
+    assert_eq!(
+        seen,
+        [3, 50, 1, 7, 80, 0, 9, 1120, 5, 42]
+            .into_iter()
+            .map(Value::DInt)
+            .collect::<Vec<_>>()
+    );
+}
+
+// Specification 44 §6.7: an input of a type that is no scalar, here a STRING, from the instance's
+// declaration is not compiled yet (NX-09), so the build refuses it rather than pass something else.
+// Catches the argument dropped and the input left empty.
+#[test]
+fn an_fb_init_string_argument_is_refused_at_build() {
+    let source = r#"
+FUNCTION_BLOCK FB_Named
+VAR
+    title : STRING;
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    sTitle : STRING;
+END_VAR
+title := sTitle;
 FB_init := TRUE;
 END_METHOD
 END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
-    com : FB_Port;
+    named : FB_Named(sTitle := 'pump');
 END_VAR
 END_PROGRAM
 "#;
@@ -238,7 +337,7 @@ END_PROGRAM
     assert!(
         error
             .to_string()
-            .contains("FB_Port.FB_init with inputs beyond bInitRetains and bInCopyCode"),
+            .contains("FB_Named.FB_init's input sTitle, of a type that is no scalar"),
         "{error}"
     );
 }
