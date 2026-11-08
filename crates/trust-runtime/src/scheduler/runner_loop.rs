@@ -395,11 +395,7 @@ fn drain_commands<C: Clock + Clone>(
                 } => {
                     let result = runner
                         .simulation
-                        .as_mut()
-                        .ok_or(crate::simulation::PlantTraceClearError::StatusUnavailable)
-                        .and_then(|simulation| {
-                            simulation.clear_plant_trace(&plant_id, &active_configuration_revision)
-                        });
+                        .clear_plant_trace(&plant_id, &active_configuration_revision);
                     let _ = respond_to.send(result);
                 }
                 other => {
@@ -555,14 +551,22 @@ where
 {
     let mut sentinel = CyclePanicSentinel::entered();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if let Some(simulation) = runner.simulation.as_mut() {
-            simulation.apply_pre_cycle(now, &mut runner.runtime)?;
+        // The simulation is locked only for its own steps, so that a control request reads the
+        // plants while the debugger holds the program between them (`LiveSimulation`).
+        let runtime = &mut runner.runtime;
+        if let Some(stepped) = runner
+            .simulation
+            .with(|simulation| simulation.apply_pre_cycle(now, runtime))
+        {
+            stepped?;
         }
         let mut result = execute_cycle(&mut runner.runtime);
         if result.is_ok()
-            && let Some(simulation) = runner.simulation.as_mut()
+            && let Some(stepped) = runner
+                .simulation
+                .with(|simulation| simulation.apply_post_cycle(now, &runner.runtime))
         {
-            result = simulation.apply_post_cycle(now, &runner.runtime);
+            result = stepped;
         }
         result
     }));
