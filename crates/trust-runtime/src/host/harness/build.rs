@@ -8,13 +8,16 @@ use crate::task::ProgramDef;
 use crate::RuntimeBuilder;
 use std::{path::Path, sync::Arc};
 use trust_hir::db::{FileId, SemanticDatabase};
-use trust_hir::{semantic::DeclarationCatalog, Dialect, Project, SourceKey};
+use trust_hir::diagnostics::syntax_diagnostics;
+use trust_hir::{
+    semantic::DeclarationCatalog, Diagnostic, DiagnosticSeverity, Dialect, Project, SourceKey,
+};
 use trust_syntax::{parser, SyntaxNode};
 
 use super::compiler::{lower_root_global_var_blocks, LoweringInputs};
 
 use super::config::attach_programs_to_tasks;
-use super::types::{CompileError, SourceFile};
+use super::types::{CompileError, SourceDiagnostic, SourceFile};
 use crate::stdlib::conversions::ConversionProfile;
 
 /// Lowered declarations and original initialization expressions, before any storage is constructed.
@@ -84,6 +87,7 @@ fn analyze_source_files(
     let parsing = trust_hir::timing::CompilerStage::new("compiler.parse", sources.len());
     let mut parses = Vec::with_capacity(sources.len());
     let mut parse_errors = Vec::new();
+    let mut located = Vec::new();
     for (idx, source) in sources.iter().enumerate() {
         let parse = parser::parse(&source.text);
         if !parse.ok() {
@@ -94,11 +98,19 @@ fn analyze_source_files(
                     parse_errors.push(err.to_string());
                 }
             }
+            located.extend(
+                syntax_diagnostics(&source.text, parse.errors())
+                    .iter()
+                    .map(|diagnostic| source_diagnostic(source, diagnostic)),
+            );
         }
         parses.push(parse);
     }
     if !parse_errors.is_empty() {
-        return Err(CompileError::new(parse_errors.join("\n")));
+        return Err(CompileError::of_diagnostics(
+            parse_errors.join("\n"),
+            located,
+        ));
     }
 
     drop(parsing);
@@ -123,10 +135,14 @@ fn analyze_source_files(
             } else {
                 diagnostics_errors.push(diag.to_string());
             }
+            located.push(source_diagnostic(&sources[idx], diag));
         }
     }
     if !diagnostics_errors.is_empty() {
-        return Err(CompileError::new(diagnostics_errors.join("\n")));
+        return Err(CompileError::of_diagnostics(
+            diagnostics_errors.join("\n"),
+            located,
+        ));
     }
     let declaration_catalogs = file_ids
         .iter()
@@ -765,6 +781,41 @@ fn ensure_all_program_declarations_bound(
         "unbound PROGRAM declaration(s) under CONFIGURATION: {}. Bind each declared PROGRAM with RESOURCE ... PROGRAM ... WITH, or register explicit extra program instances for test builders.",
         unbound.join(", ")
     )))
+}
+
+/// `diagnostic` of `source`, where it is (specification 11 §6.8.1c).
+fn source_diagnostic(source: &SourceFile, diagnostic: &Diagnostic) -> SourceDiagnostic {
+    let (line, column) = position(&source.text, diagnostic.range.start().into());
+    let (end_line, end_column) = position(&source.text, diagnostic.range.end().into());
+    SourceDiagnostic {
+        file: source.path.clone(),
+        line,
+        column,
+        end_line,
+        end_column,
+        code: diagnostic.code.code(),
+        severity: match diagnostic.severity {
+            DiagnosticSeverity::Error => "error",
+            DiagnosticSeverity::Warning => "warning",
+            DiagnosticSeverity::Info => "info",
+            DiagnosticSeverity::Hint => "hint",
+        },
+        message: diagnostic.message.clone(),
+    }
+}
+
+/// The 1-based line and column of byte `offset` of `text`, the column counted in UTF-16 code
+/// units, as the language server counts it.
+fn position(text: &str, offset: usize) -> (u32, u32) {
+    // A diagnostic's offsets lie on character boundaries, as the parser's tokens do.
+    let before = text.get(..offset.min(text.len())).unwrap_or(text);
+    let line_start = before.rfind('\n').map_or(0, |newline| newline + 1);
+    let line = before.matches('\n').count() + 1;
+    let column = before[line_start..].encode_utf16().count() + 1;
+    (
+        u32::try_from(line).unwrap_or(u32::MAX),
+        u32::try_from(column).unwrap_or(u32::MAX),
+    )
 }
 
 fn source_label(source: &SourceFile, idx: usize) -> String {
