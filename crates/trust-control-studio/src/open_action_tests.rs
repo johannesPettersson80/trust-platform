@@ -168,6 +168,7 @@ fn reattached_lists_the_unfinished_journaled_recording_by_its_identifier() {
             address: Some("%IL0".into()),
             symbol: None,
             iec_type: "LREAL".into(),
+            mode: None,
         }],
     };
     let entries = [JournalEntry::RecordingOwner { owner }];

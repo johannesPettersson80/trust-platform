@@ -152,7 +152,12 @@ IEC 61131-3 Ed.3 Table 19 and the Annex A function production permit
 `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`, `VAR_EXTERNAL`, `VAR`, and
 `VAR_TEMP` in a function. A method has the same variable-section set under the
 Annex A method production. truST additionally accepts `VAR_STAT` in both as
-the documented persistent-static extension.
+the documented persistent-static extension. A method also accepts CODESYS's
+`VAR_INST`, which is the method's `VAR_STAT` under CODESYS's name: one variable
+per instance and method, kept between calls, initialized with the instance,
+reachable only inside the method, with `VAR_STAT`'s qualifiers. A `VAR_INST`
+section anywhere else, in a function, a body or an interface, is refused
+(E202), as CODESYS allows it only in a method.
 
 Neither owner accepts `VAR_GLOBAL`, `VAR_ACCESS`, or `VAR_CONFIG`. Encountering
 one of those sections rejects the complete function or method declaration;
@@ -692,6 +697,16 @@ INTERFACE IAdvancedControl EXTENDS IControllable
 END_INTERFACE
 ```
 
+CODESYS lets an interface extend its system interface `__SYSTEM.IQueryInterface`, which
+there allows `__QUERYINTERFACE` on it, and lets a function block or class name the
+system interface among the interfaces it implements. Under every profile truST accepts
+`__SYSTEM.IQueryInterface` after an interface's `EXTENDS` and in an `IMPLEMENTS` list,
+where it has no effect: it adds no method, and the other names of the list keep their
+meaning. Any other `__SYSTEM` name is refused (E102), and so is
+`__SYSTEM.IQueryInterface` after a function block's or class's `EXTENDS`.
+`__SYSTEM` is a reserved word (specification 01); IEC forbids `__` in a name, so no
+valid IEC program changes.
+
 ### Interface as Variable Type
 
 ```
@@ -805,6 +820,13 @@ METHOD PUBLIC Example
   SUPER.Initialize();         // Call base class method
 END_METHOD
 ```
+
+CODESYS declares `THIS` and `SUPER` as pointers and writes `THIS^.Speed`,
+`SUPER^.Initialize()` and, in a body, `SUPER^()`. Under every profile `THIS^` is
+`THIS` and `SUPER^` is `SUPER`: the same member access, the same direct call of
+the base's method, and `SUPER^()` calls the base's body as `SUPER()` does. No
+valid IEC program changes, as no other value of an instance's type can be
+dereferenced.
 
 ### truST PROPERTY access extension
 

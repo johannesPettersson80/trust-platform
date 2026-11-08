@@ -9,7 +9,7 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{LoopDefinition, Parameter};
 use crate::messages::{TuneMethod, TuneRequest};
 use crate::study::tune::design::Design;
-use crate::study::tune::record::{candidate_record, record_shaping, LoopLimits};
+use crate::study::tune::record::{candidate_record, gains_of_map, record_shaping, LoopLimits};
 use crate::study::tune::settings_refused;
 use crate::tuning::candidate::{CandidateSource, LawCandidate};
 use crate::tuning::objective::TuningObjective;
@@ -216,24 +216,24 @@ fn keyed_values(
 /// The structure that entered gains give when none is fixed (C0): integral action for a nonzero integral gain, and
 /// derivative action for a nonzero derivative gain.
 fn structure_of_entry(mapped: &[MappedParameter], entered: &BTreeMap<String, f64>) -> Structure {
-    let keyed = keyed_values(entered, mapped);
-    let value = |key: GainKey| keyed.get(&key).copied().unwrap_or(0.0);
-    Structure::of_gains(value(GainKey::IntegralGain), value(GainKey::DerivativeGain))
+    let gains = gains_of_map(&keyed_values(entered, mapped));
+    Structure::of_gains(gains.integral_gain, gains.derivative_gain)
 }
 
 /// The gains of a structure's record (C0): the proportional gain always, the integral gain for a structure with integral
 /// action, and the derivative gain for a structure with derivative action; the others are zero.
 fn family_gains(family: Structure, applied: &BTreeMap<GainKey, f64>) -> ParallelGains {
-    let value = |key: GainKey| applied.get(&key).copied().unwrap_or(0.0);
+    // A standard-form law's entered times give its gains (N6.8).
+    let gains = gains_of_map(applied);
     ParallelGains {
-        proportional_gain: value(GainKey::ProportionalGain),
+        proportional_gain: gains.proportional_gain,
         integral_gain: if family.has_integral() {
-            value(GainKey::IntegralGain)
+            gains.integral_gain
         } else {
             0.0
         },
         derivative_gain: if family.has_derivative() {
-            value(GainKey::DerivativeGain)
+            gains.derivative_gain
         } else {
             0.0
         },

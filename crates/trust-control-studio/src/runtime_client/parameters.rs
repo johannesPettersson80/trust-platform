@@ -354,7 +354,8 @@ pub fn runtime_binding(binding: &ParameterBinding) -> RuntimeBinding {
             .collect(),
         mode: RuntimeMode {
             symbol: binding.mode.symbol.clone(),
-            manual_value: binding.mode.manual_value,
+            manual_value: binding.mode.manual_value.clone(),
+            auto_value: binding.mode.auto_value.clone(),
         },
     }
 }

@@ -224,7 +224,7 @@ impl<'a> LawStart<'a> {
             .ok_or_else(binding_unconfigured)?;
         let found = found_mode_of(
             boolean_at(&first.values, &binding.mode.symbol),
-            binding.mode.manual_value,
+            binding.mode.manual_reading(),
         );
         let tolerance = auto_entry_tolerance(
             loop_definition,
@@ -343,7 +343,7 @@ impl<'a> LawStart<'a> {
                     &model,
                     setup.task,
                     &self.binding,
-                    found_mode_of(reviewed_mode, self.binding.mode.manual_value),
+                    found_mode_of(reviewed_mode, self.binding.mode.manual_reading()),
                     &settled.values,
                     tolerance,
                 )?;
@@ -394,7 +394,7 @@ pub(crate) struct ProportionalRun<'a> {
 
 impl ProportionalRun<'_> {
     fn found_mode(&self) -> Option<FoundMode> {
-        found_mode_of(self.reviewed_mode, self.binding.mode.manual_value)
+        found_mode_of(self.reviewed_mode, self.binding.mode.manual_reading())
     }
 }
 

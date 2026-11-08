@@ -85,6 +85,7 @@ pub fn opened_recording(
                 // The file names no IEC type; an analogue signal of the loop is read as REAL.
                 iec_type: "REAL".to_string(),
                 unit: None,
+                mode: None,
             })
             .collect(),
         stop_reason: StopReason::Stopped,

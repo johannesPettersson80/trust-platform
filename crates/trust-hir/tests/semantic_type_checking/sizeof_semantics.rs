@@ -408,3 +408,27 @@ END_PROGRAM
 "#,
     );
 }
+
+/// Specification 04: `THIS^` is `THIS`, so SIZEOF reaches the same rule for it, the instance's
+/// storage size. Catches `THIS^` refused as an operand that is no variable.
+#[test]
+fn test_sizeof_takes_this_with_a_caret_as_this() {
+    let errors = error_messages(
+        r#"
+FUNCTION_BLOCK Counter
+VAR
+    value : DINT;
+END_VAR
+METHOD PUBLIC Measure : DINT
+Measure := SIZEOF(THIS^);
+END_METHOD
+END_FUNCTION_BLOCK
+"#,
+    );
+    assert!(
+        errors.iter().any(
+            |error| error.contains("function block, class, or interface instance storage size")
+        ),
+        "{errors:?}"
+    );
+}

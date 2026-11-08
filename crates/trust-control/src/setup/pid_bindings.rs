@@ -145,17 +145,18 @@ pub fn pid_states(
     ]
 }
 
-/// The startup-done flag: a BOOL the program sets when its startup code has run. Validation starts it TRUE, so that the startup code
-/// keeps the seeded values (C1 Setup; `startupState`).
+/// The startup flag: a BOOL the program sets when its startup code has run, `done` being its value then (C1 Setup; `startupState`).
+/// Validation starts it at `done`, so that the startup code keeps the seeded values: TRUE for `IF NOT <flag> THEN … <flag> := TRUE`,
+/// FALSE for CODESYS's `IF <flag> THEN … <flag> := FALSE`.
 #[must_use]
-pub fn startup_state(flag: &str) -> InitializedState {
+pub fn startup_state(flag: &str, done: bool) -> InitializedState {
     InitializedState {
         symbol: flag.to_string(),
         iec_type: StateType::Bool,
         unit: "1".to_string(),
         minimum: 0.0,
         maximum: 1.0,
-        initial: InitialValue::Constant(1.0),
+        initial: InitialValue::Constant(if done { 1.0 } else { 0.0 }),
         post_scan: PostScan::Unchanged,
     }
 }

@@ -10,6 +10,7 @@ fn seed(family: Structure, integral: bool, derivative: bool) -> ParallelPidSeed 
         proportional_symbol: "Main.Kp".to_owned(),
         integral_symbol: integral.then(|| "Main.Ki".to_owned()),
         derivative_symbol: derivative.then(|| "Main.Kd".to_owned()),
+        form: crate::tuning::project_seed::GainForm::Parallel,
     }
 }
 

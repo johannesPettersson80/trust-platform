@@ -11,6 +11,7 @@ mod interfaces;
 mod modifiers;
 mod overrides;
 mod shadowing;
+mod system_names;
 
 pub(in crate::db) use dut_extends::check_dut_extends_semantics;
 pub(in crate::db) use interfaces::check_interface_conformance;
@@ -203,6 +204,7 @@ pub(in crate::db) fn check_extends_implements_semantics(
     root: &SyntaxNode,
     diagnostics: &mut DiagnosticBuilder,
 ) {
+    system_names::check_system_names(root, diagnostics);
     for node in root.descendants() {
         match node.kind() {
             SyntaxKind::Interface => {

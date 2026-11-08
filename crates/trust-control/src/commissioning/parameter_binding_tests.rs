@@ -4,7 +4,7 @@ use super::*;
 use crate::commissioning::fixture_loops::parallel_pid_loop;
 use crate::commissioning::texts;
 use crate::failure::{Cause, NextAction};
-use crate::loop_definition::RealType;
+use crate::loop_definition::{ModeValue, RealType};
 
 /// A gain of the fixture's parameter record as its loop file declares it: LREAL, in %/%, bounded to ±100.
 fn gain(symbol: &str, convention: &str) -> RuntimeParameter {
@@ -36,7 +36,8 @@ fn the_binding_is_the_declared_parameter_record_of_the_loop() {
             ],
             mode: RuntimeMode {
                 symbol: "Main.Auto".to_owned(),
-                manual_value: false,
+                manual_value: ModeValue::Bool(false),
+                auto_value: None,
             },
         }
     );

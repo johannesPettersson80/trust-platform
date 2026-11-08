@@ -149,11 +149,11 @@ UpperLimit := MIN(
 SetpointRate := (Applied.Setpoint - StateValue.Setpoint) / Applied.CycleTime;
 ProcessValueRate := (Applied.ProcessValue - StateValue.ProcessValue) / Applied.CycleTime;
 
-IF Applied.Mode = Track THEN
+IF Applied.Mode = PIDMode#Track THEN
     StateValue.NominalOutput := Applied.TrackingOutput;
 END_IF;
 
-IF Applied.Mode = Manual THEN
+IF Applied.Mode = PIDMode#Manual THEN
     NominalOutput := Applied.ManualOutput;
 ELSE
     IF ParametersValue.IntegralGain = LREAL#0.0 THEN
@@ -181,7 +181,7 @@ ELSE
             + DerivativeIncrement
             + FeedForwardIncrement;
         SaturatedCandidate := MAX(MIN(NominalOutput, UpperLimit), LowerLimit);
-        IF ParametersValue.AntiWindup = Combined THEN
+        IF ParametersValue.AntiWindup = PIDAntiWindup#Combined THEN
             SaturationError := NominalOutput - SaturatedCandidate;
             IF IntegralIncrement * SaturationError > LREAL#0.0 THEN
                 ConditionalCorrection := MIN(ABS(IntegralIncrement), ABS(SaturationError));
@@ -255,7 +255,7 @@ Coefficient := CycleTime / (ParametersValue.TimeConstant + LREAL#0.5 * CycleTime
 NextStage1 := Stage1 + Coefficient * (Input - Stage1);
 Stage1 := NextStage1;
 
-IF ParametersValue.Order = SecondOrder THEN
+IF ParametersValue.Order = FilterOrder#SecondOrder THEN
     NextStage2 := Stage2 + Coefficient * (NextStage1 - Stage2);
     Stage2 := NextStage2;
     Update := NextStage2;

@@ -316,10 +316,7 @@ fn a_project_owned_lesson_is_started_and_restored_through_its_single_boolean_aut
             duration_ms: 40_000.0,
             expected_scan: 41,
             task: Some("MainTask".to_string()),
-            mode_binding: Some(ExperimentModeBinding {
-                symbol: "P1.Run".to_string(),
-                manual_value: false,
-            }),
+            mode_binding: Some(ExperimentModeBinding::boolean("P1.Run".to_string(), false)),
             stop_conditions: setpoint_stop_conditions("40"),
             restoration_value: ExperimentValue::Boolean(false),
             requires_physical_approval: false,

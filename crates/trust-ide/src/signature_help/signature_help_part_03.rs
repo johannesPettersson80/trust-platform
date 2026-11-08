@@ -285,6 +285,7 @@ fn standard_signature(name: &str, arg_count: usize) -> Option<SignatureInfo> {
         "REF" => (vec![param("IN", TypeId::ANY)], None),
         "NEW" | "__NEW" => (vec![param("TYPE", TypeId::ANY)], None),
         "__DELETE" => (vec![param("IN", TypeId::ANY)], Some(TypeId::VOID)),
+        "__ISVALIDREF" => (vec![param("IN", TypeId::ANY)], Some(TypeId::BOOL)),
         _ => return None,
     };
 

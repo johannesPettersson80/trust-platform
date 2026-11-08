@@ -34,6 +34,7 @@ fn held_campaign(name: &str, purpose: RunPurpose) -> Result<IdentifyOutcome<Verd
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run_tank(&state, &journal, &mut study, &request, purpose);
     let _ = fs::remove_dir_all(&folder);
@@ -108,6 +109,7 @@ fn recording_started(
         loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let _ = run_tank(&state, &journal, &mut study, &request, purpose);
     let _ = fs::remove_dir_all(&folder);
@@ -158,6 +160,7 @@ fn run_scripted(
         loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run_tank(&state, &journal, &mut study, &request, purpose);
     let _ = fs::remove_dir_all(&folder);

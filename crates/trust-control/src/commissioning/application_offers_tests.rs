@@ -75,6 +75,7 @@ fn checkpoint(stage: CheckpointStage, recording: bool) -> CommissioningCheckpoin
                 address: None,
                 symbol: Some("Main.PV".to_owned()),
                 iec_type: "LREAL".to_owned(),
+                mode: None,
             }],
         }),
         recording_result: None,

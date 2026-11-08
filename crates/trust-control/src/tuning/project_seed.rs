@@ -19,21 +19,107 @@ use crate::model::GeneralModel;
 use crate::tuning::structure::{is_exactly_zero, ParallelGains, Structure};
 use crate::tuning::texts;
 
-/// A program law whose parallel gains are named by variables (C2): the family, the proportional variable, and the integral and derivative
-/// variables when the law has them.
+/// A program law whose settings are named by variables (C2): the family, the proportional variable, and the integral and derivative
+/// variables when the law has them. In the standard form (C2, numerics annex N6.8) the integral variable holds the reset time
+/// `Ti = Kp/Ki` and the derivative variable the derivative time `Td = Kd/Kp`, in seconds; the loop file names them
+/// `resetTimeSymbol` and `derivativeTimeSymbol`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(try_from = "SeedFields", into = "SeedFields")]
 pub struct ParallelPidSeed {
     /// The family the law has: P, PI, PD or PID.
     pub family: Structure,
     /// The variable that holds the proportional gain.
     pub proportional_symbol: String,
-    /// The variable that holds the integral gain, when the law has one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The variable that holds the integral gain, or in the standard form the reset time, when the law has one.
     pub integral_symbol: Option<String>,
-    /// The variable that holds the derivative gain, when the law has one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The variable that holds the derivative gain, or in the standard form the derivative time, when the law has one.
     pub derivative_symbol: Option<String>,
+    /// The form the program holds its settings in.
+    pub form: GainForm,
+}
+
+/// The form in which a program holds its law's settings (C2; numerics annex N6.8).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum GainForm {
+    /// The parallel gains `Kp`, `Ki` and `Kd`.
+    #[default]
+    Parallel,
+    /// The gain `Kp`, the reset time `Ti` and the derivative time `Td`, in seconds.
+    Standard,
+}
+
+impl GainForm {
+    // serde's `skip_serializing_if` passes the field by reference.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    const fn is_parallel(&self) -> bool {
+        matches!(self, Self::Parallel)
+    }
+}
+
+/// The fields of a `parallel-pid` seed as the loop file writes them (C2): a parallel seed names its integral and derivative gains, a
+/// standard seed (`"form": "standard"`) its reset and derivative times, and neither names the other's.
+#[derive(Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SeedFields {
+    family: Structure,
+    proportional_symbol: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    integral_symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    derivative_symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "GainForm::is_parallel")]
+    form: GainForm,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reset_time_symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    derivative_time_symbol: Option<String>,
+}
+
+impl TryFrom<SeedFields> for ParallelPidSeed {
+    type Error = &'static str;
+
+    fn try_from(fields: SeedFields) -> Result<Self, Self::Error> {
+        let (integral_symbol, derivative_symbol) = match fields.form {
+            GainForm::Parallel
+                if fields.reset_time_symbol.is_none()
+                    && fields.derivative_time_symbol.is_none() =>
+            {
+                (fields.integral_symbol, fields.derivative_symbol)
+            }
+            GainForm::Standard
+                if fields.integral_symbol.is_none() && fields.derivative_symbol.is_none() =>
+            {
+                (fields.reset_time_symbol, fields.derivative_time_symbol)
+            }
+            _ => return Err(texts::SEED_FORM_SYMBOLS),
+        };
+        Ok(Self {
+            family: fields.family,
+            proportional_symbol: fields.proportional_symbol,
+            integral_symbol,
+            derivative_symbol,
+            form: fields.form,
+        })
+    }
+}
+
+impl From<ParallelPidSeed> for SeedFields {
+    fn from(seed: ParallelPidSeed) -> Self {
+        let (parallel, standard) = match seed.form {
+            GainForm::Parallel => ((seed.integral_symbol, seed.derivative_symbol), (None, None)),
+            GainForm::Standard => ((None, None), (seed.integral_symbol, seed.derivative_symbol)),
+        };
+        Self {
+            family: seed.family,
+            proportional_symbol: seed.proportional_symbol,
+            integral_symbol: parallel.0,
+            derivative_symbol: parallel.1,
+            form: seed.form,
+            reset_time_symbol: standard.0,
+            derivative_time_symbol: standard.1,
+        }
+    }
 }
 
 /// The seed of a trajectory-following law (C11): the PID part, whose three gain variables are all named, and the variables of the rate
@@ -216,29 +302,75 @@ pub struct FeedforwardTerms {
 }
 
 /// The gains that a parallel seed's variables hold, from their values (`parallelSeedGains`): the proportional variable must be
-/// finite, and an absent integral or derivative variable is zero.
+/// finite, and an absent integral or derivative variable is zero. In the standard form the variables hold `Kp`, `Ti` and `Td`, and
+/// the gains are `Ki = Kp/Ti` and `Kd = Kp·Td` (N6.8): a reset time that is not finite and above zero gives no gains.
 #[must_use]
 pub fn parallel_seed_gains(
     seed: &ParallelPidSeed,
     parameters: &BTreeMap<String, f64>,
 ) -> Option<ParallelGains> {
-    let proportional = parameters
-        .get(&seed.proportional_symbol)
-        .copied()
-        .filter(|value| value.is_finite())?;
+    seed_gains(seed, |symbol| parameters.get(symbol).copied())
+}
+
+/// The gains that a seed's variables hold, each variable's value read by `value` (N6.8); see [`parallel_seed_gains`].
+#[must_use]
+pub fn seed_gains(
+    seed: &ParallelPidSeed,
+    value: impl Fn(&str) -> Option<f64>,
+) -> Option<ParallelGains> {
+    let proportional = value(&seed.proportional_symbol).filter(|value| value.is_finite())?;
+    let term = |symbol: &Option<String>| symbol.as_deref().and_then(&value);
+    let (integral, derivative) = (term(&seed.integral_symbol), term(&seed.derivative_symbol));
+    let (integral_gain, derivative_gain) = match seed.form {
+        GainForm::Parallel => (integral.unwrap_or(0.0), derivative.unwrap_or(0.0)),
+        GainForm::Standard => {
+            let reset = integral.filter(|time| time.is_finite() && *time > 0.0)?;
+            (
+                proportional / reset,
+                proportional * derivative.unwrap_or(0.0),
+            )
+        }
+    };
     Some(ParallelGains {
         proportional_gain: proportional,
-        integral_gain: seed
-            .integral_symbol
-            .as_ref()
-            .and_then(|symbol| parameters.get(symbol).copied())
-            .unwrap_or(0.0),
-        derivative_gain: seed
-            .derivative_symbol
-            .as_ref()
-            .and_then(|symbol| parameters.get(symbol).copied())
-            .unwrap_or(0.0),
+        integral_gain,
+        derivative_gain,
     })
+}
+
+/// The value a seed's integral variable holds for gains whose integral gain is `integral` (N6.8): the gain itself in parallel form,
+/// the reset time `Kp/Ki` in standard form.
+#[must_use]
+pub fn integral_value(seed: &ParallelPidSeed, gains: ParallelGains) -> f64 {
+    match seed.form {
+        GainForm::Parallel => gains.integral_gain,
+        GainForm::Standard => gains.proportional_gain / gains.integral_gain,
+    }
+}
+
+/// The value a seed's derivative variable holds for `gains` (N6.8): the derivative gain in parallel form, the derivative time
+/// `Kd/Kp` in standard form.
+#[must_use]
+pub fn derivative_value(seed: &ParallelPidSeed, gains: ParallelGains) -> f64 {
+    match seed.form {
+        GainForm::Parallel => gains.derivative_gain,
+        GainForm::Standard => gains.derivative_gain / gains.proportional_gain,
+    }
+}
+
+/// Checks that `gains` have a standard form when the seed holds one (C2, N6.8): a finite reset time `Kp/Ki` above zero.
+///
+/// # Errors
+/// Returns a [`Refusal`] naming the gains when the seed is in standard form and they have no such reset time.
+pub fn check_seed_form(seed: &ParallelPidSeed, gains: ParallelGains) -> Result<(), Refusal> {
+    let reset = gains.proportional_gain / gains.integral_gain;
+    if seed.form == GainForm::Standard && !(reset.is_finite() && reset > 0.0) {
+        return Err(Refusal::new(texts::no_standard_form(
+            gains.proportional_gain,
+            gains.integral_gain,
+        )));
+    }
+    Ok(())
 }
 
 /// Checks that a seed's law has the terms a family needs (`familyGains` of the TypeScript): an integral variable for PI and
@@ -248,6 +380,9 @@ pub fn parallel_seed_gains(
 /// Returns a [`Refusal`] naming the family and the missing term.
 pub fn check_family_terms(seed: &ParallelPidSeed, family: Structure) -> Result<(), Refusal> {
     let word = crate::tuning::design_to_requirements::structure_word(family);
+    if seed.form == GainForm::Standard && !family.has_integral() {
+        return Err(Refusal::new(texts::standard_form_integrates(word)));
+    }
     if family.has_integral() && seed.integral_symbol.is_none() {
         return Err(Refusal::new(texts::seed_needs_integral(word)));
     }
@@ -258,15 +393,16 @@ pub fn check_family_terms(seed: &ParallelPidSeed, family: Structure) -> Result<(
 }
 
 /// The values of the variables a seed names for the designed gains (the return of `familyGains`): the proportional variable
-/// always, and the integral and derivative variables only where the seed names them.
+/// always, and the integral and derivative variables only where the seed names them, as gains in parallel form and as the times
+/// `Ti` and `Td` in standard form (N6.8).
 #[must_use]
 pub fn seed_values(seed: &ParallelPidSeed, gains: ParallelGains) -> BTreeMap<String, f64> {
     let mut values = BTreeMap::from([(seed.proportional_symbol.clone(), gains.proportional_gain)]);
     if let Some(symbol) = &seed.integral_symbol {
-        values.insert(symbol.clone(), gains.integral_gain);
+        values.insert(symbol.clone(), integral_value(seed, gains));
     }
     if let Some(symbol) = &seed.derivative_symbol {
-        values.insert(symbol.clone(), gains.derivative_gain);
+        values.insert(symbol.clone(), derivative_value(seed, gains));
     }
     values
 }
