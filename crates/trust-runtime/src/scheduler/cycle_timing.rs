@@ -59,11 +59,10 @@ impl SimulationClock {
     }
 
     /// The simulation time the next cycle sees; the cycle after it sees one interval later. The first cycle
-    /// starts from the scaled wall clock, as the cycle would without simulation time.
-    fn step(&mut self, wall: Duration, interval: Duration, speed: u32) -> Duration {
-        let time = self
-            .next_time
-            .unwrap_or_else(|| super::scaled_time(wall, speed));
+    /// runs at simulation time zero, however long the runtime took to start: simulation time is never read
+    /// from the wall clock (specification 46, §6.1 item 1).
+    fn step(&mut self, interval: Duration) -> Duration {
+        let time = self.next_time.unwrap_or(Duration::ZERO);
         self.next_time = Some(Duration::from_nanos(
             time.as_nanos().saturating_add(interval.as_nanos()),
         ));
@@ -140,9 +139,7 @@ impl CycleTiming {
     /// The process time a restarted runtime continues from (specification 46, §6.1 item 4).
     pub(crate) fn restart_time(&self, wall: Duration) -> Duration {
         match self.simulation.as_ref() {
-            Some(simulation) => simulation
-                .next_time
-                .unwrap_or_else(|| super::scaled_time(wall, simulation.scale())),
+            Some(simulation) => simulation.next_time.unwrap_or(Duration::ZERO),
             None => wall,
         }
     }
@@ -190,7 +187,7 @@ impl CycleTiming {
         let stepping = interval.as_nanos() > 0;
         match self.simulation.as_mut() {
             Some(simulation) if stepping => {
-                let time = simulation.step(wall, interval, speed);
+                let time = simulation.step(interval);
                 simulation.measure(wall, time);
                 time
             }

@@ -187,10 +187,15 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     }
 
     /// A cold and a warm restart recreate every simulated plant from its configuration
-    /// (specification 46 §5.3): plant state is not retained through a restart.
+    /// (specification 46 §5.3): plant state is not retained through a restart. The plants start at
+    /// the process time the restarted runtime continues from, so that they catch up no time from
+    /// before the restart.
     fn recreate_plants(&mut self) {
         if let Some(simulation) = &self.simulation {
-            self.simulation = Some(simulation.recreated());
+            let origin = self
+                .timing
+                .restart_time(self.program_time(self.clock.now()));
+            self.simulation = Some(simulation.recreated_at(origin));
         }
     }
 
