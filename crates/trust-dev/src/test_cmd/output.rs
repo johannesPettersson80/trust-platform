@@ -199,11 +199,11 @@ fn display_path(project_root: &Path, file: &Path) -> String {
     trust_lsp::check::native_path(file.strip_prefix(&root).unwrap_or(&file))
 }
 
-/// The project folder as the JSON report names it: its whole path, as [`display_path`] writes one.
+/// The project folder as the JSON report names it: its whole path, a relative `--project` made
+/// absolute against the current folder, without resolving links or Windows short names, so that a
+/// whole path reads as given, as `build --ci` and `validate --ci` name it.
 fn display_project(project_root: &Path) -> String {
-    let root = project_root
-        .canonicalize()
-        .unwrap_or_else(|_| project_root.to_path_buf());
+    let root = std::path::absolute(project_root).unwrap_or_else(|_| project_root.to_path_buf());
     trust_lsp::check::native_path(&root)
 }
 
