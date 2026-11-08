@@ -1071,6 +1071,7 @@ pub trust_runtime_core::native::image::SymbolRecord::area: u8
 pub trust_runtime_core::native::image::SymbolRecord::canonical: u32
 pub trust_runtime_core::native::image::SymbolRecord::display: u32
 pub trust_runtime_core::native::image::SymbolRecord::flags: u8
+pub trust_runtime_core::native::image::SymbolRecord::noinit: bool
 pub trust_runtime_core::native::image::SymbolRecord::offset: u32
 pub trust_runtime_core::native::image::SymbolRecord::parent: u32
 pub trust_runtime_core::native::image::SymbolRecord::pou: u32

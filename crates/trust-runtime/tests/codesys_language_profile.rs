@@ -5,6 +5,8 @@ use trust_runtime::RestartMode;
 
 #[path = "codesys_language_profile/call_after_init.rs"]
 mod call_after_init;
+#[path = "codesys_language_profile/noinit.rs"]
+mod noinit;
 
 // Specification 10 §4.8: under the CODESYS profiles a restart calls FB_init of every instance whose
 // type declares it, before the first cycle; under the IEC profile nothing calls it. Catches FB_init
