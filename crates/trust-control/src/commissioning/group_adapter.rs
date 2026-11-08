@@ -1,5 +1,5 @@
 //! The commissioning adapter of a PID group (specification 35, C7; `pidControllerGroup.ts`, `assertPidGroupAdapter`): the checks that
-//! make a group one coherent transaction (its members, parameters and states belong to one compiled program, and each is claimed
+//! make a group one coherent transaction (its members, their parameters and their states belong to one compiled program, and each is claimed
 //! once), and the transfer binding that writes every member's output together. A group's declared states and its tracking go through
 //! the declared initialization, which takes the group's binding and its further channels from here (`group_transfer_binding`,
 //! `group_channel_symbols`).
@@ -23,8 +23,8 @@ use crate::loop_definition::{
 const RETAINED_STATES: usize = 7;
 /// The refusal of a group whose loop has no project, or no parameter record (`assertPidGroupAdapter`).
 const NEEDS_PROJECT: &str = "This PID group needs a project-owned coherent parameter and state adapter before tuning or Apply.";
-/// The refusal of a group whose members or transfer signals belong to more than one compiled program.
-const ONE_PROGRAM: &str = "Coherent PID group application requires all members and transfer signals to belong to the same compiled program.";
+/// The refusal of a group whose members, parameters or states belong to more than one compiled program.
+const ONE_PROGRAM: &str = "Coherent PID group application requires all members, their parameters and their states to belong to the same compiled program.";
 /// The refusal of a parameter record that is not exactly the members' parameters, each with one owner.
 const PARAMETER_UNION: &str =
     "Declare the complete PID group parameter union with one owner per parameter.";
@@ -122,8 +122,11 @@ pub fn check_group(
     Ok(())
 }
 
-/// The members, the mode and the transfer signals belong to one compiled program (`assertPidGroupAdapter`): the first element of
-/// each symbol, in upper case, is the same. A missing optional symbol counts as an empty root, as in the `TypeScript`, so it is refused.
+/// The members, their parameters and their states belong to one compiled program (`assertPidGroupAdapter`): the first element of
+/// each symbol, in upper case, is the same. The mode and the channels' signals may be globals, a GVL's members included, which this
+/// adapter cannot tell from another program's members by name: discovery checks them against the compiled catalog (B1.2), and the
+/// runtime's transfer against the group's task (annex E2.3). Each channel still names a signal the loop declares, and a channel
+/// without its manual command or setpoint is refused, as in the `TypeScript`.
 fn check_one_program(
     loop_definition: &LoopDefinition,
     binding: &ParameterBinding,
@@ -132,7 +135,6 @@ fn check_one_program(
 ) -> Result<(), Failure> {
     let mut roots = BTreeSet::new();
     roots.extend(group.members.iter().map(|member| root(&member.instance)));
-    roots.insert(root(&binding.mode.symbol));
     roots.extend(
         binding
             .parameters
@@ -151,24 +153,27 @@ fn check_one_program(
         .iter()
         .flat_map(|channels| channels.inputs.iter())
     {
-        roots.insert(root(signal_of(loop_definition, &input.signal_id)?.symbol));
+        signal_of(loop_definition, &input.signal_id)?;
         let command = input
             .manual_output_signal
             .as_deref()
             .or(loop_definition.controller.manual_output_signal.as_deref());
-        roots.insert(root(command.unwrap_or("")));
+        if command.is_none_or(str::is_empty) {
+            return Err(refusal(ONE_PROGRAM));
+        }
     }
     for output in loop_definition
         .channels
         .iter()
         .flat_map(|channels| channels.outputs.iter())
     {
-        roots.insert(root(signal_of(loop_definition, &output.signal_id)?.symbol));
-        let setpoint = match output.setpoint_signal_id.as_deref() {
-            Some(id) => signal_of(loop_definition, id)?.symbol,
-            None => "",
-        };
-        roots.insert(root(setpoint));
+        signal_of(loop_definition, &output.signal_id)?;
+        match output.setpoint_signal_id.as_deref() {
+            Some(id) => {
+                signal_of(loop_definition, id)?;
+            }
+            None => return Err(refusal(ONE_PROGRAM)),
+        }
     }
     if roots.len() == 1 {
         Ok(())

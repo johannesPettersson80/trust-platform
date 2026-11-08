@@ -547,13 +547,15 @@ fn check_controller_symbols(
     check_enumeration_modes(loop_definition, compiled)
 }
 
-/// What the loop's operations write belongs to its task (protocol annex E2.3): its parameter set's parameters and mode, and the
-/// setpoint and manipulated variable that transfers and experiments write, are each a program's member or a global that the
-/// parameter set's task owns. Setup refuses up front what those operations would refuse (B1.2), and checks a draft's loops the same
-/// way before it writes them. A loop without a parameter set names no task here; its operations check it.
+/// What the loop's operations write belongs to its task (protocol annex E2.3): its parameter set's parameters and mode, the
+/// setpoint and manipulated variable that transfers and experiments write, and the manual commands and setpoints of its channels,
+/// are each a program's member or a global that the parameter set's task owns. A PID group's written signals that are no globals
+/// lie in its members' program (C7), as the group's transfer writes them in one program. Setup refuses up front what those
+/// operations would refuse (B1.2), and checks a draft's loops the same way before it writes them. A loop without a parameter set
+/// names no task here; its operations check it.
 ///
 /// # Errors
-/// The sentence that names the first such global, who writes it and the loop's task.
+/// The sentence that names the first such global, who writes it and the loop's task, or the group's signal outside its program.
 pub(super) fn check_global_owners(
     loop_definition: &LoopDefinition,
     compiled: &CompiledCatalog,
@@ -562,26 +564,76 @@ pub(super) fn check_global_owners(
         return Ok(());
     };
     let signals = &loop_definition.signals;
+    let inputs = loop_definition
+        .channels
+        .iter()
+        .flat_map(|channels| channels.inputs.iter());
+    // Each input's manipulated variable, which a group's transfer holds as an output, and its manual command, a state.
+    let outputs = inputs
+        .clone()
+        .filter_map(|input| {
+            crate::loop_definition::channel_signal(loop_definition, &input.signal_id)
+        })
+        .map(|signal| signal.symbol);
+    let commands = inputs.filter_map(|input| input.manual_output_signal.as_deref());
+    let setpoints = loop_definition
+        .channels
+        .iter()
+        .flat_map(|channels| channels.outputs.iter())
+        .filter_map(|output| output.setpoint_signal_id.as_deref())
+        .filter_map(|id| crate::loop_definition::channel_signal(loop_definition, id))
+        .map(|signal| signal.symbol);
+    let controlled: Vec<&str> = std::iter::once(binding.mode.symbol.as_str())
+        .chain(loop_definition.controller.manual_output_signal.as_deref())
+        .chain(outputs)
+        .chain(commands)
+        .chain(setpoints)
+        .collect();
     let written = binding
         .parameters
         .iter()
         .map(|parameter| parameter.symbol.as_str())
-        .chain(std::iter::once(binding.mode.symbol.as_str()))
         .chain(signals.setpoint.iter().map(|signal| signal.symbol.as_str()))
         .chain(std::iter::once(
             signals.manipulated_variable.symbol.as_str(),
-        ));
-    for symbol in written {
-        if let Some(owner) = compiled
+        ))
+        .chain(controlled.iter().copied());
+    // A compiled symbol's owner: `Some(None)` for a program's member, `None` for a symbol the catalog lacks.
+    let owner_of = |symbol: &str| {
+        compiled
             .symbols
             .iter()
             .find(|entry| entry.symbol.eq_ignore_ascii_case(symbol))
-            .and_then(|entry| entry.owner.as_ref())
-        {
+            .map(|entry| entry.owner.as_ref())
+    };
+    for symbol in written {
+        if let Some(Some(owner)) = owner_of(symbol) {
             owner.check(symbol, &binding.task_name)?;
         }
     }
+    if let Some(member) = loop_definition
+        .controller
+        .group
+        .as_ref()
+        .and_then(|group| group.members.first())
+    {
+        let program = first_name(&member.instance);
+        for symbol in controlled {
+            if owner_of(symbol) == Some(None) && !first_name(symbol).eq_ignore_ascii_case(program) {
+                return Err(texts::group_signal_outside_program(
+                    symbol,
+                    first_name(symbol),
+                    program,
+                ));
+            }
+        }
+    }
     Ok(())
+}
+
+/// The first name of a symbol's path: the program instance of a program's member, or the namespace of a GVL's.
+fn first_name(symbol: &str) -> &str {
+    symbol.split('.').next().unwrap_or(symbol)
 }
 
 /// Every enumeration mode the loop names, its own and the further modes of its program's law, is a compiled enumeration with the
