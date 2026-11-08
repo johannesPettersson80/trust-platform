@@ -406,6 +406,7 @@ Access: Engineer. Unknown fields are refused with `invalid_experiment`.
 | `trajectory` | array | Optional, default empty. Entries `{at_ms, value}`. At most 10,000 entries. |
 | `relay_feedback` | object | Required for `relay` only, and refused for the other kinds. `{address, value_type, center, hysteresis, low_value, high_value}`. |
 | `abort_binding` | object | Optional, for `project_sequence` only. `{address, value_type, asserted_value}`. The address is the only selector; `value_type` is BOOL. |
+| `measurement_guard` | object | Optional. `{address or symbol, minimum, maximum}`: the loop's measured output, by an address of the process image or by a variable's path, and the band it must stay in while the experiment runs (E5.4). The band is finite, with `minimum` below `maximum`. |
 
 Trajectory rules: the first point is at 0; the times strictly increase; every time is below `duration_ms`; consecutive points are at least one period of the task apart; every value is within the limits.
 
@@ -422,7 +423,7 @@ The start is checked in this order. The first failed check is the refusal.
 5. The value type is supported, and `value` and `restoration_value` decode (`invalid_value`). `value` lies within the limits (`outside_limits`).
 6. A complete scan has been published (`io_unavailable`). The target is not forced (`forced_signal`).
 7. `value_type`, if given, matches the runtime type (`incompatible_binding`). `restoration_value` equals the current value (`restoration_mismatch`).
-8. Relay feedback is given only for `relay`, and its checks hold. An abort binding of a `project_sequence` is BOOL, is not the activation signal, is writable and not forced, and does not already read its asserted value (`abort_already_asserted`).
+8. Relay feedback is given only for `relay`, and its checks hold. An abort binding of a `project_sequence` is BOOL, is not the activation signal, is writable and not forced, and does not already read its asserted value (`abort_already_asserted`). A measurement guard's band is finite and ordered (`invalid_experiment`); its signal is an address of the process image (`invalid_address`) or a variable that has a numeric value in the current scan (`invalid_target`); and the measurement lies within the band (`outside_limits`).
 9. The trajectory and its spacing hold (`invalid_experiment`). A `mv_pulse` has its two points.
 10. The mode that the kind requires is observed (`controller_mode_blocked`). A mode binding is present where the kind requires one (`invalid_experiment`).
 11. No transfer or parameter transaction is pending (`transaction_pending`), and no other experiment runs or restores (`experiment_active`). The experiment lock is held (`experiment_state_unavailable`).
@@ -439,6 +440,7 @@ At each execution of the loop's task, the runtime does the following, in this or
    - the target, or the relay feedback, is forced: `signal_forced` or `relay_feedback_forced`;
    - the target or the process value is not a valid value: `bad_runtime_data` or `bad_relay_feedback`;
    - the target or a relay level lies outside the limits: `signal_outside_limits`;
+   - the measured output of a measurement guard lies outside its band: `measurement_outside_limits`; it has no numeric value: `bad_runtime_data`;
    - the mode leaves the required one: `mode_changed`;
    - the abort signal of a project sequence reads its asserted value: `project_abort_asserted`; the abort signal is forced: `abort_signal_forced`; the abort signal is not a valid BOOL: `bad_abort_binding`;
    - the duration has elapsed: `duration_complete`. It has elapsed at the execution after which the next execution would lie at or beyond it. That execution queues the restoring write (step 6), which takes effect at the next execution (A3.5), at the instant the duration names. A write queued at the first execution takes effect at the second, so the target holds an experiment's value for the duration divided by the period of the task, less one, executions: 300 for a duration of 30.1 s at 100 ms.
@@ -474,6 +476,7 @@ Response keys:
 - `last_applied`: `{index, value, time_ms, scan, process_time_ms}` for the last trajectory point applied, or null. It holds the value read back after the execution that followed the write.
 - `relay_feedback`: for a relay, `{address, center, hysteresis, lower_threshold, upper_threshold, low_value, high_value, high_active}`. Otherwise null.
 - `abort_binding`: `{address, asserted_value, state, observed_scan}`, or null when the experiment declares none.
+- `measurement_guard`: `{address or symbol, minimum, maximum, value}`, or null when the experiment declares none. `value` is the measurement read at the latest execution of the task, and after a stop by the guard the value that stopped it.
 
 A status request MUST NOT change the record. A reload or restart ends the experiment at the boundary (E9.3).
 
@@ -484,7 +487,7 @@ A status request MUST NOT change the record. A reload or restart ends the experi
 | `duration_complete` | `completed` | Written, then confirmed (E5.4). |
 | `finished_early` | `completed` | Written, then confirmed. |
 | `user_abort` | `aborted` | Written, then confirmed. |
-| `mode_changed`, `signal_forced`, `bad_runtime_data`, `signal_outside_limits`, `relay_feedback_forced`, `bad_relay_feedback`, `project_abort_asserted`, `abort_signal_forced`, `bad_abort_binding`, `physical_approval_required` | `failed` | Written, then confirmed. |
+| `mode_changed`, `signal_forced`, `bad_runtime_data`, `signal_outside_limits`, `measurement_outside_limits`, `relay_feedback_forced`, `bad_relay_feedback`, `project_abort_asserted`, `abort_signal_forced`, `bad_abort_binding`, `physical_approval_required` | `failed` | Written, then confirmed. |
 | Any stop, when the restoration is not confirmed by the deadline | `failed_to_restore` | `failed`, with reason `confirmation_timeout`. |
 | `program_reloaded`, `runtime_restarted` | `failed` | A symbol target is not restored. An address target is restored. |
 
