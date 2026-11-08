@@ -34,8 +34,8 @@ use crate::study::tune::prediction::{
     candidate_margins, candidate_outcome, candidate_prediction, current_prediction, TraceNames,
 };
 use crate::study::tune::record::{
-    candidate_record, candidate_settings, gains_map, gains_of_map, pinned_settings, record_shaping,
-    shaping_of_candidate, LoopLimits,
+    candidate_record, candidate_settings, form_settings, gains_of_map, pinned_settings,
+    record_shaping, shaping_of_candidate, LoopLimits,
 };
 use crate::study::tune::relay;
 use crate::study::tune::requirements::requirements_for;
@@ -59,7 +59,7 @@ use crate::tuning::project_candidate::{
     project_candidate, served_feedforward, served_seed, served_smith, served_trajectory,
     trajectory_candidate,
 };
-use crate::tuning::project_seed::trajectory_feedforward_of_model;
+use crate::tuning::project_seed::{check_seed_form, trajectory_feedforward_of_model, GainForm};
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::recommendation::{
     recommend, Attempt, AttemptStatus, RecommendationError, RecommendationInputs,
@@ -547,6 +547,8 @@ fn gain_limits(loop_definition: &LoopDefinition) -> GainLimits {
         proportional: limit(proportional),
         integral: limit(integral),
         derivative: limit(derivative),
+        // A program's own law in standard form bounds its times (C2, N6.8).
+        form: served_seed(loop_definition).map_or(GainForm::Parallel, |seed| seed.form),
     }
 }
 
@@ -910,10 +912,15 @@ fn pinned_design(
     designed: Design,
     mapped: &[MappedParameter],
 ) -> Result<(Design, BTreeMap<GainKey, f64>), Failure> {
+    // A program's own law in standard form keeps the designed times where nothing pins them (C2, N6.8).
+    let form = served_seed(loop_definition).map_or(GainForm::Parallel, |seed| seed.form);
+    if let Some(seed) = served_seed(loop_definition) {
+        check_seed_form(seed, designed.gains).map_err(settings_refused())?;
+    }
     let applied = apply_pins(
         &loop_definition.revision,
         designed.structure,
-        &gains_map(designed.gains),
+        &form_settings(form, designed.gains),
         pins,
         mapped,
     )

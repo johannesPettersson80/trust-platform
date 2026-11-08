@@ -82,6 +82,7 @@ fn trajectory_seed() -> TrajectoryFeedforwardSeed {
             proportional_symbol: "Main.Kp".to_owned(),
             integral_symbol: Some("Main.Ki".to_owned()),
             derivative_symbol: Some("Main.Kd".to_owned()),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         },
         rate_symbol: "Main.Kv".to_owned(),
         acceleration_symbol: "Main.Ka".to_owned(),

@@ -54,6 +54,7 @@ pub(super) fn feedforward_seed(object: &Map<String, Value>) -> Result<Feedforwar
             proportional_symbol: fields.proportional_symbol,
             integral_symbol: Some(fields.integral_symbol),
             derivative_symbol: Some(fields.derivative_symbol),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         },
         gain_symbol: fields.gain_symbol,
         lead_lag,

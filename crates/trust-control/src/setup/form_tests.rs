@@ -522,6 +522,7 @@ fn the_form_preselects_the_choices_the_engine_applies() {
             band_convention: "half-band".to_string(),
             threshold_equality: "at-or-beyond".to_string(),
             own_law: "PI".to_string(),
+            gain_form: "parallel".to_string(),
             trajectory_own_law: "PID".to_string(),
         }
     );
@@ -552,6 +553,11 @@ fn the_form_preselects_the_choices_the_engine_applies() {
     assert_eq!(
         serde_json::from_value::<OwnLawFamily>(json!(defaults.trajectory_own_law)).ok(),
         Some(OwnLawFamily::Pid)
+    );
+    assert_eq!(
+        serde_json::from_value::<crate::tuning::project_seed::GainForm>(json!(defaults.gain_form))
+            .ok(),
+        Some(crate::tuning::project_seed::GainForm::Parallel)
     );
 }
 
@@ -714,6 +720,8 @@ fn the_form_offers_the_values_each_choice_reads_in_the_order_the_page_lists_them
         strings(&["LQR", "state-feedback", "LQG"])
     );
     assert_eq!(choices.own_laws, strings(&["PI", "P", "PID"]));
+    // The standard form's values are the draft's `form` (C2, N6.8), parallel first, as the form preselects it.
+    assert_eq!(choices.gain_forms, strings(&["parallel", "standard"]));
     assert_eq!(
         choices.search_families,
         strings(&crate::setup::search_loop::SEARCH_FAMILIES)
@@ -841,6 +849,12 @@ fn setup_form_model_names_every_choice_it_offers() {
         &choices.own_laws,
         &labels.own_laws,
         &words_of::OWN_LAWS,
+    );
+    assert_named(
+        "gainForms",
+        &choices.gain_forms,
+        &labels.gain_forms,
+        &words_of::GAIN_FORMS,
     );
     assert_named(
         "derivativeOn",

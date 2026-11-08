@@ -769,3 +769,7 @@ mod test_support;
 #[cfg(test)]
 #[path = "tune_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tune/standard_form_tests.rs"]
+mod standard_form_tests;

@@ -11,6 +11,7 @@ fn seed() -> ParallelPidSeed {
         proportional_symbol: "Main.Kp".to_string(),
         integral_symbol: Some("Main.Ki".to_string()),
         derivative_symbol: None,
+        form: crate::tuning::project_seed::GainForm::Parallel,
     }
 }
 
@@ -22,6 +23,7 @@ fn trajectory_seed() -> TrajectoryFeedforwardSeed {
             proportional_symbol: "Main.Kp".to_string(),
             integral_symbol: Some("Main.Ki".to_string()),
             derivative_symbol: Some("Main.Kd".to_string()),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         },
         rate_symbol: "Main.Kv".to_string(),
         acceleration_symbol: "Main.Ka".to_string(),

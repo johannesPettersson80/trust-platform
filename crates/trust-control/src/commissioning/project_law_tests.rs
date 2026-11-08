@@ -16,6 +16,7 @@ fn seed(integral: Option<&str>, derivative: Option<&str>) -> ParallelPidSeed {
         proportional_symbol: "Main.Program.Kp".to_owned(),
         integral_symbol: integral.map(str::to_owned),
         derivative_symbol: derivative.map(str::to_owned),
+        form: crate::tuning::project_seed::GainForm::Parallel,
     }
 }
 
@@ -66,6 +67,7 @@ fn a_program_pid_law_names_its_seed_variables_and_is_no_connected_p() {
             proportional: "Main.Program.Kp",
             integral: Some("Main.Program.Ki"),
             derivative: Some("Main.Program.Kd"),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         })
     );
     assert_eq!(connected_p_gain(&loop_definition), None);

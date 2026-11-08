@@ -24,6 +24,7 @@ use crate::loop_definition::{
     AuxiliaryRole, AuxiliarySignal, Direction, InitialValue, InitializedState, LoopDefinition,
     LoopScope, Parameter, PostScan, ProjectSeedBlock,
 };
+use crate::tuning::project_seed::GainForm;
 use crate::tuning::project_seed::TrajectoryFeedforwardSeed;
 
 /// The identifier and the channel of the planned trajectory among the loop's further signals (C11, `signals.additional`).
@@ -63,7 +64,12 @@ pub fn trajectory_loop_definition(
     if draft.own_law.law != OwnLawFamily::Pid {
         return Err(refusal(texts::trajectory_law_not_pid()));
     }
-    let mut loop_definition = own_law_loop_definition(catalog, scope, &draft.own_law)?;
+    // The trajectory's law is a parallel PID (C11): the engine takes its gains, whatever form the page shows for an own law (B1.3).
+    let own_law = OwnLawLoopDraft {
+        form: GainForm::Parallel,
+        ..draft.own_law.clone()
+    };
+    let mut loop_definition = own_law_loop_definition(catalog, scope, &own_law)?;
     check_choices(draft)?;
     attach_seed(&mut loop_definition, draft)?;
     add_feedforward_state(catalog, &mut loop_definition, draft)?;

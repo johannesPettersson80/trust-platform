@@ -52,6 +52,7 @@ pub(super) fn smith_seed(object: &Map<String, Value>) -> Result<SmithPidSeed, St
             proportional_symbol: fields.proportional_symbol,
             integral_symbol: Some(fields.integral_symbol),
             derivative_symbol: Some(fields.derivative_symbol),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         },
         gain_symbol: fields.gain_symbol,
         time_constant_symbol: fields.time_constant_symbol,
