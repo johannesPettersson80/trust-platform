@@ -26,6 +26,7 @@ fn a_project_test_the_runtime_stops_with_its_restoration_confirmed_leaves_the_se
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run_tank(
         &state,
@@ -65,6 +66,7 @@ fn a_project_test_whose_start_cannot_be_reconciled_keeps_the_settings_frozen_unt
         loop_definition: &loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     let outcome = run_tank(
         &state,

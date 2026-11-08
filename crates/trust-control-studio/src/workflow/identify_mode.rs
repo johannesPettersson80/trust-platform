@@ -30,6 +30,8 @@ use trust_control::identification::mode_transfer::{
 };
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::runtime::RuntimeConnection;
+use trust_control::study::inputs::InputsSection;
+use trust_control::study::Study;
 
 use crate::journal::{Journal, JournalEntry};
 use crate::runtime_client::transfers::{TransferOwnerSink, TransferSession, TransferWrite};
@@ -38,8 +40,8 @@ use crate::workflow::identify_campaign::CampaignClock;
 use crate::workflow::identify_rest::RestWait;
 
 /// The mode change of one identification (`ConnectedIdentificationMode`): the loop, the runtime it transfers on, the loop's
-/// journal, the clock that paces its waits, the mode binding, the mode checkpoint it holds, and the measured noise that a return
-/// to Auto allows for.
+/// journal, the clock that paces its waits, the mode binding, the mode checkpoint it holds, the measured noise that a return
+/// to Auto allows for, and the reviewed Auto-entry tolerance that replaces that allowance.
 pub struct IdentificationMode<'a> {
     loop_definition: &'a LoopDefinition,
     connection: RuntimeConnection,
@@ -48,6 +50,7 @@ pub struct IdentificationMode<'a> {
     binding: TransferBinding,
     held: Option<HeldCheckpoint>,
     process_noise: Option<f64>,
+    reviewed_tolerance: Option<f64>,
 }
 
 impl fmt::Debug for IdentificationMode<'_> {
@@ -59,6 +62,7 @@ impl fmt::Debug for IdentificationMode<'_> {
             .field("binding", &self.binding)
             .field("held", &self.held)
             .field("process_noise", &self.process_noise)
+            .field("reviewed_tolerance", &self.reviewed_tolerance)
             .finish_non_exhaustive()
     }
 }
@@ -88,6 +92,7 @@ impl<'a> IdentificationMode<'a> {
             binding,
             held,
             process_noise: None,
+            reviewed_tolerance: None,
         })
     }
 
@@ -95,6 +100,12 @@ impl<'a> IdentificationMode<'a> {
     /// first output of a return to Auto is allowed to move by (A6.4).
     pub fn set_process_noise(&mut self, half_range: f64) {
         self.process_noise = Some(half_range);
+    }
+
+    /// Keeps the Auto-entry tolerance the study's requirements review (`transferTolerance`, B4.3), which replaces the allowance
+    /// of every Auto entry this mode change makes (A6.4); `None` keeps the allowance.
+    pub fn set_reviewed_tolerance(&mut self, tolerance: Option<f64>) {
+        self.reviewed_tolerance = tolerance;
     }
 
     /// Moves the loop to the mode a method needs (`enter`, B3.4 step 1): Manual when `manual`, Auto otherwise. A checkpoint that
@@ -144,7 +155,7 @@ impl<'a> IdentificationMode<'a> {
             &status,
             manual,
             Some(&status),
-            self.process_noise,
+            (self.process_noise, self.reviewed_tolerance),
         )?;
         let checkpoint = HeldCheckpoint {
             operation_id: new_operation_id(),
@@ -197,7 +208,7 @@ impl<'a> IdentificationMode<'a> {
                 &current,
                 true,
                 None,
-                self.process_noise,
+                (self.process_noise, self.reviewed_tolerance),
             )?;
             transfer(&mut client, self.journal, held, &self.binding, &write)?;
         }
@@ -212,7 +223,7 @@ impl<'a> IdentificationMode<'a> {
         // A6.2, E6.9: restoring the found Manual commands of a loop that stays in Manual moves each member's output back by
         // design, so the largest of those changes is the allowance; a loop that returns to Auto writes none (C1).
         let in_manual = read_status(&mut client, &self.binding)?;
-        let base = mode_output_change(self.loop_definition, true, None, self.process_noise);
+        let base = mode_output_change(self.loop_definition, true, None, self.process_noise, None);
         let tolerance = commands.allowance(base, &in_manual);
         let write = transfer_write(commands.values, true, tolerance, (None, None), None);
         transfer(&mut client, self.journal, held, &commands.binding, &write)?;
@@ -224,7 +235,7 @@ impl<'a> IdentificationMode<'a> {
                 &current,
                 false,
                 Some(&current),
-                self.process_noise,
+                (self.process_noise, self.reviewed_tolerance),
             )?;
             transfer(&mut client, self.journal, held, &self.binding, &write)?;
             // C1: a program that sets its reference from the measurement in Manual overwrote the reference written back there, so
@@ -354,27 +365,46 @@ fn transfer(
 /// Manual when `manual`, with the tracking of `mode_tracking` and the allowance of `mode_output_change`, which an Auto entry
 /// reviewed on `observed` widens by the controller's own response; the runtime adds its step on the error at entry
 /// (`mode_entry_error_gain`) and its response to the measurement's change before the entry (`mode_entry_measurement_gain`).
+/// `allowance` holds the measured output noise and the reviewed Auto-entry tolerance: an Auto entry under a reviewed tolerance
+/// allows that tolerance, and the runtime adds no term of its own (A6.4, annex E6.9).
 fn mode_write(
     loop_definition: &LoopDefinition,
     binding: &TransferBinding,
     current: &TransferStatus,
     manual: bool,
     observed: Option<&TransferStatus>,
-    process_noise: Option<f64>,
+    (process_noise, reviewed): (Option<f64>, Option<f64>),
 ) -> Result<TransferWrite, Failure> {
     let values = mode_states(binding, current)?;
     let tracking = mode_tracking(loop_definition, binding, current)?;
-    let tolerance = mode_output_change(loop_definition, manual, observed, process_noise);
-    let entry_error_gain = mode_entry_error_gain(loop_definition, manual, observed, process_noise);
-    let entry_measurement_gain =
-        mode_entry_measurement_gain(loop_definition, manual, observed, process_noise);
+    let tolerance = mode_output_change(loop_definition, manual, observed, process_noise, reviewed);
+    let entry_gains = if !manual && reviewed.is_some() {
+        (None, None)
+    } else {
+        (
+            mode_entry_error_gain(loop_definition, manual, observed, process_noise),
+            mode_entry_measurement_gain(loop_definition, manual, observed, process_noise),
+        )
+    };
     Ok(transfer_write(
         values,
         manual,
         tolerance,
-        (entry_error_gain, entry_measurement_gain),
+        entry_gains,
         Some(tracking),
     ))
+}
+
+/// The Auto-entry tolerance `study`'s requirements review (`transferTolerance`, B4.3), which every mode change of the loop
+/// uses in place of the allowance (A6.4); `None` when the study reviews none.
+///
+/// # Errors
+/// The study's inputs section cannot be read.
+pub(crate) fn reviewed_tolerance(study: &Study) -> Result<Option<f64>, Failure> {
+    Ok(study
+        .section::<InputsSection>()?
+        .and_then(|inputs| inputs.requirements)
+        .and_then(|requirements| requirements.transfer_tolerance))
 }
 
 /// A transfer write of a mode change, with the factors of the error at entry and of the measurement's change before it that

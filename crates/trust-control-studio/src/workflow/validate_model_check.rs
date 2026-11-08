@@ -55,6 +55,9 @@ pub(crate) struct ModelCheckRequest<'a> {
     pub(crate) stored: Option<&'a StoredIdentify>,
     /// The settling time the check's requirements set, in s; `None` when they set none (B3.4 step 2, A4.2).
     pub(crate) expected_settling_seconds: Option<f64>,
+    /// The Auto-entry tolerance the check's requirements review (`transferTolerance`, B4.3), which the check's mode changes use in
+    /// place of the allowance (A6.4); `None` keeps the allowance.
+    pub(crate) transfer_tolerance: Option<f64>,
 }
 
 /// The outcome of the independent model check of an Identify result (B5.1 (a), B5.2, B5.5).
@@ -118,6 +121,7 @@ pub(crate) fn run_model_check(
         loop_definition,
         expected_settling_seconds: request.expected_settling_seconds,
         evaluate,
+        transfer_tolerance: request.transfer_tolerance,
     };
     let outcome = run_identification(
         context,
