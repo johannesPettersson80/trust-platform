@@ -15,6 +15,7 @@ import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath, runTests } from "@vscode/test-electron";
+import { describeError, withRetries } from "./download";
 
 const REPO = path.resolve(__dirname, "..", "..", "..", "..");
 const PID_EXAMPLE = "control-pid-commissioning";
@@ -191,27 +192,14 @@ async function stopRuntime(runtime: child.ChildProcess): Promise<void> {
 type Result = { session: string; passed: boolean; error?: string; seconds: number };
 
 /** VS Code of `version`. The update service's version lookup fails now and then (specification 22; checklist G102), so a
- * failed download is tried again after a pause, three times in all, and the last failure is the run's. */
-async function downloadVSCode(version: string): Promise<string> {
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await downloadAndUnzipVSCode(version);
-    } catch (error) {
-      if (attempt === 3) throw error;
-      console.log(`acceptance: downloading VS Code ${version} failed (attempt ${attempt} of 3): ${describe(error)}`);
-      await new Promise((resolve) => setTimeout(resolve, attempt * 15_000));
-    }
-  }
-}
-
-/** An error's own words, or its whole value when it has none, so that an empty message hides nothing. */
-function describe(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  try {
-    return JSON.stringify(error) ?? String(error);
-  } catch {
-    return String(error);
-  }
+ * failed download is tried again after 15 s and after 30 s, and the last failure is the run's. */
+function downloadVSCode(version: string): Promise<string> {
+  return withRetries(
+    () => downloadAndUnzipVSCode(version),
+    3,
+    (failed) => new Promise((resolve) => setTimeout(resolve, failed * 15_000)),
+    (line) => console.log(`acceptance: downloading VS Code ${version}: ${line}`),
+  );
 }
 
 async function main(): Promise<number> {
@@ -296,6 +284,6 @@ async function main(): Promise<number> {
 }
 
 main().then((code) => process.exit(code), (error: unknown) => {
-  console.error(`acceptance: ${describe(error)}`);
+  console.error(`acceptance: ${describeError(error)}`);
   process.exit(2);
 });
