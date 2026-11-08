@@ -249,9 +249,11 @@ variant's name when its enumeration is declared `{attribute 'to_string'}`
 (the attribute before the `TYPE` keyword), and as its number otherwise; a
 typed `*_TO_STRING` writes its number always. That is the vendor's rule
 (CODESYS help, attribute `to_string`, Example 293: with the attribute,
-`TO_STRING` of the value 1 gives `'blue'` "instead of `1`"). In a compiled
-program the generator follows it; the build-time initializer evaluation and
-the debugger's expressions still write the name, until checklist item PRG2b. The duration text is `T#` and each unit that is
+`TO_STRING` of the value 1 gives `'blue'` "instead of `1`"). A compiled
+program's body follows it. No other place converts an enumerated value to
+text: a declaration of a program built with these rules calls no conversion,
+as the build refuses one there (specification 44 §6.7, NX-09), and a debugger's
+expression calls no function (specification 11 §6.13.2). The duration text is `T#` and each unit that is
 not zero from days down to milliseconds, `T#0ms` for no time; an `LTIME`
 has the prefix `LTIME#` and units down to nanoseconds, `LTIME#0ns` for none
 (measured on a live e!COCKPIT runtime on a WAGO PFC200, 2026-11-06:
