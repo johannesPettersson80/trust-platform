@@ -3,6 +3,9 @@ use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::Value;
 use trust_runtime::RestartMode;
 
+#[path = "codesys_language_profile/call_after_init.rs"]
+mod call_after_init;
+
 // Specification 10 §4.8: under the CODESYS profiles a restart calls FB_init of every instance whose
 // type declares it, before the first cycle; under the IEC profile nothing calls it. Catches FB_init
 // never called (the CODESYS report's A4: the lamp would read FALSE), and called under the IEC

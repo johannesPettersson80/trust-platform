@@ -845,7 +845,9 @@ the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. T
 those two take the arguments of the instance's declaration (`com1 : serialdevice(iCOMnum := 1)`),
 which the build works out as it works out initial values, as literals of the call. An argument
 that names a variable, an input of a type that is no scalar (a string, a structure, a reference)
-and an `FB_init` with outputs are not compiled yet (NX-09).
+and an `FB_init` with outputs are not compiled yet (NX-09). Right after an instance's own `FB_init`
+the entries call its type's methods marked `{attribute 'call_after_init'}` when the block is marked
+too (specification 10 §4.8); one with inputs or a result other than `BOOL` is refused at build.
 
 At both restarts the process images keep their bytes; they take `INIT` once, when the program is
 constructed. After the initialization, every variable located at `%M` is published into the marker
