@@ -117,6 +117,7 @@ fn lower_function_block_node(
         using: ctx.using.clone(),
         methods,
         body,
+        call_after_init: trust_hir::attributes::declares_attribute(node, "call_after_init"),
     })
 }
 
@@ -296,6 +297,7 @@ fn lower_method_node(
         static_locals,
         using: method_ctx.using.clone(),
         body,
+        call_after_init: trust_hir::attributes::declares_attribute(node, "call_after_init"),
     })
 }
 
@@ -319,6 +321,7 @@ fn lower_action_node(
         static_locals: Vec::new(),
         using: ctx.using.clone(),
         body,
+        call_after_init: false,
     })
 }
 
@@ -362,6 +365,7 @@ fn lower_property_methods(
             static_locals: Vec::new(),
             using: property_ctx.using.clone(),
             body: lower_stmt_list(&get_node, &mut property_ctx)?,
+            call_after_init: false,
         });
     }
 
@@ -384,6 +388,7 @@ fn lower_property_methods(
             static_locals: Vec::new(),
             using: property_ctx.using.clone(),
             body: lower_stmt_list(&set_node, &mut property_ctx)?,
+            call_after_init: false,
         });
     }
 

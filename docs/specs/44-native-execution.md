@@ -835,7 +835,10 @@ Under the CODESYS profiles both initializations end by calling `FB_init` of ever
 type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
 the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. An `FB_init` with
 inputs beyond those two, which CODESYS gives at the instance's declaration (`com1 :
-serialdevice(iCOMnum := 1)`), or with outputs, is not compiled yet (NX-09).
+serialdevice(iCOMnum := 1)`), or with outputs, is not compiled yet (NX-09). Right after an
+instance's own `FB_init` the entries call its type's methods marked `{attribute 'call_after_init'}`
+when the block is marked too (specification 10 §4.8); one with inputs or a result other than `BOOL`
+is refused at build.
 
 At both restarts the process images keep their bytes; they take `INIT` once, when the program is
 constructed. After the initialization, every variable located at `%M` is published into the marker

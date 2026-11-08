@@ -4661,6 +4661,7 @@ pub trust_runtime::program_model::EdgeInput::qualifier: trust_hir::symbols::defs
 pub struct trust_runtime::program_model::FunctionBlockDef
 pub trust_runtime::program_model::FunctionBlockDef::base: core::option::Option<trust_runtime::program_model::FunctionBlockBase>
 pub trust_runtime::program_model::FunctionBlockDef::body: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
+pub trust_runtime::program_model::FunctionBlockDef::call_after_init: bool
 pub trust_runtime::program_model::FunctionBlockDef::interfaces: alloc::vec::Vec<smol_str::SmolStr>
 pub trust_runtime::program_model::FunctionBlockDef::methods: alloc::vec::Vec<trust_runtime::program_model::MethodDef>
 pub trust_runtime::program_model::FunctionBlockDef::name: smol_str::SmolStr
@@ -4683,6 +4684,7 @@ pub trust_runtime::program_model::InterfaceDef::name: smol_str::SmolStr
 pub trust_runtime::program_model::InterfaceDef::using: alloc::vec::Vec<smol_str::SmolStr>
 pub struct trust_runtime::program_model::MethodDef
 pub trust_runtime::program_model::MethodDef::body: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
+pub trust_runtime::program_model::MethodDef::call_after_init: bool
 pub trust_runtime::program_model::MethodDef::locals: alloc::vec::Vec<trust_runtime::program_model::VarDef>
 pub trust_runtime::program_model::MethodDef::name: smol_str::SmolStr
 pub trust_runtime::program_model::MethodDef::params: alloc::vec::Vec<trust_runtime::program_model::Param>
