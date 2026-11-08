@@ -623,3 +623,28 @@ fn upload(runtime: &Runtime, bytes: &[u8]) -> String {
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
+
+#[test]
+fn a_runtime_whose_web_port_another_process_holds_starts_on_fresh_ports() {
+    // Checklist G98 (8 November, lv1's check on the builder): each test process reserves its own
+    // ports, so another test's runtime can take one before this runtime binds it. `play` binds the
+    // control endpoint before the web interface and ends when a bind fails, so the runtime answered
+    // `ctl status`, ended at its web bind, and the test's next `ctl io-read` was refused. Here the
+    // web port is held while the runtime first starts: the start takes fresh ports, and the runtime
+    // it returns keeps answering, its program scanning and its web interface serving. Wrong
+    // behaviour: the start returns a runtime that ends at its web bind (the next request is
+    // refused), or gives up although fresh ports are free.
+    let runtime = ExampleRuntime::new(EXAMPLE)
+        .web()
+        .occupy_web_port_at_first_start()
+        .start();
+    runtime.wait_for_snapshot(CLIMB, "five scans", |s| s.scan() >= 5);
+    let events = ureq::get(&format!("{}/api/events?limit=1", runtime.web_base()))
+        .call()
+        .expect("the web interface answers on its fresh port")
+        .body_mut()
+        .read_to_string()
+        .expect("read the web answer");
+    let events: Value = serde_json::from_str(&events).expect("the web answer is JSON");
+    assert_eq!(events["ok"], json!(true), "{events}");
+}
