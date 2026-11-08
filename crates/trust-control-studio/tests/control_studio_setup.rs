@@ -183,6 +183,61 @@ fn saving_the_same_draft_again_is_refused_and_changes_nothing() {
     let _ = fs::remove_dir_all(&project);
 }
 
+/// Specification 35 A6.1, B1.3 and C0, end to end with the built compiler: the lesson's program with an enumeration `E_Mode` (Off,
+/// Manual, Auto) beside its BOOL. A draft that names the enumeration by its Manual and Auto members writes a loop whose binding names
+/// them, and discovery accepts the loop against the compiled enumeration; a draft naming a member the type lacks is refused before
+/// anything is written. Catches the compiled catalog without the members (the save would be refused), the enumeration written as a
+/// BOOL binding, and discovery refusing the loop because its mode is no BOOL.
+#[test]
+fn an_enumeration_mode_is_set_up_by_its_members_and_discovered() {
+    let project = project_copy("enumeration");
+    fs::write(
+        project.join("src/Modes.st"),
+        "TYPE E_Mode : (Off, Manual, Auto); END_TYPE\n",
+    )
+    .expect("write the enumeration");
+    let main = project.join("src/Main.st");
+    let source = fs::read_to_string(&main).expect("read the program");
+    let declared = source.replacen(
+        "    AutoMode : BOOL := FALSE;\n",
+        "    AutoMode : BOOL := FALSE;\n    Mode : E_Mode := E_Mode#Auto;\n",
+        1,
+    );
+    assert_ne!(declared, source, "the program declares its BOOL mode");
+    fs::write(&main, declared).expect("declare the enumeration mode");
+    let studio = studio();
+    let mut enumeration = draft();
+    enumeration["mode"] =
+        json!({ "symbol": "P1.Mode", "manualValue": "Manual", "autoValue": "Auto" });
+
+    let mut refused = request(&project);
+    refused["draft"] = enumeration.clone();
+    refused["draft"]["mode"]["autoValue"] = json!("Automatic");
+    let answer = studio
+        .execute(SETUP_SAVE, &[refused])
+        .expect("the method answers");
+    assert_eq!(
+        answer["failure"]["message"],
+        "Compiled mode signal P1.Mode is no enumeration with the members Manual and Automatic.",
+        "{answer}"
+    );
+    assert!(!project.join(SAVED_FILE).exists(), "nothing is written");
+
+    let mut save = request(&project);
+    save["draft"] = enumeration;
+    result_of(&studio, SETUP_SAVE, save);
+    let text = fs::read_to_string(project.join(SAVED_FILE)).expect("the loop file is written");
+    let written: Value = serde_json::from_str(&text).expect("the loop file is JSON");
+    assert_eq!(
+        written["parameterBinding"]["mode"],
+        json!({ "symbol": "P1.Mode", "manual_value": "Manual", "auto_value": "Auto" })
+    );
+    let discovered = result_of(&studio, SETUP_DISCOVER, request(&project));
+    assert_eq!(discovered["rejected"], json!([]), "the loop is not refused");
+    assert_eq!(discovered["loops"][0]["loopId"], LOOP_ID);
+    let _ = fs::remove_dir_all(&project);
+}
+
 /// Lesson 69's project, shipped in the repository: a project-designed LQR state-feedback loop on the program `Main`, whose declared
 /// states are Boolean bits (`%MX40.0`) and whose controller type is a description (B1.4).
 const STATE_LESSON: &str =

@@ -142,10 +142,7 @@ fn draft() -> ScheduleLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.Auto".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.Auto".to_string(), ModeWhenTrue::Auto),
         manual_output: "P1.ManualPct".to_string(),
         points: points(),
         experiment_step: None,
