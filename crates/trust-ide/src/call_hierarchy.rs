@@ -152,8 +152,19 @@ pub fn incoming_calls_in_files(
         file_id: item.file_id,
         symbol_id: item.symbol_id,
     };
+    // A call through an interface variable resolves to the interface's method: a call that the
+    // implementing method may receive (specification 14 §6.3.2).
+    let symbols = db.file_symbols_with_project(item.file_id);
+    let dispatched: Vec<SymbolKey> = symbols
+        .implemented_interface_methods(item.symbol_id)
+        .into_iter()
+        .filter_map(|id| symbol_key(&symbols, id, item.file_id))
+        .collect();
     let mut grouped: FxHashMap<SymbolKey, Vec<TextRange>> = FxHashMap::default();
-    for edge in edges.into_iter().filter(|edge| edge.callee == key) {
+    for edge in edges
+        .into_iter()
+        .filter(|edge| edge.callee == key || dispatched.contains(&edge.callee))
+    {
         grouped.entry(edge.caller).or_default().push(edge.range);
     }
 

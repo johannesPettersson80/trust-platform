@@ -411,4 +411,113 @@ END_PROGRAM
             .expect("Control completion");
         assert_eq!(control.kind, CompletionKind::Namespace);
     }
+
+    /// The labels that completion offers at the `|` of `source`.
+    fn labels_at(source: &str) -> Vec<String> {
+        let cursor = source.find('|').expect("cursor");
+        let mut cleaned = source.to_string();
+        cleaned.remove(cursor);
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, cleaned);
+        complete(&db, file_id, TextSize::from(cursor as u32))
+            .into_iter()
+            .map(|item| item.label.to_string())
+            .collect()
+    }
+
+    /// Specification 14 §6.1.2: completion does not offer what CODESYS hides from its Input Assistant: a global with
+    /// `{attribute 'hide'}` above its line, a POU with it in its first line, and the `VAR` locals of a POU with
+    /// `{attribute 'hide_all_locals'}`; the declarations beside them are offered. Catches a hidden name offered, and a
+    /// visible name beside it dropped.
+    #[test]
+    fn completion_leaves_out_what_the_hide_attributes_hide() {
+        let labels = labels_at(
+            r#"
+VAR_GLOBAL
+    {attribute 'hide'}
+    gSecret : INT;
+    gShown : INT;
+END_VAR
+
+{attribute 'hide'}
+FUNCTION HiddenHelper : INT
+    HiddenHelper := 1;
+END_FUNCTION
+
+FUNCTION ShownHelper : INT
+    ShownHelper := 2;
+END_FUNCTION
+
+{attribute 'hide_all_locals'}
+PROGRAM Main
+VAR_INPUT
+    Request : INT;
+END_VAR
+VAR
+    scratch : INT;
+END_VAR
+    scratch := |;
+END_PROGRAM
+"#,
+        );
+        for shown in ["gShown", "ShownHelper", "Request"] {
+            assert!(labels.iter().any(|label| label == shown), "{shown} missing: {labels:?}");
+        }
+        for hidden in ["gSecret", "HiddenHelper", "scratch"] {
+            assert!(!labels.iter().any(|label| label == hidden), "{hidden} offered: {labels:?}");
+        }
+    }
+
+    /// Specification 14 §6.1.2: after `.` completion does not offer a member with `{attribute 'hide'}`, and offers the
+    /// members beside it; code may still name the hidden one. A function block offers its methods (§6.1.2's table),
+    /// and under the CODESYS profile its plain `VAR` members too, which are public there (DEV-028). Catches a hidden
+    /// member offered, and a visible member beside it dropped.
+    #[test]
+    fn member_completion_leaves_out_hidden_members() {
+        let source = r#"
+FUNCTION_BLOCK FB_Pump
+VAR
+    level : INT;
+    {attribute 'hide'}
+    secret : BOOL;
+END_VAR
+
+METHOD PUBLIC Start
+END_METHOD
+
+{attribute 'hide'}
+METHOD PUBLIC Calibrate
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    pump : FB_Pump;
+END_VAR
+    pump.Calibrate();
+    pump.|
+END_PROGRAM
+"#;
+        let labels = labels_at(source);
+        assert!(labels.iter().any(|label| label == "Start"), "{labels:?}");
+        assert!(!labels.iter().any(|label| label == "Calibrate"), "{labels:?}");
+
+        let cursor = source.find('|').expect("cursor");
+        let mut cleaned = source.to_string();
+        cleaned.remove(cursor);
+        let mut db = Database::new();
+        db.set_dialect(trust_hir::Dialect::Codesys);
+        db.set_source_text(FileId(0), cleaned);
+        let labels: Vec<String> = complete(&db, FileId(0), TextSize::from(cursor as u32))
+            .into_iter()
+            .map(|item| item.label.to_string())
+            .collect();
+        for shown in ["level", "Start"] {
+            assert!(labels.iter().any(|label| label == shown), "{shown} missing: {labels:?}");
+        }
+        for hidden in ["secret", "Calibrate"] {
+            assert!(!labels.iter().any(|label| label == hidden), "{hidden} offered: {labels:?}");
+        }
+    }
 }

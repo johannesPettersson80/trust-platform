@@ -584,6 +584,14 @@ impl SymbolCollector<'_> {
         } else {
             self.table.register_enum_type(name, base_type, values)
         };
+        // `{attribute 'to_string'}` before the `TYPE` keyword (specification 07 §2.7).
+        if node
+            .ancestors()
+            .find(|ancestor| ancestor.kind() == SyntaxKind::TypeDecl)
+            .is_some_and(|block| declares_attribute(&block, "to_string"))
+        {
+            self.table.mark_named_text_type(type_id);
+        }
         for (value_name, value, range) in value_symbols {
             let mut symbol = Symbol::new(
                 SymbolId::UNKNOWN,

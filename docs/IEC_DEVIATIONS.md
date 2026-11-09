@@ -748,7 +748,11 @@ re-check them against this rule when touched.
 - truST behavior and conflict: under a CODESYS `vendor_profile`
   (specification 14), truST accepts — matching the CODESYS / TwinCAT vendor
   toolchain — (a) `TO_STRING`/`*_TO_STRING` over an enumerated value
-  (yields the variant name), over `BOOL` (`'TRUE'`/`'FALSE'`) and over
+  (`TO_STRING`/`TO_WSTRING` yield the variant name for an enumeration
+  declared `{attribute 'to_string'}` and the number otherwise, a typed
+  `*_TO_STRING` the number; amended 8 November 2026 from the vendor's help,
+  after truST had written every enumerated value as its name since 6
+  November), over `BOOL` (`'TRUE'`/`'FALSE'`) and over
   `TIME`/`LTIME` (the vendor's duration text, measured on a WAGO PFC200 on
   2026-11-06: each unit that is not zero, `'T#1s500ms'`, `'T#0ms'`,
   `'LTIME#1h2m3s4ms5us6ns'`; specification 07 2.7); (b) `TIME_TO_<int>` /

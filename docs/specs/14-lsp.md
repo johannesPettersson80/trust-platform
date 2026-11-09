@@ -176,6 +176,12 @@ workspace indexing.
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
 | Expression | Variables, literals, standard functions/FBs with IEC docs (IEC 61131-3 Ed.3, Tables 22-36, 43-46) |
 
+Completion does not offer a declaration that CODESYS hides from its Input Assistant and its "List components"
+(the vendor's help for `{attribute 'hide'}`): a variable, POU, method, property or action with `{attribute 'hide'}`
+before it (a variable's line, a POU's first line), nor the `VAR` locals of a POU with
+`{attribute 'hide_all_locals'}`. Code may still name them, as the vendor's help says ("without restricting the
+access"), and every other service treats them as before.
+
 #### 6.2 Diagnostics
 
 Diagnostics are delivered via both push (`textDocument/publishDiagnostics`) and pull (`textDocument/diagnostic`, `workspace/diagnostic`) APIs. Pull diagnostics return stable `resultId` values derived from content + diagnostic hashes, allowing unchanged responses when the client supplies the previous ID. On configuration/profile changes or workspace file updates, the server requests a refresh (`workspace/diagnostic/refresh`) when supported.
@@ -312,6 +318,11 @@ contract, including when a newer document or workspace request supersedes it.
   names the type check resolved (the map the compiled-program generator reads, specification 44
   §3), so find references, rename and the call hierarchy's incoming calls agree with go to
   definition.
+- A call through an interface variable (`itf.Run()`, IEC 61131-3 Ed.3 §6.6.6) resolves to the
+  interface's method. It is a call that each implementing method may receive, so the references and
+  the incoming calls of a method of a function block or class include the calls of the same-named
+  method of each interface the block implements, directly, through the blocks it extends, or
+  through the interfaces those extend; the interface's own declaration is no reference of it.
 - Include/exclude declaration
 - Each reference has its access, by the one rule of specification 28 §6 (`trust_hir::access`): a
   write (an assignment's or a FOR loop's target, an argument that a call binds to an output or

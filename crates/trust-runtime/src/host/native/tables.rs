@@ -16,7 +16,8 @@ use trust_plc_abi as abi;
 use trust_runtime_core::native::image::{
     type_kind, AreaRecord, Image, ImageWriter, MemberDetail, MemoryFigure, Record, RetainRecord,
     SectionId, StringPool, SymbolRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, MEMBER_ALIAS,
-    NONE, SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
+    MEMBER_HIDDEN, NONE, SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED,
+    TABLE_PREFIX_BYTES,
 };
 use trust_runtime_core::native::retain::payload_bound;
 use trust_runtime_core::native::tool::TOOL_SYMBOL_PREFIX;
@@ -34,6 +35,8 @@ struct Pending {
     flags: u8,
     /// Marked `{attribute 'noinit'}` (§5.7; specification 10 §4.8).
     noinit: bool,
+    /// Hidden from the lists a reader browses, `{attribute 'hide'}` (§5.7; specification 10 §4.8).
+    hidden: bool,
     offset: u32,
     size: u32,
     parent: Option<String>,
@@ -57,6 +60,8 @@ struct Variable {
     flags: u8,
     /// Marked `{attribute 'noinit'}` (§5.7; specification 10 §4.8).
     noinit: bool,
+    /// Hidden from the lists a reader browses, `{attribute 'hide'}` (§5.7; specification 10 §4.8).
+    hidden: bool,
     parent: Option<String>,
     /// The POU that declares a frame variable (§5.7), [`NONE`] for any other variable.
     pou: u32,
@@ -77,7 +82,8 @@ impl Symbols<'_, '_> {
             0
         };
         // A function block's or class's own variables carry their declarations' marks; a member of
-        // a variable marked `noinit` needs none, as the variable's bytes hold it.
+        // a variable marked `noinit` needs none, as the variable's bytes hold it, and a member of a
+        // hidden variable is reached through no list, as the variable is listed nowhere.
         let owner = self.model.types.owner_of(variable.ty);
         // A library block's own state (`__LAST` of a timer) is no variable the program declares:
         // the type table keeps it for its layout, the symbol table names none of it (§5.7).
@@ -98,6 +104,8 @@ impl Symbols<'_, '_> {
                 flags: (variable.flags & SYMBOL_RETAINED) | member.flags,
                 noinit: owner
                     .is_some_and(|owner| owner.declares_noinit(&self.model.types, &member.name)),
+                hidden: owner
+                    .is_some_and(|owner| owner.declares_hidden(&self.model.types, &member.name)),
                 parent: Some(variable.canonical.clone()),
                 pou: variable.pou,
             });
@@ -109,6 +117,7 @@ impl Symbols<'_, '_> {
             area: variable.area,
             flags: variable.flags | instance,
             noinit: variable.noinit,
+            hidden: variable.hidden,
             offset: variable.offset,
             size: info.size,
             parent: variable.parent,
@@ -118,7 +127,7 @@ impl Symbols<'_, '_> {
 
     /// The globals, then each program instance with its variables and its retained variables.
     fn collect(&mut self) {
-        let globals: Vec<(SmolStr, Ty, bool, bool, bool)> = self
+        let globals: Vec<(SmolStr, Ty, bool, bool, bool, bool)> = self
             .model
             .globals
             .iter()
@@ -129,10 +138,11 @@ impl Symbols<'_, '_> {
                     global.retained,
                     global.constant,
                     global.noinit,
+                    global.hidden,
                 )
             })
             .collect();
-        for (name, ty, retained, constant, noinit) in globals {
+        for (name, ty, retained, constant, noinit, hidden) in globals {
             let (area, layout) = if retained {
                 (abi::AREA_RETAIN, &self.model.area_r)
             } else {
@@ -153,6 +163,7 @@ impl Symbols<'_, '_> {
                 offset,
                 flags,
                 noinit,
+                hidden,
                 parent: None,
                 pou: NONE,
             });
@@ -184,27 +195,32 @@ impl Symbols<'_, '_> {
             .area_r
             .field(name)
             .map_or(0, |field| field.offset);
-        let (members, retained, size, noinit) = {
+        let (members, retained, size, noinit, hidden) = {
             let program = &self.model.program_types[program];
-            let noinit: Vec<SmolStr> = program
-                .def
-                .vars
-                .iter()
-                .filter(|var| var.noinit)
-                .map(|var| var.name.clone())
-                .collect();
+            let names = |mark: fn(&crate::program_model::VarDef) -> bool| -> Vec<SmolStr> {
+                program
+                    .def
+                    .vars
+                    .iter()
+                    .filter(|var| mark(var))
+                    .map(|var| var.name.clone())
+                    .collect()
+            };
             (
                 program.members.clone(),
                 program.retained.clone(),
                 program.size,
-                noinit,
+                names(|var| var.noinit),
+                names(|var| var.hidden),
             )
         };
-        let marked = |member: &Member| {
-            noinit
+        let named = |names: &[SmolStr], member: &Member| {
+            names
                 .iter()
                 .any(|name| name.eq_ignore_ascii_case(&member.name))
         };
+        let marked = |member: &Member| named(&noinit, member);
+        let concealed = |member: &Member| named(&hidden, member);
         self.pending.push(Pending {
             canonical: canonical.clone(),
             display: name.to_string(),
@@ -212,6 +228,7 @@ impl Symbols<'_, '_> {
             area: abi::AREA_INSTANCES,
             flags: SYMBOL_PROGRAM,
             noinit: false,
+            hidden: false,
             offset: p_offset,
             size,
             parent: None,
@@ -226,6 +243,7 @@ impl Symbols<'_, '_> {
                 offset: p_offset + member.offset,
                 flags: member.flags,
                 noinit: marked(&member),
+                hidden: concealed(&member),
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -239,6 +257,7 @@ impl Symbols<'_, '_> {
                 offset: r_offset + member.offset,
                 flags: member.flags | SYMBOL_RETAINED,
                 noinit: marked(&member),
+                hidden: concealed(&member),
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -268,6 +287,7 @@ impl Symbols<'_, '_> {
                 area: 0,
                 flags: 0,
                 noinit: false,
+                hidden: false,
                 offset: 0,
                 size: pou.size,
                 parent: None,
@@ -282,6 +302,7 @@ impl Symbols<'_, '_> {
                     offset: *offset,
                     flags: 0,
                     noinit: false,
+                    hidden: var.hidden,
                     parent: Some(canonical.clone()),
                     pou: id,
                 });
@@ -302,6 +323,7 @@ impl Symbols<'_, '_> {
                 area: 0,
                 flags: 0,
                 noinit: false,
+                hidden: false,
                 offset: 0,
                 size: tool.block.as_ref().map_or(0, |block| block.size),
                 parent: None,
@@ -319,6 +341,7 @@ impl Symbols<'_, '_> {
                     offset: part.offset,
                     flags: part.flags,
                     noinit: false,
+                    hidden: false,
                     parent: Some(tool.canonical.clone()),
                     pou: NONE,
                 });
@@ -449,6 +472,7 @@ fn symbols(
             area: symbol.area,
             flags: symbol.flags,
             noinit: symbol.noinit,
+            hidden: symbol.hidden,
             offset: symbol.offset,
             size: symbol.size,
             parent: symbol
@@ -474,21 +498,23 @@ fn symbols(
 }
 
 /// The detail of a structure's, function block's or program's members, at `base` plus its offset
-/// in `details`.
+/// in `details`; a member `hidden` names carries [`MEMBER_HIDDEN`] (§5.8).
 fn member_detail(
     pool: &mut StringPool,
     details: &mut Vec<u8>,
     base: usize,
     members: &[Member],
+    hidden: &dyn Fn(&Member) -> bool,
 ) -> u32 {
     let offset = u32::try_from(base + details.len()).unwrap_or(u32::MAX);
     for member in members {
+        let mark = if hidden(member) { MEMBER_HIDDEN } else { 0 };
         details.extend_from_slice(
             &MemberDetail {
                 name: pool.add(&member.name),
                 type_index: member.ty.0,
                 offset: member.offset,
-                flags: u32::from(member.flags),
+                flags: u32::from(member.flags) | mark,
             }
             .bytes(),
         );
@@ -613,7 +639,7 @@ fn type_record(
         }
         Kind::Struct { members } => (
             type_kind::STRUCT,
-            member_detail(pool, details, base, members),
+            member_detail(pool, details, base, members, &|_| false),
             count(members.len()),
         ),
         // The members of a `STRUCT OVERLAP` share bytes; a `BOOL` is the type of its bit.
@@ -621,7 +647,7 @@ fn type_record(
             let members = model.types.overlap_members(members, bits);
             (
                 type_kind::STRUCT,
-                member_detail(pool, details, base, &members),
+                member_detail(pool, details, base, &members, &|_| false),
                 count(members.len()),
             )
         }
@@ -634,7 +660,11 @@ fn type_record(
             is_class,
             ..
         } => {
-            let detail = member_detail(pool, details, base, members);
+            let owner = model.types.owner(def);
+            let types = &model.types;
+            let detail = member_detail(pool, details, base, members, &|member| {
+                owner.is_some_and(|owner| owner.declares_hidden(types, &member.name))
+            });
             let aliases = alias_detail(pool, details, model, def, members);
             let interfaces = model.types.implemented_interfaces(def);
             class_detail(pool, details, *extends, &interfaces);
@@ -651,7 +681,7 @@ fn type_record(
         Kind::Interface => (type_kind::INTERFACE, 0, 0),
         Kind::StdFb(fb) => {
             let members = model.types.std_fb_members(*fb);
-            let detail = member_detail(pool, details, base, &members);
+            let detail = member_detail(pool, details, base, &members, &|_| false);
             class_detail(pool, details, None, &[]);
             (type_kind::FUNCTION_BLOCK, detail, count(members.len()))
         }
@@ -687,7 +717,14 @@ fn types(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_>)
         records.push(type_record(pool, &mut details, base, info, model));
     }
     for program in &model.program_types {
-        let detail = member_detail(pool, &mut details, base, &program.members);
+        let hidden = |member: &Member| {
+            program
+                .def
+                .vars
+                .iter()
+                .any(|var| var.hidden && var.name.eq_ignore_ascii_case(&member.name))
+        };
+        let detail = member_detail(pool, &mut details, base, &program.members, &hidden);
         records.push(TypeRecord {
             kind: type_kind::PROGRAM,
             name: pool.add(&program.def.name),

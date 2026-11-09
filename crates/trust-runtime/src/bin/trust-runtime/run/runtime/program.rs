@@ -90,7 +90,9 @@ impl ProgramReload {
     /// Loads the program that the launch's project folder names now into `slot` and starts it.
     ///
     /// The program is read first, so a bundle that cannot be read changes nothing. The program that
-    /// stopped is dropped, with its I/O drivers, before the drivers of the new one are built, so a
+    /// stopped leaves its instances, as before a download, and the new program's records begin with
+    /// the fault of that exit (specification 44 §6.7). It is dropped, with its I/O drivers, before
+    /// the drivers of the new one are built, so a
     /// driver that holds a device alone is released first (specification 34, STATE-08). The
     /// metrics, the event store and the I/O health start empty with the new program, and the
     /// settings that the program's configuration gives the scan are read again.
@@ -108,11 +110,23 @@ impl ProgramReload {
         } = load_runtime(project, config, runtime_root)?;
         let plan = build_simulation_plan(bundle.as_ref(), self.simulation, self.time_scale)?;
 
+        // The program that stopped leaves its instances first, as before a download; the new
+        // program's records begin with its fault there, and it is loaded all the same
+        // (specification 44 §6.7).
+        let left = slot.leave_program().err();
         *slot = runtime;
         // The reloaded program is a simulated target as the launch's simulation decides
         // (specification 35, A2.4).
         slot.set_simulation_enabled(plan.enabled);
         self.restart_records();
+        if let Some(error) = left {
+            self.wiring
+                .debug
+                .push_runtime_event(trust_runtime::debug::RuntimeEvent::fault(
+                    &error,
+                    trust_runtime::value::Duration::ZERO,
+                ));
+        }
         start_program(slot, bundle.as_ref(), &self.wiring, restart_mode)?;
 
         if let Ok(mut settings) = self.settings.lock() {

@@ -155,12 +155,14 @@ pub(super) struct Lowerer<'m, 'a> {
     pub(super) pointer_bytes: u64,
 }
 
-/// A variable of a debug image's frame structure: its declared name, its field and its type.
+/// A variable of a debug image's frame structure: its declared name, its field, its type and
+/// whether the lists a reader browses leave it out (`{attribute 'hide'}`).
 #[derive(Clone, Debug)]
 pub(super) struct FrameVar {
     pub(super) name: SmolStr,
     pub(super) field: String,
     pub(super) ty: Ty,
+    pub(super) hidden: bool,
 }
 
 /// A POU a body calls.
@@ -314,8 +316,8 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     }
 
     /// Declares a local of the frame at its type's zero value; `frame_init` gives it its starting
-    /// value.
-    pub(super) fn declare(&mut self, name: &SmolStr, ty: Ty) -> String {
+    /// value. A `hidden` one is left out of the debugger's list of the frame's variables.
+    pub(super) fn declare(&mut self, name: &SmolStr, ty: Ty, hidden: bool) -> String {
         let field = rust_field(name);
         let rust = if let Some(vars) = self.frame_vars.as_mut() {
             // A debug image lays its frame variables out in one structure, which the kernel reads
@@ -324,6 +326,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                 name: name.clone(),
                 field: field.clone(),
                 ty,
+                hidden,
             });
             format!("fr.{field}")
         } else {

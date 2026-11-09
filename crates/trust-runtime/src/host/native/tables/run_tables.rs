@@ -45,6 +45,25 @@ pub(super) fn entries(
                         entry.symbol
                     ))
                 })?
+        } else if let Some((canonical, copied)) = &entry.variable {
+            // A change entry names its top-level variable's symbol: a change-exit or change-init
+            // entry its index times two, plus one for the copied variable (§5.4).
+            let symbol = sorted.index(canonical).ok_or_else(|| {
+                NativeError::Image(format!(
+                    "the change entry {} names {canonical}, which has no symbol",
+                    entry.symbol
+                ))
+            })?;
+            if entry.kind == EntryKind::ChangeReinit {
+                symbol
+            } else {
+                symbol
+                    .checked_mul(2)
+                    .map(|index| index + u32::from(*copied))
+                    .ok_or_else(|| {
+                        NativeError::Image("too many symbols for change entries".into())
+                    })?
+            }
         } else {
             entry.index
         };

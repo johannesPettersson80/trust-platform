@@ -326,6 +326,23 @@ impl<'a> Owner<'a> {
         false
     }
 
+    /// Whether its variable `name`, an input or output of a function block included, is hidden from
+    /// the lists a reader browses, where it or a type it extends declares it (specification 10 §4.8).
+    pub(in crate::native) fn declares_hidden(self, types: &Types<'a>, name: &str) -> bool {
+        let mut owner = Some(self);
+        while let Some(current) = owner {
+            let named = |declared: &str| declared.eq_ignore_ascii_case(name);
+            if let Some(var) = current.vars().iter().find(|var| named(&var.name)) {
+                return var.hidden;
+            }
+            if let Some(param) = current.params().iter().find(|param| named(&param.name)) {
+                return param.hidden;
+            }
+            owner = current.base_name().and_then(|base| types.owner(base));
+        }
+        false
+    }
+
     /// The Rust type of its instances.
     pub(in crate::native) fn rust(self) -> String {
         format!("F_{}", mangle(self.name()))

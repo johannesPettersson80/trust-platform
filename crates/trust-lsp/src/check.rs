@@ -142,7 +142,7 @@ fn display_path(root: &Path, uri: &Url) -> String {
 
 /// A path as the platform writes it: native separators, and on Windows without the
 /// verbatim prefix (`\\?\`) that canonicalization adds.
-pub(crate) fn native_path(path: &Path) -> String {
+pub fn native_path(path: &Path) -> String {
     let text = path.display().to_string();
     if cfg!(windows) {
         strip_verbatim_prefix(&text)

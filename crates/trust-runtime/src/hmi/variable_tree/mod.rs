@@ -97,7 +97,9 @@ pub struct ArrayShape {
 /// Builds the tree from the compiled program and its storage.
 ///
 /// The roots are the program instances and globals in declaration order. Runtime-internal
-/// storage is not listed, and the walk is bounded so a malformed program cannot exhaust memory.
+/// storage is not listed, nor is a variable marked `{attribute 'hide'}` (or a `VAR` local of a POU
+/// marked `{attribute 'hide_all_locals'}`), which a page still binds by its path (specification
+/// 10 §4.8). The walk is bounded so a malformed program cannot exhaust memory.
 pub fn variable_tree(
     metadata: &RuntimeMetadata,
     storage: &VariableStorage,
@@ -111,7 +113,7 @@ pub fn variable_tree(
     storage
         .globals()
         .iter()
-        .filter(|(name, value)| is_listed(name, value))
+        .filter(|(name, value)| is_listed(name, value) && !metadata.global_is_hidden(name))
         .map(|(name, value)| {
             let block = global_write_block(metadata, name);
             builder.node(name, name.to_string(), value, None, block, 0)
@@ -240,6 +242,7 @@ impl TreeBuilder<'_> {
             let declaring = current.type_name.as_str();
             for (member, member_value) in &current.variables {
                 if is_listed(member, member_value)
+                    && !self.member_hidden(declaring, member)
                     && !node
                         .children
                         .iter()
@@ -263,6 +266,38 @@ impl TreeBuilder<'_> {
         }
         self.ancestors.pop();
         Ok(())
+    }
+
+    /// Whether the member `member` of the program or the function block `type_name` (or a block it
+    /// extends) is marked `{attribute 'hide'}`, or is a `VAR` local of a type marked `{attribute
+    /// 'hide_all_locals'}` (specification 10 §4.8).
+    fn member_hidden(&self, type_name: &str, member: &str) -> bool {
+        let named = |name: &str| name.eq_ignore_ascii_case(member);
+        if let Some(program) = find(self.metadata.program_templates(), type_name) {
+            return program
+                .vars
+                .iter()
+                .any(|var| var.hidden && named(&var.name));
+        }
+        let mut current = find(self.metadata.function_blocks(), type_name);
+        for _ in 0..MAX_DEPTH {
+            let Some(block) = current else {
+                return false;
+            };
+            if let Some(param) = block.params.iter().find(|param| named(&param.name)) {
+                return param.hidden;
+            }
+            if let Some(var) = block.vars.iter().find(|var| named(&var.name)) {
+                return var.hidden;
+            }
+            current = match &block.base {
+                Some(FunctionBlockBase::FunctionBlock(base)) => {
+                    find(self.metadata.function_blocks(), base)
+                }
+                _ => None,
+            };
+        }
+        false
     }
 
     /// How a member of a function block (or a block it extends) is declared.

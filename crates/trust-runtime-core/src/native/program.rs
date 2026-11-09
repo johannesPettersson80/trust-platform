@@ -28,7 +28,7 @@ use super::values::{AreaBytes, Types};
 use super::variables::CompiledVariables;
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
-use crate::io_address::IoAddress;
+use crate::io_address::{IoAddress, IoSize};
 use crate::io_image::{read_flat_image, write_flat_image, FlatImages, IoAddressKey};
 use crate::retain::capture::RetainCapture;
 use crate::task::{evaluate_task_readiness, TaskState};
@@ -265,6 +265,9 @@ pub struct NativeProgram<'i, C> {
     pub(super) entries: Vec<Entry>,
     pub(super) cold: Option<usize>,
     pub(super) warm: Option<usize>,
+    /// The exit entry, which leaves the instances before their memory is started again or replaced
+    /// (specification 44 §6.7).
+    pub(super) exit: Option<usize>,
     pub(super) tasks: Vec<NativeTask>,
     /// Whether the tasks are live: the program scanned since it was built, or took over the
     /// schedule of a running program. Until then a start of the task timing registers the tasks
@@ -300,6 +303,11 @@ pub struct NativeProgram<'i, C> {
     /// variables marked `noinit` back what they held (specification 44 §6.7); not before the first
     /// start, whose areas hold nothing yet.
     pub(super) started: bool,
+    /// Whether the instances have lived: the program ran a scan or a program instance's body since
+    /// it was built, or took over the instances of a running program (an online change). Until
+    /// then a restart leaves nothing, as the starts that bring a program up have made no instance
+    /// run (specification 44 §6.7).
+    pub(super) ran: bool,
 }
 
 /// The address of the value of hierarchical `address` in its slot: its first byte, a bit at bit 0.
@@ -571,30 +579,65 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         // By index: a scan allocates nothing (specification 34, "The allocation count").
         for index in 0..self.bindings.len() {
             let binding = self.bindings[index];
-            if binding.image == 2 {
-                continue;
-            }
-            let Some(area) = slot(binding.area) else {
-                continue;
-            };
-            if binding.width == 0 {
-                let mut byte = [0u8];
-                self.image_read(&binding, &mut byte);
-                let value = (byte[0] >> binding.bit) & 1;
-                self.areas[area].write(binding.offset as usize, &[value]);
-            } else if binding.codec == BIND_TIME_MILLIS {
-                // Whole milliseconds in, nanoseconds in the variable.
-                let mut millis = [0u8; 4];
-                self.image_read(&binding, &mut millis);
-                let nanos = i64::from(u32::from_le_bytes(millis)) * 1_000_000;
-                self.areas[area].write(binding.offset as usize, &nanos.to_le_bytes());
-            } else {
-                let mut bytes = [0u8; 8];
-                let width = binding.width as usize;
-                self.image_read(&binding, &mut bytes[..width]);
-                self.areas[area].write(binding.offset as usize, &bytes[..width]);
+            if binding.image != 2 {
+                self.sample_binding(binding);
             }
         }
+    }
+
+    /// Copies the image of `binding` in to its variable: a bit, a `TIME` from whole milliseconds, or the binding's bytes.
+    fn sample_binding(&mut self, binding: Binding) {
+        let Some(area) = slot(binding.area) else {
+            return;
+        };
+        if binding.width == 0 {
+            let mut byte = [0u8];
+            self.image_read(&binding, &mut byte);
+            let value = (byte[0] >> binding.bit) & 1;
+            self.areas[area].write(binding.offset as usize, &[value]);
+        } else if binding.codec == BIND_TIME_MILLIS {
+            // Whole milliseconds in, nanoseconds in the variable.
+            let mut millis = [0u8; 4];
+            self.image_read(&binding, &mut millis);
+            let nanos = i64::from(u32::from_le_bytes(millis)) * 1_000_000;
+            self.areas[area].write(binding.offset as usize, &nanos.to_le_bytes());
+        } else {
+            let mut bytes = [0u8; 8];
+            let width = binding.width as usize;
+            self.image_read(&binding, &mut bytes[..width]);
+            self.areas[area].write(binding.offset as usize, &bytes[..width]);
+        }
+    }
+
+    /// Carries a write at the flat output `address`, which the output image already holds, into the program: the output
+    /// area's bytes there and every variable bound to the bytes, or to the bit, that it wrote. The program then reads the
+    /// written value, and each scan's publication carries it to the drivers until the program writes the variable itself
+    /// (specification 44 §13.3). Before, the publication of the variable bound there replaced the write after one scan.
+    pub(super) fn take_output_write(&mut self, address: &IoAddress) -> Result<(), RuntimeError> {
+        let Some(end) = address.flat_byte_end()? else {
+            return Ok(());
+        };
+        let (start, end) = (address.byte as usize, end as usize);
+        let length = self.outputs.len().min(self.areas[1].len);
+        if start < length {
+            self.areas[1].write(start, &self.outputs[start..end.min(length)]);
+        }
+        let bit = (address.size == IoSize::Bit).then_some(address.bit);
+        for index in 0..self.bindings.len() {
+            let binding = self.bindings[index];
+            if binding.image != 2 || binding.hierarchical {
+                continue;
+            }
+            let binding_start = binding.byte as usize;
+            let binding_end = binding_start + (binding.width as usize).max(1);
+            let covered = binding_start < end
+                && start < binding_end
+                && (binding.width != 0 || bit.is_none_or(|bit| bit == binding.bit));
+            if covered {
+                self.sample_binding(binding);
+            }
+        }
+        Ok(())
     }
 
     /// Reads `out.len()` bytes of the image of `binding` from its byte: its process image, or its
@@ -809,6 +852,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         // The tasks have sampled their inputs: they are live from now on.
         self.live = true;
+        self.ran = true;
         let tasks = &self.tasks;
         sort_ready_tasks_by_priority(&mut ready, |index| tasks[index].priority);
         let mut result = Ok(());
@@ -949,7 +993,30 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 })
             })
             .ok_or_else(|| RuntimeError::UndefinedProgram(alloc::format!("{instance}").into()))?;
+        self.ran = true;
         self.call(entry, u32::MAX, now, None)
+    }
+
+    /// Runs the body of program instance `instance` at logical time `now` as a scan runs its tasks'
+    /// programs: the inputs checked and sampled into the located variables before it and the outputs
+    /// published after it, so that a value written at an input address reaches the program and a
+    /// located output reaches the output image (a step's `io`, specification 11 §6.8.1), as a test
+    /// that runs the project's simulation steps (specification 22).
+    ///
+    /// # Errors
+    ///
+    /// The refusal of an input the scan would refuse, [`RuntimeError::UndefinedProgram`] for an
+    /// instance that has no body, and the fault of the body, which publishes nothing.
+    pub fn run_instance_with_io(
+        &mut self,
+        instance: u32,
+        now: Duration,
+    ) -> Result<(), RuntimeError> {
+        self.check_declared()?;
+        self.check_finite()?;
+        self.sample();
+        self.run_instance(instance, now)?;
+        self.publish()
     }
 
     /// The value of the variable whose canonical name is `canonical`, read through the symbol and
@@ -1027,6 +1094,43 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     pub fn last_fault(&self) -> FaultRecord {
         self.cx.fault
     }
+
+    /// The values of the assertion that failed the last call (specification 22), read from the
+    /// fault record and the stack area as the call left them, so before the next call; `None` when
+    /// no assertion failed the call.
+    #[must_use]
+    pub fn failed_assertion(&self) -> Option<FailedAssertion> {
+        let code = self.cx.fault.code;
+        if code != FaultCode::AssertionFailed as u32 && code != FaultCode::AssertionNear as u32 {
+            return None;
+        }
+        let types = Types::of(&self.image()).ok()?;
+        Some(assertions::failed(
+            &types,
+            &self.cx.fault,
+            code,
+            &self.areas[STACK],
+        ))
+    }
+}
+
+/// A failed assertion's values (specification 22; specification 07, MP-014): its name and, as the
+/// assertion has them, the value it expected and the value it found, the bound of a comparison and
+/// the delta of `ASSERT_NEAR`. A value that does not read is `None`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FailedAssertion {
+    /// The assertion, `ASSERT_EQUAL`.
+    pub name: &'static str,
+    /// `TRUE` for `ASSERT_TRUE`, `FALSE` for `ASSERT_FALSE`, and the `EXPECTED` input of
+    /// `ASSERT_EQUAL`, `ASSERT_NOT_EQUAL` and `ASSERT_NEAR`.
+    pub expected: Option<Value>,
+    /// The `IN`, `ACTUAL` or `VALUE` input.
+    pub actual: Option<Value>,
+    /// The `BOUND` input of `ASSERT_GREATER`, `ASSERT_LESS`, `ASSERT_GREATER_OR_EQUAL` and
+    /// `ASSERT_LESS_OR_EQUAL`.
+    pub bound: Option<Value>,
+    /// The `DELTA` input of `ASSERT_NEAR`.
+    pub delta: Option<Value>,
 }
 
 /// The runtime error of the fault `code` with its record (specification 44 §8.6, Appendix A).

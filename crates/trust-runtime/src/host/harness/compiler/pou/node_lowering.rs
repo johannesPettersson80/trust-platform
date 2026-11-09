@@ -447,6 +447,7 @@ fn lower_property_methods(
                 default: None,
                 retain: crate::RetainPolicy::Unspecified,
                 noinit: false,
+                hidden: false,
             }],
             locals: Vec::new(),
             static_locals: Vec::new(),
