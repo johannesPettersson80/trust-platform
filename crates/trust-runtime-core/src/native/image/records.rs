@@ -58,6 +58,21 @@ pub enum EntryKind {
     WarmInit = 3,
     /// A method the tools call.
     Method = 4,
+    /// The exit before the memory is started again or replaced: each instance's `FB_exit` under the
+    /// CODESYS profiles (specification 44 §6.7).
+    Exit = 5,
+    /// An online change's `FB_exit` of the instances of one top-level variable of the running
+    /// program, which the change copies or drops (specification 44 §12.3).
+    ChangeExit = 6,
+    /// An online change's `FB_init` of the instances of one top-level variable of the new program,
+    /// which the change copies or adds (specification 44 §12.3).
+    ChangeInit = 7,
+    /// An online change's `FB_reinit` of the instances of one top-level variable of the new program
+    /// that the change copied (specification 44 §12.3).
+    ChangeReinit = 8,
+    /// The start of the new program of an online change: the cold-init entry's reference
+    /// initializers without its `FB_init` calls (specification 44 §12.3).
+    ChangeStart = 9,
 }
 
 impl EntryKind {
@@ -69,6 +84,11 @@ impl EntryKind {
             Self::ColdInit,
             Self::WarmInit,
             Self::Method,
+            Self::Exit,
+            Self::ChangeExit,
+            Self::ChangeInit,
+            Self::ChangeReinit,
+            Self::ChangeStart,
         ]
         .into_iter()
         .find(|kind| *kind as u32 == raw)
@@ -299,6 +319,12 @@ pub const OWNER_LAST_TASK: u8 = 127;
 pub const OWNER_UNWRITTEN: u8 = 128;
 /// A symbol's owner: a global that only programs outside every task write (`$background`).
 pub const OWNER_BACKGROUND: u8 = 129;
+
+/// A member's flag above the symbol flags (specification 44 §5.8): the member is the alias of a
+/// property whose GET only returns another member, whose type, place and flags it repeats. A name
+/// lookup finds it; the values, the retain store, online change and the layout skip it, since it
+/// holds no bytes of its own.
+pub const MEMBER_ALIAS: u32 = 1 << 8;
 
 /// A named variable: 32 bytes, sorted by canonical name (specification 44 §5.7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

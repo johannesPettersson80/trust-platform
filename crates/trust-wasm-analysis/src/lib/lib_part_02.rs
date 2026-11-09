@@ -189,7 +189,7 @@ impl BrowserAnalysisEngine {
                 Some(ReferenceItem {
                     uri: ref_uri,
                     range: lsp_range(ref_source, reference.range),
-                    is_write: reference.is_write,
+                    is_write: reference.is_write(),
                 })
             })
             .collect();
@@ -247,7 +247,7 @@ impl BrowserAnalysisEngine {
             .filter(|reference| reference.file_id == file_id)
             .map(|reference| DocumentHighlightItem {
                 range: lsp_range(source, reference.range),
-                kind: if reference.is_write {
+                kind: if reference.is_write() {
                     "write".to_string()
                 } else {
                     "read".to_string()

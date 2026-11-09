@@ -475,6 +475,30 @@ pub fn project_control_endpoint_text(
     (!is_unbound_default(&endpoint)).then(|| endpoint.to_string())
 }
 
+/// The control token a client gives a device over its link (spec 11, section 6.8.1; spec 34
+/// PORT-06): the caller's token, from `--token` or `TRUST_CTL_TOKEN` (see
+/// [`control_token_from_env`]), else the project's `runtime.control.auth_token`; none when neither
+/// sets one. The endpoint file's published token belongs to a runtime on this computer and is not
+/// read.
+///
+/// # Errors
+///
+/// [`ControlTargetError::InvalidConfig`] for a project whose `runtime.toml` does not read.
+pub fn device_token(
+    project: Option<&Path>,
+    token: Option<&str>,
+) -> Result<Option<String>, ControlTargetError> {
+    if let Some(token) = token {
+        return Ok(Some(token.to_string()));
+    }
+    let Some(root) = project else {
+        return Ok(None);
+    };
+    ConfiguredControl::load(root)
+        .map(|configured| configured.auth_token)
+        .map_err(|error| ControlTargetError::InvalidConfig(error_text(&error)))
+}
+
 /// The token in the `TRUST_CTL_TOKEN` environment variable, when it is set.
 #[must_use]
 pub fn control_token_from_env() -> Option<String> {

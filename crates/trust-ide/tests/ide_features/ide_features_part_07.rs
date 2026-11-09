@@ -25,7 +25,7 @@ fn found(db: &Database, file: FileId, at: usize) -> Vec<(u32, TextRange, bool)> 
         },
     )
     .into_iter()
-    .map(|reference| (reference.file_id.0, reference.range, reference.is_write))
+    .map(|reference| (reference.file_id.0, reference.range, reference.is_write()))
     .collect();
     references.sort_by_key(|(file, range, _)| (*file, range.start()));
     references

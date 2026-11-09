@@ -104,6 +104,14 @@ impl SymbolCollector<'_> {
                         );
                         return;
                     }
+                    InitializerConstViolation::QualifiedOnly { name, type_name } => {
+                        self.diagnostics.error(
+                            DiagnosticCode::CannotResolve,
+                            expr.text_range(),
+                            crate::attributes::unqualified_value_message(&name, &type_name),
+                        );
+                        return;
+                    }
                 };
                 self.diagnostics.error(
                     DiagnosticCode::InvalidOperation,
@@ -372,6 +380,18 @@ impl SymbolCollector<'_> {
         {
             return Some(InitializerConstViolation::Ambiguous(name));
         }
+        // A bare value of an enumeration declared `{attribute 'qualified_only'}` (specification 02
+        // §3.1).
+        if parts.len() == 1
+            && matches!(symbol.kind, SymbolKind::EnumValue { .. })
+            && let Some(owner) = symbol.parent.and_then(|parent| self.table.get(parent))
+            && owner.modifiers.qualified_only
+        {
+            return Some(InitializerConstViolation::QualifiedOnly {
+                name,
+                type_name: owner.name.clone(),
+            });
+        }
         if symbol.is_constant
             || matches!(
                 symbol.kind,
@@ -449,6 +469,11 @@ enum InitializerConstViolation {
     Undefined(SmolStr),
     UndefinedCallable(SmolStr),
     Ambiguous(SmolStr),
+    /// A bare value of an enumeration declared `{attribute 'qualified_only'}`.
+    QualifiedOnly {
+        name: SmolStr,
+        type_name: SmolStr,
+    },
 }
 
 enum InitializerReferenceResolution {

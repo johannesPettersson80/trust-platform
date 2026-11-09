@@ -409,6 +409,7 @@ mod tests {
                 noinit: false,
                 hidden: false,
                 instance_path: false,
+                no_exit: false,
             }],
             temps: Vec::new(),
             using: Vec::new(),

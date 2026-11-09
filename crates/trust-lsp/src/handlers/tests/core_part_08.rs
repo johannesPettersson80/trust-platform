@@ -199,7 +199,7 @@ pub(in crate::handlers::tests) fn silent_runtime_inline_value_observation() -> R
         let (stream, _) = listener.accept().expect("accept silent endpoint");
         accepted_tx.send(()).expect("send accepted signal");
         let _stream = stream;
-        let _ = release_rx.recv_timeout(std::time::Duration::from_secs(2));
+        let _ = release_rx.recv_timeout(std::time::Duration::from_secs(30));
     });
 
     let source = runtime_inline_values_source();
@@ -242,9 +242,12 @@ pub(in crate::handlers::tests) fn silent_runtime_inline_value_observation() -> R
     });
 
     accepted_rx
-        .recv_timeout(std::time::Duration::from_millis(200))
+        .recv_timeout(std::time::Duration::from_secs(10))
         .map_err(|error| format!("silent endpoint did not accept connection: {error}"))?;
-    let completed = done_rx.recv_timeout(std::time::Duration::from_millis(500));
+    // The request's own bound is the control client's 250 ms I/O timeout; the silent endpoint holds
+    // the connection for 30 s, so a request that waited for it would take 30 s. Five seconds tells
+    // the two apart and leaves a loaded runner a wide margin.
+    let completed = done_rx.recv_timeout(std::time::Duration::from_secs(5));
     let _ = release_tx.send(());
     server
         .join()

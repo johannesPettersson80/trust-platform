@@ -1975,6 +1975,13 @@ never a side effect of Apply or Restore and is not offered after a Restore.
 - A record inside a function block instance is not edited, because one
   declaration serves every instance; Control Studio says to copy the values by
   hand.
+- Gains that a CODESYS project keeps in a GVL, truST's `NAMESPACE GVL_Par` with
+  its `VAR_GLOBAL` (protocol annex E2.3), are kept in the GVL's declarations as a
+  program's own gain variables are kept in the program's: each named global must
+  be a REAL or LREAL variable that the namespace declares, and a refusal names it
+  with the namespace ("GVL_Par.lrKd is not declared in NAMESPACE GVL_Par of this
+  project."). A name that is neither a program nor a namespace of the project is
+  refused as such.
 
 The answer names the fields kept; a refusal keeps nothing and says why. Its review
 carries the engine's sentence of what the Keep writes (`description`, A11.1): "Keep in
@@ -2732,6 +2739,7 @@ This structure is one `Control.PID` instance in a loop with `design: "pid"`. The
 - **The startup flag.** A startup flag is a BOOL that the code tests and sets around its startup code: `IF NOT <flag> THEN … <flag> := TRUE; END_IF`, where TRUE means the startup has run, or CODESYS's `IF <flag> THEN … <flag> := FALSE; END_IF`, where FALSE does (owner, 7 November 2026). When such an `IF` guards `Initialize`, setup prefills its BOOL as the startup flag. When the program writes one of the loop's seeded values itself, or calls `Initialize` on the loop's PID, setup requires the BOOL that marks the startup as done. The flag is declared as an application state that Validate starts at its value once the startup has run, as the code shows it, so the startup code keeps the seeded values; a flag the code tests and sets neither way starts TRUE.
 - **The manual output.** The manual output is bound by `controller.manualOutputSignal` and its `controller.manualOutputType`, with `controller.manualOutputAddress` when it has one. A missing signal or type blocks Identify with the configuration requirement. No `AT %M` mapping is needed for Control Studio.
 - **A manual output that copies the output.** When the code copies the output into a manual output, the loop declares `controller.manualOutputFollowsOutput`. The manual output is then a bounded state (see Apply and Restore).
+- **The output as its own manual output.** A program whose Manual simply stops writing the output, as many CODESYS programs are written, names the output itself as its manual output: `controller.manualOutputSignal`, `manualOutputType` and `manualOutputAddress` are the manipulated variable's. In Manual, Identify then steps the output itself and restores it. A write at an output address reaches the variable bound there (specification 44 §13.3), so the program, which does not write it in Manual, keeps the step until the restoration. Its controller should track the output it finds in Manual, so that the return to Auto is bumpless.
 - **Identification.** Identify chooses the step size and how long to hold it, within the limits (B3.3, B3.4). The engineer sets the maximum duration in **Limits…**; it is never assumed silently (B3.2).
 - **Seeded values.** Validate starts the program from seeded values: the setpoint, the manual output, the mode, the parameter record and, through the initialization adapter, the PID's state.
 - **Initialization adapter.** A PI or PID loop declares one initialization adapter under `controller.pidInitialization`: `control-pid-v1` or `parallel-pid-v1`, described under Apply and Restore. A P-only loop uses the adapter of C13.
