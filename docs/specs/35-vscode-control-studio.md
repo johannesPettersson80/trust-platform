@@ -1972,6 +1972,13 @@ never a side effect of Apply or Restore and is not offered after a Restore.
 - A record inside a function block instance is not edited, because one
   declaration serves every instance; Control Studio says to copy the values by
   hand.
+- Gains that a CODESYS project keeps in a GVL, truST's `NAMESPACE GVL_Par` with
+  its `VAR_GLOBAL` (protocol annex E2.3), are kept in the GVL's declarations as a
+  program's own gain variables are kept in the program's: each named global must
+  be a REAL or LREAL variable that the namespace declares, and a refusal names it
+  with the namespace ("GVL_Par.lrKd is not declared in NAMESPACE GVL_Par of this
+  project."). A name that is neither a program nor a namespace of the project is
+  refused as such.
 
 The answer names the fields kept; a refusal keeps nothing and says why. Its review
 carries the engine's sentence of what the Keep writes (`description`, A11.1): "Keep in
