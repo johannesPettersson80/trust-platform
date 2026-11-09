@@ -8,7 +8,7 @@ expression: output
       "from": {
         "data": {
           "fileId": 0,
-          "symbolId": 200
+          "symbolId": 249
         },
         "kind": 2,
         "name": "Main",
@@ -52,7 +52,7 @@ expression: output
     {
       "data": {
         "fileId": 0,
-        "symbolId": 195
+        "symbolId": 244
       },
       "kind": 12,
       "name": "Foo",
@@ -8915,6 +8915,1672 @@ expression: output
         "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "RS (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_ACCESS_VIOLATION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_ACCESS_VIOLATION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_APP_TARGET_MISMATCH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_APP_TARGET_MISMATCH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_ARRAYBOUNDS"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_ARRAYBOUNDS"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_BOOTPROJECTTARGETMISMATCH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_BOOTPROJECTTARGETMISMATCH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_BOOTPROJECT_CRASH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_BOOTPROJECT_CRASH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_BOOTPROJECT_REJECTED_DUE_RETAIN_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_BOOTPROJECT_REJECTED_DUE_RETAIN_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_CYCLE_TIME_EXCEED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_CYCLE_TIME_EXCEED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_DIVIDEBYZERO"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_DIVIDEBYZERO"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_DOUBLE_FAULT"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_DOUBLE_FAULT"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_DOWNLOAD_REJECTED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_DOWNLOAD_REJECTED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FIELDBUS_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FIELDBUS_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FILE_CHECKSUM_ERR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FILE_CHECKSUM_ERR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_DENORMAL_OPERAND"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_DENORMAL_OPERAND"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_DIVIDEBYZERO"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_DIVIDEBYZERO"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_INEXACT_RESULT"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_INEXACT_RESULT"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_INVALID_OPERATION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_INVALID_OPERATION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_OVERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_OVERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_STACK_CHECK"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_STACK_CHECK"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_FPU_UNDERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_FPU_UNDERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_GUARD_PAGE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_GUARD_PAGE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_HARDWAREWATCHDOG"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_HARDWAREWATCHDOG"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_IEC_TASK_CONFIG_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_IEC_TASK_CONFIG_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_ILLEGAL_INSTRUCTION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_ILLEGAL_INSTRUCTION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_INVALID_DISPOSITION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_INVALID_DISPOSITION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_INVALID_HANDLE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_INVALID_HANDLE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_INVALID_OPCODE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_INVALID_OPCODE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_IN_PAGE_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_IN_PAGE_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_IOUPDATE_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_IOUPDATE_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_IO_CONFIG_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_IO_CONFIG_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_LOADBOOTPROJECT_FAILED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_LOADBOOTPROJECT_FAILED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_MISALIGNMENT"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_MISALIGNMENT"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_NOEXCEPTION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_NOEXCEPTION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_NONCONTINUABLE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_NONCONTINUABLE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_ONLCHANGE_PROGRAM_EXCEEDED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_ONLCHANGE_PROGRAM_EXCEEDED"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_OUT_OF_MEMORY"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_OUT_OF_MEMORY"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_OVERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_OVERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_PRIV_INSTRUCTION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_PRIV_INSTRUCTION"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_PROCESSORLOAD_WATCHDOG"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_PROCESSORLOAD_WATCHDOG"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_PROGRAMCHECKSUM"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_PROGRAMCHECKSUM"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_RETAIN_IDENTITY_MISMATCH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_RETAIN_IDENTITY_MISMATCH"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_RETAIN_MEMORY_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_RETAIN_MEMORY_ERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_SCHEDULEERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_SCHEDULEERROR"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_STACK_OVERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_STACK_OVERFLOW"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_UNKNOWN"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_UNKNOWN"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_UNRESOLVED_EXTREFS"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_UNRESOLVED_EXTREFS"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_USER_EXCEPTION_BASE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_USER_EXCEPTION_BASE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_VENDOR_EXCEPTION_BASE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_VENDOR_EXCEPTION_BASE"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "RTSEXCPT_WATCHDOG"
+    },
+    {
+      "kind": 22,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "RTSEXCPT_WATCHDOG"
     },
     {
       "kind": 5,
