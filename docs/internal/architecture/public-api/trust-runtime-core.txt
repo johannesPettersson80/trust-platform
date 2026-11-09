@@ -1313,6 +1313,12 @@ pub trust_runtime_core::native::program::Device::program_memory: u64
 pub trust_runtime_core::native::program::Device::target: trust_runtime_core::native::image::Target
 pub trust_runtime_core::native::program::Device::task_stack: u64
 pub trust_runtime_core::native::program::Device::trusted_keys: &'static [[u8; 32]]
+pub struct trust_runtime_core::native::program::FailedAssertion
+pub trust_runtime_core::native::program::FailedAssertion::actual: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::bound: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::delta: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::expected: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::name: &'static str
 pub struct trust_runtime_core::native::program::NativeProgram<'i, C>
 pub trust_runtime_core::native::program::NativeProgram::inputs: alloc::vec::Vec<u8>
 pub trust_runtime_core::native::program::NativeProgram::outputs: alloc::vec::Vec<u8>
@@ -1322,6 +1328,7 @@ pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::arm(&mut self,
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::capture_retain(&self, capture: &mut trust_runtime_core::retain::capture::RetainCapture) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::code(&self) -> &C
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::copy_images(&self, images: &mut trust_runtime_core::io_image::FlatImages)
+pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::failed_assertion(&self) -> core::option::Option<trust_runtime_core::native::program::FailedAssertion>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::image(&self) -> trust_runtime_core::native::image::Image<'_>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::last_fault(&self) -> trust_plc_abi::fault::FaultRecord
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::program_names(&self) -> alloc::vec::Vec<smol_str::SmolStr>

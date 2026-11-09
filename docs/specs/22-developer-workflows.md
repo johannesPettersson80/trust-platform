@@ -321,6 +321,16 @@ failure's or the error's text. A failure that no statement raised, such as a
 timeout, and any failure of a program image without a statement table
 (`[build] debug = false`) are reported at the test's declaration.
 
+A failed assertion's values are reported in JSON as the test's `assertion`
+object: its `name` (`ASSERT_EQUAL`) and, as the assertion has them, its
+`expected` and `actual` values, the `bound` of a comparison, and the `delta` of
+`ASSERT_NEAR` (specification 07, MP-014). `ASSERT_TRUE` expects `TRUE` and
+`ASSERT_FALSE` `FALSE`, and a comparison's `VALUE` is its `actual`. Each value is
+typed as a conformance artifact writes a value (`{"type": "INT", "value": 2}`, a
+duration in `nanos`); `ASSERT_NEAR`'s values are the `LREAL` values it compared,
+and a value that does not read is left out. A device's run reports the object
+its `cycle.step` names (specification 11 §6.8.1), so both give the same values.
+
 Human output identifies every non-passing test with its kind, name, source
 path, line, duration, reason, and available source line, followed by an ordered
 failure summary and aggregate counts. A filter that removes every discovered

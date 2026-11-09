@@ -298,6 +298,10 @@ fn render_json_output(
                     "source": place.source,
                 });
             }
+            // A failed assertion's values, typed (specification 22).
+            if let Some(assertion) = &result.assertion {
+                test["assertion"] = assertion.clone();
+            }
             // A multi-cycle test reports the cycles it ran and the time of the last (specification 22).
             if let Some(run) = result.cycles {
                 test["cycles"] = json!(run.cycles);

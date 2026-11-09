@@ -1037,6 +1037,43 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     pub fn last_fault(&self) -> FaultRecord {
         self.cx.fault
     }
+
+    /// The values of the assertion that failed the last call (specification 22), read from the
+    /// fault record and the stack area as the call left them, so before the next call; `None` when
+    /// no assertion failed the call.
+    #[must_use]
+    pub fn failed_assertion(&self) -> Option<FailedAssertion> {
+        let code = self.cx.fault.code;
+        if code != FaultCode::AssertionFailed as u32 && code != FaultCode::AssertionNear as u32 {
+            return None;
+        }
+        let types = Types::of(&self.image()).ok()?;
+        Some(assertions::failed(
+            &types,
+            &self.cx.fault,
+            code,
+            &self.areas[STACK],
+        ))
+    }
+}
+
+/// A failed assertion's values (specification 22; specification 07, MP-014): its name and, as the
+/// assertion has them, the value it expected and the value it found, the bound of a comparison and
+/// the delta of `ASSERT_NEAR`. A value that does not read is `None`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FailedAssertion {
+    /// The assertion, `ASSERT_EQUAL`.
+    pub name: &'static str,
+    /// `TRUE` for `ASSERT_TRUE`, `FALSE` for `ASSERT_FALSE`, and the `EXPECTED` input of
+    /// `ASSERT_EQUAL`, `ASSERT_NOT_EQUAL` and `ASSERT_NEAR`.
+    pub expected: Option<Value>,
+    /// The `IN`, `ACTUAL` or `VALUE` input.
+    pub actual: Option<Value>,
+    /// The `BOUND` input of `ASSERT_GREATER`, `ASSERT_LESS`, `ASSERT_GREATER_OR_EQUAL` and
+    /// `ASSERT_LESS_OR_EQUAL`.
+    pub bound: Option<Value>,
+    /// The `DELTA` input of `ASSERT_NEAR`.
+    pub delta: Option<Value>,
 }
 
 /// The runtime error of the fault `code` with its record (specification 44 §8.6, Appendix A).
