@@ -18,7 +18,7 @@ use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
 use trust_control::simulator_start::runtime_not_running;
 
-use super::runtime_source;
+use super::{runtime_source, starting_source};
 use crate::commands::to_value;
 use crate::identify_adapters::RuntimeSampler;
 use crate::identify_schedule;
@@ -80,7 +80,7 @@ pub(super) fn confirm_start(
     review: Option<&str>,
     physical_approved: bool,
 ) -> Result<Option<f64>, Failure> {
-    let source = runtime_source(connection)?;
+    let source = starting_source(connection)?;
     let sampler = RuntimeSampler::new(connection, loop_definition, source);
     let scan = sampler.scan()?;
     let sample = scan.as_ref().and_then(|scan| sampler.sample_of(scan));

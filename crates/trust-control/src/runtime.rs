@@ -6,6 +6,7 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::failure::{Cause, Failure, NextAction};
 use crate::recording::EvidenceSource;
 
 /// Where the bound runtime listens and its control token, as the extension's runtime lifecycle
@@ -59,6 +60,21 @@ pub struct RuntimeStatus {
     pub tasks: Vec<TaskFact>,
     /// The resource cycle interval.
     pub cycle_interval_ms: u64,
+    /// The resource's state as `status` answers it: `running`, `paused` (a pause, or the debugger
+    /// holding the scan), `faulted` or `stopped`; empty from a runtime that does not say.
+    #[serde(default)]
+    pub state: String,
+    /// The debugger's hold of the scan, while it holds it (specification 13, "Pause").
+    #[serde(default)]
+    pub debug_hold: Option<DebugHold>,
+}
+
+/// The debugger's hold of the scan as `status` answers it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DebugHold {
+    /// What holds the scan: `breakpoint`, `step`, `pause` or `entry` (specification 13, "Stopped
+    /// Events").
+    pub reason: String,
 }
 
 /// One scheduled task.
@@ -80,6 +96,34 @@ impl RuntimeStatus {
         } else {
             EvidenceSource::PhysicalPlant
         }
+    }
+
+    /// The refusal of `operation`, named as a sentence begins it, which needs the program to run,
+    /// while the runtime is paused or the debugger holds its scan (specification 35, A2.3): it says
+    /// so and how to go on, instead of the operation waiting for a scan that does not come; `None`
+    /// while it runs.
+    #[must_use]
+    pub fn paused_refusal(&self, operation: &str) -> Option<Failure> {
+        if self.state != "paused" {
+            return None;
+        }
+        let message = match self.debug_hold.as_ref().map(|hold| hold.reason.as_str()) {
+            Some(reason) => {
+                let place = match reason {
+                    "breakpoint" => "at a breakpoint",
+                    "step" => "after a step",
+                    "entry" => "at the program's start",
+                    _ => "at a pause",
+                };
+                format!(
+                    "The runtime is paused: the debugger holds its scan {place}. {operation} needs the program to run: continue in the debugger, then start it again."
+                )
+            }
+            None => format!(
+                "The runtime is paused. {operation} needs the program to run: resume the runtime, then start it again."
+            ),
+        };
+        Some(Failure::new(&message, Cause::Runtime, NextAction::None))
     }
 
     /// The task named `name`, matched without regard to case (annex E4.2).
@@ -104,6 +148,45 @@ mod tests {
             "program_revision": "sha256:program", "tasks": [{ "name": "MainTask", "interval_ms": 100 }], "cycle_interval_ms": 10
         }))
         .expect("the runtime's status answer decodes")
+    }
+
+    /// Specification 35 A2.3: an operation that needs the program to run is refused while the
+    /// runtime's `status` answers `paused`, by a pause or by the debugger holding the scan, which the
+    /// refusal names with how to go on; a running runtime is not refused. The sentences are worked
+    /// out from A2.3's wording. Catches a paused runtime let through to a wait that times out, a
+    /// debugger hold described as a pause, and a running runtime refused.
+    #[test]
+    fn a_paused_runtime_refuses_an_operation_that_needs_its_scan() {
+        let with = |state: &str, hold: Option<&str>| -> RuntimeStatus {
+            let mut report = json!({
+                "state": state, "session_epoch": 7, "simulation_enabled": true,
+                "simulation_only_io": true, "simulation_time_scale": 1,
+                "program_revision": "sha256:program", "tasks": [], "cycle_interval_ms": 10
+            });
+            if let Some(reason) = hold {
+                report["debug_hold"] = json!({ "reason": reason });
+            }
+            serde_json::from_value(report).expect("the runtime's status answer decodes")
+        };
+        // The whole text: its first sentence is the failure's message, the whole its detail.
+        let message = |status: RuntimeStatus| {
+            status
+                .paused_refusal("Identify")
+                .map(|failure| failure.detail.unwrap_or(failure.message))
+        };
+        assert_eq!(message(with("running", None)), None);
+        assert_eq!(
+            message(with("paused", Some("breakpoint"))).as_deref(),
+            Some("The runtime is paused: the debugger holds its scan at a breakpoint. Identify needs the program to run: continue in the debugger, then start it again.")
+        );
+        assert_eq!(
+            message(with("paused", Some("step"))).as_deref(),
+            Some("The runtime is paused: the debugger holds its scan after a step. Identify needs the program to run: continue in the debugger, then start it again.")
+        );
+        assert_eq!(
+            message(with("paused", None)).as_deref(),
+            Some("The runtime is paused. Identify needs the program to run: resume the runtime, then start it again.")
+        );
     }
 
     #[test]

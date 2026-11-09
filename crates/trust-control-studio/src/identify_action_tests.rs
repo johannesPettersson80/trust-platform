@@ -102,6 +102,48 @@ fn simulated_runtime() -> String {
     endpoint
 }
 
+/// The endpoint of a runtime whose debugger holds its scan at a breakpoint: `status` answers `paused` with the hold (E1.3;
+/// specification 13, "Pause"), and every other request is refused (E0.4). `kinds` receives the type of each request it is sent.
+fn held_runtime(kinds: Arc<Mutex<Vec<String>>>) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("a free port");
+    let endpoint = format!("tcp://{}", listener.local_addr().expect("the port"));
+    thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let kinds = Arc::clone(&kinds);
+            thread::spawn(move || {
+                let Ok(mut writer) = stream.try_clone() else {
+                    return;
+                };
+                for line in BufReader::new(stream).lines() {
+                    let Some(request) = line
+                        .ok()
+                        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+                    else {
+                        return;
+                    };
+                    let kind = request["type"].as_str().unwrap_or_default().to_string();
+                    kinds.lock().push(kind.clone());
+                    let answer = if kind == "status" {
+                        json!({ "id": request["id"], "ok": true, "result": {
+                            "state": "paused", "debug_hold": { "reason": "breakpoint" },
+                            "session_epoch": 7, "simulation_enabled": true, "simulation_only_io": true,
+                            "simulation_time_scale": 1, "simulation_achieved_time_scale": null,
+                            "program_revision": "program", "tasks": [{ "name": "MainTask", "interval_ms": 100 }],
+                            "cycle_interval_ms": 100
+                        } })
+                    } else {
+                        json!({ "id": request["id"], "ok": false, "error": "Not in this test.", "error_code": "invalid_request" })
+                    };
+                    if writer.write_all(format!("{answer}\n").as_bytes()).is_err() {
+                        return;
+                    }
+                }
+            });
+        }
+    });
+    endpoint
+}
+
 /// Answers the request lines of one connection to the simulated runtime.
 fn answer_requests(stream: TcpStream) {
     let Ok(mut writer) = stream.try_clone() else {
@@ -441,6 +483,34 @@ fn identify_answers_with_its_operation_at_once_and_writes_nothing_before_the_run
         !study_directory(&project.root, LOOP_ID).exists(),
         "no study is written before the runtime answers"
     );
+    assert_eq!(
+        project.journaled(),
+        Vec::<String>::new(),
+        "nothing is journaled"
+    );
+}
+
+/// Specification 35 A2.3 (the CODESYS toolkit's S8): while the debugger holds the runtime's scan, Identify ends at once with a
+/// refusal that says so and how to go on, after reading only `status`: it writes nothing, journals nothing and asks for no
+/// mode change. Catches Identify starting on a held runtime and waiting for a scan that does not come.
+#[test]
+fn identify_refuses_at_once_while_the_debugger_holds_the_runtimes_scan() {
+    let project = Project::new("identify-held");
+    let kinds = Arc::new(Mutex::new(Vec::new()));
+    let mut request = project.request(live(automatic()));
+    request["connection"]["endpoint"] = json!(held_runtime(Arc::clone(&kinds)));
+    let (studio, updates) = engine();
+    identify(&studio, request);
+    let update = final_update(&updates);
+    assert_eq!(update.state, OperationState::Failed);
+    let failure = update.failure.expect("the refusal");
+    let seen = kinds.lock().clone();
+    assert_eq!(
+        failure.detail.as_deref(),
+        Some("The runtime is paused: the debugger holds its scan at a breakpoint. Identify needs the program to run: continue in the debugger, then start it again."),
+        "{failure:?} after {seen:?}"
+    );
+    assert_eq!(seen, ["status"]);
     assert_eq!(
         project.journaled(),
         Vec::<String>::new(),

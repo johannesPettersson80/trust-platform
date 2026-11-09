@@ -639,7 +639,16 @@ runtime, never from editor settings:
 - whether all attached I/O is simulated: every attached driver identifies itself
   as simulated and no fieldbus client (ADS, OPC UA) is configured;
 - the tasks with their intervals, and the resource cycle interval;
-- the session epoch and the program revision.
+- the session epoch and the program revision;
+- the resource's state, `paused` while it is paused or while the debugger holds
+  its scan (specification 13, "Pause"), and what holds it.
+
+An operation that needs the program to run (Identify, Validate's model check,
+Apply) reads the state before anything else and is refused at once while the
+runtime is paused, writing nothing: the refusal says that the runtime is
+paused, what holds its scan (a breakpoint, a step, a pause, the program's
+start) and how to go on (continue in the debugger, or resume the runtime),
+instead of the operation waiting for a scan that does not come.
 
 **A2.4 Simulated or physical.** The target is **simulated** when simulation is
 enabled and all attached I/O is simulated. Otherwise it is **physical**. A mix
