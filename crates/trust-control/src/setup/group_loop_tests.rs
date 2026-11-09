@@ -931,3 +931,36 @@ fn a_groups_written_signals_may_be_globals_its_task_owns() {
             .to_string())
     );
 }
+
+/// C7 and B1.2 (protocol annex E2.3): a member's output and its manual command are written signals, checked as the mode and the
+/// setpoints are. Worked from the fixture: the group's parameter set runs in `MainTask`, and each case moves one written signal of
+/// zone 2 into a GVL that `SlowTask` writes, so it is refused with the sentence of B1.2. Catches a member's output or manual command
+/// left out of the check, so that setup writes a group whose transfer is then refused.
+#[test]
+fn a_groups_output_or_manual_command_that_another_task_writes_is_refused_by_name() {
+    let generated = serde_json::to_string(&generate(&draft())).expect("the group serializes");
+    for (program, global) in [
+        ("P1.Heater2Pct", "GVL_IO.lrHeater2"),
+        ("P1.Zone2ManualPct", "GVL_IO.lrManual2"),
+    ] {
+        let text = generated.replace(&format!("\"{program}\""), &format!("\"{global}\""));
+        let loop_definition = LoopDefinition::decode(&text).expect("the renamed group decodes");
+        let mut compiled = catalog();
+        compiled.symbols.push(CompiledSymbol {
+            symbol: global.to_string(),
+            iec_type: "LREAL".to_string(),
+            address: None,
+            members: Vec::new(),
+            owner: Some(GlobalOwner::Task {
+                task: "SlowTask".to_string(),
+            }),
+        });
+        assert_eq!(
+            check_global_owners(&loop_definition, &compiled),
+            Err(format!(
+                "{global} is a global that task SlowTask writes, so the loop's task MainTask cannot write it. Run the loop in task \
+                 SlowTask, or let only the loop's task write {global}."
+            ))
+        );
+    }
+}
