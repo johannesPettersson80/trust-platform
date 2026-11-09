@@ -527,7 +527,7 @@ where
             if let Some(context) = ExperimentContext::of(&plan, &state) {
                 self.ports.retention.note_experiment(context);
             }
-            match hold_end(&state) {
+            match hold_end(&plan, &state) {
                 HoldEnd::Unrestored(failure) => return Err(failure),
                 HoldEnd::Stopped(failure) => {
                     self.active = None;

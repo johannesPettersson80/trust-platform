@@ -558,3 +558,40 @@ fn a_module_mapped_where_another_ran_runs_its_own_instructions() {
         assert_eq!(entry.call(&mut cx), u32::from(value), "round {round}");
     }
 }
+
+/// Specification 06 §15, the table of the errors `__TRY` handles: each fault's CODESYS exception code,
+/// written out from the vendor's `__SYSTEM.ExceptionCode` values, and none for the faults that end the
+/// scan whatever `__TRY` says. Wrong behaviour caught: a statement budget, a stack margin or a failed
+/// test assertion that `__CATCH` swallows, and a code that is not CODESYS's.
+#[test]
+fn a_catchable_fault_maps_to_its_codesys_exception_code_and_the_others_to_none() {
+    use crate::exception_code;
+    let code = |fault: FaultCode| exception_code(Fault::new(fault));
+    assert_eq!(code(FaultCode::DivisionByZero), Some(0x0000_0102));
+    assert_eq!(code(FaultCode::ModuloByZero), Some(0x0000_0102));
+    assert_eq!(code(FaultCode::Overflow), Some(0x0000_0103));
+    assert_eq!(code(FaultCode::DateTimeRange), Some(0x0000_0103));
+    assert_eq!(code(FaultCode::IndexOutOfBounds), Some(0x0000_0101));
+    assert_eq!(code(FaultCode::NullReference), Some(0x0000_0051));
+    assert_eq!(code(FaultCode::ReferenceLifetime), Some(0x0000_0051));
+    assert_eq!(code(FaultCode::CallDepth), Some(0x0000_0054));
+    assert_eq!(code(FaultCode::NonFiniteValue), Some(0x0000_0154));
+    for unknown in [
+        FaultCode::SubrangeViolation,
+        FaultCode::ForStepZero,
+        FaultCode::TypeMismatch,
+        FaultCode::StringCapacityExceeded,
+    ] {
+        assert_eq!(code(unknown), Some(0xFFFF_FFFF), "{unknown:?}");
+    }
+    for uncaught in [
+        FaultCode::InfiniteLoop,
+        FaultCode::StackOverflow,
+        FaultCode::MemoryProtection,
+        FaultCode::ModuleInternal,
+        FaultCode::AssertionFailed,
+        FaultCode::AssertionNear,
+    ] {
+        assert_eq!(code(uncaught), None, "{uncaught:?}");
+    }
+}

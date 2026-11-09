@@ -76,6 +76,7 @@ pub(super) fn project_sequence_plan(
     let stop_conditions = project_stop_conditions(
         duration_ms / 1000.0,
         abort.map(|(abort, asserted)| (abort.symbol.as_str(), asserted)),
+        loop_definition,
     );
     let trajectory = if baseline_ms > 0.0 {
         vec![point(0.0, 0.0), point(baseline_ms, 1.0)]
@@ -115,14 +116,21 @@ pub(super) fn project_sequence_plan(
         interval_ms: None,
         seed: None,
         frequencies_hz: None,
+        // The project's excitation is stopped once the measured output leaves its permitted range (B3.4 step 6).
+        measurement_guard: Some(super::guard::measurement_guard(
+            loop_definition,
+            &sample.process_variable,
+        )),
     })
 }
 
 /// The stop conditions of a project-owned experiment (E5.5, C12). The plan and the Identify review name the same list.
-/// `abort` is the abort symbol and the value its assertion writes, when the loop declares an abort.
+/// `abort` is the abort symbol and the value its assertion writes, when the loop declares an abort; the measured output's
+/// permitted range is `loop_definition`'s (B3.4 step 6).
 pub(crate) fn project_stop_conditions(
     duration_seconds: f64,
     abort: Option<(&str, bool)>,
+    loop_definition: &LoopDefinition,
 ) -> Vec<String> {
     let mut stop_conditions = vec![
         "Abort".to_string(),
@@ -131,6 +139,7 @@ pub(crate) fn project_stop_conditions(
         "Bad runtime data".to_string(),
         "Signal force".to_string(),
         "Signal outside its limits".to_string(),
+        super::guard::measurement_stop_condition(loop_definition),
         "Runtime fault".to_string(),
     ];
     if let Some((symbol, asserted)) = abort {

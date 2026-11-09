@@ -6,6 +6,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         match node.kind() {
             SyntaxKind::AssignStmt => self.check_assignment(node),
             SyntaxKind::IfStmt => self.check_if_stmt(node),
+            SyntaxKind::TryStmt => self.check_try_stmt(node),
             SyntaxKind::ForStmt => self.check_for_stmt(node),
             SyntaxKind::WhileStmt => self.check_while_stmt(node),
             SyntaxKind::RepeatStmt => self.check_repeat_stmt(node),

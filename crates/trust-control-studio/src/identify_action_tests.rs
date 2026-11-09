@@ -601,8 +601,10 @@ fn a_setpoint_step_takes_only_a_selected_declared_reference_and_leaves_the_loop_
     );
 }
 
+/// B3.6: a recording the study keeps no experiment request for is refused at once, whether or not it is the recording of the
+/// Identify result, and nothing starts.
 #[test]
-fn open_recording_fits_again_only_the_recording_whose_request_the_identify_result_keeps() {
+fn open_recording_refuses_a_recording_the_study_keeps_no_request_for() {
     let project = Project::new("refit");
     let (studio, _updates) = engine();
     let other = format!("rec-{}", "0".repeat(32));

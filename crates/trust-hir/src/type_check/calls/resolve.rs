@@ -204,8 +204,11 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         }
         // Two-part `EnumType.Member` is accepted under every profile; deeper
         // fully qualified access (`Namespace.EnumType.Member`) is a CODESYS
-        // departure and keeps the IEC rejection elsewhere.
-        if parts.len() > 2 && !self.checker.symbols.dialect().is_codesys() {
+        // departure and keeps the IEC rejection elsewhere. A value of the system
+        // type `__SYSTEM.ExceptionCode` is accepted under every profile, as
+        // `__TRY` is (specification 06 §15).
+        let system = parts[0].eq_ignore_ascii_case("__SYSTEM");
+        if parts.len() > 2 && !system && !self.checker.symbols.dialect().is_codesys() {
             return None;
         }
         let type_name = parts[..parts.len() - 1].join(".");

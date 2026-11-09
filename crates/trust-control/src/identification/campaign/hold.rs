@@ -152,16 +152,24 @@ impl HoldTracker {
         if state == HoldState::Ended {
             return HoldStep::Ended;
         }
-        let finish_early = self.single
-            && !self.finished
-            && self
-                .applied_seconds
-                .is_some_and(|applied| self.settled_since(applied));
+        let settled = self
+            .applied_seconds
+            .filter(|applied| self.single && !self.finished && self.settled_since(*applied));
+        let finish_early = settled.is_some();
         if finish_early {
             self.finished = true;
         }
         let elapsed = (watch.newest_seconds() - self.step_seconds).max(0.0);
-        let progress = if progress_due(elapsed, self.reported_seconds) {
+        // A hold that ends early says why and when at once, so that a step shorter than its
+        // maximum is no surprise (B3.4 step 4).
+        let progress = if let Some(applied) = settled {
+            self.reported_seconds = elapsed;
+            Some(format!(
+                "The response settled {} after the step was applied, so the step ends there, before its limit of {}.",
+                format_duration((watch.newest_seconds() - applied).max(0.0)),
+                format_duration(self.duration_seconds)
+            ))
+        } else if progress_due(elapsed, self.reported_seconds) {
             self.reported_seconds = elapsed;
             Some(self.progress_text(watch, elapsed, wall_ms))
         } else {

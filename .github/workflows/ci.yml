@@ -183,6 +183,8 @@ jobs:
           "${RUNNER_TEMP}/actionlint" -color
       - name: Guard the workflow downloads
         run: python3 -m unittest scripts.tests.test_workflow_downloads -v
+      - name: Guard the test log upload
+        run: python3 -m unittest scripts.tests.test_workflow_test_log_upload -v
       - name: Guard the release text from the changelog
         run: python3 -m unittest scripts.tests.test_extract_changelog_section -v
       - name: Guard the flake trend's requests to GitHub
@@ -447,11 +449,27 @@ jobs:
             exit 0
           fi
           ./scripts/runtime_mesh_tls_stability_gate.sh --iterations 4
+      # The log is evidence of the tests, not a test: a failed upload is tried once more and never
+      # fails a job whose tests passed, whose verdict is its tests' (G107: a runner's DNS failure,
+      # `ENOTFOUND`, failed a macOS job after all its tests had passed). A failed test step still
+      # fails the job.
       - name: Upload test suite log
+        id: test-log
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: test-log-${{ matrix.os }}
+          path: |
+            gate-artifacts/test-${{ matrix.os }}.log
+            gate-artifacts/test-${{ matrix.os }}-retry-rescued.txt
+      - name: Upload test suite log (second attempt)
+        if: ${{ always() && steps.test-log.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-log-${{ matrix.os }}
+          overwrite: true
           path: |
             gate-artifacts/test-${{ matrix.os }}.log
             gate-artifacts/test-${{ matrix.os }}-retry-rescued.txt

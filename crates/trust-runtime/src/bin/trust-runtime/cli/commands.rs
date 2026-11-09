@@ -39,6 +39,9 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
+        /// Start paused: no scan runs until `resume` (specification 11 §6.8).
+        #[arg(long, action = ArgAction::SetTrue)]
+        paused: bool,
         /// Install the truST toolchain without asking when the build needs it and none is
         /// installed (specification 44, NX-08).
         #[arg(long, action = ArgAction::SetTrue)]
@@ -70,6 +73,9 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
+        /// Start paused: no scan runs until `resume` (specification 11 §6.8).
+        #[arg(long, action = ArgAction::SetTrue)]
+        paused: bool,
         /// Install the truST toolchain without asking when the build needs it and none is
         /// installed (specification 44, NX-08).
         #[arg(long, action = ArgAction::SetTrue)]

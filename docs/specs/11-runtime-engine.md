@@ -3406,6 +3406,21 @@ debug table (section 6.13.3): `location` sends `debug.state`, `stack` sends
 The replies of `location`, `stack` and `scopes` are printed with their lines
 and columns counted from 1, as the breakpoint replies are.
 
+`ctl` compiles debug expressions as a debugger does (section 6.13.2), with the
+types of the project that `--project` names or that the current folder holds,
+else with none, which serve names, literals and operators:
+- `breakpoints-set` takes `--condition <expression>`, `--hit-condition <=N,
+  >=N or >N>` (`==` for `=`, N from 1) and `--log-message <text>`, whose
+  `{expression}` parts give their values; the options go to each line in
+  `options`, a brace that opens or closes no part is refused before anything is
+  sent;
+- `evaluate <expression> [--frame <frame-id>]` sends `debug.evaluate` with the
+  compiled expression, in the held program or between scans in the last scan,
+  while `eval <name>` stays the read of one name;
+- `compile-expression <expression>` prints the compiled form,
+  `{"expr_version": 1, "expr": "<base64>"}`, without sending anything, for a
+  script that sends its own requests.
+
 `--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
 endpoint on another host, such as a chip's control connection over its network (specification 34
 ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial
@@ -6436,6 +6451,14 @@ when enabled:
   rejected. The default is **disabled** in production mode (see `runtime.control.mode`).
 - `runtime.control.mode` defaults to `production` and can be set to `debug` for development
   workflows; `runtime.control.debug_enabled` overrides the mode when explicitly set.
+- `runtime.control.start_paused = true`, or `--paused` on `play` and `run`, starts the program
+  paused: the resource pauses before its first scan, as a production `pause` pauses it, so that
+  no scan runs until `resume` and a simulation's time stays at 0 until then. `resume` is a debug
+  operation, as `pause` is, so the setting needs the debug surface: a project that sets it
+  without `debug_enabled` (or `mode = "debug"`) is refused, and so is `--paused`. A device takes the
+  setting from its deployment record (specification 34 §5.1.1) and holds before the first scan
+  of its boot the same way. Only the start of the runtime or of the device pauses: a `restart`
+  after a stop starts the program running.
 - `step_in`, `step_over` and `step_out` act only while the debugger holds the scan:
   at a breakpoint, after a debug-mode `pause`, or after a completed step. Otherwise
   they are rejected with a stable error and arm nothing. In production mode `pause`

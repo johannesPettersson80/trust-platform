@@ -1489,9 +1489,13 @@ fn a_namespaced_test_block_gets_a_runner_with_a_valid_unique_name() {
 // result. Worked by hand: the copy takes the base's fields, so the callee reads 'SHT-1' and
 // 'Shutter 1' of a `stSelectMaster`, an `stA` copy of an `stC` reads 'ABCDEFGH' and -5 (the own
 // fields 6 and 7 are no part of it), an overlap's `stPoint` member holds 11 and 22 of a
-// `stPoint3`, and a result's base part is 41. A wrong generator refuses to build every one of the
-// copies, which it did until this change: `an assignment between different types is not compiled
-// yet (specification 44 NX-09)`.
+// `stPoint3`, which the overlap's `iWords[0]` and `iWords[1]` read in its backing, and a result's
+// base part is 41. A method's input is a copy taken at the call: the method writes 99 to the
+// caller's `stWide.iA` through its in-out and then still reads 11 from its input. A wrong
+// generator refuses to build every one of the copies, which it did until #338: `an assignment
+// between different types is not compiled yet (specification 44 NX-09)`; one that binds the input
+// to the caller's variable reads 99, and one that writes the overlap's member outside its backing
+// leaves the words 0.
 #[test]
 fn run_test_compiles_the_derived_to_base_dut_copies() {
     let project = codesys_project(
@@ -1581,6 +1585,18 @@ END_VAR
     Seen := stEntityIn.iA;
     mTake := TRUE;
 END_METHOD
+
+METHOD PUBLIC mTakeAfterChange : BOOL
+VAR_INPUT
+    stEntityIn : stPoint;
+END_VAR
+VAR_IN_OUT
+    stSource : stPoint3;
+END_VAR
+    stSource.iA := 99;
+    Seen := stEntityIn.iA;
+    mTakeAfterChange := TRUE;
+END_METHOD
 END_FUNCTION_BLOCK
 
 TEST_PROGRAM AMethodInputTakesTheDerivedValueBasePart
@@ -1634,6 +1650,8 @@ GotA := ov.stBase.iA;
 GotB := ov.stBase.iB;
 ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := GotA);
 ASSERT_EQUAL(EXPECTED := INT#22, ACTUAL := GotB);
+ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := ov.iWords[0]);
+ASSERT_EQUAL(EXPECTED := INT#22, ACTUAL := ov.iWords[1]);
 END_TEST_PROGRAM
 
 TEST_PROGRAM ACallResultGivesItsBasePart
@@ -1648,11 +1666,26 @@ OK := fbPS.mTake(stEntityIn := getWide());
 ASSERT_TRUE(IN := OK);
 ASSERT_EQUAL(EXPECTED := INT#41, ACTUAL := fbPS.Seen);
 END_TEST_PROGRAM
+
+TEST_PROGRAM AMethodInputIsACopyTakenAtTheCall
+VAR
+    stWide : stPoint3;
+    OK : BOOL;
+    fbPS : fbTake;
+END_VAR
+stWide.iA := 11;
+stWide.iB := 22;
+stWide.iC := 33;
+OK := fbPS.mTakeAfterChange(stEntityIn := stWide, stSource := stWide);
+ASSERT_TRUE(IN := OK);
+ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := fbPS.Seen);
+ASSERT_EQUAL(EXPECTED := INT#99, ACTUAL := stWide.iA);
+END_TEST_PROGRAM
 "#,
     );
     let payload =
         run_test_json(Some(project.clone()), None, false, 0).expect("DUT copies build and run");
-    assert_eq!(payload["summary"]["total"], 4, "{payload}");
-    assert_eq!(payload["summary"]["passed"], 4, "{payload}");
+    assert_eq!(payload["summary"]["total"], 5, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 5, "{payload}");
     let _ = std::fs::remove_dir_all(project);
 }

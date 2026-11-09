@@ -575,7 +575,7 @@ the native Rust facades; they do not by themselves prove a `wasm32`,
 | References | `textDocument/references` | ✅ | Symbol-aware (workspace indexed; no text fallback); work-done progress + partial results when client provides tokens |
 | Document Highlight | `textDocument/documentHighlight` | ✅ | Highlight reads/writes in current document |
 | Symbols | `textDocument/documentSymbol` | ✅ | Flat list |
-| Workspace Symbols | `workspace/symbol` | ✅ | Multi-root symbol federation with per-root priority/visibility; work-done progress + partial results when client provides tokens |
+| Workspace Symbols | `workspace/symbol` | ✅ | Multi-root symbol federation with per-root priority/visibility; only what a source file declares, so no built-in is listed; work-done progress + partial results when client provides tokens |
 | File Rename | `workspace/willRenameFiles` | ✅ | Renames single top-level POU/namespace when file stem changes; updates references and USING directives for that namespace (IEC 61131-3 Ed.3, 6.1.2; 6.6.4; Tables 64-66) |
 | Rename | `textDocument/rename` | ✅ | Symbol-aware; workspace edits; renames the declaring file when renaming the single primary POU whose identifier matches the file stem (IEC 61131-3 Ed.3, 6.1.2) |
 | Semantic Tokens | `textDocument/semanticTokens` | ✅ | Full + range + delta; classified by symbol kind/modifiers |

@@ -38,7 +38,7 @@ pub use plan::{
     ControlExperimentPlan, ControlExperimentPlanResult, ControlExperimentPoint,
     ControlExperimentRequestKind, ControlRelayFeedbackPlan, ControllerMode, ExperimentModeBinding,
     ExperimentSample, ExperimentValue, PlanAbortBinding, PlanAuxiliarySignal, PlanInput,
-    PlanSignal, PlanSource,
+    PlanMeasurementGuard, PlanSignal, PlanSource,
 };
 pub use recorded_experiment_start::{baseline_end_seconds, experiment_start_seconds};
 pub use start::{checked_experiment_start, ExperimentStart};

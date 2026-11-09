@@ -1438,7 +1438,12 @@ clears the manual section (B3.7).
    ended there misses that mode's gain. The hold therefore ends early only
    when the plant input has settled too, by the same rule against its own
    mean and noise over the steady baseline. The maximum duration counts from the end of the
-   baseline, so the wait for a steady baseline never shortens the step.
+   baseline, so the wait for a steady baseline never shortens the step. When the
+   hold ends early, its progress says so at once, with the time from the step's
+   application to the settling and the limit the step would otherwise have had:
+   "The response settled 4 min after the step was applied, so the step ends
+   there, before its limit of 9 min.", so that a hold shorter than its maximum is
+   never a surprise.
 5. **Restoration.** The runtime restores the plant input or setpoint to its
    value from before the experiment and confirms it (A7). Identify does not wait
    for the process to return to its starting point. A controller output follows
@@ -1450,7 +1455,13 @@ clears the manual section (B3.7).
    that confirm a restoration (A7); after that its transfer judges the outputs
    as they are.
 6. **Limits check.** The runtime stops an experiment whose written target
-   leaves its limits (annex E5.4); it does not watch the measured output.
+   leaves its limits, and one whose measured output leaves its permitted range
+   (annex E5.3, E5.4): every plan that writes carries the measured output and that
+   range as its measurement guard and lists it among its stop conditions, and the
+   approval of a physical target names the range (B9.3), so the engineer approves
+   the band the runtime stops at and narrows it in **Limits…**. The runtime then
+   restores what it wrote, and the stop names the measured output, the value the
+   runtime read and the limit it passed, and asks for a smaller step (B3.9).
    Before the fit, every recorded sample of the selected plant inputs and
    measured outputs is checked against the loop's limits: the plant input
    range and the permitted measured-output range. A sample outside them, or a
@@ -1488,6 +1499,14 @@ The study keeps the opened file as one of its recordings (`importRecording`), so
 reopening shows the fit, and Fit refits it (§0.1a); a Recorded-data fit (B3.3) keeps its file in the same way, and its stage is
 the study's `identifyManual` section (§0.1a). The file names no experiment that Control Studio ran, so its fit
 reads its own samples as an observation (C12): nothing is written to the plant.
+A live identification's recording keeps the request it was taken with in the study's `recordRequests` section: the program
+revision, the reviewed plan and the steady baseline window, which the recording file does not hold, and the value of the
+scheduling variable that its run read when it started (C10 Identify, D-21). So Fit refits any live recording the study keeps,
+not only the recording of its Identify result (`openRecording` with the recording, `identify --recording`): the refit reads
+that recording with its own request from the fit window the request was taken with, meets the same limits check (B3.4 step
+6), and its fit becomes the Identify result, which keeps the same request. A recording that the study kept before it kept
+requests has none, and Fit refuses it: "Recording … cannot be fitted again: the study keeps no experiment request for it.
+Identify plant records a new one."
 The engine gives each selector its channels (`recordingCatalog`'s `inputs` and `outputs`): a plant input is offered on the inputs
 selector and a measured output on the outputs selector, and a signal that the loop declares on the other side is offered on neither;
 an extra output that the loop does not bind stays selectable. A legacy file offers its applied input and its measured output, and the
@@ -1536,6 +1555,7 @@ the output's unit per the input's unit per second (numerical annex N0.3).
 | Not steady: the measured output still changing (rate given) | Wait; or Setpoint step for a loop in Auto |
 | Mode change refused (the runtime's reason) | As the reason states |
 | Experiment stopped: limit reached, forced signal, mode left, Abort, reload or restart | None; the recording is kept, not qualified for a fit (B3.4 step 6) |
+| Experiment stopped: the measured output left its permitted range (its value and the limit named) | Identify again with a smaller step; the recording is kept, not qualified for a fit (B3.4 step 6) |
 | Restoration not confirmed | Restore by hand; the study is blocked until it is confirmed |
 | Response too small against the noise (values given) | Open **Limits…** to permit a larger step, or choose another method |
 | Response not settled enough (fraction reached, suggested hold) | Open **Limits…** for a longer maximum duration |

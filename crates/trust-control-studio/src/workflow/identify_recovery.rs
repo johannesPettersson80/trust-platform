@@ -430,7 +430,7 @@ where
             if let Some(context) = ExperimentContext::of(plan, &state) {
                 retention.note_experiment(context);
             }
-            match hold_end(&state) {
+            match hold_end(plan, &state) {
                 HoldEnd::Unrestored(failure) => return Err(failure),
                 HoldEnd::Stopped(failure) => {
                     Err(stopped_hold_outcome(report.is_cancelled(), failure))

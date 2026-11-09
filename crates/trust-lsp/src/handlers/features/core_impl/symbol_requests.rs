@@ -199,6 +199,11 @@ fn workspace_symbol_with_ticket(
                 return None;
             }
 
+            // Builtin symbols have an empty range at offset 0: no source file declares them.
+            if symbol.range.is_empty() {
+                continue;
+            }
+
             let name = display_symbol_name(&symbols, symbol);
             if !query_empty && !name.to_lowercase().contains(&query) {
                 continue;

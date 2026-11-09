@@ -22,8 +22,12 @@ use super::duration::duration_within_limits;
 use super::number_text::js_number;
 use super::trajectory::{automatic_trajectory, experiment_trajectory};
 
+#[path = "plan_guard.rs"]
+mod guard;
 #[path = "plan_project.rs"]
 mod project;
+
+pub use guard::{measurement_stop_condition, permitted_range, PlanMeasurementGuard};
 
 pub(crate) use project::project_stop_conditions;
 
@@ -442,6 +446,10 @@ pub struct ControlExperimentPlan {
     /// The frequencies of a multisine, in Hz.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frequencies_hz: Option<Vec<f64>>,
+    /// The measured output the experiment keeps within its permitted range (B3.4 step 6, annex E5.3); absent for an
+    /// observation, which writes nothing, and in a plan kept before plans had guards.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measurement_guard: Option<PlanMeasurementGuard>,
 }
 
 /// A signal of the live sample: its value and quality at one scan, and its address and unit (the
@@ -601,6 +609,23 @@ fn direct_plan(
         Some(command) => command.address.clone(),
         None => signal.address.clone(),
     };
+    // Every experiment that writes is stopped once the measured output leaves its permitted range (B3.4 step 6).
+    let measurement_guard = (kind != ControlExperimentKind::Observation)
+        .then(|| guard::measurement_guard(loop_definition, &sample.process_variable));
+    let mut stop_conditions = vec![
+        "Abort".to_string(),
+        format!("{} s timeout", js_number(input.duration_seconds)),
+        "Loop mode changed".to_string(),
+        "Bad runtime data".to_string(),
+        "Signal force".to_string(),
+        "Signal outside its limits".to_string(),
+    ];
+    stop_conditions.extend(
+        measurement_guard
+            .as_ref()
+            .map(|_| measurement_stop_condition(loop_definition)),
+    );
+    stop_conditions.push("Runtime fault".to_string());
     Ok(ControlExperimentPlan {
         id: format!(
             "experiment:{}:{}:{}",
@@ -627,15 +652,7 @@ fn direct_plan(
         expected_scan: sample.scan,
         task: Some(experiment_task(loop_definition)),
         mode_binding: experiment_mode_binding(loop_definition),
-        stop_conditions: vec![
-            "Abort".to_string(),
-            format!("{} s timeout", js_number(input.duration_seconds)),
-            "Loop mode changed".to_string(),
-            "Bad runtime data".to_string(),
-            "Signal force".to_string(),
-            "Signal outside its limits".to_string(),
-            "Runtime fault".to_string(),
-        ],
+        stop_conditions,
         restoration_value: ExperimentValue::Number(signal.value),
         requires_physical_approval: sample.source == EvidenceSource::PhysicalPlant,
         trajectory: excitation.trajectory,
@@ -644,6 +661,7 @@ fn direct_plan(
         interval_ms: excitation.interval_ms,
         seed: excitation.seed,
         frequencies_hz: excitation.frequencies_hz,
+        measurement_guard,
     })
 }
 

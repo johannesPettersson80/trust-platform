@@ -113,6 +113,28 @@ fn test_5_a_latched_abort_assertion_is_sent_with_its_addressed_plan() {
     assert_eq!(request["restoration_value"], json!(false));
 }
 
+/// Annex E5.3: the plan's measurement guard goes with the start, by the measured output's address when it has one and by
+/// its symbol otherwise, with the permitted range of the plan (`LevelPV` within 0 to 100 %); a plan without a guard sends
+/// none. Wrong behaviour caught: a reviewed guard that never reaches the runtime, which then holds the step whatever the
+/// measurement does.
+#[test]
+fn a_planned_measurement_guard_is_sent_with_the_start_by_address_or_by_symbol() {
+    let guard = json!({ "symbol": "LevelPV", "address": "%IL0", "minimum": 0.0, "maximum": 100.0, "unit": "%" });
+    let addressed = start_params(&plan(json!({ "measurementGuard": guard })), false);
+    assert_eq!(
+        addressed["measurement_guard"],
+        json!({ "address": "%IL0", "minimum": 0.0, "maximum": 100.0 })
+    );
+    let by_name = json!({ "symbol": "P1.Level", "minimum": 0.0, "maximum": 100.0, "unit": "%" });
+    let named = start_params(&plan(json!({ "measurementGuard": by_name })), false);
+    assert_eq!(
+        named["measurement_guard"],
+        json!({ "symbol": "P1.Level", "minimum": 0.0, "maximum": 100.0 })
+    );
+    let unguarded = start_params(&plan(json!({})), false);
+    assert_eq!(unguarded.get("measurement_guard"), None);
+}
+
 #[test]
 fn test_12_an_mv_pulse_sends_its_rise_and_return_as_its_trajectory() {
     let pulse = plan(json!({

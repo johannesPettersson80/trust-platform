@@ -188,6 +188,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
     }
 
     fn check_exit_stmt(&mut self, node: &SyntaxNode) {
+        self.refuse_leaving_finally(node, "EXIT", true);
         if self.checker.loop_stack.is_empty() {
             self.checker.diagnostics.error(
                 DiagnosticCode::InvalidOperation,
@@ -198,6 +199,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
     }
 
     fn check_continue_stmt(&mut self, node: &SyntaxNode) {
+        self.refuse_leaving_finally(node, "CONTINUE", true);
         if self.checker.loop_stack.is_empty() {
             self.checker.diagnostics.error(
                 DiagnosticCode::InvalidOperation,
@@ -208,6 +210,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
     }
 
     fn check_jmp_stmt(&mut self, node: &SyntaxNode) {
+        self.refuse_jump_in_try(node, "JMP");
         let label_name = node
             .children()
             .find(|n| n.kind() == SyntaxKind::Name)
@@ -235,6 +238,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
     }
 
     fn check_label_stmt(&mut self, node: &SyntaxNode) {
+        self.refuse_jump_in_try(node, "a label");
         if let Some(label_node) = node.children().find(|n| n.kind() == SyntaxKind::Name)
             && let Some(name) = self.checker.resolve_ref().get_name_from_ref(&label_node)
             && let Some(scope) = self.checker.label_scopes.last_mut()

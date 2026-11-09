@@ -25,6 +25,8 @@ impl<'a> TypeChecker<'a> {
             this_type: None,
             super_type: None,
             loop_stack: Vec::new(),
+            try_depth: 0,
+            finally_loops: Vec::new(),
             label_scopes: Vec::new(),
             expression_types: FxHashMap::default(),
             resolved_symbols: FxHashMap::default(),

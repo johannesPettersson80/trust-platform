@@ -223,6 +223,22 @@ pub fn start_request(
             "high_value": relay.high_output,
         });
     }
+    // The measured output and its permitted range, which the runtime watches while the experiment runs (E5.3, E5.4):
+    // by its address when it has one, as the target is.
+    if let Some(guard) = &plan.measurement_guard {
+        request["measurement_guard"] = match &guard.address {
+            Some(address) => json!({
+                "address": address,
+                "minimum": guard.minimum,
+                "maximum": guard.maximum,
+            }),
+            None => json!({
+                "symbol": guard.symbol,
+                "minimum": guard.minimum,
+                "maximum": guard.maximum,
+            }),
+        };
+    }
     if plan.source == PlanSource::Physical {
         request["physical_approval"] = json!({
             "user_approved": physical_approved,

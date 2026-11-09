@@ -1,5 +1,6 @@
 impl<'a, 'b> StmtChecker<'a, 'b> {
     fn check_return_stmt(&mut self, node: &SyntaxNode) {
+        self.refuse_leaving_finally(node, "RETURN", false);
         let return_expr = node.children().find(|n| is_expression_kind(n.kind()));
         if return_expr.is_some() {
             self.checker.saw_return_value = true;

@@ -457,3 +457,21 @@ fn lexical_contract_codesys_queryinterface_is_one_reserved_token() {
         &[TokenKind::Ident, TokenKind::KwQueryInterfaceDunder],
     );
 }
+
+/// Specification 01 and 06 §15: CODESYS's `__TRY`, `__CATCH`, `__FINALLY` and `__ENDTRY` are each one
+/// reserved token in any case. Catches a word lexed as a malformed identifier, which the parser
+/// reported as "expected statement", and a longer `__` name taken for one of them.
+#[test]
+fn lexical_contract_codesys_exception_words_are_reserved_tokens() {
+    for (word, kind) in [
+        ("__TRY", TokenKind::KwTryDunder),
+        ("__CATCH", TokenKind::KwCatchDunder),
+        ("__FINALLY", TokenKind::KwFinallyDunder),
+        ("__ENDTRY", TokenKind::KwEndTryDunder),
+    ] {
+        for source in [word.to_string(), word.to_ascii_lowercase()] {
+            assert_single(&source, kind);
+        }
+    }
+    assert_rejected_candidate("__TRYING", &[TokenKind::Ident, TokenKind::KwTryDunder]);
+}

@@ -8,7 +8,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use trust_control_math::identify::single_run::largest_input_change;
+use trust_control_math::identify::single_run::{input_step, largest_input_change, straddles};
 use trust_control_math::sampling::statistics::{mean, noise_sigma};
 use trust_control_math::sampling::{largest, smallest};
 
@@ -149,7 +149,7 @@ pub struct QualifiedIdentificationData {
 /// change, and the means `u0` of the input and `y0` of the output over the samples before it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OperatingPoint {
-    /// The index of the first sample after the largest input change; at least one.
+    /// The index of the step's first sample (N2.2): the sample that straddles the step when one does; at least one.
     pub step_index: usize,
     /// The mean input before the step, `u0`.
     pub input0: f64,
@@ -202,8 +202,8 @@ pub fn qualify_identification_data(
     }
 }
 
-/// The operating point before the step (N1.3, N2.2; `identificationOperatingPoint`): the largest input change, and the
-/// means of the input and the output over the samples before it. Fit evidence and the selected models share it.
+/// The operating point before the step (N1.3, N2.2; `identificationOperatingPoint`): the step, and the means of the
+/// input and the output over the samples before it. Fit evidence and the selected models share it.
 ///
 /// # Errors
 /// Refuses fewer than two samples, or a sample whose time, input or output is not finite ("Model evidence requires
@@ -258,18 +258,25 @@ pub fn fit_recording(samples: &[IdentificationSample]) -> Vec<IdentificationSamp
 }
 
 /// The held part of a bounded step (B3.4 step 5; `heldStepSamples`): the samples before the first restoration of the
-/// largest input change, that is, the first later change against the step's direction of at least half its size. The
-/// whole recording when the input never changes or is never restored.
+/// step (N2.2), that is, the first later change against the step's direction of at least half its whole size, each
+/// change counted whole through a sample that straddles it, as the step is. The held part ends before the restoration's
+/// first sample, so it never holds a sample that averaged executions after the restoration. The whole recording when
+/// the input never changes or is never restored.
 #[must_use]
 pub fn held_step_samples(samples: &[IdentificationSample]) -> Vec<IdentificationSample> {
-    let Some(step_index) = largest_change(samples) else {
+    let inputs = inputs_of(samples);
+    let Some(step) = input_step(&inputs) else {
         return samples.to_vec();
     };
-    let change = samples[step_index].input - samples[step_index - 1].input;
-    let magnitude = change.abs();
-    let direction = change.signum();
-    let restoration = (step_index + 1..samples.len()).find(|&index| {
-        let difference = samples[index].input - samples[index - 1].input;
+    let magnitude = step.change.abs();
+    let direction = step.change.signum();
+    let restoration = (step.end + 1..inputs.len()).find(|&index| {
+        let end = if straddles(&inputs, index) {
+            index + 1
+        } else {
+            index
+        };
+        let difference = inputs[end] - inputs[index - 1];
         difference * direction < 0.0 && difference.abs() >= magnitude * 0.5
     });
     match restoration {
@@ -337,8 +344,8 @@ fn first_input_unit(samples: &[IdentificationSample]) -> String {
         .to_string()
 }
 
-/// The index of the largest input change (`largestInputChange`): the first sample whose input differs most from the
-/// input before it; `None` when the input never changes.
+/// The index of the step's first sample (N2.2; `largestInputChange`): the sample that straddles the step when one does;
+/// `None` when the input never changes.
 fn largest_change(samples: &[IdentificationSample]) -> Option<usize> {
     largest_input_change(&inputs_of(samples))
 }

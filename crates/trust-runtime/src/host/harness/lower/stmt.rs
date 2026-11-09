@@ -84,6 +84,7 @@ fn lower_stmt(
         SyntaxKind::EmptyStmt => Ok(None),
         SyntaxKind::LabelStmt => lower_label_stmt(node, ctx).map(Some),
         SyntaxKind::JmpStmt => lower_jmp_stmt(node, ctx).map(Some),
+        SyntaxKind::TryStmt => lower_try(node, ctx).map(Some),
         _ => Err(CompileError::new("unsupported statement")),
     }
 }
@@ -242,6 +243,53 @@ fn assignment_is_attempt(node: &SyntaxNode) -> bool {
     node.children_with_tokens()
         .filter_map(|child| child.into_token())
         .any(|token| token.kind() == SyntaxKind::RefAssign)
+}
+
+/// CODESYS's `__TRY` (specification 06 §15): its statements, its `__CATCH` clause's variable and
+/// statements, and its `__FINALLY` statements.
+fn lower_try(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, CompileError> {
+    let body = lower_statement_children(node, ctx)?;
+    let catch = match node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::CatchClause)
+    {
+        Some(clause) => {
+            let variable = first_expr_child(&clause)
+                .ok_or_else(|| CompileError::new("missing __CATCH variable"))?;
+            Some((
+                lower_lvalue(&variable, ctx)?,
+                lower_statement_children(&clause, ctx)?,
+            ))
+        }
+        None => None,
+    };
+    let finally = match node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::FinallyClause)
+    {
+        Some(clause) => lower_statement_children(&clause, ctx)?,
+        None => Vec::new(),
+    };
+    Ok(Stmt::Try {
+        body,
+        catch,
+        finally,
+        location: stmt_location(node, ctx),
+    })
+}
+
+/// The statements among the children of `node`, lowered in order.
+fn lower_statement_children(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Vec<Stmt>, CompileError> {
+    let mut statements = Vec::new();
+    for child in node.children() {
+        if is_statement_kind(child.kind()) {
+            statements.extend(lower_stmt(&child, ctx)?);
+        }
+    }
+    Ok(statements)
 }
 
 fn lower_if(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, CompileError> {

@@ -76,6 +76,8 @@ pub struct SymbolTable {
     named_value_types: FxHashSet<TypeId>,
     /// IEC `STRUCT OVERLAP` types whose fields share backing storage.
     overlapping_struct_types: FxHashSet<TypeId>,
+    /// The pack modes of structures declared with `{attribute 'pack_mode'}`.
+    struct_packs: FxHashMap<TypeId, u8>,
     /// Enumerations declared `{attribute 'to_string'}` (specification 07 §2.7).
     named_text_types: FxHashSet<TypeId>,
     /// Extends relationships retained as semantic reference records.
@@ -118,6 +120,7 @@ impl SymbolTable {
             types: FxHashMap::default(),
             named_value_types: FxHashSet::default(),
             overlapping_struct_types: FxHashSet::default(),
+            struct_packs: FxHashMap::default(),
             named_text_types: FxHashSet::default(),
             extends: FxHashMap::default(),
             implements: FxHashMap::default(),
@@ -134,6 +137,7 @@ impl SymbolTable {
             .push(Scope::new(ScopeId::GLOBAL, ScopeKind::Global, None, None));
         table.register_builtin_types();
         table.register_builtin_function_blocks();
+        table.register_builtin_system_types();
         table
     }
 
@@ -639,6 +643,21 @@ impl SymbolTable {
             .contains(&self.resolve_alias_type(type_id))
     }
 
+    /// Records the pack mode of a structure declared with `{attribute 'pack_mode'}`
+    /// (specification 02 §3.5.2).
+    pub fn register_struct_pack(&mut self, type_id: TypeId, mode: u8) {
+        self.struct_packs.insert(type_id, mode);
+    }
+
+    /// The pack mode of the structure a type resolves to, when it is declared with
+    /// `{attribute 'pack_mode'}`.
+    #[must_use]
+    pub fn struct_pack(&self, type_id: TypeId) -> Option<u8> {
+        self.struct_packs
+            .get(&self.resolve_alias_type(type_id))
+            .copied()
+    }
+
     /// Registers an array type.
     pub fn register_array_type(&mut self, element: TypeId, dimensions: Vec<(i64, i64)>) -> TypeId {
         // Generate a unique name for the array type
@@ -856,6 +875,16 @@ impl SymbolTable {
             return enum_member_type(symbol.type_id);
         }
 
+        // A type registered under the exact name, as the system type `__SYSTEM.ExceptionCode` is,
+        // which no symbol names.
+        if let Some(found) = self
+            .type_names
+            .get(&normalize_name(type_name))
+            .copied()
+            .and_then(enum_member_type)
+        {
+            return Some(found);
+        }
         let suffix = format!(".{}", normalize_name(type_name));
         let candidates: Vec<TypeId> = self
             .type_names

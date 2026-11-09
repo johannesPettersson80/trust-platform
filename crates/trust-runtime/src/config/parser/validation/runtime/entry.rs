@@ -105,6 +105,7 @@ impl RuntimeToml {
             control_endpoint: control.endpoint.map(SmolStr::new),
             control_auth_token: parsed_control.auth_token,
             control_debug_enabled: parsed_control.debug_enabled,
+            control_start_paused: parsed_control.start_paused,
             control_mode: parsed_control.mode,
             log_level: SmolStr::new(log.level),
             event_capacity: events.and_then(|events| events.capacity),

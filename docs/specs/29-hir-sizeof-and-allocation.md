@@ -22,6 +22,11 @@ type syntax.
 On a 32-bit target the pointer/reference handle size is 4 bytes; on a 64-bit
 target it is 8 bytes.
 
+A structure's size is the sum of its members' sizes. A structure whose members
+have relative addresses spans to the end of its last member (specification 02
+§3.6), and a structure with `{attribute 'pack_mode'}` is laid out by its pack
+mode, its padding included (specification 02 §3.5.2).
+
 `SIZEOF(STRING[n])` is `n` and `SIZEOF(WSTRING[n])` is `2n`. A `STRING` or
 `WSTRING` declared without a length is `STRING[80]` or `WSTRING[80]`, so its
 size is 80 or 160 (`docs/IEC_DECISIONS.md` 2026-10-17).

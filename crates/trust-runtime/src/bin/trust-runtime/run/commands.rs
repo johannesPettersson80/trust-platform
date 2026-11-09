@@ -5,6 +5,8 @@ pub struct PlayOptions {
     pub beginner: bool,
     pub simulation: bool,
     pub time_scale: u32,
+    /// `--paused`: start paused, before the first scan, until `resume`.
+    pub paused: bool,
 }
 
 pub fn run_default(verbose: bool) -> anyhow::Result<()> {
@@ -15,6 +17,7 @@ pub fn run_default(verbose: bool) -> anyhow::Result<()> {
         beginner: false,
         simulation: false,
         time_scale: 1,
+        paused: false,
     };
     match detect_bundle_path(None) {
         Ok(path) => run_play(Some(path), default_options),
@@ -65,6 +68,7 @@ pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Resul
         options.beginner,
         options.simulation,
         options.time_scale,
+        options.paused,
     )
 }
 

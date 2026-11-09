@@ -9,6 +9,7 @@
 //! - WHILE/DO/END_WHILE
 //! - REPEAT/UNTIL/END_REPEAT
 //! - RETURN, EXIT, CONTINUE
+//! - CODESYS's `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY` (specification 06 §15)
 //! - Empty statement: `;`
 
 use crate::lexer::TokenKind;
@@ -31,6 +32,8 @@ impl Parser<'_, '_> {
             self.parse_repeat_stmt();
         } else if self.at(TokenKind::KwReturn) {
             self.parse_return_stmt();
+        } else if self.at(TokenKind::KwTryDunder) {
+            self.parse_try_stmt();
         } else if self.at(TokenKind::KwExit) {
             self.start_node(SyntaxKind::ExitStmt);
             self.bump();
@@ -126,6 +129,61 @@ impl Parser<'_, '_> {
         }
 
         self.finish_node();
+    }
+
+    /// Parse CODESYS's exception handling (specification 06 §15): `__TRY`, its statements, an optional
+    /// `__CATCH(variable)` clause and an optional `__FINALLY` clause, at least one of the two, then
+    /// `__ENDTRY`.
+    fn parse_try_stmt(&mut self) {
+        self.start_node(SyntaxKind::TryStmt);
+        self.bump(); // __TRY
+        self.parse_statements_before(&[
+            TokenKind::KwCatchDunder,
+            TokenKind::KwFinallyDunder,
+            TokenKind::KwEndTryDunder,
+        ]);
+        let mut clauses = 0;
+        if self.at(TokenKind::KwCatchDunder) {
+            clauses += 1;
+            self.start_node(SyntaxKind::CatchClause);
+            self.bump(); // __CATCH
+            if self.at(TokenKind::LParen) {
+                self.bump();
+                self.parse_expression();
+                if self.at(TokenKind::RParen) {
+                    self.bump();
+                } else {
+                    self.error("expected ')' after the exception variable");
+                }
+            } else {
+                self.error("expected '(' and the exception variable after __CATCH");
+            }
+            self.parse_statements_before(&[TokenKind::KwFinallyDunder, TokenKind::KwEndTryDunder]);
+            self.finish_node();
+        }
+        if self.at(TokenKind::KwFinallyDunder) {
+            clauses += 1;
+            self.start_node(SyntaxKind::FinallyClause);
+            self.bump(); // __FINALLY
+            self.parse_statements_before(&[TokenKind::KwEndTryDunder]);
+            self.finish_node();
+        }
+        if clauses == 0 {
+            self.error("expected __CATCH or __FINALLY before __ENDTRY");
+        }
+        if self.at(TokenKind::KwEndTryDunder) {
+            self.bump();
+        } else {
+            self.error("expected __ENDTRY");
+        }
+        self.finish_node();
+    }
+
+    /// Parses statements up to one of `ends`, the end of the input or the end of the statement list.
+    fn parse_statements_before(&mut self, ends: &[TokenKind]) {
+        while !ends.iter().any(|end| self.at(*end)) && !self.at_end() && !self.at_stmt_list_end() {
+            self.parse_statement();
+        }
     }
 
     fn parse_label_stmt(&mut self) {

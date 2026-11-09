@@ -2141,6 +2141,7 @@ pub trust_runtime::config::RuntimeConfig::control_auth_token: core::option::Opti
 pub trust_runtime::config::RuntimeConfig::control_debug_enabled: bool
 pub trust_runtime::config::RuntimeConfig::control_endpoint: smol_str::SmolStr
 pub trust_runtime::config::RuntimeConfig::control_mode: trust_runtime::config::ControlMode
+pub trust_runtime::config::RuntimeConfig::control_start_paused: bool
 pub trust_runtime::config::RuntimeConfig::cycle_interval: trust_runtime_core::value::datetime::Duration
 pub trust_runtime::config::RuntimeConfig::deploy: trust_runtime::config::DeployConfig
 pub trust_runtime::config::RuntimeConfig::discovery: trust_runtime::config::DiscoveryConfig
@@ -4588,6 +4589,11 @@ pub trust_runtime::program_model::stmt::Stmt::Repeat::until: trust_runtime_core:
 pub trust_runtime::program_model::stmt::Stmt::Return
 pub trust_runtime::program_model::stmt::Stmt::Return::expr: core::option::Option<trust_runtime_core::program_model::expr::Expr>
 pub trust_runtime::program_model::stmt::Stmt::Return::location: core::option::Option<trust_runtime::debug::SourceLocation>
+pub trust_runtime::program_model::stmt::Stmt::Try
+pub trust_runtime::program_model::stmt::Stmt::Try::body: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
+pub trust_runtime::program_model::stmt::Stmt::Try::catch: core::option::Option<(trust_runtime_core::program_model::expr::LValue, alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>)>
+pub trust_runtime::program_model::stmt::Stmt::Try::finally: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
+pub trust_runtime::program_model::stmt::Stmt::Try::location: core::option::Option<trust_runtime::debug::SourceLocation>
 pub trust_runtime::program_model::stmt::Stmt::While
 pub trust_runtime::program_model::stmt::Stmt::While::body: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
 pub trust_runtime::program_model::stmt::Stmt::While::condition: trust_runtime_core::program_model::expr::Expr
@@ -4655,6 +4661,11 @@ pub trust_runtime::program_model::Stmt::Repeat::until: trust_runtime_core::progr
 pub trust_runtime::program_model::Stmt::Return
 pub trust_runtime::program_model::Stmt::Return::expr: core::option::Option<trust_runtime_core::program_model::expr::Expr>
 pub trust_runtime::program_model::Stmt::Return::location: core::option::Option<trust_runtime::debug::SourceLocation>
+pub trust_runtime::program_model::Stmt::Try
+pub trust_runtime::program_model::Stmt::Try::body: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
+pub trust_runtime::program_model::Stmt::Try::catch: core::option::Option<(trust_runtime_core::program_model::expr::LValue, alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>)>
+pub trust_runtime::program_model::Stmt::Try::finally: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
+pub trust_runtime::program_model::Stmt::Try::location: core::option::Option<trust_runtime::debug::SourceLocation>
 pub trust_runtime::program_model::Stmt::While
 pub trust_runtime::program_model::Stmt::While::body: alloc::vec::Vec<trust_runtime::program_model::stmt::Stmt>
 pub trust_runtime::program_model::Stmt::While::condition: trust_runtime_core::program_model::expr::Expr

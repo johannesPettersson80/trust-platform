@@ -17,11 +17,22 @@ pub enum ControlAction {
     StepOver,
     StepOut,
     /// Set the breakpoints of a source file, in place of its earlier ones. Lines are one-based,
-    /// as an editor shows them, and so are the lines and columns the reply prints.
+    /// as an editor shows them, and so are the lines and columns the reply prints. The options
+    /// apply to each line; a condition and a log message's parts are debug expressions, compiled
+    /// with the types of the project (specification 11 §6.13.2).
     BreakpointsSet {
         source: String,
         #[arg(value_parser = clap::value_parser!(u32).range(1..))]
         lines: Vec<u32>,
+        /// Stop only where this debug expression is TRUE.
+        #[arg(long)]
+        condition: Option<String>,
+        /// Stop only at the hits this counts: `=N`, `>=N` or `>N`.
+        #[arg(long)]
+        hit_condition: Option<String>,
+        /// Log this message instead of stopping; each `{expression}` in it gives its value.
+        #[arg(long)]
+        log_message: Option<String>,
     },
     BreakpointsClear {
         source: String,
@@ -53,6 +64,18 @@ pub enum ControlAction {
     Eval {
         expr: String,
     },
+    /// Evaluate a debug expression, compiled with the types of the project: in the held program,
+    /// in the frame `--frame` names (an id `stack` prints), or between scans in the last scan
+    /// (`debug.evaluate`; specification 11 §6.13.2).
+    Evaluate {
+        expr: String,
+        /// The frame whose names the expression reads.
+        #[arg(long)]
+        frame: Option<u32>,
+    },
+    /// Print the compiled form of a debug expression, as `evaluate` and a breakpoint's condition
+    /// send it, without sending anything.
+    CompileExpression { expr: String },
     Set {
         target: String,
         value: String,

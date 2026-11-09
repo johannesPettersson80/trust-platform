@@ -466,6 +466,54 @@ function-block inheritance model restricted to field structure:
   feature; it is documented vendor parity, not a deviation from a cited IEC
   requirement.
 
+### 3.5.2 Packed structures (`pack_mode`, vendor extension)
+```
+{attribute 'pack_mode' := '1'}
+TYPE Telegram :
+STRUCT
+  Flag  : BOOL;  // byte 0
+  Value : INT;   // bytes 1 and 2
+  Ready : BOOL;  // byte 3
+  Done  : BOOL;  // byte 4
+END_STRUCT
+END_TYPE
+```
+
+The attribute `pack_mode` before the `TYPE` keyword of a block that declares a structure gives the
+addresses of its members, as CODESYS packs a structure (its online help, "Attribute 'pack_mode'").
+IEC 61131-3 leaves a pragma's effect to the implementer (§6.2), so it applies under every profile.
+
+**Rules**:
+- The pack mode is `0`, `1`, `2`, `4` or `8`; any other value is an error (E304).
+- Each member lies at the first address after the member before it that its alignment divides:
+  the smaller of the member's own alignment and the pack mode's, which is 1 for `0` and `1` and
+  the pack mode otherwise. A member's own alignment is its size for an elementary type, an
+  enumeration or a subrange, 1 for a `STRING`, 2 for a `WSTRING`, the address width for a
+  reference or a pointer, its element's for an array, and the structure's alignment for a
+  structure. A structure without the attribute is aligned to the largest alignment of its members.
+- The packed structure's alignment is the largest alignment its members lie at, and its size is the
+  end of its last member rounded up to that alignment, so that each element of an array of it
+  starts at that alignment.
+- CODESYS's examples: with `1`, `Telegram` above takes bytes 0, 1 to 2, 3 and 4, 5 bytes; with `2`,
+  bytes 0, 2 to 3, 4 and 5, 6 bytes. `BOOL`, `BYTE`, `WORD`, `BYTE`, `DWORD`, `BYTE`, `BYTE`,
+  `DWORD` start at bytes 0, 1, 2, 4, 5, 9, 10, 11 (15 bytes) with `0` or `1`; at 0, 1, 2, 4, 6, 10,
+  11, 12 (16 bytes) with `2`; and at 0, 1, 2, 4, 8, 12, 13, 16 (20 bytes) with `4` or `8`.
+- The layout is what a program sees of the structure. `SIZEOF` gives its size (specification 29
+  §1), counting a `STRING[n]` as `n` bytes, where CODESYS counts `n + 1`. In a `STRUCT OVERLAP`'s
+  backing (§3.6) and at a direct address (specification 10, relative structured-field addresses)
+  its members lie at these addresses, a `BOOL` at bit 0 of its byte, and its extent is its size.
+  The structure's storage in a running program keeps the natural layout (specification 44 §7.2),
+  which no program observes, since truST has no pointer arithmetic (§4.2).
+- A structure without the attribute keeps its rules: `SIZEOF` adds its members' sizes, and it lies
+  in a backing and at a direct address as §3.6 and specification 10 say.
+- The members of a `STRUCT OVERLAP` and the relatively addressed members of a structure (§3.6) lie
+  at their relative addresses; the attribute does not move them.
+- A packed structure may hold a structure without the attribute, which keeps its own layout inside
+  it, aligned to the smaller of its alignment and the pack mode's. CODESYS's help says "A packed
+  structure must not contain an unpacked structure"; truST accepts one, whose layout is defined.
+- A structure derived with `EXTENDS` (§3.5.1) is packed by its own attribute, the members of its
+  base, which lie first, included.
+
 ### 3.6 Structures with Relative Addressing (Section 6.4.4.7)
 
 ```
@@ -503,7 +551,8 @@ END_TYPE
   overlaps two structures). It lies in the backing as the bytes of its own
   layout: a structure's fields at their relative addresses, or at their offsets
   in the structure when it declares none, a `BOOL` without a relative address
-  taking its whole byte. Its fields and elements read and write those bytes, an
+  taking its whole byte, and a packed structure's at the addresses its pack mode gives (§3.5.2).
+  Its fields and elements read and write those bytes, an
   index outside an array faults as any index does, and assigning the whole field
   copies it field by field from or into a value of its type. A string is no
   field of an `OVERLAP` structure: "Overlapping of strings is beyond the scope of

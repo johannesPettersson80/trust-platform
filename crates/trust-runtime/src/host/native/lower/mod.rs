@@ -14,6 +14,7 @@ mod conversions;
 mod dates;
 mod effects;
 mod enable;
+mod exceptions;
 mod expr;
 mod functions;
 mod jumps;
@@ -115,6 +116,8 @@ pub(super) struct Lowerer<'m, 'a> {
     indent: usize,
     temps: u32,
     loops: Vec<LoopLabels>,
+    /// For each closure of a `__TRY` construct the statement lies in, the flows its statements returned.
+    try_flows: Vec<exceptions::TryFlows>,
     labels: u32,
     /// Whether statements call the statement hook (specification 44 §13.2).
     hooks: bool,
@@ -215,6 +218,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             indent: 1,
             temps: 0,
             loops: Vec::new(),
+            try_flows: Vec::new(),
             labels: 0,
             hooks,
             statements: Vec::new(),
@@ -398,21 +402,20 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             SyntaxKind::WhileStmt => self.while_statement(node),
             SyntaxKind::RepeatStmt => self.repeat_statement(node),
             SyntaxKind::ExitStmt => {
-                let Some(labels) = self.loops.last() else {
+                let Some(leave) = self.leave_loop(true) else {
                     return Err(self.unsupported(node, "EXIT outside a loop"));
                 };
-                let exit = labels.exit.clone();
-                self.line(&format!("break {exit};"));
+                self.line(&leave);
                 Ok(())
             }
             SyntaxKind::ContinueStmt => {
-                let Some(labels) = self.loops.last() else {
+                let Some(leave) = self.leave_loop(false) else {
                     return Err(self.unsupported(node, "CONTINUE outside a loop"));
                 };
-                let next = labels.next.clone();
-                self.line(&format!("break {next};"));
+                self.line(&leave);
                 Ok(())
             }
+            SyntaxKind::TryStmt => self.try_statement(node),
             SyntaxKind::ReturnStmt => self.return_statement(node),
             SyntaxKind::JmpStmt => self.jump(node),
             SyntaxKind::LabelStmt => self.labelled(node),
@@ -947,6 +950,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             self.store(&result, &value)?;
         }
         let exit = self.exit.clone();
+        self.note_return();
         self.line(&exit);
         Ok(())
     }

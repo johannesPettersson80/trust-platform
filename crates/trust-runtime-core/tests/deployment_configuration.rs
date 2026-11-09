@@ -90,6 +90,7 @@ fn small_configuration() -> Configuration {
         resource_name: "RES".into(),
         cycle_interval_nanos: 10_000_000,
         control_debug_enabled: false,
+        control_start_paused: false,
         control_mode: ControlMode::Production,
         log_level: LogLevel::Info,
         event_capacity: 0,
@@ -125,6 +126,7 @@ fn full_configuration() -> Configuration {
         resource_name: "Line 4".into(),
         cycle_interval_nanos: 25_000_000,
         control_debug_enabled: true,
+        control_start_paused: false,
         control_mode: ControlMode::Debug,
         log_level: LogLevel::Trace,
         event_capacity: 200,
@@ -345,8 +347,9 @@ fn a_configuration_with_a_bad_code_flag_bit_or_text_is_refused() {
     rejected_field(40, 2, "the task overrides");
     rejected_field(53, 4, "an I/O address");
     rejected_field(54, 6, "an I/O address");
-    // A flag other than 0 or 1.
-    rejected_field(12, 2, "the control debug flag");
+    // A flag other than 0 or 1, and control flags with a bit above bit 1 (debug enabled, start
+    // paused).
+    rejected_field(12, 4, "the control flags");
     rejected_field(48, 2, "the driver enabled flag");
     rejected_field(67, 2, "the GPIO output invert flag");
     rejected_field(68, 2, "the GPIO output initial flag");
@@ -556,4 +559,34 @@ fn section_8_refuses_another_count_or_a_text_that_is_not_utf8() {
         DeploymentRecord::decode(&raw(RECORD_VERSION, 8, &parts)).expect_err("not UTF-8"),
         Error::Field("a driver's parameters")
     );
+}
+
+#[test]
+fn section_7_carries_start_paused_in_bit_1_of_the_control_flags() {
+    // Specification 34 §5.1.1, section 7: the control byte after the resource name and the cycle
+    // interval holds `debug_enabled` in bit 0 and `start_paused` in bit 1. Worked by hand: debug
+    // alone 1, both 3, start paused alone 2. Wrong behaviour caught: the flag dropped from the
+    // section, written in another bit, or read back as debug.
+    for (debug, start_paused, byte) in [(true, false, 1_u8), (true, true, 3), (false, true, 2)] {
+        let mut configuration = full_configuration();
+        configuration.control_debug_enabled = debug;
+        configuration.control_start_paused = start_paused;
+        let at = 1 + configuration.resource_name.len() + 8;
+        let record = record_with(configuration);
+        let bytes = record.encode().expect("section 7 encodes the flags");
+        let parts = sections(&bytes);
+        let payload = &parts
+            .iter()
+            .find(|part| part.0 == CONFIGURATION_SECTION)
+            .expect("the record has section 7")
+            .2;
+        assert_eq!(
+            payload[at], byte,
+            "debug {debug}, start paused {start_paused}"
+        );
+        let decoded = DeploymentRecord::decode(&bytes).expect("the record decodes");
+        assert_eq!(decoded.configuration.control_debug_enabled, debug);
+        assert_eq!(decoded.configuration.control_start_paused, start_paused);
+        assert_eq!(decoded, record);
+    }
 }

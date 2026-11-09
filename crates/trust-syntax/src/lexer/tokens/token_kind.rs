@@ -214,6 +214,14 @@ pub enum TokenKind {
     KwIsValidRefDunder,
     #[token("__QUERYINTERFACE", ignore(case))]
     KwQueryInterfaceDunder,
+    #[token("__TRY", ignore(case))]
+    KwTryDunder,
+    #[token("__CATCH", ignore(case))]
+    KwCatchDunder,
+    #[token("__FINALLY", ignore(case))]
+    KwFinallyDunder,
+    #[token("__ENDTRY", ignore(case))]
+    KwEndTryDunder,
     #[token("IF", ignore(case))]
     KwIf,
     #[token("THEN", ignore(case))]

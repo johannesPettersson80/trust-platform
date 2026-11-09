@@ -156,6 +156,13 @@ fn lower_type_decl_node(
                 {
                     ctx.registry.register_overlapping_struct_type(type_id);
                 }
+                // `{attribute 'pack_mode' := 'n'}` before the block's `TYPE` keyword
+                // (specification 02 §3.5.2); trust-hir reports a value that is no pack mode.
+                if let Some(mode) = trust_hir::attributes::attribute_entry(node, "pack_mode")
+                    .and_then(|entry| trust_hir::types::parse_pack_mode(&entry.value))
+                {
+                    ctx.registry.register_struct_pack(type_id, mode);
+                }
                 last_type_id = Some(type_id);
             }
             SyntaxKind::UnionDef => {
@@ -434,6 +441,7 @@ pub(crate) fn lower_type_ref(
             SyntaxKind::Subrange => {
                 subrange = Some(child.clone());
             }
+            SyntaxKind::SystemName => return system_type(&child, ctx),
             _ => {}
         }
     }
@@ -565,4 +573,27 @@ pub(crate) fn interface_type_name(
         Type::Alias { target, .. } => interface_type_name(*target, registry),
         _ => None,
     }
+}
+
+/// CODESYS's system type `__SYSTEM.ExceptionCode` (specification 06 §15), registered once with the base
+/// `UDINT` and CODESYS's values, as trust-hir registers it.
+fn system_type(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<TypeId, CompileError> {
+    let name = node
+        .children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| token.kind() == SyntaxKind::Ident)
+        .map(|token| token.text().to_string())
+        .unwrap_or_default();
+    let type_name = trust_hir::symbols::system_type_name(&name)
+        .ok_or_else(|| CompileError::new(format!("unknown system type '__SYSTEM.{name}'")))?;
+    if let Some(type_id) = ctx.registry.lookup(type_name) {
+        return Ok(type_id);
+    }
+    let values = trust_hir::symbols::EXCEPTION_CODES
+        .iter()
+        .map(|(value, code)| (SmolStr::new(value), i64::from(*code)))
+        .collect();
+    Ok(ctx
+        .registry
+        .register_named_value_type(type_name, TypeId::UDINT, values))
 }

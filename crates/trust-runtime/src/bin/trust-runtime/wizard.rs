@@ -50,6 +50,7 @@ pub fn run_wizard(path: Option<PathBuf>, start: bool) -> anyhow::Result<()> {
             false,
             false,
             1,
+            false,
         )?;
     }
     Ok(())

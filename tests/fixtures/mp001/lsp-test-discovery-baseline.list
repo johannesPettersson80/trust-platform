@@ -68,6 +68,7 @@ handlers::tests::core::core_part_06::lsp_semantic_tokens_delta: test
 handlers::tests::core::core_part_06::lsp_semantic_tokens_use_utf16_start_and_length_after_supplementary_scalar: test
 handlers::tests::core::core_part_06::lsp_will_rename_files_updates_using_namespace: test
 handlers::tests::core::core_part_06::lsp_workspace_symbols: test
+handlers::tests::core::core_part_06::lsp_workspace_symbols_leave_out_the_built_ins: test
 handlers::tests::core::core_part_06::lsp_workspace_symbols_partial_result_token_returns_empty_final_response: test
 handlers::tests::core::core_part_06::lsp_workspace_symbols_respect_root_visibility_and_priority: test
 handlers::tests::core::core_part_07::lsp_inlay_hints_parameters: test

@@ -10,7 +10,10 @@ use super::super::{
     ControlRelayFeedbackPlan, ControllerMode, ExperimentModeBinding, ExperimentSample,
     ExperimentValue, PlanAuxiliarySignal, PlanInput, PlanSource, Quality,
 };
-use super::{accepted, manual, point, refusal, request, sample, setpoint_stop_conditions, signal};
+use super::{
+    accepted, level_guard, manual, point, refusal, request, sample, setpoint_stop_conditions,
+    signal,
+};
 use crate::experiment::trajectory::{experiment_trajectory, prbs_points};
 use crate::loop_definition::{AuxiliarySignal, ManualOutputType, Topology};
 use crate::recording::fixtures::{bound_loop, loop_definition, loop_with_disturbance};
@@ -76,6 +79,7 @@ fn a_concise_bounded_setpoint_plan_is_built_from_the_current_loop_evidence() {
             interval_ms: None,
             seed: None,
             frequencies_hz: None,
+            measurement_guard: Some(level_guard()),
         }
     );
 }
