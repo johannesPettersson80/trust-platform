@@ -28,16 +28,48 @@ impl SourceFile {
     }
 }
 
+/// One diagnostic of a compile, where it is (specification 11 §6.8.1c): the path of its source,
+/// its range as 1-based lines and columns, a column counted in UTF-16 code units as the language
+/// server and `trust-lsp check` count it, its code (`E101`), its severity and its message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceDiagnostic {
+    pub file: Option<String>,
+    pub line: u32,
+    pub column: u32,
+    pub end_line: u32,
+    pub end_column: u32,
+    pub code: &'static str,
+    pub severity: &'static str,
+    pub message: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct CompileError {
     message: String,
+    diagnostics: Vec<SourceDiagnostic>,
 }
 
 impl CompileError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            diagnostics: Vec::new(),
         }
+    }
+
+    /// The error of the sources' `diagnostics`, whose text is `message`.
+    pub fn of_diagnostics(message: impl Into<String>, diagnostics: Vec<SourceDiagnostic>) -> Self {
+        Self {
+            message: message.into(),
+            diagnostics,
+        }
+    }
+
+    /// The diagnostics the error reports, each where it is; none for an error that names no
+    /// place in the sources.
+    #[must_use]
+    pub fn diagnostics(&self) -> &[SourceDiagnostic] {
+        &self.diagnostics
     }
 }
 

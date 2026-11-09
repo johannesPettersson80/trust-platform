@@ -426,6 +426,7 @@ END_PROGRAM
                 "trust-lsp.hmiAgent.admitSimulatorLogin",
                 "trust-lsp.hmiAgent.runSimulatorJourney",
                 "trust-lsp.hmiAgent.cancelSimulatorJourney",
+                "trust-lsp.crossReferences",
             ]
         );
     }

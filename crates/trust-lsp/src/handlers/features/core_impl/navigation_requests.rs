@@ -268,7 +268,7 @@ pub fn document_highlight(
                 start: offset_to_position(&doc.content, reference.range.start().into()),
                 end: offset_to_position(&doc.content, reference.range.end().into()),
             },
-            kind: Some(if reference.is_write {
+            kind: Some(if reference.is_write() {
                 DocumentHighlightKind::WRITE
             } else {
                 DocumentHighlightKind::READ

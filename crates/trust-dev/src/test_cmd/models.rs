@@ -44,4 +44,12 @@ struct ExecutedTest {
     outcome: TestOutcome,
     message: Option<String>,
     duration_ms: u64,
+    /// The cycles a multi-cycle test ran (specification 22); `None` for a test that runs its body once.
+    cycles: Option<CyclesRun>,
+    /// The statement that raised the test's failure or error, as the runtime names it (specification 22):
+    /// `None` for a test that passed, for a failure that no statement raised, and for a release image.
+    failed_at: Option<trust_runtime::native::StatementAt>,
+    /// The failed assertion's values as the reports write them (specification 22): `None` for a test
+    /// that no assertion failed.
+    assertion: Option<serde_json::Value>,
 }

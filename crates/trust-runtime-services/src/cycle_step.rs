@@ -18,12 +18,14 @@ use serde_json::{json, Map, Value as JsonValue};
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::native::program::FailedAssertion;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{Duration, Value};
 
-pub use values::{encode_value, parse_typed_value};
+pub use values::{decode_value, encode_value, parse_typed_value, typed_value_text};
 
+use crate::debug::sources::StatementAt;
 use crate::ports::ResourcePort;
 use crate::protocol::ControlResponse;
 use crate::resource::replies::{
@@ -40,6 +42,7 @@ const MEMBERS: &[&str] = &[
     "watch",
     "watch_direct",
     "run",
+    "io",
 ];
 
 /// One stepped scan as its request asks for it.
@@ -62,6 +65,9 @@ pub struct StepRequest {
     /// The program instance whose body runs once in place of the scheduler's cycle, as a test
     /// program runs; none for a cycle of the scheduler.
     pub run: Option<SmolStr>,
+    /// The body of `run` runs with its inputs sampled before it and its outputs published after
+    /// it, as a scan runs its programs (specification 11 §6.8.1).
+    pub io: bool,
 }
 
 /// What a stepped scan read after it ran.
@@ -73,6 +79,11 @@ pub struct StepOutcome {
     pub direct: Vec<(SmolStr, Value)>,
     /// The error the scan ended with; none for a scan that completed.
     pub error: Option<RuntimeError>,
+    /// Where that error was raised, when a statement of a debug image raised it
+    /// (specification 11 §6.8.1).
+    pub error_at: Option<StatementAt>,
+    /// The values of the assertion whose failure ended the scan (specification 22).
+    pub assertion: Option<FailedAssertion>,
 }
 
 /// Why a step ran no scan, or why its result cannot be given.
@@ -216,7 +227,9 @@ pub fn request<H: ResourcePort>(id: u64, params: Option<&JsonValue>, host: &H) -
 }
 
 /// The result of a step: `{"time_ns", "values", "direct", "errors"}`, the values in the encoding of
-/// [`encode_value`] and `errors` the text of the error the scan ended with.
+/// [`encode_value`] and `errors` the text of the error the scan ended with; `error_at`, the file and
+/// line of the statement that raised it, and `assertion`, a failed assertion's values, when the
+/// outcome names them.
 #[must_use]
 pub fn reply(time: Duration, outcome: &StepOutcome) -> JsonValue {
     let encoded = |entries: &[(SmolStr, Value)]| {
@@ -225,12 +238,39 @@ pub fn reply(time: Duration, outcome: &StepOutcome) -> JsonValue {
             .map(|(name, value)| (name.to_string(), encode_value(value)))
             .collect::<BTreeMap<_, _>>()
     };
-    json!({
+    let mut result = json!({
         "time_ns": time.as_nanos(),
         "values": encoded(&outcome.values),
         "direct": encoded(&outcome.direct),
         "errors": outcome.error.iter().map(ToString::to_string).collect::<Vec<_>>(),
-    })
+    });
+    if let Some(at) = &outcome.error_at {
+        result["error_at"] = json!({"file": at.file.as_str(), "line": at.line});
+    }
+    if let Some(assertion) = &outcome.assertion {
+        result["assertion"] = assertion_json(assertion);
+    }
+    result
+}
+
+/// A failed assertion's values as `cycle.step`'s result and the test reports write them
+/// (specification 22): its `name` and each value it has, `expected`, `actual`, `bound` and
+/// `delta`, in the encoding of [`encode_value`].
+#[must_use]
+pub fn assertion_json(assertion: &FailedAssertion) -> JsonValue {
+    let mut object = Map::new();
+    object.insert("name".into(), json!(assertion.name));
+    for (key, value) in [
+        ("expected", &assertion.expected),
+        ("actual", &assertion.actual),
+        ("bound", &assertion.bound),
+        ("delta", &assertion.delta),
+    ] {
+        if let Some(value) = value {
+            object.insert(key.into(), encode_value(value));
+        }
+    }
+    JsonValue::Object(object)
 }
 
 /// The step `params` ask for, or why they are refused.
@@ -284,6 +324,13 @@ fn parse(params: Option<&JsonValue>) -> Result<StepRequest, String> {
                 .ok_or("run must name a program instance")?,
         )),
     };
+    let io = match params.get("io") {
+        None => false,
+        Some(io) => io.as_bool().ok_or("io must be true or false")?,
+    };
+    if io && run.is_none() {
+        return Err("io takes a run: a scan samples and publishes already".to_string());
+    }
     Ok(StepRequest {
         time,
         restart,
@@ -292,6 +339,7 @@ fn parse(params: Option<&JsonValue>) -> Result<StepRequest, String> {
         watch,
         watch_direct,
         run,
+        io,
     })
 }
 

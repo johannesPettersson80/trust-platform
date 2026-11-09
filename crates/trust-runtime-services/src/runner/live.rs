@@ -334,9 +334,9 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
 
     /// The Live Values of a compiled program reach its variables through the symbol table
     /// (specification 44 §13.3): the queued variable writes and the variable forces at the cycle
-    /// start, the queued image writes and the input and marker forces after the drivers read the
-    /// inputs, and the variable forces again and the output forces before the outputs reach the
-    /// drivers (specification 10 §4.7, steps 2 and 6).
+    /// start; the queued image writes, the variable forces again and the input and marker forces
+    /// after the drivers read the inputs; and the variable forces again and the marker and output
+    /// forces before the outputs reach the drivers (specification 10 §4.7, steps 2 and 6).
     fn on_compiled_access(
         &mut self,
         point: CompiledAccessPoint,
@@ -354,6 +354,7 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
                     }
                     CompiledAccessPoint::AfterInputs => apply::compiled_images(
                         &mut queues,
+                        generation,
                         &[IoArea::Input, IoArea::Memory],
                         variables,
                         now,
@@ -365,6 +366,7 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
                         apply::compiled_forces(&mut queues, generation, variables, now, self)?;
                         apply::compiled_images(
                             &mut queues,
+                            generation,
                             &[IoArea::Memory, IoArea::Output],
                             variables,
                             now,

@@ -6,6 +6,10 @@ fn symbols_in_scope(
     let mut items = Vec::new();
     let mut seen: FxHashSet<String> = FxHashSet::default();
     for symbol in filter.scope_symbols(scope_id) {
+        // CODESYS's `{attribute 'hide'}`: not offered, though code may name it (specification 14 §6.1.2).
+        if symbol.modifiers.hidden {
+            continue;
+        }
         if matches!(symbol.kind, SymbolKind::FunctionBlock)
             && stdlib_docs::is_standard_fb_name(symbol.name.as_str())
             && !stdlib_filter.allows_function_block(symbol.name.as_str())
@@ -57,6 +61,7 @@ fn symbols_in_scope(
 fn type_symbols(filter: &SymbolFilter<'_>) -> Vec<CompletionItem> {
     filter
         .type_symbols()
+        .filter(|symbol| !symbol.modifiers.hidden)
         .map(|symbol| CompletionItem::new(symbol.name.clone(), CompletionKind::Type))
         .collect()
 }
@@ -182,7 +187,8 @@ fn member_symbols_for_type(
         .members_in_hierarchy(owner_id, |symbol| is_member_symbol_kind(&symbol.kind))
         .into_iter()
         .filter(|symbol| {
-            is_member_visible(symbols, symbol, owner_id, current_owner, &current_namespace)
+            !symbol.modifiers.hidden
+                && is_member_visible(symbols, symbol, owner_id, current_owner, &current_namespace)
         })
         .filter_map(|symbol| completion_item_for_symbol(symbol, symbols, stdlib_filter))
         .collect()
@@ -441,7 +447,7 @@ fn using_scope_symbol_completions(
                 .iter()
                 .filter(|sym| sym.parent == Some(namespace_id))
             {
-                if matches!(symbol.kind, SymbolKind::Namespace) {
+                if matches!(symbol.kind, SymbolKind::Namespace) || symbol.modifiers.hidden {
                     continue;
                 }
                 if matches!(symbol.kind, SymbolKind::FunctionBlock)

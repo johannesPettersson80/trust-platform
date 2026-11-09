@@ -75,6 +75,8 @@ fn image() -> Vec<u8> {
             type_index: INT,
             area: 6,
             flags: 0,
+            noinit: false,
+            hidden: false,
             offset: 0,
             size: 2,
             parent: NONE,

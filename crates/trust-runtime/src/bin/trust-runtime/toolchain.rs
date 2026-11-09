@@ -1,9 +1,12 @@
 //! `trust-runtime toolchain`: the toolchain bundle of specification 44 §4.6. `status` names the
 //! toolchain the tools use, `install` installs this release's bundle (the one beside the tools,
-//! downloaded, or from a file), and `bundle` writes one from a development toolchain folder; the
-//! builds install the bundle on the first build that needs it through [`build_toolchain`].
+//! downloaded, or from a file), and `bundle` writes one from a development toolchain folder; a
+//! build that needs it and finds none installs this release's bundle only with the person's consent
+//! ([`build_toolchain`]).
 
+use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde_json::json;
 use trust_runtime::native::bundle::{self, Progress, TRUST_VERSION};
@@ -31,11 +34,68 @@ pub fn run_toolchain(action: ToolchainAction) -> anyhow::Result<()> {
     }
 }
 
-/// The toolchain of a build of `trust-runtime` (specification 44 §4.6): the one the tools find, or
-/// this release's bundle, installed now with its progress on the standard error.
+/// Whether `--install-toolchain` gave the consent of [`build_toolchain`] for this process.
+static INSTALL_CONSENT: AtomicBool = AtomicBool::new(false);
+
+/// `--install-toolchain`: a build installs the toolchain it needs without asking.
+pub fn consent_to_install() {
+    INSTALL_CONSENT.store(true, Ordering::Relaxed);
+}
+
+/// The toolchain of a build of `trust-runtime` (specification 44 §4.6, NX-08): the one the tools
+/// find; else this release's bundle, installed now with its progress on the standard error, with
+/// `--install-toolchain` or when the person answers yes in a terminal to the question that names
+/// where it comes from, its size and its folder. Nothing is installed silently: a build without
+/// either fails with the advice to install it.
+///
+/// # Errors
+///
+/// The error of a toolchain that is not there and not installed, or of the install.
 pub fn build_toolchain() -> Result<Toolchain, NativeError> {
+    let not_found = match Toolchain::find() {
+        Ok(toolchain) => return Ok(toolchain),
+        Err(error) if std::env::var_os("TRUST_TOOLCHAIN").is_some() => return Err(error),
+        Err(error) => error,
+    };
+    if !INSTALL_CONSENT.load(Ordering::Relaxed) && !agreed_in_terminal() {
+        let advice = match not_found {
+            NativeError::Toolchain(message) => message,
+            other => other.to_string(),
+        };
+        return Err(NativeError::Toolchain(format!(
+            "{advice}; or build again with `--install-toolchain`"
+        )));
+    }
     let mut progress = HumanProgress::default();
-    Toolchain::find_or_install(&mut |event| progress.report(&event))
+    let folder = bundle::install(&mut |event| progress.report(&event))?;
+    Toolchain::at(&folder)
+}
+
+/// Whether the person, asked in a terminal, agrees to install this release's bundle: the question
+/// names where it comes from, its size and its folder, and anything but yes declines. False
+/// without a terminal on the standard input and error, where nobody can answer.
+fn agreed_in_terminal() -> bool {
+    if !std::io::stdin().is_terminal() || !std::io::stderr().is_terminal() {
+        return false;
+    }
+    let folder = bundle::installed_folder().map_or_else(
+        || "truST's data folder".to_string(),
+        |folder| folder.display().to_string(),
+    );
+    eprint!(
+        "The truST toolchain {TRUST_VERSION} is not installed. It comes from the bundle beside the \
+         tools, or is downloaded once (about 180 to 210 MB), and takes about 630 MB in {folder}. \
+         Install it now? [y/N] "
+    );
+    // A question the person may not see is not asked: decline, as without a terminal.
+    if std::io::stderr().flush().is_err() {
+        return false;
+    }
+    let mut answer = String::new();
+    if std::io::stdin().lock().read_line(&mut answer).is_err() {
+        return false;
+    }
+    matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes")
 }
 
 fn status(json: bool) -> anyhow::Result<()> {
@@ -137,7 +197,7 @@ impl HumanProgress {
                 if !self.started {
                     self.started = true;
                     eprintln!(
-                        "Downloading the truST toolchain {TRUST_VERSION} (about 220 MB, once)..."
+                        "Downloading the truST toolchain {TRUST_VERSION} (about 180 to 210 MB, once)..."
                     );
                 }
                 let step = total.map_or(25 << 20, |total| (total / 10).max(1));

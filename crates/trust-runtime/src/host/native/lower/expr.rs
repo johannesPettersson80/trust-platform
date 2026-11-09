@@ -675,7 +675,11 @@ impl Lowerer<'_, '_> {
                     return Ok(self.region_value(&place, ty));
                 }
                 if place.ty != ty {
-                    return Err(self.unsupported(node, "an assignment between different types"));
+                    // A structure of a type that extends the wanted one (`TYPE Derived EXTENDS
+                    // Base`, specification 02 §3.5.1) gives its base part, which lies first in
+                    // it, as an assignment copies it (`store`); a call's input binding is that
+                    // copy (IEC §6.6.1.2.2).
+                    return self.base_part(node, place, ty);
                 }
                 Ok(place)
             }

@@ -200,6 +200,17 @@ pub trait ResourceCycle {
         source: RetainSource,
     ) -> Result<Vec<RetainApplyEvent>, RuntimeError>;
 
+    /// Leaves the installed program before another replaces it, a download: its instances'
+    /// `FB_exit` once it has run (specification 44 §6.7). The default leaves nothing, for a cycle
+    /// whose program has no exit.
+    ///
+    /// # Errors
+    ///
+    /// The fault of the exit, which the loop records; the program is replaced all the same.
+    fn leave(&mut self) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
     /// Restarts the task timing at logical time `now`: every task counts its next activation from
     /// `now`, which becomes the program's current time. Before the program's first scan this
     /// registers the tasks, and an event input (`SINGLE`) that is TRUE then makes no rising edge;

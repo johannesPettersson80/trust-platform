@@ -19,6 +19,7 @@ mod calls;
 mod compatibility;
 mod const_eval;
 mod expr;
+mod fb_init_args;
 mod helpers;
 mod literal_range;
 mod literals;
@@ -28,6 +29,7 @@ mod stmt;
 mod symbol_resolve;
 mod validation;
 
+pub(crate) use fb_init_args::check_fb_init_arguments;
 pub(crate) use literal_range::untyped_literal_out_of_range_message;
 pub(crate) use literals::{exact_int_literal_value, integer_type_range_fits, string_literal_info};
 pub use ops::{BinaryOp, UnaryOp};
@@ -70,6 +72,7 @@ pub struct TypeChecker<'a> {
     label_scopes: Vec<LabelScope>,
     expression_types: FxHashMap<(u32, u32), TypeId>,
     resolved_symbols: FxHashMap<(u32, u32), SymbolId>,
+    written_arguments: FxHashSet<(u32, u32)>,
 }
 
 pub(crate) struct ExprChecker<'a, 'b> {
@@ -142,6 +145,18 @@ impl<'a> TypeChecker<'a> {
 
     pub(crate) fn take_resolved_symbols(&mut self) -> FxHashMap<(u32, u32), SymbolId> {
         std::mem::take(&mut self.resolved_symbols)
+    }
+
+    pub(crate) fn take_written_arguments(&mut self) -> FxHashSet<(u32, u32)> {
+        std::mem::take(&mut self.written_arguments)
+    }
+
+    /// Records an argument expression that a call binds to an output or in-out parameter: the
+    /// call writes it (specification 28 §6, `crate::access`).
+    fn record_written_argument(&mut self, node: &SyntaxNode) {
+        let range = node.text_range();
+        self.written_arguments
+            .insert((u32::from(range.start()), u32::from(range.end())));
     }
 
     /// Records the symbol `node` resolved to: a name, a member, a call's callee or, for a call

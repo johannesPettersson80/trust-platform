@@ -9,13 +9,6 @@ fn p95(samples: &[Duration]) -> Duration {
 
 #[test]
 fn web_ide_reference_performance_gates_contract() {
-    if std::env::consts::ARCH != "x86_64" {
-        eprintln!(
-            "skipping x86_64 reference-environment performance budget on {}",
-            std::env::consts::ARCH
-        );
-        return;
-    }
     let _alone = MEASURING
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -155,35 +148,22 @@ fn web_ide_reference_performance_gates_contract() {
         typing_freeze_max = typing_freeze_max.max(started.elapsed());
     }
 
-    assert!(
-        p95(&boot_samples) <= Duration::from_millis(2500),
-        "boot-to-ready p95 exceeded 2.5s budget: {:?}",
-        p95(&boot_samples)
-    );
-    assert!(
-        p95(&completion_samples) <= Duration::from_millis(150),
-        "completion p95 exceeded 150ms budget: {:?}",
-        p95(&completion_samples)
-    );
-    assert!(
-        p95(&hover_samples) <= Duration::from_millis(150),
-        "hover p95 exceeded 150ms budget: {:?}",
-        p95(&hover_samples)
-    );
-    assert!(
-        p95(&diagnostics_samples) <= Duration::from_millis(300),
-        "diagnostics p95 exceeded 300ms budget: {:?}",
-        p95(&diagnostics_samples)
-    );
-    assert!(
-        p95(&search_samples) <= Duration::from_millis(400),
-        "workspace search p95 exceeded 400ms budget: {:?}",
-        p95(&search_samples)
-    );
-    assert!(
-        typing_freeze_max <= Duration::from_millis(800),
-        "typing freeze max exceeded 800ms budget: {:?}",
-        typing_freeze_max
+    for (what, samples, millis) in [
+        ("boot-to-ready p95", &boot_samples, 2500),
+        ("completion p95", &completion_samples, 150),
+        ("hover p95", &hover_samples, 150),
+        ("diagnostics p95", &diagnostics_samples, 300),
+        ("workspace search p95", &search_samples, 400),
+    ] {
+        let (measured, budget) = (p95(samples), Duration::from_millis(millis));
+        check_budget(what, measured <= budget, measured, budget);
+    }
+    let typing_budget = Duration::from_millis(800);
+    check_budget(
+        "typing freeze max",
+        typing_freeze_max <= typing_budget,
+        typing_freeze_max,
+        typing_budget,
     );
 
     let _ = std::fs::remove_dir_all(project);

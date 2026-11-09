@@ -5,6 +5,8 @@
 use text_size::{TextRange, TextSize};
 
 use smol_str::SmolStr;
+use std::sync::Arc;
+use trust_hir::access::{access_of, Access};
 use trust_hir::db::{FileId, SemanticDatabase};
 use trust_hir::{Database, SourceDatabase, SymbolId, Type, TypeId};
 use trust_syntax::parser::parse;
@@ -25,8 +27,17 @@ pub struct Reference {
     pub file_id: trust_hir::db::FileId,
     /// The range of the reference.
     pub range: TextRange,
-    /// Whether this reference is a write (assignment).
-    pub is_write: bool,
+    /// How the reference reaches the symbol: a read, a write or a call (specification 14 §6.3.2,
+    /// specification 28 §6).
+    pub access: Access,
+}
+
+impl Reference {
+    /// Whether the reference writes the symbol.
+    #[must_use]
+    pub fn is_write(&self) -> bool {
+        self.access == Access::Write
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -76,12 +87,20 @@ pub fn find_references(
                         options,
                     )
                 } else {
-                    find_references_to_symbol_across_project(
+                    let mut references = find_references_to_symbol_across_project(
                         db,
                         identity,
                         target_symbol.name.clone(),
                         options,
-                    )
+                    );
+                    let dispatched: Vec<SymbolIdentity> = symbols
+                        .implemented_interface_methods(symbol_id)
+                        .into_iter()
+                        .filter_map(|id| symbol_identity(symbols, id, file_id))
+                        .collect();
+                    let calls = dispatched_call_references(db, &dispatched, &references);
+                    references.extend(calls);
+                    references
                 }
             }
             ResolvedTarget::Field(field) => find_references_to_field(db, file_id, &field, options),
@@ -169,6 +188,36 @@ fn find_references_to_symbol_across_project(
     references
 }
 
+/// The calls through an interface variable that a method may receive (specification 14 §6.3.2):
+/// every use that the analysis resolved to one of the interface methods `dispatched` that it
+/// implements, in every file, leaving out a range already in `found`. The interfaces' own
+/// declarations are no references of the method.
+fn dispatched_call_references(
+    db: &Database,
+    dispatched: &[SymbolIdentity],
+    found: &[Reference],
+) -> Vec<Reference> {
+    let mut references: Vec<Reference> = Vec::new();
+    if dispatched.is_empty() {
+        return references;
+    }
+    for file_id in db.file_ids() {
+        let source = db.source_text(file_id);
+        let root = parse(&source).syntax();
+        for &identity in dispatched {
+            for reference in resolved_name_references(db, file_id, identity, &root) {
+                let known = found.iter().chain(references.iter()).any(|known| {
+                    known.file_id == reference.file_id && known.range == reference.range
+                });
+                if !known {
+                    references.push(reference);
+                }
+            }
+        }
+    }
+    references
+}
+
 fn find_references_to_symbol_in_file_by_identity(
     db: &Database,
     file_id: FileId,
@@ -179,6 +228,8 @@ fn find_references_to_symbol_in_file_by_identity(
     if !contains_ascii_case_insensitive(&source, target_name) {
         return Vec::new();
     }
+    // Only a file that names the symbol is analyzed for its written arguments.
+    let written = Arc::clone(&db.analyze(file_id).written_arguments);
     let parsed = parse(&source);
     let root = parsed.syntax();
     let symbols = db.file_symbols_with_project(file_id);
@@ -213,11 +264,11 @@ fn find_references_to_symbol_in_file_by_identity(
             &symbols,
         ) && symbol_identity(&symbols, resolved_id, file_id) == Some(identity)
         {
-            let is_write = is_write_context(&node);
+            let access = access_of(&node, &written);
             references.push(Reference {
                 file_id,
                 range: ref_range,
-                is_write,
+                access,
             });
         }
     }
@@ -230,15 +281,76 @@ fn find_references_to_symbol_in_file_by_identity(
             resolve_field_expr_member(db, file_id, &symbols, &root, &node)
             && symbol_identity(&symbols, member_id, file_id) == Some(identity)
         {
-            let is_write = is_write_context(&node);
+            let access = access_of(&node, &written);
             references.push(Reference {
                 file_id,
                 range,
-                is_write,
+                access,
             });
         }
     }
 
+    for reference in resolved_name_references(db, file_id, identity, &root) {
+        if !references
+            .iter()
+            .any(|known| known.range == reference.range)
+        {
+            references.push(reference);
+        }
+    }
+
+    references
+}
+
+/// The references of `file_id` that its analysis resolved to `identity`: the names, members and
+/// callees the type check resolved (`FileAnalysis::resolved_symbols`, which the compiled-program
+/// generator reads too), so that a global used through its namespace's qualifier (`GVL.level`) and
+/// a member or method reached through one count (specification 14 §6.3.2). A call's own entry, the
+/// POU whose parameters it binds, repeats its callee's and is left out. Ordered by offset.
+fn resolved_name_references(
+    db: &Database,
+    file_id: FileId,
+    identity: SymbolIdentity,
+    root: &SyntaxNode,
+) -> Vec<Reference> {
+    let analysis = db.analyze(file_id);
+    let mut references = Vec::new();
+    for (&(start, end), &symbol_id) in analysis.resolved_symbols.iter() {
+        if symbol_identity(&analysis.symbols, symbol_id, file_id) != Some(identity) {
+            continue;
+        }
+        let range = TextRange::new(TextSize::from(start), TextSize::from(end));
+        if !root.text_range().contains_range(range) {
+            continue;
+        }
+        let element = root.covering_element(range);
+        let covering = element
+            .clone()
+            .into_node()
+            .or_else(|| element.into_token().and_then(|token| token.parent()));
+        let Some(node) = covering.and_then(|node| {
+            node.ancestors()
+                .take_while(|node| node.text_range() == range)
+                .find(|node| matches!(node.kind(), SyntaxKind::NameRef | SyntaxKind::FieldExpr))
+        }) else {
+            continue;
+        };
+        let name = if node.kind() == SyntaxKind::NameRef {
+            node.descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .find(|token| token.kind() == SyntaxKind::Ident)
+        } else {
+            field_name_from_field_expr(&node)
+        };
+        if let Some(name) = name {
+            references.push(Reference {
+                file_id,
+                range: name.text_range(),
+                access: access_of(&node, &analysis.written_arguments),
+            });
+        }
+    }
+    references.sort_by_key(|reference| reference.range.start());
     references
 }
 
@@ -303,7 +415,7 @@ fn find_type_references_in_file_by_identity(
             references.push(Reference {
                 file_id,
                 range: ident_token.text_range(),
-                is_write: false,
+                access: Access::Read,
             });
         }
     }
@@ -317,7 +429,7 @@ fn declaration_reference(db: &Database, identity: SymbolIdentity) -> Option<Refe
     Some(Reference {
         file_id: identity.file_id,
         range: symbol.range,
-        is_write: false,
+        access: Access::Read,
     })
 }
 
@@ -344,6 +456,7 @@ fn find_references_to_symbol_in_context(
     root: &SyntaxNode,
     symbols: &trust_hir::symbols::SymbolTable,
 ) -> Vec<Reference> {
+    let written = Arc::clone(&db.analyze(file_id).written_arguments);
     let mut references = Vec::new();
 
     // Get the target symbol info
@@ -361,7 +474,7 @@ fn find_references_to_symbol_in_context(
         references.push(Reference {
             file_id,
             range: target_symbol.range,
-            is_write: false,
+            access: Access::Read,
         });
     }
 
@@ -398,11 +511,11 @@ fn find_references_to_symbol_in_context(
         if let Some(resolved_id) = symbols.resolve(ref_name, ref_scope)
             && resolved_id == symbol_id
         {
-            let is_write = is_write_context(&node);
+            let access = access_of(&node, &written);
             references.push(Reference {
                 file_id,
                 range: ref_range,
-                is_write,
+                access,
             });
         } else if let Some(action_id) = resolve_action_callee_target(symbols, root, &node, ref_name)
         {
@@ -410,11 +523,11 @@ fn find_references_to_symbol_in_context(
             // callees resolve through the owning POU's action children, not
             // through scopes, so scope lookup alone misses them.
             if action_id == symbol_id {
-                let is_write = is_write_context(&node);
+                let access = access_of(&node, &written);
                 references.push(Reference {
                     file_id,
                     range: ref_range,
-                    is_write,
+                    access,
                 });
             }
         }
@@ -428,22 +541,22 @@ fn find_references_to_symbol_in_context(
             resolve_field_expr_member(db, file_id, symbols, root, &node)
         {
             if member_id == symbol_id {
-                let is_write = is_write_context(&node);
+                let access = access_of(&node, &written);
                 references.push(Reference {
                     file_id,
                     range,
-                    is_write,
+                    access,
                 });
             }
         } else if let Some((qualified_id, range)) =
             resolve_field_expr_qualified_symbol(symbols, &node)
             && qualified_id == symbol_id
         {
-            let is_write = is_write_context(&node);
+            let access = access_of(&node, &written);
             references.push(Reference {
                 file_id,
                 range,
-                is_write,
+                access,
             });
         } else if let Some(action_id) = resolve_program_qualified_action_target(symbols, &node)
             && action_id == symbol_id
@@ -451,11 +564,11 @@ fn find_references_to_symbol_in_context(
         {
             // CODESYS program-qualified textual action calls
             // (`ProgramName.action_name()`).
-            let is_write = is_write_context(&node);
+            let access = access_of(&node, &written);
             references.push(Reference {
                 file_id,
                 range: member_name.text_range(),
-                is_write,
+                access,
             });
         }
     }
@@ -521,6 +634,7 @@ fn find_references_to_field_in_context(
     root: &SyntaxNode,
     symbols: &trust_hir::symbols::SymbolTable,
 ) -> Vec<Reference> {
+    let written = Arc::clone(&db.analyze(file_id).written_arguments);
     let mut references = Vec::new();
 
     if options.include_declaration {
@@ -528,7 +642,7 @@ fn find_references_to_field_in_context(
             references.push(Reference {
                 file_id,
                 range,
-                is_write: false,
+                access: Access::Read,
             });
         }
     }
@@ -553,7 +667,7 @@ fn find_references_to_field_in_context(
         references.push(Reference {
             file_id,
             range: field_name.text_range(),
-            is_write: is_write_context(&node),
+            access: access_of(&node, &written),
         });
     }
 
@@ -575,7 +689,7 @@ fn find_type_references_to_symbol(
         references.push(Reference {
             file_id,
             range: symbol.range,
-            is_write: false,
+            access: Access::Read,
         });
     }
 
@@ -596,7 +710,7 @@ fn find_type_references_to_symbol(
             references.push(Reference {
                 file_id,
                 range: ident_token.text_range(),
-                is_write: false,
+                access: Access::Read,
             });
         }
     }
@@ -793,26 +907,4 @@ fn symbol_identity(
             symbol_id,
         })
     }
-}
-
-/// Checks if a node is in a write context (LHS of assignment).
-fn is_write_context(expr: &SyntaxNode) -> bool {
-    let mut current = expr.clone();
-    while let Some(parent) = current.parent() {
-        if parent.kind() == SyntaxKind::AssignStmt {
-            if let Some(first_child) = parent.first_child() {
-                return first_child.text_range() == current.text_range();
-            }
-            return false;
-        }
-        if matches!(
-            parent.kind(),
-            SyntaxKind::FieldExpr | SyntaxKind::IndexExpr | SyntaxKind::DerefExpr
-        ) {
-            current = parent;
-            continue;
-        }
-        break;
-    }
-    false
 }

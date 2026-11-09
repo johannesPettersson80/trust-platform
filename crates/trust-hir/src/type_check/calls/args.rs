@@ -271,6 +271,14 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             }
         }
 
+        for (param, arg) in params.iter().zip(assigned.iter()) {
+            if let Some(arg) = arg
+                && matches!(param.direction, ParamDirection::Out | ParamDirection::InOut)
+            {
+                self.checker.record_written_argument(&arg.expr);
+            }
+        }
+
         BoundArgs {
             assigned,
             formal_call,

@@ -4,7 +4,7 @@
 use smol_str::SmolStr;
 
 use super::emit::{Generated, PouFrame, PouInstance};
-use super::front::{first_token_start, last_token_end, Front, StatementIds};
+use super::front::{Front, StatementIds};
 use super::init::StartingMemory;
 use super::model::Model;
 use super::module::Module;
@@ -13,16 +13,18 @@ use super::tools::Tool;
 use super::types::{Kind, Member, Ty, TypeInfo};
 use super::NativeError;
 use trust_plc_abi as abi;
-use trust_runtime_core::io_address::IoSize;
-use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::image::{
-    type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, Image, ImageWriter, IoBindRecord,
-    MemberDetail, MemoryFigure, Record, RetainRecord, SectionId, StmtRecord, StringPool,
-    SymbolRecord, TaskRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, NONE, SYMBOL_CONSTANT,
-    SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
+    type_kind, AreaRecord, Image, ImageWriter, MemberDetail, MemoryFigure, Record, RetainRecord,
+    SectionId, StringPool, SymbolRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, MEMBER_ALIAS,
+    MEMBER_HIDDEN, NONE, SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED,
+    TABLE_PREFIX_BYTES,
 };
 use trust_runtime_core::native::retain::payload_bound;
 use trust_runtime_core::native::tool::TOOL_SYMBOL_PREFIX;
+
+mod run_tables;
+
+use run_tables::{bindings, entries, statements, tasks};
 
 /// A symbol before the table is sorted.
 struct Pending {
@@ -31,6 +33,10 @@ struct Pending {
     type_index: u32,
     area: u8,
     flags: u8,
+    /// Marked `{attribute 'noinit'}` (§5.7; specification 10 §4.8).
+    noinit: bool,
+    /// Hidden from the lists a reader browses, `{attribute 'hide'}` (§5.7; specification 10 §4.8).
+    hidden: bool,
     offset: u32,
     size: u32,
     parent: Option<String>,
@@ -52,6 +58,10 @@ struct Variable {
     area: u8,
     offset: u32,
     flags: u8,
+    /// Marked `{attribute 'noinit'}` (§5.7; specification 10 §4.8).
+    noinit: bool,
+    /// Hidden from the lists a reader browses, `{attribute 'hide'}` (§5.7; specification 10 §4.8).
+    hidden: bool,
     parent: Option<String>,
     /// The POU that declares a frame variable (§5.7), [`NONE`] for any other variable.
     pou: u32,
@@ -71,6 +81,10 @@ impl Symbols<'_, '_> {
         } else {
             0
         };
+        // A function block's or class's own variables carry their declarations' marks; a member of
+        // a variable marked `noinit` needs none, as the variable's bytes hold it, and a member of a
+        // hidden variable is reached through no list, as the variable is listed nowhere.
+        let owner = self.model.types.owner_of(variable.ty);
         // A library block's own state (`__LAST` of a timer) is no variable the program declares:
         // the type table keeps it for its layout, the symbol table names none of it (§5.7).
         for member in members
@@ -88,6 +102,10 @@ impl Symbols<'_, '_> {
                 area: variable.area,
                 offset: variable.offset + member.offset,
                 flags: (variable.flags & SYMBOL_RETAINED) | member.flags,
+                noinit: owner
+                    .is_some_and(|owner| owner.declares_noinit(&self.model.types, &member.name)),
+                hidden: owner
+                    .is_some_and(|owner| owner.declares_hidden(&self.model.types, &member.name)),
                 parent: Some(variable.canonical.clone()),
                 pou: variable.pou,
             });
@@ -98,6 +116,8 @@ impl Symbols<'_, '_> {
             type_index: variable.ty.0,
             area: variable.area,
             flags: variable.flags | instance,
+            noinit: variable.noinit,
+            hidden: variable.hidden,
             offset: variable.offset,
             size: info.size,
             parent: variable.parent,
@@ -107,7 +127,7 @@ impl Symbols<'_, '_> {
 
     /// The globals, then each program instance with its variables and its retained variables.
     fn collect(&mut self) {
-        let globals: Vec<(SmolStr, Ty, bool, bool)> = self
+        let globals: Vec<(SmolStr, Ty, bool, bool, bool, bool)> = self
             .model
             .globals
             .iter()
@@ -117,10 +137,12 @@ impl Symbols<'_, '_> {
                     global.ty,
                     global.retained,
                     global.constant,
+                    global.noinit,
+                    global.hidden,
                 )
             })
             .collect();
-        for (name, ty, retained, constant) in globals {
+        for (name, ty, retained, constant, noinit, hidden) in globals {
             let (area, layout) = if retained {
                 (abi::AREA_RETAIN, &self.model.area_r)
             } else {
@@ -140,6 +162,8 @@ impl Symbols<'_, '_> {
                 area,
                 offset,
                 flags,
+                noinit,
+                hidden,
                 parent: None,
                 pou: NONE,
             });
@@ -171,20 +195,40 @@ impl Symbols<'_, '_> {
             .area_r
             .field(name)
             .map_or(0, |field| field.offset);
-        let (members, retained, size) = {
+        let (members, retained, size, noinit, hidden) = {
             let program = &self.model.program_types[program];
+            let names = |mark: fn(&crate::program_model::VarDef) -> bool| -> Vec<SmolStr> {
+                program
+                    .def
+                    .vars
+                    .iter()
+                    .filter(|var| mark(var))
+                    .map(|var| var.name.clone())
+                    .collect()
+            };
             (
                 program.members.clone(),
                 program.retained.clone(),
                 program.size,
+                names(|var| var.noinit),
+                names(|var| var.hidden),
             )
         };
+        let named = |names: &[SmolStr], member: &Member| {
+            names
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(&member.name))
+        };
+        let marked = |member: &Member| named(&noinit, member);
+        let concealed = |member: &Member| named(&hidden, member);
         self.pending.push(Pending {
             canonical: canonical.clone(),
             display: name.to_string(),
             type_index: type_count + u32::try_from(program).unwrap_or(0),
             area: abi::AREA_INSTANCES,
             flags: SYMBOL_PROGRAM,
+            noinit: false,
+            hidden: false,
             offset: p_offset,
             size,
             parent: None,
@@ -198,6 +242,8 @@ impl Symbols<'_, '_> {
                 area: abi::AREA_INSTANCES,
                 offset: p_offset + member.offset,
                 flags: member.flags,
+                noinit: marked(&member),
+                hidden: concealed(&member),
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -210,6 +256,8 @@ impl Symbols<'_, '_> {
                 area: abi::AREA_RETAIN,
                 offset: r_offset + member.offset,
                 flags: member.flags | SYMBOL_RETAINED,
+                noinit: marked(&member),
+                hidden: concealed(&member),
                 parent: Some(canonical.clone()),
                 pou: NONE,
             });
@@ -238,6 +286,8 @@ impl Symbols<'_, '_> {
                 type_index,
                 area: 0,
                 flags: 0,
+                noinit: false,
+                hidden: false,
                 offset: 0,
                 size: pou.size,
                 parent: None,
@@ -251,6 +301,8 @@ impl Symbols<'_, '_> {
                     area: abi::AREA_STACK,
                     offset: *offset,
                     flags: 0,
+                    noinit: false,
+                    hidden: var.hidden,
                     parent: Some(canonical.clone()),
                     pou: id,
                 });
@@ -270,6 +322,8 @@ impl Symbols<'_, '_> {
                 type_index: tool.interface.0,
                 area: 0,
                 flags: 0,
+                noinit: false,
+                hidden: false,
                 offset: 0,
                 size: tool.block.as_ref().map_or(0, |block| block.size),
                 parent: None,
@@ -286,6 +340,8 @@ impl Symbols<'_, '_> {
                     area: abi::AREA_STACK,
                     offset: part.offset,
                     flags: part.flags,
+                    noinit: false,
+                    hidden: false,
                     parent: Some(tool.canonical.clone()),
                     pou: NONE,
                 });
@@ -319,51 +375,6 @@ pub(super) struct Inputs<'g> {
 
 fn align8(value: usize) -> usize {
     value.div_ceil(8) * 8
-}
-
-/// The entry table, in the order of the generated entries: the program bodies by instance first;
-/// a tool entry's index is its tool symbol's in `sorted` (§5.4).
-fn entries(
-    writer: &mut ImageWriter,
-    inputs: &Inputs<'_>,
-    sorted: &Sorted,
-) -> Result<(), NativeError> {
-    let mut entries = Vec::with_capacity(inputs.generated.entries.len());
-    for entry in &inputs.generated.entries {
-        let Some(offset) = inputs.module.entries.get(&entry.symbol) else {
-            return Err(NativeError::Module(format!(
-                "no entry point {}",
-                entry.symbol
-            )));
-        };
-        let index = if entry.kind == EntryKind::Method {
-            inputs
-                .generated
-                .tools
-                .iter()
-                .find(|tool| {
-                    tool.block
-                        .as_ref()
-                        .is_some_and(|block| block.entry == entry.symbol)
-                })
-                .and_then(|tool| sorted.index(&tool.canonical))
-                .ok_or_else(|| {
-                    NativeError::Image(format!(
-                        "the tool entry {} has no tool symbol",
-                        entry.symbol
-                    ))
-                })?
-        } else {
-            entry.index
-        };
-        entries.push(EntryRecord {
-            kind: entry.kind as u32,
-            index,
-            code_offset: *offset,
-        });
-    }
-    writer.table(&entries, &[]);
-    Ok(())
 }
 
 /// The areas and their starting memory, in `INIT` in the order markers, globals, retain,
@@ -460,6 +471,8 @@ fn symbols(
             type_index: symbol.type_index,
             area: symbol.area,
             flags: symbol.flags,
+            noinit: symbol.noinit,
+            hidden: symbol.hidden,
             offset: symbol.offset,
             size: symbol.size,
             parent: symbol
@@ -484,141 +497,69 @@ fn symbols(
     Ok(sorted)
 }
 
-/// The I/O bindings, each to its variable's symbol.
-fn bindings(
-    writer: &mut ImageWriter,
-    pool: &mut StringPool,
-    model: &Model<'_>,
-    sorted: &Sorted,
-) -> Result<(), NativeError> {
-    let mut records = Vec::with_capacity(model.bindings.len());
-    for binding in &model.bindings {
-        let canonical = binding
-            .path
-            .iter()
-            .map(|part| part.to_ascii_uppercase())
-            .collect::<Vec<_>>()
-            .join(".");
-        let Some(symbol) = sorted.index(&canonical) else {
-            return Err(NativeError::Compile(format!(
-                "the binding of {} names no variable",
-                binding.path.join(".")
-            )));
-        };
-        let address = &binding.address;
-        let hierarchical = address.path.len() > 1;
-        records.push(IoBindRecord {
-            symbol,
-            area: match address.area {
-                IoArea::Input => 1,
-                IoArea::Output => 2,
-                IoArea::Memory => 3,
-            },
-            size: match address.size {
-                IoSize::Bit => 0,
-                IoSize::Byte => 1,
-                IoSize::Word => 2,
-                IoSize::DWord => 3,
-                IoSize::LWord => 4,
-                IoSize::Bytes(_) => {
-                    return Err(NativeError::unsupported("a byte window address".into()));
-                }
-            },
-            // A hierarchical address is its text, which the kernel parses (§5.6).
-            byte: if hierarchical {
-                pool.add(&address.to_string())
-            } else {
-                address.byte
-            },
-            bit: address.bit,
-            kind: if hierarchical {
-                trust_runtime_core::native::image::BIND_HIERARCHICAL
-            } else {
-                trust_runtime_core::native::image::BIND_FLAT
-            },
-            flags: binding.codec
-                | (binding.leaf << trust_runtime_core::native::image::BIND_OFFSET_SHIFT),
-        });
-    }
-    writer.table(&records, &[]);
-    Ok(())
-}
-
-/// The tasks with their program lists of entry indexes.
-fn tasks(
-    writer: &mut ImageWriter,
-    pool: &mut StringPool,
-    model: &Model<'_>,
-    inputs: &Inputs<'_>,
-    sorted: &Sorted,
-) {
-    let mut records = Vec::with_capacity(model.tasks.len());
-    let mut list = Vec::new();
-    for task in &model.tasks {
-        let first = u32::try_from(list.len() / 4).unwrap_or(u32::MAX);
-        for program in &task.programs {
-            let entry = inputs
-                .generated
-                .entries
-                .iter()
-                .position(|entry| {
-                    entry.kind == EntryKind::ProgramBody && entry.index as usize == *program
-                })
-                .and_then(|index| u32::try_from(index).ok())
-                .unwrap_or(NONE);
-            list.extend_from_slice(&entry.to_le_bytes());
-        }
-        // The function block instances it runs on their own, after its programs (IEC §6.8.2).
-        for block in &task.blocks {
-            let symbol = format!("trust_entry_b{block}");
-            let entry = inputs
-                .generated
-                .entries
-                .iter()
-                .position(|entry| entry.symbol == symbol)
-                .and_then(|index| u32::try_from(index).ok())
-                .unwrap_or(NONE);
-            list.extend_from_slice(&entry.to_le_bytes());
-        }
-        records.push(TaskRecord {
-            name: pool.add(&task.name),
-            interval_ns: task.interval_ns,
-            priority: task.priority,
-            single: task
-                .single
-                .as_deref()
-                .and_then(|name| sorted.index(&name.to_ascii_uppercase()))
-                .unwrap_or(NONE),
-            program_count: u32::try_from(task.programs.len() + task.blocks.len())
-                .unwrap_or(u32::MAX),
-            program_first: first,
-            flags: 0,
-        });
-    }
-    writer.table(&records, &list);
-}
-
 /// The detail of a structure's, function block's or program's members, at `base` plus its offset
-/// in `details`.
+/// in `details`; a member `hidden` names carries [`MEMBER_HIDDEN`] (§5.8).
 fn member_detail(
     pool: &mut StringPool,
     details: &mut Vec<u8>,
     base: usize,
     members: &[Member],
+    hidden: &dyn Fn(&Member) -> bool,
 ) -> u32 {
     let offset = u32::try_from(base + details.len()).unwrap_or(u32::MAX);
     for member in members {
+        let mark = if hidden(member) { MEMBER_HIDDEN } else { 0 };
         details.extend_from_slice(
             &MemberDetail {
                 name: pool.add(&member.name),
                 type_index: member.ty.0,
                 offset: member.offset,
-                flags: u32::from(member.flags),
+                flags: u32::from(member.flags) | mark,
             }
             .bytes(),
         );
     }
     offset
+}
+
+/// The aliases of a function block's or class's properties after its members (specification 44 §5.8):
+/// each the place and type of the variable its GET returns, with `MEMBER_ALIAS`, and constant unless
+/// its SET only assigns that variable. Returns how many it wrote.
+fn alias_detail(
+    pool: &mut StringPool,
+    details: &mut Vec<u8>,
+    model: &Model<'_>,
+    def: &str,
+    members: &[Member],
+) -> usize {
+    let Some(owner) = model.types.owner(def) else {
+        return 0;
+    };
+    let mut written = 0;
+    for alias in owner.property_aliases() {
+        let Some(member) = members
+            .iter()
+            .find(|member| member.name.eq_ignore_ascii_case(&alias.member))
+        else {
+            continue;
+        };
+        let constant = if alias.writable {
+            0
+        } else {
+            u32::from(SYMBOL_CONSTANT)
+        };
+        details.extend_from_slice(
+            &MemberDetail {
+                name: pool.add(&alias.name),
+                type_index: member.ty.0,
+                offset: member.offset,
+                flags: u32::from(member.flags) | constant | MEMBER_ALIAS,
+            }
+            .bytes(),
+        );
+        written += 1;
+    }
+    written
 }
 
 /// What follows a function block's or class's members in the detail (specification 44 §5.8): the
@@ -698,7 +639,7 @@ fn type_record(
         }
         Kind::Struct { members } => (
             type_kind::STRUCT,
-            member_detail(pool, details, base, members),
+            member_detail(pool, details, base, members, &|_| false),
             count(members.len()),
         ),
         // The members of a `STRUCT OVERLAP` share bytes; a `BOOL` is the type of its bit.
@@ -706,7 +647,7 @@ fn type_record(
             let members = model.types.overlap_members(members, bits);
             (
                 type_kind::STRUCT,
-                member_detail(pool, details, base, &members),
+                member_detail(pool, details, base, &members, &|_| false),
                 count(members.len()),
             )
         }
@@ -719,7 +660,12 @@ fn type_record(
             is_class,
             ..
         } => {
-            let detail = member_detail(pool, details, base, members);
+            let owner = model.types.owner(def);
+            let types = &model.types;
+            let detail = member_detail(pool, details, base, members, &|member| {
+                owner.is_some_and(|owner| owner.declares_hidden(types, &member.name))
+            });
+            let aliases = alias_detail(pool, details, model, def, members);
             let interfaces = model.types.implemented_interfaces(def);
             class_detail(pool, details, *extends, &interfaces);
             (
@@ -729,13 +675,13 @@ fn type_record(
                     type_kind::FUNCTION_BLOCK
                 },
                 detail,
-                count(members.len()),
+                count(members.len() + aliases),
             )
         }
         Kind::Interface => (type_kind::INTERFACE, 0, 0),
         Kind::StdFb(fb) => {
             let members = model.types.std_fb_members(*fb);
-            let detail = member_detail(pool, details, base, &members);
+            let detail = member_detail(pool, details, base, &members, &|_| false);
             class_detail(pool, details, None, &[]);
             (type_kind::FUNCTION_BLOCK, detail, count(members.len()))
         }
@@ -771,7 +717,14 @@ fn types(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_>)
         records.push(type_record(pool, &mut details, base, info, model));
     }
     for program in &model.program_types {
-        let detail = member_detail(pool, &mut details, base, &program.members);
+        let hidden = |member: &Member| {
+            program
+                .def
+                .vars
+                .iter()
+                .any(|var| var.hidden && var.name.eq_ignore_ascii_case(&member.name))
+        };
+        let detail = member_detail(pool, &mut details, base, &program.members, &hidden);
         records.push(TypeRecord {
             kind: type_kind::PROGRAM,
             name: pool.add(&program.def.name),
@@ -782,41 +735,6 @@ fn types(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_>)
         });
     }
     writer.table(&records, &details);
-}
-
-/// The statements in id order, with their files and positions, and the files.
-fn statements(writer: &mut ImageWriter, pool: &mut StringPool, inputs: &Inputs<'_>) {
-    let mut records = Vec::with_capacity(inputs.ids.order.len());
-    for (id, (file, node)) in inputs.ids.order.iter().enumerate() {
-        let source = &inputs.front.sources[*file];
-        let (start_line, start_column) = source.position(first_token_start(node));
-        let (end_line, end_column) = source.position(last_token_end(node));
-        records.push(StmtRecord {
-            file: u16::try_from(*file).unwrap_or(u16::MAX),
-            pou: inputs
-                .generated
-                .statement_pous
-                .get(id)
-                .copied()
-                .unwrap_or(u16::MAX),
-            start_line,
-            start_column: u16::try_from(start_column).unwrap_or(u16::MAX),
-            end_line,
-            end_column: u16::try_from(end_column).unwrap_or(u16::MAX),
-        });
-    }
-    writer.table(&records, &[]);
-    let files: Vec<FileRecord> = inputs
-        .front
-        .sources
-        .iter()
-        .map(|source| FileRecord {
-            label: pool.add(&source.label),
-            source_offset: NONE,
-            source_length: 0,
-        })
-        .collect();
-    writer.table(&files, &[]);
 }
 
 /// Writes every table of the image into `writer`, and returns the memory figure.
