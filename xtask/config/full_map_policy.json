@@ -36,6 +36,14 @@
     },
     {
       "from": "trust-dev",
+      "to": "trust-runtime-services",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "dev tooling test-support",
+      "rationale": "trust-dev's device tests answer cycle.step with the shared request rule (trust_runtime_services::cycle_step::request) behind a fake device link, so a test on a device is checked against the step handling a board runs (specification 22, T1b); the CLI itself reaches the services through trust-runtime."
+    },
+    {
+      "from": "trust-dev",
       "to": "trust-runtime",
       "kind": "normal",
       "status": "allowed",
