@@ -6,8 +6,9 @@ use std::path::Path;
 use super::file::PublishedEndpoint;
 use super::test_support::{tcp, Scratch};
 use super::{
-    binding_for, control_binding, project_control_endpoint_text, resolve_control_target,
-    resolve_with, ControlBinding, ControlTarget, ControlTargetError, EndpointSource, ENDPOINT_DIR,
+    binding_for, control_binding, device_token, project_control_endpoint_text,
+    resolve_control_target, resolve_with, ControlBinding, ControlTarget, ControlTargetError,
+    EndpointSource, ENDPOINT_DIR,
 };
 use crate::control::ControlEndpoint;
 use crate::error::RuntimeError;
@@ -758,4 +759,33 @@ fn the_unix_default_gets_no_generated_token_and_a_private_directory() {
         .permissions()
         .mode();
     assert_eq!(mode & 0o777, 0o700);
+}
+
+// The token of a device (spec 11, section 6.8.1; spec 34 PORT-06).
+
+/// The caller's token comes first, the project's `runtime.control.auth_token` stands in for a
+/// missing one, and the endpoint file that a runtime on this computer publishes is never read for a
+/// device. Catches a device sent the project's token over the one the caller named, a device sent
+/// no token although the project sets one (G92: the chip refused `clock.set` with `missing auth
+/// token`), and a device sent this computer's runtime's token.
+#[test]
+fn a_device_takes_the_callers_token_else_the_projects_and_never_the_published_one() {
+    let project = Scratch::new("device-token");
+    project
+        .write_runtime_toml("endpoint = \"tcp://127.0.0.1:9100\"\nauth_token = \"config-token\"");
+    project.publish_file("tcp://127.0.0.1:9200", 1, Some("published-token"));
+    assert_eq!(
+        device_token(Some(project.path()), Some("explicit-token")).expect("the token resolves"),
+        Some("explicit-token".to_string())
+    );
+    assert_eq!(
+        device_token(Some(project.path()), None).expect("the token resolves"),
+        Some("config-token".to_string())
+    );
+    let bare = Scratch::new("device-token-none");
+    assert_eq!(
+        device_token(Some(bare.path()), None).expect("the token resolves"),
+        None
+    );
+    assert_eq!(device_token(None, None).expect("the token resolves"), None);
 }

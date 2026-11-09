@@ -220,7 +220,8 @@ pub enum Visibility {
     Internal,
 }
 
-/// Modifiers applied to symbols (classes, methods, function blocks).
+/// Modifiers applied to symbols (classes, methods, function blocks), and the CODESYS attributes
+/// that change the rules of a declaration (specification 02 §3.1, specification 04 "Rules").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SymbolModifiers {
     /// FINAL modifier (class/function block/method).
@@ -229,6 +230,17 @@ pub struct SymbolModifiers {
     pub is_abstract: bool,
     /// OVERRIDE modifier (method).
     pub is_override: bool,
+    /// `{attribute 'qualified_only'}`: an enumeration type's values, or the globals of a
+    /// namespace's `VAR_GLOBAL` list, are named only qualified.
+    pub qualified_only: bool,
+    /// `{attribute 'strict'}`: an enumeration type keeps CODESYS's strict programming rules.
+    pub strict: bool,
+    /// `{attribute 'hide'}` on the declaration, or `{attribute 'hide_all_locals'}` on the POU that
+    /// holds a local: completion does not offer the symbol, which code may still name
+    /// (specification 14 §6.1.2).
+    pub hidden: bool,
+    /// `{attribute 'hide_all_locals'}` on a POU: its `VAR` locals are hidden.
+    pub hides_locals: bool,
 }
 
 /// Edge transformation applied to an accepted `VAR_INPUT BOOL` declaration.

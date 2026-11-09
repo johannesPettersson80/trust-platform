@@ -243,6 +243,14 @@ impl<'a> Owner<'a> {
         }
     }
 
+    /// The properties a name read reads as one of the owner's variables (specification 44 §5.8).
+    pub(in crate::native) fn property_aliases(self) -> &'a [crate::program_model::PropertyAlias] {
+        match self {
+            Self::Fb(def) => &def.property_aliases,
+            Self::Class(def) => &def.property_aliases,
+        }
+    }
+
     /// The name of the base it extends.
     fn base_name(self) -> Option<&'a SmolStr> {
         match self {
@@ -299,6 +307,40 @@ impl<'a> Owner<'a> {
             (Self::Class(a), Self::Class(b)) => std::ptr::eq(a, b),
             _ => false,
         }
+    }
+
+    /// Whether its variable `name`, an input or output of a function block included, is marked
+    /// `{attribute 'noinit'}`, where it or a type it extends declares it (specification 10 §4.8).
+    pub(in crate::native) fn declares_noinit(self, types: &Types<'a>, name: &str) -> bool {
+        let mut owner = Some(self);
+        while let Some(current) = owner {
+            let named = |declared: &str| declared.eq_ignore_ascii_case(name);
+            if let Some(var) = current.vars().iter().find(|var| named(&var.name)) {
+                return var.noinit;
+            }
+            if let Some(param) = current.params().iter().find(|param| named(&param.name)) {
+                return param.noinit;
+            }
+            owner = current.base_name().and_then(|base| types.owner(base));
+        }
+        false
+    }
+
+    /// Whether its variable `name`, an input or output of a function block included, is hidden from
+    /// the lists a reader browses, where it or a type it extends declares it (specification 10 §4.8).
+    pub(in crate::native) fn declares_hidden(self, types: &Types<'a>, name: &str) -> bool {
+        let mut owner = Some(self);
+        while let Some(current) = owner {
+            let named = |declared: &str| declared.eq_ignore_ascii_case(name);
+            if let Some(var) = current.vars().iter().find(|var| named(&var.name)) {
+                return var.hidden;
+            }
+            if let Some(param) = current.params().iter().find(|param| named(&param.name)) {
+                return param.hidden;
+            }
+            owner = current.base_name().and_then(|base| types.owner(base));
+        }
+        false
     }
 
     /// The Rust type of its instances.

@@ -151,6 +151,8 @@ fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool) {
         type_index: 0,
         area,
         flags,
+        noinit: false,
+        hidden: false,
         offset: 0,
         size,
         parent: NONE,

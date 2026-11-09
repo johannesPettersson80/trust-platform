@@ -52,6 +52,13 @@ pub(super) fn no_program(reason: &str) -> RuntimeError {
 }
 
 impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
+    fn leave(&mut self) -> Result<(), RuntimeError> {
+        match self {
+            Self::Installed(cycle) => cycle.leave(),
+            Self::Missing(_) => Ok(()),
+        }
+    }
+
     fn tasks(&self) -> Vec<TaskDescriptor> {
         match self {
             Self::Installed(cycle) => cycle.tasks(),

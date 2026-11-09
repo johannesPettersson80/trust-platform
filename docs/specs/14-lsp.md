@@ -176,6 +176,12 @@ workspace indexing.
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
 | Expression | Variables, literals, standard functions/FBs with IEC docs (IEC 61131-3 Ed.3, Tables 22-36, 43-46) |
 
+Completion does not offer a declaration that CODESYS hides from its Input Assistant and its "List components"
+(the vendor's help for `{attribute 'hide'}`): a variable, POU, method, property or action with `{attribute 'hide'}`
+before it (a variable's line, a POU's first line), nor the `VAR` locals of a POU with
+`{attribute 'hide_all_locals'}`. Code may still name them, as the vendor's help says ("without restricting the
+access"), and every other service treats them as before.
+
 #### 6.2 Diagnostics
 
 Diagnostics are delivered via both push (`textDocument/publishDiagnostics`) and pull (`textDocument/diagnostic`, `workspace/diagnostic`) APIs. Pull diagnostics return stable `resultId` values derived from content + diagnostic hashes, allowing unchanged responses when the client supplies the previous ID. On configuration/profile changes or workspace file updates, the server requests a refresh (`workspace/diagnostic/refresh`) when supported.
@@ -313,7 +319,17 @@ contract, including when a newer document or workspace request supersedes it.
   §3), so find references, rename and the call hierarchy's incoming calls agree with go to
   definition.
 - Include/exclude declaration
-- Filter by read/write
+- Each reference has its access, by the one rule of specification 28 §6 (`trust_hir::access`): a
+  write (an assignment's or a FOR loop's target, an argument that a call binds to an output or
+  in-out parameter), a call (a call's callee, or the instance whose body or method a call runs) or
+  a read. Document highlights mark the writes as writes and the rest as reads.
+- The `trust-lsp.crossReferences` command gives a symbol's cross-reference list, as CODESYS's
+  cross-reference list does, for a client without an editor as for one with it. Its argument is
+  the position, `{ "uri": ..., "position": { "line": ..., "character": ... } }`. Its answer names
+  the symbol and lists the declaration and every reference: `uri`, `range`, `access` (`declaration`,
+  `read`, `write` or `call`) and `pou`, the qualified name of the POU, method or action the
+  reference sits in (`FB_Tank.Start`), or null outside one. The entries are ordered by file and
+  offset. A position on no symbol answers null.
 
 ##### 6.3.3 Document Symbols
 

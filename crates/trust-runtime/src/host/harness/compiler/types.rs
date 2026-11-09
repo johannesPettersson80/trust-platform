@@ -198,6 +198,10 @@ fn lower_type_decl_node(
                 {
                     ctx.registry.mark_named_value_type(type_id);
                 }
+                // `{attribute 'to_string'}` before the `TYPE` keyword (specification 07 §2.7).
+                if trust_hir::attributes::declares_attribute(node, "to_string") {
+                    ctx.registry.mark_named_text_type(type_id);
+                }
                 last_type_id = Some(type_id);
             }
             SyntaxKind::ArrayType => {

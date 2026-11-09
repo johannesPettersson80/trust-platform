@@ -216,7 +216,10 @@ programs are instances that no task runs, the background programs' included
 only the project's own programs, and a test runs only when it is invoked. The
 device's limits are its own, its statement budget among them. The stepped scans keep one logical time across the
 tests (specification 11 §6.8.1), so each test starts where the previous test's last step was; a test's own time, which
-its timers measure and its result reports, starts there, as each test's time starts at zero on this computer.
+its timers measure and its result reports, starts there, as each test's time starts at zero on this computer. Every
+request of the link carries the device's control token when its settings set one (specification 34 PORT-06): `--token`,
+else `TRUST_CTL_TOKEN`, else the project's `runtime.control.auth_token`, the order of specification 11 §6.8.1; the token
+is never printed.
 A failed assertion's error, `assertion failed: <message>`,
 is the test's failure with that message, and any other error is the test's
 error, as on this computer.
@@ -296,7 +299,37 @@ and per-test status, source context, and duration. TAP output uses a version-13
 plan and reports each test by `TEST_PROGRAM::<name>` or
 `TEST_FUNCTION_BLOCK::<name>`, with source diagnostics for non-passing cases.
 JUnit output uses one compatibility suite named `trust-runtime`, reports
-separate failure and error counts, and XML-escapes diagnostic text.
+separate failure and error counts, and XML-escapes diagnostic text. Every
+format names a test's source file relative to the project folder, as
+`trust-lsp check` names its paths (specification 14 §7.7): written as the
+platform writes paths and without the verbatim prefix (`\\?\`) of a canonical
+Windows path, whether `--project` is relative or absolute; JSON's `project` is
+the folder's whole path in the same form.
+
+A test that fails or ends in error at a statement is reported at that
+statement: the failed assertion, or the statement whose error ended the test,
+which may lie in a function or function block the test calls. Its file,
+relative to the project folder as above, its line and its source line, trimmed,
+come from the statement table of the program image (specification 44 §8.6), on
+this computer as on a device, whose `cycle.step` names the statement
+(specification 11 §6.8.1). The human output's and TAP's file, line and source
+then name that statement. JSON and JUnit keep naming the test by its
+declaration's file and line, by which the editor ties a result to its test, and
+add the statement: JSON as the test's `failure` object (`file`, `line`,
+`source`), JUnit as an `at: <file>:<line>` line and its `source:` line in the
+failure's or the error's text. A failure that no statement raised, such as a
+timeout, and any failure of a program image without a statement table
+(`[build] debug = false`) are reported at the test's declaration.
+
+A failed assertion's values are reported in JSON as the test's `assertion`
+object: its `name` (`ASSERT_EQUAL`) and, as the assertion has them, its
+`expected` and `actual` values, the `bound` of a comparison, and the `delta` of
+`ASSERT_NEAR` (specification 07, MP-014). `ASSERT_TRUE` expects `TRUE` and
+`ASSERT_FALSE` `FALSE`, and a comparison's `VALUE` is its `actual`. Each value is
+typed as a conformance artifact writes a value (`{"type": "INT", "value": 2}`, a
+duration in `nanos`); `ASSERT_NEAR`'s values are the `LREAL` values it compared,
+and a value that does not read is left out. A device's run reports the object
+its `cycle.step` names (specification 11 §6.8.1), so both give the same values.
 
 Human output identifies every non-passing test with its kind, name, source
 path, line, duration, reason, and available source line, followed by an ordered

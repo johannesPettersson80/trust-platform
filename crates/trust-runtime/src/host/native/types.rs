@@ -66,6 +66,9 @@ pub(super) enum Kind {
         base: Elem,
         values: Vec<(SmolStr, i64)>,
         named: bool,
+        /// Declared `{attribute 'to_string'}`: `TO_STRING` writes a value as its name under the
+        /// CODESYS rules (specification 07 §2.7).
+        named_text: bool,
     },
     /// A subrange of the base type.
     Subrange {
@@ -482,6 +485,7 @@ impl<'a> Types<'a> {
                         base,
                         values: values.clone(),
                         named: self.registry.is_named_value_type(id),
+                        named_text: self.registry.is_named_text_type(id),
                     },
                     size: base.size(),
                     align: base.size(),

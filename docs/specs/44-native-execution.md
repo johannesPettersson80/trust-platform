@@ -379,7 +379,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 3 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8) |
+| 16 | 2 | Image format version, 4 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks, §5.7, and a member's `hide` mark, §5.8) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -426,8 +426,11 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 ### 5.4 Entry table
 
 One 16-byte record per entry point: kind (4: 1 program body, 2 cold-init, 3 warm-init, 4 method for
-tools), index (4: the program instance's number in the configuration for a program body, the
-index of its tool symbol (§5.7) for a method for tools, or 0), code offset (4,
+tools, 5 exit, 6 change exit, 7 change init, 8 change reinit, 9 change start), index (4: the program
+instance's number in the configuration for a program body, the index of its tool symbol (§5.7) for a
+method for tools, for a change exit or a change init the index of the top-level variable's symbol
+times two, plus one for a copied variable, for a change reinit the index of the variable's symbol,
+or 0), code offset (4,
 relative to `CODE`, with the Thumb bit on a Thumb target), reserved (4). A task's record lists the
 program bodies it runs, in order, so that the kernel observes each program's call as today's
 runtime does. Each program instance has its own program-body entry, also when several share one
@@ -506,7 +509,8 @@ name in capital letters, so a lookup is one binary search), one 32-byte record p
 | 4 | Type index (§5.8) |
 | 1 | Area id (§7.1); 0 for a symbol that holds no storage (a program root, a POU) |
 | 1 | Flags: bit 0 retained, bit 1 constant, bit 2 input, bit 3 output, bit 4 in-out, bit 5 program root, bit 6 FB or class instance, bit 7 directly addressed |
-| 2 | Reserved |
+| 1 | More flags: bit 0 marked `{attribute 'noinit'}` (§6.7; specification 10 §4.8); bit 1 hidden by `{attribute 'hide'}` or its POU's `{attribute 'hide_all_locals'}`, which the lists of variables a reader browses leave out (specification 10 §4.8); the other bits zero |
+| 1 | Reserved |
 | 4 | Offset in the area |
 | 4 | Size in bytes (the whole variable, padding excluded) |
 | 4 | Parent symbol index, or `0xFFFF_FFFF` for a global, a program or a POU |
@@ -565,14 +569,24 @@ One 24-byte record per type: kind (4: an elementary type 1 `BOOL`, 2 `SINT`, 3 `
 or 0), size (4), alignment (4), detail offset (4, into a type detail list), count (4). The detail
 list holds, per kind: an enumeration's values (name offset, value i64); a subrange's base type and
 bounds (i64, i64); an array's element type and dimensions (lower, upper i64 each); a structure's,
-union's, FB's or class's members (name offset, type index, byte offset, flags); a string's
-capacity; a reference's target type; an alias's base type. A function block's or class's members
+union's, FB's or class's members (name offset, type index, byte offset, flags: the symbol flags
+of §5.7 in bits 0 to 7, and bit 9 for a member hidden by `{attribute 'hide'}` or its type's
+`{attribute 'hide_all_locals'}`, which a list of members leaves out; specification 10 §4.8); a
+string's capacity; a reference's target type; an alias's base type. A function block's or class's members
 are followed by the type it extends (4, its index, or `0xFFFF_FFFF` without a base), the number of
 interfaces it implements (4) and each interface's declared name (string offset, 4 each): every
 interface it implements itself, through a base or through an interface that extends one (IEC
 61131-3 §6.6.6.4), so that a tool finds the instances of a block and of the blocks derived from it,
 and the instances that implement an interface, without the sources; a standard function block has
-no base and no interface. A `STRUCT OVERLAP` lists its members at
+no base and no interface. A function block's or class's members are followed, before its base, by
+the aliases of its properties whose GET only returns one of its variables (`Prop := Var;`, a
+`VAR_IN_OUT` excepted), as CODESYS monitors such a property (specification 11): each the property's
+name with that variable's type, offset and flags and the flag `MEMBER_ALIAS` (bit 8 of the member's
+flags), and `SYMBOL_CONSTANT` too unless the property's SET only assigns that variable
+(`Var := Prop;`). The record's count includes them. A name lookup finds an alias, so that a read of
+the property reads the variable and a write writes it; the values, the retain store, online change
+and the layout skip it. A property whose GET does more is not listed, and a name lookup does not
+find it. A `STRUCT OVERLAP` lists its members at
 the byte offsets their relative addresses name, so that members share bytes, and a `BOOL` member
 that takes one bit of its byte has a `BOOL` record whose count is that bit plus one (any other
 record's count of an elementary type is 0); a type with named values of an integer type is its
@@ -839,6 +853,26 @@ kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
   in the retain area too; the warm-init entry runs.
 - **Online change:** §12.
 
+At both restarts, once the program has started, every variable whose symbol is marked `noinit`
+(§5.7) then takes back the bytes it held before the restart, after the init entry, so that what the
+entry wrote into it is replaced (specification 10 §4.8). The start after an install or a power-on
+gives it `INIT`, or a retained one its checkpoint, as every variable; an online change carries it
+over with the rest (§12).
+
+The exit entry (kind 5, at most one, index 0) leaves the instances before their memory is started
+again or replaced. Under the CODESYS profiles it calls `FB_exit` of every instance whose type declares
+it, with `bInCopyCode := FALSE`, in the reverse of `FB_init`'s order, leaving out the instances a
+declaration marked `{attribute 'no-exit'}` declares (specification 10 §4.8); an image built under
+another profile, or one whose types declare no `FB_exit`, has none. The kernel calls it once the
+program has run (a scan or a program instance's run since it was built, or an online change took over
+a running program's instances; the starts that bring a program up, a power-on start and the start the
+runtime was asked for, make none run): first at a cold or a warm restart, before the `noinit` bytes
+are taken and the memory is started again, so that what `FB_exit` writes into a `noinit` variable
+stays; and before a program that has run is replaced by an installed one (a download), on the old
+program: its fault
+there does not stop the install, and the new program's event records begin with it. A stop, a
+power-off and the end of the runtime's process call nothing. An online change's calls are §12.3's.
+
 Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
 type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
 the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. The inputs after
@@ -1067,7 +1101,8 @@ to a frame variable (IEC
 ### 7.4 Starting memory
 
 `INIT` holds the bytes of areas `M`, `G`, `R` and `P` after every initializer the build can compute
-(§6.7); a cold-init entry computes the rest. The image builder computes `INIT` by the same layout
+(§6.7); a cold-init entry computes the rest. An `instance-path` variable holds its instance's path
+there (specification 10 §4.8). The image builder computes `INIT` by the same layout
 rules and writes it once; a device copies it with one `memcpy` per area. Its size is the areas'
 size, so a program with large zero-initialized arrays still has an `INIT` of that size; a later
 version may add run-length coding, recorded in the section flags.
@@ -1222,7 +1257,10 @@ A fault inside a module is a return value: the generated code returns `Err(Fault
 function up to the entry, which calls `api.fault` with the detail (the index and bounds, the
 divisor, the reference) and returns the code. The kernel then does what specification 34 §9
 (STATE-03, STATE-04) and 11 §6.6 say: records the fault with the statement id, file and line from
-the statement table, latches the fault state, applies the output policy. Fault codes are
+the statement table, latches the fault state, applies the output policy. The statement is the one
+being executed when the fault is raised: a debug image's call gives its caller's statement back when
+it returns (`cx.stmt = call_stmt`, §13.2), so a fault raised after a call returns, in the statement
+that made it, such as a test's failed assertion on a function's result, is that statement's. Fault codes are
 specification 10 §10.2's stable codes, numbered in `trust-plc-abi`. A panic in a module cannot
 happen by construction (no `unsafe`, no panicking operation in generated code: every slice index is
 proven in range or checked, every arithmetic checked); as the last resort the module's panic handler
@@ -1625,8 +1663,26 @@ program in its place. At the boundary the device:
    other memory;
 3. builds the new program: its areas with `INIT`, its bindings checked against the running
    program's lines and its safe state, as specification 34 §11.3 checks a candidate;
-4. places the new module where the CPU runs it, runs the new program's cold-init entry (§6.7) and
-   carries the running program's values into its areas (§12.2). A computer maps the new module
+4. places the new module where the CPU runs it, starts the new program and carries the running
+   program's values into its areas (§12.2). An image without change entries (kinds 6 to 9: built
+   under the IEC profile, or one whose types declare no `FB_init`, `FB_exit`, `FB_reinit` or
+   after-init method) runs its cold-init entry (§6.7), then the carry. An image with them (the
+   CODESYS profiles, specification 10 §4.8) follows the instances the change copies:
+   - the kernel sorts each top-level variable that has a change entry in either image: copied when
+     both programs declare it and its type's layout differs, compared through the two type tables as
+     the carry compares types (§12.2); dropped or added when one program declares it; otherwise
+     nothing is called for it;
+   - it runs the running program's change-exit entries (kind 6) of the copied and the dropped
+     variables, in the order of its entry table (the reverse of `FB_init`'s); then the new
+     program's change-start entry (kind 9: the cold-init entry's reference initializers, without its
+     `FB_init` calls) and its change-init entries (kind 7) of the copied and the added variables, in
+     the order of its entry table; then the carry; then its change-reinit entries (kind 8) of the
+     copied variables;
+   - these calls run once the new module is placed and every check before them has passed, so that
+     no refusal follows them; a fault in one of them is recorded as an event of the new program
+     while the change goes on (specification 10 §4.8).
+
+   A computer maps the new module
    beside the running one. The C6 runs it where it lies in the image, which the transfer uploaded
    into the program region (§10.3), beside the running module, or copies it into a block there when
    the upload lay in the heap's data regions; a refusal drops the new program and the running

@@ -265,6 +265,9 @@ pub struct NativeProgram<'i, C> {
     pub(super) entries: Vec<Entry>,
     pub(super) cold: Option<usize>,
     pub(super) warm: Option<usize>,
+    /// The exit entry, which leaves the instances before their memory is started again or replaced
+    /// (specification 44 §6.7).
+    pub(super) exit: Option<usize>,
     pub(super) tasks: Vec<NativeTask>,
     /// Whether the tasks are live: the program scanned since it was built, or took over the
     /// schedule of a running program. Until then a start of the task timing registers the tasks
@@ -296,6 +299,15 @@ pub struct NativeProgram<'i, C> {
     pub(super) hierarchical_keys: Vec<(IoAddressKey, usize)>,
     /// The declared values of the enumerations of the bound variables, which their bindings name.
     pub(super) enum_values: Vec<i64>,
+    /// Whether the areas hold the values of a started program, so that a restart gives the
+    /// variables marked `noinit` back what they held (specification 44 §6.7); not before the first
+    /// start, whose areas hold nothing yet.
+    pub(super) started: bool,
+    /// Whether the instances have lived: the program ran a scan or a program instance's body since
+    /// it was built, or took over the instances of a running program (an online change). Until
+    /// then a restart leaves nothing, as the starts that bring a program up have made no instance
+    /// run (specification 44 §6.7).
+    pub(super) ran: bool,
 }
 
 /// The address of the value of hierarchical `address` in its slot: its first byte, a bit at bit 0.
@@ -805,6 +817,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         // The tasks have sampled their inputs: they are live from now on.
         self.live = true;
+        self.ran = true;
         let tasks = &self.tasks;
         sort_ready_tasks_by_priority(&mut ready, |index| tasks[index].priority);
         let mut result = Ok(());
@@ -945,6 +958,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 })
             })
             .ok_or_else(|| RuntimeError::UndefinedProgram(alloc::format!("{instance}").into()))?;
+        self.ran = true;
         self.call(entry, u32::MAX, now, None)
     }
 
@@ -1023,6 +1037,43 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     pub fn last_fault(&self) -> FaultRecord {
         self.cx.fault
     }
+
+    /// The values of the assertion that failed the last call (specification 22), read from the
+    /// fault record and the stack area as the call left them, so before the next call; `None` when
+    /// no assertion failed the call.
+    #[must_use]
+    pub fn failed_assertion(&self) -> Option<FailedAssertion> {
+        let code = self.cx.fault.code;
+        if code != FaultCode::AssertionFailed as u32 && code != FaultCode::AssertionNear as u32 {
+            return None;
+        }
+        let types = Types::of(&self.image()).ok()?;
+        Some(assertions::failed(
+            &types,
+            &self.cx.fault,
+            code,
+            &self.areas[STACK],
+        ))
+    }
+}
+
+/// A failed assertion's values (specification 22; specification 07, MP-014): its name and, as the
+/// assertion has them, the value it expected and the value it found, the bound of a comparison and
+/// the delta of `ASSERT_NEAR`. A value that does not read is `None`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FailedAssertion {
+    /// The assertion, `ASSERT_EQUAL`.
+    pub name: &'static str,
+    /// `TRUE` for `ASSERT_TRUE`, `FALSE` for `ASSERT_FALSE`, and the `EXPECTED` input of
+    /// `ASSERT_EQUAL`, `ASSERT_NOT_EQUAL` and `ASSERT_NEAR`.
+    pub expected: Option<Value>,
+    /// The `IN`, `ACTUAL` or `VALUE` input.
+    pub actual: Option<Value>,
+    /// The `BOUND` input of `ASSERT_GREATER`, `ASSERT_LESS`, `ASSERT_GREATER_OR_EQUAL` and
+    /// `ASSERT_LESS_OR_EQUAL`.
+    pub bound: Option<Value>,
+    /// The `DELTA` input of `ASSERT_NEAR`.
+    pub delta: Option<Value>,
 }
 
 /// The runtime error of the fault `code` with its record (specification 44 §8.6, Appendix A).

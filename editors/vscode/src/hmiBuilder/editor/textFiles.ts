@@ -50,14 +50,36 @@ export async function languageServerTexts(project: vscode.Uri): Promise<ProjectT
   }
 }
 
+/** The pending translation writes, one chain per text file. */
+const translationWrites = new Map<string, Promise<unknown>>();
+
 /**
  * Writes a text's translation to `hmi/texts/<language>.toml`, creating the file when it is
  * missing; an empty translation removes the text. The language server (`trust-lsp.hmiTranslation`)
  * checks the language and gives the file's new text; the file is saved unless it had unsaved
  * changes of its own. Gives the reasons when the file cannot be written, such as a file that does
- * not load.
+ * not load. The writes to one file run one after another, so that a write never takes the last
+ * one's save, still settling, for the user's unsaved changes and leaves its change unsaved.
  */
-export async function writeTranslation(
+export function writeTranslation(
+  project: vscode.Uri,
+  language: string,
+  text: string,
+  translation: string,
+): Promise<FileError[]> {
+  const key = vscode.Uri.joinPath(project, "hmi", "texts", `${language}.toml`).toString();
+  const write = (): Promise<FileError[]> => writeTranslationNow(project, language, text, translation);
+  const next = (translationWrites.get(key) ?? Promise.resolve()).then(write, write);
+  const settled = next.catch(() => undefined);
+  translationWrites.set(key, settled);
+  void settled.then(() => {
+    if (translationWrites.get(key) === settled) translationWrites.delete(key);
+  });
+  return next;
+}
+
+/** The write of [`writeTranslation`] once the earlier writes to its file have ended. */
+async function writeTranslationNow(
   project: vscode.Uri,
   language: string,
   text: string,

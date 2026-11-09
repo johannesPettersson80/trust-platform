@@ -1531,7 +1531,8 @@ use the closed form `@program/<program-path>/<variable>`; parsing splits at the
 last slash so a qualified program path is preserved, and rejects missing
 prefix, program, separator, or variable components.
 
-Only `RETAIN` and `PERSISTENT` declarations survive a warm restart.
+Only `RETAIN` and `PERSISTENT` declarations survive a warm restart, apart from
+a variable marked `{attribute 'noinit'}`, which survives both restarts (below).
 `NON_RETAIN` and unspecified declarations are reinitialized. Scalars, strings,
 dates, enums, and recursively retainable arrays/structures may be retained;
 runtime references and instance identities are never retained, including when
@@ -1618,6 +1619,21 @@ FB_Exit"):
   part, and the instances nested in an instance are initialized when its
   `FB_init` runs, as CODESYS documents an instance "already completely
   initialized" when that method's code is reached;
+- the members that the instance's declaration initializes, `fbDoIt : FB_DoIt :=
+  (in1 := 99);`, hold the initial values of their declarations in the type while
+  the instance's `FB_init` runs, and take the declaration's values right after it,
+  before its after-init methods (below), as CODESYS orders them (its help,
+  Example 259: `fbDoIt.FB_Init(); fbDoIt.in1 := 99; fbDoIt.FB_AfterInit();`;
+  Beckhoff's TwinCAT help: "Such assignments are only executed after FB_init has
+  been called"). A member that a warm restart keeps, of an instance declared
+  `RETAIN` or declared `RETAIN` or `PERSISTENT` in its type, takes the
+  declaration's value before `FB_init` instead, as Beckhoff orders retained
+  variables at start-up ("Initialization of the declaration values",
+  "Initialization via FB_Init", then the boot data), and a warm restart leaves it
+  as it is. The declaration of a global, a program's variable or a function
+  block's or class's variable counts; an element of an array of instances, and an
+  instance in a structure, take their declaration's values before `FB_init`, as
+  their starting values;
 - a fault in `FB_init` fails the restart, like any fault of the initialization.
 
 In the same restarts, right after an instance's own `FB_init` (or where it would
@@ -1633,8 +1649,177 @@ alone, in a block that is not, is not called, as the vendor's attribute on the
 block is what enables it. The vendor's call at an online change is not made, as
 `FB_init`'s is not (§12).
 
-Under the IEC profile `FB_init` is an ordinary method that nothing calls
-implicitly, since a valid IEC program may declare a method of that name.
+Under the same profiles the method `FB_exit` of every instance whose type
+declares it is called before the instance's memory is started again or replaced,
+as CODESYS calls it implicitly (CODESYS help, "Method: FB_Init, FB_Reinit,
+FB_Exit": "before the controller removes the code of the function block
+instance"; "Object: Method": "Call for each instance of the function block
+before a new download or a reset or during an online change for all shifted or
+deleted instances"):
+- a cold and a warm restart call it first, before anything of the restart, once
+  the program has run: a scan or a program instance's run since it was installed
+  or powered on, or since an online change took over the running program's
+  instances. The starts that bring a program up before its first scan call
+  nothing, as no instance has lived yet;
+- installing a program in place of one that has run (a download) calls the old
+  program's `FB_exit` before the new program replaces it;
+- the call passes `bInCopyCode := FALSE`, which CODESYS passes everywhere but
+  in an online change ("TRUE: the exit method is called in order to leave the
+  instance which will be copied afterwards (online change)"), and its result
+  is not read;
+- a stop and the end of the runtime's process call nothing, as they remove no
+  code: CODESYS's help names a download, a reset and an online change only. A
+  reset that removes the program from the device, CODESYS's reset origin, is a
+  download of no program and calls it, as the help ties the call to the code's
+  removal;
+- the instances are called in the reverse of `FB_init`'s order: the program
+  instances in reverse configuration order, each with its variables in reverse
+  declaration order, then the globals in reverse declaration order; an array's
+  elements in reverse row-major order; in an instance its own `FB_exit` first,
+  then its own nested instances in reverse declaration order, then its base
+  part, so that a derived block's `FB_exit` runs before its base's, as CODESYS
+  orders them (its help: "fbSubSubFb.FB_Exit, fbSubFb.FB_Exit,
+  fbMainFb.FB_Exit", then `FB_Init` the other way round). The help documents
+  the order of a derived block's parts; the order of nested instances and of
+  the globals is the reverse of their initialization, as a part is left before
+  what it was built on;
+- an instance whose declaration carries `{attribute 'no-exit'}` on the line
+  above it is not called, its base part neither, as the vendor's attribute
+  "suppresses the call of the FB_Exit method of a function block for a certain
+  one of its instances" (CODESYS help, "Attribute: no-exit"); on the
+  declaration of an array or a structure it holds for the instances among its
+  elements or members. The help is silent on the instances nested in a marked
+  one: truST calls theirs, each as its own declaration in the block says, since
+  the attribute names one instance and a nested declaration can carry its own
+  (a vendor decision for the CODESYS toolkit to confirm);
+- a fault in `FB_exit` fails a restart, like a fault of the initialization; at a
+  download the new program is installed all the same and its event records
+  begin with the old program's fault, at its time zero, so that a program whose
+  `FB_exit` faults can always be replaced;
+- `FB_exit` declares the one `BOOL` input `bInCopyCode`, under any name, and
+  returns a `BOOL` or nothing; the build refuses another signature, as it
+  refuses an `FB_init` it cannot call (specification 44 NX-09).
+
+At an online change under the same profiles, CODESYS's calls follow the
+instances that the change copies (CODESYS help, "Method: FB_Init, FB_Reinit,
+FB_Exit": "The following calls occur in succession during an online change:
+1. FB_Exit: `old_inst.FB_Exit(bInCopyCode := TRUE);` 2. FB_Init:
+`new_inst.FB_Init(bInitRetains := FALSE, bInCopyCode := TRUE);` 3. Copy
+operation: `copy(&old_inst, &new_inst);` 4. FB_Reinit: `new_inst.FB_Reinit();`"):
+- what the change copies: a top-level variable that holds instances, a global
+  or a variable of a program instance, matched by name in both programs as
+  specification 44 §12.2 matches it, is copied when its type's layout differs
+  between the two programs (its members, their types, its base, compared
+  through the type tables), with every instance it holds. One whose type's
+  layout is the same is not, and nothing is called for it: "If no changes were
+  made to the declaration part of a function block in the application before
+  login, but in the implementation only, then the data areas are not replaced.
+  Only code blocks are replaced. Then the methods FB_Exit, FB_Init, and
+  FB_Reinit are not called." CODESYS copies an instance whose memory moves;
+  truST gives every online change new memory and repoints the references
+  itself (specification 44 §12.2), so it counts the change of a declaration,
+  where the help places the copy ("after changes to the function block
+  declaration (signature change)"). An array or a structure that holds
+  instances counts as one variable;
+- the calls for a copied variable: `FB_exit(bInCopyCode := TRUE)` of each of
+  its instances in the running program; `FB_init(bInitRetains := FALSE,
+  bInCopyCode := TRUE)` of each of its instances in the new program, with the
+  after-init methods; the carry of specification 44 §12.2; then `FB_reinit()`
+  of each of its instances in the new program: the method a call
+  `inst.FB_reinit()` reaches, the instance's own or one it inherits, once,
+  since the help leaves the base's to the block ("To reinitialize the basic
+  implementation of the function block, you have to call FB_Reinit
+  explicitly"). `FB_reinit` takes no input and returns a `BOOL` or nothing;
+- a variable only the running program declares is left with
+  `FB_exit(bInCopyCode := FALSE)`, since TRUE is documented for "the instance
+  which will be copied afterwards", which a dropped variable is not; a variable
+  only the new program declares starts with `FB_init(bInitRetains := TRUE,
+  bInCopyCode := FALSE)` and its after-init methods, as at a download, since
+  nothing of it existed. The help is silent on both;
+- the order: every `FB_exit`, in the reverse of `FB_init`'s order over the
+  running program; then every `FB_init`, in `FB_init`'s order over the new
+  program; then the carry; then every `FB_reinit`, in `FB_init`'s order. The
+  help orders one instance's calls and is silent across instances;
+- `{attribute 'no-exit'}` leaves an instance out at an online change too;
+- a fault in any of these calls is recorded as an event of the new program and
+  the change goes on: the calls run once every check of the change has passed,
+  the running program's instances have left by then, and a change, like a
+  download, must always be able to replace a program whose methods fault.
+
+The four decisions above that the help is silent on (an array or a structure as
+one variable, the flags of a dropped and of a new variable, the order across
+instances, a fault) are vendor decisions for the CODESYS toolkit to confirm.
+
+Under the IEC profile `FB_init`, `FB_exit` and `FB_reinit` are ordinary methods
+that nothing calls implicitly, since a valid IEC program may declare methods of
+those names.
+
+A variable marked `{attribute 'noinit'}`, which CODESYS also spells `no_init`
+and `no-init`, on the line above its declaration is not initialized by a
+restart, as CODESYS documents the attribute (CODESYS help, "Attribute:
+noinit": it applies "to variables that should not be implicitly initialized";
+when the application is reset, the marked variable "retains its current value"
+while an unmarked one "is implicitly re-initialized"). IEC 61131-3 Ed.3 §6.2
+leaves a pragma's effect to the implementer, so it applies under every profile.
+It may mark a global, a program's variable of any section, and a function
+block's or class's `VAR`, `VAR_STAT`, input or output:
+- a cold and a warm restart give the variable back the value it held before
+  the restart, after the restart's initialization. The vendor names no
+  particular reset, and both reinitialize the variables the attribute exempts,
+  so truST keeps the value at both. The initialization's code still runs as at
+  every restart, a `REF` initializer and an instance's `FB_init` included:
+  what it writes into the variable is replaced, and what it writes elsewhere
+  stays;
+- when the runtime starts the program after an install or a power-on, the
+  variable takes its starting value, and a retained one its checkpoint's, as
+  every variable does. An online change keeps its value, as it keeps every
+  variable's;
+- the members of a marked variable are kept with it, and a marked variable of
+  a function block or class is kept in each of its instances;
+- a function's or a method's own variables and a `VAR_TEMP` are initialized at
+  each call whatever their attribute, as truST never leaves a value from an
+  earlier call on the stack.
+
+A variable marked `{attribute 'hide'}` on the line above its declaration, and a
+`VAR` local of a POU marked `{attribute 'hide_all_locals'}` in its first line, is
+hidden as CODESYS documents the attributes: code reaches it as any variable, and
+the lists that offer variables leave it out (the Input Assistant, "List
+components", the symbol configuration, online monitoring and debugging, in the
+vendor's words). IEC 61131-3 Ed.3 §6.2 leaves a pragma's effect to the
+implementer, so it applies under every profile. It may mark a global, a program's
+variable and a function block's, class's, method's or function's variable,
+input or output:
+- completion leaves it out (specification 14 §6.1.2);
+- the debugger's lists of variables leave it out on every runtime, a board
+  included: the globals, a frame's locals, a program's or an instance's members
+  and the instances (specification 44 §5.7, §5.8), and the HMI Builder's variable
+  picker (specification 39 §7);
+- it is read and written by its name as any other variable: in code, by `eval`,
+  `set` and `var.force`, in a watch, and by an HMI binding that names it.
+
+A `STRING` variable of a program, a function block or a class marked
+`{attribute 'instance-path'}` and `{attribute 'noinit'}`, in a POU marked
+`{attribute 'reflection'}`, starts with the path of the instance it belongs to,
+as CODESYS initializes it with "the device tree path of the POU which it
+belongs to" (CODESYS help, "Attribute: instance-path"; the vendor requires the
+three attributes together, and without one of them the variable starts as
+declared). Under every profile, as for `noinit`:
+- the path names the instance as the program reaches it: the program
+  instance's or the global's name, then each member's name and an element's
+  subscripts (`Cell.pumps[2]`, `Cell.outer.inner`, `GVL.motor`), in the
+  declarations' spelling. The names of the configuration and of its resource
+  come first where the project declares them, as CODESYS's path begins with the
+  device's and the application's (`Plant.Line1.Cell.pumps[2]`). An
+  instance-path variable of a program holds the program instance's path;
+- a path longer than the variable is cut at its length, as an assignment cuts a
+  longer string;
+- the path is the variable's starting value (specification 44 §7.4), so a
+  restart keeps it, as `noinit` keeps any value, and an online change carries
+  it with the rest;
+- an instance that a function's or a method's own variable holds, which each
+  call creates again, has no place in the configuration, so its variable starts
+  as declared;
+- a marked variable of another type is refused at build.
 
 Restart is prepared against isolated storage before commit. A preparation,
 initializer, retained-value migration, or store-load failure leaves the live

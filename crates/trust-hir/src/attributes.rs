@@ -4,6 +4,14 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::openot_authoring::{parse_attribute_entries_from_text, AttributeEntry};
 
+/// The refusal of a bare value `name` of the enumeration `type_name`, declared
+/// `{attribute 'qualified_only'}` (specification 02 §3.1), which names the qualified form.
+pub(crate) fn unqualified_value_message(name: &str, type_name: &str) -> String {
+    format!(
+        "'{name}' is a value of {type_name}, which is {{attribute 'qualified_only'}}: write {type_name}.{name}"
+    )
+}
+
 /// Whether the pragma trivia preceding `node`'s first token carries the flag
 /// `key`: a POU's `reads_host_clock` (specification 07, "Declared Clock
 /// Sources"), a global's or a `VAR_GLOBAL` list's `cross_task` (specification

@@ -3572,7 +3572,13 @@ forced value or queued write applies, and no metric, event or task statistic cou
 watchdog bounds the scan as it bounds every scan. The result is
 `{"time_ns": t, "values": {...}, "direct": {...}, "errors": [...]}`: each value as a conformance
 artifact writes it (`{"type": "INT", "value": 7}`, a duration in `nanos`, a date in `ticks`), and in
-`errors` the text of the error the scan ended with, none for a scan that completed. A fault of a
+`errors` the text of the error the scan ended with, none for a scan that completed. When a statement
+of a debug image raised that error, the result adds `"error_at": {"file": "src/tests.st", "line": 7}`:
+the statement's file, by the label of specification 44 §5.9, and its line, from the image's statement
+table (specification 44 §8.6), so that a client with the sources, such as `trust-dev test --device`,
+shows the statement as it shows one of its own runs (specification 22). When a failed assertion ended
+the scan, the result adds its values as `"assertion": {"name": "ASSERT_EQUAL", "expected": {...},
+"actual": {...}}`, the object of specification 22, each value in the encoding above. A fault of a
 stepped scan is reported and not latched: no safe state is applied, the resource stays Stopped, and
 the next step runs the next scan, as the conformance runner's kernel continues. A name that names no
 variable, or that names one of several programs, refuses the step before its scan, with the name (a
@@ -4351,6 +4357,12 @@ name read, not general expression execution, and it keeps its text `expr`
 field; `debug.evaluate` and the other expression surfaces use the compiled form
 of section 6.13.2. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
+A property of a function block or class whose GET only returns one of its
+variables is a name too, as CODESYS monitors it: reading it reads that variable,
+and `set`, `var.force` and the debugger's writes write it when the property's SET
+only assigns that variable; otherwise the property reads as constant. A property
+whose GET does more runs code, which no name read runs, so it is an unknown
+identifier (specification 44 §5.8).
 A successful read answers the value's type and the value as JSON,
 `{"type": "LREAL", "value": 0.738}`: `type` is the IEC name of the type, or a
 structure's or an enumeration's own name; `value` is a number for an integer,
@@ -6069,8 +6081,24 @@ The standalone IDE resource contract is:
   equivalent typed `too_large` error before writing.
 
 These are focused reference-environment budgets. They are regression gates for
-the shipped authoring path on the x86_64 CI reference environment, not
-universal real-time guarantees for arbitrary hardware or projects.
+the shipped authoring path, not universal real-time guarantees for arbitrary
+hardware or projects. The reference environment is CI's Linux x86_64 runner
+with an optimized build of the runtime: the release profile's optimization,
+built without its link-time optimization, which takes most of the build's time.
+There the gate program `web_ide_performance_gate` asserts the HTTP apply, p95
+and typing budgets, alone on the runner, in a workflow of its own (Web IDE
+Performance) that runs on every push to `main` and on each pull request that
+changes the web IDE, the analysis it runs (`trust-syntax`, `trust-hir`,
+`trust-ide`, `trust-wasm-analysis`) or the build settings
+(`.github/paths/web-ide-performance.txt`). Every other run of the same tests, on
+Windows, on macOS, on an ARM computer or in a debug build, checks each response
+and records each measurement beside its budget in the test log, without failing
+on a budget: such a run measures another build or another machine. In a debug
+build the 2,000-line re-analysis took 315 ms on the Linux runner, about 800 ms on
+the Windows runner and 1.37 s on a contributor's Windows computer; in the
+optimized build it took 20 ms on Linux x86_64 (8 November 2026). The in-process
+apply budget of the first item is asserted by the runtime's own tests on every
+platform.
 
 ###### Unified Web IDE shell contract
 

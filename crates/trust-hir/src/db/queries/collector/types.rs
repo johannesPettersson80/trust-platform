@@ -1,5 +1,6 @@
 use super::const_utils::*;
 use super::*;
+use crate::attributes::declares_attribute;
 use crate::db::diagnostics::{is_expression_kind, resolve_pending_types_with_table};
 use crate::semantic::{QualifiedName, SemanticOutcome, SemanticRole, LEGACY_UNKNOWN_TYPE_ID};
 use crate::symbols::UsingResolution;
@@ -81,6 +82,16 @@ impl SymbolCollector<'_> {
             name_range,
         );
         symbol.parent = self.current_parent();
+        // An enumeration's CODESYS attributes stand before the `TYPE` keyword of its block
+        // (specification 02 §3.1).
+        if type_def.kind() == SyntaxKind::EnumDef
+            && let Some(block) = type_def
+                .ancestors()
+                .find(|node| node.kind() == SyntaxKind::TypeDecl)
+        {
+            symbol.modifiers.qualified_only = declares_attribute(&block, "qualified_only");
+            symbol.modifiers.strict = declares_attribute(&block, "strict");
+        }
         let type_symbol_id = self.declare_symbol(symbol);
 
         // CODESYS DUT inheritance (vendor extension): record the base on the
@@ -598,6 +609,14 @@ impl SymbolCollector<'_> {
         } else {
             self.table.register_enum_type(name, base_type, values)
         };
+        // `{attribute 'to_string'}` before the `TYPE` keyword (specification 07 §2.7).
+        if node
+            .ancestors()
+            .find(|ancestor| ancestor.kind() == SyntaxKind::TypeDecl)
+            .is_some_and(|block| declares_attribute(&block, "to_string"))
+        {
+            self.table.mark_named_text_type(type_id);
+        }
         for (value_name, value, range) in value_symbols {
             let mut symbol = Symbol::new(
                 SymbolId::UNKNOWN,

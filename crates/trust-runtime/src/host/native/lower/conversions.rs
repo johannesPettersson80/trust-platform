@@ -58,10 +58,17 @@ impl Lowerer<'_, '_> {
             return Err(self.unsupported(node, format!("{name} of a value that is no scalar")));
         };
         let codesys = self.model.conversions == ConversionProfile::Codesys;
-        // Under the CODESYS rules an enumerated value as text is its value's name (specification
-        // 07 §2.7, `docs/IEC_DEVIATIONS.md` DEV-036); the IEC rules accept no such conversion.
+        // Under the CODESYS rules `TO_STRING` and `TO_WSTRING` write an enumerated value as its
+        // value's name when its enumeration is declared `{attribute 'to_string'}`, and as its
+        // number otherwise, as a typed `<type>_TO_STRING` always does (specification 07 §2.7,
+        // `docs/IEC_DEVIATIONS.md` DEV-036); the IEC rules accept no such conversion.
         if codesys
-            && let Kind::Enum { values, .. } = &self.info(from).kind
+            && (name.eq_ignore_ascii_case("TO_STRING") || name.eq_ignore_ascii_case("TO_WSTRING"))
+            && let Kind::Enum {
+                values,
+                named_text: true,
+                ..
+            } = &self.info(from).kind
             && matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_))
         {
             let values = values.clone();

@@ -6,7 +6,8 @@
 //! part first, then its own nested instances, then its own `FB_init` and after-init methods. The
 //! inputs after `bInitRetains` and `bInCopyCode` take the arguments of the instance's
 //! declaration, `com1 : serialdevice(iCOMnum := 1)`, which the build works out as it works out
-//! initial values.
+//! initial values. The members the declaration initializes, `fb : FB := (in1 := 99)`, hold their
+//! type's initial values while `FB_init` runs and take the declaration's values right after it.
 
 use trust_hir::symbols::ParamDirection;
 use trust_hir::TypeId;
@@ -22,12 +23,24 @@ use crate::value::Value;
 /// The method CODESYS calls implicitly.
 const FB_INIT: &str = "FB_init";
 
+/// The calls a start or an online change makes for the instances of one top-level variable, a
+/// global or a program instance's variable (specification 44 §6.7, §12.3).
+pub(super) struct VariableCalls {
+    /// The variable's canonical name in the symbol table (§5.7): `NAME`, `INSTANCE.NAME`.
+    pub(super) canonical: String,
+    /// Rust statements on `cx` and `w`.
+    pub(super) statements: Vec<String>,
+}
+
 /// The calls of `FB_init` the initializations make, and the methods they need.
 #[derive(Default)]
 pub(super) struct FbInit {
-    /// Rust statements on `cx` and `w`, passing `retains` as `bInitRetains`.
-    pub(super) statements: Vec<String>,
+    /// The variables with calls, in the initialization's order; their statements pass `retains`
+    /// as `bInitRetains` and `copy` as `bInCopyCode`.
+    pub(super) variables: Vec<VariableCalls>,
     pub(super) needs: Vec<Need>,
+    /// The statements of the variable the walk is in.
+    statements: Vec<String>,
 }
 
 /// The calls of `FB_init` for every instance of `model`, none outside the CODESYS profiles.
@@ -36,7 +49,7 @@ pub(super) struct FbInit {
 ///
 /// [`NativeError`] for an `FB_init` whose first inputs are not the two `BOOL` ones CODESYS passes,
 /// or with an output, and for an argument the build does not work out (NX-09).
-pub(super) fn calls(front: &Front, model: &Model<'_>) -> Result<FbInit, NativeError> {
+pub(super) fn calls(front: &Front, model: &mut Model<'_>) -> Result<FbInit, NativeError> {
     let mut calls = FbInit::default();
     if !crate::harness::dialect_of(model.conversions).is_codesys() {
         return Ok(calls);
@@ -53,80 +66,159 @@ pub(super) fn calls(front: &Front, model: &Model<'_>) -> Result<FbInit, NativeEr
                 .flat_map(|configuration| configuration.globals.iter()),
         )
         .collect();
-    for global in &model.globals {
-        let area = if global.retained { "r" } else { "g" };
-        let args = declared
+    let globals: Vec<_> = model
+        .globals
+        .iter()
+        .map(|global| (global.name.clone(), global.ty, global.retained))
+        .collect();
+    for (name, ty, retained) in globals {
+        let area = if retained { "r" } else { "g" };
+        let declaration = declared
             .iter()
-            .find(|declared| declared.name.eq_ignore_ascii_case(&global.name))
-            .map_or(&[][..], |declared| declared.init_args.as_slice());
+            .find(|declared| declared.name.eq_ignore_ascii_case(&name));
         calls.instance(
             model,
-            &format!("w.{area}.{}", rust_field(&global.name)),
-            global.ty,
-            args,
+            &format!("w.{area}.{}", rust_field(&name)),
+            ty,
+            Declaration {
+                args: declaration.map_or(&[][..], |declared| declared.init_args.as_slice()),
+                initializer: declaration.and_then(|declared| declared.initializer.as_ref()),
+                retained,
+            },
             0,
         )?;
+        calls.close(name.to_ascii_uppercase());
     }
+    let mut variables = Vec::new();
     for instance in &model.instances {
         let program = &model.program_types[instance.program];
         for var in program.def.vars.iter().filter(|var| !var.external) {
             let Some((member, retained)) = program.member(&var.name) else {
                 continue;
             };
-            let area = if retained { "r" } else { "p" };
-            calls.instance(
-                model,
-                &format!("w.{area}.{}.{}", rust_field(&instance.name), member.field()),
+            variables.push((
+                format!(
+                    "w.{}.{}.{}",
+                    if retained { "r" } else { "p" },
+                    rust_field(&instance.name),
+                    member.field()
+                ),
                 member.ty,
-                &var.init_args,
-                0,
-            )?;
+                var.clone(),
+                retained,
+                format!(
+                    "{}.{}",
+                    instance.name.to_ascii_uppercase(),
+                    var.name.to_ascii_uppercase()
+                ),
+            ));
         }
+    }
+    for (place, ty, var, retained, canonical) in variables {
+        calls.instance(
+            model,
+            &place,
+            ty,
+            Declaration {
+                args: &var.init_args,
+                initializer: var.initializer.as_ref(),
+                retained,
+            },
+            0,
+        )?;
+        calls.close(canonical);
     }
     Ok(calls)
 }
 
+/// What an instance's declaration gives it: the `FB_init` arguments in parentheses after its type,
+/// its initial value, and whether a warm restart keeps it whole.
+#[derive(Clone, Copy)]
+struct Declaration<'d> {
+    args: &'d [InitArg],
+    initializer: Option<&'d Expr>,
+    retained: bool,
+}
+
+impl Declaration<'_> {
+    /// A value that holds instances but declares none of them itself: an element of an array, a
+    /// member of a structure.
+    const NONE: Declaration<'static> = Declaration {
+        args: &[],
+        initializer: None,
+        retained: false,
+    };
+}
+
 impl FbInit {
-    /// The calls for the value at `place` of type `ty`, declared with the `FB_init` arguments
-    /// `args`: an instance, or what holds instances.
+    /// Ends the walk of the variable `canonical`: its statements, when it has any, become its calls.
+    fn close(&mut self, canonical: String) {
+        let statements = std::mem::take(&mut self.statements);
+        if !statements.is_empty() {
+            self.variables.push(VariableCalls {
+                canonical,
+                statements,
+            });
+        }
+    }
+
+    /// The calls for the value at `place` of type `ty`, as `declaration` declares it: an instance,
+    /// or what holds instances.
     fn instance(
         &mut self,
-        model: &Model<'_>,
+        model: &mut Model<'_>,
         place: &str,
         ty: Ty,
-        args: &[InitArg],
+        declaration: Declaration<'_>,
         depth: usize,
     ) -> Result<(), NativeError> {
-        match &model.types.info(ty).kind {
+        match model.types.info(ty).kind.clone() {
             Kind::Fb {
                 def, members, base, ..
             } => {
+                // CODESYS gives the members the declaration initializes their values after the
+                // instance's `FB_init` (its help, Example 259), so they hold their type's initial
+                // values until then.
+                let (before, after) = match declaration.initializer {
+                    Some(initializer) => {
+                        declared_values(model, place, ty, initializer, declaration.retained)?
+                    }
+                    None => (Vec::new(), Vec::new()),
+                };
+                self.statements.extend(before);
                 // The base part's `FB_init` takes the same arguments: a derived `FB_init` repeats
                 // its base's inputs.
                 if let Some(base) = base {
-                    self.instance(model, &format!("{place}.__BASE"), *base, args, depth)?;
+                    let part = Declaration {
+                        initializer: None,
+                        ..declaration
+                    };
+                    self.instance(model, &format!("{place}.__BASE"), base, part, depth)?;
                 }
                 // The variables it inherits are its base part's; each of its own takes the
-                // arguments of its declaration in the type.
-                let owner = model.types.owner(def);
+                // arguments and the initial value of its declaration in the type.
+                let owner = model.types.owner(&def);
                 for member in members.iter().filter(|member| member.via.is_empty()) {
-                    let member_args = owner
-                        .and_then(|owner| {
-                            owner
-                                .vars()
-                                .iter()
-                                .find(|var| var.name.eq_ignore_ascii_case(&member.name))
-                        })
-                        .map_or(&[][..], |var| var.init_args.as_slice());
+                    let var = owner.and_then(|owner| {
+                        owner
+                            .vars()
+                            .iter()
+                            .find(|var| var.name.eq_ignore_ascii_case(&member.name))
+                    });
+                    let nested = Declaration {
+                        args: var.map_or(&[][..], |var| var.init_args.as_slice()),
+                        initializer: var.and_then(|var| var.initializer.as_ref()),
+                        retained: declaration.retained || var.is_some_and(kept_at_warm_restart),
+                    };
                     self.instance(
                         model,
                         &format!("{place}.{}", member.field()),
                         member.ty,
-                        member_args,
+                        nested,
                         depth,
                     )?;
                 }
-                self.own(model, place, def, args)
+                self.own(model, place, &def, declaration.args, after)
             }
             Kind::Struct { members } => {
                 for member in members {
@@ -134,13 +226,13 @@ impl FbInit {
                         model,
                         &format!("{place}.{}", member.field()),
                         member.ty,
-                        &[],
+                        Declaration::NONE,
                         depth,
                     )?;
                 }
                 Ok(())
             }
-            Kind::Array { elem, dims } => self.elements(model, place, *elem, dims, depth),
+            Kind::Array { elem, dims } => self.elements(model, place, elem, &dims, depth),
             _ => Ok(()),
         }
     }
@@ -149,14 +241,14 @@ impl FbInit {
     /// order; none when its elements hold no instance that declares `FB_init`.
     fn elements(
         &mut self,
-        model: &Model<'_>,
+        model: &mut Model<'_>,
         place: &str,
         elem: Ty,
         dims: &[(i64, i64)],
         depth: usize,
     ) -> Result<(), NativeError> {
         let Some((_, inner)) = dims.split_first() else {
-            return self.instance(model, place, elem, &[], depth);
+            return self.instance(model, place, elem, Declaration::NONE, depth);
         };
         let item = format!("e{depth}");
         let outer = std::mem::take(&mut self.statements);
@@ -173,19 +265,22 @@ impl FbInit {
     }
 
     /// The calls of the `FB_init` the type `def` declares itself, with the arguments `args` of the
-    /// instance's declaration, and then of its methods marked `{attribute 'call_after_init'}`, on
-    /// its part at `place`.
+    /// instance's declaration, then the writes `declared` of the values the declaration gives,
+    /// then the calls of its methods marked `{attribute 'call_after_init'}`, on its part at `place`.
     fn own(
         &mut self,
         model: &Model<'_>,
         place: &str,
         def: &str,
         args: &[InitArg],
+        declared: Vec<String>,
     ) -> Result<(), NativeError> {
         let Some(owner) = model.types.owner(def) else {
+            self.statements.extend(declared);
             return Ok(());
         };
         self.fb_init(model, owner, place, args)?;
+        self.statements.extend(declared);
         self.after_init(model, owner, place)
     }
 
@@ -323,11 +418,145 @@ impl FbInit {
         }
         Need::Method(owner.name().clone(), method.name.clone()).add_to(&mut self.needs);
         self.statements.push(format!(
-            "{}(cx, w, &{place}, retains, false{arguments})?;",
+            "{}(cx, w, &{place}, retains, copy{arguments})?;",
             super::emit::method_function(owner, method)
         ));
         Ok(())
     }
+}
+
+/// The writes around the `FB_init` of the instance at `place` of type `ty` that give the members its
+/// declaration's initial value `initializer` names CODESYS's order (specification 10 §4.8): before
+/// it, each member's initial value in the type; after it, the declaration's. None when the type
+/// declares no `FB_init`; none for a member that holds an instance, whose own declaration counts,
+/// or for a member a warm restart keeps, of a `retained` instance or declared `RETAIN` in the type,
+/// which holds the declaration's value from the start, as Beckhoff orders retained variables.
+fn declared_values(
+    model: &mut Model<'_>,
+    place: &str,
+    ty: Ty,
+    initializer: &Expr,
+    retained: bool,
+) -> Result<(Vec<String>, Vec<String>), NativeError> {
+    let (Expr::StructInitializer(fields), Kind::Fb { def, members, .. }) =
+        (initializer, model.types.info(ty).kind.clone())
+    else {
+        return Ok((Vec::new(), Vec::new()));
+    };
+    if !declares_fb_init(model, &def) {
+        return Ok((Vec::new(), Vec::new()));
+    }
+    let (mut before, mut after) = (Vec::new(), Vec::new());
+    for (name, value) in fields {
+        let Some(member) = members
+            .iter()
+            .find(|member| member.name.eq_ignore_ascii_case(name))
+        else {
+            continue;
+        };
+        let Some(own) = member_declaration(model, &def, &member.name) else {
+            continue;
+        };
+        if retained || own.kept || model.types.holds_instance(member.ty) {
+            continue;
+        }
+        let failed = |error: String| {
+            NativeError::unsupported(format!(
+                "the initial value of {name} from the declaration of an instance of {def} ({error})"
+            ))
+        };
+        let typed = start_value(model, own.type_id, own.initial.as_ref()).map_err(failed)?;
+        let given = start_value(model, own.type_id, Some(value)).map_err(failed)?;
+        let field = format!("{place}.{}", member.field());
+        write(model, &field, member.ty, &typed, &mut before)?;
+        write(model, &field, member.ty, &given, &mut after)?;
+    }
+    Ok((before, after))
+}
+
+/// A member's declaration in its type: trust-hir's type, its initial value, and whether a warm
+/// restart keeps it in every instance.
+struct MemberDeclaration {
+    type_id: TypeId,
+    initial: Option<Expr>,
+    kept: bool,
+}
+
+/// The declaration of the variable `name` that the function block or class `def`, or a type it
+/// extends, declares: a `VAR` or `VAR_STAT`, an input or an output.
+fn member_declaration(model: &Model<'_>, def: &str, name: &str) -> Option<MemberDeclaration> {
+    let mut owner = model.types.owner(def);
+    while let Some(current) = owner {
+        if let Some(var) = current
+            .vars()
+            .iter()
+            .find(|var| var.name.eq_ignore_ascii_case(name))
+        {
+            return Some(MemberDeclaration {
+                type_id: var.type_id,
+                initial: var.initializer.clone(),
+                kept: kept_at_warm_restart(var),
+            });
+        }
+        if let Some(param) = current
+            .params()
+            .iter()
+            .find(|param| param.name.eq_ignore_ascii_case(name))
+        {
+            return Some(MemberDeclaration {
+                type_id: param.type_id,
+                initial: param.default.clone(),
+                kept: matches!(
+                    param.retain,
+                    crate::RetainPolicy::Retain | crate::RetainPolicy::Persistent
+                ),
+            });
+        }
+        owner = model.types.defs.base(current);
+    }
+    None
+}
+
+/// Whether a warm restart keeps the variable `var` in every instance: it is declared `RETAIN` or
+/// `PERSISTENT`.
+fn kept_at_warm_restart(var: &crate::program_model::VarDef) -> bool {
+    matches!(
+        var.retain,
+        crate::RetainPolicy::Retain | crate::RetainPolicy::Persistent
+    )
+}
+
+/// Whether the function block or class `def`, or a type it extends, declares `FB_init`.
+fn declares_fb_init(model: &Model<'_>, def: &str) -> bool {
+    let mut owner = model.types.owner(def);
+    while let Some(current) = owner {
+        if current
+            .methods()
+            .iter()
+            .any(|method| method.name.eq_ignore_ascii_case(FB_INIT))
+        {
+            return true;
+        }
+        owner = model.types.defs.base(current);
+    }
+    false
+}
+
+/// The statements that give the variable at `place` of type `ty` the value `value`.
+fn write(
+    model: &mut Model<'_>,
+    place: &str,
+    ty: Ty,
+    value: &Value,
+    out: &mut Vec<String>,
+) -> Result<(), NativeError> {
+    let bytes = super::init::value_bytes(model, value, ty)?;
+    let rust = model.types.info(ty).rust.clone();
+    // Zero first: the value is written from its parts that are not zero.
+    out.push(format!(
+        "{{ let zero: {rust} = <{rust} as Plain>::ZEROED; Assign::assign(&{place}, &zero); }}"
+    ));
+    super::frame_init::statements(model, place, ty, &bytes, 0, out)
 }
 
 /// The value an input of trust-hir's type `type_id` starts at: `expr`, worked out by the build as

@@ -78,6 +78,8 @@ pub struct SymbolTable {
     overlapping_struct_types: FxHashSet<TypeId>,
     /// The pack modes of structures declared with `{attribute 'pack_mode'}`.
     struct_packs: FxHashMap<TypeId, u8>,
+    /// Enumerations declared `{attribute 'to_string'}` (specification 07 §2.7).
+    named_text_types: FxHashSet<TypeId>,
     /// Extends relationships retained as semantic reference records.
     extends: FxHashMap<SymbolId, OopReference>,
     /// Implements relationships retained as semantic reference records.
@@ -119,6 +121,7 @@ impl SymbolTable {
             named_value_types: FxHashSet::default(),
             overlapping_struct_types: FxHashSet::default(),
             struct_packs: FxHashMap::default(),
+            named_text_types: FxHashSet::default(),
             extends: FxHashMap::default(),
             implements: FxHashMap::default(),
             const_values: FxHashMap::default(),
@@ -615,6 +618,18 @@ impl SymbolTable {
             .contains(&self.resolve_alias_type(type_id))
     }
 
+    /// Marks an enumeration as declared `{attribute 'to_string'}` (specification 07 §2.7).
+    pub fn mark_named_text_type(&mut self, type_id: TypeId) {
+        self.named_text_types.insert(type_id);
+    }
+
+    /// Returns whether a type resolves to an enumeration declared `{attribute 'to_string'}`.
+    #[must_use]
+    pub fn is_named_text_type(&self, type_id: TypeId) -> bool {
+        self.named_text_types
+            .contains(&self.resolve_alias_type(type_id))
+    }
+
     /// Marks a structured type as an IEC `STRUCT OVERLAP` declaration.
     pub fn register_overlapping_struct_type(&mut self, type_id: TypeId) {
         self.overlapping_struct_types.insert(type_id);
@@ -790,6 +805,19 @@ impl SymbolTable {
             parent = owner.parent;
         }
         None
+    }
+
+    /// The modifiers of the `TYPE` symbol that declares the type `type_id`, an alias resolved: an
+    /// enumeration's `{attribute 'qualified_only'}` and `{attribute 'strict'}` among them
+    /// (specification 02 §3.1). The defaults for a type that no `TYPE` symbol declares.
+    #[must_use]
+    pub fn type_modifiers(&self, type_id: TypeId) -> SymbolModifiers {
+        let type_id = self.resolve_alias_type(type_id);
+        self.symbols
+            .iter()
+            .find(|symbol| matches!(symbol.kind, SymbolKind::Type) && symbol.type_id == type_id)
+            .map(|symbol| symbol.modifiers)
+            .unwrap_or_default()
     }
 
     /// The symbol of the value `member` of the enumerated type `enum_type`, so that a qualified

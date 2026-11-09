@@ -41,8 +41,8 @@ fn render_output(
             total_duration_ms,
         )),
         TestOutput::Json => render_json_output(project_root, results, summary, total_duration_ms),
-        TestOutput::Tap => Ok(render_tap_output(results)),
-        TestOutput::Junit => Ok(render_junit_output(results, summary)),
+        TestOutput::Tap => Ok(render_tap_output(project_root, results)),
+        TestOutput::Junit => Ok(render_junit_output(project_root, results, summary)),
     }
 }
 
@@ -70,7 +70,7 @@ fn render_human_output(
         style::accent(format!(
             "Running {} ST test(s) in {}",
             summary.total(),
-            project_root.display()
+            trust_lsp::check::native_path(project_root)
         ))
     );
     if results.is_empty() {
@@ -93,14 +93,15 @@ fn render_human_output(
                 );
             }
             TestOutcome::Failed => {
+                let place = reported_place(project_root, result);
                 let _ = writeln!(
                     output,
                     "{} {} {} {}:{} [{}ms]",
                     style::error("FAIL"),
                     prefix,
                     test_id,
-                    display_path,
-                    result.case.line,
+                    place.file,
+                    place.line,
                     result.duration_ms
                 );
                 let _ = writeln!(
@@ -108,20 +109,21 @@ fn render_human_output(
                     "    reason   : {}",
                     result.message.as_deref().unwrap_or("assertion failed")
                 );
-                if let Some(source_line) = result.case.source_line.as_deref() {
+                if let Some(source_line) = place.source.as_deref() {
                     let _ = writeln!(output, "    source   : {source_line}");
                 }
                 failed_results.push(result);
             }
             TestOutcome::Error => {
+                let place = reported_place(project_root, result);
                 let _ = writeln!(
                     output,
                     "{} {} {} {}:{} [{}ms]",
                     style::error("ERROR"),
                     prefix,
                     test_id,
-                    display_path,
-                    result.case.line,
+                    place.file,
+                    place.line,
                     result.duration_ms
                 );
                 let _ = writeln!(
@@ -129,7 +131,7 @@ fn render_human_output(
                     "    reason   : {}",
                     result.message.as_deref().unwrap_or("runtime error")
                 );
-                if let Some(source_line) = result.case.source_line.as_deref() {
+                if let Some(source_line) = place.source.as_deref() {
                     let _ = writeln!(output, "    source   : {source_line}");
                 }
                 failed_results.push(result);
@@ -140,14 +142,15 @@ fn render_human_output(
         let _ = writeln!(output);
         let _ = writeln!(output, "{}", style::warning("Failure summary:"));
         for (idx, result) in failed_results.iter().enumerate() {
+            let place = reported_place(project_root, result);
             let _ = writeln!(
                 output,
                 "  {}. {}::{} @ {}:{}",
                 idx + 1,
                 result.case.kind.label(),
                 result.case.name,
-                display_path(project_root, &result.case.file),
-                result.case.line
+                place.file,
+                place.line
             );
             let _ = writeln!(
                 output,
@@ -158,7 +161,7 @@ fn render_human_output(
                     TestOutcome::Passed => "passed",
                 })
             );
-            if let Some(source_line) = result.case.source_line.as_deref() {
+            if let Some(source_line) = place.source.as_deref() {
                 let _ = writeln!(output, "     source: {source_line}");
             }
         }
@@ -187,11 +190,60 @@ fn render_no_tests_message(output: &mut String, filter: Option<&str>, discovered
     let _ = writeln!(output, "{}", style::warning("No ST tests discovered."));
 }
 
+/// `file` as the output names it (specification 22): relative to the project folder, written as
+/// the platform writes paths and without the verbatim prefix (`\\?\`) that canonicalization adds on
+/// Windows, as `trust-lsp check` writes its paths; a file outside the project keeps its whole path.
+/// A relative `--project` names the same folder as the canonical paths the sources are found by.
 fn display_path(project_root: &Path, file: &Path) -> String {
-    file.strip_prefix(project_root)
-        .unwrap_or(file)
-        .display()
-        .to_string()
+    let root = project_root
+        .canonicalize()
+        .unwrap_or_else(|_| project_root.to_path_buf());
+    let file = file.canonicalize().unwrap_or_else(|_| file.to_path_buf());
+    trust_lsp::check::native_path(file.strip_prefix(&root).unwrap_or(&file))
+}
+
+/// The project folder as the JSON report names it: its whole path, a relative `--project` made
+/// absolute against the current folder, without resolving links or Windows short names, so that a
+/// whole path reads as given, as `build --ci` and `validate --ci` name it.
+fn display_project(project_root: &Path) -> String {
+    let root = std::path::absolute(project_root).unwrap_or_else(|_| project_root.to_path_buf());
+    trust_lsp::check::native_path(&root)
+}
+
+/// A place in the sources as the reports name it (specification 22): the file as [`display_path`]
+/// writes it, the 1-based line and that line's text, trimmed, unless it is empty.
+struct Place {
+    file: String,
+    line: usize,
+    source: Option<String>,
+}
+
+/// The statement that raised `result`'s failure or error (specification 22), its file found by its
+/// label, a path relative to the project folder or a whole one (specification 44 §5.9); `None`
+/// when the runtime named no statement.
+fn failure_place(project_root: &Path, result: &ExecutedTest) -> Option<Place> {
+    let at = result.failed_at.as_ref()?;
+    let file = project_root.join(at.file.as_str());
+    let line = usize::try_from(at.line).ok()?;
+    let source = std::fs::read_to_string(&file).ok().and_then(|text| {
+        let text = text.lines().nth(line.checked_sub(1)?)?.trim();
+        (!text.is_empty()).then(|| text.to_string())
+    });
+    Some(Place {
+        file: display_path(project_root, &file),
+        line,
+        source,
+    })
+}
+
+/// Where the human output and TAP report a failed or errored `result` (specification 22): at the
+/// statement that raised its failure or error, else at the test's declaration.
+fn reported_place(project_root: &Path, result: &ExecutedTest) -> Place {
+    failure_place(project_root, result).unwrap_or_else(|| Place {
+        file: display_path(project_root, &result.case.file),
+        line: result.case.line,
+        source: result.case.source_line.clone(),
+    })
 }
 
 fn render_list_output(
@@ -232,12 +284,24 @@ fn render_json_output(
                 "name": result.case.name.as_str(),
                 "kind": result.case.kind.label(),
                 "status": result.outcome.as_str(),
-                "file": result.case.file.display().to_string(),
+                "file": display_path(project_root, &result.case.file),
                 "line": result.case.line,
                 "source": result.case.source_line.as_deref(),
                 "message": result.message.as_deref(),
                 "duration_ms": result.duration_ms,
             });
+            // A test that failed at a statement names it beside its declaration (specification 22).
+            if let Some(place) = failure_place(project_root, result) {
+                test["failure"] = json!({
+                    "file": place.file,
+                    "line": place.line,
+                    "source": place.source,
+                });
+            }
+            // A failed assertion's values, typed (specification 22).
+            if let Some(assertion) = &result.assertion {
+                test["assertion"] = assertion.clone();
+            }
             // A multi-cycle test reports the cycles it ran and the time of the last (specification 22).
             if let Some(run) = result.cycles {
                 test["cycles"] = json!(run.cycles);
@@ -248,7 +312,7 @@ fn render_json_output(
         .collect::<Vec<_>>();
     let payload = json!({
         "version": 1,
-        "project": project_root.display().to_string(),
+        "project": display_project(project_root),
         "summary": {
             "total": summary.total(),
             "passed": summary.passed,
@@ -263,7 +327,7 @@ fn render_json_output(
     Ok(text)
 }
 
-fn render_tap_output(results: &[ExecutedTest]) -> String {
+fn render_tap_output(project_root: &Path, results: &[ExecutedTest]) -> String {
     let mut output = String::new();
     let _ = writeln!(output, "TAP version 13");
     let _ = writeln!(output, "1..{}", results.len());
@@ -279,9 +343,10 @@ fn render_tap_output(results: &[ExecutedTest]) -> String {
             }
             TestOutcome::Failed | TestOutcome::Error => {
                 let _ = writeln!(output, "not ok {} - {}", idx + 1, name);
-                let _ = writeln!(output, "# file: {}", result.case.file.display());
-                let _ = writeln!(output, "# line: {}", result.case.line);
-                if let Some(source_line) = result.case.source_line.as_deref() {
+                let place = reported_place(project_root, result);
+                let _ = writeln!(output, "# file: {}", place.file);
+                let _ = writeln!(output, "# line: {}", place.line);
+                if let Some(source_line) = place.source.as_deref() {
                     let _ = writeln!(output, "# source: {}", tap_escape(source_line));
                 }
                 if let Some(message) = &result.message {
@@ -295,7 +360,11 @@ fn render_tap_output(results: &[ExecutedTest]) -> String {
     output
 }
 
-fn render_junit_output(results: &[ExecutedTest], summary: TestSummary) -> String {
+fn render_junit_output(
+    project_root: &Path,
+    results: &[ExecutedTest],
+    summary: TestSummary,
+) -> String {
     let mut output = String::new();
     let _ = writeln!(output, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     let _ = writeln!(
@@ -311,7 +380,7 @@ fn render_junit_output(results: &[ExecutedTest], summary: TestSummary) -> String
             result.case.kind.label(),
             result.case.name
         ));
-        let file = xml_escape(&result.case.file.display().to_string());
+        let file = xml_escape(&display_path(project_root, &result.case.file));
         let _ = writeln!(
             output,
             "  <testcase name=\"{}\" classname=\"st\" file=\"{}\" line=\"{}\">",
@@ -322,11 +391,7 @@ fn render_junit_output(results: &[ExecutedTest], summary: TestSummary) -> String
             TestOutcome::Failed => {
                 let message_text = result.message.as_deref().unwrap_or("assertion failed");
                 let message = xml_escape(message_text);
-                let mut details = String::from(message_text);
-                if let Some(source_line) = result.case.source_line.as_deref() {
-                    let _ = write!(details, "\nsource: {source_line}");
-                }
-                let details = xml_escape(&details);
+                let details = xml_escape(&junit_details(project_root, result, message_text));
                 let _ = writeln!(
                     output,
                     "    <failure message=\"{}\">{}</failure>",
@@ -336,11 +401,7 @@ fn render_junit_output(results: &[ExecutedTest], summary: TestSummary) -> String
             TestOutcome::Error => {
                 let message_text = result.message.as_deref().unwrap_or("runtime error");
                 let message = xml_escape(message_text);
-                let mut details = String::from(message_text);
-                if let Some(source_line) = result.case.source_line.as_deref() {
-                    let _ = write!(details, "\nsource: {source_line}");
-                }
-                let details = xml_escape(&details);
+                let details = xml_escape(&junit_details(project_root, result, message_text));
                 let _ = writeln!(
                     output,
                     "    <error message=\"{}\">{}</error>",
@@ -352,6 +413,24 @@ fn render_junit_output(results: &[ExecutedTest], summary: TestSummary) -> String
     }
     let _ = writeln!(output, "</testsuite>");
     output
+}
+
+/// The text of a JUnit failure or error (specification 22): its message, then the statement that
+/// raised it as `at: <file>:<line>` with that statement's `source:`, or the source of the test's
+/// declaration when the runtime named no statement.
+fn junit_details(project_root: &Path, result: &ExecutedTest, message: &str) -> String {
+    let mut details = String::from(message);
+    let source = match failure_place(project_root, result) {
+        Some(place) => {
+            let _ = write!(details, "\nat: {}:{}", place.file, place.line);
+            place.source
+        }
+        None => result.case.source_line.clone(),
+    };
+    if let Some(source) = source {
+        let _ = write!(details, "\nsource: {source}");
+    }
+    details
 }
 
 fn tap_escape(text: &str) -> String {

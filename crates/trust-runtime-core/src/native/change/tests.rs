@@ -366,6 +366,8 @@ impl Program {
                 type_index: row.ty,
                 area: row.area,
                 flags: row.flags,
+                noinit: false,
+                hidden: false,
                 offset: row.offset,
                 size: row.size,
                 parent: row.parent.as_deref().map_or(NONE, index),

@@ -161,7 +161,16 @@ fn execute_native_tests(
                 .and_then(|()| program.run_instance(instance, Duration::ZERO)),
             None => Err(RuntimeError::UndefinedProgram(case.name.clone())),
         };
-        results.push(executed(case, result, timeout, started));
+        let mut done = executed(case, result, timeout, started);
+        // The statement that raised a failure or an error of this run (specification 22); a test
+        // that ran nothing has none, whatever an earlier test's run left.
+        if instance.is_some() {
+            done.failed_at = trust_runtime::native::fault_at(&program);
+            done.assertion = program
+                .failed_assertion()
+                .map(|assertion| trust_runtime::native::assertion_json(&assertion));
+        }
+        results.push(done);
     }
     Ok(results)
 }
@@ -178,6 +187,7 @@ fn cycles_here(
     started: Instant,
 ) -> ExecutedTest {
     use trust_runtime::value::{Duration, Value};
+    let (mut failed_at, mut assertion) = (None, None);
     let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
         let now = Duration::from_nanos(i64::try_from(time_ns).unwrap_or(i64::MAX));
         let ran = if n == 1 {
@@ -192,8 +202,16 @@ fn cycles_here(
                 program.value(trust_runtime::native::TEST_FINISHED_GLOBAL),
                 Some(Value::Bool(true))
             )),
-            Err(RuntimeError::AssertionFailed(message)) => CycleResult::Failed(message.to_string()),
-            Err(error) => CycleResult::Error(error.to_string()),
+            Err(error) => {
+                failed_at = trust_runtime::native::fault_at(program);
+                assertion = program
+                    .failed_assertion()
+                    .map(|failed| trust_runtime::native::assertion_json(&failed));
+                match error {
+                    RuntimeError::AssertionFailed(message) => CycleResult::Failed(message.to_string()),
+                    error => CycleResult::Error(error.to_string()),
+                }
+            }
         }
     });
     ExecutedTest {
@@ -202,6 +220,8 @@ fn cycles_here(
         message,
         duration_ms: elapsed_ms(started.elapsed()),
         cycles: Some(run),
+        failed_at,
+        assertion,
     }
 }
 
@@ -216,6 +236,7 @@ fn execute_native_tests_on_device(
     timeout: u64,
     port: &str,
     target: &str,
+    token: Option<&str>,
 ) -> anyhow::Result<Vec<ExecutedTest>> {
     use trust_runtime::device_link::{self, DeviceLink};
     use trust_runtime::native::{target_named, Toolchain};
@@ -231,7 +252,10 @@ fn execute_native_tests_on_device(
         &trust_runtime::native::project_key(project_root)?,
     )?;
     let work = std::env::temp_dir().join(format!("trust-dev-device-{}", std::process::id()));
-    let mut link = DeviceLink::open(port)?;
+    // A device whose settings set a control token refuses a request without it (specification 34
+    // PORT-06): the caller's token, else the project's, which the device was installed with.
+    let token = trust_runtime::control::endpoint::device_token(Some(project_root), token)?;
+    let mut link = DeviceLink::open(port, token.as_deref())?;
     // Which update the device and these tools need (specification 34 TARGET-05).
     if let Some(advice) = link.version_advice() {
         eprintln!("warning: {advice}");
@@ -268,7 +292,13 @@ fn execute_native_tests_on_device(
                 .map(|error| error.as_str().unwrap_or_default().to_string()),
             Err(error) => Some(error.to_string()),
         };
-        results.push(executed_on_device(case, error.as_deref(), timeout, started));
+        let mut done = executed_on_device(case, error.as_deref(), timeout, started);
+        done.failed_at = stepped.as_ref().ok().and_then(step_error_at);
+        done.assertion = stepped
+            .as_ref()
+            .ok()
+            .and_then(|result| result.get("assertion").cloned());
+        results.push(done);
     }
     Ok(results)
 }
@@ -298,6 +328,8 @@ fn executed_on_device(
         message,
         duration_ms: elapsed_ms(started.elapsed()),
         cycles: None,
+        failed_at: None,
+        assertion: None,
     }
 }
 
@@ -315,6 +347,7 @@ fn cycles_on_device(
 ) -> ExecutedTest {
     use trust_runtime::device_link;
     use trust_runtime::native::TEST_FINISHED_GLOBAL;
+    let (mut failed_at, mut assertion) = (None, None);
     let (outcome, message, run) = run_cycles(cycles, timeout, started, |n, time_ns| {
         let mut params = json!({
             "time_ns": start_ns.saturating_add(time_ns),
@@ -327,6 +360,8 @@ fn cycles_on_device(
         match link.call("cycle.step", Some(params), device_link::REPLY_WAIT) {
             Ok(result) => match result["errors"].get(0) {
                 Some(error) => {
+                    failed_at = step_error_at(&result);
+                    assertion = result.get("assertion").cloned();
                     let text = error.as_str().unwrap_or_default();
                     match text.strip_prefix("assertion failed: ") {
                         Some(message) => CycleResult::Failed(message.to_string()),
@@ -346,5 +381,16 @@ fn cycles_on_device(
         message,
         duration_ms: elapsed_ms(started.elapsed()),
         cycles: Some(run),
+        failed_at,
+        assertion,
     }
+}
+
+/// The statement a device's step names in `error_at` as the one that raised its error (specification 11 §6.8.1).
+fn step_error_at(result: &serde_json::Value) -> Option<trust_runtime::native::StatementAt> {
+    let at = result.get("error_at")?;
+    Some(trust_runtime::native::StatementAt {
+        file: at["file"].as_str()?.into(),
+        line: u32::try_from(at["line"].as_u64()?).ok()?,
+    })
 }

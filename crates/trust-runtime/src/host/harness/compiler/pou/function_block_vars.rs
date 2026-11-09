@@ -31,6 +31,10 @@ fn lower_function_block_var_blocks(
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
             let parts = parse_var_decl(&var_decl)?;
+            let noinit = declares_noinit(&var_decl);
+            let hidden = declares_hidden(Some(node), &var_decl, kind);
+            let no_exit = declares_no_exit(&var_decl);
+            let instance_path = declares_instance_path(node, &var_decl);
             reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
@@ -81,6 +85,8 @@ fn lower_function_block_var_blocks(
                             address: address_info.clone(),
                             default: init_expr.clone(),
                             retain: qualifiers.retain,
+                            noinit,
+                            hidden,
                         });
                     }
                 }
@@ -93,6 +99,8 @@ fn lower_function_block_var_blocks(
                             address: address_info.clone(),
                             default: init_expr.clone(),
                             retain: qualifiers.retain,
+                            noinit,
+                            hidden,
                         });
                     }
                 }
@@ -105,6 +113,8 @@ fn lower_function_block_var_blocks(
                             address: address_info.clone(),
                             default: None,
                             retain: crate::RetainPolicy::Unspecified,
+                            noinit: false,
+                            hidden,
                         });
                     }
                 }
@@ -121,6 +131,10 @@ fn lower_function_block_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             init_args: init_args.clone(),
+                            noinit,
+                            hidden,
+                            instance_path,
+                            no_exit,
                         });
                     }
                 }
@@ -137,6 +151,10 @@ fn lower_function_block_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             init_args: init_args.clone(),
+                            noinit,
+                            hidden,
+                            instance_path,
+                            no_exit,
                         });
                     }
                 }
@@ -153,6 +171,10 @@ fn lower_function_block_var_blocks(
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                             init_args: init_args.clone(),
+                            noinit: false,
+                            hidden,
+                            instance_path: false,
+                            no_exit,
                         });
                     }
                 }
