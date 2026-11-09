@@ -2141,6 +2141,7 @@ pub trust_runtime::config::RuntimeConfig::control_auth_token: core::option::Opti
 pub trust_runtime::config::RuntimeConfig::control_debug_enabled: bool
 pub trust_runtime::config::RuntimeConfig::control_endpoint: smol_str::SmolStr
 pub trust_runtime::config::RuntimeConfig::control_mode: trust_runtime::config::ControlMode
+pub trust_runtime::config::RuntimeConfig::control_start_paused: bool
 pub trust_runtime::config::RuntimeConfig::cycle_interval: trust_runtime_core::value::datetime::Duration
 pub trust_runtime::config::RuntimeConfig::deploy: trust_runtime::config::DeployConfig
 pub trust_runtime::config::RuntimeConfig::discovery: trust_runtime::config::DiscoveryConfig

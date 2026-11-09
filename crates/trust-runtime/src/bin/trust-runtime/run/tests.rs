@@ -34,6 +34,7 @@ fn test_bundle() -> trust_runtime::config::RuntimeBundle {
             control_endpoint: Some(smol_str::SmolStr::new("tcp://127.0.0.1:9000")),
             control_auth_token: Some(smol_str::SmolStr::new("secret")),
             control_debug_enabled: true,
+            control_start_paused: false,
             control_mode: trust_runtime::config::ControlMode::Debug,
             log_level: smol_str::SmolStr::new("info"),
             event_capacity: None,

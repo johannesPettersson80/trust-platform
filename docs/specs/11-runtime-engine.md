@@ -6451,6 +6451,14 @@ when enabled:
   rejected. The default is **disabled** in production mode (see `runtime.control.mode`).
 - `runtime.control.mode` defaults to `production` and can be set to `debug` for development
   workflows; `runtime.control.debug_enabled` overrides the mode when explicitly set.
+- `runtime.control.start_paused = true`, or `--paused` on `play` and `run`, starts the program
+  paused: the resource pauses before its first scan, as a production `pause` pauses it, so that
+  no scan runs until `resume` and a simulation's time stays at 0 until then. `resume` is a debug
+  operation, as `pause` is, so the setting needs the debug surface: a project that sets it
+  without `debug_enabled` (or `mode = "debug"`) is refused, and so is `--paused`. A device takes the
+  setting from its deployment record (specification 34 §5.1.1) and holds before the first scan
+  of its boot the same way. Only the start of the runtime or of the device pauses: a `restart`
+  after a stop starts the program running.
 - `step_in`, `step_over` and `step_out` act only while the debugger holds the scan:
   at a breakpoint, after a debug-mode `pause`, or after a completed step. Otherwise
   they are rejected with a stable error and arm nothing. In production mode `pause`

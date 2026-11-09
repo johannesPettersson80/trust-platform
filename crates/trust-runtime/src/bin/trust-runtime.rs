@@ -176,6 +176,7 @@ fn run() -> anyhow::Result<()> {
             restart,
             simulation,
             time_scale,
+            paused,
             install_toolchain,
         }) => {
             if install_toolchain {
@@ -192,6 +193,7 @@ fn run() -> anyhow::Result<()> {
                 false,
                 simulation,
                 time_scale,
+                paused,
             )
         }
         Some(Command::Play {
@@ -202,6 +204,7 @@ fn run() -> anyhow::Result<()> {
             beginner,
             simulation,
             time_scale,
+            paused,
             install_toolchain,
         }) => {
             if install_toolchain {
@@ -223,6 +226,7 @@ fn run() -> anyhow::Result<()> {
                     beginner,
                     simulation,
                     time_scale,
+                    paused,
                 },
             )
         }

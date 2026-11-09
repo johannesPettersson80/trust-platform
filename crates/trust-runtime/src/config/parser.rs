@@ -97,6 +97,7 @@ struct ControlSection {
     auth_token: Option<String>,
     debug_enabled: Option<bool>,
     mode: Option<String>,
+    start_paused: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

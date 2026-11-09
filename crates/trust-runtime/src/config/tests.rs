@@ -79,6 +79,38 @@ fn runtime_toml_with_events(body: &str) -> String {
 }
 
 #[test]
+fn start_paused_is_read_from_the_control_section_and_defaults_to_false() {
+    // Specification 11 §6.8: `[runtime.control] start_paused` starts the program paused, and a
+    // project that sets nothing starts it running. Wrong behaviour caught: the key refused as
+    // unknown, ignored, or on by default.
+    let paused = runtime_toml().replace(
+        "debug_enabled = false\n",
+        "debug_enabled = true\nstart_paused = true\n",
+    );
+    let configured = parse_runtime_toml_from_text(&paused, "runtime.toml")
+        .expect("start_paused is a control setting");
+    assert!(configured.control_start_paused);
+
+    // Only `resume`, a debug operation, ends the pause, so the setting needs the debug surface.
+    let without_debug = runtime_toml().replace(
+        "debug_enabled = false\n",
+        "debug_enabled = false\nstart_paused = true\n",
+    );
+    let refused = parse_runtime_toml_from_text(&without_debug, "runtime.toml")
+        .expect_err("start_paused without the debug surface is refused");
+    assert!(
+        refused
+            .to_string()
+            .contains("start_paused needs the debug surface"),
+        "{refused}"
+    );
+
+    let absent = parse_runtime_toml_from_text(&runtime_toml(), "runtime.toml")
+        .expect("a project without start_paused is accepted");
+    assert!(!absent.control_start_paused);
+}
+
+#[test]
 fn event_capacity_is_read_from_runtime_toml_and_defaults_to_1000() {
     // Specification 11, the event store: `runtime.events.capacity` sets the newest events the
     // store keeps, and a computer keeps 1,000 when the project sets none. Wrong behaviour caught:
