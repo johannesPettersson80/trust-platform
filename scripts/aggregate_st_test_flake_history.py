@@ -9,12 +9,17 @@ import glob
 import io
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+
+# The pauses before asking GitHub again after a server error (specification 22).
+SERVER_ERROR_PAUSES_SECONDS = (5, 15, 45)
 
 
 @dataclass
@@ -142,13 +147,36 @@ def collect_local_samples(input_globs: list[str], sample_files: list[str]) -> li
     return samples
 
 
+def read_json(request: urllib.request.Request) -> Any:
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def read_json_asking_again_after_server_errors(request: urllib.request.Request) -> Any:
+    """Read `request`, again after each pause while GitHub answers a server error (specification 22).
+
+    The last attempt's failure is raised, so a lasting one fails the step.
+    """
+    for pause in SERVER_ERROR_PAUSES_SECONDS:
+        try:
+            return read_json(request)
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500:
+                raise
+            print(
+                f"warning: GitHub answered {exc.code} for {request.full_url}; asking again in {pause} s",
+                file=sys.stderr,
+            )
+        time.sleep(pause)
+    return read_json(request)
+
+
 def github_api_get_json(url: str, token: str) -> dict[str, Any]:
     request = urllib.request.Request(url)
     request.add_header("Accept", "application/vnd.github+json")
     request.add_header("Authorization", f"Bearer {token}")
     request.add_header("X-GitHub-Api-Version", "2022-11-28")
-    with urllib.request.urlopen(request, timeout=30) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+    payload = read_json_asking_again_after_server_errors(request)
     if not isinstance(payload, dict):
         raise ValueError("unexpected GitHub API response payload")
     return payload

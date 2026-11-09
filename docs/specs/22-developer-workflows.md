@@ -505,6 +505,11 @@ contract:
   load, soak, and ST flake probes, samples 20 ST runs with zero accepted
   failures, enforces the reliability summary gates, and uploads run-scoped
   machine-readable artifacts;
+- the nightly's 14-day flake trend asks GitHub for its list of artifacts again
+  after a server error (an HTTP status of 500 or above), up to three more times,
+  after pauses of 5, 15 and 45 seconds, so that one bad answer does not fail the
+  job; a client error fails at once, and a server error on the fourth attempt
+  fails the step, so that a lasting failure stays visible;
 - release-gate aggregation fails with verdict `FAIL` and the exact missing
   required artifact identities when any required gate artifact is absent, and
   returns verdict `PASS` with an empty missing set when all required artifacts
