@@ -363,6 +363,9 @@ pub(crate) fn prepare(
 ) -> Result<Prepared, Failure> {
     let loop_definition = context.loop_definition;
     let runtime = clients.transfer.status()?;
+    if let Some(refusal) = runtime.paused_refusal("Apply") {
+        return Err(refusal);
+    }
     let source = match runtime.source() {
         EvidenceSource::SimulatedPlant => ApplySource::Simulation,
         EvidenceSource::PhysicalPlant => ApplySource::Physical,
