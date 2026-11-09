@@ -723,6 +723,8 @@ pub(crate) enum CycleCall {
     TaskTiming(Duration),
     /// The scheduler's copies a `config.set` changed, taken at a boundary.
     Policies(crate::resource::commands::SchedulerPolicies),
+    /// The exit before another program replaces this one (specification 44 §6.7).
+    Leave,
 }
 
 /// The settings and failures a test gives the program, and what the loop asked of it. The
@@ -741,6 +743,8 @@ pub(crate) struct CycleScript {
     pub(crate) scan_time: Duration,
     /// The next restarts fail with these errors and change nothing.
     pub(crate) failing_restarts: VecDeque<RuntimeError>,
+    /// The next exit fails with this error.
+    pub(crate) failing_leave: Option<RuntimeError>,
     pub(crate) safe_outputs_error: Option<RuntimeError>,
     pub(crate) retain_error: Option<RuntimeError>,
     /// Retained-value events the next successful restart reports.
@@ -763,6 +767,7 @@ impl Default for CycleScript {
             held: Duration::ZERO,
             scan_time: Duration::ZERO,
             failing_restarts: VecDeque::new(),
+            failing_leave: None,
             safe_outputs_error: None,
             retain_error: None,
             restart_events: Vec::new(),
@@ -904,6 +909,15 @@ impl ResourceCycle for ScriptedCycle<'_> {
             Some(error) => Err(error),
             None => self.cycle.save_retain(),
         }
+    }
+
+    fn leave(&mut self) -> Result<(), RuntimeError> {
+        let mut script = self.script.borrow_mut();
+        script.calls.push(CycleCall::Leave);
+        if let Some(error) = script.failing_leave.take() {
+            return Err(error);
+        }
+        self.cycle.leave()
     }
 
     fn restart(

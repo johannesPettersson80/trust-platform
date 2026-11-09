@@ -536,7 +536,7 @@ fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String, of: PouOf) 
             };
             let returns = &of.returns;
             let text = format!(
-                "{declaration}    let link = abi::Frame {{ caller: cx.frame, pou: {pou}, call_stmt: cx.stmt, locals: {locals}, instance: {instance} }};\n    cx.frame = &link;\n    let result = (|| -> R<{returns}> {{\n{text}    }})();\n    cx.frame = link.caller;\n    result\n"
+                "{declaration}    let link = abi::Frame {{ caller: cx.frame, pou: {pou}, call_stmt: cx.stmt, locals: {locals}, instance: {instance} }};\n    cx.frame = &link;\n    let result = (|| -> R<{returns}> {{\n{text}    }})();\n    cx.frame = link.caller;\n    cx.stmt = link.call_stmt;\n    result\n"
             );
             let offsets = vars
                 .into_iter()

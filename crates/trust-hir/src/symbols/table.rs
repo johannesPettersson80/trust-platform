@@ -76,6 +76,8 @@ pub struct SymbolTable {
     named_value_types: FxHashSet<TypeId>,
     /// IEC `STRUCT OVERLAP` types whose fields share backing storage.
     overlapping_struct_types: FxHashSet<TypeId>,
+    /// Enumerations declared `{attribute 'to_string'}` (specification 07 §2.7).
+    named_text_types: FxHashSet<TypeId>,
     /// Extends relationships retained as semantic reference records.
     extends: FxHashMap<SymbolId, OopReference>,
     /// Implements relationships retained as semantic reference records.
@@ -116,6 +118,7 @@ impl SymbolTable {
             types: FxHashMap::default(),
             named_value_types: FxHashSet::default(),
             overlapping_struct_types: FxHashSet::default(),
+            named_text_types: FxHashSet::default(),
             extends: FxHashMap::default(),
             implements: FxHashMap::default(),
             const_values: FxHashMap::default(),
@@ -609,6 +612,18 @@ impl SymbolTable {
     #[must_use]
     pub fn is_named_value_type(&self, type_id: TypeId) -> bool {
         self.named_value_types
+            .contains(&self.resolve_alias_type(type_id))
+    }
+
+    /// Marks an enumeration as declared `{attribute 'to_string'}` (specification 07 §2.7).
+    pub fn mark_named_text_type(&mut self, type_id: TypeId) {
+        self.named_text_types.insert(type_id);
+    }
+
+    /// Returns whether a type resolves to an enumeration declared `{attribute 'to_string'}`.
+    #[must_use]
+    pub fn is_named_text_type(&self, type_id: TypeId) -> bool {
+        self.named_text_types
             .contains(&self.resolve_alias_type(type_id))
     }
 

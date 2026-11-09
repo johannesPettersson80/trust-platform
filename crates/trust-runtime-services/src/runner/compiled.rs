@@ -45,6 +45,7 @@ use super::hold::{CompiledHold, HoldHandle};
 use super::process_io::ProcessIo;
 use super::retain::{CycleRetain, RetainConfig, RetainStore};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::sources::fault_at;
 use crate::metrics::{MemoryFigure, ProgramMemory};
 use crate::status::IoDriverStatus;
 
@@ -479,6 +480,12 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         }
     }
 
+    /// Leaves the program before another replaces it, a download, at logical time zero as a
+    /// restart starts it (specification 44 §6.7).
+    fn leave(&mut self) -> Result<(), RuntimeError> {
+        self.program.exit(Duration::ZERO)
+    }
+
     /// A cold restart gives every variable its starting memory. A warm restart from the checkpoint
     /// restores the newest committed checkpoint by name, each value checked before any variable
     /// changes (specification 44 §11); a cycle without a checkpoint store restores the empty
@@ -607,10 +614,12 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
                     .map_err(|error| StepRefusal::read(text, &error))
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let error_at = error.as_ref().and_then(|_| fault_at(&self.program));
         Ok(StepOutcome {
             values,
             direct,
             error,
+            error_at,
         })
     }
 

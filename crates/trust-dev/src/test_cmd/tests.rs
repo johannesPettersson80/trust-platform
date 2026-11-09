@@ -709,6 +709,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             message: None,
             duration_ms: 1,
             cycles: None,
+            failed_at: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -724,6 +725,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             message: Some("ASSERT_EQUAL failed: expected <2> & got 3".to_string()),
             duration_ms: 2,
             cycles: None,
+            failed_at: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -739,6 +741,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             message: Some("runtime <panic>".to_string()),
             duration_ms: 3,
             cycles: None,
+            failed_at: None,
         },
     ]
 }
@@ -935,15 +938,17 @@ fn codesys_project(prefix: &str, tests: &str) -> std::path::PathBuf {
 }
 
 // docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the CODESYS
-// rules an enumerated value as text is its value's name, as a STRING or a WSTRING, also for an
-// enumeration with given values. A wrong compiled program spells the base integer ('1' for
-// Color#Green), which the native generator did until 6 November 2026.
+// rules TO_STRING and TO_WSTRING write a value of an enumeration declared {attribute 'to_string'} as
+// its name, as a STRING or a WSTRING, also for an enumeration with given values (the vendor's help,
+// Example 293). A wrong compiled program spells the base integer ('1' for Color#Green).
 #[test]
 fn run_test_spells_an_enumerated_value_as_its_name_under_the_codesys_rules() {
     let project = codesys_project(
         "codesys-enumerated-names",
         r#"
+{attribute 'to_string'}
 TYPE Color : (Red, Green, Blue); END_TYPE
+{attribute 'to_string'}
 TYPE Mode : (Off := 0, Auto := 5, Hand := 9); END_TYPE
 
 TEST_PROGRAM EnumeratedValuesSpellTheirNames
@@ -959,6 +964,48 @@ Name := TO_STRING(Way);
 ASSERT_EQUAL(EXPECTED := 'Hand', ACTUAL := Name);
 WideName := TO_WSTRING(Shade);
 ASSERT_TRUE(IN := WideName = "Green");
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["passed"], 1, "{payload}");
+    assert_eq!(payload["summary"]["total"], 1, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+// docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the CODESYS
+// rules TO_STRING and TO_WSTRING write a value of an enumeration without {attribute 'to_string'} as
+// its number, as CODESYS does ("instead of the numeric value" only with the attribute, the vendor's
+// help, Example 293), and a typed INT_TO_STRING writes its number even with the attribute. Worked by
+// hand: Color#Green is 1, Mode#Hand is 9. Catches the name written for an enumeration without the
+// attribute, which truST did from 0.32.0, and the name written by a typed conversion.
+#[test]
+fn run_test_spells_an_enumerated_value_as_its_number_without_the_to_string_attribute() {
+    let project = codesys_project(
+        "codesys-enumerated-numbers",
+        r#"
+TYPE Color : (Red, Green, Blue); END_TYPE
+TYPE Mode : (Off := 0, Auto := 5, Hand := 9); END_TYPE
+{attribute 'to_string'}
+TYPE Named : (First, Second); END_TYPE
+
+TEST_PROGRAM EnumeratedValuesSpellTheirNumbers
+VAR
+    Shade : Color := Color#Green;
+    Way : Mode := Mode#Hand;
+    Pick : Named := Named#Second;
+    Name : STRING;
+    WideName : WSTRING;
+END_VAR
+Name := TO_STRING(Shade);
+ASSERT_EQUAL(EXPECTED := '1', ACTUAL := Name);
+Name := TO_STRING(Way);
+ASSERT_EQUAL(EXPECTED := '9', ACTUAL := Name);
+WideName := TO_WSTRING(Shade);
+ASSERT_TRUE(IN := WideName = "1");
+Name := INT_TO_STRING(Pick);
+ASSERT_EQUAL(EXPECTED := '1', ACTUAL := Name);
 END_TEST_PROGRAM
 "#,
     );

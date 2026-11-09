@@ -842,6 +842,7 @@ pub const trust_runtime_core::native::image::type_kind::WORD: u32
 pub const trust_runtime_core::native::image::type_kind::WSTRING: u32
 #[repr(u32)] pub enum trust_runtime_core::native::image::EntryKind
 pub trust_runtime_core::native::image::EntryKind::ColdInit = 2
+pub trust_runtime_core::native::image::EntryKind::Exit = 5
 pub trust_runtime_core::native::image::EntryKind::Method = 4
 pub trust_runtime_core::native::image::EntryKind::ProgramBody = 1
 pub trust_runtime_core::native::image::EntryKind::WarmInit = 3
@@ -1340,6 +1341,7 @@ pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::write_retained
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::write_symbol(&mut self, index: u32, value: &trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 impl<'i, C: trust_runtime_core::native::program::ModuleCode> trust_runtime_core::native::program::NativeProgram<'i, C>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::cold_start(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::exit(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::new(image: trust_runtime_core::native::image::Image<'i>, code: C, device: &trust_runtime_core::native::admission::Device, api: &'static trust_plc_abi::KernelApi) -> core::result::Result<Self, trust_runtime_core::native::admission::Refusal>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::retain_payload_bound(&self) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::warm_start(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>

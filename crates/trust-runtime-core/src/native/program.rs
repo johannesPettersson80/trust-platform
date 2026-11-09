@@ -265,6 +265,9 @@ pub struct NativeProgram<'i, C> {
     pub(super) entries: Vec<Entry>,
     pub(super) cold: Option<usize>,
     pub(super) warm: Option<usize>,
+    /// The exit entry, which leaves the instances before their memory is started again or replaced
+    /// (specification 44 §6.7).
+    pub(super) exit: Option<usize>,
     pub(super) tasks: Vec<NativeTask>,
     /// Whether the tasks are live: the program scanned since it was built, or took over the
     /// schedule of a running program. Until then a start of the task timing registers the tasks
@@ -300,6 +303,11 @@ pub struct NativeProgram<'i, C> {
     /// variables marked `noinit` back what they held (specification 44 §6.7); not before the first
     /// start, whose areas hold nothing yet.
     pub(super) started: bool,
+    /// Whether the instances have lived: the program ran a scan or a program instance's body since
+    /// it was built, or took over the instances of a running program (an online change). Until
+    /// then a restart leaves nothing, as the starts that bring a program up have made no instance
+    /// run (specification 44 §6.7).
+    pub(super) ran: bool,
 }
 
 /// The address of the value of hierarchical `address` in its slot: its first byte, a bit at bit 0.
@@ -809,6 +817,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         // The tasks have sampled their inputs: they are live from now on.
         self.live = true;
+        self.ran = true;
         let tasks = &self.tasks;
         sort_ready_tasks_by_priority(&mut ready, |index| tasks[index].priority);
         let mut result = Ok(());
@@ -949,6 +958,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 })
             })
             .ok_or_else(|| RuntimeError::UndefinedProgram(alloc::format!("{instance}").into()))?;
+        self.ran = true;
         self.call(entry, u32::MAX, now, None)
     }
 

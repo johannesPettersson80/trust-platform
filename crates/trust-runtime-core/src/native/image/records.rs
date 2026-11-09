@@ -58,6 +58,9 @@ pub enum EntryKind {
     WarmInit = 3,
     /// A method the tools call.
     Method = 4,
+    /// The exit before the memory is started again or replaced: each instance's `FB_exit` under the
+    /// CODESYS profiles (specification 44 §6.7).
+    Exit = 5,
 }
 
 impl EntryKind {
@@ -69,6 +72,7 @@ impl EntryKind {
             Self::ColdInit,
             Self::WarmInit,
             Self::Method,
+            Self::Exit,
         ]
         .into_iter()
         .find(|kind| *kind as u32 == raw)

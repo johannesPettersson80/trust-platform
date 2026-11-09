@@ -109,8 +109,11 @@ suite("HMI Builder editor: languages on the host", function () {
     webview.send({ type: "translate", language: "sv", text: "Pumps", translation: "" });
     await until("the removed translation", () => !written().includes("Pumpar"));
     assert.strictEqual(written(), 'format = 1\nlanguage = "sv"\n\n[texts]\n"Overview" = "Översikt"\n');
-    const document = vscode.workspace.textDocuments.find((open) => open.uri.fsPath === file);
-    assert.ok(!document?.isDirty, "the text file is saved");
+    // The disk holds the text a moment before the editor marks the document saved (G112).
+    await until(
+      "the saved text file",
+      () => !vscode.workspace.textDocuments.find((open) => open.uri.fsPath === file)?.isDirty,
+    );
     panel.dispose();
   });
 

@@ -3572,7 +3572,11 @@ forced value or queued write applies, and no metric, event or task statistic cou
 watchdog bounds the scan as it bounds every scan. The result is
 `{"time_ns": t, "values": {...}, "direct": {...}, "errors": [...]}`: each value as a conformance
 artifact writes it (`{"type": "INT", "value": 7}`, a duration in `nanos`, a date in `ticks`), and in
-`errors` the text of the error the scan ended with, none for a scan that completed. A fault of a
+`errors` the text of the error the scan ended with, none for a scan that completed. When a statement
+of a debug image raised that error, the result adds `"error_at": {"file": "src/tests.st", "line": 7}`:
+the statement's file, by the label of specification 44 §5.9, and its line, from the image's statement
+table (specification 44 §8.6), so that a client with the sources, such as `trust-dev test --device`,
+shows the statement as it shows one of its own runs (specification 22). A fault of a
 stepped scan is reported and not latched: no safe state is applied, the resource stays Stopped, and
 the next step runs the next scan, as the conformance runner's kernel continues. A name that names no
 variable, or that names one of several programs, refuses the step before its scan, with the name (a

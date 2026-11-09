@@ -98,6 +98,12 @@ pub(super) fn generate<'a>(
     for need in fb_init.needs {
         queue(model, need, &mut queued, &mut work)?;
     }
+    // CODESYS's implicit `FB_exit`: the exit before a restart or a download calls the method of
+    // every instance whose type declares it, in the reverse order.
+    let fb_exit = super::fb_exit::calls(front, model)?;
+    for need in fb_exit.needs {
+        queue(model, need, &mut queued, &mut work)?;
+    }
     let mut index = 0;
     loop {
         // Every function block type the bodies use needs its body; a class has none.
@@ -202,7 +208,14 @@ pub(super) fn generate<'a>(
     areas(&mut source, model, images);
     source.push_str(&functions);
     let references = reference_initializers(front, model)?;
-    let mut entries = entries(&mut source, model, target, &references, &fb_init.statements)?;
+    let mut entries = entries(
+        &mut source,
+        model,
+        target,
+        &references,
+        &fb_init.statements,
+        &fb_exit.statements,
+    )?;
     entries.extend(super::tools::emit(&mut source, model, &tools, target));
     source.push_str(
         "\n#[panic_handler]\nfn panic(_: &core::panic::PanicInfo<'_>) -> ! {\n    loop {}\n}\n",

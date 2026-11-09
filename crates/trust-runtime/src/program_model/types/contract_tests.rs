@@ -31,6 +31,7 @@ fn variable(name: &str) -> VarDef {
         noinit: false,
         hidden: false,
         instance_path: false,
+        no_exit: false,
     }
 }
 
@@ -114,6 +115,7 @@ fn variable_flags_are_not_inferred_from_each_other() {
         noinit: false,
         hidden: false,
         instance_path: false,
+        no_exit: false,
     };
     let cloned = variable.clone();
 

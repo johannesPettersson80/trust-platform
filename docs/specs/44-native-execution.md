@@ -426,7 +426,7 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 ### 5.4 Entry table
 
 One 16-byte record per entry point: kind (4: 1 program body, 2 cold-init, 3 warm-init, 4 method for
-tools), index (4: the program instance's number in the configuration for a program body, the
+tools, 5 exit), index (4: the program instance's number in the configuration for a program body, the
 index of its tool symbol (§5.7) for a method for tools, or 0), code offset (4,
 relative to `CODE`, with the Thumb bit on a Thumb target), reserved (4). A task's record lists the
 program bodies it runs, in order, so that the kernel observes each program's call as today's
@@ -856,6 +856,20 @@ entry wrote into it is replaced (specification 10 §4.8). The start after an ins
 gives it `INIT`, or a retained one its checkpoint, as every variable; an online change carries it
 over with the rest (§12).
 
+The exit entry (kind 5, at most one, index 0) leaves the instances before their memory is started
+again or replaced. Under the CODESYS profiles it calls `FB_exit` of every instance whose type declares
+it, with `bInCopyCode := FALSE`, in the reverse of `FB_init`'s order, leaving out the instances a
+declaration marked `{attribute 'no-exit'}` declares (specification 10 §4.8); an image built under
+another profile, or one whose types declare no `FB_exit`, has none. The kernel calls it once the
+program has run (a scan or a program instance's run since it was built, or an online change took over
+a running program's instances; the starts that bring a program up, a power-on start and the start the
+runtime was asked for, make none run): first at a cold or a warm restart, before the `noinit` bytes
+are taken and the memory is started again, so that what `FB_exit` writes into a `noinit` variable
+stays; and before a program that has run is replaced by an installed one (a download), on the old
+program: its fault
+there does not stop the install, and the new program's event records begin with it. A stop, a
+power-off and the end of the runtime's process call nothing. An online change's calls are §12's.
+
 Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
 type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
 the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. The inputs after
@@ -1238,7 +1252,10 @@ A fault inside a module is a return value: the generated code returns `Err(Fault
 function up to the entry, which calls `api.fault` with the detail (the index and bounds, the
 divisor, the reference) and returns the code. The kernel then does what specification 34 §9
 (STATE-03, STATE-04) and 11 §6.6 say: records the fault with the statement id, file and line from
-the statement table, latches the fault state, applies the output policy. Fault codes are
+the statement table, latches the fault state, applies the output policy. The statement is the one
+being executed when the fault is raised: a debug image's call gives its caller's statement back when
+it returns (`cx.stmt = call_stmt`, §13.2), so a fault raised after a call returns, in the statement
+that made it, such as a test's failed assertion on a function's result, is that statement's. Fault codes are
 specification 10 §10.2's stable codes, numbered in `trust-plc-abi`. A panic in a module cannot
 happen by construction (no `unsafe`, no panicking operation in generated code: every slice index is
 proven in range or checked, every arithmetic checked); as the last resort the module's panic handler
