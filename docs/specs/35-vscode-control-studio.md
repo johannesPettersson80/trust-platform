@@ -1499,6 +1499,14 @@ The study keeps the opened file as one of its recordings (`importRecording`), so
 reopening shows the fit, and Fit refits it (§0.1a); a Recorded-data fit (B3.3) keeps its file in the same way, and its stage is
 the study's `identifyManual` section (§0.1a). The file names no experiment that Control Studio ran, so its fit
 reads its own samples as an observation (C12): nothing is written to the plant.
+A live identification's recording keeps the request it was taken with in the study's `recordRequests` section: the program
+revision, the reviewed plan and the steady baseline window, which the recording file does not hold, and the value of the
+scheduling variable that its run read when it started (C10 Identify, D-21). So Fit refits any live recording the study keeps,
+not only the recording of its Identify result (`openRecording` with the recording, `identify --recording`): the refit reads
+that recording with its own request from the fit window the request was taken with, meets the same limits check (B3.4 step
+6), and its fit becomes the Identify result, which keeps the same request. A recording that the study kept before it kept
+requests has none, and Fit refuses it: "Recording … cannot be fitted again: the study keeps no experiment request for it.
+Identify plant records a new one."
 The engine gives each selector its channels (`recordingCatalog`'s `inputs` and `outputs`): a plant input is offered on the inputs
 selector and a measured output on the outputs selector, and a signal that the loop declares on the other side is offered on neither;
 an extra output that the loop does not bind stays selectable. A legacy file offers its applied input and its measured output, and the
