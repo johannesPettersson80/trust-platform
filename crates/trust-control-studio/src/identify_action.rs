@@ -298,7 +298,7 @@ pub(crate) fn run_stage(
         loop_definition: loop_definition.clone(),
     };
     // The run's identify stage starts a campaign too, so the scheduling variable is checked before it (C10 Identify, D-21).
-    let source = runtime_source(connection)?;
+    let source = starting_source(connection)?;
     let scheduling_value = identify_schedule::check_start(connection, loop_definition, source)?;
     run_identify(context, &work, connection, settings, scheduling_value)
 }
@@ -831,6 +831,16 @@ fn run_request(
 /// Where the values of the runtime of `connection` come from (A2.4, A9), read when an operation starts.
 fn runtime_source(connection: &RuntimeConnection) -> Result<EvidenceSource, Failure> {
     Ok(RuntimeClient::connect(connection)?.status()?.source())
+}
+
+/// [`runtime_source`] as Identify reads it when it starts, refused while the runtime is paused or the debugger holds its scan, which
+/// would keep the campaign waiting for a scan that does not come (A2.3).
+fn starting_source(connection: &RuntimeConnection) -> Result<EvidenceSource, Failure> {
+    let status = RuntimeClient::connect(connection)?.status()?;
+    if let Some(refusal) = status.paused_refusal("Identify") {
+        return Err(refusal);
+    }
+    Ok(status.source())
 }
 
 /// The loop's working study (A8.2).

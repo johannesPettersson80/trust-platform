@@ -3138,7 +3138,8 @@ case-insensitively by extension, together with sources from resolved local
 project dependencies, for the source views. Legacy `--config` startup
 recursively compiles those source types beneath its literal runtime root into a
 debug image for this computer, in a temporary folder, with the toolchain of
-specification 44 §4.6, installed on the first build that needs it. Source
+specification 44 §4.6, installed on the first build that needs it with the person's consent
+(specification 44 NX-08). Source
 discovery must not interpret project or directory names as glob syntax, must use
 deterministic path ordering, and must propagate directory and file-read
 failures. An empty or invalid source set is a startup error. Startup without a
@@ -5940,8 +5941,10 @@ directory is the final fallback. The default source root is `<project>/src`. A
 relative `--sources` override is resolved from the project root, including when
 the command is launched from another working directory. Local package
 dependencies are resolved and compiled with the selected project sources. The
-build installs the toolchain on the first build that needs it (specification 44
-§4.6). The project's `[build] debug` chooses a debug or a release image
+build installs the toolchain on the first build that needs it once the person agrees, never
+silently: it asks in a terminal and otherwise fails with the advice to run `trust-runtime
+toolchain install`, unless `--install-toolchain` gives the consent (specification 44 §4.6,
+NX-08). The project's `[build] debug` chooses a debug or a release image
 (specification 44 §13.2), and the image is signed with the project's key or the
 user's own before its record names its bytes (specification 44 §5.11, §10.1).
 `--emit-source` keeps the generated Rust crate in the build folder. A source set
