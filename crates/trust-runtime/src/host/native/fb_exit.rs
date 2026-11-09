@@ -92,6 +92,27 @@ pub(super) fn calls(front: &Front, model: &Model<'_>) -> Result<FbExit, NativeEr
     Ok(calls)
 }
 
+/// The calls of `FB_exit` for the instances of the frame variable at `place` of type `ty`, which
+/// leave when the call returns (specification 10 §4.8), none when `no_exit` marks its
+/// declaration: Rust statements that pass `copy`, and the methods they need; none outside the
+/// CODESYS profiles.
+///
+/// # Errors
+///
+/// [`NativeError`] as for [`calls`].
+pub(super) fn frame_calls(
+    model: &Model<'_>,
+    place: &str,
+    ty: Ty,
+    no_exit: bool,
+) -> Result<(Vec<String>, Vec<Need>), NativeError> {
+    let mut calls = FbExit::default();
+    if crate::harness::dialect_of(model.conversions).is_codesys() {
+        calls.instance(model, place, ty, no_exit, 0)?;
+    }
+    Ok((calls.statements, calls.needs))
+}
+
 impl FbExit {
     /// Ends the walk of the variable `canonical`: its statements, when it has any, become its calls.
     fn close(&mut self, canonical: String) {
