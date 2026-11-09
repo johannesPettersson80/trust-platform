@@ -1843,7 +1843,10 @@ written marker keeps its value; and a written input keeps it until a driver's ne
 replaces it, as an I/O update replaces a written input. A `TIME` bound in whole milliseconds that its
 address cannot hold is refused, and the variable takes back its address's value. A write at a hold
 reaches its variable for the rest of the held scan, which sampled its inputs before it stopped
-(§13.2). The value a request
+(§13.2). A write at an output address, a queued write or a force, also writes the program's
+output area there and every variable bound to the bytes or the bit it writes, through its binding's
+codec, so that the program reads it and each scan's publication carries it to the drivers until the
+program writes the variable itself, as CODESYS writes the variable of an output. The value a request
 carries is an IEC 61131-3 literal of the declared type of its target, through aliases and
 subranges, or at a process-image address of the variable bound there, when the program resolves the
 target as the request arrives (specification 11, "Runtime control I/O and variable mutation

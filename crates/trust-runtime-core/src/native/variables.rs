@@ -129,7 +129,8 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
             }
             IoArea::Output => {
                 within_area(address, self.outputs.len(), "output")?;
-                write_flat_image(&mut self.outputs, address, value)
+                write_flat_image(&mut self.outputs, address, value)?;
+                self.take_output_write(address)
             }
             IoArea::Memory => {
                 let mut markers = self.markers();
