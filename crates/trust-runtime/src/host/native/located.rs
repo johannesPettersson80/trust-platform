@@ -269,6 +269,10 @@ fn walk(
                 at = member_end;
                 end = end.max(member_end);
             }
+            // A packed structure's wire extent is its size by its pack mode (specification 10).
+            if let Some((size, _)) = types.packed.get(&ty) {
+                end = end.max(start + u64::from(*size) * 8);
+            }
             return Ok(end.div_ceil(8) * 8);
         }
         // A `STRUCT OVERLAP` lies on the wire as its backing, byte for byte (specification 02

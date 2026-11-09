@@ -445,7 +445,32 @@ impl SymbolCollector<'_> {
         if is_overlap {
             self.table.register_overlapping_struct_type(type_id);
         }
+        self.collect_struct_pack(node, type_id);
         type_id
+    }
+
+    /// The pack mode of `{attribute 'pack_mode' := 'n'}` before the `TYPE` keyword of the block
+    /// that declares the structure `node` (specification 02 §3.5.2); any value but `0`, `1`, `2`,
+    /// `4` and `8` is an error.
+    fn collect_struct_pack(&mut self, node: &SyntaxNode, type_id: TypeId) {
+        let Some(entry) = node
+            .ancestors()
+            .find(|ancestor| ancestor.kind() == SyntaxKind::TypeDecl)
+            .and_then(|block| crate::attributes::attribute_entry(&block, "pack_mode"))
+        else {
+            return;
+        };
+        match crate::types::parse_pack_mode(&entry.value) {
+            Some(mode) => self.table.register_struct_pack(type_id, mode),
+            None => self.diagnostics.add(Diagnostic::error(
+                DiagnosticCode::OutOfRange,
+                entry.range,
+                format!(
+                    "'{}' is no pack mode: pack_mode takes 0, 1, 2, 4 or 8",
+                    entry.value
+                ),
+            )),
+        }
     }
 
     fn validate_struct_relative_layout(

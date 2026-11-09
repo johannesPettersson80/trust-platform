@@ -19,6 +19,8 @@ pub struct TypeRegistry {
     named_text_types: FxHashSet<TypeId>,
     /// IEC `STRUCT OVERLAP` types with shared addressed storage.
     overlapping_struct_types: FxHashSet<TypeId>,
+    /// The pack modes of structures declared with `{attribute 'pack_mode'}`.
+    struct_packs: FxHashMap<TypeId, u8>,
     /// Next type ID to assign.
     next_id: u32,
 }
@@ -32,6 +34,7 @@ impl TypeRegistry {
         named_value_types: FxHashSet<TypeId>,
         named_text_types: FxHashSet<TypeId>,
         overlapping_struct_types: FxHashSet<TypeId>,
+        struct_packs: FxHashMap<TypeId, u8>,
     ) -> Self {
         let next_id = types
             .keys()
@@ -45,6 +48,7 @@ impl TypeRegistry {
             named_value_types,
             named_text_types,
             overlapping_struct_types,
+            struct_packs,
             next_id,
         }
     }
@@ -58,6 +62,7 @@ impl TypeRegistry {
             named_value_types: FxHashSet::default(),
             named_text_types: FxHashSet::default(),
             overlapping_struct_types: FxHashSet::default(),
+            struct_packs: FxHashMap::default(),
             next_id: TypeId::USER_TYPES_START,
         };
 
@@ -185,6 +190,18 @@ impl TypeRegistry {
     #[must_use]
     pub fn is_overlapping_struct_type(&self, type_id: TypeId) -> bool {
         self.overlapping_struct_types.contains(&type_id)
+    }
+
+    /// Records the pack mode of a structure declared with `{attribute 'pack_mode'}`
+    /// (specification 02 §3.5.2).
+    pub fn register_struct_pack(&mut self, type_id: TypeId, mode: u8) {
+        self.struct_packs.insert(type_id, mode);
+    }
+
+    /// The pack mode of a structure declared with `{attribute 'pack_mode'}`.
+    #[must_use]
+    pub fn struct_pack(&self, type_id: TypeId) -> Option<u8> {
+        self.struct_packs.get(&type_id).copied()
     }
 
     /// Registers an array type.

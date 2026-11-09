@@ -204,6 +204,9 @@ existing four-byte unsigned-millisecond codec occupy a twelve-byte wire extent,
 even though the new internal structure occupies sixteen bytes. Element two
 starts twelve wire bytes after element one. This distinction preserves existing
 codecs and prevents adjacent bindings from aliasing because gaps were omitted.
+A packed structure (specification 02 §3.5.2) lies on the wire as a relative
+structure does, each member at the address its pack mode gives, a `BOOL` at bit 0
+of its byte; its wire extent, and so an array's stride, is its size by that mode.
 
 
 The HIR layer must not depend on runtime `Value` types or raw CST nodes for
@@ -805,9 +808,10 @@ The portable runtime core SHALL preserve these value and program-model rules:
   out-of-bounds indices, checked-arithmetic failures, and offsets that cannot
   be represented by the target `usize` are rejected rather than wrapped.
 - Portable `SIZEOF` type calculation resolves aliases, subranges, and
-  enumerations to their storage type; sums ordinary structure fields and uses
+  enumerations to their storage type; sums ordinary structure fields, uses
   the complete relative extent, including gaps, for located/overlapping
-  structures under the uniform ABI; selects the largest union variant; multiplies fixed inclusive array dimensions by the
+  structures under the uniform ABI, and lays a packed structure out by its pack
+  mode (specification 02 §3.5.2); selects the largest union variant; multiplies fixed inclusive array dimensions by the
   element size; uses the declared string capacity (twice that capacity for
   `WSTRING`; 80 and 160 for a `STRING` and `WSTRING` without a length); and uses
   the runtime reference-handle width for references and pointers. Unknown

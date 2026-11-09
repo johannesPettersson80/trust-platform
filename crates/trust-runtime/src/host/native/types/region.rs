@@ -65,6 +65,11 @@ impl Types<'_> {
                     });
                     bits.push(bit);
                 }
+                // A packed structure spans its size by its pack mode, its padding included, so that
+                // an array of it strides as the mode says (specification 02 §3.5.2).
+                if let Some((packed, _)) = self.packed.get(&ty) {
+                    size = size.max(*packed);
+                }
                 self.intern(TypeInfo {
                     kind: Kind::Overlap {
                         members: laid,

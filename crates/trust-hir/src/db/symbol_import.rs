@@ -598,6 +598,9 @@ impl<'a> SymbolImporter<'a> {
         if source.is_overlapping_struct_type(type_id) {
             self.target.register_overlapping_struct_type(mapped);
         }
+        if let Some(mode) = source.struct_pack(type_id) {
+            self.target.register_struct_pack(mapped, mode);
+        }
         if source.is_named_text_type(type_id) {
             self.target.mark_named_text_type(mapped);
         }

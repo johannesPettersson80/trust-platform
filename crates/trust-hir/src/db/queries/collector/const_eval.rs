@@ -355,6 +355,16 @@ impl SymbolCollector<'_> {
                         end = end.max(field_end);
                     }
                     u64::try_from(end.div_ceil(8)).ok()
+                } else if let Some(mode) = self.table.struct_pack(type_id) {
+                    // A packed structure is laid out by its pack mode (specification 02 §3.5.2).
+                    let mut members = Vec::with_capacity(fields.len());
+                    for field in fields {
+                        members.push((
+                            self.sizeof_type_bytes_inner(field.type_id, stack)?,
+                            self.sizeof_alignment(field.type_id)?,
+                        ));
+                    }
+                    crate::types::packed_layout(&members, mode).map(|layout| layout.size)
                 } else {
                     let mut total = 0u64;
                     for field in fields {
@@ -386,6 +396,53 @@ impl SymbolCollector<'_> {
             | Type::String { max_len: None }
             | Type::WString { max_len: None } => None,
             _ => ty.bit_size().map(|bits| u64::from(bits.div_ceil(8))),
+        };
+
+        let _ = stack.pop();
+        result
+    }
+
+    /// The alignment a member of type `type_id` keeps in a packed structure (specification 02
+    /// §3.5.2): an elementary value's size, 1 for a `STRING`, 2 for a `WSTRING`, the address width
+    /// for a reference or a pointer, an array's element's, and a structure's largest member
+    /// alignment, at most its own pack mode's.
+    fn sizeof_alignment(&self, type_id: TypeId) -> Option<u64> {
+        let mut stack = Vec::new();
+        self.sizeof_alignment_inner(type_id, &mut stack)
+    }
+
+    fn sizeof_alignment_inner(&self, type_id: TypeId, stack: &mut Vec<TypeId>) -> Option<u64> {
+        if stack.contains(&type_id) {
+            return None;
+        }
+        stack.push(type_id);
+
+        let result = match self.table.type_by_id(type_id)? {
+            Type::Alias { target, .. } => self.sizeof_alignment_inner(*target, stack),
+            Type::Subrange { base, .. } | Type::Enum { base, .. } => {
+                self.sizeof_alignment_inner(*base, stack)
+            }
+            Type::Array { element, .. } => self.sizeof_alignment_inner(*element, stack),
+            Type::Struct { fields, .. } => {
+                let mut align = 1;
+                for field in fields {
+                    align = align.max(self.sizeof_alignment_inner(field.type_id, stack)?);
+                }
+                Some(match self.table.struct_pack(type_id) {
+                    Some(mode) => align.min(crate::types::pack_alignment(mode)),
+                    None => align,
+                })
+            }
+            Type::Union { variants, .. } => {
+                let mut align = 1;
+                for variant in variants {
+                    align = align.max(self.sizeof_alignment_inner(variant.type_id, stack)?);
+                }
+                Some(align)
+            }
+            Type::String { .. } => Some(1),
+            Type::WString { .. } => Some(2),
+            _ => self.sizeof_type_bytes(type_id),
         };
 
         let _ = stack.pop();
