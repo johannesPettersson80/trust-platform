@@ -33,6 +33,10 @@ mod tests;
 #[path = "test_cmd/cycles_tests.rs"]
 mod cycles_tests;
 
+#[cfg(test)]
+#[path = "test_cmd/report_paths_tests.rs"]
+mod report_paths_tests;
+
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,
     filter: Option<String>,
@@ -64,14 +68,14 @@ pub(crate) fn run_test_json(
     if list {
         return Ok(json!({
             "version": 1,
-            "project": project_root.display().to_string(),
+            "project": display_project(&project_root),
             "mode": "list",
             "discovered_total": discovered_total,
             "filter": filter,
             "tests": tests.iter().map(|case| json!({
                 "name": case.name.as_str(),
                 "kind": case.kind.label(),
-                "file": case.file.display().to_string(),
+                "file": display_path(&project_root, &case.file),
                 "line": case.line,
                 "source": case.source_line.as_deref(),
             })).collect::<Vec<_>>(),
@@ -81,7 +85,7 @@ pub(crate) fn run_test_json(
     if tests.is_empty() && discovered_total > 0 {
         return Ok(json!({
             "version": 1,
-            "project": project_root.display().to_string(),
+            "project": display_project(&project_root),
             "summary": {
                 "total": 0,
                 "passed": 0,
@@ -100,7 +104,7 @@ pub(crate) fn run_test_json(
         check_project(&project_root)?;
         return Ok(json!({
             "version": 1,
-            "project": project_root.display().to_string(),
+            "project": display_project(&project_root),
             "summary": {
                 "total": 0,
                 "passed": 0,
