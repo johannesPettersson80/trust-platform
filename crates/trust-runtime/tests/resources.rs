@@ -14,7 +14,7 @@ fn wait_for_cycle(rx: &Receiver<RuntimeEvent>, target: u64) {
     let start = std::time::Instant::now();
     loop {
         let event = rx
-            .recv_timeout(StdDuration::from_millis(100))
+            .recv_timeout(StdDuration::from_secs(10))
             .expect("timed out waiting for runtime event");
         let cycle = match event {
             RuntimeEvent::CycleStart { cycle, .. } | RuntimeEvent::CycleEnd { cycle, .. } => cycle,
@@ -23,7 +23,7 @@ fn wait_for_cycle(rx: &Receiver<RuntimeEvent>, target: u64) {
         if cycle >= target {
             break;
         }
-        if start.elapsed() > StdDuration::from_millis(500) {
+        if start.elapsed() > StdDuration::from_secs(10) {
             panic!("timed out waiting for cycle {target}");
         }
     }

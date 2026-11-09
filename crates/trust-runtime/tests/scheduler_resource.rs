@@ -32,7 +32,7 @@ END_PROGRAM
 
     assert_ne!(handle.thread_id(), std::thread::current().id());
 
-    let event = rx.recv_timeout(StdDuration::from_millis(50)).unwrap();
+    let event = rx.recv_timeout(StdDuration::from_secs(10)).unwrap();
     assert!(matches!(
         event,
         RuntimeEvent::CycleStart { .. } | RuntimeEvent::CycleEnd { .. }

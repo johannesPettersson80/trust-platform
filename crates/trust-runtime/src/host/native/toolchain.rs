@@ -100,34 +100,12 @@ impl Toolchain {
             .ok_or_else(|| {
                 NativeError::Toolchain(format!(
                     "the truST toolchain {} is not installed: `trust-runtime toolchain install` \
-                     installs it, from the bundle beside the tools or downloaded (about 220 MB, \
-                     once)",
+                     installs it, from the bundle beside the tools or downloaded (about 180 to 210 \
+                     MB, once)",
                     super::bundle::TRUST_VERSION
                 ))
             })?;
         Self::at(&folder).map(|toolchain| (toolchain, ToolchainSource::Installed))
-    }
-
-    /// [`Self::find`], installing this release's bundle when none is found and `TRUST_TOOLCHAIN` is
-    /// unset, as `trust-runtime` does on the first build that needs it (specification 44 §4.6): the
-    /// bundle the tools carry beside their program, else downloaded; `report` hears the install's
-    /// progress.
-    ///
-    /// # Errors
-    ///
-    /// [`NativeError::Toolchain`] when `TRUST_TOOLCHAIN` names a folder that lacks a part, or the
-    /// install fails.
-    pub fn find_or_install(
-        report: &mut dyn FnMut(super::bundle::Progress),
-    ) -> Result<Self, NativeError> {
-        match Self::find() {
-            Ok(toolchain) => Ok(toolchain),
-            Err(_) if std::env::var_os("TRUST_TOOLCHAIN").is_none() => {
-                let folder = super::bundle::install(report)?;
-                Self::at(&folder)
-            }
-            Err(error) => Err(error),
-        }
     }
 
     /// The toolchain in folder `root`.

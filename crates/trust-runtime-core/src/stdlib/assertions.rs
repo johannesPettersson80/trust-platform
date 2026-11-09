@@ -15,7 +15,7 @@ pub fn register(lib: &mut StandardLibrary) {
     lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 9] = [
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 10] = [
     super::registration::descriptor!("ASSERT_EQUAL", EXPECTED_ACTUAL, assert_equal),
     super::registration::descriptor!("ASSERT_FALSE", IN, assert_false),
     super::registration::descriptor!("ASSERT_GREATER", VALUE_BOUND, assert_greater),
@@ -29,7 +29,15 @@ pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 9] = [
     super::registration::descriptor!("ASSERT_NEAR", EXPECTED_ACTUAL_DELTA, assert_near),
     super::registration::descriptor!("ASSERT_NOT_EQUAL", EXPECTED_ACTUAL, assert_not_equal),
     super::registration::descriptor!("ASSERT_TRUE", IN, assert_true),
+    super::registration::descriptor!("TEST_FINISHED", NONE, test_finished),
 ];
+
+/// `TEST_FINISHED()` (specification 07): the test build's program gives the call its effect, the mark the test runner reads
+/// (specification 22, "Multi-cycle tests"); evaluated anywhere else it has none.
+fn test_finished(args: &[Value]) -> Result<Value, RuntimeError> {
+    require_arity(args, 0)?;
+    Ok(Value::Null)
+}
 
 fn assert_true(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 1)?;
