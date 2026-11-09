@@ -7,8 +7,8 @@ use super::diagnostics::{
     check_property_accessors, check_shared_global_task_hazards, check_test_attributes,
     check_unreachable_statements, check_using_directives, collect_used_symbols,
     compute_host_clock_sources, expression_by_id, expression_context,
-    resolve_pending_types_with_table, type_check_file, used_external_globals, ExpressionIndex,
-    HostClockSources,
+    resolve_pending_types_with_table, shared_global_owners, type_check_file, used_external_globals,
+    ExpressionIndex, HostClockSources,
 };
 use super::project_configuration::project_config_roots;
 use super::project_constants::{project_constant_expressions, project_declared_expressions};
@@ -16,6 +16,7 @@ use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
 };
 use super::symbol_import::SymbolImporter;
+use super::GlobalOwnership;
 use super::*;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 use rowan::GreenNode;
@@ -606,6 +607,46 @@ pub(super) fn analyze_query(
         written_arguments: Arc::clone(&checked.written_arguments),
         declaration_catalog: Arc::new(declaration_catalog),
     })
+}
+
+/// The owner of each global that `file_id` declares (control-studio-runtime-protocol annex E2.3):
+/// asked for by the build and the setup tools, never by a file's diagnostics, so that an edit pays
+/// for it only when they ask.
+#[salsa::tracked(returns(ref))]
+pub(super) fn global_owners_query(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file_id: FileId,
+) -> Arc<Vec<GlobalOwnership>> {
+    cancellation_checkpoint(db);
+    let Some(checked) = checked_file_query(db, project, file_id).clone() else {
+        return Arc::default();
+    };
+    let symbols = checked.symbols.as_ref();
+    if !has_owned_global_variables(symbols, file_id) {
+        return Arc::default();
+    }
+    let Some(ProjectState {
+        project_source_inputs,
+        ..
+    }) = collect_project_state(db, project, file_id)
+    else {
+        return Arc::default();
+    };
+    let project_roots = project_roots_from_inputs(db, &project_source_inputs);
+    let written_arguments = |file: FileId| {
+        checked_file_query(db, project, file)
+            .as_ref()
+            .map_or_else(Default::default, |checked| {
+                Arc::clone(&checked.written_arguments)
+            })
+    };
+    Arc::new(shared_global_owners(
+        symbols,
+        &project_roots,
+        file_id,
+        &written_arguments,
+    ))
 }
 
 /// The project's host-clock sources, keyed canonically per POU (specification

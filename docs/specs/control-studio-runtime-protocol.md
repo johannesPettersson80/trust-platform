@@ -173,8 +173,18 @@ The `iec_type` of a binding MUST equal the name of the variable's type in upper 
 
 ### E2.3 Ownership and mutability
 
-- Every symbol in one operation belongs to one compiled program.
-- Transfer members belong to the declared task, or to `$background`, and to no other owner.
+- Every symbol in one operation belongs to one compiled program, except a transfer's guards and globals (below).
+- What a transfer writes, its modes, states and outputs, belongs to the declared task, or to `$background`, and to no other
+  owner. Such a member may be a global, a member of a GVL included (`GVL_IO.lrValve`), when the declared task owns it: no
+  program writes it, or only the bodies of the programs that task runs do, their actions included (`$background`: only
+  programs outside every task). A global that a function, a function block, a method, a property or a class writes, which
+  any task may run, or that the programs of several tasks write, belongs to no task and is refused with its reason, as is
+  one that another task owns: "transfer member GVL_IO.lrValve is a global that task Fast writes, not the loop's task
+  Slow". The build records each global's owner in the program image (specification 44 §5.7). The program's members that
+  one transfer writes belong to one program.
+- A transfer's guards, which it only reads, may be any declared member: a GVL's, another program's, or a located
+  input's. A measurement may come from anywhere; E6.6's boundary check still compares each guard with its expected
+  value, by its band when the law tracks it (A6.4).
 - Parameter paths belong to programs owned exclusively by the declared task.
 - The target and the mode symbol of an experiment MUST belong to the experiment's `task`.
 - Constants, `IN_OUT` aliases, external variables and addressed variables are refused as write targets.
@@ -526,7 +536,8 @@ A member is `{symbol, iec_type, unit, minimum, maximum}`. `iec_type` is REAL, LR
 
 Rules:
 
-- All members belong to one program and to the declared task (E2.3).
+- The members the transfer writes, its modes, states and outputs, belong to the declared task (E2.3): a program's
+  members to one program that the task runs, a global's to the task that owns it. A guard may be any declared member.
 - Member symbols are distinct, without regard to case.
 - Modes are unaddressed. A mode MUST NOT have an I/O binding.
 - A state is unaddressed or bound to `%M`. States MUST NOT overlap one memory address.
@@ -613,7 +624,7 @@ An accepted apply returns `status` set to `pending` and `confirmed` set to false
 At the owning task's boundary, before the task executes, the runtime rechecks the following. A mismatch in any item rejects the whole set. Nothing is written, and the record becomes `rejected` with its reason.
 
 - The program revision, the binding revision and the expected values.
-- The binding: ownership, types, bounds and mutability of every member.
+- The binding: the ownership of what it writes (E2.3), and the types, bounds and mutability of every member.
 - Forcing: no mode, state or guard is forced.
 - The I/O authority: when any attached I/O driver is not simulated, the physical approval MUST be present (E10.2). Without it, the transaction is rejected with the reason `attached I/O requires explicit physical review`.
 - The tracking values are computed (E6.4).

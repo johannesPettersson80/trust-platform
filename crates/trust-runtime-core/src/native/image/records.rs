@@ -310,6 +310,16 @@ pub const SYMBOL_INSTANCE: u8 = 64;
 /// A symbol's flag: directly addressed (`AT %…`).
 pub const SYMBOL_DIRECT: u8 = 128;
 
+/// A symbol's owner: none known, for a variable that is no global, a global that a POU other than
+/// a program writes, or one that programs of several tasks write (specification 44 §5.7).
+pub const OWNER_UNKNOWN: u8 = 0;
+/// A symbol's owner: the largest task index plus one that an owner byte names.
+pub const OWNER_LAST_TASK: u8 = 127;
+/// A symbol's owner: a global that no program writes, which any task may own.
+pub const OWNER_UNWRITTEN: u8 = 128;
+/// A symbol's owner: a global that only programs outside every task write (`$background`).
+pub const OWNER_BACKGROUND: u8 = 129;
+
 /// A member's flag above the symbol flags (specification 44 §5.8): the member is the alias of a
 /// property whose GET only returns another member, whose type, place and flags it repeats. A name
 /// lookup finds it; the values, the retain store, online change and the layout skip it, since it
@@ -336,6 +346,10 @@ pub struct SymbolRecord {
     /// is read and written by its name as any other (specification 44 §5.7; specification 10 §4.8),
     /// bit 1 of the record's byte 14.
     pub hidden: bool,
+    /// The task that owns a global (control-studio-runtime-protocol annex E2.3), the record's byte 15:
+    /// [`OWNER_UNKNOWN`] for no owner, a task's index in the task table plus one, or
+    /// [`OWNER_UNWRITTEN`] or [`OWNER_BACKGROUND`]. A member of a global carries its global's.
+    pub owner: u8,
     /// The offset in the area.
     pub offset: u32,
     /// The bytes of the variable, padding excluded.
@@ -358,6 +372,7 @@ impl Record for SymbolRecord {
             flags: field::<1>(bytes, 13)[0],
             noinit: field::<1>(bytes, 14)[0] & 1 != 0,
             hidden: field::<1>(bytes, 14)[0] & 2 != 0,
+            owner: field::<1>(bytes, 15)[0],
             offset: u32_at(bytes, 16),
             size: u32_at(bytes, 20),
             parent: u32_at(bytes, 24),
@@ -369,7 +384,7 @@ impl Record for SymbolRecord {
         put(out, 4, &self.display.to_le_bytes());
         put(out, 8, &self.type_index.to_le_bytes());
         let marks = u8::from(self.noinit) | (u8::from(self.hidden) << 1);
-        put(out, 12, &[self.area, self.flags, marks, 0]);
+        put(out, 12, &[self.area, self.flags, marks, self.owner]);
         put(out, 16, &self.offset.to_le_bytes());
         put(out, 20, &self.size.to_le_bytes());
         put(out, 24, &self.parent.to_le_bytes());

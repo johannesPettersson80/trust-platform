@@ -368,6 +368,7 @@ impl Program {
                 flags: row.flags,
                 noinit: false,
                 hidden: false,
+                owner: 0,
                 offset: row.offset,
                 size: row.size,
                 parent: row.parent.as_deref().map_or(NONE, index),

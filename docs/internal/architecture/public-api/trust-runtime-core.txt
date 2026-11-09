@@ -1083,6 +1083,7 @@ pub trust_runtime_core::native::image::SymbolRecord::flags: u8
 pub trust_runtime_core::native::image::SymbolRecord::hidden: bool
 pub trust_runtime_core::native::image::SymbolRecord::noinit: bool
 pub trust_runtime_core::native::image::SymbolRecord::offset: u32
+pub trust_runtime_core::native::image::SymbolRecord::owner: u8
 pub trust_runtime_core::native::image::SymbolRecord::parent: u32
 pub trust_runtime_core::native::image::SymbolRecord::pou: u32
 pub trust_runtime_core::native::image::SymbolRecord::size: u32
@@ -1142,6 +1143,10 @@ pub const trust_runtime_core::native::image::MEMBER_ALIAS: u32
 pub const trust_runtime_core::native::image::MEMBER_BYTES: usize
 pub const trust_runtime_core::native::image::MEMBER_HIDDEN: u32
 pub const trust_runtime_core::native::image::NONE: u32
+pub const trust_runtime_core::native::image::OWNER_BACKGROUND: u8
+pub const trust_runtime_core::native::image::OWNER_LAST_TASK: u8
+pub const trust_runtime_core::native::image::OWNER_UNKNOWN: u8
+pub const trust_runtime_core::native::image::OWNER_UNWRITTEN: u8
 pub const trust_runtime_core::native::image::SECTION_ALIGNMENT: usize
 pub const trust_runtime_core::native::image::SECTION_ENTRY_BYTES: usize
 pub const trust_runtime_core::native::image::SYMBOL_CONSTANT: u8

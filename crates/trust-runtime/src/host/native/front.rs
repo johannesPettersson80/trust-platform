@@ -101,6 +101,9 @@ pub(super) struct Front {
     pub(super) lowered: LoweredApplication,
     /// The sources, in the project's order.
     pub(super) sources: Vec<Source>,
+    /// The owner of each global the project declares (control-studio-runtime-protocol annex E2.3),
+    /// as trust-hir judges it.
+    pub(super) global_owners: Vec<trust_hir::db::GlobalOwnership>,
 }
 
 impl Front {
@@ -128,6 +131,7 @@ impl Front {
             .map_err(|error| NativeError::Compile(error.to_string()))?;
         let database = frontend.project.database();
         let mut checked = Vec::with_capacity(sources.len());
+        let mut global_owners = Vec::new();
         for (index, ((file_id, root), source)) in frontend
             .file_ids
             .iter()
@@ -150,10 +154,12 @@ impl Front {
                 analysis: database.analyze(*file_id),
                 line_starts,
             });
+            global_owners.extend(database.global_owners(*file_id).iter().cloned());
         }
         Ok(Self {
             lowered,
             sources: checked,
+            global_owners,
         })
     }
 

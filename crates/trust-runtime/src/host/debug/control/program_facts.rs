@@ -135,6 +135,47 @@ pub(crate) fn binding_leaf(image: &Image<'_>, path: &str) -> Option<BindingLeaf>
     Some(leaf)
 }
 
+/// The global `path` names, `GVL_IO.lrLevel` or `gTank.level`, or a member or field below one, with
+/// the owner byte its symbol carries (specification 44 §5.7): the shortest leading part that names a
+/// global, its namespaces included, then each further part a member with a symbol of its own. The
+/// global's own declaration counts toward the leaf's facts. `None` for a path that names no global.
+pub(crate) fn global_leaf(image: &Image<'_>, path: &str) -> Option<(BindingLeaf, u8)> {
+    let parts: Vec<&str> = path.split('.').collect();
+    if parts.iter().any(|part| part.is_empty()) {
+        return None;
+    }
+    let bindings = image.table::<IoBindRecord>().ok()?;
+    let canonical = |count: usize| parts[..count].join(".").to_ascii_uppercase();
+    let first = (1..=parts.len()).find(|count| {
+        image
+            .find_symbol(&canonical(*count))
+            .is_some_and(|(_, symbol)| {
+                symbol.parent == NONE && symbol.area != 0 && symbol.flags & SYMBOL_PROGRAM == 0
+            })
+    })?;
+    let mut leaf = BindingLeaf::default();
+    let mut owner = 0;
+    for count in first..=parts.len() {
+        let (index, symbol) = image.find_symbol(&canonical(count))?;
+        leaf.constant |= symbol.flags & SYMBOL_CONSTANT != 0;
+        leaf.in_out |= symbol.flags & SYMBOL_IN_OUT != 0;
+        let bound = bindings.iter().find(|binding| binding.symbol == index);
+        leaf.direct |= symbol.flags & SYMBOL_DIRECT != 0 || bound.is_some();
+        if leaf.address.is_none() {
+            leaf.address = bound.and_then(|binding| image.binding_address(&binding));
+        }
+        owner = symbol.owner;
+    }
+    Some((leaf, owner))
+}
+
+/// The declared name of the task at `index` of the image's task table.
+pub(crate) fn task_name(image: &Image<'_>, index: usize) -> Option<SmolStr> {
+    let tasks = image.table::<TaskRecord>().ok()?;
+    let task = tasks.get(u32::try_from(index).ok()?)?;
+    Some(SmolStr::new(image.string(task.name)?))
+}
+
 /// Whether `path` names a member a parameter set or an experiment may write: declared, and neither
 /// constant, in-out nor located along its path (specification 35 A6.8; protocol annex E7.1).
 pub(crate) fn parameter_writable(image: &Image<'_>, path: &str) -> bool {
