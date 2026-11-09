@@ -19,6 +19,8 @@ use crate::cli::ControlAction;
 mod device;
 #[path = "ctl/endpoint_command.rs"]
 mod endpoint_command;
+#[path = "ctl/expressions.rs"]
+mod expressions;
 #[path = "ctl/firmware.rs"]
 mod firmware;
 #[path = "ctl/install.rs"]
@@ -102,6 +104,10 @@ pub fn run_control(
     if let ControlAction::Endpoint { json } = &action {
         return endpoint_command::print_control_endpoint(bundle, endpoint, token, *json);
     }
+    if let ControlAction::CompileExpression { expr } = &action {
+        return expressions::print_compiled(expr, bundle.as_deref());
+    }
+    let project = bundle.clone();
     let target = resolve_control_target(bundle, endpoint, token)?;
     match action {
         ControlAction::Install { container, restart } => {
@@ -113,7 +119,7 @@ pub fn run_control(
         ControlAction::DeviceGet | ControlAction::DeviceSet { .. } | ControlAction::DeviceReset => {
             device::run(&target, &action)
         }
-        action => send_control_request(&target, &action),
+        action => send_control_request(&target, &action, project.as_deref()),
     }
 }
 
@@ -191,8 +197,10 @@ impl std::error::Error for ConnectFailed {}
 fn send_control_request(
     target: &ResolvedControlTarget,
     action: &ControlAction,
+    project: Option<&Path>,
 ) -> anyhow::Result<()> {
-    let request = build_request(action, target.auth_token.as_deref());
+    let mut request = build_request(action, target.auth_token.as_deref());
+    expressions::attach(&mut request, action, project)?;
     let response = match &target.endpoint {
         CtlEndpoint::Socket(socket) => {
             let status = json!({
@@ -524,8 +532,8 @@ fn one_based_positions(value: &mut JsonValue) {
 fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json::Value {
     let auth = auth_token.map(|value| value.to_string());
     match action {
-        ControlAction::Endpoint { .. } => {
-            unreachable!("ctl endpoint is printed without sending a request")
+        ControlAction::Endpoint { .. } | ControlAction::CompileExpression { .. } => {
+            unreachable!("ctl endpoint and compile-expression print without sending a request")
         }
         ControlAction::Status => json!({"id": 1, "type": "status", "auth": auth}),
         ControlAction::Health => json!({"id": 1, "type": "health", "auth": auth}),
@@ -537,7 +545,7 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         ControlAction::StepOut => json!({"id": 1, "type": "step_out", "auth": auth}),
         // The protocol's lines are zero-based (specification 11, 6.13.3); the command's are
         // one-based, as an editor shows them.
-        ControlAction::BreakpointsSet { source, lines } => json!({
+        ControlAction::BreakpointsSet { source, lines, .. } => json!({
             "id": 1,
             "type": "breakpoints.set",
             "auth": auth,
@@ -593,6 +601,13 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "type": "eval",
             "auth": auth,
             "params": { "expr": expr }
+        }),
+        // The compiled expression is added by `expressions::attach`.
+        ControlAction::Evaluate { frame, .. } => json!({
+            "id": 1,
+            "type": "debug.evaluate",
+            "auth": auth,
+            "params": { "frame_id": frame }
         }),
         ControlAction::Set { target, value } => json!({
             "id": 1,
@@ -868,6 +883,9 @@ mod tests {
                 ControlAction::BreakpointsSet {
                     source: "main.st".into(),
                     lines: vec![3, 8],
+                    condition: None,
+                    hit_condition: None,
+                    log_message: None,
                 },
                 json!({
                     "id": 1,
@@ -1116,7 +1134,7 @@ mod tests {
             endpoint_file_skipped: None,
         };
 
-        let error = send_control_request(&local_target(target), &ControlAction::Status)
+        let error = send_control_request(&local_target(target), &ControlAction::Status, None)
             .expect_err("a refused connection must fail");
 
         assert!(
@@ -1138,7 +1156,7 @@ mod tests {
             endpoint_file_skipped: None,
         };
 
-        let error = send_control_request(&local_target(target), &ControlAction::Status)
+        let error = send_control_request(&local_target(target), &ControlAction::Status, None)
             .expect_err("a refused connection must fail");
 
         assert!(

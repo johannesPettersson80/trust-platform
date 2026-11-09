@@ -482,3 +482,54 @@ fn play_paused_and_start_paused_hold_before_the_first_scan() {
         runtime.assert_running_without_fault();
     }
 }
+
+/// Specification 11 §6.13.2 (the CODESYS toolkit's B1 and B19): `ctl` compiles debug expressions
+/// with the project's types. `ctl evaluate P1.Counter` reads the counter between scans; a
+/// breakpoint on `Counter := Counter + 1;` with the condition `Counter = <that + 20>` then holds
+/// the scan only when the counter reaches that value, and `ctl evaluate` reads the value in the
+/// held scan. Worked by hand: the 50 ms task adds 1 per scan, so the hold comes about a second
+/// later, before the increment, with the counter at the condition's value. Catches a condition
+/// sent as text (refused), a condition ignored (a hold at the next hit, below the value), and an
+/// `evaluate` that sends no compiled expression.
+#[test]
+fn ctl_holds_at_a_conditional_breakpoint_and_evaluates_a_debug_expression() {
+    let mut runtime = ExampleRuntime::new("memory_marker_counter")
+        .mode("debug")
+        .debug_enabled(true)
+        .start();
+    runtime.wait_for_snapshot(WAIT, "a running scan", |s| s.scan() >= 2);
+    let counter = |runtime: &runtime_process::Runtime| -> i64 {
+        let result = runtime.ctl_result(&["evaluate", "P1.Counter"]);
+        assert_eq!(result["type"], "INT", "{result}");
+        result["result"]
+            .as_str()
+            .and_then(|text| text.parse().ok())
+            .unwrap_or_else(|| panic!("an INT value: {result}"))
+    };
+    let target = counter(&runtime) + 20;
+    let source = "src/Main.st";
+    let line = std::fs::read_to_string(runtime.project().join(source))
+        .expect("the example's program")
+        .lines()
+        .position(|text| text.trim() == "Counter := Counter + 1;")
+        .expect("the counter's increment")
+        + 1;
+    runtime.ctl_ok(&[
+        "breakpoints-set",
+        source,
+        &line.to_string(),
+        "--condition",
+        &format!("Counter = {target}"),
+    ]);
+    runtime.wait_until(WAIT, "the conditional breakpoint to hold the scan", || {
+        runtime.status().state == "paused"
+    });
+    assert_eq!(counter(&runtime), target);
+
+    runtime.ctl_ok(&["breakpoints-clear", source]);
+    runtime.ctl_ok(&["resume"]);
+    runtime.wait_until(WAIT, "status to report running after resume", || {
+        runtime.status().state == "running"
+    });
+    runtime.assert_running_without_fault();
+}
