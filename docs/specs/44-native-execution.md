@@ -1236,7 +1236,10 @@ A fault inside a module is a return value: the generated code returns `Err(Fault
 function up to the entry, which calls `api.fault` with the detail (the index and bounds, the
 divisor, the reference) and returns the code. The kernel then does what specification 34 §9
 (STATE-03, STATE-04) and 11 §6.6 say: records the fault with the statement id, file and line from
-the statement table, latches the fault state, applies the output policy. Fault codes are
+the statement table, latches the fault state, applies the output policy. The statement is the one
+being executed when the fault is raised: a debug image's call gives its caller's statement back when
+it returns (`cx.stmt = call_stmt`, §13.2), so a fault raised after a call returns, in the statement
+that made it, such as a test's failed assertion on a function's result, is that statement's. Fault codes are
 specification 10 §10.2's stable codes, numbered in `trust-plc-abi`. A panic in a module cannot
 happen by construction (no `unsafe`, no panicking operation in generated code: every slice index is
 proven in range or checked, every arithmetic checked); as the last resort the module's panic handler

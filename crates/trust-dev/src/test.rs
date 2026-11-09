@@ -37,6 +37,10 @@ mod cycles_tests;
 #[path = "test_cmd/report_paths_tests.rs"]
 mod report_paths_tests;
 
+#[cfg(test)]
+#[path = "test_cmd/failed_at_tests.rs"]
+mod failed_at_tests;
+
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,
     filter: Option<String>,

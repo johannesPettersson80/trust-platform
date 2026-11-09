@@ -47,6 +47,7 @@ pub use toolchain::{stack_frames, triple, Toolchain, ToolchainSource};
 pub use trust_runtime_core::native::image::Target;
 use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure, SectionId};
 pub use trust_runtime_core::native::program::{Device, NativeProgram, NoHooks, ScanHooks};
+pub use trust_runtime_services::debug::sources::{fault_at, StatementAt};
 
 /// The global the test build declares for the mark of a finished multi-cycle test (specification 22, "Multi-cycle tests"):
 /// `TEST_FINISHED()` sets it, and the test runner reads it after each cycle. A project may not declare it itself.

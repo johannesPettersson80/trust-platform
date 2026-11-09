@@ -709,6 +709,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             message: None,
             duration_ms: 1,
             cycles: None,
+            failed_at: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -724,6 +725,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             message: Some("ASSERT_EQUAL failed: expected <2> & got 3".to_string()),
             duration_ms: 2,
             cycles: None,
+            failed_at: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -739,6 +741,7 @@ fn sample_results() -> Vec<ExecutedTest> {
             message: Some("runtime <panic>".to_string()),
             duration_ms: 3,
             cycles: None,
+            failed_at: None,
         },
     ]
 }
