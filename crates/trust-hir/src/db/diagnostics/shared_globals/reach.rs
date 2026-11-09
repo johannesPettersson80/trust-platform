@@ -1,9 +1,10 @@
 //! What a program reaches through its calls (specification 28 §6; control-studio-runtime-protocol annex E2.3): the globals that
 //! the POUs it calls read and write are its own accesses, so a function block that writes a global writes it in each task whose
 //! programs call it, directly or through further calls, as CODESYS Static Analysis follows the call tree. A call's callee is the
-//! POU the type checker resolved it to: a function, the function block of an instance's call, a method or an action. A call
-//! through an interface names no body, so the methods it may run are reached by no program, and their writes count for no single
-//! task. A POU is keyed by its file and its name's range, which every file's symbol table gives alike.
+//! POU the type checker resolved it to: a function, the function block of an instance's call or a method. An action's statements
+//! are part of the POU that declares it, so calling an action reaches that POU. A call through an interface names no body, so the
+//! methods it may run are reached by no program, and their writes count for no single task. A POU is keyed by its file and its
+//! name's range, which every file's symbol table gives alike.
 
 use super::*;
 
@@ -112,13 +113,17 @@ impl CallGraph {
     }
 }
 
-/// The POU that the call node `call` of `file` runs, as the file's type check resolved it.
+/// The POU that the call node `call` of `file` runs, as the file's type check resolved it; for an action, the POU that declares
+/// it, which holds the action's statements.
 fn callee(file: FileId, facts: &CallFacts, call: &SyntaxNode) -> Option<PouKey> {
     let range = call.text_range();
     let id = facts
         .resolved
         .get(&(u32::from(range.start()), u32::from(range.end())))?;
-    let symbol = facts.symbols.get(*id)?;
+    let mut symbol = facts.symbols.get(*id)?;
+    if matches!(symbol.kind, SymbolKind::Action) {
+        symbol = facts.symbols.get(symbol.parent?)?;
+    }
     Some(PouKey {
         file: symbol.origin.map_or(file, |origin| origin.file_id),
         name: symbol.range,

@@ -239,11 +239,12 @@ call tree, as CODESYS Static Analysis follows calls for SA0006 and SA0103: a
 function it calls, the body of a function block instance it calls, a method or
 an action it calls, and the POUs those call in turn. A function block called
 by the programs of two tasks therefore writes its globals from both. A call's
-callee is the POU the type check resolved it to; a call through an interface
-names no body, so the methods it may run are reached by no program, and their
-accesses count for no task here (the owner analysis of control-studio-runtime-
-protocol annex E2.3, which shares this rule, counts their writes for no single
-task).
+callee is the POU the type check resolved it to. An action's statements are part
+of the POU that declares it, so calling an action accesses what that POU's body
+and actions access. A call through an interface names no body, so the methods it
+may run are reached by no program, and their accesses count for no task here
+(the owner analysis of control-studio-runtime-protocol annex E2.3, which shares
+this rule, counts their writes for no single task).
 
 The warning is reported on the owning global declaration. Its message lists
 task labels in lexical order, includes at most three labels per access/write

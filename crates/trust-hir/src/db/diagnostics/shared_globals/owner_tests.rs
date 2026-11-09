@@ -207,3 +207,76 @@ fn a_called_pou_writes_its_globals_in_the_tasks_of_the_programs_that_reach_it() 
         ]
     );
 }
+
+/// Actions, whose statements are part of the POU that declares them: the program `Tank` calls its own action, the action of its block
+/// instance `step` and the action of its block instance `gate`, which a second file declares; the program `Other`, in `Slow`, calls
+/// none of them.
+const ACTIONS: &str = "
+VAR_GLOBAL
+    gByProgramAction : LREAL;
+    gByBlockAction : LREAL;
+    gByFarAction : LREAL;
+END_VAR
+
+FUNCTION_BLOCK FB_Step
+ACTION Reset:
+gByBlockAction := 2.0;
+END_ACTION
+END_FUNCTION_BLOCK
+
+PROGRAM Tank
+VAR
+    step : FB_Step;
+    gate : FB_Gate;
+END_VAR
+step.Reset();
+gate.Open();
+SetProgram();
+ACTION SetProgram:
+gByProgramAction := 3.0;
+END_ACTION
+END_PROGRAM
+
+PROGRAM Other
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Res ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    TASK Slow (INTERVAL := T#100ms, PRIORITY := 2);
+    PROGRAM TankInst WITH Fast : Tank;
+    PROGRAM OtherInst WITH Slow : Other;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// The block with the action of the second file.
+const FAR_ACTION: &str = "
+FUNCTION_BLOCK FB_Gate
+ACTION Open:
+gByFarAction := 4.0;
+END_ACTION
+END_FUNCTION_BLOCK
+";
+
+/// Specification 28 §6: a program accesses what an action it calls accesses. Worked from the project: `Tank`, in `Fast`, calls its own
+/// action `SetProgram`, which writes `gByProgramAction`; the action `Reset` of its block `step`, which writes `gByBlockAction`; and the
+/// action `Open` of its block `gate`, declared in a second file, which writes `gByFarAction`. Each write is `Fast`'s. Catches an action
+/// call that reaches nothing, so that a global a block's action writes is refused as no task's.
+#[test]
+fn an_action_a_program_calls_writes_its_globals_in_the_programs_task() {
+    assert_eq!(
+        owners(&[ACTIONS, FAR_ACTION]),
+        [
+            (
+                "gByProgramAction".to_string(),
+                GlobalOwner::Task("Fast".into())
+            ),
+            (
+                "gByBlockAction".to_string(),
+                GlobalOwner::Task("Fast".into())
+            ),
+            ("gByFarAction".to_string(), GlobalOwner::Task("Fast".into())),
+        ]
+    );
+}
