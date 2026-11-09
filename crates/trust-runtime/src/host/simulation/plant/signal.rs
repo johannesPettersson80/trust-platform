@@ -65,6 +65,21 @@ impl PlantSignal {
         Ok(Self::Symbol(text.to_string()))
     }
 
+    /// The program's signals this one reaches: an address, a variable by its path, and for a
+    /// Control.PID's held measurement the instance's two members that hold it (Specification 46
+    /// §13.2), so that a runner stepping the program elsewhere carries them (specification 22).
+    pub(super) fn program_signals(&self) -> Vec<super::super::ProgramSignal> {
+        use super::super::ProgramSignal;
+        match self {
+            Self::Address(address) => vec![ProgramSignal::Address(address.clone())],
+            Self::Symbol(symbol) => vec![ProgramSignal::Variable(symbol.clone())],
+            Self::Controller(path) => [HELD_MEASUREMENT, MEASUREMENT_HELD]
+                .iter()
+                .map(|member| ProgramSignal::Variable(format!("{path}.{member}")))
+                .collect(),
+        }
+    }
+
     pub(super) fn address(&self) -> Option<&IoAddress> {
         match self {
             Self::Address(address) => Some(address),

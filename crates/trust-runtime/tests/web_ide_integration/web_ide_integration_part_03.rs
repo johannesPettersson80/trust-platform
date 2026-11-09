@@ -71,16 +71,9 @@ fn web_ide_latency_and_resource_budget_contract() {
     }
 
     let avg = total / runs;
-    assert!(
-        max < Duration::from_millis(250),
-        "max latency {:?} exceeded budget",
-        max
-    );
-    assert!(
-        avg < Duration::from_millis(50),
-        "avg latency {:?} exceeded budget",
-        avg
-    );
+    let (max_budget, avg_budget) = (Duration::from_millis(250), Duration::from_millis(50));
+    check_budget("HTTP apply max", max < max_budget, max, max_budget);
+    check_budget("HTTP apply average", avg < avg_budget, avg, avg_budget);
 
     let too_large = "X".repeat(max_file_bytes as usize + 1);
     let (status, body) = request_json(

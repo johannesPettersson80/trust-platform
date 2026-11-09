@@ -181,6 +181,7 @@ where
     pub(super) fn finish_loading_step(&mut self, id: u64, request: StepRequest) {
         let response = match self.reload(RestartMode::Cold) {
             Ok(events) => {
+                self.record_left_fault();
                 self.record_retain_events(events);
                 self.record_program_memory();
                 let loaded = StepRequest {

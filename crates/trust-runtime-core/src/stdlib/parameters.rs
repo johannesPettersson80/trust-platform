@@ -10,6 +10,8 @@ pub(super) static EXPECTED_ACTUAL: StdParams = StdParams::Fixed(Cow::Borrowed(&[
     SmolStr::new_inline("ACTUAL"),
 ]));
 pub(super) static IN: StdParams = StdParams::Fixed(Cow::Borrowed(&[SmolStr::new_inline("IN")]));
+/// No inputs, as `TEST_FINISHED()` takes none.
+pub(super) static NONE: StdParams = StdParams::Fixed(Cow::Borrowed(&[]));
 pub(super) static VALUE_BOUND: StdParams = StdParams::Fixed(Cow::Borrowed(&[
     SmolStr::new_inline("VALUE"),
     SmolStr::new_inline("BOUND"),

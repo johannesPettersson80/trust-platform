@@ -208,6 +208,7 @@ fn a_computer_steps_a_compiled_program() {
         watch: vec![SmolStr::new("P.count"), SmolStr::new("P.kept")],
         watch_direct: Vec::new(),
         run: None,
+        io: false,
     };
     let outcome = runtime
         .step(&request, Duration::ZERO)

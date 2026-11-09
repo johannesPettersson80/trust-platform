@@ -17,11 +17,21 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
     ///
     /// The fault of the cold-init entry, or the error of an area table that does not read.
     pub(crate) fn start_as_replacement(&mut self, now: Duration) -> Result<(), RuntimeError> {
-        self.start_memory(|id| !super::process_image(id))?;
+        self.start_replacement_memory()?;
         if let Some(entry) = self.cold {
             self.call(entry, u32::MAX, now, None)?;
         }
         Ok(())
+    }
+
+    /// The program's own areas take their starting memory; its process images keep what they hold
+    /// (§12.3, step 4).
+    ///
+    /// # Errors
+    ///
+    /// The error of an area table that does not read.
+    pub(crate) fn start_replacement_memory(&mut self) -> Result<(), RuntimeError> {
+        self.start_memory(|id| !super::process_image(id))
     }
 
     /// Takes over from `old` at the logical time `now`: the images the drivers fill and drive keep
@@ -52,8 +62,10 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
         }
         self.live = old.live;
         // The candidate holds the running program's values, so that its next restart gives the
-        // variables marked `noinit` back what they hold (§6.7).
+        // variables marked `noinit` back what they hold (§6.7), and its instances, which have lived
+        // when the running program's had, so that its next restart leaves them first.
         self.started = old.started;
+        self.ran = old.ran;
         // The candidate's markers start where the running program left them; a `TIME` there that
         // the image cannot hold leaves its byte as it was, which the next scan's publication
         // refuses.

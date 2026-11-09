@@ -1007,6 +1007,14 @@ END_VAR
 4. Qualified names can always be used
 5. Name conflicts resolved by qualification
 6. INTERNAL access specifier limits scope to namespace
+7. A namespace's `VAR_GLOBAL` list preceded by `{attribute 'qualified_only'}` (CODESYS, vendor
+   extension; the vendor's attribute help: the variables of such a global variable list "are
+   addressed only by specifying the global variable name", `GVL.iVar`, and an unqualified `iVar`
+   "will create an error") is named with its namespace: a bare name that reaches one of its globals
+   through a `USING` from outside the namespace is an error (E105) whose message names the qualified
+   form (`GVL_IO.lrLevel`). Inside the namespace, where its names are in scope without a `USING`, the
+   bare name stays valid. A list outside any namespace has no name to qualify with, and the attribute
+   requires nothing there
 
 ### Namespace implementation notes
 
