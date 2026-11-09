@@ -23,7 +23,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{Duration, Value};
 
-pub use values::{encode_value, parse_typed_value};
+pub use values::{decode_value, encode_value, parse_typed_value, typed_value_text};
 
 use crate::debug::sources::StatementAt;
 use crate::ports::ResourcePort;
@@ -42,6 +42,7 @@ const MEMBERS: &[&str] = &[
     "watch",
     "watch_direct",
     "run",
+    "io",
 ];
 
 /// One stepped scan as its request asks for it.
@@ -64,6 +65,9 @@ pub struct StepRequest {
     /// The program instance whose body runs once in place of the scheduler's cycle, as a test
     /// program runs; none for a cycle of the scheduler.
     pub run: Option<SmolStr>,
+    /// The body of `run` runs with its inputs sampled before it and its outputs published after
+    /// it, as a scan runs its programs (specification 11 §6.8.1).
+    pub io: bool,
 }
 
 /// What a stepped scan read after it ran.
@@ -320,6 +324,13 @@ fn parse(params: Option<&JsonValue>) -> Result<StepRequest, String> {
                 .ok_or("run must name a program instance")?,
         )),
     };
+    let io = match params.get("io") {
+        None => false,
+        Some(io) => io.as_bool().ok_or("io must be true or false")?,
+    };
+    if io && run.is_none() {
+        return Err("io takes a run: a scan samples and publishes already".to_string());
+    }
     Ok(StepRequest {
         time,
         restart,
@@ -328,6 +339,7 @@ fn parse(params: Option<&JsonValue>) -> Result<StepRequest, String> {
         watch,
         watch_direct,
         run,
+        io,
     })
 }
 

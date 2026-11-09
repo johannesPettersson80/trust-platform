@@ -13,6 +13,13 @@ use base64::Engine as _;
 use serde_json::{json, Value};
 use trust_runtime_client::VersionAdvice;
 
+/// The values a stepped scan carries (specification 11 §6.8.1): written as typed value texts in
+/// `inputs` and `direct_inputs`, and read back from `values` and `direct` in the encoding of the
+/// conformance artifacts.
+pub use trust_runtime_services::cycle_step::{
+    decode_value, encode_value, parse_typed_value, typed_value_text,
+};
+
 use crate::native::Target;
 
 /// How long a reply to a request other than `program.install` may take: a chip's watchdog interval

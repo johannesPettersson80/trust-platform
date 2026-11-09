@@ -839,6 +839,7 @@ fn step(
             IoAddress::parse("%QX0.1").expect("an output bit"),
         )],
         run: None,
+        io: false,
     }
 }
 
@@ -1048,6 +1049,47 @@ fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
     assert_eq!(
         cycle.step(&request, Duration::ZERO, None),
         Err(StepRefusal::name("NOPE", "names no program instance"))
+    );
+}
+
+#[test]
+fn a_step_with_io_runs_a_program_instance_as_a_scan_runs_its_programs() {
+    // Specification 11 §6.8.1, `io`: the run of the test above with `io` publishes the outputs after
+    // the body, as a scan does. The count goes 6, then 7, and the second run's `OUT`, 7's lowest bit
+    // 1, reaches `%QX0.1`, which reads TRUE where the run without `io` leaves it FALSE. Catches `io`
+    // ignored (the output stays FALSE) and a run with `io` that runs the scheduler's cycle in its
+    // place (the task `Fast` is not due at 0, so the count would stay 5).
+    let bytes = image(0);
+    let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+    let mut request = step(
+        0,
+        Some(RestartMode::Cold),
+        Vec::new(),
+        &["MAIN.COUNT", "OUT"],
+    );
+    request.run = Some("main".into());
+    request.io = true;
+    let first = cycle
+        .step(&request, Duration::ZERO, None)
+        .expect("the step runs");
+    assert_eq!(first.values[0].1, Value::USInt(6));
+    assert_eq!(first.direct, vec![("%QX0.1".into(), Value::Bool(false))]);
+    request.restart = None;
+    let second = cycle
+        .step(&request, Duration::ZERO, None)
+        .expect("the step runs");
+    assert_eq!(
+        second,
+        StepOutcome {
+            values: vec![
+                ("MAIN.COUNT".into(), Value::USInt(7)),
+                ("OUT".into(), Value::USInt(1)),
+            ],
+            direct: vec![("%QX0.1".into(), Value::Bool(true))],
+            error: None,
+            error_at: None,
+            assertion: None,
+        }
     );
 }
 

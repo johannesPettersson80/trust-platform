@@ -3564,6 +3564,12 @@ test or a simulator may use it too (owner, 23 October 2026).
   sampled and the outputs not published. A name that names no program instance refuses the step
   before its scan, with the name. Its restart, inputs, watches, error and time are those of any
   step; this is how a project's tests run on a device (specification 44 §14.2).
+- `io` (optional, with `run`): `true` runs the body as a scan runs its tasks' programs: the inputs
+  are checked and sampled into the located variables before it, and the outputs published after it,
+  so that a value the step writes at an input address reaches the program and a located output
+  reaches the output image (specification 10 §9). A test that runs the project's simulation steps
+  this way (specification 22, "A plant in the loop"). `io` without `run` refuses the step: a scan
+  samples and publishes already.
 
 The scan is one cycle of the scheduler at `time_ns` (specification 10 §4.3): the tasks due then run
 in priority order, then the programs without a task. The drivers are neither sampled nor driven and

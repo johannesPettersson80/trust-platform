@@ -265,8 +265,9 @@ in simulated time, so a test of a timer, a ramp or a sequence takes the cycles i
 beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's requirements).
 
 - **What makes a test multi-cycle.** A `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`, whose body
-  calls `TEST_FINISHED()`, or whose declaration carries `{attribute 'test_cycle' := '<duration>'}` or
-  `{attribute 'test_max_cycles' := '<count>'}` in the pragma where `{attribute 'test'}` counts. Every other test
+  calls `TEST_FINISHED()`, or whose declaration carries `{attribute 'test_cycle' := '<duration>'}`,
+  `{attribute 'test_max_cycles' := '<count>'}` or `{attribute 'test_simulation'}` (below) in the pragma where
+  `{attribute 'test'}` counts. Every other test
   runs its body once, as before. A `TEST_FUNCTION_BLOCK` runs once; it may not carry the two attributes.
 - **Its cycle and its budget.** `test_cycle` is a duration literal (`T#10ms`) above zero and at most one hour;
   without it the cycle is 10 ms. `test_max_cycles` is a whole number from 1 to 10,000,000; without it the
@@ -290,6 +291,33 @@ beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's require
 - **On a device** a multi-cycle test runs alike, by one `cycle.step` per cycle (specification 11 §6.8.1): the
   first restarts the program cold at time zero, each later one runs at the next cycle's time without a
   restart, and each reads back whether the test called `TEST_FINISHED()`.
+- **A plant in the loop.** `{attribute 'test_simulation'}`, in the pragma where `{attribute 'test'}` counts, runs
+  the project's simulation, its `simulation.toml` (specification 46), in lockstep with the test, as `trust-runtime
+  run --simulation` runs it with a program: the cold restart before the first cycle starts the simulation at time
+  zero, and the runner does the simulation's work before and after each cycle (specification 46 §2). Each cycle
+  samples the inputs into the test program's located variables before its body and publishes its outputs after it,
+  as a scan does (a step's `io`, specification 11 §6.8.1), so that a plant wired to a process-image address
+  reaches the test as one wired to a variable does; a test without a simulation runs its body alone. Before it,
+  the plants publish their feedback and the due disturbances and coupling effects are written; after it, the
+  couplings read the outputs and each plant reads its commands and advances to the cycle's time. So a test of a
+  loop checks it against its plant, cycle by cycle, in simulated time (a CODESYS toolkit's requirement, the owner
+  on 7 November 2026). The attribute takes no value and makes the test multi-cycle; on any other declaration than
+  a test program it is a compile error. The simulation runs whatever its file's `enabled` says, as the test asks
+  for it; a project without `simulation.toml` ends the test as an error that says so.
+- **A plant in the loop on a device.** With `--device` such a test runs on the device and its plants on this
+  computer, in the same lockstep (the owner on 8 November 2026: no board-only refusal). The plants work against a
+  copy of the test build made for this computer, which holds the values the simulation reaches and runs no scan.
+  Each cycle the simulation's work before the cycle writes into the copy; the cycle's `cycle.step` (specification
+  11 §6.8.1) carries every program signal the simulation writes, a variable in `inputs` and an address in
+  `direct_inputs`, and watches every signal it writes or reads; the reply's values go into the copy; then the
+  simulation's work after the cycle reads them there. The signals it writes are the plants' feedback targets,
+  the couplings' and the disturbances' targets and the physics' encoders; those it reads are the plants' command
+  sources, the couplings' sources and the physics' enable inputs. A `pid:` target is carried as the instance's
+  `HeldMeasurement` and `MeasurementHeld` (specification 46 §13.2). So the program on the device takes the
+  feedback, and the plants its commands, at the moments a run on this computer has them, and a signal the
+  simulation leaves alone in a cycle goes back to the device as the device last reported it. A value no step
+  carries (a structure, an array, a character, a date, or a `STRING` with spaces at its ends) ends the test as
+  an error that names it.
 - **The finished mark.** The test build declares the global `TRUST_TEST_FINISHED` (BOOL), which
   `TEST_FINISHED()` sets and the runner reads after each cycle; a cold restart clears it. A project does not
   declare a global of that name.
