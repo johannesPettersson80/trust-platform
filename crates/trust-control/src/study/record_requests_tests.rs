@@ -96,6 +96,26 @@ fn a_kept_request_fits_only_the_file_of_its_own_runtime_recording() {
     );
 }
 
+/// B10.3: a recording that is not complete evidence identifies nothing, so a request cannot fit a model from it. Worked from the
+/// file: its own request passes while the file is complete evidence, and the same request is refused, by the sentence that names the
+/// recording, once the file reads incomplete. Wrong behaviour caught: the check dropped from the refit path, so that a partial
+/// recording becomes a model.
+#[test]
+fn a_kept_request_refuses_a_file_that_is_not_complete_evidence() {
+    let mut file = recording_file(EvidenceSource::SimulatedPlant, 20.0);
+    let id = id_of(&file);
+    let request = kept(&file.run.recording_id, None);
+    assert_eq!(request.check_recording(&id, &file), Ok(()));
+    file.evidence.completeness = Completeness::Incomplete;
+    assert_eq!(
+        request.check_recording(&id, &file).unwrap_err().message,
+        format!(
+            "The study's record requests cannot be used: recording {id} is not complete evidence, so no model comes from it \
+             (B10.3)."
+        )
+    );
+}
+
 /// The section is kept under `recordRequests`, round-trips through the study's document, and refuses a key that is no
 /// recording's identifier. Wrong behaviour caught: a section the study cannot read back, and a request kept for no recording.
 #[test]
