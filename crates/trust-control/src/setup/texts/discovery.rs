@@ -171,3 +171,12 @@ pub fn family_not_supported() -> &'static str {
 pub fn project_not_identified() -> &'static str {
     "Open Control Studio from the configured project to identify its controller bindings."
 }
+
+/// A PID group's written signal that is no global and lies outside the members' program (C7; protocol annex E2.3).
+#[must_use]
+pub fn group_signal_outside_program(symbol: &str, root: &str, program: &str) -> String {
+    format!(
+        "{symbol} belongs to program {root}, not to the PID group's program {program}. Keep it in the group's program, or in a \
+         global its task owns."
+    )
+}
