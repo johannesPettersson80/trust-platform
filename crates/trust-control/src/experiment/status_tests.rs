@@ -257,6 +257,36 @@ fn a_stored_plan_with_an_unknown_key_or_an_out_of_range_point_is_refused() {
         decode_control_experiment_recovery(&recovery(stale_field), &scope()).is_some(),
         "a plan journaled before the runtime owned staleness is accepted, and its field ignored"
     );
+    // B3.4 step 6: a journaled plan keeps its measurement guard, and a guard without its fields or with a range whose
+    // minimum is not below its maximum is refused. Wrong behaviour caught: a resumed campaign whose plan lost the guard
+    // that the runtime was asked to watch, or one recovered from a guard the runtime would refuse.
+    let guard = json!({ "symbol": "LevelPV", "address": "%IL0", "minimum": 0.0, "maximum": 100.0, "unit": "%" });
+    let mut guarded = plan_json.clone();
+    guarded["measurementGuard"] = guard.clone();
+    let recovered = decode_control_experiment_recovery(&recovery(guarded), &scope())
+        .expect("a guarded plan is recovered");
+    let recovered_guard = recovered
+        .plan
+        .and_then(|plan| plan.measurement_guard)
+        .expect("the recovered plan keeps its guard");
+    assert_eq!(
+        serde_json::to_value(recovered_guard).expect("the guard encodes"),
+        guard
+    );
+    for broken in [
+        json!({ "symbol": "LevelPV", "minimum": 0.0, "maximum": 100.0 }),
+        json!({ "symbol": "LevelPV", "minimum": 100.0, "maximum": 100.0, "unit": "%" }),
+        json!({ "symbol": "", "minimum": 0.0, "maximum": 100.0, "unit": "%" }),
+        json!({ "symbol": "LevelPV", "minimum": 0.0, "maximum": 100.0, "unit": "%", "surprise": 1 }),
+    ] {
+        let mut stored = plan_json.clone();
+        stored["measurementGuard"] = broken.clone();
+        assert_eq!(
+            decode_control_experiment_recovery(&recovery(stored), &scope()),
+            None,
+            "{broken}"
+        );
+    }
 }
 
 #[test]

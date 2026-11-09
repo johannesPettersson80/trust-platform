@@ -143,6 +143,7 @@ pub fn opened_plan(
         interval_ms: None,
         seed: None,
         frequencies_hz: None,
+        measurement_guard: None,
     }
 }
 

@@ -27,8 +27,8 @@ use crate::identification::acquisition_settings::{
 use crate::identification::automatic::AutomaticIdentificationResult;
 use crate::identification::campaign::baseline::BaselineSummary;
 use crate::identification::campaign::{
-    experiment_stop_failure, format_duration, ms_as_f64, plant_input_range,
-    require_campaign_limits, restoration_confirmed, CANCELLED_TEXT,
+    experiment_stop_failure, format_duration, measurement_stop_failure, ms_as_f64,
+    plant_input_range, require_campaign_limits, restoration_confirmed, CANCELLED_TEXT,
 };
 use crate::identification::connected_record::{ConnectedRequest, RuntimeVerificationResult};
 use crate::identification::independent_validation::{RequirementStatus, RunEvaluation};
@@ -583,9 +583,10 @@ pub fn start_reconciliation(identity: &ExperimentIdentity) -> StartReconciliatio
 
 /// How a hold ended, from the runtime's terminal status (B3.4 steps 5 and 6): the restoration first, which only the runtime's
 /// restored or not-required state confirms; then the stop, which is normal only for a completed experiment that reached its
-/// duration or was finished early.
+/// duration or was finished early. A stop by `plan`'s measurement guard names the measured output, the value the runtime
+/// read and the limit it passed.
 #[must_use]
-pub fn hold_end(state: &Value) -> HoldEnd {
+pub fn hold_end(plan: &ControlExperimentPlan, state: &Value) -> HoldEnd {
     if !restoration_of(state).is_some_and(restoration_confirmed) {
         return HoldEnd::Unrestored(Failure::new(
             UNRESTORED_TEXT,
@@ -595,6 +596,19 @@ pub fn hold_end(state: &Value) -> HoldEnd {
     }
     let completed = state.get("status").and_then(Value::as_str) == Some("completed");
     let stop_reason = state.get("stop_reason").and_then(Value::as_str);
+    if let (Some("measurement_outside_limits"), Some(guard)) =
+        (stop_reason, plan.measurement_guard.as_ref())
+    {
+        let value = state
+            .get("measurement_guard")
+            .and_then(|reading| reading.get("value"))
+            .and_then(Value::as_f64);
+        return HoldEnd::Stopped(Failure::new(
+            &measurement_stop_failure(guard, value),
+            Cause::Unclassified,
+            NextAction::None,
+        ));
+    }
     experiment_stop_failure(completed, stop_reason).map_or(HoldEnd::Completed, |text| {
         HoldEnd::Stopped(Failure::new(&text, Cause::Unclassified, NextAction::None))
     })
