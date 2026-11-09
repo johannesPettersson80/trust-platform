@@ -10,6 +10,7 @@
 
 use trust_hir::symbols::ParamDirection;
 
+use super::fb_init::VariableCalls;
 use super::front::Front;
 use super::lower::Need;
 use super::model::Model;
@@ -22,9 +23,12 @@ const FB_EXIT: &str = "FB_exit";
 /// The calls of `FB_exit` the exit makes, and the methods they need.
 #[derive(Default)]
 pub(super) struct FbExit {
-    /// Rust statements on `cx` and `w`.
-    pub(super) statements: Vec<String>,
+    /// The variables with calls, in the exit's order; their statements pass `copy` as
+    /// `bInCopyCode`.
+    pub(super) variables: Vec<VariableCalls>,
     pub(super) needs: Vec<Need>,
+    /// The statements of the variable the walk is in.
+    statements: Vec<String>,
 }
 
 /// The calls of `FB_exit` for every instance of `model`, none outside the CODESYS profiles.
@@ -51,6 +55,11 @@ pub(super) fn calls(front: &Front, model: &Model<'_>) -> Result<FbExit, NativeEr
                 member.field()
             );
             calls.instance(model, &place, member.ty, var.no_exit, 0)?;
+            calls.close(format!(
+                "{}.{}",
+                instance.name.to_ascii_uppercase(),
+                var.name.to_ascii_uppercase()
+            ));
         }
     }
     let declared: Vec<_> = front
@@ -78,11 +87,23 @@ pub(super) fn calls(front: &Front, model: &Model<'_>) -> Result<FbExit, NativeEr
             no_exit,
             0,
         )?;
+        calls.close(global.name.to_ascii_uppercase());
     }
     Ok(calls)
 }
 
 impl FbExit {
+    /// Ends the walk of the variable `canonical`: its statements, when it has any, become its calls.
+    fn close(&mut self, canonical: String) {
+        let statements = std::mem::take(&mut self.statements);
+        if !statements.is_empty() {
+            self.variables.push(VariableCalls {
+                canonical,
+                statements,
+            });
+        }
+    }
+
     /// The calls for the value at `place` of type `ty`: an instance, or what holds instances.
     /// `no_exit` leaves out the `FB_exit` of the instances its declaration declares.
     fn instance(
@@ -171,7 +192,7 @@ impl FbExit {
     }
 
     /// The call of the `FB_exit` the type `def` declares itself, on its part at `place`, with
-    /// `bInCopyCode := FALSE`, which CODESYS passes everywhere but in an online change.
+    /// `bInCopyCode := copy`: FALSE everywhere but for an instance an online change copies.
     fn own(&mut self, model: &Model<'_>, place: &str, def: &str) -> Result<(), NativeError> {
         let Some(owner) = model.types.owner(def) else {
             return Ok(());
@@ -215,7 +236,7 @@ impl FbExit {
         }
         Need::Method(owner.name().clone(), method.name.clone()).add_to(&mut self.needs);
         self.statements.push(format!(
-            "{}(cx, w, &{place}, false)?;",
+            "{}(cx, w, &{place}, copy)?;",
             super::emit::method_function(owner, method)
         ));
         Ok(())

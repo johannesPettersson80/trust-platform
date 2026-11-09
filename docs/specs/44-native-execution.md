@@ -426,8 +426,11 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 ### 5.4 Entry table
 
 One 16-byte record per entry point: kind (4: 1 program body, 2 cold-init, 3 warm-init, 4 method for
-tools, 5 exit), index (4: the program instance's number in the configuration for a program body, the
-index of its tool symbol (§5.7) for a method for tools, or 0), code offset (4,
+tools, 5 exit, 6 change exit, 7 change init, 8 change reinit, 9 change start), index (4: the program
+instance's number in the configuration for a program body, the index of its tool symbol (§5.7) for a
+method for tools, for a change exit or a change init the index of the top-level variable's symbol
+times two, plus one for a copied variable, for a change reinit the index of the variable's symbol,
+or 0), code offset (4,
 relative to `CODE`, with the Thumb bit on a Thumb target), reserved (4). A task's record lists the
 program bodies it runs, in order, so that the kernel observes each program's call as today's
 runtime does. Each program instance has its own program-body entry, also when several share one
@@ -866,7 +869,7 @@ are taken and the memory is started again, so that what `FB_exit` writes into a 
 stays; and before a program that has run is replaced by an installed one (a download), on the old
 program: its fault
 there does not stop the install, and the new program's event records begin with it. A stop, a
-power-off and the end of the runtime's process call nothing. An online change's calls are §12's.
+power-off and the end of the runtime's process call nothing. An online change's calls are §12.3's.
 
 Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
 type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
@@ -1656,8 +1659,26 @@ program in its place. At the boundary the device:
    other memory;
 3. builds the new program: its areas with `INIT`, its bindings checked against the running
    program's lines and its safe state, as specification 34 §11.3 checks a candidate;
-4. places the new module where the CPU runs it, runs the new program's cold-init entry (§6.7) and
-   carries the running program's values into its areas (§12.2). A computer maps the new module
+4. places the new module where the CPU runs it, starts the new program and carries the running
+   program's values into its areas (§12.2). An image without change entries (kinds 6 to 9: built
+   under the IEC profile, or one whose types declare no `FB_init`, `FB_exit`, `FB_reinit` or
+   after-init method) runs its cold-init entry (§6.7), then the carry. An image with them (the
+   CODESYS profiles, specification 10 §4.8) follows the instances the change copies:
+   - the kernel sorts each top-level variable that has a change entry in either image: copied when
+     both programs declare it and its type's layout differs, compared through the two type tables as
+     the carry compares types (§12.2); dropped or added when one program declares it; otherwise
+     nothing is called for it;
+   - it runs the running program's change-exit entries (kind 6) of the copied and the dropped
+     variables, in the order of its entry table (the reverse of `FB_init`'s); then the new
+     program's change-start entry (kind 9: the cold-init entry's reference initializers, without its
+     `FB_init` calls) and its change-init entries (kind 7) of the copied and the added variables, in
+     the order of its entry table; then the carry; then its change-reinit entries (kind 8) of the
+     copied variables;
+   - these calls run once the new module is placed and every check before them has passed, so that
+     no refusal follows them; a fault in one of them is recorded as an event of the new program
+     while the change goes on (specification 10 §4.8).
+
+   A computer maps the new module
    beside the running one. The C6 runs it where it lies in the image, which the transfer uploaded
    into the program region (§10.3), beside the running module, or copies it into a block there when
    the upload lay in the heap's data regions; a refusal drops the new program and the running
