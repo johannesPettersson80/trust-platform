@@ -3940,7 +3940,6 @@ impl trust_runtime::native::Toolchain
 pub fn trust_runtime::native::Toolchain::at(root: &std::path::Path) -> core::result::Result<Self, trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::compile(&self, source: &str, target: trust_runtime_core::native::image::Target, entries: &[alloc::string::String], work: &std::path::Path) -> core::result::Result<(alloc::vec::Vec<u8>, alloc::string::String), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::find() -> core::result::Result<Self, trust_runtime::native::NativeError>
-pub fn trust_runtime::native::Toolchain::find_or_install(report: &mut dyn core::ops::function::FnMut(trust_runtime::native::bundle::Progress)) -> core::result::Result<Self, trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::locate() -> core::result::Result<(Self, trust_runtime::native::ToolchainSource), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::program_library(&self, target: trust_runtime_core::native::image::Target) -> core::result::Result<alloc::string::String, trust_runtime::native::NativeError>
 pub const trust_runtime::native::PROGRAM_IMAGE_FILE: &str
