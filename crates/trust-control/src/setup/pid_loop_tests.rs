@@ -15,12 +15,15 @@ use crate::commissioning::library_pid::library_pid_initialization;
 use crate::failure::Failure;
 use crate::json::decode_value;
 use crate::loop_definition::{
-    Action, ControllerLaw, InitialValue, InitializedState, LoopDefinition, LoopScope, ModeWhenTrue,
-    ParameterBinding, PidInitialization, PostScan, StateType,
+    Action, ControllerLaw, InitialValue, InitializedState, LoopDefinition, LoopScope, ModeBinding,
+    ModeValue, ModeWhenTrue, ParameterBinding, PidInitialization, PostScan, StateType,
 };
-use crate::setup::catalog::{decode_catalog_answer, CompiledCatalog, PID_PARAMETERS};
+use crate::setup::catalog::{
+    decode_catalog_answer, CompiledCatalog, CompiledSymbol, PID_PARAMETERS,
+};
 use crate::setup::loop_bindings::FormSignal;
 use crate::setup::pid_bindings::startup_state;
+use crate::setup::save::{plan_setup_save, SetupDraft};
 
 const OWN: &str = "Main.TIC101.StateValue.ProcessValue";
 
@@ -116,10 +119,7 @@ fn heater_draft() -> PidLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.AutoMode".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.AutoMode".to_string(), ModeWhenTrue::Auto),
         manual_output: "P1.ManualOutput".to_string(),
         experiment_step: Some(20.0),
         experiment_duration_seconds: Some(8.0),
@@ -188,10 +188,7 @@ fn generated_draft(manual_output: &str) -> PidLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "Main.TIC101_Manual".to_string(),
-            when_true: ModeWhenTrue::Manual,
-        },
+        mode: ModeChoice::boolean("Main.TIC101_Manual".to_string(), ModeWhenTrue::Manual),
         manual_output: manual_output.to_string(),
         experiment_step: None,
         experiment_duration_seconds: None,
@@ -245,10 +242,7 @@ fn symbolic_draft(process_variable: &str) -> PidLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.AutoMode".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.AutoMode".to_string(), ModeWhenTrue::Auto),
         manual_output: "P1.ManualOutput".to_string(),
         experiment_step: Some(10.0),
         experiment_duration_seconds: Some(20.0),
@@ -652,10 +646,7 @@ fn the_inner_loop_of_a_two_file_cascade_is_generated_and_accepted() {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.InnerAuto".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.InnerAuto".to_string(), ModeWhenTrue::Auto),
         manual_output: "P1.InnerManual".to_string(),
         experiment_step: Some(10.0),
         experiment_duration_seconds: Some(3.0),
@@ -821,10 +812,7 @@ fn a_blank_choice_of_the_pid_setup_is_refused_under_its_field_in_the_forms_order
     assert_eq!(blank_setpoint.message, "Choose the setpoint.");
     assert_eq!(blank_setpoint.field.as_deref(), Some("setpoint"));
     let blank_mode = refused(PidLoopDraft {
-        mode: ModeChoice {
-            symbol: String::new(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean(String::new(), ModeWhenTrue::Auto),
         ..heater_draft()
     });
     assert_eq!(blank_mode.message, "Choose the Auto/Manual signal.");
@@ -835,4 +823,127 @@ fn a_blank_choice_of_the_pid_setup_is_refused_under_its_field_in_the_forms_order
     });
     assert_eq!(blank_manual.message, "Choose the manual output.");
     assert_eq!(blank_manual.field.as_deref(), Some("manualOutput"));
+}
+
+/// The heater of `heater_draft` with an enumeration mode `P1.Mode` of type `E_Mode` (Off, Manual, Auto) beside its BOOL.
+fn enumeration_catalog() -> CompiledCatalog {
+    let mut catalog = single_loop();
+    catalog.symbols.push(CompiledSymbol {
+        symbol: "P1.Mode".to_string(),
+        iec_type: "E_Mode".to_string(),
+        address: None,
+        members: vec!["Off".to_string(), "Manual".to_string(), "Auto".to_string()],
+    });
+    catalog
+}
+
+/// Specification 35 A6.1 and B1.3: a draft names a BOOL mode by what its TRUE value means, and an enumeration mode by the two
+/// different members that mean Manual and Auto, as the loop file does; the engine takes what the choice needs, as it does with every
+/// field the form posts. Catches the form's enumeration choice read as a BOOL's because it also carries whenTrue, a blank member
+/// taken as a member, and a choice with one member, or one member twice, accepted.
+#[test]
+fn a_mode_choice_is_a_bools_or_an_enumerations() {
+    let bool_choice: ModeChoice =
+        decode_value(json!({ "symbol": "P1.AutoMode", "whenTrue": "Manual" }))
+            .expect("a BOOL's choice");
+    assert_eq!(
+        bool_choice.binding(),
+        ModeBinding::boolean("P1.AutoMode", true)
+    );
+    let enumeration: ModeChoice =
+        decode_value(json!({ "symbol": "P1.Mode", "manualValue": "Manual", "autoValue": "Auto" }))
+            .expect("an enumeration's choice");
+    assert_eq!(
+        enumeration.binding(),
+        ModeBinding {
+            symbol: "P1.Mode".to_string(),
+            manual_value: ModeValue::Member("Manual".to_string()),
+            auto_value: Some("Auto".to_string()),
+        }
+    );
+    assert_eq!(
+        enumeration.when_true,
+        ModeWhenTrue::Manual,
+        "the reading's TRUE is Manual"
+    );
+    // The form posts every field of the choice: named members make it an enumeration's, whose whenTrue is not read, and a blank
+    // member is not given (B1.3).
+    let posted: ModeChoice = decode_value(
+        json!({ "symbol": "P1.Mode", "whenTrue": "Auto", "manualValue": "Manual", "autoValue": "Auto" }),
+    )
+    .expect("the form's enumeration choice");
+    assert_eq!(posted, enumeration);
+    let blank: ModeChoice = decode_value(
+        json!({ "symbol": "P1.AutoMode", "whenTrue": "Manual", "manualValue": "", "autoValue": " " }),
+    )
+    .expect("the form's BOOL choice");
+    assert_eq!(blank, bool_choice);
+    for refused in [
+        json!({ "symbol": "P1.Mode", "manualValue": "Manual" }),
+        json!({ "symbol": "P1.Mode", "whenTrue": "Auto", "autoValue": "Auto" }),
+        json!({ "symbol": "P1.Mode", "manualValue": "Manual", "autoValue": "manual" }),
+        json!({ "symbol": "P1.AutoMode" }),
+    ] {
+        let error = decode_value::<ModeChoice>(refused.clone()).expect_err("refused");
+        assert!(
+            error.to_string().starts_with(
+                "The mode is a BOOL with the mode its TRUE value means (whenTrue), or an enumeration with the two different members"
+            ),
+            "{refused}: {error}"
+        );
+    }
+}
+
+/// Specification 35 A6.1 and C0: setup writes an enumeration mode by its members, and records that the mode's TRUE reading means
+/// Manual; it refuses before writing a member the compiled type lacks. Catches the enumeration written as a BOOL binding (the
+/// runtime would write TRUE into it), the loop recording Auto for the TRUE reading, and a loop file written that discovery refuses.
+#[test]
+fn setup_writes_an_enumeration_mode_by_its_members_and_refuses_one_its_type_lacks() {
+    let mut draft = heater_draft();
+    draft.mode =
+        decode_value(json!({ "symbol": "P1.Mode", "manualValue": "Manual", "autoValue": "Auto" }))
+            .expect("an enumeration's choice");
+    let planned = plan_setup_save(
+        &enumeration_catalog(),
+        &scope(),
+        &SetupDraft::Pid(draft.clone()),
+    )
+    .expect("the enumeration loop is planned");
+    let loop_definition = &planned[0].loop_definition;
+    let binding = loop_definition
+        .parameter_binding
+        .as_ref()
+        .expect("a parameter binding");
+    assert_eq!(
+        binding.mode.manual_value,
+        ModeValue::Member("Manual".to_string())
+    );
+    assert_eq!(binding.mode.auto_value.as_deref(), Some("Auto"));
+    assert_eq!(
+        loop_definition.controller.mode_when_true,
+        Some(ModeWhenTrue::Manual)
+    );
+
+    draft.mode = decode_value(
+        json!({ "symbol": "P1.Mode", "manualValue": "Manual", "autoValue": "Automatic" }),
+    )
+    .expect("an enumeration's choice");
+    let refusal = plan_setup_save(
+        &enumeration_catalog(),
+        &scope(),
+        &SetupDraft::Pid(draft.clone()),
+    )
+    .expect_err("E_Mode has no Automatic");
+    assert_eq!(
+        text_of(&refusal),
+        "Compiled mode signal P1.Mode is no enumeration with the members Manual and Automatic."
+    );
+
+    draft.mode = ModeChoice::boolean("P1.Mode", ModeWhenTrue::Auto);
+    let refusal = plan_setup_save(&enumeration_catalog(), &scope(), &SetupDraft::Pid(draft))
+        .expect_err("an enumeration is no BOOL mode");
+    assert_eq!(
+        text_of(&refusal),
+        "Mode signal P1.Mode is an enumeration: name the members that mean Manual and Auto."
+    );
 }

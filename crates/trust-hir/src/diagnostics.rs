@@ -5,6 +5,10 @@
 
 use text_size::TextRange;
 
+mod syntax;
+
+pub use syntax::syntax_diagnostics;
+
 /// Severity level of a diagnostic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DiagnosticSeverity {

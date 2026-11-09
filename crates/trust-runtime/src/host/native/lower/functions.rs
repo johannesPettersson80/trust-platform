@@ -8,7 +8,7 @@
 use trust_syntax::syntax::SyntaxNode;
 
 use super::call::{Arg, Called, Want};
-use super::{is_scalar, Lowerer};
+use super::{is_scalar, Lowerer, Need};
 use crate::native::types::{Elem, Kind, Ty};
 use crate::native::NativeError;
 
@@ -77,6 +77,24 @@ impl Lowerer<'_, '_> {
             let reference = self.reference(&arg.value)?;
             return Ok(Called::Scalar(format!(
                 "(!same_target({reference}, abi::RefValue::NULL_REF))"
+            )));
+        }
+        // `__QUERYINTERFACE(source, target)` is `target ?= source`, TRUE when the target then names
+        // an instance (specification 04).
+        if name == "__QUERYINTERFACE" {
+            let [source, target] = args.as_slice() else {
+                return Err(
+                    self.unsupported(node, "__QUERYINTERFACE with other than two arguments")
+                );
+            };
+            let place = self.place(&target.value)?;
+            let source = self.interface_value(&source.value)?;
+            Need::Cast(place.ty).add_to(&mut self.needs);
+            let cast = crate::native::dispatch::cast_function(place.ty);
+            let answer = self.bind(&format!("{cast}(cx, w, {source})?"));
+            self.line(&format!("{}.set({answer});", place.expr));
+            return Ok(Called::Scalar(format!(
+                "(!same_target({answer}, abi::RefValue::NULL_REF))"
             )));
         }
         let values = self.standard_arguments(node, name, args)?;

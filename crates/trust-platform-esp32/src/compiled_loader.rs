@@ -382,7 +382,7 @@ where
         let io = self.hardware.claim_lines(&Configuration::default())?;
         let (_, module) = admitted.module();
         let code = self.modules.place_change(module, image)?;
-        let (cycle, events) = build_candidate(admitted, code, io, running, &device, budget)?;
+        let (cycle, report) = build_candidate(admitted, code, io, running, &device, budget)?;
         platform.feed();
         // A client that names an instance by its identity after the change names the generation that
         // the change installed.
@@ -390,7 +390,8 @@ where
         Ok(Candidate {
             cycle,
             live,
-            events,
+            events: report.events,
+            faults: report.faults,
         })
     }
 
@@ -409,10 +410,11 @@ where
     }
 }
 
-/// A changed program's cycle and the events of the values it did not keep as they were.
+/// A changed program's cycle, with the events of the values it did not keep as they were and the
+/// faults of CODESYS's calls at the change.
 type Changed<C, I, K> = (
     CompiledProgramCycle<C, I, K>,
-    Vec<trust_runtime_core::native::change::CarriedValueEvent>,
+    trust_runtime_core::native::change::ChangeReport,
 );
 
 /// The candidate of an online change, once its module is where the CPU runs it: its program over the
@@ -449,8 +451,8 @@ where
     running
         .reserve_retain(payload)
         .map_err(|_| budget.needs_more())?;
-    let events = cycle
+    let report = cycle
         .take_values(running)
         .map_err(|error| format!("the change cannot start: {error}"))?;
-    Ok((cycle, events))
+    Ok((cycle, report))
 }

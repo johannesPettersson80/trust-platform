@@ -103,6 +103,21 @@ pub trait ProgramMemory {
     /// The [`RuntimeError`] of an address that is no flat address of its image, or of a value of
     /// another size than the address's.
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError>;
+
+    /// Writes the variable at `place` out to each input or marker image that binds it, where the
+    /// next sample reads it, so that a write or a force of the variable reaches the program
+    /// (specification 44 §5.6, §13.3; [`NativeProgram::hold_bound`]). The default holds nothing:
+    /// a memory whose images no sample reads, such as a held scan's, which sampled its inputs
+    /// before it stopped.
+    ///
+    /// # Errors
+    ///
+    /// As [`NativeProgram::hold_bound`].
+    ///
+    /// [`NativeProgram::hold_bound`]: super::program::NativeProgram::hold_bound
+    fn hold_bound(&mut self, _place: Place) -> Result<(), RuntimeError> {
+        Ok(())
+    }
 }
 
 fn read_bytes<M: ProgramMemory + ?Sized>(memory: &M, place: Place, out: &mut [u8]) -> bool {

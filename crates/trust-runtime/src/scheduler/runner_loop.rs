@@ -18,12 +18,16 @@ fn scaled_sleep_interval(interval: Duration, scale: u32) -> Duration {
     Duration::from_nanos(scaled)
 }
 
-/// Start of the current cycle on the fixed cycle grid: the scheduled instant while the cycle starts within one interval
-/// of it, so a late wake-up does not delay every later cycle; otherwise `now`, so a stall or a paused debugger moves the
-/// grid instead of replaying the missed cycles in a burst.
-fn grid_cycle_start(scheduled: Option<i64>, now: i64, interval: i64) -> i64 {
+/// The shortest wait of a simulation's schedule, 2 ms (specification 46 §6.1 item 2): an operating system's wait wakes
+/// late by up to about a millisecond, so a shorter wait would cost the pace more time than it waits for.
+const SIMULATION_WAIT_FLOOR_NANOS: i64 = 2_000_000;
+
+/// Start of the current cycle on the fixed cycle grid: the scheduled instant while the cycle starts within `tolerance` of
+/// it, so a late wake-up does not delay every later cycle; otherwise `now`, so a stall or a paused debugger moves the grid
+/// instead of replaying the missed cycles in a burst.
+fn grid_cycle_start(scheduled: Option<i64>, now: i64, tolerance: i64) -> i64 {
     match scheduled {
-        Some(due) if now <= due.saturating_add(interval) => due,
+        Some(due) if now <= due.saturating_add(tolerance) => due,
         _ => now,
     }
 }
@@ -391,11 +395,7 @@ fn drain_commands<C: Clock + Clone>(
                 } => {
                     let result = runner
                         .simulation
-                        .as_mut()
-                        .ok_or(crate::simulation::PlantTraceClearError::StatusUnavailable)
-                        .and_then(|simulation| {
-                            simulation.clear_plant_trace(&plant_id, &active_configuration_revision)
-                        });
+                        .clear_plant_trace(&plant_id, &active_configuration_revision);
                     let _ = respond_to.send(result);
                 }
                 other => {
@@ -414,10 +414,9 @@ fn drain_commands<C: Clock + Clone>(
 /// once, on the last boundary of the grid at or before its start (`wall_grid_start`), without a
 /// burst of cycles to catch up, and the tasks count the activations that passed as missed. In
 /// simulation the next cycle is due one paced interval, the cycle interval divided by
-/// the speed, after the cycle `slot`; a cycle that starts within one paced interval of its due time
-/// keeps that schedule, and a later one restarts it from its own start (specification 46, §6.1
-/// item 2). Returns `None` in simulation, and yields and returns `None` when the interval is not
-/// positive.
+/// the speed, after the cycle `slot`, and the scheduler waits for it only when it lies at least
+/// the wait floor ahead: the cycles due sooner run back to back (specification 46, §6.1 item 2).
+/// Returns `None` in simulation, and yields and returns `None` when the interval is not positive.
 fn sleep_until_next_boundary<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     due: Duration,
@@ -428,8 +427,14 @@ fn sleep_until_next_boundary<C: Clock + Clone>(
         return None;
     }
     if runner.timing.simulation_speed().is_some() {
-        let deadline = runner.timing.finish_cycle(slot);
-        runner.clock.sleep_until(runner.clock_time(deadline));
+        let due = runner.timing.finish_cycle(slot);
+        let deadline = runner.clock_time(due);
+        let ahead = deadline
+            .as_nanos()
+            .saturating_sub(runner.clock.now().as_nanos());
+        if ahead >= SIMULATION_WAIT_FLOOR_NANOS {
+            runner.clock.sleep_until(deadline);
+        }
         return None;
     }
     let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale());
@@ -546,14 +551,22 @@ where
 {
     let mut sentinel = CyclePanicSentinel::entered();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if let Some(simulation) = runner.simulation.as_mut() {
-            simulation.apply_pre_cycle(now, &mut runner.runtime)?;
+        // The simulation is locked only for its own steps, so that a control request reads the
+        // plants while the debugger holds the program between them (`LiveSimulation`).
+        let runtime = &mut runner.runtime;
+        if let Some(stepped) = runner
+            .simulation
+            .with(|simulation| simulation.apply_pre_cycle(now, runtime))
+        {
+            stepped?;
         }
         let mut result = execute_cycle(&mut runner.runtime);
         if result.is_ok()
-            && let Some(simulation) = runner.simulation.as_mut()
+            && let Some(stepped) = runner
+                .simulation
+                .with(|simulation| simulation.apply_post_cycle(now, &runner.runtime))
         {
-            result = simulation.apply_post_cycle(now, &runner.runtime);
+            result = stepped;
         }
         result
     }));

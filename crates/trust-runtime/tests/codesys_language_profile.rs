@@ -3,245 +3,20 @@ use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::Value;
 use trust_runtime::RestartMode;
 
-// Specification 10 §4.8: under the CODESYS profiles a restart calls FB_init of every instance whose
-// type declares it, before the first cycle; under the IEC profile nothing calls it. Catches FB_init
-// never called (the CODESYS report's A4: the lamp would read FALSE), and called under the IEC
-// profile, where a valid program may declare a method of that name.
-const FB_INIT_LAMP: &str = r#"
-FUNCTION_BLOCK FB_Lamp
-VAR_OUTPUT
-    initialized : BOOL;
-END_VAR
-METHOD FB_init : BOOL
-VAR_INPUT
-    bInitRetains : BOOL;
-    bInCopyCode : BOOL;
-END_VAR
-initialized := TRUE;
-FB_init := TRUE;
-END_METHOD
-END_FUNCTION_BLOCK
-
-PROGRAM Main
-VAR
-    lamp : FB_Lamp;
-    seen : BOOL;
-END_VAR
-seen := lamp.initialized;
-END_PROGRAM
-"#;
-
-#[test]
-fn fb_init_runs_before_the_first_cycle_under_the_codesys_profile_only() {
-    for (profile, expected) in [
-        (ConversionProfile::Codesys, true),
-        (ConversionProfile::Iec, false),
-    ] {
-        let session = CompileSession::from_source(FB_INIT_LAMP).with_conversion_profile(profile);
-        let mut harness = TestHarness::from_session(session)
-            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
-        let cycle = harness.cycle();
-        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
-        assert_eq!(
-            harness.get_output("seen"),
-            Some(Value::Bool(expected)),
-            "{profile:?}"
-        );
-    }
-}
-
-// Specification 10 §4.8: the order of the implicit calls and what they are passed. Each FB_init
-// writes its digit into `trace`: FB_Leaf 1, FB_Base 2, FB_Derived 3, FB_Kept 4. Worked by hand from
-// the declarations: the retained global `kept` (4), then the global `gLeaf` (1); then Main's
-// variables in order: `derived` calls its base part (2), its own nested `leaf` (1) and its own
-// FB_init (3); each of the two `children`, whose type inherits FB_Base's FB_init and declares none,
-// calls it once (2, 2); the four elements of `grid` (1, 1, 1, 1); the leaf in the structure
-// `holder` (1); the leaf in `plain`, a block without FB_init (1). So 4121322111111, thirteen calls.
-// A cold start passes bInitRetains TRUE to all thirteen, a warm restart FALSE, neither passes
-// bInCopyCode TRUE. Catches an instance left out (a retained or a plain global, a nested one, an
-// array element, a structure member), an inherited FB_init called twice, a base after its derived
-// part or members after their block, and the two flags swapped or fixed.
-const FB_INIT_ORDER: &str = r#"
-VAR_GLOBAL RETAIN
-    kept : FB_Kept;
-END_VAR
-VAR_GLOBAL
-    gLeaf : FB_Leaf;
-    trace : LINT;
-    calls : INT;
-    retaining : INT;
-    copying : INT;
-END_VAR
-
-FUNCTION Note : BOOL
-VAR_INPUT
-    digit : LINT;
-    retains : BOOL;
-    copies : BOOL;
-END_VAR
-trace := trace * 10 + digit;
-calls := calls + 1;
-IF retains THEN
-    retaining := retaining + 1;
-END_IF
-IF copies THEN
-    copying := copying + 1;
-END_IF
-Note := TRUE;
-END_FUNCTION
-
-FUNCTION_BLOCK FB_Leaf
-METHOD FB_init : BOOL
-VAR_INPUT
-    bInitRetains : BOOL;
-    bInCopyCode : BOOL;
-END_VAR
-FB_init := Note(1, bInitRetains, bInCopyCode);
-END_METHOD
-END_FUNCTION_BLOCK
-
-FUNCTION_BLOCK FB_Kept
-METHOD FB_init : BOOL
-VAR_INPUT
-    bInitRetains : BOOL;
-    bInCopyCode : BOOL;
-END_VAR
-FB_init := Note(4, bInitRetains, bInCopyCode);
-END_METHOD
-END_FUNCTION_BLOCK
-
-FUNCTION_BLOCK FB_Base
-METHOD FB_init : BOOL
-VAR_INPUT
-    bInitRetains : BOOL;
-    bInCopyCode : BOOL;
-END_VAR
-FB_init := Note(2, bInitRetains, bInCopyCode);
-END_METHOD
-END_FUNCTION_BLOCK
-
-FUNCTION_BLOCK FB_Derived EXTENDS FB_Base
-VAR
-    leaf : FB_Leaf;
-END_VAR
-METHOD FB_init : BOOL
-VAR_INPUT
-    bInitRetains : BOOL;
-    bInCopyCode : BOOL;
-END_VAR
-FB_init := Note(3, bInitRetains, bInCopyCode);
-END_METHOD
-END_FUNCTION_BLOCK
-
-FUNCTION_BLOCK FB_Child EXTENDS FB_Base
-END_FUNCTION_BLOCK
-
-FUNCTION_BLOCK FB_Plain
-VAR
-    inner : FB_Leaf;
-END_VAR
-END_FUNCTION_BLOCK
-
-TYPE S_Holder :
-STRUCT
-    leaf : FB_Leaf;
-END_STRUCT
-END_TYPE
-
-PROGRAM Main
-VAR
-    derived : FB_Derived;
-    children : ARRAY[1..2] OF FB_Child;
-    grid : ARRAY[1..2, 1..2] OF FB_Leaf;
-    holder : S_Holder;
-    plain : FB_Plain;
-    traceSeen : LINT;
-    callsSeen : INT;
-    retainingSeen : INT;
-    copyingSeen : INT;
-END_VAR
-traceSeen := trace;
-callsSeen := calls;
-retainingSeen := retaining;
-copyingSeen := copying;
-END_PROGRAM
-"#;
-
-#[test]
-fn fb_init_runs_for_every_instance_in_order_with_the_restart_flags() {
-    let session = CompileSession::from_source(FB_INIT_ORDER)
-        .with_conversion_profile(ConversionProfile::Codesys);
-    let mut harness = TestHarness::from_session(session).expect("the CODESYS profile builds it");
-    for (restart, retaining) in [("cold", 13), ("warm", 0)] {
-        if restart == "warm" {
-            harness
-                .restart(RestartMode::Warm)
-                .expect("the warm restart runs");
-        }
-        let cycle = harness.cycle();
-        assert!(cycle.errors.is_empty(), "{restart}: {:?}", cycle.errors);
-        assert_eq!(
-            harness.get_output("traceSeen"),
-            Some(Value::LInt(4_121_322_111_111)),
-            "{restart}"
-        );
-        assert_eq!(
-            harness.get_output("callsSeen"),
-            Some(Value::Int(13)),
-            "{restart}"
-        );
-        assert_eq!(
-            harness.get_output("retainingSeen"),
-            Some(Value::Int(retaining)),
-            "{restart}"
-        );
-        assert_eq!(
-            harness.get_output("copyingSeen"),
-            Some(Value::Int(0)),
-            "{restart}"
-        );
-    }
-}
-
-// Specification 44 §6.7: an FB_init with an input of its own, which CODESYS gives at the instance's
-// declaration, is not compiled yet (NX-09), so the build refuses it rather than pass a value the
-// program never gave. Catches the build calling it with a made-up value.
-#[test]
-fn an_fb_init_with_inputs_of_its_own_is_refused_at_build() {
-    let source = r#"
-FUNCTION_BLOCK FB_Port
-VAR
-    port : INT;
-END_VAR
-METHOD FB_init : BOOL
-VAR_INPUT
-    bInitRetains : BOOL;
-    bInCopyCode : BOOL;
-    iPort : INT;
-END_VAR
-port := iPort;
-FB_init := TRUE;
-END_METHOD
-END_FUNCTION_BLOCK
-
-PROGRAM Main
-VAR
-    com : FB_Port;
-END_VAR
-END_PROGRAM
-"#;
-    let session =
-        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
-    let error = TestHarness::from_session(session)
-        .err()
-        .expect("the build refuses it");
-    assert!(
-        error
-            .to_string()
-            .contains("FB_Port.FB_init with inputs beyond bInitRetains and bInCopyCode"),
-        "{error}"
-    );
-}
+#[path = "codesys_language_profile/call_after_init.rs"]
+mod call_after_init;
+#[path = "codesys_language_profile/fb_exit.rs"]
+mod fb_exit;
+#[path = "codesys_language_profile/fb_init.rs"]
+mod fb_init;
+#[path = "codesys_language_profile/init_after_fb_init.rs"]
+mod init_after_fb_init;
+#[path = "codesys_language_profile/instance_path.rs"]
+mod instance_path;
+#[path = "codesys_language_profile/noinit.rs"]
+mod noinit;
+#[path = "codesys_language_profile/online_change_calls.rs"]
+mod online_change_calls;
 
 // Specification 14: the project's `vendor_profile` selects the language rules of the runtime build
 // with its conversion rules. A function block that assigns its own input in its body is refused
@@ -793,5 +568,99 @@ fn is_valid_ref_tells_a_bound_reference_from_null() {
                 "{profile:?}: {name}"
             );
         }
+    }
+}
+
+// Specification 04: `__QUERYINTERFACE(source, target)` is `target ?= source` then `target <> NULL`,
+// under the CODESYS and the IEC profiles. Worked by hand: the lamp implements IDimmer, so the first
+// query is TRUE and the dimmer gives the lamp's level 3; it does not implement IFan, so the second
+// query is FALSE and the fan, which named another block, is NULL afterwards. Catches the answer
+// inverted, the target left unchanged on a failed query (CODESYS sets it to 0), and a query that
+// never names the instance.
+const QUERY_INTERFACE: &str = r#"
+INTERFACE ILamp
+METHOD Toggle : BOOL
+END_METHOD
+END_INTERFACE
+
+INTERFACE IDimmer
+METHOD Dim : INT
+END_METHOD
+END_INTERFACE
+
+INTERFACE IFan
+METHOD Spin : BOOL
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS ILamp, IDimmer
+VAR
+    level : INT := 3;
+END_VAR
+METHOD PUBLIC Toggle : BOOL
+Toggle := TRUE;
+END_METHOD
+METHOD PUBLIC Dim : INT
+Dim := level;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Fan IMPLEMENTS IFan
+METHOD PUBLIC Spin : BOOL
+Spin := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    lamp : FB_Lamp;
+    fanBlock : FB_Fan;
+    lampItf : ILamp;
+    dimmer : IDimmer;
+    fan : IFan;
+    found : BOOL;
+    level : INT;
+    missing : BOOL := TRUE;
+    fanCleared : BOOL;
+END_VAR
+lampItf := lamp;
+found := __QUERYINTERFACE(lampItf, dimmer);
+IF found THEN
+    level := dimmer.Dim();
+END_IF
+fan := fanBlock;
+missing := __QUERYINTERFACE(lampItf, fan);
+fanCleared := fan = NULL;
+END_PROGRAM
+"#;
+
+#[test]
+fn query_interface_answers_and_sets_the_target() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(QUERY_INTERFACE).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        assert_eq!(
+            harness.get_output("found"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("level"),
+            Some(Value::Int(3)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("missing"),
+            Some(Value::Bool(false)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("fanCleared"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
     }
 }

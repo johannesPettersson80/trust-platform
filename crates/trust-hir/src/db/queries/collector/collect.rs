@@ -1,4 +1,5 @@
 use super::*;
+use crate::attributes::declares_attribute;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl SymbolCollector<'_> {
@@ -219,6 +220,10 @@ impl SymbolCollector<'_> {
         let mut symbol = Symbol::new(SymbolId::UNKNOWN, name.clone(), kind, symbol_type_id, range);
         symbol.visibility = self.visibility_for_pou(node, &symbol.kind);
         symbol.modifiers = modifiers_from_node(node);
+        // CODESYS's `{attribute 'hide'}` and `{attribute 'hide_all_locals'}` in the POU's first line
+        // (specification 14 §6.1.2).
+        symbol.modifiers.hidden = declares_attribute(node, "hide");
+        symbol.modifiers.hides_locals = declares_attribute(node, "hide_all_locals");
         symbol.parent = self.current_parent();
         if let Some(owner_parts) = owner_parts {
             let owner_id = self
@@ -280,6 +285,7 @@ impl SymbolCollector<'_> {
             range,
         );
         symbol.parent = self.current_parent();
+        symbol.modifiers.hidden = declares_attribute(node, "hide");
         self.table.add_symbol_raw(symbol);
     }
 

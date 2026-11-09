@@ -13,7 +13,9 @@ mod classes;
 mod dispatch;
 mod emit;
 mod entries;
+mod fb_exit;
 mod fb_init;
+mod fb_reinit;
 mod frame_init;
 mod front;
 mod init;
@@ -155,6 +157,9 @@ pub fn target_named(name: &str) -> Option<Target> {
 pub enum NativeError {
     /// The sources have errors, or a declaration the build needs is missing.
     Compile(String),
+    /// The sources have the errors trust-hir reports, each where it is (specification 11
+    /// §6.8.1c).
+    Sources(crate::harness::CompileError),
     /// A construct the generator does not compile yet: a build error, never a fallback
     /// (specification 44 NX-09).
     Unsupported {
@@ -181,6 +186,7 @@ impl std::fmt::Display for NativeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Compile(message) => f.write_str(message),
+            Self::Sources(error) => write!(f, "{error}"),
             Self::Unsupported { construct, at } => write!(
                 f,
                 "{construct} is not compiled yet ({at}; specification 44 NX-09)"

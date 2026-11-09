@@ -25,8 +25,8 @@ use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller,
     ControllerProject, Design, Direction, Execution, Experiment, ExperimentKind, InitialSource,
     InitialValue, InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, LoopSignal,
-    ModeBinding, ModeWhenTrue, Parameter, ParameterBinding, PidControllerGroup, PidGroupMember,
-    SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    Parameter, ParameterBinding, PidControllerGroup, PidGroupMember, SampleTiming, Signals,
+    Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::model::{ActuatorCapabilities, ActuatorKind};
 
@@ -177,10 +177,7 @@ pub fn group_loop_definition(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: task.name.clone(),
-            mode: ModeBinding::boolean(
-                draft.mode.symbol.clone(),
-                draft.mode.when_true == ModeWhenTrue::Manual,
-            ),
+            mode: draft.mode.binding(),
             parameters: group_parameters(catalog, &members, decoupler)?,
         }),
         parameter_purpose: None,

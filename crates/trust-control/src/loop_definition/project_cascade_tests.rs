@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::loop_definition::tests::{complete_loop, decode};
+use crate::loop_definition::{ModeBinding, ModeValue};
 use crate::tuning::structure::Structure;
 
 /// The six gain variables of the vessel's two PIs, as the loop's parameter binding names them (C6).
@@ -136,6 +137,42 @@ fn the_outer_controllers_mode_is_the_transfer_additional_mode() {
         vec![("Main.OuterAuto", false)],
         "the outer controller's mode switches at the same boundary as the inner one's"
     );
+}
+
+/// Specification 35 A6.1 and C0: a further mode of the program, such as the outer controller's, may be an enumeration named by its
+/// Manual and Auto members, as the loop's own mode may. Catches the members dropped on the way to the transfer (the runtime would
+/// write a BOOL into the enumeration) or lost when the loop file is written back, and an enumeration further mode with one member, or
+/// the same member twice, accepted.
+#[test]
+fn a_further_mode_may_be_an_enumeration_named_by_its_members() {
+    let further =
+        json!({ "symbol": "Main.OuterMode", "manualValue": "Manual", "autoValue": "Auto" });
+    let mut project = cascade_project("cascade", &cascade_seed());
+    project["additionalModes"] = json!([further.clone()]);
+    let loop_definition = decode(&cascade_loop(project.clone())).expect("the loop decodes");
+    let members = crate::commissioning::project_law::additional_mode_members(&loop_definition);
+    assert_eq!(
+        members,
+        vec![ModeBinding {
+            symbol: "Main.OuterMode".to_string(),
+            manual_value: ModeValue::Member("Manual".to_string()),
+            auto_value: Some("Auto".to_string()),
+        }]
+    );
+    let block = ControllerProject::from_value(&project).expect("the block decodes");
+    assert_eq!(block.to_value()["additionalModes"], json!([further]));
+    for refused in [
+        json!({ "symbol": "Main.OuterMode", "manualValue": "Manual" }),
+        json!({ "symbol": "Main.OuterMode", "manualValue": "Manual", "autoValue": "MANUAL" }),
+        json!({ "symbol": "Main.OuterMode", "manualValue": true, "autoValue": "Auto" }),
+    ] {
+        let mut project = cascade_project("cascade", &cascade_seed());
+        project["additionalModes"] = json!([refused.clone()]);
+        assert!(
+            ControllerProject::from_value(&project).is_err(),
+            "{refused} is refused"
+        );
+    }
 }
 
 #[test]

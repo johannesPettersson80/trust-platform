@@ -1,0 +1,99 @@
+name: Web IDE Performance
+
+# The web IDE's reference performance gates (specification 11, 6.8.1e): an optimized build on Linux
+# x86_64, the reference environment, asserts their budgets. Every pull request starts this workflow; its
+# `changes` job decides whether the gates must run (specification 22, "Pull-request checks and change
+# detection"). Every other run of the same tests, in CI's Test jobs, records the figures only.
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# A new push to a pull request replaces the pull request's unfinished run; the pushes to main run one at
+# a time, a newer push replacing a run that still waits; a merge group and a scheduled or manual run
+# always finish (specification 22).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'push' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # GitHub runners do not guarantee sccache availability; disable wrapper in CI.
+  RUSTC_WRAPPER: ""
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      relevant: ${{ steps.changes.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare the change with the web IDE's paths
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # A push to main compares with this workflow's newest passed run, which GitHub lists.
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/web-ide-performance.txt --workflow web-ide-performance.yml
+
+  gates:
+    name: Web IDE Performance Gates (Linux x86_64, optimized)
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
+          df -h
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        # The gates build their test program for this computer, so the toolchain holds this computer's target.
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder="${RUNNER_TEMP}/trust-toolchain"
+          bash scripts/native/build_toolchain_libraries.sh "${folder}" x86_64-unknown-linux-gnu
+          echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest --version 0.9.140 --locked
+      - name: Run the gates on an optimized build
+        # The release profile's optimization without its link-time optimization, which takes most of the
+        # build's time (specification 11, 6.8.1e); the ci profile runs each gate alone on the runner and keeps
+        # its recorded figures in the log.
+        env:
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+        run: cargo nextest run --locked --cargo-profile release -p trust-runtime --test web_ide_performance_gate --profile ci --retries 0
+
+  conclusion:
+    name: Web IDE Performance Conclusion
+    needs: [changes, gates]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job succeeded or was skipped
+        env:
+          RESULTS: ${{ toJson(needs) }}
+        run: jq --exit-status 'all(.result == "success" or .result == "skipped")' <<< "$RESULTS"

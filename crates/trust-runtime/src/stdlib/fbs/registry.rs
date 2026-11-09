@@ -18,6 +18,7 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
                     address: None,
                     default: None,
                     retain: crate::RetainPolicy::Unspecified,
+                    noinit: false,
                 })
                 .collect(),
             vars: Vec::new(),
@@ -25,6 +26,8 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
             using: Vec::new(),
             methods: Vec::new(),
             body: Vec::new(),
+            property_aliases: Vec::new(),
+            call_after_init: false,
         }
     }
 

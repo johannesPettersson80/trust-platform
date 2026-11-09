@@ -10,7 +10,9 @@ pub struct ResourceRunner<C: Clock + Clone> {
     restart_signal: Option<Arc<Mutex<Option<crate::RestartMode>>>>,
     start_gate: Option<Arc<StartGate>>,
     command_rx: Option<std::sync::mpsc::Receiver<ResourceCommand>>,
-    simulation: Option<crate::simulation::SimulationController>,
+    /// The simulation it runs, shared with its handles, so that they read the plants while the
+    /// debugger holds the scan (`LiveSimulation`).
+    simulation: LiveSimulation,
     thread_init_hook: Option<Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>>,
     hang_action: crate::watchdog::HangAction,
     program_loader: Option<ProgramLoader>,
@@ -49,7 +51,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             restart_signal: None,
             start_gate: None,
             command_rx: None,
-            simulation: None,
+            simulation: LiveSimulation::default(),
             thread_init_hook: None,
             hang_action: crate::watchdog::HangAction::default(),
             program_loader: None,
@@ -94,8 +96,9 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
     /// Attach a simulation controller for coupling/disturbance hooks.
     #[must_use]
-    pub fn with_simulation(mut self, simulation: crate::simulation::SimulationController) -> Self {
-        self.simulation = Some(simulation);
+    pub fn with_simulation(self, simulation: crate::simulation::SimulationController) -> Self {
+        self.simulation
+            .set(Some(simulation), self.runtime.simulation_only_io());
         self
     }
 
@@ -191,11 +194,12 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     /// the process time the restarted runtime continues from, so that they catch up no time from
     /// before the restart.
     fn recreate_plants(&mut self) {
-        if let Some(simulation) = &self.simulation {
+        if self.simulation.is_attached() {
             let origin = self
                 .timing
                 .restart_time(self.program_time(self.clock.now()));
-            self.simulation = Some(simulation.recreated_at(origin));
+            self.simulation
+                .with(|simulation| *simulation = simulation.recreated_at(origin));
         }
     }
 
@@ -237,12 +241,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     pub(crate) fn simulation_snapshot(
         &self,
     ) -> Option<crate::simulation::SimulationRuntimeSnapshot> {
-        let simulation = self.simulation.as_ref()?;
-        let mut snapshot = simulation.runtime_snapshot_for(&self.runtime);
-        if let Some(speed) = self.timing.simulation_speed() {
-            snapshot.status.time_scale = speed.get();
-        }
-        Some(snapshot)
+        self.simulation
+            .snapshot(self.timing.simulation_speed().as_ref())
     }
 
     /// Takes the `restart` request `mode`. A program that stopped, or that did not start, is
@@ -275,7 +275,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let started = loader(&mut self.runtime, mode)?;
         self.cycle_interval = started.cycle_interval;
         self.timing = self.timing_of_loaded(started.simulation.is_some(), started.time_scale);
-        self.simulation = started.simulation;
+        self.simulation
+            .set(started.simulation, self.runtime.simulation_only_io());
         self.hang_action = started.hang_action;
         // Its time begins at zero when its first cycle starts (`take_grid_origin`).
         self.time_restarts = true;
@@ -330,6 +331,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             exchange
         });
         let debug = debug_for_new_thread(&runner.runtime);
+        let simulation = runner.simulation.clone();
 
         let stop_thread = stop.clone();
         let state_thread = state.clone();
@@ -381,6 +383,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             cmd_tx: cmd_tx.clone(),
             hmi,
             simulation_speed,
+            simulation,
             debug,
         })
     }

@@ -22,6 +22,9 @@ fn lower_class_var_blocks(
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
             let parts = parse_var_decl(&var_decl)?;
+            let noinit = declares_noinit(&var_decl);
+            let no_exit = declares_no_exit(&var_decl);
+            let instance_path = declares_instance_path(node, &var_decl);
             reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
@@ -33,6 +36,7 @@ fn lower_class_var_blocks(
                     })
                 })
                 .transpose()?;
+            let init_args = lower_init_args(&parts, ctx)?;
             if qualifiers.constant
                 && matches!(kind, VarBlockKind::Var | VarBlockKind::Stat)
                 && let Some(expr) = init_expr.as_ref()
@@ -71,6 +75,10 @@ fn lower_class_var_blocks(
                             in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
+                            init_args: init_args.clone(),
+                            noinit,
+                            instance_path,
+                            no_exit,
                         });
                     }
                 }

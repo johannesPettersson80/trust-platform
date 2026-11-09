@@ -225,6 +225,18 @@ pub fn manual_mode() -> &'static str {
     "Manual mode"
 }
 
+/// The question for the member of an enumeration manual mode that means Manual (A6.1).
+#[must_use]
+pub fn manual_member() -> &'static str {
+    "Member that means Manual"
+}
+
+/// The question for the member of an enumeration manual mode that means Auto (A6.1).
+#[must_use]
+pub fn auto_member() -> &'static str {
+    "Member that means Auto"
+}
+
 /// The manual mode polarity question (`proportionalSetup`).
 #[must_use]
 pub fn manual_mode_polarity() -> &'static str {

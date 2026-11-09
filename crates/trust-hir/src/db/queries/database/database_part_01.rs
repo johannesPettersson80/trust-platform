@@ -183,6 +183,7 @@ impl Database {
                 diagnostics: Arc::new(Vec::new()),
                 expression_types: Arc::new(FxHashMap::default()),
                 resolved_symbols: Arc::new(FxHashMap::default()),
+                written_arguments: Arc::new(FxHashSet::default()),
                 declaration_catalog: Arc::new(DeclarationCatalog::default()),
             });
         };
@@ -194,6 +195,7 @@ impl Database {
                     diagnostics: Arc::new(Vec::new()),
                     expression_types: Arc::new(FxHashMap::default()),
                     resolved_symbols: Arc::new(FxHashMap::default()),
+                    written_arguments: Arc::new(FxHashSet::default()),
                     declaration_catalog: Arc::new(DeclarationCatalog::default()),
                 })
             })

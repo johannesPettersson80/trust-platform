@@ -265,6 +265,9 @@ pub struct NativeProgram<'i, C> {
     pub(super) entries: Vec<Entry>,
     pub(super) cold: Option<usize>,
     pub(super) warm: Option<usize>,
+    /// The exit entry, which leaves the instances before their memory is started again or replaced
+    /// (specification 44 §6.7).
+    pub(super) exit: Option<usize>,
     pub(super) tasks: Vec<NativeTask>,
     /// Whether the tasks are live: the program scanned since it was built, or took over the
     /// schedule of a running program. Until then a start of the task timing registers the tasks
@@ -296,6 +299,15 @@ pub struct NativeProgram<'i, C> {
     pub(super) hierarchical_keys: Vec<(IoAddressKey, usize)>,
     /// The declared values of the enumerations of the bound variables, which their bindings name.
     pub(super) enum_values: Vec<i64>,
+    /// Whether the areas hold the values of a started program, so that a restart gives the
+    /// variables marked `noinit` back what they held (specification 44 §6.7); not before the first
+    /// start, whose areas hold nothing yet.
+    pub(super) started: bool,
+    /// Whether the instances have lived: the program ran a scan or a program instance's body since
+    /// it was built, or took over the instances of a running program (an online change). Until
+    /// then a restart leaves nothing, as the starts that bring a program up have made no instance
+    /// run (specification 44 §6.7).
+    pub(super) ran: bool,
 }
 
 /// The address of the value of hierarchical `address` in its slot: its first byte, a bit at bit 0.
@@ -619,13 +631,41 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
     }
 
-    /// Copies the bound variable of `binding` out to its output or marker image.
+    /// Reads `out.len()` bytes of the image of `binding` where its next sample reads them: the
+    /// input image the drivers fill for a flat input address, else as [`Self::image_read`] does.
+    pub(super) fn sampled_read(&self, binding: &Binding, out: &mut [u8]) {
+        if binding.image == 1 && !binding.hierarchical {
+            let start = binding.byte as usize;
+            if let Some(bytes) = self.inputs.get(start..start + out.len()) {
+                out.copy_from_slice(bytes);
+            }
+        } else {
+            self.image_read(binding, out);
+        }
+    }
+
+    /// Writes `data` into the image of `binding` where its next sample reads it: the input image
+    /// the drivers fill for a flat input address, else as [`Self::image_write`] does.
+    fn sampled_write(&mut self, binding: &Binding, data: &[u8]) {
+        if binding.image == 1 && !binding.hierarchical {
+            let start = binding.byte as usize;
+            if let Some(bytes) = self.inputs.get_mut(start..start + data.len()) {
+                bytes.copy_from_slice(data);
+            }
+        } else {
+            self.image_write(binding, data);
+        }
+    }
+
+    /// Copies the bound variable of `binding` out to its image, where the next sample reads it: its
+    /// output or marker image after the tasks ran, and its input or marker image when a write or a
+    /// force of it is held there ([`Self::hold_bound`]).
     ///
     /// # Errors
     ///
     /// [`RuntimeError::Overflow`] for a `TIME` that whole unsigned 32-bit milliseconds cannot
     /// hold; the image keeps its bytes.
-    fn publish_binding(&mut self, binding: Binding) -> Result<(), RuntimeError> {
+    pub(super) fn publish_binding(&mut self, binding: Binding) -> Result<(), RuntimeError> {
         let Some(area) = slot(binding.area) else {
             return Ok(());
         };
@@ -633,14 +673,14 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             let mut value = [0u8];
             self.areas[area].read(binding.offset as usize, &mut value);
             let mut byte = [0u8];
-            self.image_read(&binding, &mut byte);
+            self.sampled_read(&binding, &mut byte);
             let mask = 1u8 << binding.bit;
             byte[0] = if value[0] != 0 {
                 byte[0] | mask
             } else {
                 byte[0] & !mask
             };
-            self.image_write(&binding, &byte);
+            self.sampled_write(&binding, &byte);
         } else if binding.codec == BIND_TIME_MILLIS {
             // Nanoseconds in the variable, whole milliseconds out, truncated toward zero.
             let mut nanos = [0u8; 8];
@@ -650,12 +690,12 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 .ok()
                 .and_then(|nanos| u32::try_from(nanos / 1_000_000).ok())
                 .ok_or(RuntimeError::Overflow)?;
-            self.image_write(&binding, &millis.to_le_bytes());
+            self.sampled_write(&binding, &millis.to_le_bytes());
         } else {
             let mut bytes = [0u8; 8];
             let width = binding.width as usize;
             self.areas[area].read(binding.offset as usize, &mut bytes[..width]);
-            self.image_write(&binding, &bytes[..width]);
+            self.sampled_write(&binding, &bytes[..width]);
         }
         Ok(())
     }
@@ -777,6 +817,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         // The tasks have sampled their inputs: they are live from now on.
         self.live = true;
+        self.ran = true;
         let tasks = &self.tasks;
         sort_ready_tasks_by_priority(&mut ready, |index| tasks[index].priority);
         let mut result = Ok(());
@@ -917,6 +958,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 })
             })
             .ok_or_else(|| RuntimeError::UndefinedProgram(alloc::format!("{instance}").into()))?;
+        self.ran = true;
         self.call(entry, u32::MAX, now, None)
     }
 

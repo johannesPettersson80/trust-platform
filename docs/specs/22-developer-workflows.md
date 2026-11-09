@@ -432,7 +432,9 @@ user installs, not on the development build that the VS Code suites test.
 `editors/vscode/src/acceptance/runAcceptance.ts` (`npm run acceptance --
 --vsix <file> --out <folder>`, under a display) installs the VSIX into an empty
 extensions folder of a VS Code that has never run truST (the stable release,
-or the executable that `E2E_VSCODE` names) and runs each session in its own
+or the executable that `E2E_VSCODE` names; the download is tried three times
+with a pause between, since the update service's version lookup fails now and
+then, and a failure prints the error's whole value) and runs each session in its own
 window, with its own profile and Control Studio state folder, one truST data
 folder that is empty at the start, and no Rust toolchain: the runner removes
 Cargo and rustup from `PATH` and fails when a Rust compiler is still found.
@@ -541,6 +543,13 @@ fails.
 
 A test that expects no watchdog fault from real cycles against a short watchdog runs alone
 too, as the debugger's pause tests do with their 20 ms watchdog.
+
+A test that waits for something to happen waits for that event, receiving or polling
+until a generous deadline of ten seconds, never for a short fixed window: a loaded runner
+can be slow without anything being wrong, and a passing run still ends as soon as the
+event arrives. A test that asserts that something took less than a bound keeps the bound
+far from both what it expects and what it rules out, such as a call that waits for a
+silent peer, or it runs alone.
 
 Every job that builds Structured Text programs provisions the toolchain of
 specification 44 §4.6 itself and names it in `TRUST_TOOLCHAIN`, the release's

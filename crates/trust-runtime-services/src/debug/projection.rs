@@ -380,6 +380,71 @@ pub fn format_value(value: &Value) -> String {
     format_user_value(value)
 }
 
+/// A value as `eval` answers it (specification 11, 6.8.1): `{"type": <IEC type>, "value": <JSON>}`.
+/// The value is a number for an integer, a bit string or a finite real, a boolean, a string, an
+/// array or an object; an enumeration's value is its name, and `numeric` adds its numeric value; a
+/// duration's value is its nanoseconds, and `text` adds its IEC text; a date, a time of day, a real
+/// that is no finite number, a reference and an instance are their IEC text.
+#[must_use]
+pub fn typed_value(value: &Value) -> serde_json::Value {
+    let mut typed = serde_json::Map::new();
+    typed.insert(
+        "type".into(),
+        serde_json::Value::from(value_type_name(value)),
+    );
+    typed.insert("value".into(), plain_value(value));
+    match value {
+        Value::Enum(enumerated) => {
+            typed.insert("numeric".into(), enumerated.numeric_value().into());
+        }
+        Value::Time(_) | Value::LTime(_) => {
+            typed.insert("text".into(), format_value(value).into());
+        }
+        _ => {}
+    }
+    serde_json::Value::Object(typed)
+}
+
+/// A value as plain JSON, as [`typed_value`] holds it.
+fn plain_value(value: &Value) -> serde_json::Value {
+    use serde_json::Value as Json;
+    let real = |number: f64| {
+        serde_json::Number::from_f64(number)
+            .map_or_else(|| Json::String(format_value(value)), Json::Number)
+    };
+    match value {
+        Value::Bool(flag) => Json::Bool(*flag),
+        Value::SInt(number) => (*number).into(),
+        Value::Int(number) => (*number).into(),
+        Value::DInt(number) => (*number).into(),
+        Value::LInt(number) => (*number).into(),
+        Value::USInt(number) | Value::Byte(number) => (*number).into(),
+        Value::UInt(number) | Value::Word(number) => (*number).into(),
+        Value::UDInt(number) | Value::DWord(number) => (*number).into(),
+        Value::ULInt(number) | Value::LWord(number) => (*number).into(),
+        Value::Real(number) => real(f64::from(*number)),
+        Value::LReal(number) => real(*number),
+        Value::Time(duration) | Value::LTime(duration) => duration.as_nanos().into(),
+        Value::String(text) => Json::String(text.to_string()),
+        Value::WString(text) => Json::String(text.clone()),
+        Value::Char(code) => Json::String(char::from(*code).to_string()),
+        Value::WChar(code) => char::from_u32(u32::from(*code)).map_or_else(
+            || Json::String(format_value(value)),
+            |c| Json::String(c.to_string()),
+        ),
+        Value::Array(array) => Json::Array(array.elements().iter().map(plain_value).collect()),
+        Value::Struct(record) => Json::Object(
+            record
+                .fields()
+                .iter()
+                .map(|(name, field)| (name.to_string(), plain_value(field)))
+                .collect(),
+        ),
+        Value::Enum(enumerated) => Json::String(enumerated.variant_name().to_string()),
+        _ => Json::String(format_value(value)),
+    }
+}
+
 /// The variables of named values, each readable by its own name.
 #[must_use]
 pub fn variables_from_entries(
@@ -652,6 +717,63 @@ pub fn file_name_of(label: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn eval_answers_each_value_with_its_type_and_as_json() {
+        // Specification 11, 6.8.1: `eval` answers `{"type", "value"}` with a JSON number for a
+        // number, a boolean, a string; an enumeration's name and its `numeric` value; a duration's
+        // nanoseconds with its IEC text; the IEC text of a real that is no number, which JSON cannot
+        // hold. Worked by hand: 1.5 s is 1,500,000,000 ns, `T#1500ms`. Catches the runtime's debug
+        // text (`LReal(0.738)`), which a script cannot read as a number, and an enumeration without
+        // its number.
+        use trust_runtime_core::value::{Duration, EnumValue};
+        let mode = Value::Enum(alloc::boxed::Box::new(EnumValue::from_canonical_parts(
+            "E_Mode".into(),
+            "AUTO".into(),
+            1,
+        )));
+        let not_a_number = Value::Real(f32::NAN);
+        for (value, expected) in [
+            (
+                Value::LReal(0.738),
+                serde_json::json!({"type": "LREAL", "value": 0.738}),
+            ),
+            (
+                Value::DInt(-7),
+                serde_json::json!({"type": "DINT", "value": -7}),
+            ),
+            (
+                Value::Word(0xBEEF),
+                serde_json::json!({"type": "WORD", "value": 48879}),
+            ),
+            (
+                Value::Bool(true),
+                serde_json::json!({"type": "BOOL", "value": true}),
+            ),
+            (
+                Value::String("pump".into()),
+                serde_json::json!({"type": "STRING", "value": "pump"}),
+            ),
+            (
+                Value::Char(b'A'),
+                serde_json::json!({"type": "CHAR", "value": "A"}),
+            ),
+            (
+                mode,
+                serde_json::json!({"type": "E_Mode", "value": "AUTO", "numeric": 1}),
+            ),
+            (
+                Value::Time(Duration::from_nanos(1_500_000_000)),
+                serde_json::json!({"type": "TIME", "value": 1_500_000_000_i64, "text": "T#1500ms"}),
+            ),
+            (
+                not_a_number.clone(),
+                serde_json::json!({"type": "REAL", "value": format_value(&not_a_number)}),
+            ),
+        ] {
+            assert_eq!(typed_value(&value), expected, "{value:?}");
+        }
+    }
 
     #[test]
     fn a_file_is_named_by_the_last_component_of_its_label() {

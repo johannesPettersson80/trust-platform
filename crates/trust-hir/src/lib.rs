@@ -29,6 +29,7 @@
 #![warn(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod access;
 pub mod attributes;
 pub mod db;
 pub mod diagnostics;
