@@ -421,7 +421,7 @@ pub(crate) fn single_run_samples(
 /// The bounded step of a single-run record, measured on its fitted samples: the step's index and, for a held step, the
 /// gain range of its endpoint resolution (N2.4). A pulse has no endpoint gains, so its gain range is absent.
 struct MeasuredStep {
-    /// The index of the step: the first sample at the new input level.
+    /// The index of the step's first sample (N2.2): the sample that straddles the step when one does.
     index: usize,
     /// The smallest and the largest of the two endpoint gains and the measured gain of a held step; `None` for a pulse.
     gain_range: Option<(f64, f64)>,
@@ -462,8 +462,8 @@ fn measure_step(values: &[IdentificationSample]) -> Result<MeasuredStep, Refusal
     })
 }
 
-/// The index of the bounded step of a single run: its largest input change, with at least two samples before it and ten
-/// after it (B3.4 step 5). For a pulse it is the pulse's first input change, the first of two equal changes (N2.2).
+/// The index of the bounded step of a single run: its step (N2.2), with at least two samples before it and ten after it
+/// (B3.4 step 5). For a pulse it is the pulse's first input change, the first of two equal changes (N2.2).
 ///
 /// # Errors
 /// Returns the refusal of a recording without such a change, which asks for pre- and post-step data.
@@ -758,3 +758,7 @@ pub(super) fn js_max(left: f64, right: f64) -> f64 {
 #[cfg(test)]
 #[path = "plant_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "straddled_step_tests.rs"]
+mod straddled_step_tests;

@@ -175,6 +175,19 @@ hold runs from the step to the end of the hold (B3.4). The step amplitude is
 `Δu = ū_hold − u0`, where `ū_hold` is the mean plant input over the hold. A fit
 with `Δu = 0` is refused, and the refusal names the missing nonzero step (N2.6).
 
+*The step.* The step of a record is its largest plant input change. A sample whose
+input lies strictly between those of its neighbours, on a change in one direction,
+straddles the step: its record period (specification 35, A4.2) or its block (N1.4)
+averaged executions from before and after the step. The change through it counts
+whole, from the sample before it to the sample after it, and the step starts at
+the straddling sample: the baseline never holds it, and the hold starts with it,
+its input the mean of the executions it averaged. So where the step falls inside a
+sample never moves the operating point, and a restoration that straddles less
+evenly never outweighs the step. Of equal changes the first is the step, as a
+pulse's first change is. The held step of a single run ends before its restoration
+(B3.4 step 5): the first later change against the step's direction, counted whole
+in the same way, of at least half the step's whole size.
+
 *Grids.* Let `H` be the fitted span, from the start of the excitation (the step of
 a held step or of a setpoint step; the first change of any other excitation) to the
 last fitted sample (the end of the hold for a held step), and `Ts` the fit's sample
