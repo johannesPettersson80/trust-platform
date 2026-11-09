@@ -1438,7 +1438,12 @@ clears the manual section (B3.7).
    ended there misses that mode's gain. The hold therefore ends early only
    when the plant input has settled too, by the same rule against its own
    mean and noise over the steady baseline. The maximum duration counts from the end of the
-   baseline, so the wait for a steady baseline never shortens the step.
+   baseline, so the wait for a steady baseline never shortens the step. When the
+   hold ends early, its progress says so at once, with the time from the step's
+   application to the settling and the limit the step would otherwise have had:
+   "The response settled 4 min after the step was applied, so the step ends
+   there, before its limit of 9 min.", so that a hold shorter than its maximum is
+   never a surprise.
 5. **Restoration.** The runtime restores the plant input or setpoint to its
    value from before the experiment and confirms it (A7). Identify does not wait
    for the process to return to its starting point. A controller output follows

@@ -771,7 +771,7 @@ fn a_settled_single_step_is_finished_early_once_and_a_ramp_that_never_settles_is
     let mut hold = HoldTracker::new(&setpoint_plan(540_000.0, 1), &baseline, 0.0);
     hold.step_applied(0.0);
     let mut watch = Watch::new();
-    let mut finishes = 0;
+    let mut finishes = Vec::new();
     for tick in 1..=600_u32 {
         let seconds = f64::from(tick);
         let step = hold.feed(
@@ -780,19 +780,36 @@ fn a_settled_single_step_is_finished_early_once_and_a_ramp_that_never_settles_is
             &[sample(seconds, settles(seconds))],
             seconds * 1_000.0,
         );
-        if matches!(
-            step,
-            HoldStep::Continue {
-                finish_early: true,
-                ..
-            }
-        ) {
-            finishes += 1;
+        if let HoldStep::Continue {
+            finish_early: true,
+            progress,
+        } = step
+        {
+            finishes.push((seconds, progress));
         }
     }
     assert_eq!(
-        finishes, 1,
+        finishes.len(),
+        1,
         "the response settled before the hold ended, so the step is finished once"
+    );
+    // B3.4 step 4: the finish says at once that the response settled, the time since the step was
+    // applied at second 0, and the 540 s plan's limit, 9 min. Catches a finish that says nothing,
+    // or names the limit as the time.
+    let (seconds, progress) = &finishes[0];
+    assert!(
+        *seconds < 540.0,
+        "the step ends before its limit: {seconds} s"
+    );
+    assert_eq!(
+        progress.as_deref(),
+        Some(
+            format!(
+                "The response settled {} after the step was applied, so the step ends there, before its limit of 9 min.",
+                format_duration(*seconds)
+            )
+            .as_str()
+        )
     );
 
     let ramping = |seconds: f64| plant(45.0, 0.0, 0.01, 2.0, 0.0, seconds);
