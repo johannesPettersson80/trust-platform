@@ -153,6 +153,12 @@ fn a_probe_connects_without_a_request() {
     let reachable =
         answer(json!({ "action": "probe", "endpoint": runtime.endpoint })).expect("an answer");
     assert_eq!(reachable, json!({ "ok": true, "reachable": true }));
+    // The fake counts the connection on its own thread: wait for it, then give a request that a
+    // wrong probe would send 50 ms to arrive.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while runtime.connections() < 1 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
     std::thread::sleep(std::time::Duration::from_millis(50));
     assert_eq!(runtime.connections(), 1);
     assert!(runtime.requests().is_empty());

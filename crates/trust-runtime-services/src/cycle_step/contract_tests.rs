@@ -7,11 +7,13 @@ use alloc::vec;
 use serde_json::{json, Value as JsonValue};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::native::program::FailedAssertion;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{Duration, Value};
 
 use super::{request, restart_time, StepOutcome, StepRefusal, StepRequest};
+use crate::debug::sources::StatementAt;
 use crate::tests::fake_host::FakeHost;
 
 /// A stopped resource whose platform answers every step with `answer`.
@@ -35,9 +37,11 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
     // value texts and in the order of their names, the watches in the request's order and the
     // program instance to run. The
     // reply is `time_ns`, the values and the direct values in the conformance encoding, and the
-    // text of the scan's error. Catches inputs written in the request's order instead of the
+    // text of the scan's error with the file and line of the statement that raised it and the
+    // failed assertion's values, only those it has (specification 11 §6.8.1). Catches inputs written in the request's order instead of the
     // names' order, a restart mode read case-sensitively, a text `1_000` read as anything but
-    // 1000, and an error reported other than by its text.
+    // 1000, an error reported other than by its text, its statement or its values left out, and a
+    // value the assertion does not have written as null.
     let host = stopped(Ok(StepOutcome {
         values: vec![
             ("b".into(), Value::Int(0)),
@@ -45,6 +49,17 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
         ],
         direct: vec![("%QX0.1".into(), Value::Bool(true))],
         error: Some(RuntimeError::Overflow),
+        error_at: Some(StatementAt {
+            file: "src/tests.st".into(),
+            line: 7,
+        }),
+        assertion: Some(FailedAssertion {
+            name: "ASSERT_GREATER",
+            expected: None,
+            actual: Some(Value::Int(3)),
+            bound: Some(Value::Int(5)),
+            delta: None,
+        }),
     }));
     let params = json!({
         "time_ns": 20_000_000,
@@ -66,6 +81,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
             watch: vec!["b".into(), "a".into()],
             watch_direct: vec![("%QX0.1".into(), address("%QX0.1"))],
             run: Some("Tests".into()),
+            io: false,
         }]
     );
     assert!(reply.ok, "{:?}", reply.error);
@@ -79,6 +95,12 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
             },
             "direct": {"%QX0.1": {"type": "BOOL", "value": true}},
             "errors": ["arithmetic overflow"],
+            "error_at": {"file": "src/tests.st", "line": 7},
+            "assertion": {
+                "name": "ASSERT_GREATER",
+                "actual": {"type": "INT", "value": 3},
+                "bound": {"type": "INT", "value": 5},
+            },
         }))
     );
 }
@@ -123,8 +145,9 @@ fn only_a_stopped_resource_with_a_program_takes_a_step() {
 fn parameters_that_name_no_step_are_refused_before_the_platform_sees_them() {
     // Each refusal names what is wrong with the parameters. Catches a negative, fractional or
     // too large time taken as a time, an unknown restart mode taken as cold, a number taken as a
-    // value text, and an unknown member ignored.
-    let cases: [(Option<JsonValue>, &str); 13] = [
+    // value text, an unknown member ignored, and an `io` without the `run` it belongs to taken as a
+    // scan, or a number taken as `io` (specification 11 §6.8.1).
+    let cases: [(Option<JsonValue>, &str); 15] = [
         (None, "invalid params: missing params"),
         (Some(json!({})), "invalid params: time_ns is required"),
         (
@@ -171,6 +194,14 @@ fn parameters_that_name_no_step_are_refused_before_the_platform_sees_them() {
             Some(json!({"time_ns": 0, "run": ""})),
             "invalid params: run must name a program instance",
         ),
+        (
+            Some(json!({"time_ns": 0, "io": true})),
+            "invalid params: io takes a run: a scan samples and publishes already",
+        ),
+        (
+            Some(json!({"time_ns": 0, "run": "Tests", "io": 1})),
+            "invalid params: io must be true or false",
+        ),
     ];
     for (params, expected) in cases {
         let host = stopped(Err(StepRefusal::Unsupported));
@@ -192,6 +223,33 @@ fn parameters_that_name_no_step_are_refused_before_the_platform_sees_them() {
 }
 
 #[test]
+fn a_step_with_io_hands_it_to_the_platform_with_its_run() {
+    // Specification 11 §6.8.1, `io`: a run with `io` reaches the platform as a run with its inputs
+    // sampled and its outputs published; a run without it as a run alone. Catches `io` dropped on the
+    // way, which would leave a test's plants on process-image addresses unreached (specification 22).
+    for (params, io) in [
+        (
+            json!({"time_ns": 0, "restart": "cold", "run": "Tests", "io": true}),
+            true,
+        ),
+        (
+            json!({"time_ns": 0, "restart": "cold", "run": "Tests"}),
+            false,
+        ),
+    ] {
+        let host = stopped(Err(StepRefusal::Unsupported));
+        let _ = request(5, Some(&params), &host);
+        let steps = host.steps.borrow();
+        assert_eq!(steps.len(), 1, "{params}");
+        assert_eq!(
+            (steps[0].run.as_deref(), steps[0].io),
+            (Some("Tests"), io),
+            "{params}"
+        );
+    }
+}
+
+#[test]
 fn the_first_step_since_the_stop_restarts_and_no_step_goes_back_in_time() {
     // The first step since the resource stopped must restart the program, and its restart is at
     // time zero; every later step's time is at least the previous step's, a restarting one's too,
@@ -205,6 +263,7 @@ fn the_first_step_since_the_stop_restarts_and_no_step_goes_back_in_time() {
         watch: vec![],
         watch_direct: vec![],
         run: None,
+        io: false,
     };
     let ten = Some(Duration::from_millis(10));
     assert_eq!(

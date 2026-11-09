@@ -17,9 +17,9 @@ use tower_lsp::lsp_types::{
 use tower_lsp::Client;
 
 use trust_hir::db::FileId;
+use trust_hir::diagnostics::syntax_diagnostics;
 use trust_hir::symbols::SymbolKind;
 use trust_hir::DiagnosticSeverity as HirSeverity;
-use trust_syntax::lexer::{lex_with_text, TokenKind};
 use trust_syntax::parser::parse;
 
 use crate::config::{DiagnosticSettings, ProjectConfig, CONFIG_FILES};
@@ -359,42 +359,19 @@ pub(crate) fn collect_diagnostics_with_ticket(
     }
 
     let parsed = parse(content);
-    let invalid_identifier_tokens = lex_with_text(content)
+    // The parse errors as every check reports them (trust_hir::diagnostics::syntax_diagnostics).
+    let mut diagnostics: Vec<Diagnostic> = syntax_diagnostics(content, parsed.errors())
         .into_iter()
-        .filter(|(token, text)| {
-            token.kind == TokenKind::Error && looks_like_identifier_candidate(text)
-        })
-        .map(|(token, text)| (token.range, text.to_string()))
-        .collect::<Vec<_>>();
-
-    let mut diagnostics: Vec<Diagnostic> = parsed
-        .errors()
-        .iter()
-        .map(|err| {
-            let range = Range {
-                start: offset_to_position(content, err.range.start().into()),
-                end: offset_to_position(content, err.range.end().into()),
-            };
-            let invalid_identifier = invalid_identifier_tokens
-                .iter()
-                .find(|(range, _)| *range == err.range)
-                .map(|(_, text)| text.as_str());
-            let (code, message) = if let Some(identifier) = invalid_identifier {
-                ("E106", format!("invalid identifier '{identifier}'"))
-            } else if err.message.starts_with("expected ") {
-                ("E002", err.message.clone())
-            } else {
-                ("E001", err.message.clone())
-            };
-
-            Diagnostic {
-                range,
-                severity: Some(DiagnosticSeverity::ERROR),
-                code: Some(NumberOrString::String(code.to_string())),
-                source: Some("truST".to_string()),
-                message,
-                ..Default::default()
-            }
+        .map(|diagnostic| Diagnostic {
+            range: Range {
+                start: offset_to_position(content, diagnostic.range.start().into()),
+                end: offset_to_position(content, diagnostic.range.end().into()),
+            },
+            severity: Some(DiagnosticSeverity::ERROR),
+            code: Some(NumberOrString::String(diagnostic.code.code().to_string())),
+            source: Some("truST".to_string()),
+            message: diagnostic.message,
+            ..Default::default()
         })
         .collect();
 
@@ -472,15 +449,6 @@ pub(crate) fn collect_diagnostics_with_ticket(
         &mut diagnostics,
     );
     diagnostics
-}
-
-fn looks_like_identifier_candidate(text: &str) -> bool {
-    let mut chars = text.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first == '_' || first.is_alphabetic())
-        && chars.all(|character| character == '_' || character.is_alphanumeric())
 }
 
 /// The diagnostics of a configuration file (`trust-lsp.toml`), as the editor shows them and

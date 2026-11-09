@@ -26,5 +26,5 @@ pub use trust_runtime_core::program_model::{
 };
 pub use types::{
     edge_phase_storage_name, ClassDef, EdgeInput, FunctionBlockBase, FunctionBlockDef, FunctionDef,
-    InterfaceDef, MethodDef, Param, VarDef,
+    InitArg, InterfaceDef, MethodDef, Param, PropertyAlias, VarDef,
 };

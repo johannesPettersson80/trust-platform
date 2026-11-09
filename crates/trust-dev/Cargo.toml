@@ -26,4 +26,6 @@ trust-wasm-analysis.workspace = true
 [dev-dependencies]
 trust-test-support.workspace = true
 trust-runtime-core = { workspace = true, default-features = false }
+# The tests' device answers a stepped scan with the device's own step handler (specification 11 §6.8.1).
+trust-runtime-services.workspace = true
 verification-cases.workspace = true

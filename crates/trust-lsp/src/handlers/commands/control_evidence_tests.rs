@@ -294,6 +294,49 @@ fn keep_in_project_refuses_a_program_variable_it_cannot_write_by_its_name() {
     std::fs::remove_dir_all(root).expect("remove temp dir");
 }
 
+/// The CODESYS toolkit's S9 (specification 35 §17.17, B6.5): gains that a CODESYS project keeps in a GVL, truST's
+/// `NAMESPACE GVL_Par` with its `VAR_GLOBAL`, are kept in the GVL's declarations as a program's gains are kept in the program's.
+const GVL_GAINS: &str = "NAMESPACE GVL_Par\nVAR_GLOBAL\n    lrKp : LREAL := LREAL#2.0;\n    lrKi : LREAL;\n    iCount : INT := 3;\nEND_VAR\nEND_NAMESPACE\n\nPROGRAM Main\nVAR\n    Output : LREAL;\nEND_VAR\nOutput := GVL_Par.lrKp + GVL_Par.lrKi;\nEND_PROGRAM\n\nCONFIGURATION Config\nRESOURCE Res ON PLC\n    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM P1 WITH MainTask : Main;\nEND_RESOURCE\nEND_CONFIGURATION\n";
+
+/// Worked from the source: Keep writes `lrKp` 2.5 as `LREAL#2.5`, keeping its typed initializer, and gives `lrKi`, which has
+/// none, the initializer 0.125; `iCount` and the program stay as written. A GVL member that is not REAL or LREAL, or that the
+/// GVL does not declare, is refused with its name and the namespace. Catches a GVL gain refused as "not declared in PROGRAM
+/// GVL_Par", and an edit that reaches beyond the named globals.
+#[test]
+fn keep_in_project_writes_a_gvls_gains_in_its_declarations() {
+    let (root, context) = control_project("trustlsp-control-keep-gvl", GVL_GAINS);
+    let answer = keep_value(&context, &root, "GVL_Par", json!({ "lrKp": 2.5, "lrKi": 0.125 }));
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert_eq!(answer["kept"], json!(["lrKi", "lrKp"]), "{answer}");
+    let uri = Url::from_file_path(root.join("src").join("main.st"))
+        .expect("source uri")
+        .to_string();
+    let kept = with_lsp_edits(GVL_GAINS, &answer["edit"]["changes"][&uri]);
+    assert!(
+        kept.contains("    lrKp : LREAL := LREAL#2.5;\n")
+            && kept.contains("    lrKi : LREAL := 0.125;\n")
+            && kept.contains("    iCount : INT := 3;\n")
+            && kept.contains("Output := GVL_Par.lrKp + GVL_Par.lrKi;\n"),
+        "{kept}"
+    );
+    let not_real = keep_value(&context, &root, "GVL_Par", json!({ "iCount": 1.0 }));
+    assert!(
+        refusal_of(&not_real).starts_with("GVL_Par.iCount is not a REAL or LREAL variable"),
+        "{not_real}"
+    );
+    let missing = keep_value(&context, &root, "GVL_Par", json!({ "lrKd": 1.0 }));
+    assert!(
+        refusal_of(&missing).starts_with("GVL_Par.lrKd is not declared in NAMESPACE GVL_Par"),
+        "{missing}"
+    );
+    let unknown = keep_value(&context, &root, "GVL_Other", json!({ "lrKp": 1.0 }));
+    assert!(
+        refusal_of(&unknown).starts_with("GVL_Other names no program and no namespace of this project."),
+        "{unknown}"
+    );
+    std::fs::remove_dir_all(root).expect("remove temp dir");
+}
+
 #[test]
 fn a_scalar_named_as_a_record_takes_its_own_name_as_its_one_value() {
     let (root, context) = control_project("trustlsp-control-keep-scalar-record", SCALARS);

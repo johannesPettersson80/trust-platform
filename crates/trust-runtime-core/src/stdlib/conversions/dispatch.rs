@@ -69,6 +69,11 @@ fn normalize_source_value(
     let Some(expected) = src else {
         return Ok((value.clone(), actual_src));
     };
+    // A generic source names no type (`ANY_TO_*`): the value's own type converts, admitted by
+    // the same rules as an explicit source of that type.
+    if expected == ConversionType::Any {
+        return Ok((value.clone(), actual_src));
+    }
     if actual_src == expected {
         return Ok((value.clone(), actual_src));
     }
@@ -160,6 +165,57 @@ mod tests {
         assert_eq!(
             convert(Value::LInt(-1), LInt, USInt),
             Err(RuntimeError::Overflow)
+        );
+    }
+
+    /// The vendor's generic conversions (`ANY_TO_*`, docs/specs/07-standard-functions.md 2.4)
+    /// name no source: the value's own type converts, so under the CODESYS rules
+    /// `ANY_TO_BYTE(255)` is 255, `ANY_TO_BYTE(300)` keeps the low-order byte, 44, and
+    /// `ANY_TO_WORD(65536)` keeps the low-order word, 0. Catches a generic source that
+    /// normalizes the value to `ANY` and refuses every concrete value with a type mismatch.
+    #[test]
+    fn a_generic_source_converts_the_value_of_its_own_type() {
+        let convert = |value: Value, dst: ConversionType, profile: ConversionProfile| {
+            apply_conversion(
+                ConversionSpec::Convert {
+                    src: Some(ConversionType::Any),
+                    dst,
+                },
+                core::slice::from_ref(&value),
+                profile,
+            )
+        };
+        assert_eq!(
+            convert(
+                Value::DInt(255),
+                ConversionType::Byte,
+                ConversionProfile::Codesys
+            ),
+            Ok(Value::Byte(255))
+        );
+        assert_eq!(
+            convert(
+                Value::DInt(300),
+                ConversionType::Byte,
+                ConversionProfile::Codesys
+            ),
+            Ok(Value::Byte(44))
+        );
+        assert_eq!(
+            convert(
+                Value::DInt(65_536),
+                ConversionType::Word,
+                ConversionProfile::Codesys
+            ),
+            Ok(Value::Word(0))
+        );
+        assert_eq!(
+            convert(
+                Value::LReal(2.5),
+                ConversionType::Real,
+                ConversionProfile::Codesys
+            ),
+            Ok(Value::Real(2.5))
         );
     }
 }

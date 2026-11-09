@@ -150,15 +150,20 @@ where
 
 /// The queued one-shot process-image writes and the active forces of the images `areas` of a
 /// compiled program (specification 44 §13.3): the writes, in arrival order, of an input or marker
-/// address after the drivers read the inputs and before the program samples them, and the forces
-/// of `areas` then; the marker and output images' forces again after the scan, with the variable
-/// forces, before the outputs reach the drivers. A refused force is withdrawn.
+/// address after the drivers read the inputs and before the program samples them, then every
+/// variable force again, and the forces of `areas` last; the marker and output images' forces
+/// again after the scan, with the variable forces, before the outputs reach the drivers. A forced
+/// variable that the program binds to an input or a marker address is written at that address too
+/// (`CompiledVariables` holds a write there), so that after the drivers' input read it holds over
+/// the physical input and over a one-shot write of its address, as its own force holds a variable,
+/// and a force of the address holds over it. A refused force is withdrawn.
 ///
 /// # Errors
 ///
 /// The deadline or resource error of a request that must fault the enclosing cycle.
 pub fn compiled_images<S>(
     queues: &mut LiveValueQueues,
+    generation: Generation,
     areas: &[IoArea],
     variables: &mut dyn CompiledVariables,
     time: Duration,
@@ -177,6 +182,9 @@ where
                 }
             }
         }
+    }
+    if areas.contains(&IoArea::Input) {
+        compiled_forces(queues, generation, variables, time, sink)?;
     }
     let mut index = 0;
     while index < queues.forced_io.len() {

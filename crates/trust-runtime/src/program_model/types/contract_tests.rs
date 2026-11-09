@@ -11,6 +11,8 @@ fn parameter(name: &str, direction: ParamDirection) -> Param {
         address: Some(IoAddress::parse("%MW4").expect("test address")),
         default: Some(Expr::Literal(Value::DInt(7))),
         retain: crate::RetainPolicy::Unspecified,
+        noinit: false,
+        hidden: false,
     }
 }
 
@@ -25,6 +27,11 @@ fn variable(name: &str) -> VarDef {
         in_out: false,
         constant: true,
         address: Some(IoAddress::parse("%IW2").expect("test address")),
+        init_args: Vec::new(),
+        noinit: false,
+        hidden: false,
+        instance_path: false,
+        no_exit: false,
     }
 }
 
@@ -44,6 +51,7 @@ fn method(name: &str) -> MethodDef {
         static_locals: vec![variable("static")],
         using: vec!["Lib.One".into(), "Lib.Two".into()],
         body: vec![statement(1), statement(2)],
+        call_after_init: false,
     }
 }
 
@@ -103,6 +111,11 @@ fn variable_flags_are_not_inferred_from_each_other() {
         in_out: false,
         constant: false,
         address: None,
+        init_args: Vec::new(),
+        noinit: false,
+        hidden: false,
+        instance_path: false,
+        no_exit: false,
     };
     let cloned = variable.clone();
 
@@ -187,6 +200,8 @@ fn function_block_preserves_all_ordered_definition_groups() {
         using: vec!["Control.Lib".into(), "Math.Lib".into()],
         methods: vec![method("Start"), method("Stop")],
         body: vec![statement(3), statement(4)],
+        property_aliases: Vec::new(),
+        call_after_init: false,
     }
     .clone();
 
@@ -252,6 +267,7 @@ fn class_preserves_base_variables_imports_and_methods_in_order() {
         vars: vec![variable("first"), variable("second")],
         using: vec!["Z.Space".into(), "A.Space".into()],
         methods: vec![method("Open"), method("Close")],
+        property_aliases: Vec::new(),
     }
     .clone();
 

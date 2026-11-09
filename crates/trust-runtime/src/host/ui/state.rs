@@ -452,8 +452,15 @@ pub(super) fn update_watch_values(client: &mut ControlClient, state: &mut UiStat
         }));
         match response {
             Ok(value) => {
-                if let Some(result) = value.get("result").and_then(|r| r.get("value")) {
-                    out.push((name.clone(), result.to_string()));
+                // `eval` answers the value as JSON beside its type (specification 11, 6.8.1): a
+                // duration shows its IEC text, a string without its quotes.
+                if let Some(result) = value.get("result").filter(|r| r.get("value").is_some()) {
+                    let shown = match (result.get("text"), &result["value"]) {
+                        (Some(serde_json::Value::String(text)), _)
+                        | (_, serde_json::Value::String(text)) => text.clone(),
+                        (_, other) => other.to_string(),
+                    };
+                    out.push((name.clone(), shown));
                 } else if let Some(err) = value.get("error").and_then(|e| e.as_str()) {
                     out.push((name.clone(), format!("error: {err}")));
                 } else {

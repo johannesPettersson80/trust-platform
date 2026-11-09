@@ -79,11 +79,19 @@ Primary options:
 - `--timeout`
 - `--output`
 - `--ci`
+- `--device`, `--target`, `--token`
 
 Execution mode compiles the project even when it discovers no test POU, so an
 invalid project cannot pass as an empty test run. `--list` remains
 discovery-only, and a filter that matches none of the discovered tests reports
 an empty selection without executing a test case.
+
+`--device <port> --target <target>` runs the tests on a device instead of this
+computer: a serial port, or `tcp://<host>:<port>` of a bridge to one, and the
+device's target as `trust-runtime build --target` names it (`esp32c6`). When the
+device's settings set a control token, every request carries it: `--token`,
+else `TRUST_CTL_TOKEN`, else the project's `runtime.control.auth_token`. The
+token is never printed.
 
 `trust-runtime test` is a deprecated forwarding alias during the
 product/workbench split. It will not be removed before 2026-10-05, and removal

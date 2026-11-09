@@ -469,7 +469,7 @@ fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
     let sessions = sessions();
     let local = target(&url, "access-token-7");
     let hurried = Timing {
-        request: Duration::from_millis(500),
+        request: Duration::from_secs(3),
         ..PROMPT
     };
     let mut ends = Vec::new();
@@ -495,8 +495,10 @@ fn journeys_waiting_on_a_hung_simulator_leave_other_commands_answering() {
         json!({ "sessionId": ends[0].0, "journeyId": J }),
         at(1),
     );
+    // A command held behind a journey would wait for its 3 s request; one second leaves a loaded
+    // runner a margin.
     assert!(
-        asked.elapsed() < Duration::from_millis(200),
+        asked.elapsed() < Duration::from_secs(1),
         "answered in {:?}",
         asked.elapsed()
     );

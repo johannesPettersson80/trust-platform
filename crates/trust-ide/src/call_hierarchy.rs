@@ -6,7 +6,7 @@ use std::sync::Arc;
 use text_size::{TextRange, TextSize};
 
 use rustc_hash::FxHashSet;
-use trust_hir::db::{FileId, SemanticDatabase, SourceDatabase};
+use trust_hir::db::{FileAnalysis, FileId, SemanticDatabase, SourceDatabase};
 use trust_hir::symbols::{Symbol, SymbolId, SymbolKind, SymbolTable};
 use trust_hir::types::Type;
 use trust_hir::Database;
@@ -152,8 +152,19 @@ pub fn incoming_calls_in_files(
         file_id: item.file_id,
         symbol_id: item.symbol_id,
     };
+    // A call through an interface variable resolves to the interface's method: a call that the
+    // implementing method may receive (specification 14 §6.3.2).
+    let symbols = db.file_symbols_with_project(item.file_id);
+    let dispatched: Vec<SymbolKey> = symbols
+        .implemented_interface_methods(item.symbol_id)
+        .into_iter()
+        .filter_map(|id| symbol_key(&symbols, id, item.file_id))
+        .collect();
     let mut grouped: FxHashMap<SymbolKey, Vec<TextRange>> = FxHashMap::default();
-    for edge in edges.into_iter().filter(|edge| edge.callee == key) {
+    for edge in edges
+        .into_iter()
+        .filter(|edge| edge.callee == key || dispatched.contains(&edge.callee))
+    {
         grouped.entry(edge.caller).or_default().push(edge.range);
     }
 
@@ -279,6 +290,7 @@ fn collect_call_edges_in_files(
         let parsed = parse(&source);
         let root = parsed.syntax();
         let symbols = symbols_for_call_hierarchy(db, file_id, allowed_files);
+        let analysis = db.analyze(file_id);
 
         for call_expr in root
             .descendants()
@@ -288,16 +300,21 @@ fn collect_call_edges_in_files(
                 continue;
             };
 
-            let target = resolve_target_at_position_with_context(
-                db,
-                file_id,
-                callee_offset,
-                &source,
-                &root,
-                &symbols,
-            );
+            let mut callee_key = analyzed_callee(&analysis, &call_expr, file_id)
+                .filter(|key| allowed_files.is_none_or(|files| files.contains(&key.file_id)));
+            let target = if callee_key.is_none() {
+                resolve_target_at_position_with_context(
+                    db,
+                    file_id,
+                    callee_offset,
+                    &source,
+                    &root,
+                    &symbols,
+                )
+            } else {
+                None
+            };
 
-            let mut callee_key = None;
             if let Some(crate::util::ResolvedTarget::Symbol(symbol_id)) = target
                 && let Some(symbol) = symbols.get(symbol_id)
             {
@@ -339,6 +356,26 @@ fn collect_call_edges_in_files(
         }
     }
     edges
+}
+
+/// The POU the analysis bound `call_expr` to (`FileAnalysis::resolved_symbols`): the function,
+/// method or action it calls, or the function block of the instance it calls, as the build compiles
+/// the call. It needs no name of its own, so a call through a namespace's qualifier
+/// (`GVL.tank.Start()`) has its callee (specification 14 §6.3.2).
+fn analyzed_callee(
+    analysis: &FileAnalysis,
+    call_expr: &SyntaxNode,
+    file_id: FileId,
+) -> Option<SymbolKey> {
+    let range = call_expr.text_range();
+    let symbol_id = *analysis
+        .resolved_symbols
+        .get(&(u32::from(range.start()), u32::from(range.end())))?;
+    let symbol = analysis.symbols.get(symbol_id)?;
+    if !is_pou_symbol_kind(&symbol.kind) {
+        return None;
+    }
+    symbol_key(&analysis.symbols, symbol_id, file_id)
 }
 
 fn build_unique_pou_map(

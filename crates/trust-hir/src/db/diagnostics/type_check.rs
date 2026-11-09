@@ -5,18 +5,21 @@ use super::context::{
 };
 use crate::db::queries::name_from_node;
 
-/// What type checking learns of a file's expressions, by text range: each expression's type and
-/// the symbol each name, member and call resolved to.
+/// What type checking learns of a file's expressions, by text range: each expression's type, the
+/// symbol each name, member and call resolved to, and the arguments that calls write.
 #[derive(Default)]
 pub(in crate::db) struct ExpressionTypeMap {
     pub(in crate::db) types: FxHashMap<(u32, u32), TypeId>,
     pub(in crate::db) symbols: FxHashMap<(u32, u32), SymbolId>,
+    pub(in crate::db) written_arguments: FxHashSet<(u32, u32)>,
 }
 
 impl ExpressionTypeMap {
     fn take_from(&mut self, checker: &mut TypeChecker<'_>) {
         self.types.extend(checker.take_expression_types());
         self.symbols.extend(checker.take_resolved_symbols());
+        self.written_arguments
+            .extend(checker.take_written_arguments());
     }
 }
 

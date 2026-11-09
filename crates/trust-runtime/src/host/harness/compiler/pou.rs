@@ -7,7 +7,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use crate::io::IoAddress;
 use crate::program_model::{
     ClassDef, FunctionBlockBase, FunctionBlockDef, FunctionDef, InterfaceDef, MethodDef, Param,
-    VarDef,
+    PropertyAlias, VarDef,
 };
 use crate::task::ProgramDef;
 
@@ -21,6 +21,7 @@ use super::model::{
     ProgramVars,
 };
 use super::vars::{
+    declares_hidden, declares_instance_path, declares_no_exit, declares_noinit, lower_init_args,
     parse_var_decl, reject_borrowed_storage_initializer, validate_retention_policy,
     validate_special_var_sections, var_block_kind, var_block_qualifiers, VarBlockKind,
 };

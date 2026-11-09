@@ -11,9 +11,9 @@ use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use smol_str::SmolStr;
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::{collect_project_source_files, resolve_sources_root};
+use trust_runtime::bundle_builder::resolve_sources_root;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::test_discovery::{DiscoveredTest, TestKind};
+use trust_runtime::test_discovery::{DiscoveredTest, TestCycles, TestKind};
 
 use crate::cli::TestOutput;
 use crate::style;
@@ -23,10 +23,31 @@ include!("test_cmd/command.rs");
 include!("test_cmd/output.rs");
 include!("test_cmd/discovery.rs");
 include!("test_cmd/native.rs");
+include!("test_cmd/cycles.rs");
 
 #[cfg(test)]
 #[path = "test_cmd/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "test_cmd/cycles_tests.rs"]
+mod cycles_tests;
+
+#[cfg(test)]
+#[path = "test_cmd/report_paths_tests.rs"]
+mod report_paths_tests;
+
+#[cfg(test)]
+#[path = "test_cmd/failed_at_tests.rs"]
+mod failed_at_tests;
+
+#[cfg(test)]
+#[path = "test_cmd/assertion_values_tests.rs"]
+mod assertion_values_tests;
+
+#[cfg(test)]
+#[path = "test_cmd/test_build_tests.rs"]
+mod test_build_tests;
 
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,
@@ -59,14 +80,14 @@ pub(crate) fn run_test_json(
     if list {
         return Ok(json!({
             "version": 1,
-            "project": project_root.display().to_string(),
+            "project": display_project(&project_root),
             "mode": "list",
             "discovered_total": discovered_total,
             "filter": filter,
             "tests": tests.iter().map(|case| json!({
                 "name": case.name.as_str(),
                 "kind": case.kind.label(),
-                "file": case.file.display().to_string(),
+                "file": display_path(&project_root, &case.file),
                 "line": case.line,
                 "source": case.source_line.as_deref(),
             })).collect::<Vec<_>>(),
@@ -76,7 +97,7 @@ pub(crate) fn run_test_json(
     if tests.is_empty() && discovered_total > 0 {
         return Ok(json!({
             "version": 1,
-            "project": project_root.display().to_string(),
+            "project": display_project(&project_root),
             "summary": {
                 "total": 0,
                 "passed": 0,
@@ -95,7 +116,7 @@ pub(crate) fn run_test_json(
         check_project(&project_root)?;
         return Ok(json!({
             "version": 1,
-            "project": project_root.display().to_string(),
+            "project": display_project(&project_root),
             "summary": {
                 "total": 0,
                 "passed": 0,
