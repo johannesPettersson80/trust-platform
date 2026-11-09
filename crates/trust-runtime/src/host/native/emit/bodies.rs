@@ -103,7 +103,9 @@ fn program_body(
     if let Some(list) = body_of(&node) {
         lowerer.body(&list)?;
     }
-    lowerer.line("Ok(())");
+    // The end of the body does what a `RETURN` does: its `VAR_TEMP` instances leave first.
+    let exit = lowerer.exit.clone();
+    lowerer.line(&exit);
     let of = PouOf {
         name: def.name.to_string(),
         instance: Some(PouInstance::Program(index)),
@@ -157,7 +159,9 @@ fn block_body(
     for list in node.children().filter(|child| child.kind() == K::StmtList) {
         lowerer.body(&list)?;
     }
-    lowerer.line("Ok(())");
+    // The end of the body does what a `RETURN` does: its `VAR_TEMP` instances leave first.
+    let exit = lowerer.exit.clone();
+    lowerer.line(&exit);
     let of = PouOf {
         name: def.name.to_string(),
         instance: Some(PouInstance::Block(ty)),
@@ -536,7 +540,7 @@ fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String, of: PouOf) 
             };
             let returns = &of.returns;
             let text = format!(
-                "{declaration}    let link = abi::Frame {{ caller: cx.frame, pou: {pou}, call_stmt: cx.stmt, locals: {locals}, instance: {instance} }};\n    cx.frame = &link;\n    let result = (|| -> R<{returns}> {{\n{text}    }})();\n    cx.frame = link.caller;\n    result\n"
+                "{declaration}    let link = abi::Frame {{ caller: cx.frame, pou: {pou}, call_stmt: cx.stmt, locals: {locals}, instance: {instance} }};\n    cx.frame = &link;\n    let result = (|| -> R<{returns}> {{\n{text}    }})();\n    cx.frame = link.caller;\n    cx.stmt = link.call_stmt;\n    result\n"
             );
             let offsets = vars
                 .into_iter()
@@ -564,8 +568,9 @@ fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String, of: PouOf) 
 }
 
 /// Declares the `VAR_TEMP` of a program or a function block, each at its starting value at each
-/// call (IEC §6.5.2.1).
+/// call (IEC §6.5.2.1), its instances' `FB_init` and `FB_exit` with it (specification 10 §4.8).
 fn declare_locals(lowerer: &mut Lowerer<'_, '_>, temps: &[VarDef]) -> Result<(), NativeError> {
+    let mut exits = Vec::new();
     for temp in temps {
         let ty = local_type(lowerer, &temp.name, temp.type_id)?;
         let variable = lowerer.declare(&temp.name, ty, temp.hidden);
@@ -581,8 +586,62 @@ fn declare_locals(lowerer: &mut Lowerer<'_, '_>, temps: &[VarDef]) -> Result<(),
             temp.initializer.as_ref(),
             &temp.name,
         )?;
+        start_instances(lowerer, &place, temp, &mut exits)?;
+    }
+    leave_instances(lowerer, exits);
+    Ok(())
+}
+
+/// Under the CODESYS profiles, the call of `FB_init(bInitRetains := FALSE, bInCopyCode := FALSE)`
+/// of the instances of the frame variable `local` at `place`, right after its starting values, and
+/// the `FB_exit(bInCopyCode := FALSE)` of them, which `exits` gathers for the body's exit
+/// (specification 10 §4.8).
+fn start_instances(
+    lowerer: &mut Lowerer<'_, '_>,
+    place: &Place,
+    local: &VarDef,
+    exits: &mut Vec<String>,
+) -> Result<(), NativeError> {
+    let (init, needs) = crate::native::fb_init::frame_calls(
+        lowerer.model,
+        &place.expr,
+        place.ty,
+        &local.init_args,
+        local.initializer.as_ref(),
+    )?;
+    for need in needs {
+        need.add_to(&mut lowerer.needs);
+    }
+    if !init.is_empty() {
+        lowerer.line("{");
+        lowerer.line("let (retains, copy) = (false, false);");
+        for line in init {
+            lowerer.line(&line);
+        }
+        lowerer.line("}");
+    }
+    let (exit, needs) =
+        crate::native::fb_exit::frame_calls(lowerer.model, &place.expr, place.ty, local.no_exit)?;
+    for need in needs {
+        need.add_to(&mut lowerer.needs);
+    }
+    if !exit.is_empty() {
+        exits.push(format!(
+            "{{\n        let copy = false;\n        {}\n        }}",
+            exit.join("\n        ")
+        ));
     }
     Ok(())
+}
+
+/// Puts the frame's `FB_exit` calls `exits`, in the reverse of the frame's order, before what a
+/// `RETURN` and the end of the body do.
+fn leave_instances(lowerer: &mut Lowerer<'_, '_>, mut exits: Vec<String>) {
+    if exits.is_empty() {
+        return;
+    }
+    exits.reverse();
+    lowerer.exit = format!("{}\n        {}", exits.join("\n        "), lowerer.exit);
 }
 
 /// The type of the frame variable `name`: never one that holds an instance with a class id, which
@@ -703,6 +762,7 @@ fn frame(
             lowerer.line(&format!("Assign::assign(&{local}, {argument});"));
         }
     }
+    let mut exits = Vec::new();
     for local in locals {
         // A `VAR_EXTERNAL` names the global itself (IEC §6.5.2.2), which the frame does not hold.
         if local.external {
@@ -722,6 +782,8 @@ fn frame(
             local.initializer.as_ref(),
             &local.name,
         )?;
+        start_instances(lowerer, &place, local, &mut exits)?;
     }
+    leave_instances(lowerer, exits);
     Ok((signature.parameters, signature.returns))
 }

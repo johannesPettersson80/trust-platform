@@ -14,7 +14,10 @@ impl DeviceRun {
         let target = crate::build::native_target(target)?;
         let toolchain = Toolchain::find()
             .map_err(|error| anyhow!("the native backend needs its toolchain: {error}"))?;
-        let mut link = DeviceLink::open(port)?;
+        // A device whose settings set a control token takes it from `TRUST_CTL_TOKEN` (specification
+        // 34 PORT-06): the conformance cases belong to no project that could name it.
+        let token = trust_runtime::control::endpoint::control_token_from_env();
+        let mut link = DeviceLink::open(port, token.as_deref())?;
         // Which update the device and these tools need (specification 34 TARGET-05).
         if let Some(advice) = link.version_advice() {
             eprintln!("warning: {advice}");

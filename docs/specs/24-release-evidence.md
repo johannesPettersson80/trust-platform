@@ -45,7 +45,13 @@ in `editors/vscode/audit-exceptions.toml`, with the same fields and limit and
 the advisory's GitHub id. `scripts/check_npm_audit.py` checks it in CI, in the
 release build, and in the preflight of a promoted release, which builds
 nothing; an advisory without an owned exception fails, and an exception whose
-advisory npm no longer reports is named for removal.
+advisory npm no longer reports is named for removal. The release evidence's
+dependency trace (`SEC_DEP_AUDIT_001`, `scripts/release_claim_contract.py`)
+checks both exception lists against this policy and that CI and the release
+build run the VS Code audit; it reads no registry, so no test depends on the
+network: the live audits are those of CI, the release build and the preflight
+(8 November 2026: a macOS runner's failed name lookup failed the trace's test
+when it ran `npm audit` itself).
 
 ## Vendored Dependency Provenance
 

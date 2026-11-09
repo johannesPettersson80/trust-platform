@@ -1249,6 +1249,23 @@ mod tests {
         }
     }
 
+    /// Specification 44 NX-08: `--install-toolchain` gives a build's consent to install the
+    /// toolchain on `build`, `play` and `run`, and is off without it. Catches the flag missing on
+    /// one of the commands that build, or on by default.
+    #[test]
+    fn build_play_and_run_take_the_consent_to_install_the_toolchain() {
+        let consent = |args: &[&str]| match Cli::parse_from(args).command.expect("command") {
+            Command::Build { install_toolchain, .. }
+            | Command::Play { install_toolchain, .. }
+            | Command::Run { install_toolchain, .. } => install_toolchain,
+            other => panic!("expected a command that builds, got {other:?}"),
+        };
+        for command in ["build", "play", "run"] {
+            assert!(consent(&["trust-runtime", command, "--install-toolchain"]), "{command}");
+            assert!(!consent(&["trust-runtime", command]), "{command}");
+        }
+    }
+
     #[test]
     fn no_command_takes_an_execution_backend() {
         // Specification 44 §15: every runtime runs compiled programs, so no command selects an

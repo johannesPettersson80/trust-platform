@@ -71,6 +71,9 @@ pub struct VarDef {
     /// `{attribute 'instance-path'}` with `noinit` on a variable of a POU marked
     /// `{attribute 'reflection'}`: it starts with the path of its instance (specification 10 §4.8).
     pub instance_path: bool,
+    /// `{attribute 'no-exit'}` on the line above an instance's declaration: the exit of a restart or a
+    /// download calls no `FB_exit` of the instance or of what it holds (specification 10 §4.8).
+    pub no_exit: bool,
 }
 
 /// Function definition (used by tests and runtime).
@@ -104,6 +107,8 @@ pub struct FunctionBlockDef {
     pub using: Vec<SmolStr>,
     pub methods: Vec<MethodDef>,
     pub body: Vec<stmt::Stmt>,
+    /// The properties a name read reads as one of its variables (specification 44 §5.8).
+    pub property_aliases: Vec<PropertyAlias>,
     /// `{attribute 'call_after_init'}` in the block's first line: its marked methods run after each
     /// instance's initialization (specification 10 §4.8).
     pub call_after_init: bool,
@@ -132,6 +137,22 @@ pub struct ClassDef {
     pub vars: Vec<VarDef>,
     pub using: Vec<SmolStr>,
     pub methods: Vec<MethodDef>,
+    /// The properties a name read reads as one of its variables (specification 44 §5.8).
+    pub property_aliases: Vec<PropertyAlias>,
+}
+
+/// A property of a function block or class whose GET only returns one of its variables
+/// (`Prop := Var;`): a name read reads it as that variable, and a name write writes the variable when
+/// its SET only assigns it (`Var := Prop;`), as CODESYS monitors such a property (specification 44
+/// §5.8).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PropertyAlias {
+    /// The property's name.
+    pub name: SmolStr,
+    /// The variable its GET returns.
+    pub member: SmolStr,
+    /// Whether its SET only assigns that variable.
+    pub writable: bool,
 }
 
 /// Interface definition (used for metadata and bytecode emission).

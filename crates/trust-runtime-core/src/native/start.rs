@@ -84,6 +84,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let mut entries = Vec::with_capacity(entries_table.len() as usize);
         let mut cold = None;
         let mut warm = None;
+        let mut exit = None;
         for (index, entry) in entries_table.iter().enumerate() {
             let Some(function) = code.entry(entry.code_offset) else {
                 return Err(Refusal::Entry(entry.code_offset));
@@ -92,6 +93,8 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 cold = Some(index);
             } else if entry.kind == EntryKind::WarmInit as u32 {
                 warm = Some(index);
+            } else if entry.kind == EntryKind::Exit as u32 {
+                exit = Some(index);
             }
             entries.push(function);
         }
@@ -174,6 +177,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             entries,
             cold,
             warm,
+            exit,
             tasks,
             live: false,
             bindings,
@@ -190,6 +194,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             hierarchical_keys,
             enum_values,
             started: false,
+            ran: false,
         };
         // The process images take their starting memory once; a restart carries them over
         // (specification 11 §6.7, "Directly represented variables at restart").
@@ -239,6 +244,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     ///
     /// The fault of the initialization.
     pub fn cold_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
+        self.exit(now)?;
         let uninitialized = self.noinit_bytes()?;
         self.start_memory(|id| !process_image(id))?;
         if let Some(entry) = self.cold {
@@ -263,6 +269,12 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     ///
     /// The fault of the initialization.
     pub fn warm_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
+        self.exit(now)?;
+        self.restart_warm(now)
+    }
+
+    /// The warm restart of [`Self::warm_start`] once the instances have left.
+    fn restart_warm(&mut self, now: Duration) -> Result<(), RuntimeError> {
         let kept = retain::retained_bytes(&self.image(), |id| {
             slot(id).and_then(|index| self.areas.get(index))
         })?;
@@ -294,6 +306,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         now: Duration,
         snapshot: &RetainSnapshot,
     ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
+        self.exit(now)?;
         let current: Vec<(u8, Vec<u8>)> = [
             trust_plc_abi::AREA_GLOBALS,
             trust_plc_abi::AREA_RETAIN,
@@ -309,8 +322,24 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 .map(|(_, bytes)| bytes.as_slice())
         })?;
         self.keep(&staged)?;
-        self.warm_start(now)?;
+        self.restart_warm(now)?;
         Ok(events)
+    }
+
+    /// Runs the exit entry when the instances have lived: each instance's `FB_exit` before the
+    /// memory is started again or replaced (specification 44 §6.7; specification 10 §4.8). Every
+    /// restart calls it first; a download calls it on the program it replaces. The starts that
+    /// bring a program up, before its first scan, leave nothing, as no instance has run.
+    ///
+    /// # Errors
+    ///
+    /// The fault of the exit: a restart fails with it; a download records it and replaces the
+    /// program all the same.
+    pub fn exit(&mut self, now: Duration) -> Result<(), RuntimeError> {
+        match self.exit {
+            Some(entry) if self.ran => self.call(entry, u32::MAX, now, None),
+            _ => Ok(()),
+        }
     }
 
     /// The bytes of every variable marked `noinit` (§5.7) that a restart starts again, which it

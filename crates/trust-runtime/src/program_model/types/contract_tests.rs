@@ -31,6 +31,7 @@ fn variable(name: &str) -> VarDef {
         noinit: false,
         hidden: false,
         instance_path: false,
+        no_exit: false,
     }
 }
 
@@ -114,6 +115,7 @@ fn variable_flags_are_not_inferred_from_each_other() {
         noinit: false,
         hidden: false,
         instance_path: false,
+        no_exit: false,
     };
     let cloned = variable.clone();
 
@@ -198,6 +200,7 @@ fn function_block_preserves_all_ordered_definition_groups() {
         using: vec!["Control.Lib".into(), "Math.Lib".into()],
         methods: vec![method("Start"), method("Stop")],
         body: vec![statement(3), statement(4)],
+        property_aliases: Vec::new(),
         call_after_init: false,
     }
     .clone();
@@ -264,6 +267,7 @@ fn class_preserves_base_variables_imports_and_methods_in_order() {
         vars: vec![variable("first"), variable("second")],
         using: vec!["Z.Space".into(), "A.Space".into()],
         methods: vec![method("Open"), method("Close")],
+        property_aliases: Vec::new(),
     }
     .clone();
 

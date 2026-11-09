@@ -189,6 +189,11 @@ where
         &mut self,
         mode: RestartMode,
     ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
+        // The program that ends leaves its instances first, as before a download; the next program
+        // records its fault there, and is loaded all the same (specification 44 §6.7).
+        if let Program::Installed(cycle) = &mut self.cycle {
+            self.left_fault = cycle.leave().err();
+        }
         self.unload();
         // A program loaded in place has stepped no scan (`cycle.step`).
         self.last_step.set(None);
@@ -212,6 +217,7 @@ where
             }
             Err(reason) => {
                 self.cycle = Program::Missing(SmolStr::new(&reason));
+                self.record_left_fault();
                 Err(no_program(&reason))
             }
         }

@@ -176,18 +176,24 @@ fn run() -> anyhow::Result<()> {
             restart,
             simulation,
             time_scale,
-        }) => run::run_runtime(
-            project,
-            config,
-            runtime_root,
-            restart,
-            cli.verbose,
-            false,
-            run::ConsoleMode::Disabled,
-            false,
-            simulation,
-            time_scale,
-        ),
+            install_toolchain,
+        }) => {
+            if install_toolchain {
+                toolchain::consent_to_install();
+            }
+            run::run_runtime(
+                project,
+                config,
+                runtime_root,
+                restart,
+                cli.verbose,
+                false,
+                run::ConsoleMode::Disabled,
+                false,
+                simulation,
+                time_scale,
+            )
+        }
         Some(Command::Play {
             project,
             restart,
@@ -196,7 +202,11 @@ fn run() -> anyhow::Result<()> {
             beginner,
             simulation,
             time_scale,
+            install_toolchain,
         }) => {
+            if install_toolchain {
+                toolchain::consent_to_install();
+            }
             let console_mode = if no_console {
                 run::ConsoleMode::Disabled
             } else if console {
@@ -241,9 +251,16 @@ fn run() -> anyhow::Result<()> {
             project,
             sources,
             ci,
+            json,
             target,
             emit_source,
-        }) => build::run_build_command(project, sources, ci, target, emit_source),
+            install_toolchain,
+        }) => {
+            if install_toolchain {
+                toolchain::consent_to_install();
+            }
+            build::run_build_command(project, sources, ci, json, target, emit_source)
+        }
         Some(Command::HmiPassword { iterations }) => hmi_password::run_hmi_password(iterations),
         Some(Command::Hmi {
             action: cli::HmiAction::Check { project, json },

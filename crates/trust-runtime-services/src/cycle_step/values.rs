@@ -78,6 +78,97 @@ fn parse_duration(raw: &str) -> Result<Duration, String> {
     Duration::checked_from_millis(whole(&text, "as milliseconds")?).ok_or_else(out_of_range)
 }
 
+/// The typed value text of `value` that [`parse_typed_value`] reads back to the same value: `BOOL`,
+/// the integers, the bit strings, `REAL` and `LREAL` in their shortest exact form, `TIME` and `LTIME`
+/// in nanoseconds, and `STRING`. A client that steps a program elsewhere writes a value with it, as a
+/// test's plant on a device writes its feedback (specification 22, "A plant in the loop").
+///
+/// # Errors
+///
+/// The value's kind, when no typed value text carries it, and a `STRING` with spaces at its ends,
+/// which the text's reader trims.
+pub fn typed_value_text(value: &Value) -> Result<String, String> {
+    Ok(match value {
+        Value::Bool(v) => format!("BOOL:{v}"),
+        Value::SInt(v) => format!("SINT:{v}"),
+        Value::Int(v) => format!("INT:{v}"),
+        Value::DInt(v) => format!("DINT:{v}"),
+        Value::LInt(v) => format!("LINT:{v}"),
+        Value::USInt(v) => format!("USINT:{v}"),
+        Value::UInt(v) => format!("UINT:{v}"),
+        Value::UDInt(v) => format!("UDINT:{v}"),
+        Value::ULInt(v) => format!("ULINT:{v}"),
+        Value::Byte(v) => format!("BYTE:{v}"),
+        Value::Word(v) => format!("WORD:{v}"),
+        Value::DWord(v) => format!("DWORD:{v}"),
+        Value::LWord(v) => format!("LWORD:{v}"),
+        Value::Real(v) => format!("REAL:{v}"),
+        Value::LReal(v) => format!("LREAL:{v}"),
+        Value::Time(v) => format!("TIME:{}ns", v.as_nanos()),
+        Value::LTime(v) => format!("LTIME:{}ns", v.as_nanos()),
+        Value::String(v) if v.trim() == v.as_str() => format!("STRING:{v}"),
+        Value::String(v) => {
+            return Err(format!(
+                "a step carries no STRING with spaces at its ends: '{v}'"
+            ))
+        }
+        other => return Err(format!("a step carries no {} value", kind_name(other))),
+    })
+}
+
+/// The value that [`encode_value`] wrote as `encoded`, for the kinds [`typed_value_text`] writes: what
+/// a client reads back from a step's `values` and `direct` (specification 11 §6.8.1).
+///
+/// # Errors
+///
+/// Why `encoded` is no value of a kind this reads, or is out of its kind's range.
+pub fn decode_value(encoded: &serde_json::Value) -> Result<Value, String> {
+    let kind = encoded["type"]
+        .as_str()
+        .ok_or_else(|| format!("a step value without its type: {encoded}"))?;
+    let value = &encoded["value"];
+    let refused = || format!("a step value that is no {kind}: {encoded}");
+    let signed = || value.as_i64().ok_or_else(refused);
+    let unsigned = || value.as_u64().ok_or_else(refused);
+    let nanos = || {
+        encoded["nanos"]
+            .as_i64()
+            .map(Duration::from_nanos)
+            .ok_or_else(refused)
+    };
+    Ok(match kind {
+        "BOOL" => Value::Bool(value.as_bool().ok_or_else(refused)?),
+        "SINT" => Value::SInt(i8::try_from(signed()?).map_err(|_| refused())?),
+        "INT" => Value::Int(i16::try_from(signed()?).map_err(|_| refused())?),
+        "DINT" => Value::DInt(i32::try_from(signed()?).map_err(|_| refused())?),
+        "LINT" => Value::LInt(signed()?),
+        "USINT" => Value::USInt(u8::try_from(unsigned()?).map_err(|_| refused())?),
+        "UINT" => Value::UInt(u16::try_from(unsigned()?).map_err(|_| refused())?),
+        "UDINT" => Value::UDInt(u32::try_from(unsigned()?).map_err(|_| refused())?),
+        "ULINT" => Value::ULInt(unsigned()?),
+        "BYTE" => Value::Byte(u8::try_from(unsigned()?).map_err(|_| refused())?),
+        "WORD" => Value::Word(u16::try_from(unsigned()?).map_err(|_| refused())?),
+        "DWORD" => Value::DWord(u32::try_from(unsigned()?).map_err(|_| refused())?),
+        "LWORD" => Value::LWord(unsigned()?),
+        // A REAL was written in its shortest exact form, which an LREAL holds exactly.
+        #[allow(clippy::cast_possible_truncation)]
+        "REAL" => Value::Real(value.as_f64().ok_or_else(refused)? as f32),
+        "LREAL" => Value::LReal(value.as_f64().ok_or_else(refused)?),
+        "TIME" => Value::Time(nanos()?),
+        "LTIME" => Value::LTime(nanos()?),
+        "STRING" => Value::String(value.as_str().ok_or_else(refused)?.into()),
+        _ => return Err(format!("a step carries no {kind} value back")),
+    })
+}
+
+/// The IEC name of `value`'s kind, for a refusal.
+fn kind_name(value: &Value) -> String {
+    encode_value(value)["type"]
+        .as_str()
+        .unwrap_or("such")
+        .to_string()
+}
+
 /// `value` as a conformance artifact writes it: `{"type": "INT", "value": 7}`, a duration in
 /// `nanos`, a date, a time of day and a date and time in `ticks` (the long ones in `nanos`), an
 /// enumeration by its type, value name and number, a structure by its type and fields, and an array
@@ -211,6 +302,62 @@ mod tests {
         ] {
             assert!(parse_typed_value(raw).is_err(), "{raw} must be refused");
         }
+    }
+
+    /// Specification 22, "A plant in the loop": a value a client writes into a step as typed text, and
+    /// reads back from a step's reply, is the same value again, at the edges of each kind's range and
+    /// for the fractions a binary number holds only approximately (0.1). Catches a text that rounds a
+    /// REAL or an LREAL (a plant's feedback would drift each cycle), an integer read into a wider or
+    /// a signed kind, and a duration carried in milliseconds.
+    #[test]
+    fn a_step_value_written_as_text_and_read_back_is_the_same_value() {
+        let values = [
+            Value::Bool(false),
+            Value::SInt(i8::MIN),
+            Value::Int(i16::MAX),
+            Value::DInt(-1),
+            Value::LInt(i64::MIN),
+            Value::USInt(u8::MAX),
+            Value::UInt(0),
+            Value::UDInt(u32::MAX),
+            Value::ULInt(u64::MAX),
+            Value::Byte(0x80),
+            Value::Word(0xffff),
+            Value::DWord(7),
+            Value::LWord(u64::MAX),
+            Value::Real(0.1),
+            Value::Real(-3.402_823_5e38),
+            Value::LReal(0.1),
+            Value::LReal(2.0 * 2.5),
+            Value::LReal(1.0e-300),
+            Value::Time(Duration::from_nanos(1_234_567)),
+            Value::LTime(Duration::from_nanos(-5)),
+            Value::String("pump 1".into()),
+        ];
+        for value in values {
+            let text =
+                typed_value_text(&value).unwrap_or_else(|error| panic!("{value:?}: {error}"));
+            assert_eq!(parse_typed_value(&text), Ok(value.clone()), "{text}");
+            assert_eq!(
+                decode_value(&encode_value(&value)),
+                Ok(value.clone()),
+                "{value:?}"
+            );
+        }
+        assert_eq!(typed_value_text(&Value::LReal(0.1)), Ok("LREAL:0.1".into()));
+        assert_eq!(
+            typed_value_text(&Value::Char(b'a')),
+            Err("a step carries no CHAR value".into())
+        );
+        assert!(
+            typed_value_text(&Value::String(" pump".into())).is_err(),
+            "the reader would trim it to another value"
+        );
+        assert!(
+            decode_value(&json!({"type": "SINT", "value": 128})).is_err(),
+            "out of range"
+        );
+        assert!(decode_value(&json!({"value": 1})).is_err(), "no type");
     }
 
     /// The encoding of the expected artifacts: a duration in nanoseconds and a number as itself. An

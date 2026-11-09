@@ -10,6 +10,7 @@ use alloc::vec;
 use smol_str::SmolStr;
 use trust_plc_abi::{FaultCode, FaultRecord};
 
+use super::FailedAssertion;
 use crate::error::RuntimeError;
 use crate::native::image::type_kind;
 use crate::native::values::{damaged, read_value, AreaBytes, Types};
@@ -31,18 +32,9 @@ pub(super) fn message<A: AreaBytes + ?Sized>(
             f64::from_bits(described.cast_unsigned()),
         );
     }
-    let described = described.cast_unsigned();
-    let left_type = u32::try_from((described >> 8) & 0x00FF_FFFF).unwrap_or(0);
-    let right_type = u32::try_from((described >> 32) & 0x00FF_FFFF).unwrap_or(0);
-    let operand = |bits: i64, index: u32| {
-        let value = match types.get(index) {
-            Ok(ty) if ty.kind == type_kind::STRING => text(stack, bits),
-            _ => read_value(types, &bits.to_le_bytes()[..], 0, index),
-        };
-        value.map_or_else(|_| "?".to_string(), |value| format_user_value(&value))
-    };
-    let (left, right) = (operand(left, left_type), operand(right, right_type));
-    match described & 0xFF {
+    let [left, right] = operands(types, record, stack)
+        .map(|value| value.map_or_else(|_| "?".to_string(), |value| format_user_value(&value)));
+    match described.cast_unsigned() & 0xFF {
         1 => "ASSERT_TRUE expected TRUE, got FALSE".to_string(),
         2 => "ASSERT_FALSE expected FALSE, got TRUE".to_string(),
         3 => format!("ASSERT_EQUAL failed: expected {left}, actual {right}"),
@@ -52,6 +44,74 @@ pub(super) fn message<A: AreaBytes + ?Sized>(
         7 => format!("ASSERT_GREATER_OR_EQUAL failed: value {left} is not >= bound {right}"),
         _ => format!("ASSERT_LESS_OR_EQUAL failed: value {left} is not <= bound {right}"),
     }
+}
+
+/// The values of the failed assertion of `record`, of fault `code` (specification 22): the inputs
+/// the message names, as typed values; a text operand lies in `stack`, the stack area.
+pub(super) fn failed<A: AreaBytes + ?Sized>(
+    types: &Types<'_>,
+    record: &FaultRecord,
+    code: u32,
+    stack: &A,
+) -> FailedAssertion {
+    let [left, right, described] = record.detail;
+    if code == FaultCode::AssertionNear as u32 {
+        let real = |bits: i64| Some(Value::LReal(f64::from_bits(bits.cast_unsigned())));
+        return FailedAssertion {
+            name: "ASSERT_NEAR",
+            expected: real(left),
+            actual: real(right),
+            bound: None,
+            delta: real(described),
+        };
+    }
+    let [left, right] = operands(types, record, stack).map(Result::ok);
+    let (name, expected, actual, bound) = match described.cast_unsigned() & 0xFF {
+        1 => (
+            "ASSERT_TRUE",
+            Some(Value::Bool(true)),
+            Some(Value::Bool(false)),
+            None,
+        ),
+        2 => (
+            "ASSERT_FALSE",
+            Some(Value::Bool(false)),
+            Some(Value::Bool(true)),
+            None,
+        ),
+        3 => ("ASSERT_EQUAL", left, right, None),
+        4 => ("ASSERT_NOT_EQUAL", left, right, None),
+        5 => ("ASSERT_GREATER", None, left, right),
+        6 => ("ASSERT_LESS", None, left, right),
+        7 => ("ASSERT_GREATER_OR_EQUAL", None, left, right),
+        _ => ("ASSERT_LESS_OR_EQUAL", None, left, right),
+    };
+    FailedAssertion {
+        name,
+        expected,
+        actual,
+        bound,
+        delta: None,
+    }
+}
+
+/// The two operands of a failed assertion other than `ASSERT_NEAR`, read through the type table by
+/// the types its third number names: a text from `stack`, where the module laid it, and any other
+/// value from its own bits.
+fn operands<A: AreaBytes + ?Sized>(
+    types: &Types<'_>,
+    record: &FaultRecord,
+    stack: &A,
+) -> [Result<Value, RuntimeError>; 2] {
+    let [left, right, described] = record.detail;
+    let described = described.cast_unsigned();
+    let left_type = u32::try_from((described >> 8) & 0x00FF_FFFF).unwrap_or(0);
+    let right_type = u32::try_from((described >> 32) & 0x00FF_FFFF).unwrap_or(0);
+    let operand = |bits: i64, index: u32| match types.get(index) {
+        Ok(ty) if ty.kind == type_kind::STRING => text(stack, bits),
+        _ => read_value(types, &bits.to_le_bytes()[..], 0, index),
+    };
+    [operand(left, left_type), operand(right, right_type)]
 }
 
 /// The text the module laid at `offset` of the stack area for a failed assertion of texts: its

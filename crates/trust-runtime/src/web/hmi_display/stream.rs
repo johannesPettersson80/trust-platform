@@ -112,7 +112,11 @@ impl Stream {
         send(&mut socket, &session_message(session.as_ref()))?;
         let session_id = session.as_ref().map(|info| info.id.clone());
         let mut seen = commands.last_seq();
+        // The active bundle now, and again at each activation (§16.2 item 5), so a page drawn from
+        // another version learns it even when the bundle changed before its stream opened. The
+        // count is taken first: an activation after it is told again below.
         let mut activations = generation.load(Ordering::Acquire);
+        send(&mut socket, &bundle_message(&store))?;
         // The list when the stream opens and whenever it changes; records from now on.
         let mut alarm_generation = None;
         let mut alarm_seq: Option<u64> = None;
@@ -128,9 +132,7 @@ impl Stream {
             let now = generation.load(Ordering::Acquire);
             if now != activations {
                 activations = now;
-                let version =
-                    store.read(|root| super::files::HmiFiles::new(root.to_path_buf()).version());
-                send(&mut socket, &json!({ "bundle": version }))?;
+                send(&mut socket, &bundle_message(&store))?;
             }
             if session.is_some() {
                 session = session_now();
@@ -221,6 +223,12 @@ fn period_message(period: Duration) -> Value {
         "period_ms": period.as_millis(),
         "stale_ms": stale_limit(period).as_millis(),
     })
+}
+
+/// `{"bundle": "<version>"}`, the active bundle's version (§16.2 item 5).
+fn bundle_message(store: &BundleStore) -> Value {
+    let version = store.read(|root| super::files::HmiFiles::new(root.to_path_buf()).version());
+    json!({ "bundle": version })
 }
 
 /// `{"session": {"user", "role", "acts_as", "may_change_settings"}}` (§12.4 item 4), or
