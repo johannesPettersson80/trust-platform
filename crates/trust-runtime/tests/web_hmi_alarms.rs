@@ -532,9 +532,20 @@ fn every_alarm_action_appears_in_the_audit_log() {
         "remove-from-service",
         None,
     );
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // Collect until every record the test reads has arrived: the program confirms what it applied
+    // a scan later, and a loaded runner can be slow.
+    let has = |records: &[Value], command: &str, outcome: &str| {
+        records.iter().any(|record| {
+            record["command"] == json!(command) && record["outcome"] == json!(outcome)
+        })
+    };
+    let deadline = Instant::now() + Duration::from_secs(10);
     let mut records = Vec::new();
-    while Instant::now() < deadline {
+    while !(has(&records, "audit-1", "applied")
+        && has(&records, "audit-1", "confirmed")
+        && has(&records, "audit-2", "refused"))
+        && Instant::now() < deadline
+    {
         if let Ok(event) = plant.audit.recv_timeout(Duration::from_millis(100))
             && event.request_type == "hmi.alarm"
         {

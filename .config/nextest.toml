@@ -22,6 +22,9 @@ threads-required = "num-test-threads"
 [[profile.ci.overrides]]
 filter = 'binary(web_ide_performance_gate)'
 threads-required = "num-test-threads"
+# The gates record each measurement beside its budget, and only the reference environment asserts
+# them (specification 11, 6.8.1e): the log keeps the figures of every run.
+success-output = "final"
 
 # The scan supervisor's tests time real cycles against a watchdog; beside other tests a loaded
 # runner held a cycle past its timeout (6 November 2026, macOS, G56).
@@ -34,4 +37,15 @@ threads-required = "num-test-threads"
 # Under `cargo test` each was a program of its own and ran alone.
 [[profile.ci.overrides]]
 filter = 'binary(debug_pause_watchdog) | binary(debug_pause_watchdog_trace_cases)'
+threads-required = "num-test-threads"
+
+# The hung-driver tests time the supervisor's record of a hang against a 400 ms budget (G74).
+[[profile.ci.overrides]]
+filter = 'binary(failure_injection_hung_driver_watchdog)'
+threads-required = "num-test-threads"
+
+# Accelerated scans must raise no fault from a 200 ms real-time watchdog; beside other tests a
+# loaded runner can hold one scan that long (G74).
+[[profile.ci.overrides]]
+filter = 'binary(simulation_workflow) & test(=accelerated_clock_keeps_watchdog_semantics)'
 threads-required = "num-test-threads"

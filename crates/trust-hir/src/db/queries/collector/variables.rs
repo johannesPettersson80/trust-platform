@@ -1,4 +1,5 @@
 use super::*;
+use crate::attributes::declares_attribute;
 use crate::db::diagnostics::is_expression_kind;
 use crate::db::queries::collector::const_utils::{
     parse_int_literal, scope_chain_for_node, ConstEvalError,
@@ -51,6 +52,16 @@ impl SymbolCollector<'_> {
             }
             _ => self.visibility_for_var_block(node),
         };
+        // A namespace's `VAR_GLOBAL` list with `{attribute 'qualified_only'}` (specification 04,
+        // "Rules"): its globals are named with the namespace.
+        let qualified_only =
+            qualifier == VarQualifier::Global && declares_attribute(node, "qualified_only");
+        // The `VAR` locals of a POU with `{attribute 'hide_all_locals'}` (specification 14 §6.1.2).
+        let hidden_locals = qualifier == VarQualifier::Local
+            && self
+                .current_parent()
+                .and_then(|parent| self.table.get(parent))
+                .is_some_and(|parent| parent.modifiers.hides_locals);
         let use_global_scope = qualifier == VarQualifier::Global && self.in_configuration_scope();
         let previous_scope = self.table.current_scope();
         if use_global_scope {
@@ -58,7 +69,13 @@ impl SymbolCollector<'_> {
         }
         for child in node.children() {
             if child.kind() == SyntaxKind::VarDecl {
-                self.collect_var_decl(&child, qualifier, is_constant, visibility);
+                let mut modifiers = SymbolModifiers {
+                    qualified_only,
+                    ..SymbolModifiers::default()
+                };
+                // `{attribute 'hide'}` above the declaration (specification 14 §6.1.2).
+                modifiers.hidden = hidden_locals || declares_attribute(&child, "hide");
+                self.collect_var_decl(&child, qualifier, is_constant, visibility, modifiers);
             }
         }
         if use_global_scope {
@@ -72,6 +89,7 @@ impl SymbolCollector<'_> {
         qualifier: VarQualifier,
         is_constant: bool,
         visibility: Visibility,
+        modifiers: SymbolModifiers,
     ) {
         let mut names = Vec::new();
         let mut type_ref = None;
@@ -160,6 +178,7 @@ impl SymbolCollector<'_> {
                 symbol.edge_qualifier = edge_qualifier;
                 symbol.parent = self.current_parent();
                 symbol.visibility = visibility;
+                symbol.modifiers = modifiers;
                 self.declare_symbol(symbol);
             }
         }

@@ -213,3 +213,82 @@ fn a_project_build_takes_the_rules_of_its_vendor_profile() {
     }
     let _ = std::fs::remove_dir_all(root);
 }
+
+// Specification 44 §6.7: a declaration's initial value converts by the program's rules
+// (docs/specs/07-standard-functions.md 2.10). Worked out by hand from the vendor's tables:
+// `ANY_TO_BYTE(255)` is 255; `ANY_TO_BYTE(300)` keeps the low-order byte, 44; `ANY_TO_WORD(65536)`
+// keeps the low-order word, 0; `ANY_TO_REAL(2.5)` is 2.5. The build refused every one of them
+// with "ANY_TO_BYTE in a declaration of a program built with the CODESYS conversion rules is not
+// compiled yet" (NX-09), and the evaluator's conversion of a generic `ANY_TO_*` refused every
+// concrete value with a type mismatch. Catches the build refusing what the type checker admits
+// under the CODESYS profile, and a folded value that strays from the vendor's rules.
+const DUT_DEFAULTS: &str = r#"
+TYPE stCfg :
+STRUCT
+    bXMax : BYTE := ANY_TO_BYTE(255);
+    bWrap : BYTE := ANY_TO_BYTE(300);
+    wWide : WORD := ANY_TO_WORD(65536);
+    rGamma : REAL := ANY_TO_REAL(2.5);
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    cfg : stCfg;
+    bMax, bWrapped : BYTE;
+    wWide : WORD;
+    rGamma : REAL;
+END_VAR
+    bMax := cfg.bXMax;
+    bWrapped := cfg.bWrap;
+    wWide := cfg.wWide;
+    rGamma := cfg.rGamma;
+END_PROGRAM
+"#;
+
+#[test]
+fn a_dut_member_default_converts_by_the_codesys_rules() {
+    let session = CompileSession::from_source(DUT_DEFAULTS)
+        .with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session).expect("the CODESYS image builds");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    assert_eq!(harness.get_output("bMax"), Some(Value::Byte(255)));
+    assert_eq!(harness.get_output("bWrapped"), Some(Value::Byte(44)));
+    assert_eq!(harness.get_output("wWide"), Some(Value::Word(0)));
+    assert_eq!(harness.get_output("rGamma"), Some(Value::Real(2.5)));
+}
+
+/// Catches a build that works a mutable variable's value into a declaration's constant:
+/// `ANY_TO_BYTE(gLevel)` names no compile-time constant, so the build refuses it as it refuses
+/// the bare `gLevel` (specification 44 §6.7), instead of reading the variable's starting value.
+#[test]
+fn a_conversion_of_a_mutable_variable_is_refused_as_an_initial_value() {
+    let source = r#"
+VAR_GLOBAL
+    gLevel : DINT := 300;
+END_VAR
+
+TYPE stCfg :
+STRUCT
+    bWrap : BYTE := ANY_TO_BYTE(gLevel);
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    cfg : stCfg;
+END_VAR
+END_PROGRAM
+"#;
+    let session =
+        CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
+    let error = TestHarness::from_session(session)
+        .err()
+        .expect("the build refuses a variable in a constant conversion");
+    let text = error.to_string();
+    assert!(
+        text.contains("the starting value of") && !text.contains("is not compiled yet"),
+        "{text}"
+    );
+}

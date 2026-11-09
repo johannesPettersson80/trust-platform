@@ -70,6 +70,7 @@ pub(crate) fn is_standard_function_name(name: &str) -> bool {
             | "ASSERT_GREATER_OR_EQUAL"
             | "ASSERT_LESS_OR_EQUAL"
             | "ASSERT_NEAR"
+            | "TEST_FINISHED"
             | "LEN"
             | "LEFT"
             | "RIGHT"
@@ -198,6 +199,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "ASSERT_GREATER_OR_EQUAL" => self.infer_assert_greater_or_equal_call(node),
                 "ASSERT_LESS_OR_EQUAL" => self.infer_assert_less_or_equal_call(node),
                 "ASSERT_NEAR" => self.infer_assert_near_call(node),
+                "TEST_FINISHED" => self.infer_test_finished_call(node),
                 "LEN" => self.infer_len_call(node),
                 "LEFT" | "RIGHT" => self.infer_left_right_call(node, &upper),
                 "MID" => self.infer_mid_call(node),

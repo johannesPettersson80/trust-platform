@@ -571,7 +571,7 @@ impl CompiledRuntime {
         candidate.check_safe_outputs()?;
         let payload = candidate.program().retain_payload_bound()?;
         self.cycle.reserve_retain(payload)?;
-        let events = candidate.take_values(&self.cycle)?;
+        let report = candidate.take_values(&mut self.cycle)?;
         self.cycle.hand_over_to(&mut candidate);
         self.cycle = candidate;
         self.image = image;
@@ -592,15 +592,30 @@ impl CompiledRuntime {
             // Control Studio's experiments, transactions and recordings of the old program end with
             // it, as `program_reloaded` (specification 35 A6.7).
             debug.invalidate_control_program();
-            for event in events {
+            for event in report.events {
                 debug.push_runtime_event(RuntimeEvent::OnlineChangeValue {
                     event,
                     time: self.current_time,
                 });
             }
+            // The faults of CODESYS's calls at the change, which did not stop it (specification 44
+            // §12.3).
+            for fault in &report.faults {
+                debug.push_runtime_event(RuntimeEvent::fault(fault, self.current_time));
+            }
         }
         self.publish_program_memory();
         Ok(())
+    }
+
+    /// Leaves the program before a load in place replaces it, a download: its instances'
+    /// `FB_exit` once it has run (specification 44 §6.7).
+    ///
+    /// # Errors
+    ///
+    /// The fault of the exit, which the next program records; the program is replaced all the same.
+    pub fn leave_program(&mut self) -> Result<(), RuntimeError> {
+        self.cycle.leave()
     }
 
     /// Whether a fault is latched.

@@ -13,6 +13,13 @@ use base64::Engine as _;
 use serde_json::{json, Value};
 use trust_runtime_client::VersionAdvice;
 
+/// The values a stepped scan carries (specification 11 §6.8.1): written as typed value texts in
+/// `inputs` and `direct_inputs`, and read back from `values` and `direct` in the encoding of the
+/// conformance artifacts.
+pub use trust_runtime_services::cycle_step::{
+    decode_value, encode_value, parse_typed_value, typed_value_text,
+};
+
 use crate::native::Target;
 
 /// How long a reply to a request other than `program.install` may take: a chip's watchdog interval
@@ -147,19 +154,23 @@ pub struct DeviceLink {
     next_id: u64,
     /// The update the device and these tools need, read when the link opened.
     version_advice: Option<VersionAdvice>,
+    /// The device's control token, which every request carries (specification 34 PORT-06).
+    token: Option<String>,
 }
 
 impl DeviceLink {
     /// Opens `port`: a serial port, opened without resetting the device (the data terminal ready
     /// line on and the request to send line off, as the USB serial link of an ESP32 reads a reset
     /// from the other combinations), or `tcp://<host>:<port>`, a bridge to the device's serial port
-    /// on another computer. The device then takes this computer's clock (`give_clock`), and its truST
-    /// version is read (`version_advice`).
+    /// on another computer. Every request carries `token`, the device's control token, when there is
+    /// one: a device whose settings set a token refuses a request without it (specification 34
+    /// PORT-06; specification 11 §6.8.1). The device then takes this computer's clock
+    /// (`give_clock`), and its truST version is read (`version_advice`).
     ///
     /// # Errors
     ///
     /// [`DeviceLinkError::Open`] when the port or the bridge cannot be opened.
-    pub fn open(port: &str) -> Result<Self, DeviceLinkError> {
+    pub fn open(port: &str, token: Option<&str>) -> Result<Self, DeviceLinkError> {
         let open = |reason: String| DeviceLinkError::Open(format!("open '{port}': {reason}"));
         let stream: Box<dyn Stream> = if let Some(address) = port.strip_prefix("tcp://") {
             let stream =
@@ -185,6 +196,7 @@ impl DeviceLink {
             buffer: Vec::new(),
             next_id: 1,
             version_advice: None,
+            token: token.map(str::to_string),
         };
         link.give_clock();
         link.version_advice = link.read_version_advice();
@@ -235,6 +247,9 @@ impl DeviceLink {
         let id = self.next_id;
         self.next_id += 1;
         let mut request = json!({"id": id, "type": kind});
+        if let Some(token) = &self.token {
+            request["auth"] = Value::from(token.as_str());
+        }
         if let Some(params) = params {
             request["params"] = params;
         }
@@ -468,7 +483,77 @@ fn hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{BufRead, BufReader};
+    use std::sync::{Arc, Mutex};
+
     use super::*;
+
+    /// A device behind a TCP bridge whose settings set the control token `token` (specification 34
+    /// PORT-06): it records each request and answers it, `missing auth token` without a token and
+    /// `invalid auth token` with another, as a device refuses them.
+    fn device_with_token(token: &'static str) -> (String, Arc<Mutex<Vec<Value>>>) {
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind the device's bridge");
+        let port = format!(
+            "tcp://{}",
+            listener.local_addr().expect("the bridge's address")
+        );
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&seen);
+        std::thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("the link connects");
+            let mut replies = stream.try_clone().expect("the bridge's stream");
+            for line in BufReader::new(stream).lines() {
+                let Ok(line) = line else { break };
+                let request: Value = serde_json::from_str(&line).expect("a JSON request");
+                // A device writes `id` first, and the link takes a reply by its leading `{"id"`.
+                let id = &request["id"];
+                let reply = match request.get("auth").and_then(Value::as_str) {
+                    Some(auth) if auth == token => format!(
+                        r#"{{"id":{id},"ok":true,"result":{{"version":"{}"}}}}"#,
+                        env!("CARGO_PKG_VERSION")
+                    ),
+                    Some(_) => format!(r#"{{"id":{id},"ok":false,"error":"invalid auth token"}}"#),
+                    None => format!(r#"{{"id":{id},"ok":false,"error":"missing auth token"}}"#),
+                };
+                recorded.lock().expect("the requests").push(request);
+                if writeln!(replies, "{reply}").is_err() {
+                    break;
+                }
+            }
+        });
+        (port, seen)
+    }
+
+    /// Specification 34 PORT-06 (G92): once a device's settings set a control token, every request
+    /// of its link carries it, the clock and the version that the link takes and reads as it opens
+    /// among them; a link without it is refused with the device's reason. Catches the link of
+    /// `trust-dev test --device` that sent no token, whose first request, `clock.set`, the toolkit's
+    /// chip refused with `missing auth token`.
+    #[test]
+    fn a_link_with_the_devices_token_sends_it_with_every_request() {
+        let (port, seen) = device_with_token("s3cret");
+        let mut link = DeviceLink::open(&port, Some("s3cret")).expect("the link opens");
+        link.call("status", None, REPLY_WAIT)
+            .expect("the device answers");
+        let seen = seen.lock().expect("the requests").clone();
+        let kinds: Vec<&str> = seen
+            .iter()
+            .map(|request| request["type"].as_str().unwrap_or_default())
+            .collect();
+        assert_eq!(kinds, ["clock.set", "status", "status"]);
+        assert!(
+            seen.iter().all(|request| request["auth"] == "s3cret"),
+            "{seen:?}"
+        );
+
+        let (port, _) = device_with_token("s3cret");
+        let mut link = DeviceLink::open(&port, None).expect("the link opens");
+        let refusal = link
+            .call("status", None, REPLY_WAIT)
+            .expect_err("a request without the token is refused");
+        assert_eq!(refusal.to_string(), "status refused: missing auth token");
+    }
 
     /// Specification 11 §6.8.1: the wait for the reply to an install of L bytes is
     /// 4 + 0.4 × ⌈L/4096⌉ + 0.01 × ⌈L/256⌉ seconds. For the C6's 83,499-byte pasteurizer that is

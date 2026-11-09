@@ -30,6 +30,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, RunnerWait, TimeSpan,
@@ -39,6 +40,7 @@ pub use rules::{unwired_binding, ChangeMemory};
 
 use super::program::Program;
 use super::{DeviceLiveValues, ResourceCycle, Runner, RunnerPlatform};
+use crate::events::RuntimeEvent;
 use crate::loading::reload::{self, ReloadImage, ReloadOutcome, TAKE_WAIT};
 use crate::protocol::ControlResponse;
 
@@ -55,6 +57,9 @@ pub struct Candidate<Y> {
     /// The variables of the candidate that did not keep the running program's values as they were,
     /// which the loop records at the moment of the commit (specification 34 §11.3).
     pub events: Vec<CarriedValueEvent>,
+    /// The faults of the change entries under the CODESYS profiles, which the loop records at the
+    /// moment of the commit (specification 44 §12.3).
+    pub faults: Vec<RuntimeError>,
 }
 
 /// The online change that waits for the program's next boundary.
@@ -273,6 +278,7 @@ where
             cycle,
             live,
             events,
+            faults,
         } = candidate;
         let old = core::mem::replace(&mut self.cycle, Program::Installed(cycle));
         self.cycle.attach_hold(self.hold.clone());
@@ -288,6 +294,13 @@ where
         self.program_time = now;
         self.cycle_count = 0;
         self.record_carried_events(events);
+        // The faults of CODESYS's calls at the change, which did not stop it (specification 44
+        // §12.3).
+        for fault in faults {
+            self.shell
+                .records
+                .push_event(RuntimeEvent::fault(&fault, self.program_time));
+        }
         // The debugger keeps its breakpoints and its pause, and forgets what belonged to the old
         // statements.
         self.shell.debug.program_replaced();

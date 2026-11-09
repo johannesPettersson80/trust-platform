@@ -703,10 +703,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 0,
                 line: 4,
                 source_line: Some("ASSERT_TRUE(TRUE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Passed,
             message: None,
             duration_ms: 1,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -716,10 +720,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 10,
                 line: 12,
                 source_line: Some("ASSERT_EQUAL(INT#2, X);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Failed,
             message: Some("ASSERT_EQUAL failed: expected <2> & got 3".to_string()),
             duration_ms: 2,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -729,10 +737,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 20,
                 line: 20,
                 source_line: Some("ASSERT_TRUE(FALSE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Error,
             message: Some("runtime <panic>".to_string()),
             duration_ms: 3,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
     ]
 }
@@ -789,6 +801,7 @@ fn list_output_contract() {
             byte_offset: 0,
             line: 1,
             source_line: None,
+            cycles: None,
         },
         DiscoveredTest {
             kind: TestKind::FunctionBlock,
@@ -797,6 +810,7 @@ fn list_output_contract() {
             byte_offset: 12,
             line: 24,
             source_line: None,
+            cycles: None,
         },
     ];
     let text = render_list_output(Path::new("/tmp/project"), &tests, 2, None);
@@ -927,15 +941,17 @@ fn codesys_project(prefix: &str, tests: &str) -> std::path::PathBuf {
 }
 
 // docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the CODESYS
-// rules an enumerated value as text is its value's name, as a STRING or a WSTRING, also for an
-// enumeration with given values. A wrong compiled program spells the base integer ('1' for
-// Color#Green), which the native generator did until 6 November 2026.
+// rules TO_STRING and TO_WSTRING write a value of an enumeration declared {attribute 'to_string'} as
+// its name, as a STRING or a WSTRING, also for an enumeration with given values (the vendor's help,
+// Example 293). A wrong compiled program spells the base integer ('1' for Color#Green).
 #[test]
 fn run_test_spells_an_enumerated_value_as_its_name_under_the_codesys_rules() {
     let project = codesys_project(
         "codesys-enumerated-names",
         r#"
+{attribute 'to_string'}
 TYPE Color : (Red, Green, Blue); END_TYPE
+{attribute 'to_string'}
 TYPE Mode : (Off := 0, Auto := 5, Hand := 9); END_TYPE
 
 TEST_PROGRAM EnumeratedValuesSpellTheirNames
@@ -951,6 +967,48 @@ Name := TO_STRING(Way);
 ASSERT_EQUAL(EXPECTED := 'Hand', ACTUAL := Name);
 WideName := TO_WSTRING(Shade);
 ASSERT_TRUE(IN := WideName = "Green");
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["passed"], 1, "{payload}");
+    assert_eq!(payload["summary"]["total"], 1, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+// docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the CODESYS
+// rules TO_STRING and TO_WSTRING write a value of an enumeration without {attribute 'to_string'} as
+// its number, as CODESYS does ("instead of the numeric value" only with the attribute, the vendor's
+// help, Example 293), and a typed INT_TO_STRING writes its number even with the attribute. Worked by
+// hand: Color#Green is 1, Mode#Hand is 9. Catches the name written for an enumeration without the
+// attribute, which truST did from 0.32.0, and the name written by a typed conversion.
+#[test]
+fn run_test_spells_an_enumerated_value_as_its_number_without_the_to_string_attribute() {
+    let project = codesys_project(
+        "codesys-enumerated-numbers",
+        r#"
+TYPE Color : (Red, Green, Blue); END_TYPE
+TYPE Mode : (Off := 0, Auto := 5, Hand := 9); END_TYPE
+{attribute 'to_string'}
+TYPE Named : (First, Second); END_TYPE
+
+TEST_PROGRAM EnumeratedValuesSpellTheirNumbers
+VAR
+    Shade : Color := Color#Green;
+    Way : Mode := Mode#Hand;
+    Pick : Named := Named#Second;
+    Name : STRING;
+    WideName : WSTRING;
+END_VAR
+Name := TO_STRING(Shade);
+ASSERT_EQUAL(EXPECTED := '1', ACTUAL := Name);
+Name := TO_STRING(Way);
+ASSERT_EQUAL(EXPECTED := '9', ACTUAL := Name);
+WideName := TO_WSTRING(Shade);
+ASSERT_TRUE(IN := WideName = "1");
+Name := INT_TO_STRING(Pick);
+ASSERT_EQUAL(EXPECTED := '1', ACTUAL := Name);
 END_TEST_PROGRAM
 "#,
     );
@@ -1380,9 +1438,13 @@ fn a_device_runs_the_tests_compiled_for_it() {
     let on_device = TestRunner::Device {
         port: "tcp://127.0.0.1:5555".into(),
         target: "esp32c6".into(),
+        token: None,
     };
-    assert_eq!(TestRunner::of(device()), on_device);
-    assert_eq!(TestRunner::of(None), TestRunner::Native);
+    assert_eq!(TestRunner::of(device(), None), on_device);
+    assert_eq!(TestRunner::of(None, None), TestRunner::Native);
+    // Specification 34 PORT-06: the device's token is never printed, not even in a runner's debug text.
+    let with_token = format!("{:?}", TestRunner::of(device(), Some("s3cret".into())));
+    assert!(!with_token.contains("s3cret"), "{with_token}");
 }
 
 /// IEC 61131-3 §6.1.2: an identifier is a letter or an underline followed by letters, digits

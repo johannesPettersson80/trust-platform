@@ -196,3 +196,54 @@ fn agent_serve_mcp_serves_one_json_rpc_message_per_line_and_refuses_an_overlappi
     let _ = child.wait();
     let _ = std::fs::remove_dir_all(workspace);
 }
+
+/// Specification 22, "Test reporting and CI output" (the CODESYS toolkit's T3): every report names a test's source file
+/// relative to the project folder, as `trust-lsp check` names its paths, here for a relative `--project`. Worked by hand:
+/// the failing test lies in `src/tests.st`, so JSON's `file`, TAP's `# file:` and JUnit's `file` read `src/tests.st`
+/// (`src\tests.st` on Windows), and JSON's `project` is the folder's whole path without `\\?\`. Catches the canonical
+/// whole path JSON and TAP printed, which on Windows starts with `\\?\`, and the whole path the human output kept for a
+/// relative `--project`, which the canonical file paths do not start with.
+#[test]
+fn test_reports_name_files_relative_to_the_project_folder() {
+    let parent =
+        trust_test_support::unique_temp_path(&format!("trust-dev-t3-{}", std::process::id()));
+    let project = parent.join("proj");
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(
+        project.join("src/tests.st"),
+        "TEST_PROGRAM Fails\nASSERT_EQUAL(EXPECTED := INT#1, ACTUAL := INT#2);\nEND_TEST_PROGRAM\n",
+    )
+    .expect("write the test");
+    let relative = std::path::Path::new("src")
+        .join("tests.st")
+        .display()
+        .to_string();
+    let run = |format: &str| {
+        let output = trust_dev()
+            .current_dir(&parent)
+            .args(["test", "--project", "proj", "--output", format])
+            .output()
+            .expect("run trust-dev test");
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+
+    let json: serde_json::Value = serde_json::from_str(&run("json")).expect("the JSON report");
+    assert_eq!(json["tests"][0]["file"], relative.as_str(), "{json}");
+    let project_text = json["project"].as_str().expect("the project");
+    assert!(
+        !project_text.starts_with(r"\\?\") && project_text.ends_with("proj"),
+        "{project_text}"
+    );
+    let tap = run("tap");
+    assert!(tap.contains(&format!("# file: {relative}\n")), "{tap}");
+    let junit = run("junit");
+    assert!(junit.contains(&format!("file=\"{relative}\"")), "{junit}");
+    let human = run("human");
+    assert!(human.contains(&relative), "{human}");
+    let whole = project.join("src").join("tests.st").display().to_string();
+    assert!(
+        !human.contains(&whole) && !human.contains(r"\\?\"),
+        "{human}"
+    );
+    let _ = std::fs::remove_dir_all(&parent);
+}

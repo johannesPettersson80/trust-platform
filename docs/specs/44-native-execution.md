@@ -281,7 +281,13 @@ the global offset table only when nothing reads it after and its relocations are
 in its package, beside its tools in `bin/`, and installs it on the first build that needs it,
 with no download (owner, 27 October 2026: "this complete toolchain must be shipped in our vs code
 extension. the user shall not have to install rust by himself"). `trust-runtime` installed on
-its own downloads the same bundle from truST's release server on the first build that needs it.
+its own installs the same bundle, beside its tools or downloaded from truST's release server, on
+the first build that needs it once the person agrees, and never silently: in a terminal the build
+asks first, naming where the bundle comes from, its size and its folder; without a terminal, as
+in a script or CI, the build fails with the advice to run `trust-runtime toolchain install`,
+unless `--install-toolchain` on `build`, `play` or `run` gives the consent. The extension keeps
+its own consent flow: it installs the bundle with `trust-runtime toolchain install` before a build
+that needs it.
 There is one bundle per computer platform: rustc and rust-lld of the pinned version, `rust-std` for the targets of §4.4, the program library
 and interface crates (§6.9, §8.2) of the kernel version with the crates they link (`libm`, `ryu`,
 and `trust-plc-mem` for the computers' targets, §4.5), for each target a `LIBRARY` file naming its
@@ -426,8 +432,11 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 ### 5.4 Entry table
 
 One 16-byte record per entry point: kind (4: 1 program body, 2 cold-init, 3 warm-init, 4 method for
-tools), index (4: the program instance's number in the configuration for a program body, the
-index of its tool symbol (§5.7) for a method for tools, or 0), code offset (4,
+tools, 5 exit, 6 change exit, 7 change init, 8 change reinit, 9 change start), index (4: the program
+instance's number in the configuration for a program body, the index of its tool symbol (§5.7) for a
+method for tools, for a change exit or a change init the index of the top-level variable's symbol
+times two, plus one for a copied variable, for a change reinit the index of the variable's symbol,
+or 0), code offset (4,
 relative to `CODE`, with the Thumb bit on a Thumb target), reserved (4). A task's record lists the
 program bodies it runs, in order, so that the kernel observes each program's call as today's
 runtime does. Each program instance has its own program-body entry, also when several share one
@@ -575,7 +584,15 @@ interfaces it implements (4) and each interface's declared name (string offset, 
 interface it implements itself, through a base or through an interface that extends one (IEC
 61131-3 §6.6.6.4), so that a tool finds the instances of a block and of the blocks derived from it,
 and the instances that implement an interface, without the sources; a standard function block has
-no base and no interface. A `STRUCT OVERLAP` lists its members at
+no base and no interface. A function block's or class's members are followed, before its base, by
+the aliases of its properties whose GET only returns one of its variables (`Prop := Var;`, a
+`VAR_IN_OUT` excepted), as CODESYS monitors such a property (specification 11): each the property's
+name with that variable's type, offset and flags and the flag `MEMBER_ALIAS` (bit 8 of the member's
+flags), and `SYMBOL_CONSTANT` too unless the property's SET only assigns that variable
+(`Var := Prop;`). The record's count includes them. A name lookup finds an alias, so that a read of
+the property reads the variable and a write writes it; the values, the retain store, online change
+and the layout skip it. A property whose GET does more is not listed, and a name lookup does not
+find it. A `STRUCT OVERLAP` lists its members at
 the byte offsets their relative addresses name, so that members share bytes, and a `BOOL` member
 that takes one bit of its byte has a `BOOL` record whose count is that bit plus one (any other
 record's count of an elementary type is 0); a type with named values of an integer type is its
@@ -848,6 +865,20 @@ entry wrote into it is replaced (specification 10 §4.8). The start after an ins
 gives it `INIT`, or a retained one its checkpoint, as every variable; an online change carries it
 over with the rest (§12).
 
+The exit entry (kind 5, at most one, index 0) leaves the instances before their memory is started
+again or replaced. Under the CODESYS profiles it calls `FB_exit` of every instance whose type declares
+it, with `bInCopyCode := FALSE`, in the reverse of `FB_init`'s order, leaving out the instances a
+declaration marked `{attribute 'no-exit'}` declares (specification 10 §4.8); an image built under
+another profile, or one whose types declare no `FB_exit`, has none. The kernel calls it once the
+program has run (a scan or a program instance's run since it was built, or an online change took over
+a running program's instances; the starts that bring a program up, a power-on start and the start the
+runtime was asked for, make none run): first at a cold or a warm restart, before the `noinit` bytes
+are taken and the memory is started again, so that what `FB_exit` writes into a `noinit` variable
+stays; and before a program that has run is replaced by an installed one (a download), on the old
+program: its fault
+there does not stop the install, and the new program's event records begin with it. A stop, a
+power-off and the end of the runtime's process call nothing. An online change's calls are §12.3's.
+
 Under the CODESYS profiles both initializations end by calling `FB_init` of every instance whose
 type declares it, after the `REF` initializers (specification 10 §4.8): `bInitRetains` is `TRUE` in
 the cold-init entry and `FALSE` in the warm-init entry, `bInCopyCode` `FALSE`. The inputs after
@@ -879,10 +910,13 @@ from the structure's initial value, else its type's, else the member's declarati
 value at the place the program's layout gives it. An initial value that names a variable other than
 a constant, or that calls a function block, a method or a user function, is the cold-init entry's to
 compute; until that entry carries it, the build refuses it (NX-09). A program built with the CODESYS
-conversion rules of specification 07 §2.10 converts in its bodies by those rules; a type conversion
-that its declarations call outside a body (an initial value, a bound, the configuration) would be
-worked out by the runtime's evaluator, which converts by the IEC rules, so the build refuses it for
-such a program (NX-09).
+conversion rules of specification 07 §2.10 converts by those rules everywhere the build computes a
+value: in a body the generator converts (§6.8), and in a declaration's initial value the runtime's
+evaluator does, whose standard library carries the program's rules, so the value is the vendor
+toolchain's. A conversion in an initial value that names no compile-time constant fails as any
+initial value that names a variable does; a type conversion a declaration calls outside an
+initial value (an array's bound, a string's length, a task's interval, the program configuration)
+is still refused for such a program (NX-09).
 
 A frame starts at each call (IEC §6.5.1, §6.5.2.1, Table 13 3d): a function's or a method's result,
 outputs and locals and a program's or a function block's `VAR_TEMP` take their declared initial
@@ -1227,7 +1261,10 @@ A fault inside a module is a return value: the generated code returns `Err(Fault
 function up to the entry, which calls `api.fault` with the detail (the index and bounds, the
 divisor, the reference) and returns the code. The kernel then does what specification 34 §9
 (STATE-03, STATE-04) and 11 §6.6 say: records the fault with the statement id, file and line from
-the statement table, latches the fault state, applies the output policy. Fault codes are
+the statement table, latches the fault state, applies the output policy. The statement is the one
+being executed when the fault is raised: a debug image's call gives its caller's statement back when
+it returns (`cx.stmt = call_stmt`, §13.2), so a fault raised after a call returns, in the statement
+that made it, such as a test's failed assertion on a function's result, is that statement's. Fault codes are
 specification 10 §10.2's stable codes, numbered in `trust-plc-abi`. A panic in a module cannot
 happen by construction (no `unsafe`, no panicking operation in generated code: every slice index is
 proven in range or checked, every arithmetic checked); as the last resort the module's panic handler
@@ -1630,8 +1667,26 @@ program in its place. At the boundary the device:
    other memory;
 3. builds the new program: its areas with `INIT`, its bindings checked against the running
    program's lines and its safe state, as specification 34 §11.3 checks a candidate;
-4. places the new module where the CPU runs it, runs the new program's cold-init entry (§6.7) and
-   carries the running program's values into its areas (§12.2). A computer maps the new module
+4. places the new module where the CPU runs it, starts the new program and carries the running
+   program's values into its areas (§12.2). An image without change entries (kinds 6 to 9: built
+   under the IEC profile, or one whose types declare no `FB_init`, `FB_exit`, `FB_reinit` or
+   after-init method) runs its cold-init entry (§6.7), then the carry. An image with them (the
+   CODESYS profiles, specification 10 §4.8) follows the instances the change copies:
+   - the kernel sorts each top-level variable that has a change entry in either image: copied when
+     both programs declare it and its type's layout differs, compared through the two type tables as
+     the carry compares types (§12.2); dropped or added when one program declares it; otherwise
+     nothing is called for it;
+   - it runs the running program's change-exit entries (kind 6) of the copied and the dropped
+     variables, in the order of its entry table (the reverse of `FB_init`'s); then the new
+     program's change-start entry (kind 9: the cold-init entry's reference initializers, without its
+     `FB_init` calls) and its change-init entries (kind 7) of the copied and the added variables, in
+     the order of its entry table; then the carry; then its change-reinit entries (kind 8) of the
+     copied variables;
+   - these calls run once the new module is placed and every check before them has passed, so that
+     no refusal follows them; a fault in one of them is recorded as an event of the new program
+     while the change goes on (specification 10 §4.8).
+
+   A computer maps the new module
    beside the running one. The C6 runs it where it lies in the image, which the transfer uploaded
    into the program region (§10.3), beside the running module, or copies it into a block there when
    the upload lay in the heap's data regions; a refusal drops the new program and the running
@@ -1778,11 +1833,26 @@ a variable by the retain map's key (§5.10), an instance's variable and an array
 `instance:<id>:<member>` by the member's symbol under the instance whose symbol's index is `id`, a
 compiled program's instance identity, resolved in the generation the request names. The
 queued variable writes are applied at the cycle start, before the program runs, in arrival order,
-and then every active variable force; the queued image writes and the forces of the input and
-marker images after the drivers read the inputs, before the program samples them, so that a forced
-input holds over the physical one; and the forces of the marker and output images again after the
-scan, with the variable forces, before the outputs reach the drivers and the snapshot, so that a
-forced marker reads its forced value between scans (specification 11 §6.9.2). The value a request
+and then every active variable force; after the drivers read the inputs, before the program samples
+them, the queued image writes, then every active variable force again, then the forces of the input
+and marker images, so that a forced input holds over the physical one; and the forces of the marker
+and output images again after the scan, with the variable forces, before the outputs reach the
+drivers and the snapshot, so that a forced marker reads its forced value between scans
+(specification 11 §6.9.2). A variable that the program binds to an input or a marker address (§5.6;
+IEC 61131-3 §6.5.5.3: the declared name and the address name one location) takes that address's
+value when the sample copies it in. A write of such a variable, by Live Values, a protocol or the
+HMI (`CompiledVariables`), therefore also writes its value where the sample reads it: the input
+image the drivers fill, the marker area, or its slot of the hierarchical image
+(`NativeProgram::hold_bound`). A forced variable bound to an input holds over the physical input and
+over a one-shot write of its address, and a force of the address, applied after it, holds over it; a
+written marker keeps its value; and a written input keeps it until a driver's next input read
+replaces it, as an I/O update replaces a written input. A `TIME` bound in whole milliseconds that its
+address cannot hold is refused, and the variable takes back its address's value. A write at a hold
+reaches its variable for the rest of the held scan, which sampled its inputs before it stopped
+(§13.2). A write at an output address, a queued write or a force, also writes the program's
+output area there and every variable bound to the bytes or the bit it writes, through its binding's
+codec, so that the program reads it and each scan's publication carries it to the drivers until the
+program writes the variable itself, as CODESYS writes the variable of an output. The value a request
 carries is an IEC 61131-3 literal of the declared type of its target, through aliases and
 subranges, or at a process-image address of the variable bound there, when the program resolves the
 target as the request arrives (specification 11, "Runtime control I/O and variable mutation
@@ -1871,7 +1941,8 @@ control link, the first step's cold restart loading it; its trace must equal the
 artifact (owner, 23 October 2026).
 
 `trust-dev test` runs a project's tests compiled for the computer (specification 22, the test
-POUs), with the toolchain, which it installs as `trust-runtime build` does (§4.6, NX-15): one
+POUs), with the toolchain, which it finds and never installs, failing without one with the advice
+to install it (§4.6, NX-15; specification 22): one
 image, a debug or a release image as the project's `[build] debug` chooses (§13.2), holds every
 test program (a `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`) as an instance of its
 name that no task runs, and each test runs after a cold
@@ -2015,6 +2086,7 @@ finds no depth left, §6.4) is reported as the runtime error `CallDepthExceeded`
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
 | 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner approved on 25 October 2026 (§14.4: "if its professional and according to iec then i trust you"): each records an IEC 61131-3 construct whose representation IEC leaves to the implementer (the resource of §6.8.1, the direct and hierarchical addresses of §6.5.5 and Table 16, `STRUCT OVERLAP` of §6.4.4.6, the variable-length arrays of §6.5.3) or the truST function `CURRENT_DT` (specification 07). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
 | 0.43 | 7 November 2026 | A DUT's `EXTENDS` copies compiled (specification 02 §3.5.1), which the type checker accepts, in the places the build refused with "an assignment between different types" (NX-09): a derived value as a function's, a method's or a function block's input of its base's type, an assignment to a variable of the base's type, into a `STRUCT OVERLAP`'s member included, and a call whose result extends the base's type (§6.6). The copy assigns the base's fields from the front of the derived value, its own fields no part of it. |
+| 0.44 | 8 November 2026 | A declaration's initial value converts by the program's conversion rules (specification 07 §2.10), which the type checker accepts under the CODESYS profile: `bXMax : BYTE := ANY_TO_BYTE(255)` compiles, and `ANY_TO_BYTE(300)` keeps the low-order bits of the target's width, 44, where the IEC rules overflow (§6.7). The build refused every such conversion with "in a declaration ... is not compiled yet" (NX-09); a conversion outside an initial value (a bound, the program configuration) is still refused. |
 | 0.42 | 6 November 2026 | A recursive call that finds no depth left is reported as the runtime error `CallDepthExceeded`, `call depth exceeded`, with its stable code `vm_call_stack_overflow` (§6.4, Appendix A). Before, the kernel reported it through the bytecode engine's fault type, which the deletion of the engine (0.22) had left with this one fault and a text for the others, `invalid bytecode '<detail>'`, that nothing produced any more. The error's text and stable code are unchanged (checklist G61). |
 | 0.41 | 6 November 2026 | Round 2 of the CODESYS vendor conversions of specification 07 §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045), which the type checker accepts under the CODESYS rules, compiled (§6.8): an integer (its low-order 32 bits) and a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day, and a text to an integer or a bit string by the vendor's parse. The build refused the first three, and parsed a text by the IEC rules. And a `TIME` or an `LTIME` as text, the vendor's text measured on a PFC200 (`T#1s500ms`), which the build refused (NX-09). |
 | 0.40 | 6 November 2026 | The CODESYS vendor conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036), which the type checker accepted under the CODESYS rules since 31 October 2026, compiled (§6.8): a duration to an integer, a time of day to a `DWORD`, a `BOOL` and an enumerated value as text. The build refused the first three, and spelled an enumerated value as its number. `TO_STRING` of a duration stays refused (NX-09) until the vendor's text is measured. |

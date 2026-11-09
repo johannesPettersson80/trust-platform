@@ -1,0 +1,18 @@
+# The paths whose change runs the Web IDE Performance gates (specification 11, 6.8.1e; specification 22,
+# change detection): the web IDE, the analysis it runs, the build settings and the gates themselves.
+.github/workflows/web-ide-performance.yml
+.github/paths/web-ide-performance.txt
+scripts/ci_changes.py
+.config/nextest.toml
+Cargo.toml
+Cargo.lock
+crates/trust-syntax/**
+crates/trust-hir/**
+crates/trust-ide/**
+crates/trust-wasm-analysis/**
+crates/trust-runtime/Cargo.toml
+crates/trust-runtime/src/web/**
+crates/trust-runtime/tests/web_ide_performance_gate.rs
+crates/trust-runtime/tests/web_ide_integration/helpers.rs
+crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_03.rs
+crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_04.rs

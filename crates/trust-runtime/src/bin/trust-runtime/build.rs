@@ -3,10 +3,12 @@
 
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::bundle_builder::{build_program_image, BundleBuildReport};
 
-use crate::style;
+use crate::check::{compile_issues, CheckIssue};
+use crate::{ci, style};
 
 /// `trust-runtime build` (specification 44 §8.8, NX-15): this computer's program image, or a
 /// device's with `--target`, with the toolchain, installed on the first build that needs it (§4.6).
@@ -14,13 +16,43 @@ pub fn run_build_command(
     bundle: Option<PathBuf>,
     sources: Option<PathBuf>,
     ci: bool,
+    json: bool,
     target: Option<String>,
     emit_source: bool,
 ) -> anyhow::Result<()> {
+    let output = Output { ci, json };
     match target {
-        Some(target) => run_native_build(bundle, sources, &target, emit_source, ci, false),
-        None => run_native_build(bundle, sources, "host", emit_source, ci, true),
+        Some(target) => run_native_build(bundle, sources, &target, emit_source, output, false),
+        None => run_native_build(bundle, sources, "host", emit_source, output, true),
     }
+}
+
+/// How a build reports: `--ci` and `--json` print JSON, and `--ci` exits with the failure's
+/// class (specification 11 §6.8.1d).
+#[derive(Debug, Clone, Copy)]
+pub struct Output {
+    pub ci: bool,
+    pub json: bool,
+}
+
+impl Output {
+    fn machine_readable(self) -> bool {
+        self.ci || self.json
+    }
+}
+
+/// A build whose sources have errors, as `--json` and `--ci` print it (specification 11 §6.8.1d):
+/// the issues of `trust-runtime check`, one per diagnostic.
+#[derive(Debug, Serialize)]
+struct BuildFailure {
+    version: u32,
+    command: &'static str,
+    ok: bool,
+    status: &'static str,
+    project: String,
+    errors: usize,
+    warnings: usize,
+    issues: Vec<CheckIssue>,
 }
 
 /// The target `name` names: a device, a CPU, a Rust target triple or `host` (specification 44 §4.4).
@@ -44,21 +76,47 @@ pub fn run_native_build(
     sources: Option<PathBuf>,
     target: &str,
     emit_source: bool,
-    ci: bool,
+    output: Output,
     for_this_computer: bool,
 ) -> anyhow::Result<()> {
     let bundle_root = match bundle {
         Some(path) => path,
         None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
     };
-    let built = write_native_image(
+    let built = match write_native_image(
         &bundle_root,
         sources.as_deref(),
         native_target(target)?,
         emit_source,
         for_this_computer,
-    )?;
-    if ci {
+    ) {
+        Ok(built) => built,
+        Err(error) => {
+            let issues = if output.machine_readable() {
+                compile_issues(&error)
+            } else {
+                None
+            };
+            let Some(issues) = issues else {
+                return Err(error);
+            };
+            let errors = issues.iter().filter(|issue| issue.is_error()).count();
+            let failure = BuildFailure {
+                version: 1,
+                command: "build",
+                ok: false,
+                status: "failed",
+                project: bundle_root.display().to_string(),
+                errors,
+                warnings: issues.len() - errors,
+                issues,
+            };
+            println!("{}", serde_json::to_string_pretty(&failure)?);
+            // The exit code a failure has without the JSON (specification 11 §6.8.1d).
+            std::process::exit(if output.ci { ci::EXIT_BUILD_FAILED } else { 1 });
+        }
+    };
+    if output.machine_readable() {
         println!("{}", serde_json::to_string_pretty(&built.json)?);
         return Ok(());
     }
