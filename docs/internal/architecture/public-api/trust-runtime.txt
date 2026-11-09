@@ -4716,6 +4716,7 @@ pub struct trust_runtime::program_model::Param
 pub trust_runtime::program_model::Param::address: core::option::Option<trust_runtime_core::io_address::IoAddress>
 pub trust_runtime::program_model::Param::default: core::option::Option<trust_runtime_core::program_model::expr::Expr>
 pub trust_runtime::program_model::Param::direction: trust_hir::symbols::defs::ParamDirection
+pub trust_runtime::program_model::Param::hidden: bool
 pub trust_runtime::program_model::Param::name: smol_str::SmolStr
 pub trust_runtime::program_model::Param::noinit: bool
 pub trust_runtime::program_model::Param::retain: trust_runtime_core::retain::RetainPolicy
@@ -4728,6 +4729,7 @@ pub struct trust_runtime::program_model::VarDef
 pub trust_runtime::program_model::VarDef::address: core::option::Option<trust_runtime_core::io_address::IoAddress>
 pub trust_runtime::program_model::VarDef::constant: bool
 pub trust_runtime::program_model::VarDef::external: bool
+pub trust_runtime::program_model::VarDef::hidden: bool
 pub trust_runtime::program_model::VarDef::in_out: bool
 pub trust_runtime::program_model::VarDef::init_args: alloc::vec::Vec<trust_runtime::program_model::InitArg>
 pub trust_runtime::program_model::VarDef::initializer: core::option::Option<trust_runtime_core::program_model::expr::Expr>
@@ -6339,6 +6341,7 @@ pub fn trust_runtime::RuntimeMetadata::background_thread_id(&self) -> core::opti
 pub fn trust_runtime::RuntimeMetadata::classes(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::ClassDef>
 pub fn trust_runtime::RuntimeMetadata::function_blocks(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::FunctionBlockDef>
 pub fn trust_runtime::RuntimeMetadata::functions(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::FunctionDef>
+pub fn trust_runtime::RuntimeMetadata::global_is_hidden(&self, name: &str) -> bool
 pub fn trust_runtime::RuntimeMetadata::has_background_programs(&self) -> bool
 pub fn trust_runtime::RuntimeMetadata::interfaces(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::InterfaceDef>
 pub fn trust_runtime::RuntimeMetadata::profile(&self) -> trust_runtime_core::value::datetime::DateTimeProfile

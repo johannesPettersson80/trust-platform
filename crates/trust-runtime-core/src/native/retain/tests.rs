@@ -220,6 +220,7 @@ fn symbols(strings: &mut StringPool) -> Vec<SymbolRecord> {
                 area,
                 flags,
                 noinit: false,
+                hidden: false,
                 offset,
                 size,
                 parent,

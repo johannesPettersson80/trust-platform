@@ -194,6 +194,21 @@ pub(super) fn declares_noinit(var_decl: &SyntaxNode) -> bool {
         .any(|key| trust_hir::attributes::declares_attribute(var_decl, key))
 }
 
+/// Whether the declaration `var_decl` in a section of `kind` is hidden from the lists a reader
+/// browses (specification 10 §4.8): marked `{attribute 'hide'}` on the line above it, or a `VAR`
+/// local of the POU `pou` marked `{attribute 'hide_all_locals'}` in its first line.
+pub(super) fn declares_hidden(
+    pou: Option<&SyntaxNode>,
+    var_decl: &SyntaxNode,
+    kind: VarBlockKind,
+) -> bool {
+    trust_hir::attributes::declares_attribute(var_decl, "hide")
+        || (matches!(kind, VarBlockKind::Var)
+            && pou.is_some_and(|pou| {
+                trust_hir::attributes::declares_attribute(pou, "hide_all_locals")
+            }))
+}
+
 /// Whether the declaration `var_decl` is marked `{attribute 'no-exit'}` on the line above it: the exit
 /// of a restart or a download calls no `FB_exit` of the instances it declares (specification 10
 /// §4.8).

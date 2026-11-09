@@ -11,7 +11,9 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use super::image::{Image, RetainRecord, SymbolRecord, NONE, SYMBOL_INSTANCE, SYMBOL_PROGRAM};
+use super::image::{
+    Image, RetainRecord, SymbolRecord, MEMBER_HIDDEN, NONE, SYMBOL_INSTANCE, SYMBOL_PROGRAM,
+};
 use super::values::{damaged, holds_non_finite, read_value, Types, Writer, MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
@@ -413,6 +415,9 @@ pub struct Member {
     pub type_index: u32,
     /// Its offset in the instance.
     pub offset: u32,
+    /// Marked `{attribute 'hide'}`, or a `VAR` local of a type marked `{attribute
+    /// 'hide_all_locals'}` (§5.8): a list of members leaves it out.
+    pub hidden: bool,
 }
 
 /// What a variable of a type is to a reader that browses it.
@@ -456,6 +461,7 @@ pub fn layout(image: &Image<'_>, type_index: u32) -> Result<Layout, RuntimeError
                     name: SmolStr::new(name),
                     type_index: member.type_index,
                     offset: member.offset,
+                    hidden: member.flags & MEMBER_HIDDEN != 0,
                 });
             }
             Ok(Layout::Instance(members))

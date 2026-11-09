@@ -32,6 +32,8 @@ pub(super) struct Global {
     pub(super) address: Option<IoAddress>,
     /// `{attribute 'noinit'}`: a restart gives it back the value it held (specification 10 §4.8).
     pub(super) noinit: bool,
+    /// `{attribute 'hide'}`: the lists a reader browses leave it out (specification 10 §4.8).
+    pub(super) hidden: bool,
 }
 
 /// A program type: its two structures, the variables and the retained variables.
@@ -465,6 +467,7 @@ fn globals(
             constant: global.constant,
             address,
             noinit: global.noinit,
+            hidden: global.hidden,
         });
     }
     // A directly represented variable that a body names (IEC §6.5.5.1, Table 16) is a global of its
@@ -486,6 +489,7 @@ fn globals(
             constant: false,
             address: Some(address.clone()),
             noinit: false,
+            hidden: false,
         });
     }
     // A function's `VAR_STAT` variables live as long as the program, one of each per function
@@ -499,6 +503,7 @@ fn globals(
                 constant: local.constant,
                 address: None,
                 noinit: local.noinit,
+                hidden: local.hidden,
             });
         }
     }

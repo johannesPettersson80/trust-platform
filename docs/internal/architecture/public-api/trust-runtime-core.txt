@@ -1079,6 +1079,7 @@ pub trust_runtime_core::native::image::SymbolRecord::area: u8
 pub trust_runtime_core::native::image::SymbolRecord::canonical: u32
 pub trust_runtime_core::native::image::SymbolRecord::display: u32
 pub trust_runtime_core::native::image::SymbolRecord::flags: u8
+pub trust_runtime_core::native::image::SymbolRecord::hidden: bool
 pub trust_runtime_core::native::image::SymbolRecord::noinit: bool
 pub trust_runtime_core::native::image::SymbolRecord::offset: u32
 pub trust_runtime_core::native::image::SymbolRecord::parent: u32
@@ -1138,6 +1139,7 @@ pub const trust_runtime_core::native::image::HEADER_BYTES: usize
 pub const trust_runtime_core::native::image::MAGIC: [u8; 8]
 pub const trust_runtime_core::native::image::MEMBER_ALIAS: u32
 pub const trust_runtime_core::native::image::MEMBER_BYTES: usize
+pub const trust_runtime_core::native::image::MEMBER_HIDDEN: u32
 pub const trust_runtime_core::native::image::NONE: u32
 pub const trust_runtime_core::native::image::SECTION_ALIGNMENT: usize
 pub const trust_runtime_core::native::image::SECTION_ENTRY_BYTES: usize
@@ -1238,6 +1240,7 @@ pub trust_runtime_core::native::memory::TypeShape::Text
 pub trust_runtime_core::native::memory::TypeShape::Text::capacity: u32
 pub trust_runtime_core::native::memory::TypeShape::Text::wide: bool
 pub struct trust_runtime_core::native::memory::Member
+pub trust_runtime_core::native::memory::Member::hidden: bool
 pub trust_runtime_core::native::memory::Member::name: smol_str::SmolStr
 pub trust_runtime_core::native::memory::Member::offset: u32
 pub trust_runtime_core::native::memory::Member::type_index: u32

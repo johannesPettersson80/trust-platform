@@ -379,7 +379,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 4 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` mark, §5.7) |
+| 16 | 2 | Image format version, 4 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks, §5.7, and a member's `hide` mark, §5.8) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -509,7 +509,7 @@ name in capital letters, so a lookup is one binary search), one 32-byte record p
 | 4 | Type index (§5.8) |
 | 1 | Area id (§7.1); 0 for a symbol that holds no storage (a program root, a POU) |
 | 1 | Flags: bit 0 retained, bit 1 constant, bit 2 input, bit 3 output, bit 4 in-out, bit 5 program root, bit 6 FB or class instance, bit 7 directly addressed |
-| 1 | More flags: bit 0 marked `{attribute 'noinit'}` (§6.7; specification 10 §4.8); the other bits zero |
+| 1 | More flags: bit 0 marked `{attribute 'noinit'}` (§6.7; specification 10 §4.8); bit 1 hidden by `{attribute 'hide'}` or its POU's `{attribute 'hide_all_locals'}`, which the lists of variables a reader browses leave out (specification 10 §4.8); the other bits zero |
 | 1 | Reserved |
 | 4 | Offset in the area |
 | 4 | Size in bytes (the whole variable, padding excluded) |
@@ -569,8 +569,10 @@ One 24-byte record per type: kind (4: an elementary type 1 `BOOL`, 2 `SINT`, 3 `
 or 0), size (4), alignment (4), detail offset (4, into a type detail list), count (4). The detail
 list holds, per kind: an enumeration's values (name offset, value i64); a subrange's base type and
 bounds (i64, i64); an array's element type and dimensions (lower, upper i64 each); a structure's,
-union's, FB's or class's members (name offset, type index, byte offset, flags); a string's
-capacity; a reference's target type; an alias's base type. A function block's or class's members
+union's, FB's or class's members (name offset, type index, byte offset, flags: the symbol flags
+of §5.7 in bits 0 to 7, and bit 9 for a member hidden by `{attribute 'hide'}` or its type's
+`{attribute 'hide_all_locals'}`, which a list of members leaves out; specification 10 §4.8); a
+string's capacity; a reference's target type; an alias's base type. A function block's or class's members
 are followed by the type it extends (4, its index, or `0xFFFF_FFFF` without a base), the number of
 interfaces it implements (4) and each interface's declared name (string offset, 4 each): every
 interface it implements itself, through a base or through an interface that extends one (IEC
