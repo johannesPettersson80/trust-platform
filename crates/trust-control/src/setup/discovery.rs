@@ -402,6 +402,7 @@ fn target_for_loop(
     check_group_members(&loop_definition, &catalog.control)?;
     check_signals(&loop_definition, catalog)?;
     check_controller_symbols(&loop_definition, &catalog.control)?;
+    check_global_owners(&loop_definition, &catalog.control)?;
     // Channels the engine serves (state feedback, C12 measured paths, feedforward, cascade, ON/OFF and PID groups) are the loop's own.
     if loop_definition.channels.is_some() && !loop_definition.serves_channels() {
         return Err(texts::channels_not_supported().to_string());
@@ -544,6 +545,43 @@ fn check_controller_symbols(
         }
     }
     check_enumeration_modes(loop_definition, compiled)
+}
+
+/// What the loop's operations write belongs to its task (protocol annex E2.3): its parameter set's parameters and mode, and the
+/// setpoint and manipulated variable that transfers and experiments write, are each a program's member or a global that the
+/// parameter set's task owns. Setup refuses up front what those operations would refuse (B1.2), and checks a draft's loops the same
+/// way before it writes them. A loop without a parameter set names no task here; its operations check it.
+///
+/// # Errors
+/// The sentence that names the first such global, who writes it and the loop's task.
+pub(super) fn check_global_owners(
+    loop_definition: &LoopDefinition,
+    compiled: &CompiledCatalog,
+) -> Result<(), String> {
+    let Some(binding) = &loop_definition.parameter_binding else {
+        return Ok(());
+    };
+    let signals = &loop_definition.signals;
+    let written = binding
+        .parameters
+        .iter()
+        .map(|parameter| parameter.symbol.as_str())
+        .chain(std::iter::once(binding.mode.symbol.as_str()))
+        .chain(signals.setpoint.iter().map(|signal| signal.symbol.as_str()))
+        .chain(std::iter::once(
+            signals.manipulated_variable.symbol.as_str(),
+        ));
+    for symbol in written {
+        if let Some(owner) = compiled
+            .symbols
+            .iter()
+            .find(|entry| entry.symbol.eq_ignore_ascii_case(symbol))
+            .and_then(|entry| entry.owner.as_ref())
+        {
+            owner.check(symbol, &binding.task_name)?;
+        }
+    }
+    Ok(())
 }
 
 /// Every enumeration mode the loop names, its own and the further modes of its program's law, is a compiled enumeration with the

@@ -6363,6 +6363,7 @@ pub fn trust_runtime::RuntimeMetadata::classes(&self) -> &indexmap::map::IndexMa
 pub fn trust_runtime::RuntimeMetadata::function_blocks(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::FunctionBlockDef>
 pub fn trust_runtime::RuntimeMetadata::functions(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::FunctionDef>
 pub fn trust_runtime::RuntimeMetadata::global_is_hidden(&self, name: &str) -> bool
+pub fn trust_runtime::RuntimeMetadata::global_owner(&self, name: &str) -> core::option::Option<&trust_hir::db::GlobalOwner>
 pub fn trust_runtime::RuntimeMetadata::has_background_programs(&self) -> bool
 pub fn trust_runtime::RuntimeMetadata::interfaces(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::InterfaceDef>
 pub fn trust_runtime::RuntimeMetadata::profile(&self) -> trust_runtime_core::value::datetime::DateTimeProfile

@@ -245,6 +245,13 @@ fn lower_project_types(
 > {
     let profile = builder.profile();
     let type_ids = super::predeclare_project_types(&frontend.syntaxes, builder.registry_mut())?;
+    // The task that owns each global, which Control Studio's setup reads (control-studio-runtime-protocol
+    // annex E2.3).
+    for file_id in &frontend.file_ids {
+        for global in frontend.project.database().global_owners(*file_id).iter() {
+            builder.register_global_owner(&global.name, global.owner.clone());
+        }
+    }
 
     for idx in 0..frontend.parses.len() {
         let catalog = frontend.declaration_catalogs[idx].as_ref();

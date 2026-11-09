@@ -124,6 +124,86 @@ END_CONFIGURATION
     std::fs::remove_dir_all(root).expect("remove temp dir");
 }
 
+/// Specification 35 B1.3 (protocol annex E2.3; the CODESYS toolkit's S9): the catalog states each global's owner with its symbols,
+/// a member of a global with its global's, so that setup refuses up front what a loop's task may not write. Worked from the
+/// source: `Main`, which `MainTask` runs, alone writes `GVL_IO.lrValve` and the field of `GVL_IO.ptPos`; `Slow`, in `SlowTask`,
+/// writes `GVL_IO.lrSlow`; no program writes `GVL_Par.lrKp`; the function block `FB_Drive` writes `GVL_IO.lrBlock`; `P1.Local` is
+/// a program's member. Catches an owner left out, one given to a program's member, and a global's member without its global's.
+#[test]
+fn control_symbols_state_each_globals_owner() {
+    let (root, context) = control_project(
+        "trustlsp-control-owners",
+        r#"
+TYPE Point : STRUCT X : LREAL; END_STRUCT END_TYPE
+
+NAMESPACE GVL_IO
+VAR_GLOBAL
+    lrValve : LREAL;
+    lrSlow : LREAL;
+    lrBlock : LREAL;
+    ptPos : Point;
+END_VAR
+END_NAMESPACE
+
+NAMESPACE GVL_Par
+VAR_GLOBAL
+    lrKp : LREAL := 2.0;
+END_VAR
+END_NAMESPACE
+
+FUNCTION_BLOCK FB_Drive
+GVL_IO.lrBlock := 1.0;
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR Local : LREAL; Drive : FB_Drive; END_VAR
+GVL_IO.lrValve := GVL_Par.lrKp * 2.0;
+GVL_IO.ptPos.X := 1.0;
+Local := GVL_IO.lrSlow;
+Drive();
+END_PROGRAM
+
+PROGRAM Slow
+GVL_IO.lrSlow := 1.0;
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE Res ON PLC
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    TASK SlowTask(INTERVAL := T#500ms, PRIORITY := 2);
+    PROGRAM P1 WITH MainTask : Main;
+    PROGRAM P2 WITH SlowTask : Slow;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    let result = hmi_bindings_value_with_context(&context, Vec::new())
+        .expect("compiled bindings response");
+    let symbols = result["controlSymbols"]["symbols"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let entry = |symbol: &str| {
+        symbols
+            .iter()
+            .find(|entry| entry["symbol"] == symbol)
+            .cloned()
+            .unwrap_or_else(|| panic!("{symbol} is listed: {symbols:?}"))
+    };
+    let task = |name: &str| json!({ "kind": "task", "task": name });
+    assert_eq!(entry("GVL_IO.lrValve")["owner"], task("MainTask"));
+    assert_eq!(entry("GVL_IO.ptPos.X")["owner"], task("MainTask"));
+    assert_eq!(entry("GVL_IO.lrSlow")["owner"], task("SlowTask"));
+    assert_eq!(entry("GVL_Par.lrKp")["owner"], json!({ "kind": "unwritten" }));
+    assert_eq!(entry("GVL_IO.lrBlock")["owner"], json!({ "kind": "shared" }));
+    assert!(
+        entry("P1.Local").get("owner").is_none(),
+        "a program's member has no owner: {:?}",
+        entry("P1.Local")
+    );
+    std::fs::remove_dir_all(root).expect("remove temp dir");
+}
+
 const KEEP_LESSON: &str = "PROGRAM Main\nVAR\n    Controller : Control.PID;\n    Parameters : Control.PIDParameters := (\n        ProportionalGain := LREAL#1.0,\n        IntegralGain := LREAL#0.2,\n        DerivativeGain := 0.0\n    );\n    Gains : Control.PIDParameters;\nEND_VAR\nController.Configure(Parameters := Parameters);\nEND_PROGRAM\n\nCONFIGURATION Config\nRESOURCE Res ON PLC\n    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM P1 WITH MainTask : Main;\nEND_RESOURCE\nEND_CONFIGURATION\n";
 
 fn keep_value(context: &MockContext, root: &std::path::Path, record: &str, values: Value) -> Value {

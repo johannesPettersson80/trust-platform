@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use super::cascade_loop::{cascade_loop_definition, CascadeLoopDraft};
 use super::catalog::CompiledCatalog;
-use super::discovery::check_enumeration_modes;
+use super::discovery::{check_enumeration_modes, check_global_owners};
 use super::feedforward_loop::{feedforward_loop_definition, FeedforwardLoopDraft};
 use super::group_loop::{group_loop_definition, GroupLoopDraft};
 use super::identify_loop::{identify_loop_definition, IdentifyLoopDraft};
@@ -184,9 +184,11 @@ pub fn plan_setup_save_with_estimator(
         }
     };
     for loop_definition in &loops {
-        check_enumeration_modes(loop_definition, catalog).map_err(|sentence| {
-            Failure::new(&sentence, Cause::Settings, NextAction::OpenLoopSetup)
-        })?;
+        check_enumeration_modes(loop_definition, catalog)
+            .and_then(|()| check_global_owners(loop_definition, catalog))
+            .map_err(|sentence| {
+                Failure::new(&sentence, Cause::Settings, NextAction::OpenLoopSetup)
+            })?;
     }
     loops
         .into_iter()

@@ -339,6 +339,7 @@ fn a_cascades_enumeration_modes_are_written_by_their_members() {
             iec_type: "E_Mode".to_string(),
             address: None,
             members: vec!["Off".to_string(), "Manual".to_string(), "Auto".to_string()],
+            owner: None,
         });
     }
     let enumeration = |symbol: &str| -> ModeChoice {

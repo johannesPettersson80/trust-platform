@@ -40,6 +40,33 @@ pub fn symbol_type_conflict(symbol: &str) -> String {
     format!("Compiled symbol {symbol} has conflicting types.")
 }
 
+/// A global the loop writes that the programs of another task write (protocol annex E2.3).
+#[must_use]
+pub fn global_written_by_task(symbol: &str, writer: &str, task: &str) -> String {
+    format!(
+        "{symbol} is a global that task {writer} writes, so the loop's task {task} cannot write it. Run the loop in task {writer}, \
+         or let only the loop's task write {symbol}."
+    )
+}
+
+/// A global the loop writes that only programs outside every task write (protocol annex E2.3).
+#[must_use]
+pub fn global_written_in_background(symbol: &str, task: &str) -> String {
+    format!(
+        "{symbol} is a global that only programs outside every task write, so the loop's task {task} cannot write it. Run the \
+         loop with the background programs, or let only the loop's task write {symbol}."
+    )
+}
+
+/// A global the loop writes that no single task owns (protocol annex E2.3).
+#[must_use]
+pub fn global_without_owner(symbol: &str) -> String {
+    format!(
+        "{symbol} is a global that no single task owns: a function, a function block, a method or a class writes it, or the \
+         programs of several tasks do. Let only the loop's task write {symbol}."
+    )
+}
+
 /// One controller instance has two types (`normalizeCatalog`).
 #[must_use]
 pub fn controller_type_conflict(instance: &str) -> String {

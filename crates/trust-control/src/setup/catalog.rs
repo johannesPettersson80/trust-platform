@@ -53,6 +53,44 @@ pub struct CompiledSymbol {
     /// The members of an enumeration, in declaration order; empty for any other type (A6.1).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub members: Vec<String>,
+    /// The owner of the global the symbol is, or is a member of; absent for a program's member (protocol annex E2.3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<GlobalOwner>,
+}
+
+/// The task that owns a global (specification 35 §17.1; protocol annex E2.3), as the compiler judges who writes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum GlobalOwner {
+    /// The programs of this task alone write the global.
+    Task {
+        /// The task's name.
+        task: String,
+    },
+    /// No program writes the global, so any task may.
+    Unwritten,
+    /// Only programs outside every task write the global: `$background`'s.
+    Background,
+    /// Several tasks, or a function, block, method or class that any task may run, write the global.
+    Shared,
+}
+
+impl GlobalOwner {
+    /// Checks that the task `task` (`$background` for the programs outside every task) may write the global `symbol`, as the
+    /// runtime's operations check it (protocol annex E2.3).
+    ///
+    /// # Errors
+    /// The sentence that names the global, who writes it and the loop's task.
+    pub fn check(&self, symbol: &str, task: &str) -> Result<(), String> {
+        match self {
+            Self::Unwritten => Ok(()),
+            Self::Task { task: writer } if writer.eq_ignore_ascii_case(task) => Ok(()),
+            Self::Background if task == "$background" => Ok(()),
+            Self::Task { task: writer } => Err(texts::global_written_by_task(symbol, writer, task)),
+            Self::Background => Err(texts::global_written_in_background(symbol, task)),
+            Self::Shared => Err(texts::global_without_owner(symbol)),
+        }
+    }
 }
 
 impl CompiledSymbol {
@@ -430,7 +468,8 @@ fn compiled_symbols(entries: &[Value]) -> Result<Vec<CompiledSymbol>, Failure> {
     Ok(symbols)
 }
 
-/// A control symbol with its path and IEC type, its address when it has one, and an enumeration's members (`decodeCompiledCatalog`).
+/// A control symbol with its path and IEC type, its address when it has one, an enumeration's members and a global's owner
+/// (`decodeCompiledCatalog`).
 fn compiled_symbol(entry: &Value) -> Option<CompiledSymbol> {
     let object = entry.as_object()?;
     Some(CompiledSymbol {
@@ -448,7 +487,23 @@ fn compiled_symbol(entry: &Value) -> Option<CompiledSymbol> {
                     .collect()
             })
             .unwrap_or_default(),
+        owner: object.get("owner").and_then(global_owner),
     })
+}
+
+/// A symbol's owner as the catalog states it (protocol annex E2.3). A malformed owner is dropped, so the symbol is taken as a
+/// program's member, and the runtime's operation still checks it.
+fn global_owner(value: &Value) -> Option<GlobalOwner> {
+    let object = value.as_object()?;
+    match object.get("kind")?.as_str()? {
+        "task" => Some(GlobalOwner::Task {
+            task: text(object, "task")?,
+        }),
+        "unwritten" => Some(GlobalOwner::Unwritten),
+        "background" => Some(GlobalOwner::Background),
+        "shared" => Some(GlobalOwner::Shared),
+        _ => None,
+    }
 }
 
 /// The controller instances, in order. An instance listed twice must have one type; an instance whose task has no name or no

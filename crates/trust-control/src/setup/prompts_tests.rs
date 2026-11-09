@@ -20,6 +20,7 @@ fn symbol(name: &str, iec_type: &str) -> CompiledSymbol {
         iec_type: iec_type.into(),
         address: None,
         members: Vec::new(),
+        owner: None,
     }
 }
 
