@@ -11,9 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value as JsonValue};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
-use trust_runtime_core::native::image::{
-    Image, OWNER_BACKGROUND, OWNER_LAST_TASK, OWNER_UNWRITTEN,
-};
+use trust_runtime_core::native::image::Image;
 use trust_runtime_core::native::memory::Place;
 
 /// A transfer's planned writes (destination, value before, value to write, refusal text),
@@ -264,7 +262,13 @@ fn check_member_owner(
     if program_facts::binding_leaf(image, symbol).is_none()
         && let Some((_, owner)) = program_facts::global_leaf(image, symbol)
     {
-        return check_global_owner(binding, image, symbol, owner);
+        return program_facts::check_global_owner(
+            image,
+            "transfer member",
+            symbol,
+            owner,
+            &binding.task_name,
+        );
     }
     let root = root(symbol)?;
     match program {
@@ -275,42 +279,6 @@ fn check_member_owner(
         None => *program = Some(root.to_string()),
     }
     check_owner(binding, tasks, symbol)
-}
-
-/// Whether the declared task owns the global `symbol` whose owner byte is `owner`: one that no
-/// program writes is any task's, one that only programs outside every task write is `$background`'s,
-/// and one that the programs of a task write is that task's. A global with no owner is no task's.
-fn check_global_owner(
-    binding: &Binding,
-    image: &Image<'_>,
-    symbol: &str,
-    owner: u8,
-) -> Result<(), String> {
-    let task = binding.task_name.as_str();
-    match owner {
-        OWNER_UNWRITTEN => Ok(()),
-        OWNER_BACKGROUND if task == "$background" => Ok(()),
-        OWNER_BACKGROUND => Err(format!(
-            "transfer member {symbol} is a global that only programs outside every task write, not \
-             the loop's task {task}"
-        )),
-        1..=OWNER_LAST_TASK => {
-            let writer =
-                program_facts::task_name(image, usize::from(owner) - 1).unwrap_or_default();
-            if writer.eq_ignore_ascii_case(task) {
-                Ok(())
-            } else {
-                Err(format!(
-                    "transfer member {symbol} is a global that task {writer} writes, not the \
-                     loop's task {task}"
-                ))
-            }
-        }
-        _ => Err(format!(
-            "transfer member {symbol} is a global that no single task owns: a function, a \
-             function block, a method or a class writes it, or the programs of several tasks do"
-        )),
-    }
 }
 
 fn check_owner(binding: &Binding, tasks: &[ProgramTask], symbol: &str) -> Result<(), String> {

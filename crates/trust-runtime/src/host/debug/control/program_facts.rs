@@ -9,8 +9,8 @@ use std::time::Duration;
 use smol_str::SmolStr;
 use trust_runtime_core::native::image::{
     EntryKind, EntryRecord, Image, IoBindRecord, SymbolRecord, TaskRecord, TypeRecord,
-    BACKGROUND_PRIORITY, BIND_OFFSET_SHIFT, NONE, SYMBOL_CONSTANT, SYMBOL_DIRECT, SYMBOL_IN_OUT,
-    SYMBOL_PROGRAM,
+    BACKGROUND_PRIORITY, BIND_OFFSET_SHIFT, NONE, OWNER_BACKGROUND, OWNER_LAST_TASK,
+    OWNER_UNWRITTEN, SYMBOL_CONSTANT, SYMBOL_DIRECT, SYMBOL_IN_OUT, SYMBOL_PROGRAM,
 };
 use trust_runtime_core::native::memory::Place;
 
@@ -176,10 +176,50 @@ pub(crate) fn task_name(image: &Image<'_>, index: usize) -> Option<SmolStr> {
     Some(SmolStr::new(image.string(task.name)?))
 }
 
-/// Whether `path` names a member a parameter set or an experiment may write: declared, and neither
-/// constant, in-out nor located along its path (specification 35 A6.8; protocol annex E7.1).
+/// Whether `path` names a member a parameter set or an experiment may write: declared, a program's
+/// member or a global (protocol annex E2.3), and neither constant, in-out nor located along its path
+/// (specification 35 A6.8; protocol annex E7.1).
 pub(crate) fn parameter_writable(image: &Image<'_>, path: &str) -> bool {
-    binding_leaf(image, path).is_some_and(|leaf| !leaf.constant && !leaf.in_out && !leaf.direct)
+    binding_leaf(image, path)
+        .or_else(|| global_leaf(image, path).map(|(leaf, _)| leaf))
+        .is_some_and(|leaf| !leaf.constant && !leaf.in_out && !leaf.direct)
+}
+
+/// Whether `task` owns the global `symbol`, whose owner byte is `owner` (protocol annex E2.3;
+/// specification 44 §5.7): one that no program writes is any task's, one that only programs outside
+/// every task write is `$background`'s, and one that the programs of a task write is that task's. A
+/// global with no owner is no task's. The refusal names the global as `what`, a transfer member or
+/// a parameter.
+pub(crate) fn check_global_owner(
+    image: &Image<'_>,
+    what: &str,
+    symbol: &str,
+    owner: u8,
+    task: &str,
+) -> Result<(), String> {
+    match owner {
+        OWNER_UNWRITTEN => Ok(()),
+        OWNER_BACKGROUND if task == "$background" => Ok(()),
+        OWNER_BACKGROUND => Err(format!(
+            "{what} {symbol} is a global that only programs outside every task write, not the \
+             loop's task {task}"
+        )),
+        1..=OWNER_LAST_TASK => {
+            let writer = task_name(image, usize::from(owner) - 1).unwrap_or_default();
+            if writer.eq_ignore_ascii_case(task) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "{what} {symbol} is a global that task {writer} writes, not the loop's task \
+                     {task}"
+                ))
+            }
+        }
+        _ => Err(format!(
+            "{what} {symbol} is a global that no single task owns: a function, a function block, \
+             a method or a class writes it, or the programs of several tasks do"
+        )),
+    }
 }
 
 /// Every process-image binding of the image (specification 44 §5.6): the place of the variable,

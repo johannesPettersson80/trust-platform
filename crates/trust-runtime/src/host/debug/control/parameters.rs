@@ -237,7 +237,7 @@ fn hash(value: impl std::fmt::Debug) -> String {
 }
 /// Checks a binding against the program of `image` (E7.1): its parameters are writable members, and
 /// every member belongs to a program instance that its declared task runs, or that no task runs for
-/// `$background`.
+/// `$background`, or is a global that its declared task owns (E2.3).
 fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
     if binding.loop_id.trim().is_empty()
         || binding.parameters.is_empty()
@@ -268,12 +268,18 @@ fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
             return Err("invalid parameter type, units, convention or bounds".into());
         }
     }
-    for symbol in binding
+    for (symbol, what) in binding
         .parameters
         .iter()
-        .map(|p| p.symbol.as_str())
-        .chain(std::iter::once(binding.mode.symbol.as_str()))
+        .map(|p| (p.symbol.as_str(), "parameter"))
+        .chain(std::iter::once((binding.mode.symbol.as_str(), "mode")))
     {
+        if program_facts::binding_leaf(image, symbol).is_none()
+            && let Some((_, owner)) = program_facts::global_leaf(image, symbol)
+        {
+            program_facts::check_global_owner(image, what, symbol, owner, &binding.task_name)?;
+            continue;
+        }
         let root = symbol.split('.').next().unwrap_or_default();
         if !program_facts::is_program_instance(image, root) {
             return Err("parameter root is not a compiled program".into());

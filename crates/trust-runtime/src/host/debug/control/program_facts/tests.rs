@@ -95,3 +95,56 @@ fn the_tasks_name_their_intervals_and_their_program_instances() {
         assert!(source_revision(&image).starts_with("sha256:"));
     });
 }
+
+/// Globals, a GVL's included, for the checks that parameter sets, experiments and searches share
+/// (protocol annex E2.3).
+const GLOBAL_FACTS_SOURCE: &str = r#"
+NAMESPACE GVL_Par
+VAR_GLOBAL
+    lrKp : LREAL := 2.0;
+    lrKd : LREAL;
+END_VAR
+VAR_GLOBAL CONSTANT
+    lrFixed : LREAL := 1.0;
+END_VAR
+END_NAMESPACE
+VAR_GLOBAL
+    gWired AT %MD4 : DINT;
+END_VAR
+PROGRAM Loop
+GVL_Par.lrKd := GVL_Par.lrKp;
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Cell ON PLC
+    TASK Fast(INTERVAL := T#10ms, PRIORITY := 1);
+    TASK Slow(INTERVAL := T#250ms, PRIORITY := 2);
+    PROGRAM L1 WITH Fast : Loop;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+
+/// Protocol annex E2.3: a global is writable as a program's member is, unless it is constant or
+/// located, and its owner byte names the task that may write it. Worked from the source: no program
+/// writes `lrKp`, so any task owns it; `Loop` in task `Fast` writes `lrKd`, so a loop in `Slow` may
+/// not; `lrFixed` is constant and `gWired` is located. Catches a GVL member refused as no program's
+/// member (the searches' and experiments' check), a constant or located global taken for writable,
+/// and a global another task writes taken for the loop's own.
+#[test]
+fn a_global_is_writable_as_a_member_is_and_belongs_to_the_task_that_writes_it() {
+    let harness =
+        TestHarness::from_source(GLOBAL_FACTS_SOURCE).expect("compile the globals fixture");
+    harness.runtime().with_program_view(|program| {
+        let image = program.program_image();
+        assert!(parameter_writable(&image, "GVL_Par.lrKp"));
+        assert!(parameter_writable(&image, "GVL_Par.lrKd"));
+        assert!(!parameter_writable(&image, "GVL_Par.lrFixed"), "constant");
+        assert!(!parameter_writable(&image, "gWired"), "located");
+        let owner = |path: &str| global_leaf(&image, path).expect("a global").1;
+        assert_eq!(check_global_owner(&image, "parameter", "GVL_Par.lrKp", owner("GVL_Par.lrKp"), "Slow"), Ok(()));
+        assert_eq!(check_global_owner(&image, "parameter", "GVL_Par.lrKd", owner("GVL_Par.lrKd"), "Fast"), Ok(()));
+        assert_eq!(
+            check_global_owner(&image, "parameter", "GVL_Par.lrKd", owner("GVL_Par.lrKd"), "Slow"),
+            Err("parameter GVL_Par.lrKd is a global that task Fast writes, not the loop's task Slow".into())
+        );
+    });
+}
