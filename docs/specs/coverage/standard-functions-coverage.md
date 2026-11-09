@@ -330,6 +330,7 @@ Runtime note:
 - [x] ASSERT_GREATER_OR_EQUAL
 - [x] ASSERT_LESS_OR_EQUAL
 - [x] ASSERT_NEAR
+- [x] TEST_FINISHED (specification 22, "Multi-cycle tests": marks a multi-cycle test finished at the end of its cycle)
 
 Runtime assertion note:
 - [x] Native tests assert success-`Null`, `AssertionFailed`, mixed-numeric
@@ -409,5 +410,6 @@ the runtime in lockstep and compares every result and every fault. Compiled toda
   long forms) and the conversions between the date and time types.
 - The assertion functions of the non-IEC extensions (MP-014) on scalars (`ASSERT_TRUE`,
   `ASSERT_FALSE`, `ASSERT_EQUAL`, `ASSERT_NOT_EQUAL`, `ASSERT_GREATER`, `ASSERT_LESS`,
-  `ASSERT_GREATER_OR_EQUAL`, `ASSERT_LESS_OR_EQUAL`, `ASSERT_NEAR`), with the runtime's messages.
+  `ASSERT_GREATER_OR_EQUAL`, `ASSERT_LESS_OR_EQUAL`, `ASSERT_NEAR`), with the runtime's messages, and
+  `TEST_FINISHED`, which sets the test build's finished mark and does nothing in a production build.
 - Not yet: `WSTRING` and `WCHAR` texts, and assertions of texts.

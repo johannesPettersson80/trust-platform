@@ -226,21 +226,25 @@ END_PROGRAM
         partial_result_params: Default::default(),
     };
     let response = document_symbol(&state, params).expect("document symbols");
-    let symbols = match response {
-        tower_lsp::lsp_types::DocumentSymbolResponse::Flat(symbols) => symbols,
-        tower_lsp::lsp_types::DocumentSymbolResponse::Nested(_) => {
-            panic!("expected flat document symbols")
-        }
+    let tower_lsp::lsp_types::DocumentSymbolResponse::Nested(outline) = response else {
+        panic!("expected the outline as a tree (specification 14 §6.3.3)")
     };
-    let names: Vec<String> = symbols.iter().map(|symbol| symbol.name.clone()).collect();
-    assert!(names.iter().any(|name| name.contains("Conf")));
-    assert!(names.iter().any(|name| name.contains("R")));
-    assert!(names.iter().any(|name| name.contains("Fast")));
-    assert!(names.iter().any(|name| name.contains("P1")));
-
-    let task_container = symbols
+    let configuration = outline
         .iter()
-        .find(|symbol| symbol.name.contains("Fast"))
-        .and_then(|symbol| symbol.container_name.clone());
-    assert_eq!(task_container.as_deref(), Some("R"));
+        .find(|entry| entry.name.starts_with("Conf"))
+        .expect("the configuration at the top");
+    let resource = configuration
+        .children
+        .iter()
+        .flatten()
+        .find(|entry| entry.name.starts_with("R "))
+        .expect("the resource under its configuration");
+    let names: Vec<&str> = resource
+        .children
+        .iter()
+        .flatten()
+        .map(|entry| entry.name.as_str())
+        .collect();
+    assert_eq!(names, ["Fast (TASK)", "P1 (PROGRAM)"]);
+    assert!(outline.iter().any(|entry| entry.name.starts_with("Main")));
 }

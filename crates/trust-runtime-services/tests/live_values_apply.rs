@@ -232,6 +232,7 @@ fn applying_writes_and_forces_allocates_nothing_when_nothing_is_refused() {
     let (result, after_inputs) = counted(|| {
         apply::compiled_images(
             &mut queues,
+            Generation::FIRST,
             &[IoArea::Input, IoArea::Memory],
             &mut program,
             now,
@@ -242,6 +243,7 @@ fn applying_writes_and_forces_allocates_nothing_when_nothing_is_refused() {
     let (result, before_outputs) = counted(|| {
         apply::compiled_images(
             &mut queues,
+            Generation::FIRST,
             &[IoArea::Output],
             &mut program,
             now,

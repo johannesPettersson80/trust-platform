@@ -9,8 +9,8 @@
 use std::path::{Path, PathBuf};
 
 use smol_str::SmolStr;
-use trust_hir::test_pous::test_kind;
-pub use trust_hir::test_pous::TestKind;
+use trust_hir::test_pous::{test_cycles, test_kind};
+pub use trust_hir::test_pous::{TestCycles, TestKind};
 use trust_syntax::parser;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
@@ -29,6 +29,8 @@ pub struct DiscoveredTest {
     pub line: usize,
     /// The trimmed text of that line, unless it is empty.
     pub source_line: Option<String>,
+    /// The cycles of a multi-cycle test (specification 22, "Multi-cycle tests"); `None` for a test that runs its body once.
+    pub cycles: Option<TestCycles>,
 }
 
 /// The test declarations of `sources` (each a file and its text), ordered by file, declaration
@@ -62,6 +64,7 @@ pub fn discover_tests<'a>(
                 byte_offset,
                 line: line_for_offset(text, byte_offset as usize),
                 source_line: source_line_for_offset(text, byte_offset as usize),
+                cycles: test_cycles(&node),
             });
         }
     }

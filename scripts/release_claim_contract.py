@@ -14,12 +14,12 @@ from typing import Any, Callable
 
 try:
     from scripts import check_npm_audit, release_plan
-    from scripts.check_dependency_exceptions import validate_file
+    from scripts.check_dependency_exceptions import GHSA_ID, validate_file
     from scripts.release_evidence_contract import ReleaseEvidenceError
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     import check_npm_audit  # type: ignore[no-redef]
     import release_plan  # type: ignore[no-redef]
-    from check_dependency_exceptions import validate_file  # type: ignore[no-redef]
+    from check_dependency_exceptions import GHSA_ID, validate_file  # type: ignore[no-redef]
     from release_evidence_contract import ReleaseEvidenceError  # type: ignore[no-redef]
 
 
@@ -240,20 +240,18 @@ def audit_artifact_provenance() -> dict[str, Any]:
 
 
 def audit_dependency_policy() -> dict[str, Any]:
-    rows = validate_file(ROOT / "deny.toml", today=date_from_environment())
+    # Both exception lists under the owned-exception policy, and the VS Code audit wired into CI and the release build
+    # (specification 24, "Dependency Exceptions"). No registry is read: the live audits are CI's and the release
+    # build's, so a runner's failed name lookup cannot fail this trace.
+    today = date_from_environment()
+    rows = validate_file(ROOT / "deny.toml", today=today)
+    owned = validate_file(ROOT / check_npm_audit.EXCEPTIONS, today=today, id_pattern=GHSA_ID)
     for workflow in (".github/workflows/ci.yml", ".github/workflows/release.yml"):
         _require(_text(workflow), ["scripts/check_npm_audit.py"], f"VS Code dependency audit wiring in {workflow}")
-    # The VS Code lockfile follows the same owned-exception policy (specification 24, "Dependency Exceptions").
-    unowned, _stale, owned = check_npm_audit.findings(
-        check_npm_audit.run_audit(ROOT), ROOT, date_from_environment()
-    )
-    if unowned:
-        raise ReleaseEvidenceError("VS Code dependency audit: " + "; ".join(unowned))
     return {
         "rust_exceptions": len(rows),
-        "vscode_exceptions": owned,
+        "vscode_exceptions": len(owned),
         "max_days": 90,
-        "vscode_unowned_advisories": 0,
     }
 
 

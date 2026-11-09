@@ -2228,9 +2228,11 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
 4. **Deploy permission:** the runtime's administrator access (as for the project deploy), or an
    HMI session with the Engineer role. Each deploy and rollback, refused or done, goes to the
    audit log with who, the versions and the outcome.
-5. **Old browsers:** the value stream sends `{ "bundle": "<version>" }` when the active version
-   changes. A page drawn from another version tells the user to reload, and its commands are
-   refused as out of date.
+5. **Old browsers:** the value stream sends `{ "bundle": "<version>" }` with the active version
+   when it opens, after the expected update period and the session, and again whenever the active
+   version changes. A page therefore learns of a bundle activated between loading the page and
+   opening its stream (8 November 2026: a deployment in that moment was never told). A page drawn
+   from another version tells the user to reload, and its commands are refused as out of date.
 6. **Program changes:** a program deployment through the runtime (`POST /api/deploy` with new
    sources) checks the active bundle's bindings against the new program before it writes
    anything:

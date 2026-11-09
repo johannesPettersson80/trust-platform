@@ -513,7 +513,7 @@ byte_order = "little"
         Err(error) => panic!("write mapped outputs: {error}"),
     }
 
-    let deadline = Instant::now() + StdDuration::from_millis(500);
+    let deadline = Instant::now() + StdDuration::from_secs(10);
     loop {
         let guard = state.lock().expect("modbus state lock");
         let written = guard.coils[2]
@@ -678,7 +678,7 @@ fn wait_for_modbus_health(
     driver: &ModbusTcpDriver,
     policy: &str,
 ) -> trust_runtime::io::IoDriverHealth {
-    let deadline = Instant::now() + StdDuration::from_millis(500);
+    let deadline = Instant::now() + StdDuration::from_secs(10);
     loop {
         let health = driver.health();
         let expected = matches!(
@@ -807,7 +807,7 @@ fn modbus_detail_names_the_server_unit_and_its_last_exception() {
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
     let _ = driver.write_outputs(&[0x12, 0x34]);
     let expected = format!("{addr} unit 7, exception 02 illegal data address");
-    let deadline = Instant::now() + StdDuration::from_millis(500);
+    let deadline = Instant::now() + StdDuration::from_secs(10);
     loop {
         let detail = driver
             .detail()

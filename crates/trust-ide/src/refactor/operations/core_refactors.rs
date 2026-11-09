@@ -169,7 +169,7 @@ pub fn inline_symbol(db: &Database, file_id: FileId, position: TextSize) -> Opti
         return None;
     }
 
-    if references.iter().any(|reference| reference.is_write) {
+    if references.iter().any(|reference| reference.is_write()) {
         return None;
     }
 

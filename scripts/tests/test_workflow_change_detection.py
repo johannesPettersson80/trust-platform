@@ -71,7 +71,9 @@ class WorkflowChangeDetectionTests(unittest.TestCase):
                     self.assertEqual(step.get("env", {}).get("GH_TOKEN"), "${{ github.token }}", f"{path.name} {name}")
                     permissions = job.get("permissions", load(path).get("permissions", {}))
                     self.assertEqual(permissions.get("actions"), "read", f"{path.name} {name}")
-        self.assertEqual(sorted(detecting), ["demo-pages.yml", "diagrams.yml", "docs-captures.yml"])
+        self.assertEqual(
+            sorted(detecting), ["demo-pages.yml", "diagrams.yml", "docs-captures.yml", "web-ide-performance.yml"]
+        )
 
     def test_every_pull_request_workflow_runs_in_the_merge_queue_as_on_a_pull_request(self) -> None:
         # Specification 22, "Change and release workflow": the merge queue runs a pull request's checks
