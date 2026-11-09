@@ -11,7 +11,7 @@ use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use smol_str::SmolStr;
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::{collect_project_source_files, resolve_sources_root};
+use trust_runtime::bundle_builder::resolve_sources_root;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::test_discovery::{DiscoveredTest, TestCycles, TestKind};
 
@@ -44,6 +44,10 @@ mod failed_at_tests;
 #[cfg(test)]
 #[path = "test_cmd/assertion_values_tests.rs"]
 mod assertion_values_tests;
+
+#[cfg(test)]
+#[path = "test_cmd/test_build_tests.rs"]
+mod test_build_tests;
 
 pub(crate) fn run_test_json(
     project: Option<PathBuf>,

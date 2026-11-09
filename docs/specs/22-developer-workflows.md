@@ -206,7 +206,10 @@ runs, as a debug or a release image as the project's `[build] debug` chooses
 (specification 44 §13.2). They need the toolchain of specification 44 §4.6,
 named by `TRUST_TOOLCHAIN` or installed; without it the command fails with the
 advice to install it. A project with a construct the native build does not
-compile yet fails with the build's diagnostic. With `--device <port> --target <target>` they run
+compile yet fails with the build's diagnostic. The image labels each source file
+by its path relative to the project folder, as `trust-runtime build` labels it
+(specification 44 §5.3), so a diagnostic names `src/tests.st:3` and the image
+holds no path of this computer. With `--device <port> --target <target>` they run
 on that device instead: the same image, compiled for the target, is installed
 once over the device's control link, and each selected test runs by one
 `cycle.step` that restarts the program cold and runs its test program's body
