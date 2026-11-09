@@ -87,7 +87,10 @@ fn agreed_in_terminal() -> bool {
          tools, or is downloaded once (about 180 to 210 MB), and takes about 630 MB in {folder}. \
          Install it now? [y/N] "
     );
-    let _ = std::io::stderr().flush();
+    // A question the person may not see is not asked: decline, as without a terminal.
+    if std::io::stderr().flush().is_err() {
+        return false;
+    }
     let mut answer = String::new();
     if std::io::stdin().lock().read_line(&mut answer).is_err() {
         return false;
