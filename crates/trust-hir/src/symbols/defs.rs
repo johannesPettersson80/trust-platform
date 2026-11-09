@@ -235,6 +235,12 @@ pub struct SymbolModifiers {
     pub qualified_only: bool,
     /// `{attribute 'strict'}`: an enumeration type keeps CODESYS's strict programming rules.
     pub strict: bool,
+    /// `{attribute 'hide'}` on the declaration, or `{attribute 'hide_all_locals'}` on the POU that
+    /// holds a local: completion does not offer the symbol, which code may still name
+    /// (specification 14 §6.1.2).
+    pub hidden: bool,
+    /// `{attribute 'hide_all_locals'}` on a POU: its `VAR` locals are hidden.
+    pub hides_locals: bool,
 }
 
 /// Edge transformation applied to an accepted `VAR_INPUT BOOL` declaration.

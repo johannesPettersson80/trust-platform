@@ -170,6 +170,7 @@ fn image() -> Vec<u8> {
                 area,
                 flags,
                 noinit: false,
+                hidden: false,
                 offset,
                 size,
                 parent,

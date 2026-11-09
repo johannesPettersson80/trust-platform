@@ -233,3 +233,28 @@ fn an_installed_bundle_builds_for_every_module_target() {
     }
     assert!(Path::new(&installed).join("manifest.json").is_file());
 }
+
+/// Specification 44 NX-08 (the CODESYS toolkit's B7): a build that needs the toolchain and finds
+/// none installs nothing silently. Without a terminal and without `--install-toolchain` it fails
+/// with the advice to run `trust-runtime toolchain install` or to build with the flag, and creates
+/// no toolchains folder. Catches the old first build, which downloaded about 200 MB without asking.
+#[test]
+fn a_build_without_a_terminal_installs_no_toolchain_unasked() {
+    let fixture = Fixture::new();
+    let project = fixture.project();
+    let output = fixture.run(&[os("build"), os("--project"), project.as_os_str()], None);
+    assert!(!output.status.success(), "{}", failure(&output));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("is not installed: `trust-runtime toolchain install` installs it")
+            && stderr.contains("or build again with `--install-toolchain`"),
+        "{}",
+        failure(&output)
+    );
+    assert!(
+        !stderr.contains("Downloading the truST toolchain"),
+        "{}",
+        failure(&output)
+    );
+    assert!(!fixture.trust_data().join("toolchains").exists());
+}

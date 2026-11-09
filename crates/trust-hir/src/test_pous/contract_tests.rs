@@ -115,21 +115,24 @@ fn a_test_program_is_multi_cycle_when_it_calls_test_finished_or_names_its_cycles
         cycles("TEST_PROGRAM T\nIF TRUE THEN test_finished(); END_IF\nEND_TEST_PROGRAM"),
         Some(TestCycles {
             cycle_ns: 10_000_000,
-            max_cycles: 10_000
+            max_cycles: 10_000,
+            simulation: false,
         })
     );
     assert_eq!(
         cycles("{attribute 'test_cycle' := 'T#100ms'}\nTEST_PROGRAM T\nEND_TEST_PROGRAM"),
         Some(TestCycles {
             cycle_ns: 100_000_000,
-            max_cycles: 10_000
+            max_cycles: 10_000,
+            simulation: false,
         })
     );
     assert_eq!(
         cycles("{attribute 'test'}\n{attribute 'test_max_cycles' := '50'}\nPROGRAM P\nEND_PROGRAM"),
         Some(TestCycles {
             cycle_ns: 10_000_000,
-            max_cycles: 50
+            max_cycles: 50,
+            simulation: false,
         })
     );
     assert_eq!(
@@ -173,5 +176,36 @@ fn a_test_attribute_that_does_not_read_or_belongs_to_no_test_program_is_refused(
         errors("{attribute 'test_cycle' := 'T#1h'}\n{attribute 'test_max_cycles' := '10000000'}\nTEST_PROGRAM T\nEND_TEST_PROGRAM"),
         Vec::<String>::new(),
         "the largest values read"
+    );
+}
+
+/// Specification 22, "A plant in the loop": `{attribute 'test_simulation'}` makes a test program multi-cycle at the defaults, with
+/// the project's simulation in lockstep; it takes no value and belongs to a test program. Catches the flag ignored (the test run
+/// once without its plant), a value accepted, and the flag accepted on a production program.
+#[test]
+fn test_simulation_makes_a_test_multi_cycle_with_its_simulation_and_takes_no_value() {
+    assert_eq!(
+        test_cycles(&first_pou(
+            "{attribute 'test_simulation'}\nTEST_PROGRAM T\nEND_TEST_PROGRAM"
+        )),
+        Some(TestCycles {
+            cycle_ns: 10_000_000,
+            max_cycles: 10_000,
+            simulation: true,
+        })
+    );
+    let errors = |source: &str| -> Vec<String> {
+        test_attribute_errors(&first_pou(source))
+            .into_iter()
+            .map(|(_, message)| message)
+            .collect()
+    };
+    assert_eq!(
+        errors("{attribute 'test_simulation' := 'tank'}\nTEST_PROGRAM T\nEND_TEST_PROGRAM"),
+        ["{attribute 'test_simulation'} is 'tank', not given without a value"]
+    );
+    assert_eq!(
+        errors("{attribute 'test_simulation'}\nPROGRAM P\nEND_PROGRAM"),
+        ["{attribute 'test_simulation'} belongs to a test program"]
     );
 }

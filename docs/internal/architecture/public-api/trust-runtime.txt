@@ -2843,8 +2843,12 @@ pub fn trust_runtime::device_link::DeviceLink::stop(&mut self) -> core::result::
 pub fn trust_runtime::device_link::DeviceLink::version_advice(&self) -> core::option::Option<&trust_runtime_client::version::VersionAdvice>
 pub fn trust_runtime::device_link::DeviceLink::wait_for(&mut self, wanted: &str) -> core::result::Result<(), trust_runtime::device_link::DeviceLinkError>
 pub const trust_runtime::device_link::REPLY_WAIT: core::time::Duration
+pub fn trust_runtime::device_link::decode_value(encoded: &serde_json::value::Value) -> core::result::Result<trust_runtime_core::value::types::Value, alloc::string::String>
+pub fn trust_runtime::device_link::encode_value(value: &trust_runtime_core::value::types::Value) -> serde_json::value::Value
 pub fn trust_runtime::device_link::install_wait(bytes: usize) -> core::time::Duration
+pub fn trust_runtime::device_link::parse_typed_value(raw: &str) -> core::result::Result<trust_runtime_core::value::types::Value, alloc::string::String>
 pub fn trust_runtime::device_link::stepping_container(image: &[u8], work: &std::path::Path) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime::device_link::DeviceLinkError>
+pub fn trust_runtime::device_link::typed_value_text(value: &trust_runtime_core::value::types::Value) -> core::result::Result<alloc::string::String, alloc::string::String>
 pub mod trust_runtime::discovery
 pub struct trust_runtime::discovery::DiscoveryEntry
 pub trust_runtime::discovery::DiscoveryEntry::addresses: alloc::vec::Vec<core::net::ip_addr::IpAddr>
@@ -3848,7 +3852,10 @@ pub use trust_runtime::native::Device
 pub use trust_runtime::native::NativeProgram
 pub use trust_runtime::native::NoHooks
 pub use trust_runtime::native::ScanHooks
+pub use trust_runtime::native::StatementAt
 pub use trust_runtime::native::Target
+pub use trust_runtime::native::assertion_json
+pub use trust_runtime::native::fault_at
 pub mod trust_runtime::native::bundle
 pub enum trust_runtime::native::bundle::Progress
 pub trust_runtime::native::bundle::Progress::Download
@@ -3934,7 +3941,6 @@ impl trust_runtime::native::Toolchain
 pub fn trust_runtime::native::Toolchain::at(root: &std::path::Path) -> core::result::Result<Self, trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::compile(&self, source: &str, target: trust_runtime_core::native::image::Target, entries: &[alloc::string::String], work: &std::path::Path) -> core::result::Result<(alloc::vec::Vec<u8>, alloc::string::String), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::find() -> core::result::Result<Self, trust_runtime::native::NativeError>
-pub fn trust_runtime::native::Toolchain::find_or_install(report: &mut dyn core::ops::function::FnMut(trust_runtime::native::bundle::Progress)) -> core::result::Result<Self, trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::locate() -> core::result::Result<(Self, trust_runtime::native::ToolchainSource), trust_runtime::native::NativeError>
 pub fn trust_runtime::native::Toolchain::program_library(&self, target: trust_runtime_core::native::image::Target) -> core::result::Result<alloc::string::String, trust_runtime::native::NativeError>
 pub const trust_runtime::native::PROGRAM_IMAGE_FILE: &str
@@ -4714,6 +4720,7 @@ pub struct trust_runtime::program_model::Param
 pub trust_runtime::program_model::Param::address: core::option::Option<trust_runtime_core::io_address::IoAddress>
 pub trust_runtime::program_model::Param::default: core::option::Option<trust_runtime_core::program_model::expr::Expr>
 pub trust_runtime::program_model::Param::direction: trust_hir::symbols::defs::ParamDirection
+pub trust_runtime::program_model::Param::hidden: bool
 pub trust_runtime::program_model::Param::name: smol_str::SmolStr
 pub trust_runtime::program_model::Param::noinit: bool
 pub trust_runtime::program_model::Param::retain: trust_runtime_core::retain::RetainPolicy
@@ -4726,11 +4733,13 @@ pub struct trust_runtime::program_model::VarDef
 pub trust_runtime::program_model::VarDef::address: core::option::Option<trust_runtime_core::io_address::IoAddress>
 pub trust_runtime::program_model::VarDef::constant: bool
 pub trust_runtime::program_model::VarDef::external: bool
+pub trust_runtime::program_model::VarDef::hidden: bool
 pub trust_runtime::program_model::VarDef::in_out: bool
 pub trust_runtime::program_model::VarDef::init_args: alloc::vec::Vec<trust_runtime::program_model::InitArg>
 pub trust_runtime::program_model::VarDef::initializer: core::option::Option<trust_runtime_core::program_model::expr::Expr>
 pub trust_runtime::program_model::VarDef::instance_path: bool
 pub trust_runtime::program_model::VarDef::name: smol_str::SmolStr
+pub trust_runtime::program_model::VarDef::no_exit: bool
 pub trust_runtime::program_model::VarDef::noinit: bool
 pub trust_runtime::program_model::VarDef::retain: trust_runtime_core::retain::RetainPolicy
 pub trust_runtime::program_model::VarDef::static_storage: bool
@@ -5886,6 +5895,9 @@ pub enum trust_runtime::simulation::PhysicsBackend
 pub trust_runtime::simulation::PhysicsBackend::InTreeRapier
 pub enum trust_runtime::simulation::PhysicsJointKind
 pub trust_runtime::simulation::PhysicsJointKind::Revolute
+pub enum trust_runtime::simulation::ProgramSignal
+pub trust_runtime::simulation::ProgramSignal::Address(trust_runtime_core::io_address::IoAddress)
+pub trust_runtime::simulation::ProgramSignal::Variable(alloc::string::String)
 pub enum trust_runtime::simulation::SimulationDisturbanceKind
 pub trust_runtime::simulation::SimulationDisturbanceKind::Fault
 pub trust_runtime::simulation::SimulationDisturbanceKind::Fault::message: smol_str::SmolStr
@@ -5907,6 +5919,9 @@ pub trust_runtime::simulation::PhysicsJointConfig::kind: trust_runtime::simulati
 pub trust_runtime::simulation::PhysicsJointConfig::lower_rad: f64
 pub trust_runtime::simulation::PhysicsJointConfig::upper_rad: f64
 pub trust_runtime::simulation::PhysicsJointConfig::velocity_rad_per_s: f64
+pub struct trust_runtime::simulation::ProgramSignals
+pub trust_runtime::simulation::ProgramSignals::read: alloc::vec::Vec<trust_runtime::simulation::ProgramSignal>
+pub trust_runtime::simulation::ProgramSignals::written: alloc::vec::Vec<trust_runtime::simulation::ProgramSignal>
 pub struct trust_runtime::simulation::SignalCouplingRule
 pub trust_runtime::simulation::SignalCouplingRule::delay: trust_runtime_core::value::datetime::Duration
 pub trust_runtime::simulation::SignalCouplingRule::on_false: core::option::Option<trust_runtime_core::value::types::Value>
@@ -5924,6 +5939,7 @@ pub trust_runtime::simulation::SimulationConfig::time_scale: u32
 impl trust_runtime::simulation::SimulationConfig
 pub fn trust_runtime::simulation::SimulationConfig::load(path: impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::simulation::SimulationConfig::load_optional(path: impl core::convert::AsRef<std::path::Path>) -> core::result::Result<core::option::Option<Self>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime::simulation::SimulationConfig::program_signals(&self) -> trust_runtime::simulation::ProgramSignals
 impl core::default::Default for trust_runtime::simulation::SimulationConfig
 pub fn trust_runtime::simulation::SimulationConfig::default() -> Self
 pub struct trust_runtime::simulation::SimulationController
@@ -6214,6 +6230,7 @@ pub fn trust_runtime::CompiledRuntime::fault_policy(&self) -> trust_runtime_core
 pub fn trust_runtime::CompiledRuntime::faulted(&self) -> bool
 pub fn trust_runtime::CompiledRuntime::find_variable(&self, name: &str) -> core::result::Result<u32, trust_runtime_core::native::variables::NameError>
 pub fn trust_runtime::CompiledRuntime::last_fault(&self) -> core::option::Option<trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime::CompiledRuntime::leave_program(&mut self) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::CompiledRuntime::load(bytes: alloc::vec::Vec<u8>, resource_name: impl core::convert::Into<smol_str::SmolStr>) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::CompiledRuntime::load_deployed(bytes: alloc::vec::Vec<u8>, resource_name: impl core::convert::Into<smol_str::SmolStr>, budget: u32) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::CompiledRuntime::load_with_statement_budget(bytes: alloc::vec::Vec<u8>, resource_name: impl core::convert::Into<smol_str::SmolStr>, budget: u32) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
@@ -6335,6 +6352,7 @@ pub fn trust_runtime::RuntimeMetadata::background_thread_id(&self) -> core::opti
 pub fn trust_runtime::RuntimeMetadata::classes(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::ClassDef>
 pub fn trust_runtime::RuntimeMetadata::function_blocks(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::FunctionBlockDef>
 pub fn trust_runtime::RuntimeMetadata::functions(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::FunctionDef>
+pub fn trust_runtime::RuntimeMetadata::global_is_hidden(&self, name: &str) -> bool
 pub fn trust_runtime::RuntimeMetadata::has_background_programs(&self) -> bool
 pub fn trust_runtime::RuntimeMetadata::interfaces(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime::program_model::InterfaceDef>
 pub fn trust_runtime::RuntimeMetadata::profile(&self) -> trust_runtime_core::value::datetime::DateTimeProfile

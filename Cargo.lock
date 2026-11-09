@@ -7749,6 +7749,7 @@ dependencies = [
  "trust-lsp",
  "trust-runtime",
  "trust-runtime-core",
+ "trust-runtime-services",
  "trust-syntax",
  "trust-test-support",
  "trust-wasm-analysis",

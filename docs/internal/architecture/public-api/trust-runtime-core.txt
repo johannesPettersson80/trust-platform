@@ -798,6 +798,9 @@ pub trust_runtime_core::native::change::CarriedValueEvent::New
 pub trust_runtime_core::native::change::CarriedValueEvent::New::name: smol_str::SmolStr
 pub trust_runtime_core::native::change::CarriedValueEvent::NotKept
 pub trust_runtime_core::native::change::CarriedValueEvent::NotKept::name: smol_str::SmolStr
+pub struct trust_runtime_core::native::change::ChangeReport
+pub trust_runtime_core::native::change::ChangeReport::events: alloc::vec::Vec<trust_runtime_core::native::change::CarriedValueEvent>
+pub trust_runtime_core::native::change::ChangeReport::faults: alloc::vec::Vec<trust_runtime_core::error::RuntimeError>
 pub const trust_runtime_core::native::change::MAX_CARRIED_VALUE_EVENTS: usize
 pub fn trust_runtime_core::native::change::carry(old: &dyn trust_runtime_core::native::memory::ProgramMemory, new: &mut dyn trust_runtime_core::native::memory::ProgramMemory) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::native::change::CarriedValueEvent>, trust_runtime_core::error::RuntimeError>
 pub mod trust_runtime_core::native::image
@@ -842,7 +845,12 @@ pub const trust_runtime_core::native::image::type_kind::WCHAR: u32
 pub const trust_runtime_core::native::image::type_kind::WORD: u32
 pub const trust_runtime_core::native::image::type_kind::WSTRING: u32
 #[repr(u32)] pub enum trust_runtime_core::native::image::EntryKind
+pub trust_runtime_core::native::image::EntryKind::ChangeExit = 6
+pub trust_runtime_core::native::image::EntryKind::ChangeInit = 7
+pub trust_runtime_core::native::image::EntryKind::ChangeReinit = 8
+pub trust_runtime_core::native::image::EntryKind::ChangeStart = 9
 pub trust_runtime_core::native::image::EntryKind::ColdInit = 2
+pub trust_runtime_core::native::image::EntryKind::Exit = 5
 pub trust_runtime_core::native::image::EntryKind::Method = 4
 pub trust_runtime_core::native::image::EntryKind::ProgramBody = 1
 pub trust_runtime_core::native::image::EntryKind::WarmInit = 3
@@ -1072,6 +1080,7 @@ pub trust_runtime_core::native::image::SymbolRecord::area: u8
 pub trust_runtime_core::native::image::SymbolRecord::canonical: u32
 pub trust_runtime_core::native::image::SymbolRecord::display: u32
 pub trust_runtime_core::native::image::SymbolRecord::flags: u8
+pub trust_runtime_core::native::image::SymbolRecord::hidden: bool
 pub trust_runtime_core::native::image::SymbolRecord::noinit: bool
 pub trust_runtime_core::native::image::SymbolRecord::offset: u32
 pub trust_runtime_core::native::image::SymbolRecord::parent: u32
@@ -1131,6 +1140,7 @@ pub const trust_runtime_core::native::image::HEADER_BYTES: usize
 pub const trust_runtime_core::native::image::MAGIC: [u8; 8]
 pub const trust_runtime_core::native::image::MEMBER_ALIAS: u32
 pub const trust_runtime_core::native::image::MEMBER_BYTES: usize
+pub const trust_runtime_core::native::image::MEMBER_HIDDEN: u32
 pub const trust_runtime_core::native::image::NONE: u32
 pub const trust_runtime_core::native::image::SECTION_ALIGNMENT: usize
 pub const trust_runtime_core::native::image::SECTION_ENTRY_BYTES: usize
@@ -1231,6 +1241,7 @@ pub trust_runtime_core::native::memory::TypeShape::Text
 pub trust_runtime_core::native::memory::TypeShape::Text::capacity: u32
 pub trust_runtime_core::native::memory::TypeShape::Text::wide: bool
 pub struct trust_runtime_core::native::memory::Member
+pub trust_runtime_core::native::memory::Member::hidden: bool
 pub trust_runtime_core::native::memory::Member::name: smol_str::SmolStr
 pub trust_runtime_core::native::memory::Member::offset: u32
 pub trust_runtime_core::native::memory::Member::type_index: u32
@@ -1313,6 +1324,12 @@ pub trust_runtime_core::native::program::Device::program_memory: u64
 pub trust_runtime_core::native::program::Device::target: trust_runtime_core::native::image::Target
 pub trust_runtime_core::native::program::Device::task_stack: u64
 pub trust_runtime_core::native::program::Device::trusted_keys: &'static [[u8; 32]]
+pub struct trust_runtime_core::native::program::FailedAssertion
+pub trust_runtime_core::native::program::FailedAssertion::actual: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::bound: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::delta: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::expected: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::native::program::FailedAssertion::name: &'static str
 pub struct trust_runtime_core::native::program::NativeProgram<'i, C>
 pub trust_runtime_core::native::program::NativeProgram::inputs: alloc::vec::Vec<u8>
 pub trust_runtime_core::native::program::NativeProgram::outputs: alloc::vec::Vec<u8>
@@ -1322,6 +1339,7 @@ pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::arm(&mut self,
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::capture_retain(&self, capture: &mut trust_runtime_core::retain::capture::RetainCapture) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::code(&self) -> &C
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::copy_images(&self, images: &mut trust_runtime_core::io_image::FlatImages)
+pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::failed_assertion(&self) -> core::option::Option<trust_runtime_core::native::program::FailedAssertion>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::image(&self) -> trust_runtime_core::native::image::Image<'_>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::last_fault(&self) -> trust_plc_abi::fault::FaultRecord
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::program_names(&self) -> alloc::vec::Vec<smol_str::SmolStr>
@@ -1329,6 +1347,7 @@ pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::read(&self, id
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::read_symbol(&self, index: u32) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::reset_task_timing(&mut self, now: trust_runtime_core::value::Duration)
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::run_instance(&mut self, instance: u32, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::run_instance_with_io(&mut self, instance: u32, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::scan(&mut self, now: trust_runtime_core::value::Duration, hooks: &mut dyn trust_runtime_core::native::program::ScanHooks) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::statement_count(&self) -> u32
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::tasks(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, u32)>
@@ -1338,12 +1357,13 @@ pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::write_retained
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::write_symbol(&mut self, index: u32, value: &trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 impl<'i, C: trust_runtime_core::native::program::ModuleCode> trust_runtime_core::native::program::NativeProgram<'i, C>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::cold_start(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::exit(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::new(image: trust_runtime_core::native::image::Image<'i>, code: C, device: &trust_runtime_core::native::admission::Device, api: &'static trust_plc_abi::KernelApi) -> core::result::Result<Self, trust_runtime_core::native::admission::Refusal>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::retain_payload_bound(&self) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::warm_start(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'i, C>::warm_start_from(&mut self, now: trust_runtime_core::value::Duration, snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::retain::RetainApplyEvent>, trust_runtime_core::error::RuntimeError>
 impl<C: trust_runtime_core::native::program::ModuleCode> trust_runtime_core::native::program::NativeProgram<'_, C>
-pub fn trust_runtime_core::native::program::NativeProgram<'_, C>::change_from<D: trust_runtime_core::native::program::ModuleCode>(&mut self, old: &trust_runtime_core::native::program::NativeProgram<'_, D>, now: trust_runtime_core::value::Duration) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::native::change::CarriedValueEvent>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::native::program::NativeProgram<'_, C>::change_from<D: trust_runtime_core::native::program::ModuleCode>(&mut self, old: &mut trust_runtime_core::native::program::NativeProgram<'_, D>, now: trust_runtime_core::value::Duration) -> core::result::Result<trust_runtime_core::native::change::ChangeReport, trust_runtime_core::error::RuntimeError>
 impl<C: trust_runtime_core::native::program::ModuleCode> trust_runtime_core::native::program::NativeProgram<'_, C>
 pub fn trust_runtime_core::native::program::NativeProgram<'_, C>::hold_bound(&mut self, place: trust_runtime_core::native::memory::Place) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::native::program::NativeProgram<'_, C>::read_address(&self, address: &trust_runtime_core::io_address::IoAddress) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>

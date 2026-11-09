@@ -12,6 +12,7 @@ fn parameter(name: &str, direction: ParamDirection) -> Param {
         default: Some(Expr::Literal(Value::DInt(7))),
         retain: crate::RetainPolicy::Unspecified,
         noinit: false,
+        hidden: false,
     }
 }
 
@@ -28,7 +29,9 @@ fn variable(name: &str) -> VarDef {
         address: Some(IoAddress::parse("%IW2").expect("test address")),
         init_args: Vec::new(),
         noinit: false,
+        hidden: false,
         instance_path: false,
+        no_exit: false,
     }
 }
 
@@ -110,7 +113,9 @@ fn variable_flags_are_not_inferred_from_each_other() {
         address: None,
         init_args: Vec::new(),
         noinit: false,
+        hidden: false,
         instance_path: false,
+        no_exit: false,
     };
     let cloned = variable.clone();
 

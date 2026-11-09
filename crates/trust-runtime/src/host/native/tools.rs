@@ -360,6 +360,7 @@ pub(super) fn emit(
             symbol: block.entry.clone(),
             kind: EntryKind::Method,
             index: 0,
+            variable: None,
         });
     }
     entries

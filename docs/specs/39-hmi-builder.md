@@ -936,6 +936,9 @@ Planned with the user on 3 October 2026.
      (§3.2);
    - for a binding, only variables of compatible type and direction are offered. The checks of
      item 6 decide, so the picker never offers a variable the checks would refuse;
+   - a variable hidden by `{attribute 'hide'}` or its POU's `{attribute 'hide_all_locals'}` is not
+     offered, as CODESYS hides it from its lists (specification 10 §4.8); a binding that names it
+     still binds;
    - a variable can be dragged onto a binding, or onto the canvas to create a component of the
      matching type:
      - a boolean creates a **Status**, a structure or an array a **Table**, and any other single

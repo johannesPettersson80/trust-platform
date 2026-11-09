@@ -194,6 +194,7 @@ pub(crate) fn writer_with(
         area: 6,
         flags,
         noinit: false,
+        hidden: false,
         offset,
         size,
         parent,

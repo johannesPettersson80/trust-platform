@@ -60,18 +60,22 @@ const MAX_TEST_CYCLE_NS: u64 = 3_600_000_000_000;
 const MAX_TEST_MAX_CYCLES: u32 = 10_000_000;
 
 /// The cycles of a multi-cycle test (specification 22, "Multi-cycle tests"): the cycle, by which its time advances before each
-/// later cycle, and the budget, the most cycles it may run.
+/// later cycle, the budget, the most cycles it may run, and whether the project's simulation runs in lockstep with it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TestCycles {
     /// The cycle, in nanoseconds.
     pub cycle_ns: u64,
     /// The most cycles the test runs.
     pub max_cycles: u32,
+    /// `{attribute 'test_simulation'}`: the project's `simulation.toml` runs in lockstep with the test, its plants publishing
+    /// before each cycle and advancing after it.
+    pub simulation: bool,
 }
 
 /// The cycles of the test program `node`, or `None` when it runs its body once: a test program is multi-cycle when its body calls
-/// `TEST_FINISHED()` or its declaration carries `{attribute 'test_cycle'}` or `{attribute 'test_max_cycles'}`. A value that does not
-/// read leaves the default in its place; [`test_attribute_errors`] reports it, and the compile refuses it.
+/// `TEST_FINISHED()` or its declaration carries `{attribute 'test_cycle'}`, `{attribute 'test_max_cycles'}` or `{attribute
+/// 'test_simulation'}`. A value that does not read leaves the default in its place; [`test_attribute_errors`] reports it, and the
+/// compile refuses it.
 #[must_use]
 pub fn test_cycles(node: &SyntaxNode) -> Option<TestCycles> {
     if test_kind(node) != Some(TestKind::Program) {
@@ -79,7 +83,8 @@ pub fn test_cycles(node: &SyntaxNode) -> Option<TestCycles> {
     }
     let cycle = attribute_entry(node, "test_cycle");
     let budget = attribute_entry(node, "test_max_cycles");
-    if cycle.is_none() && budget.is_none() && !calls_test_finished(node) {
+    let simulation = attribute_entry(node, "test_simulation").is_some();
+    if cycle.is_none() && budget.is_none() && !simulation && !calls_test_finished(node) {
         return None;
     }
     Some(TestCycles {
@@ -89,6 +94,7 @@ pub fn test_cycles(node: &SyntaxNode) -> Option<TestCycles> {
         max_cycles: budget
             .and_then(|entry| max_cycles(&entry.value))
             .unwrap_or(DEFAULT_TEST_MAX_CYCLES),
+        simulation,
     })
 }
 
@@ -96,12 +102,12 @@ pub fn test_cycles(node: &SyntaxNode) -> Option<TestCycles> {
 type AttributeRule = (&'static str, fn(&str) -> bool, &'static str);
 
 /// The refusals of the test attributes of the POU declaration `node`, each with the pragma's range: a `test_cycle` that is no
-/// duration above zero and at most one hour, a `test_max_cycles` that is no whole number from 1 to 10,000,000, and either attribute
-/// on a declaration that is no test program.
+/// duration above zero and at most one hour, a `test_max_cycles` that is no whole number from 1 to 10,000,000, a
+/// `test_simulation` with a value, and any of them on a declaration that is no test program.
 #[must_use]
 pub fn test_attribute_errors(node: &SyntaxNode) -> Vec<(TextRange, String)> {
     let program = test_kind(node) == Some(TestKind::Program);
-    let rules: [AttributeRule; 2] = [
+    let rules: [AttributeRule; 3] = [
         (
             "test_cycle",
             |value| cycle_ns(value).is_some(),
@@ -111,6 +117,11 @@ pub fn test_attribute_errors(node: &SyntaxNode) -> Vec<(TextRange, String)> {
             "test_max_cycles",
             |value| max_cycles(value).is_some(),
             "a whole number of cycles from 1 to 10000000",
+        ),
+        (
+            "test_simulation",
+            |value| value.trim().is_empty(),
+            "given without a value",
         ),
     ];
     let mut errors = Vec::new();

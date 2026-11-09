@@ -242,6 +242,7 @@ where
         self.shell.debug.rearm();
         self.cycle.reset_task_timing(value::Duration::ZERO);
         self.program_time = value::Duration::ZERO;
+        self.record_left_fault();
         self.record_retain_events(events);
         self.cycle_count = 0;
         self.restarts.reset();
@@ -522,6 +523,16 @@ where
         // A program that has ended holds nothing: a pause that arrived between the stop request
         // and the stop is gone, and the debugger holds no scan until the program starts again.
         self.shell.debug.release_for_stop();
+    }
+
+    /// Records the fault of the exit of the program a load replaced, when it faulted: the first
+    /// event of the program loaded in its place (specification 44 §6.7).
+    pub(super) fn record_left_fault(&mut self) {
+        if let Some(error) = self.left_fault.take() {
+            self.shell
+                .records
+                .push_event(RuntimeEvent::fault(&error, self.program_time));
+        }
     }
 
     /// Records the retained values a restart dropped or migrated, at the program's current time.

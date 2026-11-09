@@ -34,6 +34,9 @@ pub struct Param {
     /// `{attribute 'noinit'}` on the line above a function block's input or output: a restart
     /// gives it back the value it held (specification 10 §4.8); `false` for any other parameter.
     pub noinit: bool,
+    /// `{attribute 'hide'}` on the line above its declaration: the lists a reader browses leave it
+    /// out, and it is read and written by its name as any other (specification 10 §4.8).
+    pub hidden: bool,
 }
 
 /// An argument an instance's declaration gives its `FB_init` (specification 10 §4.8): the name of
@@ -61,9 +64,16 @@ pub struct VarDef {
     /// `{attribute 'noinit'}` on the line above its declaration: a restart gives the variable back
     /// the value it held (specification 10 §4.8).
     pub noinit: bool,
+    /// `{attribute 'hide'}` on the line above its declaration, or a `VAR` local of a POU marked
+    /// `{attribute 'hide_all_locals'}`: the lists a reader browses leave it out, and it is read and
+    /// written by its name as any other (specification 10 §4.8).
+    pub hidden: bool,
     /// `{attribute 'instance-path'}` with `noinit` on a variable of a POU marked
     /// `{attribute 'reflection'}`: it starts with the path of its instance (specification 10 §4.8).
     pub instance_path: bool,
+    /// `{attribute 'no-exit'}` on the line above an instance's declaration: the exit of a restart or a
+    /// download calls no `FB_exit` of the instance or of what it holds (specification 10 §4.8).
+    pub no_exit: bool,
 }
 
 /// Function definition (used by tests and runtime).

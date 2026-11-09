@@ -252,6 +252,10 @@ pub(crate) struct GlobalInit {
     pub(crate) init_args: Vec<crate::program_model::InitArg>,
     /// `{attribute 'noinit'}` on the line above its declaration (specification 10 §4.8).
     pub(crate) noinit: bool,
+    /// `{attribute 'hide'}` on the line above its declaration (specification 10 §4.8).
+    pub(crate) hidden: bool,
+    /// `{attribute 'no-exit'}` on the line above its declaration (specification 10 §4.8).
+    pub(crate) no_exit: bool,
 }
 
 #[derive(Clone)]

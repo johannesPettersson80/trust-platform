@@ -152,6 +152,9 @@ pub(super) fn apply_globals(
         if init.constant {
             runtime.register_constant_global(init.name.clone());
         }
+        if init.hidden {
+            runtime.register_hidden_global(init.name.clone());
+        }
         if let Some(address) = init.address.as_ref() {
             let parsed = crate::io::IoAddress::parse(address)
                 .map_err(|err| CompileError::new(format!("invalid I/O address: {err}")))?;

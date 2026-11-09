@@ -3138,7 +3138,8 @@ case-insensitively by extension, together with sources from resolved local
 project dependencies, for the source views. Legacy `--config` startup
 recursively compiles those source types beneath its literal runtime root into a
 debug image for this computer, in a temporary folder, with the toolchain of
-specification 44 §4.6, installed on the first build that needs it. Source
+specification 44 §4.6, installed on the first build that needs it with the person's consent
+(specification 44 NX-08). Source
 discovery must not interpret project or directory names as glob syntax, must use
 deterministic path ordering, and must propagate directory and file-read
 failures. An empty or invalid source set is a startup error. Startup without a
@@ -3564,6 +3565,12 @@ test or a simulator may use it too (owner, 23 October 2026).
   sampled and the outputs not published. A name that names no program instance refuses the step
   before its scan, with the name. Its restart, inputs, watches, error and time are those of any
   step; this is how a project's tests run on a device (specification 44 §14.2).
+- `io` (optional, with `run`): `true` runs the body as a scan runs its tasks' programs: the inputs
+  are checked and sampled into the located variables before it, and the outputs published after it,
+  so that a value the step writes at an input address reaches the program and a located output
+  reaches the output image (specification 10 §9). A test that runs the project's simulation steps
+  this way (specification 22, "A plant in the loop"). `io` without `run` refuses the step: a scan
+  samples and publishes already.
 
 The scan is one cycle of the scheduler at `time_ns` (specification 10 §4.3): the tasks due then run
 in priority order, then the programs without a task. The drivers are neither sampled nor driven and
@@ -3572,7 +3579,13 @@ forced value or queued write applies, and no metric, event or task statistic cou
 watchdog bounds the scan as it bounds every scan. The result is
 `{"time_ns": t, "values": {...}, "direct": {...}, "errors": [...]}`: each value as a conformance
 artifact writes it (`{"type": "INT", "value": 7}`, a duration in `nanos`, a date in `ticks`), and in
-`errors` the text of the error the scan ended with, none for a scan that completed. A fault of a
+`errors` the text of the error the scan ended with, none for a scan that completed. When a statement
+of a debug image raised that error, the result adds `"error_at": {"file": "src/tests.st", "line": 7}`:
+the statement's file, by the label of specification 44 §5.9, and its line, from the image's statement
+table (specification 44 §8.6), so that a client with the sources, such as `trust-dev test --device`,
+shows the statement as it shows one of its own runs (specification 22). When a failed assertion ended
+the scan, the result adds its values as `"assertion": {"name": "ASSERT_EQUAL", "expected": {...},
+"actual": {...}}`, the object of specification 22, each value in the encoding above. A fault of a
 stepped scan is reported and not latched: no safe state is applied, the resource stays Stopped, and
 the next step runs the next scan, as the conformance runner's kernel continues. A name that names no
 variable, or that names one of several programs, refuses the step before its scan, with the name (a
@@ -5928,8 +5941,10 @@ directory is the final fallback. The default source root is `<project>/src`. A
 relative `--sources` override is resolved from the project root, including when
 the command is launched from another working directory. Local package
 dependencies are resolved and compiled with the selected project sources. The
-build installs the toolchain on the first build that needs it (specification 44
-§4.6). The project's `[build] debug` chooses a debug or a release image
+build installs the toolchain on the first build that needs it once the person agrees, never
+silently: it asks in a terminal and otherwise fails with the advice to run `trust-runtime
+toolchain install`, unless `--install-toolchain` gives the consent (specification 44 §4.6,
+NX-08). The project's `[build] debug` chooses a debug or a release image
 (specification 44 §13.2), and the image is signed with the project's key or the
 user's own before its record names its bytes (specification 44 §5.11, §10.1).
 `--emit-source` keeps the generated Rust crate in the build folder. A source set
