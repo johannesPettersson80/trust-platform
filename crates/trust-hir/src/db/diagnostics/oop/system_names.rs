@@ -1,14 +1,17 @@
-//! CODESYS's system interface `__SYSTEM.IQueryInterface` in an EXTENDS or IMPLEMENTS list
-//! (specification 04). There it marks an interface for `__QUERYINTERFACE`; here it adds nothing, so
-//! the analysis skips it like a name it never reads, and refuses only what CODESYS refuses too.
+//! CODESYS's system names: the system interface `__SYSTEM.IQueryInterface` in an EXTENDS or
+//! IMPLEMENTS list (specification 04), which marks an interface for `__QUERYINTERFACE` and adds
+//! nothing here, so the analysis skips it like a name it never reads and refuses only what CODESYS
+//! refuses too; and the system type `__SYSTEM.ExceptionCode` in a declaration (specification 06
+//! §15).
 
 use super::super::super::*;
 
 /// The one system interface truST accepts.
 const QUERY_INTERFACE: &str = "IQueryInterface";
 
-/// Refuses a `__SYSTEM` name other than `IQueryInterface`, and `__SYSTEM.IQueryInterface` as the
-/// base a function block or class extends.
+/// Refuses a `__SYSTEM` name other than `IQueryInterface` in an EXTENDS or IMPLEMENTS list,
+/// `__SYSTEM.IQueryInterface` as the base a function block or class extends, and a type other than
+/// `__SYSTEM.ExceptionCode`.
 pub(super) fn check_system_names(root: &SyntaxNode, diagnostics: &mut DiagnosticBuilder) {
     for node in root
         .descendants()
@@ -22,6 +25,22 @@ pub(super) fn check_system_names(root: &SyntaxNode, diagnostics: &mut Diagnostic
         else {
             continue;
         };
+        if node
+            .parent()
+            .is_some_and(|parent| parent.kind() == SyntaxKind::TypeRef)
+        {
+            if crate::symbols::system_type_name(name.text()).is_none() {
+                diagnostics.error(
+                    DiagnosticCode::UndefinedType,
+                    node.text_range(),
+                    format!(
+                        "unknown system type '__SYSTEM.{}': truST knows __SYSTEM.ExceptionCode",
+                        name.text()
+                    ),
+                );
+            }
+            continue;
+        }
         if !name.text().eq_ignore_ascii_case(QUERY_INTERFACE) {
             diagnostics.error(
                 DiagnosticCode::UndefinedType,

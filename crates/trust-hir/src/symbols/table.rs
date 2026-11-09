@@ -134,6 +134,7 @@ impl SymbolTable {
             .push(Scope::new(ScopeId::GLOBAL, ScopeKind::Global, None, None));
         table.register_builtin_types();
         table.register_builtin_function_blocks();
+        table.register_builtin_system_types();
         table
     }
 
@@ -856,6 +857,16 @@ impl SymbolTable {
             return enum_member_type(symbol.type_id);
         }
 
+        // A type registered under the exact name, as the system type `__SYSTEM.ExceptionCode` is,
+        // which no symbol names.
+        if let Some(found) = self
+            .type_names
+            .get(&normalize_name(type_name))
+            .copied()
+            .and_then(enum_member_type)
+        {
+            return Some(found);
+        }
         let suffix = format!(".{}", normalize_name(type_name));
         let candidates: Vec<TypeId> = self
             .type_names

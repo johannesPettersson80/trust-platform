@@ -321,6 +321,9 @@ impl<'t, 'src> Parser<'t, 'src> {
             | TokenKind::KwEndWhile
             | TokenKind::KwEndRepeat
             | TokenKind::KwEndCase
+            | TokenKind::KwCatchDunder
+            | TokenKind::KwFinallyDunder
+            | TokenKind::KwEndTryDunder
             // End of blocks
             | TokenKind::KwEndVar
             | TokenKind::KwEndType

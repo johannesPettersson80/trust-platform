@@ -715,6 +715,18 @@ impl SymbolCollector<'_> {
             return self.collect_string_type(&string_node);
         }
 
+        // CODESYS's system type `__SYSTEM.ExceptionCode` (specification 06 §15); another
+        // `__SYSTEM` name is no type, which the type check reports.
+        if let Some(system_name) = node.children().find(|n| n.kind() == SyntaxKind::SystemName) {
+            return system_name
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .find(|token| token.kind() == SyntaxKind::Ident)
+                .and_then(|name| crate::symbols::system_type_name(name.text()))
+                .and_then(|type_name| self.table.lookup_registered_type_name(type_name))
+                .unwrap_or(TypeId::UNKNOWN);
+        }
+
         let subrange_node = node.children().find(|n| n.kind() == SyntaxKind::Subrange);
 
         // Handle simple type name

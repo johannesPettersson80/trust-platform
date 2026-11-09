@@ -86,6 +86,10 @@ impl TokenKind {
                 | Self::KwDeleteDunder
                 | Self::KwIsValidRefDunder
                 | Self::KwQueryInterfaceDunder
+                | Self::KwTryDunder
+                | Self::KwCatchDunder
+                | Self::KwFinallyDunder
+                | Self::KwEndTryDunder
                 | Self::KwIf
                 | Self::KwThen
                 | Self::KwElsif

@@ -75,6 +75,44 @@ END_PROGRAM
     );
 }
 
+/// Specification 14, `workspace/symbol`: a built-in, which no source file declares, is not listed, as
+/// the outline leaves it out. Worked by hand: the file declares `Pump` and `Main` with its `pump`, so
+/// an empty query lists those three by their display names, and a search for the standard block
+/// TON, its parameter CLK or a value of `__SYSTEM.ExceptionCode` finds nothing. Catches the built-ins
+/// listed at an empty range on line 0 of every file of the project.
+#[test]
+pub(super) fn lsp_workspace_symbols_leave_out_the_built_ins() {
+    let source = r#"
+FUNCTION_BLOCK Pump
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    pump : Pump;
+END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///built-ins.st").unwrap();
+    state.open_document(uri, 1, source.to_string());
+    let search = |query: &str| {
+        workspace_symbol(
+            &state,
+            tower_lsp::lsp_types::WorkspaceSymbolParams {
+                query: query.to_string(),
+                work_done_progress_params: Default::default(),
+                partial_result_params: Default::default(),
+            },
+        )
+        .expect("workspace symbols")
+    };
+    let names: Vec<String> = search("").into_iter().map(|item| item.name).collect();
+    assert_eq!(names, ["Main (PROGRAM)", "Pump (FUNCTION_BLOCK)", "pump"]);
+    for built_in in ["TON", "CLK", "RTSEXCPT"] {
+        assert_eq!(search(built_in).len(), 0, "{built_in}");
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 pub(super) async fn lsp_references_partial_result_token_returns_empty_final_response() {
     let observation = references_partial_result_observation()

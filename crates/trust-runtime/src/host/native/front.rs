@@ -239,6 +239,7 @@ pub(super) fn is_statement(kind: trust_syntax::syntax::SyntaxKind) -> bool {
             | K::ContinueStmt
             | K::JmpStmt
             | K::LabelStmt
+            | K::TryStmt
     )
 }
 
