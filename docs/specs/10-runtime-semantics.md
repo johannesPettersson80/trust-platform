@@ -1615,6 +1615,21 @@ FB_Exit"):
   part, and the instances nested in an instance are initialized when its
   `FB_init` runs, as CODESYS documents an instance "already completely
   initialized" when that method's code is reached;
+- the members that the instance's declaration initializes, `fbDoIt : FB_DoIt :=
+  (in1 := 99);`, hold the initial values of their declarations in the type while
+  the instance's `FB_init` runs, and take the declaration's values right after it,
+  before its after-init methods (below), as CODESYS orders them (its help,
+  Example 259: `fbDoIt.FB_Init(); fbDoIt.in1 := 99; fbDoIt.FB_AfterInit();`;
+  Beckhoff's TwinCAT help: "Such assignments are only executed after FB_init has
+  been called"). A member that a warm restart keeps, of an instance declared
+  `RETAIN` or declared `RETAIN` or `PERSISTENT` in its type, takes the
+  declaration's value before `FB_init` instead, as Beckhoff orders retained
+  variables at start-up ("Initialization of the declaration values",
+  "Initialization via FB_Init", then the boot data), and a warm restart leaves it
+  as it is. The declaration of a global, a program's variable or a function
+  block's or class's variable counts; an element of an array of instances, and an
+  instance in a structure, take their declaration's values before `FB_init`, as
+  their starting values;
 - a fault in `FB_init` fails the restart, like any fault of the initialization.
 
 In the same restarts, right after an instance's own `FB_init` (or where it would
