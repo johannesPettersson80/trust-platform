@@ -62,8 +62,8 @@ pub fn global_written_in_background(symbol: &str, task: &str) -> String {
 #[must_use]
 pub fn global_without_owner(symbol: &str) -> String {
     format!(
-        "{symbol} is a global that no single task owns: a function, a function block, a method or a class writes it, or the \
-         programs of several tasks do. Let only the loop's task write {symbol}."
+        "{symbol} is a global that no single task owns: the programs of several tasks write it, directly or through the POUs \
+         they call, or a method that an interface's call may run writes it. Let only the loop's task write {symbol}."
     )
 }
 

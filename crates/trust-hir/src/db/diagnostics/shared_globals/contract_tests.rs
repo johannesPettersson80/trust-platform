@@ -451,6 +451,55 @@ END_CONFIGURATION
         .all(|diagnostic| diagnostic.code != DiagnosticCode::SharedGlobalTaskHazard));
 }
 
+/// A project of two programs, each with an instance `block` of a function block that writes the `INT` `Counter` in its body and in
+/// its action `Reset`, and each of whose bodies is given. The first program runs in `Fast`, the second in `second_task`.
+fn call_tree_source(first_body: &str, second_body: &str, second_task: &str) -> String {
+    format!(
+        r#"
+VAR_GLOBAL Counter : INT; END_VAR
+FUNCTION_BLOCK FB_Count
+Counter := 1;
+ACTION Reset:
+Counter := 0;
+END_ACTION
+END_FUNCTION_BLOCK
+PROGRAM First
+VAR block : FB_Count; END_VAR
+{first_body}
+END_PROGRAM
+PROGRAM Second
+VAR block : FB_Count; END_VAR
+{second_body}
+END_PROGRAM
+CONFIGURATION Conf
+RESOURCE R ON CPU
+    TASK Fast (PRIORITY := 1);
+    TASK Slow (PRIORITY := 2);
+    PROGRAM P1 WITH Fast : First;
+    PROGRAM P2 WITH {second_task} : Second;
+END_RESOURCE
+END_CONFIGURATION
+"#
+    )
+}
+
+/// Specification 28 §6: a program accesses what the POUs its calls run access, and an action's statements are part of the POU that
+/// declares it. Worked by hand, with an `INT`, which a single writing task does not make a hazard, named by neither program's own
+/// body: the programs of `Fast` and `Slow` call the block, its action, or one each, so two tasks write `Counter`; when both programs
+/// run in `Fast`, one task does. Catches W012 missed for a global that a block or its action writes from two tasks, and W012 reported
+/// for a block that one task runs.
+#[test]
+fn a_function_block_or_its_action_that_two_tasks_call_writes_its_global_from_both() {
+    assert_hazard(&call_tree_source("block();", "block();", "Slow"));
+    assert_hazard(&call_tree_source(
+        "block.Reset();",
+        "block.Reset();",
+        "Slow",
+    ));
+    assert_hazard(&call_tree_source("block();", "block.Reset();", "Slow"));
+    assert_no_hazard(&call_tree_source("block();", "block.Reset();", "Fast"));
+}
+
 #[test]
 fn field_index_and_dereference_targets_count_as_global_writes() {
     assert_hazard(

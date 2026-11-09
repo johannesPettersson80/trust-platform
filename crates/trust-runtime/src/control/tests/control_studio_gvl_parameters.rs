@@ -3,7 +3,8 @@
 // another task or no single task owns with its reason. An experiment steps a writable global as it steps a program's variable.
 
 /// A CODESYS-style loop: its mode and manual valve in `GVL_IO`, its gains in `GVL_Par`, its law in `Tank`, which task `Fast`
-/// runs. `Other`, in task `Slow`, writes `lrKd`, and the function block `FB_Tune` writes `lrKf`; no program writes the rest.
+/// runs. `Other`, in task `Slow`, writes `lrKd`, and the function block `FB_Tune`, which both programs call, writes `lrKf`; no
+/// program writes the rest.
 const GVL_PARAMETERS_SOURCE: &str = r#"
 NAMESPACE GVL_IO
 VAR_GLOBAL
@@ -35,7 +36,11 @@ Tune();
 END_PROGRAM
 
 PROGRAM Other
+VAR
+    Tune : FB_Tune;
+END_VAR
 GVL_Par.lrKd := 1.0;
+Tune();
 END_PROGRAM
 
 CONFIGURATION Plant
@@ -98,7 +103,7 @@ fn a_parameter_set_writes_the_gvl_parameters_its_task_owns() {
 }
 
 /// Worked from the project: `lrKd` is written by `Other`, which task `Slow` runs, and `lrKf` by the function block `FB_Tune`,
-/// which any task may run; a set of the loop in task `Fast` may hold neither. Each refusal names the global and why. Catches a set
+/// which programs of both tasks call; a set of the loop in task `Fast` may hold neither. Each refusal names the global and why. Catches a set
 /// that writes a global another task writes at the same time.
 #[test]
 fn a_parameter_set_refuses_a_gvl_parameter_its_task_does_not_own() {
