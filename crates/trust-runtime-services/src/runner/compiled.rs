@@ -480,6 +480,12 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         }
     }
 
+    /// Leaves the program before another replaces it, a download, at logical time zero as a
+    /// restart starts it (specification 44 §6.7).
+    fn leave(&mut self) -> Result<(), RuntimeError> {
+        self.program.exit(Duration::ZERO)
+    }
+
     /// A cold restart gives every variable its starting memory. A warm restart from the checkpoint
     /// restores the newest committed checkpoint by name, each value checked before any variable
     /// changes (specification 44 §11); a cycle without a checkpoint store restores the empty

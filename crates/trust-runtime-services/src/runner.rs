@@ -188,6 +188,9 @@ pub struct Runner<L, W, Y, P, C> {
     cycle_count: u64,
     /// The program's current time: the logical time of its last scan, or of its last restart.
     program_time: value::Duration,
+    /// The fault of the exit of the program a load replaced, which the next program to begin
+    /// records as its first event (specification 44 §6.7).
+    left_fault: Option<RuntimeError>,
     restarts: AutomaticRestartLimiter,
     /// Whether one request may be answered although the next boundary is due. The boundary is
     /// due again as soon as it is taken after a scan that overran its interval, and without this
@@ -290,6 +293,7 @@ where
             next_boundary: Some(start),
             cycle_count: 0,
             program_time: value::Duration::ZERO,
+            left_fault: None,
             restarts: AutomaticRestartLimiter::default(),
             request_grant: false,
             hash_block: FIRST_HASH_BLOCK,
@@ -340,6 +344,7 @@ where
             next_boundary: None,
             cycle_count: 0,
             program_time: value::Duration::ZERO,
+            left_fault: None,
             restarts: AutomaticRestartLimiter::default(),
             request_grant: false,
             hash_block: FIRST_HASH_BLOCK,
@@ -649,6 +654,9 @@ mod disconnect_contract_tests;
 
 #[cfg(test)]
 mod device_contract_tests;
+
+#[cfg(test)]
+mod exit_contract_tests;
 
 #[cfg(test)]
 mod firmware_contract_tests;

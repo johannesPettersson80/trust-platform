@@ -64,6 +64,9 @@ pub struct VarDef {
     /// `{attribute 'instance-path'}` with `noinit` on a variable of a POU marked
     /// `{attribute 'reflection'}`: it starts with the path of its instance (specification 10 §4.8).
     pub instance_path: bool,
+    /// `{attribute 'no-exit'}` on the line above an instance's declaration: the exit of a restart or a
+    /// download calls no `FB_exit` of the instance or of what it holds (specification 10 §4.8).
+    pub no_exit: bool,
 }
 
 /// Function definition (used by tests and runtime).

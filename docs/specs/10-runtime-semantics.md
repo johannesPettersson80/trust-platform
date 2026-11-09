@@ -1645,8 +1645,59 @@ alone, in a block that is not, is not called, as the vendor's attribute on the
 block is what enables it. The vendor's call at an online change is not made, as
 `FB_init`'s is not (§12).
 
-Under the IEC profile `FB_init` is an ordinary method that nothing calls
-implicitly, since a valid IEC program may declare a method of that name.
+Under the same profiles the method `FB_exit` of every instance whose type
+declares it is called before the instance's memory is started again or replaced,
+as CODESYS calls it implicitly (CODESYS help, "Method: FB_Init, FB_Reinit,
+FB_Exit": "before the controller removes the code of the function block
+instance"; "Object: Method": "Call for each instance of the function block
+before a new download or a reset or during an online change for all shifted or
+deleted instances"):
+- a cold and a warm restart call it first, before anything of the restart, once
+  the program has run: a scan or a program instance's run since it was installed
+  or powered on, or since an online change took over the running program's
+  instances. The starts that bring a program up before its first scan call
+  nothing, as no instance has lived yet;
+- installing a program in place of one that has run (a download) calls the old
+  program's `FB_exit` before the new program replaces it;
+- the call passes `bInCopyCode := FALSE`, which CODESYS passes everywhere but
+  in an online change ("TRUE: the exit method is called in order to leave the
+  instance which will be copied afterwards (online change)"), and its result
+  is not read;
+- a stop and the end of the runtime's process call nothing, as they remove no
+  code: CODESYS's help names a download, a reset and an online change only. A
+  reset that removes the program from the device, CODESYS's reset origin, is a
+  download of no program and calls it, as the help ties the call to the code's
+  removal;
+- the instances are called in the reverse of `FB_init`'s order: the program
+  instances in reverse configuration order, each with its variables in reverse
+  declaration order, then the globals in reverse declaration order; an array's
+  elements in reverse row-major order; in an instance its own `FB_exit` first,
+  then its own nested instances in reverse declaration order, then its base
+  part, so that a derived block's `FB_exit` runs before its base's, as CODESYS
+  orders them (its help: "fbSubSubFb.FB_Exit, fbSubFb.FB_Exit,
+  fbMainFb.FB_Exit", then `FB_Init` the other way round). The help documents
+  the order of a derived block's parts; the order of nested instances and of
+  the globals is the reverse of their initialization, as a part is left before
+  what it was built on;
+- an instance whose declaration carries `{attribute 'no-exit'}` on the line
+  above it is not called, its base part neither, as the vendor's attribute
+  "suppresses the call of the FB_Exit method of a function block for a certain
+  one of its instances" (CODESYS help, "Attribute: no-exit"); on the
+  declaration of an array or a structure it holds for the instances among its
+  elements or members. The help is silent on the instances nested in a marked
+  one: truST calls theirs, each as its own declaration in the block says, since
+  the attribute names one instance and a nested declaration can carry its own
+  (a vendor decision for the CODESYS toolkit to confirm);
+- a fault in `FB_exit` fails a restart, like a fault of the initialization; at a
+  download the new program is installed all the same and its event records
+  begin with the old program's fault, at its time zero, so that a program whose
+  `FB_exit` faults can always be replaced;
+- `FB_exit` declares the one `BOOL` input `bInCopyCode`, under any name, and
+  returns a `BOOL` or nothing; the build refuses another signature, as it
+  refuses an `FB_init` it cannot call (specification 44 NX-09).
+
+Under the IEC profile `FB_init` and `FB_exit` are ordinary methods that nothing
+calls implicitly, since a valid IEC program may declare methods of those names.
 
 A variable marked `{attribute 'noinit'}`, which CODESYS also spells `no_init`
 and `no-init`, on the line above its declaration is not initialized by a

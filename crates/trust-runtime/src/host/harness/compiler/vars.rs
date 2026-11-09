@@ -194,6 +194,13 @@ pub(super) fn declares_noinit(var_decl: &SyntaxNode) -> bool {
         .any(|key| trust_hir::attributes::declares_attribute(var_decl, key))
 }
 
+/// Whether the declaration `var_decl` is marked `{attribute 'no-exit'}` on the line above it: the exit
+/// of a restart or a download calls no `FB_exit` of the instances it declares (specification 10
+/// §4.8).
+pub(super) fn declares_no_exit(var_decl: &SyntaxNode) -> bool {
+    trust_hir::attributes::declares_attribute(var_decl, "no-exit")
+}
+
 /// Whether the declaration `var_decl` of the POU `pou` starts with its instance's path: marked
 /// `{attribute 'instance-path'}` and `noinit` in a POU marked `{attribute 'reflection'}`, the three
 /// the vendor requires together (specification 10 §4.8).
