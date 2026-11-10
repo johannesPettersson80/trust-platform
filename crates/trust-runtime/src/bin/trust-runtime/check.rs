@@ -332,8 +332,9 @@ impl CheckIssue {
     }
 }
 
-/// The issues of a compile that failed on its sources' diagnostics, one each, where it is
-/// (specification 11 §6.8.1c); `None` for a failure that names no place in the sources.
+/// The issues of a compile that failed on its sources' diagnostics, one each, where it is, or on a
+/// construct the build does not compile yet, at the construct's place (specification 11 §6.8.1c);
+/// `None` for a failure that names no place in the sources.
 pub(crate) fn compile_issues(error: &anyhow::Error) -> Option<Vec<CheckIssue>> {
     let diagnostics = error.chain().find_map(|cause| {
         let compile = match cause.downcast_ref::<NativeError>() {
@@ -341,8 +342,29 @@ pub(crate) fn compile_issues(error: &anyhow::Error) -> Option<Vec<CheckIssue>> {
             _ => cause.downcast_ref::<CompileError>(),
         };
         compile.map(CompileError::diagnostics)
-    })?;
-    (!diagnostics.is_empty()).then(|| diagnostics.iter().map(diagnostic_issue).collect())
+    });
+    if let Some(diagnostics) = diagnostics {
+        return (!diagnostics.is_empty())
+            .then(|| diagnostics.iter().map(diagnostic_issue).collect());
+    }
+    let place = error
+        .chain()
+        .find_map(|cause| match cause.downcast_ref::<NativeError>() {
+            Some(NativeError::Unsupported {
+                at: Some(place), ..
+            }) => Some(place),
+            _ => None,
+        })?;
+    Some(vec![CheckIssue {
+        severity: "error",
+        message: format!("program compile failed: {error}"),
+        code: "compile",
+        file: Some(place.file.clone()),
+        line: Some(place.line),
+        column: Some(place.column),
+        end_line: None,
+        end_column: None,
+    }])
 }
 
 fn diagnostic_issue(diagnostic: &SourceDiagnostic) -> CheckIssue {

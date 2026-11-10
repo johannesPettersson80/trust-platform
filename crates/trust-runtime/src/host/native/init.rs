@@ -418,7 +418,7 @@ pub(super) fn check_declared_conversions(
                         "{name} in a declaration of a program built with the CODESYS conversion \
                          rules"
                     ),
-                    at: source.at(&call),
+                    at: Some(source.place(&call)),
                 });
             }
         }
