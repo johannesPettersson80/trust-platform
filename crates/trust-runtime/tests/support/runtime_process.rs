@@ -3,9 +3,10 @@
 //! endpoint is a real TCP socket. The control endpoint is `tcp://127.0.0.1:0`: the runtime binds a
 //! free port and publishes it in the copy's endpoint file, where `ctl` and this harness find it
 //! (specification 11, section 6.8.0a), so no other process can take it first; a program store's copy
-//! keeps a reserved port (see `assign_ports`). Every other fixed listen port in the copy moves to a
-//! reserved free loopback port, so tests that run in parallel cannot collide. Included by each test
-//! file with
+//! keeps a reserved port (see `assign_ports`). The web interface and the mesh listen on port 0 too,
+//! and the runtime reports the web interface's bound address in its fleet topology; only OPC UA,
+//! and a web port that a test occupies, keep a reserved free loopback port (`listen_reserved`), so
+//! tests that run in parallel cannot collide. Included by each test file with
 //! `#[path = "support/runtime_process.rs"] mod runtime_process;`.
 #![allow(dead_code)]
 
@@ -21,6 +22,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 use trust_runtime::control::endpoint::resolve_control_target;
 use trust_runtime::control::ControlEndpoint;
+
+#[path = "fleet_topology.rs"]
+mod fleet_topology;
+pub use fleet_topology::bound_web_address;
 
 /// Prefix of the token written into each copied runtime.toml; `ctl` reads it from the project.
 /// Every copy gets its own token, so a client can never be served by another test's runtime.
@@ -50,14 +55,25 @@ const SKIPPED: [&str; 6] = [
     ".trust",
     "node_modules",
 ];
-/// Fixed listen addresses in the example projects, by runtime.toml table and key. Each one moves
-/// to a reserved loopback port in the copy. The examples' io.toml files need no change: their only
-/// `address` keys are process-image addresses such as `%QX0.0`, not network ports.
+/// Fixed listen addresses in the example projects, by runtime.toml table and key, in the order of
+/// `listen_reserved`. Each one moves to a loopback port in the copy. The examples' io.toml files
+/// need no change: their only `address` keys are process-image addresses such as `%QX0.0`, not
+/// network ports.
 const LISTEN_KEYS: [(&str, &str); 3] = [
     ("runtime.web", "listen"),
     ("runtime.mesh", "listen"),
     ("runtime.opcua", "listen"),
 ];
+
+/// Which of `LISTEN_KEYS` take a reserved port rather than port 0. The web interface takes port 0,
+/// and the runtime reports the address it bound in its fleet topology (specification 11), where
+/// `Runtime::web_base` reads it; only a test that occupies the web port needs it fixed. The mesh
+/// takes port 0: no example enables it, so nothing binds it. OPC UA cannot take port 0, because its
+/// endpoint URL names its port, so it keeps a reserved one, and a start that finds it taken starts
+/// again on fresh ports (checklist G98).
+fn listen_reserved(occupy_web_port: bool) -> [bool; 3] {
+    [occupy_web_port, false, true]
+}
 
 static COPY_COUNTER: AtomicU64 = AtomicU64::new(1);
 static TOKEN_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -203,7 +219,7 @@ impl ExampleRuntime {
             root: root.clone(),
             project: project.clone(),
             child: None,
-            web_port: 0,
+            web_port: None,
             token: String::new(),
         };
         let source = join_relative(&repo_root(), &format!("examples/{}", self.example));
@@ -227,9 +243,10 @@ impl ExampleRuntime {
         if self.store {
             runtime.move_into_store();
         }
-        let held = self.occupy_web_port.then(|| {
-            TcpListener::bind(("127.0.0.1", runtime.web_port)).expect("hold the web port")
-        });
+        // A web port is reserved only for a test that occupies it.
+        let held = runtime
+            .web_port
+            .map(|port| TcpListener::bind(("127.0.0.1", port)).expect("hold the web port"));
         let mut started = runtime.start_once(self.web_enabled, &self.play_args);
         drop(held);
         for attempt in 2..=START_ATTEMPTS {
@@ -247,27 +264,33 @@ impl ExampleRuntime {
         runtime
     }
 
-    /// Reserves one port for each fixed listen key, and writes them, the control endpoint, the
-    /// copy's token and the requested settings into the copy's runtime.toml. The control endpoint is
-    /// `tcp://127.0.0.1:0`, except in a program store: the runtime publishes its endpoint file in
-    /// the bundle `current` named at its start, and an install moves `current` to a bundle without
-    /// that file, after which only a configured port finds the runtime through `current`
-    /// (checklist G118). A store's control endpoint therefore takes a reserved port too.
+    /// Writes the listen ports, the control endpoint, the copy's token and the requested settings
+    /// into the copy's runtime.toml, reserving a port only where port 0 cannot serve
+    /// (`listen_reserved`). The control endpoint is `tcp://127.0.0.1:0`, except in a program store:
+    /// the runtime publishes its endpoint file in the bundle `current` named at its start, and an
+    /// install moves `current` to a bundle without that file, after which only a configured port
+    /// finds the runtime through `current` (checklist G118). A store's control endpoint therefore
+    /// takes a reserved port too.
     fn assign_ports(&self, runtime: &mut Runtime) {
-        let control_ports = usize::from(self.store);
-        let ports = reserve_local_ports(control_ports + LISTEN_KEYS.len());
-        let (control, listen) = ports.split_at(control_ports);
+        let reserved = listen_reserved(self.occupy_web_port);
+        let count = usize::from(self.store) + reserved.iter().filter(|&&reserved| reserved).count();
+        let mut ports = reserve_local_ports(count).into_iter();
+        let control = self
+            .store
+            .then(|| ports.next().expect("a reserved control port"));
+        let listen =
+            reserved.map(|reserved| reserved.then(|| ports.next().expect("a reserved port")));
         let runtime_toml = runtime.project.join("runtime.toml");
         configure_runtime_toml(
             &runtime_toml,
-            listen,
+            &listen,
             &runtime.token,
             self.mode,
             self.debug_enabled,
             self.start_paused,
             self.web_enabled,
         );
-        if let Some(&port) = control.first() {
+        if let Some(port) = control {
             set_control_port(&runtime_toml, port);
         }
         runtime.web_port = listen[0];
@@ -280,9 +303,10 @@ pub struct Runtime {
     root: PathBuf,
     project: PathBuf,
     child: Option<Child>,
-    /// The reserved loopback port of the web interface, and the control token of the copy. The
-    /// control endpoint's port is the one the runtime publishes in its endpoint file.
-    web_port: u16,
+    /// The reserved loopback port of the web interface when a test occupies it, and the control
+    /// token of the copy. Otherwise the web interface and the control endpoint listen on the ports
+    /// the runtime reports: in its fleet topology and in its endpoint file.
+    web_port: Option<u16>,
     token: String,
 }
 
@@ -400,20 +424,8 @@ impl Runtime {
     /// is `connected` once the listener is bound at startup. False while the control endpoint does
     /// not answer.
     fn web_listener_bound(&self) -> bool {
-        fn bound_web(value: &Value) -> bool {
-            match value {
-                Value::Object(object) => {
-                    (object.get("protocol") == Some(&Value::from("web"))
-                        && object.get("source") == Some(&Value::from("self"))
-                        && object.get("health") == Some(&Value::from("connected")))
-                        || object.values().any(bound_web)
-                }
-                Value::Array(items) => items.iter().any(bound_web),
-                _ => false,
-            }
-        }
         self.try_control_request(serde_json::json!({"id": 1, "type": "fleet.topology"}))
-            .is_some_and(|response| bound_web(&response["result"]))
+            .is_some_and(|response| bound_web_address(&response["result"]).is_some())
     }
 
     /// Runs `trust-runtime ctl --project <project> <args>`.
@@ -617,9 +629,18 @@ impl Runtime {
             .map_err(|err| format!("the control response is not JSON ({err}): {line}"))
     }
 
-    /// The base URL of the web interface, when `ExampleRuntime::web` kept it on.
+    /// The base URL of the web interface, when `ExampleRuntime::web` kept it on: the address its
+    /// listener bound, as the runtime reports it in the fleet topology (specification 11, fleet
+    /// topology), since the copy configures port 0.
     pub fn web_base(&self) -> String {
-        format!("http://127.0.0.1:{}", self.web_port)
+        let topology = self.control_request(serde_json::json!({"id": 1, "type": "fleet.topology"}));
+        let address = bound_web_address(&topology).unwrap_or_else(|| {
+            panic!(
+                "the fleet topology names no bound web address: {topology}\n{}",
+                self.diagnostics()
+            )
+        });
+        format!("http://{address}")
     }
 
     /// Waits for the process to exit on its own, as after `shutdown --exit`.
@@ -853,12 +874,13 @@ fn set_control_port(path: &Path, port: u16) {
 
 /// Rewrites the copied runtime.toml with the toml crate. The control endpoint becomes
 /// `tcp://127.0.0.1:0`, a port the runtime chooses when it binds, and each `LISTEN_KEYS` entry that
-/// exists takes the reserved port in the same place of `ports`. The copy's own token is set, the
-/// mode and debug flag are set when requested, discovery is disabled, and so is the web interface
-/// unless `web_enabled` keeps it on. Every other setting is kept.
+/// exists takes the reserved port in the same place of `ports`, or port 0 where that place is
+/// `None`. The copy's own token is set, the mode and debug flag are set when requested, discovery
+/// is disabled, and so is the web interface unless `web_enabled` keeps it on. Every other setting
+/// is kept.
 fn configure_runtime_toml(
     path: &Path,
-    ports: &[u16],
+    ports: &[Option<u16>],
     token: &str,
     mode: Option<&str>,
     debug_enabled: Option<bool>,
@@ -893,6 +915,7 @@ fn configure_runtime_toml(
         if let Some(section) = table_path_mut(&mut document, table)
             && section.contains_key(key)
         {
+            let port = port.unwrap_or(0);
             section.insert(key.into(), toml::Value::String(format!("127.0.0.1:{port}")));
         }
     }

@@ -16,7 +16,7 @@ mod support;
 mod runtime_process;
 
 use std::fs::{self, File};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -24,8 +24,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde_json::{json, Map, Value};
 use tungstenite::{Message, WebSocket};
 
-use runtime_process::{describe, trust_runtime_command};
+use runtime_process::{bound_web_address, describe, trust_runtime_command};
 use support::{http_request, session_cookie, SCREEN};
+use trust_runtime::control::endpoint::resolve_control_target;
+use trust_runtime::control::ControlEndpoint;
 use trust_runtime::hmi::access::password::hash_password;
 
 /// The HMI library, which the project carries in its sources.
@@ -319,11 +321,31 @@ impl Runtime {
     }
 }
 
-/// A free local port for the web interface. The control endpoint is `tcp://127.0.0.1:0`: the
-/// runtime binds a port no other process can take first, and this test never connects to it.
-fn free_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
-    listener.local_addr().expect("the local address").port()
+/// The web interface's base URL at the address its listener bound, from the runtime's fleet
+/// topology (specification 11, fleet topology): the project configures the web interface and the
+/// control endpoint on port 0, so no other process can take either first. `None` until the runtime
+/// has published its control endpoint and bound its web listener.
+fn bound_web_base(project: &Path, token: &str) -> Option<String> {
+    use std::io::{BufRead, BufReader, Write};
+    let target = resolve_control_target(Some(project), None, Some(token)).ok()?;
+    // A match, not `let ... else`: on Windows a control endpoint is always TCP, so the pattern alone
+    // could not fail there, and Clippy's Windows check refuses an irrefutable `let ... else`.
+    let address = match target.endpoint {
+        ControlEndpoint::Tcp(address) if address.port() != 0 => address,
+        _ => return None,
+    };
+    let mut stream = TcpStream::connect(address).ok()?;
+    stream.set_read_timeout(Some(WAIT)).ok()?;
+    writeln!(
+        stream,
+        "{}",
+        json!({"id": 1, "type": "fleet.topology", "auth": token})
+    )
+    .ok()?;
+    let mut line = String::new();
+    BufReader::new(stream).read_line(&mut line).ok()?;
+    let response: Value = serde_json::from_str(line.trim()).ok()?;
+    bound_web_address(&response).map(|address| format!("http://{address}"))
 }
 
 fn write(root: &Path, file: &str, text: &str) {
@@ -343,7 +365,7 @@ fn start() -> Runtime {
         "trust-hmi-running-program-{}-{stamp}",
         std::process::id()
     ));
-    let web = free_port();
+    let token = format!("hmi-running-program-{stamp}");
     let password = hash_password("secret", 10_000, b"0123456789abcdef");
     write(
         &root,
@@ -360,11 +382,11 @@ cycle_interval_ms = 20
 endpoint = "tcp://127.0.0.1:0"
 mode = "production"
 debug_enabled = false
-auth_token = "hmi-running-program-{stamp}"
+auth_token = "{token}"
 
 [runtime.web]
 enabled = true
-listen = "127.0.0.1:{web}"
+listen = "127.0.0.1:0"
 auth = "local"
 tls = false
 
@@ -446,7 +468,7 @@ policy = "halt"
     let mut runtime = Runtime {
         root,
         child,
-        base: format!("http://127.0.0.1:{web}"),
+        base: String::new(),
     };
     let deadline = Instant::now() + WAIT;
     loop {
@@ -456,12 +478,18 @@ policy = "halt"
                 runtime.diagnostics()
             );
         }
-        if ureq::get(&format!("{}/", runtime.base)).call().is_ok() {
+        if runtime.base.is_empty()
+            && let Some(base) = bound_web_base(&runtime.root, &token)
+        {
+            runtime.base = base;
+        }
+        if !runtime.base.is_empty() && ureq::get(&format!("{}/", runtime.base)).call().is_ok() {
             return runtime;
         }
         assert!(
             Instant::now() < deadline,
-            "the web interface did not answer within {WAIT:?}\n{}",
+            "the web interface did not answer within {WAIT:?} (its address: {:?})\n{}",
+            runtime.base,
             runtime.diagnostics()
         );
         std::thread::sleep(Duration::from_millis(100));
