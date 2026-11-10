@@ -547,6 +547,7 @@ fn collect_pou_accesses(
         }
         let scope_id = expression_context(symbols, &node).scope_id;
         let Some(symbol_id) = resolve_field_expr_global(symbols, globals_by_key, &node, scope_id)
+            .or_else(|| resolve_path_root_global(symbols, globals_by_key, &node, scope_id))
         else {
             continue;
         };
@@ -557,10 +558,7 @@ fn collect_pou_accesses(
         .descendants()
         .filter(|n| n.kind() == SyntaxKind::NameRef)
     {
-        if node
-            .ancestors()
-            .any(|ancestor| ancestor.kind() == SyntaxKind::FieldExpr)
-        {
+        if is_in_field_path(&node) {
             continue;
         }
         if !belongs_to_pou(&node, pou) {
@@ -660,6 +658,55 @@ fn resolve_field_expr_global(
         }
     }
     None
+}
+
+/// The global at the root of a field path whose base is not a plain or qualified name, such as
+/// `Ref^.field`, `Arr[0].field` or `(Ref^).field`: specification 28 §6 counts a use "through a
+/// field, an array element or a dereference of the global" as a use of the global. The base is
+/// followed through dereferences, parentheses, indexes and fields to the name at its root.
+fn resolve_path_root_global(
+    symbols: &SymbolTable,
+    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
+    field_expr: &SyntaxNode,
+    scope_id: ScopeId,
+) -> Option<SymbolId> {
+    let mut current = field_expr.first_child()?;
+    loop {
+        match current.kind() {
+            SyntaxKind::NameRef => {
+                return resolve_name_ref_global(symbols, globals_by_key, &current, scope_id);
+            }
+            SyntaxKind::FieldExpr => {
+                if let Some(global) =
+                    resolve_field_expr_global(symbols, globals_by_key, &current, scope_id)
+                {
+                    return Some(global);
+                }
+                current = current.first_child()?;
+            }
+            SyntaxKind::DerefExpr | SyntaxKind::IndexExpr | SyntaxKind::ParenExpr => {
+                current = current.first_child()?;
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// Whether a name is part of a field path, its root or one of its members, which the field loop
+/// resolves as a whole. A name inside an index of such a path is a use of its own: an index is
+/// read (specification 28 §6).
+fn is_in_field_path(name_ref: &SyntaxNode) -> bool {
+    let mut current = name_ref.clone();
+    while let Some(parent) = current.parent() {
+        match parent.kind() {
+            SyntaxKind::FieldExpr => return true,
+            SyntaxKind::DerefExpr | SyntaxKind::ParenExpr => {}
+            SyntaxKind::IndexExpr if parent.first_child().as_ref() == Some(&current) => {}
+            _ => return false,
+        }
+        current = parent;
+    }
+    false
 }
 
 fn resolve_global_symbol(

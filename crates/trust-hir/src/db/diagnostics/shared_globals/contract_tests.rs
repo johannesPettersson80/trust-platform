@@ -800,3 +800,84 @@ END_PROGRAM
 "#,
     );
 }
+
+/// The names of the globals that `source`'s W012 warnings report, sorted.
+fn hazard_globals(source: &str) -> Vec<String> {
+    let mut names: Vec<String> = hazards(source)
+        .iter()
+        .filter_map(|warning| {
+            let name = warning.message.strip_prefix("shared global '")?;
+            Some(name[..name.find('\'')?].to_string())
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+/// Specification 28 §6: a use reaches a global "through a field, an array element or a dereference
+/// of the global", and a reference counts as its target. `RecordRef^.value`, `Records[0].value` and
+/// `Nested^.inner.value` therefore access `RecordRef`, `Records` and `Nested`: written by Fast and
+/// read by Slow, each a structure, so each warns. Wrong behaviour caught (G78): the collector
+/// resolved a field path only down to a plain name, so a field behind a dereference or an array
+/// element recorded no access, and the two tasks' use of the same structure stayed silent.
+#[test]
+fn a_field_behind_a_dereference_or_an_array_element_accesses_its_global() {
+    let source = r#"
+TYPE Record2 : STRUCT value : INT; END_STRUCT; END_TYPE
+TYPE Record : STRUCT value : INT; inner : Record2; END_STRUCT; END_TYPE
+CONFIGURATION Conf
+VAR_GLOBAL
+    RecordRef : REF_TO Record;
+    Records : ARRAY[0..1] OF Record;
+    Nested : REF_TO Record;
+END_VAR
+RESOURCE R ON CPU
+    TASK Fast (PRIORITY := 1);
+    TASK Slow (PRIORITY := 2);
+    PROGRAM First WITH Fast : Writer;
+    PROGRAM Second WITH Slow : Reader;
+END_RESOURCE
+END_CONFIGURATION
+PROGRAM Writer
+    RecordRef^.value := 1;
+    Records[0].value := 1;
+    Nested^.inner.value := 1;
+END_PROGRAM
+PROGRAM Reader
+    VAR observed : INT; END_VAR
+    observed := RecordRef^.value + Records[1].value + Nested^.inner.value;
+END_PROGRAM
+"#;
+    assert_eq!(hazard_globals(source), ["Nested", "RecordRef", "Records"]);
+}
+
+/// Specification 28 §6: "an index such as `i` in `gArr[i] := 0` is read", also inside a field path.
+/// `Index`, a 64-bit global that Slow writes, is read by Fast as the index of `Records[Index].value`,
+/// so it warns; `Records` is used by Fast alone and does not. Wrong behaviour caught: a name
+/// anywhere under a field path was skipped as part of the path, so the index's read was lost, or the
+/// index was taken for the path's root, which would report `Records` too.
+#[test]
+fn a_global_used_as_an_index_inside_a_field_path_is_read() {
+    let source = r#"
+TYPE Record : STRUCT value : INT; END_STRUCT; END_TYPE
+CONFIGURATION Conf
+VAR_GLOBAL
+    Records : ARRAY[0..1] OF Record;
+    Index : LINT;
+END_VAR
+RESOURCE R ON CPU
+    TASK Fast (PRIORITY := 1);
+    TASK Slow (PRIORITY := 2);
+    PROGRAM First WITH Fast : Writer;
+    PROGRAM Second WITH Slow : Mover;
+END_RESOURCE
+END_CONFIGURATION
+PROGRAM Writer
+    Records[Index].value := 1;
+END_PROGRAM
+PROGRAM Mover
+    Index := 1;
+END_PROGRAM
+"#;
+    assert_eq!(hazard_globals(source), ["Index"]);
+}
