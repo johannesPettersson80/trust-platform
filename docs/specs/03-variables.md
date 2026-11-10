@@ -86,6 +86,19 @@ variable initializer must be a literal or constant expression
 The category and message are a truST compiler diagnostic contract. They make
 the IEC rejection observable but are not themselves IEC-defined wording.
 
+Under the CODESYS profiles (specification 07 §2.10), a call of a type conversion
+function (`<type>_TO_<type>`, `TO_<type>`, the `TRUNC` and BCD forms, and
+CODESYS's `ANY_TO_<type>`) whose arguments are constant expressions is itself a
+constant expression of an initial value: in a `VAR` list of a program, a
+function block, a function or a method, and in a global variable list, as in a
+structure's member default. The build works it out by the program's conversion
+rules (specification 44 §6.7), so `ANY_TO_BYTE(300)` starts as 44. CODESYS's
+help on variable initialization takes "any valid expression of the programming
+language ST", built from "constants, other variables or functions"; truST takes
+the conversions of constant arguments, which CODESYS works out as constants. An
+initial value that names a mutable variable stays refused, also inside a
+conversion.
+
 For multi-name declarations, the declared initializer is materialized into
 independent storage for each declared name. Aggregate values rely on the runtime
 `Value::Struct` copy-on-write contract for subsequent field mutation.

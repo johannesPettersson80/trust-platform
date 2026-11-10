@@ -14,6 +14,12 @@ mod validate;
 
 pub(in crate::type_check) use helpers::is_execution_param;
 
+/// Whether `name` is a standard type conversion function (`<type>_TO_<type>`, `TO_<type>`, the
+/// `TRUNC` and BCD forms, and CODESYS's `ANY_TO_<type>`), in any case.
+pub(crate) fn is_conversion_function_name(name: &str) -> bool {
+    is_standard_conversion_function_name(&name.to_ascii_uppercase())
+}
+
 pub(crate) fn is_standard_function_name(name: &str) -> bool {
     let upper = name.to_ascii_uppercase();
     if is_standard_conversion_function_name(&upper) {

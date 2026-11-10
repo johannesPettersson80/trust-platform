@@ -303,3 +303,52 @@ END_VAR
         );
     }
 }
+
+#[test]
+fn a_conversion_of_constants_is_a_constant_initial_value_under_codesys() {
+    // Specification 03 and contributor issue #428: under the CODESYS profiles a type conversion of
+    // constant arguments is a constant expression of an initial value, in a program's VAR, scalar
+    // and inside a structure's initializer, and in a global variable list, as in a structure's
+    // member default since #352. `iLocal` is an integer, which the integer evaluator judges and
+    // which takes the conversion only through the CODESYS rule; the BYTE ones are bit strings.
+    // Under the IEC profile it stays E202. Catches the conversion refused as "variable initializer
+    // must be a literal or constant expression" outside a structure's member defaults.
+    let source = r#"
+TYPE stCfg :
+STRUCT
+    bMinOn : BYTE;
+    bXMax : BYTE;
+END_STRUCT
+END_TYPE
+VAR_GLOBAL
+    gMax : BYTE := ANY_TO_BYTE(255);
+END_VAR
+PROGRAM Main
+VAR
+    bLocal : BYTE := INT_TO_BYTE(255);
+    iLocal : INT := ANY_TO_INT(70000);
+    stCfgLocal : stCfg := (bMinOn := 150, bXMax := ANY_TO_BYTE(255));
+END_VAR
+END_PROGRAM
+"#;
+    check_no_errors_in(Dialect::Codesys, source);
+    check_has_error_in(
+        Dialect::Iec,
+        "PROGRAM Main\nVAR\n    b : BYTE := INT_TO_BYTE(255);\nEND_VAR\nEND_PROGRAM\n",
+        DiagnosticCode::InvalidOperation,
+    );
+}
+
+#[test]
+fn a_conversion_of_a_mutable_variable_stays_refused_as_an_initial_value() {
+    // The conversion is constant only when its arguments are: `ANY_TO_BYTE(gLevel)` names a
+    // mutable global, which an initial value must not (specification 03), in a scalar and inside a
+    // structure's initializer. Catches every conversion taken as a constant.
+    let scalar = "VAR_GLOBAL\n    gLevel : DINT := 300;\nEND_VAR\n\
+                  PROGRAM Main\nVAR\n    b : BYTE := ANY_TO_BYTE(gLevel);\nEND_VAR\nEND_PROGRAM\n";
+    check_has_error_in(Dialect::Codesys, scalar, DiagnosticCode::InvalidOperation);
+    let grouped = "TYPE stCfg :\nSTRUCT\n    bXMax : BYTE;\nEND_STRUCT\nEND_TYPE\n\
+                   VAR_GLOBAL\n    gLevel : DINT := 300;\nEND_VAR\n\
+                   PROGRAM Main\nVAR\n    c : stCfg := (bXMax := ANY_TO_BYTE(gLevel));\nEND_VAR\nEND_PROGRAM\n";
+    check_has_error_in(Dialect::Codesys, grouped, DiagnosticCode::InvalidOperation);
+}

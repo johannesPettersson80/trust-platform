@@ -260,6 +260,63 @@ fn a_dut_member_default_converts_by_the_codesys_rules() {
     assert_eq!(harness.get_output("rGamma"), Some(Value::Real(2.5)));
 }
 
+// Specification 03, specification 44 §6.7 and contributor issue #428: the same conversions in a
+// global variable list and in a program's VAR, a scalar and a structure's initializer, worked out
+// by the vendor's rules as in a member default: `gMax` 255, `gWrap` 44 (the low-order byte of 300),
+// `bLocal` 44, the structure's 150 and 255, and the integer `iLocal` 4464 (70000 is 16#11170, whose
+// low-order word is 16#1170). Catches the type checker refusing them with E202 outside a structure's
+// member defaults, and a value that strays from the member default's.
+const VAR_AND_GLOBAL_INITIAL_VALUES: &str = r#"
+TYPE stCfg :
+STRUCT
+    bMinOn : BYTE;
+    bXMax : BYTE;
+END_STRUCT
+END_TYPE
+
+VAR_GLOBAL
+    gMax : BYTE := ANY_TO_BYTE(255);
+    gWrap : BYTE := ANY_TO_BYTE(300);
+END_VAR
+
+PROGRAM Main
+VAR
+    bLocal : BYTE := ANY_TO_BYTE(300);
+    iLocal : INT := ANY_TO_INT(70000);
+    stCfgLocal : stCfg := (bMinOn := 150, bXMax := ANY_TO_BYTE(255));
+    o1, o2, o3, o4, o5 : BYTE;
+    o6 : INT;
+END_VAR
+    o1 := gMax;
+    o2 := gWrap;
+    o3 := bLocal;
+    o4 := stCfgLocal.bMinOn;
+    o5 := stCfgLocal.bXMax;
+    o6 := iLocal;
+END_PROGRAM
+"#;
+
+#[test]
+fn a_var_and_a_global_initial_value_convert_by_the_codesys_rules() {
+    let session = CompileSession::from_source(VAR_AND_GLOBAL_INITIAL_VALUES)
+        .with_conversion_profile(ConversionProfile::Codesys);
+    let mut harness = TestHarness::from_session(session).expect("the CODESYS image builds");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
+    let seen: Vec<Option<Value>> = ["o1", "o2", "o3", "o4", "o5"]
+        .into_iter()
+        .map(|name| harness.get_output(name))
+        .collect();
+    assert_eq!(
+        seen,
+        [255, 44, 44, 150, 255]
+            .into_iter()
+            .map(|byte| Some(Value::Byte(byte)))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(harness.get_output("o6"), Some(Value::Int(4464)));
+}
+
 /// Catches a build that works a mutable variable's value into a declaration's constant:
 /// `ANY_TO_BYTE(gLevel)` names no compile-time constant, so the build refuses it as it refuses
 /// the bare `gLevel` (specification 44 §6.7), instead of reading the variable's starting value.

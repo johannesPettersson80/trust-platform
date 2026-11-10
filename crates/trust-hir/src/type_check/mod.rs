@@ -33,7 +33,7 @@ pub(crate) use fb_init_args::check_fb_init_arguments;
 pub(crate) use literal_range::untyped_literal_out_of_range_message;
 pub(crate) use literals::{exact_int_literal_value, integer_type_range_fits, string_literal_info};
 pub use ops::{BinaryOp, UnaryOp};
-pub(crate) use standard::is_standard_function_name;
+pub(crate) use standard::{is_conversion_function_name, is_standard_function_name};
 
 fn non_value_role(kind: &SymbolKind) -> Option<&'static str> {
     match kind {

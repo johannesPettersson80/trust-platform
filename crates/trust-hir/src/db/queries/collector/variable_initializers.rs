@@ -5,8 +5,8 @@ use crate::db::queries::collector::const_utils::{
 };
 use crate::symbols::{EnumValueResolution, UsingResolution};
 use crate::type_check::{
-    exact_int_literal_value, integer_type_range_fits, is_standard_function_name,
-    untyped_literal_out_of_range_message, TypeChecker,
+    exact_int_literal_value, integer_type_range_fits, is_conversion_function_name,
+    is_standard_function_name, untyped_literal_out_of_range_message, TypeChecker,
 };
 
 impl SymbolCollector<'_> {
@@ -73,7 +73,88 @@ impl SymbolCollector<'_> {
         }
         if !target.is_integer() {
             if let Some(violation) = self.initializer_const_violation(expr, scope) {
-                let message = match violation {
+                self.report_initializer_violation(expr, violation);
+            }
+            return;
+        }
+
+        // An untyped integer literal outside the declared type's base integer range is a range
+        // error, as in an assignment. It is a literal, so it is not reported as a non-constant
+        // expression. A subrange's own bounds are checked by the initializer bound check below,
+        // so only its base type counts here.
+        let base_id = match target {
+            Type::Subrange { base, .. } => self.table.resolve_alias_type(*base),
+            _ => resolved,
+        };
+        let Some(base_type) = self.table.type_by_id(base_id) else {
+            return;
+        };
+        let type_name = self.table.type_name(base_id).unwrap_or_else(|| "?".into());
+        if let Some(message) =
+            untyped_literal_out_of_range_message(expr, base_type, type_name.as_str())
+        {
+            self.diagnostics
+                .error(DiagnosticCode::OutOfRange, expr.text_range(), message);
+            return;
+        }
+
+        if is_constant_block {
+            return;
+        }
+
+        // A literal whose exact value fits the declared integer type is a valid constant; the
+        // lowering then takes the value at that type.
+        if let Some(value) = exact_int_literal_value(expr)
+            && self.integer_literal_fits_type(type_id, value)
+        {
+            return;
+        }
+
+        // A conversion of constant arguments, which the CODESYS profiles take as a constant
+        // (specification 03), is not an integer this check works out: the build converts it by
+        // the program's conversion rules (specification 44 §6.7). The structural check of the
+        // other types judges it.
+        if self.table.dialect().is_codesys() && contains_conversion_call(expr) {
+            if let Some(violation) = self.initializer_const_violation(expr, scope) {
+                self.report_initializer_violation(expr, violation);
+            }
+            return;
+        }
+
+        let scopes = scope_chain_for_node(expr);
+        let mut guard = FxHashSet::default();
+        match self.try_eval_int_expr(expr, &scopes, &mut guard, false) {
+            Ok(_) => {}
+            Err(ConstEvalError::UndefinedName(name))
+                if self.table.resolve(name.as_str(), scope).is_some() =>
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    format!(
+                        "variable initializer must be a literal or constant expression: mutable dependency '{name}'"
+                    ),
+                );
+            }
+            Err(ConstEvalError::NotConstant) => {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    "variable initializer must be a literal or constant expression",
+                );
+            }
+            Err(err) => self.report_default_const_eval_error(err, expr.text_range()),
+        }
+    }
+
+    /// Reports `violation`, which the initializer `expr` breaks: E202 for a value that is no
+    /// constant (specification 03), and the resolution error for a name that does not resolve.
+    fn report_initializer_violation(
+        &mut self,
+        expr: &SyntaxNode,
+        violation: InitializerConstViolation,
+    ) {
+        let message = match violation {
                     InitializerConstViolation::Mutable(name) => format!(
                         "variable initializer must be a literal or constant expression: mutable dependency '{name}'"
                     ),
@@ -113,71 +194,8 @@ impl SymbolCollector<'_> {
                         return;
                     }
                 };
-                self.diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
-                    expr.text_range(),
-                    message,
-                );
-            }
-            return;
-        }
-
-        // An untyped integer literal outside the declared type's base integer range is a range
-        // error, as in an assignment. It is a literal, so it is not reported as a non-constant
-        // expression. A subrange's own bounds are checked by the initializer bound check below,
-        // so only its base type counts here.
-        let base_id = match target {
-            Type::Subrange { base, .. } => self.table.resolve_alias_type(*base),
-            _ => resolved,
-        };
-        let Some(base_type) = self.table.type_by_id(base_id) else {
-            return;
-        };
-        let type_name = self.table.type_name(base_id).unwrap_or_else(|| "?".into());
-        if let Some(message) =
-            untyped_literal_out_of_range_message(expr, base_type, type_name.as_str())
-        {
-            self.diagnostics
-                .error(DiagnosticCode::OutOfRange, expr.text_range(), message);
-            return;
-        }
-
-        if is_constant_block {
-            return;
-        }
-
-        // A literal whose exact value fits the declared integer type is a valid constant; the
-        // lowering then takes the value at that type.
-        if let Some(value) = exact_int_literal_value(expr)
-            && self.integer_literal_fits_type(type_id, value)
-        {
-            return;
-        }
-
-        let scopes = scope_chain_for_node(expr);
-        let mut guard = FxHashSet::default();
-        match self.try_eval_int_expr(expr, &scopes, &mut guard, false) {
-            Ok(_) => {}
-            Err(ConstEvalError::UndefinedName(name))
-                if self.table.resolve(name.as_str(), scope).is_some() =>
-            {
-                self.diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
-                    expr.text_range(),
-                    format!(
-                        "variable initializer must be a literal or constant expression: mutable dependency '{name}'"
-                    ),
-                );
-            }
-            Err(ConstEvalError::NotConstant) => {
-                self.diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
-                    expr.text_range(),
-                    "variable initializer must be a literal or constant expression",
-                );
-            }
-            Err(err) => self.report_default_const_eval_error(err, expr.text_range()),
-        }
+        self.diagnostics
+            .error(DiagnosticCode::InvalidOperation, expr.text_range(), message);
     }
 
     /// Whether `value` fits the integer type `type_id`. A subrange is checked against its base
@@ -263,12 +281,21 @@ impl SymbolCollector<'_> {
             | SyntaxKind::BinaryExpr
             | SyntaxKind::ParenExpr => self.initializer_const_violation(&callee, scope),
             SyntaxKind::NameRef | SyntaxKind::FieldExpr => {
+                let standard = qualified_const_parts(&callee)
+                    .filter(|parts| {
+                        parts.len() == 1 && is_standard_function_name(parts[0].as_str())
+                    })
+                    .map(|parts| parts[0].clone());
                 if self.initializer_reference_is_type(&callee, scope) {
                     None
-                } else if qualified_const_parts(&callee).is_some_and(|parts| {
-                    parts.len() == 1 && is_standard_function_name(parts[0].as_str())
-                }) {
-                    Some(InitializerConstViolation::NonConstant)
+                } else if let Some(name) = standard {
+                    // Under the CODESYS profiles a type conversion is a constant when its
+                    // arguments are (specification 03): the build works it out by the program's
+                    // conversion rules (specification 44 §6.7). Every other standard function
+                    // is not.
+                    (!(self.table.dialect().is_codesys()
+                        && is_conversion_function_name(name.as_str())))
+                    .then_some(InitializerConstViolation::NonConstant)
                 } else {
                     match self.initializer_reference_violation(&callee, scope, true) {
                         Some(InitializerConstViolation::Undefined(name)) => {
@@ -480,6 +507,16 @@ enum InitializerReferenceResolution {
     Found(SymbolId),
     NotFound,
     Ambiguous,
+}
+
+/// Whether `expr` calls a type conversion function anywhere: such a call of constant arguments is
+/// a constant under the CODESYS profiles (specification 03).
+fn contains_conversion_call(expr: &SyntaxNode) -> bool {
+    expr.descendants()
+        .filter(|node| node.kind() == SyntaxKind::CallExpr)
+        .filter_map(|call| call.children().next())
+        .filter_map(|callee| qualified_const_parts(&callee))
+        .any(|parts| parts.len() == 1 && is_conversion_function_name(parts[0].as_str()))
 }
 
 fn is_unqualified_ref_call(expr: &SyntaxNode) -> bool {
