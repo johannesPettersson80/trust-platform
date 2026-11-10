@@ -26,6 +26,58 @@ fn free_loopback_port() -> u16 {
         .port()
 }
 
+/// Two distinct loopback ports that were free a moment ago. Another socket can take either before
+/// the runtime binds it, so a start with them may find one taken ([`start_unless_a_port_was_taken`]).
+fn two_free_loopback_ports() -> (u16, u16) {
+    let control = free_loopback_port();
+    let mut web = free_loopback_port();
+    while web == control {
+        web = free_loopback_port();
+    }
+    (control, web)
+}
+
+/// The most starts of the managed runtime, each with two fresh ports, before a port found taken
+/// fails the test.
+const START_ATTEMPTS: usize = 5;
+
+/// Starts the managed runtime `cell` of `root`. Answers `None` when the runtime found one of its
+/// ports taken: it then exits before its control endpoint is ready, and its log holds a bind that
+/// failed with an address in use. Any other failure fails the test.
+fn start_unless_a_port_was_taken(root: &Path) -> Option<Output> {
+    let start = run_fleet(root, &["runtime", "start", "--name", "cell"]);
+    if start.status.success() {
+        return Some(start);
+    }
+    let logs = run_fleet(
+        root,
+        &["runtime", "logs", "--name", "cell", "--lines", "50"],
+    );
+    let lines = serde_json::from_slice::<serde_json::Value>(&logs.stdout)
+        .ok()
+        .and_then(|logs| {
+            logs.get("lines")
+                .and_then(serde_json::Value::as_array)
+                .cloned()
+        })
+        .unwrap_or_default()
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let port_taken = lines
+        .iter()
+        .any(|line| trust_test_support::reports_a_taken_port(line));
+    assert!(
+        port_taken,
+        "fleet runtime start failed\nstdout:\n{}\nstderr:\n{}\nruntime log:\n{}",
+        String::from_utf8_lossy(&start.stdout),
+        String::from_utf8_lossy(&start.stderr),
+        lines.join("\n")
+    );
+    None
+}
+
 fn run_fleet(root: &Path, args: &[&str]) -> Output {
     let sequence = COMMAND_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let capture_dir = root.join(".test-command-output");
@@ -95,18 +147,11 @@ impl Drop for RuntimeCleanup {
     }
 }
 
-#[test]
-fn managed_runtime_lifecycle_runs_through_the_shipped_cli() {
-    let root = temp_dir();
-    let cleanup = RuntimeCleanup { root: root.clone() };
-    let control_port = free_loopback_port();
-    let mut web_port = free_loopback_port();
-    while web_port == control_port {
-        web_port = free_loopback_port();
-    }
-
+/// Adds the managed runtime `cell` to the fleet of `root` with the given ports, and checks the
+/// answers of `fleet runtime add` and `fleet list`.
+fn add_cell(root: &Path, control_port: u16, web_port: u16) {
     let add = run_fleet(
-        &root,
+        root,
         &[
             "runtime",
             "add",
@@ -133,7 +178,7 @@ fn managed_runtime_lifecycle_runs_through_the_shipped_cli() {
         Some(expected_control_endpoint.as_str())
     );
 
-    let list = run_fleet(&root, &["list"]);
+    let list = run_fleet(root, &["list"]);
     assert_success(&list, "fleet list");
     let list: serde_json::Value = serde_json::from_slice(&list.stdout).expect("parse list JSON");
     assert_eq!(
@@ -150,9 +195,25 @@ fn managed_runtime_lifecycle_runs_through_the_shipped_cli() {
         runtimes[0].get("name").and_then(serde_json::Value::as_str),
         Some("cell")
     );
+}
 
-    let start = run_fleet(&root, &["runtime", "start", "--name", "cell"]);
-    assert_success(&start, "fleet runtime start");
+#[test]
+fn managed_runtime_lifecycle_runs_through_the_shipped_cli() {
+    let mut attempts = 0;
+    let (root, cleanup, start) = loop {
+        attempts += 1;
+        let root = temp_dir();
+        let cleanup = RuntimeCleanup { root: root.clone() };
+        let (control_port, web_port) = two_free_loopback_ports();
+        add_cell(&root, control_port, web_port);
+        if let Some(start) = start_unless_a_port_was_taken(&root) {
+            break (root, cleanup, start);
+        }
+        assert!(
+            attempts < START_ATTEMPTS,
+            "{START_ATTEMPTS} starts each found a port of the runtime taken"
+        );
+    };
     let start: serde_json::Value = serde_json::from_slice(&start.stdout).expect("parse start JSON");
     assert!(matches!(
         start.get("status").and_then(serde_json::Value::as_str),

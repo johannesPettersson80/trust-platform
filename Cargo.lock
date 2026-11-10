@@ -8116,6 +8116,9 @@ dependencies = [
 [[package]]
 name = "trust-test-support"
 version = "0.35.0"
+dependencies = [
+ "socket2 0.6.5",
+]
 
 [[package]]
 name = "trust-visual"
