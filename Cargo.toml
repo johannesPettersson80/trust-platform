@@ -42,7 +42,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.34.0"
+version = "0.35.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
