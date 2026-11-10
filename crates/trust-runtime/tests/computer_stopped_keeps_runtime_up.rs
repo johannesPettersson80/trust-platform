@@ -46,6 +46,12 @@ const COUNTER_VARS: &str = "VAR\n    Counter : INT;\n    CounterLatched : INT;\n
 const RETAINED_COUNTER_VARS: &str =
     "VAR RETAIN\n    Counter : INT;\nEND_VAR\nVAR\n    CounterLatched : INT;\nEND_VAR";
 
+/// The example's historian, off, and on with its relative history path.
+#[cfg(unix)]
+const OBSERVABILITY_OFF: &str = "[runtime.observability]\nenabled = false";
+#[cfg(unix)]
+const OBSERVABILITY_ON: &str = "[runtime.observability]\nenabled = true";
+
 /// The program of the example that climbs `%MW0` by two in each scan.
 fn step_two_program() -> BuiltProgram {
     build_program(EXAMPLE, &[("src/Main.st", STEP_ONE, STEP_TWO)])
@@ -719,5 +725,49 @@ fn a_store_install_keeps_the_retained_values_for_the_warm_restart() {
          {started_from} ({} after {} scans)",
         first.int("%MW0"),
         first.scan()
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_store_runtime_keeps_its_pairings_and_its_history_in_the_store_folder() {
+    // Specification 11 §6.8.0a, §6.9.6 and the historian contract: a runtime started on a program
+    // store's `current` link keeps its pairing file and its history (here at the example's
+    // relative `history/historian.jsonl`) in the store folder, so an install, which moves `current`
+    // to another bundle, keeps them. Wrong behaviour: both lie in the bundle `current` names, and
+    // the pairings and the history start empty after the next install.
+    let runtime = ExampleRuntime::new(EXAMPLE)
+        .edit_source("runtime.toml", OBSERVABILITY_OFF, OBSERVABILITY_ON)
+        .store()
+        .start();
+    let started = runtime.control_request(json!({"id": 40, "type": "pair.start"}));
+    let code = result_of(&started)["code"].clone();
+    let claimed =
+        runtime.control_request(json!({"id": 41, "type": "pair.claim", "params": {"code": code}}));
+    assert!(result_of(&claimed)["token"].is_string(), "{claimed}");
+    let store = runtime
+        .project()
+        .parent()
+        .expect("the store folder")
+        .to_path_buf();
+    let bundle = fs::canonicalize(runtime.project()).expect("the bundle current names");
+
+    // The historian makes its history file's folder when it starts; the example has no global
+    // that it would record, so the file itself comes with a first sample only.
+    assert!(
+        store.join("history").is_dir(),
+        "the store folder holds the history folder"
+    );
+    assert!(
+        store.join("pairings.json").is_file(),
+        "the store folder keeps the pairings"
+    );
+    assert!(
+        !bundle.join("pairings.json").exists(),
+        "the bundle keeps no pairings"
+    );
+    assert!(
+        !bundle.join("history").exists(),
+        "the bundle keeps no history"
     );
 }

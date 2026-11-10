@@ -67,9 +67,12 @@ pub fn start_web_server_with_mode(
     let auth_token = control_state.auth_token.clone();
     let discovery = discovery.unwrap_or_else(|| Arc::new(DiscoveryState::new()));
     let pairing = pairing.or_else(|| {
-        bundle_root
-            .as_ref()
-            .map(|root| Arc::new(PairingStore::load(root.join("pairings.json"))))
+        bundle_root.as_ref().map(|root| {
+            Arc::new(PairingStore::load(crate::runtime_files::runtime_file_path(
+                root,
+                std::path::Path::new(crate::security::pairing::PAIRING_FILE),
+            )))
+        })
     });
     let ide_state = Arc::new(WebIdeState::new(bundle_root.clone()));
     let ide_task_store: Arc<Mutex<HashMap<u64, IdeTaskJob>>> = Arc::new(Mutex::new(HashMap::new()));

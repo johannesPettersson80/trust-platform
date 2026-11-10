@@ -247,14 +247,29 @@ pub fn run_runtime(
         None
     };
     let auth_token = Arc::new(Mutex::new(control_binding.auth_token.clone()));
+    // The pairings and the history are files the runtime writes, kept in the folder of its runtime
+    // files: a program store's own folder, so an install keeps them (spec 11 §6.8.0a).
     let pairing = bundle
         .as_ref()
-        .map(|bundle| Arc::new(PairingStore::load(bundle.root.join("pairings.json"))));
+        .map(|bundle| {
+            trust_runtime::runtime_files::prepare_runtime_file(
+                &bundle.root,
+                Path::new(trust_runtime::security::pairing::PAIRING_FILE),
+                &[],
+            )
+            .map(|path| Arc::new(PairingStore::load(path)))
+        })
+        .transpose()?;
     let historian = if let Some(bundle) = &bundle {
         if bundle.runtime.observability.enabled {
+            trust_runtime::runtime_files::prepare_runtime_file(
+                &bundle.root,
+                &bundle.runtime.observability.history_path,
+                &[],
+            )?;
             let service = HistorianService::new(
                 bundle.runtime.observability.clone(),
-                Some(bundle.root.as_path()),
+                Some(trust_runtime::runtime_files::runtime_files_folder(&bundle.root).as_path()),
             )?;
             service.clone().start_sampler(debug.clone());
             Some(service)

@@ -60,7 +60,8 @@ impl AccessPort for ControlState {
         self.debug_enabled.load(Ordering::Relaxed)
     }
 
-    /// The bundle's pairing store, `<bundle root>/pairings.json`, which the shared `pair.*`
+    /// The runtime's pairing store, `pairings.json` in the folder of its runtime files
+    /// ([`crate::security::pairing::PAIRING_FILE`]), which the shared `pair.*`
     /// requests use; a runtime without a bundle has none and answers `pairing unavailable`.
     fn pairing(&self) -> Option<&dyn PairingService> {
         self.pairing
