@@ -8,7 +8,10 @@ does so:
 - a `bind` of port 0 read with `.local_addr()` in the same expression: the listener is a temporary, dropped at the end
   of the statement while its port goes on;
 - a function that binds port 0 and returns a port (its return type holds a `u16` and no socket): its listener is dropped
-  when it returns.
+  when it returns;
+- a listener of port 0 that `let` names, that the function then drops with `drop(name)`, while a value read from its
+  address before the drop (a `let` whose initializer reads `name.local_addr()`, or names such a value) is used after
+  it. A listener dropped after the last use of its address is no release.
 
 Test code is what `check_test_temp_paths.py` takes for test code. A helper whose callers try again with other ports
 when the program's bind found its port taken (`trust_test_support::reports_a_taken_port`), and after no other failure,
@@ -36,6 +39,9 @@ PORT_ZERO = re.compile(r':0"|,\s*0\s*\)')
 FUNCTION = re.compile(r"\bfn\s+\w+")
 SOCKET_TYPE = re.compile(r"Listener|Socket")
 PORT_TYPE = re.compile(r"\bu16\b")
+# The start of a `let` whose initializer is the `bind` call, past its path (`TcpListener::`), and a whole `let` statement.
+LET_HEAD = re.compile(r"\blet\s+(?:mut\s+)?(\w+)\s*(?::[^=;]*)?=\s*(?:[\w:]+::)?$")
+LET_STATEMENT = re.compile(r"\blet\s+(?:mut\s+)?(\w+)\s*(?::[^=;]*)?=([^;]*);")
 # What may stand between the `bind` call and a read of its address in one expression.
 CHAIN_STEP = re.compile(r"\s*(?:\?|\.await\b|\.(?:unwrap|expect|context|with_context|map_err|unwrap_or_else)\s*(?=\())")
 
@@ -94,6 +100,32 @@ def reads_address_at_once(code: str, after: int) -> bool:
     return bool(re.match(r"\s*\.local_addr\s*\(", code[index:]))
 
 
+def released_while_used(code: str, text: str, call_start: int, close_index: int, function_end: int) -> bool:
+    """Whether the `bind` call at `call_start` initializes `let name = …;`, the function then drops `name` with
+    `drop(name)` before it ends at `function_end`, and a value read from the listener's address before the drop is used
+    after it. The values are found in `code` (comments and strings blanked); their uses in `text`, so that a format
+    string's inline argument (`"{address}"`) counts."""
+    statement_start = max(code.rfind(mark, 0, call_start) for mark in ";{}") + 1
+    head = LET_HEAD.search(code[statement_start:call_start].strip())
+    if not head:
+        return False
+    name = head.group(1)
+    statement_end = code.find(";", close_index)
+    if not 0 <= statement_end < function_end:
+        return False
+    dropped = re.compile(r"\bdrop\s*\(\s*" + re.escape(name) + r"\s*\)").search(code, statement_end, function_end)
+    if not dropped:
+        return False
+    address = re.compile(r"\b" + re.escape(name) + r"\s*\.\s*local_addr\b")
+    values: set[str] = set()
+    for statement in LET_STATEMENT.finditer(code, statement_end, dropped.start()):
+        initializer = text[statement.start(2):statement.end(2)]
+        if address.search(initializer) or any(re.search(r"\b" + re.escape(value) + r"\b", initializer) for value in values):
+            values.add(statement.group(1))
+    after = text[dropped.end():function_end]
+    return any(re.search(r"\b" + re.escape(value) + r"\b", after) for value in values)
+
+
 def violations(relative: str, text: str, test_files: set[str]) -> list[tuple[int, str]]:
     """The binds of port 0 in the test code of the file `relative` whose listener is dropped while its port goes on,
     without the marker: (line, line text). `test_files` are the files that are test code as a whole."""
@@ -125,7 +157,8 @@ def violations(relative: str, text: str, test_files: set[str]) -> list[tuple[int
         returns_a_port = bool(
             function and PORT_TYPE.search(function[3]) and not SOCKET_TYPE.search(function[3])
         )
-        if not (reads_address_at_once(code, close_index + 1) or returns_a_port):
+        released = bool(function) and released_while_used(code, text, call.start(), close_index, function[2])
+        if not (reads_address_at_once(code, close_index + 1) or returns_a_port or released):
             continue
         if marked(line) or (function and marked(line_of(function[0]))):
             continue

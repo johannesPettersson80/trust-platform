@@ -65,6 +65,28 @@ class TestReleasedPorts(unittest.TestCase):
         self.assertEqual([line for line, _ in check.violations(TEST_FILE, source, TESTS)], [2, 3, 4])
 
 
+    def test_a_named_listener_dropped_while_its_address_goes_on_is_refused(self) -> None:
+        """A listener that `let` names, whose address is read, that is dropped with `drop` and whose address is then used,
+        directly or through a value made from it (an inline format argument too): two findings, lines 2 and 8. Catches a
+        guard that sees only the temporary and the returned port, which misses the usual endpoint where nothing should
+        answer."""
+        source = (
+            "fn closed() {\n"
+            '    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '    let address = listener.local_addr().expect("address");\n'
+            "    drop(listener);\n"
+            "    connect(address);\n"
+            "}\n"
+            "fn closed_endpoint() -> String {\n"
+            '    let closed = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '    let port = closed.local_addr().expect("address").port();\n'
+            "    drop(closed);\n"
+            '    format!("tcp://127.0.0.1:{port}")\n'
+            "}\n"
+        )
+        self.assertEqual([line for line, _ in check.violations(TEST_FILE, source, TESTS)], [2, 8])
+
+
 class TestKeptListeners(unittest.TestCase):
     """What the guard leaves alone: a listener that is kept, a concrete port, product code, the marker."""
 
@@ -82,6 +104,20 @@ class TestKeptListeners(unittest.TestCase):
             '    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
             "    let port = listener.local_addr().expect(\"address\").port();\n"
             "    (listener, port)\n"
+            "}\n"
+        )
+        self.assertEqual(check.violations(TEST_FILE, source, TESTS), [])
+
+    def test_a_listener_dropped_after_the_last_use_of_its_address_is_not_refused(self) -> None:
+        """A listener held while its address is used and dropped at the end, as a test of a peer that never answers holds
+        one: no finding. Catches a guard that refuses every `drop` of a listener, which would refuse a test for holding
+        its port exactly as long as it needs it."""
+        source = (
+            "fn hung() {\n"
+            '    let hung = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '    let url = format!("http://{}", hung.local_addr().expect("address"));\n'
+            "    request(&url);\n"
+            "    drop(hung);\n"
             "}\n"
         )
         self.assertEqual(check.violations(TEST_FILE, source, TESTS), [])
