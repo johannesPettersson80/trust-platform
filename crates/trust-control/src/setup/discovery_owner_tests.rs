@@ -58,8 +58,8 @@ fn a_loop_whose_setpoint_or_output_is_a_global_its_task_does_not_own_is_refused_
     let shared_output = discover(task("MainTask"), GlobalOwner::Shared);
     assert_eq!(
         reasons(&shared_output),
-        ["GVL_IO.lrValve is a global that no single task owns: a function, a function block, a method or a class writes it, or the \
-          programs of several tasks do. Let only the loop's task write GVL_IO.lrValve."]
+        ["GVL_IO.lrValve is a global that no single task owns: the programs of several tasks write it, directly or through the \
+          POUs they call, or a method that an interface's call may run writes it. Let only the loop's task write GVL_IO.lrValve."]
     );
     let discovered = discover(task("MainTask"), GlobalOwner::Unwritten);
     assert_eq!(reasons(&discovered), Vec::<&str>::new());

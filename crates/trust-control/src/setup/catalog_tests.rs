@@ -681,8 +681,8 @@ fn a_globals_owner_admits_only_the_task_that_may_write_it() {
     assert_eq!(
         GlobalOwner::Shared.check("GVL.lrA", "$background"),
         Err(
-            "GVL.lrA is a global that no single task owns: a function, a function block, a method or a class writes it, or the \
-             programs of several tasks do. Let only the loop's task write GVL.lrA."
+            "GVL.lrA is a global that no single task owns: the programs of several tasks write it, directly or through the POUs \
+             they call, or a method that an interface's call may run writes it. Let only the loop's task write GVL.lrA."
                 .to_string()
         )
     );
