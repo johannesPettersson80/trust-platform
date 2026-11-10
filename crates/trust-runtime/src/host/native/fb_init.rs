@@ -6,7 +6,8 @@
 //! part first, then its own nested instances, then its own `FB_init` and after-init methods. The
 //! inputs after `bInitRetains` and `bInCopyCode` take the arguments of the instance's
 //! declaration, `com1 : serialdevice(iCOMnum := 1)`, which the build works out as it works out
-//! initial values. The members the declaration initializes, `fb : FB := (in1 := 99)`, hold their
+//! initial values, else their default, as at any call; a string, a structure or an array is passed
+//! by reference to a value made for the call. The members the declaration initializes, `fb : FB := (in1 := 99)`, hold their
 //! type's initial values while `FB_init` runs and take the declaration's values right after it.
 
 use trust_hir::symbols::ParamDirection;
@@ -301,7 +302,7 @@ impl FbInit {
     /// then the calls of its methods marked `{attribute 'call_after_init'}`, on its part at `place`.
     fn own(
         &mut self,
-        model: &Model<'_>,
+        model: &mut Model<'_>,
         place: &str,
         def: &str,
         args: &[InitArg],
@@ -368,7 +369,7 @@ impl FbInit {
     /// arguments `args` of the instance's declaration.
     fn fb_init(
         &mut self,
-        model: &Model<'_>,
+        model: &mut Model<'_>,
         owner: super::classes::Owner<'_>,
         place: &str,
         args: &[InitArg],
@@ -411,8 +412,13 @@ impl FbInit {
             )));
         }
         // The inputs after the two the runtime passes take the declaration's arguments, by name
-        // or in order, else their own initial value, else their type's default.
+        // or in order, else their own initial value, else their type's default, as an input that
+        // a call leaves out does (specification 44 §6.7). A scalar is passed as a literal; any
+        // other input by reference to a value of its type, which is made as a call makes the
+        // value of an input it leaves out, in a block of its own around the call.
         let mut arguments = String::new();
+        let mut values = Vec::new();
+        let mut made = 0usize;
         let mut positional = args.iter().filter(|arg| arg.name.is_none());
         for param in &params[2..] {
             let given = args
@@ -423,36 +429,57 @@ impl FbInit {
                         .is_some_and(|name| name.eq_ignore_ascii_case(&param.name))
                 })
                 .or_else(|| positional.next());
-            let value = start_value(
-                model,
-                param.type_id,
-                given.map(|arg| &arg.value).or(param.default.as_ref()),
-            )
-            .map_err(|error| {
+            let initializer = given.map(|arg| &arg.value).or(param.default.as_ref());
+            let refused = |error: String| {
                 NativeError::unsupported(format!(
                     "{}.{}'s input {} from the instance's declaration ({error})",
                     owner.name(),
                     method.name,
                     param.name
                 ))
-            })?;
-            let literal = literal(model, param.type_id, &value).ok_or_else(|| {
-                NativeError::unsupported(format!(
-                    "{}.{}'s input {}, of a type that is no scalar, from the instance's \
-                     declaration",
-                    owner.name(),
-                    method.name,
-                    param.name
-                ))
-            })?;
+            };
+            let ty = model.ty(param.type_id)?;
             arguments.push_str(", ");
-            arguments.push_str(&literal);
+            if super::lower::is_scalar(&model.types.info(ty).kind) {
+                let value = start_value(model, param.type_id, initializer).map_err(refused)?;
+                let literal = literal(model, param.type_id, &value)
+                    .ok_or_else(|| refused(format!("{value:?} is no value of its type")))?;
+                arguments.push_str(&literal);
+                continue;
+            }
+            let value = format!("a{made}");
+            made += 1;
+            let storage = model.types.info(ty).rust.clone();
+            values.push(format!(
+                "let {value}: {storage} = <{storage} as Plain>::ZEROED;"
+            ));
+            let bytes = super::frame_init::starting_bytes(
+                model,
+                ty,
+                param.type_id,
+                initializer,
+                &param.name,
+            )
+            .map_err(|error| refused(error.to_string()))?;
+            super::frame_init::statements(model, &value, ty, &bytes, 0, &mut values)
+                .map_err(|error| refused(error.to_string()))?;
+            arguments.push('&');
+            arguments.push_str(&value);
         }
         Need::Method(owner.name().clone(), method.name.clone()).add_to(&mut self.needs);
-        self.statements.push(format!(
+        let call = format!(
             "{}(cx, w, &{place}, retains, copy{arguments})?;",
             super::emit::method_function(owner, method)
-        ));
+        );
+        if values.is_empty() {
+            self.statements.push(call);
+        } else {
+            self.statements.push("{".into());
+            self.statements
+                .extend(values.into_iter().map(|line| format!("    {line}")));
+            self.statements.push(format!("    {call}"));
+            self.statements.push("}".into());
+        }
         Ok(())
     }
 }
