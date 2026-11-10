@@ -3254,11 +3254,16 @@ works on its platform and never collides with another project:
 A runtime started on a program store's `current` link (specification 34 §11.2) keeps the files of
 this section in the store folder, the folder that holds `current`, `previous` and `bundles`, and not
 in a bundle: `<project>` in this section is the store folder, and `<h>` is taken over its canonical
-path. Its runtime ID file `.trust-runtime/runtime_id` (runtime discovery) is kept there too. An
-install, a deployment or a rollback moves `current` to another bundle while the runtime keeps
-running; files kept in a bundle would stay behind in the bundle the runtime started on, where no
-client given `current` looks, and the runtime ID would change at the next start. A client given the
-`current` link takes the same files.
+path. Its runtime ID file `.trust-runtime/runtime_id` (runtime discovery) is kept there too, and
+so are the files it writes: its pairing file `pairings.json` (section 6.9.6), and the retain file
+(section 6.7), the history and the alert files of its historian when its configuration names
+them by a relative path. An install, a deployment or a rollback moves `current` to another bundle
+while the runtime keeps running; files kept in a bundle would stay behind in the bundle the
+runtime started on, where no client given `current` looks, the runtime ID would change at the
+next start, and the pairings, the retained values and the history would start empty. A store
+runtime's start moves such a file that an earlier version left in the `current` bundle into the
+store folder, unless the store folder already holds it. A client given the `current` link takes
+the same files.
 
 After it binds the control endpoint, the runtime writes `<project>/.trust-runtime/control.json`:
 `{"schema_version":1,"endpoint":"<bound endpoint>","pid":<process id>}`. On Unix-like systems a token
@@ -3927,7 +3932,9 @@ paths return the recorded values in capture order.
 In `allowlist` mode, exact configured names and the reviewed `retain.*` prefix
 are recorded; unmatched globals are absent. A file-backed historian reloads
 the reviewed persisted sample when a new service instance opens the same
-history path. The Prometheus renderer includes the reviewed runtime uptime and
+history path. A relative history path, and a relative alert file, lie in the
+folder of the runtime's files (section 6.8.0a), so a store runtime keeps its
+history through an install. The Prometheus renderer includes the reviewed runtime uptime and
 fault totals together with historian sample and alert totals when the historian
 snapshot is supplied.
 
@@ -6929,7 +6936,10 @@ Revoke-all returns the number that changed from enabled to disabled. Disabled
 tokens remain visible until expiry but never validate and are not counted
 toward the enabled-token limit.
 
-The pairing file is a JSON object with a `tokens` array. An absent file loads
+A computer keeps its pairings in `pairings.json` in the folder of its runtime
+files (section 6.8.0a): the project folder, or the store folder for a runtime
+started on a program store's `current` link, so an install keeps them. The
+pairing file is a JSON object with a `tokens` array. An absent file loads
 an empty store. Unreadable or malformed content grants no token authority and
 is never replaced: each later claim, and each revocation that would change a
 token, is refused with the read error (`read pairing file …` or `parse pairing

@@ -69,6 +69,10 @@ pub mod deployment;
 #[cfg(feature = "full")]
 #[path = "host/discovery.rs"]
 pub mod discovery;
+/// Where a runtime keeps the files it writes: the project folder, or a program store's folder.
+#[cfg(feature = "full")]
+#[path = "host/runtime_files.rs"]
+pub mod runtime_files;
 /// The stable runtime ID and the platform a runtime runs on.
 #[cfg(feature = "full")]
 #[path = "host/runtime_id.rs"]

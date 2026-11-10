@@ -1,5 +1,6 @@
 //! The computer's pairing store (specification 11 §6.9.6): the shared pairing rules of
-//! `trust_runtime_services::access::pairing` over the bundle's `pairings.json`, which is read whole
+//! `trust_runtime_services::access::pairing` over the runtime's `pairings.json` ([`PAIRING_FILE`]),
+//! which is read whole
 //! and replaced whole through a temporary file with mode 0600 on Unix, and the operating system's
 //! random numbers.
 
@@ -19,6 +20,11 @@ use trust_runtime_services::access::pairing::{
 
 use crate::deployment::program_store::publish_atomic;
 use crate::security::AccessRole;
+
+/// The pairing file's name, in the folder of the runtime's files ([`crate::runtime_files`]): the
+/// project folder, or a program store's folder for a runtime started on its `current` link, so that
+/// an install keeps the pairings (specification 11 §6.9.6 and §6.8.0a).
+pub const PAIRING_FILE: &str = "pairings.json";
 
 /// The pairings of one runtime, which its control and web surfaces share. The methods of the
 /// store itself take their time from the store's clock; the shared `pair.*` requests reach it
