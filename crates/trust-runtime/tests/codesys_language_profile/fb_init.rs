@@ -302,11 +302,104 @@ fn fb_init_takes_the_arguments_of_the_declaration() {
     );
 }
 
-// Specification 44 §6.7: an input of a type that is no scalar, here a STRING, from the instance's
-// declaration is not compiled yet (NX-09), so the build refuses it rather than pass something else.
-// Catches the argument dropped and the input left empty.
+// Specification 44 §6.7: an FB_init input of a type that is no scalar takes the declaration's
+// argument, by name or in order, else its default, as an input a call leaves out does (contributor
+// issue #419: a bare `fbLogger : FbLogger;` whose FB_init declares a STRING input). Worked by hand:
+// `named` passes 'pump' and leaves sLabel to its 'dflt'; `positional` passes 'valve' and
+// 'abcdefgh', sLabel's full 8 characters, in order; the bare `bare` and the bare global `gBare`
+// take '' (STRING's default) and 'dflt'; `ranged` leaves its structure input to the type's
+// initial values, lo 0 and hi 10, so 10. Catches the build refusing such an input, an argument
+// dropped or given to another input, and a default ignored.
+const FB_INIT_TEXT: &str = r#"
+TYPE ST_Range :
+STRUCT
+    lo : INT;
+    hi : INT := 10;
+END_STRUCT
+END_TYPE
+
+FUNCTION_BLOCK FB_Named
+VAR
+    title : STRING(20);
+    label : STRING(8);
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    sTitle : STRING(20);
+    sLabel : STRING(8) := 'dflt';
+END_VAR
+title := sTitle;
+label := sLabel;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Ranged
+VAR
+    span : INT;
+END_VAR
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL;
+    bInCopyCode : BOOL;
+    rRange : ST_Range;
+END_VAR
+span := rRange.hi - rRange.lo;
+FB_init := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+VAR_GLOBAL
+    gBare : FB_Named;
+END_VAR
+
+PROGRAM Main
+VAR
+    named : FB_Named(sTitle := 'pump');
+    positional : FB_Named('valve', 'abcdefgh');
+    bare : FB_Named;
+    ranged : FB_Ranged;
+    t1, t2, t3, t4 : STRING(20);
+    l1, l2, l3, l4 : STRING(8);
+    span : INT;
+END_VAR
+t1 := named.title;
+l1 := named.label;
+t2 := positional.title;
+l2 := positional.label;
+t3 := bare.title;
+l3 := bare.label;
+t4 := gBare.title;
+l4 := gBare.label;
+span := ranged.span;
+END_PROGRAM
+"#;
+
 #[test]
-fn an_fb_init_string_argument_is_refused_at_build() {
+fn fb_init_takes_an_input_that_is_no_scalar_from_the_declaration_or_its_default() {
+    let harness = codesys_run(FB_INIT_TEXT, 1);
+    let text = |name: &str| harness.get_output(name).unwrap_or(Value::Null);
+    let seen: Vec<Value> = ["t1", "l1", "t2", "l2", "t3", "l3", "t4", "l4"]
+        .into_iter()
+        .map(text)
+        .collect();
+    assert_eq!(
+        seen,
+        ["pump", "dflt", "valve", "abcdefgh", "", "dflt", "", "dflt"]
+            .into_iter()
+            .map(|text| Value::String(text.into()))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(text("span"), Value::Int(10));
+}
+
+// Specification 44 §6.7: an argument that names a variable is not compiled yet (NX-09), for a
+// string input as for a scalar one, so the build refuses it rather than pass something else.
+// Catches the variable's name dropped and the input left at its default.
+#[test]
+fn an_fb_init_argument_that_names_a_variable_is_refused_at_build() {
     let source = r#"
 FUNCTION_BLOCK FB_Named
 VAR
@@ -323,9 +416,13 @@ FB_init := TRUE;
 END_METHOD
 END_FUNCTION_BLOCK
 
+VAR_GLOBAL
+    gName : STRING := 'pump';
+END_VAR
+
 PROGRAM Main
 VAR
-    named : FB_Named(sTitle := 'pump');
+    named : FB_Named(sTitle := gName);
 END_VAR
 END_PROGRAM
 "#;
@@ -337,7 +434,7 @@ END_PROGRAM
     assert!(
         error
             .to_string()
-            .contains("FB_Named.FB_init's input sTitle, of a type that is no scalar"),
+            .contains("FB_Named.FB_init's input sTitle from the instance's declaration"),
         "{error}"
     );
 }
