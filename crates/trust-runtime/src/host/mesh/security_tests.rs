@@ -1,8 +1,9 @@
 //! Native peer authentication: a configured token must reject unauthenticated/wrong peers.
 use crate::config::{MeshConfig, MeshRole};
-use crate::scheduler::{ResourceControl, StdClock};
+use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use indexmap::IndexMap;
-use std::net::TcpListener;
+use std::net::{SocketAddr, TcpListener};
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 use zenoh::Wait;
 
@@ -25,20 +26,53 @@ fn config(listen: String, connect: Vec<String>, token: Option<&str>) -> MeshConf
     }
 }
 
+/// The owner's mesh that `start` starts on a loopback port that was free a moment ago, with its
+/// resource's command receiver, and the port's address. The owner takes a concrete port: its peers
+/// and the test connect to the address, and Zenoh reports the endpoints it bound only through its
+/// unstable API. Another socket can take the port first; the mesh then starts without a session,
+/// degraded with the system's "address in use" error, and it is started again on another port, ten
+/// times at most, and after no other failure (specification 22).
+// port-retry-ok: starts the mesh again when its session found the port taken, and only then.
+fn mesh_on_a_free_port(
+    start: impl Fn(SocketAddr, ResourceControl<StdClock>) -> super::MeshService,
+) -> (super::MeshService, Receiver<ResourceCommand>, SocketAddr) {
+    let mut taken = Vec::new();
+    for _ in 0..10 {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        drop(listener);
+        let (resource, commands) = ResourceControl::stub(StdClock::new());
+        let mesh = start(address, resource);
+        let port_taken = mesh.session.is_none()
+            && mesh
+                .degraded_reason
+                .as_deref()
+                .is_some_and(trust_test_support::is_a_taken_port_error);
+        if !port_taken {
+            return (mesh, commands, address);
+        }
+        taken.push(address);
+    }
+    panic!("another socket took each chosen port before the mesh bound it: {taken:?}");
+}
+
 #[test]
 fn configured_mesh_authentication_rejects_wrong_and_missing_peer_tokens() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = listener.local_addr().unwrap().to_string();
-    drop(listener);
-    let (resource, _commands) = ResourceControl::stub(StdClock::new());
-    let owner = super::start_mesh(
-        &config(address.clone(), Vec::new(), Some("mesh-test-owner-token")),
-        format!("auth-owner-{}", std::process::id()).into(),
-        STABLE_ID.into(),
-        resource,
-    )
-    .unwrap()
-    .unwrap();
+    let (owner, _commands, address) = mesh_on_a_free_port(|address, resource| {
+        super::start_mesh(
+            &config(
+                address.to_string(),
+                Vec::new(),
+                Some("mesh-test-owner-token"),
+            ),
+            format!("auth-owner-{}", std::process::id()).into(),
+            STABLE_ID.into(),
+            resource,
+        )
+        .unwrap()
+        .unwrap()
+    });
+    let address = address.to_string();
     let key = format!("trust-hmi-auth-test/{}", std::process::id());
     owner
         .session
@@ -105,21 +139,19 @@ fn mesh_tls_socket_presents_the_configured_certificate() {
         private_key_pem: std::fs::read(root.join("server-key.pem")).unwrap(),
         ca_pem: certificate,
     };
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = listener.local_addr().unwrap();
-    drop(listener);
-    let mut configured = config(address.to_string(), Vec::new(), None);
-    configured.tls = true;
-    let (resource, _commands) = ResourceControl::stub(StdClock::new());
-    let _owner = super::start_mesh_with_tls(
-        &configured,
-        "tls-socket-test".into(),
-        STABLE_ID.into(),
-        resource,
-        Some(&materials),
-    )
-    .unwrap()
-    .unwrap();
+    let (_owner, _commands, address) = mesh_on_a_free_port(|address, resource| {
+        let mut configured = config(address.to_string(), Vec::new(), None);
+        configured.tls = true;
+        super::start_mesh_with_tls(
+            &configured,
+            "tls-socket-test".into(),
+            STABLE_ID.into(),
+            resource,
+            Some(&materials),
+        )
+        .unwrap()
+        .unwrap()
+    });
     let mut socket = std::net::TcpStream::connect(address).unwrap();
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))

@@ -615,7 +615,7 @@ mod tests {
         assert!(success.ok, "expected success, got {}", success.detail);
         assert_eq!(success.detail, "Modbus device port is reachable.");
 
-        let refused = unused_loopback_address();
+        let (_held, refused) = unused_loopback_address();
         let failure = test_request(CommTestRequest {
             protocol: "modbus_tcp".to_string(),
             params: json!({ "address": refused, "timeout_ms": 50 }),
@@ -668,7 +668,7 @@ mod tests {
     #[cfg(feature = "opcua-wire")]
     #[test]
     fn opcua_client_probe_reports_structured_unreachable_error() {
-        let refused = unused_loopback_address();
+        let (_held, refused) = unused_loopback_address();
         let response = test_request(CommTestRequest {
             protocol: "opcua_client".to_string(),
             params: json!({
@@ -702,10 +702,11 @@ mod tests {
         address
     }
 
-    fn unused_loopback_address() -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
-        let address = listener.local_addr().expect("listener address").to_string();
-        drop(listener);
-        address
+    /// A loopback address where nothing answers, for as long as the returned holder lives: a port held
+    /// without listening (specification 22), which no other socket can take.
+    fn unused_loopback_address() -> (trust_test_support::RefusedPort, String) {
+        let held = trust_test_support::refused_loopback_port();
+        let address = format!("127.0.0.1:{}", held.port());
+        (held, address)
     }
 }
