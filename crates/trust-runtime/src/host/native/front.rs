@@ -65,6 +65,27 @@ impl Source {
             .copied()
     }
 
+    /// Where `node` is, for a check's issue (specification 11 §6.8.1c): the label, and the line and
+    /// the column of its first token, the column counted in UTF-16 code units, both 1-based.
+    pub(super) fn place(&self, node: &SyntaxNode) -> super::SourcePlace {
+        let offset = first_token_start(node);
+        let (line, _) = self.position(offset);
+        let start = line
+            .checked_sub(1)
+            .and_then(|index| self.line_starts.get(index as usize))
+            .copied()
+            .unwrap_or(0);
+        let text = self.root.text().to_string();
+        let units = text
+            .get(start as usize..offset as usize)
+            .map_or(0, |prefix| prefix.encode_utf16().count());
+        super::SourcePlace {
+            file: self.label.clone(),
+            line,
+            column: u32::try_from(units).unwrap_or(u32::MAX).saturating_add(1),
+        }
+    }
+
     /// Where `node` is, for a diagnostic: `label:line`.
     pub(super) fn at(&self, node: &SyntaxNode) -> String {
         let (line, _) = self.position(first_token_start(node));

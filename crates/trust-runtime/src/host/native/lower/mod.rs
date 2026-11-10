@@ -271,7 +271,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     pub(super) fn unsupported(&self, node: &SyntaxNode, what: impl Into<String>) -> NativeError {
         NativeError::Unsupported {
             construct: what.into(),
-            at: self.src.at(node),
+            at: Some(self.src.place(node)),
         }
     }
 

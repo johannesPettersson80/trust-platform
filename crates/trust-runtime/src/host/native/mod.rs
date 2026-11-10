@@ -152,6 +152,19 @@ pub fn target_named(name: &str) -> Option<Target> {
     }
 }
 
+/// Where a construct is in the sources, as a check's issue names it (specification 11 §6.8.1c): the
+/// source's label, and the 1-based line and column of the construct's first token, the column
+/// counted in UTF-16 code units.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourcePlace {
+    /// The source's label: its path relative to the project, or `file_<n>` without one.
+    pub file: String,
+    /// The line, 1-based.
+    pub line: u32,
+    /// The column, 1-based, in UTF-16 code units.
+    pub column: u32,
+}
+
 /// Why a project cannot be compiled.
 #[derive(Debug)]
 pub enum NativeError {
@@ -165,8 +178,9 @@ pub enum NativeError {
     Unsupported {
         /// The construct.
         construct: String,
-        /// Where it is.
-        at: String,
+        /// Where it is in the sources; none for a construct of the declarations that the build
+        /// works out without a place, such as an instance's `FB_init` arguments.
+        at: Option<SourcePlace>,
     },
     /// The Rust toolchain is missing or failed.
     Toolchain(String),
@@ -187,9 +201,20 @@ impl std::fmt::Display for NativeError {
         match self {
             Self::Compile(message) => f.write_str(message),
             Self::Sources(error) => write!(f, "{error}"),
-            Self::Unsupported { construct, at } => write!(
+            Self::Unsupported {
+                construct,
+                at: Some(place),
+            } => write!(
                 f,
-                "{construct} is not compiled yet ({at}; specification 44 NX-09)"
+                "{construct} is not compiled yet ({}:{}; specification 44 NX-09)",
+                place.file, place.line
+            ),
+            Self::Unsupported {
+                construct,
+                at: None,
+            } => write!(
+                f,
+                "{construct} is not compiled yet (the declarations; specification 44 NX-09)"
             ),
             Self::Toolchain(message) => write!(f, "the Rust toolchain: {message}"),
             Self::Module(message) => write!(f, "the compiled module: {message}"),
@@ -207,7 +232,7 @@ impl NativeError {
     pub(crate) fn unsupported(construct: String) -> Self {
         Self::Unsupported {
             construct,
-            at: "the declarations".into(),
+            at: None,
         }
     }
 }

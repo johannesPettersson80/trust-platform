@@ -535,6 +535,46 @@ END_PROGRAM
     let _ = std::fs::remove_dir_all(invalid_project);
 }
 
+// Specification 11 §6.8.1c: a construct that the build does not compile yet (specification 44
+// NX-09) is one issue with the code `compile` at the construct's place. Here `MUX` of two strings,
+// which type checks: worked by hand, the call's first token `MUX` is line 6, column 6 of
+// `src/main.st`. Catches the place dropped (one issue without `file`, `line` and `column`, the
+// contributor report on #407) and the place of another token.
+#[test]
+fn check_reports_an_uncompiled_construct_where_it_is() {
+    let project = unique_temp_dir("check-uncompiled-place");
+    write_project_fixture(
+        &project,
+        "PROGRAM Main\nVAR\n    k : INT := 0;\n    s : STRING;\nEND_VAR\ns := MUX(k, 'a', 'b');\nEND_PROGRAM\n",
+    );
+    let output = run_check(&project);
+    assert_eq!(
+        output.status.code(),
+        Some(11),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let payload = json_stdout(&output);
+    let issues = payload["issues"].as_array().expect("the issues");
+    assert_eq!(issues.len(), 1, "{payload}");
+    let issue = &issues[0];
+    assert_eq!(issue["code"], "compile", "{issue}");
+    assert!(
+        reported_path_ends_with(issue["file"].as_str().unwrap_or_default(), "src/main.st"),
+        "{issue}"
+    );
+    assert_eq!(issue["line"], 6, "{issue}");
+    assert_eq!(issue["column"], 6, "{issue}");
+    assert!(
+        issue["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("MUX of values that are not scalars"),
+        "{issue}"
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
 // docs/specs/07-standard-functions.md 2.10: the project's vendor_profile selects its
 // conversion rules, so a name that is not a vendor profile fails the check instead of
 // running the project under other rules than intended.
