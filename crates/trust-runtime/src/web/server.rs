@@ -60,14 +60,8 @@ pub fn start_web_server_with_mode(
         Some(address) if listen.ends_with(":0") => address.to_string(),
         _ => listen,
     };
-    // The fleet topology reports the bound address (spec 11). It is recorded before the bound flag,
-    // so a reader that sees the flag also finds the address.
-    if let Ok(mut settings) = control_state.settings.lock() {
-        settings.web_bound_address = Some(listen.as_str().into());
-    }
-    control_state
-        .web_listener_bound
-        .store(true, Ordering::Relaxed);
+    // The fleet topology reports the bound address (spec 11).
+    control_state.record_web_listener_bound(&listen);
     let auth = config.auth;
     let web_url = format_web_url(&listen, config.tls);
     let auth_token = control_state.auth_token.clone();

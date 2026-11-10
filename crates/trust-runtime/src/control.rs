@@ -358,6 +358,17 @@ impl ControlState {
     pub(crate) fn source_files(&self) -> Arc<Vec<SourceFile>> {
         self.sources.files()
     }
+
+    /// Records that the web listener is bound at `address`, which the fleet topology then reports
+    /// (specification 11, fleet topology): with a configured port 0, the port the system chose. The
+    /// address is recorded before the bound flag, so a reader that sees the flag finds it.
+    pub(crate) fn record_web_listener_bound(&self, address: &str) {
+        if let Ok(mut settings) = self.settings.lock() {
+            settings.web_bound_address = Some(address.into());
+        }
+        self.web_listener_bound
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 #[derive(Debug, Clone)]
