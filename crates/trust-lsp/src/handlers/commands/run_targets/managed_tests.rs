@@ -95,7 +95,7 @@ fn runtime_toml(endpoint: &str) -> String {
 fn the_managed_runtimes_with_their_states() {
     let root = temp_root("list");
     let runtime = FakeRuntime::answering(json!({ "state": "running" }));
-    let stopped = closed_endpoint();
+    let (_held_stopped, stopped) = closed_endpoint();
     for (name, endpoint) in [
         ("cell1", runtime.endpoint.as_str()),
         ("cell2", stopped.as_str()),
@@ -104,7 +104,7 @@ fn the_managed_runtimes_with_their_states() {
         std::fs::write(root.join(name).join("runtime.toml"), runtime_toml(endpoint))
             .expect("runtime.toml");
     }
-    let unread = closed_endpoint();
+    let (_held_unread, unread) = closed_endpoint();
     std::fs::write(
         root.join("fleet.toml"),
         format!(

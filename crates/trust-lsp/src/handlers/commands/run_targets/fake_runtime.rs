@@ -88,10 +88,11 @@ impl FakeRuntime {
     }
 }
 
-/// An endpoint where nothing listens: a loopback port that was free a moment ago.
-pub(in crate::handlers::commands) fn closed_endpoint() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("a loopback port");
-    let address = listener.local_addr().expect("the listener's address");
-    drop(listener);
-    format!("tcp://{address}")
+/// An endpoint where nothing listens, for as long as the returned holder lives: a loopback port
+/// held without listening (specification 22), which no other socket can take.
+pub(in crate::handlers::commands) fn closed_endpoint() -> (trust_test_support::RefusedPort, String)
+{
+    let held = trust_test_support::refused_loopback_port();
+    let endpoint = format!("tcp://127.0.0.1:{}", held.port());
+    (held, endpoint)
 }

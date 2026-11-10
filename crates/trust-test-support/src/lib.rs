@@ -48,7 +48,7 @@ fn process_tag() -> &'static str {
 /// any other socket before the test is done with it.
 #[derive(Debug)]
 pub struct RefusedPort {
-    _socket: socket2::Socket,
+    socket: socket2::Socket,
     port: u16,
 }
 
@@ -57,6 +57,18 @@ impl RefusedPort {
     #[must_use]
     pub fn port(&self) -> u16 {
         self.port
+    }
+
+    /// Starts listening on the held port: a program that binds its port late, which no other
+    /// socket could take in the meantime.
+    ///
+    /// # Panics
+    ///
+    /// The operating system refuses to listen on the port.
+    #[must_use]
+    pub fn listen(self) -> std::net::TcpListener {
+        self.socket.listen(128).expect("listen on the held port");
+        self.socket.into()
     }
 }
 
@@ -82,10 +94,7 @@ pub fn refused_loopback_port() -> RefusedPort {
         .and_then(|address| address.as_socket())
         .map(|address| address.port())
         .expect("the bound port");
-    RefusedPort {
-        _socket: socket,
-        port,
-    }
+    RefusedPort { socket, port }
 }
 
 /// How `std::io::Error` writes this operating system's "address in use" error, with which a bind of
@@ -150,6 +159,26 @@ mod tests {
             TcpListener::bind(address).is_err(),
             "no listener takes the held port"
         );
+    }
+
+    /// A held port that starts listening takes connections on that same port. Catches a `listen`
+    /// that binds a new socket, on another port or on one that another socket took first.
+    #[test]
+    fn a_held_port_listens_when_asked() {
+        let held = refused_loopback_port();
+        let port = held.port();
+        let address = SocketAddr::from(([127, 0, 0, 1], port));
+        let listener = held.listen();
+
+        assert_eq!(
+            listener
+                .local_addr()
+                .expect("the listener's address")
+                .port(),
+            port
+        );
+        TcpStream::connect_timeout(&address, Duration::from_secs(10))
+            .expect("a connection to the port that listens now");
     }
 
     /// Two paths of one name in one process are two, both start with the process's id, and a file
