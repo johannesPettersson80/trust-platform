@@ -637,7 +637,10 @@ struct TempTree {
 impl TempTree {
     fn new(prefix: &str) -> Self {
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("{prefix}-{}-{sequence}", std::process::id()));
+        let path = trust_test_support::unique_temp_path(&format!(
+            "{prefix}-{}-{sequence}",
+            std::process::id()
+        ));
         fs::create_dir_all(&path).expect("create temp tree");
         Self { path }
     }

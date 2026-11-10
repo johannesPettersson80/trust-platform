@@ -13,7 +13,7 @@ fn codesys_program(source: &str, name: &str) -> NativeProgram<'static, HostCode>
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
-    let work = std::env::temp_dir().join(format!("trust-native-{name}-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path(&format!("trust-native-{name}"));
     let built = build_with_conversions(
         &[SourceFile::new(source)],
         &[],

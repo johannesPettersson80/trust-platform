@@ -15,7 +15,7 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
         .expect("system time before unix epoch")
         .as_nanos();
     let sequence = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-runtime-{prefix}-{}-{nanos}-{sequence}",
         std::process::id()
     ))

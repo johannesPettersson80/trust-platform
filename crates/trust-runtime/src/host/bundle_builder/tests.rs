@@ -6,7 +6,7 @@ fn temp_dir(prefix: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
-    let dir = std::env::temp_dir().join(format!("{prefix}-{stamp}"));
+    let dir = trust_test_support::unique_temp_path(&format!("{prefix}-{stamp}"));
     fs::create_dir_all(&dir).expect("create temp dir");
     dir
 }

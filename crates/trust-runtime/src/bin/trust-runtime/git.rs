@@ -97,7 +97,7 @@ mod tests {
 
     fn temp_dir(name: &str) -> PathBuf {
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-git-{name}-{}-{sequence}",
             std::process::id()
         ));

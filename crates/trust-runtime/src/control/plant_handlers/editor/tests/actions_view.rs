@@ -810,7 +810,7 @@ fn the_draft_to_be_saved_is_judged_by_the_runtime_too() {
     // 9,223,372,036,855 ms is a positive whole number (the editor's rule) but longer than the
     // runtime's time range (specification 46 §3.2). Catches a candidate the runtime refuses shown
     // as ready to save.
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-plant-edit-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()

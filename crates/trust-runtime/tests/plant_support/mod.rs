@@ -264,7 +264,7 @@ fn compile(programs: &[String]) -> TestHarness {
 /// A retain store file no other test of any test binary uses.
 fn store_path() -> PathBuf {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust_plant_library_retain_{}_{}.bin",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)

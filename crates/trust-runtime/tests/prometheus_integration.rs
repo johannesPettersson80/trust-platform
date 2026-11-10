@@ -75,7 +75,7 @@ fn temp_path(name: &str) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    std::env::temp_dir().join(format!("trust-runtime-prom-{name}-{stamp}.jsonl"))
+    trust_test_support::unique_temp_path(&format!("trust-runtime-prom-{name}-{stamp}.jsonl"))
 }
 
 fn make_historian() -> Arc<HistorianService> {

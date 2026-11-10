@@ -120,7 +120,7 @@ struct TempProject {
 
 impl TempProject {
     fn new(name: &str) -> Self {
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-runtime-{name}-{}-{}",
             std::process::id(),
             std::thread::current().name().unwrap_or("test")

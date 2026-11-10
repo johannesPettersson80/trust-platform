@@ -17,7 +17,7 @@ fn service_retries_unreachable_influxdb_during_initial_open() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-influx-initial-retry-{}-{stamp}",
         std::process::id()
     ));

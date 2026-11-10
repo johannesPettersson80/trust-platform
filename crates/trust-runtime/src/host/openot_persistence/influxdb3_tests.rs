@@ -39,7 +39,7 @@ fn initial_http_status_failure_remains_permanent() {
 #[test]
 fn reopening_generation_1_spool_reapplies_connection_local_durability_pragmas() {
     static CASE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-spool-reopen-{}-{}",
         std::process::id(),
         CASE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -79,7 +79,7 @@ fn reopening_generation_1_spool_reapplies_connection_local_durability_pragmas() 
 #[test]
 fn generation_1_spool_with_changed_index_fails_closed() {
     static CASE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-spool-contract-{}-{}",
         std::process::id(),
         CASE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)

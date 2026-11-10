@@ -11,7 +11,7 @@ struct TempTree {
 
 impl TempTree {
     fn new(label: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-web-ide-fs-{}-{label}-{}",
             std::process::id(),
             NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)

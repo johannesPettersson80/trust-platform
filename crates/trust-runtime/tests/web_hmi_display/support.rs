@@ -110,7 +110,7 @@ pub fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-hmi-display-{name}-{}-{stamp}",
         std::process::id()
     ));

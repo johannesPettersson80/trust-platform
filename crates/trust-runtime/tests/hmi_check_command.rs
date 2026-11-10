@@ -13,7 +13,7 @@ fn page(path: &str) -> String {
 }
 
 fn project(name: &str, bound: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-hmi-check-{name}-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()

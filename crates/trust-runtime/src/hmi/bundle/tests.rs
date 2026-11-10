@@ -19,7 +19,7 @@ fn temp(name: &str) -> std::path::PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let dir = std::env::temp_dir().join(format!(
+    let dir = trust_test_support::unique_temp_path(&format!(
         "trust-hmi-bundle-{name}-{}-{stamp}",
         std::process::id()
     ));

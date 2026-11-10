@@ -267,7 +267,7 @@ fn a_gpio_identify_line_is_driven_at_the_publication_and_goes_off_when_the_proce
     // end of the process drives it off. Catches a line that the publication does not drive, one
     // that stays on when the process ends, a stop that switches it off, and a GPIO identify that
     // also sets a bit of the image.
-    let base = std::env::temp_dir().join(format!(
+    let base = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-identify-cycle-{}-{:?}",
         std::process::id(),
         std::thread::current().id()

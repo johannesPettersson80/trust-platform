@@ -10,7 +10,7 @@ struct TempWorkspace {
 
 impl TempWorkspace {
     fn new(label: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-config-ui-workspace-{}-{label}-{}",
             std::process::id(),
             NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)

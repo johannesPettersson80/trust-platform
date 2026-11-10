@@ -3,8 +3,6 @@
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use std::env;
-
 use trust_runtime::debug::{DebugControl, RuntimeEvent};
 use trust_runtime::harness::TestHarness;
 use trust_runtime::retain::FileRetainStore;
@@ -13,10 +11,7 @@ use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
 
 fn temp_path(name: &str) -> std::path::PathBuf {
-    let mut path = env::temp_dir();
-    let pid = std::process::id();
-    path.push(format!("trust_runtime_restart_{pid}_{name}.bin"));
-    path
+    trust_test_support::process_temp_path(&format!("trust_runtime_restart_{name}.bin"))
 }
 
 #[test]

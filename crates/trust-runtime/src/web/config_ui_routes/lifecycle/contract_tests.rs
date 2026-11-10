@@ -83,6 +83,7 @@ fn empty_or_missing_unix_control_endpoint_is_offline() {
 #[test]
 fn listening_unix_control_endpoint_is_online() {
     let path = unix_control_socket_path(
+        // temp-root-ok: the 100-byte socket budget keeps this path short.
         &std::env::temp_dir(),
         NEXT_SOCKET.fetch_add(1, Ordering::Relaxed),
     );
@@ -112,7 +113,7 @@ fn unix_control_socket_fixture_path_is_bounded_under_long_temp_root() {
 #[cfg(unix)]
 #[test]
 fn stopping_a_managed_runtime_removes_the_endpoint_file_that_names_it() {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-config-ui-stop-{}-{}",
         std::process::id(),
         NEXT_SOCKET.fetch_add(1, Ordering::Relaxed)

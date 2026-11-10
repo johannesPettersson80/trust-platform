@@ -133,11 +133,7 @@ fn a_warm_restart_keeps_retain_instance_trees_and_starts_over_their_non_retain_p
 
 #[test]
 fn retain_instance_trees_survive_a_power_loss_without_their_non_retain_parts() {
-    let mut path = std::env::temp_dir();
-    path.push(format!(
-        "trust_retain_instance_trees_{}_power_loss.bin",
-        std::process::id()
-    ));
+    let path = trust_test_support::unique_temp_path("trust_retain_instance_trees_power_loss.bin");
     let _ = std::fs::remove_file(&path);
     let mut before = TestHarness::from_source(SOURCE).expect("compile and initialize");
     before

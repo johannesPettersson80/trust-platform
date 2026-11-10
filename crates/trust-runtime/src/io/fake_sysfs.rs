@@ -20,7 +20,7 @@ impl FakeSysfs {
     /// An empty tree named after `name`.
     pub(super) fn new(name: &str) -> Self {
         let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-sysfs-{name}-{}-{sequence}",
             std::process::id()
         ));

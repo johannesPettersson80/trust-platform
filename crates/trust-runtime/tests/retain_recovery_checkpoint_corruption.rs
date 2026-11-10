@@ -8,7 +8,6 @@
 //! running runtime and the stored bytes unchanged, and a later valid checkpoint
 //! must still load into the same runtime.
 
-use std::env;
 use std::path::{Path, PathBuf};
 
 use trust_runtime::error::RuntimeError;
@@ -48,12 +47,7 @@ struct RunningState {
 }
 
 fn temp_path(name: &str) -> PathBuf {
-    let mut path = env::temp_dir();
-    path.push(format!(
-        "trust_runtime_retain_recovery_{}_{name}.bin",
-        std::process::id()
-    ));
-    path
+    trust_test_support::process_temp_path(&format!("trust_runtime_retain_recovery_{name}.bin"))
 }
 
 fn persisted_snapshot() -> RetainSnapshot {

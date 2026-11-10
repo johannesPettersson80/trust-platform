@@ -176,7 +176,7 @@ mod tests {
     /// A sysfs folder that holds line 17 with empty `direction` and `value` files, and the
     /// parameters of a `gpio` driver that names it.
     fn sysfs_line_17(prefix: &str) -> (std::path::PathBuf, toml::Value) {
-        let base = std::env::temp_dir().join(format!(
+        let base = trust_test_support::unique_temp_path(&format!(
             "trust-runtime-{prefix}-{}-{:?}",
             std::process::id(),
             std::thread::current().id()

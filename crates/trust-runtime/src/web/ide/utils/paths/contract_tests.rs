@@ -11,7 +11,7 @@ struct TempPath {
 
 impl TempPath {
     fn new(label: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-web-ide-paths-{}-{label}-{}",
             std::process::id(),
             NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)
@@ -105,7 +105,7 @@ fn project_root_rejects_blank_and_preserves_absolute_path() {
         normalize_project_root("").unwrap_err().kind(),
         IdeErrorKind::InvalidInput
     );
-    let absolute = std::env::temp_dir().join("trust-project-root");
+    let absolute = trust_test_support::unique_temp_path("trust-project-root");
     assert_eq!(
         normalize_project_root(absolute.to_string_lossy().as_ref()).expect("absolute"),
         absolute

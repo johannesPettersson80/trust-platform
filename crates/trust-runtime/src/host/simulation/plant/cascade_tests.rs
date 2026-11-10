@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 static NEXT_FILE: AtomicU64 = AtomicU64::new(0);
 
 fn advance(model: &str, initial: &[f64], input: f64, step_ms: i64) -> Vec<f64> {
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-gravity-cascade-{}-{}.toml",
         std::process::id(),
         NEXT_FILE.fetch_add(1, Ordering::Relaxed)

@@ -20,7 +20,7 @@ fn trace_for(
         .duration_since(std::time::UNIX_EPOCH)
         .expect("unix epoch")
         .as_nanos();
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-held-command-{}-{}-{stamp}.toml",
         std::process::id(),
         plant_step_ms

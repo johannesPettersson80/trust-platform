@@ -37,7 +37,7 @@ fn line_index(source: &str, needle: &str) -> u64 {
 fn debugged(files: &[(&str, &str)]) -> (CompiledRuntime, DebugControl, CompiledDebugger) {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let work = std::env::temp_dir().join(format!(
+    let work = trust_test_support::unique_temp_path(&format!(
         "trust-debug-stepping-{}-{:?}",
         std::process::id(),
         thread::current().id()

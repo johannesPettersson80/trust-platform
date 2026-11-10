@@ -12,7 +12,7 @@ fn temperature_trace(gain: f64, starting_temperature: f64, reset: bool) -> Vec<S
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-temperature-example-{}-{stamp}-{}.toml",
         std::process::id(),
         CASE_ID.fetch_add(1, Ordering::Relaxed),

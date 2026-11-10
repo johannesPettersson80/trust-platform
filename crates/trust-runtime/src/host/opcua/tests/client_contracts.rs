@@ -192,11 +192,11 @@ fn client_pki_operations_do_not_follow_symbolic_links() {
     use std::os::unix::fs::symlink;
 
     let unique = unique_pki_suffix();
-    let root = std::env::temp_dir().join(format!("trust-opcua-pki-link-root-{unique}"));
+    let root = trust_test_support::unique_temp_path(&format!("trust-opcua-pki-link-root-{unique}"));
     let trusted_external =
-        std::env::temp_dir().join(format!("trust-opcua-pki-link-trusted-{unique}"));
+        trust_test_support::unique_temp_path(&format!("trust-opcua-pki-link-trusted-{unique}"));
     let rejected_external =
-        std::env::temp_dir().join(format!("trust-opcua-pki-link-rejected-{unique}"));
+        trust_test_support::unique_temp_path(&format!("trust-opcua-pki-link-rejected-{unique}"));
     std::fs::create_dir_all(root.join("trusted")).expect("trusted root");
     std::fs::create_dir_all(root.join("rejected")).expect("rejected root");
     std::fs::create_dir_all(&trusted_external).expect("external trusted root");
@@ -240,9 +240,10 @@ fn client_pki_root_links_are_not_traversed() {
 
     let unique = unique_pki_suffix();
 
-    let root_link_case = std::env::temp_dir().join(format!("trust-opcua-pki-root-link-{unique}"));
+    let root_link_case =
+        trust_test_support::unique_temp_path(&format!("trust-opcua-pki-root-link-{unique}"));
     let external_trusted =
-        std::env::temp_dir().join(format!("trust-opcua-pki-root-external-{unique}"));
+        trust_test_support::unique_temp_path(&format!("trust-opcua-pki-root-external-{unique}"));
     std::fs::create_dir_all(&root_link_case).expect("root-link fixture");
     std::fs::create_dir_all(root_link_case.join("rejected")).expect("rejected fixture");
     std::fs::create_dir_all(&external_trusted).expect("external trusted fixture");
@@ -287,9 +288,10 @@ fn client_pki_promotion_target_link_is_rejected() {
 
     let unique = unique_pki_suffix();
     let target_link_case =
-        std::env::temp_dir().join(format!("trust-opcua-pki-target-link-{unique}"));
-    let external_target =
-        std::env::temp_dir().join(format!("trust-opcua-pki-target-external-{unique}.pem"));
+        trust_test_support::unique_temp_path(&format!("trust-opcua-pki-target-link-{unique}"));
+    let external_target = trust_test_support::unique_temp_path(&format!(
+        "trust-opcua-pki-target-external-{unique}.pem"
+    ));
     std::fs::create_dir_all(target_link_case.join("trusted")).expect("trusted target root");
     std::fs::create_dir_all(target_link_case.join("rejected")).expect("rejected target root");
     let rejected = target_link_case.join("rejected").join("server.pem");

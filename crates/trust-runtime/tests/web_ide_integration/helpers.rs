@@ -280,7 +280,7 @@ fn make_project(name: &str) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("trust-runtime-web-ide-{name}-{stamp}"));
+    let root = trust_test_support::unique_temp_path(&format!("trust-runtime-web-ide-{name}-{stamp}"));
     std::fs::create_dir_all(&root).expect("create project dir");
     std::fs::write(
         root.join("main.st"),

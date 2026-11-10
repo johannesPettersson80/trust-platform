@@ -12,8 +12,7 @@ fn sanitize_accepts_nested() {
 
 #[test]
 fn apply_deploy_writes_files() {
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
     let request = DeployRequest {
@@ -69,8 +68,7 @@ policy = "halt"
 
 #[test]
 fn apply_deploy_normalizes_src_prefixed_source_paths() {
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-src-prefix-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy-src-prefix");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
     let request = DeployRequest {
@@ -127,8 +125,7 @@ policy = "halt"
 
 #[test]
 fn apply_deploy_rejects_invalid_runtime_schema() {
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-invalid-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy-invalid");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
     let request = DeployRequest {
@@ -221,7 +218,7 @@ fn admitted_program() -> Vec<u8> {
     let target = crate::native::Target::this_cpu().expect("this computer's CPU");
     // A folder of each build's own: the tests build at the same time.
     static BUILDS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let work = std::env::temp_dir().join(format!(
+    let work = trust_test_support::unique_temp_path(&format!(
         "trust-deploy-image-{}-{}",
         std::process::id(),
         BUILDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -284,8 +281,7 @@ not_after_unix = 4102444800
 
 #[test]
 fn apply_deploy_accepts_valid_signature_policy() {
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-signed-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy-signed");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("create root");
     let request = signed_request(&root, "ci", "super-secret");
@@ -296,11 +292,7 @@ fn apply_deploy_accepts_valid_signature_policy() {
 
 #[test]
 fn apply_deploy_rejects_tampered_payload_signature() {
-    let mut root = std::env::temp_dir();
-    root.push(format!(
-        "trust-deploy-signed-tampered-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-deploy-signed-tampered");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("create root");
     let mut request = signed_request(&root, "ci", "super-secret");
@@ -312,11 +304,7 @@ fn apply_deploy_rejects_tampered_payload_signature() {
 
 #[test]
 fn apply_deploy_rejects_unknown_or_expired_signing_keys() {
-    let mut root = std::env::temp_dir();
-    root.push(format!(
-        "trust-deploy-signed-key-errors-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-deploy-signed-key-errors");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("create root");
     let mut request = signed_request(&root, "ci", "super-secret");
@@ -343,11 +331,7 @@ not_after_unix = 100
 
 #[test]
 fn signature_errors_do_not_echo_key_secrets() {
-    let mut root = std::env::temp_dir();
-    root.push(format!(
-        "trust-deploy-signed-secret-safety-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-deploy-signed-secret-safety");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("create root");
 
@@ -367,8 +351,7 @@ fn a_deployed_program_brings_its_own_deployment_record() {
     use crate::deployment::DEPLOYMENT_RECORD_FILE;
     use trust_runtime_core::deployment::{sha256, DeploymentRecord};
 
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-record-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy-record");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
     fs::write(
@@ -445,8 +428,7 @@ policy = "halt"
 /// deployment that writes a program the runtime cannot start.
 #[test]
 fn a_deployed_bytecode_program_is_refused_before_anything_is_written() {
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-bytecode-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy-bytecode");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
     let request = DeployRequest {
@@ -516,8 +498,7 @@ fn install_signed_policy(root: &Path) {
 /// installs an unsigned program.
 #[test]
 fn a_request_cannot_turn_off_require_signed() {
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-lift-policy-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy-lift-policy");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("create root");
     install_signed_policy(&root);
@@ -556,8 +537,7 @@ fn a_request_cannot_turn_off_require_signed() {
 /// deployment that names a keyring it controls and signs with a key of its own.
 #[test]
 fn a_request_cannot_name_its_own_keyring() {
-    let mut root = std::env::temp_dir();
-    root.push(format!("trust-deploy-own-keyring-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-deploy-own-keyring");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("create root");
     install_signed_policy(&root);

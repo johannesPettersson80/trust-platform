@@ -4,7 +4,7 @@
 
 /// A runnable project folder whose `trust-lsp.toml` sets `vendor_profile`.
 fn vendor_profile_project(name: &str, vendor_profile: &str) -> std::path::PathBuf {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-run-vendor-{name}-{}",
         std::process::id()
     ));

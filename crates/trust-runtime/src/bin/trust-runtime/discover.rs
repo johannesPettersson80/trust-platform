@@ -767,7 +767,7 @@ mod tests {
 
     /// A new project folder: a valid `runtime.toml` and the given `io.toml`.
     fn project(io_toml: &str) -> PathBuf {
-        let folder = std::env::temp_dir().join(format!(
+        let folder = trust_test_support::unique_temp_path(&format!(
             "trust-discover-compare-{}-{}",
             std::process::id(),
             COUNTER.fetch_add(1, Ordering::Relaxed)

@@ -15,7 +15,7 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// A new project folder holding a valid `runtime.toml` and nothing else.
 fn project() -> PathBuf {
-    let folder = std::env::temp_dir().join(format!(
+    let folder = trust_test_support::unique_temp_path(&format!(
         "trust-project-devices-{}-{}",
         std::process::id(),
         COUNTER.fetch_add(1, Ordering::Relaxed)
@@ -167,7 +167,7 @@ fn a_folder_without_runtime_toml_is_not_a_project() {
     // Specification 11, "Request" and "The project's devices": the devices come from a project folder. A
     // folder without `runtime.toml` is refused with its name, not read as a project without devices, so that
     // a mistyped folder does not make every device look unused.
-    let folder = std::env::temp_dir().join(format!(
+    let folder = trust_test_support::unique_temp_path(&format!(
         "trust-project-devices-empty-{}",
         std::process::id()
     ));

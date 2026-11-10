@@ -97,7 +97,8 @@ END_CONFIGURATION
 fn image(source: &str, name: &str) -> Vec<u8> {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let work = std::env::temp_dir().join(format!("trust-host-{name}-{}", std::process::id()));
+    let work =
+        trust_test_support::unique_temp_path(&format!("trust-host-{name}-{}", std::process::id()));
     let built = build(
         &[SourceFile::new(source)],
         &Options {
@@ -138,7 +139,10 @@ fn millis(ms: i64) -> Duration {
 fn a_computer_runs_a_compiled_program_with_its_retain_file_and_changes_it_online() {
     let running = image(RUNNING, "running");
     let changed = image(CHANGED, "changed");
-    let retain = std::env::temp_dir().join(format!("trust-host-retain-{}.bin", std::process::id()));
+    let retain = trust_test_support::unique_temp_path(&format!(
+        "trust-host-retain-{}.bin",
+        std::process::id()
+    ));
     let _ = std::fs::remove_file(&retain);
 
     let mut first = CompiledRuntime::load(running.clone(), "Cpu").expect("the image loads");
@@ -317,7 +321,8 @@ fn request(
 fn the_computer_debugger_holds_a_compiled_scan_at_a_breakpoint() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let work = std::env::temp_dir().join(format!("trust-host-debug-{}", std::process::id()));
+    let work =
+        trust_test_support::unique_temp_path(&format!("trust-host-debug-{}", std::process::id()));
     let image = build(
         &[SourceFile::with_path("src/main.st", RUNNING)],
         &Options {

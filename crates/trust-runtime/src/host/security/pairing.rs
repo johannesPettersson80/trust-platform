@@ -229,7 +229,7 @@ mod tests {
 
     impl TempFile {
         fn new(label: &str) -> Self {
-            let folder = std::env::temp_dir().join(format!(
+            let folder = trust_test_support::unique_temp_path(&format!(
                 "trust-pairing-file-{}-{label}-{}",
                 std::process::id(),
                 NEXT_FOLDER.fetch_add(1, Ordering::Relaxed)

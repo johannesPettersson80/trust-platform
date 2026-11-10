@@ -623,15 +623,15 @@ impl CapstonePaths {
             .duration_since(UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let root_base = if Path::new("/dev/shm").is_dir() {
-            PathBuf::from("/dev/shm")
-        } else {
-            env::temp_dir()
-        };
-        let root = root_base.join(format!(
+        let name = format!(
             "trust-openot-capstone-{label}-{}-{stamp}",
             std::process::id()
-        ));
+        );
+        let root = if Path::new("/dev/shm").is_dir() {
+            PathBuf::from("/dev/shm").join(name)
+        } else {
+            trust_test_support::unique_temp_path(&name)
+        };
         Self::from_root(root)
     }
 

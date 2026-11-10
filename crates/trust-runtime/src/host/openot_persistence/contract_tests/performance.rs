@@ -167,7 +167,7 @@ fn every_real_backend_meets_openot_ingest_and_catch_up_qualification_floors() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos() as u64;
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-real-benchmark-{}-{stamp}",
         std::process::id()
     ));

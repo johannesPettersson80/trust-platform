@@ -5,7 +5,7 @@ fn sqlite_sink_opens_empty_database_with_initial_schema_generation() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-persistence-{}-{stamp}",
         std::process::id()
     ));
@@ -38,7 +38,7 @@ fn sqlite_sink_exposes_heartbeat_through_descriptive_event_log() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-event-log-{}-{stamp}",
         std::process::id()
     ));
@@ -100,7 +100,7 @@ fn sqlite_sink_projects_named_bool_and_full_ulint_without_json() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-typed-values-{}-{stamp}",
         std::process::id()
     ));
@@ -171,7 +171,7 @@ fn sqlite_public_read_model_exposes_common_columns_on_every_object() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-common-columns-{}-{stamp}",
         std::process::id()
     ));
@@ -242,7 +242,7 @@ fn sqlite_sink_rejects_incompatible_pre_release_schema_without_mutating_it() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-incompatible-schema-{}-{stamp}",
         std::process::id()
     ));
@@ -290,7 +290,7 @@ fn sqlite_sink_rejects_markerless_logging_object_without_mutating_it() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-markerless-schema-{}-{stamp}",
         std::process::id()
     ));
@@ -329,7 +329,7 @@ fn sqlite_sink_rejects_incomplete_generation_1_without_repairing_it() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-incomplete-schema-{}-{stamp}",
         std::process::id()
     ));
@@ -371,7 +371,7 @@ fn sqlite_sink_rejects_newer_schema_without_mutating_it() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-newer-schema-{}-{stamp}",
         std::process::id()
     ));
@@ -408,7 +408,7 @@ fn sqlite_sink_rejects_malformed_checkpoint_run_identity() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-corrupt-checkpoint-{}-{stamp}",
         std::process::id()
     ));
@@ -439,7 +439,7 @@ fn sqlite_sink_rejects_malformed_stored_canonical_document_on_reopen() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-corrupt-document-{}-{stamp}",
         std::process::id()
     ));
@@ -477,7 +477,7 @@ fn sqlite_sink_rejects_corrupt_database_bytes() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-corrupt-database-{}-{stamp}",
         std::process::id()
     ));
@@ -498,7 +498,7 @@ fn sqlite_sink_rejects_read_only_database_before_accepting_work() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-read-only-database-{}-{stamp}",
         std::process::id()
     ));
@@ -536,7 +536,7 @@ fn sqlite_process_termination_recovers_before_or_after_batch_never_partial() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-sqlite-crash-{}-{stamp}",
         std::process::id()
     ));
@@ -613,7 +613,7 @@ fn sqlite_disk_full_on_isolated_bounded_filesystem_preserves_last_checkpoint() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-bounded-fs-{}-{stamp}",
         std::process::id()
     ));
@@ -691,7 +691,7 @@ fn sqlite_sink_creates_missing_parent_directory_for_configured_path() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-persistence-parent-{}-{stamp}",
         std::process::id()
     ));
@@ -713,7 +713,7 @@ fn sqlite_sink_rejects_group_or_world_writable_parent() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-persistence-insecure-parent-{}-{stamp}",
         std::process::id()
     ));
@@ -736,7 +736,7 @@ fn sqlite_sink_commits_documents_and_checkpoint_in_one_real_transaction() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-persistence-commit-{}-{stamp}",
         std::process::id()
     ));
@@ -790,7 +790,7 @@ fn sink_factory_opens_only_toml_selected_sqlite_at_bundle_relative_path() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-persistence-factory-{}-{stamp}",
         std::process::id()
     ));

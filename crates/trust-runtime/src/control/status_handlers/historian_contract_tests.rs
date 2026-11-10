@@ -31,7 +31,7 @@ fn temp_history_path(name: &str) -> PathBuf {
         .expect("clock after epoch")
         .as_nanos();
     let sequence = NEXT_HISTORY_PATH_ID.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-status-contract-{name}-{}-{stamp}-{sequence}.jsonl",
         std::process::id()
     ))

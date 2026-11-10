@@ -15,7 +15,7 @@ struct TempProject {
 impl TempProject {
     fn new(name: &str) -> Self {
         let id = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
+        let root = trust_test_support::unique_temp_path(&format!(
             "trust-comm-schema-contract-{name}-{}-{id}",
             std::process::id()
         ));

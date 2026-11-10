@@ -9,7 +9,7 @@ fn temp_path(name: &str) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    std::env::temp_dir().join(format!("trust-historian-{name}-{stamp}.jsonl"))
+    trust_test_support::unique_temp_path(&format!("trust-historian-{name}-{stamp}.jsonl"))
 }
 
 fn snapshot_with_values(counter: i16, temp: f64, active: bool) -> DebugSnapshot {

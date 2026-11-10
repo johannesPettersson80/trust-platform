@@ -83,7 +83,8 @@ pub(super) fn make_project(name: &str) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("trust-runtime-web-io-{name}-{stamp}"));
+    let root =
+        trust_test_support::unique_temp_path(&format!("trust-runtime-web-io-{name}-{stamp}"));
     std::fs::create_dir_all(root.join("src")).expect("create src");
     std::fs::write(
         root.join("src/main.st"),

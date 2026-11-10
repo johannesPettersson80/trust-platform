@@ -14,7 +14,7 @@ fn load(text: &str) -> Result<SimulationConfig, RuntimeError> {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-actuator-feedback-{}-{stamp}-{}.toml",
         std::process::id(),
         NEXT_CONFIG.fetch_add(1, Ordering::Relaxed)

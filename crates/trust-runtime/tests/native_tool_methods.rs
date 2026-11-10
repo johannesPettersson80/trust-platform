@@ -397,8 +397,10 @@ END_PROGRAM
 fn image_of(source: &str, hooks: bool) -> Vec<u8> {
     let toolchain = Toolchain::find().expect("the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("this computer's CPU runs program images");
-    let work =
-        std::env::temp_dir().join(format!("trust-tool-methods-{}-{hooks}", std::process::id()));
+    let work = trust_test_support::unique_temp_path(&format!(
+        "trust-tool-methods-{}-{hooks}",
+        std::process::id()
+    ));
     let built = build(
         &[SourceFile::new(source)],
         &Options { target, hooks },

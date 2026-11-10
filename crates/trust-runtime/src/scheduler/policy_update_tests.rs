@@ -16,8 +16,10 @@ fn fresh_runtime() -> crate::CompiledRuntime {
     let mut runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
         .expect("build the policy fixture")
         .into_runtime();
-    let path =
-        std::env::temp_dir().join(format!("trust-policy-update-{}.retain", std::process::id()));
+    let path = trust_test_support::unique_temp_path(&format!(
+        "trust-policy-update-{}.retain",
+        std::process::id()
+    ));
     runtime
         .set_retain_store(
             Some(Box::new(crate::retain::FileRetainStore::new(path))),

@@ -47,7 +47,7 @@ fn setup_with_events(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let config = std::env::temp_dir().join(format!(
+    let config = trust_test_support::unique_temp_path(&format!(
         "trust-heater-intro-{}-{stamp}-{sequence}.toml",
         std::process::id()
     ));

@@ -13,7 +13,7 @@ const SHM_ROOT_ENV: &str = "TRUST_RUNTIME_T0_SHM_ROOT";
 fn unique_temp_path(label: &str) -> PathBuf {
     static NONCE: AtomicU64 = AtomicU64::new(0);
     let nonce = NONCE.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
+    trust_test_support::unique_temp_path(&format!(
         "trust-runtime-realtime-integration-{label}-{}-{nonce}",
         std::process::id()
     ))

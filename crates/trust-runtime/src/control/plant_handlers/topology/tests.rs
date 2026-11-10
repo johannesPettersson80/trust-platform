@@ -6,7 +6,7 @@ const PROJECT: &str = "project:sha256:topology";
 
 /// The `plant.read` answer of a project whose `simulation.toml` is `simulation`.
 fn read_of(name: &str, simulation: &str) -> Value {
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-plant-topology-{name}-{}",
         std::process::id()
     ));

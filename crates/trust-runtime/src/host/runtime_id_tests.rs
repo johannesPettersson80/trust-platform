@@ -14,7 +14,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new(label: &str) -> Self {
-        let path = std::env::temp_dir().join(format!(
+        let path = trust_test_support::unique_temp_path(&format!(
             "trust-runtime-id-{label}-{}-{}",
             std::process::id(),
             SCRATCH_COUNTER.fetch_add(1, Ordering::Relaxed)

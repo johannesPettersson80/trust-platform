@@ -7,7 +7,7 @@ fn integrator_dead_time_system(config: &str) -> (PlantSystem, CompiledRuntime) {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-integrator-dead-time-{}-{stamp}.toml",
         std::process::id()
     ));
@@ -134,7 +134,7 @@ fn fopdt_command_history_stays_bounded_by_dead_time_window() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!(
+    let path = trust_test_support::unique_temp_path(&format!(
         "trust-plant-resource-{}-{stamp}.toml",
         std::process::id()
     ));

@@ -76,11 +76,7 @@ END_PROGRAM
 fn build() -> CompiledRuntime {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let work = std::env::temp_dir().join(format!(
-        "trust-hide-{}-{:?}",
-        std::process::id(),
-        thread::current().id()
-    ));
+    let work = trust_test_support::unique_temp_path("trust-hide");
     let built = build_image(
         &[SourceFile::with_path(PATH, SOURCE)],
         &Options {

@@ -25,7 +25,7 @@ END_PROGRAM
         crate::CompiledRuntime::load(labelled_program_image("src/main.st", source), "RESOURCE")
             .expect("the labelled image loads");
     runtime.set_debug_control(state.debug.clone());
-    let project_root = std::env::temp_dir().join("trust-breakpoints-project-relative");
+    let project_root = trust_test_support::unique_temp_path("trust-breakpoints-project-relative");
     let absolute = project_root.join("src").join("main.st");
 
     for path in ["src/main.st", absolute.to_str().expect("a UTF-8 path")] {

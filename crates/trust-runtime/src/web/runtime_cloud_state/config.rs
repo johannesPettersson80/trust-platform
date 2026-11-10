@@ -173,7 +173,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        std::env::temp_dir().join(format!("trust-runtime-cloud-{name}-{stamp}.json"))
+        trust_test_support::unique_temp_path(&format!("trust-runtime-cloud-{name}-{stamp}.json"))
     }
 
     #[test]

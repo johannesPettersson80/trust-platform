@@ -53,7 +53,7 @@ END_PROGRAM
     // Atomic directory creation prevents another test/process from sharing state.
     let root = (0u64..)
         .find_map(|attempt| {
-            let path = std::env::temp_dir().join(format!(
+            let path = trust_test_support::unique_temp_path(&format!(
                 "trust-runtime-openot-persistence-scan-timing-{}-{attempt}.shm",
                 std::process::id()
             ));

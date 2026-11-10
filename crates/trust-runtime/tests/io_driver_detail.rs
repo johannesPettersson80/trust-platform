@@ -46,7 +46,7 @@ fn gpio_detail_names_the_chip_and_the_lines_it_serves() {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let base: PathBuf = std::env::temp_dir().join(format!("trust-gpio-detail-{nanos}"));
+    let base: PathBuf = trust_test_support::unique_temp_path(&format!("trust-gpio-detail-{nanos}"));
     for line in [4, 5, 17] {
         let dir = base.join(format!("gpio{line}"));
         fs::create_dir_all(&dir).expect("gpio dir");

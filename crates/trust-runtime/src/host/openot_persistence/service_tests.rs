@@ -82,7 +82,7 @@ fn service_rejects_missing_database_ca_before_worker_start() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-missing-ca-{}-{stamp}",
         std::process::id()
     ));
@@ -135,7 +135,7 @@ fn service_rejects_missing_database_environment_before_worker_start() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-missing-database-environment-{}-{stamp}",
         std::process::id()
     ));
@@ -204,7 +204,7 @@ fn service_faults_incompatible_pre_release_schema_without_spending_reconnect_bud
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-service-incompatible-schema-{}-{stamp}",
         std::process::id()
     ));
@@ -276,7 +276,7 @@ fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-persistence-service-{}-{stamp}",
         std::process::id()
     ));
@@ -334,7 +334,7 @@ fn service_supplies_compiled_definition_to_typed_database_projection() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-logging-service-definition-{}-{stamp}",
         std::process::id()
     ));
@@ -429,7 +429,7 @@ fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-sqlite-service-restart-{}-{stamp}",
         std::process::id()
     ));
@@ -584,7 +584,7 @@ fn shutdown_drains_records_published_after_the_last_worker_poll() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-shutdown-drain-{}-{stamp}",
         std::process::id()
     ));
@@ -654,7 +654,7 @@ fn shutdown_uses_a_fresh_head_when_an_older_poll_still_has_buffered_records() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-shutdown-buffered-drain-{}-{stamp}",
         std::process::id()
     ));
@@ -743,7 +743,7 @@ fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-postgresql-reconnect-{}-{stamp}",
         std::process::id()
     ));
@@ -870,7 +870,7 @@ fn unresolved_document_keeps_caught_up_service_degraded() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-openot-persistence-degraded-{}-{stamp}",
         std::process::id()
     ));

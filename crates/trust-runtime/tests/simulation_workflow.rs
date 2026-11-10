@@ -34,7 +34,7 @@ fn simulation_toml_model_parses_rules_and_disturbances() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("unix epoch")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-simulation-config-{}-{stamp}",
         std::process::id()
     ));
@@ -86,7 +86,7 @@ fn simulation_toml_rejects_non_finite_coupling_thresholds() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("unix epoch")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-simulation-non-finite-threshold-{}-{stamp}",
         std::process::id()
     ));
@@ -127,7 +127,7 @@ fn simulation_toml_model_parses_physics_joints() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("unix epoch")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-simulation-physics-config-{}-{stamp}",
         std::process::id()
     ));
@@ -183,7 +183,7 @@ fn physics_feedback_target_conflicts_are_rejected() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("unix epoch")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!(
+    let root = trust_test_support::unique_temp_path(&format!(
         "trust-runtime-simulation-physics-conflict-{}-{stamp}",
         std::process::id()
     ));

@@ -67,12 +67,7 @@ fn scan(harness: &mut TestHarness) {
 }
 
 fn store_path(name: &str) -> std::path::PathBuf {
-    let mut path = std::env::temp_dir();
-    path.push(format!(
-        "trust_retain_instance_members_{}_{name}.bin",
-        std::process::id()
-    ));
-    path
+    trust_test_support::process_temp_path(&format!("trust_retain_instance_members_{name}.bin"))
 }
 
 #[test]

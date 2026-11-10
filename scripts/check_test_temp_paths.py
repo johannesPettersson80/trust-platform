@@ -24,9 +24,6 @@ from pathlib import Path
 MARKER = "temp-root-ok:"
 HELPER_CRATE = "crates/trust-test-support/"
 SCANNED = ("crates", "xtask")
-# Crates whose tests still take temporary paths of their own: checklist G72 converts them part by part, and
-# this list is empty when every test takes its path from trust-test-support.
-NOT_YET = ("crates/trust-runtime/",)
 TEMP_DIR_CALL = re.compile(r"\benv::temp_dir\(\)")
 TEST_GATE = re.compile(r"#\[cfg\((?:test|all\(\s*test\b[^\]]*)\)\]")
 
@@ -176,7 +173,7 @@ def test_lines(code: str) -> set[int]:
 def violations(relative: str, text: str, test_files: set[str]) -> list[tuple[int, str]]:
     """The test-code `temp_dir()` calls of the file `relative` without the marker: (line, line text). `test_files`
     are the files that are test code as a whole (`test_module_files`)."""
-    if relative.startswith((HELPER_CRATE, *NOT_YET)):
+    if relative.startswith(HELPER_CRATE):
         return []
     code = code_only(text)
     whole = relative in test_files
