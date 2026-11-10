@@ -130,8 +130,12 @@ pub(in crate::db) fn check_shared_global_task_hazards(
 
         let access_list = format_task_list(&access_tasks, &task_info);
         let write_list = format_task_list(&usage.writes, &task_info);
+        // The message names the remedy (specification 28 §6), so that a warning leads to the
+        // attribute that declares a global shared by design.
         let message = format!(
-            "shared global '{}' accessed by multiple tasks ({access_list}) with writes in ({write_list})",
+            "shared global '{}' accessed by multiple tasks ({access_list}) with writes in \
+             ({write_list}); give it one writing task, or declare it shared by design with \
+             {{attribute 'cross_task'}}",
             global.name
         );
         let mut diagnostic = Diagnostic::warning(
@@ -348,7 +352,16 @@ fn declared_cross_task(roots: &[(FileId, SyntaxNode)], global: &GlobalCandidate)
         || declaration
             .ancestors()
             .find(|n| n.kind() == SyntaxKind::VarBlock)
-            .is_some_and(|list| declares_attribute(&list, "cross_task"))
+            .is_some_and(|list| {
+                // Before the namespace that holds the list, as a CODESYS global variable list's
+                // attributes stand when the list arrives as a namespace (specification 22, the
+                // importer's `qualified_only` list), the attribute covers the list too.
+                declares_attribute(&list, "cross_task")
+                    || list
+                        .ancestors()
+                        .find(|n| n.kind() == SyntaxKind::Namespace)
+                        .is_some_and(|namespace| declares_attribute(&namespace, "cross_task"))
+            })
 }
 
 fn collect_global_candidates(

@@ -197,7 +197,13 @@ single-written global whose type does not resolve (section 9).
 and the warning is silent for it in every pattern, several writers included:
 the project owns the protocol, such as a hand-off flag or a ring buffer with
 one consumer. Before a `VAR_GLOBAL` list the attribute covers every global of
-the list; before a single global inside the list, that global. It carries no
+the list; before a single global inside the list, that global; before a
+`NAMESPACE`, every global of the `VAR_GLOBAL` lists directly in that namespace.
+A CODESYS global variable list reaches truST as such a namespace with its
+attributes before it (specification 22: the PLCopen import of a list, a
+`qualified_only` one among them), so the attribute it carries in CODESYS keeps
+its meaning. The warning's message names the remedy: one writing task, or the
+attribute. The attribute carries no
 value and names no tasks: which program runs in which task belongs to the
 configuration and changes with it, while the attribute states a property of
 the data. Undeclared globals keep the rule above, so an unexpected cross-task

@@ -773,6 +773,43 @@ fn cross_task_before_one_global_covers_only_that_global() {
 }
 
 #[test]
+fn cross_task_before_a_namespace_covers_the_lists_in_it() {
+    // Specification 28 §6: before a `NAMESPACE` the attribute covers the `VAR_GLOBAL` lists directly
+    // in it, where a CODESYS list's attributes stand when the list arrives as a namespace: the PLCopen
+    // import writes `{attribute 'qualified_only'}` and the list's other attributes before
+    // `NAMESPACE GVL` (contributor report on #407: 45 W012 stayed with the attribute there). Worked by
+    // hand: `Total`, non-atomic and read by the other task, and `Count`, with two writers, both warn
+    // without the attribute, and neither warns with it. Catches the attribute read only inside the
+    // namespace.
+    let list =
+        "NAMESPACE GVL\nVAR_GLOBAL\n    Total : LINT;\n    Count : DINT;\nEND_VAR\nEND_NAMESPACE\n";
+    let fast = "GVL.Total := 1;\nGVL.Count := 1;";
+    let slow = "VAR n : LINT; END_VAR\nn := GVL.Total;\nGVL.Count := 2;";
+    assert_eq!(gvl_hazard_names(list, fast, slow), ["Count", "Total"]);
+    let imported = format!("{{attribute 'qualified_only'}}\n{{attribute 'cross_task'}}\n{list}");
+    assert_eq!(
+        gvl_hazard_names(&imported, fast, slow),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn the_warning_names_its_remedy() {
+    // Specification 28 §6: the message names the remedy, one writing task or the attribute, so that a
+    // warning leads to `{attribute 'cross_task'}` (contributor report on #407: the attribute was found
+    // only in the contract tests). Catches a message that names the hazard alone.
+    let found = hazards(&two_task_source("Shared := 1;", "observed := Shared;"));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].message.ends_with(
+            "; give it one writing task, or declare it shared by design with {attribute 'cross_task'}"
+        ),
+        "{}",
+        found[0].message
+    );
+}
+
+#[test]
 fn cross_task_before_a_configuration_global_list_covers_it() {
     // The global list of a configuration takes the attribute the same way. Catches a check that
     // finds the attribute only on a list at file level.
