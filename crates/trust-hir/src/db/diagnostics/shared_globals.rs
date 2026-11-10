@@ -69,6 +69,7 @@ pub(in crate::db) fn check_shared_global_task_hazards(
     project_roots: &[(FileId, SyntaxNode)],
     file_id: FileId,
     written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
+    call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
     diagnostics: &mut DiagnosticBuilder,
 ) {
     let (globals_by_key, globals_by_id) = collect_global_candidates(symbols, file_id);
@@ -81,8 +82,14 @@ pub(in crate::db) fn check_shared_global_task_hazards(
         return;
     }
 
-    let program_accesses =
-        collect_program_accesses(symbols, project_roots, &globals_by_key, written_arguments);
+    let program_accesses = collect_program_reach(
+        symbols,
+        project_roots,
+        &globals_by_key,
+        written_arguments,
+        call_facts,
+    )
+    .accesses;
     if program_accesses.is_empty() {
         return;
     }
@@ -147,9 +154,10 @@ pub(in crate::db) fn check_shared_global_task_hazards(
 }
 
 /// The owner of each global that `file_id` declares (control-studio-runtime-protocol annex E2.3),
-/// by its name with its namespaces, in that order: the one task whose programs' bodies, actions
-/// included, are the only places that write it. A write in any other POU makes it shared, as any
-/// task may run that POU; so do programs of several tasks, or of a task and none. A program that no
+/// by its name with its namespaces, in that order: the one task whose programs are the only ones
+/// that write it, through their own bodies or through the POUs their calls reach (`reach`). Programs
+/// of several tasks, or of a task and none, make it shared, and so does a POU that no program
+/// reaches through a resolved call, such as a method an interface's call may run. A program that no
 /// configuration runs writes nothing that counts; in a project without a configuration every
 /// program runs outside every task (specification 18 §2.2).
 pub(in crate::db) fn shared_global_owners(
@@ -157,6 +165,7 @@ pub(in crate::db) fn shared_global_owners(
     project_roots: &[(FileId, SyntaxNode)],
     file_id: FileId,
     written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
+    call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
 ) -> Vec<GlobalOwnership> {
     let (globals_by_key, globals_by_id) = collect_global_candidates(symbols, file_id);
     let mut declared: Vec<&GlobalCandidate> = globals_by_id
@@ -169,10 +178,16 @@ pub(in crate::db) fn shared_global_owners(
     declared.sort_by_key(|global| global.range.start());
     let (program_tasks, task_info) = collect_program_task_assignments(symbols, project_roots);
     let background = collect_background_programs(symbols, project_roots);
-    let program_accesses =
-        collect_program_accesses(symbols, project_roots, &globals_by_key, written_arguments);
-    let elsewhere =
-        collect_other_pou_writes(symbols, project_roots, &globals_by_key, written_arguments);
+    let ProgramReach {
+        accesses: program_accesses,
+        unreached_writes: elsewhere,
+    } = collect_program_reach(
+        symbols,
+        project_roots,
+        &globals_by_key,
+        written_arguments,
+        call_facts,
+    );
     declared
         .into_iter()
         .map(|global| {
@@ -265,32 +280,6 @@ fn collect_background_programs(
         }
     }
     background
-}
-
-/// The globals that a POU other than a program writes: a function, a function block, a class, a
-/// method (a program's included) or a property, which any task may run.
-fn collect_other_pou_writes(
-    symbols: &SymbolTable,
-    roots: &[(FileId, SyntaxNode)],
-    globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
-    written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
-) -> FxHashSet<SymbolId> {
-    let mut written = FxHashSet::default();
-    for (file_id, root) in roots {
-        let arguments = written_arguments(*file_id);
-        for pou in root
-            .descendants()
-            .filter(|node| is_pou_kind(node.kind()) && !matches!(node.kind(), SyntaxKind::Program))
-        {
-            let mut access = ProgramAccess {
-                reads: FxHashSet::default(),
-                writes: FxHashSet::default(),
-            };
-            collect_pou_accesses(symbols, globals_by_key, &pou, &arguments, &mut access);
-            written.extend(access.writes);
-        }
-    }
-    written
 }
 
 /// How a global's value is read and written (specification 28 section 6).
@@ -469,22 +458,30 @@ fn collect_program_task_assignments(
     (program_tasks, task_info)
 }
 
-fn collect_program_accesses(
+/// Each program's accesses to the globals, with those of every POU it reaches through its calls,
+/// and the globals that POUs no program reaches write (specification 28 §6; `reach`).
+struct ProgramReach {
+    accesses: FxHashMap<SymbolId, ProgramAccess>,
+    unreached_writes: FxHashSet<SymbolId>,
+}
+
+fn collect_program_reach(
     symbols: &SymbolTable,
     roots: &[(FileId, SyntaxNode)],
     globals_by_key: &FxHashMap<GlobalKey, GlobalCandidate>,
     written_arguments: &dyn Fn(FileId) -> Arc<FxHashSet<(u32, u32)>>,
-) -> FxHashMap<SymbolId, ProgramAccess> {
+    call_facts: &dyn Fn(FileId) -> Option<CallFacts>,
+) -> ProgramReach {
+    let graph = CallGraph::build(
+        symbols,
+        roots,
+        globals_by_key,
+        written_arguments,
+        call_facts,
+    );
     let mut accesses: FxHashMap<SymbolId, ProgramAccess> = FxHashMap::default();
-
+    let mut reached_by_programs = FxHashSet::default();
     for (file_id, root) in roots {
-        if !root
-            .descendants()
-            .any(|node| node.kind() == SyntaxKind::Program)
-        {
-            continue;
-        }
-        let written = written_arguments(*file_id);
         for program in root
             .descendants()
             .filter(|node| node.kind() == SyntaxKind::Program)
@@ -499,18 +496,21 @@ fn collect_program_accesses(
             else {
                 continue;
             };
-            let mut access = ProgramAccess {
-                reads: FxHashSet::default(),
-                writes: FxHashSet::default(),
+            let Some(key) = reach::pou_key(*file_id, &program) else {
+                continue;
             };
-            collect_pou_accesses(symbols, globals_by_key, &program, &written, &mut access);
+            let reached = graph.reached(key);
+            let access = graph.access_of(&reached);
+            reached_by_programs.extend(reached);
             if !access.reads.is_empty() || !access.writes.is_empty() {
                 accesses.insert(program_id, access);
             }
         }
     }
-
-    accesses
+    ProgramReach {
+        accesses,
+        unreached_writes: graph.writes_outside(&reached_by_programs),
+    }
 }
 
 fn find_imported_symbol_by_name_range(
@@ -795,6 +795,11 @@ fn belongs_to_pou(node: &SyntaxNode, pou: &SyntaxNode) -> bool {
         .map(|ancestor| ancestor == *pou)
         .unwrap_or(false)
 }
+
+#[path = "shared_globals/reach.rs"]
+mod reach;
+pub(in crate::db) use reach::CallFacts;
+use reach::CallGraph;
 
 #[cfg(test)]
 #[path = "shared_globals/contract_tests.rs"]

@@ -177,9 +177,10 @@ The `iec_type` of a binding MUST equal the name of the variable's type in upper 
 - What a transfer writes, its modes, states and outputs, and what a parameter set writes, its parameters and its mode
   (E7.1), belongs to the declared task, or to `$background`, and to no other owner. Such a member may be a global, a
   member of a GVL included (`GVL_IO.lrValve`, `GVL_Par.lrKp`), when the declared task owns it: no
-  program writes it, or only the bodies of the programs that task runs do, their actions included (`$background`: only
-  programs outside every task). A global that a function, a function block, a method, a property or a class writes, which
-  any task may run, or that the programs of several tasks write, belongs to no task and is refused with its reason, as is
+  program writes it, or only the programs that task runs do, through their own bodies, their actions included, or through
+  the POUs their calls reach: a function, a function block's instance, a method or an action that they call, and so on
+  (`$background`: only programs outside every task). A global that the programs of several tasks write, directly or through
+  their calls, or that a method an interface's call may run writes, belongs to no task and is refused with its reason, as is
   one that another task owns: "transfer member GVL_IO.lrValve is a global that task Fast writes, not the loop's task
   Slow". The build records each global's owner in the program image (specification 44 §5.7). The program's members that
   one transfer writes belong to one program.

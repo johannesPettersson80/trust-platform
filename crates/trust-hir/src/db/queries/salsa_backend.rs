@@ -8,7 +8,7 @@ use super::diagnostics::{
     check_unreachable_statements, check_using_directives, collect_used_symbols,
     compute_host_clock_sources, expression_by_id, expression_context,
     resolve_pending_types_with_table, shared_global_owners, type_check_file, used_external_globals,
-    ExpressionIndex, HostClockSources,
+    CallFacts, ExpressionIndex, HostClockSources,
 };
 use super::project_configuration::project_config_roots;
 use super::project_constants::{project_constant_expressions, project_declared_expressions};
@@ -587,11 +587,13 @@ pub(super) fn analyze_query(
                     Arc::clone(&checked.written_arguments)
                 })
         };
+        let call_facts = |file: FileId| call_facts_of(db, project, file);
         check_shared_global_task_hazards(
             symbols,
             &project_roots,
             file_id,
             &written_arguments,
+            &call_facts,
             &mut builder,
         );
     }
@@ -641,12 +643,29 @@ pub(super) fn global_owners_query(
                 Arc::clone(&checked.written_arguments)
             })
     };
+    let call_facts = |file: FileId| call_facts_of(db, project, file);
     Arc::new(shared_global_owners(
         symbols,
         &project_roots,
         file_id,
         &written_arguments,
+        &call_facts,
     ))
+}
+
+/// What the type check of `file` resolved that the shared-global analysis follows: its symbol
+/// table and the POU each call runs (`shared_globals::reach`).
+fn call_facts_of(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    file: FileId,
+) -> Option<CallFacts> {
+    checked_file_query(db, project, file)
+        .as_ref()
+        .map(|checked| CallFacts {
+            symbols: Arc::clone(&checked.symbols),
+            resolved: Arc::clone(&checked.resolved_symbols),
+        })
 }
 
 /// The project's host-clock sources, keyed canonically per POU (specification

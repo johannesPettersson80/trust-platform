@@ -31,7 +31,9 @@ pub(super) use oop::{
     check_abstract_instantiations, check_class_semantics, check_dut_extends_semantics,
     check_extends_implements_semantics, check_interface_conformance, check_property_accessors,
 };
-pub(super) use shared_globals::{check_shared_global_task_hazards, shared_global_owners};
+pub(super) use shared_globals::{
+    check_shared_global_task_hazards, shared_global_owners, CallFacts,
+};
 pub(super) use test_attributes::check_test_attributes;
 pub(super) use type_check::type_check_file;
 pub(super) use unreachable::check_unreachable_statements;

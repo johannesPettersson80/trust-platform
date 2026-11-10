@@ -68,18 +68,20 @@ pub struct Database {
 }
 
 /// The owner of a global (control-studio-runtime-protocol annex E2.3; specification 44 §5.7): the one
-/// task whose programs' bodies are the only places that write it.
+/// task whose programs are the only ones that write it, through their own bodies or the POUs their
+/// calls reach.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GlobalOwner {
     /// No program writes it.
     Unwritten,
-    /// Only the bodies of the programs this task runs write it, actions included; the task's name as
-    /// declared.
+    /// Only the programs this task runs write it, through their own bodies, actions included, or the
+    /// POUs their calls reach; the task's name as declared.
     Task(SmolStr),
     /// Only the bodies of programs outside every task write it.
     Background,
-    /// A function, function block, method, property or class writes it, which any task may run, or
-    /// the programs of several owners do: no task owns it.
+    /// The programs of several owners write it, directly or through the POUs they call, or a POU
+    /// that no program reaches through a resolved call writes it, such as a method an interface's
+    /// call may run: no task owns it.
     Shared,
 }
 

@@ -187,8 +187,8 @@ pub(crate) fn parameter_writable(image: &Image<'_>, path: &str) -> bool {
 
 /// Whether `task` owns the global `symbol`, whose owner byte is `owner` (protocol annex E2.3;
 /// specification 44 §5.7): one that no program writes is any task's, one that only programs outside
-/// every task write is `$background`'s, and one that the programs of a task write is that task's. A
-/// global with no owner is no task's. The refusal names the global as `what`, a transfer member or
+/// every task write is `$background`'s, and one that the programs of a task write, directly or
+/// through the POUs they call, is that task's. A global with no owner is no task's. The refusal names the global as `what`, a transfer member or
 /// a parameter.
 pub(crate) fn check_global_owner(
     image: &Image<'_>,
@@ -216,8 +216,9 @@ pub(crate) fn check_global_owner(
             }
         }
         _ => Err(format!(
-            "{what} {symbol} is a global that no single task owns: a function, a function block, \
-             a method or a class writes it, or the programs of several tasks do"
+            "{what} {symbol} is a global that no single task owns: the programs of several tasks \
+             write it, directly or through the POUs they call, or a method that an interface's call \
+             may run writes it"
         )),
     }
 }

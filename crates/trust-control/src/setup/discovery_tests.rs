@@ -1013,8 +1013,8 @@ fn a_loop_whose_parameter_set_writes_a_global_another_task_writes_is_refused_by_
     let shared_mode = discover(main_task(), GlobalOwner::Shared);
     assert_eq!(
         reasons(&shared_mode),
-        ["GVL_IO.bAuto is a global that no single task owns: a function, a function block, a method or a class writes it, or \
-          the programs of several tasks do. Let only the loop's task write GVL_IO.bAuto."]
+        ["GVL_IO.bAuto is a global that no single task owns: the programs of several tasks write it, directly or through the \
+          POUs they call, or a method that an interface's call may run writes it. Let only the loop's task write GVL_IO.bAuto."]
     );
     for (gain, mode) in [
         (main_task(), GlobalOwner::Unwritten),
