@@ -82,7 +82,8 @@ fn trust_runtime() -> PathBuf {
     )
 }
 
-/// A free loopback port.
+/// A loopback port that was free a moment ago. Another socket can take it before the managed
+/// runtime binds it, so a start with it may find it taken ([`found_a_port_taken`]).
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .expect("bind an ephemeral loopback port")
@@ -183,6 +184,24 @@ fn scaffold_runtime(root: &Path) -> String {
         .and_then(Value::as_str)
         .expect("the added runtime's control endpoint")
         .to_owned()
+}
+
+/// The most starts of the managed runtime, each in a fresh folder with two fresh ports, before a
+/// port found taken fails the test.
+const START_ATTEMPTS: usize = 5;
+
+/// Whether the managed runtime [`CELL`] of `root` found one of its ports taken: its log reports a
+/// bind that failed on an address in use. Specification 22: the test may then try again with
+/// other ports, and after no other failure.
+fn found_a_port_taken(root: &Path) -> bool {
+    let logs = run_fleet(root, &["runtime", "logs", "--name", CELL, "--lines", "50"]);
+    serde_json::from_slice::<Value>(&logs.stdout)
+        .ok()
+        .and_then(|logs| logs.get("lines").and_then(Value::as_array).cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(Value::as_str)
+        .any(trust_test_support::reports_a_taken_port)
 }
 
 /// Waits until the managed runtime [`CELL`] answers `running`.
@@ -324,14 +343,27 @@ fn view_shows_a_started_project_runtime_with_its_connections() {
     // `tests/fleet_lifecycle_command.rs` starts one", and design §1.5: the first view of a session
     // is the loading shell, and the next polls get the gather. A wrong implementation waits for the
     // gather inside the answer, or never asks the runtime at all.
-    let folder = TempFolder::new("started-runtime");
-    let root = folder.path();
-    let _cleanup = FleetCleanup {
-        root: root.to_path_buf(),
+    let mut attempts = 0;
+    let (folder, _cleanup, endpoint) = loop {
+        attempts += 1;
+        let folder = TempFolder::new("started-runtime");
+        let cleanup = FleetCleanup {
+            root: folder.path().to_path_buf(),
+        };
+        let endpoint = scaffold_runtime(folder.path());
+        let started = run_fleet(folder.path(), &["runtime", "start", "--name", CELL]);
+        if started.status.success() {
+            break (folder, cleanup, endpoint);
+        }
+        if !found_a_port_taken(folder.path()) {
+            assert_success(&started, "fleet runtime start");
+        }
+        assert!(
+            attempts < START_ATTEMPTS,
+            "{START_ATTEMPTS} starts each found a port of the runtime taken"
+        );
     };
-    let endpoint = scaffold_runtime(root);
-    let started = run_fleet(root, &["runtime", "start", "--name", CELL]);
-    assert_success(&started, "fleet runtime start");
+    let root = folder.path();
     wait_until_running(root);
 
     let project = root.join(CELL);
@@ -492,31 +524,45 @@ fn managed_start_and_stop_through_act() {
     // answers ... `pending`. Its final `notice` and `effects` arrive exactly once, in the
     // `operations_done` of a later view." A wrong implementation never runs the lifecycle, or
     // loses its result.
-    let folder = TempFolder::new("managed-lifecycle");
-    let root = folder.path();
-    let _cleanup = FleetCleanup {
-        root: root.to_path_buf(),
-    };
-    let _ = scaffold_runtime(root);
     let executable = trust_runtime();
-    let engine = DevicesEngine::new();
-    let start = ActRequest {
-        session: SESSION.to_owned(),
-        op: ActOp {
-            action: "runtime.managed_start".to_owned(),
-            payload: json!({ "runtime": "trust-fleet-v1:cell", "name": CELL }),
-        },
-        values: Map::new(),
-        project: Some(root.to_path_buf()),
-        host: HostFacts {
-            runtime_executable: Some(executable.clone()),
-            ..HostFacts::default()
-        },
+    let mut attempts = 0;
+    let (folder, _cleanup, engine, pending, done) = loop {
+        attempts += 1;
+        let folder = TempFolder::new("managed-lifecycle");
+        let cleanup = FleetCleanup {
+            root: folder.path().to_path_buf(),
+        };
+        let _ = scaffold_runtime(folder.path());
+        let engine = DevicesEngine::new();
+        let start = ActRequest {
+            session: SESSION.to_owned(),
+            op: ActOp {
+                action: "runtime.managed_start".to_owned(),
+                payload: json!({ "runtime": "trust-fleet-v1:cell", "name": CELL }),
+            },
+            values: Map::new(),
+            project: Some(folder.path().to_path_buf()),
+            host: HostFacts {
+                runtime_executable: Some(executable.clone()),
+                ..HostFacts::default()
+            },
+        };
+        let reply = engine.act(&start);
+        let pending = reply.pending.clone().expect("a slow Start is pending");
+        let (done, _) = operation_result(&engine, SESSION, &pending.operation);
+        let started = done
+            .notice
+            .as_ref()
+            .is_some_and(|notice| notice.tone == Tone::Ok);
+        if started || !found_a_port_taken(folder.path()) {
+            break (folder, cleanup, engine, pending, done);
+        }
+        assert!(
+            attempts < START_ATTEMPTS,
+            "{START_ATTEMPTS} starts each found a port of the runtime taken"
+        );
     };
-
-    let reply = engine.act(&start);
-    let pending = reply.pending.clone().expect("a slow Start is pending");
-    let (done, _) = operation_result(&engine, SESSION, &pending.operation);
+    let root = folder.path();
     let notice = done.notice.clone().expect("the Start reports its result");
     assert_eq!(notice.tone, Tone::Ok, "{notice:?}");
     assert_eq!(notice.pane, pending.pane);
