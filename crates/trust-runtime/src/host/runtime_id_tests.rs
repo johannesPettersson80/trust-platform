@@ -225,3 +225,31 @@ fn the_user_state_folder_follows_the_platform_convention() {
     );
     assert_eq!(user_state_folder("linux", variables(&[])), None);
 }
+
+/// Specification 11 §6.8.0a and runtime discovery: a runtime started on a program store's `current`
+/// link keeps its ID in the store folder's `.trust-runtime/runtime_id`, so the start after an
+/// install, which moved `current` to another bundle, reads the same ID. Wrong behaviour caught: the
+/// ID is written into the bundle that `current` named, and the start on the new bundle generates
+/// another ID.
+#[test]
+fn a_store_runtime_keeps_its_id_when_an_install_moves_current() {
+    use crate::deployment::program_store::{replace_symlink, BUNDLES_DIR, CURRENT_LINK};
+
+    let store = Scratch::new("store");
+    let state = Scratch::new("store-state");
+    for label in ["a", "b"] {
+        fs::create_dir_all(store.path().join(BUNDLES_DIR).join(label)).expect("create a bundle");
+    }
+    let current = store.path().join(CURRENT_LINK);
+    replace_symlink(&current, &store.path().join(BUNDLES_DIR).join("a")).expect("current is a");
+
+    let first = runtime_identity_in(&current, Some(state.path())).expect("the first start's ID");
+    replace_symlink(&current, &store.path().join(BUNDLES_DIR).join("b")).expect("current is b");
+    let second = runtime_identity_in(&current, Some(state.path())).expect("the next start's ID");
+
+    assert_eq!(second.id, first.id, "the ID survives the install");
+    assert_eq!(
+        second.place,
+        RuntimeIdPlace::Project(store.path().join(".trust-runtime").join("runtime_id"))
+    );
+}
