@@ -57,6 +57,15 @@ fn lexical_contract_keywords_are_case_insensitive() {
     }
 }
 
+/// Specification 01: CODESYS's `VAR_INST` is one reserved section keyword in any case, as `VAR_STAT`
+/// is. Catches it lexed as an identifier, which made a method's `VAR_INST` section a parse error.
+#[test]
+fn lexical_contract_codesys_var_inst_is_one_reserved_token() {
+    for source in ["VAR_INST", "var_inst", "Var_Inst"] {
+        assert_single(source, TokenKind::KwVarInst);
+    }
+}
+
 #[test]
 fn lexical_contract_underscore_position_remains_identifier_significant() {
     assert_eq!(
@@ -71,6 +80,17 @@ fn lexical_contract_underscore_position_remains_identifier_significant() {
 #[test]
 fn lexical_contract_rejects_multiple_leading_underscores_as_one_candidate() {
     assert_rejected_candidate("__LIM_SW5", &[TokenKind::Ident]);
+}
+
+/// Specification 01: CODESYS's `__SYSTEM` is one reserved token in any case, while another name
+/// that starts with `__` stays a malformed identifier. Catches `__SYSTEM` lexed as a malformed
+/// identifier, which made an interface that extends `__SYSTEM.IQueryInterface` a parse error.
+#[test]
+fn lexical_contract_codesys_system_namespace_is_one_reserved_token() {
+    for source in ["__SYSTEM", "__system", "__System"] {
+        assert_single(source, TokenKind::KwSystemDunder);
+    }
+    assert_rejected_candidate("__SYSTEMS", &[TokenKind::Ident, TokenKind::KwSystemDunder]);
 }
 
 #[test]
@@ -409,4 +429,49 @@ fn lexical_contract_retains_shape_valid_invalid_calendar_date_as_date_token() {
 #[test]
 fn lexical_contract_retains_shape_valid_invalid_clock_as_tod_token() {
     assert_single("TOD#24:00:00", TokenKind::TimeOfDayLiteral);
+}
+
+/// Specification 01: CODESYS's `__ISVALIDREF` is one reserved token in any case, as `__NEW` and
+/// `__DELETE` are, while a longer name with `__` stays a malformed identifier. Catches the operator
+/// lexed as a malformed identifier, which the parser reported as "expected expression".
+#[test]
+fn lexical_contract_codesys_isvalidref_is_one_reserved_token() {
+    for source in ["__ISVALIDREF", "__isvalidref", "__IsValidRef"] {
+        assert_single(source, TokenKind::KwIsValidRefDunder);
+    }
+    assert_rejected_candidate(
+        "__ISVALIDREFS",
+        &[TokenKind::Ident, TokenKind::KwIsValidRefDunder],
+    );
+}
+
+/// Specification 01: CODESYS's `__QUERYINTERFACE` is one reserved token in any case. Catches the
+/// operator lexed as a malformed identifier, which the parser reported as "expected expression".
+#[test]
+fn lexical_contract_codesys_queryinterface_is_one_reserved_token() {
+    for source in ["__QUERYINTERFACE", "__queryinterface", "__QueryInterface"] {
+        assert_single(source, TokenKind::KwQueryInterfaceDunder);
+    }
+    assert_rejected_candidate(
+        "__QUERYINTERFACES",
+        &[TokenKind::Ident, TokenKind::KwQueryInterfaceDunder],
+    );
+}
+
+/// Specification 01 and 06 §15: CODESYS's `__TRY`, `__CATCH`, `__FINALLY` and `__ENDTRY` are each one
+/// reserved token in any case. Catches a word lexed as a malformed identifier, which the parser
+/// reported as "expected statement", and a longer `__` name taken for one of them.
+#[test]
+fn lexical_contract_codesys_exception_words_are_reserved_tokens() {
+    for (word, kind) in [
+        ("__TRY", TokenKind::KwTryDunder),
+        ("__CATCH", TokenKind::KwCatchDunder),
+        ("__FINALLY", TokenKind::KwFinallyDunder),
+        ("__ENDTRY", TokenKind::KwEndTryDunder),
+    ] {
+        for source in [word.to_string(), word.to_ascii_lowercase()] {
+            assert_single(&source, kind);
+        }
+    }
+    assert_rejected_candidate("__TRYING", &[TokenKind::Ident, TokenKind::KwTryDunder]);
 }

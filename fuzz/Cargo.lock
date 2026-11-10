@@ -3209,12 +3209,12 @@ dependencies = [
 [[package]]
 name = "open-ot-carriage"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 
 [[package]]
 name = "open-ot-definition"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 dependencies = [
  "open-ot-carriage",
  "serde",
@@ -3226,7 +3226,7 @@ dependencies = [
 [[package]]
 name = "open-ot-document"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 dependencies = [
  "open-ot-carriage",
  "open-ot-definition",
@@ -3237,7 +3237,7 @@ dependencies = [
 [[package]]
 name = "open-ot-shm"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 dependencies = [
  "memmap2",
  "open-ot-carriage",

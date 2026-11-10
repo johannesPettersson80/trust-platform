@@ -52,6 +52,9 @@ END_TEST_FUNCTION_BLOCK
 Current parser/HIR behavior:
 - `TEST_PROGRAM` is parsed with PROGRAM structure and collected as `SymbolKind::Program`.
 - `TEST_FUNCTION_BLOCK` is parsed with FUNCTION_BLOCK structure and collected as `SymbolKind::FunctionBlock`.
+- An ordinary `PROGRAM` whose declaration carries `{attribute 'test'}` is parsed and collected as
+  any `PROGRAM`, and is a test program as a `TEST_PROGRAM` is: the form a CODESYS project can
+  hold (specification 22, "Test POU discovery").
 - Mismatched end markers produce actionable diagnostics (`expected END_TEST_PROGRAM` / `expected END_TEST_FUNCTION_BLOCK`).
 - End-of-file before the matching test-POU terminator produces the same
   actionable required-terminator diagnostic; an unterminated `TEST_PROGRAM`
@@ -99,7 +102,12 @@ END_FUNCTION
 
 1. **No state retention**: Variables in VAR/VAR_TEMP are re-initialized each call (VAR and VAR_TEMP are equivalent in functions/methods)
 2. **Return value**: Assigned through the IEC function-name result variable or
-   through the truST value-bearing RETURN extension recorded as `DEV-022`
+   through the truST value-bearing RETURN extension recorded as `DEV-022`.
+   The IEC profile requires the assignment (`E206`); IEC 61131-3 Ed.3 §6.6.2.2
+   does not, so this is truST's own rule. Under the CODESYS profiles a function
+   or method whose body leaves its result unassigned, or reaches a bare `RETURN`
+   before assigning it, returns the default value of its result type, without a
+   diagnostic, as CODESYS does with the methods it scaffolds.
 3. **VAR_IN_OUT and VAR_EXTERNAL**: May be modified inside the function; VAR_EXTERNAL CONSTANT shall not be modified
 4. **CONSTANT restriction**: Function block instances shall not be declared in variable sections with CONSTANT qualifier
 5. **Return type**: the declared type names a data type of specification 02.
@@ -144,7 +152,12 @@ IEC 61131-3 Ed.3 Table 19 and the Annex A function production permit
 `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`, `VAR_EXTERNAL`, `VAR`, and
 `VAR_TEMP` in a function. A method has the same variable-section set under the
 Annex A method production. truST additionally accepts `VAR_STAT` in both as
-the documented persistent-static extension.
+the documented persistent-static extension. A method also accepts CODESYS's
+`VAR_INST`, which is the method's `VAR_STAT` under CODESYS's name: one variable
+per instance and method, kept between calls, initialized with the instance,
+reachable only inside the method, with `VAR_STAT`'s qualifiers. A `VAR_INST`
+section anywhere else, in a function, a body or an interface, is refused
+(E202), as CODESYS allows it only in a method.
 
 Neither owner accepts `VAR_GLOBAL`, `VAR_ACCESS`, or `VAR_CONFIG`. Encountering
 one of those sections rejects the complete function or method declaration;
@@ -684,6 +697,16 @@ INTERFACE IAdvancedControl EXTENDS IControllable
 END_INTERFACE
 ```
 
+CODESYS lets an interface extend its system interface `__SYSTEM.IQueryInterface`, which
+there allows `__QUERYINTERFACE` on it, and lets a function block or class name the
+system interface among the interfaces it implements. Under every profile truST accepts
+`__SYSTEM.IQueryInterface` after an interface's `EXTENDS` and in an `IMPLEMENTS` list,
+where it has no effect: it adds no method, and the other names of the list keep their
+meaning. Any other `__SYSTEM` name is refused (E102), and so is
+`__SYSTEM.IQueryInterface` after a function block's or class's `EXTENDS`.
+`__SYSTEM` is a reserved word (specification 01); IEC forbids `__` in a name, so no
+valid IEC program changes.
+
 ### Interface as Variable Type
 
 ```
@@ -695,6 +718,17 @@ END_VAR
 Controller := MyPump;          // Assign implementing instance
 Controller.Start();            // Call through interface
 ```
+
+CODESYS's `__QUERYINTERFACE(source, target)` asks whether the instance the interface
+`source` names implements the interface of the variable `target`. It is
+`target ?= source` followed by `target <> NULL`: when the instance implements the
+target's interface, the target names it and the call is `TRUE`; otherwise the target
+is `NULL`, whatever it held, and the call is `FALSE`, also for a `NULL` source
+(IEC 61131-3 Ed.3 §6.6.6.7, Table 52). Both arguments are positional and of interface
+types, and the target is a variable. Every interface may be queried: CODESYS requires
+both to extend `__SYSTEM.IQueryInterface`, which adds nothing in truST. It holds under
+every profile: `__QUERYINTERFACE` is a reserved word (specification 01), and IEC
+forbids `__` in a name, so no valid IEC program changes.
 
 ### Rules
 
@@ -797,6 +831,13 @@ METHOD PUBLIC Example
   SUPER.Initialize();         // Call base class method
 END_METHOD
 ```
+
+CODESYS declares `THIS` and `SUPER` as pointers and writes `THIS^.Speed`,
+`SUPER^.Initialize()` and, in a body, `SUPER^()`. Under every profile `THIS^` is
+`THIS` and `SUPER^` is `SUPER`: the same member access, the same direct call of
+the base's method, and `SUPER^()` calls the base's body as `SUPER()` does. No
+valid IEC program changes, as no other value of an instance's type can be
+dereferenced.
 
 ### truST PROPERTY access extension
 
@@ -966,6 +1007,14 @@ END_VAR
 4. Qualified names can always be used
 5. Name conflicts resolved by qualification
 6. INTERNAL access specifier limits scope to namespace
+7. A namespace's `VAR_GLOBAL` list preceded by `{attribute 'qualified_only'}` (CODESYS, vendor
+   extension; the vendor's attribute help: the variables of such a global variable list "are
+   addressed only by specifying the global variable name", `GVL.iVar`, and an unqualified `iVar`
+   "will create an error") is named with its namespace: a bare name that reaches one of its globals
+   through a `USING` from outside the namespace is an error (E105) whose message names the qualified
+   form (`GVL_IO.lrLevel`). Inside the namespace, where its names are in scope without a `USING`, the
+   bare name stays valid. A list outside any namespace has no name to qualify with, and the attribute
+   requires nothing there
 
 ### Namespace implementation notes
 
@@ -1002,7 +1051,8 @@ redefine the IEC POU taxonomy.
 4. **Override without base**: OVERRIDE on non-virtual method
 5. **FINAL violation**: Extending FINAL class/overriding FINAL method
 6. **Access violation**: Calling PRIVATE/PROTECTED inappropriately
-7. **Return value**: Function/method must assign return value
+7. **Return value**: Function/method must assign return value (IEC profile; see rule 2 of
+   section 6.6.1.2's rules for the CODESYS profiles)
 8. **Parameter matching**: Call arguments match declaration
 
 ### Error Conditions

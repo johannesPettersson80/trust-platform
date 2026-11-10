@@ -76,6 +76,10 @@ pub struct SymbolTable {
     named_value_types: FxHashSet<TypeId>,
     /// IEC `STRUCT OVERLAP` types whose fields share backing storage.
     overlapping_struct_types: FxHashSet<TypeId>,
+    /// The pack modes of structures declared with `{attribute 'pack_mode'}`.
+    struct_packs: FxHashMap<TypeId, u8>,
+    /// Enumerations declared `{attribute 'to_string'}` (specification 07 §2.7).
+    named_text_types: FxHashSet<TypeId>,
     /// Extends relationships retained as semantic reference records.
     extends: FxHashMap<SymbolId, OopReference>,
     /// Implements relationships retained as semantic reference records.
@@ -116,6 +120,8 @@ impl SymbolTable {
             types: FxHashMap::default(),
             named_value_types: FxHashSet::default(),
             overlapping_struct_types: FxHashSet::default(),
+            struct_packs: FxHashMap::default(),
+            named_text_types: FxHashSet::default(),
             extends: FxHashMap::default(),
             implements: FxHashMap::default(),
             const_values: FxHashMap::default(),
@@ -131,6 +137,7 @@ impl SymbolTable {
             .push(Scope::new(ScopeId::GLOBAL, ScopeKind::Global, None, None));
         table.register_builtin_types();
         table.register_builtin_function_blocks();
+        table.register_builtin_system_types();
         table
     }
 
@@ -612,6 +619,18 @@ impl SymbolTable {
             .contains(&self.resolve_alias_type(type_id))
     }
 
+    /// Marks an enumeration as declared `{attribute 'to_string'}` (specification 07 §2.7).
+    pub fn mark_named_text_type(&mut self, type_id: TypeId) {
+        self.named_text_types.insert(type_id);
+    }
+
+    /// Returns whether a type resolves to an enumeration declared `{attribute 'to_string'}`.
+    #[must_use]
+    pub fn is_named_text_type(&self, type_id: TypeId) -> bool {
+        self.named_text_types
+            .contains(&self.resolve_alias_type(type_id))
+    }
+
     /// Marks a structured type as an IEC `STRUCT OVERLAP` declaration.
     pub fn register_overlapping_struct_type(&mut self, type_id: TypeId) {
         self.overlapping_struct_types.insert(type_id);
@@ -622,6 +641,21 @@ impl SymbolTable {
     pub fn is_overlapping_struct_type(&self, type_id: TypeId) -> bool {
         self.overlapping_struct_types
             .contains(&self.resolve_alias_type(type_id))
+    }
+
+    /// Records the pack mode of a structure declared with `{attribute 'pack_mode'}`
+    /// (specification 02 §3.5.2).
+    pub fn register_struct_pack(&mut self, type_id: TypeId, mode: u8) {
+        self.struct_packs.insert(type_id, mode);
+    }
+
+    /// The pack mode of the structure a type resolves to, when it is declared with
+    /// `{attribute 'pack_mode'}`.
+    #[must_use]
+    pub fn struct_pack(&self, type_id: TypeId) -> Option<u8> {
+        self.struct_packs
+            .get(&self.resolve_alias_type(type_id))
+            .copied()
     }
 
     /// Registers an array type.
@@ -774,6 +808,34 @@ impl SymbolTable {
         None
     }
 
+    /// The modifiers of the `TYPE` symbol that declares the type `type_id`, an alias resolved: an
+    /// enumeration's `{attribute 'qualified_only'}` and `{attribute 'strict'}` among them
+    /// (specification 02 §3.1). The defaults for a type that no `TYPE` symbol declares.
+    #[must_use]
+    pub fn type_modifiers(&self, type_id: TypeId) -> SymbolModifiers {
+        let type_id = self.resolve_alias_type(type_id);
+        self.symbols
+            .iter()
+            .find(|symbol| matches!(symbol.kind, SymbolKind::Type) && symbol.type_id == type_id)
+            .map(|symbol| symbol.modifiers)
+            .unwrap_or_default()
+    }
+
+    /// The symbol of the value `member` of the enumerated type `enum_type`, so that a qualified
+    /// `EnumType.Member` names the same value as the bare member (IEC 61131-3 Ed.3 §6.4.4.2).
+    #[must_use]
+    pub fn enum_member_symbol(&self, enum_type: TypeId, member: &str) -> Option<SymbolId> {
+        let enum_type = self.resolve_alias_type(enum_type);
+        self.symbols
+            .iter()
+            .find(|symbol| {
+                matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                    && symbol.name.eq_ignore_ascii_case(member)
+                    && self.resolve_alias_type(symbol.type_id) == enum_type
+            })
+            .map(|symbol| symbol.id)
+    }
+
     /// Resolves `EnumType.Member` (CODESYS qualified access) to the enum's
     /// type id. The base resolves through the scope chain, then the global
     /// map, then — for namespace-nested types reached from outside their
@@ -813,6 +875,16 @@ impl SymbolTable {
             return enum_member_type(symbol.type_id);
         }
 
+        // A type registered under the exact name, as the system type `__SYSTEM.ExceptionCode` is,
+        // which no symbol names.
+        if let Some(found) = self
+            .type_names
+            .get(&normalize_name(type_name))
+            .copied()
+            .and_then(enum_member_type)
+        {
+            return Some(found);
+        }
         let suffix = format!(".{}", normalize_name(type_name));
         let candidates: Vec<TypeId> = self
             .type_names
@@ -931,6 +1003,55 @@ impl SymbolTable {
     pub fn extends_reference(&self, owner: SymbolId) -> Option<DeclarationReferenceRecord> {
         let reference = self.extends.get(&owner)?;
         Some(self.oop_reference_record(owner, DeclarationReferenceKind::Extends, reference))
+    }
+
+    /// The interface methods that the method `method_id` implements (IEC 61131-3 Ed.3 §6.6.6): the
+    /// method of the same name in each interface that its function block or class implements,
+    /// directly or through the blocks it extends, and in the interfaces those extend. A call through
+    /// an interface variable resolves to such a method, so it is a call that `method_id` may receive
+    /// (specification 14 §6.3.2).
+    #[must_use]
+    pub fn implemented_interface_methods(&self, method_id: SymbolId) -> Vec<SymbolId> {
+        let Some(method) = self.get(method_id) else {
+            return Vec::new();
+        };
+        if !matches!(method.kind, SymbolKind::Method { .. }) {
+            return Vec::new();
+        }
+        let resolved = |record: DeclarationReferenceRecord| match record.outcome() {
+            SemanticOutcome::Resolved(id) => Some(*id),
+            _ => None,
+        };
+        let mut interfaces = Vec::new();
+        let mut owners = FxHashSet::default();
+        let mut owner = method.parent;
+        while let Some(owner_id) = owner.filter(|id| owners.insert(*id)) {
+            interfaces.extend(
+                self.implements_references(owner_id)
+                    .into_iter()
+                    .filter_map(resolved),
+            );
+            owner = self.extends_reference(owner_id).and_then(resolved);
+        }
+        let mut found = Vec::new();
+        let mut seen = FxHashSet::default();
+        while let Some(interface) = interfaces.pop() {
+            if !seen.insert(interface) {
+                continue;
+            }
+            found.extend(
+                self.symbols
+                    .iter()
+                    .filter(|symbol| {
+                        symbol.parent == Some(interface)
+                            && matches!(symbol.kind, SymbolKind::Method { .. })
+                            && symbol.name.eq_ignore_ascii_case(&method.name)
+                    })
+                    .map(|symbol| symbol.id),
+            );
+            interfaces.extend(self.extends_reference(interface).and_then(resolved));
+        }
+        found
     }
 
     /// Returns retained IMPLEMENTS reference records for a symbol.

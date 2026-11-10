@@ -216,7 +216,10 @@ impl Parser<'_, '_> {
             | TokenKind::KwRef
             | TokenKind::KwNew
             | TokenKind::KwNewDunder
-            | TokenKind::KwDeleteDunder => {
+            | TokenKind::KwDeleteDunder
+            | TokenKind::KwIsValidRefDunder
+            | TokenKind::KwQueryInterfaceDunder
+            | TokenKind::KwSystemDunder => {
                 let marker = self.start();
                 self.bump();
                 marker.complete(self, SyntaxKind::NameRef)

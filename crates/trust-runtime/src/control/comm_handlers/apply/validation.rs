@@ -1,3 +1,4 @@
+use trust_runtime_services::io_drivers::modbus::ModbusTcpParams;
 use trust_runtime_services::io_drivers::mqtt::MqttParams;
 use trust_runtime_services::io_drivers::ParamsError;
 
@@ -9,34 +10,18 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
         return vec![field_error("params", "Parameters must be an object.")];
     };
     match protocol {
-        "modbus_tcp" => {
-            validate_required_socket_addr(table, "address", &mut errors);
-            validate_integer_range(table, "unit_id", 0, 255, &mut errors);
-            validate_integer_range(table, "input_start", 0, 65535, &mut errors);
-            validate_integer_range(table, "output_start", 0, 65535, &mut errors);
-            validate_integer_range(table, "timeout_ms", 1, 60000, &mut errors);
-            validate_error_policy(table, &mut errors);
-            for expected in ["vendor_name", "product_code", "revision"] {
-                validate_string_field(table, expected, false, &mut errors);
-            }
-        }
-        // The rules of the driver itself, shared by every runtime (specification 32 §2), on the
-        // parameters as they are applied, without empty optional values; then the bounds that
-        // `comm.schema` advertises for the form's number fields, where the driver's rules took the
-        // field, since they are narrower than the driver's.
-        "mqtt" => {
-            let mut applied = params.clone();
-            super::strip_empty_optional_values(&mut applied);
-            errors.extend(shared_refusals(&applied, MqttParams::refusals));
-            if let Some(applied) = applied.as_table() {
-                for (field, min, max) in [("reconnect_ms", 1, 60_000), ("keep_alive_s", 1, 65_535)]
-                {
-                    if !errors.iter().any(|error| error.field == field) {
-                        validate_integer_range(applied, field, min, max, &mut errors);
-                    }
-                }
-            }
-        }
+        // The driver's own rules (specification 11 §6.5; specification 32 §2), and the narrower
+        // bounds that `comm.schema` advertises for their number fields.
+        "modbus_tcp" => errors.extend(driver_rules(
+            params,
+            ModbusTcpParams::refusals,
+            &[("timeout_ms", 1, 60_000)],
+        )),
+        "mqtt" => errors.extend(driver_rules(
+            params,
+            MqttParams::refusals,
+            &[("reconnect_ms", 1, 60_000), ("keep_alive_s", 1, 65_535)],
+        )),
         "ethercat" => {
             validate_string_field(table, "adapter", true, &mut errors);
             validate_integer_range(table, "timeout_ms", 1, 60000, &mut errors);
@@ -216,6 +201,28 @@ pub(super) fn validate_runtime_file_fields(
     errors
 }
 
+/// The refusals of a driver's own rules, shared by every runtime, on the parameters as the apply
+/// path writes them, without empty optional values; then each of `bounds`, a number field's bounds
+/// that `comm.schema` advertises and that are narrower than the driver's, where the driver's rules
+/// took the field.
+fn driver_rules(
+    params: &toml::Value,
+    refusals: fn(&str) -> Vec<ParamsError>,
+    bounds: &[(&'static str, i64, i64)],
+) -> Vec<CommFieldError> {
+    let mut applied = params.clone();
+    super::strip_empty_optional_values(&mut applied);
+    let mut errors = shared_refusals(&applied, refusals);
+    if let Some(applied) = applied.as_table() {
+        for &(field, min, max) in bounds {
+            if !errors.iter().any(|error| error.field == field) {
+                validate_integer_range(applied, field, min, max, &mut errors);
+            }
+        }
+    }
+    errors
+}
+
 /// The refusals of `params` by the shared rules `refusals`, every one at once, each a field error
 /// on the first key of the path it names, in the words that the runtime refuses the driver with
 /// (`<key>: <reason>`).
@@ -261,28 +268,6 @@ pub(super) fn field_from_error(message: &str) -> &str {
         }
     }
     "_"
-}
-
-fn validate_required_socket_addr(
-    table: &toml::map::Map<String, toml::Value>,
-    field: &'static str,
-    errors: &mut Vec<CommFieldError>,
-) {
-    let Some(text) = table.get(field).and_then(toml::Value::as_str) else {
-        errors.push(field_error(field, "Enter IP address:port."));
-        return;
-    };
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        errors.push(field_error(field, "Enter IP address:port."));
-        return;
-    }
-    if trimmed.parse::<std::net::SocketAddr>().is_err() {
-        errors.push(field_error(
-            field,
-            "Use an IP address and port, for example 127.0.0.1:502.",
-        ));
-    }
 }
 
 fn validate_required_endpoint(
@@ -446,6 +431,61 @@ mod tests {
             .into_iter()
             .map(|error| (error.field, error.message))
             .collect()
+    }
+
+    fn modbus_errors(params: toml::Value) -> Vec<(String, String)> {
+        validate_schema_fields("modbus_tcp", &params)
+            .into_iter()
+            .map(|error| (error.field, error.message))
+            .collect()
+    }
+
+    /// Every key that the Modbus TCP driver refuses is marked at once, in the order of its rules
+    /// (specification 11 §6.5): an identity that is no text, port 0, a unit above 255, an unknown
+    /// policy and an unknown output function; then the timeout above the 60,000 ms that the schema
+    /// advertises, which the driver would take. Catches a form that marks only the first refused
+    /// key, so that each save finds one more, and a port 0 that the form took and the driver
+    /// refused.
+    #[test]
+    fn every_key_the_modbus_driver_refuses_is_marked_at_once() {
+        let errors = modbus_errors(
+            toml::toml! {
+                address = "10.0.0.5:0"
+                product_code = 7
+                unit_id = 256
+                on_error = "explode"
+                output_function = "fc99"
+                timeout_ms = 70000
+            }
+            .into(),
+        );
+        let fields: Vec<&str> = errors.iter().map(|(field, _)| field.as_str()).collect();
+        assert_eq!(
+            fields,
+            [
+                "product_code",
+                "address",
+                "unit_id",
+                "on_error",
+                "output_function",
+                "timeout_ms"
+            ],
+            "{errors:?}"
+        );
+    }
+
+    /// The form reads a Modbus TCP policy as the driver reads it: trimmed, in any case, with
+    /// `warning` for `warn` (specification 11 §6.5). Catches a form that refuses an `io.toml` the
+    /// runtime runs with.
+    #[test]
+    fn the_modbus_policy_is_read_as_the_driver_reads_it() {
+        for policy in [" Warning ", "IGNORE", "Fault"] {
+            let mut params = toml::Table::new();
+            params.insert("address".into(), "10.0.0.5:502".into());
+            params.insert("on_error".into(), policy.into());
+            let errors = modbus_errors(params.into());
+            assert!(errors.is_empty(), "{policy}: {errors:?}");
+        }
     }
 
     /// The field error of `field` in the driver's own words.

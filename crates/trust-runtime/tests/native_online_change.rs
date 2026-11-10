@@ -11,6 +11,9 @@ use trust_runtime::native::{
 use trust_runtime::value::{Duration, Value};
 use trust_runtime_core::native::change::CarriedValueEvent;
 
+#[path = "native_online_change/codesys_calls.rs"]
+mod codesys_calls;
+
 /// The running program. Three scans of it leave `c.count` 6, `total` 3, `speed` 30, `big` 70,000,
 /// `mode` `Run` (number 1), `levels` [3, 6, 9, 12, 15], `name` 'pump', `gone` 9 and `i` 6.
 const RUNNING: &str = "
@@ -159,8 +162,9 @@ fn an_online_change_carries_the_running_values_by_name_and_type() {
 
     let mut changed = program(CHANGED, "change-new");
     let carried = changed
-        .change_from(&running, Duration::from_millis(20))
-        .expect("the change applies");
+        .change_from(&mut running, Duration::from_millis(20))
+        .expect("the change applies")
+        .events;
     let value = |name: &str| changed.value(name);
     assert_eq!(value("MAIN.TOTAL"), Some(Value::Int(3)));
     assert_eq!(value("MAIN.I"), Some(Value::Int(6)));

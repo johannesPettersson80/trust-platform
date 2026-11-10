@@ -36,6 +36,14 @@
     },
     {
       "from": "trust-dev",
+      "to": "trust-runtime-services",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "dev tooling test-support",
+      "rationale": "trust-dev's device tests answer cycle.step with the shared request rule (trust_runtime_services::cycle_step::request) behind a fake device link, so a test on a device is checked against the step handling a board runs (specification 22, T1b); the CLI itself reaches the services through trust-runtime."
+    },
+    {
+      "from": "trust-dev",
       "to": "trust-runtime",
       "kind": "normal",
       "status": "allowed",
@@ -2174,6 +2182,15 @@
         "split_plan": "Keep splits inside the HMI domains (bundle, bindings, alarms, commands, access, display); web stays a transport adapter."
       },
       {
+        "crate_name": "trust-runtime",
+        "module_name": "scheduler",
+        "path": "crates/trust-runtime/src/scheduler",
+        "owner": "runtime/scheduler",
+        "rationale": "The resource scheduler owns one responsibility, the scan thread of a resource (specification 10 \u00a74, specification 46 \u00a76.1): its state machine (stopped, stopping, faulted), the command queue, the cycle timing and the simulation clock, supervision and the shared handles. Its aggregate passed 5000 lines with the simulated-time fixes of 0.35.0 (sim1, B18), most of them tests (pacing, simulated time, restart storage, command drain); runner_loop.rs is the only file over 1000 lines.",
+        "review_date": "2026-11-08",
+        "split_plan": "Keep the state machine, timing, queue and handles in their focused files. When the loop grows, move the cycle pacing out of runner_loop.rs into its own module beside cycle_timing.rs and simulation_clock.rs; never merge the handles or the state files back into the loop."
+      },
+      {
         "crate_name": "trust-runtime-services",
         "module_name": "io_drivers",
         "path": "crates/trust-runtime-services/src/io_drivers",
@@ -3616,7 +3633,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 348,
+        "line": 351,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",

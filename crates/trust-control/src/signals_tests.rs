@@ -16,6 +16,7 @@ fn bindings() -> Vec<SignalBinding> {
             symbol: Some("Main.PV".into()),
             iec_type: "LREAL".into(),
             unit: None,
+            mode: None,
         },
         SignalBinding {
             id: "mode".into(),
@@ -23,6 +24,7 @@ fn bindings() -> Vec<SignalBinding> {
             symbol: Some("Main.Manual".into()),
             iec_type: "BOOL".into(),
             unit: None,
+            mode: None,
         },
     ]
 }
@@ -109,6 +111,7 @@ fn rejects_duplicate_binding_ids_and_ambiguous_selectors_before_calling_the_runt
         symbol: Some("Main.X".into()),
         iec_type: "LREAL".into(),
         unit: None,
+        mode: None,
     });
     assert!(
         InspectionRequest::new("sha256:loop", None, many.collect()).is_err(),
@@ -286,4 +289,41 @@ fn a_request_keeps_the_identity_it_was_sent_with_when_the_caller_changes_what_it
     request
         .decode(&available(&loop_revision, &program_revision))
         .expect_err("an answer to the changed identity is not the answer to this request");
+}
+
+/// Annex E3 and specification 35 A6.1: a loop whose mode is an enumeration inspects its mode as a channel that names the Manual and
+/// Auto members, so the runtime reads it 1 in Manual and 0 in Auto, and a reading of 1 means Manual. Catches the members left out
+/// of the channel (the runtime would read the member's number), and a 1 read as Auto because the loop declares no TRUE meaning.
+#[test]
+fn an_enumeration_mode_is_inspected_by_its_members_and_one_means_manual() {
+    let mut loop_definition = crate::commissioning::fixture_loops::parallel_pid_loop();
+    let binding = loop_definition
+        .parameter_binding
+        .as_mut()
+        .expect("the fixture binds its parameters");
+    binding.mode.manual_value = crate::loop_definition::ModeValue::Member("Manual".to_owned());
+    binding.mode.auto_value = Some("Auto".to_owned());
+    let symbol = binding.mode.symbol.clone();
+    loop_definition.controller.mode_when_true = None;
+    let mode_channel = loop_inspection_bindings(&loop_definition)
+        .into_iter()
+        .find(|binding| binding.symbol.as_deref() == Some(symbol.as_str()))
+        .expect("the loop inspects its mode");
+    assert_eq!(mode_channel.iec_type, "BOOL");
+    assert_eq!(
+        mode_channel.mode,
+        Some(SignalMode {
+            manual_value: "Manual".to_owned(),
+            auto_value: "Auto".to_owned(),
+        })
+    );
+    assert_eq!(mode_when_true(&loop_definition), ModeWhenTrue::Manual);
+    assert_eq!(
+        mode_when_true(&crate::commissioning::fixture_loops::parallel_pid_loop()),
+        crate::commissioning::fixture_loops::parallel_pid_loop()
+            .controller
+            .mode_when_true
+            .unwrap_or(ModeWhenTrue::Auto),
+        "a BOOL loop keeps what it declares"
+    );
 }

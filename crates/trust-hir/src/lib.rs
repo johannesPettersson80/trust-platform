@@ -29,15 +29,19 @@
 #![warn(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod access;
+pub mod attributes;
 pub mod db;
 pub mod diagnostics;
 pub mod dialect;
+pub mod duration_text;
 pub mod ident;
 pub mod openot_authoring;
 /// Project-wide source registry and database helpers.
 pub mod project;
 pub mod semantic;
 pub mod symbols;
+pub mod test_pous;
 pub mod timing;
 pub mod type_check;
 pub mod types;

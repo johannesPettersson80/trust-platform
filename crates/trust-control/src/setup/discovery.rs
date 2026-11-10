@@ -17,9 +17,10 @@ use super::save::validation_reason_code;
 use super::texts::discovery as texts;
 use super::tune_method_offers::{family_settings_of, method_titles_of, named_methods_of};
 use crate::commissioning::adapters::controller_adapter;
+use crate::commissioning::project_law::additional_mode_members;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::json::parse_text;
-use crate::loop_definition::{AuxiliaryRole, LoopDefinition, LoopScope, Range};
+use crate::loop_definition::{AuxiliaryRole, LoopDefinition, LoopScope, ModeValue, Range};
 use crate::tuning::structure::Structure;
 
 pub use super::estimator_model_files::{estimator_model_files, EstimatorModelFile, ModelFileText};
@@ -401,6 +402,7 @@ fn target_for_loop(
     check_group_members(&loop_definition, &catalog.control)?;
     check_signals(&loop_definition, catalog)?;
     check_controller_symbols(&loop_definition, &catalog.control)?;
+    check_global_owners(&loop_definition, &catalog.control)?;
     // Channels the engine serves (state feedback, C12 measured paths, feedforward, cascade, ON/OFF and PID groups) are the loop's own.
     if loop_definition.channels.is_some() && !loop_definition.serves_channels() {
         return Err(texts::channels_not_supported().to_string());
@@ -520,7 +522,8 @@ fn check_signals(loop_definition: &LoopDefinition, catalog: &CatalogAnswer) -> R
     Ok(())
 }
 
-/// Every controller symbol the loop declares is in the compiled catalog, and has the type the loop declares for it (C0).
+/// Every controller symbol the loop declares is in the compiled catalog, and has the type the loop declares for it (C0); an
+/// enumeration mode is a compiled enumeration with the members the loop names for Manual and Auto (A6.1).
 fn check_controller_symbols(
     loop_definition: &LoopDefinition,
     compiled: &CompiledCatalog,
@@ -539,6 +542,137 @@ fn check_controller_symbols(
                 &entry.iec_type,
                 &expected,
             ));
+        }
+    }
+    check_enumeration_modes(loop_definition, compiled)
+}
+
+/// What the loop's operations write belongs to its task (protocol annex E2.3): its parameter set's parameters and mode, the
+/// setpoint and manipulated variable that transfers and experiments write, and the manual commands and setpoints of its channels,
+/// are each a program's member or a global that the parameter set's task owns. A PID group's written signals that are no globals
+/// lie in its members' program (C7), as the group's transfer writes them in one program. Setup refuses up front what those
+/// operations would refuse (B1.2), and checks a draft's loops the same way before it writes them. A loop without a parameter set
+/// names no task here; its operations check it.
+///
+/// # Errors
+/// The sentence that names the first such global, who writes it and the loop's task, or the group's signal outside its program.
+pub(super) fn check_global_owners(
+    loop_definition: &LoopDefinition,
+    compiled: &CompiledCatalog,
+) -> Result<(), String> {
+    let Some(binding) = &loop_definition.parameter_binding else {
+        return Ok(());
+    };
+    let signals = &loop_definition.signals;
+    let inputs = loop_definition
+        .channels
+        .iter()
+        .flat_map(|channels| channels.inputs.iter());
+    // Each input's manipulated variable, which a group's transfer holds as an output, and its manual command, a state.
+    let outputs = inputs
+        .clone()
+        .filter_map(|input| {
+            crate::loop_definition::channel_signal(loop_definition, &input.signal_id)
+        })
+        .map(|signal| signal.symbol);
+    let commands = inputs.filter_map(|input| input.manual_output_signal.as_deref());
+    let setpoints = loop_definition
+        .channels
+        .iter()
+        .flat_map(|channels| channels.outputs.iter())
+        .filter_map(|output| output.setpoint_signal_id.as_deref())
+        .filter_map(|id| crate::loop_definition::channel_signal(loop_definition, id))
+        .map(|signal| signal.symbol);
+    let controlled: Vec<&str> = std::iter::once(binding.mode.symbol.as_str())
+        .chain(loop_definition.controller.manual_output_signal.as_deref())
+        .chain(outputs)
+        .chain(commands)
+        .chain(setpoints)
+        .collect();
+    let written = binding
+        .parameters
+        .iter()
+        .map(|parameter| parameter.symbol.as_str())
+        .chain(signals.setpoint.iter().map(|signal| signal.symbol.as_str()))
+        .chain(std::iter::once(
+            signals.manipulated_variable.symbol.as_str(),
+        ))
+        .chain(controlled.iter().copied());
+    // A compiled symbol's owner: `Some(None)` for a program's member, `None` for a symbol the catalog lacks.
+    let owner_of = |symbol: &str| {
+        compiled
+            .symbols
+            .iter()
+            .find(|entry| entry.symbol.eq_ignore_ascii_case(symbol))
+            .map(|entry| entry.owner.as_ref())
+    };
+    for symbol in written {
+        if let Some(Some(owner)) = owner_of(symbol) {
+            owner.check(symbol, &binding.task_name)?;
+        }
+    }
+    if let Some(member) = loop_definition
+        .controller
+        .group
+        .as_ref()
+        .and_then(|group| group.members.first())
+    {
+        let program = first_name(&member.instance);
+        for symbol in controlled {
+            if owner_of(symbol) == Some(None) && !first_name(symbol).eq_ignore_ascii_case(program) {
+                return Err(texts::group_signal_outside_program(
+                    symbol,
+                    first_name(symbol),
+                    program,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The first name of a symbol's path: the program instance of a program's member, or the namespace of a GVL's.
+fn first_name(symbol: &str) -> &str {
+    symbol.split('.').next().unwrap_or(symbol)
+}
+
+/// Every enumeration mode the loop names, its own and the further modes of its program's law, is a compiled enumeration with the
+/// members the loop names for Manual and Auto, and no BOOL mode is a compiled enumeration (A6.1). Setup checks a draft's loops the
+/// same way before it writes them.
+///
+/// # Errors
+/// The sentence that names the first mode whose compiled symbol is no enumeration with both members, or an enumeration that the loop
+/// binds as a BOOL.
+pub(super) fn check_enumeration_modes(
+    loop_definition: &LoopDefinition,
+    compiled: &CompiledCatalog,
+) -> Result<(), String> {
+    let own = loop_definition
+        .parameter_binding
+        .as_ref()
+        .map(|binding| binding.mode.clone());
+    for mode in own
+        .into_iter()
+        .chain(additional_mode_members(loop_definition))
+    {
+        let compiled_mode = compiled
+            .symbols
+            .iter()
+            .find(|entry| entry.symbol == mode.symbol);
+        match &mode.manual_value {
+            ModeValue::Member(manual) => {
+                let auto = mode.auto_value.as_deref().unwrap_or_default();
+                if !compiled_mode
+                    .is_some_and(|entry| entry.has_member(manual) && entry.has_member(auto))
+                {
+                    return Err(texts::mode_members_unavailable(&mode.symbol, manual, auto));
+                }
+            }
+            ModeValue::Bool(_) => {
+                if compiled_mode.is_some_and(|entry| !entry.members.is_empty()) {
+                    return Err(texts::mode_members_needed(&mode.symbol));
+                }
+            }
         }
     }
     Ok(())

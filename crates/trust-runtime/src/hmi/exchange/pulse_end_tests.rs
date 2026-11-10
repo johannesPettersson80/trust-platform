@@ -61,7 +61,8 @@ fn a_pulse_end_is_scheduled_as_the_pulse_starts_and_written_after_its_duration()
     let mut plant = plant();
     let exchange = HmiExchange::new();
     let (report, told) = recorder();
-    pulse_and_leave(&exchange, Duration::from_millis(80), report);
+    // A second's pulse: the second call below must come before its end, on a loaded runner too.
+    pulse_and_leave(&exchange, Duration::from_secs(1), report);
     serve(&exchange, &mut plant);
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(true)));
     assert_eq!(
@@ -76,7 +77,7 @@ fn a_pulse_end_is_scheduled_as_the_pulse_starts_and_written_after_its_duration()
         "not before its duration"
     );
     assert!(told.lock().unwrap().is_empty());
-    std::thread::sleep(Duration::from_millis(100));
+    std::thread::sleep(Duration::from_millis(1_100));
     serve(&exchange, &mut plant);
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(false)));
     assert_eq!(exchange.state().pulse_ends.len(), 0);

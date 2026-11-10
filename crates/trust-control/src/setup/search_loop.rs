@@ -15,11 +15,12 @@ use super::loop_bindings::{
 use super::pid_bindings::startup_state;
 use super::pid_loop::{setpoint_signal, ModeChoice, SignalChoice};
 use super::state_feedback_loop::{
-    assemble, check_startup, form_signal, instance_program, json_of, mode_and_manual, mode_binding,
+    assemble, check_startup, form_signal, instance_program, json_of, mode_and_manual,
     output_limits, settings, StateLawParts,
 };
 use super::texts::save as texts;
 use crate::failure::Failure;
+use crate::limits::{ISOLATED_SIMULATION_SCAN_LIMIT, SEARCH_WALL_TIME_LIMIT_MS};
 use crate::loop_definition::{
     Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
     InitialSource, InitialValue, InitializedState, LoopDefinition, LoopScope, Parameter, PostScan,
@@ -53,12 +54,6 @@ pub(super) const MAXIMUM_KEPT_VALUES: usize = 3;
 
 /// The most combinations a search tries (C5, A7).
 const MAXIMUM_COMBINATIONS: usize = 64;
-
-/// The most cycles one trial runs (`searchLawLoopGenerator.ts`; the `TypeScript`'s budget, A7).
-const MAXIMUM_CYCLES: u64 = 50_000;
-
-/// The wall time of the search, in ms (`searchLawLoopGenerator.ts`; the `TypeScript`'s budget, A7).
-const WALL_BUDGET_MS: u64 = 60_000;
 
 /// One coefficient the form sends: its variable, its unit, and the values Tune may try as the engineer typed them, separated by commas,
 /// semicolons or spaces (`loopSetupForm.ts`).
@@ -359,7 +354,7 @@ fn search_law(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty())
-        .map(startup_state);
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)));
     let project = project_block(&draft.family, &states, startup, &axes)?;
     let controller = Controller {
         instance: draft.instance.clone(),
@@ -407,7 +402,7 @@ fn search_law(
             limits: output_limits(manipulated),
             period_ms: task.interval_ms,
             task_name: task.name.clone(),
-            mode: mode_binding(&draft.mode),
+            mode: draft.mode.binding(),
             parameters: axis_parameters(&axes),
             experiment,
         },
@@ -533,8 +528,9 @@ fn project_block(
         // One controlled output: its verification campaign names the error requirement without a channel prefix.
         "objective": { "requirementId": "target-error", "direction": "minimize" },
         "maximumCandidates": MAXIMUM_COMBINATIONS,
-        "maximumCycles": MAXIMUM_CYCLES,
-        "wallBudgetMs": WALL_BUDGET_MS,
+        // The trial and job budgets follow A7 (C5): the scans of all the trials together, and the search's wall time.
+        "maximumCycles": ISOLATED_SIMULATION_SCAN_LIMIT,
+        "wallBudgetMs": SEARCH_WALL_TIME_LIMIT_MS,
     }))
     .map_err(|message| settings(&message))
 }

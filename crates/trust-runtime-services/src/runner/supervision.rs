@@ -242,6 +242,7 @@ where
         self.shell.debug.rearm();
         self.cycle.reset_task_timing(value::Duration::ZERO);
         self.program_time = value::Duration::ZERO;
+        self.record_left_fault();
         self.record_retain_events(events);
         self.cycle_count = 0;
         self.restarts.reset();
@@ -426,6 +427,21 @@ where
         self.halt(reported);
     }
 
+    /// Pauses the program at the device's boot, before its first scan, when its record sets
+    /// `runtime.control.start_paused`, as `trust-runtime play` starts a project that sets it
+    /// (specification 11 §6.8): no scan runs until `resume`. A program that the boot left faulted
+    /// stays faulted. A device calls it once, after [`Self::fault_after_reset`].
+    pub fn pause_at_boot(&mut self) {
+        let start_paused = self
+            .shell
+            .with_platform(|platform| platform.runtime_settings())
+            .flatten()
+            .is_some_and(|settings| settings.start_paused);
+        if start_paused && self.shell.resource.state() == ResourceState::Running {
+            self.shell.resource.set_state(ResourceState::Paused);
+        }
+    }
+
     /// Leaves the installed program unloaded at the device's boot, with `reason`, because the reset
     /// that ended the last boot came while that boot loaded it (specification 34 TARGET-08): loading
     /// it again would end this boot the same way, at every boot. The reset ended the program as a
@@ -507,6 +523,16 @@ where
         // A program that has ended holds nothing: a pause that arrived between the stop request
         // and the stop is gone, and the debugger holds no scan until the program starts again.
         self.shell.debug.release_for_stop();
+    }
+
+    /// Records the fault of the exit of the program a load replaced, when it faulted: the first
+    /// event of the program loaded in its place (specification 44 §6.7).
+    pub(super) fn record_left_fault(&mut self) {
+        if let Some(error) = self.left_fault.take() {
+            self.shell
+                .records
+                .push_event(RuntimeEvent::fault(&error, self.program_time));
+        }
     }
 
     /// Records the retained values a restart dropped or migrated, at the program's current time.

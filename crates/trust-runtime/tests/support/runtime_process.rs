@@ -26,6 +26,12 @@ pub const WAIT: Duration = Duration::from_secs(10);
 pub const CLIMB: Duration = Duration::from_secs(30);
 /// The control endpoint must answer `ctl status` within this time after `play` starts.
 const START_TIMEOUT: Duration = Duration::from_secs(30);
+/// How often a start takes fresh ports when the runtime ended on a reserved port that another
+/// process took first (checklist G98).
+const START_ATTEMPTS: u32 = 3;
+/// How the operating system words a port that another socket holds (`AddrInUse`): Linux, macOS,
+/// Windows.
+const ADDRESS_IN_USE: [&str; 3] = ["(os error 98)", "(os error 48)", "(os error 10048)"];
 /// Interval between polls. It is shorter than the 50 ms example cycle, so consecutive scans are
 /// seen rather than skipped.
 const POLL: Duration = Duration::from_millis(25);
@@ -94,8 +100,11 @@ pub struct ExampleRuntime {
     source_edits: Vec<(&'static str, &'static str, &'static str)>,
     mode: Option<&'static str>,
     debug_enabled: Option<bool>,
+    start_paused: Option<bool>,
+    play_args: Vec<&'static str>,
     web_enabled: bool,
     store: bool,
+    occupy_web_port: bool,
 }
 
 impl ExampleRuntime {
@@ -107,9 +116,24 @@ impl ExampleRuntime {
             source_edits: Vec::new(),
             mode: None,
             debug_enabled: None,
+            start_paused: None,
+            play_args: Vec::new(),
             web_enabled: false,
             store: false,
+            occupy_web_port: false,
         }
+    }
+
+    /// `[runtime.control] start_paused` in the copy's runtime.toml (specification 11 §6.8).
+    pub fn start_paused(mut self, paused: bool) -> Self {
+        self.start_paused = Some(paused);
+        self
+    }
+
+    /// An argument of `play` after the project and `--no-console`, such as `--paused`.
+    pub fn play_arg(mut self, arg: &'static str) -> Self {
+        self.play_args.push(arg);
+        self
     }
 
     /// Also copies a repository directory that the project depends on, to the same relative path
@@ -144,6 +168,14 @@ impl ExampleRuntime {
         self
     }
 
+    /// Holds the reserved web port while the runtime first starts, as a runtime of another test
+    /// process can hold it: each test process reserves its own ports, so two processes can be given
+    /// the same one (checklist G98).
+    pub fn occupy_web_port_at_first_start(mut self) -> Self {
+        self.occupy_web_port = true;
+        self
+    }
+
     /// Runs the project as a program store's `current` bundle (specification 34 §11.2): the built
     /// project becomes `store/bundles/first`, and the runtime starts on the link `store/current`.
     /// Unix only, because the store's links are symbolic links.
@@ -153,7 +185,10 @@ impl ExampleRuntime {
         self
     }
 
-    /// Copies, builds and starts the runtime, then waits until its control endpoint answers.
+    /// Copies, builds and starts the runtime, then waits until it serves every listener of the
+    /// copy (`Runtime::await_ready`). Each test process reserves its own ports, so a runtime of
+    /// another test process can take one before this runtime binds it; the runtime then ends at
+    /// that bind, and the start takes fresh ports and starts it again (checklist G98).
     pub fn start(self) -> Runtime {
         let root = unique_root();
         let project = join_relative(&root, &format!("examples/{}", self.example));
@@ -177,31 +212,51 @@ impl ExampleRuntime {
         for &(file, from, to) in &self.source_edits {
             replace_in_file(&project.join(file), from, to);
         }
-        // One reserved port for the control endpoint, then one for each fixed listen key.
-        let ports = reserve_local_ports(1 + LISTEN_KEYS.len());
-        let token = format!(
+        runtime.token = format!(
             "{TOKEN_PREFIX}-{}-{}",
             std::process::id(),
             TOKEN_COUNTER.fetch_add(1, Ordering::Relaxed)
         );
-        configure_runtime_toml(
-            &project.join("runtime.toml"),
-            &ports,
-            &token,
-            self.mode,
-            self.debug_enabled,
-            self.web_enabled,
-        );
-        runtime.control_port = ports[0];
-        runtime.web_port = ports[1];
-        runtime.token = token;
+        self.assign_ports(&mut runtime);
         runtime.build();
         if self.store {
             runtime.move_into_store();
         }
-        runtime.spawn_play();
-        runtime.await_control();
+        let held = self.occupy_web_port.then(|| {
+            TcpListener::bind(("127.0.0.1", runtime.web_port)).expect("hold the web port")
+        });
+        let mut started = runtime.start_once(self.web_enabled, &self.play_args);
+        drop(held);
+        for attempt in 2..=START_ATTEMPTS {
+            let Err(taken) = &started else { break };
+            eprintln!(
+                "start {} of {START_ATTEMPTS}: {taken}\nstarting on fresh ports",
+                attempt - 1
+            );
+            self.assign_ports(&mut runtime);
+            started = runtime.start_once(self.web_enabled, &self.play_args);
+        }
+        if let Err(taken) = started {
+            panic!("a port was taken at each of {START_ATTEMPTS} starts, the last: {taken}");
+        }
         runtime
+    }
+
+    /// Reserves one port for the control endpoint and one for each fixed listen key, and writes
+    /// them, the copy's token and the requested settings into the copy's runtime.toml.
+    fn assign_ports(&self, runtime: &mut Runtime) {
+        let ports = reserve_local_ports(1 + LISTEN_KEYS.len());
+        configure_runtime_toml(
+            &runtime.project.join("runtime.toml"),
+            &ports,
+            &runtime.token,
+            self.mode,
+            self.debug_enabled,
+            self.start_paused,
+            self.web_enabled,
+        );
+        runtime.control_port = ports[0];
+        runtime.web_port = ports[1];
     }
 }
 
@@ -265,7 +320,7 @@ impl Runtime {
         unreachable!("a program store needs symbolic links");
     }
 
-    fn spawn_play(&mut self) {
+    fn spawn_play(&mut self, args: &[&str]) {
         let stdout = File::create(self.root.join("runtime.stdout.log")).expect("stdout log");
         let stderr = File::create(self.root.join("runtime.stderr.log")).expect("stderr log");
         let child = trust_runtime_command()
@@ -273,6 +328,7 @@ impl Runtime {
             .arg("--project")
             .arg(&self.project)
             .arg("--no-console")
+            .args(args)
             .env_remove("TRUST_CTL_TOKEN")
             .stdin(Stdio::null())
             .stdout(Stdio::from(stdout))
@@ -282,7 +338,19 @@ impl Runtime {
         self.child = Some(child);
     }
 
-    fn await_control(&mut self) {
+    /// Starts `play` with the further arguments `args` and waits until it is ready (`await_ready`).
+    fn start_once(&mut self, web: bool, args: &[&str]) -> Result<(), String> {
+        self.spawn_play(args);
+        self.await_ready(web)
+    }
+
+    /// Waits until the runtime serves every listener of the copy: its control endpoint answers
+    /// `ctl status`, and with the web interface on, the runtime reports its web listener bound
+    /// (`fleet.topology`), which a connection to the port cannot tell from another process that
+    /// holds it. `play` binds the control endpoint first and the web interface after it, and ends
+    /// when a bind fails. `Err` says that the runtime ended on a port another process holds;
+    /// every other failure panics with the runtime's logs.
+    fn await_ready(&mut self, web: bool) -> Result<(), String> {
         let deadline = Instant::now() + START_TIMEOUT;
         loop {
             let exited = self
@@ -292,21 +360,47 @@ impl Runtime {
                 .try_wait()
                 .expect("poll runtime");
             if let Some(status) = exited {
+                let stderr = read_log(&self.root.join("runtime.stderr.log"));
+                if ADDRESS_IN_USE.iter().any(|code| stderr.contains(code)) {
+                    return Err(format!(
+                        "the runtime ended ({status}) on a port another process holds:\n{stderr}"
+                    ));
+                }
                 panic!(
-                    "runtime exited before its control endpoint answered: {status}\n{}",
+                    "runtime exited before it was ready: {status}\n{}",
                     self.diagnostics()
                 );
             }
-            if self.ctl(&["status"]).status.success() {
-                return;
+            if self.ctl(&["status"]).status.success() && (!web || self.web_listener_bound()) {
+                return Ok(());
             }
             assert!(
                 Instant::now() < deadline,
-                "control endpoint did not answer within {START_TIMEOUT:?}\n{}",
+                "the runtime was not ready within {START_TIMEOUT:?}\n{}",
                 self.diagnostics()
             );
             std::thread::sleep(POLL);
         }
+    }
+
+    /// Whether the runtime reports its own web listener bound: its web endpoint in `fleet.topology`
+    /// is `connected` once the listener is bound at startup. False while the control endpoint does
+    /// not answer.
+    fn web_listener_bound(&self) -> bool {
+        fn bound_web(value: &Value) -> bool {
+            match value {
+                Value::Object(object) => {
+                    (object.get("protocol") == Some(&Value::from("web"))
+                        && object.get("source") == Some(&Value::from("self"))
+                        && object.get("health") == Some(&Value::from("connected")))
+                        || object.values().any(bound_web)
+                }
+                Value::Array(items) => items.iter().any(bound_web),
+                _ => false,
+            }
+        }
+        self.try_control_request(serde_json::json!({"id": 1, "type": "fleet.topology"}))
+            .is_some_and(|response| bound_web(&response["result"]))
     }
 
     /// Runs `trust-runtime ctl --project <project> <args>`.
@@ -326,9 +420,10 @@ impl Runtime {
         let output = self.ctl(args);
         assert!(
             output.status.success(),
-            "`ctl {}` failed\n{}",
+            "`ctl {}` failed\n{}\n{}",
             args.join(" "),
-            describe(&output)
+            describe(&output),
+            self.diagnostics()
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     }
@@ -464,23 +559,33 @@ impl Runtime {
 
     /// Sends one raw control request over the copy's TCP control endpoint, with the copy's token
     /// as `auth`, and returns the whole response. `request` carries `id`, `type` and any `params`.
-    pub fn control_request(&self, mut request: Value) -> Value {
+    pub fn control_request(&self, request: Value) -> Value {
+        self.exchange(request)
+            .unwrap_or_else(|error| panic!("{error}\n{}", self.diagnostics()))
+    }
+
+    /// `control_request` that answers `None` where it would panic.
+    fn try_control_request(&self, request: Value) -> Option<Value> {
+        self.exchange(request).ok()
+    }
+
+    fn exchange(&self, mut request: Value) -> Result<Value, String> {
         use std::io::{BufRead, BufReader, Write};
         request["auth"] = Value::String(self.token.clone());
         let mut stream = std::net::TcpStream::connect(("127.0.0.1", self.control_port))
-            .unwrap_or_else(|err| panic!("connect to the control endpoint: {err}"));
+            .map_err(|err| format!("connect to the control endpoint: {err}"))?;
         stream
             .set_read_timeout(Some(WAIT))
-            .expect("bound the control read");
+            .map_err(|err| format!("bound the control read: {err}"))?;
         stream
             .write_all(format!("{request}\n").as_bytes())
-            .expect("send the control request");
+            .map_err(|err| format!("send the control request: {err}"))?;
         let mut line = String::new();
         BufReader::new(stream)
             .read_line(&mut line)
-            .expect("read the control response");
+            .map_err(|err| format!("read the control response: {err}"))?;
         serde_json::from_str(line.trim())
-            .unwrap_or_else(|err| panic!("the control response is not JSON ({err}): {line}"))
+            .map_err(|err| format!("the control response is not JSON ({err}): {line}"))
     }
 
     /// The base URL of the web interface, when `ExampleRuntime::web` kept it on.
@@ -710,6 +815,7 @@ fn configure_runtime_toml(
     token: &str,
     mode: Option<&str>,
     debug_enabled: Option<bool>,
+    start_paused: Option<bool>,
     web_enabled: bool,
 ) {
     let text = fs::read_to_string(path).expect("read runtime.toml");
@@ -726,6 +832,9 @@ fn configure_runtime_toml(
     }
     if let Some(enabled) = debug_enabled {
         control.insert("debug_enabled".into(), toml::Value::Boolean(enabled));
+    }
+    if let Some(paused) = start_paused {
+        control.insert("start_paused".into(), toml::Value::Boolean(paused));
     }
     for section in ["web", "discovery"] {
         if let Some(table) = runtime.get_mut(section).and_then(toml::Value::as_table_mut) {

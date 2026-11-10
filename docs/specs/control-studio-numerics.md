@@ -175,6 +175,19 @@ hold runs from the step to the end of the hold (B3.4). The step amplitude is
 `Δu = ū_hold − u0`, where `ū_hold` is the mean plant input over the hold. A fit
 with `Δu = 0` is refused, and the refusal names the missing nonzero step (N2.6).
 
+*The step.* The step of a record is its largest plant input change. A sample whose
+input lies strictly between those of its neighbours, on a change in one direction,
+straddles the step: its record period (specification 35, A4.2) or its block (N1.4)
+averaged executions from before and after the step. The change through it counts
+whole, from the sample before it to the sample after it, and the step starts at
+the straddling sample: the baseline never holds it, and the hold starts with it,
+its input the mean of the executions it averaged. So where the step falls inside a
+sample never moves the operating point, and a restoration that straddles less
+evenly never outweighs the step. Of equal changes the first is the step, as a
+pulse's first change is. The held step of a single run ends before its restoration
+(B3.4 step 5): the first later change against the step's direction, counted whole
+in the same way, of at least half the step's whole size.
+
 *Grids.* Let `H` be the fitted span, from the start of the excitation (the step of
 a held step or of a setpoint step; the first change of any other excitation) to the
 last fitted sample (the end of the hold for a held step), and `Ts` the fit's sample
@@ -1075,6 +1088,20 @@ N0.4, `e = r − y`.
 non-PID law is given by its Part C template. The check of N6.3 still applies to the
 model.
 
+**N6.8 Standard form.** A program's own law in the standard form (specification 35
+C2) holds the gain and two times in seconds:
+
+```text
+Ti = Kp / Ki        Ki = Kp / Ti
+Td = Kd / Kp        Kd = Kp · Td
+```
+
+`Ki` and `Kd` take the sign of `Kp` (N6.4), so `Ti > 0` and `Td ≥ 0` for either
+action. A design with `Kp = 0` or `Ki = 0` has no standard form. The bounds of the
+variables apply to `|Kp|` and to `Ti` and `Td` as times. Read back, the variables
+give the parallel gains by the right-hand formulas, from which the initialization
+(C2, `parallel-pid-v1`) and the entry allowance (A6.4) are computed.
+
 ## N7. Stability and margins
 
 **N7.1 Routh-Hurwitz scope.** The test applies to a declared, delay-free, scalar,
@@ -1466,8 +1493,10 @@ write to the running controller.
 | Coefficient combinations tried in a finite search | at most 64 | count | C5 |
 | Candidates of a finite search | 64 | count | C5 |
 | Candidates of a single-design structure | 1 | count | C6 to C10 |
-| Cycle budget of a project block | 50,000 | cycles | C2, C5 to C10 |
-| Wall-clock budget of a project block | 60,000 | ms | C2, C5 to C10 |
+| Cycle budget of a project block | 50,000 | cycles | C2, C6 to C10 |
+| Wall-clock budget of a project block | 60,000 | ms | C2, C6 to C10 |
+| Cycle budget of a finite search: the scans of its trials together | 10,000,000 (A7, isolated simulation, scans per job) | scans | C5 |
+| Wall-clock budget of a finite search | 3,600,000 (A7, parameter search, wall time per job: 60 min) | ms | C5 |
 | Axes of a project tune | at most 8 | count | C2, C5 |
 | Candidates field of a project tune | 1 to 64 | count | C2, C5 |
 | Model parameters of a project block | at most 64 | count | C2 |

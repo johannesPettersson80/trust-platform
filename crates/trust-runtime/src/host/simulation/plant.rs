@@ -138,6 +138,21 @@ pub struct PlantConfig {
     events: Vec<PlantEventConfig>,
 }
 
+impl PlantSystemConfig {
+    /// The program's signals the plants write before a scan, their feedback, and read after one,
+    /// their commands, added to `signals` (specification 22, "A plant in the loop").
+    pub(super) fn program_signals(&self, signals: &mut super::ProgramSignals) {
+        for plant in &self.plants {
+            for target in plant.published_targets() {
+                signals.written.extend(target.program_signals());
+            }
+            for source in &plant.command_sources {
+                signals.read.extend(source.program_signals());
+            }
+        }
+    }
+}
+
 impl PlantConfig {
     /// Every signal this plant writes: its feedback targets and applied-actuator feedback.
     fn published_targets(&self) -> Vec<signal::PlantSignal> {
@@ -923,6 +938,12 @@ impl PlantSystem {
             next_trace_sequence: 0,
             published_generation: None,
         }
+    }
+
+    /// Starts the plants' time at `origin`, the process time a restarted runtime continues from, so
+    /// that their next advance integrates only the time after it (specification 46 §5.3).
+    pub(super) fn start_at(&mut self, origin: Duration) {
+        self.last_time = origin;
     }
 
     /// Publishes every plant's completed feedback before the next scan, in plant order

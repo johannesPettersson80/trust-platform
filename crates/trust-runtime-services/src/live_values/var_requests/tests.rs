@@ -909,26 +909,75 @@ fn set_takes_a_literal_of_its_target_s_declared_type() {
 }
 
 #[test]
-fn set_keeps_the_untyped_grammar_for_an_unknown_target_and_a_text_the_type_refuses() {
+fn set_takes_an_enumeration_value_in_codesys_dotted_form() {
+    // Specification 11 (the CODESYS toolkit's B12): an enumeration's value in CODESYS's form, the
+    // type and the value with a dot, is the typed value. `Color.Green` writes Green (1) to the
+    // enumeration `Mode`, and `Lib.Color.Red`, qualified by a namespace that the fixture's type table
+    // does not keep, writes Red (0); `Shade.Green` names another type and is refused, queueing
+    // nothing. Catches CODESYS's form refused as no literal, and a type name not the target's taken.
+    let queues = FakeQueues::with_program();
+    for (value, member, number) in [("Color.Green", "Green", 1), ("Lib.Color.Red", "Red", 0)] {
+        assert_eq!(
+            result(set_value(&queues, "global:Mode", value)),
+            json!({"status": "queued"}),
+            "{value}"
+        );
+        let drained: Vec<Value> = queues
+            .drain_var_writes()
+            .into_iter()
+            .map(|write| write.value)
+            .collect();
+        assert_eq!(
+            drained,
+            [Value::Enum(alloc::boxed::Box::new(
+                trust_runtime_core::value::EnumValue::from_canonical_parts(
+                    "Color".into(),
+                    member.into(),
+                    number,
+                )
+            ))],
+            "{value}"
+        );
+    }
+    assert_eq!(
+        set_value(&queues, "global:Mode", "Shade.Green")
+            .error
+            .as_deref(),
+        Some("'Shade.Green' is not a value of type Color")
+    );
+    assert!(
+        queues.drain_var_writes().is_empty(),
+        "a refusal queues nothing"
+    );
+}
+
+#[test]
+fn set_keeps_the_untyped_grammar_for_a_text_the_type_refuses_and_refuses_an_unknown_target_at_once()
+{
     // Specification 11: a text of the untyped grammar that the declared type refuses (40000 for an
-    // INT) and a target the program does not resolve keep the untyped grammar: they are queued as a
-    // LINT and refused at the boundary as before. Catches the boundary's refusal moved forward for
-    // the old grammar, which would change what a client of `set` sees.
+    // INT) keeps the untyped grammar: it is queued as a LINT and refused at the boundary as before. A
+    // target the installed program does not resolve is refused at once with the path's reason, which
+    // names it, for an integer as for a real (the CODESYS toolkit's B11). Catches the old grammar's
+    // refusal moved forward, and an unknown target acknowledged as queued and then dropped at the
+    // boundary, or refused for its value.
     let queues = FakeQueues::with_program();
     assert_eq!(
         result(set_value(&queues, "global:Level", "40000")),
         json!({"status": "queued"})
     );
-    assert_eq!(
-        result(set_value(&queues, "global:Nothing", "1")),
-        json!({"status": "queued"})
-    );
+    for value in ["1", "3.5"] {
+        assert_eq!(
+            set_value(&queues, "global:Nothing", value).error.as_deref(),
+            Some("Nothing names no variable"),
+            "{value}"
+        );
+    }
     let drained: Vec<Value> = queues
         .drain_var_writes()
         .into_iter()
         .map(|write| write.value)
         .collect();
-    assert_eq!(drained, [Value::LInt(40_000), Value::LInt(1)]);
+    assert_eq!(drained, [Value::LInt(40_000)]);
 }
 
 #[test]
@@ -951,7 +1000,7 @@ fn set_refuses_a_literal_its_target_does_not_take_and_queues_nothing() {
             "'Purple' is not a value of Color (Red, Green, Blue)",
         ),
         ("global:Limit", "8", "Limit is a constant"),
-        ("global:Nothing", "3.5", "unsupported value '3.5'"),
+        ("global:Nothing", "3.5", "Nothing names no variable"),
     ] {
         let response = set_value(&queues, target, value);
         assert_eq!(response.error.as_deref(), Some(reason), "{target} {value}");

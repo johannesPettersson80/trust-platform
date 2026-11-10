@@ -203,22 +203,28 @@ where
         let journaled = mode_journaled(&self.ports.journal.lock());
         if journaled || mode.is_some_and(|mode| needs_mode_change(loop_definition, method, mode)) {
             let connection = self.ports.runtime.transfer_connection()?;
-            self.mode = Some(IdentificationMode::new(
+            let mut mode = IdentificationMode::new(
                 loop_definition,
                 connection,
                 self.ports.journal,
                 self.ports.clock,
-            )?);
+            )?;
+            mode.set_reviewed_tolerance(self.request.transfer_tolerance);
+            self.mode = Some(mode);
         }
         self.note_run_plant(sample.as_ref());
         let worked = self.work(method, purpose, sample.as_ref());
         // The settling runs whatever the work gave; its own failure replaces the work's (`conclude`'s `finally`).
-        self.settle()?;
-        // Then the loop returns to the mode it was found in (A6.2). A failed return replaces only a work that succeeded: its
-        // checkpoint stays journaled, so a Cancel or a reopened panel returns the mode (A8.6).
+        let worked = self.settle().and(worked);
+        // Then the loop returns to the mode it was found in, whatever the work and the settling gave (A6.2). A failed return
+        // replaces a work that succeeded and follows a failed work's own failure, so that the answer always says the loop was
+        // not returned.
         let returned = self.return_mode();
-        let (recording_id, result) = worked?;
-        returned?;
+        let (recording_id, result) = match (worked, returned) {
+            (Ok(done), Ok(())) => done,
+            (Ok(_), Err(failure)) | (Err(failure), Ok(())) => return Err(failure),
+            (Err(failure), Err(returned)) => return Err(with_failed_return(&failure, &returned)),
+        };
         Ok(IdentifyOutcome {
             result,
             recording_id,
@@ -521,7 +527,7 @@ where
             if let Some(context) = ExperimentContext::of(&plan, &state) {
                 self.ports.retention.note_experiment(context);
             }
-            match hold_end(&state) {
+            match hold_end(&plan, &state) {
                 HoldEnd::Unrestored(failure) => return Err(failure),
                 HoldEnd::Stopped(failure) => {
                     self.active = None;
@@ -944,5 +950,22 @@ fn new_experiment_id() -> String {
         "experiment-{:016x}{:016x}",
         state.hash_one(count),
         state.hash_one(!count)
+    )
+}
+
+/// A run's `failure` followed by the failed return of the loop's mode, `returned` (A6.2): the run's message stays the answer's
+/// first sentence, and its detail ends with the return's whole text.
+fn with_failed_return(failure: &Failure, returned: &Failure) -> Failure {
+    let text = |failure: &Failure| {
+        failure
+            .detail
+            .clone()
+            .unwrap_or_else(|| failure.message.clone())
+    };
+    Failure::from_parts(
+        failure.message.clone(),
+        Some(format!("{} {}", text(failure), text(returned))),
+        failure.cause,
+        failure.next_action,
     )
 }

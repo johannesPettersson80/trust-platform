@@ -104,10 +104,7 @@ fn pi_draft() -> OwnLawLoopDraft {
             minimum: None,
             maximum: None,
         },
-        mode: ModeChoice {
-            symbol: "P1.AutoMode".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.AutoMode".to_string(), ModeWhenTrue::Auto),
         manual_output: "P1.ManualPct".to_string(),
         proportional_gain: gain("P1.Kp", 0.0, 20.0),
         integral_gain: Some(gain("P1.Ki", 0.0, 2.0)),
@@ -118,6 +115,9 @@ fn pi_draft() -> OwnLawLoopDraft {
         experiment_step: None,
         experiment_duration_seconds: None,
         startup_flag: Some("P1.Started".to_string()),
+        form: crate::tuning::project_seed::GainForm::Parallel,
+        reset_time: None,
+        derivative_time: None,
     }
 }
 
@@ -212,7 +212,7 @@ fn the_program_pi_is_a_project_controller_whose_seed_names_its_gains() {
             .expect("the application states decode");
     assert_eq!(
         application,
-        vec![startup_state("P1.Started")],
+        vec![startup_state("P1.Started", true)],
         "the startup flag is an application state, which the switch to Auto sets TRUE"
     );
     assert_eq!(
@@ -547,7 +547,7 @@ fn the_mode_and_the_manual_output_are_bound_as_the_engineer_chose() {
         .expect("the gains are bound");
     assert_eq!(binding.mode.symbol, "P1.AutoMode");
     assert!(
-        !binding.mode.manual_value,
+        !binding.mode.manual_reading(),
         "Auto is the FALSE value of the mode"
     );
     assert_eq!(
@@ -700,5 +700,99 @@ fn setup_draft_ignores_gains_the_law_does_not_take() {
             ("P1.Ki".to_string(), 0.0, 2.0)
         ],
         "a PI law binds no derivative gain"
+    );
+}
+
+/// The oven's catalog with the standard form's variables: the reset time `P1.Ti` and the derivative time `P1.Td`, both LREAL.
+fn standard_oven() -> CompiledCatalog {
+    let mut catalog = oven_json();
+    let symbols = catalog["symbols"].as_array_mut().expect("the symbols");
+    symbols.push(json!({ "symbol": "P1.Ti", "type": "LREAL" }));
+    symbols.push(json!({ "symbol": "P1.Td", "type": "LREAL" }));
+    decode(catalog)
+}
+
+/// The oven's PI in standard form (C2, N6.8): its gain `P1.Kp`, and its reset time `P1.Ti` from 0.5 s to 600 s.
+fn standard_pi_draft() -> OwnLawLoopDraft {
+    OwnLawLoopDraft {
+        form: crate::tuning::project_seed::GainForm::Standard,
+        integral_gain: None,
+        reset_time: Some(gain("P1.Ti", 0.5, 600.0)),
+        ..pi_draft()
+    }
+}
+
+/// C2 and N6.8: a PI in standard form is set up with a seed that names its gain and its reset time, and a binding that bounds the reset
+/// time in seconds. Catches the reset time written as `integralSymbol` (Tune would write `Ki` into it) or bound in the integral gain's
+/// unit, and the standard form lost on the way to the loop file.
+#[test]
+fn a_standard_pi_names_its_reset_time_and_binds_it_in_seconds() {
+    let loop_definition = own_law_loop_definition(&standard_oven(), &scope(), &standard_pi_draft())
+        .expect("a standard PI is set up");
+    assert_eq!(
+        project_of(&loop_definition)["seed"],
+        json!({ "kind": "parallel-pid", "family": "PI", "form": "standard", "proportionalSymbol": "P1.Kp",
+            "resetTimeSymbol": "P1.Ti" })
+    );
+    let parameters = &loop_definition
+        .parameter_binding
+        .as_ref()
+        .expect("a parameter binding")
+        .parameters;
+    let reset = parameters
+        .iter()
+        .find(|parameter| parameter.symbol == "P1.Ti")
+        .expect("the reset time is bound");
+    assert_eq!(
+        (
+            reset.unit.as_str(),
+            reset.convention.as_str(),
+            reset.minimum,
+            reset.maximum
+        ),
+        ("s", "reset time", 0.5, 600.0)
+    );
+}
+
+/// C2: a law in standard form always integrates, and its reset time's range lies above zero; a PID's derivative time is needed.
+/// Catches a standard P accepted (Control Studio would have to write a reset time of zero) and a range that lets Tune choose zero.
+#[test]
+fn a_standard_law_integrates_with_a_reset_time_above_zero() {
+    let refusal = |draft: OwnLawLoopDraft| {
+        let failure = own_law_loop_definition(&standard_oven(), &scope(), &draft)
+            .expect_err("the draft is refused");
+        (text_of(&failure), failure.field.clone())
+    };
+    assert_eq!(
+        refusal(OwnLawLoopDraft {
+            law: OwnLawFamily::P,
+            ..standard_pi_draft()
+        }),
+        (
+            "A law in standard form always integrates: choose PI or PID.".to_owned(),
+            Some("own.law".to_owned())
+        )
+    );
+    assert_eq!(
+        refusal(OwnLawLoopDraft {
+            reset_time: Some(gain("P1.Ti", 0.0, 600.0)),
+            ..standard_pi_draft()
+        }),
+        (
+            "The reset time's minimum must be above zero.".to_owned(),
+            Some("own.resetTime.minimum".to_owned())
+        )
+    );
+    assert_eq!(
+        refusal(OwnLawLoopDraft {
+            law: OwnLawFamily::Pid,
+            derivative_state: Some("P1.PreviousErrorC".to_owned()),
+            derivative_on: Some(DerivativeOn::Error),
+            ..standard_pi_draft()
+        }),
+        (
+            "A PID law in standard form needs the variable holding its derivative time Td in seconds.".to_owned(),
+            Some("own.derivativeTime".to_owned())
+        )
     );
 }

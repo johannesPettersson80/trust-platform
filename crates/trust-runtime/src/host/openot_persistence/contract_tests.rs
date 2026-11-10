@@ -34,6 +34,8 @@ mod real_relational;
 mod real_restart;
 #[cfg(feature = "openot-database-sqlite")]
 mod sqlite;
+#[cfg(feature = "openot-database-sqlite")]
+mod sqlite_version_tests;
 
 use fixtures::*;
 #[cfg(feature = "openot-real-database-tests")]

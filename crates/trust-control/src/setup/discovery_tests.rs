@@ -17,12 +17,12 @@ use super::{
 };
 use crate::failure::{Cause, NextAction};
 use crate::loop_definition::{
-    ControllerLaw, LoopScope, ModeBinding, Parameter, ParameterBinding, RealType,
+    ControllerLaw, LoopScope, ModeBinding, ModeValue, Parameter, ParameterBinding, RealType,
 };
 use crate::setup::binding_route::answer_selection;
 use crate::setup::catalog::{
     CatalogAnswer, CompiledCatalog, CompiledController, CompiledSignal, CompiledSymbol,
-    CompiledTask,
+    CompiledTask, GlobalOwner,
 };
 use crate::setup::discovery_test_support::{
     loop_json, loop_of, simc_amigo_manual, simc_amigo_manual_titles, tank_json, CONTROLLER, RUNTIME,
@@ -34,6 +34,8 @@ fn symbol(name: &str, iec_type: &str) -> CompiledSymbol {
         symbol: name.to_string(),
         iec_type: iec_type.to_string(),
         address: None,
+        members: Vec::new(),
+        owner: None,
     }
 }
 
@@ -60,6 +62,7 @@ fn catalog() -> CatalogAnswer {
             }],
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals: vec![
             signal("Main.SP", "%ML0", "LREAL"),
@@ -475,10 +478,7 @@ fn a_declared_controller_symbol_must_exist_with_the_declared_type() {
             minimum: 0.0,
             maximum: 10.0,
         }],
-        mode: ModeBinding {
-            symbol: "Main.Auto".to_string(),
-            manual_value: false,
-        },
+        mode: ModeBinding::boolean("Main.Auto".to_string(), false),
     });
     let mut compiled = catalog();
     compiled.control.symbols.push(symbol("Main.Auto", "BOOL"));
@@ -503,6 +503,61 @@ fn a_declared_controller_symbol_must_exist_with_the_declared_type() {
         refusal,
         "Compiled controller symbol Main.Parameters.Kp has type REAL, expected LREAL."
     );
+}
+
+/// Specification 35 A6.1 and C0: an enumeration mode is a compiled enumeration with the members the loop names, not a BOOL, so
+/// discovery checks it by its members. Catches an enumeration loop refused because its mode is not a BOOL, and one accepted although
+/// its type lacks a member it names or its symbol is a BOOL.
+#[test]
+fn an_enumeration_mode_is_discovered_by_its_members() {
+    let mut loop_definition = loop_of(&tank_json("loop:tank"));
+    loop_definition.parameter_binding = Some(ParameterBinding {
+        loop_id: "loop:tank".to_string(),
+        task_name: "MainTask".to_string(),
+        parameters: vec![Parameter {
+            symbol: "Main.Parameters.Kp".to_string(),
+            iec_type: RealType::Lreal,
+            unit: "%/degC".to_string(),
+            convention: "proportional gain".to_string(),
+            minimum: 0.0,
+            maximum: 10.0,
+        }],
+        mode: ModeBinding {
+            symbol: "Main.Mode".to_string(),
+            manual_value: ModeValue::Member("Manual".to_string()),
+            auto_value: Some("Auto".to_string()),
+        },
+    });
+    let compiled_with = |iec_type: &str, members: &[&str]| {
+        let mut compiled = catalog();
+        compiled
+            .control
+            .symbols
+            .push(symbol("Main.Parameters.Kp", "LREAL"));
+        let mut mode = symbol("Main.Mode", iec_type);
+        mode.members = members.iter().map(|member| (*member).to_string()).collect();
+        compiled.control.symbols.push(mode);
+        compiled
+    };
+    target_for_loop(
+        "/project/control-loop.json",
+        loop_definition.clone(),
+        &compiled_with("E_Mode", &["Off", "Manual", "Auto"]),
+    )
+    .expect("an enumeration with both members is the loop's mode");
+    for (iec_type, members) in [("E_Mode", &["Off", "Manual"][..]), ("BOOL", &[][..])] {
+        let refusal = target_for_loop(
+            "/project/control-loop.json",
+            loop_definition.clone(),
+            &compiled_with(iec_type, members),
+        )
+        .expect_err("the mode lacks a member");
+        assert_eq!(
+            refusal,
+            "Compiled mode signal Main.Mode is no enumeration with the members Manual and Auto.",
+            "{iec_type} {members:?}"
+        );
+    }
 }
 
 #[test]
@@ -910,3 +965,66 @@ fn a_project_designed_loop_is_not_refused_for_the_type_that_describes_its_contro
         reasons(&discovered)
     );
 }
+
+/// B1.2 (protocol annex E2.3; the CODESYS toolkit's S9): a loop whose parameter set writes a gain that a CODESYS project keeps in a
+/// GVL is discovered when the set's task owns the gain, and refused, with the sentence that names the gain, its writer and the
+/// loop's task, when another task writes it, as Apply would refuse it; a mode that no single task owns is refused too. Worked from
+/// the catalog: the set runs in `MainTask`. Catches a GVL gain that setup offers and Apply then refuses.
+#[test]
+fn a_loop_whose_parameter_set_writes_a_global_another_task_writes_is_refused_by_name() {
+    let mut value = tank_json("loop:tank");
+    value["parameterBinding"] = json!({
+        "loop_id": "loop:tank", "task_name": "MainTask",
+        "parameters": [
+            { "symbol": "GVL_Par.lrKp", "iec_type": "LREAL", "unit": "%/%", "convention": "proportional gain", "minimum": 0, "maximum": 100 }
+        ],
+        "mode": { "symbol": "GVL_IO.bAuto", "manual_value": false }
+    });
+    let files = [text_file("/project/control-loop.json", &value)];
+    let discover = |gain: GlobalOwner, mode: GlobalOwner| {
+        let mut compiled = catalog();
+        compiled.control.symbols = vec![
+            CompiledSymbol {
+                owner: Some(gain),
+                ..symbol("GVL_Par.lrKp", "LREAL")
+            },
+            CompiledSymbol {
+                owner: Some(mode),
+                ..symbol("GVL_IO.bAuto", "BOOL")
+            },
+        ];
+        discover_bindings("/project", &compiled, RUNTIME, &files)
+    };
+    let main_task = || GlobalOwner::Task {
+        task: "MainTask".to_string(),
+    };
+
+    let written_by_slow = discover(
+        GlobalOwner::Task {
+            task: "SlowTask".to_string(),
+        },
+        GlobalOwner::Unwritten,
+    );
+    assert_eq!(
+        reasons(&written_by_slow),
+        ["GVL_Par.lrKp is a global that task SlowTask writes, so the loop's task MainTask cannot write it. Run the loop in task \
+          SlowTask, or let only the loop's task write GVL_Par.lrKp."]
+    );
+    let shared_mode = discover(main_task(), GlobalOwner::Shared);
+    assert_eq!(
+        reasons(&shared_mode),
+        ["GVL_IO.bAuto is a global that no single task owns: the programs of several tasks write it, directly or through the \
+          POUs they call, or a method that an interface's call may run writes it. Let only the loop's task write GVL_IO.bAuto."]
+    );
+    for (gain, mode) in [
+        (main_task(), GlobalOwner::Unwritten),
+        (GlobalOwner::Unwritten, main_task()),
+    ] {
+        let discovered = discover(gain, mode);
+        assert_eq!(reasons(&discovered), Vec::<&str>::new());
+        assert_eq!(discovered.targets.len(), 1);
+    }
+}
+
+#[path = "discovery_owner_tests.rs"]
+mod owner_tests;

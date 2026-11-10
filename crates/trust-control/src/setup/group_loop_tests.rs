@@ -14,7 +14,10 @@ use crate::loop_definition::{
     Action, Design, Execution, ExperimentKind, InitialSource, InitialValue, LoopDefinition,
     LoopScope, ModeWhenTrue, ProjectSeedBlock,
 };
-use crate::setup::catalog::{decode_catalog_answer, CompiledCatalog, PID_PARAMETERS};
+use crate::setup::catalog::{
+    decode_catalog_answer, CompiledCatalog, CompiledSymbol, GlobalOwner, PID_PARAMETERS,
+};
+use crate::setup::discovery::check_global_owners;
 use crate::setup::loop_bindings::FormSignal;
 use crate::setup::pid_loop::{ModeChoice, SignalChoice};
 use crate::setup::save::{parse_setup_draft, plan_setup_save, SetupDraft};
@@ -180,10 +183,7 @@ fn draft() -> GroupLoopDraft {
     GroupLoopDraft {
         name: "Zone temperatures".to_string(),
         action: Action::Direct,
-        mode: ModeChoice {
-            symbol: "P1.ZonesAuto".to_string(),
-            when_true: ModeWhenTrue::Auto,
-        },
+        mode: ModeChoice::boolean("P1.ZonesAuto".to_string(), ModeWhenTrue::Auto),
         experiment_step: Some(10.0),
         experiment_duration_seconds: Some(40.0),
         startup_flag: Some("P1.Initialized".to_string()),
@@ -336,7 +336,7 @@ fn only_the_gains_are_bound_and_each_member_brings_its_own() {
         "only the gains are bound, so validation stays within its recorded channels"
     );
     assert_eq!(binding.mode.symbol, "P1.ZonesAuto");
-    assert!(!binding.mode.manual_value, "TRUE means Auto");
+    assert!(!binding.mode.manual_reading(), "TRUE means Auto");
 }
 
 #[test]
@@ -867,4 +867,100 @@ fn a_decoupled_draft_whose_plant_inputs_differ_from_the_controllers_outputs_is_a
         .expect("the plant inputs are written from D·v, not the controllers' outputs");
     let text = serde_json::to_string(&loop_definition).expect("the loop serializes");
     LoopDefinition::decode(&text).expect("the loop file is read");
+}
+
+/// C7 and B1.2 (protocol annex E2.3; the CODESYS toolkit's S9): a group's shared mode and setpoints may sit in a GVL that the group's
+/// task owns, while a setpoint that another task writes, or one that is no global and lies in another program, is refused with its
+/// sentence before the group is written. Worked from the fixture: the group's parameter set runs in `MainTask`, its members in `P1`.
+/// Catches a GVL group refused as two programs, a global another task writes taken for the group's, and a setpoint in another program
+/// no longer refused up front once the adapter leaves the signals to discovery.
+#[test]
+fn a_groups_written_signals_may_be_globals_its_task_owns() {
+    let generated = serde_json::to_string(&generate(&draft())).expect("the group serializes");
+    let with = |zone2: &str, owner: Option<GlobalOwner>| {
+        let mut text = generated.clone();
+        for (program, global) in [
+            ("P1.ZonesAuto", "GVL_IO.bAuto"),
+            ("P1.Zone1SetpointC", "GVL_IO.lrSP1"),
+            ("P1.Zone2SetpointC", zone2),
+        ] {
+            text = text.replace(&format!("\"{program}\""), &format!("\"{global}\""));
+        }
+        let loop_definition = LoopDefinition::decode(&text).expect("the renamed group decodes");
+        let mut compiled = catalog();
+        let symbol = |name: &str, iec_type: &str, owner: Option<GlobalOwner>| CompiledSymbol {
+            symbol: name.to_string(),
+            iec_type: iec_type.to_string(),
+            address: None,
+            members: Vec::new(),
+            owner,
+        };
+        let main_task = || {
+            Some(GlobalOwner::Task {
+                task: "MainTask".to_string(),
+            })
+        };
+        compiled
+            .symbols
+            .push(symbol("GVL_IO.bAuto", "BOOL", Some(GlobalOwner::Unwritten)));
+        compiled
+            .symbols
+            .push(symbol("GVL_IO.lrSP1", "LREAL", main_task()));
+        compiled.symbols.push(symbol(zone2, "LREAL", owner));
+        check_global_owners(&loop_definition, &compiled)
+    };
+    assert_eq!(
+        with(
+            "GVL_IO.lrSP2",
+            Some(GlobalOwner::Task {
+                task: "MainTask".to_string()
+            })
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        with("GVL_IO.lrSP2", Some(GlobalOwner::Task { task: "SlowTask".to_string() })),
+        Err("GVL_IO.lrSP2 is a global that task SlowTask writes, so the loop's task MainTask cannot write it. Run the loop in task \
+             SlowTask, or let only the loop's task write GVL_IO.lrSP2."
+            .to_string())
+    );
+    assert_eq!(
+        with("P2.Zone2SetpointC", None),
+        Err("P2.Zone2SetpointC belongs to program P2, not to the PID group's program P1. Keep it in the group's program, or in a \
+             global its task owns."
+            .to_string())
+    );
+}
+
+/// C7 and B1.2 (protocol annex E2.3): a member's output and its manual command are written signals, checked as the mode and the
+/// setpoints are. Worked from the fixture: the group's parameter set runs in `MainTask`, and each case moves one written signal of
+/// zone 2 into a GVL that `SlowTask` writes, so it is refused with the sentence of B1.2. Catches a member's output or manual command
+/// left out of the check, so that setup writes a group whose transfer is then refused.
+#[test]
+fn a_groups_output_or_manual_command_that_another_task_writes_is_refused_by_name() {
+    let generated = serde_json::to_string(&generate(&draft())).expect("the group serializes");
+    for (program, global) in [
+        ("P1.Heater2Pct", "GVL_IO.lrHeater2"),
+        ("P1.Zone2ManualPct", "GVL_IO.lrManual2"),
+    ] {
+        let text = generated.replace(&format!("\"{program}\""), &format!("\"{global}\""));
+        let loop_definition = LoopDefinition::decode(&text).expect("the renamed group decodes");
+        let mut compiled = catalog();
+        compiled.symbols.push(CompiledSymbol {
+            symbol: global.to_string(),
+            iec_type: "LREAL".to_string(),
+            address: None,
+            members: Vec::new(),
+            owner: Some(GlobalOwner::Task {
+                task: "SlowTask".to_string(),
+            }),
+        });
+        assert_eq!(
+            check_global_owners(&loop_definition, &compiled),
+            Err(format!(
+                "{global} is a global that task SlowTask writes, so the loop's task MainTask cannot write it. Run the loop in task \
+                 SlowTask, or let only the loop's task write {global}."
+            ))
+        );
+    }
 }

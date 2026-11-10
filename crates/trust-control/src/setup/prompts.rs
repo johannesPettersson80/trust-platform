@@ -261,6 +261,10 @@ pub enum StepId {
     ManualMode,
     /// The TRUE value of the manual mode.
     ManualModePolarity,
+    /// The member of an enumeration manual mode that means Manual (A6.1).
+    ManualMember,
+    /// The member of an enumeration manual mode that means Auto (A6.1).
+    AutoMember,
     /// The controller task of a proportional setup, when the controller has no single task.
     ControllerTask,
     /// The observation duration (C12).
@@ -395,10 +399,14 @@ pub struct SetupStepAnswers {
     pub gain_maximum: Option<f64>,
     /// The manual command's REAL or LREAL symbol.
     pub manual_command: Option<CompiledSymbol>,
-    /// The manual mode's BOOL symbol.
+    /// The manual mode's BOOL or enumeration symbol.
     pub manual_mode: Option<CompiledSymbol>,
-    /// Whether the mode is Manual when TRUE.
+    /// Whether the mode is Manual when TRUE, for a BOOL mode.
     pub manual_when_true: Option<bool>,
+    /// The member that means Manual, for an enumeration mode (A6.1).
+    pub manual_member: Option<String>,
+    /// The member that means Auto, for an enumeration mode (A6.1).
+    pub auto_member: Option<String>,
     /// The controller task of a proportional setup, when the controller has no single task.
     pub controller_task: Option<String>,
     /// The observation duration in seconds (C12).
@@ -542,6 +550,19 @@ fn signal_items<'a>(
 }
 
 /// The list of symbols as items, numbered from `first`, each with its type.
+/// An enumeration's members as the items of a choice, in declaration order.
+fn member_items<'a>(members: impl Iterator<Item = &'a String>) -> Vec<ChoiceItem> {
+    members
+        .enumerate()
+        .map(|(index, member)| ChoiceItem {
+            index,
+            label: member.clone(),
+            value: Value::from(member.clone()),
+            description: None,
+        })
+        .collect()
+}
+
 fn symbol_items<'a>(
     symbols: impl Iterator<Item = &'a CompiledSymbol>,
     first: usize,
@@ -749,16 +770,62 @@ fn proportional_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Opt
             symbol_items(numeric(), 0),
         );
     }
-    if answers.manual_mode.is_none() {
-        let booleans = symbols.iter().filter(|symbol| symbol.iec_type == "BOOL");
+    if let Some(question) = mode_step(symbols, answers, phase) {
+        return Some(question);
+    }
+    if sole_task(answers.controller.as_ref()).is_none() && answers.controller_task.is_none() {
+        return step(
+            StepId::ControllerTask,
+            phase,
+            text::controller_task(),
+            StepKind::Text,
+        );
+    }
+    None
+}
+
+/// The next question about the manual mode (A6.1): the mode, a BOOL or an enumeration; then for a BOOL what its TRUE value means, or
+/// for an enumeration the member that means Manual and a different member that means Auto. `None` once every answer is in.
+fn mode_step(
+    symbols: &[CompiledSymbol],
+    answers: &SetupStepAnswers,
+    phase: SetupPhase,
+) -> Option<SetupStep> {
+    let Some(mode) = answers.manual_mode.as_ref() else {
+        // A BOOL or an enumeration selects the mode (A6.1).
+        let modes = symbols
+            .iter()
+            .filter(|symbol| symbol.iec_type == "BOOL" || !symbol.members.is_empty());
         return choice(
             StepId::ManualMode,
             phase,
             text::manual_mode(),
-            symbol_items(booleans, 0),
+            symbol_items(modes, 0),
         );
-    }
-    if answers.manual_when_true.is_none() {
+    };
+    if !mode.members.is_empty() {
+        // An enumeration names the member that means Manual, then a different one that means Auto (A6.1).
+        let Some(manual) = answers.manual_member.as_deref() else {
+            return choice(
+                StepId::ManualMember,
+                phase,
+                text::manual_member(),
+                member_items(mode.members.iter()),
+            );
+        };
+        if answers.auto_member.is_none() {
+            let others = mode
+                .members
+                .iter()
+                .filter(|member| !member.eq_ignore_ascii_case(manual));
+            return choice(
+                StepId::AutoMember,
+                phase,
+                text::auto_member(),
+                member_items(others),
+            );
+        }
+    } else if answers.manual_when_true.is_none() {
         let items = vec![
             ChoiceItem {
                 index: 0,
@@ -778,14 +845,6 @@ fn proportional_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Opt
             phase,
             text::manual_mode_polarity(),
             items,
-        );
-    }
-    if sole_task(answers.controller.as_ref()).is_none() && answers.controller_task.is_none() {
-        return step(
-            StepId::ControllerTask,
-            phase,
-            text::controller_task(),
-            StepKind::Text,
         );
     }
     None

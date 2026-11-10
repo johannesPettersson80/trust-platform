@@ -140,21 +140,40 @@ result.
 
 ## Test POU discovery
 
-After loading supported source files, `trust-dev test` discovers only truST
-`TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` declarations. Discovery reports the
-test kind, namespace-qualified name, source path, one-based declaration line,
-and declaration source line. Comments and other parser trivia following a test
-name do not change its identity. Results are ordered by source path, declaration
-offset, and name so repeated discovery of the same source set is deterministic.
-One implementation (`trust_runtime::test_discovery`) serves `trust-dev test` and
-the VS Code Testing view (specification 25 §11.1), so a test has one name in both.
+After loading supported source files, `trust-dev test` discovers only test
+declarations: truST `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` declarations, and
+an ordinary `PROGRAM` whose declaration carries `{attribute 'test'}`.
+
+The attribute is the form of a test that a CODESYS project can hold. CODESYS
+has no `TEST_PROGRAM` and ignores an attribute it does not know, so such a test
+lives, and is versioned, in the CODESYS project itself. The attribute counts in
+the pragma before the `PROGRAM` keyword, read as `{attribute 'cross_task'}` is
+(specification 28 section 6), under every vendor profile. Before a function
+block or any other declaration, and inside a body, it declares no test. A
+`PROGRAM` with the attribute is a test program wherever this specification says
+`TEST_PROGRAM`: discovery reports it with that kind and with the line of its
+`PROGRAM` keyword, the runner invokes it as a program, unused-POU analysis
+counts it as an entry point, and a production build leaves it unbound.
+
+Discovery reports the test kind, namespace-qualified name, source path,
+one-based declaration line, and declaration source line. Comments and other
+parser trivia following a test name do not change its identity. Results are
+ordered by source path, declaration offset, and name so repeated discovery of
+the same source set is deterministic. One implementation
+(`trust_runtime::test_discovery`) serves `trust-dev test` and the VS Code
+Testing view (specification 25 §11.1), so a test has one name in both. It asks
+one rule which declarations are tests (`trust_hir::test_pous`), as the build,
+unused-POU analysis and the language server's run entry do.
 
 `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` are truST test-workflow extensions,
-not additional IEC 61131-3 POU kinds and not IEC deviations.
-They are executable entry points for the test runner. Unused-POU analysis must
-not report W009 for either declaration merely because no production program
-instance or function-block variable references it. Unreferenced production
-POUs and unused local variables inside tests retain their ordinary warnings.
+not additional IEC 61131-3 POU kinds and not IEC deviations. The attribute is a
+pragma, whose syntax and semantics IEC 61131-3 leaves to the implementer (§6.2,
+Table 4).
+Test declarations are executable entry points for the test runner. Unused-POU
+analysis must not report W009 for a test declaration merely because no
+production program instance or function-block variable references it.
+Unreferenced production POUs and unused local variables inside tests retain
+their ordinary warnings.
 
 ## Test case execution
 
@@ -187,7 +206,10 @@ runs, as a debug or a release image as the project's `[build] debug` chooses
 (specification 44 §13.2). They need the toolchain of specification 44 §4.6,
 named by `TRUST_TOOLCHAIN` or installed; without it the command fails with the
 advice to install it. A project with a construct the native build does not
-compile yet fails with the build's diagnostic. With `--device <port> --target <target>` they run
+compile yet fails with the build's diagnostic. The image labels each source file
+by its path relative to the project folder, as `trust-runtime build` labels it
+(specification 44 §5.3), so a diagnostic names `src/tests.st:3` and the image
+holds no path of this computer. With `--device <port> --target <target>` they run
 on that device instead: the same image, compiled for the target, is installed
 once over the device's control link, and each selected test runs by one
 `cycle.step` that restarts the program cold and runs its test program's body
@@ -195,7 +217,13 @@ once over the device's control link, and each selected test runs by one
 programs are instances that no task runs, the background programs' included
 (specification 44 §5.6), so a start of the device, at a reset for example, runs
 only the project's own programs, and a test runs only when it is invoked. The
-device's limits are its own, its statement budget among them. A failed assertion's error, `assertion failed: <message>`,
+device's limits are its own, its statement budget among them. The stepped scans keep one logical time across the
+tests (specification 11 §6.8.1), so each test starts where the previous test's last step was; a test's own time, which
+its timers measure and its result reports, starts there, as each test's time starts at zero on this computer. Every
+request of the link carries the device's control token when its settings set one (specification 34 PORT-06): `--token`,
+else `TRUST_CTL_TOKEN`, else the project's `runtime.control.auth_token`, the order of specification 11 §6.8.1; the token
+is never printed.
+A failed assertion's error, `assertion failed: <message>`,
 is the test's failure with that message, and any other error is the test's
 error, as on this computer.
 
@@ -204,7 +232,7 @@ as additional program instances for the test session. A case filter selects
 invocation and reporting, not which declarations participate in whole-project
 compilation; unselected tests are not executed. A production build of the same
 project (`trust-runtime build`, `run`, a debug or Control Studio session) leaves
-its `TEST_PROGRAM` declarations unbound and does not instantiate them: they are
+its test programs unbound and does not instantiate them: they are
 test entry points, not part of the production program, so a runnable project
 may keep its tests beside its configuration. An unbound ordinary `PROGRAM`
 under a `CONFIGURATION` is still refused. The test runner does not silently
@@ -229,6 +257,71 @@ selected test body; merely compiling or locating it is not success.
 These runner and assertion behaviors are truST product extensions. They do not
 change IEC 61131-3 program execution outside the developer test workflow.
 
+## Multi-cycle tests
+
+A test program may run for many cycles, as a PLC program does, and decide itself when it has seen enough: it
+calls `TEST_FINISHED()` (specification 07, "Non-IEC Extensions (MP-014)") once its checks are done. Its cycles run
+in simulated time, so a test of a timer, a ramp or a sequence takes the cycles it needs and no wall-clock time
+beyond their execution (owner, 7 November 2026, from a CODESYS toolkit's requirements).
+
+- **What makes a test multi-cycle.** A `TEST_PROGRAM`, or a `PROGRAM` with `{attribute 'test'}`, whose body
+  calls `TEST_FINISHED()`, or whose declaration carries `{attribute 'test_cycle' := '<duration>'}`,
+  `{attribute 'test_max_cycles' := '<count>'}` or `{attribute 'test_simulation'}` (below) in the pragma where
+  `{attribute 'test'}` counts. Every other test
+  runs its body once, as before. A `TEST_FUNCTION_BLOCK` runs once; it may not carry the two attributes.
+- **Its cycle and its budget.** `test_cycle` is a duration literal (`T#10ms`) above zero and at most one hour;
+  without it the cycle is 10 ms. `test_max_cycles` is a whole number from 1 to 10,000,000; without it the
+  budget is 10,000 cycles. A value that does not read as such is a compile error that names the attribute.
+  CODESYS ignores the two attributes, so the same source builds there.
+- **How it runs.** After the cold restart, the runner runs the test program's body once per cycle and nothing
+  else in between. The program's time starts at zero and advances by the cycle before each later cycle, so
+  cycle `n` (counted from 1) runs at the time `(n − 1)·cycle`. Timers, `TIME()` and every other reader of the
+  program's time see that time, never the wall clock.
+- **How it ends.**
+  - The cycle that calls `TEST_FINISHED()` runs to its end; the test then passes unless an assertion failed.
+  - A failed assertion ends the test at once as failed; its message names the cycle and the time:
+    `<assertion message> (cycle <n>, t = <time>)`, the time as the runtime writes a duration (`T#200ms`).
+  - A test that has not called `TEST_FINISHED()` when its budget runs out fails with
+    `did not finish within <count> cycles (t = <time>)`. It never runs past its budget, so it cannot hang.
+  - Any other runtime error ends it as an error, with the cycle and the time as above.
+  - The per-case deadline (`--timeout`) still bounds the whole test in wall-clock time, and reaching it is the
+    timeout result.
+- **Results.** The JSON report gives a multi-cycle test `cycles` (the cycles it ran) and `simulated_time_ms` (the
+  time of its last cycle); TAP, JUnit and the human output carry the cycle and the time in the message.
+- **On a device** a multi-cycle test runs alike, by one `cycle.step` per cycle (specification 11 §6.8.1): the
+  first restarts the program cold at time zero, each later one runs at the next cycle's time without a
+  restart, and each reads back whether the test called `TEST_FINISHED()`.
+- **A plant in the loop.** `{attribute 'test_simulation'}`, in the pragma where `{attribute 'test'}` counts, runs
+  the project's simulation, its `simulation.toml` (specification 46), in lockstep with the test, as `trust-runtime
+  run --simulation` runs it with a program: the cold restart before the first cycle starts the simulation at time
+  zero, and the runner does the simulation's work before and after each cycle (specification 46 §2). Each cycle
+  samples the inputs into the test program's located variables before its body and publishes its outputs after it,
+  as a scan does (a step's `io`, specification 11 §6.8.1), so that a plant wired to a process-image address
+  reaches the test as one wired to a variable does; a test without a simulation runs its body alone. Before it,
+  the plants publish their feedback and the due disturbances and coupling effects are written; after it, the
+  couplings read the outputs and each plant reads its commands and advances to the cycle's time. So a test of a
+  loop checks it against its plant, cycle by cycle, in simulated time (a CODESYS toolkit's requirement, the owner
+  on 7 November 2026). The attribute takes no value and makes the test multi-cycle; on any other declaration than
+  a test program it is a compile error. The simulation runs whatever its file's `enabled` says, as the test asks
+  for it; a project without `simulation.toml` ends the test as an error that says so.
+- **A plant in the loop on a device.** With `--device` such a test runs on the device and its plants on this
+  computer, in the same lockstep (the owner on 8 November 2026: no board-only refusal). The plants work against a
+  copy of the test build made for this computer, which holds the values the simulation reaches and runs no scan.
+  Each cycle the simulation's work before the cycle writes into the copy; the cycle's `cycle.step` (specification
+  11 §6.8.1) carries every program signal the simulation writes, a variable in `inputs` and an address in
+  `direct_inputs`, and watches every signal it writes or reads; the reply's values go into the copy; then the
+  simulation's work after the cycle reads them there. The signals it writes are the plants' feedback targets,
+  the couplings' and the disturbances' targets and the physics' encoders; those it reads are the plants' command
+  sources, the couplings' sources and the physics' enable inputs. A `pid:` target is carried as the instance's
+  `HeldMeasurement` and `MeasurementHeld` (specification 46 §13.2). So the program on the device takes the
+  feedback, and the plants its commands, at the moments a run on this computer has them, and a signal the
+  simulation leaves alone in a cycle goes back to the device as the device last reported it. A value no step
+  carries (a structure, an array, a character, a date, or a `STRING` with spaces at its ends) ends the test as
+  an error that names it.
+- **The finished mark.** The test build declares the global `TRUST_TEST_FINISHED` (BOOL), which
+  `TEST_FINISHED()` sets and the runner reads after each cycle; a cold restart clears it. A project does not
+  declare a global of that name.
+
 ## Test reporting and CI output
 
 The test command preserves three result states: `passed`, `failed`, and
@@ -237,7 +330,37 @@ and per-test status, source context, and duration. TAP output uses a version-13
 plan and reports each test by `TEST_PROGRAM::<name>` or
 `TEST_FUNCTION_BLOCK::<name>`, with source diagnostics for non-passing cases.
 JUnit output uses one compatibility suite named `trust-runtime`, reports
-separate failure and error counts, and XML-escapes diagnostic text.
+separate failure and error counts, and XML-escapes diagnostic text. Every
+format names a test's source file relative to the project folder, as
+`trust-lsp check` names its paths (specification 14 §7.7): written as the
+platform writes paths and without the verbatim prefix (`\\?\`) of a canonical
+Windows path, whether `--project` is relative or absolute; JSON's `project` is
+the folder's whole path in the same form.
+
+A test that fails or ends in error at a statement is reported at that
+statement: the failed assertion, or the statement whose error ended the test,
+which may lie in a function or function block the test calls. Its file,
+relative to the project folder as above, its line and its source line, trimmed,
+come from the statement table of the program image (specification 44 §8.6), on
+this computer as on a device, whose `cycle.step` names the statement
+(specification 11 §6.8.1). The human output's and TAP's file, line and source
+then name that statement. JSON and JUnit keep naming the test by its
+declaration's file and line, by which the editor ties a result to its test, and
+add the statement: JSON as the test's `failure` object (`file`, `line`,
+`source`), JUnit as an `at: <file>:<line>` line and its `source:` line in the
+failure's or the error's text. A failure that no statement raised, such as a
+timeout, and any failure of a program image without a statement table
+(`[build] debug = false`) are reported at the test's declaration.
+
+A failed assertion's values are reported in JSON as the test's `assertion`
+object: its `name` (`ASSERT_EQUAL`) and, as the assertion has them, its
+`expected` and `actual` values, the `bound` of a comparison, and the `delta` of
+`ASSERT_NEAR` (specification 07, MP-014). `ASSERT_TRUE` expects `TRUE` and
+`ASSERT_FALSE` `FALSE`, and a comparison's `VALUE` is its `actual`. Each value is
+typed as a conformance artifact writes a value (`{"type": "INT", "value": 2}`, a
+duration in `nanos`); `ASSERT_NEAR`'s values are the `LREAL` values it compared,
+and a value that does not read is left out. A device's run reports the object
+its `cycle.step` names (specification 11 §6.8.1), so both give the same values.
 
 Human output identifies every non-passing test with its kind, name, source
 path, line, duration, reason, and available source line, followed by an ordered
@@ -337,7 +460,9 @@ user installs, not on the development build that the VS Code suites test.
 `editors/vscode/src/acceptance/runAcceptance.ts` (`npm run acceptance --
 --vsix <file> --out <folder>`, under a display) installs the VSIX into an empty
 extensions folder of a VS Code that has never run truST (the stable release,
-or the executable that `E2E_VSCODE` names) and runs each session in its own
+or the executable that `E2E_VSCODE` names; the download is tried three times
+with a pause between, since the update service's version lookup fails now and
+then, and a failure prints the error's whole value) and runs each session in its own
 window, with its own profile and Control Studio state folder, one truST data
 folder that is empty at the start, and no Rust toolchain: the runner removes
 Cargo and rustup from `PATH` and fails when a Rust compiler is still found.
@@ -380,6 +505,11 @@ contract:
   load, soak, and ST flake probes, samples 20 ST runs with zero accepted
   failures, enforces the reliability summary gates, and uploads run-scoped
   machine-readable artifacts;
+- the nightly's 14-day flake trend asks GitHub for its list of artifacts again
+  after a server error (an HTTP status of 500 or above), up to three more times,
+  after pauses of 5, 15 and 45 seconds, so that one bad answer does not fail the
+  job; a client error fails at once, and a server error on the fourth attempt
+  fails the step, so that a lasting failure stays visible;
 - release-gate aggregation fails with verdict `FAIL` and the exact missing
   required artifact identities when any required gate artifact is absent, and
   returns verdict `PASS` with an empty missing set when all required artifacts
@@ -387,9 +517,12 @@ contract:
 - reliability-summary enforcement returns nonzero when a configured load,
   soak, or flake budget is breached;
 - the public native CI template builds both CLIs, then performs runtime build,
-  validate, JUnit test, and report upload in the reviewed order; and
+  validate, JUnit test, and report upload in the reviewed order;
 - the VS Code extension job remains a required release-gate input, so a failed
-  or absent extension artifact cannot be aggregated as release-ready.
+  or absent extension artifact cannot be aggregated as release-ready; and
+- each native test job uploads its test log twice at most, the second time only
+  when the first upload failed, and a failed upload never fails a job whose tests
+  passed: the log is evidence of the tests, and the job's verdict is its tests'.
 
 These checks prove the named scripts, workflow wiring, machine-readable fields,
 and fail-closed aggregation boundaries. They do not prove that an unexecuted
@@ -446,6 +579,13 @@ fails.
 
 A test that expects no watchdog fault from real cycles against a short watchdog runs alone
 too, as the debugger's pause tests do with their 20 ms watchdog.
+
+A test that waits for something to happen waits for that event, receiving or polling
+until a generous deadline of ten seconds, never for a short fixed window: a loaded runner
+can be slow without anything being wrong, and a passing run still ends as soon as the
+event arrives. A test that asserts that something took less than a bound keeps the bound
+far from both what it expects and what it rules out, such as a call that waits for a
+silent peer, or it runs alone.
 
 Every job that builds Structured Text programs provisions the toolchain of
 specification 44 §4.6 itself and names it in `TRUST_TOOLCHAIN`, the release's

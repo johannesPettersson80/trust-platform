@@ -1,6 +1,43 @@
 use crate::common::*;
 
 #[test]
+fn an_untyped_literal_is_the_input_type_of_a_typed_conversion() {
+    // Specification 05 §5.2.1: an untyped literal in a call argument takes the parameter's type
+    // when its value fits, and a typed conversion's `IN` is such an argument, under every profile.
+    // Catches the conversion check that compared the literal's default type (`LREAL`, `SINT`) with
+    // `IN`'s and refused `REAL_TO_INT(2.5)` with E205.
+    let source = r#"
+PROGRAM Test
+VAR
+    i : INT;
+    r : REAL;
+    b : BYTE;
+END_VAR
+i := REAL_TO_INT(2.5);
+i := SINT_TO_INT(5);
+r := INT_TO_REAL(300);
+b := INT_TO_BYTE(IN := 255);
+END_PROGRAM
+"#;
+    check_no_errors_in(Dialect::Codesys, source);
+    check_no_errors_in(Dialect::Iec, source);
+}
+
+#[test]
+fn a_literal_that_does_not_fit_the_conversion_input_stays_an_error() {
+    // The literal takes the input's type only when its value fits: 300 is no SINT, and a string is
+    // no REAL. Catches the literal rule accepting any literal.
+    check_has_error(
+        "PROGRAM Test\nVAR i : INT; END_VAR\ni := SINT_TO_INT(300);\nEND_PROGRAM\n",
+        DiagnosticCode::InvalidArgumentType,
+    );
+    check_has_error(
+        "PROGRAM Test\nVAR i : INT; END_VAR\ni := REAL_TO_INT('2.5');\nEND_PROGRAM\n",
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
 fn to_string_accepts_base_less_enum() {
     // CODESYS TO_STRING parity (IEC_DEVIATIONS 2026-10-28): an enumerated
     // value converts to its member name string; base-less project enums

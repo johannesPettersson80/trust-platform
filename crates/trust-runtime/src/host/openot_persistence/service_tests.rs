@@ -556,7 +556,7 @@ fn shutdown_does_not_wait_past_the_configured_deadline_for_a_stuck_backend_call(
         shutdown_deadline: Arc::new(Mutex::new(None)),
         status,
         thread: Some(std::thread::spawn(|| {
-            std::thread::sleep(Duration::from_millis(500));
+            std::thread::sleep(Duration::from_secs(30));
         })),
         shutdown_timeout: Duration::from_millis(20),
     };
@@ -564,7 +564,8 @@ fn shutdown_does_not_wait_past_the_configured_deadline_for_a_stuck_backend_call(
 
     service.shutdown();
 
-    assert!(started.elapsed() < Duration::from_millis(200));
+    // The stuck call takes 30 s; a shutdown that waited for it would too.
+    assert!(started.elapsed() < Duration::from_secs(5));
     let status = service.status();
     assert_eq!(status.state, OpenOtPersistenceState::Faulted);
     assert_eq!(status.pending, 4);

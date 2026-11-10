@@ -1,6 +1,8 @@
 mod abort_binding;
 use abort_binding::{AbortBinding, AbortBindingParams};
 mod executor;
+mod measurement_guard;
+use measurement_guard::{MeasurementGuard, MeasurementGuardParams};
 mod mode;
 use mode::{ModeBinding, ModeBindingParams};
 mod target;
@@ -96,6 +98,8 @@ struct ExperimentRecord {
     relay_feedback: Option<RelayFeedbackRecord>,
     write_enabled: bool,
     abort_binding: Option<AbortBinding>,
+    /// The loop's measured output and its band, which stop the experiment when it leaves it (E5.4).
+    measurement_guard: Option<MeasurementGuard>,
     restoration_after_scan: Option<u64>,
     /// The runtime epoch the experiment's references were resolved in; the epoch's end stops the experiment.
     epoch: u64,
@@ -174,6 +178,9 @@ struct StartParams {
     relay_feedback: Option<RelayFeedbackParams>,
     #[serde(default)]
     abort_binding: Option<AbortBindingParams>,
+    /// The loop's measured output and the band it must stay in (E5.3).
+    #[serde(default)]
+    measurement_guard: Option<MeasurementGuardParams>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -510,6 +517,13 @@ pub(super) fn handle_start(
         }
         (None, _) => None,
     };
+    let measurement_guard = match params.measurement_guard {
+        Some(guard) => match MeasurementGuard::start(guard, &snapshot, program) {
+            Ok(guard) => Some(guard),
+            Err((message, code)) => return error(id, message, code),
+        },
+        None => None,
+    };
     let trajectory = if let Some(relay) = relay_feedback.as_ref() {
         vec![(Duration::ZERO, relay.high_value.clone())]
     } else {
@@ -605,6 +619,7 @@ pub(super) fn handle_start(
         relay_feedback,
         write_enabled,
         abort_binding,
+        measurement_guard,
         restoration_after_scan: None,
         epoch: expected_epoch,
     };
@@ -917,6 +932,7 @@ fn record_json(record: &ExperimentRecord) -> JsonValue {
         "last_applied": record.last_applied.as_ref().map(applied_json),
         "relay_feedback": relay_feedback,
         "abort_binding": record.abort_binding.as_ref().map(AbortBinding::json),
+        "measurement_guard": record.measurement_guard.as_ref().map(MeasurementGuard::status),
     })
 }
 

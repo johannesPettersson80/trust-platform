@@ -60,7 +60,7 @@ const PLAN_REQUIRED_KEYS: [&str; 16] = [
     "requiresPhysicalApproval",
     "trajectory",
 ];
-const PLAN_OPTIONAL_KEYS: [&str; 9] = [
+const PLAN_OPTIONAL_KEYS: [&str; 10] = [
     "address",
     "abortBinding",
     "relayFeedback",
@@ -70,6 +70,7 @@ const PLAN_OPTIONAL_KEYS: [&str; 9] = [
     "task",
     "modeBinding",
     "stopOnStaleMs",
+    "measurementGuard",
 ];
 
 /// The sorted keys of a version-1 recovery and of a version-2 recovery.
@@ -180,6 +181,9 @@ pub struct RecordingRecoveryBinding {
     pub symbol: Option<String>,
     /// The signal's IEC type.
     pub iec_type: String,
+    /// The members of an enumeration mode signal (annex E3, E4), which the runtime reads as 1 in Manual and 0 in Auto.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::signals::SignalMode>,
 }
 
 /// The persistable identity of a recording a reopened panel stops, with no credentials and no data
@@ -402,6 +406,7 @@ fn decode_recovery_plan(value: &Value) -> Option<ControlExperimentPlan> {
         || !optional_positive_integer(get("intervalMs"), f64::INFINITY)
         || !optional_positive_integer(get("seed"), 4_294_967_295.0)
         || !optional_frequencies(get("frequenciesHz"))
+        || !optional_measurement_guard(get("measurementGuard"))
     {
         return None;
     }
@@ -532,6 +537,26 @@ fn optional_frequencies(value: Option<&Value>) -> bool {
                 && items.iter().all(|item| finite(Some(item)).is_some())
         }),
     }
+}
+
+/// A measurement guard, when the plan has one (B3.4 step 6): its symbol and unit, an address when it has one, and a finite
+/// range whose minimum lies below its maximum, with no other key.
+fn optional_measurement_guard(value: Option<&Value>) -> bool {
+    let Some(value) = value else {
+        return true;
+    };
+    let Some(guard) = value.as_object() else {
+        return false;
+    };
+    let known = ["symbol", "address", "minimum", "maximum", "unit"];
+    let range = finite(guard.get("minimum")).zip(finite(guard.get("maximum")));
+    guard.keys().all(|key| known.contains(&key.as_str()))
+        && is_text(guard.get("symbol"))
+        && guard.get("unit").is_some_and(Value::is_string)
+        && guard
+            .get("address")
+            .is_none_or(|address| is_text(Some(address)))
+        && range.is_some_and(|(minimum, maximum)| minimum < maximum)
 }
 
 /// A non-empty text (`text` of the extension's checks).

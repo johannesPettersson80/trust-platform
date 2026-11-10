@@ -19,6 +19,8 @@ use crate::cli::ControlAction;
 mod device;
 #[path = "ctl/endpoint_command.rs"]
 mod endpoint_command;
+#[path = "ctl/expressions.rs"]
+mod expressions;
 #[path = "ctl/firmware.rs"]
 mod firmware;
 #[path = "ctl/install.rs"]
@@ -102,6 +104,10 @@ pub fn run_control(
     if let ControlAction::Endpoint { json } = &action {
         return endpoint_command::print_control_endpoint(bundle, endpoint, token, *json);
     }
+    if let ControlAction::CompileExpression { expr } = &action {
+        return expressions::print_compiled(expr, bundle.as_deref());
+    }
+    let project = bundle.clone();
     let target = resolve_control_target(bundle, endpoint, token)?;
     match action {
         ControlAction::Install { container, restart } => {
@@ -113,7 +119,7 @@ pub fn run_control(
         ControlAction::DeviceGet | ControlAction::DeviceSet { .. } | ControlAction::DeviceReset => {
             device::run(&target, &action)
         }
-        action => send_control_request(&target, &action),
+        action => send_control_request(&target, &action, project.as_deref()),
     }
 }
 
@@ -191,8 +197,10 @@ impl std::error::Error for ConnectFailed {}
 fn send_control_request(
     target: &ResolvedControlTarget,
     action: &ControlAction,
+    project: Option<&Path>,
 ) -> anyhow::Result<()> {
-    let request = build_request(action, target.auth_token.as_deref());
+    let mut request = build_request(action, target.auth_token.as_deref());
+    expressions::attach(&mut request, action, project)?;
     let response = match &target.endpoint {
         CtlEndpoint::Socket(socket) => {
             let status = json!({
@@ -486,16 +494,46 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 );
             }
         }
+        ControlAction::BreakpointsSet { .. }
+        | ControlAction::BreakpointsList
+        | ControlAction::Location
+        | ControlAction::Stack
+        | ControlAction::Scopes { .. } => {
+            let mut response = response.clone();
+            if let Some(result) = response.get_mut("result") {
+                one_based_positions(result);
+            }
+            println!("{}", serde_json::to_string(&response)?);
+        }
         _ => println!("{}", serde_json::to_string(response)?),
     }
     Ok(())
 }
 
+/// Turns the zero-based lines and columns of a breakpoint reply into the one-based ones an editor
+/// shows (specification 11, 6.8.1), wherever they stand in it.
+fn one_based_positions(value: &mut JsonValue) {
+    match value {
+        JsonValue::Object(fields) => {
+            for (name, field) in fields.iter_mut() {
+                match (name.as_str(), field.as_u64()) {
+                    ("line" | "column" | "end_line" | "end_column", Some(position)) => {
+                        *field = JsonValue::from(position.saturating_add(1));
+                    }
+                    _ => one_based_positions(field),
+                }
+            }
+        }
+        JsonValue::Array(items) => items.iter_mut().for_each(one_based_positions),
+        _ => {}
+    }
+}
+
 fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json::Value {
     let auth = auth_token.map(|value| value.to_string());
     match action {
-        ControlAction::Endpoint { .. } => {
-            unreachable!("ctl endpoint is printed without sending a request")
+        ControlAction::Endpoint { .. } | ControlAction::CompileExpression { .. } => {
+            unreachable!("ctl endpoint and compile-expression print without sending a request")
         }
         ControlAction::Status => json!({"id": 1, "type": "status", "auth": auth}),
         ControlAction::Health => json!({"id": 1, "type": "health", "auth": auth}),
@@ -505,11 +543,16 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         ControlAction::StepIn => json!({"id": 1, "type": "step_in", "auth": auth}),
         ControlAction::StepOver => json!({"id": 1, "type": "step_over", "auth": auth}),
         ControlAction::StepOut => json!({"id": 1, "type": "step_out", "auth": auth}),
-        ControlAction::BreakpointsSet { source, lines } => json!({
+        // The protocol's lines are zero-based (specification 11, 6.13.3); the command's are
+        // one-based, as an editor shows them.
+        ControlAction::BreakpointsSet { source, lines, .. } => json!({
             "id": 1,
             "type": "breakpoints.set",
             "auth": auth,
-            "params": { "source": source, "lines": lines }
+            "params": {
+                "source": source,
+                "lines": lines.iter().map(|line| line.saturating_sub(1)).collect::<Vec<_>>(),
+            }
         }),
         ControlAction::BreakpointsClear { source } => json!({
             "id": 1,
@@ -520,6 +563,20 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         ControlAction::BreakpointsList => {
             json!({"id": 1, "type": "breakpoints.list", "auth": auth})
         }
+        ControlAction::Location => json!({"id": 1, "type": "debug.state", "auth": auth}),
+        ControlAction::Stack => json!({"id": 1, "type": "debug.stack", "auth": auth}),
+        ControlAction::Scopes { frame_id } => json!({
+            "id": 1,
+            "type": "debug.scopes",
+            "auth": auth,
+            "params": { "frame_id": frame_id }
+        }),
+        ControlAction::Variables { reference } => json!({
+            "id": 1,
+            "type": "debug.variables",
+            "auth": auth,
+            "params": { "variables_reference": reference }
+        }),
         ControlAction::IoRead => json!({"id": 1, "type": "io.read", "auth": auth}),
         ControlAction::IoWrite { address, value } => json!({
             "id": 1,
@@ -544,6 +601,13 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "type": "eval",
             "auth": auth,
             "params": { "expr": expr }
+        }),
+        // The compiled expression is added by `expressions::attach`.
+        ControlAction::Evaluate { frame, .. } => json!({
+            "id": 1,
+            "type": "debug.evaluate",
+            "auth": auth,
+            "params": { "frame_id": frame }
         }),
         ControlAction::Set { target, value } => json!({
             "id": 1,
@@ -662,45 +726,6 @@ mod tests {
             (
                 ControlAction::Resume,
                 json!({"id": 1, "type": "resume", "auth": "token"}),
-            ),
-            (
-                ControlAction::StepIn,
-                json!({"id": 1, "type": "step_in", "auth": "token"}),
-            ),
-            (
-                ControlAction::StepOver,
-                json!({"id": 1, "type": "step_over", "auth": "token"}),
-            ),
-            (
-                ControlAction::StepOut,
-                json!({"id": 1, "type": "step_out", "auth": "token"}),
-            ),
-            (
-                ControlAction::BreakpointsSet {
-                    source: "main.st".into(),
-                    lines: vec![3, 8],
-                },
-                json!({
-                    "id": 1,
-                    "type": "breakpoints.set",
-                    "auth": "token",
-                    "params": { "source": "main.st", "lines": [3, 8] }
-                }),
-            ),
-            (
-                ControlAction::BreakpointsClear {
-                    source: "main.st".into(),
-                },
-                json!({
-                    "id": 1,
-                    "type": "breakpoints.clear",
-                    "auth": "token",
-                    "params": { "source": "main.st", "lines": [] }
-                }),
-            ),
-            (
-                ControlAction::BreakpointsList,
-                json!({"id": 1, "type": "breakpoints.list", "auth": "token"}),
             ),
             (
                 ControlAction::IoRead,
@@ -834,6 +859,87 @@ mod tests {
             build_request(&ControlAction::Status, None),
             json!({"id": 1, "type": "status", "auth": null})
         );
+    }
+
+    /// The debugger's actions (specification 11, 6.8.1): stepping, breakpoints with their lines counted from 1 here and from 0 on
+    /// the wire, and the reads of a held program, each one request of the debug table.
+    #[test]
+    fn debugger_actions_map_to_the_registered_wire_contract() {
+        let cases = vec![
+            (
+                ControlAction::StepIn,
+                json!({"id": 1, "type": "step_in", "auth": "token"}),
+            ),
+            (
+                ControlAction::StepOver,
+                json!({"id": 1, "type": "step_over", "auth": "token"}),
+            ),
+            (
+                ControlAction::StepOut,
+                json!({"id": 1, "type": "step_out", "auth": "token"}),
+            ),
+            (
+                // Lines 3 and 8 as an editor shows them are the protocol's zero-based 2 and 7.
+                ControlAction::BreakpointsSet {
+                    source: "main.st".into(),
+                    lines: vec![3, 8],
+                    condition: None,
+                    hit_condition: None,
+                    log_message: None,
+                },
+                json!({
+                    "id": 1,
+                    "type": "breakpoints.set",
+                    "auth": "token",
+                    "params": { "source": "main.st", "lines": [2, 7] }
+                }),
+            ),
+            (
+                ControlAction::BreakpointsClear {
+                    source: "main.st".into(),
+                },
+                json!({
+                    "id": 1,
+                    "type": "breakpoints.clear",
+                    "auth": "token",
+                    "params": { "source": "main.st", "lines": [] }
+                }),
+            ),
+            (
+                ControlAction::BreakpointsList,
+                json!({"id": 1, "type": "breakpoints.list", "auth": "token"}),
+            ),
+            (
+                ControlAction::Location,
+                json!({"id": 1, "type": "debug.state", "auth": "token"}),
+            ),
+            (
+                ControlAction::Stack,
+                json!({"id": 1, "type": "debug.stack", "auth": "token"}),
+            ),
+            (
+                ControlAction::Scopes { frame_id: 2 },
+                json!({
+                    "id": 1,
+                    "type": "debug.scopes",
+                    "auth": "token",
+                    "params": { "frame_id": 2 }
+                }),
+            ),
+            (
+                ControlAction::Variables { reference: 7 },
+                json!({
+                    "id": 1,
+                    "type": "debug.variables",
+                    "auth": "token",
+                    "params": { "variables_reference": 7 }
+                }),
+            ),
+        ];
+
+        for (action, expected) in cases {
+            assert_eq!(build_request(&action, Some("token")), expected);
+        }
     }
 
     #[test]
@@ -1028,7 +1134,7 @@ mod tests {
             endpoint_file_skipped: None,
         };
 
-        let error = send_control_request(&local_target(target), &ControlAction::Status)
+        let error = send_control_request(&local_target(target), &ControlAction::Status, None)
             .expect_err("a refused connection must fail");
 
         assert!(
@@ -1050,7 +1156,7 @@ mod tests {
             endpoint_file_skipped: None,
         };
 
-        let error = send_control_request(&local_target(target), &ControlAction::Status)
+        let error = send_control_request(&local_target(target), &ControlAction::Status, None)
             .expect_err("a refused connection must fail");
 
         assert!(
@@ -1058,6 +1164,65 @@ mod tests {
                 .to_string()
                 .starts_with(&format!("connect control endpoint tcp://{addr}")),
             "{error:#}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod breakpoint_line_tests {
+    use super::*;
+    use clap::Parser;
+
+    // Specification 11, 6.8.1: the replies of the breakpoint actions are printed with one-based
+    // lines and columns. A statement the protocol places at zero-based line 2, column 0 is the
+    // editor's line 3, column 1; everything else in the reply is left as it is. Catches the reply
+    // printed as the protocol gives it, and other numbers (the file, the generation) changed too.
+    #[test]
+    fn breakpoint_replies_print_one_based_lines_and_columns() {
+        let mut set = json!({
+            "status": "ok",
+            "file_id": 0,
+            "resolved": [{"line": 2, "column": 0}, {"line": 7, "column": 4}],
+            "generation": 5,
+        });
+        one_based_positions(&mut set);
+        assert_eq!(
+            set,
+            json!({
+                "status": "ok",
+                "file_id": 0,
+                "resolved": [{"line": 3, "column": 1}, {"line": 8, "column": 5}],
+                "generation": 5,
+            })
+        );
+        let mut list = json!({"breakpoints": [
+            {"file_id": 1, "line": 2, "column": 0, "end_line": 2, "end_column": 9, "start": 40},
+        ]});
+        one_based_positions(&mut list);
+        assert_eq!(
+            list,
+            json!({"breakpoints": [
+                {"file_id": 1, "line": 3, "column": 1, "end_line": 3, "end_column": 10, "start": 40},
+            ]})
+        );
+    }
+
+    // Specification 11, 6.8.1: a line 0 is no line an editor shows, so the command refuses it
+    // before it sends anything. Catches it sent as the protocol's line -1 or 0.
+    #[test]
+    fn breakpoints_set_refuses_line_zero() {
+        let error = crate::cli::Cli::try_parse_from([
+            "trust-runtime",
+            "ctl",
+            "breakpoints-set",
+            "main.st",
+            "0",
+        ])
+        .expect_err("a line counts from 1");
+        assert_eq!(
+            error.kind(),
+            clap::error::ErrorKind::ValueValidation,
+            "{error}"
         );
     }
 }

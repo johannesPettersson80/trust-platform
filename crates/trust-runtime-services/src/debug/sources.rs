@@ -47,6 +47,52 @@ pub struct ResolvedStatement {
     pub end_column: u32,
 }
 
+/// Where a statement lies, as a client that holds the sources shows it: its file's label and its
+/// line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StatementAt {
+    /// The label of the statement's file: its source path relative to the project root with `/`
+    /// separators, or the fallback label `file_<file_id>` (specification 44 §5.9).
+    pub file: SmolStr,
+    /// 1-based line of the statement's first byte.
+    pub line: u32,
+}
+
+/// Where statement `id` of `image` lies, from the image's statement table (specification 44 §5.9);
+/// `None` for an id the table does not hold. It reads the one statement, so a fault's statement is
+/// found without building the whole table.
+#[must_use]
+pub fn statement_at(
+    image: &trust_runtime_core::native::image::Image<'_>,
+    id: u32,
+) -> Option<StatementAt> {
+    use trust_runtime_core::native::image::{FileRecord, StmtRecord};
+    let statement = image.table::<StmtRecord>().ok()?.get(id)?;
+    let file = image
+        .table::<FileRecord>()
+        .ok()?
+        .get(u32::from(statement.file))?;
+    Some(StatementAt {
+        file: SmolStr::new(image.string(file.label)?),
+        line: statement.start_line,
+    })
+}
+
+/// Where the fault that ended `program`'s last call was raised (specification 44 §8.6): the
+/// statement that raised it. `None` when no fault ended the call, as for a deadline the runtime
+/// measured, and for a release image, whose statements record no number (§13.2).
+#[must_use]
+pub fn fault_at<C: trust_runtime_core::native::program::ModuleCode>(
+    program: &trust_runtime_core::native::program::NativeProgram<'_, C>,
+) -> Option<StatementAt> {
+    let fault = program.last_fault();
+    let image = program.image();
+    if fault.code == 0 || image.header().is_release() {
+        return None;
+    }
+    statement_at(&image, fault.stmt)
+}
+
 /// A program's statements with the labels of their files.
 #[derive(Debug, Clone, Default)]
 pub struct LineSources {

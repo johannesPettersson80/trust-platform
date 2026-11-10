@@ -13,7 +13,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Map, Value};
 
-use super::{InitializedState, LoopDefinition, Parameter, ParameterBinding, RealType};
+use super::{InitializedState, LoopDefinition, ModeValue, Parameter, ParameterBinding, RealType};
 use crate::commissioning::initial_state::ControllerInitialization;
 use crate::limits::{ISOLATED_SIMULATION_SCAN_LIMIT, SEARCH_WALL_TIME_LIMIT_MS};
 use crate::tuning::project_components::{
@@ -185,13 +185,16 @@ pub struct ProjectObjective {
     pub direction: ObjectiveDirection,
 }
 
-/// A further BOOL mode of the program, distinct from the loop's mode.
+/// A further mode of the program, distinct from the loop's mode (specification 35 A6.1): a BOOL with the value that means Manual, or
+/// an enumeration with the member that means Manual and the member that means Auto.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdditionalMode {
     /// The mode's variable.
     pub symbol: String,
-    /// The value that means Manual.
-    pub manual_value: bool,
+    /// The value that means Manual: a BOOL's value, or the name of an enumeration's member.
+    pub manual_value: ModeValue,
+    /// The member that means Auto, for an enumeration only.
+    pub auto_value: Option<String>,
 }
 
 /// The one gate of a program's own law (C2, checklist V7): the name of the parked feature that a block uses, or `None` when the
@@ -524,7 +527,14 @@ impl ControllerProject {
             let modes = self
                 .additional_modes
                 .iter()
-                .map(|mode| json!({ "symbol": mode.symbol, "manualValue": mode.manual_value }))
+                .map(|mode| {
+                    let mut entry =
+                        json!({ "symbol": mode.symbol, "manualValue": mode.manual_value });
+                    if let Some(auto) = &mode.auto_value {
+                        entry["autoValue"] = json!(auto);
+                    }
+                    entry
+                })
                 .collect();
             block.insert("additionalModes".to_owned(), Value::Array(modes));
         }
@@ -989,6 +999,7 @@ fn trajectory_seed(object: &Map<String, Value>) -> Result<TrajectoryFeedforwardS
             proportional_symbol: fields.proportional_symbol,
             integral_symbol: Some(fields.integral_symbol),
             derivative_symbol: Some(fields.derivative_symbol),
+            form: crate::tuning::project_seed::GainForm::Parallel,
         },
         rate_symbol: fields.rate_symbol,
         acceleration_symbol: fields.acceleration_symbol,
@@ -1129,20 +1140,33 @@ fn additional_modes(object: &Map<String, Value>) -> Result<Vec<AdditionalMode>, 
 fn additional_mode(item: &Value) -> Result<AdditionalMode, String> {
     let fields = item
         .as_object()
-        .filter(|fields| fields.len() == 2)
-        .ok_or("controller.project.additionalModes entries hold a symbol and a manualValue")?;
+        .filter(|fields| {
+            fields
+                .keys()
+                .all(|key| matches!(key.as_str(), "symbol" | "manualValue" | "autoValue"))
+        })
+        .ok_or("controller.project.additionalModes entries hold a symbol and a manualValue, and an enumeration's an autoValue")?;
     let symbol = fields
         .get("symbol")
         .and_then(Value::as_str)
         .filter(|symbol| !symbol.trim().is_empty())
         .ok_or("controller.project.additionalModes symbol must be a non-empty text")?;
-    let manual_value = fields
-        .get("manualValue")
-        .and_then(Value::as_bool)
-        .ok_or("controller.project.additionalModes manualValue must be true or false")?;
+    // A BOOL names its Manual value alone; an enumeration names its Manual and its Auto member, which differ (A6.1).
+    let (manual_value, auto_value) = match (fields.get("manualValue"), fields.get("autoValue")) {
+        (Some(Value::Bool(manual)), None) => (ModeValue::Bool(*manual), None),
+        (Some(Value::String(manual)), Some(Value::String(auto)))
+            if !manual.trim().is_empty()
+                && !auto.trim().is_empty()
+                && !manual.eq_ignore_ascii_case(auto) =>
+        {
+            (ModeValue::Member(manual.clone()), Some(auto.clone()))
+        }
+        _ => return Err("controller.project.additionalModes manualValue must be true or false, or an enumeration's member with a different autoValue member".into()),
+    };
     Ok(AdditionalMode {
         symbol: symbol.to_owned(),
         manual_value,
+        auto_value,
     })
 }
 

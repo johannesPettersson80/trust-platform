@@ -67,6 +67,34 @@ pub struct Database {
     source_revision: AtomicU64,
 }
 
+/// The owner of a global (control-studio-runtime-protocol annex E2.3; specification 44 §5.7): the one
+/// task whose programs are the only ones that write it, through their own bodies or the POUs their
+/// calls reach.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GlobalOwner {
+    /// No program writes it.
+    Unwritten,
+    /// Only the programs this task runs write it, through their own bodies, actions included, or the
+    /// POUs their calls reach; the task's name as declared.
+    Task(SmolStr),
+    /// Only the bodies of programs outside every task write it.
+    Background,
+    /// The programs of several owners write it, directly or through the POUs they call, or a POU
+    /// that no program reaches through a resolved call writes it, such as a method an interface's
+    /// call may run: no task owns it.
+    Shared,
+}
+
+/// A global that a file declares, by its name with its namespaces (`GVL_IO.lrLevel`), and its
+/// owner.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GlobalOwnership {
+    /// The global's name, its namespaces first, each part as declared.
+    pub name: SmolStr,
+    /// Its owner.
+    pub owner: GlobalOwner,
+}
+
 /// What the analysis of one file learned: its symbols with the project's, its diagnostics, the type
 /// of each expression and the symbol each name resolved to, by text range.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -80,6 +108,9 @@ pub struct FileAnalysis {
     /// The symbol each name, member and call of the file resolved to, by text range; for a call,
     /// the POU whose parameters it binds.
     pub resolved_symbols: Arc<FxHashMap<(u32, u32), SymbolId>>,
+    /// The argument expressions that the file's calls bind to an output or in-out parameter, by
+    /// text range: the calls write them (`crate::access`).
+    pub written_arguments: Arc<FxHashSet<(u32, u32)>>,
     /// The file's declarations as the authoring tools read them.
     pub declaration_catalog: Arc<DeclarationCatalog>,
 }

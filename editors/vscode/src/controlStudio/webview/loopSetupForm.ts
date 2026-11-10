@@ -28,8 +28,41 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     minimum: value(`${field}.minimum`), maximum: value(`${field}.maximum`) });
   /** A gain variable of the program's own law as the engine reads it (`OwnLawGain`): its variable and the range Tune may choose, as typed. */
   const gainOf = (field: string) => ({ symbol: value(field), minimum: value(`${field}.minimum`), maximum: value(`${field}.maximum`) });
-  /** A controller's Auto/Manual signal as the engine reads it (`ModeChoice`): its path, and the mode its TRUE value means. */
-  const modeOf = (prefix: string) => ({ symbol: value(`${prefix}mode`), whenTrue: value(`${prefix}modeWhenTrue`) });
+  /** A controller's Auto/Manual signal as the engine reads it (`ModeChoice`, A6.1): its path, the mode a BOOL's TRUE value means and an
+   * enumeration's Manual and Auto members as chosen. The engine takes what the signal needs; a blank member is absent (B1.3). */
+  const modeOf = (prefix: string) => {
+    const manualValue = value(`${prefix}modeManual`), autoValue = value(`${prefix}modeAuto`);
+    return { symbol: value(`${prefix}mode`), whenTrue: value(`${prefix}modeWhenTrue`), ...(manualValue ? { manualValue } : {}),
+      ...(autoValue ? { autoValue } : {}) };
+  };
+  /** The members of the enumeration chosen as the Auto/Manual signal at `prefix`, from its option; none for a BOOL (A6.1). */
+  const modeMembers = (prefix: string): string[] => {
+    const select = fields.get(`${prefix}mode`) as HTMLSelectElement | undefined;
+    return (select?.selectedOptions[0]?.dataset.members ?? "").split(" ").filter(Boolean);
+  };
+  /** Shows an enumeration's member choices in place of what a BOOL's TRUE value means, filled with the chosen signal's members; a
+   * member stays chosen while the signal has it. */
+  const refreshModeMembers = (): void => {
+    for (const shown of Array.from(root.querySelectorAll<HTMLElement>("[data-mode-when-true]"))) {
+      const prefix = shown.dataset.modeWhenTrue ?? "";
+      const members = modeMembers(prefix);
+      shown.hidden = members.length > 0;
+      root.querySelectorAll<HTMLElement>(`[data-mode-member="${prefix}"]`).forEach(label => { label.hidden = members.length === 0; });
+      for (const field of [`${prefix}modeManual`, `${prefix}modeAuto`]) {
+        const select = fields.get(field) as HTMLSelectElement | undefined;
+        if (!select || select.dataset.members === members.join(" ")) continue;
+        const kept = select.value;
+        select.replaceChildren(...["", ...members].map(member => {
+          const option = root.ownerDocument.createElement("option");
+          option.value = member;
+          option.textContent = member || "Choose…";
+          return option;
+        }));
+        select.dataset.members = members.join(" ");
+        select.value = members.includes(kept) ? kept : "";
+      }
+    }
+  };
   /** The startup-done flag, when the user chose one. The engine decides whether the program needs it (C1 Setup). */
   const startupFor = (): Record<string, string> => value("startupFlag") ? { startupFlag: value("startupFlag") } : {};
   /** The chosen structure's draft, posted as typed: the engine checks it and answers the refusal. */
@@ -92,8 +125,9 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   const ownLawFields = (law: string): Record<string, unknown> => ({ name: value("name"), action: value("action"), law, instance: value("own.instance"),
     processVariable: rawSignal("own.processVariable"), setpoint: { symbol: value("own.setpoint") }, manipulatedVariable: rawSignal("own.manipulatedVariable"),
     mode: modeOf("own."), manualOutput: value("own.manualOutput"), proportionalGain: gainOf("own.proportionalGain"), ...startupFor(),
-    integralGain: gainOf("own.integralGain"), integralTerm: optionalText("own.integralTerm"),
-    derivativeGain: gainOf("own.derivativeGain"), derivativeState: optionalText("own.derivativeState"), derivativeOn: optionalText("own.derivativeOn") });
+    form: value("own.form"), integralGain: gainOf("own.integralGain"), resetTime: gainOf("own.resetTime"), integralTerm: optionalText("own.integralTerm"),
+    derivativeGain: gainOf("own.derivativeGain"), derivativeTime: gainOf("own.derivativeTime"), derivativeState: optionalText("own.derivativeState"),
+    derivativeOn: optionalText("own.derivativeOn") });
   /** The trajectory feedforward as the engine reads it (`TrajectoryLoopDraft`, C11): the program's PID law, the two feedforward gains, the
    * planned trajectory and the feedforward term, as typed. */
   const trajectoryDraft = (): Record<string, unknown> => ({ structure: "trajectory-feedforward", ownLaw: ownLawFields(ownLaw()),
@@ -206,7 +240,9 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   const refreshFound = (): void => {
     for (const element of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-found-value]"))) {
       const field = element.dataset.setupFoundValue ?? "";
-      const text = field === "mode" ? (chosenText("mode") ? `${chosenText("mode")} · ${words.trueMeans} ${chosenText("modeWhenTrue")}` : "")
+      const text = field === "mode" ? (!chosenText("mode") ? "" : modeMembers("").length > 0
+          ? `${chosenText("mode")} · Manual ${chosenText("modeManual") || "?"} · Auto ${chosenText("modeAuto") || "?"}`
+          : `${chosenText("mode")} · ${words.trueMeans} ${chosenText("modeWhenTrue")}`)
         : field === "task" ? tasks.get(value("instance")) ?? ""
         : chosenText(field);
       element.textContent = text || (field === "task" ? words.notStated : words.notFound);
@@ -254,6 +290,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     clearRefusal();
     message.textContent = "";
     prefillName();
+    refreshModeMembers();
     refreshFound();
     for (const group of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-range-group]"))) {
       const field = group.dataset.setupRangeGroup ?? "";
@@ -270,6 +307,10 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (integralFields) integralFields.hidden = ownLaw() === "P";
     const derivativeFields = root.querySelector<HTMLElement>("[data-own-derivative]");
     if (derivativeFields) derivativeFields.hidden = ownLaw() !== "PID";
+    // The form chosen shows its own settings: the gains Ki and Kd, or the times Ti and Td (C2). A trajectory's law is a parallel PID.
+    const standard = value("own.form") === "standard" && structure() !== "trajectory-feedforward";
+    root.querySelectorAll<HTMLElement>("[data-own-parallel]").forEach(element => { element.hidden = standard; });
+    root.querySelectorAll<HTMLElement>("[data-own-standard]").forEach(element => { element.hidden = !standard; });
     // A trajectory feedforward's law is PID by its structure, so its law choice does not show.
     const lawChoice = root.querySelector<HTMLElement>("[data-own-law-choice]");
     if (lawChoice) lawChoice.hidden = structure() === "trajectory-feedforward";

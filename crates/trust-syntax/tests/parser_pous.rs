@@ -404,3 +404,58 @@ END_PROGRAM"#,
         parsed.errors()
     );
 }
+
+/// Specification 04: CODESYS's `__SYSTEM.IQueryInterface` is a `SystemName` after an interface's
+/// EXTENDS and among a function block's IMPLEMENTS names, beside an ordinary name. Catches the
+/// parse error "expected METHOD or PROPERTY in interface" of the CODESYS report, and the system
+/// name swallowing the ordinary name after it.
+#[test]
+fn test_system_interface_in_extends_and_implements() {
+    let parsed = parse(
+        r#"INTERFACE ILamp EXTENDS __SYSTEM.IQueryInterface
+METHOD Toggle
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS __system.IQueryInterface, ILamp
+METHOD PUBLIC Toggle
+END_METHOD
+END_FUNCTION_BLOCK"#,
+    );
+    assert!(parsed.ok(), "{:?}", parsed.errors());
+    let syntax = parsed.syntax();
+    let system: Vec<(Option<SyntaxKind>, String)> = syntax
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::SystemName)
+        .map(|node| {
+            (
+                node.parent().map(|parent| parent.kind()),
+                node.text().to_string().trim().to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        system,
+        vec![
+            (
+                Some(SyntaxKind::ExtendsClause),
+                "__SYSTEM.IQueryInterface".to_string()
+            ),
+            (
+                Some(SyntaxKind::ImplementsClause),
+                "__system.IQueryInterface".to_string()
+            ),
+        ]
+    );
+    let implements = syntax
+        .descendants()
+        .find(|node| node.kind() == SyntaxKind::ImplementsClause)
+        .expect("IMPLEMENTS clause");
+    assert!(
+        implements
+            .children()
+            .any(|child| child.kind() == SyntaxKind::Name
+                && child.text().to_string().trim() == "ILamp"),
+        "{implements:#?}"
+    );
+}

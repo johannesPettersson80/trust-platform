@@ -181,13 +181,13 @@ fn refusals_carry_their_stable_codes() {
 #[test]
 fn eval_reads_one_exact_name() {
     // Specification 11 §6.8.1: `eval` is a bounded exact name read, answered as trust-runtime
-    // answers it, `{"value": "<the value's debug form>"}`. Worked: `Plant.Speed` is `Int(5)`;
-    // `Missing` names no variable. Catches an `eval` refused on a compiled program, and an
-    // expression parsed from its text.
+    // answers it, with the value's type and the value as JSON. Worked: `Plant.Speed` is the INT 5;
+    // `Missing` names no variable. Catches an `eval` refused on a compiled program, an expression
+    // parsed from its text, and a chip answering in another form than a computer.
     let held = Held::new(Vec::new());
     assert_eq!(
         result(ask(&held, "eval", json!({ "expr": " Plant.Speed " }))),
-        json!({ "value": "Int(5)" })
+        json!({ "type": "INT", "value": 5 })
     );
     assert_eq!(
         error(&ask(&held, "eval", json!({ "expr": "Missing" }))),

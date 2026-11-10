@@ -19,6 +19,7 @@ mod calls;
 mod compatibility;
 mod const_eval;
 mod expr;
+mod fb_init_args;
 mod helpers;
 mod literal_range;
 mod literals;
@@ -28,6 +29,7 @@ mod stmt;
 mod symbol_resolve;
 mod validation;
 
+pub(crate) use fb_init_args::check_fb_init_arguments;
 pub(crate) use literal_range::untyped_literal_out_of_range_message;
 pub(crate) use literals::{exact_int_literal_value, integer_type_range_fits, string_literal_info};
 pub use ops::{BinaryOp, UnaryOp};
@@ -67,9 +69,14 @@ pub struct TypeChecker<'a> {
     this_type: Option<TypeId>,
     super_type: Option<TypeId>,
     loop_stack: Vec<LoopContext>,
+    /// How many `__TRY` constructs the checked statement lies in (specification 06 §15).
+    try_depth: u32,
+    /// For each `__FINALLY` clause the checked statement lies in, the loops around it.
+    finally_loops: Vec<usize>,
     label_scopes: Vec<LabelScope>,
     expression_types: FxHashMap<(u32, u32), TypeId>,
     resolved_symbols: FxHashMap<(u32, u32), SymbolId>,
+    written_arguments: FxHashSet<(u32, u32)>,
 }
 
 pub(crate) struct ExprChecker<'a, 'b> {
@@ -142,6 +149,18 @@ impl<'a> TypeChecker<'a> {
 
     pub(crate) fn take_resolved_symbols(&mut self) -> FxHashMap<(u32, u32), SymbolId> {
         std::mem::take(&mut self.resolved_symbols)
+    }
+
+    pub(crate) fn take_written_arguments(&mut self) -> FxHashSet<(u32, u32)> {
+        std::mem::take(&mut self.written_arguments)
+    }
+
+    /// Records an argument expression that a call binds to an output or in-out parameter: the
+    /// call writes it (specification 28 §6, `crate::access`).
+    fn record_written_argument(&mut self, node: &SyntaxNode) {
+        let range = node.text_range();
+        self.written_arguments
+            .insert((u32::from(range.start()), u32::from(range.end())));
     }
 
     /// Records the symbol `node` resolved to: a name, a member, a call's callee or, for a call
@@ -253,6 +272,32 @@ fn is_statement_kind(kind: SyntaxKind) -> bool {
 fn first_expression_child(node: &SyntaxNode) -> Option<SyntaxNode> {
     node.children()
         .find(|child| is_expression_kind(child.kind()))
+}
+
+/// Whether `node`, inside any parentheses, is an `ADR(...)` call. `ADR` is a keyword, so the call
+/// is always the address-of operator: no user POU can take its name.
+fn is_explicit_adr(node: &SyntaxNode) -> bool {
+    let mut node = node.clone();
+    while node.kind() == SyntaxKind::ParenExpr {
+        match node.children().next() {
+            Some(inner) => node = inner,
+            None => return false,
+        }
+    }
+    node.kind() == SyntaxKind::AddrExpr
+}
+
+/// Whether `node` is `THIS` or `SUPER`, or CODESYS's `THIS^` or `SUPER^`, which name the same
+/// (specification 04).
+fn is_this_or_super(node: &SyntaxNode) -> bool {
+    let node = match node.kind() {
+        SyntaxKind::DerefExpr => match node.children().next() {
+            Some(inner) => inner,
+            None => return false,
+        },
+        _ => node.clone(),
+    };
+    matches!(node.kind(), SyntaxKind::ThisExpr | SyntaxKind::SuperExpr)
 }
 
 fn last_expression_child(node: &SyntaxNode) -> Option<SyntaxNode> {

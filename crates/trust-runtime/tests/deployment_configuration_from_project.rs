@@ -176,6 +176,7 @@ fn the_configuration_section_carries_runtime_and_io_settings() {
         // resource.cycle_interval_ms = 10
         cycle_interval_nanos: 10_000_000,
         control_debug_enabled: true,
+        control_start_paused: false,
         control_mode: ControlMode::Debug,
         log_level: LogLevel::Debug,
         // runtime.events.capacity = 200
@@ -257,6 +258,7 @@ fn defaults_fill_the_section_when_settings_are_absent() {
         cycle_interval_nanos: 20_000_000,
         // runtime.control.debug_enabled is absent and the mode defaults to production.
         control_debug_enabled: false,
+        control_start_paused: false,
         control_mode: ControlMode::Production,
         log_level: LogLevel::Warn,
         // runtime.events is absent: the section carries 0, the device's default.

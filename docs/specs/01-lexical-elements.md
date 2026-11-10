@@ -178,13 +178,16 @@ deviations:
 
 ```
 VAR_STAT
+VAR_INST
 PERSISTENT
 POINTER
 UNION, END_UNION
-NEW, __NEW, __DELETE
+NEW, __NEW, __DELETE, __ISVALIDREF, __QUERYINTERFACE
+__TRY, __CATCH, __FINALLY, __ENDTRY
 ADR, SIZEOF
 TEST_PROGRAM, END_TEST_PROGRAM
 TEST_FUNCTION_BLOCK, END_TEST_FUNCTION_BLOCK
+__SYSTEM
 ```
 
 `REFERENCE` is a **contextual** vendor keyword, not a reserved word: it is
@@ -203,7 +206,8 @@ reserved words above stay rejected as identifiers.
 `VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are defined
 here and in the runtime specification: function statics persist across calls, method statics persist per
 instance and per method, and `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` behaves as ordinary
-instance storage.
+instance storage. `VAR_INST` is CODESYS's keyword for a method's static: a method's `VAR_INST`
+section is its `VAR_STAT` section, and no other declaration has one (specification 04).
 
 ## 4. White Space (Section 6.1.4)
 

@@ -150,6 +150,10 @@ macro_rules! define_syntax_kind {
             /// A qualified name: `Namespace.Type`
             QualifiedName,
 
+            /// CODESYS's system interface in an EXTENDS or IMPLEMENTS list:
+            /// `__SYSTEM.IQueryInterface`
+            SystemName,
+
             /// A type reference
             TypeRef,
 
@@ -179,6 +183,15 @@ macro_rules! define_syntax_kind {
 
             /// Else branch
             ElseBranch,
+
+            /// CODESYS's exception handling: `__TRY ... __CATCH(e) ... __FINALLY ... __ENDTRY`
+            TryStmt,
+
+            /// The `__CATCH(e)` clause of a `TryStmt` and its statements
+            CatchClause,
+
+            /// The `__FINALLY` clause of a `TryStmt` and its statements
+            FinallyClause,
 
             /// Case statement: `CASE expr OF ... END_CASE`
             CaseStmt,
@@ -365,6 +378,7 @@ impl SyntaxKind {
             self,
             Self::AssignStmt
                 | Self::IfStmt
+                | Self::TryStmt
                 | Self::ForStmt
                 | Self::WhileStmt
                 | Self::RepeatStmt
@@ -450,6 +464,7 @@ macro_rules! define_syntax_kinds {
             SyntaxKind::ImplementsClause,
             SyntaxKind::Name,
             SyntaxKind::QualifiedName,
+            SyntaxKind::SystemName,
             SyntaxKind::TypeRef,
             SyntaxKind::ParamList,
             SyntaxKind::Param,
@@ -460,6 +475,9 @@ macro_rules! define_syntax_kinds {
             SyntaxKind::IfStmt,
             SyntaxKind::ElsifBranch,
             SyntaxKind::ElseBranch,
+            SyntaxKind::TryStmt,
+            SyntaxKind::CatchClause,
+            SyntaxKind::FinallyClause,
             SyntaxKind::CaseStmt,
             SyntaxKind::CaseBranch,
             SyntaxKind::CaseLabel,

@@ -11,13 +11,14 @@ export const DEFAULT_STRUCTURES = ["pid", "cascade", "feedforward", "smith", "sc
  * `form_tests.rs` pins; a fixture changes one only to show that the page follows the engine's answer. */
 export const ENGINE_FORM_FIELDS = {
   defaults: { structure: "pid", stateFamily: "LQR", searchFamily: "MPC", searchKeptStart: "zero", modeWhenTrue: "Auto", action: "direct",
-    bandConvention: "half-band", thresholdEquality: "at-or-beyond", ownLaw: "PI", trajectoryOwnLaw: "PID" },
+    bandConvention: "half-band", thresholdEquality: "at-or-beyond", ownLaw: "PI", gainForm: "parallel", trajectoryOwnLaw: "PID" },
   limits: { furtherOutputs: 3, estimatorStates: 3, searchCoefficients: 4, searchKeptValues: 3, groupMembersMinimum: 2 },
   /** The operating-point rows of a gain schedule: four, the first two required (C10). */
   schedulePoints: [{ required: true }, { required: true }, { required: false }, { required: false }],
   wording: { trueMeans: "TRUE means", notFound: "Not found in the code", notStated: "Not stated in the code" },
   choices: { modeWhenTrue: ["Auto", "Manual"], bandConventions: ["half-band", "full-band"], thresholdEqualities: ["at-or-beyond", "beyond"],
-    stateFamilies: ["LQR", "state-feedback", "LQG"], ownLaws: ["PI", "P", "PID"], derivativeOn: ["error", "measurement"],
+    stateFamilies: ["LQR", "state-feedback", "LQG"], ownLaws: ["PI", "P", "PID"], gainForms: ["parallel", "standard"],
+    derivativeOn: ["error", "measurement"],
     searchFamilies: ["MPC", "ratio", "split-range", "override", "gain-scheduled", "feedforward", "Smith", "lead-lag", "adaptive", "robust",
       "feedback-linearization", "observer-feedback"],
     keptStarts: ["zero", "output", "measurement"], actions: ["direct", "reverse"] },
@@ -44,6 +45,8 @@ export const ENGINE_FORM_FIELDS = {
       LQG: "LQG: the program estimates the states from the controlled output" },
     ownLaws: { PI: "PI: u = Kp·e + I, where I integrates Ki·e", P: "P: u = Kp·e plus the program's own offset",
       PID: "PID: u = Kp·e + I + D, where D is Kd times the rate of the error or measurement" },
+    gainForms: { parallel: "Parallel: the gains Kp, Ki and Kd",
+      standard: "Standard: the gain Kp, the reset time Ti and the derivative time Td, in seconds" },
     derivativeOn: { error: "The error", measurement: "The measurement" },
     searchFamilies: { MPC: "Model predictive control", ratio: "Ratio", "split-range": "Split range", override: "Override",
       "gain-scheduled": "Gain schedule", feedforward: "Feedforward", Smith: "Smith predictor", "lead-lag": "Lead/lag", adaptive: "Adaptive",
@@ -60,7 +63,7 @@ function form(): any {
 }
 
 /** The lists of the form model the engine answers for every program: empty unless a fixture names them (SetupFormModel). */
-const EMPTY_LISTS = { booleans: [], instances: [], loopNames: [], modes: [], pids: [], prefills: [], records: [], reals: [],
+const EMPTY_LISTS = { booleans: [], instances: [], loopNames: [], modes: [], modeMembers: {}, pids: [], prefills: [], records: [], reals: [],
   startupFlagInstances: [] };
 
 /** The setup form rendered in a DOM, with a setter that fires the events a user's edit fires. The model is the engine's answer (the

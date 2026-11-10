@@ -14,8 +14,13 @@ pub struct TypeRegistry {
     names: FxHashMap<SmolStr, TypeId>,
     /// Explicit-base named integer value types.
     named_value_types: FxHashSet<TypeId>,
+    /// Enumerations declared `{attribute 'to_string'}`, whose values `TO_STRING` writes as their
+    /// names under the CODESYS rules (specification 07 §2.7).
+    named_text_types: FxHashSet<TypeId>,
     /// IEC `STRUCT OVERLAP` types with shared addressed storage.
     overlapping_struct_types: FxHashSet<TypeId>,
+    /// The pack modes of structures declared with `{attribute 'pack_mode'}`.
+    struct_packs: FxHashMap<TypeId, u8>,
     /// Next type ID to assign.
     next_id: u32,
 }
@@ -27,7 +32,9 @@ impl TypeRegistry {
         types: FxHashMap<TypeId, Type>,
         names: FxHashMap<SmolStr, TypeId>,
         named_value_types: FxHashSet<TypeId>,
+        named_text_types: FxHashSet<TypeId>,
         overlapping_struct_types: FxHashSet<TypeId>,
+        struct_packs: FxHashMap<TypeId, u8>,
     ) -> Self {
         let next_id = types
             .keys()
@@ -39,7 +46,9 @@ impl TypeRegistry {
             types,
             names,
             named_value_types,
+            named_text_types,
             overlapping_struct_types,
+            struct_packs,
             next_id,
         }
     }
@@ -51,7 +60,9 @@ impl TypeRegistry {
             types: FxHashMap::default(),
             names: FxHashMap::default(),
             named_value_types: FxHashSet::default(),
+            named_text_types: FxHashSet::default(),
             overlapping_struct_types: FxHashSet::default(),
+            struct_packs: FxHashMap::default(),
             next_id: TypeId::USER_TYPES_START,
         };
 
@@ -158,6 +169,18 @@ impl TypeRegistry {
         self.named_value_types.contains(&type_id)
     }
 
+    /// Marks an enumeration as declared `{attribute 'to_string'}` (specification 07 §2.7).
+    pub fn mark_named_text_type(&mut self, type_id: TypeId) {
+        self.named_text_types.insert(type_id);
+    }
+
+    /// Returns whether the enumeration is declared `{attribute 'to_string'}`, so that `TO_STRING`
+    /// writes its values as their names under the CODESYS rules.
+    #[must_use]
+    pub fn is_named_text_type(&self, type_id: TypeId) -> bool {
+        self.named_text_types.contains(&type_id)
+    }
+
     /// Marks a structured type as an IEC `STRUCT OVERLAP` declaration.
     pub fn register_overlapping_struct_type(&mut self, type_id: TypeId) {
         self.overlapping_struct_types.insert(type_id);
@@ -167,6 +190,18 @@ impl TypeRegistry {
     #[must_use]
     pub fn is_overlapping_struct_type(&self, type_id: TypeId) -> bool {
         self.overlapping_struct_types.contains(&type_id)
+    }
+
+    /// Records the pack mode of a structure declared with `{attribute 'pack_mode'}`
+    /// (specification 02 §3.5.2).
+    pub fn register_struct_pack(&mut self, type_id: TypeId, mode: u8) {
+        self.struct_packs.insert(type_id, mode);
+    }
+
+    /// The pack mode of a structure declared with `{attribute 'pack_mode'}`.
+    #[must_use]
+    pub fn struct_pack(&self, type_id: TypeId) -> Option<u8> {
+        self.struct_packs.get(&type_id).copied()
     }
 
     /// Registers an array type.

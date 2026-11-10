@@ -18,6 +18,7 @@ use trust_control::study::current_model::CurrentModelSource;
 use trust_control::study::general_model_persistence::SuppliedModelSection;
 use trust_control::study::identify::IdentifySection;
 use trust_control::study::manual_identification::ManualIdentificationSection;
+use trust_control::study::record_requests::{keep_record_request, KeptRequest};
 use trust_control::study::{check_size, has_current_format, is_recording_id, Study, StudySection};
 
 const STUDY_FILE: &str = "study.json";
@@ -248,6 +249,17 @@ fn write_identify(
 ) -> Result<Study, Failure> {
     let mut next = study.clone();
     next.set_section(section)?;
+    // The study keeps each live recording's request, so that Fit refits any of them (B3.6).
+    if let Some(request) = &section.record_request {
+        keep_record_request(
+            &mut next,
+            &section.estimation_recording_id,
+            KeptRequest {
+                record_request: request.clone(),
+                scheduling_value: section.scheduling_value,
+            },
+        )?;
+    }
     let estimation = recording_to_save(
         project_root,
         study,

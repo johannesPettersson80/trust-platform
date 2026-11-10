@@ -140,6 +140,8 @@ pub enum TokenKind {
     KwVarConfig,
     #[token("VAR_STAT", ignore(case))]
     KwVarStat,
+    #[token("VAR_INST", ignore(case))]
+    KwVarInst,
     #[token("CONSTANT", ignore(case))]
     KwConstant,
     #[token("RETAIN", ignore(case))]
@@ -196,6 +198,8 @@ pub enum TokenKind {
     KwExtends,
     #[token("IMPLEMENTS", ignore(case))]
     KwImplements,
+    #[token("__SYSTEM", ignore(case))]
+    KwSystemDunder,
     #[token("THIS", ignore(case))]
     KwThis,
     #[token("SUPER", ignore(case))]
@@ -206,6 +210,18 @@ pub enum TokenKind {
     KwNewDunder,
     #[token("__DELETE", ignore(case))]
     KwDeleteDunder,
+    #[token("__ISVALIDREF", ignore(case))]
+    KwIsValidRefDunder,
+    #[token("__QUERYINTERFACE", ignore(case))]
+    KwQueryInterfaceDunder,
+    #[token("__TRY", ignore(case))]
+    KwTryDunder,
+    #[token("__CATCH", ignore(case))]
+    KwCatchDunder,
+    #[token("__FINALLY", ignore(case))]
+    KwFinallyDunder,
+    #[token("__ENDTRY", ignore(case))]
+    KwEndTryDunder,
     #[token("IF", ignore(case))]
     KwIf,
     #[token("THEN", ignore(case))]

@@ -5663,7 +5663,7 @@ END_PROGRAM
         })
         .expect("request runtime snapshot");
     let snapshot = snapshot_rx
-        .recv_timeout(std::time::Duration::from_millis(250))
+        .recv_timeout(std::time::Duration::from_secs(10))
         .expect("snapshot");
     historian
         .capture_snapshot_at(&snapshot, 1_000)

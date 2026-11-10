@@ -1,6 +1,24 @@
 use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::Value;
+use trust_runtime::RestartMode;
+
+#[path = "codesys_language_profile/call_after_init.rs"]
+mod call_after_init;
+#[path = "codesys_language_profile/fb_exit.rs"]
+mod fb_exit;
+#[path = "codesys_language_profile/fb_init.rs"]
+mod fb_init;
+#[path = "codesys_language_profile/frame_instances.rs"]
+mod frame_instances;
+#[path = "codesys_language_profile/init_after_fb_init.rs"]
+mod init_after_fb_init;
+#[path = "codesys_language_profile/instance_path.rs"]
+mod instance_path;
+#[path = "codesys_language_profile/noinit.rs"]
+mod noinit;
+#[path = "codesys_language_profile/online_change_calls.rs"]
+mod online_change_calls;
 
 // Specification 14: the project's `vendor_profile` selects the language rules of the runtime build
 // with its conversion rules. A function block that assigns its own input in its body is refused
@@ -59,6 +77,77 @@ fn the_iec_rules_refuse_a_block_that_assigns_its_own_input() {
 }
 
 /// The program of `source` built under the CODESYS profile and run for `cycles` cycles.
+// CG-A1: the dotted form `E_Mode.AUTO` of an enumeration value, which CODESYS writes everywhere and
+// requires for a `qualified_only` type, compiles wherever a value does: an initializer, a
+// comparison, a CASE label, a call argument and an assignment, under the CODESYS and the IEC
+// profiles (two-part access is IEC §6.4.4.2's type prefix). Worked by hand: the mode starts AUTO,
+// so the comparison is TRUE, CASE takes its second label (2), the call is TRUE, and SERVICE is
+// assigned. Catches the build refusing the type name as a variable ("the name E_Mode is not
+// compiled yet") and a member taken for another value.
+const DOTTED_ENUM: &str = r#"
+{attribute 'qualified_only'}
+TYPE E_Mode : (MANUAL, AUTO, SERVICE); END_TYPE
+
+FUNCTION IsAuto : BOOL
+VAR_INPUT
+    mode : E_Mode;
+END_VAR
+IsAuto := mode = E_Mode.AUTO;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    mode : E_Mode := E_Mode.AUTO;
+    viaCompare : BOOL;
+    viaCase : INT;
+    viaCall : BOOL;
+    assigned : E_Mode;
+    isService : BOOL;
+END_VAR
+viaCompare := mode = E_Mode.AUTO;
+CASE mode OF
+    E_Mode.MANUAL: viaCase := 1;
+    E_Mode.AUTO: viaCase := 2;
+ELSE
+    viaCase := 3;
+END_CASE
+viaCall := IsAuto(E_Mode.AUTO);
+assigned := E_Mode.SERVICE;
+isService := assigned = E_Mode#SERVICE;
+END_PROGRAM
+"#;
+
+#[test]
+fn a_dotted_enumeration_value_compiles_wherever_a_value_does() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(DOTTED_ENUM).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        assert_eq!(
+            harness.get_output("viaCompare"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("viaCase"),
+            Some(Value::Int(2)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("viaCall"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("isService"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+    }
+}
+
 fn codesys_run(source: &str, cycles: usize) -> TestHarness {
     let session =
         CompileSession::from_source(source).with_conversion_profile(ConversionProfile::Codesys);
@@ -67,6 +156,55 @@ fn codesys_run(source: &str, cycles: usize) -> TestHarness {
         harness.cycle();
     }
     harness
+}
+
+// Specification 04: under the CODESYS profile a method or function that never assigns its result
+// returns the default of its result type: 0, the first enumerator, the empty string, and 0 after a
+// bare `RETURN`. The variables start elsewhere (7, 'x', 9, 1.5), so a call that left them as they
+// were, or returned anything but the default, is caught; so is the build refusing the POUs (E206).
+#[test]
+fn an_unassigned_result_is_the_default_of_its_type() {
+    let harness = codesys_run(
+        r#"
+TYPE E_Mode : (MANUAL, AUTO); END_TYPE
+FUNCTION_BLOCK FB_A
+METHOD GetCount : INT
+END_METHOD
+METHOD GetMode : E_Mode
+END_METHOD
+METHOD GetText : STRING
+END_METHOD
+METHOD Early : DINT
+RETURN;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION Pick : REAL
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    fb : FB_A;
+    count : INT := 7;
+    isManual : BOOL;
+    text : STRING := 'x';
+    early : DINT := 9;
+    picked : REAL := 1.5;
+END_VAR
+count := fb.GetCount();
+isManual := fb.GetMode() = E_Mode#MANUAL;
+text := fb.GetText();
+early := fb.Early();
+picked := Pick();
+END_PROGRAM
+"#,
+        1,
+    );
+    assert_eq!(harness.get_output("count"), Some(Value::Int(0)));
+    assert_eq!(harness.get_output("isManual"), Some(Value::Bool(true)));
+    assert_eq!(harness.get_output("text"), Some(Value::String("".into())));
+    assert_eq!(harness.get_output("early"), Some(Value::DInt(0)));
+    assert_eq!(harness.get_output("picked"), Some(Value::Real(0.0)));
 }
 
 // DEV-028: under the CODESYS profile another POU writes and reads a function block's `VAR` member
@@ -379,6 +517,152 @@ END_PROGRAM
             harness.get_output("viaDeref"),
             Some(Value::Int(4)),
             "{conversions:?}"
+        );
+    }
+}
+
+// Specification 02 §4.1: `__ISVALIDREF(ref)` is TRUE once a reference is bound and FALSE while it is
+// NULL, for a `REFERENCE TO` and a `REF_TO`, under the CODESYS and the IEC profiles. Worked by hand:
+// both references start NULL (FALSE, FALSE over flags that started TRUE), are bound in the cycle
+// (TRUE, TRUE), and `byRef := NULL` unbinds one again (FALSE). Catches the test inverted, NULL taken
+// as bound, and the result fixed by the first binding.
+const IS_VALID_REF: &str = r#"
+PROGRAM Main
+VAR
+    value : INT;
+    byName : REFERENCE TO INT;
+    byRef : REF_TO INT;
+    nameBefore : BOOL := TRUE;
+    refBefore : BOOL := TRUE;
+    nameAfter : BOOL;
+    refAfter : BOOL;
+    refCleared : BOOL := TRUE;
+END_VAR
+nameBefore := __ISVALIDREF(byName);
+refBefore := __ISVALIDREF(byRef);
+byName REF= value;
+byRef := REF(value);
+nameAfter := __ISVALIDREF(byName);
+refAfter := __ISVALIDREF(byRef);
+byRef := NULL;
+refCleared := __ISVALIDREF(byRef);
+END_PROGRAM
+"#;
+
+#[test]
+fn is_valid_ref_tells_a_bound_reference_from_null() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(IS_VALID_REF).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        for (name, expected) in [
+            ("nameBefore", false),
+            ("refBefore", false),
+            ("nameAfter", true),
+            ("refAfter", true),
+            ("refCleared", false),
+        ] {
+            assert_eq!(
+                harness.get_output(name),
+                Some(Value::Bool(expected)),
+                "{profile:?}: {name}"
+            );
+        }
+    }
+}
+
+// Specification 04: `__QUERYINTERFACE(source, target)` is `target ?= source` then `target <> NULL`,
+// under the CODESYS and the IEC profiles. Worked by hand: the lamp implements IDimmer, so the first
+// query is TRUE and the dimmer gives the lamp's level 3; it does not implement IFan, so the second
+// query is FALSE and the fan, which named another block, is NULL afterwards. Catches the answer
+// inverted, the target left unchanged on a failed query (CODESYS sets it to 0), and a query that
+// never names the instance.
+const QUERY_INTERFACE: &str = r#"
+INTERFACE ILamp
+METHOD Toggle : BOOL
+END_METHOD
+END_INTERFACE
+
+INTERFACE IDimmer
+METHOD Dim : INT
+END_METHOD
+END_INTERFACE
+
+INTERFACE IFan
+METHOD Spin : BOOL
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Lamp IMPLEMENTS ILamp, IDimmer
+VAR
+    level : INT := 3;
+END_VAR
+METHOD PUBLIC Toggle : BOOL
+Toggle := TRUE;
+END_METHOD
+METHOD PUBLIC Dim : INT
+Dim := level;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_Fan IMPLEMENTS IFan
+METHOD PUBLIC Spin : BOOL
+Spin := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    lamp : FB_Lamp;
+    fanBlock : FB_Fan;
+    lampItf : ILamp;
+    dimmer : IDimmer;
+    fan : IFan;
+    found : BOOL;
+    level : INT;
+    missing : BOOL := TRUE;
+    fanCleared : BOOL;
+END_VAR
+lampItf := lamp;
+found := __QUERYINTERFACE(lampItf, dimmer);
+IF found THEN
+    level := dimmer.Dim();
+END_IF
+fan := fanBlock;
+missing := __QUERYINTERFACE(lampItf, fan);
+fanCleared := fan = NULL;
+END_PROGRAM
+"#;
+
+#[test]
+fn query_interface_answers_and_sets_the_target() {
+    for profile in [ConversionProfile::Codesys, ConversionProfile::Iec] {
+        let session = CompileSession::from_source(QUERY_INTERFACE).with_conversion_profile(profile);
+        let mut harness = TestHarness::from_session(session)
+            .unwrap_or_else(|error| panic!("{profile:?}: {error}"));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{profile:?}: {:?}", cycle.errors);
+        assert_eq!(
+            harness.get_output("found"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("level"),
+            Some(Value::Int(3)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("missing"),
+            Some(Value::Bool(false)),
+            "{profile:?}"
+        );
+        assert_eq!(
+            harness.get_output("fanCleared"),
+            Some(Value::Bool(true)),
+            "{profile:?}"
         );
     }
 }

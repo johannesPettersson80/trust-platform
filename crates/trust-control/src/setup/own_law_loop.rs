@@ -22,10 +22,10 @@ use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
-    InitialSource, InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, ModeBinding,
-    ModeWhenTrue, Parameter, ParameterBinding, PostScan, SampleTiming, Signals, Topology,
-    LOOP_SCHEMA_VERSION,
+    InitialSource, InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, Parameter,
+    ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
+use crate::tuning::project_seed::GainForm;
 
 /// The law a program computes itself: proportional, proportional and integral, or all three parts (C2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -101,12 +101,22 @@ pub struct OwnLawLoopDraft {
     pub manual_output: String,
     /// The variable that holds the proportional gain, with its range.
     pub proportional_gain: OwnLawGain,
-    /// The variable that holds the integral gain, for PI and PID.
+    /// The form the program holds its settings in: the parallel gains, or in standard form the reset and derivative times (C2,
+    /// N6.8); parallel when the draft names none.
+    #[serde(default)]
+    pub form: GainForm,
+    /// The variable that holds the integral gain, for PI and PID in parallel form.
     pub integral_gain: Option<OwnLawGain>,
+    /// The variable that holds the reset time `Ti` in seconds, for PI and PID in standard form.
+    #[serde(default)]
+    pub reset_time: Option<OwnLawGain>,
     /// The variable that holds the integral term, in the output's unit, for PI and PID.
     pub integral_term: Option<String>,
-    /// The variable that holds the derivative gain, for PID.
+    /// The variable that holds the derivative gain, for PID in parallel form.
     pub derivative_gain: Option<OwnLawGain>,
+    /// The variable that holds the derivative time `Td` in seconds, for PID in standard form.
+    #[serde(default)]
+    pub derivative_time: Option<OwnLawGain>,
     /// The variable that holds the previous error or measurement, for PID.
     pub derivative_state: Option<String>,
     /// Whether the derivative is taken from the error or from the measurement, for PID.
@@ -156,7 +166,10 @@ pub fn own_law_loop_definition(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty());
-    let application: Vec<InitializedState> = startup.map(startup_state).into_iter().collect();
+    let application: Vec<InitializedState> = startup
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
+        .into_iter()
+        .collect();
     let controller = own_law_controller(
         draft,
         program,
@@ -207,10 +220,7 @@ pub fn own_law_loop_definition(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: task.name.clone(),
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: draft.mode.binding(),
             parameters,
         }),
         parameter_purpose: None,
@@ -321,6 +331,9 @@ fn law_parts(draft: &OwnLawLoopDraft) -> Result<Parts<'_>, Failure> {
         "proportional gain",
         "own.proportionalGain",
     )?;
+    if draft.form == GainForm::Standard {
+        return standard_parts(draft, law);
+    }
     let integral = if draft.law == OwnLawFamily::P {
         None
     } else {
@@ -350,6 +363,53 @@ fn law_parts(draft: &OwnLawLoopDraft) -> Result<Parts<'_>, Failure> {
     };
     Ok(Parts {
         integral,
+        derivative,
+    })
+}
+
+/// The parts of a law in standard form (C2, N6.8): it always integrates, so it is PI or PID, with the variable of its reset time `Ti`,
+/// whose range lies above zero, and of its integral term; a PID also with the variable of its derivative time `Td`, whose range starts at
+/// zero or above, of its previous value and where that is taken from.
+///
+/// # Errors
+/// The law is P, or a time or a term it needs is blank, or a time's range is not an interval of times.
+fn standard_parts<'a>(draft: &'a OwnLawLoopDraft, law: &str) -> Result<Parts<'a>, Failure> {
+    if draft.law == OwnLawFamily::P {
+        return Err(refuse_settings(texts::standard_form_integrates()).with_field("own.law"));
+    }
+    let reset = draft.reset_time.as_ref().ok_or_else(|| {
+        refuse_settings(&texts::reset_time_needed(law)).with_field("own.resetTime")
+    })?;
+    checked_gain(reset, "reset time", "own.resetTime")?;
+    if reset.minimum <= 0.0 {
+        return Err(
+            refuse_settings(texts::reset_time_above_zero()).with_field("own.resetTime.minimum")
+        );
+    }
+    let term = named(draft.integral_term.as_deref()).ok_or_else(|| {
+        refuse_settings(&texts::integral_term_needed(law)).with_field("own.integralTerm")
+    })?;
+    let derivative = if draft.law == OwnLawFamily::Pid {
+        let time = draft.derivative_time.as_ref().ok_or_else(|| {
+            refuse_settings(texts::derivative_time_needed()).with_field("own.derivativeTime")
+        })?;
+        checked_gain(time, "derivative time", "own.derivativeTime")?;
+        if time.minimum < 0.0 {
+            return Err(refuse_settings(texts::derivative_time_not_negative())
+                .with_field("own.derivativeTime.minimum"));
+        }
+        let state = named(draft.derivative_state.as_deref()).ok_or_else(|| {
+            refuse_settings(texts::derivative_state_needed()).with_field("own.derivativeState")
+        })?;
+        let on = draft.derivative_on.ok_or_else(|| {
+            refuse_settings(texts::derivative_on_needed()).with_field("own.derivativeOn")
+        })?;
+        Some((time, state, on))
+    } else {
+        None
+    };
+    Ok(Parts {
+        integral: Some((reset, term)),
         derivative,
     })
 }
@@ -491,12 +551,20 @@ fn parallel_seed(draft: &OwnLawLoopDraft, parts: Parts<'_>) -> Value {
         "family": family_name(draft.law),
         "proportionalSymbol": draft.proportional_gain.symbol,
     });
+    // A law in standard form names its reset and derivative times (C2, N6.8).
+    let (integral_key, derivative_key) = match draft.form {
+        GainForm::Parallel => ("integralSymbol", "derivativeSymbol"),
+        GainForm::Standard => ("resetTimeSymbol", "derivativeTimeSymbol"),
+    };
     if let Some(object) = seed.as_object_mut() {
+        if draft.form == GainForm::Standard {
+            object.insert("form".to_string(), json!("standard"));
+        }
         if let Some((gain, _)) = parts.integral {
-            object.insert("integralSymbol".to_string(), json!(gain.symbol));
+            object.insert(integral_key.to_string(), json!(gain.symbol));
         }
         if let Some((gain, _, _)) = parts.derivative {
-            object.insert("derivativeSymbol".to_string(), json!(gain.symbol));
+            object.insert(derivative_key.to_string(), json!(gain.symbol));
         }
     }
     seed
@@ -588,27 +656,30 @@ fn gain_parameters(
 ) -> Result<Vec<Parameter>, Failure> {
     let output = manipulated_variable.unit.as_str();
     let process = process_variable.unit.as_str();
+    // A law in standard form holds its reset and derivative times in seconds (C2, N6.8).
+    let (proportional, integral, derivative) = match draft.form {
+        GainForm::Parallel => (
+            ("parallel proportional gain", format!("{output}/{process}")),
+            ("parallel integral gain", format!("{output}/({process}*s)")),
+            ("parallel derivative gain", format!("{output}*s/{process}")),
+        ),
+        GainForm::Standard => (
+            ("standard proportional gain", format!("{output}/{process}")),
+            ("reset time", "s".to_owned()),
+            ("derivative time", "s".to_owned()),
+        ),
+    };
     let mut parameters = vec![gain_parameter(
         catalog,
         &draft.proportional_gain,
-        format!("{output}/{process}"),
-        "parallel proportional gain",
+        proportional.1,
+        proportional.0,
     )?];
     if let Some((gain, _)) = parts.integral {
-        parameters.push(gain_parameter(
-            catalog,
-            gain,
-            format!("{output}/({process}*s)"),
-            "parallel integral gain",
-        )?);
+        parameters.push(gain_parameter(catalog, gain, integral.1, integral.0)?);
     }
     if let Some((gain, _, _)) = parts.derivative {
-        parameters.push(gain_parameter(
-            catalog,
-            gain,
-            format!("{output}*s/{process}"),
-            "parallel derivative gain",
-        )?);
+        parameters.push(gain_parameter(catalog, gain, derivative.1, derivative.0)?);
     }
     Ok(parameters)
 }

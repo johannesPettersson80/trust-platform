@@ -456,6 +456,60 @@ END_TEST_PROGRAM
     );
 }
 
+/// Specification 22: a `PROGRAM` with `{attribute 'test'}` runs as a test program beside the
+/// project's configuration, and its assertions decide its outcome with specification 07's words.
+/// Catches a CODESYS project's test discovered but never invoked, the configuration refused for it
+/// ("unbound PROGRAM"), and a failed assertion of such a test reported as a pass.
+#[test]
+fn a_program_with_the_test_attribute_runs_as_a_test() {
+    let outcomes = compiled_outcomes(
+        "test-attribute",
+        r#"
+CONFIGURATION Cfg
+    RESOURCE Res ON PLC
+        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM MainInst WITH MainTask : PRG_Tank;
+    END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM PRG_Tank
+END_PROGRAM
+
+{attribute 'test'}
+PROGRAM PRG_TestLevelStartsAt40
+VAR
+    level : INT := 40;
+END_VAR
+ASSERT_EQUAL(EXPECTED := INT#40, ACTUAL := level);
+END_PROGRAM
+
+{attribute 'test'}
+PROGRAM PRG_TestLevelIsFull
+VAR
+    level : INT := 40;
+END_VAR
+ASSERT_EQUAL(EXPECTED := INT#100, ACTUAL := level);
+END_PROGRAM
+"#,
+        &["PRG_TestLevelStartsAt40", "PRG_TestLevelIsFull"],
+    );
+    assert_eq!(
+        outcomes,
+        vec![
+            (
+                "PRG_TestLevelStartsAt40".to_owned(),
+                TestOutcome::Passed,
+                String::new()
+            ),
+            (
+                "PRG_TestLevelIsFull".to_owned(),
+                TestOutcome::Failed,
+                "ASSERT_EQUAL failed: expected 100, actual 40".to_owned()
+            ),
+        ]
+    );
+}
+
 #[test]
 fn run_test_executes_test_program_when_configuration_is_present() {
     let project = unique_temp_dir("config-test-program-project");
@@ -649,10 +703,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 0,
                 line: 4,
                 source_line: Some("ASSERT_TRUE(TRUE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Passed,
             message: None,
             duration_ms: 1,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -662,10 +720,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 10,
                 line: 12,
                 source_line: Some("ASSERT_EQUAL(INT#2, X);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Failed,
             message: Some("ASSERT_EQUAL failed: expected <2> & got 3".to_string()),
             duration_ms: 2,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
         ExecutedTest {
             case: DiscoveredTest {
@@ -675,10 +737,14 @@ fn sample_results() -> Vec<ExecutedTest> {
                 byte_offset: 20,
                 line: 20,
                 source_line: Some("ASSERT_TRUE(FALSE);".to_string()),
+                cycles: None,
             },
             outcome: TestOutcome::Error,
             message: Some("runtime <panic>".to_string()),
             duration_ms: 3,
+            cycles: None,
+            failed_at: None,
+            assertion: None,
         },
     ]
 }
@@ -735,6 +801,7 @@ fn list_output_contract() {
             byte_offset: 0,
             line: 1,
             source_line: None,
+            cycles: None,
         },
         DiscoveredTest {
             kind: TestKind::FunctionBlock,
@@ -743,6 +810,7 @@ fn list_output_contract() {
             byte_offset: 12,
             line: 24,
             source_line: None,
+            cycles: None,
         },
     ];
     let text = render_list_output(Path::new("/tmp/project"), &tests, 2, None);
@@ -873,15 +941,17 @@ fn codesys_project(prefix: &str, tests: &str) -> std::path::PathBuf {
 }
 
 // docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the CODESYS
-// rules an enumerated value as text is its value's name, as a STRING or a WSTRING, also for an
-// enumeration with given values. A wrong compiled program spells the base integer ('1' for
-// Color#Green), which the native generator did until 6 November 2026.
+// rules TO_STRING and TO_WSTRING write a value of an enumeration declared {attribute 'to_string'} as
+// its name, as a STRING or a WSTRING, also for an enumeration with given values (the vendor's help,
+// Example 293). A wrong compiled program spells the base integer ('1' for Color#Green).
 #[test]
 fn run_test_spells_an_enumerated_value_as_its_name_under_the_codesys_rules() {
     let project = codesys_project(
         "codesys-enumerated-names",
         r#"
+{attribute 'to_string'}
 TYPE Color : (Red, Green, Blue); END_TYPE
+{attribute 'to_string'}
 TYPE Mode : (Off := 0, Auto := 5, Hand := 9); END_TYPE
 
 TEST_PROGRAM EnumeratedValuesSpellTheirNames
@@ -897,6 +967,48 @@ Name := TO_STRING(Way);
 ASSERT_EQUAL(EXPECTED := 'Hand', ACTUAL := Name);
 WideName := TO_WSTRING(Shade);
 ASSERT_TRUE(IN := WideName = "Green");
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("CODESYS-rules tests run");
+    assert_eq!(payload["summary"]["passed"], 1, "{payload}");
+    assert_eq!(payload["summary"]["total"], 1, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+// docs/specs/07-standard-functions.md 2.7 and docs/IEC_DEVIATIONS.md DEV-036: under the CODESYS
+// rules TO_STRING and TO_WSTRING write a value of an enumeration without {attribute 'to_string'} as
+// its number, as CODESYS does ("instead of the numeric value" only with the attribute, the vendor's
+// help, Example 293), and a typed INT_TO_STRING writes its number even with the attribute. Worked by
+// hand: Color#Green is 1, Mode#Hand is 9. Catches the name written for an enumeration without the
+// attribute, which truST did from 0.32.0, and the name written by a typed conversion.
+#[test]
+fn run_test_spells_an_enumerated_value_as_its_number_without_the_to_string_attribute() {
+    let project = codesys_project(
+        "codesys-enumerated-numbers",
+        r#"
+TYPE Color : (Red, Green, Blue); END_TYPE
+TYPE Mode : (Off := 0, Auto := 5, Hand := 9); END_TYPE
+{attribute 'to_string'}
+TYPE Named : (First, Second); END_TYPE
+
+TEST_PROGRAM EnumeratedValuesSpellTheirNumbers
+VAR
+    Shade : Color := Color#Green;
+    Way : Mode := Mode#Hand;
+    Pick : Named := Named#Second;
+    Name : STRING;
+    WideName : WSTRING;
+END_VAR
+Name := TO_STRING(Shade);
+ASSERT_EQUAL(EXPECTED := '1', ACTUAL := Name);
+Name := TO_STRING(Way);
+ASSERT_EQUAL(EXPECTED := '9', ACTUAL := Name);
+WideName := TO_WSTRING(Shade);
+ASSERT_TRUE(IN := WideName = "1");
+Name := INT_TO_STRING(Pick);
+ASSERT_EQUAL(EXPECTED := '1', ACTUAL := Name);
 END_TEST_PROGRAM
 "#,
     );
@@ -1326,9 +1438,13 @@ fn a_device_runs_the_tests_compiled_for_it() {
     let on_device = TestRunner::Device {
         port: "tcp://127.0.0.1:5555".into(),
         target: "esp32c6".into(),
+        token: None,
     };
-    assert_eq!(TestRunner::of(device()), on_device);
-    assert_eq!(TestRunner::of(None), TestRunner::Native);
+    assert_eq!(TestRunner::of(device(), None), on_device);
+    assert_eq!(TestRunner::of(None, None), TestRunner::Native);
+    // Specification 34 PORT-06: the device's token is never printed, not even in a runner's debug text.
+    let with_token = format!("{:?}", TestRunner::of(device(), Some("s3cret".into())));
+    assert!(!with_token.contains("s3cret"), "{with_token}");
 }
 
 /// IEC 61131-3 §6.1.2: an identifier is a letter or an underline followed by letters, digits
@@ -1364,4 +1480,212 @@ fn a_namespaced_test_block_gets_a_runner_with_a_valid_unique_name() {
         runners[1],
         "stable"
     );
+}
+
+// docs/specs/02-data-types.md 3.5.1 and docs/specs/44-native-execution.md §6.4, §6.6: a value of a
+// DUT that `EXTENDS` another (`TYPE Derived EXTENDS Base`, the fields of the base lying first in
+// the derived one) gives its base part where the base's type is wanted: a method's or function's
+// input (IEC §6.6.1.2.2), an assignment, into a `STRUCT OVERLAP` member included, and a call's
+// result. Worked by hand: the copy takes the base's fields, so the callee reads 'SHT-1' and
+// 'Shutter 1' of a `stSelectMaster`, an `stA` copy of an `stC` reads 'ABCDEFGH' and -5 (the own
+// fields 6 and 7 are no part of it), an overlap's `stPoint` member holds 11 and 22 of a
+// `stPoint3`, which the overlap's `iWords[0]` and `iWords[1]` read in its backing, and a result's
+// base part is 41. A method's input is a copy taken at the call: the method writes 99 to the
+// caller's `stWide.iA` through its in-out and then still reads 11 from its input. A wrong
+// generator refuses to build every one of the copies, which it did until #338: `an assignment
+// between different types is not compiled yet (specification 44 NX-09)`; one that binds the input
+// to the caller's variable reads 99, and one that writes the overlap's member outside its backing
+// leaves the words 0.
+#[test]
+fn run_test_compiles_the_derived_to_base_dut_copies() {
+    let project = codesys_project(
+        "codesys-dut-extends-copies",
+        r#"
+TYPE stEntity : STRUCT
+    sID : STRING[32];
+    sName : STRING[63];
+END_STRUCT
+END_TYPE
+
+TYPE stSelectMaster EXTENDS stEntity : STRUCT
+    eMode : INT;
+    sCmd : STRING[80];
+END_STRUCT
+END_TYPE
+
+TYPE stA : STRUCT
+    s : STRING[8];
+    i : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stB EXTENDS stA : STRUCT
+    j : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stC EXTENDS stB : STRUCT
+    k : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stPoint : STRUCT
+    iA : INT;
+    iB : INT;
+END_STRUCT
+END_TYPE
+
+TYPE stPoint3 EXTENDS stPoint : STRUCT
+    iC : INT;
+END_STRUCT
+END_TYPE
+
+TYPE ovCarrier : STRUCT OVERLAP
+    stBase AT %B0 : stPoint;
+    iWords AT %B0 : ARRAY[0..1] OF INT;
+END_STRUCT
+END_TYPE
+
+FUNCTION getWide : stPoint3
+VAR
+    stLocal : stPoint3;
+END_VAR
+    stLocal.iA := 41;
+    stLocal.iB := 42;
+    stLocal.iC := 43;
+    getWide := stLocal;
+END_FUNCTION
+
+FUNCTION_BLOCK fbPayloadSelect
+VAR
+    SeenID : STRING[32];
+    SeenName : STRING[63];
+    Calls : INT;
+END_VAR
+Calls := Calls + 1;
+METHOD PUBLIC mBuildState : BOOL
+VAR_INPUT
+    stEntityIn : stEntity;
+END_VAR
+    SeenID := stEntityIn.sID;
+    SeenName := stEntityIn.sName;
+    mBuildState := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK fbTake
+VAR
+    Seen : INT;
+END_VAR
+Seen := 0;
+METHOD PUBLIC mTake : BOOL
+VAR_INPUT
+    stEntityIn : stPoint;
+END_VAR
+    Seen := stEntityIn.iA;
+    mTake := TRUE;
+END_METHOD
+
+METHOD PUBLIC mTakeAfterChange : BOOL
+VAR_INPUT
+    stEntityIn : stPoint;
+END_VAR
+VAR_IN_OUT
+    stSource : stPoint3;
+END_VAR
+    stSource.iA := 99;
+    Seen := stEntityIn.iA;
+    mTakeAfterChange := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+
+TEST_PROGRAM AMethodInputTakesTheDerivedValueBasePart
+VAR
+    fbPS : fbPayloadSelect;
+    stShutters : stSelectMaster;
+    Seen : STRING[63];
+    OK : BOOL;
+END_VAR
+stShutters.sID := 'SHT-1';
+stShutters.sName := 'Shutter 1';
+stShutters.eMode := 7;
+stShutters.sCmd := 'UP';
+OK := fbPS.mBuildState(stEntityIn := stShutters);
+Seen := fbPS.SeenName;
+ASSERT_TRUE(IN := OK);
+ASSERT_EQUAL(EXPECTED := 'SHT-1', ACTUAL := fbPS.SeenID);
+ASSERT_EQUAL(EXPECTED := 'Shutter 1', ACTUAL := Seen);
+END_TEST_PROGRAM
+
+TEST_PROGRAM AnAssignmentTakesTheBasePartOfTheChain
+VAR
+    stDeep : stC;
+    stBase : stA;
+    GotS : STRING[8];
+    GotI : INT;
+END_VAR
+stDeep.s := 'ABCDEFGH';
+stDeep.i := -5;
+stDeep.j := 6;
+stDeep.k := 7;
+stBase := stDeep;
+GotS := stBase.s;
+GotI := stBase.i;
+ASSERT_EQUAL(EXPECTED := 'ABCDEFGH', ACTUAL := GotS);
+ASSERT_EQUAL(EXPECTED := INT#-5, ACTUAL := GotI);
+END_TEST_PROGRAM
+
+TEST_PROGRAM AnOverlapMemberTakesTheBasePartOfADerivedValue
+VAR
+    stWide : stPoint3;
+    ov : ovCarrier;
+    GotA : INT;
+    GotB : INT;
+END_VAR
+stWide.iA := 11;
+stWide.iB := 22;
+stWide.iC := 33;
+ov.stBase := stWide;
+GotA := ov.stBase.iA;
+GotB := ov.stBase.iB;
+ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := GotA);
+ASSERT_EQUAL(EXPECTED := INT#22, ACTUAL := GotB);
+ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := ov.iWords[0]);
+ASSERT_EQUAL(EXPECTED := INT#22, ACTUAL := ov.iWords[1]);
+END_TEST_PROGRAM
+
+TEST_PROGRAM ACallResultGivesItsBasePart
+VAR
+    stBase : stPoint;
+    OK : BOOL;
+    fbPS : fbTake;
+END_VAR
+stBase := getWide();
+ASSERT_EQUAL(EXPECTED := INT#41, ACTUAL := stBase.iA);
+OK := fbPS.mTake(stEntityIn := getWide());
+ASSERT_TRUE(IN := OK);
+ASSERT_EQUAL(EXPECTED := INT#41, ACTUAL := fbPS.Seen);
+END_TEST_PROGRAM
+
+TEST_PROGRAM AMethodInputIsACopyTakenAtTheCall
+VAR
+    stWide : stPoint3;
+    OK : BOOL;
+    fbPS : fbTake;
+END_VAR
+stWide.iA := 11;
+stWide.iB := 22;
+stWide.iC := 33;
+OK := fbPS.mTakeAfterChange(stEntityIn := stWide, stSource := stWide);
+ASSERT_TRUE(IN := OK);
+ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := fbPS.Seen);
+ASSERT_EQUAL(EXPECTED := INT#99, ACTUAL := stWide.iA);
+END_TEST_PROGRAM
+"#,
+    );
+    let payload =
+        run_test_json(Some(project.clone()), None, false, 0).expect("DUT copies build and run");
+    assert_eq!(payload["summary"]["total"], 5, "{payload}");
+    assert_eq!(payload["summary"]["passed"], 5, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
 }

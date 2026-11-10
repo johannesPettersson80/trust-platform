@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use super::{
     cascade_pairs, decode_catalog_answer, own_measurement, pid_candidates, pid_parameter_records,
-    CascadePair, CompiledCatalog, CompiledTask, ModeEvidence, PidCandidate,
+    CascadePair, CompiledCatalog, CompiledTask, GlobalOwner, ModeEvidence, PidCandidate,
     MAXIMUM_CATALOG_ENTRIES, PID_PARAMETERS,
 };
 use crate::failure::Failure;
@@ -596,5 +596,137 @@ fn the_own_measurement_is_the_pids_process_value_state() {
     assert_eq!(
         own_measurement("P1.Controller"),
         "P1.Controller.StateValue.ProcessValue"
+    );
+}
+
+/// Specification 35 A6.1: the compiled answer names an enumeration's members, from which a loop's enumeration mode is checked;
+/// any other symbol has none. Catches the members dropped as the answer is read, which would refuse every enumeration mode.
+#[test]
+fn an_enumerations_members_are_read_from_the_compiled_answer() {
+    let catalog = decode(json!({
+        "symbols": [
+            { "symbol": "P1.Mode", "type": "E_Mode", "members": ["Off", "Manual", "Auto"] },
+            { "symbol": "P1.AutoMode", "type": "BOOL" }
+        ],
+        "controllers": [],
+        "links": [],
+        "writes": []
+    }));
+    let mode = &catalog.symbols[0];
+    assert_eq!(mode.members, ["Off", "Manual", "Auto"]);
+    assert!(mode.has_member("MANUAL") && mode.has_member("auto") && !mode.has_member("Automatic"));
+    assert_eq!(catalog.symbols[1].members, Vec::<String>::new());
+}
+
+/// Specification 35 C1: the answer's `startupFlags` give each startup flag's value once the startup has run, and a flag the code
+/// shows neither way is TRUE, as `IF NOT <flag> THEN … <flag> := TRUE` gives it. Catches the facts dropped in decoding, an entry
+/// that is no boolean taken for one, and an unknown flag taken for FALSE.
+#[test]
+fn startup_flags_decode_with_their_values_once_the_startup_has_run() {
+    let mut control = single_loop_json();
+    control["startupFlags"] =
+        json!({ "Main.bInit": false, "Main.Initialized": true, "Main.Broken": 1 });
+    let catalog = decode(control);
+    assert_eq!(
+        catalog.startup_flags.into_iter().collect::<Vec<_>>(),
+        vec![
+            ("Main.Initialized".to_owned(), true),
+            ("Main.bInit".to_owned(), false)
+        ]
+    );
+    let catalog = decode({
+        let mut control = single_loop_json();
+        control["startupFlags"] = json!({ "Main.bInit": false });
+        control
+    });
+    assert!(!catalog.startup_done_value("MAIN.BINIT"));
+    assert!(catalog.startup_done_value("Main.Other"));
+}
+
+/// Protocol annex E2.3, worked case by case, as the runtime's operations judge it: a global that no program writes is any task's,
+/// `$background` included; one that only programs outside every task write is `$background`'s alone; one that the programs of a
+/// task write is that task's, the names compared without regard to case, as IEC names are; and one that no single task owns is no
+/// task's, `$background` included. Each refusal names the global, who writes it and the loop's task. Catches a background global
+/// taken for any task's, a shared one taken for `$background`'s, and a task's name compared with its case.
+#[test]
+fn a_globals_owner_admits_only_the_task_that_may_write_it() {
+    let owned_by_fast = GlobalOwner::Task {
+        task: "FastTask".to_string(),
+    };
+    for (owner, task) in [
+        (&GlobalOwner::Unwritten, "MainTask"),
+        (&GlobalOwner::Unwritten, "$background"),
+        (&GlobalOwner::Background, "$background"),
+        (&owned_by_fast, "FastTask"),
+        (&owned_by_fast, "FASTTASK"),
+    ] {
+        assert_eq!(owner.check("GVL.lrA", task), Ok(()), "{owner:?} in {task}");
+    }
+    assert_eq!(
+        GlobalOwner::Background.check("GVL.lrA", "MainTask"),
+        Err(
+            "GVL.lrA is a global that only programs outside every task write, so the loop's task MainTask cannot write it. Run the \
+             loop with the background programs, or let only the loop's task write GVL.lrA."
+                .to_string()
+        )
+    );
+    assert_eq!(
+        owned_by_fast.check("GVL.lrA", "$background"),
+        Err(
+            "GVL.lrA is a global that task FastTask writes, so the loop's task $background cannot write it. Run the loop in task \
+             FastTask, or let only the loop's task write GVL.lrA."
+                .to_string()
+        )
+    );
+    assert_eq!(
+        GlobalOwner::Shared.check("GVL.lrA", "$background"),
+        Err(
+            "GVL.lrA is a global that no single task owns: the programs of several tasks write it, directly or through the POUs \
+             they call, or a method that an interface's call may run writes it. Let only the loop's task write GVL.lrA."
+                .to_string()
+        )
+    );
+}
+
+/// Specification 35 B1.3 and protocol annex E2.3: a symbol's owner is read as the catalog states it, one of four kinds. A malformed
+/// owner is dropped and the symbol kept, as a program's member, and the runtime's operation still checks it. Catches one kind read
+/// as another, an owner without its task's name taken as a task's, and a symbol lost with its malformed owner.
+#[test]
+fn a_symbols_owner_is_read_as_the_catalog_states_it_and_a_malformed_one_is_dropped() {
+    let catalog = decode(json!({
+        "symbols": [
+            { "symbol": "GVL.lrA", "type": "LREAL", "owner": { "kind": "task", "task": "FastTask" } },
+            { "symbol": "GVL.lrB", "type": "LREAL", "owner": { "kind": "unwritten" } },
+            { "symbol": "GVL.lrC", "type": "LREAL", "owner": { "kind": "background" } },
+            { "symbol": "GVL.lrD", "type": "LREAL", "owner": { "kind": "shared" } },
+            { "symbol": "GVL.lrE", "type": "LREAL", "owner": { "kind": "task" } },
+            { "symbol": "GVL.lrF", "type": "LREAL", "owner": { "kind": "nobody" } },
+            { "symbol": "GVL.lrG", "type": "LREAL", "owner": "FastTask" },
+            { "symbol": "P1.lrLocal", "type": "LREAL" }
+        ],
+        "controllers": [], "links": [], "writes": []
+    }));
+    let read = catalog
+        .symbols
+        .iter()
+        .map(|entry| (entry.symbol.as_str(), entry.owner.clone()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        read,
+        vec![
+            (
+                "GVL.lrA",
+                Some(GlobalOwner::Task {
+                    task: "FastTask".to_string()
+                })
+            ),
+            ("GVL.lrB", Some(GlobalOwner::Unwritten)),
+            ("GVL.lrC", Some(GlobalOwner::Background)),
+            ("GVL.lrD", Some(GlobalOwner::Shared)),
+            ("GVL.lrE", None),
+            ("GVL.lrF", None),
+            ("GVL.lrG", None),
+            ("P1.lrLocal", None),
+        ]
     );
 }

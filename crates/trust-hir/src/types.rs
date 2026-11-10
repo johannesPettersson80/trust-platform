@@ -6,6 +6,7 @@
 mod builtins;
 mod compat;
 mod defs;
+mod pack;
 mod registry;
 mod strings;
 
@@ -18,6 +19,7 @@ pub use defs::{
     ArrayDimensionExt, InitializerCatalog, InitializerId, InitializerRecord, StructField, Type,
     TypeId, UnionVariant,
 };
+pub use pack::{pack_alignment, packed_layout, parse_pack_mode, PackedLayout};
 pub use registry::TypeRegistry;
 pub use strings::{
     checked_string_length, StringLengthError, DEFAULT_STRING_LENGTH, MAX_STRING_LENGTH,

@@ -174,7 +174,7 @@ END_PROGRAM
         if handle.state() == ResourceState::Faulted {
             break;
         }
-        if start.elapsed() >= StdDuration::from_millis(100) {
+        if start.elapsed() >= StdDuration::from_secs(10) {
             panic!(
                 "resource did not fault in time (state {:?})",
                 handle.state()

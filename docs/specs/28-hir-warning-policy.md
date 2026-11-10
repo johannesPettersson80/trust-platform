@@ -170,11 +170,42 @@ receive a guessed I/O warning.
 
 ## 6. Shared global task hazards
 
-`SharedGlobalTaskHazard` is emitted when one resolved global is accessed by
-programs assigned to more than one task and at least one participating task
-writes it. Multiple programs on the same task do not by themselves trigger
-the warning. Cross-file and namespaced globals are compared by resolved
-identity, not by an unqualified spelling guess.
+`SharedGlobalTaskHazard` (`W012`) is emitted for a resolved global that
+programs assigned to more than one task access, when that access can race:
+
+- two or more of those tasks write it, as the CODESYS Static Analysis rule
+  SA0006 "Write access from several tasks" reports; or
+- one task writes it, another task reads it, and its data is not atomic, as
+  SA0103 reports for non-atomic data: `STRING` and `WSTRING`, arrays,
+  structures, unions, function block and class instances, and 64-bit values.
+  The 64-bit values are `LINT`, `ULINT`, `LWORD`, `LREAL`, `LTIME`, `LDATE`,
+  `LTOD` and `LDT`, and also `TIME`, `DATE`, `TOD` and `DT`, which truST
+  stores in eight bytes (specification 02). truST also runs on 32-bit chips,
+  where a 64-bit access takes two, so no project target makes 64-bit data
+  atomic.
+
+A global that one task writes and other tasks only read is silent when its
+data is atomic: an elementary value of 32 bits or less, or an enumeration or
+subrange of one. A pointer or reference counts as its target, the data the
+tasks reach through it, and an interface as the function block instance it
+designates. A one-word read cannot tear, and the consistency between several
+such globals is the program's protocol, which no lint can judge; CODESYS has
+no rule for it either. A global that no task writes is silent, and so is a
+single-written global whose type does not resolve (section 9).
+
+`{attribute 'cross_task'}` declares a global shared between tasks by design,
+and the warning is silent for it in every pattern, several writers included:
+the project owns the protocol, such as a hand-off flag or a ring buffer with
+one consumer. Before a `VAR_GLOBAL` list the attribute covers every global of
+the list; before a single global inside the list, that global. It carries no
+value and names no tasks: which program runs in which task belongs to the
+configuration and changes with it, while the attribute states a property of
+the data. Undeclared globals keep the rule above, so an unexpected cross-task
+access still surfaces.
+
+Multiple programs on the same task do not by themselves trigger the warning.
+Cross-file and namespaced globals are compared by resolved identity, not by an
+unqualified spelling guess.
 
 Task identity includes its enclosing configuration and resource and compares
 the task name case-insensitively. Consequently, two spellings of one task in
@@ -183,11 +214,37 @@ different resources or configurations remain distinct. A program instance
 whose task or program type cannot be resolved does not contribute guessed
 accesses.
 
-A resolved global reference is a write when it is the assignment target,
-including through a qualified field, array index, or dereference target.
-References on the assignment right-hand side and in other expression contexts
-are reads. A local declaration that shadows a global remains a distinct symbol.
-Read-only access from any number of tasks is not a write hazard.
+A program's use of a resolved global writes it when (one rule,
+`trust_hir::access`, which the access kinds of references share, specification
+14 §6.3.2):
+
+- it is the target of an assignment, a FOR loop's control variable among them,
+  also through a field, an array element or a dereference of the global:
+  `gS.a := 1` and `gArr[1] := 0` write `gS` and `gArr`, while an index such as
+  `i` in `gArr[i] := 0` is read;
+- it is an argument that a call binds to an output parameter, by `=>` or by
+  position, or to an in-out parameter, which the callee may write; the type
+  check's binding decides which parameter an argument meets;
+- it is called: a call of a global function block instance (`gTimer(IN := x)`)
+  or of a method of one (`gTank.Start()`) runs code that may change the
+  instance. Beckhoff's SA0006 counts a method call on an instance as a write to
+  it too.
+
+Every other use is a read. A local declaration that shadows a global remains a
+distinct symbol. Read-only access from any number of tasks is not a write
+hazard.
+
+A program also accesses what the POUs its calls run access, along the whole
+call tree, as CODESYS Static Analysis follows calls for SA0006 and SA0103: a
+function it calls, the body of a function block instance it calls, a method or
+an action it calls, and the POUs those call in turn. A function block called
+by the programs of two tasks therefore writes its globals from both. A call's
+callee is the POU the type check resolved it to. An action's statements are part
+of the POU that declares it, so calling an action accesses what that POU's body
+and actions access. A call through an interface names no body, so the methods it
+may run are reached by no program, and their accesses count for no task here
+(the owner analysis of control-studio-runtime-protocol annex E2.3, which shares
+this rule, counts their writes for no single task).
 
 The warning is reported on the owning global declaration. Its message lists
 task labels in lexical order, includes at most three labels per access/write

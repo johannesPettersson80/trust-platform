@@ -1,4 +1,5 @@
 //! Typed custom-controller parameter bindings and task-boundary transactions.
+use super::mode::Mode;
 use super::program_facts;
 use super::symbol_path::{self, ResolvedSymbol};
 use super::transfer::{check_physical_review, check_target_source};
@@ -38,12 +39,6 @@ struct Parameter {
     convention: String,
     minimum: f64,
     maximum: f64,
-}
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Mode {
-    symbol: String,
-    manual_value: bool,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -242,7 +237,7 @@ fn hash(value: impl std::fmt::Debug) -> String {
 }
 /// Checks a binding against the program of `image` (E7.1): its parameters are writable members, and
 /// every member belongs to a program instance that its declared task runs, or that no task runs for
-/// `$background`.
+/// `$background`, or is a global that its declared task owns (E2.3).
 fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
     if binding.loop_id.trim().is_empty()
         || binding.parameters.is_empty()
@@ -273,12 +268,18 @@ fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
             return Err("invalid parameter type, units, convention or bounds".into());
         }
     }
-    for symbol in binding
+    for (symbol, what) in binding
         .parameters
         .iter()
-        .map(|p| p.symbol.as_str())
-        .chain(std::iter::once(binding.mode.symbol.as_str()))
+        .map(|p| (p.symbol.as_str(), "parameter"))
+        .chain(std::iter::once((binding.mode.symbol.as_str(), "mode")))
     {
+        if program_facts::binding_leaf(image, symbol).is_none()
+            && let Some((_, owner)) = program_facts::global_leaf(image, symbol)
+        {
+            program_facts::check_global_owner(image, what, symbol, owner, &binding.task_name)?;
+            continue;
+        }
         let root = symbol.split('.').next().unwrap_or_default();
         if !program_facts::is_program_instance(image, root) {
             return Err("parameter root is not a compiled program".into());
@@ -360,12 +361,10 @@ impl DebugControl {
         let image = program.program_image();
         check_binding(&request.binding, &image)?;
         let current = values(&request.binding, &*program)?;
-        if !matches!(
-            resolve_path(&*program, &request.binding.mode.symbol)?.value,
-            Value::Bool(_)
-        ) {
-            return Err("mode must be BOOL".into());
-        }
+        request.binding.mode.check(
+            &resolve_path(&*program, &request.binding.mode.symbol)?.value,
+            &image,
+        )?;
         let program_revision = state.parameters.program_revision(&image);
         let binding_revision =
             hash(serde_json::to_string(&request.binding).map_err(|e| e.to_string())?);
@@ -412,7 +411,9 @@ fn validate_candidate(binding: &Binding, candidate: &BTreeMap<String, f64>) -> R
     Ok(())
 }
 fn manual(binding: &Binding, program: &dyn ProgramRead) -> Result<(), String> {
-    if resolve_path(program, &binding.mode.symbol)?.value != Value::Bool(binding.mode.manual_value)
+    if !binding
+        .mode
+        .holds(true, &resolve_path(program, &binding.mode.symbol)?.value)
     {
         return Err("confirmed Manual mode required".into());
     }

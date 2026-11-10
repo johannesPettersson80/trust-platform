@@ -21,6 +21,9 @@ pub struct Configuration {
     pub cycle_interval_nanos: u64,
     /// `runtime.control.debug_enabled`.
     pub control_debug_enabled: bool,
+    /// `runtime.control.start_paused`: the device starts the program paused, before its first
+    /// scan, until `resume` (specification 11 §6.8).
+    pub control_start_paused: bool,
     /// `runtime.control.mode`.
     pub control_mode: ControlMode,
     /// `runtime.log.level`.
@@ -57,6 +60,7 @@ impl Default for Configuration {
             resource_name: SmolStr::new_static(""),
             cycle_interval_nanos: 0,
             control_debug_enabled: false,
+            control_start_paused: false,
             control_mode: ControlMode::Production,
             log_level: LogLevel::Error,
             event_capacity: 0,

@@ -29,6 +29,27 @@ pub use plant::{PlantConfig, PlantSystemConfig};
 
 const MAX_DURATION_MILLIS: u64 = (i64::MAX / 1_000_000) as u64;
 
+/// A signal of the program that the simulation writes before a scan or reads after one
+/// (specification 46 §2): a process-image address, or a variable by its path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProgramSignal {
+    Address(IoAddress),
+    Variable(String),
+}
+
+/// The program's signals that a simulation reaches ([`SimulationConfig::program_signals`]), each
+/// once: the plants' (in the order of their ids), then the couplings', the disturbances' and the
+/// physics' signals.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ProgramSignals {
+    /// Written before a scan: the plants' feedback, the measurements a Control.PID holds, the
+    /// couplings' and the disturbances' targets, and the physics' encoders.
+    pub written: Vec<ProgramSignal>,
+    /// Read after a scan: the plants' commands, the couplings' sources and the physics' enable
+    /// inputs.
+    pub read: Vec<ProgramSignal>,
+}
+
 #[derive(Debug, Clone)]
 pub struct SimulationConfig {
     pub enabled: bool,
@@ -55,6 +76,50 @@ impl Default for SimulationConfig {
 }
 
 impl SimulationConfig {
+    /// The program's signals this simulation reaches, so that a runner which steps the program
+    /// elsewhere, on a device, writes the simulation's values into each step and reads its inputs
+    /// back from the step's reply (specification 22, "A plant in the loop"): a plant's `pid:`
+    /// target as the Control.PID members that hold the measurement.
+    #[must_use]
+    pub fn program_signals(&self) -> ProgramSignals {
+        let mut signals = ProgramSignals::default();
+        self.plant_system.program_signals(&mut signals);
+        for coupling in &self.couplings {
+            signals
+                .read
+                .push(ProgramSignal::Address(coupling.source.clone()));
+            signals
+                .written
+                .push(ProgramSignal::Address(coupling.target.clone()));
+        }
+        for disturbance in &self.disturbances {
+            if let SimulationDisturbanceKind::SetInput { target, .. } = &disturbance.kind {
+                signals.written.push(ProgramSignal::Address(target.clone()));
+            }
+        }
+        if let Some(physics) = self.physics.as_ref().filter(|physics| physics.enabled) {
+            for joint in &physics.joints {
+                signals
+                    .read
+                    .push(ProgramSignal::Address(joint.enable_source.clone()));
+                signals
+                    .written
+                    .push(ProgramSignal::Address(joint.feedback_target.clone()));
+            }
+        }
+        for list in [&mut signals.written, &mut signals.read] {
+            let mut seen = Vec::new();
+            list.retain(|signal| {
+                let fresh = !seen.contains(signal);
+                if fresh {
+                    seen.push(signal.clone());
+                }
+                fresh
+            });
+        }
+        signals
+    }
+
     pub(crate) fn from_toml_text(text: &str, source: &str) -> Result<Self, RuntimeError> {
         let raw: SimulationToml = toml::from_str(text).map_err(|err| {
             RuntimeError::InvalidConfig(
@@ -299,10 +364,14 @@ impl SimulationController {
     /// The controller as a restart of the program leaves it (specification 46 §5.3): every plant
     /// recreated from its configuration, the plant-local random streams, the disturbances, the
     /// couplings and the pending effects back at their start, and the same configuration revision,
-    /// so that a cold and a warm restart do not carry plant state across.
+    /// so that a cold and a warm restart do not carry plant state across. The plants start at
+    /// `origin`, the process time the restarted runtime continues from (§6.1 item 4), so that its
+    /// first cycle finds them in their initial state and they integrate no time from before the
+    /// restart: a restart and a fresh start give the same trace.
     #[must_use]
-    pub fn recreated(&self) -> Self {
-        let fresh = Self::new(self.config.clone());
+    pub fn recreated_at(&self, origin: Duration) -> Self {
+        let mut fresh = Self::new(self.config.clone());
+        fresh.plants.start_at(origin);
         match &self.active_configuration_revision {
             Some(revision) => fresh.with_active_configuration_revision(revision.clone()),
             None => fresh,

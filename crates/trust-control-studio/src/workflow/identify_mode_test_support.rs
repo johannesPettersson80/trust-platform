@@ -142,6 +142,9 @@ struct World {
     runtime_ms: u64,
     /// The values a member takes at the next status reads, one per read, after which it keeps the last.
     ramps: BTreeMap<String, VecDeque<f64>>,
+    /// The reason the runtime refuses each Auto entry with, when a test sets one: the transfer ends `failed`, its writes
+    /// reverted in the same scan, and the loop keeps its mode (A6.3, annex E6.8).
+    refused_auto: Option<String>,
 }
 
 impl World {
@@ -187,13 +190,15 @@ impl World {
         } else {
             transaction["status"].clone()
         };
+        // The status repeats the reason of the loop's last transaction, as the runtime's does (E6.3).
+        let reason = transaction["reason"].clone();
         json!({
             "program_revision": self.program_revision,
             "binding_revision": binding_revision(&binding.loop_id),
             "values": self.values_of(binding),
             "runtime_time_ns": self.runtime_ms * 1_000_000,
             "status": state,
-            "reason": null,
+            "reason": reason,
             "transaction": transaction
         })
     }
@@ -237,11 +242,26 @@ impl World {
             };
             applied.insert(member.symbol.clone(), value);
         }
+        if !manual && let Some(reason) = self.refused_auto.clone() {
+            // The check after the first execution failed: the runtime reverted every write of the commit in the same scan
+            // (A6.3), so its record keeps the states the commit applied and observes the values from before it (E6.8).
+            self.log
+                .push(format!("transfer.refused {} auto", binding.loop_id));
+            let transaction = json!({
+                "id": id, "program_revision": self.program_revision,
+                "binding_revision": binding_revision(&binding.loop_id), "status": "failed", "reason": reason,
+                "restored": true, "initial_values": initial, "applied_values": applied,
+                "observed_values": self.values_of(&binding), "confirmation": "post-st"
+            });
+            self.transactions
+                .insert(binding.loop_id.clone(), transaction);
+            return json!({ "transaction_id": id, "status": "pending", "confirmed": false });
+        }
         self.values.extend(applied.clone());
         self.mode = if manual {
-            binding.mode.manual_value
+            binding.mode.manual_reading()
         } else {
-            !binding.mode.manual_value
+            !binding.mode.manual_reading()
         };
         let word = if manual { "manual" } else { "auto" };
         self.log
@@ -353,6 +373,7 @@ impl TransferFake {
             journal: None,
             runtime_ms: 1_000,
             ramps: BTreeMap::new(),
+            refused_auto: None,
         }));
         let served = Arc::clone(&world);
         let endpoint = ControlEndpoint::start(move |request| handle(&served, request));
@@ -387,6 +408,12 @@ impl TransferFake {
             .lock()
             .ramps
             .insert(symbol.to_owned(), values.iter().copied().collect());
+    }
+
+    /// From now on the runtime refuses every Auto entry with `reason`: the transfer ends `failed` and the loop stays in Manual
+    /// (A6.3, annex E6.8).
+    pub(crate) fn refuse_auto(&self, reason: &str) {
+        self.world.lock().refused_auto = Some(reason.to_owned());
     }
 
     /// A reload of the program: from now on the runtime reports the revision `program` (A6.7).
@@ -588,6 +615,7 @@ pub(crate) fn run_with_transfers(
         loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
+        transfer_tolerance: None,
     };
     run(
         RunPorts {

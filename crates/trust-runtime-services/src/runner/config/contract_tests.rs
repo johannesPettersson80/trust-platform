@@ -31,6 +31,7 @@ fn record() -> RuntimeSettings {
         retain_save_interval: Some(Duration::from_millis(1_000)),
         control_mode: ControlMode::Debug,
         debug_enabled: true,
+        start_paused: false,
     }
 }
 

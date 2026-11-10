@@ -6,6 +6,7 @@ include!("stmt_impl_part_02.rs");
 include!("stmt_impl_part_03.rs");
 include!("stmt_impl_part_04.rs");
 include!("stmt_impl_part_05.rs");
+include!("stmt_impl_part_06.rs");
 
 fn assignment_is_ref(node: &SyntaxNode) -> bool {
     node.children_with_tokens()

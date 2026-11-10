@@ -102,11 +102,22 @@ fn keep_result<C: ServerContext>(context: &C, args: Vec<Value>) -> Result<Value,
         .into_iter()
         .find(|(instance, _)| instance.eq_ignore_ascii_case(&root))
         .map_or_else(|| root.clone(), |(_, program)| program);
+    // The program or namespace found, for the refusal of a record it does not declare.
+    let mut found = None;
     for source in &inputs.sources {
         let tree = parse(&source.text).syntax();
-        let Some(pou) = program_node(&tree, &program) else {
+        // A GVL's variable, `GVL_Par.lrKp`, is kept in the namespace's `VAR_GLOBAL` declaration as a
+        // program's variable is kept in the program's (specification 35 §17.17; the toolkit's S9).
+        let Some((pou, container)) = program_node(&tree, &program)
+            .map(|pou| (pou, format!("PROGRAM {program}")))
+            .or_else(|| {
+                namespace_node(&tree, &root)
+                    .map(|namespace| (namespace, format!("NAMESPACE {root}")))
+            })
+        else {
             continue;
         };
+        found = Some(container.clone());
         let path = if source.path.is_absolute() {
             source.path.clone()
         } else {
@@ -118,7 +129,7 @@ fn keep_result<C: ServerContext>(context: &C, args: Vec<Value>) -> Result<Value,
                 &source.text,
                 &path,
                 &root,
-                &program,
+                &container,
                 &args.values,
             );
         };
@@ -136,10 +147,19 @@ fn keep_result<C: ServerContext>(context: &C, args: Vec<Value>) -> Result<Value,
             args.values.keys().cloned().collect(),
         );
     }
-    Err(format!(
-        "{} is not declared in PROGRAM {program} of this project.",
-        args.record
-    ))
+    Err(match found {
+        Some(container) => format!(
+            "{} is not declared in {container} of this project.",
+            args.record
+        ),
+        None if program.eq_ignore_ascii_case(&root) => {
+            format!("{root} names no program and no namespace of this project.")
+        }
+        None => format!(
+            "{} is not declared in PROGRAM {program} of this project.",
+            args.record
+        ),
+    })
 }
 
 /// The record in a Create PLC code region: its loop instance and the settings that keep it.
@@ -194,22 +214,21 @@ fn edit_answer(
     }))
 }
 
-/// The edit of a program's own variables (C2, B6.5): each named variable must be a REAL or LREAL variable of the program, and
-/// its value becomes its initial value.
+/// The edit of a program's own variables, or of a GVL's (C2, B6.5): each named variable must be a REAL or LREAL variable of the
+/// program or the namespace, `container` (`PROGRAM Main`, `NAMESPACE GVL_Par`), and its value becomes its initial value.
 fn program_variables_answer(
     pou: &SyntaxNode,
     text: &str,
     path: &Path,
     root: &str,
-    program: &str,
+    container: &str,
     values: &BTreeMap<String, f64>,
 ) -> Result<Value, String> {
     let mut edits = Vec::new();
     for (name, value) in values {
         let record = format!("{root}.{name}");
-        let declaration = declaration(pou, name).ok_or_else(|| {
-            format!("{record} is not declared in PROGRAM {program} of this project.")
-        })?;
+        let declaration = declaration(pou, name)
+            .ok_or_else(|| format!("{record} is not declared in {container} of this project."))?;
         if generated(text, &declaration) {
             return Err(format!(
                 "{record} is declared by Create PLC code; copy its value into the PLC code by hand."
@@ -488,7 +507,20 @@ fn program_node(root: &SyntaxNode, name: &str) -> Option<SyntaxNode> {
         })
 }
 
-/// The declaration of a program's own variable, outside its methods and actions.
+/// The namespace `name`, a CODESYS GVL in truST's form (`NAMESPACE GVL_Par … END_NAMESPACE`), whose
+/// `VAR_GLOBAL` blocks declare its variables as a program's `VAR` blocks declare the program's.
+fn namespace_node(root: &SyntaxNode, name: &str) -> Option<SyntaxNode> {
+    root.descendants()
+        .filter(|node| node.kind() == SyntaxKind::Namespace)
+        .find(|node| {
+            node.children()
+                .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
+                .is_some_and(|child| code_text(&child).eq_ignore_ascii_case(name))
+        })
+}
+
+/// The declaration of a program's own variable, outside its methods and actions, or of a
+/// namespace's global.
 fn declaration(pou: &SyntaxNode, variable: &str) -> Option<SyntaxNode> {
     pou.children()
         .filter(|child| child.kind() == SyntaxKind::VarBlock)

@@ -245,13 +245,32 @@ END_TYPE
   optionally namespace-qualified to any depth (`Ns.TrafficLight.Red`); an
   unknown member is rejected. The base name resolves through the enclosing
   scope chain, so enums declared inside namespaces are reachable by their
-  bare type name
+  bare type name. The analysis records the member as the value, so a compiled
+  program takes `TrafficLight.Red` exactly as `TrafficLight#Red`, with or
+  without `{attribute 'qualified_only'}` (specification 44, NX-09)
 - Value position (CODESYS parity, vendor extension, IEC_DEVIATIONS
   2026-10-26): an enumerated value converts to its declared integer base in
   assignments, comparisons, and call arguments — including base-less
   enums, whose base is `INT`. Integer assignment INTO an enum stays
   rejected for base-less ("closed") enums; explicit-base named-value types
   follow §3.2. Cross-enum assignment stays rejected
+- `{attribute 'qualified_only'}` before the `TYPE` keyword (CODESYS, vendor extension; the
+  vendor's attribute help: such names "are addressed only by specifying" their qualifier, and this
+  "also applies to variables of the type Enumeration"): the enumeration's values are named only with
+  their type, `TrafficLight.Red` or `TrafficLight#Red`, in expressions, initializers and `CASE`
+  labels; a bare `Red` is an error (E105) whose message names the qualified form
+- `{attribute 'strict'}` before the `TYPE` keyword (CODESYS, vendor extension; the vendor's
+  "strict programming rules", which CODESYS writes into every new enumeration since V3.5 SP7):
+  - arithmetic with the enumeration's values is an error (E202): a type with named values, whose
+    arithmetic §3.2 otherwise allows, takes none, and a base-less enumeration takes none with or
+    without the attribute;
+  - assigning to a variable of the enumeration a constant that is none of its values, or a value of
+    another type that is no constant, is an error (E203); a constant that is one of its values is
+    taken, and a base-less enumeration takes no integer at all, by the rule above;
+  - reading an enumerated value as its integer base, as the rule above allows it, stays valid, since
+    the vendor's rules do not forbid it. A `FOR` loop takes no enumeration as its control variable, and
+    a negation no enumerated value, with or without the attribute
+- An attribute before `TYPE` applies to each enumeration of that `TYPE` block
 - Error if enumerated literal cannot be unambiguously determined
 
 ### 3.2 Data Types with Named Values (Section 6.4.4.3)
@@ -447,6 +466,54 @@ function-block inheritance model restricted to field structure:
   feature; it is documented vendor parity, not a deviation from a cited IEC
   requirement.
 
+### 3.5.2 Packed structures (`pack_mode`, vendor extension)
+```
+{attribute 'pack_mode' := '1'}
+TYPE Telegram :
+STRUCT
+  Flag  : BOOL;  // byte 0
+  Value : INT;   // bytes 1 and 2
+  Ready : BOOL;  // byte 3
+  Done  : BOOL;  // byte 4
+END_STRUCT
+END_TYPE
+```
+
+The attribute `pack_mode` before the `TYPE` keyword of a block that declares a structure gives the
+addresses of its members, as CODESYS packs a structure (its online help, "Attribute 'pack_mode'").
+IEC 61131-3 leaves a pragma's effect to the implementer (§6.2), so it applies under every profile.
+
+**Rules**:
+- The pack mode is `0`, `1`, `2`, `4` or `8`; any other value is an error (E304).
+- Each member lies at the first address after the member before it that its alignment divides:
+  the smaller of the member's own alignment and the pack mode's, which is 1 for `0` and `1` and
+  the pack mode otherwise. A member's own alignment is its size for an elementary type, an
+  enumeration or a subrange, 1 for a `STRING`, 2 for a `WSTRING`, the address width for a
+  reference or a pointer, its element's for an array, and the structure's alignment for a
+  structure. A structure without the attribute is aligned to the largest alignment of its members.
+- The packed structure's alignment is the largest alignment its members lie at, and its size is the
+  end of its last member rounded up to that alignment, so that each element of an array of it
+  starts at that alignment.
+- CODESYS's examples: with `1`, `Telegram` above takes bytes 0, 1 to 2, 3 and 4, 5 bytes; with `2`,
+  bytes 0, 2 to 3, 4 and 5, 6 bytes. `BOOL`, `BYTE`, `WORD`, `BYTE`, `DWORD`, `BYTE`, `BYTE`,
+  `DWORD` start at bytes 0, 1, 2, 4, 5, 9, 10, 11 (15 bytes) with `0` or `1`; at 0, 1, 2, 4, 6, 10,
+  11, 12 (16 bytes) with `2`; and at 0, 1, 2, 4, 8, 12, 13, 16 (20 bytes) with `4` or `8`.
+- The layout is what a program sees of the structure. `SIZEOF` gives its size (specification 29
+  §1), counting a `STRING[n]` as `n` bytes, where CODESYS counts `n + 1`. In a `STRUCT OVERLAP`'s
+  backing (§3.6) and at a direct address (specification 10, relative structured-field addresses)
+  its members lie at these addresses, a `BOOL` at bit 0 of its byte, and its extent is its size.
+  The structure's storage in a running program keeps the natural layout (specification 44 §7.2),
+  which no program observes, since truST has no pointer arithmetic (§4.2).
+- A structure without the attribute keeps its rules: `SIZEOF` adds its members' sizes, and it lies
+  in a backing and at a direct address as §3.6 and specification 10 say.
+- The members of a `STRUCT OVERLAP` and the relatively addressed members of a structure (§3.6) lie
+  at their relative addresses; the attribute does not move them.
+- A packed structure may hold a structure without the attribute, which keeps its own layout inside
+  it, aligned to the smaller of its alignment and the pack mode's. CODESYS's help says "A packed
+  structure must not contain an unpacked structure"; truST accepts one, whose layout is defined.
+- A structure derived with `EXTENDS` (§3.5.1) is packed by its own attribute, the members of its
+  base, which lie first, included.
+
 ### 3.6 Structures with Relative Addressing (Section 6.4.4.7)
 
 ```
@@ -484,7 +551,8 @@ END_TYPE
   overlaps two structures). It lies in the backing as the bytes of its own
   layout: a structure's fields at their relative addresses, or at their offsets
   in the structure when it declares none, a `BOOL` without a relative address
-  taking its whole byte. Its fields and elements read and write those bytes, an
+  taking its whole byte, and a packed structure's at the addresses its pack mode gives (§3.5.2).
+  Its fields and elements read and write those bytes, an
   index outside an array faults as any index does, and assigning the whole field
   copies it field by field from or into a value of its type. A string is no
   field of an `OVERLAP` structure: "Overlapping of strings is beyond the scope of
@@ -573,6 +641,7 @@ END_TYPE
 | 4 | Assignment | `ref := REF(var)` | Assign reference |
 | 5 | Assignment attempt | `ref ?= other_ref` | Attempt to assign reference; result may be `NULL` |
 | 6 | Rebinding | `ref REF= value` (vendor extension) | Rebind reference to `value`'s storage; see `06-statements.md` |
+| 7 | Bound check | `__ISVALIDREF(ref)` (vendor extension) | `TRUE` when the reference is bound, `FALSE` when it is `NULL` |
 
 **Example**:
 ```
@@ -612,6 +681,11 @@ refInt^ := 100;  // myInt is now 100
 - References are not valid `VAR_IN_OUT` variables or parameters (IEC
   61131-3 Ed.3, 6.4.4.10.3).
 - Dereferencing `NULL` is a runtime error (IEC 61131-3 Ed.3, 6.4.4.10.3).
+- `__ISVALIDREF(ref)` (CODESYS vendor extension) is `ref <> NULL`: `TRUE` when the
+  reference is bound, `FALSE` when it is `NULL`. It takes one positional `REF_TO` or
+  `REFERENCE TO` value; a `POINTER TO` (which `ptr <> 0` tests), any other value and
+  more arguments are refused. It holds under every profile: `__ISVALIDREF` is a reserved
+  word (specification 01), and IEC forbids `__` in a name, so no valid IEC program changes.
 
 ### 4.2 POINTER TO (Non-IEC Extension)
 

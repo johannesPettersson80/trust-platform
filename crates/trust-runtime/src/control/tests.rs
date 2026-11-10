@@ -17,6 +17,7 @@ include!("tests/control_request_boundary_contract.rs");
 include!("tests/io_write_integer_literals.rs");
 include!("tests/variable_write_integer_literals.rs");
 include!("tests/live_values_pipeline.rs");
+include!("tests/live_values_located_variables.rs");
 include!("tests/request_queue_bounds.rs");
 include!("tests/rejected_force_removal.rs");
 include!("tests/production_step_and_debug_hold.rs");
@@ -37,6 +38,7 @@ mod comm_search {
 
 include!("tests/identify.rs");
 include!("tests/control_studio_experiment.rs");
+include!("tests/control_studio_experiment_guard.rs");
 include!("tests/control_studio_pid_apply.rs");
 include!("tests/plant_contract.rs");
 include!("tests/plant_save_validation_contract.rs");
@@ -55,6 +57,7 @@ include!("tests/control_studio_runtime_facts.rs");
 include!("tests/control_studio_parameters.rs");
 include!("tests/control_studio_transfer.rs");
 include!("tests/control_studio_transfer_formulas.rs");
+include!("tests/control_studio_enum_mode.rs");
 
 // The isolated runs below use this test program as their worker. Its allocator is the system's,
 // so only Linux limits that worker (protocol annex E8.1); the trust-runtime and trust-debug
@@ -64,10 +67,15 @@ include!("tests/control_studio_search.rs");
 
 include!("tests/control_studio_symbolic_acquisition.rs");
 include!("tests/control_studio_signal_paths.rs");
+include!("tests/control_studio_enum_mode_signals.rs");
+include!("tests/control_studio_gvl_transfer.rs");
+include!("tests/control_studio_gvl_parameters.rs");
 include!("tests/control_studio_experiment_symbol.rs");
 
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_isolated_run.rs");
+#[cfg(target_os = "linux")]
+include!("tests/control_studio_isolated_enum_mode.rs");
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_isolated_live_inputs.rs");
 // The delayed integrator runs as an isolated run, with the search fixture and the run's channel readers above.

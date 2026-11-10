@@ -11,7 +11,8 @@ use super::super::{
     PlanInput, PlanSource, Quality,
 };
 use super::{
-    accepted, point, refusal, request, sample, setpoint_stop_conditions, signal, with_experiment,
+    accepted, level_guard, point, refusal, request, sample, setpoint_stop_conditions, signal,
+    with_experiment,
 };
 use crate::experiment::project_step_recording_ms;
 use crate::recording::fixtures::{bound_loop, hold_loop};
@@ -316,10 +317,7 @@ fn a_project_owned_lesson_is_started_and_restored_through_its_single_boolean_aut
             duration_ms: 40_000.0,
             expected_scan: 41,
             task: Some("MainTask".to_string()),
-            mode_binding: Some(ExperimentModeBinding {
-                symbol: "P1.Run".to_string(),
-                manual_value: false,
-            }),
+            mode_binding: Some(ExperimentModeBinding::boolean("P1.Run".to_string(), false)),
             stop_conditions: setpoint_stop_conditions("40"),
             restoration_value: ExperimentValue::Boolean(false),
             requires_physical_approval: false,
@@ -329,6 +327,7 @@ fn a_project_owned_lesson_is_started_and_restored_through_its_single_boolean_aut
             interval_ms: None,
             seed: None,
             frequencies_hz: None,
+            measurement_guard: Some(level_guard()),
         }
     );
     let mut physical = sample();

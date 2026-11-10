@@ -40,6 +40,10 @@ pub struct RuntimeBuilder {
     pub(super) globals: IndexMap<SmolStr, trust_hir::TypeId>,
     /// Globals declared `VAR_GLOBAL CONSTANT`, which nothing outside the program may write.
     constant_globals: indexmap::IndexSet<SmolStr>,
+    hidden_globals: indexmap::IndexSet<SmolStr>,
+    /// The task that owns each global, by the global's name in upper case (control-studio-runtime-protocol
+    /// annex E2.3).
+    global_owners: IndexMap<SmolStr, trust_hir::db::GlobalOwner>,
     /// The program type of each configured program instance, by the instance's name in upper case.
     program_types: IndexMap<SmolStr, SmolStr>,
     pub(super) tasks: Vec<TaskConfig>,
@@ -66,6 +70,8 @@ impl Default for RuntimeBuilder {
             programs: IndexMap::new(),
             globals: IndexMap::new(),
             constant_globals: indexmap::IndexSet::new(),
+            hidden_globals: indexmap::IndexSet::new(),
+            global_owners: IndexMap::new(),
             program_types: IndexMap::new(),
             tasks: Vec::new(),
             storage: VariableStorage::default(),
@@ -110,6 +116,17 @@ impl RuntimeBuilder {
     /// Register a global declared `VAR_GLOBAL CONSTANT`.
     pub(crate) fn register_constant_global(&mut self, name: SmolStr) {
         self.constant_globals.insert(name);
+    }
+
+    /// Register a global marked `{attribute 'hide'}` (specification 10 §4.8).
+    pub(crate) fn register_hidden_global(&mut self, name: SmolStr) {
+        self.hidden_globals.insert(name);
+    }
+
+    /// Register the task that owns the global `name` (control-studio-runtime-protocol annex E2.3).
+    pub(crate) fn register_global_owner(&mut self, name: &str, owner: trust_hir::db::GlobalOwner) {
+        self.global_owners
+            .insert(SmolStr::new(name.to_ascii_uppercase()), owner);
     }
 
     /// Record the program type of a program instance a configuration names.
@@ -355,6 +372,8 @@ impl RuntimeBuilder {
             interfaces: self.interfaces.clone(),
             programs,
             constant_globals: self.constant_globals.clone(),
+            hidden_globals: self.hidden_globals.clone(),
+            global_owners: self.global_owners.clone(),
             program_types: self.program_types.clone(),
             program_templates,
             tasks,
@@ -386,6 +405,11 @@ mod tests {
                 in_out: false,
                 constant: false,
                 address: None,
+                init_args: Vec::new(),
+                noinit: false,
+                hidden: false,
+                instance_path: false,
+                no_exit: false,
             }],
             temps: Vec::new(),
             using: Vec::new(),

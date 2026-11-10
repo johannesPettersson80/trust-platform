@@ -27,8 +27,8 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller,
     ControllerProject, Design, Direction, Execution, ExperimentKind, InitialSource, InitialValue,
-    InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, ModeBinding, ModeWhenTrue,
-    Parameter, ParameterBinding, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, Parameter, ParameterBinding,
+    SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::model::{ActuatorCapabilities, ActuatorKind};
 
@@ -150,7 +150,7 @@ pub fn cascade_loop_definition(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty())
-        .map(startup_state)
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
         .into_iter()
         .collect();
     let project = ControllerProject::from_value(&project_block(
@@ -191,10 +191,7 @@ pub fn cascade_loop_definition(
             loop_id: id,
             task_name: task.name.clone(),
             parameters: cascade_parameters(draft, &process_inner, &process_outer, &manipulated),
-            mode: ModeBinding {
-                symbol: draft.inner.mode.symbol.clone(),
-                manual_value: draft.inner.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: draft.inner.mode.binding(),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),
@@ -339,10 +336,7 @@ fn project_block(
         "convention": "project-owned-native-controller",
         "initialization": initialization,
         "seed": seed(draft),
-        "additionalModes": [{
-            "symbol": draft.outer.mode.symbol,
-            "manualValue": draft.outer.mode.when_true == ModeWhenTrue::Manual,
-        }],
+        "additionalModes": [additional_mode(&draft.outer.mode)],
         "axes": [],
         "objective": { "requirementId": format!("{outer_symbol}:target-error"), "direction": "minimize" },
         "maximumCandidates": SINGLE_DESIGN_CANDIDATES,
@@ -570,3 +564,14 @@ const TWO_MODES: &str = "Each controller of a cascade needs its own Auto/Manual 
 #[cfg(test)]
 #[path = "cascade_loop_tests.rs"]
 mod tests;
+
+/// The outer controller's mode as a further mode of the program (`controller.project.additionalModes`, A6.1): a BOOL's Manual
+/// value, or an enumeration's Manual and Auto members.
+fn additional_mode(mode: &ModeChoice) -> Value {
+    let binding = mode.binding();
+    let mut entry = json!({ "symbol": binding.symbol, "manualValue": binding.manual_value });
+    if let Some(auto) = binding.auto_value {
+        entry["autoValue"] = json!(auto);
+    }
+    entry
+}

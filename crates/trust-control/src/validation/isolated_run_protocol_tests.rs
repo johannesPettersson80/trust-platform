@@ -35,6 +35,7 @@ fn request() -> IsolatedRunRequest {
         parameter_overrides: Vec::new(),
         simulation_override: None,
         feedback_relay: None,
+        mode_bindings: Vec::new(),
     }
 }
 

@@ -52,6 +52,8 @@ fn symbol(name: &str, iec_type: &str, address: Option<&str>) -> CompiledSymbol {
         symbol: name.to_string(),
         iec_type: iec_type.to_string(),
         address: address.map(str::to_string),
+        members: Vec::new(),
+        owner: None,
     }
 }
 
@@ -151,6 +153,7 @@ fn single_loop() -> CompiledCatalog {
         ],
         // The program computes the checked measurement from the temperature and writes the PID output.
         writes: strings(&["P1.SafeProcessValueC", "P1.AppliedPowerPct"]),
+        startup_flags: BTreeMap::new(),
     }
 }
 
@@ -219,6 +222,7 @@ fn cascade() -> CompiledCatalog {
             ),
         ],
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     }
 }
 
@@ -355,6 +359,31 @@ fn an_auto_manual_signal_is_a_bool_without_an_address_and_booleans_keep_every_bo
         model.booleans,
         strings(&["P1.AutoMode", "P1.Enabled"]),
         "a startup flag or a switching state may be addressed"
+    );
+}
+
+/// Specification 35 A6.1 and B1.3: an enumeration without an I/O address is a mode signal as an unaddressed BOOL is, and the form
+/// offers its members for the members that mean Manual and Auto; an addressed enumeration is no mode, and a BOOL has no members.
+/// Catches an enumeration mode the form cannot offer (the engineer could only reach it through a draft file), an addressed one
+/// offered, and members missing or out of declaration order.
+#[test]
+fn an_enumeration_without_an_address_is_a_mode_signal_offered_with_its_members() {
+    let mut catalog = single_loop();
+    let enumeration = |name: &str, address: Option<&str>| {
+        let mut entry = symbol(name, "E_Mode", address);
+        entry.members = strings(&["Off", "Manual", "Auto"]);
+        entry
+    };
+    catalog.symbols.push(enumeration("P1.Mode", None));
+    catalog
+        .symbols
+        .push(enumeration("P1.WiredMode", Some("%MW4")));
+    catalog.symbols.push(symbol("P1.Enabled", "BOOL", None));
+    let model = setup_form_model(&catalog);
+    assert_eq!(model.modes, strings(&["P1.Enabled", "P1.Mode"]));
+    assert_eq!(
+        model.mode_members,
+        BTreeMap::from([("P1.Mode".to_string(), strings(&["Off", "Manual", "Auto"]))])
     );
 }
 
@@ -520,6 +549,7 @@ fn the_form_preselects_the_choices_the_engine_applies() {
             band_convention: "half-band".to_string(),
             threshold_equality: "at-or-beyond".to_string(),
             own_law: "PI".to_string(),
+            gain_form: "parallel".to_string(),
             trajectory_own_law: "PID".to_string(),
         }
     );
@@ -550,6 +580,11 @@ fn the_form_preselects_the_choices_the_engine_applies() {
     assert_eq!(
         serde_json::from_value::<OwnLawFamily>(json!(defaults.trajectory_own_law)).ok(),
         Some(OwnLawFamily::Pid)
+    );
+    assert_eq!(
+        serde_json::from_value::<crate::tuning::project_seed::GainForm>(json!(defaults.gain_form))
+            .ok(),
+        Some(crate::tuning::project_seed::GainForm::Parallel)
     );
 }
 
@@ -641,6 +676,7 @@ fn the_decoupler_has_a_row_and_a_column_for_each_library_pid_of_the_program() {
         controllers: Vec::new(),
         links: Vec::new(),
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     };
     assert_eq!(shape(&identify_only), (0, 0));
 }
@@ -711,6 +747,8 @@ fn the_form_offers_the_values_each_choice_reads_in_the_order_the_page_lists_them
         strings(&["LQR", "state-feedback", "LQG"])
     );
     assert_eq!(choices.own_laws, strings(&["PI", "P", "PID"]));
+    // The standard form's values are the draft's `form` (C2, N6.8), parallel first, as the form preselects it.
+    assert_eq!(choices.gain_forms, strings(&["parallel", "standard"]));
     assert_eq!(
         choices.search_families,
         strings(&crate::setup::search_loop::SEARCH_FAMILIES)
@@ -753,6 +791,7 @@ fn the_instances_that_can_hold_switching_logic_and_every_real_setting_are_offere
         ],
         links: Vec::new(),
         writes: strings(&["P1.CompressorPct", "P1.CoolingOn", "P1.DwellS"]),
+        startup_flags: BTreeMap::new(),
     };
     let model = setup_form_model(&catalog);
     assert_eq!(
@@ -837,6 +876,12 @@ fn setup_form_model_names_every_choice_it_offers() {
         &choices.own_laws,
         &labels.own_laws,
         &words_of::OWN_LAWS,
+    );
+    assert_named(
+        "gainForms",
+        &choices.gain_forms,
+        &labels.gain_forms,
+        &words_of::GAIN_FORMS,
     );
     assert_named(
         "derivativeOn",

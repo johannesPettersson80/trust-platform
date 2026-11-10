@@ -303,7 +303,7 @@ fn the_mode_binding_of_a_group_holds_every_member() {
     let binding = mode_binding(&pid_group_loop()).expect("the group transfers");
     assert_eq!(binding.loop_id, "loop:group:identification-mode");
     assert_eq!(
-        (binding.mode.symbol.as_str(), binding.mode.manual_value),
+        (binding.mode.symbol.as_str(), binding.mode.manual_reading()),
         (MODE, false)
     );
     assert_eq!(

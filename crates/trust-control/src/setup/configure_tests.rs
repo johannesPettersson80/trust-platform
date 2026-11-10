@@ -13,6 +13,7 @@ use crate::setup::catalog::{
 use crate::setup::prompts::{
     ActuatorChoice, ChannelMode, ControllerChoice, FeedbackChoice, RateAnswer, SetpointChoice,
 };
+use std::collections::BTreeMap;
 
 fn scope() -> LoopScope {
     LoopScope {
@@ -34,6 +35,8 @@ fn symbol(name: &str, iec_type: &str) -> CompiledSymbol {
         symbol: name.into(),
         iec_type: iec_type.into(),
         address: None,
+        members: Vec::new(),
+        owner: None,
     }
 }
 
@@ -59,6 +62,7 @@ fn fixture(
             controllers,
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals,
     }
@@ -292,10 +296,7 @@ fn a_proportional_setup_declares_the_existing_law_its_gain_its_mode_and_its_manu
                 minimum: 0.0,
                 maximum: 25.0,
             }],
-            mode: ModeBinding {
-                symbol: "Main.Manual".into(),
-                manual_value: true,
-            },
+            mode: ModeBinding::boolean("Main.Manual", true),
         })
     );
     assert_eq!(
@@ -307,6 +308,82 @@ fn a_proportional_setup_declares_the_existing_law_its_gain_its_mode_and_its_manu
         "setup records no observation duration the engineer did not set"
     );
     assert_eq!(loop_definition.topology, Some(Topology::ClosedLoop));
+}
+
+/// Specification 35 A6.1 and B1.3: the step-by-step setup takes an enumeration as the manual mode, asks for the member that means
+/// Manual and then for a different one that means Auto, and binds the mode by them; a member the type lacks is refused by name.
+/// Catches the enumeration refused as no BOOL, its members not asked, the Auto question offering the Manual member again, and the
+/// enumeration written as a BOOL binding.
+#[test]
+fn a_proportional_setup_binds_an_enumeration_mode_by_the_members_it_asks_for() {
+    let mut catalog = proportional_catalog(20.0);
+    let mut mode = symbol("Main.Mode", "E_Mode");
+    mode.members = vec!["Off".into(), "Manual".into(), "Auto".into()];
+    catalog.control.symbols.push(mode.clone());
+    let mut answers = SetupStepAnswers {
+        channel_mode: Some(ChannelMode::Single),
+        manual_mode: Some(mode),
+        manual_when_true: None,
+        ..proportional_answers(&catalog, "Existing proportional")
+    };
+    let question = |answers: &SetupStepAnswers| {
+        crate::setup::prompts::next_step(&catalog, answers).map(|step| (step.step, step.kind))
+    };
+    let items = |values: &[&str]| -> crate::setup::prompts::StepKind {
+        crate::setup::prompts::StepKind::Choice(
+            values
+                .iter()
+                .enumerate()
+                .map(|(index, member)| crate::setup::prompts::ChoiceItem {
+                    index,
+                    label: (*member).to_string(),
+                    description: None,
+                    value: serde_json::Value::from(*member),
+                })
+                .collect(),
+        )
+    };
+    assert_eq!(
+        question(&answers),
+        Some((
+            crate::setup::prompts::StepId::ManualMember,
+            items(&["Off", "Manual", "Auto"])
+        ))
+    );
+    answers.manual_member = Some("Manual".into());
+    assert_eq!(
+        question(&answers),
+        Some((
+            crate::setup::prompts::StepId::AutoMember,
+            items(&["Off", "Auto"])
+        ))
+    );
+    answers.auto_member = Some("Automatic".into());
+    let refusal =
+        configure_loop(&catalog, &scope(), &answers).expect_err("E_Mode has no Automatic");
+    assert_eq!(
+        refusal.message,
+        "Automatic is not a member of Main.Mode's enumeration."
+    );
+    answers.auto_member = Some("Auto".into());
+    let loop_definition =
+        configure_loop(&catalog, &scope(), &answers).expect("the proportional loop is built");
+    let binding = loop_definition
+        .parameter_binding
+        .expect("a parameter binding");
+    assert_eq!(
+        binding.mode,
+        ModeBinding {
+            symbol: "Main.Mode".into(),
+            manual_value: crate::loop_definition::ModeValue::Member("Manual".into()),
+            auto_value: Some("Auto".into()),
+        }
+    );
+    assert_eq!(
+        loop_definition.controller.mode_when_true,
+        Some(ModeWhenTrue::Manual),
+        "the runtime reads an enumeration mode TRUE in its Manual member"
+    );
 }
 
 #[test]

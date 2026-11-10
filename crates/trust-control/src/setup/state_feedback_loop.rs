@@ -23,8 +23,8 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller, Design,
     Direction, Execution, Experiment, ExperimentKind, InitialValue, InitializedState, Limits,
-    LoopChannels, LoopDefinition, LoopScope, LoopSignal, ModeBinding, ModeWhenTrue, Parameter,
-    ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    LoopChannels, LoopDefinition, LoopScope, LoopSignal, ModeBinding, Parameter, ParameterBinding,
+    PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::model::simulation::{ActuatorCapabilities, ActuatorKind};
 use crate::model::GeneralModel;
@@ -353,7 +353,7 @@ fn law_loop(
     }
     let manual = compiled(catalog, &draft.manual_output)?;
     let setpoint = setpoint_signal(&draft.setpoint, process);
-    let startup = startup_states(draft.startup_flag.as_deref());
+    let startup = startup_states(catalog, draft.startup_flag.as_deref());
     let record = law_record(draft.family, &gain_symbols(draft, further), draft, &startup);
     let controller = Controller {
         instance: draft.instance.clone(),
@@ -396,7 +396,7 @@ fn law_loop(
             limits: output_limits(manipulated),
             period_ms: task.interval_ms,
             task_name: task.name.clone(),
-            mode: mode_binding(&draft.mode),
+            mode: draft.mode.binding(),
             parameters,
             experiment,
         },
@@ -428,9 +428,12 @@ pub(super) fn law_record(
 }
 
 /// The startup-done flag as a declared state of a law's initialization, when the draft names one (C1 Setup).
-pub(super) fn startup_states(flag: Option<&str>) -> Vec<InitializedState> {
+pub(super) fn startup_states(
+    catalog: &CompiledCatalog,
+    flag: Option<&str>,
+) -> Vec<InitializedState> {
     flag.filter(|flag| !flag.is_empty())
-        .map(startup_state)
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
         .into_iter()
         .collect()
 }
@@ -678,14 +681,6 @@ pub(super) fn output_limits(manipulated: &MeasuredSignal) -> Limits {
         rate_up_per_s: None,
         rate_down_per_s: None,
         expected_settling_seconds: None,
-    }
-}
-
-/// The Auto/Manual binding of a state law: its signal, and whether TRUE means Manual (C0).
-pub(super) fn mode_binding(mode: &ModeChoice) -> ModeBinding {
-    ModeBinding {
-        symbol: mode.symbol.clone(),
-        manual_value: mode.when_true == ModeWhenTrue::Manual,
     }
 }
 

@@ -4,6 +4,7 @@
 use super::*;
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
 use crate::setup::catalog::{CompiledCatalog, CompiledController, CompiledSymbol, CompiledTask};
+use std::collections::BTreeMap;
 
 fn signal(symbol: &str, address: &str, iec_type: &str) -> CompiledSignal {
     CompiledSignal {
@@ -18,6 +19,8 @@ fn symbol(name: &str, iec_type: &str) -> CompiledSymbol {
         symbol: name.into(),
         iec_type: iec_type.into(),
         address: None,
+        members: Vec::new(),
+        owner: None,
     }
 }
 
@@ -46,6 +49,7 @@ fn fixture(
             controllers,
             links: Vec::new(),
             writes: Vec::new(),
+            startup_flags: BTreeMap::new(),
         },
         signals,
     }
@@ -144,6 +148,9 @@ fn answer_next(
         StepId::ManualCommand => answers.manual_command = canned.manual_command.clone(),
         StepId::ManualMode => answers.manual_mode = canned.manual_mode.clone(),
         StepId::ManualModePolarity => answers.manual_when_true = Some(true),
+        StepId::ManualMember | StepId::AutoMember => {
+            panic!("the fixture's manual mode is a BOOL")
+        }
         StepId::ControllerTask => answers.controller_task = Some("MainTask".into()),
         StepId::ObservationDuration => answers.observation_duration_seconds = canned.duration,
         StepId::AdapterFile => answers.adapter_mapping = Some(b"{}".to_vec()),

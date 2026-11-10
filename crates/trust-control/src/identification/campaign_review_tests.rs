@@ -208,6 +208,8 @@ fn a_project_scripted_review_names_the_activation_the_abort_and_the_baseline() {
             "Bad runtime data".to_owned(),
             "Signal force".to_owned(),
             "Signal outside its limits".to_owned(),
+            // The example's measured output and its permitted range (B3.4 step 6).
+            "P1.ProcessValue outside 0 to 100 °C".to_owned(),
             "Runtime fault".to_owned(),
             "Abort or failure asserts P1.Experiment.Abort = true; normal completion does not."
                 .to_owned(),
@@ -282,11 +284,18 @@ fn a_physical_review_names_the_signal_it_writes_with_its_limits_and_a_simulated_
     assert_eq!(written.symbol, "P1.Setpoint");
     assert_eq!(written.unit, "°C");
     assert_eq!((written.minimum, written.maximum), (0.0, 100.0));
+    // B3.4 step 6, B9.3: the engineer approves the band the runtime stops the campaign at, the example's measured output
+    // within its permitted range of 0 to 100 °C. Wrong behaviour caught: an approval that names no measured-output limit,
+    // so a physical step is approved without the band that stops it.
     assert_eq!(
         approval.stop_conditions.len(),
-        2,
+        3,
         "{:?}",
         approval.stop_conditions
+    );
+    assert_eq!(
+        approval.stop_conditions[2],
+        "Here it stops the campaign when P1.ProcessValue leaves 0 to 100 °C."
     );
     assert!(
         approval.restoration.contains("restores the written signal"),

@@ -95,6 +95,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             if name.eq_ignore_ascii_case("__DELETE") {
                 return self.infer_ref_delete_call(node);
             }
+            if name.eq_ignore_ascii_case("__ISVALIDREF") {
+                return self.infer_is_valid_ref_call(node);
+            }
+            if name.eq_ignore_ascii_case("__QUERYINTERFACE") {
+                return self.infer_query_interface_call(node);
+            }
             if name.eq_ignore_ascii_case("TIME")
                 && let Some(result) = self
                     .checker

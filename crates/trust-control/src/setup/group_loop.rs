@@ -25,8 +25,8 @@ use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller,
     ControllerProject, Design, Direction, Execution, Experiment, ExperimentKind, InitialSource,
     InitialValue, InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, LoopSignal,
-    ModeBinding, ModeWhenTrue, Parameter, ParameterBinding, PidControllerGroup, PidGroupMember,
-    SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    Parameter, ParameterBinding, PidControllerGroup, PidGroupMember, SampleTiming, Signals,
+    Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::model::{ActuatorCapabilities, ActuatorKind};
 
@@ -177,10 +177,7 @@ pub fn group_loop_definition(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: task.name.clone(),
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: draft.mode.binding(),
             parameters: group_parameters(catalog, &members, decoupler)?,
         }),
         parameter_purpose: None,
@@ -518,7 +515,7 @@ fn group_controller(
     period_ms: f64,
 ) -> Result<Controller, Failure> {
     let first = &members[0];
-    let project = group_project(draft, first, states, decoupler)?;
+    let project = group_project(catalog, draft, first, states, decoupler)?;
     Ok(Controller {
         instance: first.instance.clone(),
         type_name: "Control.PID".to_owned(),
@@ -557,13 +554,16 @@ fn group_controller(
 /// # Errors
 /// The block breaks a rule of the project decoder: its states, its seed, or the decoupler's shape.
 fn group_project(
+    catalog: &CompiledCatalog,
     draft: &GroupLoopDraft,
     first: &Member,
     states: &[Vec<InitializedState>],
     decoupler: Option<&[Vec<String>]>,
 ) -> Result<ControllerProject, Failure> {
     let mut declared: Vec<InitializedState> = states.iter().flatten().cloned().collect();
-    declared.extend(startup_flag(draft).map(startup_state));
+    declared.extend(
+        startup_flag(draft).map(|flag| startup_state(flag, catalog.startup_done_value(flag))),
+    );
     let (family, seed) = match decoupler {
         Some(matrix) => (
             "decoupled-PI",

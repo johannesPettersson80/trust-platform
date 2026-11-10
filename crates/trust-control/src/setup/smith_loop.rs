@@ -26,8 +26,8 @@ use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
-    InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, ModeBinding, ModeWhenTrue,
-    Parameter, ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, Parameter, ParameterBinding,
+    PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 
 /// The family of a Smith predictor's project block in the loop file (C9).
@@ -158,7 +158,7 @@ pub fn smith_loop_definition(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty())
-        .map(startup_state)
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
         .into_iter()
         .collect();
     let project =
@@ -189,10 +189,7 @@ pub fn smith_loop_definition(
             loop_id: id,
             task_name: task.name.clone(),
             parameters: smith_parameters(catalog, draft, &process, &manipulated)?,
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: draft.mode.binding(),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),

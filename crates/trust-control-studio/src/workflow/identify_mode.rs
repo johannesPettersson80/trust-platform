@@ -17,11 +17,13 @@ use std::fmt;
 use parking_lot::Mutex;
 use trust_control::commissioning::application::ApplySource;
 use trust_control::commissioning::checkpoint::{IdentificationModeCheckpoint, ModeTransferOwner};
-use trust_control::commissioning::commissioning_result::{TransferOwner, TransferStatus};
+use trust_control::commissioning::commissioning_result::{
+    TransferOwner, TransferState, TransferStatus,
+};
 use trust_control::commissioning::transfer::TransferBinding;
 use trust_control::commissioning::transfer_protocol::check_transfer_status;
 use trust_control::commissioning::transfer_tracking::TransferTracking;
-use trust_control::failure::Failure;
+use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::POLL_MILLISECONDS;
 use trust_control::identification::mode_transfer::{
     check_mode_loop, check_mode_program, command_return, found_in_auto, held_outputs_arrival_ms,
@@ -30,6 +32,8 @@ use trust_control::identification::mode_transfer::{
 };
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::runtime::RuntimeConnection;
+use trust_control::study::inputs::InputsSection;
+use trust_control::study::Study;
 
 use crate::journal::{Journal, JournalEntry};
 use crate::runtime_client::transfers::{TransferOwnerSink, TransferSession, TransferWrite};
@@ -38,8 +42,8 @@ use crate::workflow::identify_campaign::CampaignClock;
 use crate::workflow::identify_rest::RestWait;
 
 /// The mode change of one identification (`ConnectedIdentificationMode`): the loop, the runtime it transfers on, the loop's
-/// journal, the clock that paces its waits, the mode binding, the mode checkpoint it holds, and the measured noise that a return
-/// to Auto allows for.
+/// journal, the clock that paces its waits, the mode binding, the mode checkpoint it holds, the measured noise that a return
+/// to Auto allows for, and the reviewed Auto-entry tolerance that replaces that allowance.
 pub struct IdentificationMode<'a> {
     loop_definition: &'a LoopDefinition,
     connection: RuntimeConnection,
@@ -48,6 +52,7 @@ pub struct IdentificationMode<'a> {
     binding: TransferBinding,
     held: Option<HeldCheckpoint>,
     process_noise: Option<f64>,
+    reviewed_tolerance: Option<f64>,
 }
 
 impl fmt::Debug for IdentificationMode<'_> {
@@ -59,6 +64,7 @@ impl fmt::Debug for IdentificationMode<'_> {
             .field("binding", &self.binding)
             .field("held", &self.held)
             .field("process_noise", &self.process_noise)
+            .field("reviewed_tolerance", &self.reviewed_tolerance)
             .finish_non_exhaustive()
     }
 }
@@ -88,6 +94,7 @@ impl<'a> IdentificationMode<'a> {
             binding,
             held,
             process_noise: None,
+            reviewed_tolerance: None,
         })
     }
 
@@ -95,6 +102,12 @@ impl<'a> IdentificationMode<'a> {
     /// first output of a return to Auto is allowed to move by (A6.4).
     pub fn set_process_noise(&mut self, half_range: f64) {
         self.process_noise = Some(half_range);
+    }
+
+    /// Keeps the Auto-entry tolerance the study's requirements review (`transferTolerance`, B4.3), which replaces the allowance
+    /// of every Auto entry this mode change makes (A6.4); `None` keeps the allowance.
+    pub fn set_reviewed_tolerance(&mut self, tolerance: Option<f64>) {
+        self.reviewed_tolerance = tolerance;
     }
 
     /// Moves the loop to the mode a method needs (`enter`, B3.4 step 1): Manual when `manual`, Auto otherwise. A checkpoint that
@@ -144,7 +157,7 @@ impl<'a> IdentificationMode<'a> {
             &status,
             manual,
             Some(&status),
-            self.process_noise,
+            (self.process_noise, self.reviewed_tolerance),
         )?;
         let checkpoint = HeldCheckpoint {
             operation_id: new_operation_id(),
@@ -156,7 +169,7 @@ impl<'a> IdentificationMode<'a> {
         };
         checkpoint.persist(self.journal)?;
         let held = self.held.insert(checkpoint);
-        transfer(&mut client, self.journal, held, &self.binding, &write)
+        transfer(&mut client, self.journal, held, &self.binding, &write).map_err(Failure::from)
     }
 
     /// Returns the loop to the mode Identify found it in (`restore`; A6.2, A8.6, E11.9). Without a held checkpoint nothing is
@@ -170,10 +183,23 @@ impl<'a> IdentificationMode<'a> {
     /// every transfer.
     ///
     /// # Errors
-    /// The loop's revision or the runtime's program changed; the runtime cannot be reached, or it refuses or does not confirm a
-    /// transfer or the cancel of the owned one; a value does not fit its member; or the journal cannot be written. The checkpoint
-    /// then stays held and journaled, so that a later return, a Cancel or a reopened panel returns the mode (A8.6).
+    /// The runtime refuses a transfer of the return, which keeps the loop's mode (A6.3): the mode change then ends, its
+    /// checkpoint is cleared, and the failure states the runtime's reason, the mode the loop stays in and the mode to return it
+    /// to by hand (A6.2), so that nothing is left journaled that no Cancel could finish. Otherwise the loop's revision or the
+    /// runtime's program changed; the runtime cannot be reached, or it does not confirm a transfer or the cancel of the owned
+    /// one; a value does not fit its member; or the journal cannot be written. The checkpoint then stays held and journaled, so
+    /// that a later return, a Cancel or a reopened panel returns the mode (A8.6).
     pub fn restore(&mut self) -> Result<(), Failure> {
+        match self.return_held() {
+            Ok(()) => Ok(()),
+            Err(TransferFailure::Unresolved(failure)) => Err(failure),
+            Err(TransferFailure::Refused(refusal)) => Err(self.end_refused(&refusal)),
+        }
+    }
+
+    /// The return of [`Self::restore`]: a transfer the runtime refuses ends it with [`TransferFailure::Refused`], every other
+    /// failure with [`TransferFailure::Unresolved`].
+    fn return_held(&mut self) -> Result<(), TransferFailure> {
         let Some(held) = self.held.as_mut() else {
             return Ok(());
         };
@@ -197,7 +223,7 @@ impl<'a> IdentificationMode<'a> {
                 &current,
                 true,
                 None,
-                self.process_noise,
+                (self.process_noise, self.reviewed_tolerance),
             )?;
             transfer(&mut client, self.journal, held, &self.binding, &write)?;
         }
@@ -212,7 +238,7 @@ impl<'a> IdentificationMode<'a> {
         // A6.2, E6.9: restoring the found Manual commands of a loop that stays in Manual moves each member's output back by
         // design, so the largest of those changes is the allowance; a loop that returns to Auto writes none (C1).
         let in_manual = read_status(&mut client, &self.binding)?;
-        let base = mode_output_change(self.loop_definition, true, None, self.process_noise);
+        let base = mode_output_change(self.loop_definition, true, None, self.process_noise, None);
         let tolerance = commands.allowance(base, &in_manual);
         let write = transfer_write(commands.values, true, tolerance, (None, None), None);
         transfer(&mut client, self.journal, held, &commands.binding, &write)?;
@@ -224,7 +250,7 @@ impl<'a> IdentificationMode<'a> {
                 &current,
                 false,
                 Some(&current),
-                self.process_noise,
+                (self.process_noise, self.reviewed_tolerance),
             )?;
             transfer(&mut client, self.journal, held, &self.binding, &write)?;
             // C1: a program that sets its reference from the measurement in Manual overwrote the reference written back there, so
@@ -249,6 +275,47 @@ impl<'a> IdentificationMode<'a> {
         self.journal.lock().clear(&held.operation_id)?;
         self.held = None;
         Ok(())
+    }
+
+    /// Ends the mode change after the runtime refused a transfer of its return (A6.2, A6.3): the loop keeps the mode the
+    /// runtime left it in, the checkpoint is cleared from the journal, and the failure states the runtime's reason, that mode,
+    /// and the mode the loop was found in, to return it to by hand.
+    fn end_refused(&mut self, refusal: &Failure) -> Failure {
+        let Some(held) = self.held.take() else {
+            return refusal.clone();
+        };
+        let found_manual = !found_in_auto(&self.binding, &held.checkpoint.original);
+        let stays_manual = RuntimeClient::connect(&self.connection)
+            .and_then(|mut client| read_status(&mut client, &self.binding))
+            .ok()
+            .map(|status| in_mode(&self.binding, &status, true));
+        if let Err(failure) = self.journal.lock().clear(&held.operation_id) {
+            return failure;
+        }
+        let reason = refusal.detail.as_deref().unwrap_or(&refusal.message);
+        let word = |manual: bool| if manual { "Manual" } else { "Auto" };
+        let outcome = match stays_manual {
+            Some(manual) if manual == found_manual => {
+                format!(
+                    "The loop stays in {}, and the identification has ended.",
+                    word(manual)
+                )
+            }
+            Some(manual) => format!(
+                "The loop stays in {}, and the identification has ended: return it to {} yourself.",
+                word(manual),
+                word(found_manual)
+            ),
+            None => format!(
+                "The identification has ended: return the loop to {} yourself.",
+                word(found_manual)
+            ),
+        };
+        Failure::new(
+            &format!("{reason} {outcome}"),
+            Cause::Runtime,
+            NextAction::None,
+        )
     }
 }
 
@@ -335,46 +402,106 @@ fn transfer(
     held: &mut HeldCheckpoint,
     binding: &TransferBinding,
     write: &TransferWrite,
-) -> Result<(), Failure> {
+) -> Result<(), TransferFailure> {
     let program = held.checkpoint.original.program_revision.clone();
     let mut session = TransferSession::new(client, binding.clone(), program);
-    session.apply(
+    let applied = session.apply(
         write,
         &mut CheckpointSink {
             journal,
             held: &mut *held,
             binding,
         },
-    )?;
+    );
+    // A terminal outcome the runtime did not commit, refused before any write or failed and reverted in the same scan (annex
+    // E6.6, E6.8), leaves the loop in its mode (A6.3) and no transfer owned.
+    let refused = applied.is_err()
+        && session.outcomes().last().is_some_and(|outcome| {
+            matches!(
+                outcome.status,
+                TransferState::Rejected | TransferState::Failed
+            )
+        });
+    if let Err(failure) = applied {
+        if !refused {
+            return Err(TransferFailure::Unresolved(failure));
+        }
+        held.checkpoint.transfer = None;
+        held.persist(journal)?;
+        return Err(TransferFailure::Refused(failure));
+    }
     held.checkpoint.transfer = None;
-    held.persist(journal)
+    held.persist(journal)?;
+    Ok(())
+}
+
+/// How a transfer of the mode change failed: the runtime refused it, which ended it without committing it and kept the loop's
+/// mode (A6.3, annex E6.6, E6.8), or it is unresolved, and the checkpoint keeps it for a later reconciliation (E11.4).
+enum TransferFailure {
+    /// The runtime refused the transfer, with its reason.
+    Refused(Failure),
+    /// Any other failure: the runtime could not be reached or did not confirm the transfer, or the journal failed.
+    Unresolved(Failure),
+}
+
+impl From<Failure> for TransferFailure {
+    fn from(failure: Failure) -> Self {
+        Self::Unresolved(failure)
+    }
+}
+
+impl From<TransferFailure> for Failure {
+    fn from(failure: TransferFailure) -> Self {
+        match failure {
+            TransferFailure::Refused(failure) | TransferFailure::Unresolved(failure) => failure,
+        }
+    }
 }
 
 /// The write of a transfer of the mode binding at the states `current` reports (`transfer` with `stateValues` and `tracking`):
 /// Manual when `manual`, with the tracking of `mode_tracking` and the allowance of `mode_output_change`, which an Auto entry
 /// reviewed on `observed` widens by the controller's own response; the runtime adds its step on the error at entry
 /// (`mode_entry_error_gain`) and its response to the measurement's change before the entry (`mode_entry_measurement_gain`).
+/// `allowance` holds the measured output noise and the reviewed Auto-entry tolerance: an Auto entry under a reviewed tolerance
+/// allows that tolerance, and the runtime adds no term of its own (A6.4, annex E6.9).
 fn mode_write(
     loop_definition: &LoopDefinition,
     binding: &TransferBinding,
     current: &TransferStatus,
     manual: bool,
     observed: Option<&TransferStatus>,
-    process_noise: Option<f64>,
+    (process_noise, reviewed): (Option<f64>, Option<f64>),
 ) -> Result<TransferWrite, Failure> {
     let values = mode_states(binding, current)?;
     let tracking = mode_tracking(loop_definition, binding, current)?;
-    let tolerance = mode_output_change(loop_definition, manual, observed, process_noise);
-    let entry_error_gain = mode_entry_error_gain(loop_definition, manual, observed, process_noise);
-    let entry_measurement_gain =
-        mode_entry_measurement_gain(loop_definition, manual, observed, process_noise);
+    let tolerance = mode_output_change(loop_definition, manual, observed, process_noise, reviewed);
+    let entry_gains = if !manual && reviewed.is_some() {
+        (None, None)
+    } else {
+        (
+            mode_entry_error_gain(loop_definition, manual, observed, process_noise),
+            mode_entry_measurement_gain(loop_definition, manual, observed, process_noise),
+        )
+    };
     Ok(transfer_write(
         values,
         manual,
         tolerance,
-        (entry_error_gain, entry_measurement_gain),
+        entry_gains,
         Some(tracking),
     ))
+}
+
+/// The Auto-entry tolerance `study`'s requirements review (`transferTolerance`, B4.3), which every mode change of the loop
+/// uses in place of the allowance (A6.4); `None` when the study reviews none.
+///
+/// # Errors
+/// The study's inputs section cannot be read.
+pub(crate) fn reviewed_tolerance(study: &Study) -> Result<Option<f64>, Failure> {
+    Ok(study
+        .section::<InputsSection>()?
+        .and_then(|inputs| inputs.requirements)
+        .and_then(|requirements| requirements.transfer_tolerance))
 }
 
 /// A transfer write of a mode change, with the factors of the error at entry and of the measurement's change before it that

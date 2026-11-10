@@ -213,6 +213,9 @@ pub struct IdentifyRequest<'a, E> {
     pub expected_settling_seconds: Option<f64>,
     /// The evaluation of the connected run: production passes `recorded_limits::evaluate_recorded_limits` (B3.4 step 6).
     pub evaluate: RunEvaluator<'a, E>,
+    /// The Auto-entry tolerance the study's requirements review (`transferTolerance`, B4.3), which every mode change of the run
+    /// uses in place of the allowance (A6.4); `None` keeps the allowance.
+    pub transfer_tolerance: Option<f64>,
 }
 
 /// Whether a run identifies the plant, records the independent model check, or runs a project test (C12).
@@ -283,7 +286,7 @@ pub struct IdentifyOutcome<E> {
 /// The journal cannot be read; the sample, the method, a mode that cannot be read, a limit or the target refuses the run before
 /// anything is recorded; the loop cannot be moved to the mode the method needs; the recording, the baseline, the start, the
 /// hold, the restoration, the record or the fit fails; the settling fails, whose failure then replaces the run's; or the loop
-/// cannot be returned to its mode, whose failure replaces only a run that succeeded.
+/// cannot be returned to its mode, whose failure replaces a run that succeeded and ends a failed run's detail (A6.2).
 pub fn run_identification<S, K, E>(
     context: &OperationContext,
     connection: &RuntimeConnection,

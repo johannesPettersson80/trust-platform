@@ -26,6 +26,7 @@ pub mod identify;
 pub mod inputs;
 pub mod inputs_change;
 pub mod manual_identification;
+pub mod record_requests;
 pub mod run_plan;
 pub mod tune;
 pub mod validate;

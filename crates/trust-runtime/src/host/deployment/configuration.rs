@@ -74,6 +74,7 @@ fn from_runtime(
         resource_name: text(&runtime.resource_name, "runtime.toml", "resource.name")?,
         cycle_interval_nanos: cycle_interval(runtime.cycle_interval)?,
         control_debug_enabled: runtime.control_debug_enabled,
+        control_start_paused: runtime.control_start_paused,
         control_mode: match runtime.control_mode {
             crate::config::ControlMode::Production => ControlMode::Production,
             crate::config::ControlMode::Debug => ControlMode::Debug,

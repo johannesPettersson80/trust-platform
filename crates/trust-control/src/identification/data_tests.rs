@@ -217,6 +217,28 @@ fn the_held_step_ends_at_the_restoration_of_its_input() {
     assert_eq!(held_step_samples(&constant).len(), 2);
 }
 
+/// A step of 10 at 55 % of an averaged sample (4.5, then 10) and its restoration at 35 % of one (3.5, then 0), as the step
+/// of N2.2 counts them: the step is whole 10 and starts at the 4.5, and the restoration is whole 10 against it, so the
+/// held part ends before the 3.5. Wrong behaviour caught: the restoration's partial 6.5 taken as the step, after which
+/// nothing restores it and the whole recording was held; and a held part that keeps the restoration's straddling
+/// sample, whose executions after the restoration enter the final window.
+#[test]
+fn the_held_step_counts_straddled_changes_whole_and_ends_before_the_restorations_first_sample() {
+    let samples: Vec<IdentificationSample> = [0.0, 0.0, 4.5, 10.0, 10.0, 10.0, 3.5, 0.0, 0.0]
+        .iter()
+        .zip(0_u32..)
+        .map(|(&input, index)| good_sample(f64::from(index), input, 0.0))
+        .collect();
+    let held = held_step_samples(&samples);
+    assert_eq!(held.len(), 6, "held: 0, 0, 4.5, 10, 10, 10");
+    assert_eq!(held[5].input, 10.0);
+    let point = identification_operating_point(&samples).expect("the step is measured");
+    assert_eq!(
+        point.step_index, 2,
+        "the operating point is taken before the 4.5"
+    );
+}
+
 #[test]
 fn the_operating_point_is_the_mean_before_the_largest_input_change() {
     let samples = [

@@ -3,7 +3,7 @@ set -euo pipefail
 
 dest="${OPEN_OT_REF_DIR:-../open-ot-ref}"
 repo="${OPEN_OT_REF_REPOSITORY:-https://github.com/johannesPettersson80/open-ot-experiments.git}"
-ref="${OPEN_OT_REF_REF:-137f0e765f085c262651f479be35298b836ac891}"
+ref="${OPEN_OT_REF_REF:-cf6135830e7dbb01626e35f6804ed2429b127baa}"
 
 if [[ -f "${dest}/Cargo.toml" ]]; then
   echo "OpenOT reference already available at ${dest}"

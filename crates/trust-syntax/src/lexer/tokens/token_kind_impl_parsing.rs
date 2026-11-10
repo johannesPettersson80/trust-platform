@@ -15,6 +15,7 @@ impl TokenKind {
                 | Self::KwVarAccess
                 | Self::KwVarConfig
                 | Self::KwVarStat
+                | Self::KwVarInst
         )
     }
 
@@ -52,6 +53,9 @@ impl TokenKind {
                 | Self::KwNew
                 | Self::KwNewDunder
                 | Self::KwDeleteDunder
+                | Self::KwIsValidRefDunder
+                | Self::KwQueryInterfaceDunder
+                | Self::KwSystemDunder
                 | Self::KwRef
                 | Self::KwAdr
                 | Self::KwSizeOf
@@ -72,9 +76,11 @@ impl TokenKind {
                 | Self::KwNew
                 | Self::KwNewDunder
                 | Self::KwDeleteDunder
+                | Self::KwQueryInterfaceDunder
                 | Self::KwRef
                 | Self::KwAdr
                 | Self::KwSizeOf
+                | Self::KwTryDunder
                 | Self::KwIf
                 | Self::KwCase
                 | Self::KwFor

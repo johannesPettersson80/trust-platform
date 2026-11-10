@@ -207,5 +207,7 @@ fn shared_settings(
             ControlMode::Debug => SharedControlMode::Debug,
         },
         debug_enabled,
+        // A setting of the start, which `config.get` and `config.set` neither report nor change.
+        start_paused: false,
     })
 }

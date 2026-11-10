@@ -1089,3 +1089,119 @@ fn declaration_sizes_from_plain_variables_are_iec_errors() {
         check_no_errors_in(Dialect::Codesys, source);
     }
 }
+
+/// Specification 02 §4.1: CODESYS's `__ISVALIDREF` takes one `REF_TO` or `REFERENCE TO` value, in
+/// any case, and gives a `BOOL`. Catches the call taken for an unknown function, and its result
+/// typed as anything but `BOOL` (the `AND` and the assignments need one). The lexer's and the
+/// runtime's tests catch the name refused as malformed, which these diagnostics do not include.
+#[test]
+fn test_is_valid_ref_tests_a_reference() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    value : INT;
+    byName : REFERENCE TO INT;
+    byRef : REF_TO INT;
+    bound : BOOL;
+    both : BOOL;
+END_VAR
+byName REF= value;
+byRef := REF(value);
+bound := __ISVALIDREF(byName);
+both := __isvalidref(byRef) AND __ISVALIDREF(byName);
+END_PROGRAM
+"#,
+    );
+}
+
+/// Specification 02 §4.1: `__ISVALIDREF` refuses a pointer, which `ptr <> 0` tests, a value that is
+/// no reference, a named argument and a second argument. Catches a check that takes any argument.
+#[test]
+fn test_is_valid_ref_refuses_what_is_no_single_reference() {
+    for (call, code) in [
+        ("__ISVALIDREF(address)", DiagnosticCode::InvalidArgumentType),
+        ("__ISVALIDREF(value)", DiagnosticCode::InvalidArgumentType),
+        (
+            "__ISVALIDREF(IN := byRef)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__ISVALIDREF(byRef, byRef)",
+            DiagnosticCode::WrongArgumentCount,
+        ),
+    ] {
+        check_has_error(
+            &format!(
+                "PROGRAM Test\nVAR\n    value : INT;\n    address : POINTER TO INT;\n    byRef : REF_TO INT;\n    bound : BOOL;\nEND_VAR\nbound := {call};\nEND_PROGRAM\n"
+            ),
+            code,
+        );
+    }
+}
+
+/// Specification 04: `__QUERYINTERFACE` takes an interface and an interface variable, in any case,
+/// gives a `BOOL`, and stands as a statement too. Catches the call taken for an unknown function,
+/// and its result typed as anything but `BOOL`.
+#[test]
+fn test_query_interface_queries_one_interface_for_another() {
+    check_no_errors(
+        r#"
+INTERFACE ILamp
+    METHOD Toggle : BOOL
+    END_METHOD
+END_INTERFACE
+
+INTERFACE IDimmer
+    METHOD Dim : INT
+    END_METHOD
+END_INTERFACE
+
+PROGRAM Test
+VAR
+    lamp : ILamp;
+    dimmer : IDimmer;
+    found : BOOL;
+END_VAR
+found := __QUERYINTERFACE(lamp, dimmer) AND TRUE;
+__queryinterface(lamp, dimmer);
+END_PROGRAM
+"#,
+    );
+}
+
+/// Specification 04: `__QUERYINTERFACE` refuses a source or a target that is no interface, a target
+/// that is no variable, a named argument and a third argument. Catches a check that takes any
+/// argument.
+#[test]
+fn test_query_interface_refuses_what_is_no_interface_query() {
+    for (call, code) in [
+        (
+            "__QUERYINTERFACE(count, dimmer)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, count)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, GetDimmer())",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, ITF_DEST := dimmer)",
+            DiagnosticCode::InvalidArgumentType,
+        ),
+        (
+            "__QUERYINTERFACE(lamp, dimmer, dimmer)",
+            DiagnosticCode::WrongArgumentCount,
+        ),
+    ] {
+        check_has_error(
+            &format!(
+                "INTERFACE ILamp\nEND_INTERFACE\nINTERFACE IDimmer\nEND_INTERFACE\nFUNCTION GetDimmer : IDimmer\nEND_FUNCTION\nPROGRAM Test\nVAR\n    lamp : ILamp;\n    dimmer : IDimmer;\n    count : INT;\n    found : BOOL;\nEND_VAR\nfound := {call};\nEND_PROGRAM\n"
+            ),
+            code,
+        );
+    }
+}

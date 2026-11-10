@@ -50,6 +50,57 @@ pub struct CompiledSymbol {
     /// The direct address, when the variable has one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    /// The members of an enumeration, in declaration order; empty for any other type (A6.1).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<String>,
+    /// The owner of the global the symbol is, or is a member of; absent for a program's member (protocol annex E2.3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<GlobalOwner>,
+}
+
+/// The task that owns a global (specification 35 §17.1; protocol annex E2.3), as the compiler judges who writes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum GlobalOwner {
+    /// The programs of this task alone write the global.
+    Task {
+        /// The task's name.
+        task: String,
+    },
+    /// No program writes the global, so any task may.
+    Unwritten,
+    /// Only programs outside every task write the global: `$background`'s.
+    Background,
+    /// Several tasks, or a function, block, method or class that any task may run, write the global.
+    Shared,
+}
+
+impl GlobalOwner {
+    /// Checks that the task `task` (`$background` for the programs outside every task) may write the global `symbol`, as the
+    /// runtime's operations check it (protocol annex E2.3).
+    ///
+    /// # Errors
+    /// The sentence that names the global, who writes it and the loop's task.
+    pub fn check(&self, symbol: &str, task: &str) -> Result<(), String> {
+        match self {
+            Self::Unwritten => Ok(()),
+            Self::Task { task: writer } if writer.eq_ignore_ascii_case(task) => Ok(()),
+            Self::Background if task == "$background" => Ok(()),
+            Self::Task { task: writer } => Err(texts::global_written_by_task(symbol, writer, task)),
+            Self::Background => Err(texts::global_written_in_background(symbol, task)),
+            Self::Shared => Err(texts::global_without_owner(symbol)),
+        }
+    }
+}
+
+impl CompiledSymbol {
+    /// Whether the symbol is an enumeration with the member `member`, compared without regard to case as IEC names are.
+    #[must_use]
+    pub fn has_member(&self, member: &str) -> bool {
+        self.members
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(member))
+    }
 }
 
 /// A task of the compiled program: its name and its interval in ms.
@@ -123,6 +174,21 @@ pub struct CompiledCatalog {
     pub links: Vec<CallLink>,
     /// Every symbol the program's code assigns, sorted and without repetition.
     pub writes: Vec<String>,
+    /// The startup flags the program's code tests and sets, by path, each with its value once the startup has run (C1 Setup):
+    /// TRUE for `IF NOT <flag> THEN … <flag> := TRUE`, FALSE for CODESYS's `IF <flag> THEN … <flag> := FALSE`.
+    pub startup_flags: BTreeMap<String, bool>,
+}
+
+impl CompiledCatalog {
+    /// The value of the startup flag `flag` once the startup has run (C1 Setup): the one the code shows, compared without regard
+    /// to case, and TRUE for a flag the code neither tests nor sets either way.
+    #[must_use]
+    pub fn startup_done_value(&self, flag: &str) -> bool {
+        self.startup_flags
+            .iter()
+            .find(|(symbol, _)| symbol.eq_ignore_ascii_case(flag))
+            .is_none_or(|(_, done)| *done)
+    }
 }
 
 /// A process-image signal: a symbol with the address it is bound to (`CompiledControlSignal`).
@@ -251,6 +317,7 @@ pub fn decode_catalog_answer(answer: &Value) -> Result<CatalogAnswer, Failure> {
         controllers: compiled_controllers(controllers)?,
         links: call_links(control_symbols),
         writes: writes(control_symbols),
+        startup_flags: startup_flags(control_symbols),
     };
     Ok(CatalogAnswer { control, signals })
 }
@@ -401,14 +468,42 @@ fn compiled_symbols(entries: &[Value]) -> Result<Vec<CompiledSymbol>, Failure> {
     Ok(symbols)
 }
 
-/// A control symbol with its path and IEC type, and its address when it has one (`decodeCompiledCatalog`).
+/// A control symbol with its path and IEC type, its address when it has one, an enumeration's members and a global's owner
+/// (`decodeCompiledCatalog`).
 fn compiled_symbol(entry: &Value) -> Option<CompiledSymbol> {
     let object = entry.as_object()?;
     Some(CompiledSymbol {
         symbol: text(object, "symbol")?,
         iec_type: text(object, "type")?,
         address: text(object, "address"),
+        members: object
+            .get("members")
+            .and_then(Value::as_array)
+            .map(|members| {
+                members
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        owner: object.get("owner").and_then(global_owner),
     })
+}
+
+/// A symbol's owner as the catalog states it (protocol annex E2.3). A malformed owner is dropped, so the symbol is taken as a
+/// program's member, and the runtime's operation still checks it.
+fn global_owner(value: &Value) -> Option<GlobalOwner> {
+    let object = value.as_object()?;
+    match object.get("kind")?.as_str()? {
+        "task" => Some(GlobalOwner::Task {
+            task: text(object, "task")?,
+        }),
+        "unwritten" => Some(GlobalOwner::Unwritten),
+        "background" => Some(GlobalOwner::Background),
+        "shared" => Some(GlobalOwner::Shared),
+        _ => None,
+    }
 }
 
 /// The controller instances, in order. An instance listed twice must have one type; an instance whose task has no name or no
@@ -539,6 +634,21 @@ fn writes(control: Option<&Map<String, Value>>) -> Vec<String> {
         .map(str::to_string)
         .collect();
     written.into_iter().collect()
+}
+
+/// The startup flags of the answer (`startupFlags`): each flag's path and its value once the startup has run. An entry whose value
+/// is not a boolean is dropped.
+fn startup_flags(control: Option<&Map<String, Value>>) -> BTreeMap<String, bool> {
+    control
+        .and_then(|control| control.get("startupFlags"))
+        .and_then(Value::as_object)
+        .map(|flags| {
+            flags
+                .iter()
+                .filter_map(|(symbol, done)| Some((symbol.clone(), done.as_bool()?)))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The candidate of one `Control.PID` controller, from its own calls (`pidCandidates`).

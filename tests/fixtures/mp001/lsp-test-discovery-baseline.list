@@ -53,6 +53,7 @@ handlers::tests::core::core_part_04::lsp_document_symbols_include_configuration_
 handlers::tests::core::core_part_04::lsp_external_diagnostics_provide_quick_fixes: test
 handlers::tests::core::core_part_04::lsp_workspace_symbols_include_dependency_sources: test
 handlers::tests::core::core_part_05::lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk: test
+handlers::tests::core::core_part_05::lsp_document_symbols_hold_variables_in_a_tree: test
 handlers::tests::core::core_part_05::lsp_document_symbols_include_members: test
 handlers::tests::core::core_part_05::lsp_hmi_folder_toml_files_get_no_legacy_hmi_diagnostics: test
 handlers::tests::core::core_part_05::lsp_memory_budget_eviction_keeps_closed_dependency_semantically_indexed: test
@@ -60,12 +61,14 @@ handlers::tests::core::core_part_05::lsp_oop_access_diagnostics_include_explaine
 handlers::tests::core::core_part_05::lsp_push_sync_refreshes_dependent_open_document_diagnostics: test
 handlers::tests::core::core_part_05::lsp_will_rename_files_updates_pou_name: test
 handlers::tests::core::core_part_05::lsp_workspace_diagnostics_supports_unchanged_reports: test
+handlers::tests::core::core_part_06::lsp_document_highlight_marks_outputs_and_in_outs_as_writes: test
 handlers::tests::core::core_part_06::lsp_document_highlight_variable: test
 handlers::tests::core::core_part_06::lsp_references_partial_result_token_returns_empty_final_response: test
 handlers::tests::core::core_part_06::lsp_semantic_tokens_delta: test
 handlers::tests::core::core_part_06::lsp_semantic_tokens_use_utf16_start_and_length_after_supplementary_scalar: test
 handlers::tests::core::core_part_06::lsp_will_rename_files_updates_using_namespace: test
 handlers::tests::core::core_part_06::lsp_workspace_symbols: test
+handlers::tests::core::core_part_06::lsp_workspace_symbols_leave_out_the_built_ins: test
 handlers::tests::core::core_part_06::lsp_workspace_symbols_partial_result_token_returns_empty_final_response: test
 handlers::tests::core::core_part_06::lsp_workspace_symbols_respect_root_visibility_and_priority: test
 handlers::tests::core::core_part_07::lsp_inlay_hints_parameters: test

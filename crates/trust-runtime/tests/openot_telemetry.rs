@@ -971,7 +971,7 @@ fn openot_database_example_coverage_manifest_names_the_reviewed_contract() {
 
     assert_eq!(
         manifest["supportedOpenOtRevision"],
-        "137f0e765f085c262651f479be35298b836ac891"
+        "cf6135830e7dbb01626e35f6804ed2429b127baa"
     );
     assert_eq!(
         manifest["producerInstances"].as_array().map(Vec::len),

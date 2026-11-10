@@ -271,6 +271,14 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             }
         }
 
+        for (param, arg) in params.iter().zip(assigned.iter()) {
+            if let Some(arg) = arg
+                && matches!(param.direction, ParamDirection::Out | ParamDirection::InOut)
+            {
+                self.checker.record_written_argument(&arg.expr);
+            }
+        }
+
         BoundArgs {
             assigned,
             formal_call,
@@ -358,13 +366,16 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             .is_pointer_target_lenient_binding(param.type_id, arg_type)
                         {
                             // CODESYS binds vendor-idiom pointer targets
-                            // (CHAR↔BYTE, STRING vs byte buffers) with a
-                            // warning (DEV-039).
-                            self.checker.diagnostics.warning(
-                                DiagnosticCode::InvalidArgumentType,
-                                arg.range,
-                                message,
-                            );
+                            // (CHAR↔BYTE, STRING vs byte buffers): silently
+                            // from an explicit ADR(...), with a warning from
+                            // any other pointer source (DEV-039).
+                            if !is_explicit_adr(&arg.expr) {
+                                self.checker.diagnostics.warning(
+                                    DiagnosticCode::InvalidArgumentType,
+                                    arg.range,
+                                    message,
+                                );
+                            }
                         } else {
                             self.checker.diagnostics.error(
                                 DiagnosticCode::InvalidArgumentType,
@@ -511,13 +522,16 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             .is_pointer_target_lenient_binding(param.type_id, arg_type)
                         {
                             // CODESYS binds vendor-idiom pointer targets
-                            // (CHAR↔BYTE, STRING vs byte buffers) with a
-                            // warning (DEV-039).
-                            self.checker.diagnostics.warning(
-                                DiagnosticCode::InvalidArgumentType,
-                                arg.range,
-                                message,
-                            );
+                            // (CHAR↔BYTE, STRING vs byte buffers): silently
+                            // from an explicit ADR(...), with a warning from
+                            // any other pointer source (DEV-039).
+                            if !is_explicit_adr(&arg.expr) {
+                                self.checker.diagnostics.warning(
+                                    DiagnosticCode::InvalidArgumentType,
+                                    arg.range,
+                                    message,
+                                );
+                            }
                         } else {
                             self.checker.diagnostics.error(
                                 DiagnosticCode::InvalidArgumentType,

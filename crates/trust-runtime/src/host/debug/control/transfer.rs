@@ -1,5 +1,6 @@
 //! Guarded, task-bound controller transfer transactions.
 
+use super::mode::Mode;
 use super::program_facts::{self, BindingLeaf, ProgramTask};
 use super::{parameters, DebugControl};
 use crate::io::IoAddress;
@@ -48,13 +49,6 @@ struct NumberMember {
     unit: String,
     minimum: f64,
     maximum: f64,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Mode {
-    symbol: String,
-    manual_value: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -250,7 +244,41 @@ fn root(symbol: &str) -> Result<&str, String> {
 fn declared_member(image: &Image<'_>, symbol: &str) -> Result<BindingLeaf, String> {
     root(symbol)?;
     program_facts::binding_leaf(image, symbol)
+        .or_else(|| program_facts::global_leaf(image, symbol).map(|(leaf, _)| leaf))
         .ok_or_else(|| "transfer member is not a declared scalar leaf".into())
+}
+
+/// Whether the member `symbol`, which the transfer writes, belongs to the binding's task
+/// (control-studio-runtime-protocol annex E2.3): a program's member when the task runs that program,
+/// all of them in one program, which `program` keeps; a global when the task owns it by the owner
+/// byte its symbol carries (specification 44 §5.7).
+fn check_member_owner(
+    binding: &Binding,
+    image: &Image<'_>,
+    tasks: &[ProgramTask],
+    program: &mut Option<String>,
+    symbol: &str,
+) -> Result<(), String> {
+    if program_facts::binding_leaf(image, symbol).is_none()
+        && let Some((_, owner)) = program_facts::global_leaf(image, symbol)
+    {
+        return program_facts::check_global_owner(
+            image,
+            "transfer member",
+            symbol,
+            owner,
+            &binding.task_name,
+        );
+    }
+    let root = root(symbol)?;
+    match program {
+        Some(first) if !first.eq_ignore_ascii_case(root) => {
+            return Err("transfer members must belong to one compiled program".into());
+        }
+        Some(_) => {}
+        None => *program = Some(root.to_string()),
+    }
+    check_owner(binding, tasks, symbol)
 }
 
 fn check_owner(binding: &Binding, tasks: &[ProgramTask], symbol: &str) -> Result<(), String> {
@@ -329,25 +357,26 @@ fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
     }
     let tasks = program_facts::program_tasks(image);
     let mut symbols = HashSet::new();
-    let program_root = root(&binding.mode.symbol)?;
-    for member in binding
+    let mut program = None;
+    // What the transfer writes belongs to its task; a guard, which it only reads, may be any
+    // declared member (E2.3).
+    let written = binding
         .states
         .iter()
-        .chain(binding.guards.iter())
         .chain(std::iter::once(&binding.output))
         .chain(binding.additional_outputs.iter())
-    {
+        .map(|member| (member, true));
+    for (member, writes) in written.chain(binding.guards.iter().map(|member| (member, false))) {
         if !valid_number(member) {
             return Err("invalid transfer member type, unit, or bounds".into());
         }
         if !symbols.insert(member.symbol.to_ascii_uppercase()) {
             return Err("duplicate transfer member".into());
         }
-        if !root(&member.symbol)?.eq_ignore_ascii_case(program_root) {
-            return Err("transfer members must belong to one compiled program".into());
-        }
         declared_member(image, &member.symbol)?;
-        check_owner(binding, &tasks, &member.symbol)?;
+        if writes {
+            check_member_owner(binding, image, &tasks, &mut program, &member.symbol)?;
+        }
     }
     if binding.additional_modes.len() > 8 {
         return Err("transfer switches at most 8 additional modes".into());
@@ -356,11 +385,8 @@ fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
         if !symbols.insert(mode.symbol.to_ascii_uppercase()) {
             return Err("duplicate transfer mode member".into());
         }
-        if !root(&mode.symbol)?.eq_ignore_ascii_case(program_root) {
-            return Err("transfer members must belong to one compiled program".into());
-        }
         let variable = declared_member(image, &mode.symbol)?;
-        check_owner(binding, &tasks, &mode.symbol)?;
+        check_member_owner(binding, image, &tasks, &mut program, &mode.symbol)?;
         if variable.constant || variable.in_out || variable.direct {
             return Err("mode must be mutable, nonexternal and unaddressed".into());
         }
@@ -415,12 +441,12 @@ fn number(program: &dyn ProgramRead, member: &NumberMember) -> Result<f64, Strin
 }
 
 fn observed(binding: &Binding, program: &dyn ProgramRead) -> Result<JsonValue, String> {
+    let image = program.program_image();
     let mut values = Map::new();
     for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
-        let Value::Bool(value) = parameters::resolve_path(program, &mode.symbol)?.value else {
-            return Err("transfer mode must be BOOL".into());
-        };
-        values.insert(mode.symbol.clone(), JsonValue::Bool(value));
+        let value = parameters::resolve_path(program, &mode.symbol)?.value;
+        mode.check(&value, &image)?;
+        values.insert(mode.symbol.clone(), mode.reading(&value)?);
     }
     for member in binding
         .states
@@ -486,8 +512,8 @@ fn same_values(
         return Err("stale program, binding, or expected values: the member sets differ".into());
     }
     for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
-        let left = expected.get(&mode.symbol).and_then(JsonValue::as_bool);
-        let right = actual.get(&mode.symbol).and_then(JsonValue::as_bool);
+        let left = expected.get(&mode.symbol);
+        let right = actual.get(&mode.symbol);
         if left != right {
             return Err(stale_value(&mode.symbol, shown(left), shown(right)));
         }
@@ -1028,14 +1054,11 @@ impl DebugControl {
                 .chain(request.binding.additional_modes.iter())
             {
                 let resolved = parameters::resolve_path(program, &mode.symbol)?;
+                let target = mode.target(request.manual, &resolved.value, &image)?;
                 planned.push((
                     resolved.at,
                     resolved.value,
-                    Value::Bool(if request.manual {
-                        mode.manual_value
-                    } else {
-                        !mode.manual_value
-                    }),
+                    target,
                     "transfer mode is not writable".to_string(),
                 ));
             }
@@ -1123,14 +1146,10 @@ impl DebugControl {
             for mode in std::iter::once(&request.binding.mode)
                 .chain(request.binding.additional_modes.iter())
             {
-                let expected_mode = if request.manual {
-                    mode.manual_value
-                } else {
-                    !mode.manual_value
-                };
-                if parameters::resolve_path(program, &mode.symbol)?.value
-                    != Value::Bool(expected_mode)
-                {
+                if !mode.holds(
+                    request.manual,
+                    &parameters::resolve_path(program, &mode.symbol)?.value,
+                ) {
                     return Err("controller changed transfer mode before confirmation".into());
                 }
             }
@@ -1196,19 +1215,31 @@ impl DebugControl {
                 } else {
                     0.0
                 };
-                let initial = pending
+                let initial = *pending
                     .initial_outputs
                     .get(&member.symbol)
                     .ok_or("initial actuator output is missing")?;
-                if !tolerance.is_finite()
-                    || output < member.minimum
-                    || output > member.maximum
-                    || (output - initial).abs() > tolerance
-                {
-                    return Err(format!(
-                        "first controller output {} violates reviewed transfer tolerance",
+                // The refusal names what the runtime measured and allowed (annex E6.9).
+                let refused = |detail: String| {
+                    format!(
+                        "first controller output {} violates reviewed transfer tolerance: {detail}",
                         member.symbol
-                    ));
+                    )
+                };
+                if !tolerance.is_finite() {
+                    return Err(refused("its tolerance is not a finite number".into()));
+                }
+                if output < member.minimum || output > member.maximum {
+                    return Err(refused(format!(
+                        "{output} lies outside {} to {}",
+                        member.minimum, member.maximum
+                    )));
+                }
+                let change = (output - initial).abs();
+                if change > tolerance {
+                    return Err(refused(format!(
+                        "it changed by {change} (from {initial} to {output}), more than {tolerance}"
+                    )));
                 }
             }
             observed(&request.binding, program)

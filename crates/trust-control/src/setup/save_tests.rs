@@ -3,6 +3,7 @@
 //! served (C3 to C6); a structure that is still parked is refused by name. The write assertions (files, `wx`) belong to the engine.
 
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 
 use super::{
     check_setup_targets, decode_estimator_model, estimator_model_path, parse_setup_draft,
@@ -50,6 +51,8 @@ fn symbol(name: &str, iec_type: &str, address: Option<&str>) -> CompiledSymbol {
         symbol: name.to_string(),
         iec_type: iec_type.to_string(),
         address: address.map(str::to_string),
+        members: Vec::new(),
+        owner: None,
     }
 }
 
@@ -135,6 +138,7 @@ fn save_catalog() -> CompiledCatalog {
             },
         ],
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     }
 }
 
@@ -251,9 +255,12 @@ fn a_cascade_draft_is_saved_as_one_loop_on_the_cascade_block() {
         project
             .additional_modes
             .iter()
-            .map(|mode| (mode.symbol.as_str(), mode.manual_value))
+            .map(|mode| (mode.symbol.as_str(), mode.manual_value.clone()))
             .collect::<Vec<_>>(),
-        vec![("P1.OuterAuto", false)]
+        vec![(
+            "P1.OuterAuto",
+            crate::loop_definition::ModeValue::Bool(false)
+        )]
     );
 }
 
@@ -290,6 +297,7 @@ fn cold_room_catalog() -> CompiledCatalog {
         controllers: vec![controller("P1", "Main")],
         links: Vec::new(),
         writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
     }
 }
 

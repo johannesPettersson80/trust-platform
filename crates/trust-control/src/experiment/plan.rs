@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::identification::campaign::plant_input_range;
 use crate::loop_definition::{
     AuxiliaryRole, AuxiliarySignal, Direction, Execution, ExperimentKind, LoopDefinition,
-    ManualOutputType, Topology,
+    ManualOutputType, ModeValue, Topology,
 };
 use crate::recording::EvidenceSource;
 use crate::signals::Quality;
@@ -22,8 +22,12 @@ use super::duration::duration_within_limits;
 use super::number_text::js_number;
 use super::trajectory::{automatic_trajectory, experiment_trajectory};
 
+#[path = "plan_guard.rs"]
+mod guard;
 #[path = "plan_project.rs"]
 mod project;
+
+pub use guard::{measurement_stop_condition, permitted_range, PlanMeasurementGuard};
 
 pub(crate) use project::project_stop_conditions;
 
@@ -321,14 +325,30 @@ pub struct ControlRelayFeedbackPlan {
     pub high_output: f64,
 }
 
-/// The mode of a plan: the mode signal and the value that means Manual (`modeBinding`, A6.5).
+/// The mode of a plan: the mode signal, the value that means Manual and, for an enumeration, the member that means Auto
+/// (`modeBinding`, A6.1, A6.5; protocol annex E5.3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentModeBinding {
     /// The mode signal's symbol.
     pub symbol: String,
-    /// The value that means Manual.
-    pub manual_value: bool,
+    /// The value that means Manual: a boolean for a BOOL, a member's name for an enumeration.
+    pub manual_value: ModeValue,
+    /// The member that means Auto, for an enumeration only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_value: Option<String>,
+}
+
+impl ExperimentModeBinding {
+    /// A BOOL mode, `manual_value` being the value that means Manual.
+    #[must_use]
+    pub fn boolean(symbol: impl Into<String>, manual_value: bool) -> Self {
+        Self {
+            symbol: symbol.into(),
+            manual_value: ModeValue::Bool(manual_value),
+            auto_value: None,
+        }
+    }
 }
 
 /// The abort of a project-owned experiment: the latched variable that asserts an abort (`abortBinding`).
@@ -426,6 +446,10 @@ pub struct ControlExperimentPlan {
     /// The frequencies of a multisine, in Hz.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frequencies_hz: Option<Vec<f64>>,
+    /// The measured output the experiment keeps within its permitted range (B3.4 step 6, annex E5.3); absent for an
+    /// observation, which writes nothing, and in a plan kept before plans had guards.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measurement_guard: Option<PlanMeasurementGuard>,
 }
 
 /// A signal of the live sample: its value and quality at one scan, and its address and unit (the
@@ -585,6 +609,23 @@ fn direct_plan(
         Some(command) => command.address.clone(),
         None => signal.address.clone(),
     };
+    // Every experiment that writes is stopped once the measured output leaves its permitted range (B3.4 step 6).
+    let measurement_guard = (kind != ControlExperimentKind::Observation)
+        .then(|| guard::measurement_guard(loop_definition, &sample.process_variable));
+    let mut stop_conditions = vec![
+        "Abort".to_string(),
+        format!("{} s timeout", js_number(input.duration_seconds)),
+        "Loop mode changed".to_string(),
+        "Bad runtime data".to_string(),
+        "Signal force".to_string(),
+        "Signal outside its limits".to_string(),
+    ];
+    stop_conditions.extend(
+        measurement_guard
+            .as_ref()
+            .map(|_| measurement_stop_condition(loop_definition)),
+    );
+    stop_conditions.push("Runtime fault".to_string());
     Ok(ControlExperimentPlan {
         id: format!(
             "experiment:{}:{}:{}",
@@ -611,15 +652,7 @@ fn direct_plan(
         expected_scan: sample.scan,
         task: Some(experiment_task(loop_definition)),
         mode_binding: experiment_mode_binding(loop_definition),
-        stop_conditions: vec![
-            "Abort".to_string(),
-            format!("{} s timeout", js_number(input.duration_seconds)),
-            "Loop mode changed".to_string(),
-            "Bad runtime data".to_string(),
-            "Signal force".to_string(),
-            "Signal outside its limits".to_string(),
-            "Runtime fault".to_string(),
-        ],
+        stop_conditions,
         restoration_value: ExperimentValue::Number(signal.value),
         requires_physical_approval: sample.source == EvidenceSource::PhysicalPlant,
         trajectory: excitation.trajectory,
@@ -628,6 +661,7 @@ fn direct_plan(
         interval_ms: excitation.interval_ms,
         seed: excitation.seed,
         frequencies_hz: excitation.frequencies_hz,
+        measurement_guard,
     })
 }
 
@@ -965,7 +999,8 @@ fn experiment_mode_binding(loop_definition: &LoopDefinition) -> Option<Experimen
         .as_ref()
         .map(|binding| ExperimentModeBinding {
             symbol: binding.mode.symbol.clone(),
-            manual_value: binding.mode.manual_value,
+            manual_value: binding.mode.manual_value.clone(),
+            auto_value: binding.mode.auto_value.clone(),
         })
 }
 

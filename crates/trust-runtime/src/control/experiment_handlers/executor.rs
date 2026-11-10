@@ -4,6 +4,7 @@
 
 use trust_hir::TypeId;
 
+use super::measurement_guard::GuardReading;
 use super::values::{numeric_value, snapshot_type, snapshot_value};
 use super::{
     finish_record, settle_at_boundary, AppliedPoint, ControlExperimentService, ExperimentRecord,
@@ -146,6 +147,24 @@ fn execute(record: &mut ExperimentRecord, debug: &DebugControl, view: &ScanView<
             view.io.scan,
             ExperimentStatus::Failed,
             "signal_outside_limits",
+        );
+        return;
+    }
+    // The measured output leaves the band its guard names (E5.4); the value read stays in the status.
+    let guard_stop = record.measurement_guard.as_mut().and_then(|guard| {
+        match guard.read(view.io, Some(view.program)) {
+            GuardReading::Inside => None,
+            GuardReading::Outside => Some("measurement_outside_limits"),
+            GuardReading::Unreadable => Some("bad_runtime_data"),
+        }
+    });
+    if let Some(reason) = guard_stop {
+        finish_record(
+            record,
+            debug,
+            view.io.scan,
+            ExperimentStatus::Failed,
+            reason,
         );
         return;
     }

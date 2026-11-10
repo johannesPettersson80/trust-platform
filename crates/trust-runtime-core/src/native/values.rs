@@ -20,7 +20,8 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 
 use super::image::{
-    type_kind as kind, Image, MemberDetail, SectionId, Table, TypeRecord, MEMBER_BYTES,
+    type_kind as kind, Image, MemberDetail, SectionId, Table, TypeRecord, MEMBER_ALIAS,
+    MEMBER_BYTES,
 };
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
@@ -126,8 +127,20 @@ impl<'i> Types<'i> {
         self.detail(ty, bytes).map(|detail| &detail[prefix..])
     }
 
-    /// The members of a structure, in their declared order.
+    /// The members of a structure, in their declared order, without the aliases of properties, which
+    /// hold no bytes of their own (specification 44 §5.8).
     pub(crate) fn members(
+        &self,
+        ty: &TypeRecord,
+    ) -> Result<impl Iterator<Item = MemberDetail> + 'i, RuntimeError> {
+        Ok(self
+            .members_and_aliases(ty)?
+            .filter(|member| member.flags & MEMBER_ALIAS == 0))
+    }
+
+    /// The members of a structure and after them the aliases of its properties, which a name lookup
+    /// finds (specification 44 §5.8).
+    pub(crate) fn members_and_aliases(
         &self,
         ty: &TypeRecord,
     ) -> Result<impl Iterator<Item = MemberDetail> + 'i, RuntimeError> {

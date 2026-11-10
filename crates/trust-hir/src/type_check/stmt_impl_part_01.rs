@@ -6,6 +6,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         match node.kind() {
             SyntaxKind::AssignStmt => self.check_assignment(node),
             SyntaxKind::IfStmt => self.check_if_stmt(node),
+            SyntaxKind::TryStmt => self.check_try_stmt(node),
             SyntaxKind::ForStmt => self.check_for_stmt(node),
             SyntaxKind::WhileStmt => self.check_while_stmt(node),
             SyntaxKind::RepeatStmt => self.check_repeat_stmt(node),
@@ -113,6 +114,14 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             || is_context_real
             || is_context_char
         {
+            if let Some(message) = self.strict_enum_assignment(target_type, value_type, value) {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::IncompatibleAssignment,
+                    node.text_range(),
+                    message,
+                );
+                return;
+            }
             // A contextual integer literal is checked against a subrange target by its own value;
             // passing the target here would make the subrange check accept any value.
             let checked_type = if is_context_real || is_context_char {
@@ -148,13 +157,16 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 .is_pointer_target_lenient_binding(target_type, value_type)
             {
                 // CODESYS binds vendor-idiom pointer targets (CHAR↔BYTE,
-                // STRING vs byte buffers) with a warning; the signal
-                // stays as a warning (IEC_DEVIATIONS DEV-039).
-                self.checker.diagnostics.warning(
-                    DiagnosticCode::IncompatibleAssignment,
-                    node.text_range(),
-                    message,
-                );
+                // STRING vs byte buffers): silently from an explicit
+                // ADR(...), with a warning from any other pointer source
+                // (IEC_DEVIATIONS DEV-039).
+                if !is_explicit_adr(value) {
+                    self.checker.diagnostics.warning(
+                        DiagnosticCode::IncompatibleAssignment,
+                        node.text_range(),
+                        message,
+                    );
+                }
             } else {
                 self.checker.diagnostics.error(
                     DiagnosticCode::IncompatibleAssignment,
@@ -166,6 +178,36 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         if self.checker.diagnostics.error_count() == errors_before {
             self.checker
                 .check_untyped_literal_range(target_type, value, false);
+        }
+    }
+
+    /// The refusal of a value that CODESYS's strict programming rules keep out of an enumeration
+    /// declared `{attribute 'strict'}` (specification 02 §3.1): a constant that is none of its
+    /// values, or a value of another type that is no constant. A value of the enumeration itself,
+    /// and a constant that is one of its values, are taken.
+    fn strict_enum_assignment(
+        &self,
+        target: TypeId,
+        source: TypeId,
+        value: &SyntaxNode,
+    ) -> Option<String> {
+        let target = self.checker.resolve_alias_type(target);
+        let Some(Type::Enum { name, values, .. }) = self.checker.symbols.type_by_id(target) else {
+            return None;
+        };
+        if !self.checker.symbols.type_modifiers(target).strict
+            || self.checker.resolve_alias_type(source) == target
+        {
+            return None;
+        }
+        match self.checker.try_eval_const_int_expr(value) {
+            Ok(constant) if values.iter().any(|(_, member)| *member == constant) => None,
+            Ok(constant) => Some(format!(
+                "{constant} is none of the values of {name}, which is {{attribute 'strict'}}"
+            )),
+            Err(_) => Some(format!(
+                "only a value of {name} or a constant that is one of its values can be assigned to it, as it is {{attribute 'strict'}}"
+            )),
         }
     }
 

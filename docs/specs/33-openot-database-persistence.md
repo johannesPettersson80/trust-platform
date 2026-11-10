@@ -14,7 +14,7 @@ The words MUST, MUST NOT, SHOULD, and MAY are normative.
 
 Persistence consumes the resolved `open_ot_document::Document` stream defined
 by the OpenOT dependencies pinned at
-`137f0e765f085c262651f479be35298b836ac891`. It MUST preserve every `Event`, `Loss`, and
+`cf6135830e7dbb01626e35f6804ed2429b127baa`. It MUST preserve every `Event`, `Loss`, and
 `Placeholder` document, including unknown extension fields and raw placeholder
 slots. It MUST NOT reinterpret wire records, bypass definition-hash checking,
 or turn an unresolved record into a guessed event.

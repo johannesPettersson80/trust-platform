@@ -71,6 +71,7 @@ use crate::workflow::identify::{
     identify_plant, record_for_manual_check, IdentifyOutcome, IdentifyPorts,
     IdentifyRequest as RunRequest, IdentifyResult as RunResult,
 };
+use crate::workflow::identify_mode::reviewed_tolerance;
 use crate::workflow::identify_reattach::end_with_restarted_simulator;
 use crate::workflow::identify_recovery::{
     cancel_identification_recovery, cancel_operation, resume_identification,
@@ -297,7 +298,7 @@ pub(crate) fn run_stage(
         loop_definition: loop_definition.clone(),
     };
     // The run's identify stage starts a campaign too, so the scheduling variable is checked before it (C10 Identify, D-21).
-    let source = runtime_source(connection)?;
+    let source = starting_source(connection)?;
     let scheduling_value = identify_schedule::check_start(connection, loop_definition, source)?;
     run_identify(context, &work, connection, settings, scheduling_value)
 }
@@ -423,7 +424,7 @@ fn run_identify(
             connection,
             &work.pending,
             &work.storage_folder,
-            &run_request(loop_definition),
+            &run_request(loop_definition, reviewed_tolerance(retention.study())?),
             Some(settings),
             IdentifyPorts {
                 sampler: &mut sampler,
@@ -443,7 +444,7 @@ fn run_identify(
         connection,
         &work.pending,
         &work.storage_folder,
-        &run_request(loop_definition),
+        &run_request(loop_definition, reviewed_tolerance(retention.study())?),
         Some(settings),
         IdentifyPorts {
             sampler: &mut sampler,
@@ -599,6 +600,7 @@ fn run_reattach(
         source,
         working_study(work)?,
     );
+    let transfer_tolerance = reviewed_tolerance(retention.study())?;
     cancel_identification_recovery(
         context,
         connection,
@@ -606,6 +608,7 @@ fn run_reattach(
         &work.storage_folder,
         loop_definition,
         &mut retention,
+        transfer_tolerance,
     )?;
     let journal = Journal::open(
         &work.storage_folder,
@@ -620,6 +623,7 @@ fn run_reattach(
             loop_definition,
             &operation_id,
             &mut retention,
+            transfer_tolerance,
         )?;
     }
     Err(Failure::new(
@@ -664,7 +668,7 @@ fn run_resume(
         connection,
         &work.pending,
         &work.storage_folder,
-        &run_request(loop_definition),
+        &run_request(loop_definition, reviewed_tolerance(retention.study())?),
         &mut retention,
     )?;
     qualification(loop_definition, &resumed.result)?;
@@ -701,6 +705,7 @@ fn run_cancel(
 ) -> Result<Value, Failure> {
     let loop_definition = &work.loop_definition;
     let source = runtime_source(connection)?;
+    let transfer_tolerance = reviewed_tolerance(&study)?;
     let mut retention = StudyRetention::new(&work.project_root, &loop_definition.id, source, study);
     cancel_operation(
         connection,
@@ -709,6 +714,7 @@ fn run_cancel(
         loop_definition,
         operation_id,
         &mut retention,
+        transfer_tolerance,
     )?;
     to_value(&CancelResult {
         cancelled: vec![operation_id.to_string()],
@@ -808,18 +814,33 @@ fn journaled_kind(journal: &Journal) -> Option<ControlExperimentKind> {
 }
 
 /// What a run identifies with in production: the loop, its declared expected settling time (B1.4; the baseline window is a tenth
-/// of it, B3.4 step 2, when the loop declares one), and the limits check of B3.4 step 6.
-fn run_request(loop_definition: &LoopDefinition) -> RunRequest<'_, RecordedLimitsEvaluation> {
+/// of it, B3.4 step 2, when the loop declares one), the limits check of B3.4 step 6, and the Auto-entry tolerance the study
+/// reviews (`transfer_tolerance`, A6.4).
+fn run_request(
+    loop_definition: &LoopDefinition,
+    transfer_tolerance: Option<f64>,
+) -> RunRequest<'_, RecordedLimitsEvaluation> {
     RunRequest {
         loop_definition,
         expected_settling_seconds: loop_definition.limits.expected_settling_seconds,
         evaluate: &evaluate_recorded_limits,
+        transfer_tolerance,
     }
 }
 
 /// Where the values of the runtime of `connection` come from (A2.4, A9), read when an operation starts.
 fn runtime_source(connection: &RuntimeConnection) -> Result<EvidenceSource, Failure> {
     Ok(RuntimeClient::connect(connection)?.status()?.source())
+}
+
+/// [`runtime_source`] as Identify reads it when it starts, refused while the runtime is paused or the debugger holds its scan, which
+/// would keep the campaign waiting for a scan that does not come (A2.3).
+fn starting_source(connection: &RuntimeConnection) -> Result<EvidenceSource, Failure> {
+    let status = RuntimeClient::connect(connection)?.status()?;
+    if let Some(refusal) = status.paused_refusal("Identify") {
+        return Err(refusal);
+    }
+    Ok(status.source())
 }
 
 /// The loop's working study (A8.2).

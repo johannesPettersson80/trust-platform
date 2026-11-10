@@ -130,6 +130,9 @@ impl<'a> Lowerer<'_, 'a> {
     ) -> Result<Place, NativeError> {
         match self.call(node, Want::Aggregate)? {
             Called::Place(place) if place.ty == ty => Ok(place),
+            // A call whose result extends the wanted structure gives its base part, as an
+            // assignment of it copies it (`store`; specification 02 §3.5.1).
+            Called::Place(place) => self.base_part(node, place, ty),
             _ => Err(self.unsupported(node, "a call without a value of this type")),
         }
     }
@@ -266,6 +269,10 @@ impl<'a> Lowerer<'_, 'a> {
                     return Ok(Callee::FunctionBlock(place));
                 }
                 Err(self.unsupported(target, "a call of a value that is not callable"))
+            }
+            // `SUPER^()` calls the base's body as `SUPER()` does (specification 04).
+            SyntaxKind::DerefExpr if Self::is_super(target) => {
+                Ok(Callee::BaseBody(self.super_place(target)?))
             }
             // An instance that is an element of an array (`Pumps[i](...)`) or that a reference
             // names (`ref^(...)`).

@@ -1,5 +1,6 @@
 use super::const_utils::*;
 use super::*;
+use crate::attributes::declares_attribute;
 use crate::db::diagnostics::{is_expression_kind, resolve_pending_types_with_table};
 use crate::semantic::{QualifiedName, SemanticOutcome, SemanticRole, LEGACY_UNKNOWN_TYPE_ID};
 use crate::symbols::UsingResolution;
@@ -81,6 +82,16 @@ impl SymbolCollector<'_> {
             name_range,
         );
         symbol.parent = self.current_parent();
+        // An enumeration's CODESYS attributes stand before the `TYPE` keyword of its block
+        // (specification 02 §3.1).
+        if type_def.kind() == SyntaxKind::EnumDef
+            && let Some(block) = type_def
+                .ancestors()
+                .find(|node| node.kind() == SyntaxKind::TypeDecl)
+        {
+            symbol.modifiers.qualified_only = declares_attribute(&block, "qualified_only");
+            symbol.modifiers.strict = declares_attribute(&block, "strict");
+        }
         let type_symbol_id = self.declare_symbol(symbol);
 
         // CODESYS DUT inheritance (vendor extension): record the base on the
@@ -434,7 +445,32 @@ impl SymbolCollector<'_> {
         if is_overlap {
             self.table.register_overlapping_struct_type(type_id);
         }
+        self.collect_struct_pack(node, type_id);
         type_id
+    }
+
+    /// The pack mode of `{attribute 'pack_mode' := 'n'}` before the `TYPE` keyword of the block
+    /// that declares the structure `node` (specification 02 §3.5.2); any value but `0`, `1`, `2`,
+    /// `4` and `8` is an error.
+    fn collect_struct_pack(&mut self, node: &SyntaxNode, type_id: TypeId) {
+        let Some(entry) = node
+            .ancestors()
+            .find(|ancestor| ancestor.kind() == SyntaxKind::TypeDecl)
+            .and_then(|block| crate::attributes::attribute_entry(&block, "pack_mode"))
+        else {
+            return;
+        };
+        match crate::types::parse_pack_mode(&entry.value) {
+            Some(mode) => self.table.register_struct_pack(type_id, mode),
+            None => self.diagnostics.add(Diagnostic::error(
+                DiagnosticCode::OutOfRange,
+                entry.range,
+                format!(
+                    "'{}' is no pack mode: pack_mode takes 0, 1, 2, 4 or 8",
+                    entry.value
+                ),
+            )),
+        }
     }
 
     fn validate_struct_relative_layout(
@@ -573,6 +609,14 @@ impl SymbolCollector<'_> {
         } else {
             self.table.register_enum_type(name, base_type, values)
         };
+        // `{attribute 'to_string'}` before the `TYPE` keyword (specification 07 §2.7).
+        if node
+            .ancestors()
+            .find(|ancestor| ancestor.kind() == SyntaxKind::TypeDecl)
+            .is_some_and(|block| declares_attribute(&block, "to_string"))
+        {
+            self.table.mark_named_text_type(type_id);
+        }
         for (value_name, value, range) in value_symbols {
             let mut symbol = Symbol::new(
                 SymbolId::UNKNOWN,
@@ -694,6 +738,18 @@ impl SymbolCollector<'_> {
         // Handle string types with length
         if let Some(string_node) = node.children().find(|n| n.kind() == SyntaxKind::StringType) {
             return self.collect_string_type(&string_node);
+        }
+
+        // CODESYS's system type `__SYSTEM.ExceptionCode` (specification 06 §15); another
+        // `__SYSTEM` name is no type, which the type check reports.
+        if let Some(system_name) = node.children().find(|n| n.kind() == SyntaxKind::SystemName) {
+            return system_name
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .find(|token| token.kind() == SyntaxKind::Ident)
+                .and_then(|name| crate::symbols::system_type_name(name.text()))
+                .and_then(|type_name| self.table.lookup_registered_type_name(type_name))
+                .unwrap_or(TypeId::UNKNOWN);
         }
 
         let subrange_node = node.children().find(|n| n.kind() == SyntaxKind::Subrange);

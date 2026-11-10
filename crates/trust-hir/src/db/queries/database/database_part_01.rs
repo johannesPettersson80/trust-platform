@@ -171,6 +171,23 @@ impl Database {
         }
     }
 
+    /// The owner of each global that the file `file_id` declares (control-studio-runtime-protocol
+    /// annex E2.3; specification 44 §5.7), by its name; none for a file that declares no global.
+    pub fn global_owners(&self, file_id: FileId) -> Arc<Vec<GlobalOwnership>> {
+        let Some((db, project)) = self.with_synced_salsa_state(|state| {
+            state
+                .sources
+                .contains_key(&file_id)
+                .then_some((state.db.clone(), salsa_backend::project_inputs(state)))
+        }) else {
+            return Arc::default();
+        };
+        salsa::Cancelled::catch(|| {
+            salsa_backend::global_owners_query(&db, project, file_id).clone()
+        })
+        .unwrap_or_default()
+    }
+
     fn analyze_salsa(&self, file_id: FileId) -> Arc<FileAnalysis> {
         let Some((db, project)) = self.with_synced_salsa_state(|state| {
             state
@@ -183,6 +200,7 @@ impl Database {
                 diagnostics: Arc::new(Vec::new()),
                 expression_types: Arc::new(FxHashMap::default()),
                 resolved_symbols: Arc::new(FxHashMap::default()),
+                written_arguments: Arc::new(FxHashSet::default()),
                 declaration_catalog: Arc::new(DeclarationCatalog::default()),
             });
         };
@@ -194,6 +212,7 @@ impl Database {
                     diagnostics: Arc::new(Vec::new()),
                     expression_types: Arc::new(FxHashMap::default()),
                     resolved_symbols: Arc::new(FxHashMap::default()),
+                    written_arguments: Arc::new(FxHashSet::default()),
                     declaration_catalog: Arc::new(DeclarationCatalog::default()),
                 })
             })

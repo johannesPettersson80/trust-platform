@@ -2,8 +2,11 @@ use smol_str::SmolStr;
 use trust_hir::symbols::EdgeQualifier;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
+use super::super::lower::lower_expr_with_context;
 use super::super::types::CompileError;
 use super::super::util::{is_expression_kind, node_text};
+use super::model::LoweringContext;
+use crate::program_model::InitArg;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum VarBlockKind {
@@ -30,6 +33,40 @@ pub(super) struct VarDeclParts {
     pub(super) type_ref: SyntaxNode,
     pub(super) initializer: Option<SyntaxNode>,
     pub(super) address: Option<SmolStr>,
+    /// The `FB_init` arguments, `fb : FB_X(5)` (specification 10 §4.8).
+    pub(super) arguments: Option<SyntaxNode>,
+}
+
+/// The `FB_init` arguments of a declaration, as the program model holds them: each argument's
+/// input name when it names one, and its value.
+pub(super) fn lower_init_args(
+    parts: &VarDeclParts,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Vec<InitArg>, CompileError> {
+    let Some(arguments) = parts.arguments.as_ref() else {
+        return Ok(Vec::new());
+    };
+    let mut lowered = Vec::new();
+    for arg in arguments
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Arg)
+    {
+        let name = arg
+            .children()
+            .find(|child| child.kind() == SyntaxKind::Name)
+            .map(|name| SmolStr::new(node_text(&name).trim()));
+        let Some(value) = arg
+            .children()
+            .find(|child| is_expression_kind(child.kind()))
+        else {
+            return Err(CompileError::new("an FB_init argument without its value"));
+        };
+        lowered.push(InitArg {
+            name,
+            value: lower_expr_with_context(&value, ctx, None)?,
+        });
+    }
+    Ok(lowered)
 }
 
 pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileError> {
@@ -46,7 +83,7 @@ pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileE
             SyntaxKind::KwVarInOut => VarBlockKind::InOut,
             SyntaxKind::KwVarTemp => VarBlockKind::Temp,
             SyntaxKind::KwVar => VarBlockKind::Var,
-            SyntaxKind::KwVarStat => VarBlockKind::Stat,
+            SyntaxKind::KwVarStat | SyntaxKind::KwVarInst => VarBlockKind::Stat,
             SyntaxKind::KwVarGlobal => VarBlockKind::Global,
             SyntaxKind::KwVarExternal => VarBlockKind::External,
             _ => VarBlockKind::Unsupported,
@@ -149,6 +186,45 @@ pub(super) fn validate_special_var_sections(
     Ok(())
 }
 
+/// Whether the declaration `var_decl` is marked `{attribute 'noinit'}`, which the vendor also spells
+/// `no_init` and `no-init`, on the line above it (specification 10 §4.8).
+pub(super) fn declares_noinit(var_decl: &SyntaxNode) -> bool {
+    ["noinit", "no_init", "no-init"]
+        .into_iter()
+        .any(|key| trust_hir::attributes::declares_attribute(var_decl, key))
+}
+
+/// Whether the declaration `var_decl` in a section of `kind` is hidden from the lists a reader
+/// browses (specification 10 §4.8): marked `{attribute 'hide'}` on the line above it, or a `VAR`
+/// local of the POU `pou` marked `{attribute 'hide_all_locals'}` in its first line.
+pub(super) fn declares_hidden(
+    pou: Option<&SyntaxNode>,
+    var_decl: &SyntaxNode,
+    kind: VarBlockKind,
+) -> bool {
+    trust_hir::attributes::declares_attribute(var_decl, "hide")
+        || (matches!(kind, VarBlockKind::Var)
+            && pou.is_some_and(|pou| {
+                trust_hir::attributes::declares_attribute(pou, "hide_all_locals")
+            }))
+}
+
+/// Whether the declaration `var_decl` is marked `{attribute 'no-exit'}` on the line above it: the exit
+/// of a restart or a download calls no `FB_exit` of the instances it declares (specification 10
+/// §4.8).
+pub(super) fn declares_no_exit(var_decl: &SyntaxNode) -> bool {
+    trust_hir::attributes::declares_attribute(var_decl, "no-exit")
+}
+
+/// Whether the declaration `var_decl` of the POU `pou` starts with its instance's path: marked
+/// `{attribute 'instance-path'}` and `noinit` in a POU marked `{attribute 'reflection'}`, the three
+/// the vendor requires together (specification 10 §4.8).
+pub(super) fn declares_instance_path(pou: &SyntaxNode, var_decl: &SyntaxNode) -> bool {
+    declares_noinit(var_decl)
+        && trust_hir::attributes::declares_attribute(var_decl, "instance-path")
+        && trust_hir::attributes::declares_attribute(pou, "reflection")
+}
+
 pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, CompileError> {
     let mut names = Vec::new();
     for child in var_decl.children() {
@@ -168,6 +244,9 @@ pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, Comp
     let initializer = var_decl
         .children()
         .find(|child| is_expression_kind(child.kind()));
+    let arguments = var_decl
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ArgList);
 
     let mut address = None;
     let mut seen_at = false;
@@ -192,6 +271,7 @@ pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, Comp
         type_ref,
         initializer,
         address,
+        arguments,
     })
 }
 

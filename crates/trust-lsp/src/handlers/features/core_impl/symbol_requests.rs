@@ -1,5 +1,15 @@
 use super::*;
 
+use rustc_hash::{FxHashMap, FxHashSet};
+use text_size::TextRange;
+use tower_lsp::lsp_types::DocumentSymbol;
+use trust_hir::symbols::SymbolTable;
+use trust_hir::{Symbol, SymbolId};
+use trust_syntax::parser::parse;
+use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
+
+/// The outline of a document (specification 14 §6.3.3): a tree of its declarations, each with its
+/// members, variables and parameters among them, by the symbols' parents.
 pub fn document_symbol(
     state: &ServerState,
     params: DocumentSymbolParams,
@@ -8,54 +18,138 @@ pub fn document_symbol(
     let doc = state.get_document(uri)?;
 
     let symbols = state.with_database(|db| db.file_symbols(doc.file_id));
-    let result: Vec<SymbolInformation> = symbols
+    let root = parse(&doc.content).syntax();
+    // Builtin symbols have an empty range at offset 0.
+    let outlined: FxHashSet<SymbolId> = symbols
         .iter()
-        .filter(|symbol| is_outline_symbol_kind(&symbol.kind))
-        // Exclude builtin symbols (they have empty range at offset 0)
         .filter(|symbol| !symbol.range.is_empty())
-        .map(|symbol| {
-            let kind = lsp_symbol_kind(&symbols, symbol);
-            let container_name = symbol_container_name(&symbols, symbol);
-
-            #[allow(deprecated)]
-            SymbolInformation {
-                name: display_symbol_name(&symbols, symbol),
-                kind,
-                location: Location {
-                    uri: doc.uri.clone(),
-                    range: Range {
-                        start: offset_to_position(&doc.content, symbol.range.start().into()),
-                        end: offset_to_position(&doc.content, symbol.range.end().into()),
-                    },
-                },
-                container_name,
-                tags: None,
-                deprecated: None,
-            }
-        })
+        .map(|symbol| symbol.id)
         .collect();
-
-    Some(DocumentSymbolResponse::Flat(result))
+    let mut children: FxHashMap<Option<SymbolId>, Vec<&Symbol>> = FxHashMap::default();
+    for symbol in symbols
+        .iter()
+        .filter(|symbol| outlined.contains(&symbol.id))
+    {
+        let parent = symbol.parent.filter(|parent| outlined.contains(parent));
+        children.entry(parent).or_default().push(symbol);
+    }
+    let outline = Outline {
+        symbols: &symbols,
+        children: &children,
+        root: &root,
+        content: &doc.content,
+    };
+    Some(DocumentSymbolResponse::Nested(outline.level(None)))
 }
 
-fn is_outline_symbol_kind(kind: &HirSymbolKind) -> bool {
-    matches!(
-        kind,
-        HirSymbolKind::Program
-            | HirSymbolKind::Configuration
-            | HirSymbolKind::Resource
-            | HirSymbolKind::Task
-            | HirSymbolKind::ProgramInstance
-            | HirSymbolKind::Namespace
-            | HirSymbolKind::Function { .. }
-            | HirSymbolKind::FunctionBlock
-            | HirSymbolKind::Class
-            | HirSymbolKind::Interface
-            | HirSymbolKind::Type
-            | HirSymbolKind::EnumValue { .. }
-            | HirSymbolKind::Method { .. }
-            | HirSymbolKind::Property { .. }
-    )
+struct Outline<'a> {
+    symbols: &'a SymbolTable,
+    children: &'a FxHashMap<Option<SymbolId>, Vec<&'a Symbol>>,
+    root: &'a SyntaxNode,
+    content: &'a str,
+}
+
+impl Outline<'_> {
+    /// The entries whose parent is `parent`, in source order, each with its own children.
+    fn level(&self, parent: Option<SymbolId>) -> Vec<DocumentSymbol> {
+        let mut level = self.children.get(&parent).cloned().unwrap_or_default();
+        level.sort_by_key(|symbol| symbol.range.start());
+        level
+            .into_iter()
+            .map(|symbol| {
+                let selection = symbol.range;
+                let range = declaration_range(self.root, selection)
+                    .filter(|range| range.contains_range(selection))
+                    .unwrap_or(selection);
+                let children = self.level(Some(symbol.id));
+                #[allow(deprecated)]
+                DocumentSymbol {
+                    name: display_symbol_name(self.symbols, symbol),
+                    detail: variable_detail(self.symbols, symbol),
+                    kind: lsp_symbol_kind(self.symbols, symbol),
+                    tags: None,
+                    deprecated: None,
+                    range: self.lsp_range(range),
+                    selection_range: self.lsp_range(selection),
+                    children: (!children.is_empty()).then_some(children),
+                }
+            })
+            .collect()
+    }
+
+    fn lsp_range(&self, range: TextRange) -> Range {
+        Range {
+            start: offset_to_position(self.content, range.start().into()),
+            end: offset_to_position(self.content, range.end().into()),
+        }
+    }
+}
+
+/// The range of the whole declaration whose name is at `name`: the POU, namespace, type,
+/// configuration element, enumeration value or variable declaration around it, without the
+/// comments and blanks at its edges.
+fn declaration_range(root: &SyntaxNode, name: TextRange) -> Option<TextRange> {
+    if !root.text_range().contains_range(name) {
+        return None;
+    }
+    let element = root.covering_element(name);
+    let declaration = element
+        .clone()
+        .into_node()
+        .or_else(|| element.into_token().and_then(|token| token.parent()))?
+        .ancestors()
+        .find(|node| {
+            matches!(
+                node.kind(),
+                SyntaxKind::Program
+                    | SyntaxKind::Function
+                    | SyntaxKind::FunctionBlock
+                    | SyntaxKind::Class
+                    | SyntaxKind::Interface
+                    | SyntaxKind::Method
+                    | SyntaxKind::Property
+                    | SyntaxKind::Action
+                    | SyntaxKind::Namespace
+                    | SyntaxKind::Configuration
+                    | SyntaxKind::Resource
+                    | SyntaxKind::TaskConfig
+                    | SyntaxKind::ProgramConfig
+                    | SyntaxKind::TypeDecl
+                    | SyntaxKind::EnumValue
+                    | SyntaxKind::VarDecl
+            )
+        })?;
+    let mut tokens = declaration
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter(|token| !token.kind().is_trivia());
+    let first = tokens.next()?;
+    let last = tokens.last().unwrap_or_else(|| first.clone());
+    Some(TextRange::new(
+        first.text_range().start(),
+        last.text_range().end(),
+    ))
+}
+
+/// A variable's, parameter's or constant's section and type: `VAR_INPUT : INT`.
+fn variable_detail(symbols: &SymbolTable, symbol: &Symbol) -> Option<String> {
+    let section = match symbol.kind {
+        HirSymbolKind::Variable { qualifier } => qualifier.keyword(),
+        HirSymbolKind::Parameter { direction } => direction.keyword(),
+        HirSymbolKind::Constant => symbol
+            .declared_qualifier
+            .map_or("VAR", |qualifier| qualifier.keyword()),
+        _ => return None,
+    };
+    let constant = if symbol.is_constant || matches!(symbol.kind, HirSymbolKind::Constant) {
+        " CONSTANT"
+    } else {
+        ""
+    };
+    Some(match symbols.type_name(symbol.type_id) {
+        Some(type_name) => format!("{section}{constant} : {type_name}"),
+        None => format!("{section}{constant}"),
+    })
 }
 
 pub fn workspace_symbol(
@@ -103,6 +197,11 @@ fn workspace_symbol_with_ticket(
         for symbol in symbols.iter() {
             if state.semantic_request_cancelled(request_ticket) {
                 return None;
+            }
+
+            // Builtin symbols have an empty range at offset 0: no source file declares them.
+            if symbol.range.is_empty() {
+                continue;
             }
 
             let name = display_symbol_name(&symbols, symbol);

@@ -152,7 +152,7 @@ Specification 46 §6.1 defines the simulation clock and the speed. Its rules, as
 
 ### E2.1 Symbols
 
-A symbol is a dotted path. Its root is a global variable of the loaded program, usually a program instance. The path may pass through function block instances, including members that a block inherits through `EXTENDS`, and through structure fields. Example: `Main.Mixer.Speed.Value`.
+A symbol is a dotted path. Its root is a global variable of the loaded program: usually a program instance, or a global, which a namespace may hold and which is then named by its qualified name, the form of a CODESYS GVL member (`GVL_IO.lrLT101_Level`). A global scalar is a symbol by its own name. The path may pass through function block instances, including members that a block inherits through `EXTENDS`, and through structure fields. Example: `Main.Mixer.Speed.Value`.
 
 An enumeration is read as its numeric value. Its binding names the enumeration type, with or without a namespace.
 
@@ -161,7 +161,7 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 | Operation | Permitted IEC types |
 |---|---|
 | Reads: inspection, recordings, isolated observations | BOOL, signed and unsigned integers, REAL, LREAL, and enumerations read as numbers |
-| Transfer modes | BOOL |
+| Transfer and parameter modes | BOOL, or an enumeration named by its Manual and Auto members (E6.2, E7.1) |
 | Transfer states, guards and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
 | Parameters | REAL and LREAL |
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
@@ -173,8 +173,20 @@ The `iec_type` of a binding MUST equal the name of the variable's type in upper 
 
 ### E2.3 Ownership and mutability
 
-- Every symbol in one operation belongs to one compiled program.
-- Transfer members belong to the declared task, or to `$background`, and to no other owner.
+- Every symbol in one operation belongs to one compiled program, except globals and a transfer's guards (below).
+- What a transfer writes, its modes, states and outputs, and what a parameter set writes, its parameters and its mode
+  (E7.1), belongs to the declared task, or to `$background`, and to no other owner. Such a member may be a global, a
+  member of a GVL included (`GVL_IO.lrValve`, `GVL_Par.lrKp`), when the declared task owns it: no
+  program writes it, or only the programs that task runs do, through their own bodies, their actions included, or through
+  the POUs their calls reach: a function, a function block's instance, a method or an action that they call, and so on
+  (`$background`: only programs outside every task). A global that the programs of several tasks write, directly or through
+  their calls, or that a method an interface's call may run writes, belongs to no task and is refused with its reason, as is
+  one that another task owns: "transfer member GVL_IO.lrValve is a global that task Fast writes, not the loop's task
+  Slow". The build records each global's owner in the program image (specification 44 §5.7). The program's members that
+  one transfer writes belong to one program.
+- A transfer's guards, which it only reads, may be any declared member: a GVL's, another program's, or a located
+  input's. A measurement may come from anywhere; E6.6's boundary check still compares each guard with its expected
+  value, by its band when the law tracks it (A6.4).
 - Parameter paths belong to programs owned exclusively by the declared task.
 - The target and the mode symbol of an experiment MUST belong to the experiment's `task`.
 - Constants, `IN_OUT` aliases, external variables and addressed variables are refused as write targets.
@@ -227,7 +239,8 @@ Request:
 - `bindings`: array, required, 1 to 32 entries. Each entry has:
   - `id`: string, required, 1 to 128 bytes, unique in the request;
   - `iec_type`: string, required, the upper-case type name (E2.2);
-  - exactly one of `address` (string) or `symbol` (string, at most 256 bytes). An explicit `null` selector counts as absent.
+  - exactly one of `address` (string) or `symbol` (string, at most 256 bytes). An explicit `null` selector counts as absent;
+  - `mode`: optional `{manual_value, auto_value}`, the names of two different members of an enumeration mode signal (specification 35 A6.1). Such a mode channel names its enumeration by `symbol`, with `iec_type` BOOL, the reading it gives: 1 in its Manual member and 0 in its Auto member, as Control Studio reads a mode (E6.3). In another member it has no usable value and its quality is `bad`. A mode channel whose type is not BOOL, whose symbol is no enumeration, or whose members its type lacks or repeats is refused.
 - `expected_program_revision`: optional string. A value that differs from the current program revision is refused.
 
 Response before the first complete scan:
@@ -272,7 +285,7 @@ Request:
 
 - `recording_id`: string, required (E0.2).
 - `loop_revision`: string, required, not empty.
-- `bindings`: array, required, 1 to 32 entries. Each entry has `id`, `iec_type` and exactly one selector, as in E3.
+- `bindings`: array, required, 1 to 32 entries. Each entry has `id`, `iec_type`, exactly one selector and an optional `mode`, as in E3.
 - `maximum_samples`: integer, required, 2 to 100,000 samples per channel.
 - `maximum_duration_ms`: integer, required, 10 to 86,400,000 (24 h of process time).
 - `task`: optional string, the name of a configured task, matched without regard to case. When it is absent, the recording samples at the end of every resource cycle.
@@ -333,7 +346,7 @@ Status never changes the recording. A recording keeps running when clients disco
 
 Stop (Viewer). Request: `recording_id` and `loop_revision`, both required. The loop revision MUST match the recording's loop revision. A mismatch is refused.
 
-Stop response: `recording_id`, `loop_revision`, `program_revision` (when the recording has one), `bindings` (an echo of `id`, `address`, `symbol` and `iec_type`), `stop_reason`, `samples` (all of them) and `acquisition` (E4.5). A stop is idempotent. A repeated stop returns the same result.
+Stop response: `recording_id`, `loop_revision`, `program_revision` (when the recording has one), `bindings` (an echo of `id`, `address`, `symbol`, `iec_type` and `mode`), `stop_reason`, `samples` (all of them) and `acquisition` (E4.5). A stop is idempotent. A repeated stop returns the same result.
 
 Release (Viewer). Request: the same fields as stop. Response: `recording_id` and `status` set to `released`. A recording that still runs is refused with the text `Stop the recording before releasing it.`. Release frees the recording and its slot. Release of an unknown `recording_id` succeeds.
 
@@ -400,11 +413,12 @@ Access: Engineer. Unknown fields are refused with `invalid_experiment`.
 | `minimum`, `maximum` | number | Required. Finite, with `minimum` below `maximum`. |
 | `duration_ms` | integer | Required. 1,000 to 86,400,000 (1 s to 24 h of process time). |
 | `expected_scan` | integer | Required. The runtime stores it as `reviewed_scan`. It does not compare it. |
-| `mode_binding` | object | `{symbol, manual_value}`. Required for the kinds that need a mode (E5.2), and ignored for the others. `manual_value` is a boolean or a finite number. The mode symbol may be BOOL, numeric or an enumeration. |
+| `mode_binding` | object | `{symbol, manual_value, auto_value}`. Required for the kinds that need a mode (E5.2), and ignored for the others. The mode symbol may be BOOL, numeric or an enumeration. `manual_value` is a boolean or a finite number, or for an enumeration the name of a member of its type. `auto_value` is optional: for an enumeration, the name of another member of its type, which means Auto (E6.2). Without it, every value other than `manual_value` means Auto. |
 | `physical_approval` | object | Optional. `{user_approved, topology_reviewed}`, both booleans. Both MUST be true for a `physical` source. |
 | `trajectory` | array | Optional, default empty. Entries `{at_ms, value}`. At most 10,000 entries. |
 | `relay_feedback` | object | Required for `relay` only, and refused for the other kinds. `{address, value_type, center, hysteresis, low_value, high_value}`. |
 | `abort_binding` | object | Optional, for `project_sequence` only. `{address, value_type, asserted_value}`. The address is the only selector; `value_type` is BOOL. |
+| `measurement_guard` | object | Optional. `{address or symbol, minimum, maximum}`: the loop's measured output, by an address of the process image or by a variable's path, and the band it must stay in while the experiment runs (E5.4). The band is finite, with `minimum` below `maximum`. |
 
 Trajectory rules: the first point is at 0; the times strictly increase; every time is below `duration_ms`; consecutive points are at least one period of the task apart; every value is within the limits.
 
@@ -421,7 +435,7 @@ The start is checked in this order. The first failed check is the refusal.
 5. The value type is supported, and `value` and `restoration_value` decode (`invalid_value`). `value` lies within the limits (`outside_limits`).
 6. A complete scan has been published (`io_unavailable`). The target is not forced (`forced_signal`).
 7. `value_type`, if given, matches the runtime type (`incompatible_binding`). `restoration_value` equals the current value (`restoration_mismatch`).
-8. Relay feedback is given only for `relay`, and its checks hold. An abort binding of a `project_sequence` is BOOL, is not the activation signal, is writable and not forced, and does not already read its asserted value (`abort_already_asserted`).
+8. Relay feedback is given only for `relay`, and its checks hold. An abort binding of a `project_sequence` is BOOL, is not the activation signal, is writable and not forced, and does not already read its asserted value (`abort_already_asserted`). A measurement guard's band is finite and ordered (`invalid_experiment`); its signal is an address of the process image (`invalid_address`) or a variable that has a numeric value in the current scan (`invalid_target`); and the measurement lies within the band (`outside_limits`).
 9. The trajectory and its spacing hold (`invalid_experiment`). A `mv_pulse` has its two points.
 10. The mode that the kind requires is observed (`controller_mode_blocked`). A mode binding is present where the kind requires one (`invalid_experiment`).
 11. No transfer or parameter transaction is pending (`transaction_pending`), and no other experiment runs or restores (`experiment_active`). The experiment lock is held (`experiment_state_unavailable`).
@@ -438,6 +452,7 @@ At each execution of the loop's task, the runtime does the following, in this or
    - the target, or the relay feedback, is forced: `signal_forced` or `relay_feedback_forced`;
    - the target or the process value is not a valid value: `bad_runtime_data` or `bad_relay_feedback`;
    - the target or a relay level lies outside the limits: `signal_outside_limits`;
+   - the measured output of a measurement guard lies outside its band: `measurement_outside_limits`; it has no numeric value: `bad_runtime_data`;
    - the mode leaves the required one: `mode_changed`;
    - the abort signal of a project sequence reads its asserted value: `project_abort_asserted`; the abort signal is forced: `abort_signal_forced`; the abort signal is not a valid BOOL: `bad_abort_binding`;
    - the duration has elapsed: `duration_complete`. It has elapsed at the execution after which the next execution would lie at or beyond it. That execution queues the restoring write (step 6), which takes effect at the next execution (A3.5), at the instant the duration names. A write queued at the first execution takes effect at the second, so the target holds an experiment's value for the duration divided by the period of the task, less one, executions: 300 for a duration of 30.1 s at 100 ms.
@@ -473,6 +488,7 @@ Response keys:
 - `last_applied`: `{index, value, time_ms, scan, process_time_ms}` for the last trajectory point applied, or null. It holds the value read back after the execution that followed the write.
 - `relay_feedback`: for a relay, `{address, center, hysteresis, lower_threshold, upper_threshold, low_value, high_value, high_active}`. Otherwise null.
 - `abort_binding`: `{address, asserted_value, state, observed_scan}`, or null when the experiment declares none.
+- `measurement_guard`: `{address or symbol, minimum, maximum, value}`, or null when the experiment declares none. `value` is the measurement read at the latest execution of the task, and after a stop by the guard the value that stopped it.
 
 A status request MUST NOT change the record. A reload or restart ends the experiment at the boundary (E9.3).
 
@@ -483,7 +499,7 @@ A status request MUST NOT change the record. A reload or restart ends the experi
 | `duration_complete` | `completed` | Written, then confirmed (E5.4). |
 | `finished_early` | `completed` | Written, then confirmed. |
 | `user_abort` | `aborted` | Written, then confirmed. |
-| `mode_changed`, `signal_forced`, `bad_runtime_data`, `signal_outside_limits`, `relay_feedback_forced`, `bad_relay_feedback`, `project_abort_asserted`, `abort_signal_forced`, `bad_abort_binding`, `physical_approval_required` | `failed` | Written, then confirmed. |
+| `mode_changed`, `signal_forced`, `bad_runtime_data`, `signal_outside_limits`, `measurement_outside_limits`, `relay_feedback_forced`, `bad_relay_feedback`, `project_abort_asserted`, `abort_signal_forced`, `bad_abort_binding`, `physical_approval_required` | `failed` | Written, then confirmed. |
 | Any stop, when the restoration is not confirmed by the deadline | `failed_to_restore` | `failed`, with reason `confirmation_timeout`. |
 | `program_reloaded`, `runtime_restarted` | `failed` | A symbol target is not restored. An address target is restored. |
 
@@ -508,7 +524,9 @@ The status, apply and cancel operations take the same binding.
 
 - `loop_id`: string, not blank, at most 128 characters.
 - `task_name`: string. It names the one task that owns the program of every member, or `$background` for an unscheduled program.
-- `mode`: `{symbol, manual_value}`. `symbol` is a mutable BOOL variable that is not external and not addressed. `manual_value` is a boolean.
+- `mode`: `{symbol, manual_value, auto_value}`. `symbol` is a mutable BOOL or enumeration variable that is not external and not addressed (specification 35 A6.1).
+  - For a BOOL, `manual_value` is a boolean and `auto_value` is absent: the other boolean means Auto.
+  - For an enumeration, `manual_value` and `auto_value` are the names of two different members of its type, without regard to case. Its other members mean neither mode: a transfer writes only `manual_value` or `auto_value`, and it never reads another member as Manual or Auto.
 - `additional_modes`: optional array of 0 to 8 modes, in the same form. They are written with `mode` at the same boundary.
 - `states`: 1 to 64 distinct members.
 - `guards`: 1 to 64 members.
@@ -520,7 +538,8 @@ A member is `{symbol, iec_type, unit, minimum, maximum}`. `iec_type` is REAL, LR
 
 Rules:
 
-- All members belong to one program and to the declared task (E2.3).
+- The members the transfer writes, its modes, states and outputs, belong to the declared task (E2.3): a program's
+  members to one program that the task runs, a global's to the task that owns it. A guard may be any declared member.
 - Member symbols are distinct, without regard to case.
 - Modes are unaddressed. A mode MUST NOT have an I/O binding.
 - A state is unaddressed or bound to `%M`. States MUST NOT overlap one memory address.
@@ -536,7 +555,7 @@ Access: Viewer. Request: `binding`.
 Response:
 
 - `program_revision`, `binding_revision` and `runtime_time_ns`.
-- `values`: an object with one entry for each member and each mode. Modes are booleans. A BOOL member is 0 or 1.
+- `values`: an object with one entry for each member and each mode. A BOOL mode is its boolean. An enumeration mode is TRUE in its Manual member and FALSE in its Auto member, so a reading means Manual exactly where a BOOL binding with `manual_value` TRUE reads TRUE. A status read of an enumeration mode in another member is refused, with the member's name: the loop is in neither mode (specification 35 A6.1). A BOOL member is 0 or 1.
 - `supported_tracking`: `["proportional", "parallel-pid-v1", "declared-state-v1", "declared-initialization-formulas"]`.
 - `transaction_id`: the identifier of the last transaction, or null.
 - `status`: the status of the last transaction, or `idle`.
@@ -607,7 +626,7 @@ An accepted apply returns `status` set to `pending` and `confirmed` set to false
 At the owning task's boundary, before the task executes, the runtime rechecks the following. A mismatch in any item rejects the whole set. Nothing is written, and the record becomes `rejected` with its reason.
 
 - The program revision, the binding revision and the expected values.
-- The binding: ownership, types, bounds and mutability of every member.
+- The binding: the ownership of what it writes (E2.3), and the types, bounds and mutability of every member.
 - Forcing: no mode, state or guard is forced.
 - The I/O authority: when any attached I/O driver is not simulated, the physical approval MUST be present (E10.2). Without it, the transaction is rejected with the reason `attached I/O requires explicit physical review`.
 - The tracking values are computed (E6.4).
@@ -643,7 +662,7 @@ The `transaction` object has these fields: `id`, `program_revision`, `binding_re
 
 ### E6.9 Output-change tolerance
 
-`maximum_output_change` is the reviewed tolerance for the output change at the first execution after the transfer. A reviewed value replaces the allowance of A6.4. Studio computes or reviews the value. The runtime checks against the value it receives. For additional outputs, the tolerance is scaled by the ratio of the output spans.
+`maximum_output_change` is the reviewed tolerance for the output change at the first execution after the transfer. A reviewed value replaces the allowance of A6.4. Studio computes or reviews the value, never below the output's resolution (A6.4). The runtime checks against the value it receives. For additional outputs, the tolerance is scaled by the ratio of the output spans. A refusal names the output, the change the runtime measured from the value held before the transfer and the tolerance it allowed, its entry terms included: `first controller output <symbol> violates reviewed transfer tolerance: it changed by <change> (from <held> to <first>), more than <tolerance>`. A first output outside the output's bounds names those bounds: `first controller output <symbol> violates reviewed transfer tolerance: <first> lies outside <minimum> to <maximum>`.
 
 The A6.4 allowance of an Auto entry has a term on the error the controller enters with, `Ki·Δt·|e|`. Only the runtime reads that error: a status that Studio reads before the apply is out of date once the plant moves before the task boundary. Studio therefore sends the allowance without that term as `maximum_output_change`, and `|Ki|·Δt` as `entry_error_gain`. The runtime then checks the first output against `maximum_output_change + entry_error_gain × |r − y|`, where r is the tracking's reference as the transfer writes it and y is the tracking's process variable, both read at the commit, in the scan the controller executes with them. Studio sends no `entry_error_gain` with a reviewed tolerance, which replaces the allowance, or when the allowance has no integral term.
 
@@ -676,12 +695,12 @@ The binding is `{loop_id, task_name, parameters, mode}`.
 - `loop_id`: string, not blank.
 - `task_name`: string. `$background` selects unscheduled programs.
 - `parameters`: 1 to 64 members. Each is `{symbol, iec_type, unit, convention, minimum, maximum}`. `iec_type` is REAL or LREAL. `unit` and `convention` are not blank. `minimum` and `maximum` are finite, and `minimum` does not exceed `maximum`. Unknown fields are refused.
-- `mode`: `{symbol, manual_value}`. `symbol` is a BOOL variable, and `manual_value` is a boolean.
+- `mode`: `{symbol, manual_value, auto_value}`, as a transfer's mode (E6.2): a BOOL variable with its Manual boolean, or an enumeration variable with the names of its Manual and its Auto member.
 
 Rules:
 
-- Parameters are scalar members of program or function block instances. Aliases, addressed members and shared global members are refused.
-- Every path belongs to a program owned exclusively by `task_name` (E2.3).
+- Parameters are scalar members of program or function block instances, or globals that `task_name` owns (E2.3), a GVL's members included. Aliases, addressed members and globals that another task or no single task owns are refused, a global with its reason (E2.3).
+- Every path belongs to a program owned exclusively by `task_name`, or is a global that `task_name` owns (E2.3).
 - Symbols are unique without regard to case, and the mode symbol is not a parameter.
 - The binding revision covers the whole binding, including units, conventions and bounds.
 
@@ -811,6 +830,7 @@ Test runs (E8.4) and searches (E8.5) share these rules.
 - The parameter values of a run (a test run's `parameter_overrides`, E8.4; a search trial's `parameters`, E8.5) are written before the first scan. A program MAY set such a parameter during its first execution, its startup, as a program that designs or loads its own record at startup does. Its first execution is the first scan in which its task runs: a periodic task first runs one interval after the start, and a program without a task runs in every scan. The runtime then writes the run's value again at the task boundary after that scan, as Apply writes a complete record at a task boundary of a running program (E7), and from that boundary the value MUST hold to the end of the run. This adds no preparation cycle: the run's scans are those of its grid from time zero. A program that changes such a parameter after its first execution would not keep an applied candidate either, and the run fails with the reason `ST changed controller parameter <symbol>; candidate not adopted`.
 - `events` is a list of `{at_ms, symbol, value}`. Events are ordered, unique by time and symbol, scan-aligned (each `at_ms` is a multiple of `step_ms`), and no later than `duration_ms`. An event applies at its scan.
 - `observations` is a list of `{symbol, unit}`, with 1 to 64 entries. Symbols are unique. Each observed channel counts toward the limit of 64.
+- A loop's enumeration mode signal (specification 35 A6.1) is written and recorded as Control Studio reads a mode: 1 in Manual and 0 in Auto (E6.3). A test run names each in `mode_bindings`, a list of at most nine `{symbol, manual_value, auto_value}`, each symbol once and with two different members. An initial value or event of 1 for it writes its Manual member and 0 its Auto member, and any other number is refused. An observation of it records 1 in its Manual member and 0 in its Auto member, and a run that finds it in another member fails with the member's name. A BOOL mode is a number already and is not named. A search (E8.5) runs the project's own simulation and names none.
 - A write targets a writable, scalar member. A duplicate or ambiguous write is refused.
 - A BOOL value of 0 or 1 MAY start a project-owned sequence. An integer process value is coerced with exact and range checks. An integer gain is never written.
 - A seed is an integer of at most 9,007,199,254,740,991.
@@ -839,6 +859,7 @@ Start request:
 - `wall_budget_ms`: 1 to 600,000 (10 min).
 - `record_every`: optional, 1 to 100,000. The default is 1.
 - `initial_values`, `events` and `observations`, as E8.3 defines them.
+- `mode_bindings`: optional, default `[]`, as E8.3 defines it.
 - `parameter_overrides`: optional, default `[]`, at most 64 entries.
 - `simulation_override`: optional object `{model_revision, model_provenance, simulation_toml}`. Its fields are limited to 256, 4,096 and 262,144 bytes. `feedback_relay`: optional object, checked against its declared bounds.
 
@@ -1083,7 +1104,7 @@ For a proportional controller, Apply runs these runtime operations in order.
 8. Observe with the recording for the declared duration, plus two task periods of process time. Assess the samples against the requirements.
 9. On a passing observation, the loop stays in Auto. A rollback is a fresh review. It covers a Manual tracking transfer that holds the freshly observed output, restoration of the previous reference, and restoration of the previous gain set.
 
-The continuity tolerance works as follows. Studio's review proposes `1e-6 × max(1, output maximum − output minimum)` as `maximum_output_change` (E6.9). The engineer MAY choose another finite value from zero to the output span. The reviewed value is kept in the record. It is used for the first-output check of the Auto entry, for the continuity check, and for recovery. Editing it invalidates the review.
+The continuity tolerance works as follows. Studio's review proposes `1e-6 × max(1, output maximum − output minimum)` as `maximum_output_change` (E6.9), and at least `2⁻²³ × max(|output minimum|, |output maximum|)`, the output's resolution (A6.4). The engineer MAY choose another finite value from zero to the output span. The reviewed value is kept in the record. It is used for the first-output check of the Auto entry, for the continuity check, and for recovery. Editing it invalidates the review.
 
 Cancel resolves the owned transfer and keeps its real outcome. If Auto was already entered, Studio uses the reviewed Manual tracking recovery. Studio never repeats the Auto entry or the target step.
 

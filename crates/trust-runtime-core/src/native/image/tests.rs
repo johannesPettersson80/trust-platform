@@ -141,44 +141,11 @@ fn sample(spec: &Sample) -> Vec<u8> {
         ],
         &member.bytes(),
     );
-    let mut symbols = vec![
-        SymbolRecord {
-            canonical: vat,
-            display: vat_display,
-            type_index: 1,
-            area: 6,
-            flags: SYMBOL_PROGRAM,
-            offset: 0,
-            size: 4,
-            parent: NONE,
-            pou: 0,
-        },
-        SymbolRecord {
-            canonical: batches,
-            display: batches_display,
-            type_index: 2,
-            area: 5,
-            flags: SYMBOL_RETAINED,
-            offset: 0,
-            size: 4,
-            parent: 0,
-            pou: 0,
-        },
-        SymbolRecord {
-            canonical: state,
-            display: state_display,
-            type_index: 0,
-            area: 6,
-            flags: 0,
-            offset: spec.state_offset,
-            size: 2,
-            parent: 0,
-            pou: 0,
-        },
-    ];
-    if !spec.sorted {
-        symbols.swap(1, 2);
-    }
+    let symbols = sample_symbols(
+        [vat, batches, state],
+        [vat_display, batches_display, state_display],
+        spec,
+    );
     writer.table(&symbols, &[]);
     writer.table(
         &[StmtRecord {
@@ -230,6 +197,60 @@ fn sample(spec: &Sample) -> Vec<u8> {
         remove_section(&mut image, missing);
     }
     image
+}
+
+/// The sample's symbols, by their canonical and display names' string offsets: the program `Vat`, its
+/// retained `Batches` and its `State` at `spec.state_offset`, in canonical-name order unless
+/// `spec.sorted` is false.
+fn sample_symbols(canonical: [u32; 3], display: [u32; 3], spec: &Sample) -> Vec<SymbolRecord> {
+    let mut symbols = vec![
+        SymbolRecord {
+            canonical: canonical[0],
+            display: display[0],
+            type_index: 1,
+            area: 6,
+            flags: SYMBOL_PROGRAM,
+            noinit: false,
+            hidden: false,
+            owner: 0,
+            offset: 0,
+            size: 4,
+            parent: NONE,
+            pou: 0,
+        },
+        SymbolRecord {
+            canonical: canonical[1],
+            display: display[1],
+            type_index: 2,
+            area: 5,
+            flags: SYMBOL_RETAINED,
+            noinit: false,
+            hidden: false,
+            owner: 0,
+            offset: 0,
+            size: 4,
+            parent: 0,
+            pou: 0,
+        },
+        SymbolRecord {
+            canonical: canonical[2],
+            display: display[2],
+            type_index: 0,
+            area: 6,
+            flags: 0,
+            noinit: false,
+            hidden: false,
+            owner: 0,
+            offset: spec.state_offset,
+            size: 2,
+            parent: 0,
+            pou: 0,
+        },
+    ];
+    if !spec.sorted {
+        symbols.swap(1, 2);
+    }
+    symbols
 }
 
 /// Renames section `id` in the section table to an unused slot by turning it into a second
@@ -472,4 +493,103 @@ fn the_string_pool_holds_each_string_once() {
     assert_eq!(pool.add("Vat"), first);
     assert_eq!(pool.add("Plant"), 5);
     assert_eq!(pool.into_bytes(), b"\0Vat\0Plant\0");
+}
+
+/// Specification 44 §5.7: a symbol's `noinit` mark is bit 0 of its record's byte 14, the byte after
+/// its flags, and byte 15 holds the owner, none here; a record reads back with its mark. Catches the
+/// mark in another byte or bit, which an image of another truST would read as some other flag or
+/// none.
+#[test]
+fn a_symbols_noinit_mark_is_bit_0_of_its_byte_14() {
+    for noinit in [false, true] {
+        let symbol = SymbolRecord {
+            canonical: 1,
+            display: 2,
+            type_index: 3,
+            area: 5,
+            flags: SYMBOL_RETAINED,
+            noinit,
+            hidden: false,
+            owner: 0,
+            offset: 8,
+            size: 4,
+            parent: NONE,
+            pou: NONE,
+        };
+        let mut bytes = [0u8; SymbolRecord::BYTES];
+        symbol.write(&mut bytes);
+        assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, u8::from(noinit), 0]);
+        assert_eq!(SymbolRecord::read(&bytes), symbol);
+    }
+}
+
+/// Specification 44 §5.7: a symbol's `hide` mark is bit 1 of its record's byte 14, beside the
+/// `noinit` mark at bit 0, and byte 15 holds the owner, none here; a record reads back with both
+/// marks. Catches the mark in another byte or bit, or one mark read as the other.
+#[test]
+fn a_symbols_hide_mark_is_bit_1_of_its_byte_14() {
+    for (noinit, hidden, marks) in [(false, true, 2u8), (true, true, 3), (true, false, 1)] {
+        let symbol = SymbolRecord {
+            canonical: 1,
+            display: 2,
+            type_index: 3,
+            area: 5,
+            flags: SYMBOL_RETAINED,
+            noinit,
+            hidden,
+            owner: 0,
+            offset: 8,
+            size: 4,
+            parent: NONE,
+            pou: NONE,
+        };
+        let mut bytes = [0u8; SymbolRecord::BYTES];
+        symbol.write(&mut bytes);
+        assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, marks, 0]);
+        assert_eq!(SymbolRecord::read(&bytes), symbol);
+    }
+}
+
+/// Specification 44 §5.7: a global's owner is its record's byte 15, after the marks of byte 14: 0 for
+/// none, a task's index in the task table plus one (1 for the first task, 127 for the last that the
+/// byte names), 128 for a global no program writes and 129 for one only programs outside every task
+/// write; a record reads back with it. Catches the owner in another byte, the task's index written
+/// without the plus one (the first task would read as no owner), and the two kinds swapped.
+#[test]
+fn a_globals_owner_is_its_byte_15() {
+    assert_eq!(
+        (
+            OWNER_UNKNOWN,
+            OWNER_LAST_TASK,
+            OWNER_UNWRITTEN,
+            OWNER_BACKGROUND
+        ),
+        (0, 127, 128, 129)
+    );
+    for owner in [
+        OWNER_UNKNOWN,
+        1,
+        OWNER_LAST_TASK,
+        OWNER_UNWRITTEN,
+        OWNER_BACKGROUND,
+    ] {
+        let symbol = SymbolRecord {
+            canonical: 1,
+            display: 2,
+            type_index: 3,
+            area: 5,
+            flags: SYMBOL_RETAINED,
+            noinit: true,
+            hidden: false,
+            owner,
+            offset: 8,
+            size: 4,
+            parent: NONE,
+            pou: NONE,
+        };
+        let mut bytes = [0u8; SymbolRecord::BYTES];
+        symbol.write(&mut bytes);
+        assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, 1, owner]);
+        assert_eq!(SymbolRecord::read(&bytes), symbol);
+    }
 }

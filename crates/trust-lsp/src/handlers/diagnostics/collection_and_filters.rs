@@ -662,7 +662,7 @@ fn diagnostic_explainer(code: &str, message: &str) -> Option<DiagnosticExplainer
         }),
         "W012" => Some(DiagnosticExplainer {
             iec_ref: "Tooling quality lint (non-IEC); shared globals across tasks (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13-16; §6.2/§6.8.2 Table 62)",
-            spec_path: "docs/specs/09-semantic-rules.md",
+            spec_path: "docs/specs/28-hir-warning-policy.md",
         }),
         "L001" | "L002" | "L003" | "L005" | "L006" | "L007" => Some(DiagnosticExplainer {
             iec_ref: "Tooling config lint (non-IEC)",

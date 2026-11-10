@@ -75,6 +75,44 @@ END_PROGRAM
     );
 }
 
+/// Specification 14, `workspace/symbol`: a built-in, which no source file declares, is not listed, as
+/// the outline leaves it out. Worked by hand: the file declares `Pump` and `Main` with its `pump`, so
+/// an empty query lists those three by their display names, and a search for the standard block
+/// TON, its parameter CLK or a value of `__SYSTEM.ExceptionCode` finds nothing. Catches the built-ins
+/// listed at an empty range on line 0 of every file of the project.
+#[test]
+pub(super) fn lsp_workspace_symbols_leave_out_the_built_ins() {
+    let source = r#"
+FUNCTION_BLOCK Pump
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    pump : Pump;
+END_VAR
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///built-ins.st").unwrap();
+    state.open_document(uri, 1, source.to_string());
+    let search = |query: &str| {
+        workspace_symbol(
+            &state,
+            tower_lsp::lsp_types::WorkspaceSymbolParams {
+                query: query.to_string(),
+                work_done_progress_params: Default::default(),
+                partial_result_params: Default::default(),
+            },
+        )
+        .expect("workspace symbols")
+    };
+    let names: Vec<String> = search("").into_iter().map(|item| item.name).collect();
+    assert_eq!(names, ["Main (PROGRAM)", "Pump (FUNCTION_BLOCK)", "pump"]);
+    for built_in in ["TON", "CLK", "RTSEXCPT"] {
+        assert_eq!(search(built_in).len(), 0, "{built_in}");
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 pub(super) async fn lsp_references_partial_result_token_returns_empty_final_response() {
     let observation = references_partial_result_observation()
@@ -311,6 +349,59 @@ END_PROGRAM
     };
     let highlights = document_highlight(&state, params).expect("document highlights");
     assert!(highlights.len() >= 3);
+}
+
+/// Specification 14 §6.3.2: document highlights mark a variable's writes by the rule of
+/// specification 28 §6. An assignment's target, an in-out argument and an output binding (`=>`)
+/// are writes; an index and an assignment's value are reads. Catches highlights that knew only the
+/// targets of `:=`.
+#[test]
+pub(super) fn lsp_document_highlight_marks_outputs_and_in_outs_as_writes() {
+    let source = "FUNCTION Bump : BOOL\nVAR_IN_OUT\n    v : INT;\nEND_VAR\nv := v + 1;\nBump := TRUE;\nEND_FUNCTION\n\nPROGRAM Test\nVAR\n    t : TON;\n    level : INT;\n    done : BOOL;\n    table : ARRAY[0..3] OF INT;\n    ok : BOOL;\nEND_VAR\nlevel := 1;\nok := Bump(level);\nt(IN := ok, PT := T#1s, Q => done);\ntable[level] := 0;\nok := done;\nEND_PROGRAM\n";
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///highlights.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    let body_highlights = |at: &str| {
+        let params = tower_lsp::lsp_types::DocumentHighlightParams {
+            text_document_position_params: tower_lsp::lsp_types::TextDocumentPositionParams {
+                text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri: uri.clone() },
+                position: position_at(source, at),
+            },
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        };
+        let mut found: Vec<(
+            u32,
+            u32,
+            Option<tower_lsp::lsp_types::DocumentHighlightKind>,
+        )> = document_highlight(&state, params)
+            .expect("document highlights")
+            .into_iter()
+            .filter(|highlight| highlight.range.start.line >= 16)
+            .map(|highlight| {
+                (
+                    highlight.range.start.line,
+                    highlight.range.start.character,
+                    highlight.kind,
+                )
+            })
+            .collect();
+        found.sort_by_key(|(line, character, _)| (*line, *character));
+        found
+    };
+    use tower_lsp::lsp_types::DocumentHighlightKind as Kind;
+    assert_eq!(
+        body_highlights("level := 1"),
+        [
+            (16, 0, Some(Kind::WRITE)),
+            (17, 11, Some(Kind::WRITE)),
+            (19, 6, Some(Kind::READ))
+        ]
+    );
+    assert_eq!(
+        body_highlights("done);"),
+        [(18, 29, Some(Kind::WRITE)), (20, 6, Some(Kind::READ))]
+    );
 }
 
 #[test]

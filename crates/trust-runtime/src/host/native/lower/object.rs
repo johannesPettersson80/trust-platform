@@ -55,26 +55,35 @@ impl<'a> Lowerer<'_, 'a> {
         })
     }
 
-    /// The place `node` names when it is `THIS`, `THIS^` or `SUPER`.
+    /// The place `node` names when it is `THIS`, `THIS^`, `SUPER` or `SUPER^` (specification 04).
     pub(super) fn object_place(&self, node: &SyntaxNode) -> Option<Result<Place, NativeError>> {
         match node.kind() {
             SyntaxKind::ThisExpr => Some(self.this_place(node)),
             SyntaxKind::SuperExpr => Some(self.super_place(node)),
-            SyntaxKind::DerefExpr
-                if node
-                    .children()
-                    .next()
-                    .is_some_and(|inner| inner.kind() == SyntaxKind::ThisExpr) =>
-            {
-                Some(self.this_place(node))
-            }
+            SyntaxKind::DerefExpr => match node.children().next()?.kind() {
+                SyntaxKind::ThisExpr => Some(self.this_place(node)),
+                SyntaxKind::SuperExpr => Some(self.super_place(node)),
+                _ => None,
+            },
             _ => None,
+        }
+    }
+
+    /// Whether `node` is `SUPER` or `SUPER^`: a call through it is the base's own method or body.
+    pub(super) fn is_super(node: &SyntaxNode) -> bool {
+        match node.kind() {
+            SyntaxKind::SuperExpr => true,
+            SyntaxKind::DerefExpr => node
+                .children()
+                .next()
+                .is_some_and(|inner| inner.kind() == SyntaxKind::SuperExpr),
+            _ => false,
         }
     }
 
     /// What the method call on `base` is called on.
     pub(super) fn receiver(&mut self, base: &SyntaxNode) -> Result<Receiver, NativeError> {
-        if base.kind() == SyntaxKind::SuperExpr {
+        if Self::is_super(base) {
             return Ok(Receiver::Instance {
                 place: self.super_place(base)?,
                 exact: true,

@@ -9,8 +9,8 @@ use std::time::Duration;
 use smol_str::SmolStr;
 use trust_runtime_core::native::image::{
     EntryKind, EntryRecord, Image, IoBindRecord, SymbolRecord, TaskRecord, TypeRecord,
-    BACKGROUND_PRIORITY, BIND_OFFSET_SHIFT, NONE, SYMBOL_CONSTANT, SYMBOL_DIRECT, SYMBOL_IN_OUT,
-    SYMBOL_PROGRAM,
+    BACKGROUND_PRIORITY, BIND_OFFSET_SHIFT, NONE, OWNER_BACKGROUND, OWNER_LAST_TASK,
+    OWNER_UNWRITTEN, SYMBOL_CONSTANT, SYMBOL_DIRECT, SYMBOL_IN_OUT, SYMBOL_PROGRAM,
 };
 use trust_runtime_core::native::memory::Place;
 
@@ -135,10 +135,92 @@ pub(crate) fn binding_leaf(image: &Image<'_>, path: &str) -> Option<BindingLeaf>
     Some(leaf)
 }
 
-/// Whether `path` names a member a parameter set or an experiment may write: declared, and neither
-/// constant, in-out nor located along its path (specification 35 A6.8; protocol annex E7.1).
+/// The global `path` names, `GVL_IO.lrLevel` or `gTank.level`, or a member or field below one, with
+/// the owner byte its symbol carries (specification 44 §5.7): the shortest leading part that names a
+/// global, its namespaces included, then each further part a member with a symbol of its own. The
+/// global's own declaration counts toward the leaf's facts. `None` for a path that names no global.
+pub(crate) fn global_leaf(image: &Image<'_>, path: &str) -> Option<(BindingLeaf, u8)> {
+    let parts: Vec<&str> = path.split('.').collect();
+    if parts.iter().any(|part| part.is_empty()) {
+        return None;
+    }
+    let bindings = image.table::<IoBindRecord>().ok()?;
+    let canonical = |count: usize| parts[..count].join(".").to_ascii_uppercase();
+    let first = (1..=parts.len()).find(|count| {
+        image
+            .find_symbol(&canonical(*count))
+            .is_some_and(|(_, symbol)| {
+                symbol.parent == NONE && symbol.area != 0 && symbol.flags & SYMBOL_PROGRAM == 0
+            })
+    })?;
+    let mut leaf = BindingLeaf::default();
+    let mut owner = 0;
+    for count in first..=parts.len() {
+        let (index, symbol) = image.find_symbol(&canonical(count))?;
+        leaf.constant |= symbol.flags & SYMBOL_CONSTANT != 0;
+        leaf.in_out |= symbol.flags & SYMBOL_IN_OUT != 0;
+        let bound = bindings.iter().find(|binding| binding.symbol == index);
+        leaf.direct |= symbol.flags & SYMBOL_DIRECT != 0 || bound.is_some();
+        if leaf.address.is_none() {
+            leaf.address = bound.and_then(|binding| image.binding_address(&binding));
+        }
+        owner = symbol.owner;
+    }
+    Some((leaf, owner))
+}
+
+/// The declared name of the task at `index` of the image's task table.
+pub(crate) fn task_name(image: &Image<'_>, index: usize) -> Option<SmolStr> {
+    let tasks = image.table::<TaskRecord>().ok()?;
+    let task = tasks.get(u32::try_from(index).ok()?)?;
+    Some(SmolStr::new(image.string(task.name)?))
+}
+
+/// Whether `path` names a member a parameter set or an experiment may write: declared, a program's
+/// member or a global (protocol annex E2.3), and neither constant, in-out nor located along its path
+/// (specification 35 A6.8; protocol annex E7.1).
 pub(crate) fn parameter_writable(image: &Image<'_>, path: &str) -> bool {
-    binding_leaf(image, path).is_some_and(|leaf| !leaf.constant && !leaf.in_out && !leaf.direct)
+    binding_leaf(image, path)
+        .or_else(|| global_leaf(image, path).map(|(leaf, _)| leaf))
+        .is_some_and(|leaf| !leaf.constant && !leaf.in_out && !leaf.direct)
+}
+
+/// Whether `task` owns the global `symbol`, whose owner byte is `owner` (protocol annex E2.3;
+/// specification 44 §5.7): one that no program writes is any task's, one that only programs outside
+/// every task write is `$background`'s, and one that the programs of a task write, directly or
+/// through the POUs they call, is that task's. A global with no owner is no task's. The refusal names the global as `what`, a transfer member or
+/// a parameter.
+pub(crate) fn check_global_owner(
+    image: &Image<'_>,
+    what: &str,
+    symbol: &str,
+    owner: u8,
+    task: &str,
+) -> Result<(), String> {
+    match owner {
+        OWNER_UNWRITTEN => Ok(()),
+        OWNER_BACKGROUND if task == "$background" => Ok(()),
+        OWNER_BACKGROUND => Err(format!(
+            "{what} {symbol} is a global that only programs outside every task write, not the \
+             loop's task {task}"
+        )),
+        1..=OWNER_LAST_TASK => {
+            let writer = task_name(image, usize::from(owner) - 1).unwrap_or_default();
+            if writer.eq_ignore_ascii_case(task) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "{what} {symbol} is a global that task {writer} writes, not the loop's task \
+                     {task}"
+                ))
+            }
+        }
+        _ => Err(format!(
+            "{what} {symbol} is a global that no single task owns: the programs of several tasks \
+             write it, directly or through the POUs they call, or a method that an interface's call \
+             may run writes it"
+        )),
+    }
 }
 
 /// Every process-image binding of the image (specification 44 §5.6): the place of the variable,

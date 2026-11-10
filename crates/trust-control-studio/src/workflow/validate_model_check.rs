@@ -55,6 +55,9 @@ pub(crate) struct ModelCheckRequest<'a> {
     pub(crate) stored: Option<&'a StoredIdentify>,
     /// The settling time the check's requirements set, in s; `None` when they set none (B3.4 step 2, A4.2).
     pub(crate) expected_settling_seconds: Option<f64>,
+    /// The Auto-entry tolerance the check's requirements review (`transferTolerance`, B4.3), which the check's mode changes use in
+    /// place of the allowance (A6.4); `None` keeps the allowance.
+    pub(crate) transfer_tolerance: Option<f64>,
 }
 
 /// The outcome of the independent model check of an Identify result (B5.1 (a), B5.2, B5.5).
@@ -109,8 +112,11 @@ pub(crate) fn run_model_check(
         return Err(estimation_missing());
     }
     model_validation_channels(loop_definition, model)?;
-    let source = RuntimeClient::connect(connection)?.status()?.source();
-    if let Some(refusal) = live_write_refusal(source, IDENTIFY_OPERATION) {
+    let status = RuntimeClient::connect(connection)?.status()?;
+    if let Some(refusal) = status.paused_refusal("Validate's model check") {
+        return Err(refusal);
+    }
+    if let Some(refusal) = live_write_refusal(status.source(), IDENTIFY_OPERATION) {
         return Err(refusal);
     }
     let evaluate: RunEvaluator<'_, RecordedLimitsEvaluation> = &evaluate_recorded_limits;
@@ -118,6 +124,7 @@ pub(crate) fn run_model_check(
         loop_definition,
         expected_settling_seconds: request.expected_settling_seconds,
         evaluate,
+        transfer_tolerance: request.transfer_tolerance,
     };
     let outcome = run_identification(
         context,

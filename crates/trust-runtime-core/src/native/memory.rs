@@ -11,7 +11,9 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use super::image::{Image, RetainRecord, SymbolRecord, NONE, SYMBOL_INSTANCE, SYMBOL_PROGRAM};
+use super::image::{
+    Image, RetainRecord, SymbolRecord, MEMBER_HIDDEN, NONE, SYMBOL_INSTANCE, SYMBOL_PROGRAM,
+};
 use super::values::{damaged, holds_non_finite, read_value, Types, Writer, MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
@@ -103,6 +105,21 @@ pub trait ProgramMemory {
     /// The [`RuntimeError`] of an address that is no flat address of its image, or of a value of
     /// another size than the address's.
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError>;
+
+    /// Writes the variable at `place` out to each input or marker image that binds it, where the
+    /// next sample reads it, so that a write or a force of the variable reaches the program
+    /// (specification 44 §5.6, §13.3; [`NativeProgram::hold_bound`]). The default holds nothing:
+    /// a memory whose images no sample reads, such as a held scan's, which sampled its inputs
+    /// before it stopped.
+    ///
+    /// # Errors
+    ///
+    /// As [`NativeProgram::hold_bound`].
+    ///
+    /// [`NativeProgram::hold_bound`]: super::program::NativeProgram::hold_bound
+    fn hold_bound(&mut self, _place: Place) -> Result<(), RuntimeError> {
+        Ok(())
+    }
 }
 
 fn read_bytes<M: ProgramMemory + ?Sized>(memory: &M, place: Place, out: &mut [u8]) -> bool {
@@ -398,6 +415,9 @@ pub struct Member {
     pub type_index: u32,
     /// Its offset in the instance.
     pub offset: u32,
+    /// Marked `{attribute 'hide'}`, or a `VAR` local of a type marked `{attribute
+    /// 'hide_all_locals'}` (§5.8): a list of members leaves it out.
+    pub hidden: bool,
 }
 
 /// What a variable of a type is to a reader that browses it.
@@ -441,6 +461,7 @@ pub fn layout(image: &Image<'_>, type_index: u32) -> Result<Layout, RuntimeError
                     name: SmolStr::new(name),
                     type_index: member.type_index,
                     offset: member.offset,
+                    hidden: member.flags & MEMBER_HIDDEN != 0,
                 });
             }
             Ok(Layout::Instance(members))

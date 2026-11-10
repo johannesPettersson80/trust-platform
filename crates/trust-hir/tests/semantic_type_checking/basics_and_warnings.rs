@@ -500,11 +500,13 @@ END_FUNCTION_BLOCK
 
 #[test]
 fn test_shared_global_task_hazard_warning() {
+    // An LINT is 64-bit data, which W012 reports with a single writing task (specification 28
+    // section 6).
     let warnings = check_warnings(
         r#"
 CONFIGURATION Conf
 VAR_GLOBAL
-    Shared : INT;
+    Shared : LINT;
 END_VAR
 RESOURCE R ON CPU
     TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
@@ -519,7 +521,7 @@ PROGRAM Writer
 END_PROGRAM
 
 PROGRAM Reader
-    VAR x : INT; END_VAR
+    VAR x : LINT; END_VAR
     x := Shared;
 END_PROGRAM
 "#,

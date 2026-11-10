@@ -3756,9 +3756,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.38.2"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8"
+checksum = "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3"
 dependencies = [
  "cc",
  "pkg-config",
@@ -4655,12 +4655,12 @@ dependencies = [
 [[package]]
 name = "open-ot-carriage"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 
 [[package]]
 name = "open-ot-conformance"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 dependencies = [
  "open-ot-carriage",
  "open-ot-shm",
@@ -4669,7 +4669,7 @@ dependencies = [
 [[package]]
 name = "open-ot-definition"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 dependencies = [
  "open-ot-carriage",
  "serde",
@@ -4681,7 +4681,7 @@ dependencies = [
 [[package]]
 name = "open-ot-document"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 dependencies = [
  "open-ot-carriage",
  "open-ot-definition",
@@ -4692,7 +4692,7 @@ dependencies = [
 [[package]]
 name = "open-ot-shm"
 version = "0.1.0"
-source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e765f085c262651f479be35298b836ac891"
+source = "git+https://github.com/johannesPettersson80/open-ot-experiments.git?rev=cf6135830e7dbb01626e35f6804ed2429b127baa#cf6135830e7dbb01626e35f6804ed2429b127baa"
 dependencies = [
  "memmap2",
  "open-ot-carriage",
@@ -5884,9 +5884,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.40.2"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3"
+checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
 dependencies = [
  "bitflags 2.13.2",
  "fallible-iterator 0.3.0",
@@ -7652,7 +7652,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -7661,14 +7661,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-chips"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -7677,7 +7677,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "base64 0.22.1",
  "hex",
@@ -7691,7 +7691,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control-math"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "nalgebra 0.34.2",
  "num-bigint",
@@ -7702,7 +7702,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control-studio"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "clap",
  "parking_lot",
@@ -7718,7 +7718,7 @@ dependencies = [
 
 [[package]]
 name = "trust-debug"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "base64 0.23.1",
  "indexmap 2.14.2",
@@ -7734,7 +7734,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -7749,6 +7749,7 @@ dependencies = [
  "trust-lsp",
  "trust-runtime",
  "trust-runtime-core",
+ "trust-runtime-services",
  "trust-syntax",
  "trust-test-support",
  "trust-wasm-analysis",
@@ -7757,7 +7758,7 @@ dependencies = [
 
 [[package]]
 name = "trust-devices"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "base64 0.23.1",
  "serde",
@@ -7771,7 +7772,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "boxcar",
  "insta",
@@ -7791,7 +7792,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -7804,7 +7805,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -7847,11 +7848,11 @@ dependencies = [
 
 [[package]]
 name = "trust-modbus"
-version = "0.33.0"
+version = "0.35.0"
 
 [[package]]
 name = "trust-platform-esp32"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "critical-section",
  "embassy-net-driver",
@@ -7872,7 +7873,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-memory"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "crc32fast",
  "critical-section",
@@ -7881,7 +7882,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-net"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "hmac 0.13.0",
  "serde",
@@ -7894,11 +7895,11 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-stm32"
-version = "0.33.0"
+version = "0.35.0"
 
 [[package]]
 name = "trust-platform-stm32u5"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -7916,14 +7917,14 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-abi"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "memmap2",
 ]
 
 [[package]]
 name = "trust-plc-lib"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "libm",
  "ryu",
@@ -7932,11 +7933,11 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-mem"
-version = "0.33.0"
+version = "0.35.0"
 
 [[package]]
 name = "trust-plcopen"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -7949,7 +7950,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "ads",
  "anyhow",
@@ -8048,7 +8049,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-client"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "base64 0.23.1",
  "crc32fast",
@@ -8061,7 +8062,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -8080,7 +8081,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-services"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "base64 0.23.1",
  "indexmap 2.14.2",
@@ -8095,7 +8096,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -8107,18 +8108,18 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "libloading 0.9.0",
 ]
 
 [[package]]
 name = "trust-test-support"
-version = "0.33.0"
+version = "0.35.0"
 
 [[package]]
 name = "trust-visual"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -8128,7 +8129,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "rowan",
  "serde",
@@ -8473,7 +8474,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "verification-cases"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "hex",
  "serde",
@@ -9241,7 +9242,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "crc32fast",

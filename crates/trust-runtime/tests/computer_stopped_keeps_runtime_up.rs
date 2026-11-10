@@ -184,15 +184,16 @@ fn restart_after_shutdown_runs_the_program_again() {
     );
 }
 
-/// Queues a write to a global the program does not declare, which the next scan refuses and the
-/// event store keeps as `write_rejected` with the scan's logical time (specification 11, the event
-/// store; specification 34 HOST-09), waits until the store holds it, and returns the logical
+/// Queues a write the next scan refuses, 40000 for the INT `Counter`, which keeps the untyped
+/// grammar and is refused at the boundary as outside the INT's range (specification 11), and which
+/// the event store keeps as `write_rejected` with the scan's logical time (specification 11, the
+/// event store; specification 34 HOST-09), waits until the store holds it, and returns the logical
 /// times of the store's events then. Requests take the numbers from `id` on.
 fn refused_write_times(runtime: &Runtime, id: u64) -> Vec<i64> {
     let queued = runtime.control_request(json!({
         "id": id,
         "type": "set",
-        "params": {"target": "global:NotDeclared", "value": "7"},
+        "params": {"target": "global:Counter", "value": "40000"},
     }));
     result_of(&queued);
     let mut times = Vec::new();
@@ -621,4 +622,29 @@ fn upload(runtime: &Runtime, bytes: &[u8]) -> String {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[test]
+fn a_runtime_whose_web_port_another_process_holds_starts_on_fresh_ports() {
+    // Checklist G98 (8 November, lv1's check on the builder): each test process reserves its own
+    // ports, so another test's runtime can take one before this runtime binds it. `play` binds the
+    // control endpoint before the web interface and ends when a bind fails, so the runtime answered
+    // `ctl status`, ended at its web bind, and the test's next `ctl io-read` was refused. Here the
+    // web port is held while the runtime first starts: the start takes fresh ports, and the runtime
+    // it returns keeps answering, its program scanning and its web interface serving. Wrong
+    // behaviour: the start returns a runtime that ends at its web bind (the next request is
+    // refused), or gives up although fresh ports are free.
+    let runtime = ExampleRuntime::new(EXAMPLE)
+        .web()
+        .occupy_web_port_at_first_start()
+        .start();
+    runtime.wait_for_snapshot(CLIMB, "five scans", |s| s.scan() >= 5);
+    let events = ureq::get(&format!("{}/api/events?limit=1", runtime.web_base()))
+        .call()
+        .expect("the web interface answers on its fresh port")
+        .body_mut()
+        .read_to_string()
+        .expect("read the web answer");
+    let events: Value = serde_json::from_str(&events).expect("the web answer is JSON");
+    assert_eq!(events["ok"], json!(true), "{events}");
 }

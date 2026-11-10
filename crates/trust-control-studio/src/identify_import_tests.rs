@@ -463,6 +463,7 @@ fn connected_record_json(
         symbol: Some(symbol.to_string()),
         iec_type: "REAL".to_string(),
         unit: None,
+        mode: None,
     };
     let run = RecordedRun {
         recording_id: recording_id.to_string(),

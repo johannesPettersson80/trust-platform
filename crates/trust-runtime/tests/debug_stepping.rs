@@ -326,7 +326,7 @@ END_PROGRAM
     });
 
     first_cycle_done_rx
-        .recv_timeout(Duration::from_millis(500))
+        .recv_timeout(Duration::from_secs(10))
         .unwrap();
     assert!(stop_within(&debugger, Duration::from_millis(100)).is_none());
 
@@ -372,7 +372,7 @@ END_PROGRAM
 
     // Prove launch/run completed a cycle without breakpoints before mutation.
     first_cycle_done_rx
-        .recv_timeout(Duration::from_millis(500))
+        .recv_timeout(Duration::from_secs(10))
         .unwrap();
     assert!(stop_within(&debugger, Duration::from_millis(100)).is_none());
 

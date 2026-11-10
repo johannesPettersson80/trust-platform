@@ -50,10 +50,7 @@ fn binding() -> TransferBinding {
     TransferBinding {
         loop_id: "loop:zones".to_owned(),
         task_name: "MainTask".to_owned(),
-        mode: TransferModeBinding {
-            symbol: "P1.ZonesAuto".to_owned(),
-            manual_value: false,
-        },
+        mode: TransferModeBinding::boolean("P1.ZonesAuto".to_owned(), false),
         additional_modes: Vec::new(),
         tracking_outputs: BTreeMap::new(),
         states: Vec::new(),

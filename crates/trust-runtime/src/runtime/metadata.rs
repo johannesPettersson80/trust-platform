@@ -26,6 +26,10 @@ pub struct RuntimeMetadata {
     pub(super) interfaces: IndexMap<SmolStr, InterfaceDef>,
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
     pub(super) constant_globals: indexmap::IndexSet<SmolStr>,
+    pub(super) hidden_globals: indexmap::IndexSet<SmolStr>,
+    /// The task that owns each global, by the global's name in upper case (control-studio-runtime-protocol
+    /// annex E2.3).
+    pub(super) global_owners: IndexMap<SmolStr, trust_hir::db::GlobalOwner>,
     /// The program type of each program instance a configuration names, by the instance's
     /// name in upper case (`PROGRAM Tank WITH Fast : TankLevelControl`).
     pub(super) program_types: IndexMap<SmolStr, SmolStr>,
@@ -49,6 +53,24 @@ impl RuntimeMetadata {
         self.constant_globals
             .iter()
             .any(|constant| constant.eq_ignore_ascii_case(name))
+    }
+
+    /// Whether a global is marked `{attribute 'hide'}`, which the lists a reader browses leave out
+    /// (specification 10 §4.8); names compare without regard to case.
+    pub fn global_is_hidden(&self, name: &str) -> bool {
+        self.hidden_globals
+            .iter()
+            .any(|hidden| hidden.eq_ignore_ascii_case(name))
+    }
+
+    /// The task that owns the global `name`, a GVL's member named with its namespace
+    /// (`GVL_IO.lrValve`), as trust-hir judges it (control-studio-runtime-protocol annex E2.3): the
+    /// one task whose programs alone write it, no task's when no program writes it, `$background`'s
+    /// when only programs outside every task do, and none when several tasks or a function, block,
+    /// method or class do. `None` for a name that is no global; names compare without regard to case.
+    #[must_use]
+    pub fn global_owner(&self, name: &str) -> Option<&trust_hir::db::GlobalOwner> {
+        self.global_owners.get(name.to_ascii_uppercase().as_str())
     }
 
     /// Access the type registry snapshot.

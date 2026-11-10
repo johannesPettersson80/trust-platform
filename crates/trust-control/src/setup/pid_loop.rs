@@ -21,8 +21,8 @@ use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerLaw, Design, Direction, Execution, ExperimentKind, Limits,
-    LoopDefinition, LoopScope, ModeBinding, ModeWhenTrue, ParameterBinding, PidInitialization,
-    PidLaw, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    LoopDefinition, LoopScope, ModeBinding, ModeValue, ModeWhenTrue, ParameterBinding,
+    PidInitialization, PidLaw, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 
 /// The retained states of `Control.PID`, in the order of the `control-pid-v1` table (C1).
@@ -50,14 +50,87 @@ pub struct SignalChoice {
     pub maximum: Option<f64>,
 }
 
-/// The Auto/Manual signal the setup form chose, and the mode its TRUE value means (`ModeChoice`).
+/// The Auto/Manual signal the setup form chose (`ModeChoice`, A6.1): a BOOL with the mode its TRUE value means (`whenTrue`), or an
+/// enumeration with the member that means Manual (`manualValue`) and the member that means Auto (`autoValue`), as the loop file
+/// names them. As with every field of a draft, the engine takes what the choice needs (B1.3): a choice that names the members is an
+/// enumeration's, and its `whenTrue` is not read; a blank member is not given. The fields are checked as they are read.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(try_from = "ModeChoiceFields")]
 pub struct ModeChoice {
-    /// The BOOL's path.
+    /// The signal's path.
     pub symbol: String,
-    /// The mode the BOOL's TRUE value chooses; the JSON key is `whenTrue`.
+    /// The mode the signal's TRUE reading chooses: a BOOL's choice, and Manual for an enumeration, which the runtime reads TRUE in
+    /// its Manual member (protocol annex E6.3).
     pub when_true: ModeWhenTrue,
+    /// An enumeration's members that mean Manual and Auto; `None` for a BOOL.
+    pub members: Option<ModeMembers>,
+}
+
+/// The members of an enumeration mode signal that mean Manual and Auto (A6.1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModeMembers {
+    /// The member that means Manual.
+    pub manual: String,
+    /// The member that means Auto.
+    pub auto: String,
+}
+
+/// The fields of a mode choice as the draft writes them, before [`ModeChoice`] checks them.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ModeChoiceFields {
+    symbol: String,
+    when_true: Option<ModeWhenTrue>,
+    manual_value: Option<String>,
+    auto_value: Option<String>,
+}
+
+impl TryFrom<ModeChoiceFields> for ModeChoice {
+    type Error = &'static str;
+
+    fn try_from(fields: ModeChoiceFields) -> Result<Self, Self::Error> {
+        let given = |member: Option<String>| member.filter(|member| !member.trim().is_empty());
+        match (
+            given(fields.manual_value),
+            given(fields.auto_value),
+            fields.when_true,
+        ) {
+            (None, None, Some(when_true)) => Ok(Self::boolean(fields.symbol, when_true)),
+            (Some(manual), Some(auto), _) if !manual.eq_ignore_ascii_case(&auto) => Ok(Self {
+                symbol: fields.symbol,
+                when_true: ModeWhenTrue::Manual,
+                members: Some(ModeMembers { manual, auto }),
+            }),
+            _ => Err(texts::mode_choice_shape()),
+        }
+    }
+}
+
+impl ModeChoice {
+    /// A BOOL's choice: its path and the mode its TRUE value means.
+    #[must_use]
+    pub fn boolean(symbol: impl Into<String>, when_true: ModeWhenTrue) -> Self {
+        Self {
+            symbol: symbol.into(),
+            when_true,
+            members: None,
+        }
+    }
+
+    /// The loop's mode binding (A6.1): an enumeration's two members, or the value of the BOOL that means Manual.
+    #[must_use]
+    pub fn binding(&self) -> ModeBinding {
+        match &self.members {
+            Some(members) => ModeBinding {
+                symbol: self.symbol.clone(),
+                manual_value: ModeValue::Member(members.manual.clone()),
+                auto_value: Some(members.auto.clone()),
+            },
+            None => {
+                ModeBinding::boolean(self.symbol.clone(), self.when_true == ModeWhenTrue::Manual)
+            }
+        }
+    }
 }
 
 /// A single-loop PID as the engineer confirmed it (`PidLoopDraft`, B1.3). Setup asks for no experiment step or duration, so both
@@ -170,10 +243,7 @@ pub fn pid_loop_definition(
                 &process_variable,
                 &manipulated_variable,
             ),
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: draft.mode.binding(),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),
@@ -384,7 +454,8 @@ fn pid_controller(
         pid_initialization: Some(PidInitialization::ControlPid {
             maximum_snapshot_age_ms: snapshot_age_ms(period_ms),
             states: pid_states(&draft.instance, process_variable, manipulated_variable, 0),
-            application_states: startup.map(|flag| vec![startup_state(flag)]),
+            application_states: startup
+                .map(|flag| vec![startup_state(flag, catalog.startup_done_value(flag))]),
         }),
         state_feedback: None,
         on_off: None,

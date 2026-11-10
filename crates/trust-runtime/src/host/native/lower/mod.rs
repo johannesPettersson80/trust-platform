@@ -14,6 +14,7 @@ mod conversions;
 mod dates;
 mod effects;
 mod enable;
+mod exceptions;
 mod expr;
 mod functions;
 mod jumps;
@@ -115,6 +116,8 @@ pub(super) struct Lowerer<'m, 'a> {
     indent: usize,
     temps: u32,
     loops: Vec<LoopLabels>,
+    /// For each closure of a `__TRY` construct the statement lies in, the flows its statements returned.
+    try_flows: Vec<exceptions::TryFlows>,
     labels: u32,
     /// Whether statements call the statement hook (specification 44 §13.2).
     hooks: bool,
@@ -152,12 +155,14 @@ pub(super) struct Lowerer<'m, 'a> {
     pub(super) pointer_bytes: u64,
 }
 
-/// A variable of a debug image's frame structure: its declared name, its field and its type.
+/// A variable of a debug image's frame structure: its declared name, its field, its type and
+/// whether the lists a reader browses leave it out (`{attribute 'hide'}`).
 #[derive(Clone, Debug)]
 pub(super) struct FrameVar {
     pub(super) name: SmolStr,
     pub(super) field: String,
     pub(super) ty: Ty,
+    pub(super) hidden: bool,
 }
 
 /// A POU a body calls.
@@ -213,6 +218,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             indent: 1,
             temps: 0,
             loops: Vec::new(),
+            try_flows: Vec::new(),
             labels: 0,
             hooks,
             statements: Vec::new(),
@@ -310,8 +316,8 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     }
 
     /// Declares a local of the frame at its type's zero value; `frame_init` gives it its starting
-    /// value.
-    pub(super) fn declare(&mut self, name: &SmolStr, ty: Ty) -> String {
+    /// value. A `hidden` one is left out of the debugger's list of the frame's variables.
+    pub(super) fn declare(&mut self, name: &SmolStr, ty: Ty, hidden: bool) -> String {
         let field = rust_field(name);
         let rust = if let Some(vars) = self.frame_vars.as_mut() {
             // A debug image lays its frame variables out in one structure, which the kernel reads
@@ -320,6 +326,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                 name: name.clone(),
                 field: field.clone(),
                 ty,
+                hidden,
             });
             format!("fr.{field}")
         } else {
@@ -395,21 +402,20 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             SyntaxKind::WhileStmt => self.while_statement(node),
             SyntaxKind::RepeatStmt => self.repeat_statement(node),
             SyntaxKind::ExitStmt => {
-                let Some(labels) = self.loops.last() else {
+                let Some(leave) = self.leave_loop(true) else {
                     return Err(self.unsupported(node, "EXIT outside a loop"));
                 };
-                let exit = labels.exit.clone();
-                self.line(&format!("break {exit};"));
+                self.line(&leave);
                 Ok(())
             }
             SyntaxKind::ContinueStmt => {
-                let Some(labels) = self.loops.last() else {
+                let Some(leave) = self.leave_loop(false) else {
                     return Err(self.unsupported(node, "CONTINUE outside a loop"));
                 };
-                let next = labels.next.clone();
-                self.line(&format!("break {next};"));
+                self.line(&leave);
                 Ok(())
             }
+            SyntaxKind::TryStmt => self.try_statement(node),
             SyntaxKind::ReturnStmt => self.return_statement(node),
             SyntaxKind::JmpStmt => self.jump(node),
             SyntaxKind::LabelStmt => self.labelled(node),
@@ -564,6 +570,45 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             })
     }
 
+    /// The value of `place`, a structure of a type that extends `ty`, as a value of `ty`: a
+    /// temporary that its base's members are copied into, member by member, as an assignment
+    /// copies them (`store`; specification 02 §3.5.1). The build refuses a value that does not
+    /// extend `ty`, as far as trust-hir admits the copy and no further.
+    fn base_part(&mut self, node: &SyntaxNode, place: Place, ty: Ty) -> Result<Place, NativeError> {
+        let base = self.info(ty).clone();
+        let Kind::Struct { members } = &base.kind else {
+            return Err(self.unsupported(node, "an assignment between different types"));
+        };
+        if !self.derived_structure(node, members) {
+            return Err(self.unsupported(node, "an assignment between different types"));
+        }
+        // A structure that lies in an overlap's backing is copied out of it into a value of its
+        // own type first (`overlap`).
+        let source = if place.is_overlap_region() {
+            let own = self.model.types.natural(place.ty).unwrap_or(place.ty);
+            self.region_value(&place, own)
+        } else {
+            place
+        };
+        let temp = self.temp();
+        let storage = base.rust.clone();
+        self.line(&format!(
+            "let {temp}: {storage} = <{storage} as Plain>::ZEROED;"
+        ));
+        for member in members {
+            self.line(&format!(
+                "Assign::assign(&{temp}.{field}, &{value}.{field});",
+                field = member.field(),
+                value = source.expr,
+            ));
+        }
+        Ok(Place {
+            expr: temp,
+            ty,
+            is_ref: false,
+        })
+    }
+
     /// Whether `value`, assigned to a reference to `target`, is a value of the referenced type
     /// rather than a reference, `NULL` or an instance whose reference the assignment takes.
     fn writes_through_reference(&mut self, value: &SyntaxNode, target: Ty) -> bool {
@@ -625,8 +670,13 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             )),
             Kind::Struct { members } if self.derived_structure(value, members) => {
                 // A structure of a type that extends the place's (`TYPE Derived EXTENDS Base`,
-                // specification 02 §3.5.1) gives its base part, which lies first in it.
-                let source = self.place(value)?;
+                // specification 02 §3.5.1) gives its base part, which lies first in it; a call's
+                // result is a value of its own type and no place (`call_aggregate`).
+                let source = if value.kind() == SyntaxKind::CallExpr {
+                    self.call_aggregate(value, place.ty)?
+                } else {
+                    self.place(value)?
+                };
                 for member in members {
                     self.line(&format!(
                         "Assign::assign(&{}.{field}, &{}.{field});",
@@ -900,6 +950,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             self.store(&result, &value)?;
         }
         let exit = self.exit.clone();
+        self.note_return();
         self.line(&exit);
         Ok(())
     }

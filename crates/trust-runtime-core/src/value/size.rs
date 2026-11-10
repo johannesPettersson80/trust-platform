@@ -92,6 +92,19 @@ fn size_of_type_in(
                 }
                 return Ok(end.div_ceil(8));
             }
+            // A packed structure is laid out by its pack mode (specification 02 §3.5.2).
+            if let Some(mode) = registry.struct_pack(type_id) {
+                let mut members = alloc::vec::Vec::with_capacity(fields.len());
+                for field in fields {
+                    members.push((
+                        size_of(field.type_id)?,
+                        alignment_in(field.type_id, registry, pointer_bytes, 0)?,
+                    ));
+                }
+                return trust_hir::types::packed_layout(&members, mode)
+                    .map(|layout| layout.size)
+                    .ok_or(SizeOfError::Overflow);
+            }
             let mut total = 0u64;
             for field in fields {
                 let size = size_of(field.type_id)?;
@@ -125,6 +138,48 @@ fn size_of_type_in(
             let bits = ty.bit_size().ok_or(SizeOfError::UnsupportedType)?;
             Ok(u64::from(bits.div_ceil(8)))
         }
+    }
+}
+
+/// The alignment a member of type `type_id` keeps in a packed structure (specification 02 §3.5.2):
+/// an elementary value's size, 1 for a `STRING`, 2 for a `WSTRING`, `pointer_bytes` for a reference
+/// or a pointer, an array's element's, and a structure's largest member alignment, at most its own
+/// pack mode's.
+#[cfg(feature = "hir")]
+fn alignment_in(
+    type_id: TypeId,
+    registry: &TypeRegistry,
+    pointer_bytes: u64,
+    depth: usize,
+) -> Result<u64, SizeOfError> {
+    if depth > 128 {
+        return Err(SizeOfError::UnsupportedType);
+    }
+    let alignment = |type_id| alignment_in(type_id, registry, pointer_bytes, depth + 1);
+    match registry.get(type_id).ok_or(SizeOfError::UnknownType)? {
+        Type::Alias { target, .. } => alignment(*target),
+        Type::Subrange { base, .. } | Type::Enum { base, .. } => alignment(*base),
+        Type::Array { element, .. } => alignment(*element),
+        Type::Struct { fields, .. } => {
+            let mut align = 1;
+            for field in fields {
+                align = align.max(alignment(field.type_id)?);
+            }
+            Ok(match registry.struct_pack(type_id) {
+                Some(mode) => align.min(trust_hir::types::pack_alignment(mode)),
+                None => align,
+            })
+        }
+        Type::Union { variants, .. } => {
+            let mut align = 1;
+            for variant in variants {
+                align = align.max(alignment(variant.type_id)?);
+            }
+            Ok(align)
+        }
+        Type::String { .. } => Ok(1),
+        Type::WString { .. } => Ok(2),
+        _ => size_of_type_in(type_id, registry, pointer_bytes),
     }
 }
 

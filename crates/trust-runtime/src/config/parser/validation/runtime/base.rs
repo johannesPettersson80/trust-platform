@@ -152,9 +152,20 @@ fn parse_control(control: &ControlSection) -> Result<ParsedControl, RuntimeError
             "runtime.control.auth_token required for tcp endpoint".into(),
         ));
     }
+    let start_paused = control.start_paused.unwrap_or(false);
+    // Only `resume` ends the pause, and it is a debug operation, as `pause` is: without the debug
+    // surface the program would stay paused until a restart (specification 11 §6.8).
+    if start_paused && !debug_enabled {
+        return Err(RuntimeError::InvalidConfig(
+            "runtime.control.start_paused needs the debug surface, since only `resume`, a debug \
+             operation, ends the pause: set runtime.control.debug_enabled = true or mode = \"debug\""
+                .into(),
+        ));
+    }
     Ok(ParsedControl {
         auth_token,
         mode,
         debug_enabled,
+        start_paused,
     })
 }

@@ -424,6 +424,12 @@ impl Parser<'_, '_> {
             self.bump();
             self.parse_type_ref();
 
+            // CODESYS gives an instance's `FB_init` inputs in its declaration:
+            // `com1 : serialdevice(iCOMnum := 1);` (specification 10 §4.8).
+            if self.at(TokenKind::LParen) {
+                self.parse_arg_list();
+            }
+
             while matches!(self.current(), TokenKind::KwREdge | TokenKind::KwFEdge) {
                 self.bump();
             }
@@ -639,18 +645,40 @@ impl Parser<'_, '_> {
         } else if self.current().is_type_keyword() {
             self.bump();
             self.parse_type_subrange();
+        } else if self.at(TokenKind::KwSystemDunder) {
+            // CODESYS's system type `__SYSTEM.ExceptionCode` (specification 06 §15).
+            self.parse_system_name();
         } else if self.at(TokenKind::Ident) {
             if self.peek_kind_n(1) == TokenKind::Dot {
                 self.parse_qualified_name();
             } else {
                 self.parse_name();
             }
-            self.parse_type_subrange();
+            // `(lo..hi)` after a named type is a subrange of it; any other parentheses after it
+            // hold the `FB_init` arguments of an instance, which the declaration takes.
+            if self.at_named_type_subrange() {
+                self.parse_type_subrange();
+            }
         } else {
             self.error("expected type");
         }
 
         self.finish_node();
+    }
+
+    /// Whether the parentheses at the current token hold a subrange, `lo..hi` at their top level.
+    fn at_named_type_subrange(&self) -> bool {
+        self.at(TokenKind::LParen)
+            && matches!(
+                self.scan_top_level_ahead(
+                    1,
+                    &[TokenKind::DotDot],
+                    &[TokenKind::RParen],
+                    &[TokenKind::Semicolon, TokenKind::KwEndVar],
+                    DECLARATION_RECOVERY_LIMIT,
+                ),
+                BoundedTopLevelScan::Found(TokenKind::DotDot)
+            )
     }
 
     fn parse_type_subrange(&mut self) {

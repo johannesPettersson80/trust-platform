@@ -875,6 +875,15 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
   `input_function`, `output_function`, `input_points` and `output_points`. An
   unknown key is refused, as for every driver of §6.5, with the key and the
   reason (`modbus-tcp: <key>: <reason>`).
+- One set of rules, shared by every runtime, checks these parameters; a runtime
+  refuses the driver with the first refusal. A connection form (`comm.apply`)
+  marks every key that a rule refuses at once, each with that refusal, in the
+  order of the rules, the same way as for MQTT (specification 32 §2). A list of
+  points needs its function, so a refused function leaves its points unjudged,
+  and each list reports its first refusal. The form checks the parameters as it
+  applies them, without empty optional values, and keeps the bound that
+  `comm.schema` advertises for `timeout_ms`, at most 60,000, which is narrower
+  than the driver's.
 - Default profile uses **input registers** (FC04) for input image.
 - Default profile uses **multiple holding-register writes** (FC16) for output image.
 - Explicit `io.toml` options can select `read_coils` (FC01),
@@ -1147,6 +1156,10 @@ stops the session's run loop and waits for it, because the loop reconnects a
 session that it finds disconnected; then it closes the session. A session that
 the loop reopened while it was being closed is never left to be dropped half
 open.
+
+After a loss, the worker closes the lost session and connects a new one, with
+its own run loop and subscription, whose initial values and heartbeat make the
+connection live again. It never reopens the lost session in place.
 
 Whether pending outputs replay after reconnect and how server source
 timestamps are ordered remain unresolved product decisions. This contract does
@@ -3125,7 +3138,8 @@ case-insensitively by extension, together with sources from resolved local
 project dependencies, for the source views. Legacy `--config` startup
 recursively compiles those source types beneath its literal runtime root into a
 debug image for this computer, in a temporary folder, with the toolchain of
-specification 44 §4.6, installed on the first build that needs it. Source
+specification 44 §4.6, installed on the first build that needs it with the person's consent
+(specification 44 NX-08). Source
 discovery must not interpret project or directory names as glob syntax, must use
 deterministic path ordering, and must propagate directory and file-read
 failures. An empty or invalid source set is a startup error. Startup without a
@@ -3376,6 +3390,37 @@ printed as a successful scripted result. A TCP connection attempt is bounded to
 after a TCP or Unix connection is established, reads and writes are bounded to
 750 milliseconds, and a response line may not exceed 1 MiB.
 
+The breakpoint actions count lines as an editor shows them, from 1, while the
+protocol counts lines and columns from 0 (section 6.13.3): `ctl breakpoints-set
+<source> <line>...` sends each line less one and refuses a line 0 before it
+sends anything, and `ctl` prints the replies of `breakpoints-set` and
+`breakpoints-list` with each `line`, `column`, `end_line` and `end_column` one
+higher. The console's `break <file>:<line>` takes its line the same way and
+refuses a line that is no number from 1, and `breaks` lists each breakpoint's
+file and its line counted from 1.
+
+`ctl` reads a held program with four more actions, each one request of the
+debug table (section 6.13.3): `location` sends `debug.state`, `stack` sends
+`debug.stack`, `scopes <frame-id>` sends `debug.scopes` with `frame_id`, and
+`variables <reference>` sends `debug.variables` with `variables_reference`.
+The replies of `location`, `stack` and `scopes` are printed with their lines
+and columns counted from 1, as the breakpoint replies are.
+
+`ctl` compiles debug expressions as a debugger does (section 6.13.2), with the
+types of the project that `--project` names or that the current folder holds,
+else with none, which serve names, literals and operators:
+- `breakpoints-set` takes `--condition <expression>`, `--hit-condition <=N,
+  >=N or >N>` (`==` for `=`, N from 1) and `--log-message <text>`, whose
+  `{expression}` parts give their values; the options go to each line in
+  `options`, a brace that opens or closes no part is refused before anything is
+  sent;
+- `evaluate <expression> [--frame <frame-id>]` sends `debug.evaluate` with the
+  compiled expression, in the held program or between scans in the last scan,
+  while `eval <name>` stays the read of one name;
+- `compile-expression <expression>` prints the compiled form,
+  `{"expr_version": 1, "expr": "<base64>"}`, without sending anything, for a
+  script that sends its own requests.
+
 `--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
 endpoint on another host, such as a chip's control connection over its network (specification 34
 ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial
@@ -3535,6 +3580,12 @@ test or a simulator may use it too (owner, 23 October 2026).
   sampled and the outputs not published. A name that names no program instance refuses the step
   before its scan, with the name. Its restart, inputs, watches, error and time are those of any
   step; this is how a project's tests run on a device (specification 44 §14.2).
+- `io` (optional, with `run`): `true` runs the body as a scan runs its tasks' programs: the inputs
+  are checked and sampled into the located variables before it, and the outputs published after it,
+  so that a value the step writes at an input address reaches the program and a located output
+  reaches the output image (specification 10 §9). A test that runs the project's simulation steps
+  this way (specification 22, "A plant in the loop"). `io` without `run` refuses the step: a scan
+  samples and publishes already.
 
 The scan is one cycle of the scheduler at `time_ns` (specification 10 §4.3): the tasks due then run
 in priority order, then the programs without a task. The drivers are neither sampled nor driven and
@@ -3543,7 +3594,13 @@ forced value or queued write applies, and no metric, event or task statistic cou
 watchdog bounds the scan as it bounds every scan. The result is
 `{"time_ns": t, "values": {...}, "direct": {...}, "errors": [...]}`: each value as a conformance
 artifact writes it (`{"type": "INT", "value": 7}`, a duration in `nanos`, a date in `ticks`), and in
-`errors` the text of the error the scan ended with, none for a scan that completed. A fault of a
+`errors` the text of the error the scan ended with, none for a scan that completed. When a statement
+of a debug image raised that error, the result adds `"error_at": {"file": "src/tests.st", "line": 7}`:
+the statement's file, by the label of specification 44 §5.9, and its line, from the image's statement
+table (specification 44 §8.6), so that a client with the sources, such as `trust-dev test --device`,
+shows the statement as it shows one of its own runs (specification 22). When a failed assertion ended
+the scan, the result adds its values as `"assertion": {"name": "ASSERT_EQUAL", "expected": {...},
+"actual": {...}}`, the object of specification 22, each value in the encoding above. A fault of a
 stepped scan is reported and not latched: no safe state is applied, the resource stays Stopped, and
 the next step runs the next scan, as the conformance runner's kernel continues. A name that names no
 variable, or that names one of several programs, refuses the step before its scan, with the name (a
@@ -4259,7 +4316,9 @@ value text, trimmed, is an IEC 61131-3 literal of that type, read as the languag
   `$` combinations of Table 7 and `$hh` and `$hhhh` codes (§6.3.3, Table 6), typed `STRING#'OK'`,
   `WSTRING#"OK"` and `WSTRING#'OK'`; a `CHAR` takes one character in single quotes and a `WCHAR` one
   in double quotes;
-- an enumeration's value, bare (`Red`) or typed (`Color#Red`, §6.4.4.2, Table 11).
+- an enumeration's value, bare (`Red`), typed (`Color#Red`, §6.4.4.2, Table 11), or in CODESYS's form,
+  the type and the value with a dot (`Color.Red`), whose type its namespaces may qualify
+  (`Lib.Color.Red`); an enumeration that a namespace holds is also named by its own name.
 
 A literal of another type, outside the range of the destination's type or subrange, longer than the
 text the destination holds, or no value of its enumeration, is refused with a plain reason before
@@ -4270,8 +4329,13 @@ variable is bound to, the admitted value is written as the image holds that vari
 for a `TIME` bound in whole milliseconds those milliseconds. The parser is the shared one of every
 runtime (specification 34), so a board takes a text exactly as trust-runtime does.
 
+A `set`, `var.force` or `retain:` target that the installed program does not resolve is refused at once
+with the path's reason, which names it (`PRG_Tank.fbPI.Kp names no member`), so that no request that
+cannot change a variable is acknowledged; the scan boundary still refuses a target that a program loaded
+since no longer resolves.
+
 **The untyped grammar.** Where the destination's type is not known (an address no variable is bound
-to, a target the installed program does not resolve, a runtime without its program at hand), after
+to, or a runtime without its program at hand), after
 trimming, `TRUE` and `FALSE` match ASCII-case-insensitively and produce Boolean values.
 A base-ten signed integer accepted exactly by the `i64` domain produces a
 `LINT`; optional leading sign and leading zeroes are accepted, while an empty
@@ -4315,7 +4379,20 @@ name read, not general expression execution, and it keeps its text `expr`
 field; `debug.evaluate` and the other expression surfaces use the compiled form
 of section 6.13.2. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
-Successful values use the stable runtime debug representation.
+A property of a function block or class whose GET only returns one of its
+variables is a name too, as CODESYS monitors it: reading it reads that variable,
+and `set`, `var.force` and the debugger's writes write it when the property's SET
+only assigns that variable; otherwise the property reads as constant. A property
+whose GET does more runs code, which no name read runs, so it is an unknown
+identifier (specification 44 §5.8).
+A successful read answers the value's type and the value as JSON,
+`{"type": "LREAL", "value": 0.738}`: `type` is the IEC name of the type, or a
+structure's or an enumeration's own name; `value` is a number for an integer,
+a bit string or a finite real, a boolean, a string, an array or an object of
+the fields; an enumeration's `value` is its name and `numeric` its number; a
+duration's `value` is its nanoseconds and `text` its IEC text; a date, a time
+of day, a real that is no finite number, a reference and an instance are their
+IEC text. Every runtime, a chip too, answers in this form.
 
 Installed retained targets are declaration-qualified views of ordinary PLC
 storage, not a second retain bank. The label for a retained global is its global
@@ -4360,7 +4437,11 @@ the delimiter is trimmed. Every name must remain non-empty. Instance names
 retain all text after the second delimiter, after surrounding whitespace is
 removed.
 
-An accepted `set` queues a one-shot variable write for the next scan. A later
+An accepted `set` queues a one-shot variable write for the next scan. A write
+of a variable that the program binds to an input or a marker address is written
+at that address too (specification 44 §13.3): a marker keeps it, and an input
+keeps it until a driver's next input read replaces it, which `var.force`
+holds the input against. A later
 pending write to the same exact target replaces the earlier value in place;
 different targets retain arrival order. Force uses the same target identity
 and scalar grammar. `var.forced` returns active variable forces in stable
@@ -5844,9 +5925,17 @@ command and project; exposes `ok`/`status`, error and warning counts, stable
 issue codes and optional file locations; and reports the exact source count,
 source paths, dependency roots, and resolved dependency names. `source_count`
 equals the number of reported source
-paths. `ok` is true exactly when the error count is zero. Human output is
-derived from the same response and reports either the successful source list
-or every accumulated issue.
+paths. `ok` is true exactly when the error count is zero. A compile that fails
+on its sources' diagnostics gives one issue per diagnostic, as
+`trust-lsp check` reports it (specification 14 §7.7): the compiler's `code`
+(`E101`), its `severity` and `message`, the source's `file`, and where it is,
+`line`, `column`, `end_line` and `end_column`, 1-based, a column counted in
+UTF-16 code units; a syntax error has the code of its kind (E001 an unexpected
+token, E002 a missing one, E106 an invalid identifier). A compile failure that
+names no place in the sources is one issue with the code `compile`. Human
+output is derived from the same response and reports either the successful
+source list or every accumulated issue, an issue with a position as
+`file:line:column: message`.
 
 Success exits 0. Any configuration or source-layout error exits with the
 invalid-configuration class 10, including a response that also contains a
@@ -5867,8 +5956,10 @@ directory is the final fallback. The default source root is `<project>/src`. A
 relative `--sources` override is resolved from the project root, including when
 the command is launched from another working directory. Local package
 dependencies are resolved and compiled with the selected project sources. The
-build installs the toolchain on the first build that needs it (specification 44
-§4.6). The project's `[build] debug` chooses a debug or a release image
+build installs the toolchain on the first build that needs it once the person agrees, never
+silently: it asks in a terminal and otherwise fails with the advice to run `trust-runtime
+toolchain install`, unless `--install-toolchain` gives the consent (specification 44 §4.6,
+NX-08). The project's `[build] debug` chooses a debug or a release image
 (specification 44 §13.2), and the image is signed with the project's key or the
 user's own before its record names its bytes (specification 44 §5.11, §10.1).
 `--emit-source` keeps the generated Rust crate in the build folder. A source set
@@ -5885,7 +5976,12 @@ names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
 `signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
 `bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
 (`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
-number of reported source paths, and `--ci` prints the same object. Human mode
+number of reported source paths, and `--ci` and `--json` print the same object.
+A build whose sources have errors writes no image, and with `--json` or `--ci`
+it prints, in place of the error text, version 1, command `build`, `ok` false,
+status `failed`, the `project`, the error and warning counts and the `issues`,
+one per diagnostic as `trust-runtime check` reports them (section 6.8.1c); it
+exits as the failure does without the JSON. Human mode
 reports the written image, whether it is a debug or a release image, its bytes
 with its code, read-only data and starting memory, the memory figure with its
 parts, the public key that signed it, and the source count with at most the
@@ -6009,8 +6105,24 @@ The standalone IDE resource contract is:
   equivalent typed `too_large` error before writing.
 
 These are focused reference-environment budgets. They are regression gates for
-the shipped authoring path on the x86_64 CI reference environment, not
-universal real-time guarantees for arbitrary hardware or projects.
+the shipped authoring path, not universal real-time guarantees for arbitrary
+hardware or projects. The reference environment is CI's Linux x86_64 runner
+with an optimized build of the runtime: the release profile's optimization,
+built without its link-time optimization, which takes most of the build's time.
+There the gate program `web_ide_performance_gate` asserts the HTTP apply, p95
+and typing budgets, alone on the runner, in a workflow of its own (Web IDE
+Performance) that runs on every push to `main` and on each pull request that
+changes the web IDE, the analysis it runs (`trust-syntax`, `trust-hir`,
+`trust-ide`, `trust-wasm-analysis`) or the build settings
+(`.github/paths/web-ide-performance.txt`). Every other run of the same tests, on
+Windows, on macOS, on an ARM computer or in a debug build, checks each response
+and records each measurement beside its budget in the test log, without failing
+on a budget: such a run measures another build or another machine. In a debug
+build the 2,000-line re-analysis took 315 ms on the Linux runner, about 800 ms on
+the Windows runner and 1.37 s on a contributor's Windows computer; in the
+optimized build it took 20 ms on Linux x86_64 (8 November 2026). The in-process
+apply budget of the first item is asserted by the runtime's own tests on every
+platform.
 
 ###### Unified Web IDE shell contract
 
@@ -6339,6 +6451,14 @@ when enabled:
   rejected. The default is **disabled** in production mode (see `runtime.control.mode`).
 - `runtime.control.mode` defaults to `production` and can be set to `debug` for development
   workflows; `runtime.control.debug_enabled` overrides the mode when explicitly set.
+- `runtime.control.start_paused = true`, or `--paused` on `play` and `run`, starts the program
+  paused: the resource pauses before its first scan, as a production `pause` pauses it, so that
+  no scan runs until `resume` and a simulation's time stays at 0 until then. `resume` is a debug
+  operation, as `pause` is, so the setting needs the debug surface: a project that sets it
+  without `debug_enabled` (or `mode = "debug"`) is refused, and so is `--paused`. A device takes the
+  setting from its deployment record (specification 34 §5.1.1) and holds before the first scan
+  of its boot the same way. Only the start of the runtime or of the device pauses: a `restart`
+  after a stop starts the program running.
 - `step_in`, `step_over` and `step_out` act only while the debugger holds the scan:
   at a breakpoint, after a debug-mode `pause`, or after a completed step. Otherwise
   they are rejected with a stable error and arm nothing. In production mode `pause`
@@ -6460,7 +6580,11 @@ start of the scan, after its writes and inputs, and again after the scan's last
 task, before the outputs are sampled (specification 10 §4.7, steps 2 and 6). A
 forced variable therefore reads its forced value between scans, and a forced
 variable that lies at an output address reaches the output, whatever the
-program wrote to it during the scan. Release
+program wrote to it during the scan. A forced variable that the program binds
+to an input or a marker address (`AT %IW0`) is written at that address as well
+once the drivers have read the inputs, so that the program reads its forced
+value, not the physical input, until the force is released; a force of the
+address itself holds over it (specification 44 §13.3). Release
 removes the force without writing a replacement value; normal program and I/O
 evaluation determine the value at the next scan.
 

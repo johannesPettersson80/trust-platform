@@ -464,7 +464,8 @@ is the same: a verb adds none and drops none.
     working identification study;
   - `cancel`: cancels a journaled operation: it reattaches by the journaled identifier (E11.5),
     ends a running experiment through its restoration path (E5.5) and clears the owner once the
-    outcome is kept (E11.6);
+    outcome is kept (E11.6); a return of the mode that the runtime refuses ends the operation, as
+    A6.2 says;
   - `tune` (B4): designs a candidate for the loop's controller from the study's model, with
     Automatic or `--method simc|amigo|relay|manual` (`--choice faster|balanced|more-robust` for a
     formula with a response choice, `--structure p|pi|pd|pid` to fix the structure,
@@ -494,7 +495,15 @@ is the same: a verb adds none and drops none.
     setup proposes; with `--draft <file>`, a JSON draft of the confirmed choices as the setup form
     writes it, checks it, writes the loop definitions to `control-loops/` (all or none, never over an
     existing definition) and prints their ids. It compiles the project through `trust-lsp command`
-    (§0.1a) and never writes anything else.
+    (§0.1a) and never writes anything else;
+  - `inputs` (A8.1, B4.3): `--change <file>`, or `-` for standard input, is one change of the loop's
+    study inputs, the JSON object the page's editors send to `controlStudio/inputs`: the requirements
+    record that `referenceChange` marks, the acquisition settings, the controller family, the tuning
+    preferences or the pinned values. The engine merges it by the method's rules and refuses what the
+    method refuses, under the field it names. The verb prints whether the study changed, the
+    requirements it now holds, each value Automatic filled marked so, and the stages. It starts
+    nothing and needs no runtime. A change that cannot be read, or is no JSON object, is a usage
+    error (owner, 7 November 2026: an agent or a script declares the requirements Tune designs to).
 - Common arguments: `--project <folder>` (default: the current folder), `--loop <id>`,
   `--journal-dir <folder>` (default: truST's folder in the user's local state folder, by the
   platform's convention, where the extension's engine keeps them too, A8.3), `--json`.
@@ -630,7 +639,16 @@ runtime, never from editor settings:
 - whether all attached I/O is simulated: every attached driver identifies itself
   as simulated and no fieldbus client (ADS, OPC UA) is configured;
 - the tasks with their intervals, and the resource cycle interval;
-- the session epoch and the program revision.
+- the session epoch and the program revision;
+- the resource's state, `paused` while it is paused or while the debugger holds
+  its scan (specification 13, "Pause"), and what holds it.
+
+An operation that needs the program to run (Identify, Validate's model check,
+Apply) reads the state before anything else and is refused at once while the
+runtime is paused, writing nothing: the refusal says that the runtime is
+paused, what holds its scan (a breakpoint, a step, a pause, the program's
+start) and how to go on (continue in the debugger, or resume the runtime),
+instead of the operation waiting for a scan that does not come.
 
 **A2.4 Simulated or physical.** The target is **simulated** when simulation is
 enabled and all attached I/O is simulated. Otherwise it is **physical**. A mix
@@ -823,14 +841,26 @@ name. Every role is declared in the loop definition (§B1).
 
 ### A6. Mode, transfer and live checks
 
-**A6.1 One mode binding per loop**: the mode signal and its Manual value. A
-cascade or loop group also lists the mode signals of its further controllers.
+**A6.1 One mode binding per loop**: the mode signal and the value that means
+Manual. A BOOL mode signal's other value means Auto. An enumeration mode signal
+names the member that means Manual and the member that means Auto, as CODESYS
+and TwinCAT code selects a controller's mode by an enumeration (TwinCAT's
+`E_CTRL_MODE`, a project's own `E_Mode`); its other members, such as `Off`,
+mean neither mode. An operation that finds the loop in neither mode does not
+start, and names the member it found (owner, 7 November 2026). A cascade or
+loop group also lists the mode signals of its further controllers.
 
 **A6.2 Return to the starting mode.** An operation that changes the loop's
 mode records the mode it found. When it ends, whether completed, failed or
 aborted, it returns the loop to that mode, unless the mode change is the
 operation's result: Apply leaves the loop in Auto, and Restore returns the mode
-it had before Apply.
+it had before Apply. When the runtime refuses a transfer of that return, which
+keeps the loop's mode (A6.3), the operation ends there and leaves nothing
+journaled: its answer states the runtime's reason, the mode the loop stays in
+and the mode to return it to by hand, after the operation's own failure when
+it failed too. A Cancel of the operation ends the same way. A return that the
+runtime does not confirm, because it cannot be reached or its outcome is
+unknown, stays journaled for a Cancel or a reopened panel (A8.6).
 
 **A6.3 Transfers are atomic.** A mode change together with its controller-state
 initialization is one transaction at one task boundary. If the check after the
@@ -868,11 +898,18 @@ legitimately change are compared exactly:
   measurement in Manual makes a bump, which stays refused. An entry that aligns
   the controller's states to the measurement has no such step, and Δy is zero.
   Other laws use the allowance of their
-  Part C template. A reviewed tolerance replaces the allowance. Validate's
-  initialization case, Apply's Auto entry and the return to Auto after a failed
-  Apply use the same allowance. The runtime reads e and Δy in the scan of the
-  Auto entry (annex E6.9), because values read before the transfer are out of
-  date once the plant moves;
+  Part C template. A reviewed tolerance (the requirements' `transferTolerance`,
+  B4.3) replaces the allowance. Every Auto entry uses the same allowance:
+  Validate's initialization case, Apply's Auto entry, the return to Auto after a
+  failed Apply, and Identify's mode changes with the independent model check
+  that runs through them (B3.4 step 1), a return that a Cancel or a reopened
+  panel makes included (A8.6). No allowance, reviewed or not, is below the
+  output's resolution: the exact check, a millionth of the output span (of 1
+  when the span is smaller), and the spacing of single-precision values at the larger
+  magnitude of the output's limits, 2⁻²³ times that magnitude, so that the
+  rounding of a REAL output never reads as a bump. The runtime reads e and Δy
+  in the scan of the Auto entry (annex E6.9), because values read before the
+  transfer are out of date once the plant moves;
 - a state declared as bounded, for example a manual output that the program
   copies from the output, stays within its declared bounds.
 
@@ -1124,10 +1161,12 @@ that panel.
 root and in `control-loops/*.json`. Discovery reads both in file-name order,
 validates every definition, rejects duplicate loop ids and never writes files.
 Several loops, or several projects in a multi-root workspace, need a labelled
-chooser; cancelling it changes nothing. A missing or invalid definition is explained, with **Configure control loop** and **Choose an example** offered. The loop that opens is the engine's answer (`controlStudio/projectLoops`): the one configured loop, the choice among several that the engine lists, or the engine's refusal or missing file with its sentence and next action. The panel checks no loop file. The engine also refuses at open what the page's loop validator refuses, so that a loop the page refuses is not opened: a null in any field the page reads, at any depth (the page tests each present field, so a null fails it; `cascade`, `expectedSettlingSeconds` and `relayDirection` are not read by the page, and `operatingPoint` is read and ignored (B1.4), so each may be null); a plant identifier that is blank; a declared analysis that breaks the declared-analysis rules (its plant, its parameters, its sweep, and the denominator at every gain); a parameter map that does not name, for each analysis parameter, one bound parameter of the same unit whose range holds the analysis's range, each bound parameter once; an analysis whose plant units are not the loop's signal units, a blank signal unit counting as `1`; a proportional law that holds keys beyond its kind and gain symbol; a parallel PID initialization that holds other than its six keys, and a Control.PID initialization that holds keys beyond its own; the declared states, at most 32 to a block (a switching controller's, a program's, and a Control.PID's seven states with its application states), each state checked as the page checks it, and a decoupled output whose matrix is not square of one to eight rows or whose index names no row (C7); a label (the parameter binding's task, mode, symbols, units and conventions, and the law's symbols) that is blank, longer than 1024 UTF-16 code units, or holds a character below U+0020; an address whose byte offset is not a safe integer, and an initial index that is not one; a state-feedback law that is not in the project's design, that takes a controller law, or that does not decode against the parameter record (C4), and a program's own law beside a controller law, a state-feedback law or an ON/OFF controller, or outside the project's design (C2); verification scenarios of the wrong structure; and an identification policy outside its limits (`loop_definition/contract_rules.rs`, `analysis_rules.rs`, `structure_rules.rs`, `checks.rs`, `identification_policy.rs`). A missing output limit or experiment duration does not refuse a loop: the campaign's preconditions name it (B3.4 step 1), and Identify chooses the durations (B3.3). `operatingPoint` is read and ignored (B1.4).
+chooser; cancelling it changes nothing. A missing or invalid definition is explained, with **Configure control loop** and **Choose an example** offered. The loop that opens is the engine's answer (`controlStudio/projectLoops`): the one configured loop, the choice among several that the engine lists, or the engine's refusal or missing file with its sentence and next action. The panel checks no loop file. The engine also refuses at open what the page's loop validator refuses, so that a loop the page refuses is not opened: a null in any field the page reads, at any depth (the page tests each present field, so a null fails it; `cascade`, `expectedSettlingSeconds` and `relayDirection` are not read by the page, and `operatingPoint` is read and ignored (B1.4), so each may be null); a plant identifier that is blank; a declared analysis that breaks the declared-analysis rules (its plant, its parameters, its sweep, and the denominator at every gain); a parameter map that does not name, for each analysis parameter, one bound parameter of the same unit whose range holds the analysis's range, each bound parameter once; an analysis whose plant units are not the loop's signal units, a blank signal unit counting as `1`; a proportional law that holds keys beyond its kind and gain symbol; a parallel PID initialization that holds other than its six keys, and a Control.PID initialization that holds keys beyond its own; the declared states, at most 32 to a block (a switching controller's, a program's, and a Control.PID's seven states with its application states), each state checked as the page checks it, and a decoupled output whose matrix is not square of one to eight rows or whose index names no row (C7); a label (the parameter binding's task, mode, symbols, units and conventions, and the law's symbols) that is blank, longer than 1024 UTF-16 code units, or holds a character below U+0020; an address whose byte offset is not a safe integer, and an initial index that is not one; a state-feedback law that is not in the project's design, that takes a controller law, or that does not decode against the parameter record (C4), and a program's own law beside a controller law, a state-feedback law or an ON/OFF controller, or outside the project's design (C2); verification scenarios of the wrong structure; and an identification policy outside its limits (`loop_definition/contract_rules.rs`, `analysis_rules.rs`, `structure_rules.rs`, `checks.rs`, `identification_policy.rs`). A missing output limit or experiment duration does not refuse a loop: the campaign's preconditions name it (B3.4 step 1), and Identify chooses the durations (B3.3). `operatingPoint` is read and ignored (B1.4). Discovery also refuses a loop whose parameter set's parameters or mode, setpoint or manipulated variable is a global, a GVL's member included, that the parameter set's task does not own (protocol annex E2.3): a global that the programs of another task write, one that only programs outside every task write when the task is not `$background`, and one that no single task owns because the programs of several tasks write it, directly or through the POUs they call, or a method that an interface's call may run writes it. Its sentence names the global, who writes it and the loop's task, as the runtime's operations would refuse it.
 
 **B1.3 Setup.** **Configure control loop** sets up an existing program from the
-compiler's metadata: symbols with their IEC types and optional addresses,
+compiler's metadata: symbols with their IEC types and optional addresses (an enumeration also with its members, in declaration order,
+and a global's symbol, a member of a global included, also with its owner: `{"kind": "task", "task"}`, `unwritten`, `background` or
+`shared`, as protocol annex E2.3 judges it),
 controller instances with their compiled types and owning tasks, task intervals,
 the code links from each `<output> := <instance>.<method>(…)` call, and every
 symbol each program body writes. The compiled process image lists every addressed numeric and BOOL variable (`booleans`, apart
@@ -1136,6 +1175,13 @@ from the plant candidates), so a declared state may be a bit such as `%MX40.0`. 
 output; a cascade where one PID's output is the only source of another's
 setpoint; a startup flag guarding `Initialize`; the mode condition; manual
 outputs that copy the output) and the engineer confirms every prefilled binding.
+A draft names a BOOL mode signal by the mode its TRUE value means (`whenTrue`), and an enumeration mode signal by the members that
+mean Manual (`manualValue`) and Auto (`autoValue`) (A6.1). As with every field, the engine takes what the choice needs: a choice that
+names both members is an enumeration's and its `whenTrue` is not read, and a blank member is not given. A choice that names one member,
+or one member twice, or a BOOL's without `whenTrue`, is refused. Before it writes anything, setup refuses a loop whose enumeration mode,
+its own or a further controller's, is no compiled enumeration with the members it names, and a loop that binds a compiled enumeration
+as a BOOL mode, with the sentences of discovery (C0), and a loop that writes a global its task does not own, with discovery's sentence
+(B1.2).
 A link is evidence, never a silent choice. Setup saves only after a complete
 review, never overwrites an existing definition, and cancelling writes nothing. The engine checks the draft of every structure. The form posts each draft as typed, with no check of its own: every number field is
 posted as the text the engineer typed, which the engine reads (a blank field is not given, and a text that no finite number reads, such
@@ -1150,10 +1196,14 @@ where a PID law takes its derivative, the search families, the kept starts and t
 words would show as itself, never be left out. Save is always enabled, and a refusal shows under the field it names (`field`), or in the
 form's message when it names none; a refusal that names a field of a section the form hides shows in the message instead. The engine
 asks the questions in the order of the form and refuses the first blank one: a measured signal's symbol is chosen, its unit is given,
-its minimum and maximum are numbers, and the maximum is above the minimum; each refusal names that signal's field. An Auto/Manual signal
-that the form cannot offer, because the program has no BOOL without an I/O address, is refused with the sentence that says why. The
+its minimum and maximum are numbers, and the maximum is above the minimum; each refusal names that signal's field. The form offers each BOOL and each enumeration without an I/O address as an Auto/Manual signal (`modes`), with each
+enumeration's members in declaration order (`modeMembers`, A6.1). For an enumeration it asks for the member that means Manual and the
+member that means Auto in place of what a TRUE value means, and preselects neither; it posts the members chosen. An Auto/Manual signal
+that the form cannot offer, because the program has no BOOL or enumeration without an I/O address, is refused with the sentence that
+says why. The
 recording duration of an identify-only loop is posted as the text the engineer typed (`15 min`, `900`) and the engine reads it (C12).
-The step-by-step setup asks its questions in the order the engine names them through `controlStudio/setupStep`: the engine decides each question's order, its choices, what an answer must be and the refusal of an answer, which the question shows again with its words; the extension shows each question in VS Code's picker or input box and sends the answer back. Back returns to the nearest earlier answer the engineer may change: the answers before it are replayed without asking, and the questions from it on are asked again with their earlier answers shown. A changed answer discards the answers after it. When every answer is in, the engine answers the draft and the sentence the engineer confirms, which says what the loop does with the program; `setupSave` then writes the draft with the structure `step-by-step`: the engine builds the loop from the answers (`setup/configure.rs`), checks it, writes it, and answers the open request of the loop, which opens Control Studio. The answers name their identities (a controller by its instance, a signal by its address, a symbol by its name), and the engine refuses an identity the compiled program does not hold under its question. An ON/OFF controller and several channels are parked (V7): the engine refuses them with its sentence. A save and a binding selection answer the open request of the loop they write or select (`openRequest`, `selectedRequest`); the page opens the loop from that answer and never reads the loop file.
+The step-by-step setup offers a BOOL or an enumeration as the manual mode; for an enumeration it asks for the member that means
+Manual and then for a different member that means Auto, in place of the question what TRUE means (A6.1). The step-by-step setup asks its questions in the order the engine names them through `controlStudio/setupStep`: the engine decides each question's order, its choices, what an answer must be and the refusal of an answer, which the question shows again with its words; the extension shows each question in VS Code's picker or input box and sends the answer back. Back returns to the nearest earlier answer the engineer may change: the answers before it are replayed without asking, and the questions from it on are asked again with their earlier answers shown. A changed answer discards the answers after it. When every answer is in, the engine answers the draft and the sentence the engineer confirms, which says what the loop does with the program; `setupSave` then writes the draft with the structure `step-by-step`: the engine builds the loop from the answers (`setup/configure.rs`), checks it, writes it, and answers the open request of the loop, which opens Control Studio. The answers name their identities (a controller by its instance, a signal by its address, a symbol by its name), and the engine refuses an identity the compiled program does not hold under its question. An ON/OFF controller and several channels are parked (V7): the engine refuses them with its sentence. A save and a binding selection answer the open request of the loop they write or select (`openRequest`, `selectedRequest`); the page opens the loop from that answer and never reads the loop file.
 A binding selection is refused while an operation of the engine works on the selected loop: the refusal names that operation and waits for it to end (A8.5). A binding selection opens the selected loop with its own study; no model, candidate or result is carried from the loop shown before (each loop's study holds its own identification, A8.2).
 The discover answer names the structures the page offers, in order (`structures`), and the PIDs whose program needs the startup-done
 flag at the settings the form starts from (`startupFlagInstances`, C1 Setup). The page shows the flag for a chosen instance in that list,
@@ -1391,7 +1441,12 @@ clears the manual section (B3.7).
    ended there misses that mode's gain. The hold therefore ends early only
    when the plant input has settled too, by the same rule against its own
    mean and noise over the steady baseline. The maximum duration counts from the end of the
-   baseline, so the wait for a steady baseline never shortens the step.
+   baseline, so the wait for a steady baseline never shortens the step. When the
+   hold ends early, its progress says so at once, with the time from the step's
+   application to the settling and the limit the step would otherwise have had:
+   "The response settled 4 min after the step was applied, so the step ends
+   there, before its limit of 9 min.", so that a hold shorter than its maximum is
+   never a surprise.
 5. **Restoration.** The runtime restores the plant input or setpoint to its
    value from before the experiment and confirms it (A7). Identify does not wait
    for the process to return to its starting point. A controller output follows
@@ -1403,7 +1458,13 @@ clears the manual section (B3.7).
    that confirm a restoration (A7); after that its transfer judges the outputs
    as they are.
 6. **Limits check.** The runtime stops an experiment whose written target
-   leaves its limits (annex E5.4); it does not watch the measured output.
+   leaves its limits, and one whose measured output leaves its permitted range
+   (annex E5.3, E5.4): every plan that writes carries the measured output and that
+   range as its measurement guard and lists it among its stop conditions, and the
+   approval of a physical target names the range (B9.3), so the engineer approves
+   the band the runtime stops at and narrows it in **Limits…**. The runtime then
+   restores what it wrote, and the stop names the measured output, the value the
+   runtime read and the limit it passed, and asks for a smaller step (B3.9).
    Before the fit, every recorded sample of the selected plant inputs and
    measured outputs is checked against the loop's limits: the plant input
    range and the permitted measured-output range. A sample outside them, or a
@@ -1441,6 +1502,14 @@ The study keeps the opened file as one of its recordings (`importRecording`), so
 reopening shows the fit, and Fit refits it (§0.1a); a Recorded-data fit (B3.3) keeps its file in the same way, and its stage is
 the study's `identifyManual` section (§0.1a). The file names no experiment that Control Studio ran, so its fit
 reads its own samples as an observation (C12): nothing is written to the plant.
+A live identification's recording keeps the request it was taken with in the study's `recordRequests` section: the program
+revision, the reviewed plan and the steady baseline window, which the recording file does not hold, and the value of the
+scheduling variable that its run read when it started (C10 Identify, D-21). So Fit refits any live recording the study keeps,
+not only the recording of its Identify result (`openRecording` with the recording, `identify --recording`): the refit reads
+that recording with its own request from the fit window the request was taken with, meets the same limits check (B3.4 step
+6), and its fit becomes the Identify result, which keeps the same request. A recording that the study kept before it kept
+requests has none, and Fit refuses it: "Recording … cannot be fitted again: the study keeps no experiment request for it.
+Identify plant records a new one."
 The engine gives each selector its channels (`recordingCatalog`'s `inputs` and `outputs`): a plant input is offered on the inputs
 selector and a measured output on the outputs selector, and a signal that the loop declares on the other side is offered on neither;
 an extra output that the loop does not bind stays selectable. A legacy file offers its applied input and its measured output, and the
@@ -1489,6 +1558,7 @@ the output's unit per the input's unit per second (numerical annex N0.3).
 | Not steady: the measured output still changing (rate given) | Wait; or Setpoint step for a loop in Auto |
 | Mode change refused (the runtime's reason) | As the reason states |
 | Experiment stopped: limit reached, forced signal, mode left, Abort, reload or restart | None; the recording is kept, not qualified for a fit (B3.4 step 6) |
+| Experiment stopped: the measured output left its permitted range (its value and the limit named) | Identify again with a smaller step; the recording is kept, not qualified for a fit (B3.4 step 6) |
 | Restoration not confirmed | Restore by hand; the study is blocked until it is confirmed |
 | Response too small against the noise (values given) | Open **Limits…** to permit a larger step, or choose another method |
 | Response not settled enough (fraction reached, suggested hold) | Open **Limits…** for a longer maximum duration |
@@ -1934,6 +2004,13 @@ never a side effect of Apply or Restore and is not offered after a Restore.
 - A record inside a function block instance is not edited, because one
   declaration serves every instance; Control Studio says to copy the values by
   hand.
+- Gains that a CODESYS project keeps in a GVL, truST's `NAMESPACE GVL_Par` with
+  its `VAR_GLOBAL` (protocol annex E2.3), are kept in the GVL's declarations as a
+  program's own gain variables are kept in the program's: each named global must
+  be a REAL or LREAL variable that the namespace declares, and a refusal names it
+  with the namespace ("GVL_Par.lrKd is not declared in NAMESPACE GVL_Par of this
+  project."). A name that is neither a program nor a namespace of the project is
+  refused as such.
 
 The answer names the fields kept; a refusal keeps nothing and says why. Its review
 carries the engine's sentence of what the Keep writes (`description`, A11.1): "Keep in
@@ -2550,7 +2627,8 @@ Aliases and shared global ownership need a different adapter.
 
 - A set has one to 64 bindings. No symbol may appear twice. The set MUST NOT contain the mode symbol.
 - Every binding in a set MUST belong to a program owned exclusively by the declared task. `$background` selects unscheduled programs.
-- The mode binding is a `BOOL` symbol with its Manual value (A1).
+- The mode binding is a `BOOL` symbol with its Manual value, or an enumeration symbol with the member that means Manual and the member that means Auto (A6.1). The loop file names them as `manual_value` and `auto_value`; a `BOOL` binding has no `auto_value`. A further mode of the program's law (`controller.project.additionalModes`, such as a cascade's outer controller's) takes the same two shapes, as `manualValue` and `autoValue`. Setup writes an enumeration loop's `controller.modeWhenTrue` as `Manual`: the runtime reads an enumeration mode TRUE in its Manual member (protocol annex E6.3), and Control Studio reads an enumeration loop's mode that way whatever the file declares.
+- Discovery checks an enumeration mode, the loop's own and each further mode, against the compiled program: a compiled enumeration whose type has both members it names. Otherwise the loop is refused with `Compiled mode signal <symbol> is no enumeration with the members <Manual> and <Auto>.` A BOOL mode is checked by its type; a BOOL mode whose signal is a compiled enumeration is refused with `Mode signal <symbol> is an enumeration: name the members that mean Manual and Auto.`
 - The binding identity is a hash of the complete declaration, including units and limits. The adapter reports three revisions: the program revision (A2.2), the binding revision, and the active revision, which is the last confirmed set.
 - Values MUST be finite, within their bounds, and representable in their IEC type. A `REAL` value MUST be rounded to single precision before it is submitted. Integer and enumeration gains are rejected.
 - A write is queued with the expected revisions and the expected current values. At the task boundary the runtime rechecks them and commits the whole set or nothing (A6.3, A6.8). Control Studio reads the values back after the task has executed. A program that rewrites any value is handled by A6.8.
@@ -2687,9 +2765,10 @@ This structure is one `Control.PID` instance in a loop with `design: "pid"`. The
 - **The measurement.** The measurement is the PID's own `<instance>.StateValue.ProcessValue`: the value that its last `Update` received, whatever the program computed it from, such as a sensor input, a sensor block or a filter. Control Studio shows, records and identifies against it. It is never refused as computed. The transfer reads it at the task boundary, and never writes it as a state. The setpoint, output and manual output remain the program variables that the code feeds into and takes from the PID.
 - **The parameter record.** When the code configures the PID from a record of its own, the PID's internal copy `<instance>.ParametersValue` is not offered as the parameter record. `Configure` would overwrite what Apply wrote on the next scan.
 - **The mode.** Setup prefills the mode signal, and the value that means Manual, from the `IF` that sets the record's `Mode`. It also prefills what the TRUE value of that condition means (B1.4).
-- **The startup flag.** When the code guards `Initialize` with `IF NOT <flag> THEN`, setup prefills that BOOL as the startup-done flag. When the program writes one of the loop's seeded values itself, or calls `Initialize` on the loop's PID, setup requires the BOOL that marks the startup as done. The flag is declared as an application state that Validate starts TRUE.
+- **The startup flag.** A startup flag is a BOOL that the code tests and sets around its startup code: `IF NOT <flag> THEN … <flag> := TRUE; END_IF`, where TRUE means the startup has run, or CODESYS's `IF <flag> THEN … <flag> := FALSE; END_IF`, where FALSE does (owner, 7 November 2026). When such an `IF` guards `Initialize`, setup prefills its BOOL as the startup flag. When the program writes one of the loop's seeded values itself, or calls `Initialize` on the loop's PID, setup requires the BOOL that marks the startup as done. The flag is declared as an application state that Validate starts at its value once the startup has run, as the code shows it, so the startup code keeps the seeded values; a flag the code tests and sets neither way starts TRUE.
 - **The manual output.** The manual output is bound by `controller.manualOutputSignal` and its `controller.manualOutputType`, with `controller.manualOutputAddress` when it has one. A missing signal or type blocks Identify with the configuration requirement. No `AT %M` mapping is needed for Control Studio.
 - **A manual output that copies the output.** When the code copies the output into a manual output, the loop declares `controller.manualOutputFollowsOutput`. The manual output is then a bounded state (see Apply and Restore).
+- **The output as its own manual output.** A program whose Manual simply stops writing the output, as many CODESYS programs are written, names the output itself as its manual output: `controller.manualOutputSignal`, `manualOutputType` and `manualOutputAddress` are the manipulated variable's. In Manual, Identify then steps the output itself and restores it. A write at an output address reaches the variable bound there (specification 44 §13.3), so the program, which does not write it in Manual, keeps the step until the restoration. Its controller should track the output it finds in Manual, so that the return to Auto is bumpless.
 - **Identification.** Identify chooses the step size and how long to hold it, within the limits (B3.3, B3.4). The engineer sets the maximum duration in **Limits…**; it is never assumed silently (B3.2).
 - **Seeded values.** Validate starts the program from seeded values: the setpoint, the manual output, the mode, the parameter record and, through the initialization adapter, the PID's state.
 - **Initialization adapter.** A PI or PID loop declares one initialization adapter under `controller.pidInitialization`: `control-pid-v1` or `parallel-pid-v1`, described under Apply and Restore. A P-only loop uses the adapter of C13.
@@ -2853,7 +2932,9 @@ When `controller.manualOutputFollowsOutput` is declared, the program copies the 
 
 ### C2. Program-owned P, PI or PID law (the parallel-pid seed)
 
-The program computes the law itself, in parallel form, with its gains in program variables. Control Studio sets those variables through the parameter binding (C0).
+The program computes the law itself, with its settings in program variables: in parallel form (gains `Kp`, `Ki`, `Kd`), or in the
+standard form that CODESYS's and many vendors' PID blocks use (gain `Kp`, reset time `Ti`, derivative time `Td`; see The standard
+form below). Control Studio sets those variables through the parameter binding (C0).
 
 #### Setup
 
@@ -2862,14 +2943,42 @@ The program computes the law itself, in parallel form, with its gains in program
   - its measurement, output and setpoint;
   - its Auto/Manual signal and manual output;
   - the law: P, PI or PID;
-  - for each gain, the variable that holds it, with the range Tune may choose from;
+  - the form: parallel or standard (The standard form, below);
+  - for each gain, or in the standard form each time, the variable that holds it, with the range Tune may choose from;
   - for PI and PID, the variable that holds the integral term;
   - for PID, the variable that holds the previous error or the previous measurement that the derivative uses, and which of the two it is;
   - the startup flag (C1); identification sizes and durations are chosen by Identify (B3.3, B3.4).
 - The law is `u = Kp·e + I + D`, with `I = u₀ + Ki·∫e dt`, and `D = Kd·de/dt`. When the derivative acts on the measurement `y`, `D = −Kd·dy/dt`. `e` is the control error in the measurement's unit. `I` is in the output's unit. Time is in seconds. Each scan updates the integral as `I_new = I_old + Ki·e·Δt`.
 - The loop is a project-owned controller (`design: project`). Its `parallel-pid` seed names the gain variables of the law.
 - The engine serves a `controller.project` block whose seed is `parallel-pid` (or `trajectory-feedforward-pid`, C11; `feedforward-pid`, C8; `cascade-pid`, C6), whose family is P, PI, PD or PID, and which declares no `axes`, `components` or `modelParameters` (those are C5). Its families are P always, and PI, PD and PID where the seed names the integral and derivative variables. The page lists these families from the engine's `setupDiscover` answer, and takes its list from the TypeScript adapter only for a loop the engine does not serve. The page asks for the settings that `setupDiscover` names for each family (`familySettings`): for P its proportional variable, for PI also its integral variable, for PD its derivative variable, and for PID both, and Tune refuses a pin or an entered setting of any other variable. The other served forms are their structures' own: `cascade-pid` (C6), `smith-pid` (C9), `decentralized-pid` and `decoupled-pid` with their `controller.group` (C7), `feedforward-pid` (C8), `trajectory-feedforward-pid` (C11), a `parallel-pid` point of the `gain-scheduled` family (C10), and a block without a seed that declares tuning axes, the finite search (C5). Any other program's own law is parked by its name and refused with the cause `controller-capability`: a block without a seed or axes, a seed whose family its structure does not take, or a block with components or model parameters. A loop with a program's own law is never a C12 loop. A loop declares one controller structure: a controller law, the program's own law (with its PID group, C7), state feedback, or an ON/OFF controller; a loop that declares two is refused, because the engine cannot tell which one tunes it.
-- A law with reset or derivative times, a derivative filter or further retained states uses the step-by-step setup.
+- A law with a derivative filter or further retained states uses the step-by-step setup.
+
+#### The standard form
+
+A program may compute the law in the standard (ideal) form, `u = Kp·(e + (1/Ti)·∫e dt + Td·de/dt)`, with the reset time `Ti` and the
+derivative time `Td` in seconds, as CODESYS's `PID` (`KP`, `TN`, `TV`) and a project's own block such as `FB_PI` (`Kp`, `Ti`) do
+(owner, 7 November 2026). It is the parallel law with `Ki = Kp/Ti` and `Kd = Kp·Td`, so everything above holds with those gains:
+
+- **The integral term.** The program's integral variable holds the integral term `I` in the output's unit, updated each scan as
+  `I_new = I_old + (Kp/Ti)·e·Δt`, as in the parallel form. Validate and Apply start it as the `parallel-pid-v1` adapter does, with
+  `Ki = Kp/Ti`. A program that integrates the error instead (`∫e dt`, scaled at the output) is not this form.
+- **Setup** asks for the variable that holds the reset time and, for PID, the variable that holds the derivative time, each REAL or
+  LREAL in seconds, with the range Tune may choose from; the reset time's range lies above zero and the derivative time's starts at
+  zero or above. The form offers the choice (`gainForms`, preselected `parallel`), and the draft names it as `form` with the times
+  as `resetTime` and `derivativeTime`, each a variable with its range as the gains are; the engine takes the gains or the times the
+  form needs (B1.3). A trajectory feedforward's law (C11) stays in parallel form. The seed is `parallel-pid` with
+  `"form": "standard"`, `proportionalSymbol`, `resetTimeSymbol` and, for PID, `derivativeTimeSymbol`; a seed without `form` is in
+  parallel form, as before. A standard seed names no `integralSymbol` or `derivativeSymbol`, and a parallel seed no time.
+- **Families.** A standard-form law always integrates: its families are PI and, with a derivative time, PID. Control Studio never
+  writes a reset time of zero, whose meaning differs between programs (no integral action in some, a division by zero in others).
+- **Tune** designs `Kp`, `Ki` and `Kd` from the model as for the parallel form and writes the program's settings `Kp`,
+  `Ti = Kp/Ki` and `Td = Kd/Kp` (numerics annex N6.8). `Ki` and `Kd` take the sign of `Kp` for either action (N6.4), so `Ti` is above
+  zero and `Td` is zero or above. A design without a finite `Ti` above zero (a `Kp` or a `Ki` of zero) has no standard form, and Tune
+  refuses it with that reason. The ranges Tune may choose from are the variables' own: `Kp` by magnitude, `Ti` and `Td` in seconds. A
+  pin or an entered setting of `Ti` or `Td` is a time in seconds.
+- **Apply, Restore and Keep in project** write and keep the variables' values, `Kp`, `Ti` and `Td`, as for the parallel form.
+- A reset or derivative time held as a `TIME` value (TwinCAT's `FB_CTRL_PI` takes `tTn : TIME`) is not a REAL or LREAL parameter
+  (C0), so such a law is not served yet; it is on the checklist.
 
 #### Identify
 
@@ -3131,6 +3240,13 @@ A PID group is two or more `Control.PID` instances whose processes interact. Eac
 - The setup offers **PID group** when the program has two or more library PIDs. The engineer selects the members. For each member the engineer confirms the compiled measurement, output, setpoint, manual output and parameter record, as for a single loop.
 - The group has one shared Auto/Manual signal. Each member's input channel may declare its own identification step (`experimentStep`); otherwise Identify chooses it (B3.3). The maximum duration comes from the limits. A member's own step is the identification step of its input. A step given for the whole group is the step of each member that declares none, and it alone sets the group's experiment amplitude: the first member's step never does. Without a group step, the group's experiment is the automatic request, an observation of amplitude 0 for the group's duration, and a duration may be given without a step. With no step, no duration and no member step, the group has no experiment (D-15, as revised).
 - Setup writes one group loop. Its model channels follow the member order.
+- The members, their parameter records and their states belong to one program instance, so that one transfer and one parameter
+  set apply the group in one task (protocol annex E2.3). The group's Auto/Manual signal, setpoints, manual outputs and measurements
+  may be globals, a GVL's members included, as a CODESYS project keeps them: discovery and setup refuse a written one (the
+  Auto/Manual signal, a setpoint or a manual output) that the group's task does not own, with the sentence of B1.2, and a written
+  one that is no global and lies outside the members' program, with "<symbol> belongs to program <root>, not to the PID group's
+  program <program>. Keep it in the group's program, or in a global its task owns."; a measurement is only read and may lie
+  anywhere.
 - The group's startup-done flag, when the draft names one, is a compiled BOOL that is none of the group's signals: the Auto/Manual signal, and each member's setpoint, measurement, manipulated variable and manual output. Setup refuses another with "X is not a compiled BOOL symbol." or "The startup-done flag is one of the loop's signals, so it cannot mark the startup as done." A loop declares at most 32 controller states per controller instance (numerics annex N10), and a group's members are its instances: a group of sixteen members declares at most 512 states.
 - **Decoupler (when the program has one).** The setup asks for the decoupler's variables `D_ij`, for plant input `i` and member `j`. The unit of `D_ij` is plant input `i`'s unit per member `j`'s unit. In Auto the program writes `u = D·v`, where `v` are the members' `Control.PID` outputs. In Manual it writes `u = v`, so that identification and Manual operation act on the plant itself. Behind a decoupler, a member's plant input is the signal that the program writes from `D·v`, never the controller's own output: Setup refuses a member whose plant input is its own output, with the sentence "Behind a decoupler, <instance>'s output is the plant input the program writes from D·v, not the controller's own output <own>. Choose the plant input.", and names the member's plant-input field. Behind a decoupler a member's output is
   the plant input that the program writes from `D·v`, not its controller's own output: the setup refuses a member whose output is its own controller's output, and asks for the plant input.

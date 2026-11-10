@@ -12,7 +12,7 @@ use smol_str::SmolStr;
 
 use super::points::{self, InputPoint, OutputPoint};
 use super::sparkplug::{self, SparkplugParams};
-use crate::io_drivers::{parse_root, quoted, OnError, ParamsError, Table};
+use crate::io_drivers::{kept, parse_root, quoted, OnError, ParamsError, Table};
 
 /// The raw input topic when `topic_in` is absent (specification 32 §4).
 const DEFAULT_TOPIC_IN: &str = "trust/io/in";
@@ -325,11 +325,6 @@ fn check(text: &str) -> (Option<MqttParams>, Vec<ParamsError>) {
         })
     })();
     (params, refusals)
-}
-
-/// The value of `result`, or `None` with its refusal added to `refusals`.
-fn kept<T>(result: Result<T, ParamsError>, refusals: &mut Vec<ParamsError>) -> Option<T> {
-    result.map_err(|refusal| refusals.push(refusal)).ok()
 }
 
 /// `broker`: `host:port` after an optional `mqtt://` or `tcp://` (plain) or `mqtts://` or

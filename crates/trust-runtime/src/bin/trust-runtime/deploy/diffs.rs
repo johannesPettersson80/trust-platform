@@ -157,6 +157,12 @@ fn diff_runtime(previous: Option<&RuntimeConfig>, next: &RuntimeConfig) -> Vec<S
                 prev.control_debug_enabled, next.control_debug_enabled
             ));
         }
+        if prev.control_start_paused != next.control_start_paused {
+            changes.push(format!(
+                "control_start_paused: {} -> {}",
+                prev.control_start_paused, next.control_start_paused
+            ));
+        }
         diff_retain(&mut changes, prev, next);
         diff_watchdog(&mut changes, &prev.watchdog, &next.watchdog);
         if prev.fault_policy != next.fault_policy {

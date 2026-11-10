@@ -735,7 +735,7 @@ its UTF-8 bytes, at most 255 bytes:
 |---|---|
 | Resource name | a text; empty in a record whose build did not fill this section |
 | Cycle interval | 8, unsigned, nanoseconds |
-| Control: debug enabled, then mode | 1 (0 or 1), then 1 (1 `production`, 2 `debug`) |
+| Control: the flags, then mode | 1 (bit 0 `debug_enabled`, bit 1 `start_paused`, the other bits 0), then 1 (1 `production`, 2 `debug`) |
 | Log level | 1 (1 `error`, 2 `warn`, 3 `info`, 4 `debug`, 5 `trace`: the names the runtime's configuration parser accepts, where `warning` is `warn`) |
 | Event-store capacity | 4, unsigned; 0 is the device's default, otherwise the newest events the store keeps (specification 11, `runtime.events.capacity`). The decoder accepts every four-byte value; admission refuses one above the device's maximum (step 7 below) |
 | Retain: mode, then save interval | 1 (0 `none`, 1 `file`), then 8, nanoseconds |

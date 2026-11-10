@@ -182,6 +182,7 @@ pub fn cancel_identification_recovery<K: RecordingRetention>(
     storage_folder: &Path,
     loop_definition: &LoopDefinition,
     retention: &mut K,
+    transfer_tolerance: Option<f64>,
 ) -> Result<(), Failure> {
     require_simulator(connection)?;
     let journal = Mutex::new(Journal::open(
@@ -206,7 +207,13 @@ pub fn cancel_identification_recovery<K: RecordingRetention>(
         &loop_definition.project_id,
         &loop_definition.id,
     )?);
-    return_found_mode(&runtime, &clock, &journal, loop_definition)
+    return_found_mode(
+        &runtime,
+        &clock,
+        &journal,
+        loop_definition,
+        transfer_tolerance,
+    )
 }
 
 /// Cancels the journaled operation `operation_id` of the loop (§0.1b `cancel`, E5.5, E11.6), by what the operation is: an
@@ -230,6 +237,7 @@ pub fn cancel_operation<K: RecordingRetention>(
     loop_definition: &LoopDefinition,
     operation_id: &str,
     retention: &mut K,
+    transfer_tolerance: Option<f64>,
 ) -> Result<(), Failure> {
     let journal = Mutex::new(Journal::open(
         storage_folder,
@@ -243,6 +251,7 @@ pub fn cancel_operation<K: RecordingRetention>(
         loop_definition,
         operation_id,
         retention,
+        transfer_tolerance,
     )
 }
 
@@ -258,6 +267,7 @@ pub(crate) fn cancel_operation_on<T, K, C>(
     loop_definition: &LoopDefinition,
     operation_id: &str,
     retention: &mut K,
+    transfer_tolerance: Option<f64>,
 ) -> Result<(), Failure>
 where
     T: IdentifyRuntime,
@@ -295,7 +305,7 @@ where
             | JournalEntry::IdentificationMode { .. },
         ) => {
             cancel_journaled(runtime, clock, journal, loop_definition, retention)?;
-            return_found_mode(runtime, clock, journal, loop_definition)
+            return_found_mode(runtime, clock, journal, loop_definition, transfer_tolerance)
         }
         // An Apply is ended by Restore previous settings, which returns the settings and the mode found before it (B6.4).
         Some(JournalEntry::Commissioning { checkpoint }) => Err(Failure::new(
@@ -420,7 +430,7 @@ where
             if let Some(context) = ExperimentContext::of(plan, &state) {
                 retention.note_experiment(context);
             }
-            match hold_end(&state) {
+            match hold_end(plan, &state) {
                 HoldEnd::Unrestored(failure) => return Err(failure),
                 HoldEnd::Stopped(failure) => {
                     Err(stopped_hold_outcome(report.is_cancelled(), failure))
@@ -473,7 +483,13 @@ where
     clear_entries(journal, &journaled)?;
     // The loop's original mode returns here, once the experiment has ended and before the fit (A6.2, A8.6). A failed return
     // replaces only a record that succeeded; its checkpoint stays journaled for the next reconciliation.
-    let returned = return_found_mode(runtime, clock, journal, loop_definition);
+    let returned = return_found_mode(
+        runtime,
+        clock,
+        journal,
+        loop_definition,
+        request.transfer_tolerance,
+    );
     let record = record?;
     returned?;
     let result = fit_records(loop_definition, report, std::slice::from_ref(&record))?;
@@ -607,17 +623,20 @@ fn return_found_mode<T: IdentifyRuntime>(
     clock: &dyn CampaignClock,
     journal: &Mutex<Journal>,
     loop_definition: &LoopDefinition,
+    transfer_tolerance: Option<f64>,
 ) -> Result<(), Failure> {
     if !mode_journaled(&journal.lock()) {
         return Ok(());
     }
-    IdentificationMode::new(
+    let mut mode = IdentificationMode::new(
         loop_definition,
         runtime.transfer_connection()?,
         journal,
         clock,
-    )?
-    .restore()
+    )?;
+    // A return to Auto is an Auto entry, so the study's reviewed tolerance replaces its allowance (A6.4).
+    mode.set_reviewed_tolerance(transfer_tolerance);
+    mode.restore()
 }
 
 /// The identification campaign the journal holds, when it holds one.

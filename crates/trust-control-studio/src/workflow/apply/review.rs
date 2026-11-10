@@ -363,6 +363,9 @@ pub(crate) fn prepare(
 ) -> Result<Prepared, Failure> {
     let loop_definition = context.loop_definition;
     let runtime = clients.transfer.status()?;
+    if let Some(refusal) = runtime.paused_refusal("Apply") {
+        return Err(refusal);
+    }
     let source = match runtime.source() {
         EvidenceSource::SimulatedPlant => ApplySource::Simulation,
         EvidenceSource::PhysicalPlant => ApplySource::Physical,
@@ -406,7 +409,7 @@ pub(crate) fn prepare(
             Some(TransferValue::Boolean(mode)) => Some(*mode),
             _ => None,
         },
-        binding.mode.manual_value,
+        binding.mode.manual_reading(),
     );
     let identity = review_identity(&apply_identity_parts(
         &review.observed,

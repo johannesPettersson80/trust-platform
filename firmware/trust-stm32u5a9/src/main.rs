@@ -281,6 +281,9 @@ fn main() -> ! {
     // A boot after the hardware watchdog or a panic ended the last program starts it faulted, as
     // trust-runtime's resource stays faulted (specification 34 TARGET-08).
     runner.fault_after_reset();
+    // A record that sets `runtime.control.start_paused` starts the program paused (specification
+    // 11 §6.8).
+    runner.pause_at_boot();
     let _ = runner.run();
     halt::emergency_halt("runner")
 }

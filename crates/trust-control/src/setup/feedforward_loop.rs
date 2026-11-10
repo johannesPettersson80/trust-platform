@@ -30,8 +30,8 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller,
     ControllerProject, Design, Direction, Execution, ExperimentKind, InitialSource, InitialValue,
-    InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, ModeBinding, ModeWhenTrue,
-    Parameter, ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    InitializedState, Limits, LoopChannels, LoopDefinition, LoopScope, Parameter, ParameterBinding,
+    PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
 };
 use crate::model::{ActuatorCapabilities, ActuatorKind};
 
@@ -157,7 +157,7 @@ pub fn feedforward_loop_definition(
     let command = disturbance_command(catalog, &draft.disturbance_command)?;
     let states = feedforward_states(catalog, draft, &disturbance, &process, &manipulated)?;
     check_startup(catalog, draft, &process)?;
-    let project = feedforward_project(draft, &states)?;
+    let project = feedforward_project(catalog, draft, &states)?;
     let id = loop_id(&draft.name);
     Ok(with_revision(LoopDefinition {
         schema_version: LOOP_SCHEMA_VERSION,
@@ -189,10 +189,7 @@ pub fn feedforward_loop_definition(
                 &process,
                 &manipulated,
             )?,
-            mode: ModeBinding {
-                symbol: draft.mode.symbol.clone(),
-                manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
-            },
+            mode: draft.mode.binding(),
         }),
         parameter_purpose: None,
         topology: Some(Topology::ClosedLoop),
@@ -226,6 +223,7 @@ pub fn feedforward_loop_definition(
 /// # Errors
 /// The block does not decode as a controller project.
 fn feedforward_project(
+    catalog: &CompiledCatalog,
     draft: &FeedforwardLoopDraft,
     states: &[InitializedState],
 ) -> Result<ControllerProject, Failure> {
@@ -233,7 +231,7 @@ fn feedforward_project(
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty())
-        .map(startup_state)
+        .map(|flag| startup_state(flag, catalog.startup_done_value(flag)))
         .into_iter()
         .collect();
     ControllerProject::from_value(&project_block(

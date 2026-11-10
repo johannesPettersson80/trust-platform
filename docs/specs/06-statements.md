@@ -756,6 +756,117 @@ CASE Mode OF
 END_CASE;
 ```
 
+## 15. Exception Handling: `__TRY` (CODESYS vendor extension)
+
+CODESYS's exception handling, `__TRY`, `__CATCH`, `__FINALLY` and `__ENDTRY` (CODESYS help, "Operator:
+__TRY, __CATCH, __FINALLY, __ENDTRY"), under every profile: the four words are reserved
+(specification 01), and IEC 61131-3 forbids `__` in an identifier (§6.1.2), so no IEC program
+changes. IEC 61131-3 has no exception handling, so a program that uses it is not portable to other
+IEC implementations.
+
+### Syntax
+
+```
+__TRY
+    <statements>
+__CATCH(<variable>)
+    <statements>
+__FINALLY
+    <statements>
+__ENDTRY
+```
+
+`__CATCH` and `__FINALLY` are each optional, but one of them is required. The catch variable is a
+variable of the type `__SYSTEM.ExceptionCode`.
+
+### `__SYSTEM.ExceptionCode`
+
+A built-in enumeration with the base type `UDINT` and CODESYS's values. A variable is declared
+`exc : __SYSTEM.ExceptionCode;`, and a value is written `__SYSTEM.ExceptionCode.RTSEXCPT_DIVIDEBYZERO`.
+
+| Value | Code | Value | Code |
+|---|---|---|---|
+| `RTSEXCPT_UNKNOWN` | `16#FFFFFFFF` | `RTSEXCPT_NOEXCEPTION` | `16#00000000` |
+| `RTSEXCPT_WATCHDOG` | `16#00000010` | `RTSEXCPT_HARDWAREWATCHDOG` | `16#00000011` |
+| `RTSEXCPT_IO_CONFIG_ERROR` | `16#00000012` | `RTSEXCPT_PROGRAMCHECKSUM` | `16#00000013` |
+| `RTSEXCPT_FIELDBUS_ERROR` | `16#00000014` | `RTSEXCPT_IOUPDATE_ERROR` | `16#00000015` |
+| `RTSEXCPT_CYCLE_TIME_EXCEED` | `16#00000016` | `RTSEXCPT_ONLCHANGE_PROGRAM_EXCEEDED` | `16#00000017` |
+| `RTSEXCPT_UNRESOLVED_EXTREFS` | `16#00000018` | `RTSEXCPT_DOWNLOAD_REJECTED` | `16#00000019` |
+| `RTSEXCPT_BOOTPROJECT_REJECTED_DUE_RETAIN_ERROR` | `16#0000001A` | `RTSEXCPT_LOADBOOTPROJECT_FAILED` | `16#0000001B` |
+| `RTSEXCPT_OUT_OF_MEMORY` | `16#0000001C` | `RTSEXCPT_RETAIN_MEMORY_ERROR` | `16#0000001D` |
+| `RTSEXCPT_BOOTPROJECT_CRASH` | `16#0000001E` | `RTSEXCPT_BOOTPROJECTTARGETMISMATCH` | `16#00000021` |
+| `RTSEXCPT_SCHEDULEERROR` | `16#00000022` | `RTSEXCPT_FILE_CHECKSUM_ERR` | `16#00000023` |
+| `RTSEXCPT_RETAIN_IDENTITY_MISMATCH` | `16#00000024` | `RTSEXCPT_IEC_TASK_CONFIG_ERROR` | `16#00000025` |
+| `RTSEXCPT_APP_TARGET_MISMATCH` | `16#00000026` | `RTSEXCPT_ILLEGAL_INSTRUCTION` | `16#00000050` |
+| `RTSEXCPT_ACCESS_VIOLATION` | `16#00000051` | `RTSEXCPT_PRIV_INSTRUCTION` | `16#00000052` |
+| `RTSEXCPT_IN_PAGE_ERROR` | `16#00000053` | `RTSEXCPT_STACK_OVERFLOW` | `16#00000054` |
+| `RTSEXCPT_INVALID_DISPOSITION` | `16#00000055` | `RTSEXCPT_INVALID_HANDLE` | `16#00000056` |
+| `RTSEXCPT_GUARD_PAGE` | `16#00000057` | `RTSEXCPT_DOUBLE_FAULT` | `16#00000058` |
+| `RTSEXCPT_INVALID_OPCODE` | `16#00000059` | `RTSEXCPT_MISALIGNMENT` | `16#00000100` |
+| `RTSEXCPT_ARRAYBOUNDS` | `16#00000101` | `RTSEXCPT_DIVIDEBYZERO` | `16#00000102` |
+| `RTSEXCPT_OVERFLOW` | `16#00000103` | `RTSEXCPT_NONCONTINUABLE` | `16#00000104` |
+| `RTSEXCPT_PROCESSORLOAD_WATCHDOG` | `16#00000105` | `RTSEXCPT_FPU_ERROR` | `16#00000150` |
+| `RTSEXCPT_FPU_DENORMAL_OPERAND` | `16#00000151` | `RTSEXCPT_FPU_DIVIDEBYZERO` | `16#00000152` |
+| `RTSEXCPT_FPU_INEXACT_RESULT` | `16#00000153` | `RTSEXCPT_FPU_INVALID_OPERATION` | `16#00000154` |
+| `RTSEXCPT_FPU_OVERFLOW` | `16#00000155` | `RTSEXCPT_FPU_STACK_CHECK` | `16#00000156` |
+| `RTSEXCPT_FPU_UNDERFLOW` | `16#00000157` | `RTSEXCPT_VENDOR_EXCEPTION_BASE` | `16#00002000` |
+| `RTSEXCPT_USER_EXCEPTION_BASE` | `16#00010000` | | |
+
+### Behavior
+
+1. The statements after `__TRY` run. When one of them raises a runtime error that the table below
+   handles, the rest of them are skipped, the catch variable takes the error's code, the
+   statements after `__CATCH` run, then those after `__FINALLY`, and execution continues after
+   `__ENDTRY`. The error is handled, so the scan does not fault.
+2. Without an error, the statements after `__FINALLY` run after those after `__TRY`.
+3. Without `__CATCH`, an error runs the statements after `__FINALLY`, then faults the scan as it
+   would without `__TRY`.
+4. An error in the statements after `__CATCH` runs those after `__FINALLY`, then goes on as an
+   error of the statement that holds the `__TRY`: an enclosing `__TRY` handles it, else it faults
+   the scan. An error in the statements after `__FINALLY` goes on the same way.
+5. `RETURN`, and an `EXIT` or a `CONTINUE` of a loop around the `__TRY`, in the statements after
+   `__TRY` or `__CATCH`, leave the construct after the statements after `__FINALLY` have run, as
+   they would have left without it. They are refused in the statements after `__FINALLY` (E206), and
+   so is a `JMP` into or out of the construct.
+6. The runtime errors that `__TRY` handles, and their codes (specification 10 §10.2):
+
+   | Runtime error | Code |
+   |---|---|
+   | integer division by zero, `MOD` by zero | `RTSEXCPT_DIVIDEBYZERO` |
+   | overflow of an integer, a duration, a date or a time | `RTSEXCPT_OVERFLOW` |
+   | array or character index outside its bounds | `RTSEXCPT_ARRAYBOUNDS` |
+   | dereference of `NULL`, a reference whose target is gone | `RTSEXCPT_ACCESS_VIOLATION` |
+   | call depth exceeded | `RTSEXCPT_STACK_OVERFLOW` |
+   | a non-finite real where a finite one is required | `RTSEXCPT_FPU_INVALID_OPERATION` |
+   | a value outside its subrange, a `FOR` step of zero, an integer that is no value of its enumeration, a text over 65,535 characters | `RTSEXCPT_UNKNOWN` |
+
+   It never handles the statement budget (specification 44 §8.4), the task stack's margin (§8.5),
+   the CPU's memory protection (§10.5), a module's internal fault (§8.6) or a test's failed
+   assertion: they end the scan whatever `__TRY` says, so that a looping, exhausted or damaged
+   program cannot hide behind it, and a test still fails.
+
+### Example (the CODESYS help's, Example 154)
+
+```
+FUNCTION Tester : UDINT
+VAR_INPUT
+    count : UDINT;
+END_VAR
+VAR_OUTPUT
+    strExceptionText : STRING;
+END_VAR
+VAR
+    exc : __SYSTEM.ExceptionCode;
+END_VAR
+__TRY
+    Tester := tryFun(count := count, testcase := g_testcase);
+__CATCH(exc)
+    HandleException(exc, strExceptionText => strExceptionText);
+__FINALLY
+    GVL.g_count := GVL.g_count + 2;
+__ENDTRY
+```
+
 ## Implementation Notes for trust-syntax Parser
 
 ### AST Node Types

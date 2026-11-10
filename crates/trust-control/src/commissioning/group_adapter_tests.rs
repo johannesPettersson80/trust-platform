@@ -322,6 +322,34 @@ fn a_cross_program_group_is_refused_before_tuning_or_application() {
     assert_eq!(failure.message, ONE_PROGRAM);
 }
 
+/// C7 (protocol annex E2.3; the CODESYS toolkit's S9): a group whose shared mode, setpoints, measurements, outputs and manual
+/// commands sit in a GVL is one coherent transaction while its members, their gains and their states lie in one program, `P1`. The
+/// adapter cannot tell a GVL from another program by name; discovery checks those signals against the catalog, and the runtime's
+/// transfer against the group's task. Catches the old rule, which refused such a group as one of two programs.
+#[test]
+fn a_group_whose_mode_and_signals_sit_in_a_gvl_is_one_coherent_transaction() {
+    let mut text = group_file(2, true).to_string();
+    for (program, global) in [
+        ("P1.AutoMode", "GVL_IO.bAuto"),
+        ("P1.ManualMV", "GVL_IO.lrManualMV"),
+        ("P1.Manual", "GVL_IO.lrManual"),
+        ("P1.SP", "GVL_IO.lrSP"),
+        ("P1.PV", "GVL_IO.lrPV"),
+        ("P1.MV", "GVL_IO.lrMV"),
+    ] {
+        text = text.replace(&format!("\"{program}"), &format!("\"{global}"));
+    }
+    let loop_definition = LoopDefinition::decode(&text).expect("the group loop file decodes");
+    assert_eq!(
+        loop_definition
+            .parameter_binding
+            .as_ref()
+            .map(|binding| binding.mode.symbol.as_str()),
+        Some("GVL_IO.bAuto")
+    );
+    controller_adapter(&loop_definition).expect("the group is one coherent transaction");
+}
+
 #[test]
 fn a_group_without_its_project_is_refused_rather_than_tuned_as_a_scalar_loop() {
     let mut loop_definition = group_loop(2, true);

@@ -4,11 +4,9 @@
 //! it, it takes the running program's values and task schedule, and at the commit the running
 //! cycle's lines and checkpoint store.
 
-use alloc::vec::Vec;
-
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_image::write_flat_image;
-use trust_runtime_core::native::change::CarriedValueEvent;
+use trust_runtime_core::native::change::ChangeReport;
 use trust_runtime_core::native::program::{ModuleCode, NativeProgram};
 use trust_runtime_core::ports::MonotonicClock;
 
@@ -38,25 +36,29 @@ where
         cycle
     }
 
-    /// The candidate takes the values of `running` (specification 44 §12.2): its cold-init entry
-    /// runs, the running program's values are carried into its areas, its tasks continue the
-    /// running program's schedule from the logical time of the last scan, and it installs the next
-    /// generation (specification 34 UPDATE-04). Returns the events of the variables that did not
-    /// go on with the running value as it was.
+    /// The candidate takes the values of `running` (specification 44 §12.2, §12.3): the running
+    /// program's change-exit entries run under the CODESYS profiles, the candidate starts, the
+    /// running program's values are carried into its areas, its tasks continue the running
+    /// program's schedule from the logical time of the last scan, and it installs the next
+    /// generation (specification 34 UPDATE-04). Returns the events of the variables that did not go
+    /// on with the running value as it was and the faults of the change entries, which the loop
+    /// records.
     ///
     /// # Errors
     ///
     /// [`RuntimeError::Overflow`] when the generations are used up, the fault of the cold-init
-    /// entry, or the error of a table that does not read; `running` is as it was.
+    /// entry, or the error of a table that does not read.
     pub fn take_values<D: ModuleCode>(
         &mut self,
-        running: &CompiledCycle<'_, C, I, D, H, R>,
-    ) -> Result<Vec<CarriedValueEvent>, RuntimeError> {
+        running: &mut CompiledCycle<'_, C, I, D, H, R>,
+    ) -> Result<ChangeReport, RuntimeError> {
         let generation = running.generation.next().ok_or(RuntimeError::Overflow)?;
-        let events = self.program.change_from(&running.program, running.now)?;
+        let report = self
+            .program
+            .change_from(&mut running.program, running.now)?;
         self.program.copy_images(&mut self.images);
         self.generation = generation;
-        Ok(events)
+        Ok(report)
     }
 
     /// Whether the running program's safe state is a valid write of the candidate's output image,

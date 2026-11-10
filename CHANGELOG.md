@@ -6,6 +6,447 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-09
+
+### Added
+
+- Under the CODESYS profiles an instance that a function or a method declares, or the `VAR_TEMP` of a program or a
+  function block, gets `FB_init(bInitRetains := FALSE, bInCopyCode := FALSE)` each time a call starts it and
+  `FB_exit(bInCopyCode := FALSE)` when the call returns, also through `RETURN`; `{attribute 'no-exit'}` leaves a marked
+  one out.
+- Under the CODESYS profiles an online change calls `FB_exit`, `FB_init` and `FB_reinit` in the sequence the CODESYS
+  help gives: for each variable whose function block's declaration changed, `FB_exit(bInCopyCode := TRUE)` in the running
+  program, then `FB_init(bInitRetains := FALSE, bInCopyCode := TRUE)` in the new one, the carry of the values, and
+  `FB_reinit()`; a change of the code only calls nothing. Where the help is silent, truST decides: a variable the change
+  drops leaves with `FB_exit(bInCopyCode := FALSE)`, one it adds starts with `FB_init(bInitRetains := TRUE,
+  bInCopyCode := FALSE)`, and a fault in these calls is recorded as an event and the change goes on.
+- Under the CODESYS profiles a cold or a warm restart of a program that has run, and a download that replaces it,
+  first call `FB_exit(bInCopyCode := FALSE)` of every instance whose type declares it, in the reverse of `FB_init`'s
+  order, as CODESYS does; a declaration marked `{attribute 'no-exit'}` leaves out the instances it declares. A fault
+  in `FB_exit` fails a restart; at a download the new program is installed all the same and its event records begin
+  with the fault.
+- `{attribute 'test_simulation'}` on a multi-cycle test runs the project's `simulation.toml` in lockstep with the test, as
+  `trust-runtime run --simulation` runs it: the plants publish their feedback before each cycle and read the commands and
+  advance to the cycle's time after it, in simulated time from zero. A test of a loop checks it against its plant, cycle by
+  cycle (specification 22, "A plant in the loop"). With `--device` the test runs on the device and its plants on this
+  computer, in the same lockstep: each cycle's step carries the plants' feedback to the device and reads its commands
+  back (specification 22, "A plant in the loop on a device").
+- `{attribute 'hide'}` and `{attribute 'hide_all_locals'}` now take effect at run time too: the debugger's lists of
+  variables (globals, a frame's locals, a program's or an instance's members, the instances) and the HMI Builder's
+  variable picker leave a hidden variable out, on every runtime, a board included, as CODESYS hides it from monitoring
+  and debugging. Code, `eval`, `set`, `var.force`, a watch and an HMI binding still reach it by its name
+  (specification 10 §4.8).
+- `{attribute 'pack_mode' := 'n'}` before a structure's `TYPE` packs its members as CODESYS does: with `0` or `1`
+  without gaps, with `2` or `4` at most that far apart, the size rounded up to the largest alignment. `SIZEOF` gives
+  that size, a `STRUCT OVERLAP` sees the structure's bytes there, and a located structure lies on the wire there; a
+  value other than 0, 1, 2, 4 or 8 is an error (specification 02 §3.5.2).
+- A property of a function block or class whose GET only returns one of its variables (`Kp := _rKp;`) can be read by
+  its name, as CODESYS monitors it: `eval`, Live Values and the debugger read `TankInst.fbPI.Kp` as `_rKp`, and `set`,
+  `var.force` and the debugger write it when the property's SET only assigns that variable (specification 44 §5.8;
+  specification 11). A property whose GET runs more code is still an unknown identifier.
+- CODESYS's exception handling, `__TRY`, `__CATCH(variable)`, `__FINALLY` and `__ENDTRY`, with the system type
+  `__SYSTEM.ExceptionCode`, under every profile. A division or `MOD` by zero, an overflow, an index out of bounds, a
+  `NULL` dereference, the call depth and a few others raised inside `__TRY` are handled with CODESYS's codes; the
+  statement budget, the task stack's margin and a test's failed assertion still end the scan (specification 06 §15).
+- Identify stops an experiment once the measured output leaves its permitted range. Every plan that writes carries the
+  loop's measured output and its permitted range, the range **Limits…** sets; the plan's stop conditions and a physical
+  target's approval name it, and the runtime restores what it wrote. The stop names the value the runtime read and the
+  limit it passed, and asks for a smaller step (specification 35, B3.4 step 6).
+- An experiment can name a measurement guard (`measurement_guard` in `control.experiment.start`): the loop's measured
+  output and the band it must stay in. The runtime reads it after every execution of the experiment's task and stops the
+  experiment with `measurement_outside_limits` once the measurement leaves the band, restoring its target as for any other
+  failed stop; the status reports the guard and the value that stopped it (runtime protocol annex E5.3 to E5.7).
+- `trust-runtime play --paused` and `run --paused`, and `[runtime.control] start_paused = true` in
+  `runtime.toml`, start the program paused: no scan runs until `resume`, so a client can attach,
+  set breakpoints or force values before the first scan. The setting needs the debug surface
+  (`debug_enabled`), since `resume`, a debug operation, ends the pause. A device started from a deployment record
+  with the setting holds before its first scan the same way.
+- `trust-runtime ctl breakpoints-set` takes `--condition`, `--hit-condition` and `--log-message`,
+  `ctl evaluate <expression>` evaluates a debug expression in the held program or in the last scan,
+  and `ctl compile-expression` prints an expression's compiled form for scripts. The expressions
+  are compiled with the project's types, as the VS Code debugger compiles them.
+- A `STRING` variable marked `{attribute 'instance-path'}` and `{attribute 'noinit'}` in a function
+  block, class or program marked `{attribute 'reflection'}` starts with the path of its instance, as
+  CODESYS initializes it: `Plant.Line1.Cell.pumps[2]`, the configuration's and the resource's names
+  first where the project declares them.
+- `{attribute 'noinit'}` (also `no_init` and `no-init`) on the line above a variable's declaration
+  keeps the variable's value at a cold and a warm restart, as CODESYS keeps it at a reset. The
+  variable takes its starting value when the program is installed or after a power-on, as every
+  variable does. It applies to globals, program variables, and a function block's or class's
+  variables, inputs and outputs.
+- Under the CODESYS profiles a function block's method marked `{attribute 'call_after_init'}` runs
+  after each instance's initialization, right after its `FB_init`, at a cold and a warm restart, when
+  the block is marked too, as CODESYS calls it. A marked method with inputs is refused at build.
+- Completion leaves out what CODESYS's `{attribute 'hide'}` hides, a variable, POU, method,
+  property or action, and the `VAR` locals of a POU with `{attribute 'hide_all_locals'}`, as
+  CODESYS's Input Assistant does; code may still name them.
+- CODESYS's `{attribute 'qualified_only'}` and `{attribute 'strict'}` take effect:
+  - `qualified_only` on an enumeration makes a bare value (`MANUAL`) an error; write
+    `E_Mode.MANUAL` or `E_Mode#MANUAL`. On a namespace's `VAR_GLOBAL` list it makes a global that a
+    `USING` brings in an error when named bare; write `GVL_IO.lrLevel`.
+  - `strict` on an enumeration makes arithmetic with its values an error, and assigning to it a
+    constant that is none of its values or a variable of another type.
+  Before, both attributes were read and had no effect.
+- The JSON report of `trust-dev test` gives a failed assertion's values, typed: the test's
+  `assertion` object holds its `name` and, as the assertion has them, its `expected` and `actual`
+  values, a comparison's `bound` and `ASSERT_NEAR`'s `delta`, each as `{"type": "INT", "value": 2}`.
+  A device's run gives the same, from its `cycle.step`.
+- `trust-runtime build --json`. With `--json` or `--ci`, a build whose sources have errors prints
+  the same issues as `check` instead of the error text.
+- A Structured Text test may run for many cycles and end itself with `TEST_FINISHED()`, as a PLC
+  program runs (specification 22, "Multi-cycle tests"). Its cycles run in simulated time from zero,
+  10 ms apart unless `{attribute 'test_cycle' := 'T#…'}` names another cycle, within a budget of
+  10,000 cycles unless `{attribute 'test_max_cycles' := '…'}` names another. A test that has not
+  finished when its budget runs out fails, so none can hang, and a failed assertion names its cycle
+  and time: `ASSERT_TRUE expected TRUE, got FALSE (cycle 3, t = T#200ms)`. The JSON report gives
+  such a test `cycles` and `simulated_time_ms`. The attributes work in a CODESYS project too, beside
+  `{attribute 'test'}`.
+- Control Studio tunes a program's own PI or PID that holds its settings in the standard form, as
+  CODESYS's `PID` (`KP`, `TN`, `TV`) and blocks like a project's `FB_PI` (`Kp`, `Ti`) do: the gain
+  `Kp`, the reset time `Ti` and the derivative time `Td` in seconds (specification 35 C2, numerics
+  annex N6.8). Tune designs the law from the model as for the parallel form and writes
+  `Ti = Kp/Ki` and `Td = Kd/Kp`; such a block no longer needs the finite search's trial grid.
+  - Setup offers the form beside the law (`form`, `resetTime`, `derivativeTime` in a setup draft);
+    a law in standard form is PI or PID, and its reset time's range lies above zero.
+  - A pinned or entered reset or derivative time is a time in seconds; the transfers, Apply and
+    Validate read the times back as gains.
+- Control Studio tunes a loop whose Auto/Manual signal is an enumeration, as CODESYS and TwinCAT code
+  selects a controller's mode (TwinCAT's `E_CTRL_MODE`, a project's own `E_Mode`). The loop names the
+  member that means Manual and the one that means Auto (`manual_value`, `auto_value`); its other
+  members, such as `Off`, mean neither mode, and an operation that finds the loop in neither does not
+  start and names the member it found (specification 35 A6.1).
+  - Transfers, Apply, Identify's experiments, Validate's and Tune's isolated runs, the monitor and
+    recordings write and read the mode by its members.
+  - The setup page and the step-by-step setup offer an enumeration without an I/O address as the
+    Auto/Manual signal and ask for its Manual and Auto members. A setup draft names them as
+    `manualValue` and `autoValue`, for the loop's own mode and for a cascade's outer controller.
+    Setup and discovery check both members against the compiled enumeration.
+- Control Studio's setup recognises CODESYS's startup pattern `IF bInit THEN … bInit := FALSE; END_IF`
+  as a startup flag. Validate starts such a flag FALSE, its value once the startup has run, so the
+  startup code no longer overwrites the values Control Studio seeds (specification 35 C1). A flag
+  tested as `IF NOT <flag> THEN … <flag> := TRUE` starts TRUE as before.
+- `trust-control-studio inputs --loop <id> --change <file>` records one change of a loop's study inputs
+  from the command line, such as the requirements Tune designs to, as Control Studio's editors do
+  (specification 35 §0.1b). `--change -` reads the change from standard input. Until now only the
+  editors, through `serve`, could set them.
+- The `trust-lsp.crossReferences` command lists a symbol's declaration and references, each with
+  its access (`declaration`, `read`, `write` or `call`) and the POU it sits in, as CODESYS's
+  cross-reference list does, for a client with or without an editor (specification 14 §6.3.2).
+- An ordinary `PROGRAM` whose declaration carries `{attribute 'test'}` is a test program, as a
+  `TEST_PROGRAM` is (specification 22): `trust-dev test` and the VS Code Testing view run it, a
+  production build leaves it unbound, and it is no unused program. CODESYS has no `TEST_PROGRAM`
+  and ignores an attribute it does not know, so a CODESYS project can keep its tests in the project
+  itself. The attribute works under every vendor profile.
+- Each release's language-server archive holds the debug adapter `trust-debug` beside `trust-lsp`,
+  on every platform, so a DAP-capable editor other than VS Code can debug a truST runtime. It was
+  shipped only inside the VS Code extension.
+- A method may declare CODESYS's `VAR_INST` section: variables kept per instance and method between
+  calls, as truST's method `VAR_STAT` is, with the same qualifiers (specification 04). It is
+  refused anywhere but in a method, as in CODESYS; it failed with a parse error.
+- `trust-runtime ctl location`, `stack`, `scopes <frame-id>` and `variables <reference>` read a held
+  program: where it stopped, its call stack, a frame's scopes and a scope's variables, with lines and
+  columns counted from 1.
+- `__QUERYINTERFACE(source, target)`, CODESYS's query whether the instance an interface names
+  implements another interface, under every profile: `TRUE` with the target naming the instance,
+  or `FALSE` with the target `NULL` (specification 04). Every interface may be queried. It failed
+  with "expected expression".
+- Under the CODESYS profiles a cold and a warm restart call `FB_init` of every function block
+  instance whose type declares it, before the first cycle, as CODESYS does: `bInitRetains` is TRUE
+  at a cold restart and FALSE at a warm one, `bInCopyCode` FALSE, and an instance's base part and
+  nested instances come before its own `FB_init` (specification 10 §4.8). Its further inputs take
+  the arguments of the instance's declaration, `com1 : serialdevice(iCOMnum := 1)`, by name or in
+  order; a string or another input that is no scalar is refused at build for now.
+- `THIS^` and `SUPER^`, CODESYS's spelling of `THIS` and `SUPER` as pointers, are accepted under
+  every profile and work as `THIS` and `SUPER`: `THIS^.Speed`, `SUPER^.Initialize()` and, in a
+  body, `SUPER^()` (specification 04). They failed with E201 "dereference requires pointer type".
+- `__ISVALIDREF(ref)`, CODESYS's test whether a reference is bound, under every profile: `TRUE`
+  when the `REF_TO` or `REFERENCE TO` value is bound, `FALSE` when it is `NULL` (specification 02
+  §4.1). It failed with "expected expression".
+- An interface may extend CODESYS's `__SYSTEM.IQueryInterface`, and a function block or class may
+  name it among its interfaces, under every profile (specification 04). It adds nothing in truST;
+  such a declaration failed with "expected METHOD or PROPERTY in interface".
+
+### Changed
+
+- Under the CODESYS profiles an online change no longer runs `FB_init` of every instance of the new program; only the
+  instances above are called.
+- When Identify ends a step's hold early because the response has settled, its progress says so at
+  once, with the time since the step was applied and the limit the step would otherwise have had:
+  "The response settled 4 min after the step was applied, so the step ends there, before its limit
+  of 9 min."
+- `trust-runtime build`, `play` and `run` no longer download the toolchain silently when a build
+  needs it and none is installed. In a terminal they ask first, naming where the bundle comes from,
+  its size (about 180 to 210 MB, 630 MB installed) and its folder; without a terminal, as in a
+  script or CI, they fail with the advice to run `trust-runtime toolchain install`, unless
+  `--install-toolchain` gives the consent. The VS Code extension installs the toolchain as before.
+- Control Studio's Identify, Validate's model check and Apply refuse at once while the runtime is
+  paused or the debugger holds its scan, and say what holds it and how to go on (continue in the
+  debugger, or resume the runtime), instead of waiting for a scan that does not come.
+- The program image format is version 4: a symbol carries the `noinit` mark. A runtime or firmware
+  of an earlier version refuses an image built by this version, and this version refuses an older
+  image, so a project is built again with this version before it is installed.
+- `trust-runtime check --json` reports each compiler diagnostic as its own issue, with the
+  compiler's code (`E101`), its severity and message, the file, and where it is: `line`, `column`,
+  `end_line` and `end_column`, counted as the editor and `trust-lsp check` count them. Before, every
+  diagnostic of a compile was one `compile` issue whose text named byte offsets.
+- `set`, `var.force` and `retain:` writes to a variable the running program does not have are
+  refused at once, naming it: `PRG_Tank.fbPI.Kp names no member`. Before, an integer was answered
+  `queued` and then dropped at the scan boundary, and any other value was refused as an unsupported
+  value, which blamed the value instead of the target.
+- W012 counts every write a program makes to a global that tasks share (specification 28 §6): an
+  output binding (`fbTimer(Q => gDone)`), an argument to an in-out parameter, by name or by
+  position, a FOR loop's control variable, and a call of a global function block instance or of a
+  method of one, as Beckhoff's SA0006 counts a method call. It counted only the targets of `:=`, so
+  two tasks writing a global in those ways stayed silent. An index of an assigned element, such as
+  `i` in `gArr[i] := 0`, is a read, where W012 counted it written.
+- The outline of a Structured Text file is a tree that holds variables (specification 14 §6.3.3): a
+  namespace's declarations, a CODESYS GVL's globals among them; a configuration's resources, tasks
+  and program instances; a POU's variables and parameters, each with its section and type
+  (`VAR_INPUT : INT`), and its methods, properties and actions; and an enumeration's values. Each
+  entry spans its whole declaration, so the editor's breadcrumbs follow the cursor. It was a flat
+  list of POUs and types without variables.
+- `eval` (`trust-runtime ctl eval` and the console's watch list) answers the value's type and the value
+  as JSON, `{"type": "LREAL", "value": 0.738}`, instead of the runtime's debug text (`LReal(0.738)`):
+  numbers as numbers, an enumeration with its `numeric` value, a duration with its nanoseconds and
+  its IEC `text` (specification 11). A script that read the text reads the JSON now.
+- `trust-runtime ctl breakpoints-set` takes one-based lines, as an editor shows them, and
+  `breakpoints-set` and `breakpoints-list` print one-based lines and columns; a line 0 is refused.
+  The command passed its lines on as the protocol's zero-based ones, so `breakpoints-set main.st 12`
+  set the breakpoint at the editor's line 13, and printed the lines zero-based. The console's
+  `break <file>:<line>` counts the same way, and `breaks` shows each breakpoint's line instead of a
+  byte offset.
+
+### Fixed
+
+- Workspace symbol search lists only what the project's files declare: the built-in function blocks and their
+  parameters no longer appear at line 0 of every file.
+- The HMI Builder saves every translation entered in quick succession: a translation written while the last one's save
+  was still settling could stay unsaved in the editor, with the text file on disk missing it.
+- Who writes a global is judged along the call tree, as CODESYS's static analysis does: a global that a function block, a
+  function or a method writes belongs to the task whose programs call it. Control Studio therefore takes a loop whose output
+  a function block writes, as CODESYS projects often do, instead of refusing it as shared, and warning W012 now reports a
+  global that a function block writes from two tasks (specification 28 §6; protocol annex E2.3).
+- A PID group whose shared Auto/Manual signal, setpoints, manual outputs or measurements live in a GVL, as CODESYS projects
+  keep them, is no longer refused as belonging to two programs: its members, gains and states stay in one program, and
+  setup refuses up front only a written signal that the group's task does not own, or one in another program (specification
+  35 C7).
+- Control Studio's Keep in project writes gains that a CODESYS project keeps in a GVL (`GVL_Par.lrKp`) into the GVL's
+  declarations, as it writes a program's own gain variables, instead of refusing them as "not declared in PROGRAM
+  GVL_Par" (specification 35 B6.5).
+- Control Studio's setup and loop discovery refuse up front a loop whose parameter set, setpoint or output is a global that
+  the loop's task does not own (another task, or a function block that any task may run, writes it), with the sentence
+  that names the global, who writes it and the loop's task, instead of accepting the loop and refusing at Identify or
+  Apply. The compiled catalog states each global's owner (specification 35 B1.2, B1.3).
+- Control Studio's parameter sets (Apply's gains) take parameters and a mode that a CODESYS project keeps in GVLs, when the
+  loop's task owns each global, and refuse one that another task or a function block writes with its reason. Experiments
+  step a writable global, such as a GVL's manual output, as they step a program's variable (protocol annex E2.3, E7.1).
+- A page of the runtime's HMI is told to reload when a new HMI bundle was deployed between loading the page and opening
+  its live-value stream. Before, such a page kept showing the old bundle, and its commands were refused as out of date
+  without the reload notice (specification 39 §16.2).
+- Control Studio's transfers (Identify's and Apply's switches between Manual and Auto) take a loop whose mode, setpoint or
+  output lives in a GVL, as CODESYS projects keep them, when the loop's task owns each global: no program writes it, or
+  only the programs that task runs do. A global that another task, or a function block that any task may run, writes is
+  refused with its reason instead of "transfer members must belong to one compiled program". The measurements and other
+  guards, which a transfer only reads, may be any variable, another task's included (protocol annex E2.3).
+- Under the CODESYS profiles an instance's declaration, `fb : FB := (in1 := 99)`, gives its members their values after
+  the instance's `FB_init`, which sees the type's initial values, as CODESYS and TwinCAT order them; a member that a warm
+  restart keeps takes the declaration's value before `FB_init`, as TwinCAT orders retained variables (specification 10
+  §4.8).
+- Fit (`identify --recording`, Open recording in Control Studio) refits any live recording the study keeps, not only the
+  recording of its Identify result: each live recording keeps the request it was taken with in the study. A recording kept
+  before this change has none and is refused as before (specification 35, B3.6).
+- A declaration's initial value converts by the program's conversion rules (specification 07
+  §2.10): `bXMax : BYTE := ANY_TO_BYTE(255)` in a DUT compiles, and `ANY_TO_BYTE(300)` keeps the
+  low-order bits of the target's width, 44. The build refused every such conversion with
+  "ANY_TO_BYTE in a declaration of a program built with the CODESYS conversion rules is not
+  compiled yet" (specification 44 NX-09). A conversion outside an initial value (an array's
+  bound, the program configuration) is still refused.
+- A write at an output address (`io.write`, a Live Values write, an experiment's step on an addressed output) also writes
+  the variable bound there, so the program reads it and the output keeps it until the program writes the variable. Before,
+  the next scan's publication of the bound variable replaced it, so Identify could not step a loop whose program stops
+  writing its output in Manual, with the output named as its own manual output (specification 44 §13.3).
+- Identify placed a step whose edge fell inside an averaged sample at the larger of its two partial changes. Past the
+  middle of a sample the straddling sample joined the baseline and moved the fitted gain (1.527 instead of 1.5 at 55 %
+  on a simulated first-order plant), and a restoration that straddled less evenly could be taken for the step, which
+  refused the recording with "A bounded input step with pre- and post-step data is required.". A change through a
+  straddling sample now counts whole, and the step starts at that sample (numerical annex N2.2).
+- While the debugger holds the scan at a breakpoint, a pause or a step, `plant.status`,
+  `plant.trace.read` and `plant.trace.clear` answer from the simulation, and a finite search
+  (Control Studio's automatic Tune) can start; before, each waited 250 ms for the held scan thread
+  and gave up (`runtime_evidence_unavailable`, "native simulation host status timed out").
+- `trust-dev test` labels each source file by its path relative to the project folder, as
+  `trust-runtime build` does: a compile error of the tests names `src/tests.st`, and the test image
+  holds no path of the computer that built it.
+- A value of a DUT that `EXTENDS` another is compiled where the base's type is wanted
+  (specification 02 §3.5.1): as a method's or function's input, as an assignment, into a
+  `STRUCT OVERLAP`'s member included, and as a call's result. The build refused every one of
+  the copies with "an assignment between different types" (specification 44 NX-09).
+- Find references and the call hierarchy's incoming calls of a function block's or class's method
+  include its calls through an interface variable (`itf.Run()`), for each interface its block
+  implements, directly, through the blocks it extends or through the interfaces those extend.
+- Under the CODESYS profile, `TO_STRING` and `TO_WSTRING` of an enumerated value give the value's name
+  only when its enumeration is declared `{attribute 'to_string'}`, and its number otherwise, as
+  CODESYS does; a typed `INT_TO_STRING` of an enumerated value gives its number. Since 0.32.0 every
+  enumerated value was written as its name.
+- `trust-dev test` reports a failed test at the statement that failed: the assertion's file, line
+  and source line, also when it lies in a function or function block the test calls, on this
+  computer and on a device. The human output and TAP name that statement; JSON adds a `failure`
+  object (`file`, `line`, `source`) and JUnit an `at:` line beside the test's own file and line.
+  Before, every report named the test's declaration.
+- A fault raised after a call returns, in the statement that made the call, such as a failed
+  assertion on a function's result, is recorded at that statement, not at the called function's
+  last statement.
+- `trust-dev test` names each test's file relative to the project folder in every format, JSON,
+  TAP, JUnit and the human output, and in the list of the agent API, as `trust-lsp check` does: `src/tests.st`, never the canonical
+  whole path with its `\\?\` prefix on Windows, also for a relative `--project`.
+- Control Studio reads a loop's signals from a global of a namespace, the form of a CODESYS GVL
+  member, by its qualified name (`GVL_IO.lrLT101_Level`), and from a global scalar by its own name.
+  Before, setup offered them and the first read refused them with `program instance not found`.
+- A simulated plant can be wired to such a variable in `simulation.toml` (`command_sources`,
+  `feedback_targets`), as to a program's.
+- `trust-dev test --device` reaches a device whose settings set a control token: every request of
+  its link carries the token, from `--token`, else `TRUST_CTL_TOKEN`, else the project's
+  `runtime.control.auth_token`. Before, the device refused the first request with `missing auth
+  token`. `trust-runtime conformance` on a device takes the token from `TRUST_CTL_TOKEN`.
+- A simulation at a high time scale keeps its speed. Where cycles are due less than 2 ms apart, the
+  scheduler runs the due cycles back to back instead of waiting for each, and a wait that wakes late
+  by less than 2 ms costs no speed. Before, every wait woke late by up to about a millisecond, on
+  Windows especially, and each late wake restarted the schedule, so a 10 ms task ran at most about
+  ten times faster than real time whatever the time scale. Simulation time and results are
+  unchanged.
+- `var.force` of a variable bound to an input address (`Level AT %IW0 : INT`) holds: the program
+  reads the forced value instead of the input until the force is released. Before, the scan's input
+  sample replaced the forced value before the program ran, though `var.force` answered `forced`.
+- A `set` of a variable bound to a marker address lasts. Before, the next scan replaced it with the
+  marker's old value. A written input keeps its value until a driver reads that input again.
+- A `TIME` bound to a 32-bit address (`AT %ID8`) refuses a write that its whole milliseconds cannot
+  hold, a negative duration or one past about 49.7 days, with a `write_rejected` event.
+- A loop whose return to Auto the runtime refuses is no longer locked. Identify, Validate's model
+  check and a Cancel end the operation, say that the loop stays in Manual and is to be returned to
+  Auto by hand, and leave nothing journaled. Before, every Cancel retried the refused transfer, and
+  only deleting the loop's journal freed the loop.
+- When an identification fails and its loop cannot be returned to its mode either, the answer states
+  both.
+- A simulated runtime's first cycle runs at simulation time zero, however long the runtime took to
+  start. At a high time scale the start had counted as missed task intervals, one overrun warning
+  (TRUST-RT-OVERRUN-001) right after every start.
+- After a restart, simulated plants start at the time the restarted runtime continues from, so its
+  first cycle finds them in their initial state, as after a start. Before, they integrated all the
+  time since the start in that first cycle, so a tank drained, and past 100 s the plant faulted.
+- `set` and `var.force` take an enumeration's value in CODESYS's form, `E_TankMode.AUTO`, as well as
+  `E_TankMode#AUTO`; the type may carry its namespaces (`Lib.E_TankMode.AUTO`).
+- Identify's switches between Manual and Auto, and Validate's live model check that uses them, take
+  the transfer tolerance that the study's requirements review, as Apply does. Without one they had
+  allowed a first-output change of 0.000001, finer than a REAL output resolves above 8, so a
+  bumpless hand-back that moved the output by one REAL step was refused and the loop stayed in Manual.
+- No Auto-entry tolerance is below the output's resolution, 2⁻²³ of its larger limit.
+- A refused Auto entry names the change the runtime measured, from what to what, and the tolerance it
+  allowed.
+- A project that declares its own enumeration with a value named like one of the Control library's, such as a
+  CODESYS or TwinCAT `E_Mode` with `Manual` and `Auto`, compiles with the library. The library compared its
+  modes, anti-windup and filter order by unqualified values (`Applied.Mode = Manual`), which IEC 61131-3 (6.4.4.2.1)
+  makes ambiguous once another type names the same value; it now names each value with its type
+  (`PIDMode#Manual`) in every project's copy (specification 45, 1.5).
+- Tune's finite search over a program's coefficients ("Other law", specification 35 C5) designs to the
+  requirements Automatic fills from the model when the study holds none, as every other Tune does
+  (B4.3). It refused with "The finite search needs the requirements", which left the command line,
+  whose verbs set no requirements, no way to tune such a loop.
+- Setup gives a finite search the budgets of specification 35 A7: 10,000,000 scans for its trials
+  together and 60 minutes. It wrote 50,000 scans and 60 s, which a loop that settles in a few minutes
+  spent before its second trial. A loop file written before keeps its own values; raise
+  `controller.project.maximumCycles` and `wallBudgetMs` there, before identifying, since a changed
+  loop file is a new loop revision.
+- Control Studio's setup, the HMI Builder's variable list and the language server's other commands
+  that compile the project now compile it under its `vendor_profile`, as its build does
+  (specification 14 §6.6.2). A CODESYS project whose function block method has no access
+  specifier, which CODESYS treats as `PUBLIC`, was refused there under the IEC rules.
+- Find references and document highlights tell reads from writes by W012's rule (specification
+  28 §6): an output binding (`=>`) and an in-out argument are writes, where they showed as reads,
+  and an index of an assigned element is a read, where it showed as a write.
+- Find references, rename, the references code lens and the call hierarchy's incoming calls find a
+  global used through its GVL's or namespace's qualifier (`GVL_IO.level`) and a member or method
+  reached through one (`GVL_IO.tank.Start()`), where they found only the declaration
+  (specification 14 §6.3.2). A rename left such uses unchanged, so the project no longer built.
+
+### Security
+
+- The SQLite that the runtime bundles for its databases is now 3.54.1 (`rusqlite` 0.41.1). SQLite before 3.54.0 could
+  return uninitialized memory when it opened a database together with a crafted `-wal` file of another page size
+  (RUSTSEC-2026-0459, CVE-2026-119375).
+
+## [0.34.0] - 2026-11-07
+
+### Changed
+
+- Under the CODESYS profiles a method or function that never assigns its result returns the
+  default value of its result type, as CODESYS builds the methods it scaffolds, where it failed with
+  E206 "missing return value" (specification 04). The IEC profile keeps E206.
+- W012 follows CODESYS's rules for globals that tasks share (#294). It warns when two or more tasks
+  write a global, or when one task writes data that one access does not cover (a string, an array,
+  a structure, a function block instance or a 64-bit value, `TIME` included, which truST stores in
+  eight bytes) and another task reads it. A global that one task writes and others read is silent
+  when its value is 32 bits or less. `{attribute 'cross_task'}` before a global, or before its
+  `VAR_GLOBAL` list, declares it shared by design and silences W012 for it.
+- Under the CODESYS profiles (`codesys`, `beckhoff`, `twincat`), a pointer binding that CODESYS
+  accepts across targets, `CHAR` and `BYTE` or a string and a byte buffer, is silent when its
+  source is an explicit `ADR(...)`, as the CODESYS compiler binds it (#295). A pointer variable as
+  the source keeps the warning, and the other profiles keep the error.
+- The MQTT driver's TLS client is the same on Windows, macOS and Linux (specification 32 §3). It
+  trusts only the certificates in `tls_ca_path`, every one the file holds, and no longer the
+  computer's trusted certificates, and it speaks TLS 1.2 and 1.3, TLS 1.2 with ECDHE and AES-GCM or
+  ChaCha20-Poly1305 cipher suites only. A client's key may be PKCS#8, PKCS#1 or SEC1 PEM, and a key
+  that does not belong to the client's certificate is refused with the configuration.
+
+### Fixed
+
+- The PLCopen XML import keeps the `VAR_OUTPUT` section of an interface's methods (#309). It
+  dropped them, so every function block that implements such an interface, declaring the outputs as
+  CODESYS does, was refused with E208, and every call that passes the outputs with E204.
+- A program that names an enumeration value in CODESYS's dotted form, `E_Mode.MANUAL`, builds and
+  runs: the build refused it with "the name E_Mode is not compiled yet" though the editor accepted
+  it, with or without `{attribute 'qualified_only'}`. It works in initializers, comparisons, CASE
+  labels, call arguments and assignments, under every profile.
+- A typed conversion function takes an untyped literal as its input when the value fits, as every
+  other call does (specification 05 §5.2.1): `REAL_TO_INT(2.5)` compiles, and gives 3 under the
+  CODESYS profiles and 2 under the IEC rules, where it failed with E205.
+- OpenOT database persistence no longer counts a record that the program overwrote while the reader
+  was reading it as rejected. Such a record is overwritten, as the OpenOT carriage contract orders,
+  so the source's rejected count holds only records that fail validation (specification 33 §1). On
+  ARM processors the reader's snapshot of the shared ring's control block is now always coherent.
+- The connection form of a Modbus TCP driver checks it by the driver's own rules (specification 11
+  §6.5), as the MQTT form does: it marks every key that the driver would refuse at once, in the
+  driver's words. It no longer takes a device address with port 0, which the driver refused, and
+  it takes a policy written as the driver reads it, such as `Warning`, which it refused.
+- An OPC UA client connection whose server came back within about two seconds of a loss, as after
+  a quick server restart or a short network outage, stayed `reconnecting` until the runtime
+  restarted: its recovery reopened the lost session in place, which panicked inside the opcua
+  library and ended the connection's worker. The client now closes the lost session and connects a
+  new one with its own subscription (specification 11).
+- An OPC UA client connection whose read values did not change for its timeout was reported stale,
+  and its points' values were no longer applied, though the server was healthy. Its subscription now
+  also watches the server's current time as a heartbeat, so a steady value stays live and a stale
+  connection means that the subscription stopped; when notifications resume, the connection and its
+  points are live again with their last values. The subscription publishes at the connection's
+  `poll_interval_ms`, which it ignored before (it published every 250 ms), and a connection is
+  stale only after at least three publishing intervals without a notification. A point whose server
+  reports a bad status no longer makes the whole connection stale or faulted (specification 11).
+- Closing an OPC UA client connection while its server was still reachable, as a runtime does when
+  it stops and before it reconnects, could abort the runtime process: the session's run loop
+  reconnected the session that the client was closing, and the opcua library panicked when it
+  dropped the half-reopened session. The client now stops the run loop before it closes the
+  session (specification 11).
+- An OPC UA client connection whose read values had not changed for its timeout (2 seconds by
+  default) was marked stale and then held back the program's outputs until a read value changed on
+  the server, which a server with steady values never sends. The client now writes the outputs
+  while its session is up, whether the connection is connected or stale (specification 11).
+- The connection form of an MQTT driver checks it by the driver's own rules (specification 32 §2):
+  it marks every key that the driver would refuse at once, in the driver's words, and a TLS file
+  that cannot be read or used marks its own key. The driver refuses a broker whose host holds white
+  space when its parameters are checked, where it failed to resolve the host before.
+- On Windows, two truST runtimes of one user that start MQTT drivers with client certificates at
+  the same time no longer share a key store of the system: one of them could fail to start its
+  driver, or present the other's key.
+
 ## [0.33.0] - 2026-11-06
 
 ### Added

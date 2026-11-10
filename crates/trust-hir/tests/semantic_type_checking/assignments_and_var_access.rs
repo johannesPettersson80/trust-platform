@@ -1572,3 +1572,20 @@ END_PROGRAM
         DiagnosticCode::IncompatibleAssignment,
     );
 }
+
+/// Specification 04: `THIS^` is `THIS`, which names the instance and cannot be assigned. Catches
+/// `THIS^` taken for an ordinary dereference, which is a place.
+#[test]
+fn test_invalid_assignment_target_this_with_a_caret() {
+    check_has_error(
+        r#"
+FUNCTION_BLOCK FB_Self
+VAR
+    n : INT;
+END_VAR
+THIS^ := THIS^;
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::InvalidAssignmentTarget,
+    );
+}

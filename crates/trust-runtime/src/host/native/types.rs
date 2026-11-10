@@ -21,6 +21,7 @@ pub(super) use super::std_blocks::StdFb;
 use super::NativeError;
 
 mod elem;
+mod pack;
 mod region;
 
 pub(super) use elem::Elem;
@@ -65,6 +66,9 @@ pub(super) enum Kind {
         base: Elem,
         values: Vec<(SmolStr, i64)>,
         named: bool,
+        /// Declared `{attribute 'to_string'}`: `TO_STRING` writes a value as its name under the
+        /// CODESYS rules (specification 07 §2.7).
+        named_text: bool,
     },
     /// A subrange of the base type.
     Subrange {
@@ -215,6 +219,10 @@ pub(super) struct Types<'a> {
     /// The bit offset of each member of a structure with relatively located members, `AT %B2`
     /// or `AT %X3.1`, in member order; `None` for a member without one (IEC §6.4.4.7).
     pub(super) relative: HashMap<Ty, Vec<Option<u64>>>,
+    /// The size and the alignment by its pack mode of a structure declared with
+    /// `{attribute 'pack_mode'}`, whose members' relative addresses that mode gives (specification
+    /// 02 §3.5.2; [`Types::pack`]).
+    pub(super) packed: HashMap<Ty, (u32, u32)>,
     /// The type a structure, or an array of structures, is in a `STRUCT OVERLAP`'s backing, by the
     /// type ([`Types::region`]).
     regions: HashMap<Ty, Ty>,
@@ -232,6 +240,7 @@ impl<'a> Types<'a> {
             by_rust: HashMap::new(),
             class_ids: Vec::new(),
             relative: HashMap::new(),
+            packed: HashMap::new(),
             regions: HashMap::new(),
             naturals: HashMap::new(),
         }
@@ -476,6 +485,7 @@ impl<'a> Types<'a> {
                         base,
                         values: values.clone(),
                         named: self.registry.is_named_value_type(id),
+                        named_text: self.registry.is_named_text_type(id),
                     },
                     size: base.size(),
                     align: base.size(),
@@ -567,6 +577,8 @@ impl<'a> Types<'a> {
                 );
                 if relative.iter().any(Option::is_some) {
                     self.relative.insert(ty, relative);
+                } else if let Some(mode) = self.registry.struct_pack(id) {
+                    self.pack(ty, mode)?;
                 }
                 Ok(ty)
             }

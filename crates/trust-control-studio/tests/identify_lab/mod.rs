@@ -170,8 +170,19 @@ impl Lab {
     /// Copies the example at `example`, sets its speed, builds it, opens its loop `loop_id`, starts the runtime and waits for
     /// the first scan. The runtime answers on a socket in the copy, and the verbs receive the copy's token.
     pub fn start_example(name: &str, example: &str, loop_id: &str) -> Self {
+        Self::start_edited(name, example, loop_id, |_| {})
+    }
+
+    /// [`Lab::start_example`] with `edit` applied to the copy of the example before it is built.
+    pub fn start_edited(
+        name: &str,
+        example: &str,
+        loop_id: &str,
+        edit: impl FnOnce(&Path),
+    ) -> Self {
         let scratch = Scratch::copy_of(name, example);
         let project = &scratch.project;
+        edit(project);
         let socket = control_socket(project);
         prepare_runtime_toml(project, &socket);
         set_time_scale(project, TIME_SCALE);

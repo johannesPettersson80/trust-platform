@@ -79,7 +79,7 @@ fn the_mode_binding_is_the_adapters_binding_on_its_own_transfer_loop() {
         (
             binding.task_name.as_str(),
             binding.mode.symbol.as_str(),
-            binding.mode.manual_value
+            binding.mode.manual_reading()
         ),
         ("MainTask", "Main.Auto", false)
     );
@@ -266,7 +266,7 @@ fn a_return_to_auto_allows_the_pids_own_first_step() {
         (allowance - expected).abs() < 1e-9,
         "{allowance} versus {expected}"
     );
-    let tolerance = mode_output_change(&loop_definition, false, Some(&observed), Some(0.05));
+    let tolerance = mode_output_change(&loop_definition, false, Some(&observed), Some(0.05), None);
     assert!(
         (tolerance - expected).abs() < 1e-9,
         "{tolerance} versus {expected}"
@@ -325,10 +325,11 @@ fn a_return_to_auto_allows_the_response_to_the_measurement_change_before_the_ent
     );
 }
 
-/// Annex E6.9 and A6.4: a transfer to Manual allows 1e-6, or the loop's faster rate limit over one execution of its task when that
-/// is larger. An Auto entry adds the controller's own response: without a measured noise the exact check of 1e-6 over the 100 %
-/// span, 1e-4, and the gain Ki·Δt = 0.5·0.01 = 0.005 for the runtime's integral step on the error at entry; a transfer to Manual,
-/// an entry without a reviewed status, a loop without a PID law, and a status that does not report a gain add nothing.
+/// Annex E6.9 and A6.4: a transfer to Manual allows the exact check, 1e-6 of the 100 % span, 1e-4, or the loop's faster rate limit
+/// over one execution of its task when that is larger. An Auto entry adds the controller's own response: without a measured noise
+/// that is the exact check, 1e-4, and the gain Ki·Δt = 0.5·0.01 = 0.005 for the runtime's integral step on the error at entry; a
+/// transfer to Manual, an entry without a reviewed status, a loop without a PID law, and a status that does not report a gain add
+/// nothing.
 #[test]
 fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds_its_response() {
     let mut loop_definition = parallel_pid_loop_without_actuator();
@@ -340,9 +341,9 @@ fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds
         "LevelPV" => 44.0,
         _ => 0.0,
     });
-    assert_eq!(
-        mode_output_change(&loop_definition, true, Some(&observed), None),
-        1e-6,
+    assert!(
+        (mode_output_change(&loop_definition, true, Some(&observed), None, None) - 1e-4).abs()
+            < 1e-12,
         "a transfer to Manual allows no response"
     );
     assert_eq!(
@@ -351,14 +352,14 @@ fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds
         "a transfer to Manual has no integral step"
     );
     assert!(
-        (mode_output_change(&loop_definition, false, Some(&observed), None) - 1e-4).abs() < 1e-12
+        (mode_output_change(&loop_definition, false, Some(&observed), None, None) - 1e-4).abs()
+            < 1e-12
     );
     let gain = mode_entry_error_gain(&loop_definition, false, Some(&observed), None)
         .expect("an Auto entry has the integral step");
     assert!((gain - 0.005).abs() < 1e-12, "{gain}");
-    assert_eq!(
-        mode_output_change(&loop_definition, false, None, None),
-        1e-6,
+    assert!(
+        (mode_output_change(&loop_definition, false, None, None, None) - 1e-4).abs() < 1e-12,
         "an Auto entry without a reviewed status allows no response"
     );
     assert_eq!(
@@ -379,7 +380,7 @@ fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds
     loop_definition.limits.rate_up_per_s = Some(20.0);
     loop_definition.limits.rate_down_per_s = Some(50.0);
     assert!(
-        (mode_output_change(&loop_definition, true, None, None) - 0.5).abs() < 1e-12,
+        (mode_output_change(&loop_definition, true, None, None, None) - 0.5).abs() < 1e-12,
         "50 %/s over a 10 ms task"
     );
     let proportional = proportional_loop();
@@ -676,4 +677,50 @@ fn the_wait_for_held_outputs_is_their_range_at_the_slower_rate_and_three_executi
     loop_definition.limits.rate_up_per_s = Some(50.0);
     loop_definition.limits.rate_down_per_s = Some(20.0);
     assert_eq!(held_outputs_arrival_ms(&loop_definition, &binding), 5_030.0);
+}
+
+/// Specification 35 A6.4 and annex E6.9 (the CODESYS toolkit's S16 and S11): a reviewed tolerance replaces the allowance of every
+/// Auto entry, Identify's mode changes included, and no allowance is below the output's resolution. The toolkit's bumpless hand-back
+/// moved a REAL output over 0..100 % from 30.000162 to 30.000160, 2e-6, one REAL step there (2⁻¹⁹ ≈ 1.9e-6): the exact check of the
+/// 100 % span, 1e-4, allows it, where the old 1e-6 refused it. A reviewed 1 % allows 1 at the Auto entry, while a transfer to Manual
+/// keeps the exact check, since the reviewed tolerance is the Auto entry's. An output of 1,000 to 1,001 has a span of 1 and an exact
+/// check of 1e-6, but its REAL steps there are 2⁻¹⁴ ≈ 6.1e-5 apart: its floor is 1,001·2⁻²³ ≈ 1.1933e-4, for a reviewed zero too.
+/// Catches the reviewed tolerance ignored (the refusal against 1 %), an exact check below the span's millionth, and a floor below a
+/// REAL's step.
+#[test]
+fn a_reviewed_tolerance_replaces_the_allowance_of_an_auto_entry_and_no_allowance_is_below_the_outputs_resolution(
+) {
+    let loop_definition = parallel_pid_loop_without_actuator();
+    let binding = mode_binding(&loop_definition).expect("a binding");
+    let observed = status_of(&binding, true, &|symbol| match symbol {
+        "Main.Parameters.Kp" => 2.0,
+        "Main.Parameters.Ki" => 0.5,
+        "LevelSP" => 45.0,
+        "LevelPV" => 44.0,
+        _ => 0.0,
+    });
+    let exact = mode_output_change(&loop_definition, false, None, None, None);
+    assert!((exact - 1e-4).abs() < 1e-12, "{exact}");
+    assert!(
+        (30.000_162_f64 - 30.000_160).abs() <= exact,
+        "one REAL step at 30 % is no bump"
+    );
+    assert!(
+        (mode_output_change(&loop_definition, false, Some(&observed), None, Some(1.0)) - 1.0).abs()
+            < 1e-12,
+        "the reviewed 1 % replaces the allowance"
+    );
+    assert!(
+        (mode_output_change(&loop_definition, true, None, None, Some(1.0)) - 1e-4).abs() < 1e-12,
+        "a transfer to Manual keeps the exact check"
+    );
+    let mut offset = loop_definition;
+    offset.limits.output_minimum = Some(1000.0);
+    offset.limits.output_maximum = Some(1001.0);
+    let floor = mode_output_change(&offset, false, None, None, None);
+    assert!((floor - 1.193_284_988_403_32e-4).abs() < 1e-12, "{floor}");
+    assert!(
+        (mode_output_change(&offset, false, None, None, Some(0.0)) - floor).abs() < 1e-15,
+        "a reviewed zero is raised to the resolution"
+    );
 }

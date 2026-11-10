@@ -176,6 +176,12 @@ workspace indexing.
 | Statement start | Keywords, variables, standard functions (IEC 61131-3 Ed.3, Tables 22-36) |
 | Expression | Variables, literals, standard functions/FBs with IEC docs (IEC 61131-3 Ed.3, Tables 22-36, 43-46) |
 
+Completion does not offer a declaration that CODESYS hides from its Input Assistant and its "List components"
+(the vendor's help for `{attribute 'hide'}`): a variable, POU, method, property or action with `{attribute 'hide'}`
+before it (a variable's line, a POU's first line), nor the `VAR` locals of a POU with
+`{attribute 'hide_all_locals'}`. Code may still name them, as the vendor's help says ("without restricting the
+access"), and every other service treats them as before.
+
 #### 6.2 Diagnostics
 
 Diagnostics are delivered via both push (`textDocument/publishDiagnostics`) and pull (`textDocument/diagnostic`, `workspace/diagnostic`) APIs. Pull diagnostics return stable `resultId` values derived from content + diagnostic hashes, allowing unchanged responses when the client supplies the previous ID. On configuration/profile changes or workspace file updates, the server requests a refresh (`workspace/diagnostic/refresh`) when supported.
@@ -205,7 +211,7 @@ External diagnostics can be merged from `[diagnostics].external_paths` JSON file
 - Missing ELSE in CASE (IEC 61131-3 Ed.3, 7.3.3.3.3)
 - Implicit type conversion (IEC 61131-3 Ed.3, 6.4.2)
 - Non-determinism checks for time/date usage and direct I/O bindings (tooling lint; IEC 61131-3 Ed.3 §6.4.2 Table 10; §6.5.5 Table 16)
-- Shared global access across tasks with writes (tooling lint; IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62)
+- Shared global access across tasks that can race: two writing tasks, or non-atomic data that one task writes and another reads (tooling lint; IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62)
 
 ##### 6.2.4 Diagnostic Explainability
 
@@ -232,7 +238,7 @@ Initial explainer coverage:
 | W008/W009 | Tooling quality lint (non-IEC) | `docs/specs/09-semantic-rules.md` |
 | W010 | Tooling lint; host-clock reads (`CURRENT_DT`, the POUs that reach it, and the POUs that declare `reads_host_clock`) per specification 07 "Runtime Clock Sources", IEC 61131-3 Ed.3 §6.4.2 (Table 10) for the TIME/DATE family | `docs/specs/28-hir-warning-policy.md` |
 | W011 | Tooling lint; Direct variables per IEC 61131-3 Ed.3 §6.5.5 (Table 16) | `docs/specs/09-semantic-rules.md` |
-| W012 | Tooling lint; shared global access across tasks (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62) | `docs/specs/09-semantic-rules.md` |
+| W012 | Tooling lint; shared global access across tasks (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62) | `docs/specs/28-hir-warning-policy.md` |
 | W013/W014 | Tooling numeric-hazard lints (non-IEC) | `docs/specs/09-semantic-rules.md` |
 | L001–L003 | Tooling config lint (non-IEC) | `docs/specs/10-runtime-semantics.md` |
 
@@ -305,13 +311,44 @@ contract, including when a newer document or workspace request supersedes it.
 
 ##### 6.3.2 Find References
 
-- All usages of a symbol
+- All usages of a symbol: every name, member and callee that the analysis resolves to it, in every
+  file of the project. A global used through its namespace's qualifier (`GVL_IO.level`, a CODESYS
+  GVL), a member or method of an instance declared in another file (`gTank.level`,
+  `gTank.Start()`) and a method call count as a plain name does. The references come from the
+  names the type check resolved (the map the compiled-program generator reads, specification 44
+  §3), so find references, rename and the call hierarchy's incoming calls agree with go to
+  definition.
+- A call through an interface variable (`itf.Run()`, IEC 61131-3 Ed.3 §6.6.6) resolves to the
+  interface's method. It is a call that each implementing method may receive, so the references and
+  the incoming calls of a method of a function block or class include the calls of the same-named
+  method of each interface the block implements, directly, through the blocks it extends, or
+  through the interfaces those extend; the interface's own declaration is no reference of it.
 - Include/exclude declaration
-- Filter by read/write
+- Each reference has its access, by the one rule of specification 28 §6 (`trust_hir::access`): a
+  write (an assignment's or a FOR loop's target, an argument that a call binds to an output or
+  in-out parameter), a call (a call's callee, or the instance whose body or method a call runs) or
+  a read. Document highlights mark the writes as writes and the rest as reads.
+- The `trust-lsp.crossReferences` command gives a symbol's cross-reference list, as CODESYS's
+  cross-reference list does, for a client without an editor as for one with it. Its argument is
+  the position, `{ "uri": ..., "position": { "line": ..., "character": ... } }`. Its answer names
+  the symbol and lists the declaration and every reference: `uri`, `range`, `access` (`declaration`,
+  `read`, `write` or `call`) and `pou`, the qualified name of the POU, method or action the
+  reference sits in (`FB_Tank.Start`), or null outside one. The entries are ordered by file and
+  offset. A position on no symbol answers null.
 
 ##### 6.3.3 Document Symbols
 
-- Flat list of declarations
+- A tree of the file's declarations (`DocumentSymbol` with children), so a client sees each
+  declaration's members, its variables among them:
+  - a namespace holds its declarations, a CODESYS GVL's globals among them;
+  - a configuration holds its resources and its globals, and a resource its tasks and program
+    instances;
+  - a program, function, function block, class or interface holds its variables and parameters, its
+    methods, properties and actions, and each of those its own variables;
+  - a type holds its enumeration values;
+  - a global list outside a namespace gives its globals at the top.
+- Each entry's range is its whole declaration and its selection range its name. A variable's or
+  parameter's detail is its section and its type (`VAR_INPUT : INT`).
 
 #### 6.4 Refactoring
 
@@ -405,6 +442,11 @@ change IEC 61131-3 program semantics.
   returns the deterministic external binding catalogue of process-image and
   control symbols. Its `processImage` lists the numeric plant candidates as `commands`, `feedbacks` and `memory`, and every addressed
   BOOL variable as `booleans`, so that a declared state can name a bit.
+- The catalogue, and every other command that compiles the project (the HMI checks and bundles,
+  page proposals, program edits and rename), compiles it as its build does: under the rules of its
+  `vendor_profile` (§7.6, specification 07 §2.10). A `vendor_profile` that is no profile is refused
+  with its name, as the build refuses it. Control Studio's setup reads this catalogue
+  (specification 35 §0.1a), so a CODESYS project is set up under the CODESYS rules.
 - HMI page validation is specified in `docs/specs/39-hmi-builder.md`.
 
 ##### 6.6.3 URI and virtual-document handling
@@ -533,7 +575,7 @@ the native Rust facades; they do not by themselves prove a `wasm32`,
 | References | `textDocument/references` | ✅ | Symbol-aware (workspace indexed; no text fallback); work-done progress + partial results when client provides tokens |
 | Document Highlight | `textDocument/documentHighlight` | ✅ | Highlight reads/writes in current document |
 | Symbols | `textDocument/documentSymbol` | ✅ | Flat list |
-| Workspace Symbols | `workspace/symbol` | ✅ | Multi-root symbol federation with per-root priority/visibility; work-done progress + partial results when client provides tokens |
+| Workspace Symbols | `workspace/symbol` | ✅ | Multi-root symbol federation with per-root priority/visibility; only what a source file declares, so no built-in is listed; work-done progress + partial results when client provides tokens |
 | File Rename | `workspace/willRenameFiles` | ✅ | Renames single top-level POU/namespace when file stem changes; updates references and USING directives for that namespace (IEC 61131-3 Ed.3, 6.1.2; 6.6.4; Tables 64-66) |
 | Rename | `textDocument/rename` | ✅ | Symbol-aware; workspace edits; renames the declaring file when renaming the single primary POU whose identifier matches the file stem (IEC 61131-3 Ed.3, 6.1.2) |
 | Semantic Tokens | `textDocument/semanticTokens` | ✅ | Full + range + delta; classified by symbol kind/modifiers |
@@ -695,7 +737,7 @@ program execution or an IEC 61131-3 deviation.
   - `codesys`, `beckhoff`, `twincat`: the IEC rules with CODESYS's departures, each recorded in `docs/IEC_DEVIATIONS.md`: function block members public by default (DEV-028), a function block's or program's body assigning its own inputs (DEV-029), a program reached by its name (`Program.member`, `Program.action()`, `Program();`, DEV-030), references dereferenced without `^` (DEV-031), and a named actual without a value leaving the input unbound or discarding the output (DEV-032).
   - A misspelled profile keeps the IEC rules in the editor and reports `C006`.
   - With several workspace folders the analysis follows the `vendor_profile` of the highest-priority folder's configuration (`[workspace] priority`).
-  - Vendor extensions that change no valid IEC program are accepted under every profile: textual actions called by name, `REF=`, the `REFERENCE TO` spelling, `EnumType.Member`, enum-typed subscripts, `RETAIN PERSISTENT` and `TYPE … EXTENDS` on structures.
+  - Vendor extensions that change no valid IEC program are accepted under every profile: textual actions called by name, `REF=`, the `REFERENCE TO` spelling, `THIS^` and `SUPER^` (specification 04), `EnumType.Member`, enum-typed subscripts, `RETAIN PERSISTENT` and `TYPE … EXTENDS` on structures.
 - `stdlib` profiles: `full` (default), `iec` (IEC standard functions/FBs only; Tables 22–36, 43–46), `none` (no standard library completions/hover), or an explicit allow-list array.
 - When `vendor_profile` is set and no explicit stdlib allow-list/profile is provided, the server defaults to the IEC profile for completions/hover.
 - `[[libraries]]` entries include `name`, `path`, and optional `version` for external library indexing.
@@ -1427,7 +1469,9 @@ Runtime exposes an ST-complete PLCopen XML profile through `trust-runtime plcope
     - `pouinheritance` addData emits `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK
       declarations (synthesized headers and raw ST bodies alike)
     - project-level `<Interface>` objects import as declaration-only `INTERFACE`
-      blocks (METHOD signature stubs, `EXTENDS` honored, properties rendered as METHODs)
+      blocks (METHOD signature stubs with their `VAR_INPUT`, `VAR_OUTPUT` and
+      `VAR_IN_OUT` sections in that order, `EXTENDS` honored, properties rendered as
+      METHODs)
     - `globalVars` container qualifiers (`retain`/`persistent`/`constant`) carry into
       the rendered `VAR_GLOBAL` header
     - e!COCKPIT `MixedAttrsVarList` attributes views and identical whole-list

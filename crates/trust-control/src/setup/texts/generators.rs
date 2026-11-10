@@ -40,6 +40,33 @@ pub fn symbol_type_conflict(symbol: &str) -> String {
     format!("Compiled symbol {symbol} has conflicting types.")
 }
 
+/// A global the loop writes that the programs of another task write (protocol annex E2.3).
+#[must_use]
+pub fn global_written_by_task(symbol: &str, writer: &str, task: &str) -> String {
+    format!(
+        "{symbol} is a global that task {writer} writes, so the loop's task {task} cannot write it. Run the loop in task {writer}, \
+         or let only the loop's task write {symbol}."
+    )
+}
+
+/// A global the loop writes that only programs outside every task write (protocol annex E2.3).
+#[must_use]
+pub fn global_written_in_background(symbol: &str, task: &str) -> String {
+    format!(
+        "{symbol} is a global that only programs outside every task write, so the loop's task {task} cannot write it. Run the \
+         loop with the background programs, or let only the loop's task write {symbol}."
+    )
+}
+
+/// A global the loop writes that no single task owns (protocol annex E2.3).
+#[must_use]
+pub fn global_without_owner(symbol: &str) -> String {
+    format!(
+        "{symbol} is a global that no single task owns: the programs of several tasks write it, directly or through the POUs \
+         they call, or a method that an interface's call may run writes it. Let only the loop's task write {symbol}."
+    )
+}
+
 /// One controller instance has two types (`normalizeCatalog`).
 #[must_use]
 pub fn controller_type_conflict(instance: &str) -> String {
@@ -110,6 +137,36 @@ pub fn not_compiled_owner(symbol: &str) -> String {
 #[must_use]
 pub fn integral_gain_needed(law: &str) -> String {
     format!("A {law} law needs the variable holding its integral gain.")
+}
+
+/// A law in standard form always integrates (C2, N6.8).
+#[must_use]
+pub fn standard_form_integrates() -> &'static str {
+    "A law in standard form always integrates: choose PI or PID."
+}
+
+/// A law in standard form needs its reset time's variable (C2).
+#[must_use]
+pub fn reset_time_needed(law: &str) -> String {
+    format!("A {law} law in standard form needs the variable holding its reset time Ti in seconds.")
+}
+
+/// A reset time's range lies above zero (C2, N6.8): a reset time of zero is no value Control Studio writes.
+#[must_use]
+pub fn reset_time_above_zero() -> &'static str {
+    "The reset time's minimum must be above zero."
+}
+
+/// A PID law in standard form needs its derivative time's variable (C2).
+#[must_use]
+pub fn derivative_time_needed() -> &'static str {
+    "A PID law in standard form needs the variable holding its derivative time Td in seconds."
+}
+
+/// A derivative time's range starts at zero or above (C2, N6.8).
+#[must_use]
+pub fn derivative_time_not_negative() -> &'static str {
+    "The derivative time's minimum must not be below zero."
 }
 
 /// A law that integrates needs its integral term variable (`ownLawLoopGenerator.ts`).
@@ -220,11 +277,17 @@ pub fn parameter_record_needed() -> &'static str {
     "Choose the parameter record."
 }
 
-/// The Auto/Manual signal is blank and no BOOL of the program lacks an I/O address, so Apply cannot switch any mode: the sentence says
-/// why and what to do (`loopSetupForm.ts`, `explained`). It follows `save::mode_needed`.
+/// The Auto/Manual signal is blank and no BOOL or enumeration of the program lacks an I/O address, so Apply cannot switch any mode:
+/// the sentence says why and what to do (`loopSetupForm.ts`, `explained`). It follows `save::mode_needed`.
 #[must_use]
 pub fn mode_needs_bool() -> &'static str {
-    "It must be a BOOL without an I/O address, because Apply switches it directly; declare one without AT."
+    "It must be a BOOL or an enumeration without an I/O address, because Apply switches it directly; declare one without AT."
+}
+
+/// A mode choice that is neither a BOOL's nor an enumeration's (A6.1): the draft names one of the two shapes.
+#[must_use]
+pub fn mode_choice_shape() -> &'static str {
+    "The mode is a BOOL with the mode its TRUE value means (whenTrue), or an enumeration with the two different members that mean Manual (manualValue) and Auto (autoValue)."
 }
 
 /// A gain's variable is blank (`loopSetupForm.ts`, `gainValue`): the label names the gain, such as "proportional gain".

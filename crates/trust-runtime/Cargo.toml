@@ -88,13 +88,13 @@ signal-hook = { version = "0.4.5", optional = true }
 rustls = { version = "0.23.45", optional = true }
 tiverse-mmap = { version = "1.0.0", optional = true }
 region = { version = "4.0.1", optional = true }
-rusqlite = { version = "0.40.2", features = ["bundled"], optional = true }
+rusqlite = { version = "0.41.1", features = ["bundled"], optional = true }
 postgres = { version = "0.19.14", optional = true }
 postgres-native-tls = { version = "0.5.3", optional = true }
 mysql = { version = "28.0.3", default-features = false, features = ["minimal-rust", "rustls-tls"], optional = true }
-open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
-open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
-open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
+open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "cf6135830e7dbb01626e35f6804ed2429b127baa" , optional = true }
+open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "cf6135830e7dbb01626e35f6804ed2429b127baa" , optional = true }
+open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "cf6135830e7dbb01626e35f6804ed2429b127baa" , optional = true }
 opcua = { version = "0.12.0", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
 encoding_rs = { version = "0.8.42", optional = true }
@@ -109,7 +109,7 @@ pnet_datalink = { version = "0.35.0", optional = true }
 # OpenOT Rust crates are pinned so fresh source builds do not need a sibling
 # checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example
 # sources and conformance fixtures that are not Cargo crates.
-open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
+open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "cf6135830e7dbb01626e35f6804ed2429b127baa" , optional = true }
 # Linux RT (mm, thread), the control socket's bind-restrict-listen sequence (fs, net) and the
 # owner check of the per-user runtime directory that holds a fallback control socket (process).
 # The socket sequence is needed on every Unix target, so rustix is not Linux-only.
@@ -130,7 +130,7 @@ trust-devices.workspace = true
 windows-sys = { version = "0.61", features = ["Win32_Foundation"] }
 
 [target.'cfg(unix)'.dev-dependencies]
-open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
+open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "cf6135830e7dbb01626e35f6804ed2429b127baa" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 
