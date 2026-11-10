@@ -69,7 +69,7 @@ fn stopped(debugger: &CompiledDebugger) -> bool {
 fn a_held_scan_keeps_no_simulation_request_waiting() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let work = std::env::temp_dir().join(format!("trust-hold-simulation-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path("trust-hold-simulation");
     let built = build(
         &[SourceFile::with_path(PATH, SOURCE)],
         &Options {
