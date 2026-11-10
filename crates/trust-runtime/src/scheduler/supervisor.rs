@@ -8,7 +8,9 @@
 //! Active time is wall time minus debugger holds. The published deadline is therefore stored on
 //! the active clock, and a hold that is in progress suspends the check, so operator dwell time
 //! never counts. The pause total is the watchdog's existing accounting, read from the debug
-//! control; nothing here keeps a second pause count.
+//! control; nothing here keeps a second pause count. A check reads the clock before it asks
+//! whether a hold is in progress, so a hold that begins between the two readings can only shorten
+//! the active time it computes.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
@@ -144,12 +146,15 @@ impl ScanSupervision {
     }
 
     /// Declares the running cycle hung when it still runs one check interval after its deadline.
-    /// A debugger hold in progress suspends the check. `declared` holds the deadline that was
-    /// already declared, so one stalled cycle is recorded once. Returns true when this call
-    /// declared the hang.
+    /// A debugger hold in progress suspends the check. `hold_view` reads whether the scan waits
+    /// in a hold and the time of the holds that ended, as [`DebugControl::watchdog_hold_view`]
+    /// does. It is read after the clock: read before, a hold that began while the supervisor
+    /// waited between the two readings, as a thread that is preempted does, would count as
+    /// active time. `declared` holds the deadline that was already declared, so one stalled
+    /// cycle is recorded once. Returns true when this call declared the hang.
     pub(super) fn declare_hang_if_overdue(
         &self,
-        debug: Option<&DebugControl>,
+        hold_view: impl FnOnce() -> (bool, StdDuration),
         declared: &mut Option<u64>,
     ) -> bool {
         let _gate = recover_mutex_lock(self.gate.lock());
@@ -157,13 +162,13 @@ impl ScanSupervision {
         if deadline == NO_CYCLE || *declared == Some(deadline) {
             return false;
         }
-        let (holding, paused) =
-            debug.map_or((false, StdDuration::ZERO), DebugControl::watchdog_hold_view);
+        let at = Instant::now();
+        let (holding, paused) = hold_view();
         if holding {
             return false;
         }
         let interval = check_interval_for(self.timeout_ns.load(Ordering::SeqCst));
-        let now = self.active_nanos(Instant::now(), paused);
+        let now = self.active_nanos(at, paused);
         if now <= deadline.saturating_add(saturating_nanos(interval)) {
             return false;
         }
@@ -215,7 +220,12 @@ impl HangSupervisor {
                         Err(RecvTimeoutError::Timeout) => {}
                         Ok(()) | Err(RecvTimeoutError::Disconnected) => return,
                     }
-                    if supervision.declare_hang_if_overdue(debug.as_ref(), &mut declared)
+                    let hold_view = || {
+                        debug
+                            .as_ref()
+                            .map_or((false, StdDuration::ZERO), DebugControl::watchdog_hold_view)
+                    };
+                    if supervision.declare_hang_if_overdue(hold_view, &mut declared)
                         && hang_action == HangAction::Abort
                     {
                         // Deliberate: the scan thread may still hold driver state, and no
@@ -266,88 +276,5 @@ pub(super) fn sync_hang_supervisor<C: super::Clock + Clone>(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn supervision() -> ScanSupervision {
-        ScanSupervision::new(
-            Arc::new(Mutex::new(ResourceState::Running)),
-            Arc::new(Mutex::new(None)),
-        )
-    }
-
-    #[test]
-    fn overdue_published_cycle_is_declared_hung_and_faulted() {
-        let supervision = supervision();
-        let start = Instant::now();
-        std::thread::sleep(StdDuration::from_millis(20));
-        supervision.publish(start, Duration::from_millis(1), StdDuration::ZERO);
-
-        let mut declared = None;
-        assert!(supervision.declare_hang_if_overdue(None, &mut declared));
-        assert!(supervision.is_hung());
-        assert_eq!(
-            *recover_mutex_lock(supervision.state.lock()),
-            ResourceState::Faulted
-        );
-        assert_eq!(
-            *recover_mutex_lock(supervision.last_error.lock()),
-            Some(RuntimeError::WatchdogTimeout)
-        );
-    }
-
-    #[test]
-    fn one_stalled_cycle_is_declared_once() {
-        let supervision = supervision();
-        let start = Instant::now();
-        std::thread::sleep(StdDuration::from_millis(20));
-        supervision.publish(start, Duration::from_millis(1), StdDuration::ZERO);
-
-        let mut declared = None;
-        assert!(supervision.declare_hang_if_overdue(None, &mut declared));
-        assert!(!supervision.declare_hang_if_overdue(None, &mut declared));
-    }
-
-    #[test]
-    fn cycle_inside_its_budget_is_not_declared() {
-        let supervision = supervision();
-        supervision.publish(
-            Instant::now(),
-            Duration::from_millis(10_000),
-            StdDuration::ZERO,
-        );
-
-        let mut declared = None;
-        assert!(!supervision.declare_hang_if_overdue(None, &mut declared));
-        assert!(!supervision.is_hung());
-    }
-
-    #[test]
-    fn withdrawn_cycle_is_never_declared_and_clears_hung() {
-        let supervision = supervision();
-        let start = Instant::now();
-        std::thread::sleep(StdDuration::from_millis(20));
-        supervision.publish(start, Duration::from_millis(1), StdDuration::ZERO);
-        let mut declared = None;
-        assert!(supervision.declare_hang_if_overdue(None, &mut declared));
-
-        supervision.withdraw();
-
-        assert!(!supervision.is_hung(), "a returned call is no longer hung");
-        let mut later = None;
-        assert!(!supervision.declare_hang_if_overdue(None, &mut later));
-    }
-
-    #[test]
-    fn check_interval_follows_quarter_of_timeout_within_bounds() {
-        assert_eq!(
-            check_interval_for(100_000_000),
-            StdDuration::from_millis(25)
-        );
-        assert_eq!(check_interval_for(1), StdDuration::from_millis(1));
-        assert_eq!(
-            check_interval_for(60_000_000_000),
-            StdDuration::from_millis(100)
-        );
-    }
-}
+#[path = "supervisor_tests.rs"]
+mod tests;
