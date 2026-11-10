@@ -37,6 +37,9 @@ pub struct RuntimeSettings {
     pub simulation: SimulationSettings,
     /// Whether the runtime published its endpoint file (spec 11, section 6.8.0a).
     pub control_endpoint_file: EndpointFileState,
+    /// The address the web listener bound, once it is bound: with a configured port 0, the port
+    /// the operating system chose (spec 11, fleet topology). `web.listen` keeps the configured one.
+    pub web_bound_address: Option<SmolStr>,
 }
 
 impl RuntimeSettings {
@@ -66,6 +69,7 @@ impl RuntimeSettings {
             opcua: OpcUaSettings::default(),
             simulation,
             control_endpoint_file: EndpointFileState::default(),
+            web_bound_address: None,
         }
     }
 

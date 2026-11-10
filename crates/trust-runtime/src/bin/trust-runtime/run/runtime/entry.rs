@@ -456,7 +456,7 @@ pub fn run_runtime(
     } else {
         None
     };
-    let _web = if web_config.enabled {
+    let web_server = if web_config.enabled {
         Some(start_web_server(
             &web_config,
             state.clone(),
@@ -532,9 +532,10 @@ pub fn run_runtime(
     }
 
     if show_banner {
-        let web_url = web_config
-            .enabled
-            .then(|| format_web_url(web_config.listen.as_str(), web_config.tls));
+        // The address the web server bound: with a configured port 0, the port it was given.
+        let web_url = web_server
+            .as_ref()
+            .map(|server| format_web_url(server.listen.as_str(), web_config.tls));
         print_trust_banner(
             bundle.as_ref(),
             web_url.as_deref(),

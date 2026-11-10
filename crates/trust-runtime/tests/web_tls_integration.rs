@@ -210,6 +210,48 @@ fn tls_materials() -> Arc<TlsMaterials> {
     })
 }
 
+/// Specification 11, fleet topology: the web server records the address it bound before it reports
+/// the listener bound, and the fleet topology names that address. With a configured port 0 it is
+/// the port the system chose. The recording follows the bind of either scheme; this file's TLS
+/// listener runs it. Wrong behaviour caught: nothing recorded, so the topology keeps the configured
+/// `127.0.0.1:0`, or an address other than the one the server serves on.
+#[test]
+fn web_server_records_the_address_it_bound_on_port_0() {
+    let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
+    let config = WebConfig {
+        enabled: true,
+        listen: SmolStr::new("127.0.0.1:0"),
+        auth: WebAuthMode::Local,
+        tls: true,
+        hmi: Default::default(),
+    };
+    let server = start_web_server(
+        &config,
+        state.clone(),
+        None,
+        None,
+        None,
+        Some(tls_materials()),
+    )
+    .expect("start tls web server");
+
+    let recorded = state
+        .settings
+        .lock()
+        .expect("settings lock")
+        .web_bound_address
+        .clone();
+    assert_eq!(recorded.as_deref(), Some(server.listen.as_str()));
+    assert!(
+        !server.listen.ends_with(":0"),
+        "the bound address names the chosen port: {}",
+        server.listen
+    );
+    assert!(state
+        .web_listener_bound
+        .load(std::sync::atomic::Ordering::Relaxed));
+}
+
 #[test]
 fn web_tls_handshake_and_downgrade_prevention() {
     let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
