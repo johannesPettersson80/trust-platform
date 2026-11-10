@@ -14,6 +14,26 @@ import time
 from pathlib import Path
 from typing import TextIO
 
+# Windows error mode flags (SetErrorMode). A child process inherits its parent's error mode.
+SEM_FAILCRITICALERRORS = 0x0001
+SEM_NOGPFAULTERRORBOX = 0x0002
+
+
+def let_crashes_reach_windows_error_reporting() -> None:
+    """On Windows, clears SEM_NOGPFAULTERRORBOX from this process's error mode, which the command inherits.
+
+    GitHub's Windows runner starts every step with error mode 0x3, SEM_FAILCRITICALERRORS |
+    SEM_NOGPFAULTERRORBOX. With SEM_NOGPFAULTERRORBOX Windows never hands a crash to Windows Error
+    Reporting, so no dump names the faulting frame (G81b, probe run 42747857506; specification 22).
+    SEM_FAILCRITICALERRORS stays: a process that cannot load a library then fails at once instead of
+    waiting on a message box that nobody closes."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetErrorMode(kernel32.GetErrorMode() & ~SEM_NOGPFAULTERRORBOX)
+
 
 def quoted(value: object) -> str:
     return shlex.quote(str(value))
@@ -93,6 +113,7 @@ def run_command(args: argparse.Namespace) -> int:
         args.log.parent.mkdir(parents=True, exist_ok=True)
         log = args.log.open("a", encoding="utf-8")
 
+    let_crashes_reach_windows_error_reporting()
     started = time.monotonic()
     process = subprocess.Popen(
         args.command,
@@ -216,6 +237,52 @@ def run_command(args: argparse.Namespace) -> int:
             log.close()
 
 
+def error_mode_errors() -> list[str]:
+    """Windows only: a command started under the runner's error mode 0x3 runs with SEM_FAILCRITICALERRORS alone.
+
+    Catches a command that keeps SEM_NOGPFAULTERRORBOX, whose crash Windows Error Reporting never sees, and
+    one that loses SEM_FAILCRITICALERRORS, which a missing library would stop on a message box (G81b)."""
+    import ctypes
+
+    kernel32 = ctypes.windll.kernel32
+    previous = kernel32.SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX)
+    try:
+        stdout = io.StringIO()
+        probe = argparse.Namespace(
+            command=[
+                sys.executable,
+                "-c",
+                "import ctypes; print('error mode:', ctypes.windll.kernel32.GetErrorMode())",
+            ],
+            cwd=None,
+            log=None,
+            phase="error-mode-probe",
+            target="windows",
+            timeout_seconds=30.0,
+            progress_interval_seconds=10.0,
+            kill_grace_seconds=1.0,
+        )
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
+            status = run_command(probe)
+    finally:
+        kernel32.SetErrorMode(previous)
+    modes = [int(line.split(": ", 1)[1]) for line in stdout.getvalue().splitlines() if line.startswith("error mode: ")]
+    if status != 0 or len(modes) != 1:
+        return [f"the error mode probe failed (status {status}, output {stdout.getvalue()!r})"]
+    errors = []
+    if modes[0] & SEM_NOGPFAULTERRORBOX:
+        errors.append(
+            f"a command started under SEM_NOGPFAULTERRORBOX kept it (error mode {modes[0]:#x}), so Windows Error "
+            "Reporting would never see its crash"
+        )
+    if not modes[0] & SEM_FAILCRITICALERRORS:
+        errors.append(
+            f"a command lost SEM_FAILCRITICALERRORS (error mode {modes[0]:#x}), so a missing library would stop it "
+            "on a message box"
+        )
+    return errors
+
+
 def run_self_test() -> int:
     command = ["cargo", "test", "-p", "trust-runtime"]
     started = event_line(
@@ -299,6 +366,9 @@ def run_self_test() -> int:
     cp1252_sink.flush()
     if b"emoji:\\U0001f642" not in cp1252_bytes.getvalue():
         errors.append("Unicode output was not escaped safely for a CP1252 sink")
+
+    if sys.platform == "win32":
+        errors.extend(error_mode_errors())
 
     if errors:
         print("run_with_progress self-test: failed")

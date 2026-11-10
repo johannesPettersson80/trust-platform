@@ -519,10 +519,30 @@ contract:
 - the public native CI template builds both CLIs, then performs runtime build,
   validate, JUnit test, and report upload in the reviewed order;
 - the VS Code extension job remains a required release-gate input, so a failed
-  or absent extension artifact cannot be aggregated as release-ready; and
+  or absent extension artifact cannot be aggregated as release-ready;
 - each native test job uploads its test log twice at most, the second time only
   when the first upload failed, and a failed upload never fails a job whose tests
-  passed: the log is evidence of the tests, and the job's verdict is its tests'.
+  passed: the log is evidence of the tests, and the job's verdict is its tests';
+  and
+- the Windows test job keeps a minidump of every process of its build and test
+  suite that crashes, the 20 newest: Windows Error Reporting's local dumps are on
+  from before the build, without a dialog, so that a crashed process ends
+  instead of waiting for a click. The runner starts every step with error mode
+  `SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX`, which a child inherits, and
+  `SEM_NOGPFAULTERRORBOX` keeps a crash from Windows Error Reporting, so
+  `scripts/run_with_progress.py`, which starts the build and the suite, clears
+  that flag alone before it starts its command; `SEM_FAILCRITICALERRORS` stays,
+  so that a process that cannot load a library fails instead of waiting on a
+  message box. The job runs the script's self-test before the build, and the
+  self-test fails when a command it starts keeps `SEM_NOGPFAULTERRORBOX` or loses
+  `SEM_FAILCRITICALERRORS`. After the tests, also when the suite's second
+  attempt passed, the job names the exception, faulting module and stack of the
+  first five dumps with `cdb`, within 15 minutes so that a hung symbol download
+  cannot hold the job, adds a warning to the run, and uploads the dumps with
+  those reports as the artifact `crash-dumps-windows-latest`, twice at most like
+  the test log. A crash that a retry hides is still a crash. None of the dump
+  steps fails the job: the dumps are evidence, and the job's verdict is its
+  tests'.
 
 These checks prove the named scripts, workflow wiring, machine-readable fields,
 and fail-closed aggregation boundaries. They do not prove that an unexecuted

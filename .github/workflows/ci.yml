@@ -301,6 +301,31 @@ jobs:
           choco install strawberryperl -y --no-progress
           "C:\Strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           "PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      # G81: a test process crashed once on Windows (0xc0000005, #313's run 42374664265) and the
+      # suite's second attempt passed, so nothing named the faulting code. From here on Windows Error
+      # Reporting keeps a minidump of every process that crashes; the steps after the tests name each
+      # dump's frame and keep the dumps (specification 22). Evidence, not a test: never fails the job.
+      # The runner starts every step with SEM_NOGPFAULTERRORBOX, which keeps a crash from Windows Error
+      # Reporting, so run_with_progress.py, which starts the build and the suite, clears that flag for
+      # its command (G81b, probe run 42747857506); its self-test, below, fails when it no longer does.
+      - name: Keep a dump of every crashing process (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps"
+          New-Item -Path $key -Force | Out-Null
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\crash-dumps" | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -Value "$env:RUNNER_TEMP\crash-dumps" -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -Value 20 -PropertyType DWord -Force | Out-Null
+          # No dialog: a crashed process ends instead of waiting for a click (the image already says so).
+          New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting" -Name DontShowUI -Value 1 -PropertyType DWord -Force | Out-Null
+          Get-ItemProperty -Path $key | Select-Object DumpFolder, DumpType, DumpCount
+      - name: Check that the build's and the suite's crashes reach Windows Error Reporting (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: bash
+        run: python scripts/run_with_progress.py --self-test
       - name: Prepare test log path
         shell: bash
         run: |
@@ -473,6 +498,45 @@ jobs:
           path: |
             gate-artifacts/test-${{ matrix.os }}.log
             gate-artifacts/test-${{ matrix.os }}-retry-rescued.txt
+      # Also after a green run: a crash that the suite's second attempt hid is still a crash (G81).
+      - name: Name the faulting frame of each crash dump (Windows)
+        if: ${{ always() && matrix.os == 'windows-latest' }}
+        continue-on-error: true
+        timeout-minutes: 15
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $dumps = @(Get-ChildItem "$env:RUNNER_TEMP\crash-dumps" -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime)
+          "crash dumps: $($dumps.Count)"
+          if ($dumps.Count -eq 0) { exit 0 }
+          "::warning title=Crash dumps::$($dumps.Count) process(es) crashed in this job. This step's log names the faulting frame of the first five; the dumps are in the artifact crash-dumps-${{ matrix.os }}."
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) { "cdb is not on this runner: $cdb"; exit 0 }
+          $symbols = "srv*$env:RUNNER_TEMP\symbols*https://msdl.microsoft.com/download/symbols;$env:GITHUB_WORKSPACE\target\debug\deps"
+          foreach ($dump in $dumps | Select-Object -First 5) {
+            $report = Join-Path $dump.DirectoryName "$($dump.BaseName).cdb.txt"
+            & $cdb -z $dump.FullName -y $symbols -logo $report -c "!analyze -v; .ecxr; kb 40; q" | Out-Null
+            "=== $($dump.Name)"
+            Select-String -Path $report -Pattern "PROCESS_NAME|EXCEPTION_CODE_STR|FAULTING_IP|MODULE_NAME|IMAGE_NAME|SYMBOL_NAME|STACK_TEXT" -Context 0,4
+          }
+      - name: Upload crash dumps (Windows)
+        id: crash-dumps
+        if: ${{ always() && matrix.os == 'windows-latest' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: crash-dumps-${{ matrix.os }}
+          path: ${{ runner.temp }}/crash-dumps/
+          if-no-files-found: ignore
+      - name: Upload crash dumps (Windows, second attempt)
+        if: ${{ always() && matrix.os == 'windows-latest' && steps.crash-dumps.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: crash-dumps-${{ matrix.os }}
+          overwrite: true
+          path: ${{ runner.temp }}/crash-dumps/
+          if-no-files-found: ignore
       - name: Mark gate success
         if: ${{ success() }}
         shell: bash
