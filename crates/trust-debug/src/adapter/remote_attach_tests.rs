@@ -246,9 +246,8 @@ fn an_explicit_endpoint_is_used_with_the_project_token() {
 #[test]
 fn an_endpoint_file_whose_runtime_does_not_answer_means_the_runtime_is_not_running() {
     let project = ScratchProject::new("refused");
-    let closed = TcpListener::bind("127.0.0.1:0").expect("bind listener");
-    let address = closed.local_addr().expect("listener address");
-    drop(closed);
+    let closed = trust_test_support::refused_loopback_port();
+    let address = SocketAddr::from(([127, 0, 0, 1], closed.port()));
     let published =
         PublishedEndpoint::publish(project.path(), &ControlEndpoint::Tcp(address), None)
             .expect("publish a stale endpoint file");

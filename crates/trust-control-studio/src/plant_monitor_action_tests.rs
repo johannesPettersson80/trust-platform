@@ -1,8 +1,6 @@
 //! The plant summary against a fake runtime (specification 47, §20.4; specification 35, §0.1a): the one `plant.status` read the engine
 //! makes, the reasons of a read that fails, and the runtime that is never read when its state forbids it.
 
-use std::net::TcpListener;
-
 use serde_json::{json, Value};
 use trust_control::plant_monitor::{
     PlantAvailability, PlantMonitorRequest, AUTHORIZATION_REJECTED, MALFORMED, STOPPED, UNREACHABLE,
@@ -80,9 +78,8 @@ fn a_stopped_runtime_is_not_read_at_all() {
 
 #[test]
 fn an_endpoint_nobody_listens_on_is_unreachable() {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("a free port");
-    let port = listener.local_addr().expect("the port").port();
-    drop(listener);
+    let closed = trust_test_support::refused_loopback_port();
+    let port = closed.port();
     let connection = RuntimeConnection {
         endpoint: format!("tcp://127.0.0.1:{port}"),
         token: None,

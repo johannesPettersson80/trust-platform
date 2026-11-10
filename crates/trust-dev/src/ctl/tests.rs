@@ -158,9 +158,8 @@ fn a_target_is_required() {
 #[test]
 fn a_stale_endpoint_file_reports_that_the_runtime_is_not_running() {
     let project = ScratchProject::new();
-    let closed = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
-    let address = closed.local_addr().expect("listener address");
-    drop(closed);
+    let closed = trust_test_support::refused_loopback_port();
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], closed.port()));
     let published = trust_runtime::control::endpoint::PublishedEndpoint::publish(
         &project.path(),
         &trust_runtime::control::ControlEndpoint::Tcp(address),
