@@ -32,6 +32,20 @@ const STEP_TWO: &str = "Counter := Counter + 2;";
 /// the new run.
 const SCANS_BEFORE_STOP: u64 = 40;
 
+/// The example's retain settings, and the ones every project that truST writes has: retained
+/// values in `retain.bin` beside `runtime.toml` (specification 11, section 6.7). Unix only, as the
+/// store test that uses them.
+#[cfg(unix)]
+const RETAIN_NONE: &str = "[runtime.retain]\nmode = \"none\"";
+#[cfg(unix)]
+const RETAIN_FILE: &str = "[runtime.retain]\nmode = \"file\"\npath = \"retain.bin\"";
+/// The counter's declaration, and the same counter RETAIN.
+#[cfg(unix)]
+const COUNTER_VARS: &str = "VAR\n    Counter : INT;\n    CounterLatched : INT;\nEND_VAR";
+#[cfg(unix)]
+const RETAINED_COUNTER_VARS: &str =
+    "VAR RETAIN\n    Counter : INT;\nEND_VAR\nVAR\n    CounterLatched : INT;\nEND_VAR";
+
 /// The program of the example that climbs `%MW0` by two in each scan.
 fn step_two_program() -> BuiltProgram {
     build_program(EXAMPLE, &[("src/Main.st", STEP_ONE, STEP_TWO)])
@@ -647,4 +661,63 @@ fn a_runtime_whose_web_port_another_process_holds_starts_on_fresh_ports() {
         .expect("read the web answer");
     let events: Value = serde_json::from_str(&events).expect("the web answer is JSON");
     assert_eq!(events["ok"], json!(true), "{events}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_store_install_keeps_the_retained_values_for_the_warm_restart() {
+    // Specification 11 section 6.7: RETAIN variables survive a warm restart, from `retain.bin`
+    // beside runtime.toml, which the runtime saves when the program stops; specification 34 §11.2:
+    // an install while Stopped commits a new bundle, and the restart that follows runs it. Here the
+    // counter is RETAIN: the program stops at V, the second program (the same RETAIN counter,
+    // climbing by two) is installed, and the warm restart starts the counter from V, so the new
+    // run's value less two for each of its scans is V, give or take one scan. Wrong behaviour: the
+    // retain file stays in the bundle the runtime started on, the new bundle has none, and the warm
+    // restart starts the counter from 0.
+    let retained = [
+        ("runtime.toml", RETAIN_NONE, RETAIN_FILE),
+        ("src/Main.st", COUNTER_VARS, RETAINED_COUNTER_VARS),
+    ];
+    let runtime = ExampleRuntime::new(EXAMPLE)
+        .edit_source(retained[0].0, retained[0].1, retained[0].2)
+        .edit_source(retained[1].0, retained[1].1, retained[1].2)
+        .store()
+        .start();
+    let before = run_until_the_counter_is_high(&runtime);
+    stop_the_program(&runtime);
+    let stopped_at = runtime
+        .snapshot()
+        .expect("the stopped program's last snapshot")
+        .int("%MW0");
+    let step_two = build_program(
+        EXAMPLE,
+        &[
+            retained[0],
+            retained[1],
+            ("src/Main.st", STEP_ONE, STEP_TWO),
+        ],
+    );
+    let container = encode_image(1, &step_two.program, &step_two.record)
+        .expect("encode the container of the second program");
+    let transfer = upload(&runtime, &container);
+    let installed = runtime.control_request(
+        json!({"id": 30, "type": "program.install", "params": {"transfer": transfer}}),
+    );
+    assert_eq!(result_of(&installed)["sequence"], json!(1));
+
+    runtime.ctl_ok(&["restart", "warm"]);
+    // A scan of the new run has written the counter into the marker image; at scan 0 the image
+    // does not show it yet.
+    let first = runtime.wait_for_snapshot(WAIT, "a scan of the new run", |s| {
+        (1..before).contains(&s.scan())
+    });
+
+    let started_from = first.int("%MW0") - 2 * first.scan() as i64;
+    assert!(
+        (started_from - stopped_at).abs() <= 2,
+        "the warm restart continues the RETAIN counter from {stopped_at}: the new run started from \
+         {started_from} ({} after {} scans)",
+        first.int("%MW0"),
+        first.scan()
+    );
 }

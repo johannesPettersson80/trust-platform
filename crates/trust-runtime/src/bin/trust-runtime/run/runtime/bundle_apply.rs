@@ -22,14 +22,15 @@ fn apply_bundle_services(
 
     match bundle.runtime.retain_mode {
         trust_runtime::watchdog::RetainMode::File => {
-            let store = bundle.runtime.retain_path.as_ref().map(|path| {
-                let path = if path.is_relative() {
-                    bundle.root.join(path)
-                } else {
-                    path.clone()
-                };
-                Box::new(FileRetainStore::new(path)) as _
-            });
+            // A relative path lies in the folder of the runtime's files, which for a program
+            // store is the store folder, so an install keeps the retained values (spec 11 §6.7).
+            let store = bundle
+                .runtime
+                .retain_path
+                .as_ref()
+                .map(|path| trust_runtime::retain::prepare_retain_file(&bundle.root, path))
+                .transpose()?
+                .map(|path| Box::new(FileRetainStore::new(path)) as _);
             program.set_retain_store(store, Some(bundle.runtime.retain_save_interval))?;
         }
         trust_runtime::watchdog::RetainMode::None => {

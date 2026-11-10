@@ -2484,6 +2484,14 @@ the web setup and the wizard) and a runtime created in the config UI. RETAIN var
 survive a warm restart and a power cycle without further configuration, as on every PLC;
 `mode = "none"`, which makes every start cold, is the user's own choice.
 
+A relative retain `path` is taken in the folder of the runtime's files (section 6.8.0a): beside
+`runtime.toml` in a project folder, and in the store folder for a runtime started on a program
+store's `current` link (specification 34 §11.2). An install, a deployment or a rollback moves
+`current` to another bundle, so a retain file kept in a bundle would stay behind and the next warm
+start would find none. A store runtime's start moves a retain file that an earlier version left in
+the `current` bundle into the store folder, unless the store folder already holds one, so an upgrade
+keeps the retained values. An absolute `path` is used as it is.
+
 Retain storage is provided via a pluggable backend:
 
 ```rust
