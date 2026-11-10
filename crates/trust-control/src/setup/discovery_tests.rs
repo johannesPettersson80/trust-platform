@@ -1025,3 +1025,6 @@ fn a_loop_whose_parameter_set_writes_a_global_another_task_writes_is_refused_by_
         assert_eq!(discovered.targets.len(), 1);
     }
 }
+
+#[path = "discovery_owner_tests.rs"]
+mod owner_tests;

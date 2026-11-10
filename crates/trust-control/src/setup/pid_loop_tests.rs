@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use super::test_support::{field, STATE_FIELDS};
 use super::{pid_loop_definition, ModeChoice, PidLoopDraft, SignalChoice};
 use crate::commissioning::library_pid::library_pid_initialization;
-use crate::failure::Failure;
+use crate::failure::{Cause, Failure, NextAction};
 use crate::json::decode_value;
 use crate::loop_definition::{
     Action, ControllerLaw, InitialValue, InitializedState, LoopDefinition, LoopScope, ModeBinding,
@@ -947,4 +947,47 @@ fn setup_writes_an_enumeration_mode_by_its_members_and_refuses_one_its_type_lack
         text_of(&refusal),
         "Mode signal P1.Mode is an enumeration: name the members that mean Manual and Auto."
     );
+}
+
+/// Specification 35 B1.3 and protocol annex E2.3: before it writes anything, setup refuses a draft whose loop would write a global the
+/// loop's task does not own, with discovery's sentence and the way back to setup. Worked from the catalog: the heater's parameter
+/// record is the global `GVL_Par.stPid`, the PID runs in `MainTask`, and each case says who writes the record's proportional gain,
+/// `SlowTask` (refused, by its name) or `MainTask` (planned). Catches a loop file written that discovery then refuses.
+#[test]
+fn setup_refuses_a_draft_that_would_write_a_global_another_task_writes() {
+    let catalog_where = |writer: &str| {
+        let text = single_loop_json()
+            .to_string()
+            .replace("P1.Parameters", "GVL_Par.stPid");
+        let mut control: Value = serde_json::from_str(&text).expect("the fixture's JSON");
+        for entry in control["symbols"].as_array_mut().expect("its symbols") {
+            if entry["symbol"] == "GVL_Par.stPid.ProportionalGain" {
+                entry["owner"] = json!({ "kind": "task", "task": writer });
+            }
+        }
+        decode(control)
+    };
+    let mut draft = heater_draft();
+    draft.parameter_record = "GVL_Par.stPid".to_string();
+
+    let refusal = plan_setup_save(
+        &catalog_where("SlowTask"),
+        &scope(),
+        &SetupDraft::Pid(draft.clone()),
+    )
+    .expect_err("SlowTask writes the gain");
+    assert_eq!(
+        text_of(&refusal),
+        "GVL_Par.stPid.ProportionalGain is a global that task SlowTask writes, so the loop's task MainTask cannot write it. Run the \
+         loop in task SlowTask, or let only the loop's task write GVL_Par.stPid.ProportionalGain."
+    );
+    assert_eq!(refusal.cause, Cause::Settings);
+    assert_eq!(refusal.next_action, NextAction::OpenLoopSetup);
+
+    plan_setup_save(
+        &catalog_where("MainTask"),
+        &scope(),
+        &SetupDraft::Pid(draft),
+    )
+    .expect("MainTask owns the gain");
 }
