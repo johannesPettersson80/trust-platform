@@ -12,6 +12,7 @@ include!("tests/installed_write_debug_set_authorization.rs");
 include!("tests/checked_admission_access_policy_tests.rs");
 include!("tests/authorization_trace.rs");
 include!("tests/core.rs");
+include!("tests/fleet_web_bound_address.rs");
 include!("tests/control_endpoint_source_contract.rs");
 include!("tests/control_request_boundary_contract.rs");
 include!("tests/io_write_integer_literals.rs");

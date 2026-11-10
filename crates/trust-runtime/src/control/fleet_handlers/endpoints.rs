@@ -9,12 +9,19 @@ pub(super) fn service_endpoints(
     let settings = inputs.settings;
     if settings.web.enabled {
         let bound = state.web_listener_bound.load(Ordering::Relaxed);
+        // The address the listener bound, so that a configured port 0 shows the chosen port
+        // (spec 11); `params.listen` below keeps the configured value.
+        let address = settings
+            .web_bound_address
+            .as_ref()
+            .filter(|_| bound)
+            .unwrap_or(&settings.web.listen);
         endpoints.push(FleetEndpoint {
             id: endpoint_id(runtime_id, "web"),
             kind: "service".to_string(),
             protocol: "web".to_string(),
             name: "Web / IDE".to_string(),
-            address: Some(settings.web.listen.to_string()),
+            address: Some(address.to_string()),
             role: Some("server".to_string()),
             health: if bound {
                 "connected"
