@@ -82,7 +82,7 @@ fn public_equipment_instruments_controllers_and_services_have_component_definiti
 fn all_stock_panel_fields_resolve_against_the_existing_compiler_metadata() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libraries/plant");
     let mut sources =
-        trust_runtime::bundle_builder::collect_project_source_files(&root, None).unwrap();
+        trust_runtime::bundle_builder::collect_project_source_files(&root, &[]).unwrap();
     sources.push(trust_runtime::harness::SourceFile::new(
         "PROGRAM HmiAssetContract END_PROGRAM",
     ));

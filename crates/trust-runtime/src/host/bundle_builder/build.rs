@@ -10,7 +10,7 @@
 /// `openot-definition.json` too.
 pub fn build_program_image(
     bundle_root: &Path,
-    sources_root: Option<&Path>,
+    sources: &[PathBuf],
     target: crate::native::Target,
     toolchain: &crate::native::Toolchain,
     emit_source: bool,
@@ -19,12 +19,12 @@ pub fn build_program_image(
     use crate::native::{
         build_with_conversions, conversion_profile, debug_hooks, project_key, sign, triple, Options,
     };
-    let layout = inspect_project_layout(bundle_root, sources_root)?;
-    let files = collect_project_sources_labelled(bundle_root, sources_root)?;
+    let layout = inspect_project_layout(bundle_root, sources)?;
+    let files = collect_project_sources_labelled(bundle_root, sources)?;
     if files.is_empty() {
         anyhow::bail!(
             "no source files found in {} (expected .st/.pou files)",
-            layout.sources_root.display()
+            folder_list(&layout.sources_roots)
         );
     }
     let debug = debug_hooks(bundle_root)?;
@@ -181,14 +181,14 @@ fn write_openot_definition(
 /// program declares, which `trust-runtime check` compares with the project's `runtime.toml`.
 pub fn check_program(
     bundle_root: &Path,
-    sources_root: Option<&Path>,
+    sources: &[PathBuf],
 ) -> anyhow::Result<BundleCheckReport> {
-    let layout = inspect_project_layout(bundle_root, sources_root)?;
-    let files = collect_project_sources_labelled(bundle_root, sources_root)?;
+    let layout = inspect_project_layout(bundle_root, sources)?;
+    let files = collect_project_sources_labelled(bundle_root, sources)?;
     if files.is_empty() {
         anyhow::bail!(
             "no source files found in {} (expected .st/.pou files)",
-            layout.sources_root.display()
+            folder_list(&layout.sources_roots)
         );
     }
     let target = crate::native::Target::this_cpu()
@@ -222,15 +222,15 @@ pub fn check_program(
     })
 }
 
-/// Collect compile sources for a project, including any local package dependencies.
+/// Collect compile sources for a project, including any local package dependencies: the source
+/// folders `sources` names, else `<project>/src` ([`resolve_sources_roots`]).
 pub fn collect_project_source_files(
     bundle_root: &Path,
-    sources_root: Option<&Path>,
+    sources: &[PathBuf],
 ) -> anyhow::Result<Vec<SourceFile>> {
-    let sources_root = resolve_sources_root(bundle_root, sources_root)?;
+    let mut source_roots = resolve_sources_roots(bundle_root, sources)?;
     let dependencies = resolve_local_dependencies(bundle_root)?;
 
-    let mut source_roots = vec![sources_root];
     for dependency in &dependencies {
         source_roots.push(preferred_dependency_sources_root(&dependency.path));
     }
@@ -263,12 +263,12 @@ pub fn dependency_roots(bundle_root: &Path) -> anyhow::Result<Vec<PathBuf>> {
 /// with its label. A file outside the project root, such as a dependency's, keeps its full path.
 pub fn collect_project_sources_labelled(
     bundle_root: &Path,
-    sources_root: Option<&Path>,
+    sources: &[PathBuf],
 ) -> anyhow::Result<Vec<SourceFile>> {
     let root = bundle_root
         .canonicalize()
         .with_context(|| format!("resolve project root {}", bundle_root.display()))?;
-    let mut sources = collect_project_source_files(bundle_root, sources_root)?;
+    let mut sources = collect_project_source_files(bundle_root, sources)?;
     for source in &mut sources {
         if let Some(path) = source.path.as_deref()
             && let Ok(relative) = Path::new(path).strip_prefix(&root)
@@ -287,19 +287,19 @@ pub fn collect_project_sources_labelled(
 /// Inspect project sources/dependencies without building the program.
 pub fn inspect_project_layout(
     bundle_root: &Path,
-    sources_root: Option<&Path>,
+    sources: &[PathBuf],
 ) -> anyhow::Result<ProjectInspectionReport> {
-    let sources_root = resolve_sources_root(bundle_root, sources_root)?;
+    let sources_roots = resolve_sources_roots(bundle_root, sources)?;
     let dependencies = resolve_local_dependencies(bundle_root)?;
 
-    let mut source_roots = vec![sources_root.clone()];
+    let mut source_roots = sources_roots.clone();
     for dependency in &dependencies {
         source_roots.push(preferred_dependency_sources_root(&dependency.path));
     }
 
     let (_, source_paths) = collect_sources(&source_roots)?;
     Ok(ProjectInspectionReport {
-        sources_root,
+        sources_roots,
         manifest_path: find_dependency_manifest(bundle_root),
         sources: source_paths,
         dependency_roots: dependencies
@@ -344,6 +344,40 @@ pub fn resolve_sources_root(
         "invalid project folder '{}': missing src/ directory",
         bundle_root.display()
     );
+}
+
+/// The project's source folders for bundle operations (specification 11 §6.8.1c, §6.8.1d): each
+/// folder that `sources` names, resolved as [`resolve_sources_root`] resolves one and named once,
+/// or `<project>/src` when it names none. A file that two of the folders hold is still compiled
+/// once.
+///
+/// # Errors
+///
+/// A named folder does not exist, or, when none is named, the project has no `src/`.
+pub fn resolve_sources_roots(
+    bundle_root: &Path,
+    sources: &[PathBuf],
+) -> anyhow::Result<Vec<PathBuf>> {
+    if sources.is_empty() {
+        return Ok(vec![resolve_sources_root(bundle_root, None)?]);
+    }
+    let mut roots: Vec<PathBuf> = Vec::with_capacity(sources.len());
+    for source in sources {
+        let root = resolve_sources_root(bundle_root, Some(source.as_path()))?;
+        if !roots.contains(&root) {
+            roots.push(root);
+        }
+    }
+    Ok(roots)
+}
+
+/// `roots` for a message: their paths, separated by commas.
+fn folder_list(roots: &[PathBuf]) -> String {
+    roots
+        .iter()
+        .map(|root| root.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn preferred_dependency_sources_root(path: &Path) -> PathBuf {

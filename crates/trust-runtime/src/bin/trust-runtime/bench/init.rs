@@ -8,7 +8,7 @@ fn run_init_bench(workload: InitBenchWorkload) -> anyhow::Result<BenchReport> {
     let runtime_config = RuntimeConfig::load(workload.project.join("runtime.toml"))
         .with_context(|| format!("load runtime.toml for {}", workload.project.display()))?;
     let cycle_budget = runtime_config.cycle_interval;
-    let sources = collect_project_source_files(&workload.project, None)
+    let sources = collect_project_source_files(&workload.project, &[])
         .with_context(|| format!("collect sources for {}", workload.project.display()))?;
     if sources.is_empty() {
         anyhow::bail!("no ST sources found under {}", workload.project.display());

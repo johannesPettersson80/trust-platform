@@ -18,7 +18,7 @@ fn build(root: &Path) -> anyhow::Result<BundleBuildReport> {
     let toolchain = crate::native::Toolchain::find()?;
     let target = crate::native::Target::this_cpu()
         .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
-    build_program_image(root, None, target, &toolchain, false, true)
+    build_program_image(root, &[], target, &toolchain, false, true)
 }
 
 fn write_file(path: &Path, content: &str) {
@@ -175,8 +175,9 @@ version = "2.0.0"
         serde_json::json!(["LibA", "LibB"])
     );
 
-    let inspection = inspect_project_layout(&root, None).expect("inspection should pass");
-    assert!(inspection.sources_root.ends_with("src"));
+    let inspection = inspect_project_layout(&root, &[]).expect("inspection should pass");
+    assert_eq!(inspection.sources_roots.len(), 1);
+    assert!(inspection.sources_roots[0].ends_with("src"));
     assert!(inspection
         .manifest_path
         .as_ref()
@@ -305,6 +306,50 @@ END_PROGRAM
     fs::remove_dir_all(root).ok();
 }
 
+/// Specification 11 §6.8.1c: `--sources` may be given more than once, and the check takes the
+/// sources of every folder it names, a file that two of them hold once, and no other. Worked by
+/// hand (contributor issue #420's layout): `src/main.st` calls `DepDouble`, which only the stub
+/// `vendor/stubs/lib.st` declares, and `st/form.st`, a third tree of `.st` files such as the
+/// issue's editor forms, does not parse. `src` and `vendor/stubs` give those two files and check
+/// clean; `vendor`, `vendor/stubs` and `src` give the same two, the stub once; the project folder
+/// alone takes `st/form.st` too and fails. Catches a second folder left out (`DepDouble` unknown),
+/// a file taken twice (`DepDouble` declared twice) and a tree taken that is not named.
+#[test]
+fn check_takes_every_named_source_folder_and_nothing_else() {
+    let root = temp_dir("trust-runtime-check-source-folders");
+    write_root_source(&root);
+    write_file(
+        &root.join("vendor/stubs/lib.st"),
+        "FUNCTION DepDouble : INT\nVAR_INPUT\n    x : INT;\nEND_VAR\nDepDouble := x * 2;\nEND_FUNCTION\n",
+    );
+    write_file(
+        &root.join("st/form.st"),
+        "PROGRAM Form\n    this is no structured text (\nEND_PROGRAM\n",
+    );
+
+    let named = [PathBuf::from("src"), PathBuf::from("vendor/stubs")];
+    let report = check_program(&root, &named).expect("src and the stubs check clean");
+    let mut names: Vec<String> = report
+        .sources
+        .iter()
+        .filter_map(|path| path.file_name())
+        .map(|name| name.to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(names, ["lib.st", "main.st"]);
+
+    let overlapping = [
+        PathBuf::from("vendor"),
+        PathBuf::from("vendor/stubs"),
+        PathBuf::from("src"),
+    ];
+    let report = check_program(&root, &overlapping).expect("a file two folders hold is taken once");
+    assert_eq!(report.sources.len(), 2);
+
+    check_program(&root, &[PathBuf::from(".")]).expect_err("the project folder takes the forms");
+    fs::remove_dir_all(root).ok();
+}
+
 #[test]
 fn check_compiles_without_writing_the_program_image() {
     let root = temp_dir("trust-runtime-check-no-write");
@@ -318,7 +363,7 @@ LibA = "deps/lib-a"
 "#,
     );
 
-    let report = check_program(&root, None).expect("check should pass");
+    let report = check_program(&root, &[]).expect("check should pass");
     assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
     assert_eq!(report.resolved_dependencies, vec!["LibA".to_string()]);
     assert!(
@@ -514,12 +559,12 @@ fn bundle_build_and_check_refuse_an_unknown_vendor_profile() {
         &root.join("trust-lsp.toml"),
         "[project]\nvendor_profile = \"codesys\"\n",
     );
-    check_program(&root, None).expect("codesys project checks");
+    check_program(&root, &[]).expect("codesys project checks");
     write_file(
         &root.join("trust-lsp.toml"),
         "[project]\nvendor_profile = \"codesis\"\n",
     );
-    let error = check_program(&root, None)
+    let error = check_program(&root, &[])
         .expect_err("unknown vendor profile")
         .to_string();
     assert!(
@@ -546,7 +591,7 @@ fn native_build_labels_each_source_relative_to_the_project_root() {
         &root.join("src/motors/pump.st"),
         "FUNCTION DepDouble : INT\nVAR_INPUT x : INT; END_VAR\nDepDouble := x * 2;\nEND_FUNCTION\n",
     );
-    let sources = collect_project_sources_labelled(&root, None).expect("sources");
+    let sources = collect_project_sources_labelled(&root, &[]).expect("sources");
     let labels: Vec<&str> = sources
         .iter()
         .map(|source| source.path.as_deref().unwrap_or(""))
@@ -661,14 +706,14 @@ fn a_program_that_uses_the_identify_output_is_refused_from_its_sources() {
     // refuses, and one that refuses a good output.
     let used = identify_project("identify-used", Some("%QX0.0"), IDENTIFY_PROGRAM);
     assert_eq!(
-        refuse_identify_output_use(&used, None),
+        refuse_identify_output_use(&used, &[]),
         Err(crate::error::RuntimeError::InvalidConfig(
             "identify output %QX0.0 is used by the program: it binds %QX0.0".into()
         ))
     );
 
     let free = identify_project("identify-free", Some("%QX0.7"), IDENTIFY_PROGRAM);
-    assert_eq!(refuse_identify_output_use(&free, None), Ok(()));
+    assert_eq!(refuse_identify_output_use(&free, &[]), Ok(()));
     let _ = fs::remove_dir_all(&used);
     let _ = fs::remove_dir_all(&free);
 }
@@ -680,13 +725,13 @@ fn nothing_to_check_is_not_refused_by_the_identify_check() {
     // compile error itself and `ide serve` still serves the project so that it can be fixed.
     // Catches a check that refuses a project for a problem that is not its identify output.
     let without = identify_project("identify-none", None, IDENTIFY_PROGRAM);
-    assert_eq!(refuse_identify_output_use(&without, None), Ok(()));
+    assert_eq!(refuse_identify_output_use(&without, &[]), Ok(()));
 
     let broken = identify_project("identify-broken", Some("%QX0.0"), "PROGRAM Main\nx := ;\n");
-    assert_eq!(refuse_identify_output_use(&broken, None), Ok(()));
+    assert_eq!(refuse_identify_output_use(&broken, &[]), Ok(()));
 
     let empty = temp_dir("identify-no-runtime-toml");
-    assert_eq!(refuse_identify_output_use(&empty, None), Ok(()));
+    assert_eq!(refuse_identify_output_use(&empty, &[]), Ok(()));
     let _ = fs::remove_dir_all(&without);
     let _ = fs::remove_dir_all(&broken);
     let _ = fs::remove_dir_all(&empty);

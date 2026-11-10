@@ -263,7 +263,7 @@ fn browse_local_project_symbols(
             request.protocol
         ));
     };
-    let sources = collect_project_source_files(project_root, None)
+    let sources = collect_project_source_files(project_root, &[])
         .map_err(|error| format!("failed to collect project sources: {error}"))?;
     let declarations = CompileSession::from_sources(sources)
         .declarations()

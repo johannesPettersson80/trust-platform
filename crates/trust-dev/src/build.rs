@@ -22,7 +22,7 @@ pub(crate) fn build_json_payload(
         .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
     let report = build_program_image(
         &bundle_root,
-        sources.as_deref(),
+        sources.as_slice(),
         target,
         &toolchain,
         false,

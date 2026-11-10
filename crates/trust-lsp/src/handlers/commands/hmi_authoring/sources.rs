@@ -186,9 +186,11 @@ pub(crate) fn collect(
         if !source_root.exists() {
             continue;
         }
-        for mut file in
-            trust_runtime::bundle_builder::collect_project_source_files(&view.0, Some(source_root))
-                .map_err(|e| e.to_string())?
+        for mut file in trust_runtime::bundle_builder::collect_project_source_files(
+            &view.0,
+            std::slice::from_ref(source_root),
+        )
+        .map_err(|e| e.to_string())?
         {
             let path = client(PathBuf::from(
                 file.path

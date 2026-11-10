@@ -184,7 +184,7 @@ fn a_project_build_takes_the_rules_of_its_vendor_profile() {
         ("none", None, ConversionProfile::Iec),
     ] {
         let root = project(name, settings);
-        let report = build_program_image(&root, None, target, &toolchain, false, true)
+        let report = build_program_image(&root, &[], target, &toolchain, false, true)
             .unwrap_or_else(|error| panic!("{name} builds: {error:#}"));
         let image = std::fs::read(&report.image).expect("the image");
         assert_eq!(
@@ -201,9 +201,9 @@ fn a_project_build_takes_the_rules_of_its_vendor_profile() {
         "misspelled",
         Some("[project]\nvendor_profile = \"codesis\"\n"),
     );
-    let built = build_program_image(&root, None, target, &toolchain, false, true)
+    let built = build_program_image(&root, &[], target, &toolchain, false, true)
         .expect_err("a misspelled profile is refused");
-    let checked = check_program(&root, None).expect_err("the check refuses it too");
+    let checked = check_program(&root, &[]).expect_err("the check refuses it too");
     for error in [built, checked] {
         let text = format!("{error:#}");
         assert!(text.contains("unknown vendor_profile 'codesis'"), "{text}");

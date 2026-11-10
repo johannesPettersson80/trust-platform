@@ -14,7 +14,7 @@ use crate::{ci, style};
 /// device's with `--target`, with the toolchain, installed on the first build that needs it (§4.6).
 pub fn run_build_command(
     bundle: Option<PathBuf>,
-    sources: Option<PathBuf>,
+    sources: Vec<PathBuf>,
     ci: bool,
     json: bool,
     target: Option<String>,
@@ -64,7 +64,7 @@ pub(crate) fn native_target(name: &str) -> anyhow::Result<trust_runtime::native:
 /// Builds the project's program for this computer as `trust-runtime build` does without options
 /// (specification 44 NX-15).
 pub(crate) fn build_project_program(bundle_root: &Path) -> anyhow::Result<()> {
-    write_native_image(bundle_root, None, native_target("host")?, false, true).map(drop)
+    write_native_image(bundle_root, &[], native_target("host")?, false, true).map(drop)
 }
 
 /// `trust-runtime build --target`: the project compiled into a program image in its build folder,
@@ -73,7 +73,7 @@ pub(crate) fn build_project_program(bundle_root: &Path) -> anyhow::Result<()> {
 /// `deployment-record.bin` (NX-15).
 pub fn run_native_build(
     bundle: Option<PathBuf>,
-    sources: Option<PathBuf>,
+    sources: Vec<PathBuf>,
     target: &str,
     emit_source: bool,
     output: Output,
@@ -85,7 +85,7 @@ pub fn run_native_build(
     };
     let built = match write_native_image(
         &bundle_root,
-        sources.as_deref(),
+        &sources,
         native_target(target)?,
         emit_source,
         for_this_computer,
@@ -160,7 +160,7 @@ pub fn run_native_build(
 /// The build of [`run_native_build`], without its output.
 fn write_native_image(
     bundle_root: &Path,
-    sources: Option<&Path>,
+    sources: &[PathBuf],
     target: trust_runtime::native::Target,
     emit_source: bool,
     for_this_computer: bool,

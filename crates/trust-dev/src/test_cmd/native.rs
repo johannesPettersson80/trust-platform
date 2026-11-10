@@ -64,7 +64,7 @@ fn build_test_image(
     let conversions = conversion_profile(project_root)?;
     // Each file by its path relative to the project folder, as `trust-runtime build` labels it
     // (specification 44 §5.3): a compile error and a device's statement name `src/tests.st`.
-    let mut sources = trust_runtime::bundle_builder::collect_project_sources_labelled(project_root, None)?;
+    let mut sources = trust_runtime::bundle_builder::collect_project_sources_labelled(project_root, &[])?;
     let runners = function_block_runners(discovered);
     if !runners.is_empty() {
         sources.push(SourceFile::with_path(

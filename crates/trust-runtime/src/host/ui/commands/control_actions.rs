@@ -387,7 +387,7 @@ pub(super) fn handle_build_command(state: &mut UiState) -> anyhow::Result<()> {
         .and_then(|toolchain| {
             let target = crate::native::Target::this_cpu()
                 .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
-            build_program_image(root, None, target, &toolchain, false, true)
+            build_program_image(root, &[], target, &toolchain, false, true)
         });
     match built {
         Ok(report) => {

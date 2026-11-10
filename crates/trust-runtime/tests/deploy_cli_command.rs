@@ -52,7 +52,7 @@ fn write_bundle(root: &Path) {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
-    build_program_image(root, None, target, &toolchain, false, true)
+    build_program_image(root, &[], target, &toolchain, false, true)
         .expect("build the deploy fixture's program image");
 }
 

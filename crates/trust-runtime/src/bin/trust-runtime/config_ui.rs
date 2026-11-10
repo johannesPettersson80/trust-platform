@@ -61,7 +61,7 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
         .as_deref()
         .and_then(Path::parent)
     {
-        trust_runtime::bundle_builder::refuse_identify_output_use(folder, None)
+        trust_runtime::bundle_builder::refuse_identify_output_use(folder, &[])
             .map_err(|error| anyhow::anyhow!("{error}"))?;
     }
     let resource_name = announcement.as_ref().map_or_else(
@@ -348,7 +348,7 @@ fn load_source_registry(project_root: &Path) -> SourceRegistry {
     let canonical_workspace = project_root
         .canonicalize()
         .unwrap_or_else(|_| project_root.to_path_buf());
-    let files = collect_project_source_files(source_project.as_path(), None)
+    let files = collect_project_source_files(source_project.as_path(), &[])
         .unwrap_or_default()
         .into_iter()
         .enumerate()

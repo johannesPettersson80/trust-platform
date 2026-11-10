@@ -22,7 +22,7 @@ pub fn run_hmi_check(project: Option<PathBuf>, json: bool) -> anyhow::Result<()>
     };
     let bundle = HmiBundle::read(&root)
         .with_context(|| format!("read the HMI files of {}", root.display()))?;
-    let sources = collect_project_source_files(&root, None)?;
+    let sources = collect_project_source_files(&root, &[])?;
     let declarations = CompileSession::from_sources(sources)
         .declarations()
         .map_err(|error| anyhow::anyhow!("the program does not compile: {error}"))?;

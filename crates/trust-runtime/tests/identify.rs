@@ -252,7 +252,7 @@ END_PROGRAM
     let toolchain = trust_runtime::native::Toolchain::find()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = trust_runtime::native::Target::this_cpu().expect("a computer target");
-    let report = build_program_image(&project, None, target, &toolchain, false, true)
+    let report = build_program_image(&project, &[], target, &toolchain, false, true)
         .expect("build the program image");
     assert!(report.image.is_file(), "the program image should exist");
     project

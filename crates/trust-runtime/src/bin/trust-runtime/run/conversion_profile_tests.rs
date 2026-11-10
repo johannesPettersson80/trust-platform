@@ -44,7 +44,7 @@ fn build_project(root: &std::path::Path) {
     let toolchain = trust_runtime::native::Toolchain::find()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = trust_runtime::native::Target::this_cpu().expect("this computer's CPU");
-    trust_runtime::bundle_builder::build_program_image(root, None, target, &toolchain, false, true)
+    trust_runtime::bundle_builder::build_program_image(root, &[], target, &toolchain, false, true)
         .expect("build project");
 }
 

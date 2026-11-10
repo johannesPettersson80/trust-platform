@@ -51,8 +51,9 @@ pub struct BundleCheckReport {
 /// Project layout summary without building the program.
 #[derive(Debug, Clone)]
 pub struct ProjectInspectionReport {
-    /// Resolved project source root.
-    pub sources_root: PathBuf,
+    /// The project's resolved source folders: `<project>/src`, or the folders the caller named,
+    /// in their order (specification 11 §6.8.1c).
+    pub sources_roots: Vec<PathBuf>,
     /// Project manifest path if one was found.
     pub manifest_path: Option<PathBuf>,
     /// Source files included from the project and resolved local dependencies.

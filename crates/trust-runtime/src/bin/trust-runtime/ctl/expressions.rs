@@ -39,7 +39,7 @@ impl Expressions {
                 profile: DateTimeProfile::default(),
             });
         };
-        let sources = trust_runtime::bundle_builder::collect_project_sources_labelled(&root, None)?;
+        let sources = trust_runtime::bundle_builder::collect_project_sources_labelled(&root, &[])?;
         let conversions = trust_runtime::native::conversion_profile(&root)?;
         let (registry, profile) = project_expression_types(&sources, conversions)
             .map_err(|error| anyhow!("the project's types for debug expressions: {error}"))?;

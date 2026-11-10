@@ -130,9 +130,9 @@ pub enum Command {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
         project: Option<PathBuf>,
-        /// Sources directory override (defaults to <project>/src).
+        /// A source folder in place of <project>/src; give it again for several folders.
         #[arg(long)]
-        sources: Option<PathBuf>,
+        sources: Vec<PathBuf>,
         /// Emit machine-readable JSON.
         #[arg(long, action = ArgAction::SetTrue)]
         json: bool,
@@ -157,9 +157,9 @@ pub enum Command {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
         project: Option<PathBuf>,
-        /// Sources directory override (defaults to <project>/src).
+        /// A source folder in place of <project>/src; give it again for several folders.
         #[arg(long)]
-        sources: Option<PathBuf>,
+        sources: Vec<PathBuf>,
         /// Enable CI-friendly behavior and machine-readable output.
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,

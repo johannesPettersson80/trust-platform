@@ -5942,8 +5942,13 @@ and choices without performing import or export work.
 `trust-runtime check` validates a project without writing `program.tpi` or any
 other build output. An explicit `--project` selects the
 project root; otherwise the command uses bundle auto-detection and falls back
-to the current directory. A relative `--sources` override is resolved from the
-project root, while the default source root is `<project>/src`.
+to the current directory. The default source root is `<project>/src`.
+`--sources` names a source folder in its place and may be given more than once:
+the check then takes the sources of every folder it names, a file that two of
+them hold once. A project whose vendor library stubs lie outside `src/` names
+both, `--sources src --sources vendor/stubs`, and so takes no other tree of
+`.st` files that its folder holds. A relative `--sources` folder is resolved
+from the project root.
 
 The command validates required `runtime.toml` and `io.toml` files plus optional
 `ads.toml` and `opcua_client.toml` files, inspects the complete source and local
@@ -5986,9 +5991,11 @@ NX-15); with `--target <device or CPU>` it writes that target's image into the
 project's build folder as `build/program.<triple>.tpi`, with
 `build/deployment-record.<triple>.bin`. An explicit `--project` selects the
 project root; otherwise ordinary bundle discovery is used and the current
-directory is the final fallback. The default source root is `<project>/src`. A
-relative `--sources` override is resolved from the project root, including when
-the command is launched from another working directory. Local package
+directory is the final fallback. The default source root is `<project>/src`;
+`--sources` names a source folder in its place and may be given more than once,
+as for `trust-runtime check` (section 6.8.1c). A relative `--sources` folder is
+resolved from the project root, including when the command is launched from
+another working directory. Local package
 dependencies are resolved and compiled with the selected project sources. The
 build installs the toolchain on the first build that needs it once the person agrees, never
 silently: it asks in a terminal and otherwise fails with the advice to run `trust-runtime

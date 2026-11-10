@@ -47,7 +47,7 @@ struct CheckProgramResponse {
 
 pub fn run_check(
     project: Option<PathBuf>,
-    sources: Option<PathBuf>,
+    sources: Vec<PathBuf>,
     json: bool,
     ci_mode: bool,
 ) -> anyhow::Result<()> {
@@ -55,7 +55,7 @@ pub fn run_check(
         Some(path) => path,
         None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
     };
-    let response = build_check_response(&project_root, sources.as_deref());
+    let response = build_check_response(&project_root, &sources);
     let print_json = json || ci_mode;
 
     if print_json {
@@ -83,18 +83,18 @@ pub fn run_check(
     std::process::exit(exit_code_for_issues(&response.issues));
 }
 
-fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> CheckProgramResponse {
+fn build_check_response(project_root: &Path, source_folders: &[PathBuf]) -> CheckProgramResponse {
     let mut issues = config_issues(project_root);
     let mut sources = Vec::new();
     let mut dependency_roots = Vec::new();
     let mut resolved_dependencies = Vec::new();
 
-    match inspect_project_layout(project_root, sources_root) {
+    match inspect_project_layout(project_root, source_folders) {
         Ok(layout) => {
             sources = paths_to_strings(layout.sources);
             dependency_roots = paths_to_strings(layout.dependency_roots);
             resolved_dependencies = layout.resolved_dependencies;
-            match check_program(project_root, sources_root) {
+            match check_program(project_root, source_folders) {
                 Ok(report) => {
                     if let Some(problem) = resource_problem(project_root, &report.resources) {
                         issues.push(issue(
@@ -131,7 +131,7 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
     // `run` refuses such a project, so `check` reports it. A project with other errors is not asked.
     if issues.iter().all(|issue| issue.severity != "error")
         && let Err(error) =
-            trust_runtime::bundle_builder::refuse_identify_output_use(project_root, sources_root)
+            trust_runtime::bundle_builder::refuse_identify_output_use(project_root, source_folders)
     {
         issues.push(issue(
             "error",

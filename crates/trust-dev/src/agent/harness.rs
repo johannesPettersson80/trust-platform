@@ -318,7 +318,7 @@ impl AgentServer {
         }
 
         let project_root = self.resolve_project_root(params.project.as_deref())?;
-        let compile_sources = collect_project_source_files(&project_root, None)
+        let compile_sources = collect_project_source_files(&project_root, &[])
             .map_err(AgentCommandError::from_anyhow)?;
         Ok(compile_sources
             .into_iter()
