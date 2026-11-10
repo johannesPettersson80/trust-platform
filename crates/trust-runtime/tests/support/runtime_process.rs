@@ -795,6 +795,7 @@ fn join_relative(base: &Path, relative: &str) -> PathBuf {
 /// Distinct free loopback ports that no earlier reservation in this process handed out. Every
 /// listener, including one whose port was already handed out, is held until the reservation is
 /// complete, so the kernel cannot offer the same port twice; they are released together afterwards.
+// port-retry-ok: a start takes fresh ports when the runtime found one taken (`START_ATTEMPTS`).
 fn reserve_local_ports(count: usize) -> Vec<u16> {
     let mut handed_out = HANDED_OUT_PORTS
         .lock()

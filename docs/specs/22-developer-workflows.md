@@ -744,8 +744,16 @@ that serves a port keeps its listener. A test that needs an endpoint where
 nothing answers holds a port without listening on it (`trust-test-support`'s
 `refused_loopback_port`). Where a program takes only a concrete port, such as a
 fleet's managed runtime, the test tries again with other ports when the
-program's bind found its port taken (`reports_a_taken_port`), and after no
-other failure.
+program's bind found its port taken (`reports_a_taken_port` for a line of the
+program's log, `is_a_taken_port_error` for an error that a library returns),
+and after no other failure.
+
+The Format job's check `scripts/check_test_ports.py` refuses test code that
+binds port 0 and drops the listener while its port goes on: a `bind` whose
+address is read in the same expression, so that the listener is a temporary,
+and a function that binds port 0 and returns a port. A helper whose callers try
+again on a taken port, as above, says so with `// port-retry-ok: <why>` on the
+line of its `bind` or of its function, or on the line before either.
 
 The automated docs-capture launcher owns every browser, runtime, and Docker
 process that it starts. On success, command failure, interruption, or timeout,
