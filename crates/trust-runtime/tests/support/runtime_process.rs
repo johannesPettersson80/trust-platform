@@ -1,13 +1,17 @@
 //! Shared harness for the `ctl` workflow tests. It runs the real `trust-runtime` binary on a
 //! private copy of an example project, so no test writes into the repository and the control
-//! endpoint is a real TCP socket. Every fixed listen port in the copy moves to a reserved free
-//! loopback port, so tests that run in parallel cannot collide. Included by each test file with
+//! endpoint is a real TCP socket. The control endpoint is `tcp://127.0.0.1:0`: the runtime binds a
+//! free port and publishes it in the copy's endpoint file, where `ctl` and this harness find it
+//! (specification 11, section 6.8.0a), so no other process can take it first; a program store's copy
+//! keeps a reserved port (see `assign_ports`). Every other fixed listen port in the copy moves to a
+//! reserved free loopback port, so tests that run in parallel cannot collide. Included by each test
+//! file with
 //! `#[path = "support/runtime_process.rs"] mod runtime_process;`.
 #![allow(dead_code)]
 
 use std::collections::BTreeSet;
 use std::fs::{self, File};
-use std::net::TcpListener;
+use std::net::{SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -15,6 +19,8 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
+use trust_runtime::control::endpoint::resolve_control_target;
+use trust_runtime::control::ControlEndpoint;
 
 /// Prefix of the token written into each copied runtime.toml; `ctl` reads it from the project.
 /// Every copy gets its own token, so a client can never be served by another test's runtime.
@@ -197,7 +203,6 @@ impl ExampleRuntime {
             root: root.clone(),
             project: project.clone(),
             child: None,
-            control_port: 0,
             web_port: 0,
             token: String::new(),
         };
@@ -242,21 +247,30 @@ impl ExampleRuntime {
         runtime
     }
 
-    /// Reserves one port for the control endpoint and one for each fixed listen key, and writes
-    /// them, the copy's token and the requested settings into the copy's runtime.toml.
+    /// Reserves one port for each fixed listen key, and writes them, the control endpoint, the
+    /// copy's token and the requested settings into the copy's runtime.toml. The control endpoint is
+    /// `tcp://127.0.0.1:0`, except in a program store: the runtime publishes its endpoint file in
+    /// the bundle `current` named at its start, and an install moves `current` to a bundle without
+    /// that file, after which only a configured port finds the runtime through `current`
+    /// (checklist G118). A store's control endpoint therefore takes a reserved port too.
     fn assign_ports(&self, runtime: &mut Runtime) {
-        let ports = reserve_local_ports(1 + LISTEN_KEYS.len());
+        let control_ports = usize::from(self.store);
+        let ports = reserve_local_ports(control_ports + LISTEN_KEYS.len());
+        let (control, listen) = ports.split_at(control_ports);
+        let runtime_toml = runtime.project.join("runtime.toml");
         configure_runtime_toml(
-            &runtime.project.join("runtime.toml"),
-            &ports,
+            &runtime_toml,
+            listen,
             &runtime.token,
             self.mode,
             self.debug_enabled,
             self.start_paused,
             self.web_enabled,
         );
-        runtime.control_port = ports[0];
-        runtime.web_port = ports[1];
+        if let Some(&port) = control.first() {
+            set_control_port(&runtime_toml, port);
+        }
+        runtime.web_port = listen[0];
     }
 }
 
@@ -266,9 +280,8 @@ pub struct Runtime {
     root: PathBuf,
     project: PathBuf,
     child: Option<Child>,
-    /// The reserved loopback port of the control endpoint and of the web interface, and the
-    /// control token of the copy.
-    control_port: u16,
+    /// The reserved loopback port of the web interface, and the control token of the copy. The
+    /// control endpoint's port is the one the runtime publishes in its endpoint file.
     web_port: u16,
     token: String,
 }
@@ -569,10 +582,26 @@ impl Runtime {
         self.exchange(request).ok()
     }
 
+    /// The control endpoint's bound address, resolved as `ctl` resolves it: the copy configures
+    /// `tcp://127.0.0.1:0`, and the runtime publishes the port it bound in the copy's endpoint file
+    /// (specification 11, section 6.8.0a). Before it does, resolution ends at the configured port
+    /// 0, which is no endpoint to connect to. A program store's copy configures a reserved port.
+    fn control_address(&self) -> Result<SocketAddr, String> {
+        let target = resolve_control_target(Some(&self.project), None, Some(&self.token))
+            .map_err(|err| format!("resolve the control endpoint: {err}"))?;
+        match target.endpoint {
+            ControlEndpoint::Tcp(address) if address.port() != 0 => Ok(address),
+            _ => Err(format!(
+                "the runtime has published no bound control endpoint (resolved {})",
+                target.endpoint_text
+            )),
+        }
+    }
+
     fn exchange(&self, mut request: Value) -> Result<Value, String> {
         use std::io::{BufRead, BufReader, Write};
         request["auth"] = Value::String(self.token.clone());
-        let mut stream = std::net::TcpStream::connect(("127.0.0.1", self.control_port))
+        let mut stream = std::net::TcpStream::connect(self.control_address()?)
             .map_err(|err| format!("connect to the control endpoint: {err}"))?;
         stream
             .set_read_timeout(Some(WAIT))
@@ -805,10 +834,28 @@ fn replace_in_file(path: &Path, from: &str, to: &str) {
     fs::write(path, text.replace(from, to)).expect("write edited source");
 }
 
-/// Rewrites the copied runtime.toml with the toml crate. `ports[0]` becomes the TCP control
-/// endpoint, and each `LISTEN_KEYS` entry that exists takes the next reserved port. The copy's own
-/// token is set, the mode and debug flag are set when requested, discovery is disabled, and so is
-/// the web interface unless `web_enabled` keeps it on. Every other setting is kept.
+/// Sets the copied runtime.toml's control endpoint to the reserved loopback `port` (a program
+/// store's copy, see `assign_ports`).
+fn set_control_port(path: &Path, port: u16) {
+    let text = fs::read_to_string(path).expect("read runtime.toml");
+    let mut document: toml::Table = toml::from_str(&text).expect("parse runtime.toml");
+    let control = table_section(table_section(&mut document, "runtime"), "control");
+    control.insert(
+        "endpoint".into(),
+        toml::Value::String(format!("tcp://127.0.0.1:{port}")),
+    );
+    fs::write(
+        path,
+        toml::to_string(&document).expect("render runtime.toml"),
+    )
+    .expect("write runtime.toml");
+}
+
+/// Rewrites the copied runtime.toml with the toml crate. The control endpoint becomes
+/// `tcp://127.0.0.1:0`, a port the runtime chooses when it binds, and each `LISTEN_KEYS` entry that
+/// exists takes the reserved port in the same place of `ports`. The copy's own token is set, the
+/// mode and debug flag are set when requested, discovery is disabled, and so is the web interface
+/// unless `web_enabled` keeps it on. Every other setting is kept.
 fn configure_runtime_toml(
     path: &Path,
     ports: &[u16],
@@ -824,7 +871,7 @@ fn configure_runtime_toml(
     let control = table_section(runtime, "control");
     control.insert(
         "endpoint".into(),
-        toml::Value::String(format!("tcp://127.0.0.1:{}", ports[0])),
+        toml::Value::String("tcp://127.0.0.1:0".into()),
     );
     control.insert("auth_token".into(), toml::Value::String(token.into()));
     if let Some(mode) = mode {
@@ -842,7 +889,7 @@ fn configure_runtime_toml(
             table.insert("enabled".into(), toml::Value::Boolean(enabled));
         }
     }
-    for (&(table, key), &port) in LISTEN_KEYS.iter().zip(&ports[1..]) {
+    for (&(table, key), &port) in LISTEN_KEYS.iter().zip(ports) {
         if let Some(section) = table_path_mut(&mut document, table)
             && section.contains_key(key)
         {

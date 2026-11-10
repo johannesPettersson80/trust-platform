@@ -319,12 +319,11 @@ impl Runtime {
     }
 }
 
-/// Two free local ports, both held until both are known, so they differ.
-fn free_ports() -> (u16, u16) {
-    let first = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
-    let second = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
-    let port = |listener: &TcpListener| listener.local_addr().expect("the local address").port();
-    (port(&first), port(&second))
+/// A free local port for the web interface. The control endpoint is `tcp://127.0.0.1:0`: the
+/// runtime binds a port no other process can take first, and this test never connects to it.
+fn free_port() -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+    listener.local_addr().expect("the local address").port()
 }
 
 fn write(root: &Path, file: &str, text: &str) {
@@ -344,7 +343,7 @@ fn start() -> Runtime {
         "trust-hmi-running-program-{}-{stamp}",
         std::process::id()
     ));
-    let (control, web) = free_ports();
+    let web = free_port();
     let password = hash_password("secret", 10_000, b"0123456789abcdef");
     write(
         &root,
@@ -358,7 +357,7 @@ name = "Cpu"
 cycle_interval_ms = 20
 
 [runtime.control]
-endpoint = "tcp://127.0.0.1:{control}"
+endpoint = "tcp://127.0.0.1:0"
 mode = "production"
 debug_enabled = false
 auth_token = "hmi-running-program-{stamp}"

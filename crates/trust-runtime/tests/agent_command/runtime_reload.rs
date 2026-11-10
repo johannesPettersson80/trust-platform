@@ -268,7 +268,7 @@ END_PROGRAM
         String::from_utf8_lossy(&build_output.stderr)
     );
 
-    let (mut runtime, control_endpoint) = spawn_runtime_with_retry(&project, token);
+    let (mut runtime, control_endpoint) = spawn_runtime(&project, token);
     wait_for_output_bool(
         &control_endpoint,
         token,
