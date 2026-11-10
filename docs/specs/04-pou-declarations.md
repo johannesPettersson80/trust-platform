@@ -1013,7 +1013,9 @@ END_VAR
    "will create an error") is named with its namespace: a bare name that reaches one of its globals
    through a `USING` from outside the namespace is an error (E105) whose message names the qualified
    form (`GVL_IO.lrLevel`). Inside the namespace, where its names are in scope without a `USING`, the
-   bare name stays valid. A list outside any namespace has no name to qualify with, and the attribute
+   bare name stays valid. The attribute before the innermost namespace that holds the list counts as
+   the attribute before the list: the PLCopen import writes a CODESYS list's attributes there
+   (specification 22). A list outside any namespace has no name to qualify with, and the attribute
    requires nothing there
 
 ### Namespace implementation notes

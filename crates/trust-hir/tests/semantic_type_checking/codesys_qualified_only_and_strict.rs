@@ -62,6 +62,21 @@ fn a_qualified_only_global_list_is_named_with_its_namespace_from_outside() {
     assert_eq!(errors(Dialect::Codesys, GVL), Vec::new());
 }
 
+/// Specification 04, "Rules", 7: the attribute before the namespace that holds the list, where the PLCopen import writes a
+/// CODESYS list's attributes (`{attribute 'qualified_only'}` before `NAMESPACE GVL_IO`), names the list's globals with the
+/// namespace as the attribute before the list does: the same one error, with the same message. Catches the attribute read
+/// only before the list, which left an imported qualified-only list's globals reachable bare through a `USING`.
+#[test]
+fn a_qualified_only_attribute_before_the_namespace_names_its_list_too() {
+    let imported = format!("{{attribute 'qualified_only'}}\n{GVL}");
+    let message = "'lrLevel' is a global of the namespace GVL_IO, whose list is {attribute 'qualified_only'}: \
+                   write GVL_IO.lrLevel";
+    assert_eq!(
+        errors(Dialect::Codesys, &imported),
+        vec![(DiagnosticCode::CannotResolve, message.to_string())]
+    );
+}
+
 const LEVEL: &str = "TYPE E_Level : INT (LOW := 1, HIGH := 2);\nEND_TYPE\n";
 
 /// Specification 02 §3.1: arithmetic with a value of a `strict` enumeration is an error (E202), also for a type with named
