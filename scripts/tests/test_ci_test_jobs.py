@@ -1,5 +1,6 @@
-"""CI's native Test jobs build once (specification 22, "CI reliability and release-gate artifact
-contract"). Like the release workflow's tests, these read the workflow's text."""
+"""CI's native Test jobs build once, and the Windows job keeps a dump of every crashing process
+(specification 22, "CI reliability and release-gate artifact contract"). Like the release workflow's
+tests, these read the workflow's text."""
 
 from __future__ import annotations
 
@@ -73,6 +74,91 @@ class CiTestJobTests(unittest.TestCase):
         self.assertGreater(mesh, names.index("Doc tests with checked compile-fail codes"))
         for name in names[mesh + 1 :]:
             self.assertNotRegex(steps(self.job)[name], r"\bcargo\b", name)
+
+    def test_windows_keeps_a_minidump_of_every_crashing_process_from_before_the_build(self) -> None:
+        # Catches a Windows job that keeps no dump: #313's test process crashed with 0xc0000005, the
+        # suite's second attempt passed, and nothing named the faulting code (G81); and dumps switched
+        # on after the suite, which keep none of its crashes. Specification 22: a minidump
+        # (`DumpType` 1) of every process that crashes during the job, the 20 newest (`DumpCount`).
+        names = list(steps(self.job))
+        keep = steps(self.job)["Keep a dump of every crashing process (Windows)"]
+        self.assertIn("if: ${{ matrix.os == 'windows-latest' }}", keep)
+        self.assertIn(r"HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps", keep)
+        self.assertIn(r'-Name DumpFolder -Value "$env:RUNNER_TEMP\crash-dumps"', keep)
+        self.assertIn("-Name DumpType -Value 1 -PropertyType DWord", keep)
+        self.assertIn("-Name DumpCount -Value 20 -PropertyType DWord", keep)
+        self.assertLess(
+            names.index("Keep a dump of every crashing process (Windows)"),
+            names.index("Run cargo build --all-targets (retry once on transient failure)"),
+        )
+
+    def test_the_build_and_the_suite_start_where_their_crashes_reach_windows_error_reporting(self) -> None:
+        # Catches the build or the suite started straight from the step's shell: their processes inherit
+        # the runner's SEM_NOGPFAULTERRORBOX, Windows then never hands a crash to Windows Error Reporting,
+        # and no dump is kept (G81b, probe run 42747857506: error mode 0x3 in every step and no dump, but
+        # a dump once the command's error mode lost the flag). And a Windows job that does not run
+        # run_with_progress.py's self-test, which fails when its command keeps the flag, before the
+        # build, or lets that test fail without failing the job: the dumps would stop without a sign.
+        names = list(steps(self.job))
+        build = "Run cargo build --all-targets (retry once on transient failure)"
+        for name in (build, "Run full test suite"):
+            self.assertIn("scripts/run_with_progress.py", steps(self.job)[name], name)
+        check_name = "Check that the build's and the suite's crashes reach Windows Error Reporting (Windows)"
+        check = steps(self.job)[check_name]
+        self.assertIn("if: ${{ matrix.os == 'windows-latest' }}", check)
+        self.assertIn("run: python scripts/run_with_progress.py --self-test", check)
+        self.assertNotIn("continue-on-error", check)
+        self.assertLess(names.index(check_name), names.index(build))
+
+    def test_after_the_tests_windows_names_each_crash_and_keeps_the_dumps_even_in_a_green_job(self) -> None:
+        # Catches the report or the upload skipped in a job that passed (`always()` lost), when the
+        # suite's second attempt hid the crash, as in #313; a report that names no faulting frame; a
+        # run without a warning, where nobody would open the artifact of a green job; and an upload of
+        # another folder than the one Windows Error Reporting writes to. Specification 22: `cdb` names
+        # the exception, faulting module and stack of the first five dumps, and the dumps with those
+        # reports are the artifact `crash-dumps-windows-latest`.
+        names = list(steps(self.job))
+        suite = names.index("Run full test suite")
+        report = steps(self.job)["Name the faulting frame of each crash dump (Windows)"]
+        self.assertGreater(names.index("Name the faulting frame of each crash dump (Windows)"), suite)
+        self.assertIn("if: ${{ always() && matrix.os == 'windows-latest' }}", report)
+        self.assertIn(r'Get-ChildItem "$env:RUNNER_TEMP\crash-dumps" -Filter *.dmp', report)
+        self.assertIn("Select-Object -First 5", report)
+        self.assertIn('-logo $report -c "!analyze -v; .ecxr; kb 40; q"', report)
+        self.assertIn("Join-Path $dump.DirectoryName", report)
+        self.assertIn("::warning title=Crash dumps::", report)
+        upload = steps(self.job)["Upload crash dumps (Windows)"]
+        self.assertGreater(
+            names.index("Upload crash dumps (Windows)"),
+            names.index("Name the faulting frame of each crash dump (Windows)"),
+        )
+        self.assertIn("if: ${{ always() && matrix.os == 'windows-latest' }}", upload)
+        self.assertIn("name: crash-dumps-${{ matrix.os }}", upload)
+        self.assertIn("path: ${{ runner.temp }}/crash-dumps/", upload)
+        self.assertIn("if-no-files-found: ignore", upload)
+
+    def test_no_crash_dump_step_fails_the_job_and_a_failed_upload_is_tried_once_more(self) -> None:
+        # Catches a dump step that turns a job whose tests passed red, for a failed upload or a runner
+        # without cdb (specification 22: the dumps are evidence, and the job's verdict is its tests'); a
+        # symbol download that hangs and holds the job until GitHub's six-hour limit (cdb gets 15
+        # minutes); and dumps lost to one failed upload, which the test log's upload already survives
+        # (G107).
+        self.assertIn("timeout-minutes: 15", steps(self.job)["Name the faulting frame of each crash dump (Windows)"])
+        for name in (
+            "Keep a dump of every crashing process (Windows)",
+            "Name the faulting frame of each crash dump (Windows)",
+            "Upload crash dumps (Windows)",
+            "Upload crash dumps (Windows, second attempt)",
+        ):
+            self.assertIn("continue-on-error: true", steps(self.job)[name], name)
+        self.assertIn("id: crash-dumps", steps(self.job)["Upload crash dumps (Windows)"])
+        second = steps(self.job)["Upload crash dumps (Windows, second attempt)"]
+        self.assertIn(
+            "if: ${{ always() && matrix.os == 'windows-latest' && steps.crash-dumps.outcome == 'failure' }}", second
+        )
+        self.assertIn("name: crash-dumps-${{ matrix.os }}", second)
+        self.assertIn("overwrite: true", second)
+        self.assertIn("path: ${{ runner.temp }}/crash-dumps/", second)
 
 
 if __name__ == "__main__":
