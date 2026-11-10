@@ -124,6 +124,68 @@ pub fn wait_for_status(connection: &RuntimeConnection, log: &Path) -> RuntimeSta
     }
 }
 
+/// The port of the runtime's own web server, which a project configured with port 0 binds where the operating system
+/// chooses (specification 22: a test reads the port a program bound rather than reserve one), as the runtime reports it in
+/// its `fleet.topology` answer on its control socket once the listener is bound (specification 11, fleet topology).
+#[cfg(unix)]
+pub fn bound_web_port(socket: &Path, log: &Path) -> u16 {
+    let deadline = Instant::now() + DEADLINE;
+    loop {
+        if let Some(port) = fleet_topology(socket)
+            .as_ref()
+            .and_then(bound_web_address)
+            .and_then(|address| address.rsplit(':').next()?.parse().ok())
+        {
+            return port;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the runtime reported no bound web address; its log:\n{}",
+            fs::read_to_string(log).unwrap_or_default()
+        );
+        sleep(Duration::from_millis(100));
+    }
+}
+
+/// The result of one `fleet.topology` request on the control socket at `socket`, which has no token; none while the runtime
+/// does not answer.
+#[cfg(unix)]
+fn fleet_topology(socket: &Path) -> Option<serde_json::Value> {
+    use std::io::{BufRead, BufReader, Write};
+
+    let mut stream = std::os::unix::net::UnixStream::connect(socket).ok()?;
+    stream
+        .write_all(b"{\"id\":1,\"type\":\"fleet.topology\"}\n")
+        .ok()?;
+    let mut line = String::new();
+    BufReader::new(stream).read_line(&mut line).ok()?;
+    serde_json::from_str::<serde_json::Value>(&line)
+        .ok()?
+        .get("result")
+        .cloned()
+}
+
+/// The address of the runtime's own web endpoint in a `fleet.topology` answer, once its listener is bound (health
+/// `connected`).
+fn bound_web_address(value: &serde_json::Value) -> Option<String> {
+    match value {
+        serde_json::Value::Object(map) => {
+            if map.get("protocol").and_then(serde_json::Value::as_str) == Some("web")
+                && map.get("source").and_then(serde_json::Value::as_str) == Some("self")
+                && map.get("health").and_then(serde_json::Value::as_str) == Some("connected")
+            {
+                return map
+                    .get("address")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string);
+            }
+            map.values().find_map(bound_web_address)
+        }
+        serde_json::Value::Array(items) => items.iter().find_map(bound_web_address),
+        _ => None,
+    }
+}
+
 /// The `trust-runtime` executable of this target folder, or `TRUST_RUNTIME_BIN`.
 pub fn trust_runtime() -> PathBuf {
     if let Some(path) = std::env::var_os("TRUST_RUNTIME_BIN") {

@@ -29,7 +29,7 @@ mod common;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread::sleep;
@@ -158,9 +158,9 @@ impl Drop for AttachedRuntime {
     }
 }
 
-/// Points the copy's control endpoint at a socket in the copy, switches its web server on at `web_port` (the operator's HMI route), and
-/// makes every loop of the copy bind the runtime that the verbs name.
-fn prepare_attached_project(project: &Path, socket: &Path, web_port: u16) {
+/// Points the copy's control endpoint at a socket in the copy, switches its web server on at port 0 (the operator's HMI route;
+/// [`common::bound_web_port`] reads the port it binds), and makes every loop of the copy bind the runtime that the verbs name.
+fn prepare_attached_project(project: &Path, socket: &Path) {
     let runtime_path = project.join("runtime.toml");
     let text = set_toml_keys(
         &read_text(&runtime_path),
@@ -172,7 +172,7 @@ fn prepare_attached_project(project: &Path, socket: &Path, web_port: u16) {
         "runtime.web",
         &[
             ("enabled", "true".to_string()),
-            ("listen", format!("\"127.0.0.1:{web_port}\"")),
+            ("listen", "\"127.0.0.1:0\"".to_string()),
         ],
     );
     fs::write(&runtime_path, text).expect("write runtime.toml");
@@ -219,12 +219,6 @@ fn plant_names(project: &Path) -> Vec<String> {
             (key.trim() == "name").then(|| value.trim().trim_matches('"').to_string())
         })
         .collect()
-}
-
-/// A port on the loopback interface, free now, for the web server of the copy's runtime.
-fn reserve_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("a loopback port");
-    listener.local_addr().expect("the port").port()
 }
 
 /// The answer of a request to the web HMI: its status, its cookies and its JSON body.
@@ -553,8 +547,7 @@ fn room_heating_tic101_is_identified_tuned_validated_applied_restored_and_kept()
     let project = folder.join("project");
     copy_dir(Path::new(ROOM_HEATING), &project);
     let socket = control_socket(&project);
-    let web_port = reserve_port();
-    prepare_attached_project(&project, &socket, web_port);
+    prepare_attached_project(&project, &socket);
     run_trust_runtime(&["build", "--project", &project.display().to_string()]);
     let loop_file = json_of(&project.join(LOOP_FILE));
     let declared = LoopDefinition::decode(&read_text(&project.join(LOOP_FILE)))
@@ -575,6 +568,7 @@ fn room_heating_tic101_is_identified_tuned_validated_applied_restored_and_kept()
         runtime_id: None,
     };
     let first = wait_for_status(&connection, &log);
+    let web_port = common::bound_web_port(&socket, &log);
     assert_eq!(
         first.simulation_time_scale, TIME_SCALE,
         "the runtime runs at ten times real time"
