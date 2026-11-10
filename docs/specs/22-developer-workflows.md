@@ -736,6 +736,17 @@ anywhere else. A call that must take the temporary directory itself says why
 with `// temp-root-ok: <why>`, such as a socket path that the 100-byte budget
 above keeps short.
 
+A test never reserves a port by binding port 0, reading the port and closing
+the listener before something binds the port again: another socket, a client
+connection's source port among them, can take the port in between. A program
+that can listen on port 0 does so, and the test reads the port it bound. A test
+that serves a port keeps its listener. A test that needs an endpoint where
+nothing answers holds a port without listening on it (`trust-test-support`'s
+`refused_loopback_port`). Where a program takes only a concrete port, such as a
+fleet's managed runtime, the test tries again with other ports when the
+program's bind found its port taken (`reports_a_taken_port`), and after no
+other failure.
+
 The automated docs-capture launcher owns every browser, runtime, and Docker
 process that it starts. On success, command failure, interruption, or timeout,
 it must terminate the complete owned process session and remove the named

@@ -336,14 +336,10 @@ mod tests {
     #[test]
     fn fleet_runtime_status_reports_stopped_when_endpoint_unreachable() {
         let root = temp_dir("fleet-runtime-status-stopped");
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(19916),
-            Some(19986),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
+        let refused = trust_test_support::refused_loopback_port();
+        point_control_endpoint(&root, "cell", refused.port());
 
         let status = status_runtime(&root, "cell").expect("status runtime");
         assert_eq!(status.name, "cell");
@@ -365,14 +361,8 @@ mod tests {
     #[test]
     fn fleet_runtime_status_rejects_malformed_runtime_auth_config() {
         let root = temp_dir("fleet-runtime-status-invalid-auth");
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(19918),
-            Some(19988),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
         let valid_runtime_text =
             fs::read_to_string(root.join("cell/runtime.toml")).expect("read valid runtime config");
         fs::write(root.join("cell/runtime.toml"), "not valid TOML = [")
@@ -442,16 +432,8 @@ mod tests {
     #[test]
     fn fleet_runtime_auth_reader_matches_runtime_token_normalization() {
         let root = temp_dir("fleet-runtime-auth-normalization");
-        let control_port = free_loopback_port();
-        let web_port = distinct_free_loopback_port(control_port);
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(control_port),
-            Some(web_port),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
         let runtime_path = root.join("cell/runtime.toml");
         let mut runtime = fs::read_to_string(&runtime_path)
             .expect("read runtime config")
@@ -470,19 +452,15 @@ mod tests {
     #[test]
     fn fleet_runtime_status_rejects_a_connected_control_error() {
         let root = temp_dir("fleet-runtime-status-control-error");
-        let probe = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve control port");
-        let port = probe.local_addr().expect("control listener address").port();
-        drop(probe);
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(port),
-            Some(19989),
-        )
-        .expect("add runtime");
         let listener =
-            std::net::TcpListener::bind(("127.0.0.1", port)).expect("bind fake control endpoint");
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind fake control endpoint");
+        let port = listener
+            .local_addr()
+            .expect("control listener address")
+            .port();
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
+        point_control_endpoint(&root, "cell", port);
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept status request");
             let mut request = String::new();
@@ -511,14 +489,8 @@ mod tests {
     #[test]
     fn fleet_runtime_logs_return_requested_tail() {
         let root = temp_dir("fleet-runtime-logs");
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(19917),
-            Some(19987),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
         let paths = lifecycle_paths(&root, "cell");
         fs::create_dir_all(&paths.dir).expect("create lifecycle state directory");
         fs::write(&paths.log, "one\ntwo\nthree\n").expect("write log");
@@ -532,14 +504,8 @@ mod tests {
     #[test]
     fn missing_runtime_logs_are_empty_without_creating_state() {
         let root = temp_dir("fleet-runtime-logs-missing");
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(19919),
-            Some(19990),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
 
         let logs = runtime_logs(&root, "cell", 10).expect("read absent logs");
 
@@ -554,16 +520,10 @@ mod tests {
     #[test]
     fn fleet_runtime_status_uses_endpoint_evidence_not_a_stale_pid() {
         let root = temp_dir("fleet-runtime-status-stale-pid");
-        let control_port = free_loopback_port();
-        let web_port = distinct_free_loopback_port(control_port);
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(control_port),
-            Some(web_port),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
+        let refused = trust_test_support::refused_loopback_port();
+        point_control_endpoint(&root, "cell", refused.port());
         let paths = lifecycle_paths(&root, "cell");
         fs::create_dir_all(&paths.dir).expect("create lifecycle directory");
         fs::write(&paths.pid, "4242").expect("write stale PID");
@@ -579,16 +539,10 @@ mod tests {
     #[test]
     fn fleet_runtime_start_removes_pid_when_child_exits_before_ready() {
         let root = temp_dir("fleet-runtime-start-early-exit");
-        let control_port = free_loopback_port();
-        let web_port = distinct_free_loopback_port(control_port);
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(control_port),
-            Some(web_port),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
+        let refused = trust_test_support::refused_loopback_port();
+        point_control_endpoint(&root, "cell", refused.port());
 
         let error =
             start_runtime(&root, "cell").expect_err("test-harness child must exit before ready");
@@ -609,16 +563,10 @@ mod tests {
     #[test]
     fn fleet_runtime_start_aborts_when_pid_persistence_fails() {
         let root = temp_dir("fleet-runtime-start-pid-failure");
-        let control_port = free_loopback_port();
-        let web_port = distinct_free_loopback_port(control_port);
-        add_runtime(
-            &root,
-            "cell",
-            FleetRuntimeTemplateArg::Simulate,
-            Some(control_port),
-            Some(web_port),
-        )
-        .expect("add runtime");
+        add_runtime(&root, "cell", FleetRuntimeTemplateArg::Simulate, None, None)
+            .expect("add runtime");
+        let refused = trust_test_support::refused_loopback_port();
+        point_control_endpoint(&root, "cell", refused.port());
         let paths = lifecycle_paths(&root, "cell");
         fs::create_dir_all(&paths.pid).expect("make PID path unwritable as a file");
 
@@ -658,21 +606,23 @@ mod tests {
         fs::remove_dir_all(root).ok();
     }
 
-    fn free_loopback_port() -> u16 {
-        std::net::TcpListener::bind("127.0.0.1:0")
-            .expect("bind ephemeral loopback port")
-            .local_addr()
-            .expect("read ephemeral loopback port")
-            .port()
-    }
-
-    fn distinct_free_loopback_port(other: u16) -> u16 {
-        loop {
-            let port = free_loopback_port();
-            if port != other {
-                return port;
-            }
-        }
+    /// Points the fleet manifest's control endpoint of runtime `name` at `port` on the loopback
+    /// address: a port that the test already holds, which `add_runtime` would refuse because it
+    /// checks a requested port by binding it.
+    fn point_control_endpoint(root: &Path, name: &str, port: u16) {
+        let manifest_path = root.join(FLEET_MANIFEST_FILE);
+        let mut manifest = fs::read_to_string(&manifest_path)
+            .expect("read fleet manifest")
+            .parse::<DocumentMut>()
+            .expect("parse fleet manifest");
+        let runtime = manifest["runtime"]
+            .as_array_of_tables_mut()
+            .expect("the manifest's runtimes")
+            .iter_mut()
+            .find(|runtime| runtime.get("name").and_then(toml_edit::Item::as_str) == Some(name))
+            .expect("the runtime in the manifest");
+        runtime["control_endpoint"] = toml_edit::value(format!("tcp://127.0.0.1:{port}"));
+        fs::write(&manifest_path, manifest.to_string()).expect("write fleet manifest");
     }
 
     fn temp_dir(prefix: &str) -> PathBuf {

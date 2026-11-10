@@ -42,9 +42,115 @@ fn process_tag() -> &'static str {
     })
 }
 
+/// A loopback TCP port that the test holds without listening on it. While the value lives, no other
+/// socket binds the port and a connection to it is refused: the address of an endpoint where nothing
+/// answers, for the whole test. A port read from a listener that the test then closes can be taken by
+/// any other socket before the test is done with it.
+#[derive(Debug)]
+pub struct RefusedPort {
+    _socket: socket2::Socket,
+    port: u16,
+}
+
+impl RefusedPort {
+    /// The held port.
+    #[must_use]
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+}
+
+/// Holds a free loopback port without listening on it ([`RefusedPort`]).
+///
+/// # Panics
+///
+/// The operating system gives no socket or no port.
+#[must_use]
+pub fn refused_loopback_port() -> RefusedPort {
+    let socket = socket2::Socket::new(
+        socket2::Domain::IPV4,
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )
+    .expect("a TCP socket");
+    socket
+        .bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)).into())
+        .expect("bind a loopback port");
+    let port = socket
+        .local_addr()
+        .ok()
+        .and_then(|address| address.as_socket())
+        .map(|address| address.port())
+        .expect("the bound port");
+    RefusedPort {
+        _socket: socket,
+        port,
+    }
+}
+
+/// How `std::io::Error` writes this operating system's "address in use" error, with which a bind of
+/// a port that another socket holds fails.
+#[cfg(target_os = "linux")]
+const ADDRESS_IN_USE: &str = "(os error 98)";
+#[cfg(windows)]
+const ADDRESS_IN_USE: &str = "(os error 10048)";
+#[cfg(not(any(target_os = "linux", windows)))]
+const ADDRESS_IN_USE: &str = "(os error 48)";
+
+/// Whether `line`, a line of a program's log, reports a bind that failed because another socket
+/// holds the address. A test that chose a free port for a program, which another socket took before
+/// the program bound it, may try again with another port, and only then.
+#[must_use]
+pub fn reports_a_taken_port(line: &str) -> bool {
+    line.contains("bind") && line.contains(ADDRESS_IN_USE)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{process_temp_path, unique_temp_path};
+    use std::net::{SocketAddr, TcpListener, TcpStream};
+    use std::time::Duration;
+
+    use super::{process_temp_path, refused_loopback_port, reports_a_taken_port, unique_temp_path};
+
+    /// A bind of a port that a listener holds fails with this system's "address in use" error, which
+    /// `reports_a_taken_port` finds in a line that names the bind, and only there. Catches the error
+    /// code of another system (a test would never try again) and a check that takes any failure for
+    /// a taken port (a real failure would be tried again and hidden).
+    #[test]
+    fn a_bind_of_a_taken_port_is_reported_as_taken() {
+        let holder = TcpListener::bind("127.0.0.1:0").expect("hold a port");
+        let address = holder.local_addr().expect("the held address");
+        let error = TcpListener::bind(address).expect_err("a second listener on the held port");
+
+        let line = format!("Error: bind {address}: {error}");
+        assert!(reports_a_taken_port(&line), "{line}");
+        assert!(
+            !reports_a_taken_port(&format!("Error: connect {address}: {error}")),
+            "a line that names no bind"
+        );
+        assert!(
+            !reports_a_taken_port("Error: bind 127.0.0.1:1: Permission denied (os error 13)"),
+            "another bind failure"
+        );
+    }
+
+    /// A held port refuses a connection, and no listener takes it while it is held. Catches a
+    /// helper that listens (a connection is accepted and then waits for an answer) and one that
+    /// lets the port go (another socket can listen there and answer).
+    #[test]
+    fn a_refused_port_refuses_connections_and_stays_held() {
+        let refused = refused_loopback_port();
+        let address = SocketAddr::from(([127, 0, 0, 1], refused.port()));
+
+        assert!(
+            TcpStream::connect_timeout(&address, Duration::from_secs(10)).is_err(),
+            "a connection to the held port is refused"
+        );
+        assert!(
+            TcpListener::bind(address).is_err(),
+            "no listener takes the held port"
+        );
+    }
 
     /// Two paths of one name in one process are two, both start with the process's id, and a file
     /// name keeps its extension. Catches a path that two tests of one name share, which the first to
