@@ -47,21 +47,18 @@ fn point_current_at(store: &Path, label: &str) {
 fn a_store_runtime_is_found_through_current_after_an_install_moves_current() {
     let scratch = Scratch::new("store-endpoint-file");
     let current = store_with_two_bundles(scratch.path());
-    let published = PublishedEndpoint::publish_with(
-        &current,
-        &tcp("127.0.0.1:43210"),
-        Some("store-token"),
-        None,
-    )
-    .expect("publish the endpoint file");
+    // No generated token: where a client finds one differs by platform (in the endpoint file, or on
+    // Windows in the per-user token file, which the second test covers), so the client brings its
+    // own and resolution reads nothing but the endpoint file.
+    let published = PublishedEndpoint::publish_with(&current, &tcp("127.0.0.1:43210"), None, None)
+        .expect("publish the endpoint file");
 
     point_current_at(scratch.path(), "b");
-    let target =
-        resolve_control_target(Some(&current), None, None).expect("resolve through current");
+    let target = resolve_control_target(Some(&current), None, Some("store-token"))
+        .expect("resolve through current");
 
     assert_eq!(target.endpoint_text, "tcp://127.0.0.1:43210");
     assert_eq!(target.source, EndpointSource::EndpointFile);
-    assert_eq!(target.auth_token.as_deref(), Some("store-token"));
     let store_file = scratch.path().join(".trust-runtime").join("control.json");
     assert_eq!(endpoint_file_path(&current), store_file);
 
