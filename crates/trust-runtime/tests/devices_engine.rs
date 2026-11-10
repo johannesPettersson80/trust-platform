@@ -84,6 +84,7 @@ fn trust_runtime() -> PathBuf {
 
 /// A loopback port that was free a moment ago. Another socket can take it before the managed
 /// runtime binds it, so a start with it may find it taken ([`found_a_port_taken`]).
+// port-retry-ok: both start tests start again on fresh ports when one was taken.
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .expect("bind an ephemeral loopback port")
