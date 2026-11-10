@@ -328,12 +328,12 @@ impl Runtime {
 fn bound_web_base(project: &Path, token: &str) -> Option<String> {
     use std::io::{BufRead, BufReader, Write};
     let target = resolve_control_target(Some(project), None, Some(token)).ok()?;
-    let ControlEndpoint::Tcp(address) = target.endpoint else {
-        return None;
+    // A match, not `let ... else`: on Windows a control endpoint is always TCP, so the pattern alone
+    // could not fail there, and Clippy's Windows check refuses an irrefutable `let ... else`.
+    let address = match target.endpoint {
+        ControlEndpoint::Tcp(address) if address.port() != 0 => address,
+        _ => return None,
     };
-    if address.port() == 0 {
-        return None;
-    }
     let mut stream = TcpStream::connect(address).ok()?;
     stream.set_read_timeout(Some(WAIT)).ok()?;
     writeln!(
