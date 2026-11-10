@@ -15,11 +15,14 @@ use serde::{Deserialize, Serialize};
 use crate::control::ControlEndpoint;
 use crate::error::RuntimeError;
 
+use super::defaults::runtime_files_folder;
 use super::token_file::{
     read_token_file, remove_token_file_of, token_file_path, write_token_file, TokenFile,
 };
 
-/// The directory under the project folder that holds the endpoint file and the default socket.
+/// The directory that holds the endpoint file and the default socket, in the folder of the
+/// project's runtime files: the project folder, or the program store for a store's `current` link
+/// (spec 11, section 6.8.0a).
 pub const ENDPOINT_DIR: &str = ".trust-runtime";
 /// The endpoint file's name inside [`ENDPOINT_DIR`].
 pub const ENDPOINT_FILE: &str = "control.json";
@@ -314,9 +317,11 @@ pub(super) fn published_token(
         .map(TokenFile::into_token)
 }
 
-/// The path of the endpoint file for a project folder.
+/// The path of the endpoint file for a project folder, in the folder of its runtime files.
 pub(super) fn endpoint_file_path(project_root: &Path) -> PathBuf {
-    project_root.join(ENDPOINT_DIR).join(ENDPOINT_FILE)
+    runtime_files_folder(project_root)
+        .join(ENDPOINT_DIR)
+        .join(ENDPOINT_FILE)
 }
 
 /// Reads the project's endpoint file, or `None` when no runtime has published one.
@@ -373,7 +378,7 @@ pub(super) fn write_endpoint_file(
     project_root: &Path,
     file: &EndpointFile,
 ) -> Result<(), RuntimeError> {
-    let dir = project_root.join(ENDPOINT_DIR);
+    let dir = runtime_files_folder(project_root).join(ENDPOINT_DIR);
     ensure_private_directory(&dir)?;
     let text = serde_json::to_string(file)
         .map_err(|error| invalid(format!("encode endpoint file: {error}")))?;

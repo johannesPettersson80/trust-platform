@@ -2,8 +2,8 @@
 //! private copy of an example project, so no test writes into the repository and the control
 //! endpoint is a real TCP socket. The control endpoint is `tcp://127.0.0.1:0`: the runtime binds a
 //! free port and publishes it in the copy's endpoint file, where `ctl` and this harness find it
-//! (specification 11, section 6.8.0a), so no other process can take it first; a program store's copy
-//! keeps a reserved port (see `assign_ports`). The web interface and the mesh listen on port 0 too,
+//! (specification 11, section 6.8.0a), so no other process can take it first; a program store's
+//! runtime keeps that file in the store folder. The web interface and the mesh listen on port 0 too,
 //! and the runtime reports the web interface's bound address in its fleet topology; only OPC UA,
 //! and a web port that a test occupies, keep a reserved free loopback port (`listen_reserved`), so
 //! tests that run in parallel cannot collide. Included by each test file with
@@ -266,18 +266,13 @@ impl ExampleRuntime {
 
     /// Writes the listen ports, the control endpoint, the copy's token and the requested settings
     /// into the copy's runtime.toml, reserving a port only where port 0 cannot serve
-    /// (`listen_reserved`). The control endpoint is `tcp://127.0.0.1:0`, except in a program store:
-    /// the runtime publishes its endpoint file in the bundle `current` named at its start, and an
-    /// install moves `current` to a bundle without that file, after which only a configured port
-    /// finds the runtime through `current` (checklist G118). A store's control endpoint therefore
-    /// takes a reserved port too.
+    /// (`listen_reserved`). The control endpoint is `tcp://127.0.0.1:0`, in a program store too:
+    /// its runtime keeps its endpoint file in the store folder, which an install, moving `current`
+    /// to another bundle, leaves in place (specification 11, section 6.8.0a).
     fn assign_ports(&self, runtime: &mut Runtime) {
         let reserved = listen_reserved(self.occupy_web_port);
-        let count = usize::from(self.store) + reserved.iter().filter(|&&reserved| reserved).count();
+        let count = reserved.iter().filter(|&&reserved| reserved).count();
         let mut ports = reserve_local_ports(count).into_iter();
-        let control = self
-            .store
-            .then(|| ports.next().expect("a reserved control port"));
         let listen =
             reserved.map(|reserved| reserved.then(|| ports.next().expect("a reserved port")));
         let runtime_toml = runtime.project.join("runtime.toml");
@@ -290,9 +285,6 @@ impl ExampleRuntime {
             self.start_paused,
             self.web_enabled,
         );
-        if let Some(port) = control {
-            set_control_port(&runtime_toml, port);
-        }
         runtime.web_port = listen[0];
     }
 }
@@ -597,7 +589,7 @@ impl Runtime {
     /// The control endpoint's bound address, resolved as `ctl` resolves it: the copy configures
     /// `tcp://127.0.0.1:0`, and the runtime publishes the port it bound in the copy's endpoint file
     /// (specification 11, section 6.8.0a). Before it does, resolution ends at the configured port
-    /// 0, which is no endpoint to connect to. A program store's copy configures a reserved port.
+    /// 0, which is no endpoint to connect to.
     fn control_address(&self) -> Result<SocketAddr, String> {
         let target = resolve_control_target(Some(&self.project), None, Some(&self.token))
             .map_err(|err| format!("resolve the control endpoint: {err}"))?;
@@ -853,23 +845,6 @@ fn replace_in_file(path: &Path, from: &str, to: &str) {
         path.display()
     );
     fs::write(path, text.replace(from, to)).expect("write edited source");
-}
-
-/// Sets the copied runtime.toml's control endpoint to the reserved loopback `port` (a program
-/// store's copy, see `assign_ports`).
-fn set_control_port(path: &Path, port: u16) {
-    let text = fs::read_to_string(path).expect("read runtime.toml");
-    let mut document: toml::Table = toml::from_str(&text).expect("parse runtime.toml");
-    let control = table_section(table_section(&mut document, "runtime"), "control");
-    control.insert(
-        "endpoint".into(),
-        toml::Value::String(format!("tcp://127.0.0.1:{port}")),
-    );
-    fs::write(
-        path,
-        toml::to_string(&document).expect("render runtime.toml"),
-    )
-    .expect("write runtime.toml");
 }
 
 /// Rewrites the copied runtime.toml with the toml crate. The control endpoint becomes

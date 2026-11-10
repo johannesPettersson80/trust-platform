@@ -3243,6 +3243,15 @@ works on its platform and never collides with another project:
   operating-system secure random source encoded as unpadded base64url; it never falls back to a
   predictable value.
 
+A runtime started on a program store's `current` link (specification 34 §11.2) keeps the files of
+this section in the store folder, the folder that holds `current`, `previous` and `bundles`, and not
+in a bundle: `<project>` in this section is the store folder, and `<h>` is taken over its canonical
+path. Its runtime ID file `.trust-runtime/runtime_id` (runtime discovery) is kept there too. An
+install, a deployment or a rollback moves `current` to another bundle while the runtime keeps
+running; files kept in a bundle would stay behind in the bundle the runtime started on, where no
+client given `current` looks, and the runtime ID would change at the next start. A client given the
+`current` link takes the same files.
+
 After it binds the control endpoint, the runtime writes `<project>/.trust-runtime/control.json`:
 `{"schema_version":1,"endpoint":"<bound endpoint>","pid":<process id>}`. On Unix-like systems a token
 that the runtime generated is added as `"auth_token"`, and the file has mode 0600. On Windows a
@@ -7273,9 +7282,11 @@ Rules:
   for example `stm32u5a9`), and `auth` (`token` when the control endpoint needs
   a token, otherwise `none`). The `id` is the runtime's stable runtime ID: it is
   generated once with a random part on first start and kept in the project's
-  `.trust-runtime/runtime_id`, read back on every start, so it stays the same
-  across restarts and differs between two runtimes on one host, and it is never
-  built from a process ID. A file that cannot be read or holds an invalid ID is
+  `.trust-runtime/runtime_id` (the store folder's for a runtime started on a
+  program store's `current` link, section 6.8.0a), read back on every start, so
+  it stays the same across restarts and differs between two runtimes on one
+  host, and it is never built from a process ID. A file that cannot be read or
+  holds an invalid ID is
   an error, never silently replaced with a fresh ID. A project folder that
   cannot hold the file, because the file or its folder cannot be created or
   written there (a read-only or foreign project folder), has the ID kept for the

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::RuntimeError;
 
-use super::defaults::{canonical_project_root, project_path_hash};
+use super::defaults::{canonical_runtime_files_folder, project_path_hash};
 use super::file::{invalid, write_atomically, ENDPOINT_FILE_SCHEMA_VERSION};
 
 /// The token that a runtime generated, with the start it belongs to.
@@ -57,7 +57,8 @@ impl TokenFile {
     }
 }
 
-/// `<token dir>/<h>.json` for a project folder, where `<h>` is the hash of its canonical path.
+/// `<token dir>/<h>.json` for a project folder, where `<h>` is the hash of the canonical path of
+/// the folder of its runtime files (the program store for a store's `current` link).
 ///
 /// # Errors
 ///
@@ -66,7 +67,7 @@ pub(super) fn token_file_path(
     token_dir: &Path,
     project_root: &Path,
 ) -> Result<PathBuf, RuntimeError> {
-    let canonical = canonical_project_root(project_root)?;
+    let canonical = canonical_runtime_files_folder(project_root)?;
     Ok(token_dir.join(format!("{}.json", project_path_hash(&canonical))))
 }
 

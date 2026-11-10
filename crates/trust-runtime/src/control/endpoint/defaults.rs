@@ -48,7 +48,10 @@ const CONTROL_TOKEN_BYTES: usize = 32;
 pub fn platform_default_endpoint(project_root: &Path) -> Result<ControlEndpoint, RuntimeError> {
     #[cfg(unix)]
     {
-        client_unix_default_in(&canonical_project_root(project_root)?, runtime_directory)
+        client_unix_default_in(
+            &canonical_runtime_files_folder(project_root)?,
+            runtime_directory,
+        )
     }
     #[cfg(not(unix))]
     {
@@ -85,7 +88,7 @@ pub(super) fn default_binding_endpoint(
 ) -> Result<ControlEndpoint, RuntimeError> {
     #[cfg(unix)]
     {
-        let canonical = canonical_project_root(project_root)?;
+        let canonical = canonical_runtime_files_folder(project_root)?;
         let local_ready = ensure_private_directory(&canonical.join(ENDPOINT_DIR)).is_ok();
         unix_default_endpoint_in(&canonical, local_ready, runtime_directory)
     }
@@ -105,10 +108,19 @@ fn unbound_loopback() -> ControlEndpoint {
     ))
 }
 
-/// The project folder as the operating system names it, so that every client and the runtime
-/// derive the same fallback socket and token file from it.
-pub(crate) fn canonical_project_root(project_root: &Path) -> Result<PathBuf, RuntimeError> {
-    std::fs::canonicalize(project_root).map_err(|error| {
+/// The folder that holds a project's runtime files, its `.trust-runtime` directory, and whose path
+/// gives `<h>` (spec 11, section 6.8.0a): the program store that holds `project_root` when it is a
+/// store's `current` link (spec 34 §11.2), so that the files stay with the runtime when an install
+/// or a rollback moves `current` to another bundle, and otherwise the project folder itself.
+pub(crate) fn runtime_files_folder(project_root: &Path) -> PathBuf {
+    crate::deployment::program_store::store_root(project_root)
+        .unwrap_or_else(|| project_root.to_path_buf())
+}
+
+/// The folder of the project's runtime files ([`runtime_files_folder`]) as the operating system
+/// names it, so that every client and the runtime derive the same sockets and token file from it.
+pub(crate) fn canonical_runtime_files_folder(project_root: &Path) -> Result<PathBuf, RuntimeError> {
+    std::fs::canonicalize(runtime_files_folder(project_root)).map_err(|error| {
         RuntimeError::InvalidBundle(
             format!("project folder {}: {error}", project_root.display()).into(),
         )

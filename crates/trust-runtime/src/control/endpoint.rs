@@ -17,6 +17,8 @@ mod defaults_tests;
 #[cfg(test)]
 mod publication_tests;
 #[cfg(test)]
+mod store_files_tests;
+#[cfg(test)]
 mod test_support;
 #[cfg(test)]
 mod tests;
@@ -33,9 +35,12 @@ use crate::error::RuntimeError;
 use super::ControlEndpoint;
 
 pub use defaults::{generate_control_token, platform_default_endpoint};
-// The project-path hash that names a fallback socket, a per-user token file and a runtime ID kept
-// for the user (spec 11, section 6.8.0a and runtime discovery).
-pub(crate) use defaults::{canonical_project_root, project_path_hash};
+// The folder of a project's runtime files, and the project-path hash that names a fallback
+// socket, a per-user token file and a runtime ID kept for the user (spec 11, section 6.8.0a and
+// runtime discovery).
+pub(crate) use defaults::{
+    canonical_runtime_files_folder, project_path_hash, runtime_files_folder,
+};
 pub use file::{
     remove_endpoint_file_of, withdraw_auth_token, PublishedEndpoint, WithdrawnToken, ENDPOINT_DIR,
     ENDPOINT_FILE,

@@ -16,7 +16,9 @@ use std::sync::OnceLock;
 use rand::TryRng;
 use smol_str::SmolStr;
 
-use crate::control::endpoint::{canonical_project_root, project_path_hash};
+use crate::control::endpoint::{
+    canonical_runtime_files_folder, project_path_hash, runtime_files_folder,
+};
 use crate::error::RuntimeError;
 
 /// The folder below the project root that keeps runtime state.
@@ -49,10 +51,14 @@ pub struct RuntimeIdentity {
     pub place: RuntimeIdPlace,
 }
 
-/// The path of the project's runtime ID file, `<project>/.trust-runtime/runtime_id`.
+/// The path of the project's runtime ID file, `<project>/.trust-runtime/runtime_id`, in the folder
+/// of the project's runtime files: the program store for a store's `current` link, so that an
+/// install or a rollback, which moves `current`, keeps the ID (specification 11 §6.8.0a).
 #[must_use]
 pub(crate) fn runtime_id_path(project_root: &Path) -> PathBuf {
-    project_root.join(STATE_DIR).join(ID_FILE)
+    runtime_files_folder(project_root)
+        .join(STATE_DIR)
+        .join(ID_FILE)
 }
 
 /// The project's stable runtime ID; see [`runtime_identity`].
@@ -129,7 +135,7 @@ fn runtime_identity_in(
 /// path that names the fallback socket and the per-user token file (specification 11 §6.8.0a).
 fn user_id_path(state_folder: &Path, project_root: &Path) -> PathBuf {
     let canonical =
-        canonical_project_root(project_root).unwrap_or_else(|_| project_root.to_path_buf());
+        canonical_runtime_files_folder(project_root).unwrap_or_else(|_| project_root.to_path_buf());
     state_folder
         .join(USER_ID_DIR)
         .join(format!("{}.id", project_path_hash(&canonical)))
