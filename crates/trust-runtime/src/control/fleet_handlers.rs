@@ -95,6 +95,11 @@ mod topology;
 use topology::*;
 
 fn build_fleet_topology(state: &ControlState) -> Result<FleetTopology, String> {
+    // The web server records the address it bound in the settings, then sets this flag
+    // (`ControlState::record_web_listener_bound`). Read before the settings are copied, a set flag
+    // means the copy holds that address, so an answer that reports the web listener bound names
+    // the address it bound (specification 11, fleet topology).
+    let web_listener_bound = state.web_listener_bound.load(Ordering::Acquire);
     let settings = state
         .settings
         .lock()
@@ -137,6 +142,7 @@ fn build_fleet_topology(state: &ControlState) -> Result<FleetTopology, String> {
     let runtime_inputs = FleetRuntimeInputs {
         state,
         settings: &settings,
+        web_listener_bound,
         io_health: &io_health,
         io_drivers: &io_drivers,
         io_snapshot: io_snapshot.as_ref(),

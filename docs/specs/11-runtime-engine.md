@@ -4881,9 +4881,11 @@ A running runtime's web service endpoint reports as its `address` the address
 its listener bound, from the moment the listener is bound, so a configured port
 0 shows the port the operating system chose; `params.listen` keeps the
 configured value. Before the listener is bound, `address` is the configured
-`listen`. The `Open:` line of the start-up banner that `trust-runtime play`
-prints names the same bound address. A client that configured port 0 finds the
-web interface through the `fleet.topology` request.
+`listen`. One answer never mixes the two: an answer that reports the endpoint
+`connected` names the bound address, even when the listener binds while the
+answer is being built. The `Open:` line of the start-up banner that
+`trust-runtime play` prints names the same bound address. A client that
+configured port 0 finds the web interface through the `fleet.topology` request.
 
 Fleet topology schema version 4 contains `hosts`, `links`, `shared`, and
 `external` arrays and omits an empty `discovered` array. IDs are deterministic

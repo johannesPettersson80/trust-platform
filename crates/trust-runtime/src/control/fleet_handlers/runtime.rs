@@ -3,6 +3,9 @@ use super::*;
 pub(super) struct FleetRuntimeInputs<'a> {
     pub(super) state: &'a ControlState,
     pub(super) settings: &'a RuntimeSettings,
+    /// Whether the web listener is bound, read before `settings` was copied
+    /// (`build_fleet_topology`).
+    pub(super) web_listener_bound: bool,
     pub(super) io_health: &'a [IoDriverStatus],
     pub(super) io_drivers: &'a [IoDriverConfig],
     pub(super) io_snapshot: Option<&'a IoSnapshot>,
