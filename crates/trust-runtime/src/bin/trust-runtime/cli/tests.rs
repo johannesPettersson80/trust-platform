@@ -30,6 +30,38 @@ mod tests {
         }
     }
 
+    /// Specification 11 §6.8.1c and §6.8.1d: `--sources` may be given more than once, for `check`
+    /// and for `build`, and each folder is kept in its order. Catches a repeated flag refused
+    /// ("cannot be used multiple times", contributor issue #420) and a folder dropped.
+    #[test]
+    fn parse_repeated_sources_for_check_and_build() {
+        let folders = vec![PathBuf::from("src"), PathBuf::from("vendor/stubs")];
+        let check = Cli::parse_from([
+            "trust-runtime",
+            "check",
+            "--sources",
+            "src",
+            "--sources",
+            "vendor/stubs",
+        ]);
+        match check.command.expect("command") {
+            Command::Check { sources, .. } => assert_eq!(sources, folders),
+            other => panic!("expected check command, got {other:?}"),
+        }
+        let build = Cli::parse_from([
+            "trust-runtime",
+            "build",
+            "--sources",
+            "src",
+            "--sources",
+            "vendor/stubs",
+        ]);
+        match build.command.expect("command") {
+            Command::Build { sources, .. } => assert_eq!(sources, folders),
+            other => panic!("expected build command, got {other:?}"),
+        }
+    }
+
     #[test]
     fn parse_check_json_and_ci_flags() {
         let cli = Cli::parse_from([
@@ -50,7 +82,7 @@ mod tests {
                 ci,
             } => {
                 assert_eq!(project, Some(PathBuf::from("project")));
-                assert_eq!(sources, Some(PathBuf::from("src")));
+                assert_eq!(sources, vec![PathBuf::from("src")]);
                 assert!(json);
                 assert!(ci);
             }

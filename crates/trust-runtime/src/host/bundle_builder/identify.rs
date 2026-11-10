@@ -18,7 +18,7 @@
 /// [`check_identify_output`](crate::io::check_identify_output)).
 pub fn refuse_identify_output_use(
     bundle_root: &Path,
-    sources_root: Option<&Path>,
+    sources: &[std::path::PathBuf],
 ) -> Result<(), crate::error::RuntimeError> {
     let runtime_toml = bundle_root.join("runtime.toml");
     if !runtime_toml.is_file() {
@@ -41,7 +41,7 @@ pub fn refuse_identify_output_use(
     };
     // The program's bindings and output image as the build lays them out from its declarations,
     // without the toolchain: `check` and `ide serve` build no image (specification 44 §5.6).
-    let Ok(files) = collect_project_sources_labelled(bundle_root, sources_root) else {
+    let Ok(files) = collect_project_sources_labelled(bundle_root, sources) else {
         return Ok(());
     };
     let Ok(declarations) = crate::harness::CompileSession::from_sources(files).declarations() else {

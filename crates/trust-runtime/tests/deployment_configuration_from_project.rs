@@ -133,7 +133,7 @@ fn build(root: &std::path::Path) -> anyhow::Result<BundleBuildReport> {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
-    build_program_image(root, None, target, &toolchain, false, true)
+    build_program_image(root, &[], target, &toolchain, false, true)
 }
 
 /// The configuration the build wrote into `root`'s record.

@@ -457,7 +457,7 @@ fn upgrade_legacy_sources(
 fn collect_sources(bundle_root: &Path, sources_root: &Path) -> anyhow::Result<Vec<SourceFile>> {
     let mut files = trust_runtime::bundle_builder::collect_project_source_files(
         bundle_root,
-        Some(sources_root),
+        &[sources_root.to_path_buf()],
     )?;
     files.retain(|file| {
         !file

@@ -147,7 +147,10 @@ fn load_source_registry(
     sources_root: Option<&Path>,
 ) -> anyhow::Result<SourceRegistry> {
     let files =
-        trust_runtime::bundle_builder::collect_project_source_files(bundle_root, sources_root)?
+        trust_runtime::bundle_builder::collect_project_source_files(
+            bundle_root,
+            sources_root.map(Path::to_path_buf).as_slice(),
+        )?
             .into_iter()
             .enumerate()
             .map(|(index, source)| {

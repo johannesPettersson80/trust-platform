@@ -566,7 +566,7 @@ fn build_and_validate_copy(repo: &Path, project: &Path) -> Result<(), String> {
     let root = TempRoot::new("example");
     let copy = root.path().join(strip_repo(repo, project)?);
     copy_tree(project, &copy)?;
-    let layout = inspect_project_layout(project, None)
+    let layout = inspect_project_layout(project, &[])
         .map_err(|error| format!("resolve trust-lsp.toml dependencies: {error:#}"))?;
     for dependency in &layout.dependency_roots {
         copy_tree(dependency, &root.path().join(strip_repo(repo, dependency)?))?;

@@ -28,7 +28,7 @@ const EXAMPLES: &[&str] = &[
 
 /// The program as `trust-runtime build` compiles it, without runtime-ignored sources.
 fn program_sources(root: &Path, example: &str) -> Vec<SourceFile> {
-    collect_project_source_files(root, None)
+    collect_project_source_files(root, &[])
         .unwrap_or_else(|error| panic!("{example}: {error}"))
         .into_iter()
         .filter(|source| {

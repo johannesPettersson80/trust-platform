@@ -125,7 +125,7 @@ trust-runtime build --project examples/communication/gpio --sources src
 trust-runtime build --project examples/communication/multi_driver --sources src
 trust-runtime build --project examples/siemens_scl_v1 --sources src
 trust-runtime build --project examples/mitsubishi_gxworks3_v1 --sources src
-trust-runtime build --project examples/vendor_library_stubs --sources .
+trust-runtime build --project examples/vendor_library_stubs --sources src --sources vendor/siemens
 ```
 
 Tutorial regression checks:

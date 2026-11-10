@@ -77,8 +77,8 @@ END_PROGRAM
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
-    let report = build_program_image(root, None, target, &toolchain, false, true)
-        .expect("build program.tpi");
+    let report =
+        build_program_image(root, &[], target, &toolchain, false, true).expect("build program.tpi");
     assert!(report.image.is_file(), "program.tpi should exist");
 }
 

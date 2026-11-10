@@ -68,11 +68,14 @@ END_FUNCTION_BLOCK
 
 ## Optional Runtime Build Check
 
-Because runtime build scans source roots, include both `src/` and `vendor/` when
-building this tutorial project:
+A runtime build or check compiles `<project>/src`, and `[[libraries]]` entries
+are for the editor's indexing only, so name both the project's sources and the
+stubs. `--sources` may be given more than once, and takes no other `.st` files
+that the project folder may hold:
 
 ```bash
-trust-runtime build --project examples/vendor_library_stubs --sources .
+trust-runtime build --project examples/vendor_library_stubs --sources src --sources vendor/siemens
+trust-runtime check --project examples/vendor_library_stubs --sources src --sources vendor/siemens
 ```
 
 ## Limits

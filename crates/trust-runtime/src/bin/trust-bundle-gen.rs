@@ -23,7 +23,7 @@ fn main() -> anyhow::Result<()> {
     let toolchain = Toolchain::find()?;
     let target = Target::this_cpu()
         .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
-    let report = build_program_image(&args.bundle, None, target, &toolchain, false, true)?;
+    let report = build_program_image(&args.bundle, &[], target, &toolchain, false, true)?;
     println!("Wrote {}", report.image.display());
     Ok(())
 }

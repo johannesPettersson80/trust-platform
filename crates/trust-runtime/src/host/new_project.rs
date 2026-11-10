@@ -502,7 +502,7 @@ params = {}
     fn the_project_st_compiles() {
         let scratch = Scratch::new("compile");
         let project = create_project(scratch.path(), "my-plc", false).expect("create project");
-        let report = crate::bundle_builder::check_program(&project, None)
+        let report = crate::bundle_builder::check_program(&project, &[])
             .expect("the new project's ST compiles");
         // The build runs the resource that runtime.toml names, which the configuration declares,
         // compared without regard to case (specification 11 §6.8.1d). Wrong behaviour caught: a

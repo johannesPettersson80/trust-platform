@@ -340,7 +340,8 @@ pub(crate) fn project_info_payload(
     project_root: &Path,
     sources_root: Option<&Path>,
 ) -> anyhow::Result<JsonValue> {
-    let inspection = inspect_project_layout(project_root, sources_root)?;
+    let inspection =
+        inspect_project_layout(project_root, sources_root.map(Path::to_path_buf).as_slice())?;
     let project_root = canonicalize_or_self(project_root);
     let runtime_path = project_root.join("runtime.toml");
     let io_path = project_root.join("io.toml");
@@ -351,9 +352,12 @@ pub(crate) fn project_info_payload(
         .clone()
         .unwrap_or_else(|| project_root.join("trust-lsp.toml"));
 
-    let source_root_display = canonicalize_or_self(&inspection.sources_root)
-        .display()
-        .to_string();
+    // The first source folder: this payload names one, which it is when `sources_root` names it.
+    let source_root_display = inspection
+        .sources_roots
+        .first()
+        .map(|root| canonicalize_or_self(root).display().to_string())
+        .unwrap_or_default();
     let sources = inspection
         .sources
         .iter()

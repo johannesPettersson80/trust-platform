@@ -937,7 +937,12 @@ END_PROGRAM
     let toolchain = trust_runtime::native::Toolchain::find().expect("the toolchain");
     let target = trust_runtime::native::Target::this_cpu().expect("this computer's CPU");
     trust_runtime::bundle_builder::build_program_image(
-        &project, None, target, &toolchain, false, true,
+        &project,
+        &[],
+        target,
+        &toolchain,
+        false,
+        true,
     )
     .expect("build the project with its dependency");
     std::fs::write(

@@ -10,7 +10,7 @@ fn run_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<BenchRepo
         .with_context(|| format!("load runtime.toml for {}", workload.project.display()))?;
     let cycle_budget = runtime_config.cycle_interval;
     let cycle_budget_ns = u64::try_from(cycle_budget.as_nanos()).unwrap_or(u64::MAX);
-    let sources = collect_project_source_files(&workload.project, None)
+    let sources = collect_project_source_files(&workload.project, &[])
         .with_context(|| format!("collect sources for {}", workload.project.display()))?;
     let toolchain = Toolchain::find()
         .map_err(|error| anyhow::anyhow!("the native backend needs its toolchain: {error}"))?;
