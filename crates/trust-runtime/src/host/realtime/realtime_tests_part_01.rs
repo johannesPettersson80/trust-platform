@@ -1,15 +1,6 @@
 use super::*;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-fn unique_temp_path(label: &str) -> PathBuf {
-    static TEST_NONCE: AtomicU64 = AtomicU64::new(0);
-    let nonce = TEST_NONCE.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
-        "trust-runtime-realtime-{label}-{}-{nonce}",
-        std::process::id()
-    ))
-}
+use trust_test_support::unique_temp_path;
 
 fn transport_fixture() -> T0Transport {
     let mut transport = T0Transport::new();

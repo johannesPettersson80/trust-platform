@@ -7,8 +7,9 @@ from `trust_test_support::unique_temp_path`, which puts the process id and a cou
 `temp_dir()` call in test code anywhere else:
 
 - test code is a file in a crate's own `tests` or `benches` directory, a module file that a `#[cfg(test)]` or
-  `#[cfg(all(test, ...))]` gated `mod name;` declares (with its `#[path]`) and every module file below it, and the
-  items of any other file that such a gate gates. A file's name proves nothing: `hmi_test.rs` is a command's module;
+  `#[cfg(all(test, ...))]` gated `mod name;` declares (with its `#[path]`) and every module file below it, a file
+  that test code pastes in with `include!("path")` (relative to the including file), and the items of any other file
+  that such a gate gates. A file's name proves nothing: `hmi_test.rs` is a command's module;
 - a call that must take the temporary directory itself carries the comment `// temp-root-ok: <why>` on its line or on
   the line before: a product's own path, or a socket path that the 100-byte socket budget keeps short.
 
@@ -17,6 +18,7 @@ Usage: check_test_temp_paths.py [ROOT]
 
 from __future__ import annotations
 
+import posixpath
 import re
 import sys
 from pathlib import Path
@@ -88,6 +90,7 @@ def code_only(text: str) -> str:
 
 MOD_DECLARATION = re.compile(r"((?:#\[[^\]]*\]\s*)*)(?:pub(?:\([^)]*\))?\s+)?mod\s+(r#)?(\w+)\s*;")
 PATH_ATTRIBUTE = re.compile(r'#\[path\s*=\s*"([^"]+)"\]')
+INCLUDE = re.compile(r'\binclude!\s*\(\s*"')
 
 
 TEST_DIRECTORY = re.compile(r"^(?:crates/[^/]+|xtask)/(?:tests|benches)/")
@@ -122,13 +125,30 @@ def declared_modules(relative: str, text: str, code: str) -> list[tuple[str, boo
     return found
 
 
+def included_files(relative: str, text: str, code: str) -> list[tuple[str, int]]:
+    """The files that `relative` pastes in with `include!("path")`: (the file, the line of the `include!`). The path
+    is relative to the including file's directory, as `include!` reads it."""
+    directory = relative.rsplit("/", 1)[0] if "/" in relative else ""
+    found = []
+    for include in INCLUDE.finditer(code):
+        start = include.end()
+        path = text[start:text.find('"', start)]
+        found.append((posixpath.normpath(f"{directory}/{path}"), code.count("\n", 0, include.start()) + 1))
+    return found
+
+
 def test_module_files(sources: dict[str, str]) -> set[str]:
     """The files of `sources` (relative path -> text) that are test code as a whole: under a `tests` or `benches`
-    directory, or declared through a test gate, and every module file below such a file."""
+    directory, declared through a test gate or included where a test gate gates, and every module file below such
+    a file and every file that such a file includes."""
     tests = {relative for relative in sources if in_test_directory(relative)}
     children: dict[str, list[tuple[str, bool]]] = {}
     for relative, text in sources.items():
-        children[relative] = declared_modules(relative, text, code_only(text))
+        code = code_only(text)
+        gated = test_lines(code)
+        children[relative] = declared_modules(relative, text, code) + [
+            (child, line in gated) for child, line in included_files(relative, text, code)
+        ]
     pending = list(tests)
     for relative, declared in children.items():
         for child, is_gated in declared:
