@@ -416,7 +416,7 @@ fn the_simulation_facts_of_a_status() {
 /// runtime that cannot be read.
 #[test]
 fn the_speed_of_a_runtime_that_does_not_answer() {
-    let endpoint = super::super::fake_runtime::closed_endpoint();
+    let (_held, endpoint) = super::super::fake_runtime::closed_endpoint();
     let unread = answer("speed", json!({ "endpoint": endpoint })).expect("an answer");
     assert_eq!(unread, json!({ "ok": true, "read": null }));
     let runtime = super::super::fake_runtime::FakeRuntime::answering(json!({

@@ -131,7 +131,8 @@ fn a_refusal_without_error_code_or_text() {
 /// runtime's refusal.
 #[test]
 fn transport_and_malformed_outcomes() {
-    let answer = request(&closed_endpoint(), None, "status", Value::Null);
+    let (_held, closed) = closed_endpoint();
+    let answer = request(&closed, None, "status", Value::Null);
     assert_eq!(answer["outcome"], "transport", "{answer}");
     let answer = request("http://127.0.0.1:1", None, "status", Value::Null);
     assert_eq!(answer["outcome"], "transport");
@@ -162,8 +163,8 @@ fn a_probe_connects_without_a_request() {
     std::thread::sleep(std::time::Duration::from_millis(50));
     assert_eq!(runtime.connections(), 1);
     assert!(runtime.requests().is_empty());
-    let closed =
-        answer(json!({ "action": "probe", "endpoint": closed_endpoint() })).expect("an answer");
+    let (_held, endpoint) = closed_endpoint();
+    let closed = answer(json!({ "action": "probe", "endpoint": endpoint })).expect("an answer");
     assert_eq!(closed, json!({ "ok": true, "reachable": false }));
 }
 
@@ -172,11 +173,11 @@ fn a_probe_connects_without_a_request() {
 /// after its first try, the false "could not connect" after a managed Start.
 #[test]
 fn a_waiting_probe_finds_a_runtime_that_binds_late() {
-    let endpoint = closed_endpoint();
-    let address = endpoint.trim_start_matches("tcp://").to_owned();
+    // The port stays held until the late runtime listens on it, so no other socket can take it.
+    let (held, endpoint) = closed_endpoint();
     let late = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(300));
-        let listener = std::net::TcpListener::bind(&address).expect("the late port");
+        let listener = held.listen();
         let _ = listener.accept();
     });
     let answer = answer(json!({ "action": "probe", "endpoint": endpoint, "waitMs": 2000 }))
