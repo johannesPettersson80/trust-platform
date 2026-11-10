@@ -20,6 +20,7 @@ use trust_runtime::opcua::{
 /// A free loopback port this process has not handed out before. The fixture servers bind their
 /// port only after the reservation is released, so two tests running in parallel must never get
 /// the same released port.
+// port-retry-ok: `start_fixture_server_with` tries another port when this one is taken.
 fn reserve_loopback_port() -> u16 {
     static RESERVED: Mutex<Vec<u16>> = Mutex::new(Vec::new());
     let mut reserved = RESERVED.lock().expect("reserved ports");

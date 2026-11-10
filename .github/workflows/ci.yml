@@ -226,6 +226,11 @@ jobs:
         run: |
           python3 -m unittest scripts.tests.test_check_test_temp_paths -v
           python3 ./scripts/check_test_temp_paths.py
+      - name: Guard test ports against reserve and release
+        # A test never binds port 0 and drops the listener while its port goes on (specification 22).
+        run: |
+          python3 -m unittest scripts.tests.test_check_test_ports -v
+          python3 ./scripts/check_test_ports.py
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}
