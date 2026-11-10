@@ -6,6 +6,65 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-10
+
+### Added
+
+- `trust-runtime check` and `trust-runtime build` take `--sources` more than once.
+  `--sources src --sources vendor/stubs` checks a project's sources together with vendor library
+  stubs outside `src/`, without any other tree of `.st` files that the project folder holds. A
+  file that two of the named folders hold is compiled once.
+
+### Changed
+
+- `trust-runtime check` and `trust-runtime build --json` report a construct that the build does not
+  compile yet at its place in the sources: the issue `compile` now has the file, line and column of
+  the construct when the build knows them, as the parse and resolve diagnostics have.
+- W012's message names its remedy: give the global one writing task, or declare it shared by design
+  with `{attribute 'cross_task'}`.
+
+### Fixed
+
+- A runtime started on a program store's `current` link lost its retained values at the first warm
+  restart after an install, a deployment or a rollback: its retain file stayed in the bundle it had
+  started on, and the new bundle held none. A relative retain path now lies in the store folder, and
+  the first start of this version moves a retain file left in the `current` bundle there.
+- A runtime started on a program store's `current` link now keeps its endpoint file, its default
+  control socket and its runtime ID in the store folder, not in the bundle it started on. After an
+  install, a deployment or a rollback moved `current` to another bundle, `trust-runtime ctl` and the
+  other clients given `current` no longer found the running runtime: on Windows, whose default
+  control endpoint takes a port the system chooses, `ctl` reported a refused connection to port 0.
+  The next start also gave the runtime a new runtime ID.
+- A runtime started on a program store's `current` link now keeps its pairings (`pairings.json`)
+  and its historian's history and alert files in the store folder, as it keeps its retained values,
+  so an install, a deployment or a rollback no longer starts them empty. The first start of this
+  version moves such files that an earlier version left in the `current` bundle into the store
+  folder.
+- A runtime started on a program store's `current` link now keeps the OpenOT persistence's SQLite
+  database and InfluxDB spool in the store folder when their paths are relative, so an install, a
+  deployment or a rollback no longer starts the persistence on an empty database. The first start of
+  this version moves such a database, with its journal files, from the `current` bundle into the
+  store folder.
+- `{attribute 'cross_task'}` before a `NAMESPACE` now covers the global variable lists in it. The
+  PLCopen import of a CODESYS global variable list writes the list's attributes there, and W012
+  ignored the attribute in that place.
+- Under the CODESYS profiles, an `FB_init` input of a type that is no scalar, a `STRING` among them,
+  now takes the instance declaration's argument, else its default, as an input that any call leaves
+  out does. A bare `fbLogger : FbLogger;` whose `FB_init` declares a `STRING` input builds, and
+  `fbLogger : FbLogger(sLoggerName := 'Light')` passes the text. The build refused every such
+  input before, passed or not. An argument that names a variable is still refused.
+- The hang supervisor no longer faults a resource with a watchdog timeout when a debugger pause
+  begins while the supervisor checks the scan. On a busy computer, the supervisor could count the
+  pause as execution time and fault a resource that the debugger was holding.
+- W012, the warning for a global that several tasks use unsafely, now also sees a use through a field
+  of a dereferenced reference or of an array element, such as `Ref^.value` or `Items[0].value`, and
+  counts a global used as an index inside such a path as read, as specification 28 §6 states. A
+  program that wrote such a path in one task while another task read it was not warned before.
+- With the web interface on port 0 (`listen = "127.0.0.1:0"`), the system chooses a free port. The
+  `Open:` line that `trust-runtime play` prints and the runtime's web endpoint in the fleet topology
+  (`fleet.topology`, Devices & Connections) now show that port instead of `:0`. The configured
+  value stays in the endpoint's `params.listen` (specification 11, fleet topology).
+
 ## [0.35.0] - 2026-11-09
 
 ### Added
