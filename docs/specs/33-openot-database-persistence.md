@@ -160,7 +160,9 @@ for a runtime started on a program store's `current` link, so that an install,
 a deployment or a rollback keeps the database. A store runtime's start moves
 such a file that an earlier version left in the `current` bundle, with its
 `-wal`, `-shm` and `-journal` files, into the store folder unless the store
-folder already holds it. A relative `ca_cert_path`, an input of the
+folder already holds it. A folder that the move needs is made as the runtime
+makes every missing database folder: on Unix, accessible to the runtime's user
+only, whatever the process's umask. A relative `ca_cert_path`, an input of the
 configuration, lies in the bundle root. Shipped examples MUST use a Windows- and Linux-compatible TCP runtime
 control endpoint rather than a Unix-domain socket. Persistence paths MUST not
 be empty and their parent directories MUST
