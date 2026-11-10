@@ -361,13 +361,15 @@ impl ControlState {
 
     /// Records that the web listener is bound at `address`, which the fleet topology then reports
     /// (specification 11, fleet topology): with a configured port 0, the port the system chose. The
-    /// address is recorded before the bound flag, so a reader that sees the flag finds it.
+    /// address is recorded before the bound flag is set with release ordering, so a reader that
+    /// loads the flag with acquire ordering and sees it set finds the address in the settings it
+    /// reads afterwards, as the fleet topology does.
     pub(crate) fn record_web_listener_bound(&self, address: &str) {
         if let Ok(mut settings) = self.settings.lock() {
             settings.web_bound_address = Some(address.into());
         }
         self.web_listener_bound
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+            .store(true, std::sync::atomic::Ordering::Release);
     }
 }
 

@@ -66,3 +66,32 @@ fn fleet_topology_web_endpoint_names_the_configured_listen_until_the_listener_is
     assert_eq!(web["address"], json!("127.0.0.1:0"));
     assert_eq!(web["health"], json!("configured_policy"));
 }
+
+/// Specification 11, fleet topology: one answer never mixes the configured and the bound address;
+/// an answer that reports the web endpoint `connected` names the bound address, even when the
+/// listener binds while the answer is being built. The test holds the I/O health lock, which a
+/// topology request takes right after it copies the settings, records the bind while the request
+/// waits there, and then lets it finish. Wrong behaviour caught: a request that copied the settings
+/// before the bind and read the bound flag after it reports `connected` at the configured
+/// `127.0.0.1:0`, which no client can open.
+#[test]
+fn a_topology_answer_built_across_the_bind_reports_connected_only_with_the_bound_address() {
+    let state = fleet_state_with_web("127.0.0.1:0", None, false);
+
+    let web = std::thread::scope(|scope| {
+        let io_health = state.io_health.lock().expect("I/O health lock");
+        let request = scope.spawn(|| web_service_endpoint(&state));
+        // Long enough for the request to copy the settings and wait for the I/O health lock.
+        std::thread::sleep(Duration::from_millis(200));
+        state.record_web_listener_bound("127.0.0.1:43210");
+        drop(io_health);
+        request.join().expect("the topology request")
+    });
+
+    let expected = if web["health"] == json!("connected") {
+        "127.0.0.1:43210"
+    } else {
+        "127.0.0.1:0"
+    };
+    assert_eq!(web["address"], json!(expected), "{web}");
+}
