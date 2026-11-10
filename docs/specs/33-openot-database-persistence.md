@@ -153,8 +153,15 @@ ca_cert_path = "certs/openot-influx-ca.pem"
 ```
 
 SQLite `path`, InfluxDB `spool_path`, and remote `ca_cert_path` values are
-resolved with native platform path semantics relative to the bundle root unless
-absolute. Shipped examples MUST use a Windows- and Linux-compatible TCP runtime
+resolved with native platform path semantics unless absolute. A relative
+`path` or `spool_path`, a file the runtime writes, lies in the folder of the
+runtime's files (specification 11 §6.8.0a): the bundle root, or the store folder
+for a runtime started on a program store's `current` link, so that an install,
+a deployment or a rollback keeps the database. A store runtime's start moves
+such a file that an earlier version left in the `current` bundle, with its
+`-wal`, `-shm` and `-journal` files, into the store folder unless the store
+folder already holds it. A relative `ca_cert_path`, an input of the
+configuration, lies in the bundle root. Shipped examples MUST use a Windows- and Linux-compatible TCP runtime
 control endpoint rather than a Unix-domain socket. Persistence paths MUST not
 be empty and their parent directories MUST
 not be group/world writable unless an explicit future security policy allows
