@@ -5,7 +5,7 @@
 
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -233,20 +233,21 @@ fn snapshot_json(route_name: &str, symbol_name: &str) -> String {
         .expect("snapshot json")
 }
 
-fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback port");
-    listener.local_addr().expect("read loopback address").port()
-}
-
+/// A control server on a loopback port that the operating system chooses, and the address it bound:
+/// a program that can listen on port 0 does so, and the test reads the port it bound
+/// (specification 22).
 fn start_control_server(state: Arc<ControlState>) -> SocketAddr {
-    for _ in 0..16 {
-        let addr = SocketAddr::from(([127, 0, 0, 1], reserve_loopback_port()));
-        if ControlServer::start(ControlEndpoint::Tcp(addr), Arc::clone(&state)).is_ok() {
-            return addr;
-        }
-        thread::sleep(Duration::from_millis(10));
+    let server = ControlServer::start(
+        ControlEndpoint::Tcp(SocketAddr::from(([127, 0, 0, 1], 0))),
+        state,
+    )
+    .expect("start control server");
+    // The guard keeps the other arm reachable on Windows, where every endpoint is TCP and Clippy's
+    // Windows check refuses an irrefutable pattern.
+    match server.endpoint() {
+        ControlEndpoint::Tcp(address) if address.port() != 0 => *address,
+        endpoint => panic!("the control server reports no bound port: {endpoint:?}"),
     }
-    panic!("start control server: no free loopback port after retries");
 }
 
 fn send_control_request(addr: SocketAddr, request: &Value) -> Value {

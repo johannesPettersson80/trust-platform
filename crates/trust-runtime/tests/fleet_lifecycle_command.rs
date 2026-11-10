@@ -18,6 +18,7 @@ fn temp_dir() -> PathBuf {
     root
 }
 
+// port-retry-ok: `start_unless_a_port_was_taken` tries fresh ports when one was taken.
 fn free_loopback_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .expect("bind ephemeral loopback port")

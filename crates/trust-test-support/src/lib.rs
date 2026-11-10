@@ -102,7 +102,17 @@ const ADDRESS_IN_USE: &str = "(os error 48)";
 /// the program bound it, may try again with another port, and only then.
 #[must_use]
 pub fn reports_a_taken_port(line: &str) -> bool {
-    line.contains("bind") && line.contains(ADDRESS_IN_USE)
+    line.contains("bind") && is_a_taken_port_error(line)
+}
+
+/// Whether `error`, the text of an error that a library returned for a bind, is this system's
+/// "address in use" error: another socket holds the port. A library words its own part of the
+/// message (Zenoh: "Can not create a new TCP listener bound to …"), so only the system's error is
+/// read. A test that chose a free port for a library's listener may try again with another port
+/// when the bind failed so, and only then.
+#[must_use]
+pub fn is_a_taken_port_error(error: &str) -> bool {
+    error.contains(ADDRESS_IN_USE)
 }
 
 #[cfg(test)]
@@ -110,12 +120,16 @@ mod tests {
     use std::net::{SocketAddr, TcpListener, TcpStream};
     use std::time::Duration;
 
-    use super::{process_temp_path, refused_loopback_port, reports_a_taken_port, unique_temp_path};
+    use super::{
+        is_a_taken_port_error, process_temp_path, refused_loopback_port, reports_a_taken_port,
+        unique_temp_path,
+    };
 
     /// A bind of a port that a listener holds fails with this system's "address in use" error, which
-    /// `reports_a_taken_port` finds in a line that names the bind, and only there. Catches the error
-    /// code of another system (a test would never try again) and a check that takes any failure for
-    /// a taken port (a real failure would be tried again and hidden).
+    /// `reports_a_taken_port` finds in a line that names the bind, and only there, and
+    /// `is_a_taken_port_error` in a library's error whatever its own wording. Catches the error code
+    /// of another system (a test would never try again) and a check that takes any failure for a
+    /// taken port (a real failure would be tried again and hidden).
     #[test]
     fn a_bind_of_a_taken_port_is_reported_as_taken() {
         let holder = TcpListener::bind("127.0.0.1:0").expect("hold a port");
@@ -130,6 +144,14 @@ mod tests {
         );
         assert!(
             !reports_a_taken_port("Error: bind 127.0.0.1:1: Permission denied (os error 13)"),
+            "another bind failure"
+        );
+        let library = format!("Can not create a new TCP listener bound to tcp/{address}: {error}");
+        assert!(is_a_taken_port_error(&library), "{library}");
+        assert!(
+            !is_a_taken_port_error(
+                "Can not create a new TCP listener: Permission denied (os error 13)"
+            ),
             "another bind failure"
         );
     }

@@ -42,7 +42,9 @@ const ANSWER_SELF: &str = r#"{"api_version":"1.0","runtime_id":"rt-self-mesh","s
 const MESH_WARNING: &str =
     "Runtime found through the mesh without a control endpoint; adopt may require manual endpoint entry.";
 
-/// A free loopback TCP port for a Zenoh endpoint, when it is chosen.
+/// A free loopback TCP port for a Zenoh endpoint, when it is chosen. A peer cannot listen on port 0
+/// here: the session's bound endpoints are read only through Zenoh's unstable API.
+// port-retry-ok: `open_peer` tries another port when Zenoh found this one taken, and only then.
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .expect("bind a loopback port")
@@ -52,19 +54,41 @@ fn free_port() -> u16 {
 }
 
 /// A Zenoh peer on a free loopback port that connects to the peers listening on `connect`, and
-/// its port. Multicast scouting is off, so the test sessions see only each other. Another test can
-/// take a port between its choice and Zenoh's bind ("Address already in use"), so the peer tries
-/// another port, ten times at most.
+/// its port. Multicast scouting is off, so the test sessions see only each other. Another socket
+/// can take a port between its choice and Zenoh's bind, so the peer tries another port when the
+/// session's error is the system's "address in use" (specification 22), ten times at most; any
+/// other error fails the test at once.
 fn open_peer(connect: &[u16]) -> (Session, u16) {
-    let mut refused = None;
+    let mut taken = Vec::new();
     for _ in 0..10 {
         let port = free_port();
         match zenoh::open(peer_config(port, connect)).wait() {
             Ok(session) => return (session, port),
-            Err(error) => refused = Some(error),
+            Err(error) if trust_test_support::is_a_taken_port_error(&error.to_string()) => {
+                taken.push(port);
+            }
+            Err(error) => panic!("open a Zenoh session on port {port}: {error}"),
         }
     }
-    panic!("open a Zenoh session: {refused:?}");
+    panic!("another socket took each chosen port before Zenoh bound it: {taken:?}");
+}
+
+/// Zenoh's error for a listen port that another listener holds is the "address in use" error on
+/// which `open_peer` tries again. Linux and macOS refuse that bind; Windows lets Zenoh's
+/// `SO_REUSEADDR` socket share the port, so there is no error to read there. Catches a retry that
+/// never matches Zenoh's error, which would fail a test at each taken port.
+#[cfg(not(windows))]
+#[test]
+fn a_peer_on_a_held_port_fails_with_the_address_in_use_error() {
+    let holder = TcpListener::bind("127.0.0.1:0").expect("hold a loopback port");
+    let port = holder.local_addr().expect("the held address").port();
+    let Err(error) = zenoh::open(peer_config(port, &[])).wait() else {
+        panic!("a peer opened on port {port}, which a listener holds");
+    };
+    assert!(
+        trust_test_support::is_a_taken_port_error(&error.to_string()),
+        "{error}"
+    );
 }
 
 /// The configuration of a peer that listens on `port` and connects to the peers in `connect`.
