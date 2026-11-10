@@ -75,9 +75,8 @@ fn probe_classifies_every_target_status() {
 
     // "reports online unreachable when endpoint probe fails": nothing listens there, or the
     // text is not a control endpoint.
-    let closed = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
-    let endpoint = format!("tcp://{}", closed.local_addr().expect("address"));
-    drop(closed);
+    let closed = trust_test_support::refused_loopback_port();
+    let endpoint = format!("tcp://127.0.0.1:{}", closed.port());
     let unreachable = probe(&endpoint, true, None, ProbeTimeouts::default());
     assert_eq!(unreachable, TargetProbe::Unreachable);
     assert!(!unreachable.answered());
