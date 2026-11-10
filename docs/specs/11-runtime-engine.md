@@ -3256,8 +3256,9 @@ this section in the store folder, the folder that holds `current`, `previous` an
 in a bundle: `<project>` in this section is the store folder, and `<h>` is taken over its canonical
 path. Its runtime ID file `.trust-runtime/runtime_id` (runtime discovery) is kept there too, and
 so are the files it writes: its pairing file `pairings.json` (section 6.9.6), and the retain file
-(section 6.7), the history and the alert files of its historian when its configuration names
-them by a relative path. An install, a deployment or a rollback moves `current` to another bundle
+(section 6.7), the history and the alert files of its historian, and the OpenOT persistence's
+SQLite database and spool (specification 33) when its configuration names them by a relative
+path. An install, a deployment or a rollback moves `current` to another bundle
 while the runtime keeps running; files kept in a bundle would stay behind in the bundle the
 runtime started on, where no client given `current` looks, the runtime ID would change at the
 next start, and the pairings, the retained values and the history would start empty. A store

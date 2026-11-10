@@ -230,11 +230,7 @@ impl OpenOtDocumentSink {
                         "runtime.openot.persistence.sqlite is required".to_string(),
                     )
                 })?;
-                let path = if sqlite.path.is_absolute() {
-                    sqlite.path.clone()
-                } else {
-                    _bundle_root.join(&sqlite.path)
-                };
+                let path = written_sqlite_file(_bundle_root, &sqlite.path, "SQLite")?;
                 SqliteDocumentSink::open_with_definitions(&path, _definitions.to_vec())
                     .map(Self::Sqlite)
             }
@@ -432,7 +428,7 @@ fn open_influxdb3(
             bundle_root.join(path)
         }
     };
-    let spool = resolve(&influx.spool_path);
+    let spool = written_sqlite_file(bundle_root, &influx.spool_path, "InfluxDB 3 spool")?;
     let ca = influx.ca_cert_path.as_ref().ok_or_else(|| {
         PersistenceError::InvalidConfig(
             "runtime.openot.persistence.influxdb3.ca_cert_path is required".to_string(),
@@ -522,3 +518,39 @@ impl DocumentSink for OpenOtDocumentSink {
         }
     }
 }
+
+/// The files SQLite keeps beside a database, which move with it: its write-ahead log, its shared
+/// memory index and its rollback journal.
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-influxdb3"
+))]
+const SQLITE_COMPANIONS: [&str; 3] = ["-wal", "-shm", "-journal"];
+
+/// A SQLite file that the persistence writes, the database or the InfluxDB spool, at `configured`
+/// (specification 33): in the folder of the runtime's files, the store folder for a runtime started
+/// on a program store's `current` link (specification 11 §6.8.0a), and moved there with its
+/// companion files when an earlier version left it in the `current` bundle. Its folder is made the
+/// way the persistence makes a database's folder, before the move, which would otherwise make it
+/// with the process's umask.
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-influxdb3"
+))]
+fn written_sqlite_file(
+    bundle_root: &Path,
+    configured: &Path,
+    backend: &str,
+) -> Result<std::path::PathBuf, PersistenceError> {
+    super::contracts::ensure_private_parent(
+        &crate::runtime_files::runtime_file_path(bundle_root, configured),
+        backend,
+    )?;
+    crate::runtime_files::prepare_runtime_file(bundle_root, configured, &SQLITE_COMPANIONS).map_err(
+        |error| PersistenceError::Commit(format!("{backend} move to the store folder: {error}")),
+    )
+}
+
+#[cfg(all(test, feature = "openot-database-sqlite"))]
+#[path = "factory_store_tests.rs"]
+mod store_tests;
