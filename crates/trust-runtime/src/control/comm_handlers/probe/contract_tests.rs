@@ -48,11 +48,12 @@ fn spawn_one_shot_listener() -> String {
     address
 }
 
-fn unused_loopback_address() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
-    let address = listener.local_addr().expect("listener address").to_string();
-    drop(listener);
-    address
+/// A loopback address where nothing answers, for as long as the returned holder lives: a port held
+/// without listening (specification 22), which no other socket can take.
+fn unused_loopback_address() -> (trust_test_support::RefusedPort, String) {
+    let held = trust_test_support::refused_loopback_port();
+    let address = format!("127.0.0.1:{}", held.port());
+    (held, address)
 }
 
 #[test]
@@ -452,7 +453,7 @@ fn timeout_defaults_only_when_field_is_absent() {
 
 #[test]
 fn tcp_probe_clamps_effective_timeout_into_closed_bounds() {
-    let target = unused_loopback_address();
+    let (_held, target) = unused_loopback_address();
     for (requested, expected) in [(0, 1), (1, 1), (5_000, 5_000), (50_000, 5_000)] {
         let response = request(
             "modbus_tcp",
@@ -470,7 +471,7 @@ fn tcp_probe_clamps_effective_timeout_into_closed_bounds() {
 
 #[test]
 fn malformed_timeout_is_a_field_error_not_a_silent_default() {
-    let target = unused_loopback_address();
+    let (_held, target) = unused_loopback_address();
     for malformed in [
         json!(-1),
         json!(1.5),
@@ -511,7 +512,7 @@ fn successful_tcp_probe_reports_claim_bounded_evidence() {
 #[test]
 fn refused_tcp_probe_is_a_completed_negative_without_field_error() {
     for protocol in ["modbus_tcp", "mqtt"] {
-        let address = unused_loopback_address();
+        let (_held, address) = unused_loopback_address();
         let params = if protocol == "modbus_tcp" {
             json!({ "address": address, "timeout_ms": 50 })
         } else {

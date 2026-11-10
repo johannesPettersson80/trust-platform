@@ -1,4 +1,3 @@
-use std::net::TcpListener;
 use std::time::Duration;
 
 use super::super::modbus_tcp::{probe_modbus_tcp, ModbusDiscoveryProbe};
@@ -36,9 +35,8 @@ fn outcome_modifiers_preserve_warning_order_and_auth_flag() {
 
 #[test]
 fn unreachable_modbus_and_mqtt_targets_return_no_observation() {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind unused socket");
-    let address = listener.local_addr().expect("unused address");
-    drop(listener);
+    let refused = trust_test_support::refused_loopback_port();
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], refused.port()));
     assert!(probe_modbus_tcp(
         address,
         Duration::from_millis(25),

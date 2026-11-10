@@ -3,7 +3,6 @@
 // `use super::*`.
 
 use std::collections::VecDeque;
-use std::net::TcpListener;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};

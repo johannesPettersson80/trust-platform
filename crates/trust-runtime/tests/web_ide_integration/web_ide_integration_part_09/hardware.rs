@@ -227,11 +227,8 @@ fn unified_shell_exposes_mqtt_connectivity_probe_api() {
         "empty broker must return ok=false"
     );
 
-    let listener = TcpListener::bind("127.0.0.1:0").expect("reserve unused MQTT test port");
-    let refused = listener
-        .local_addr()
-        .expect("read unused MQTT test address");
-    drop(listener);
+    let held = trust_test_support::refused_loopback_port();
+    let refused = std::net::SocketAddr::from(([127, 0, 0, 1], held.port()));
     let (probe_status, probe_json) = request_json(
         "POST",
         &format!("{base}/api/io/mqtt-test"),

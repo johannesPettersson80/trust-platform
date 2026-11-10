@@ -1123,9 +1123,8 @@ mod tests {
 
     #[test]
     fn a_refused_endpoint_file_endpoint_reports_the_runtime_as_not_running() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
-        let addr = listener.local_addr().expect("listener address");
-        drop(listener);
+        let refused = trust_test_support::refused_loopback_port();
+        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], refused.port()));
         let target = ControlTarget {
             endpoint: ControlEndpoint::Tcp(addr),
             endpoint_text: format!("tcp://{addr}"),
@@ -1145,9 +1144,8 @@ mod tests {
 
     #[test]
     fn a_refused_configured_endpoint_reports_the_connection_error() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
-        let addr = listener.local_addr().expect("listener address");
-        drop(listener);
+        let refused = trust_test_support::refused_loopback_port();
+        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], refused.port()));
         let target = ControlTarget {
             endpoint: ControlEndpoint::Tcp(addr),
             endpoint_text: format!("tcp://{addr}"),
