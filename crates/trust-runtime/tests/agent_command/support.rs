@@ -9,6 +9,8 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value as JsonValue};
+use trust_runtime::control::endpoint::resolve_control_target;
+use trust_runtime::control::ControlEndpoint;
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -145,14 +147,6 @@ fn write_request(stdin: &mut std::process::ChildStdin, request: JsonValue) {
     writeln!(stdin, "{request}").expect("write agent request");
 }
 
-fn allocate_loopback_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .expect("bind temporary loopback port")
-        .local_addr()
-        .expect("local addr")
-        .port()
-}
-
 fn patch_control_endpoint(project: &Path, port: u16) {
     let runtime_toml = project.join("runtime.toml");
     let text = fs::read_to_string(&runtime_toml).expect("read runtime.toml");
@@ -210,29 +204,44 @@ fn control_ready(endpoint: &str, token: &str, timeout: Duration) -> bool {
     false
 }
 
-fn spawn_runtime_with_retry(project: &Path, token: &str) -> (std::process::Child, String) {
-    for _ in 0..5 {
-        let port = allocate_loopback_port();
-        patch_control_endpoint(project, port);
-        let endpoint = format!("127.0.0.1:{port}");
-        let mut runtime =
-            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
-                "Cargo must provide trust-runtime binary while executing integration tests",
-            ))
-            .args(["run", "--project"])
-            .arg(project)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn trust-runtime run");
-        if control_ready(&endpoint, token, Duration::from_secs(5)) {
-            return (runtime, endpoint);
+/// Starts `trust-runtime run` on a project whose control endpoint is `tcp://127.0.0.1:0`, and
+/// returns it with the endpoint it bound once that endpoint answers `status`. The runtime publishes
+/// the port it bound in the project's endpoint file, where this resolves it as `ctl` does
+/// (specification 11, section 6.8.0a), so no other process can take the port first.
+fn spawn_runtime(project: &Path, token: &str) -> (std::process::Child, String) {
+    let mut runtime = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["run", "--project"])
+    .arg(project)
+    .stdout(Stdio::null())
+    .stderr(Stdio::null())
+    .spawn()
+    .expect("spawn trust-runtime run");
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    while std::time::Instant::now() < deadline {
+        if let Some(status) = runtime.try_wait().expect("poll trust-runtime run") {
+            panic!(
+                "trust-runtime run exited before its control endpoint answered: {status} ({})",
+                project.display()
+            );
         }
-        let _ = runtime.kill();
-        let _ = runtime.wait();
+        if let Ok(target) = resolve_control_target(Some(project), None, Some(token))
+            && let ControlEndpoint::Tcp(address) = target.endpoint
+            && address.port() != 0
+        {
+            let endpoint = address.to_string();
+            if control_ready(&endpoint, token, Duration::from_millis(250)) {
+                return (runtime, endpoint);
+            }
+        }
+        thread::sleep(Duration::from_millis(25));
     }
+    let _ = runtime.kill();
+    let _ = runtime.wait();
     panic!(
-        "timed out waiting for runtime control endpoint after retrying fresh ports for {}",
+        "the runtime's control endpoint did not answer within 30 s for {}",
         project.display()
     );
 }

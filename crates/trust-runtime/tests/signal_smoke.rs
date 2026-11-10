@@ -4,7 +4,7 @@
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::fs;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,7 +13,12 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use smol_str::SmolStr;
 use trust_runtime::bundle_builder::build_program_image;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::control::endpoint::resolve_control_target;
+use trust_runtime::control::ControlEndpoint;
 use trust_runtime::native::{Target, Toolchain};
+
+/// The control token of every signal project.
+const TOKEN: &str = "signal-smoke-token";
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -37,22 +42,16 @@ fn unique_temp_dir(prefix: &str) -> PathBuf {
     panic!("failed to allocate unique temp dir for '{prefix}'")
 }
 
-fn reserve_local_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("local addr").port();
-    drop(listener);
-    port
-}
-
-fn write_signal_project(root: &Path, control_port: u16) {
+/// Writes and builds a project whose control endpoint is `tcp://127.0.0.1:0`: the runtime binds a
+/// free port and publishes it in the project's endpoint file, so no other process can take it
+/// between a reservation and the runtime's bind.
+fn write_signal_project(root: &Path) {
     fs::create_dir_all(root.join("src")).expect("create src dir");
 
     let mut runtime_toml = render_runtime_toml(&SmolStr::new("main"), 20);
     runtime_toml = runtime_toml.replace(
         "[runtime.control]\n",
-        &format!(
-            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:{control_port}\"\nauth_token = \"signal-smoke-token\"\n"
-        ),
+        &format!("[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"{TOKEN}\"\n"),
     );
     runtime_toml = runtime_toml.replace("mode = \"production\"", "mode = \"debug\"");
     runtime_toml = runtime_toml.replace("debug_enabled = false", "debug_enabled = true");
@@ -106,23 +105,36 @@ fn spawn_runtime(project: &Path) -> Child {
     .expect("spawn trust-runtime run")
 }
 
-fn wait_for_control_port(mut child: Child, port: u16) -> Child {
+/// Waits until the runtime accepts a connection on the control endpoint it published in the
+/// project's endpoint file, resolved as `ctl` resolves it (specification 11, section 6.8.0a).
+/// Until the runtime publishes it, resolution ends at the configured port 0.
+fn wait_for_control_endpoint(mut child: Child, project: &Path) -> Child {
     let deadline = Instant::now() + Duration::from_secs(5);
+    let mut last = String::from("nothing resolved yet");
     while Instant::now() < deadline {
         if let Some(status) = child.try_wait().expect("poll child") {
             let output = child.wait_with_output().expect("collect child output");
             panic!(
-                "runtime exited before control port opened: {status}; stdout:\n{}\nstderr:\n{}",
+                "runtime exited before its control endpoint opened: {status}; stdout:\n{}\nstderr:\n{}",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
             );
         }
-        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
-            return child;
+        match resolve_control_target(Some(project), None, Some(TOKEN)) {
+            Ok(target) => {
+                if let ControlEndpoint::Tcp(address) = target.endpoint
+                    && address.port() != 0
+                    && TcpStream::connect(address).is_ok()
+                {
+                    return child;
+                }
+                last = target.endpoint_text;
+            }
+            Err(error) => last = error.to_string(),
         }
         std::thread::sleep(Duration::from_millis(20));
     }
-    panic!("runtime control port 127.0.0.1:{port} did not open before timeout");
+    panic!("the runtime's control endpoint did not open before the timeout; last resolved: {last}");
 }
 
 fn send_signal(pid: u32, signal: &str) {
@@ -158,10 +170,9 @@ fn wait_for_exit(mut child: Child, signal: &str) -> Output {
 
 fn assert_graceful_signal_stop(signal: &str) {
     let project = unique_temp_dir(&format!("signal-{}", signal.to_ascii_lowercase()));
-    let control_port = reserve_local_port();
-    write_signal_project(&project, control_port);
+    write_signal_project(&project);
 
-    let child = wait_for_control_port(spawn_runtime(&project), control_port);
+    let child = wait_for_control_endpoint(spawn_runtime(&project), &project);
     send_signal(child.id(), signal);
     let output = wait_for_exit(child, signal);
 
@@ -234,8 +245,8 @@ fn sigterm_requests_bounded_graceful_stop_in_child_runtime() {
 }
 
 /// Starts the project, waits until it runs, stops it and returns the runtime's output.
-fn run_until_started_then_stop(project: &Path, control_port: u16) -> Output {
-    let child = wait_for_control_port(spawn_runtime(project), control_port);
+fn run_until_started_then_stop(project: &Path) -> Output {
+    let child = wait_for_control_endpoint(spawn_runtime(project), project);
     send_signal(child.id(), "TERM");
     let output = wait_for_exit(child, "TERM");
     assert!(
@@ -274,10 +285,9 @@ fn tree_snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
 #[test]
 fn run_does_not_create_an_hmi_folder_in_the_project() {
     let project = unique_temp_dir("no-hmi-scaffold");
-    let control_port = reserve_local_port();
-    write_signal_project(&project, control_port);
+    write_signal_project(&project);
 
-    let output = run_until_started_then_stop(&project, control_port);
+    let output = run_until_started_then_stop(&project);
 
     assert!(
         !project.join("hmi").exists(),
@@ -292,8 +302,7 @@ fn run_does_not_create_an_hmi_folder_in_the_project() {
 #[test]
 fn run_leaves_hmi_builder_page_files_untouched() {
     let project = unique_temp_dir("hmi-pages-untouched");
-    let control_port = reserve_local_port();
-    write_signal_project(&project, control_port);
+    write_signal_project(&project);
     fs::create_dir_all(project.join("hmi/pages")).expect("create hmi pages");
     fs::write(
         project.join("hmi/pages/overview.toml"),
@@ -302,7 +311,7 @@ fn run_leaves_hmi_builder_page_files_untouched() {
     .expect("write page file");
     let before = tree_snapshot(&project.join("hmi"));
 
-    let output = run_until_started_then_stop(&project, control_port);
+    let output = run_until_started_then_stop(&project);
 
     assert_eq!(
         tree_snapshot(&project.join("hmi")),
