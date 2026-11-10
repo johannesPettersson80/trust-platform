@@ -217,7 +217,8 @@ mod hmi_deploy_tests {
             deploy(&context, &root_uri, line_1(&without_web.endpoint)),
             json!({ "ok": false, "reason": "Line 1 has no web server: enable [runtime.web] in its runtime.toml." })
         );
-        let silent = deploy(&context, &root_uri, line_1(&closed_endpoint()));
+        let (_held, closed) = closed_endpoint();
+        let silent = deploy(&context, &root_uri, line_1(&closed));
         assert_eq!(silent["ok"], false, "{silent}");
         assert!(silent["reason"].as_str().is_some_and(|reason| reason.starts_with("Line 1 does not answer: ")), "{silent}");
         std::fs::remove_dir_all(root).expect("remove temp dir");
@@ -249,9 +250,8 @@ mod hmi_deploy_tests {
             deploy(&context, &root_uri, line_1(&runtime_with(&broken).endpoint)),
             json!({ "ok": false, "reason": "Line 1 answered 500" })
         );
-        let free = TcpListener::bind("127.0.0.1:0").expect("a loopback port");
-        let port = free.local_addr().expect("the listener's address").port();
-        drop(free);
+        let unreachable_port = trust_test_support::refused_loopback_port();
+        let port = unreachable_port.port();
         let unreachable = FakeRuntime::answering(topology(Some(format!("127.0.0.1:{port}"))));
         let outcome = deploy(&context, &root_uri, line_1(&unreachable.endpoint));
         assert!(outcome["reason"].as_str().is_some_and(|reason| reason.starts_with("Line 1 cannot be reached: ")), "{outcome}");

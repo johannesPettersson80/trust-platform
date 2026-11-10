@@ -12,6 +12,15 @@ fn problem(endpoint: &str) -> Value {
     answer(json!({ "action": "check", "endpoint": endpoint })).expect("answer")["problem"].clone()
 }
 
+/// A loopback address that was free a moment ago: its listener is closed at once.
+// port-retry-ok: the free-port check is asked again about another port when this one was taken.
+fn released_address() -> std::net::SocketAddr {
+    TcpListener::bind("127.0.0.1:0")
+        .expect("a listener")
+        .local_addr()
+        .expect("its address")
+}
+
 #[cfg(unix)]
 #[test]
 fn each_workspace_has_its_own_socket_in_the_temporary_folder() {
@@ -86,7 +95,22 @@ fn a_launch_on_a_taken_tcp_port_is_refused_and_on_a_free_one_allowed() {
         json!("The runtime port is already in use.")
     );
     drop(listener);
-    assert_eq!(problem(&endpoint), Value::Null);
+    // Another socket can take the released port before the check (specification 22); the check is
+    // then asked about another port that was free a moment ago, and only then, five times at most.
+    let mut candidate = endpoint;
+    let mut attempts = 1;
+    loop {
+        let answer = problem(&candidate);
+        if answer == Value::Null {
+            break;
+        }
+        assert!(
+            answer == json!("The runtime port is already in use.") && attempts < 5,
+            "the free port {candidate} answered {answer} at attempt {attempts}"
+        );
+        attempts += 1;
+        candidate = format!("tcp://{}", released_address());
+    }
 }
 
 #[test]
