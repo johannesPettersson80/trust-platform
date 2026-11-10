@@ -319,6 +319,8 @@ jobs:
           New-ItemProperty -Path $key -Name DumpFolder -Value "$env:RUNNER_TEMP\crash-dumps" -PropertyType ExpandString -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpCount -Value 20 -PropertyType DWord -Force | Out-Null
+          # No dialog: a crashed process ends instead of waiting for a click (the image already says so).
+          New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting" -Name DontShowUI -Value 1 -PropertyType DWord -Force | Out-Null
           Get-ItemProperty -Path $key | Select-Object DumpFolder, DumpType, DumpCount
       - name: Check that the build's and the suite's crashes reach Windows Error Reporting (Windows)
         if: ${{ matrix.os == 'windows-latest' }}

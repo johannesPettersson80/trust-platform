@@ -78,8 +78,10 @@ class CiTestJobTests(unittest.TestCase):
     def test_windows_keeps_a_minidump_of_every_crashing_process_from_before_the_build(self) -> None:
         # Catches a Windows job that keeps no dump: #313's test process crashed with 0xc0000005, the
         # suite's second attempt passed, and nothing named the faulting code (G81); and dumps switched
-        # on after the suite, which keep none of its crashes. Specification 22: a minidump
-        # (`DumpType` 1) of every process that crashes during the job, the 20 newest (`DumpCount`).
+        # on after the suite, which keep none of its crashes; and a Windows Error Reporting dialog, which
+        # would hold a crashed test until the suite's two-hour limit, since nextest's ci profile gives a
+        # test no timeout of its own. Specification 22: a minidump (`DumpType` 1) of every process that
+        # crashes during the job, the 20 newest (`DumpCount`), without a dialog (`DontShowUI`).
         names = list(steps(self.job))
         keep = steps(self.job)["Keep a dump of every crashing process (Windows)"]
         self.assertIn("if: ${{ matrix.os == 'windows-latest' }}", keep)
@@ -87,6 +89,10 @@ class CiTestJobTests(unittest.TestCase):
         self.assertIn(r'-Name DumpFolder -Value "$env:RUNNER_TEMP\crash-dumps"', keep)
         self.assertIn("-Name DumpType -Value 1 -PropertyType DWord", keep)
         self.assertIn("-Name DumpCount -Value 20 -PropertyType DWord", keep)
+        self.assertIn(
+            r'"HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting" -Name DontShowUI -Value 1 -PropertyType DWord',
+            keep,
+        )
         self.assertLess(
             names.index("Keep a dump of every crashing process (Windows)"),
             names.index("Run cargo build --all-targets (retry once on transient failure)"),

@@ -526,7 +526,8 @@ contract:
   and
 - the Windows test job keeps a minidump of every process of its build and test
   suite that crashes, the 20 newest: Windows Error Reporting's local dumps are on
-  from before the build. The runner starts every step with error mode
+  from before the build, without a dialog, so that a crashed process ends
+  instead of waiting for a click. The runner starts every step with error mode
   `SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX`, which a child inherits, and
   `SEM_NOGPFAULTERRORBOX` keeps a crash from Windows Error Reporting, so
   `scripts/run_with_progress.py`, which starts the build and the suite, clears
