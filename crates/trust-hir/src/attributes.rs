@@ -26,6 +26,20 @@ pub fn declares_attribute(node: &SyntaxNode, key: &str) -> bool {
     attribute_entry(node, key).is_some()
 }
 
+/// Whether the `VAR_GLOBAL` list `list` carries the flag `key`: in the pragma before the list, or in
+/// the pragma before the innermost `NAMESPACE` that holds the list. A CODESYS global variable list
+/// arrives as such a namespace with its attributes before it (specification 22: the PLCopen import),
+/// so a list's `qualified_only` (specification 04, "Rules", 7) and `cross_task` (specification 28
+/// section 6) keep their meaning there.
+#[must_use]
+pub fn list_declares_attribute(list: &SyntaxNode, key: &str) -> bool {
+    declares_attribute(list, key)
+        || list
+            .ancestors()
+            .find(|node| node.kind() == SyntaxKind::Namespace)
+            .is_some_and(|namespace| declares_attribute(&namespace, key))
+}
+
 /// The entry `key` of the pragma trivia preceding `node`'s first token, with its value and the pragma's range, found as
 /// [`declares_attribute`] finds it; `None` when no such pragma names `key`.
 #[must_use]

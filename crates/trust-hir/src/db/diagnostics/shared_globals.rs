@@ -9,7 +9,7 @@ use super::context::{
     normalized_name,
 };
 use crate::access::{access_of, Access};
-use crate::attributes::declares_attribute;
+use crate::attributes::{declares_attribute, list_declares_attribute};
 
 const MAX_TASKS_IN_MESSAGE: usize = 3;
 const MAX_RELATED_TASKS: usize = 3;
@@ -352,16 +352,7 @@ fn declared_cross_task(roots: &[(FileId, SyntaxNode)], global: &GlobalCandidate)
         || declaration
             .ancestors()
             .find(|n| n.kind() == SyntaxKind::VarBlock)
-            .is_some_and(|list| {
-                // Before the namespace that holds the list, as a CODESYS global variable list's
-                // attributes stand when the list arrives as a namespace (specification 22, the
-                // importer's `qualified_only` list), the attribute covers the list too.
-                declares_attribute(&list, "cross_task")
-                    || list
-                        .ancestors()
-                        .find(|n| n.kind() == SyntaxKind::Namespace)
-                        .is_some_and(|namespace| declares_attribute(&namespace, "cross_task"))
-            })
+            .is_some_and(|list| list_declares_attribute(&list, "cross_task"))
 }
 
 fn collect_global_candidates(

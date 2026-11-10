@@ -1,5 +1,5 @@
 use super::*;
-use crate::attributes::declares_attribute;
+use crate::attributes::{declares_attribute, list_declares_attribute};
 use crate::db::diagnostics::is_expression_kind;
 use crate::db::queries::collector::const_utils::{
     parse_int_literal, scope_chain_for_node, ConstEvalError,
@@ -52,10 +52,11 @@ impl SymbolCollector<'_> {
             }
             _ => self.visibility_for_var_block(node),
         };
-        // A namespace's `VAR_GLOBAL` list with `{attribute 'qualified_only'}` (specification 04,
-        // "Rules"): its globals are named with the namespace.
+        // A namespace's `VAR_GLOBAL` list with `{attribute 'qualified_only'}`, before the list or
+        // before the namespace that holds it (specification 04, "Rules"): its globals are named
+        // with the namespace.
         let qualified_only =
-            qualifier == VarQualifier::Global && declares_attribute(node, "qualified_only");
+            qualifier == VarQualifier::Global && list_declares_attribute(node, "qualified_only");
         // The `VAR` locals of a POU with `{attribute 'hide_all_locals'}` (specification 14 §6.1.2).
         let hidden_locals = qualifier == VarQualifier::Local
             && self
