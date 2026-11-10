@@ -12,7 +12,10 @@ use crate::value::{Duration, Value};
 
 include!("retain/manager.rs");
 include!("retain/store.rs");
+include!("retain/place.rs");
 #[cfg(test)]
 include!("retain/store_tests.rs");
+#[cfg(test)]
+include!("retain/place_tests.rs");
 include!("retain/codec.rs");
 include!("retain/reader.rs");

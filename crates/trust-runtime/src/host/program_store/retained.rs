@@ -45,11 +45,8 @@ fn check_in_scratch(scratch: &Path, project: &Path, program: &[u8]) -> Result<()
     let Some(path) = config.retain_path else {
         return Ok(());
     };
-    let path = if path.is_relative() {
-        project.join(path)
-    } else {
-        path
-    };
+    // Where the runtime keeps the file: a store's in the store folder (spec 11 §6.7).
+    let path = crate::retain::retain_file_path(project, &path);
     let image = trust_runtime_core::native::image::Image::parse(program)
         .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
     let snapshot = FileRetainStore::new(path).load()?;
