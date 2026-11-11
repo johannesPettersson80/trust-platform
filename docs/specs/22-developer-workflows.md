@@ -751,9 +751,13 @@ and after no other failure.
 The Format job's check `scripts/check_test_ports.py` refuses test code that
 binds port 0 and drops the listener while its port goes on: a `bind` whose
 address is read in the same expression, so that the listener is a temporary;
-a function that binds port 0 and returns a port; and a listener that `let`
-names and `drop` drops while a value read from its address is used after the
-drop. A listener dropped after the last use of its address releases nothing.
+a function that binds port 0 and returns a port; a listener that `let` names
+and `drop` drops while a value read from its address is used after the drop;
+and a listener that `let` names in a block whose value is kept, a `let`'s or a
+function's, when that value reads the listener's address and the block does
+nothing else with the listener, so that the end of the block drops it while
+the value goes on. A listener dropped after the last use of its address
+releases nothing.
 A helper whose callers try again on a taken port, as above, says so with
 `// port-retry-ok: <why>` on the line of its `bind` or of its function, or on
 the line before either.

@@ -43,9 +43,12 @@ fn process_tag() -> &'static str {
 }
 
 /// A loopback TCP port that the test holds without listening on it. While the value lives, no other
-/// socket binds the port and a connection to it is refused: the address of an endpoint where nothing
-/// answers, for the whole test. A port read from a listener that the test then closes can be taken by
-/// any other socket before the test is done with it.
+/// socket binds the port and nothing answers a connection to it: the address of an endpoint where
+/// nothing answers, for the whole test. Linux and Windows refuse such a connection at once; macOS
+/// answers it not at all, so that there a connection fails only at its own timeout (about 7.5 s for
+/// a plain connect), and a test that waits for the failure waits that long. A port read from a
+/// listener that the test then closes can be taken by any other socket before the test is done
+/// with it.
 #[derive(Debug)]
 pub struct RefusedPort {
     socket: socket2::Socket,
