@@ -88,6 +88,7 @@ fn on_windows_the_adapter_keeps_its_default_endpoint() {
 fn a_launch_on_a_taken_tcp_port_is_refused_and_on_a_free_one_allowed() {
     // Catches: a launch that starts the adapter on a port another program holds, or a refusal of
     // a free port.
+    // port-retry-ok: the free half asks again about another port when this one was taken.
     let listener = TcpListener::bind("127.0.0.1:0").expect("a listener");
     let endpoint = format!("tcp://{}", listener.local_addr().expect("its address"));
     assert_eq!(
