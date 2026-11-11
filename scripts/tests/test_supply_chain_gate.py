@@ -10,6 +10,7 @@ import os
 import unittest
 from pathlib import Path
 
+from scripts.bump_version import LOCKFILES
 
 ROOT = Path(__file__).resolve().parents[2]
 GATE = ROOT / "scripts" / "supply_chain_gate.sh"
@@ -43,6 +44,12 @@ class SupplyChainGateGraphTests(unittest.TestCase):
             for command in (deny, f"run_cargo_audit {lock} "):
                 with self.subTest(lock=lock, command=command.strip()):
                     self.assertTrue(command in gate, f"the gate does not run `{command.strip()}`")
+
+    def test_the_version_bump_moves_every_cargo_lock(self) -> None:
+        """Catches a lock that the bump leaves behind. Each lock lists the workspace crates it builds at the
+        workspace version, and the gate reads it `--locked`, so a lock the bump does not move fails the gate on
+        the release pull request (0.38.0 left both fuzz locks at 0.37.0)."""
+        self.assertEqual(sorted(LOCKFILES), cargo_locks())
 
 
 if __name__ == "__main__":

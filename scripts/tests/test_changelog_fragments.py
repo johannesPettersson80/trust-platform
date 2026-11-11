@@ -171,6 +171,8 @@ class BumpTests(unittest.TestCase):
                     "Cargo.lock": lock,
                     "firmware/trust-esp32c6/Cargo.lock": lock,
                     "firmware/trust-stm32u5a9/Cargo.lock": lock,
+                    "fuzz/Cargo.lock": lock,
+                    "crates/trust-ads-server/fuzz/Cargo.lock": lock,
                     "editors/vscode/package.json": '{\n  "name": "trust-lsp",\n  "version": "0.28.0"\n}\n',
                     "editors/vscode/package-lock.json": json.dumps(package_lock, indent=2) + "\n",
                     "CHANGELOG.md": CHANGELOG,
@@ -183,7 +185,13 @@ class BumpTests(unittest.TestCase):
             self.assertIn("1 changelog fragments gathered", report[-1])
             self.assertIn('version = "0.29.0"', (root / "Cargo.toml").read_text())
             self.assertIn('version = "0.29.0"', (root / "firmware/trust-esp32c6/Cargo.toml").read_text())
-            for name in ("Cargo.lock", "firmware/trust-esp32c6/Cargo.lock", "firmware/trust-stm32u5a9/Cargo.lock"):
+            for name in (
+                "Cargo.lock",
+                "firmware/trust-esp32c6/Cargo.lock",
+                "firmware/trust-stm32u5a9/Cargo.lock",
+                "fuzz/Cargo.lock",
+                "crates/trust-ads-server/fuzz/Cargo.lock",
+            ):
                 text = (root / name).read_text()
                 self.assertIn('name = "trust-hir"\nversion = "0.29.0"', text, name)
                 self.assertIn('name = "serde"\nversion = "0.28.0"', text, name)

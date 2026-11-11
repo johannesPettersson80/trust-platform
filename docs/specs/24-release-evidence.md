@@ -45,7 +45,10 @@ harnesses (`fuzz`, `crates/trust-ads-server/fuzz`). Each committed
 `Cargo.lock` is a graph of its own and is read `--locked`, so a lock that its
 manifests have left behind fails the supply chain check, as an advisory does.
 A new standalone workspace joins `scripts/supply_chain_gate.sh`; the gate's
-test fails on a lock that the gate does not read. The VS Code lockfile runs
+test fails on a lock that the gate does not read. Each lock lists the workspace
+crates it builds at the workspace version, so the version bump
+(`scripts/bump_version.py`) moves them in every lock, and the gate's test also
+fails on a lock that the bump leaves out. The VS Code lockfile runs
 the same policy: every advisory `npm audit` reports, at any severity, needs an
 owned exception in `editors/vscode/audit-exceptions.toml`, with the same fields and limit and
 the advisory's GitHub id. `scripts/check_npm_audit.py` checks it in CI, in the
