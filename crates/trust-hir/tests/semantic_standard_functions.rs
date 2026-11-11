@@ -750,3 +750,59 @@ END_PROGRAM
         DiagnosticCode::WrongArgumentCount,
     );
 }
+
+// docs/IEC_DEVIATIONS.md DEV-031: under the CODESYS profile a reference in an argument is the value
+// it names, so the string functions take a REFERENCE TO STRING or WSTRING as their text and give the
+// string's type (contributor issue #454). Catches the functions refusing such a reference with E205,
+// "expected STRING or WSTRING input" (LEN) or "expected STRING or WSTRING type" (CONCAT).
+#[test]
+fn string_functions_take_a_codesys_reference_to_a_string() {
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+PROGRAM Main
+VAR
+    text : STRING(20) := 'id:42';
+    wide : WSTRING(20) := "wide";
+    p : REFERENCE TO STRING(20);
+    pw : REFERENCE TO WSTRING(20);
+    length : INT;
+    wideLength : INT;
+    head : STRING(20);
+    joined : STRING(40);
+    position : INT;
+    middle : STRING(20);
+END_VAR
+p REF= text;
+pw REF= wide;
+length := LEN(p);
+wideLength := LEN(pw);
+head := LEFT(p, 2);
+joined := CONCAT(p, '!');
+position := FIND(p, ':');
+middle := MID(p, 2, 4);
+END_PROGRAM
+"#,
+    );
+}
+
+// The IEC rules dereference only with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so LEN of a REF_TO STRING
+// stays E205. Catches DEV-031's reading leaking into a project under the IEC rules.
+#[test]
+fn the_iec_rules_refuse_a_reference_as_a_string_function_argument() {
+    check_has_error_in(
+        Dialect::Iec,
+        r#"
+PROGRAM Main
+VAR
+    text : STRING(20);
+    r : REF_TO STRING(20);
+    length : INT;
+END_VAR
+r := REF(text);
+length := LEN(r);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}

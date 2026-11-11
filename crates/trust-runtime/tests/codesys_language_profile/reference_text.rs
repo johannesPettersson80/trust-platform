@@ -69,3 +69,50 @@ fn a_reference_to_a_string_where_a_text_is_wanted_is_the_text_it_names() {
     );
     assert_eq!(harness.get_output("wSame"), Some(Value::Bool(true)));
 }
+
+/// The string functions of specification 07 §8 given a reference to a `STRING` or a `WSTRING` as
+/// their text (DEV-031: arguments use the referenced value).
+const STRING_FUNCTIONS: &str = r#"
+VAR_GLOBAL
+    sTemplate : STRING(32) := 'id:42';
+    wTemplate : WSTRING(20) := "wide";
+END_VAR
+
+PROGRAM Main
+VAR
+    p : REFERENCE TO STRING(32);
+    pw : REFERENCE TO WSTRING(20);
+    length : INT;
+    wideLength : INT;
+    head : STRING(32) := 'old';
+    joined : STRING(40) := 'old';
+    position : INT;
+    middle : STRING(32) := 'old';
+END_VAR
+p REF= sTemplate;
+pw REF= wTemplate;
+length := LEN(p);
+wideLength := LEN(pw);
+head := LEFT(p, 2);
+joined := CONCAT(p, '!');
+position := FIND(p, ':');
+middle := MID(p, 2, 4);
+END_PROGRAM
+"#;
+
+// Worked by hand from 'id:42': it has 5 characters and "wide" 4; its first 2 are 'id'; with '!'
+// appended it is 'id:42!'; ':' is at position 3; the 2 characters from position 4 are '42'. The text
+// results start as 'old', so a call that wrote nothing would leave them. Catches the type checker
+// refusing the reference (E205, contributor issue #454's follow-up) and a function that reads the
+// reference's own bytes or the wrong family.
+#[test]
+fn the_string_functions_take_a_reference_to_a_string_as_its_text() {
+    let harness = codesys_run(STRING_FUNCTIONS, 1);
+    let text = |value: &str| Some(Value::String(value.into()));
+    assert_eq!(harness.get_output("length"), Some(Value::Int(5)));
+    assert_eq!(harness.get_output("wideLength"), Some(Value::Int(4)));
+    assert_eq!(harness.get_output("head"), text("id"));
+    assert_eq!(harness.get_output("joined"), text("id:42!"));
+    assert_eq!(harness.get_output("position"), Some(Value::Int(3)));
+    assert_eq!(harness.get_output("middle"), text("42"));
+}

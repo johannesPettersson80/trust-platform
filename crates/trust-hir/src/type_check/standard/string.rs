@@ -76,7 +76,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "expected integer length",
             );
         }
-        self.base_type_id(ty_in)
+        self.string_value_type(ty_in)
     }
 
     pub(in crate::type_check) fn infer_mid_call(&mut self, node: &SyntaxNode) -> TypeId {
@@ -133,7 +133,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "expected integer position",
             );
         }
-        self.base_type_id(ty_in)
+        self.string_value_type(ty_in)
     }
 
     pub(in crate::type_check) fn infer_concat_call(&mut self, node: &SyntaxNode) -> TypeId {
@@ -209,7 +209,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "expected integer position",
             );
         }
-        self.base_type_id(ty_in1)
+        self.string_value_type(ty_in1)
     }
 
     pub(in crate::type_check) fn infer_delete_call(&mut self, node: &SyntaxNode) -> TypeId {
@@ -266,7 +266,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "expected integer position",
             );
         }
-        self.base_type_id(ty_in)
+        self.string_value_type(ty_in)
     }
 
     pub(in crate::type_check) fn infer_replace_call(&mut self, node: &SyntaxNode) -> TypeId {
@@ -340,7 +340,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "expected integer position",
             );
         }
-        self.base_type_id(ty_in1)
+        self.string_value_type(ty_in1)
     }
 
     pub(in crate::type_check) fn infer_find_call(&mut self, node: &SyntaxNode) -> TypeId {

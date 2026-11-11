@@ -51,9 +51,16 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             .is_some_and(|ty| ty.is_bit_string())
     }
 
+    /// The type a string function reads its argument `type_id` as: under the CODESYS profile a
+    /// reference is the value it names (docs/IEC_DEVIATIONS.md DEV-031), so a `REFERENCE TO STRING`
+    /// is its string; the type's base otherwise.
+    pub(in crate::type_check) fn string_value_type(&self, type_id: TypeId) -> TypeId {
+        self.base_type_id(self.checker.deref_reference_type(type_id))
+    }
+
     pub(in crate::type_check) fn is_string_type(&self, type_id: TypeId) -> bool {
         self.checker
-            .resolved_type(type_id)
+            .resolved_type(self.checker.deref_reference_type(type_id))
             .is_some_and(|ty| ty.is_string())
     }
 
@@ -64,7 +71,10 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     }
 
     pub(in crate::type_check) fn string_kind(&self, type_id: TypeId) -> Option<bool> {
-        match self.checker.resolved_type(type_id)? {
+        match self
+            .checker
+            .resolved_type(self.checker.deref_reference_type(type_id))?
+        {
             Type::String { .. } => Some(false),
             Type::WString { .. } => Some(true),
             _ => None,
