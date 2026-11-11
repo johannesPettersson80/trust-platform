@@ -81,6 +81,52 @@ END_CLASS
         assert!(insert.new_text.contains("PROPERTY PUBLIC Status"));
     }
 
+    /// Specification 04, "Interface Inheritance": a class that implements an interface with two
+    /// bases owes the methods of both, and the stubs follow the bases' written order, `Start` of
+    /// `IStart` before `Stop` of `IStop`. Catches a stub missing for a base, or the stubs in the
+    /// reverse order of the bases.
+    #[test]
+    fn generate_interface_stubs_follows_the_written_order_of_several_bases() {
+        let source = r#"
+INTERFACE IStart
+    METHOD Start : BOOL
+    END_METHOD
+END_INTERFACE
+
+INTERFACE IStop
+    METHOD Stop : BOOL
+    END_METHOD
+END_INTERFACE
+
+INTERFACE IMotor EXTENDS IStart, IStop
+END_INTERFACE
+
+CLASS Motor IMPLEMENTS IMotor
+END_CLASS
+"#;
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, source.to_string());
+
+        let offset = source.find("IMPLEMENTS IMotor").expect("implements");
+        let result =
+            generate_interface_stubs(&db, file_id, TextSize::from(offset as u32)).expect("stubs");
+        let edits = result.edits.get(&file_id).expect("file edits");
+        let insert = edits
+            .iter()
+            .find(|edit| !edit.new_text.is_empty())
+            .expect("insert edit");
+        let start = insert
+            .new_text
+            .find("METHOD PUBLIC Start")
+            .expect("a stub for IStart's Start");
+        let stop = insert
+            .new_text
+            .find("METHOD PUBLIC Stop")
+            .expect("a stub for IStop's Stop");
+        assert!(start < stop, "{}", insert.new_text);
+    }
+
     #[test]
     fn inline_variable_with_literal_initializer() {
         let source = r#"

@@ -243,8 +243,9 @@ fn collect_interface_stubs(
             }
         }
 
-        // Every base: an interface may extend several (specification 04).
-        stack.extend(symbols.base_symbols(current));
+        // Every base, the first on top, so that the stubs follow the bases' written order: an
+        // interface may extend several (specification 04).
+        stack.extend(symbols.base_symbols(current).into_iter().rev());
     }
 }
 

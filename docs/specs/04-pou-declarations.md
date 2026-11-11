@@ -696,6 +696,11 @@ INTERFACE IAdvancedControl EXTENDS IControllable
   END_METHOD
 END_INTERFACE
 
+INTERFACE IMaintenance
+  METHOD Service
+  END_METHOD
+END_INTERFACE
+
 INTERFACE IServicedControl EXTENDS IAdvancedControl, IMaintenance
   METHOD Inspect
   END_METHOD
