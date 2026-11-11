@@ -898,9 +898,11 @@ re-check them against this rule when touched.
   is the correct vendor usage, not a variant to rewrite away: indexing
   the string (`ADR(s[1])`) copies from offset one and loses the first
   byte, which a vendor project observed live as a broken payload on the
-  wire. No runtime mirror is needed: no
-  conversion dispatch is involved and the pointer value is copied
-  verbatim, so only the compile contract changes.
+  wire. A compiled program (specification 44 §7.3) names the string's
+  first byte for a `POINTER TO BYTE` and its bytes, the array's length of
+  them or at most the string's capacity, for a `POINTER TO ARRAY[i..j] OF
+  BYTE`; an element past the bytes a pointer names is refused with
+  `IndexOutOfBounds`, where CODESYS reads the memory after the string.
 - Mitigation: the demotion is form-scoped, not blanket — element/record
   boundary mismatches keep their errors. A lenient binding whose source is
   a pointer value, not an `ADR` call, still produces one warning, so a

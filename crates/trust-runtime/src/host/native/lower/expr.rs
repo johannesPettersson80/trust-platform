@@ -291,6 +291,19 @@ impl Lowerer<'_, '_> {
         if place.is_text_view() {
             return self.refer_text(node, &place, target.unwrap_or(place.ty), kind);
         }
+        // A string where a pointer to a byte or to an array of bytes is wanted names its bytes
+        // (docs/IEC_DEVIATIONS.md DEV-039).
+        if let Some(target) = target
+            && let Some((bytes, spanned)) = self.string_bytes(&place, target)
+        {
+            let reference = self.bind(&format!(
+                "w.areas.refer(cx, {bytes}, abi::RefValue::{kind})?"
+            ));
+            return Ok(match spanned {
+                Some(extent) => format!("as_base({reference}, {extent})"),
+                None => reference,
+            });
+        }
         // A reference to a function block or class instance names the instance, so that its
         // class can be asked (§6.4).
         let kind = if kind == "VARIABLE" && self.info(place.ty).kind.is_instance() {

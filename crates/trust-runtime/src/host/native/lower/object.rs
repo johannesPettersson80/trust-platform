@@ -138,6 +138,9 @@ impl<'a> Lowerer<'_, 'a> {
         }
         match self.model.types.upcast(place.ty, ty) {
             Some(path) => Ok(format!("&{}{path}", place.expr)),
+            // A `CHAR` and a `BYTE` are one byte each, so a pointer to one names the other
+            // (docs/IEC_DEVIATIONS.md DEV-039).
+            None if self.is_byte(place.ty) && self.is_byte(ty) => Ok(place.reference()),
             // DEV-035 binds a string of another capacity to a string in-out of a function or a
             // method only (specification 44 §7.3).
             None if self.same_text_family(place.ty, ty) => Err(self.unsupported(
@@ -147,6 +150,39 @@ impl<'a> Lowerer<'_, 'a> {
             )),
             None => Err(self.unsupported(node, "a variable of another type")),
         }
+    }
+
+    /// Whether `ty` is a `BYTE` or a `CHAR`.
+    fn is_byte(&self, ty: Ty) -> bool {
+        matches!(self.info(ty).scalar(), Some(Elem::Byte | Elem::Char))
+    }
+
+    /// The bytes of `place`, a `STRING`, where a pointer to a byte or to a one-dimensional array of
+    /// bytes is wanted (docs/IEC_DEVIATIONS.md DEV-039): the Rust reference to its first byte or to
+    /// its bytes, and, for an array shorter than the string's capacity, the bytes the pointer spans.
+    /// The array names the string's capacity at most; its elements past it are refused at their
+    /// index (`lib::element_reference`). `None` for any other pair.
+    pub(super) fn string_bytes(&self, place: &Place, target: Ty) -> Option<(String, Option<u32>)> {
+        let Kind::Str(capacity) = self.info(place.ty).kind else {
+            return None;
+        };
+        if capacity == 0 {
+            return None;
+        }
+        if self.is_byte(target) {
+            return Some((format!("&({}).data[0]", place.reference()), None));
+        }
+        let Kind::Array { elem, dims } = &self.info(target).kind else {
+            return None;
+        };
+        let ([(lower, upper)], true) = (dims.as_slice(), self.is_byte(*elem)) else {
+            return None;
+        };
+        let length = u32::try_from(upper.checked_sub(*lower)?.checked_add(1)?).ok()?;
+        Some((
+            format!("&({}).data", place.reference()),
+            (length < capacity).then_some(length),
+        ))
     }
 
     /// Whether `a` and `b` are strings of one family, `STRING` or `WSTRING`, whatever their
