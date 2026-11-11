@@ -34,5 +34,5 @@
   "docs/diagrams/hir/hir-semantics.puml": "7c556e975543fce7b3aa41160cb2e7c4d37a306797c73ccc22c18fac2fd99e9c",
   "docs/diagrams/lsp/compiled-binding-sources.puml": "d239446b9578abb6b71b07ac1ad450e4c89374464a284ae232787f28eb1909c5",
   "docs/diagrams/lsp/lsp-request-flow.puml": "888560dff0d9986d59f08ac34bdc478d081f60e3a7d47969aaa6d73c1de9870a",
-  "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"
+  "docs/diagrams/syntax/syntax-pipeline.puml": "39672e333417f35ec69e272440da72aa4de3b9aefcd9075bc34b7dfc0eebfb01"
 }

@@ -34,17 +34,12 @@ note right
 
     **TokenKind enum (lexer/tokens.rs:53-56)**
     <<TOKEN_STATS>>
-    TokenKind variants: 202
-    Sections:
+    TokenKind variants: 214
+    • Keywords: 170
     • Trivia: 4
-    • Punctuation: 12
-    • Operators: 15
-    • Keywords: 156
-    • Literals: 12
-    • Identifiers: 1
-    • Special: 2
+    • Punctuation, operators, literals and identifiers: 40
     
-    Keywords (156) in docs/diagrams/generated/syntax-stats.md
+    Keywords (170) in docs/diagrams/generated/syntax-stats.md
     <<TOKEN_STATS_END>>
 end note
 
@@ -129,7 +124,7 @@ note right
     7-8:   =, <>, <, <=, >, >=
     9-10:   +, -
     11-12:   *, /, MOD
-    14-13:   ** (right assoc)
+    13-14:   **
     15:    prefix NOT, +, -
     <<PRECEDENCE_TABLE_END>>
 end note

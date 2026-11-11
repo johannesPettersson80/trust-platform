@@ -158,6 +158,10 @@ jobs:
         run: python3 -m unittest release_candidate_guard_tests release_candidate_cleanup_tests -v
       - name: Guard deterministic diagram workflow
         run: python3 -m unittest scripts.tests.test_diagram_workflow -v
+      - name: Guard the syntax diagram's numbers
+        run: |
+          python3 -m unittest scripts.tests.test_update_syntax_pipeline -v
+          python3 scripts/update_syntax_pipeline.py --check
       - name: Guard workflow change detection
         run: python3 -m unittest scripts.tests.test_ci_changes scripts.tests.test_workflow_change_detection -v
       - name: Lint the workflows
