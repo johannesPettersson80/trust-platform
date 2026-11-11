@@ -506,7 +506,10 @@ impl Lowerer<'_, '_> {
                     && crate::harness::dialect_of(self.model.conversions).is_codesys() =>
             {
                 // Under the CODESYS profile a reference compared with a value or another reference
-                // takes part as the value it names (docs/IEC_DEVIATIONS.md DEV-031).
+                // takes part as the value it names (docs/IEC_DEVIATIONS.md DEV-031), a text too.
+                if self.is_text(&left) || self.is_text(&right) {
+                    return self.compare_texts(node, &left, &right, op);
+                }
                 let a = self.value_type(&left)?;
                 let b = self.value_type(&right)?;
                 let common = self.common(node, a, b)?;
