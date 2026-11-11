@@ -113,6 +113,49 @@ class VerificationReportGateTests(unittest.TestCase):
 
         self.assertEqual(changed, ["feature.txt"])
 
+    def test_changed_files_from_git_takes_a_head_with_several_merge_bases(self) -> None:
+        """A feature branch that merged another pull request's branch and then `main`, after which `main` merged that
+        other branch: the head has two merge bases with `main` (the other branch's commit and `main`'s older commit),
+        and `git diff --merge-base` refuses it. The change is the feature's own file alone, as merging it into `main`
+        gives. Catches a gate that fails such a pull request (#439, 11 November 2026) or lists files that `main`
+        already holds."""
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run_git(repo, "init", "-b", "main")
+            run_git(repo, "config", "user.email", "verification@example.invalid")
+            run_git(repo, "config", "user.name", "Verification Test")
+            (repo / "shared.txt").write_text("base\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "base")
+
+            run_git(repo, "checkout", "-b", "other")
+            (repo / "other.txt").write_text("other\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "other change")
+
+            run_git(repo, "checkout", "main")
+            (repo / "main.txt").write_text("main\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "main change")
+
+            run_git(repo, "checkout", "-b", "feature", "main~1")
+            (repo / "feature.txt").write_text("feature\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "feature change")
+            run_git(repo, "merge", "--no-edit", "other")
+            run_git(repo, "merge", "--no-edit", "main")
+            feature_head = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            run_git(repo, "checkout", "main")
+            run_git(repo, "merge", "--no-edit", "other")
+            base_tip = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            merge_bases = run_git(repo, "merge-base", "--all", base_tip, feature_head).stdout.split()
+            changed = changed_files_from_git(repo, base_tip, feature_head)
+
+        self.assertEqual(len(merge_bases), 2)
+        self.assertEqual(changed, ["feature.txt"])
+
     def test_specification_trailers_come_from_the_commits_of_the_change(self) -> None:
         # Specification 30: the gate reads the `Specification:` trailers of the commits in the head and not in the base,
         # newest first. A trailer of the base's history (before the branch point, or added to main after it) and a trailer

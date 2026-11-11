@@ -236,6 +236,9 @@ def command_name(command: list[str]) -> str:
 
 
 def changed_files_from_git(root: Path, base: str, head: str) -> list[str]:
+    """The files that the change from `base` to `head` touches, against their merge base. A head with several merge
+    bases, such as a branch that merged other pull requests' branches and `base` at different points, has no single
+    one, and `git diff --merge-base` refuses it; its files are those that merging `head` into `base` changes."""
     completed = subprocess.run(
         [
             "git",
@@ -245,9 +248,7 @@ def changed_files_from_git(root: Path, base: str, head: str) -> list[str]:
             "--find-renames",
             "--find-copies",
             "--diff-filter=ACDMRTUXB",
-            "--merge-base",
-            base,
-            head,
+            *compared_revisions(root, base, head),
             "--",
         ],
         cwd=root,
@@ -259,6 +260,33 @@ def changed_files_from_git(root: Path, base: str, head: str) -> list[str]:
     if completed.returncode != 0:
         raise RuntimeError(f"git diff failed: {completed.stderr.strip()}")
     return parse_name_status_z(completed.stdout)
+
+
+def compared_revisions(root: Path, base: str, head: str) -> list[str]:
+    """What `git diff` compares for `changed_files_from_git`: `head` against its merge base with `base` when there is
+    one, else `base` against the tree that merging `head` into it gives (`git merge-tree`, whose first line is that
+    tree, with conflicts too)."""
+    bases = subprocess.run(
+        ["git", "merge-base", "--all", base, head],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if bases.returncode != 0 or len(bases.stdout.split()) < 2:
+        return ["--merge-base", base, head]
+    merged = subprocess.run(
+        ["git", "merge-tree", "--write-tree", base, head],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if merged.returncode not in (0, 1) or not merged.stdout.strip():
+        raise RuntimeError(f"git merge-tree failed: {merged.stderr.strip()}")
+    return [base, merged.stdout.split()[0]]
 
 
 def specification_trailers_from_git(root: Path, base: str, head: str) -> list[str]:
