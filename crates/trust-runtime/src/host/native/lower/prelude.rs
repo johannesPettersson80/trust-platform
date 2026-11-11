@@ -70,6 +70,71 @@ fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
         && a.generation == b.generation
 }
 
+/// The string that a string `VAR_IN_OUT` of a function or a method names: the caller's string, of
+/// any capacity of its family (docs/IEC_DEVIATIONS.md DEV-035), seen through the capacity `limit`
+/// that the in-out declares, so that it reads and writes at most that many characters and never
+/// more than the caller's string holds (specification 44 §7.3).
+#[inline]
+fn within(view: abi::StrView<'_>, limit: usize) -> abi::StrView<'_> {
+    abi::StrView {
+        len: view.len,
+        data: &view.data[..limit.min(view.data.len())],
+    }
+}
+
+/// [`within`] for a `WSTRING`.
+#[inline]
+fn within_wide(view: abi::WStrView<'_>, limit: usize) -> abi::WStrView<'_> {
+    abi::WStrView {
+        len: view.len,
+        data: &view.data[..limit.min(view.data.len())],
+    }
+}
+
+/// The text of a string in-out, which reads and is written as a string's text is (`Str::view`).
+trait AsView {
+    type Text;
+    fn view(&self) -> Self::Text;
+}
+
+impl<'a> AsView for abi::StrView<'a> {
+    type Text = abi::StrView<'a>;
+    #[inline]
+    fn view(&self) -> abi::StrView<'a> {
+        *self
+    }
+}
+
+impl<'a> AsView for abi::WStrView<'a> {
+    type Text = abi::WStrView<'a>;
+    #[inline]
+    fn view(&self) -> abi::WStrView<'a> {
+        *self
+    }
+}
+
+/// A reference of `kind` to the caller's string that a string in-out names, whose length lies in
+/// `len`, as a variable of the type `T` that the in-out declares (specification 44 §7.3): the
+/// caller's string when it holds as many characters as `T` (`whole`); a shorter one is no such
+/// variable (`TypeMismatch`).
+#[inline]
+fn refer_text<T: Plain>(
+    cx: &mut Cx,
+    areas: &Areas<'_>,
+    len: &Cell<u16>,
+    whole: bool,
+    kind: u8,
+) -> R<abi::RefValue> {
+    if !whole {
+        return Err(fault(cx, abi::FaultCode::TypeMismatch, 0, 0, 0));
+    }
+    let start = areas.refer_elements(cx, core::slice::from_ref(len), kind)?;
+    Ok(abi::RefValue {
+        extent: core::mem::size_of::<T>() as u32,
+        ..start
+    })
+}
+
 /// The members of a `STRUCT OVERLAP` (specification 02 §3.6; specification 44 §6.2): views of the
 /// bytes each takes of the structure's backing, read and written in the target's byte order, so
 /// that a write through one member is read through every member that shares its bits.

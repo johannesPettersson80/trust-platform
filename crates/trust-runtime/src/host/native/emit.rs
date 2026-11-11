@@ -355,7 +355,7 @@ pub(super) fn return_type(
 
 /// The signature of a function or a method returning `ret` with `params`: a scalar result is
 /// returned, any other written to `out`; a scalar input is passed by value, any other input, an
-/// in-out and an output by reference.
+/// in-out and an output by reference, and a string in-out as a view of the caller's string.
 pub(super) fn signature(
     model: &mut Model<'_>,
     ret: Option<trust_hir::TypeId>,
@@ -385,6 +385,17 @@ pub(super) fn signature(
         if matches!(info.kind, Kind::Open { .. }) {
             // An open array is a view of the caller's array, passed as it is (§6.2).
             let _ = write!(parameters, ", {argument}: {}", info.rust);
+        } else if param.direction == trust_hir::symbols::ParamDirection::InOut
+            && matches!(info.kind, Kind::Str(_) | Kind::WStr(_))
+        {
+            // A string in-out is a view of the caller's string, of any capacity of its family
+            // (docs/IEC_DEVIATIONS.md DEV-035, §7.3).
+            let view = if matches!(info.kind, Kind::WStr(_)) {
+                "WStrView"
+            } else {
+                "StrView"
+            };
+            let _ = write!(parameters, ", {argument}: abi::{view}<'_>");
         } else if param.direction == trust_hir::symbols::ParamDirection::In
             && super::lower::is_scalar(&info.kind)
         {

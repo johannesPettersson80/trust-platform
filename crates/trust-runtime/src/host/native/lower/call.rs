@@ -363,6 +363,31 @@ impl<'a> Lowerer<'_, 'a> {
                 continue;
             }
             if param.direction == ParamDirection::InOut
+                && matches!(info.kind, Kind::Str(_) | Kind::WStr(_))
+            {
+                // A string in-out takes the caller's string of its family, of any capacity, as a
+                // view (docs/IEC_DEVIATIONS.md DEV-035; specification 44 §7.3).
+                let Some(arg) = arg else {
+                    return Err(self.unsupported(
+                        node,
+                        format!("the parameter {} without its variable", param.name),
+                    ));
+                };
+                let place = self.place(&arg.value)?;
+                if place.is_overlap_member() {
+                    return Err(self.unsupported(
+                        &arg.value,
+                        "a member of a STRUCT OVERLAP as a VAR_IN_OUT or a reference, which no \
+                         reference can name apart from the members that share its bits",
+                    ));
+                }
+                if !self.same_text_family(place.ty, ty) {
+                    return Err(self.unsupported(&arg.value, "a variable of another type"));
+                }
+                values[slot] = Some(format!("({}).view()", place.reference()));
+                continue;
+            }
+            if param.direction == ParamDirection::InOut
                 || (param.direction == ParamDirection::In && info.kind.is_instance())
             {
                 // A `VAR_IN_OUT` is the caller's variable itself (IEC §6.6.1.2.2), and a function
@@ -747,6 +772,12 @@ impl<'a> Lowerer<'_, 'a> {
                     continue;
                 }
                 let variable = self.place(&arg.value)?;
+                // A string in-out given on names the caller's string (specification 44 §7.3).
+                if variable.is_text_view() {
+                    let reference = self.refer_text(&arg.value, &variable, target, "VARIABLE")?;
+                    self.line(&format!("{}.set({reference});", place.expr));
+                    continue;
+                }
                 // A reference given for an in-out of its value's type (DEV-031).
                 let variable = if matches!(self.info(target).kind, Kind::Ref { .. }) {
                     variable
@@ -882,6 +913,13 @@ impl Lowerer<'_, '_> {
                         return Err(self.unsupported(&arg.value, "a VAR_IN_OUT without its type"));
                     };
                     let variable = self.place(&arg.value)?;
+                    // A string in-out given on names the caller's string (§7.3).
+                    if variable.is_text_view() {
+                        let reference =
+                            self.refer_text(&arg.value, &variable, target, "VARIABLE")?;
+                        self.line(&format!("{}.set({reference});", place.expr));
+                        continue;
+                    }
                     let variable = if matches!(self.info(target).kind, Kind::Ref { .. }) {
                         variable
                     } else {

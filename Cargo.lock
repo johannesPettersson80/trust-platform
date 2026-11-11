@@ -225,7 +225,7 @@ dependencies = [
  "futures-lite",
  "parking",
  "polling",
- "rustix 1.1.5",
+ "rustix 1.1.6",
  "slab",
  "windows-sys 0.61.2",
 ]
@@ -1038,7 +1038,7 @@ dependencies = [
  "document-features",
  "mio",
  "parking_lot",
- "rustix 1.1.5",
+ "rustix 1.1.6",
  "signal-hook 0.3.18",
  "signal-hook-mio",
  "winapi",
@@ -1502,7 +1502,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1879,7 +1879,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3484,7 +3484,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4425,7 +4425,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4538,7 +4538,7 @@ dependencies = [
  "linux-raw-sys 0.12.1",
  "log",
  "once_cell",
- "rustix 1.1.5",
+ "rustix 1.1.6",
  "slab",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -5174,7 +5174,7 @@ dependencies = [
  "concurrent-queue",
  "hermit-abi",
  "pin-project-lite",
- "rustix 1.1.5",
+ "rustix 1.1.6",
  "windows-sys 0.61.2",
 ]
 
@@ -5704,7 +5704,7 @@ dependencies = [
  "bitflags 2.13.2",
  "libc",
  "mach2 0.7.0",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5946,20 +5946,20 @@ dependencies = [
  "errno 0.3.14",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
 name = "rustix"
-version = "1.1.5"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891efababe418670775f199f0d233d84843c227a0949a883ce15b37c78d6629d"
+checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
 dependencies = [
  "bitflags 2.13.2",
  "errno 0.3.14",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7052,8 +7052,8 @@ dependencies = [
  "fastrand",
  "getrandom 0.3.4",
  "once_cell",
- "rustix 1.1.5",
- "windows-sys 0.59.0",
+ "rustix 1.1.6",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7073,7 +7073,7 @@ checksum = "9048a889effe34a5cddee0af7f53285198b16dca3be510858d38dfdb3e62a04e"
 dependencies = [
  "bitflags 2.13.2",
  "parking_lot",
- "rustix 1.1.5",
+ "rustix 1.1.6",
  "signal-hook 0.3.18",
  "windows-sys 0.60.2",
 ]
@@ -7652,7 +7652,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -7661,14 +7661,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-chips"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -7677,7 +7677,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "base64 0.22.1",
  "hex",
@@ -7691,7 +7691,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control-math"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "nalgebra 0.34.2",
  "num-bigint",
@@ -7702,7 +7702,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control-studio"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "clap",
  "parking_lot",
@@ -7718,7 +7718,7 @@ dependencies = [
 
 [[package]]
 name = "trust-debug"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "base64 0.23.1",
  "indexmap 2.14.2",
@@ -7734,7 +7734,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -7758,7 +7758,7 @@ dependencies = [
 
 [[package]]
 name = "trust-devices"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "base64 0.23.1",
  "serde",
@@ -7772,7 +7772,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "boxcar",
  "insta",
@@ -7792,7 +7792,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -7805,7 +7805,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -7848,11 +7848,11 @@ dependencies = [
 
 [[package]]
 name = "trust-modbus"
-version = "0.36.0"
+version = "0.37.0"
 
 [[package]]
 name = "trust-platform-esp32"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "critical-section",
  "embassy-net-driver",
@@ -7873,7 +7873,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-memory"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "crc32fast",
  "critical-section",
@@ -7882,7 +7882,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-net"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "hmac 0.13.0",
  "serde",
@@ -7895,11 +7895,11 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-stm32"
-version = "0.36.0"
+version = "0.37.0"
 
 [[package]]
 name = "trust-platform-stm32u5"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -7917,14 +7917,14 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-abi"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "memmap2",
 ]
 
 [[package]]
 name = "trust-plc-lib"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "libm",
  "ryu",
@@ -7933,11 +7933,11 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-mem"
-version = "0.36.0"
+version = "0.37.0"
 
 [[package]]
 name = "trust-plcopen"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -7950,7 +7950,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "ads",
  "anyhow",
@@ -8003,7 +8003,7 @@ dependencies = [
  "rumqttc",
  "rusqlite",
  "rustc-hash 2.1.3",
- "rustix 1.1.5",
+ "rustix 1.1.6",
  "rustls 0.23.46",
  "serde",
  "serde_json",
@@ -8049,7 +8049,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-client"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "base64 0.23.1",
  "crc32fast",
@@ -8063,7 +8063,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -8082,7 +8082,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-services"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "base64 0.23.1",
  "indexmap 2.14.2",
@@ -8097,7 +8097,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -8109,21 +8109,21 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "libloading 0.9.0",
 ]
 
 [[package]]
 name = "trust-test-support"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "socket2 0.6.5",
 ]
 
 [[package]]
 name = "trust-visual"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -8133,7 +8133,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "rowan",
  "serde",
@@ -8478,7 +8478,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "verification-cases"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "hex",
  "serde",
@@ -8784,7 +8784,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8931,15 +8931,6 @@ name = "windows-sys"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
-dependencies = [
- "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-sys"
-version = "0.59.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
 dependencies = [
  "windows-targets 0.52.6",
 ]
@@ -9246,7 +9237,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "anyhow",
  "crc32fast",

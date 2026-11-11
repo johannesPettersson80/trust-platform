@@ -713,6 +713,18 @@ without its command, and 15 example and docs pages that sent readers to the
 Runtime Panel or to `Structured Text:` commands, such as the six ADS commands
 that Devices & Connections replaced).
 
+The syntax diagram follows the lexer the same way: the variants of `TokenKind`,
+its keywords and trivia, and the parser's operator precedence in
+`docs/diagrams/syntax/syntax-pipeline.puml` and
+`docs/diagrams/generated/syntax-stats.md` are what
+`scripts/update_syntax_pipeline.py` reads from the lexer's source, and a source
+without them fails the script instead of giving zeros. The Format job runs it
+with `--check`, so a token or a binding power changed without the diagram
+fails the pull request (11 November 2026: the diagram still counted 202 token
+kinds and 156 keywords and called `**` right-associative, where the lexer had
+214 and 170 and the parser binds `**` from left to right, as specification 05
+says).
+
 ### Native test and docs-capture lifecycle portability
 
 Native Unix control-endpoint fixtures must derive a collision-resistant socket
