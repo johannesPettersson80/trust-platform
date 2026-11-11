@@ -591,4 +591,45 @@ END_FUNCTION
         assert_eq!(incoming.len(), 1);
         assert!(incoming[0].from.name.eq_ignore_ascii_case("Main"));
     }
+
+    // Specification 14 §6.3.2: an incoming call comes from the POU whose body holds it, as the type
+    // check resolved it. The class's method `Fetch` calls `Add`, and the interface it implements
+    // declares a `Fetch` before it: worked by hand, the caller's name is the `Fetch` after
+    // `METHOD PUBLIC`. Catches the caller found by its name alone, the first `Fetch` of the
+    // source, which is the interface's prototype (G82b).
+    #[test]
+    fn an_incoming_call_comes_from_the_method_that_holds_it_not_from_a_namesake() {
+        let source = r#"
+FUNCTION Add : INT
+VAR_INPUT
+    A : INT;
+END_VAR
+    Add := A;
+END_FUNCTION
+
+INTERFACE IFace
+METHOD Fetch : INT
+END_METHOD
+END_INTERFACE
+
+CLASS Derived IMPLEMENTS IFace
+METHOD PUBLIC Fetch : INT
+    Fetch := Add(1);
+END_METHOD
+END_CLASS
+"#;
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, source.to_string());
+
+        let position = TextSize::from(source.find("Add : INT").expect("name") as u32);
+        let item = prepare_call_hierarchy(&db, file_id, position).expect("prepare");
+        let incoming = incoming_calls(&db, &item);
+        assert_eq!(incoming.len(), 1);
+        let implementation = source.find("PUBLIC Fetch").expect("method") + "PUBLIC ".len();
+        assert_eq!(
+            incoming[0].from.selection_range.start(),
+            TextSize::from(implementation as u32)
+        );
+    }
 }

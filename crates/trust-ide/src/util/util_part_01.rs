@@ -83,17 +83,28 @@ pub fn scope_for_pou(symbols: &SymbolTable, pou_node: &SyntaxNode) -> ScopeId {
             n.descendants_with_tokens()
                 .filter_map(|e| e.into_token())
                 .find(|t| t.kind() == SyntaxKind::Ident)
-        })
-        .map(|t| t.text().to_string());
+        });
 
     let Some(name) = pou_name else {
         return ScopeId::GLOBAL;
     };
 
-    // Find the symbol for this POU
+    // Find the symbol for this POU: the one this declaration names, at the place of its name.
+    // Methods of two types, or an interface's prototype and the method that implements it, share
+    // their name, and the first of that name would give a body another POU's scope. A table
+    // without the declaration's place (another revision of the text) falls back to the name.
     let pou_symbol = symbols
         .iter()
-        .find(|sym| sym.name.eq_ignore_ascii_case(&name) && is_pou_symbol_kind(&sym.kind));
+        .find(|sym| {
+            sym.origin.is_none()
+                && sym.range == name.text_range()
+                && is_pou_symbol_kind(&sym.kind)
+        })
+        .or_else(|| {
+            symbols.iter().find(|sym| {
+                sym.name.eq_ignore_ascii_case(name.text()) && is_pou_symbol_kind(&sym.kind)
+            })
+        });
 
     let Some(pou_sym) = pou_symbol else {
         return ScopeId::GLOBAL;
