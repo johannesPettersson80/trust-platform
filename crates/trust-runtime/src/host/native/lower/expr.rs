@@ -286,6 +286,11 @@ impl Lowerer<'_, '_> {
             Some(place) => place?,
             None => self.place(variable)?,
         };
+        // A string in-out names the caller's string, as the variable its type declares
+        // (specification 44 §7.3).
+        if place.is_text_view() {
+            return self.refer_text(node, &place, target.unwrap_or(place.ty), kind);
+        }
         // A reference to a function block or class instance names the instance, so that its
         // class can be asked (§6.4).
         let kind = if kind == "VARIABLE" && self.info(place.ty).kind.is_instance() {

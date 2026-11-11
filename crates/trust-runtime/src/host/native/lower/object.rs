@@ -130,13 +130,56 @@ impl<'a> Lowerer<'_, 'a> {
                  can name apart from the members that share its bits",
             ));
         }
+        if place.is_text_view() {
+            return Err(self.unsupported(node, "a string in-out where its variable is wanted"));
+        }
         if place.ty == ty {
             return Ok(place.reference());
         }
         match self.model.types.upcast(place.ty, ty) {
             Some(path) => Ok(format!("&{}{path}", place.expr)),
+            // DEV-035 binds a string of another capacity to a string in-out of a function or a
+            // method only (specification 44 §7.3).
+            None if self.same_text_family(place.ty, ty) => Err(self.unsupported(
+                node,
+                "a string of another capacity where a reference to a variable of the declared \
+                 capacity is wanted (an in-out of a function block or a program, REF, ADR)",
+            )),
             None => Err(self.unsupported(node, "a variable of another type")),
         }
+    }
+
+    /// Whether `a` and `b` are strings of one family, `STRING` or `WSTRING`, whatever their
+    /// capacities.
+    pub(super) fn same_text_family(&self, a: Ty, b: Ty) -> bool {
+        matches!(
+            (&self.info(a).kind, &self.info(b).kind),
+            (Kind::Str(_), Kind::Str(_)) | (Kind::WStr(_), Kind::WStr(_))
+        )
+    }
+
+    /// A reference of `kind` (`VARIABLE` or `POINTER`) to the caller's string that the string in-out
+    /// `place` names, as a variable of the type it declares (specification 44 §7.3): it faults when
+    /// the caller's string is shorter than that type (the prelude's `refer_text`).
+    pub(super) fn refer_text(
+        &mut self,
+        node: &SyntaxNode,
+        place: &Place,
+        ty: Ty,
+        kind: &str,
+    ) -> Result<String, NativeError> {
+        let (Kind::Str(capacity) | Kind::WStr(capacity)) = self.info(place.ty).kind else {
+            return Err(self.unsupported(node, "a string in-out of no string type"));
+        };
+        if ty != place.ty {
+            return Err(self.unsupported(node, "a string in-out as a variable of another type"));
+        }
+        let rust = self.info(ty).rust.clone();
+        Ok(self.bind(&format!(
+            "refer_text::<{rust}>(cx, &w.areas, {expr}.len, {expr}.capacity() == {capacity}, \
+             abi::RefValue::{kind})?",
+            expr = place.expr
+        )))
     }
 
     /// The call of method `name` on `receiver` with `args`.

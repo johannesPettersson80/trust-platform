@@ -1099,7 +1099,22 @@ the instance's part of the base type, which lies first in it, with the base type
 `REF` takes it, so that a dereference as the base finds what it spans; `NULL` stays `NULL`. A
 `VAR_IN_OUT` of a function block stores the
 reference of the argument of its last call and reads and writes the variable through it, and a
-`VAR_IN_OUT` of a function or a method is the caller's variable itself. A `REF` initializer of a
+`VAR_IN_OUT` of a function or a method is the caller's variable itself. Under a CODESYS profile
+a string `VAR_IN_OUT` of a function or a method takes a variable of its family, `STRING` or
+`WSTRING`, of any capacity (docs/IEC_DEVIATIONS.md DEV-035; the other profiles keep the capacity
+equal), as CODESYS takes one for its libraries' `STRING(1)` buffers whose size a further argument
+gives. The in-out is then the caller's string seen through the
+capacity it declares: reading it reads at most that many characters of the caller's string, and
+writing it writes at most that many into the caller's variable, never past the caller's own
+capacity when that is smaller. CODESYS writes the declared length even past a shorter variable,
+which its help warns of ("the passed string can be manipulated unintentionally"), and reads the
+caller's string to its end. `SIZEOF` of the in-out is the size of its declared type. A reference
+or an address of the in-out (`REF`, `ADR`), and the in-out given on as an in-out of a function
+block or a program, name the caller's string as a variable of the declared type: when the
+caller's string holds at least the declared capacity, and with `TypeMismatch` when it holds fewer
+characters. A string of another capacity given to an in-out of a function block or a program, or
+under `REF` or `ADR`, which keep a reference to a variable of the declared type, is not compiled
+yet (NX-09). A `REF` initializer of a
 global or a program's variable is set by the cold-start and the warm-start initialization (§6.7),
 since the starting memory cannot hold where a variable lies. An interface's reference has kind
 instance and the extent of the type it was taken as, which may be a base of the instance's class;

@@ -88,6 +88,13 @@ impl Place {
         self.expr.starts_with("ov::Region")
     }
 
+    /// Whether the place is a string `VAR_IN_OUT` of a function or a method: a view of the caller's
+    /// string (the prelude's `within`), no `Str`, so that a reference to it is taken with
+    /// `refer_text` (`Lowerer::refer_text`).
+    pub(super) fn is_text_view(&self) -> bool {
+        self.expr.starts_with("sv_")
+    }
+
     /// A reference to the storage.
     pub(super) fn reference(&self) -> String {
         if self.is_ref {

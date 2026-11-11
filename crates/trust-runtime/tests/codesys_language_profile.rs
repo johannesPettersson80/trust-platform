@@ -19,6 +19,8 @@ mod instance_path;
 mod noinit;
 #[path = "codesys_language_profile/online_change_calls.rs"]
 mod online_change_calls;
+#[path = "codesys_language_profile/string_in_out.rs"]
+mod string_in_out;
 
 // Specification 14: the project's `vendor_profile` selects the language rules of the runtime build
 // with its conversion rules. A function block that assigns its own input in its body is refused
