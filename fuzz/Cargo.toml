@@ -64,3 +64,8 @@ doc = false
 
 [workspace]
 resolver = "3"
+
+# The vendored tiverse-mmap that the root workspace builds with: a `[patch]` applies only in its own workspace, so
+# this one repeats the root's.
+[patch.crates-io]
+tiverse-mmap = { path = "../third_party/tiverse-mmap" }
