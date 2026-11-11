@@ -44,7 +44,7 @@ impl Lowerer<'_, '_> {
             self.line(&format!("{segment} => {{"));
             self.indent += 1;
             for statement in &statements[*start..end] {
-                self.statement(statement)?;
+                self.statement_or_refused(statement)?;
             }
             self.line(&format!("jmp_at = {};", segment + 1));
             self.indent -= 1;

@@ -25,6 +25,7 @@ mod overlap;
 mod partial;
 mod places;
 mod prelude;
+mod refusals;
 mod strings;
 mod text;
 
@@ -374,7 +375,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     ) -> Result<(), NativeError> {
         for node in nodes {
             if super::front::is_statement(node.kind()) {
-                self.statement(&node)?;
+                self.statement_or_refused(&node)?;
             }
         }
         Ok(())

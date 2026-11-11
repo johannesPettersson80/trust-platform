@@ -182,6 +182,10 @@ pub enum NativeError {
         /// works out without a place, such as an instance's `FB_init` arguments.
         at: Option<SourcePlace>,
     },
+    /// More than one construct the generator does not compile yet, each an
+    /// [`NativeError::Unsupported`], in the order of their places: the build goes on after each
+    /// one to find the others (specification 11 §6.8.1c).
+    AllUnsupported(Vec<NativeError>),
     /// The Rust toolchain is missing or failed.
     Toolchain(String),
     /// The linked module has something a module must not have.
@@ -216,6 +220,15 @@ impl std::fmt::Display for NativeError {
                 f,
                 "{construct} is not compiled yet (the declarations; specification 44 NX-09)"
             ),
+            Self::AllUnsupported(each) => {
+                for (index, refusal) in each.iter().enumerate() {
+                    if index > 0 {
+                        f.write_str("\n")?;
+                    }
+                    write!(f, "{refusal}")?;
+                }
+                Ok(())
+            }
             Self::Toolchain(message) => write!(f, "the Rust toolchain: {message}"),
             Self::Module(message) => write!(f, "the compiled module: {message}"),
             Self::Image(message) => write!(f, "the program image: {message}"),
@@ -234,6 +247,42 @@ impl NativeError {
             construct,
             at: None,
         }
+    }
+
+    /// Whether this error is a construct that the generator does not compile yet, or several.
+    pub(crate) fn is_unsupported(&self) -> bool {
+        matches!(self, Self::Unsupported { .. } | Self::AllUnsupported(_))
+    }
+
+    /// The error of the constructs `refused` that one build met, none of them compiled yet: the
+    /// one construct as it is, or every one in the order of their places, a construct without a
+    /// place last (specification 11 §6.8.1c). `refused` holds errors for which
+    /// [`NativeError::is_unsupported`] is true; `None` when it is empty.
+    pub(crate) fn refusals(refused: Vec<NativeError>) -> Option<Self> {
+        let mut each: Vec<NativeError> = refused
+            .into_iter()
+            .flat_map(|error| match error {
+                Self::AllUnsupported(inner) => inner,
+                other => vec![other],
+            })
+            .collect();
+        each.sort_by(|a, b| place_order(a).cmp(&place_order(b)));
+        match each.len() {
+            0 => None,
+            1 => each.pop(),
+            _ => Some(Self::AllUnsupported(each)),
+        }
+    }
+}
+
+/// Where `error` sorts among the constructs one build did not compile: by its place, and after
+/// every place when it has none.
+fn place_order(error: &NativeError) -> (bool, &str, u32, u32) {
+    match error {
+        NativeError::Unsupported {
+            at: Some(place), ..
+        } => (false, place.file.as_str(), place.line, place.column),
+        _ => (true, "", 0, 0),
     }
 }
 
@@ -450,3 +499,7 @@ pub fn build_with_conversions(
             .and_then(|configuration| configuration.resource_name.clone()),
     })
 }
+
+#[cfg(test)]
+#[path = "native_error_tests.rs"]
+mod native_error_tests;

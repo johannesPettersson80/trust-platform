@@ -5971,11 +5971,15 @@ on its sources' diagnostics gives one issue per diagnostic, as
 (`E101`), its `severity` and `message`, the source's `file`, and where it is,
 `line`, `column`, `end_line` and `end_column`, 1-based, a column counted in
 UTF-16 code units; a syntax error has the code of its kind (E001 an unexpected
-token, E002 a missing one, E106 an invalid identifier). A construct that the
-build does not compile yet (specification 44 NX-09) is one issue with the code
-`compile` at the construct's place when the build knows it: the source's
+token, E002 a missing one, E106 an invalid identifier). Each construct that
+the build does not compile yet (specification 44 NX-09) is one issue with the
+code `compile`, at the construct's place when the build knows it: the source's
 `file`, and the `line` and `column` of the construct's first token, counted as
-above. A compile failure that names no place in the sources, a construct of the
+above. The build goes on after such a construct to find the others: it leaves
+out the statement that holds it, or the body when the construct lies outside
+its statements, and lowers the rest, so that one check reports the constructs
+of every statement and body it reaches, in the order of their places. A
+compile failure that names no place in the sources, a construct of the
 declarations among them, is one issue with the code `compile`. Human
 output is derived from the same response and reports either the successful
 source list or every accumulated issue, an issue with a position as
@@ -6027,7 +6031,7 @@ A build whose sources have errors, or that meets a construct it does not compile
 yet at a place it knows, writes no image, and with `--json` or `--ci` it prints,
 in place of the error text, version 1, command `build`, `ok` false, status
 `failed`, the `project`, the error and warning counts and the `issues`, one per
-diagnostic or the one construct, as `trust-runtime check` reports them (section
+diagnostic or per construct, as `trust-runtime check` reports them (section
 6.8.1c); it
 exits as the failure does without the JSON. Human mode
 reports the written image, whether it is a debug or a release image, its bytes

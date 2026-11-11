@@ -332,9 +332,10 @@ impl CheckIssue {
     }
 }
 
-/// The issues of a compile that failed on its sources' diagnostics, one each, where it is, or on a
-/// construct the build does not compile yet, at the construct's place (specification 11 §6.8.1c);
-/// `None` for a failure that names no place in the sources.
+/// The issues of a compile that failed on its sources' diagnostics, one each, where it is, or on
+/// constructs the build does not compile yet, one each, at the construct's place when the build
+/// knows it (specification 11 §6.8.1c); `None` for a failure that names no place in the sources,
+/// the one construct without a place among them.
 pub(crate) fn compile_issues(error: &anyhow::Error) -> Option<Vec<CheckIssue>> {
     let diagnostics = error.chain().find_map(|cause| {
         let compile = match cause.downcast_ref::<NativeError>() {
@@ -347,24 +348,36 @@ pub(crate) fn compile_issues(error: &anyhow::Error) -> Option<Vec<CheckIssue>> {
         return (!diagnostics.is_empty())
             .then(|| diagnostics.iter().map(diagnostic_issue).collect());
     }
-    let place = error
-        .chain()
-        .find_map(|cause| match cause.downcast_ref::<NativeError>() {
-            Some(NativeError::Unsupported {
-                at: Some(place), ..
-            }) => Some(place),
-            _ => None,
-        })?;
-    Some(vec![CheckIssue {
+    let refused: Vec<&NativeError> =
+        error
+            .chain()
+            .find_map(|cause| match cause.downcast_ref::<NativeError>() {
+                Some(NativeError::AllUnsupported(each)) => Some(each.iter().collect()),
+                Some(one @ NativeError::Unsupported { .. }) => Some(vec![one]),
+                _ => None,
+            })?;
+    if let [NativeError::Unsupported { at: None, .. }] = refused.as_slice() {
+        return None;
+    }
+    Some(refused.into_iter().map(refusal_issue).collect())
+}
+
+/// The issue of a construct the build does not compile yet, at its place when the build knows it.
+fn refusal_issue(refusal: &NativeError) -> CheckIssue {
+    let place = match refusal {
+        NativeError::Unsupported { at, .. } => at.as_ref(),
+        _ => None,
+    };
+    CheckIssue {
         severity: "error",
-        message: format!("program compile failed: {error}"),
+        message: format!("program compile failed: {refusal}"),
         code: "compile",
-        file: Some(place.file.clone()),
-        line: Some(place.line),
-        column: Some(place.column),
+        file: place.map(|place| place.file.clone()),
+        line: place.map(|place| place.line),
+        column: place.map(|place| place.column),
         end_line: None,
         end_column: None,
-    }])
+    }
 }
 
 fn diagnostic_issue(diagnostic: &SourceDiagnostic) -> CheckIssue {

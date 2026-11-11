@@ -116,7 +116,11 @@ first failure.
 stable issue codes, and source/dependency lists. Each compiler diagnostic is
 one issue with its code (`E101`), `severity`, `message`, `file`, and where it
 is: `line`, `column`, `end_line`, `end_column`, 1-based, columns counted as the
-editor and `trust-lsp check` count them (UTF-16 code units). Configuration or
+editor and `trust-lsp check` count them (UTF-16 code units). Each construct that
+the build does not compile yet is one issue with the code `compile`, at the
+`file`, `line` and `column` of its first token when the build knows them; the
+check goes on after one, so it reports every such construct of the statements
+and bodies it reaches, in the order of their places. Configuration or
 source-layout errors exit 10; compile errors exit 11. A successful check exits 0
 and never writes a program image.
 
@@ -152,8 +156,10 @@ build that needs the compiler toolchain installs it. A failed source,
 dependency, or compile step preserves any existing artifact. `--ci` and `--json` print the
 build report: response version 1 with the target, whether the image is a debug
 image, the image and record paths, the image's size, the signing key, and the
-memory figure. Sources with errors print, instead of the error text, a failed
-response whose `issues` are the compiler's diagnostics as `check` reports them.
+memory figure. Sources with errors, or constructs the build does not compile
+yet, print, instead of the error text, a failed response whose `issues` are the
+compiler's diagnostics or those constructs, one issue each, as `check` reports
+them.
 Build failures exit 11 with `--ci`, and 1 otherwise.
 
 Every build also writes `build/install.<triple>.bin`, the container that
