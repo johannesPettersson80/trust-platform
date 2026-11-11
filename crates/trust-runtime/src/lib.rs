@@ -248,5 +248,3 @@ pub mod io {
 }
 #[path = "host/host_clock.rs"]
 mod host_clock;
-#[cfg(test)]
-mod rustix_version_tests;

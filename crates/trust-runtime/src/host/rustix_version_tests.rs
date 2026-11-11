@@ -1,7 +1,7 @@
 //! The rustix that `trust-runtime` builds with holds the fix of advisory RUSTSEC-2026-0486.
 
 /// The workspace lock that this build resolved. Included, so that a changed lock rebuilds the test.
-const WORKSPACE_LOCK: &str = include_str!("../../../Cargo.lock");
+const WORKSPACE_LOCK: &str = include_str!("../../../../Cargo.lock");
 
 /// The version of every `rustix` that a lock holds, as (major, minor, patch).
 fn locked_rustix_versions(lock: &str) -> Vec<(u64, u64, u64)> {
