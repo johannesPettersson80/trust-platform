@@ -733,7 +733,9 @@ for the duration of the entry call (§8.3), and accesses variables as fields:
 `w.p.VAT.LEVEL.VALUE.get()`. LLVM compiles such an access to one load or store at a constant
 offset, with the aliasing assumptions of C, as every compiler of Structured Text to native code has
 them. A type of an area is declared with the interface's `plain_struct!`, which implements the
-interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is `Plain`.
+interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is `Plain`. `Plain`'s
+`copy_cells` gives every cell of a value the value of the same cell of another of its type, field
+by field and through the cells, which the copy of a function block instance is (§6.2).
 
 ### 6.4 POUs (IEC §6.6)
 
@@ -830,8 +832,14 @@ areas, computed at build; an address outside the configured process image is a b
 
 A structure may hold a function block or class instance (IEC Table 11 feature 7a), which its
 variable's member path calls and reads (`Line.Feed(Increment := 5)`, `Line.Feed.Total`). A value
-that holds an instance (an instance, or an array or a structure that holds one) is not copied as a
-whole: an assignment of such a value, and an output of such a type, are not compiled yet (NX-09).
+that holds an instance (an instance, or an array or a structure that holds one) is copied whole,
+as the memory it lies in, by an assignment from a variable of its type and by an output of its type
+bound with `=>`: every variable of the target, the internal ones and the hidden state of a standard
+block (a timer's start, an edge's previous input) included, takes the value of the same variable of
+the source (`Plain::copy_cells`, §6.3). The target stays an instance of its own: a reference or an
+interface that names the source still names the source (`docs/IEC_DECISIONS.md`, "Copy of a function
+block instance"). A copy from a value of another type, a derived block's instance for one, is not
+compiled yet (NX-09).
 
 A value of a DUT that `EXTENDS` another (specification 02 §3.5.1) gives its base's part wherever
 the base's type is wanted, as an assignment copies it (IEC §6.6.1.2.2): an assignment,
@@ -2112,6 +2120,7 @@ finds no depth left, §6.4) is reported as the runtime error `CallDepthExceeded`
 | 0.45 | 10 November 2026 | An `FB_init` input of a type that is no scalar compiled (§6.7; contributor issue #419): a string, a structure or an array takes the instance declaration's argument, else its default, and the cold-init and warm-init entries pass it by reference to a value of its type, made as a call makes an omitted input's value. A bare instance of a block whose `FB_init` declares a `STRING` input, `fbLogger : FbLogger;`, builds, and the input takes its default; `fbLogger : FbLogger(sLoggerName := 'Light')` passes the text. CODESYS's help on methods lets a call leave an input out, and reinitializes a method's variables at each call. The build refused every such input, passed or not, with "of a type that is no scalar ... not compiled yet". An argument that names a variable stays refused (NX-09). The image format is unchanged. |
 | 0.46 | 11 November 2026 | A comparison of two integers of different families, signed, unsigned or bit string (`INT` with `UINT`, `DINT` with `DWORD`), compiled (contributor issue #452): it compares their mathematical values, each operand in its own type as an `i128`, which holds every value of both (specification 05, "CODESYS-parity exceptions"; `docs/IEC_DEVIATIONS.md` DEV-038), and so does a reference compared for equality, as the value it names (DEV-031). trust-hir accepts such a comparison under the CODESYS profile, the IEC rules refuse it (E201), and the deleted engine compared so; the build refused it with "a comparison of INT with UINT is not compiled yet" (NX-09). The image format is unchanged. |
 | 0.47 | 11 November 2026 | A CODESYS reference to a `STRING` or a `WSTRING` read as its text compiled (contributor issue #454; `docs/IEC_DEVIATIONS.md` DEV-031): as an input, the source of an assignment and an operand of `=` and `<>`, it gives the text of the string it names, checked as `^` checks it (§7.3), and a `WSTRING` one takes the wide functions. trust-hir accepts such a read under the CODESYS profile; the build refused it with "a value that is no text where a text is needed" (NX-09). The image format is unchanged. |
+| 0.48 | 11 November 2026 | A value that holds a function block or class instance (an instance, or a structure or an array that holds one) copied whole (§6.2; contributor issue #451; `docs/IEC_DECISIONS.md`, "Copy of a function block instance"): an assignment from a variable of its type, and an output of its type bound with `=>`, give every variable of the target, the internal ones and a standard block's hidden state included, the value of the source's, through the interface's new `Plain::copy_cells` (§6.3), and the target stays an instance of its own. trust-hir accepts both under every profile, and CODESYS copies an instance's memory; the build refused them with "an output that holds a function block or class instance" and "an assignment of a value that holds a function block or class instance" (NX-09). A copy from another type stays refused. The image format and the kernel interface are unchanged. |
 | 0.42 | 6 November 2026 | A recursive call that finds no depth left is reported as the runtime error `CallDepthExceeded`, `call depth exceeded`, with its stable code `vm_call_stack_overflow` (§6.4, Appendix A). Before, the kernel reported it through the bytecode engine's fault type, which the deletion of the engine (0.22) had left with this one fault and a text for the others, `invalid bytecode '<detail>'`, that nothing produced any more. The error's text and stable code are unchanged (checklist G61). |
 | 0.41 | 6 November 2026 | Round 2 of the CODESYS vendor conversions of specification 07 §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045), which the type checker accepts under the CODESYS rules, compiled (§6.8): an integer (its low-order 32 bits) and a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day, and a text to an integer or a bit string by the vendor's parse. The build refused the first three, and parsed a text by the IEC rules. And a `TIME` or an `LTIME` as text, the vendor's text measured on a PFC200 (`T#1s500ms`), which the build refused (NX-09). |
 | 0.40 | 6 November 2026 | The CODESYS vendor conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036), which the type checker accepted under the CODESYS rules since 31 October 2026, compiled (§6.8): a duration to an integer, a time of day to a `DWORD`, a `BOOL` and an enumerated value as text. The build refused the first three, and spelled an enumerated value as its number. `TO_STRING` of a duration stays refused (NX-09) until the vendor's text is measured. |

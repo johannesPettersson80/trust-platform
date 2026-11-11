@@ -117,6 +117,11 @@ unsafe impl<const R: usize> Plain for OpenRef<R> {
         reference: <Cell<RefValue> as Plain>::ZEROED,
         bounds: <[[Cell<i64>; 2]; R] as Plain>::ZEROED,
     };
+
+    #[inline]
+    fn copy_cells(&self, source: &Self) {
+        self.copy_from(source);
+    }
 }
 
 impl<const R: usize> OpenRef<R> {
