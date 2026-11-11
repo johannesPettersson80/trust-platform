@@ -560,3 +560,85 @@ fn a_null_result_is_assigned_as_null_and_faults_only_when_dereferenced() {
         );
     }
 }
+
+/// The assignment attempt between interfaces of IEC 61131-3 Ed.3 §6.6.6.7.3 EXAMPLE 2
+/// (specification 06, "Assignment Attempt"). Worked by hand: `FB_C` implements ITF1 and ITF2 and
+/// extends `FB_Base`; `Mark` through ITF1 counts 1; `interf2 ?= interf1` names the same instance,
+/// so `named` is TRUE and `Count` through it reads 1; `FB_C` does not implement ITF3, so `interf3
+/// ?= interf1` is `NULL`; `base ?= interf1` names the instance as its base `FB_Base`, which does not
+/// implement ITF1 itself. Catches the attempt refused, a cast that keeps the target's old value,
+/// and one that names another instance.
+#[test]
+fn an_assignment_attempt_between_interfaces_names_the_instance_or_null() {
+    let source = "
+INTERFACE ITF1
+METHOD Mark : INT
+END_METHOD
+END_INTERFACE
+
+INTERFACE ITF2
+METHOD Count : INT
+END_METHOD
+END_INTERFACE
+
+INTERFACE ITF3
+METHOD Stop : BOOL
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Base
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_C EXTENDS FB_Base IMPLEMENTS ITF1, ITF2
+VAR
+    marks : INT;
+END_VAR
+METHOD PUBLIC Mark : INT
+marks := marks + 1;
+Mark := marks;
+END_METHOD
+METHOD PUBLIC Count : INT
+Count := marks;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    inst : FB_C;
+    interf1 : ITF1;
+    interf2 : ITF2;
+    interf3 : ITF3;
+    base : REF_TO FB_Base;
+    marked : INT;
+    counted : INT;
+    named : BOOL;
+    isNull : BOOL;
+    asBase : BOOL;
+END_VAR
+interf1 := inst;
+marked := interf1.Mark();
+interf2 ?= interf1;
+named := interf2 <> NULL;
+IF named THEN
+    counted := interf2.Count();
+END_IF;
+interf3 ?= interf1;
+isNull := interf3 = NULL;
+base ?= interf1;
+asBase := base <> NULL;
+END_PROGRAM
+";
+    let mut harness = TestHarness::from_source(source).expect("the program builds");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    assert_values(
+        &harness,
+        &[
+            ("marked", Value::Int(1)),
+            ("named", Value::Bool(true)),
+            ("counted", Value::Int(1)),
+            ("isNull", Value::Bool(true)),
+            ("asBase", Value::Bool(true)),
+        ],
+    );
+}
