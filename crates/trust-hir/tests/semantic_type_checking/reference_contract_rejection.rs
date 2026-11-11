@@ -207,3 +207,17 @@ fn reference_contract_rejects_pointer_ordering() {
 fn reference_contract_rejects_pointer_concrete_array_bound_mismatch() {
     check_has_error("PROGRAM P\nVAR a : ARRAY[0..2] OF INT; p : POINTER TO ARRAY[1..3] OF INT; END_VAR\np := ADR(a);\nEND_PROGRAM", DiagnosticCode::IncompatibleAssignment);
 }
+
+/// Specification 06: between two unrelated classes `?=` stays refused, since no instance is of both.
+/// Catches the interface rule widened to every object type.
+#[test]
+fn reference_contract_rejects_attempt_between_unrelated_classes() {
+    check_has_error("CLASS A END_CLASS\nCLASS B END_CLASS\nPROGRAM P\nVAR x : B; a : REF_TO A; b : REF_TO B; END_VAR\nb := REF(x); a ?= b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+}
+
+/// Specification 06: an interface does not make `?=` into an elementary reference valid. Catches the
+/// interface rule taken without an object type on the other side.
+#[test]
+fn reference_contract_rejects_attempt_from_interface_to_elementary_reference() {
+    check_has_error("INTERFACE ITF END_INTERFACE\nPROGRAM P\nVAR r : REF_TO INT; itf : ITF; END_VAR\nr ?= itf;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+}
