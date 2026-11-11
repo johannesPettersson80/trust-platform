@@ -4,7 +4,7 @@
 //! real's magnitude, which generated code checks with them.
 
 use trust_plc_abi::module::fault;
-use trust_plc_abi::{Cx, Fault, FaultCode};
+use trust_plc_abi::{Cx, Fault, FaultCode, RefValue};
 
 use crate::arith::{Integer, Real};
 
@@ -58,6 +58,46 @@ pub fn at<'a, T, const N: usize>(
         let upper = lower.saturating_add(i64::try_from(N).unwrap_or(i64::MAX) - 1);
         fault(cx, FaultCode::IndexOutOfBounds, index, lower, upper)
     })
+}
+
+/// A reference to the element `index` of the array that `array` names, an array of `size`-byte
+/// elements whose indices run from `lower` to `upper` (IEC §6.4.4.5): `NULL` stays `NULL`, which its
+/// dereference refuses. A pointer may name fewer bytes than its array type spans: a string's bytes
+/// taken as an array of bytes name the string's capacity only (`docs/IEC_DEVIATIONS.md` DEV-039), so
+/// an element past the bytes `array` spans is refused as one past the bounds is.
+///
+/// # Errors
+///
+/// `IndexOutOfBounds` with the index and the bounds of the elements `array` spans, for an index
+/// outside `lower..=upper` or past those bytes.
+#[inline]
+pub fn element_reference(
+    cx: &mut Cx,
+    array: RefValue,
+    index: i64,
+    lower: i64,
+    upper: i64,
+    size: u32,
+) -> Result<RefValue, Fault> {
+    if array.kind == RefValue::NULL {
+        return Ok(array);
+    }
+    let spanned = i64::from(array.extent / size.max(1));
+    let last = upper.min(lower.saturating_add(spanned).saturating_sub(1));
+    let offset = (lower..=last)
+        .contains(&index)
+        .then(|| u32::try_from(index - lower).ok())
+        .flatten()
+        .and_then(|position| position.checked_mul(size))
+        .and_then(|bytes| array.offset.checked_add(bytes));
+    match offset {
+        Some(offset) => Ok(RefValue {
+            offset,
+            extent: size,
+            ..array
+        }),
+        None => Err(fault(cx, FaultCode::IndexOutOfBounds, index, lower, last)),
+    }
 }
 
 /// `value` when it lies in the subrange `lower..upper` (IEC §6.4.4.4).

@@ -23,6 +23,8 @@ mod noinit;
 mod online_change_calls;
 #[path = "codesys_language_profile/reference_text.rs"]
 mod reference_text;
+#[path = "codesys_language_profile/string_byte_pointers.rs"]
+mod string_byte_pointers;
 #[path = "codesys_language_profile/string_in_out.rs"]
 mod string_in_out;
 

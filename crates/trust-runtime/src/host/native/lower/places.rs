@@ -589,9 +589,12 @@ impl Lowerer<'_, '_> {
         let Some(base) = children.next() else {
             return Err(self.unsupported(node, "an index without an array"));
         };
+        let indices: Vec<SyntaxNode> = children.collect();
+        if let Some(element) = self.pointer_element(&base, &indices)? {
+            return Ok(element);
+        }
         let array = self.place(&base)?;
         let array = self.referenced_place(array);
-        let indices: Vec<SyntaxNode> = children.collect();
         if matches!(self.info(array.ty).kind, Kind::Open { .. }) {
             return self.open_element(node, &array, &indices);
         }
@@ -625,6 +628,43 @@ impl Lowerer<'_, '_> {
             ty: *elem,
             is_ref: true,
         })
+    }
+
+    /// `reference^[i]` of a one-dimensional array of scalars: the element, checked against the
+    /// array's bounds and against the bytes the reference spans (`lib::element_reference`), then
+    /// dereferenced as `^` dereferences (§7.3). A pointer may span fewer bytes than its array type:
+    /// a string's bytes taken as an array of bytes (docs/IEC_DEVIATIONS.md DEV-039). `None` for any
+    /// other index.
+    fn pointer_element(
+        &mut self,
+        base: &SyntaxNode,
+        indices: &[SyntaxNode],
+    ) -> Result<Option<Place>, NativeError> {
+        let ([index], SyntaxKind::DerefExpr) = (indices, base.kind()) else {
+            return Ok(None);
+        };
+        let Some(reference) = base.children().next() else {
+            return Ok(None);
+        };
+        let reference_ty = self.type_of(&reference)?;
+        let Kind::Ref { target, .. } = self.info(reference_ty).kind else {
+            return Ok(None);
+        };
+        let Kind::Array { elem, dims } = self.info(target).kind.clone() else {
+            return Ok(None);
+        };
+        let ([(lower, upper)], true) = (dims.as_slice(), super::is_scalar(&self.info(elem).kind))
+        else {
+            return Ok(None);
+        };
+        let size = self.info(elem).size;
+        let lint = self.model.types.elem(Elem::LInt);
+        let value = self.reference(&reference)?;
+        let index = self.scalar_to(index, lint)?;
+        let element = self.bind(&format!(
+            "lib::element_reference(cx, {value}, {index}, {lower}, {upper}, {size})?"
+        ));
+        Ok(Some(self.dereference(&element, elem)))
     }
 }
 
