@@ -713,3 +713,13 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Cold restart initializes `RETAIN`, `PERSISTENT`, `NON_RETAIN`, and unqualified variables.
 - Reason:
   - This keeps warm-restart retention explicit in source and prevents unqualified variables from accidentally behaving as retained state.
+
+## 2026-11-11 - Copy of a function block instance
+
+- Area: ST assignment and output binding of function block and class instances
+- IEC context: IEC 61131-3 Ed.3 §7.3.3.2.1 defines the assignment of a multi-element variable, an `ARRAY` or a `STRUCT`: "the elements of the variable A get the values of the elements of variable B". It does not say what an assignment of a function block or class instance copies, nor an output of such a type bound with `=>` (§6.6.1.4), although a structure may hold an instance (Table 11 feature 7a).
+- Decision:
+  - An assignment of a value that holds an instance (an instance, or a structure or an array that holds one) from a variable of its type, and an output of such a type bound with `=>`, give every variable of the target the value of the same variable of the source: its inputs, outputs and internal variables, the instances it holds, and a standard block's hidden state (a timer's start, an edge's previous input).
+  - The target stays an instance of its own: a later call of either changes that one only, and a reference or an interface that named the source still names the source.
+- Reason:
+  - It applies §7.3.3.2.1's rule for multi-element variables to the variables of an instance, and it is what CODESYS does, which copies an instance's memory: e!COCKPIT builds WAGO's `fbDevice(oStatus => fbResult)` without a message (contributor issue #451).

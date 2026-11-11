@@ -63,7 +63,7 @@ pub use dates::{
 pub use edges::{f_trig, r_trig, FTrig, RTrig};
 pub use math::{atan2_32, atan2_64, expt32, expt64, real32, real64, Math};
 pub use number_text::{parse_int, parse_int_codesys, parse_real, write_real, REAL_TEXT};
-pub use select::{at, fabs, limit, max, min, mux_index, subrange};
+pub use select::{at, element_reference, fabs, limit, max, min, mux_index, subrange};
 pub use text::{
     assign, assign_bytes, compare, concat, len, write_bool, write_duration, write_int, write_uint,
     Piece, LTIME_TEXT, MAX_TEXT, TIME_TEXT,
