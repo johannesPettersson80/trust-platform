@@ -245,6 +245,11 @@ that brings the code back to its specification), names the section in a
 `Specification: 35 B3.4` or
 `Specification: docs/specs/32-mqtt-io.md Scope and ownership`.
 
+The change's files are those that its head changes against its merge base with
+its base. A head with several merge bases, such as a branch that merged other
+pull requests' branches and its base at different points, has no single one;
+its files are those that merging it into its base changes.
+
 A native executable test is a file below a `tests`, `test/suite`, `conformance`
 or `fuzz` folder, a Rust module file named `tests.rs` (the file of
 `#[cfg(test)] mod tests;`), or a file whose name ends in `_test.rs`,
