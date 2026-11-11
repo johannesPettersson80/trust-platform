@@ -202,7 +202,9 @@ Use the helper scripts to keep PlantUML diagrams in sync:
 
 - `python scripts/update_syntax_pipeline.py` refreshes
   `docs/diagrams/syntax/syntax-pipeline.puml` and
-  `docs/diagrams/generated/syntax-stats.md`.
+  `docs/diagrams/generated/syntax-stats.md` from the lexer's source; with
+  `--check`, as CI's Format job runs it, it writes nothing and fails when
+  either file is stale.
 - `scripts/render_diagrams.sh` renders all `docs/diagrams/*.puml` files to
   `docs/diagrams/generated/*.svg` and updates `docs/diagrams/manifest.json`.
 
