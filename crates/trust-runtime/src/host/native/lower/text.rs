@@ -6,7 +6,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::literal::Literal;
 use super::{Lowerer, Place};
-use crate::native::types::Kind;
+use crate::native::types::{Kind, Ty};
 use crate::native::NativeError;
 
 /// A part of a text: a literal's bytes or a string's value, as `CONCAT` and an assignment take it.
@@ -141,7 +141,9 @@ impl Lowerer<'_, '_> {
             | SyntaxKind::FieldExpr
             | SyntaxKind::IndexExpr
             | SyntaxKind::DerefExpr => {
+                // A reference where its text is wanted is the string it names (DEV-031).
                 let place = self.place(node)?;
+                let place = self.referenced_place(place);
                 self.text_of(node, &place)
             }
             SyntaxKind::CallExpr => self.call_text(node),
@@ -314,9 +316,32 @@ impl Lowerer<'_, '_> {
         ))
     }
 
-    /// Whether `node` is a `WSTRING`.
+    /// Whether `node` is a `WSTRING`, or a reference that names one (DEV-031).
     pub(super) fn is_wide_text(&mut self, node: &SyntaxNode) -> bool {
         self.type_of(node)
-            .is_ok_and(|ty| matches!(self.info(ty).kind, Kind::WStr(_)))
+            .is_ok_and(|ty| matches!(self.info(self.read_through(ty)).kind, Kind::WStr(_)))
+    }
+
+    /// Whether `node` is a text, a `STRING` or a `WSTRING`, or a reference that names one
+    /// (DEV-031).
+    pub(super) fn is_text(&mut self, node: &SyntaxNode) -> bool {
+        self.type_of(node).is_ok_and(|ty| {
+            matches!(
+                self.info(self.read_through(ty)).kind,
+                Kind::Str(_) | Kind::WStr(_)
+            )
+        })
+    }
+
+    /// `ty`, or the type that `ty`, a reference that is no pointer, names: the type the CODESYS
+    /// profile reads it as (docs/IEC_DEVIATIONS.md DEV-031).
+    fn read_through(&self, ty: Ty) -> Ty {
+        match self.info(ty).kind {
+            Kind::Ref {
+                target,
+                pointer: false,
+            } => target,
+            _ => ty,
+        }
     }
 }

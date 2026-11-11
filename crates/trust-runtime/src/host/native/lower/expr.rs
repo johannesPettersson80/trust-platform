@@ -446,7 +446,6 @@ impl Lowerer<'_, '_> {
         self.type_of(node)
     }
 
-    /// The common type two operands of a comparison or a selection take: the wider.
     /// The type of `node`'s value as an operand: the referenced scalar type of a reference that is
     /// no pointer, which the CODESYS profile reads through (docs/IEC_DEVIATIONS.md DEV-031);
     /// `node`'s own type otherwise.
@@ -461,6 +460,38 @@ impl Lowerer<'_, '_> {
         })
     }
 
+    /// The comparison `sign` of two integers of different families, signed, unsigned or bit string
+    /// (`INT` with `UINT`, `DINT` with `DWORD`), by their mathematical values: each operand in its
+    /// own type, as an `i128`, which holds every value of both (specification 05, "CODESYS-parity
+    /// exceptions"; docs/IEC_DEVIATIONS.md DEV-038). `None` for any other pair, which takes the
+    /// common type of [`Self::common`].
+    fn compare_magnitudes(
+        &mut self,
+        left: &SyntaxNode,
+        right: &SyntaxNode,
+        a: Ty,
+        b: Ty,
+        sign: &str,
+    ) -> Result<Option<String>, NativeError> {
+        let integer_family = |ty: Ty| {
+            let elem = self.info(ty).scalar()?;
+            if elem.is_integer() || elem.is_bits() {
+                rank(elem).map(|(family, _)| family)
+            } else {
+                None
+            }
+        };
+        match (integer_family(a), integer_family(b)) {
+            (Some(left_family), Some(right_family)) if left_family != right_family => {
+                let x = self.scalar_to(left, a)?;
+                let y = self.scalar_to(right, b)?;
+                Ok(Some(format!("(i128::from({x}) {sign} i128::from({y}))")))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// The common type two operands of a comparison or a selection take: the wider.
     pub(super) fn common(&self, node: &SyntaxNode, a: Ty, b: Ty) -> Result<Ty, NativeError> {
         if a == b {
             return Ok(a);
@@ -506,13 +537,19 @@ impl Lowerer<'_, '_> {
                     && crate::harness::dialect_of(self.model.conversions).is_codesys() =>
             {
                 // Under the CODESYS profile a reference compared with a value or another reference
-                // takes part as the value it names (docs/IEC_DEVIATIONS.md DEV-031).
+                // takes part as the value it names (docs/IEC_DEVIATIONS.md DEV-031), a text too.
+                if self.is_text(&left) || self.is_text(&right) {
+                    return self.compare_texts(node, &left, &right, op);
+                }
                 let a = self.value_type(&left)?;
                 let b = self.value_type(&right)?;
+                let sign = if op == K::Eq { "==" } else { "!=" };
+                if let Some(compared) = self.compare_magnitudes(&left, &right, a, b, sign)? {
+                    return Ok(compared);
+                }
                 let common = self.common(node, a, b)?;
                 let a = self.scalar_to(&left, common)?;
                 let b = self.scalar_to(&right, common)?;
-                let sign = if op == K::Eq { "==" } else { "!=" };
                 Ok(format!("({a} {sign} {b})"))
             }
             K::Eq | K::Neq if self.is_reference(&left) || self.is_reference(&right) => {
@@ -531,9 +568,6 @@ impl Lowerer<'_, '_> {
                 {
                     return self.compare_texts(node, &left, &right, op);
                 }
-                let common = self.common(node, a, b)?;
-                let a = self.scalar_to(&left, common)?;
-                let b = self.scalar_to(&right, common)?;
                 let sign = match op {
                     K::Eq => "==",
                     K::Neq => "!=",
@@ -542,6 +576,12 @@ impl Lowerer<'_, '_> {
                     K::Gt => ">",
                     _ => ">=",
                 };
+                if let Some(compared) = self.compare_magnitudes(&left, &right, a, b, sign)? {
+                    return Ok(compared);
+                }
+                let common = self.common(node, a, b)?;
+                let a = self.scalar_to(&left, common)?;
+                let b = self.scalar_to(&right, common)?;
                 Ok(format!("({a} {sign} {b})"))
             }
             K::KwAnd | K::Ampersand | K::KwOr if self.info(ty).scalar() == Some(Elem::Bool) => {

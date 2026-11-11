@@ -15,10 +15,14 @@ mod frame_instances;
 mod init_after_fb_init;
 #[path = "codesys_language_profile/instance_path.rs"]
 mod instance_path;
+#[path = "codesys_language_profile/mixed_comparisons.rs"]
+mod mixed_comparisons;
 #[path = "codesys_language_profile/noinit.rs"]
 mod noinit;
 #[path = "codesys_language_profile/online_change_calls.rs"]
 mod online_change_calls;
+#[path = "codesys_language_profile/reference_text.rs"]
+mod reference_text;
 #[path = "codesys_language_profile/string_in_out.rs"]
 mod string_in_out;
 
