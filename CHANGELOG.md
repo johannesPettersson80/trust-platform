@@ -6,6 +6,41 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-11
+
+### Changed
+
+- `trust-runtime check` and `trust-runtime build --json` report every construct that the build does
+  not compile yet, each as its own `compile` issue at its file, line and column, instead of only the
+  first one. The build goes on after such a construct and reports those of every statement and body
+  it reaches, in the order of their places; the build still fails and writes no image
+  (specification 11 §6.8.1c, §6.8.1d; specification 44 NX-09).
+
+### Fixed
+
+- Under a CODESYS profile, the native build now compiles a string `VAR_IN_OUT` of a function or a
+  method that is given a string of another capacity, as the language rules already allowed
+  (docs/IEC_DEVIATIONS.md DEV-035). The vendor idiom of a `STRING(1)` in-out whose real capacity a
+  size argument gives, such as WAGO's `StrAppend(sBuffer, SIZEOF(sBuffer), sText)`, stopped the
+  build with "a variable of another type is not compiled yet". The in-out is the caller's string
+  seen through the capacity it declares: it reads and writes at most that many characters, and
+  never more than the caller's string holds (specification 44 §7.3).
+- Inside a method whose name another POU also has (a method of two function blocks or classes, or an
+  interface's method and the method that implements it), go to definition, completion, hover, find
+  references, rename and the call hierarchy now work in that method's own scope. They took the first
+  POU of that name before, so a local went to another method's declaration and a call was shown as a
+  call of the interface's method (specification 14 §6.3.1, §6.3.2).
+- Under the CODESYS profiles, a type conversion of constant arguments, such as `ANY_TO_BYTE(255)`,
+  is accepted in the initial values of a program's, a function block's or a function's `VAR` and of
+  a global variable list, scalar or inside a structure's initializer, as it is in a structure's
+  member defaults since 0.35.0. The check refused it with E202 "variable initializer must be a
+  literal or constant expression". A conversion of a mutable variable is still refused.
+- Under the CODESYS profiles, `{attribute 'qualified_only'}` before a `NAMESPACE` now applies to the
+  global variable lists in it. The PLCopen import of a CODESYS global variable list writes the
+  attribute there, and it was ignored. A bare name that reaches one of those globals through
+  `USING` from outside the namespace is now refused (E105) and names the qualified form, as
+  CODESYS refuses it.
+
 ## [0.36.0] - 2026-11-10
 
 ### Added
