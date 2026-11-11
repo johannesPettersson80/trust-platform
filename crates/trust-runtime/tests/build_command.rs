@@ -231,6 +231,65 @@ END_PROGRAM
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// Specification 11 §6.8.1d: `build --json` prints one issue per construct that the build does not
+/// compile yet, at its place, as `trust-runtime check` reports them (§6.8.1c), and writes no image.
+/// Worked by hand: `MUX` of two strings in the function block `Picker`'s body on line 8, column 6,
+/// in `Main`'s body on line 18, column 6, and inside its `IF` on line 20, column 10. Catches a build
+/// that reports only the first construct it meets.
+#[test]
+fn build_json_reports_every_uncompiled_construct_where_it_is() {
+    let project = unique_temp_dir("build-json-uncompiled");
+    write_file(
+        &project.join("src/main.st"),
+        r#"FUNCTION_BLOCK Picker
+VAR_INPUT
+    k : INT;
+END_VAR
+VAR_OUTPUT
+    s : STRING;
+END_VAR
+s := MUX(k, 'x', 'y');
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    k : INT := 0;
+    s : STRING;
+    t : STRING;
+    p : Picker;
+END_VAR
+s := MUX(k, 'a', 'b');
+IF k = 0 THEN
+    t := MUX(k, 'c', 'd');
+END_IF;
+p(k := k);
+END_PROGRAM
+"#,
+    );
+
+    let output = run_build(&project, &["--json"]);
+    assert_eq!(output.status.code(), Some(1));
+    let payload = json_stdout(&output);
+    assert_eq!(payload["command"], "build");
+    assert_eq!(payload["status"], "failed");
+    let places: Vec<(i64, i64)> = payload["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .map(|issue| {
+            assert_eq!(issue["code"], "compile", "{issue}");
+            (
+                issue["line"].as_i64().unwrap_or_default(),
+                issue["column"].as_i64().unwrap_or_default(),
+            )
+        })
+        .collect();
+    assert_eq!(places, vec![(8, 6), (18, 6), (20, 10)], "{payload}");
+    assert!(!project.join("program.tpi").exists());
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn build_human_mode_discovers_current_project_and_summarizes_sources() {
     let project = unique_temp_dir("build-human");

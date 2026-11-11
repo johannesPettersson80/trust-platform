@@ -575,6 +575,80 @@ fn check_reports_an_uncompiled_construct_where_it_is() {
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// The source of `check_reports_every_uncompiled_construct_where_it_is`: `MUX` of two strings, which
+/// type checks and the build does not compile yet, in the function block `Picker`'s body, in
+/// `Main`'s body and inside `Main`'s `IF`, whose next statement calls `Picker`.
+const THREE_UNCOMPILED: &str = r#"FUNCTION_BLOCK Picker
+VAR_INPUT
+    k : INT;
+END_VAR
+VAR_OUTPUT
+    s : STRING;
+END_VAR
+s := MUX(k, 'x', 'y');
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    k : INT := 0;
+    s : STRING;
+    t : STRING;
+    p : Picker;
+END_VAR
+s := MUX(k, 'a', 'b');
+IF k = 0 THEN
+    t := MUX(k, 'c', 'd');
+END_IF;
+p(k := k);
+END_PROGRAM
+"#;
+
+// Specification 11 §6.8.1c: each construct that the build does not compile yet is one issue with
+// the code `compile` at its place, and the build goes on after one to find the others, in the
+// order of their places. Worked by hand from `THREE_UNCOMPILED`: the `MUX` of `Picker`'s body is
+// line 8, column 6 (after `s := `); `Main`'s is line 18, column 6; the one inside `Main`'s `IF`
+// is line 20, column 10 (four spaces and `t := `). Catches a build that stops at the first
+// construct (one issue, the contributor report on #407, item 3), one that leaves out the rest of
+// a body after its first, and one that drops a construct of a nested statement.
+#[test]
+fn check_reports_every_uncompiled_construct_where_it_is() {
+    let project = unique_temp_dir("check-uncompiled-every");
+    write_project_fixture(&project, THREE_UNCOMPILED);
+    let output = run_check(&project);
+    assert_eq!(
+        output.status.code(),
+        Some(11),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let payload = json_stdout(&output);
+    let issues = payload["issues"].as_array().expect("the issues");
+    let places: Vec<(i64, i64)> = issues
+        .iter()
+        .map(|issue| {
+            assert_eq!(issue["code"], "compile", "{issue}");
+            assert!(
+                reported_path_ends_with(issue["file"].as_str().unwrap_or_default(), "src/main.st"),
+                "{issue}"
+            );
+            assert!(
+                issue["message"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains("MUX of values that are not scalars"),
+                "{issue}"
+            );
+            (
+                issue["line"].as_i64().unwrap_or_default(),
+                issue["column"].as_i64().unwrap_or_default(),
+            )
+        })
+        .collect();
+    assert_eq!(places, vec![(8, 6), (18, 6), (20, 10)], "{payload}");
+    assert_eq!(payload["errors"], 3, "{payload}");
+    let _ = std::fs::remove_dir_all(project);
+}
+
 // docs/specs/07-standard-functions.md 2.10: the project's vendor_profile selects its
 // conversion rules, so a name that is not a vendor profile fails the check instead of
 // running the project under other rules than intended.

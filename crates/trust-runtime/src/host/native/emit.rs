@@ -165,7 +165,16 @@ pub(super) fn generate<'a>(
             pou,
             pointer_bytes: target.pointer_bytes(),
         };
-        let (text, statements, needs, name, called, frame) = body(&context, model, &item)?;
+        let (text, statements, needs, name, called, frame) = match body(&context, model, &item) {
+            Ok(generated) => generated,
+            // A body that holds a construct not compiled yet outside its statements is left out,
+            // and the others are still lowered to find theirs (specification 11 §6.8.1c).
+            Err(error) if error.is_unsupported() => {
+                model.refused.push(error);
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
         if let Some((pou_frame, layout)) = frame {
             frame_types.push_str(&layout);
             pou_frames.push(pou_frame);
@@ -188,6 +197,11 @@ pub(super) fn generate<'a>(
                 }
             }
         }
+    }
+    // A build that met constructs it does not compile yet fails with every one of them
+    // (specification 44 NX-09, specification 11 §6.8.1c).
+    if let Some(refused) = NativeError::refusals(std::mem::take(&mut model.refused)) {
+        return Err(refused);
     }
     let tools = super::tools::tools(model)?;
     functions.push_str(&super::dispatch::emit(model, &dispatchers, &mut graph)?);
@@ -224,6 +238,10 @@ pub(super) fn generate<'a>(
     source.push_str(
         "\n#[panic_handler]\nfn panic(_: &core::panic::PanicInfo<'_>) -> ! {\n    loop {}\n}\n",
     );
+    // No construct that a later step met and left out may reach the crate (NX-09).
+    if let Some(refused) = NativeError::refusals(std::mem::take(&mut model.refused)) {
+        return Err(refused);
+    }
     Ok((
         Generated {
             source,

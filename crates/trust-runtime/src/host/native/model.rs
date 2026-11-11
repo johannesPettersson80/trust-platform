@@ -207,6 +207,11 @@ pub(super) struct Model<'a> {
     /// The access paths the programs declare, each path starting with its program's type: each
     /// instance has its own, which the program's body names (IEC §6.5.2.2, Table 47).
     pub(super) program_access: Vec<crate::harness::AccessDecl>,
+    /// The constructs that the generator met and does not compile yet, each an
+    /// [`NativeError::Unsupported`]: a statement or a body that holds one is left out and the
+    /// generation goes on, and the build fails with all of them at its end (specification 11
+    /// §6.8.1c, specification 44 NX-09).
+    pub(super) refused: Vec<NativeError>,
 }
 
 impl<'a> Model<'a> {
@@ -304,6 +309,7 @@ impl<'a> Model<'a> {
             conversions: crate::stdlib::conversions::ConversionProfile::Iec,
             access: configuration.access.clone(),
             program_access: lowered.program_access.clone(),
+            refused: Vec::new(),
         })
     }
 
