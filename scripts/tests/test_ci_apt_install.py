@@ -33,6 +33,17 @@ class CiAptInstallTests(unittest.TestCase):
         ]
         self.assertEqual(raw, [], "install Ubuntu packages with " + SCRIPT)
 
+    def test_every_workflow_call_names_the_script_from_the_workspace(self) -> None:
+        """A step may run in another folder (the VS Code job runs in editors/vscode): a relative path then finds no
+        script. Catches `bash scripts/ci_apt_install.sh`, which failed so in #458's first run."""
+        calls = [
+            f"{path.relative_to(ROOT)}:{number}: {line.strip()}"
+            for path in sorted((ROOT / ".github" / "workflows").glob("*.y*ml"))
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
+            if SCRIPT in line and "$GITHUB_WORKSPACE/" + SCRIPT not in line and not line.lstrip().startswith("#")
+        ]
+        self.assertEqual(calls, [], "call the script as $GITHUB_WORKSPACE/" + SCRIPT)
+
     def test_the_browser_install_with_deps_follows_the_script_in_its_job(self) -> None:
         """Playwright's `--with-deps` runs apt itself: the job's earlier script makes the archives resolvable for it.
         Catches the browser step moved before the script, or the script dropped from its job."""

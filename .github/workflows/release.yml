@@ -605,7 +605,7 @@ jobs:
           npx tsc -p ./
 
       - name: Install a virtual display
-        run: bash scripts/ci_apt_install.sh xvfb
+        run: bash "$GITHUB_WORKSPACE/scripts/ci_apt_install.sh" xvfb
 
       - name: Run the acceptance journeys
         working-directory: editors/vscode
