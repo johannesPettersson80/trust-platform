@@ -177,11 +177,9 @@ fn client_times_out_within_its_budget() {
     runtime.requests();
 
     // Nothing listening: the connection fails within the budget too.
-    let closed = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
-    let endpoint =
-        ControlEndpoint::parse(&format!("tcp://{}", closed.local_addr().expect("address")))
-            .expect("a control endpoint");
-    drop(closed);
+    let closed = trust_test_support::refused_loopback_port();
+    let endpoint = ControlEndpoint::parse(&format!("tcp://127.0.0.1:{}", closed.port()))
+        .expect("a control endpoint");
     let started = Instant::now();
     let refused = ControlClient::connect(&endpoint, None, budget);
     assert!(

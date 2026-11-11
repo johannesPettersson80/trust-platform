@@ -81,11 +81,15 @@ fn failure_action(update: OperationUpdate) -> Option<NextAction> {
     update.failure.map(|failure| failure.next_action)
 }
 
-/// The endpoint of a port that nothing listens on: the runtime cannot be reached there.
+/// The endpoint of a port that nothing listens on: the runtime cannot be reached there. The port is
+/// held without listening for the whole test process (specification 22), so no other socket can
+/// take it and answer.
 fn closed_endpoint() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("a free port");
-    let port = listener.local_addr().expect("the port").port();
-    drop(listener);
+    static CLOSED: std::sync::OnceLock<trust_test_support::RefusedPort> =
+        std::sync::OnceLock::new();
+    let port = CLOSED
+        .get_or_init(trust_test_support::refused_loopback_port)
+        .port();
     format!("tcp://127.0.0.1:{port}")
 }
 
