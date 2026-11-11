@@ -6,6 +6,34 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-11
+
+### Fixed
+
+- Under the CODESYS profile `ADR` of a string where a `POINTER TO BYTE` or a `POINTER TO ARRAY[l..u] OF BYTE` is
+  wanted, as WAGO's `MemCopy` and JSON parser take it, now builds: the pointer names the string's bytes from its first
+  one, and an element read through it past the string's bytes is refused with `IndexOutOfBounds`. A pointer to a
+  `CHAR` also works as one to a `BYTE`. The build refused these with "a variable of another type" (#453).
+- A function block or class instance, or a structure or an array that holds one, is now copied whole by an assignment
+  from a variable of its type and by an output of its type bound with `=>`, as in WAGO's `fbDevice(oStatus =>
+  fbResult)`: every variable of it, the internal ones and a standard block's state included. The build refused both
+  with "... that holds a function block or class instance is not compiled yet" (#451).
+- Under the CODESYS profile a `REFERENCE TO STRING` or `REFERENCE TO WSTRING` read where a text is needed, as a
+  function block's input, the source of an assignment or an operand of `=` and `<>`, now builds and reads the text of
+  the string it names. The build refused it with "a value that is no text where a text is needed" (#454).
+- Under the CODESYS profile a comparison of two integers of different families, signed, unsigned or bit string,
+  `LEN(sTopic) > uiLen` with a `UINT` constant for example, now builds and compares the values, so `-1 < 65535` is
+  TRUE. The build refused it with "a comparison of INT with UINT is not compiled yet" (#452).
+- The assignment attempt `?=` between two interfaces that are not related, `interf2 ?= interf1` as IEC 61131-3
+  §6.6.6.7.3 shows it, and from an interface to a reference of a class that does not implement it now type-check, as
+  specification 06 gives them: the class of the instance decides at run time. They were refused with E201.
+
+### Security
+
+- truST now builds with `rustix` 1.1.6. RUSTSEC-2026-0486 marks 1.1.5 unsound: its extended-attribute functions could
+  mark unwritten memory as initialized when given an empty buffer. Neither truST nor any crate it builds with calls
+  those functions, so the packages of 0.37.0 never reached that code.
+
 ## [0.37.0] - 2026-11-11
 
 ### Changed

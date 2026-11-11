@@ -18,6 +18,11 @@ pub unsafe trait Plain: Sized {
     /// The value of all-zero bytes, which a function's frame starts from.
     #[allow(clippy::declare_interior_mutable_const)]
     const ZEROED: Self;
+
+    /// Gives every cell of `self` the value of the same cell of `source`: the copy of the whole
+    /// value, every field of it, as the memory it lies in. The copy of a function block or class
+    /// instance is this copy (specification 44 §6.2).
+    fn copy_cells(&self, source: &Self);
 }
 
 macro_rules! plain_cells {
@@ -29,6 +34,11 @@ macro_rules! plain_cells {
             unsafe impl Plain for Cell<$t> {
                 #[allow(clippy::declare_interior_mutable_const)]
                 const ZEROED: Self = Cell::new($zero);
+
+                #[inline]
+                fn copy_cells(&self, source: &Self) {
+                    self.set(source.get());
+                }
             }
         )*
     };
@@ -53,6 +63,13 @@ plain_cells!(
 unsafe impl<T: Plain, const N: usize> Plain for [T; N] {
     #[allow(clippy::declare_interior_mutable_const)]
     const ZEROED: Self = [const { T::ZEROED }; N];
+
+    #[inline]
+    fn copy_cells(&self, source: &Self) {
+        for (element, value) in self.iter().zip(source) {
+            element.copy_cells(value);
+        }
+    }
 }
 
 // SAFETY: a string is a cell of its length and cells of its bytes or code units.
@@ -60,6 +77,12 @@ unsafe impl<T: Plain, const N: usize> Plain for [T; N] {
 unsafe impl<const N: usize> Plain for Str<N> {
     #[allow(clippy::declare_interior_mutable_const)]
     const ZEROED: Self = Str::new();
+
+    #[inline]
+    fn copy_cells(&self, source: &Self) {
+        self.len.copy_cells(&source.len);
+        self.data.copy_cells(&source.data);
+    }
 }
 
 // SAFETY: as for `Str`.
@@ -67,6 +90,12 @@ unsafe impl<const N: usize> Plain for Str<N> {
 unsafe impl<const N: usize> Plain for WStr<N> {
     #[allow(clippy::declare_interior_mutable_const)]
     const ZEROED: Self = WStr::new();
+
+    #[inline]
+    fn copy_cells(&self, source: &Self) {
+        self.len.copy_cells(&source.len);
+        self.data.copy_cells(&source.data);
+    }
 }
 
 /// Declares a `#[repr(C)]` structure of plain fields and implements [`Plain`] for it, as generated
@@ -101,6 +130,13 @@ macro_rules! plain_struct {
         unsafe impl $crate::Plain for $name {
             #[allow(clippy::declare_interior_mutable_const)]
             const ZEROED: Self = Self { $($field: <$ty as $crate::Plain>::ZEROED),* };
+
+            // A structure without fields copies nothing.
+            #[allow(unused_variables)]
+            #[inline]
+            fn copy_cells(&self, source: &Self) {
+                $(<$ty as $crate::Plain>::copy_cells(&self.$field, &source.$field);)*
+            }
         }
     };
 }

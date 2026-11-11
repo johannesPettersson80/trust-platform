@@ -174,7 +174,8 @@ fn a_probe_connects_without_a_request() {
 #[test]
 fn a_waiting_probe_finds_a_runtime_that_binds_late() {
     // The port stays held until the late runtime listens on it, so no other socket can take it.
-    let (held, endpoint) = closed_endpoint();
+    let held = trust_test_support::held_loopback_port();
+    let endpoint = format!("tcp://127.0.0.1:{}", held.port());
     let late = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(300));
         let listener = held.listen();
