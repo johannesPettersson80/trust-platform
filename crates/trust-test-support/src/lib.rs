@@ -43,12 +43,15 @@ fn process_tag() -> &'static str {
 }
 
 /// A loopback TCP port where nothing answers: a connection to it is refused at once on every system,
-/// and no other socket binds the port while the value lives. The address of an endpoint where
-/// nothing answers, for the whole test. An established connection holds the port, so that no
-/// socket listens there: a socket bound to the port without listening would hold it too, but
-/// macOS answers no connection to one, which then fails only at its own timeout (7.8 s for a plain
-/// connect in CI). A port read from a listener that the test then closes can be taken by any other
-/// socket before the test is done with it.
+/// and while the value lives the system gives the port to no other socket, neither to a bind of
+/// port 0 nor to a connection. The address of an endpoint where nothing answers, for the whole
+/// test. An established connection holds the port, so that no socket listens there: a socket bound
+/// to the port without listening would hold it too, but macOS answers no connection to one, which
+/// then fails only at its own timeout (7.8 s for a plain connect in CI). On macOS a socket that
+/// binds this very port with `SO_REUSEADDR` (as Rust's `TcpListener::bind` does) can still take it
+/// from an established connection; a test gives such a port to no program. A port read from a
+/// listener that the test then closes can be taken by any other socket before the test is done
+/// with it.
 #[derive(Debug)]
 pub struct RefusedPort {
     _held: std::net::TcpStream,
@@ -227,10 +230,10 @@ mod tests {
         );
     }
 
-    /// A refused port refuses a connection within 5 s on every system, and no listener takes it
+    /// A refused port refuses a connection within 5 s on every system, and no other socket binds it
     /// while it is held. Catches a helper that listens (a connection is accepted and then waits for
-    /// an answer), one that lets the port go (another socket can listen there and answer), and one
-    /// that holds the port with a socket that does not listen, to which macOS answers nothing: a
+    /// an answer), one that lets the port go (another socket can bind it and answer), and one that
+    /// holds the port with a socket that does not listen, to which macOS answers nothing: a
     /// connection there failed only at its timeout, 7.8 s in CI (#441).
     #[test]
     fn a_refused_port_refuses_connections_at_once_and_stays_held() {
@@ -247,9 +250,17 @@ mod tests {
             "refused at once, not at a timeout: {:?}",
             started.elapsed()
         );
+        // A plain bind, without the `SO_REUSEADDR` that Rust's `TcpListener::bind` sets on Unix: macOS
+        // lets such a bind take a port that only an established connection holds (#446's first run).
+        let plain = socket2::Socket::new(
+            socket2::Domain::IPV4,
+            socket2::Type::STREAM,
+            Some(socket2::Protocol::TCP),
+        )
+        .expect("a TCP socket");
         assert!(
-            TcpListener::bind(address).is_err(),
-            "no listener takes the held port"
+            plain.bind(&address.into()).is_err(),
+            "no other socket binds the held port"
         );
     }
 
