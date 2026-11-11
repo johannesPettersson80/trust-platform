@@ -612,3 +612,9 @@ VmLck:\t     128 kB\n";
         assert!(!guard.errors.is_empty());
     }
 }
+
+// The rustix that these real-time calls, and the rest of the runtime, build with holds the fix of its
+// advisory (specification 24, "Dependency Exceptions").
+#[cfg(test)]
+#[path = "rustix_version_tests.rs"]
+mod rustix_version_tests;
