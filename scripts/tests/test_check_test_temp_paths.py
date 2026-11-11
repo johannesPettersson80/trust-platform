@@ -41,6 +41,25 @@ class TestFiles(unittest.TestCase):
              "crates/x/tests/cli.rs"},
         )
 
+    def test_a_file_that_test_code_includes_is_test_code(self) -> None:
+        """A file that a gated test module includes, and a file that such an included file or a test file includes in
+        turn, are test files; a file that product code includes is not. Catches a guard that never reads the test files a
+        test module pastes in with `include!` (trust-lsp's command tests, trust-runtime's realtime tests), and one that
+        takes product code that `include!` splits up for tests."""
+        sources = {
+            "crates/x/src/lib.rs": '#[cfg(test)]\nmod tests {\n    include!("tests/part.rs");\n}\ninclude!("generated.rs");\n',
+            "crates/x/src/tests/part.rs": 'include!("more.rs");\n',
+            "crates/x/src/tests/more.rs": "",
+            "crates/x/src/generated.rs": "",
+            "crates/x/tests/cli.rs": 'include!("common/shared.rs");\n',
+            "crates/x/tests/common/shared.rs": "",
+        }
+        self.assertEqual(
+            check.test_module_files(sources),
+            {"crates/x/src/tests/part.rs", "crates/x/src/tests/more.rs", "crates/x/tests/cli.rs",
+             "crates/x/tests/common/shared.rs"},
+        )
+
     def test_a_test_file_is_test_code_throughout_and_a_product_file_is_not(self) -> None:
         """Catches a guard that misses the calls of a whole test file, and one that flags a product file's call."""
         self.assertEqual(check.violations("crates/x/src/tests.rs", CALL, {"crates/x/src/tests.rs"}),
