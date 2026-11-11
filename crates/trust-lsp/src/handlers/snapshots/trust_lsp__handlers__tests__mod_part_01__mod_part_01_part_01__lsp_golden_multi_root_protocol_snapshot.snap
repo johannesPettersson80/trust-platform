@@ -8,7 +8,50 @@ expression: output
       "from": {
         "data": {
           "fileId": 0,
-          "symbolId": 249
+          "symbolId": 250
+        },
+        "kind": 6,
+        "name": "Fetch",
+        "range": {
+          "end": {
+            "character": 19,
+            "line": 30
+          },
+          "start": {
+            "character": 14,
+            "line": 30
+          }
+        },
+        "selectionRange": {
+          "end": {
+            "character": 19,
+            "line": 30
+          },
+          "start": {
+            "character": 14,
+            "line": 30
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "fromRanges": [
+        {
+          "end": {
+            "character": 28,
+            "line": 31
+          },
+          "start": {
+            "character": 12,
+            "line": 31
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "data": {
+          "fileId": 0,
+          "symbolId": 251
         },
         "kind": 2,
         "name": "Main",
@@ -180,6 +223,19 @@ expression: output
             {
               "range": {
                 "end": {
+                  "character": 20,
+                  "line": 31
+                },
+                "start": {
+                  "character": 17,
+                  "line": 31
+                }
+              },
+              "uri": "file:///workspace/golden/alpha/Main.st"
+            },
+            {
+              "range": {
+                "end": {
                   "character": 12,
                   "line": 41
                 },
@@ -193,7 +249,7 @@ expression: output
           ]
         ],
         "command": "editor.action.showReferences",
-        "title": "References: 2"
+        "title": "References: 3"
       },
       "range": {
         "end": {
@@ -281,6 +337,44 @@ expression: output
           "line": 26
         }
       }
+    },
+    {
+      "command": {
+        "arguments": [
+          "file:///workspace/golden/alpha/Main.st",
+          {
+            "character": 14,
+            "line": 30
+          },
+          [
+            {
+              "range": {
+                "end": {
+                  "character": 9,
+                  "line": 31
+                },
+                "start": {
+                  "character": 4,
+                  "line": 31
+                }
+              },
+              "uri": "file:///workspace/golden/alpha/Main.st"
+            }
+          ]
+        ],
+        "command": "editor.action.showReferences",
+        "title": "References: 1"
+      },
+      "range": {
+        "end": {
+          "character": 19,
+          "line": 30
+        },
+        "start": {
+          "character": 14,
+          "line": 30
+        }
+      }
     }
   ],
   "completion": [],
@@ -313,248 +407,6 @@ expression: output
   },
   "documentDiagnostic": {
     "items": [
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected method name",
-        "range": {
-          "end": {
-            "character": 9,
-            "line": 22
-          },
-          "start": {
-            "character": 7,
-            "line": 22
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected END_METHOD",
-        "range": {
-          "end": {
-            "character": 9,
-            "line": 22
-          },
-          "start": {
-            "character": 7,
-            "line": 22
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected METHOD or PROPERTY in interface",
-        "range": {
-          "end": {
-            "character": 9,
-            "line": 22
-          },
-          "start": {
-            "character": 7,
-            "line": 22
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected METHOD or PROPERTY in interface",
-        "range": {
-          "end": {
-            "character": 11,
-            "line": 22
-          },
-          "start": {
-            "character": 10,
-            "line": 22
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected METHOD or PROPERTY in interface",
-        "range": {
-          "end": {
-            "character": 15,
-            "line": 22
-          },
-          "start": {
-            "character": 12,
-            "line": 22
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected METHOD or PROPERTY in interface",
-        "range": {
-          "end": {
-            "character": 16,
-            "line": 22
-          },
-          "start": {
-            "character": 15,
-            "line": 22
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected METHOD or PROPERTY in interface",
-        "range": {
-          "end": {
-            "character": 10,
-            "line": 23
-          },
-          "start": {
-            "character": 0,
-            "line": 23
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected method name",
-        "range": {
-          "end": {
-            "character": 9,
-            "line": 30
-          },
-          "start": {
-            "character": 7,
-            "line": 30
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E002",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §7.3",
-            "spec": "docs/specs/06-statements.md"
-          }
-        },
-        "message": "expected statement",
-        "range": {
-          "end": {
-            "character": 9,
-            "line": 30
-          },
-          "start": {
-            "character": 7,
-            "line": 30
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E105",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-            "spec": "docs/specs/09-semantic-rules.md"
-          }
-        },
-        "message": "cannot resolve semantic context for unnamed POU",
-        "range": {
-          "end": {
-            "character": 7,
-            "line": 22
-          },
-          "start": {
-            "character": 0,
-            "line": 22
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "E105",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-            "spec": "docs/specs/09-semantic-rules.md"
-          }
-        },
-        "message": "cannot resolve semantic owner for POU context",
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 33
-          },
-          "start": {
-            "character": 0,
-            "line": 30
-          }
-        },
-        "severity": 1,
-        "source": "truST"
-      },
       {
         "code": "W009",
         "data": {
@@ -867,6 +719,32 @@ expression: output
       }
     },
     {
+      "children": [
+        {
+          "kind": 6,
+          "name": "Fetch",
+          "range": {
+            "end": {
+              "character": 10,
+              "line": 23
+            },
+            "start": {
+              "character": 0,
+              "line": 22
+            }
+          },
+          "selectionRange": {
+            "end": {
+              "character": 12,
+              "line": 22
+            },
+            "start": {
+              "character": 7,
+              "line": 22
+            }
+          }
+        }
+      ],
       "kind": 11,
       "name": "IFace",
       "range": {
@@ -915,6 +793,32 @@ expression: output
       }
     },
     {
+      "children": [
+        {
+          "kind": 6,
+          "name": "Fetch",
+          "range": {
+            "end": {
+              "character": 10,
+              "line": 32
+            },
+            "start": {
+              "character": 0,
+              "line": 30
+            }
+          },
+          "selectionRange": {
+            "end": {
+              "character": 19,
+              "line": 30
+            },
+            "start": {
+              "character": 14,
+              "line": 30
+            }
+          }
+        }
+      ],
       "kind": 5,
       "name": "Derived",
       "range": {
@@ -1088,12 +992,12 @@ expression: output
       "startLine": 21
     },
     {
-      "endLine": 32,
+      "endLine": 23,
       "kind": "region",
-      "startLine": 30
+      "startLine": 22
     },
     {
-      "endLine": 31,
+      "endLine": 32,
       "kind": "region",
       "startLine": 30
     },
@@ -1110,7 +1014,7 @@ expression: output
   ],
   "formatting": [
     {
-      "newText": "\nCONFIGURATION Conf\nVAR_GLOBAL CONSTANT\n    ANSWER: INT := 42;\nEND_VAR\nEND_CONFIGURATION\n\nTYPE MyInt: INT;\nEND_TYPE\n\nUSING Lib;\n\nNAMESPACE Lib\n    FUNCTION Foo: INT\n        VAR_INPUT\n            a: INT;\n        END_VAR\n        Foo := a;\n    END_FUNCTION\nEND_NAMESPACE\n\nINTERFACE IFace\n    METHOD Do: INT;\n    END_METHOD\nEND_INTERFACE\n\nCLASS Base\nEND_CLASS\n\nCLASS Derived EXTENDS Base IMPLEMENTS IFace\nMETHOD Do: INT\n    Do := Lib.Foo(ANSWER);\nEND_METHOD\nEND_CLASS\n\nPROGRAM Main\n    VAR\n        x    : INT;\n        y    : INT;\n        typed: MyInt;\n    END_VAR\n    x := Lib.Foo(ANSWER);\nEND_PROGRAM\n",
+      "newText": "\nCONFIGURATION Conf\nVAR_GLOBAL CONSTANT\n    ANSWER: INT := 42;\nEND_VAR\nEND_CONFIGURATION\n\nTYPE MyInt: INT;\nEND_TYPE\n\nUSING Lib;\n\nNAMESPACE Lib\n    FUNCTION Foo: INT\n        VAR_INPUT\n            a: INT;\n        END_VAR\n        Foo := a;\n    END_FUNCTION\nEND_NAMESPACE\n\nINTERFACE IFace\n    METHOD Fetch: INT\n    END_METHOD\nEND_INTERFACE\n\nCLASS Base\nEND_CLASS\n\nCLASS Derived EXTENDS Base IMPLEMENTS IFace\nMETHOD PUBLIC Fetch: INT\n    Fetch := Lib.Foo(ANSWER);\nEND_METHOD\nEND_CLASS\n\nPROGRAM Main\n    VAR\n        x    : INT;\n        y    : INT;\n        typed: MyInt;\n    END_VAR\n    x := Lib.Foo(ANSWER);\nEND_PROGRAM\n",
       "range": {
         "end": {
           "character": 0,
@@ -1130,11 +1034,11 @@ expression: output
     },
     "range": {
       "end": {
-        "character": 17,
+        "character": 20,
         "line": 31
       },
       "start": {
-        "character": 14,
+        "character": 17,
         "line": 31
       }
     }
@@ -1200,6 +1104,16 @@ expression: output
         "start": {
           "character": 0,
           "line": 17
+        }
+      },
+      {
+        "end": {
+          "character": 20,
+          "line": 31
+        },
+        "start": {
+          "character": 17,
+          "line": 31
         }
       },
       {
@@ -1321,6 +1235,19 @@ expression: output
     {
       "range": {
         "end": {
+          "character": 20,
+          "line": 31
+        },
+        "start": {
+          "character": 17,
+          "line": 31
+        }
+      },
+      "uri": "file:///workspace/golden/alpha/Main.st"
+    },
+    {
+      "range": {
+        "end": {
           "character": 12,
           "line": 41
         },
@@ -1373,47 +1300,35 @@ expression: output
               "parent": {
                 "parent": {
                   "parent": {
-                    "parent": {
-                      "range": {
-                        "end": {
-                          "character": 0,
-                          "line": 43
-                        },
-                        "start": {
-                          "character": 0,
-                          "line": 0
-                        }
-                      }
-                    },
                     "range": {
                       "end": {
                         "character": 0,
-                        "line": 35
+                        "line": 43
                       },
                       "start": {
                         "character": 0,
-                        "line": 29
+                        "line": 0
                       }
                     }
                   },
                   "range": {
                     "end": {
                       "character": 0,
-                      "line": 33
+                      "line": 35
                     },
                     "start": {
                       "character": 0,
-                      "line": 30
+                      "line": 29
                     }
                   }
                 },
                 "range": {
                   "end": {
                     "character": 0,
-                    "line": 32
+                    "line": 33
                   },
                   "start": {
-                    "character": 6,
+                    "character": 0,
                     "line": 30
                   }
                 }
@@ -1424,51 +1339,51 @@ expression: output
                   "line": 32
                 },
                 "start": {
-                  "character": 9,
+                  "character": 4,
                   "line": 31
                 }
               }
             },
             "range": {
               "end": {
-                "character": 25,
+                "character": 28,
                 "line": 31
               },
               "start": {
-                "character": 9,
+                "character": 12,
                 "line": 31
               }
             }
           },
           "range": {
             "end": {
-              "character": 17,
+              "character": 20,
               "line": 31
             },
             "start": {
-              "character": 9,
+              "character": 12,
               "line": 31
             }
           }
         },
         "range": {
           "end": {
-            "character": 13,
+            "character": 16,
             "line": 31
           },
           "start": {
-            "character": 9,
+            "character": 12,
             "line": 31
           }
         }
       },
       "range": {
         "end": {
-          "character": 13,
+          "character": 16,
           "line": 31
         },
         "start": {
-          "character": 10,
+          "character": 13,
           "line": 31
         }
       }
@@ -1637,11 +1552,11 @@ expression: output
       0,
       0,
       7,
-      2,
-      0,
-      0,
-      0,
       5,
+      4,
+      1,
+      0,
+      8,
       3,
       1,
       0,
@@ -1707,21 +1622,26 @@ expression: output
       0,
       0,
       7,
-      2,
+      6,
       0,
       0,
       0,
+      7,
       5,
+      4,
+      1,
+      0,
+      8,
       3,
       1,
       0,
       1,
       4,
-      2,
+      5,
+      4,
       0,
       0,
-      0,
-      3,
+      6,
       2,
       10,
       0,
@@ -2055,248 +1975,6 @@ expression: output
       {
         "items": [
           {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected method name",
-            "range": {
-              "end": {
-                "character": 9,
-                "line": 22
-              },
-              "start": {
-                "character": 7,
-                "line": 22
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected END_METHOD",
-            "range": {
-              "end": {
-                "character": 9,
-                "line": 22
-              },
-              "start": {
-                "character": 7,
-                "line": 22
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected METHOD or PROPERTY in interface",
-            "range": {
-              "end": {
-                "character": 9,
-                "line": 22
-              },
-              "start": {
-                "character": 7,
-                "line": 22
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected METHOD or PROPERTY in interface",
-            "range": {
-              "end": {
-                "character": 11,
-                "line": 22
-              },
-              "start": {
-                "character": 10,
-                "line": 22
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected METHOD or PROPERTY in interface",
-            "range": {
-              "end": {
-                "character": 15,
-                "line": 22
-              },
-              "start": {
-                "character": 12,
-                "line": 22
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected METHOD or PROPERTY in interface",
-            "range": {
-              "end": {
-                "character": 16,
-                "line": 22
-              },
-              "start": {
-                "character": 15,
-                "line": 22
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected METHOD or PROPERTY in interface",
-            "range": {
-              "end": {
-                "character": 10,
-                "line": 23
-              },
-              "start": {
-                "character": 0,
-                "line": 23
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected method name",
-            "range": {
-              "end": {
-                "character": 9,
-                "line": 30
-              },
-              "start": {
-                "character": 7,
-                "line": 30
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E002",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §7.3",
-                "spec": "docs/specs/06-statements.md"
-              }
-            },
-            "message": "expected statement",
-            "range": {
-              "end": {
-                "character": 9,
-                "line": 30
-              },
-              "start": {
-                "character": 7,
-                "line": 30
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E105",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-                "spec": "docs/specs/09-semantic-rules.md"
-              }
-            },
-            "message": "cannot resolve semantic context for unnamed POU",
-            "range": {
-              "end": {
-                "character": 7,
-                "line": 22
-              },
-              "start": {
-                "character": 0,
-                "line": 22
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "E105",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-                "spec": "docs/specs/09-semantic-rules.md"
-              }
-            },
-            "message": "cannot resolve semantic owner for POU context",
-            "range": {
-              "end": {
-                "character": 0,
-                "line": 33
-              },
-              "start": {
-                "character": 0,
-                "line": 30
-              }
-            },
-            "severity": 1,
-            "source": "truST"
-          },
-          {
             "code": "W009",
             "data": {
               "explain": {
@@ -2465,6 +2143,42 @@ expression: output
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "Derived"
+    },
+    {
+      "containerName": "Derived",
+      "kind": 6,
+      "location": {
+        "range": {
+          "end": {
+            "character": 19,
+            "line": 30
+          },
+          "start": {
+            "character": 14,
+            "line": 30
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Fetch"
+    },
+    {
+      "containerName": "IFace",
+      "kind": 6,
+      "location": {
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 22
+          },
+          "start": {
+            "character": 7,
+            "line": 22
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Fetch"
     },
     {
       "containerName": "Lib",

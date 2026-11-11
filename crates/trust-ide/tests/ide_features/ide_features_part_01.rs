@@ -313,3 +313,35 @@ fn test_action_call_site_resolves_to_action_symbol() {
         "a bare action call must resolve to the action symbol"
     );
 }
+
+// Specification 14 §6.3.1: a variable goes to its declaration, in the POU whose body names it.
+// Two function blocks declare a method `Init` with a local `count` each: worked by hand, the
+// `count` of `B.Init`'s body goes to `B.Init`'s declaration, the second `count : INT`. Catches a
+// body given the scope of the first POU of its name, `A.Init`, whose `count` it would go to (G82b).
+#[test]
+fn test_goto_definition_of_a_local_in_the_second_of_two_same_named_methods() {
+    let source = r#"
+FUNCTION_BLOCK A
+METHOD PUBLIC Init : INT
+VAR
+    count : INT;
+END_VAR
+Init := count;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK B
+METHOD PUBLIC Init : INT
+VAR
+    count : INT;
+END_VAR
+Init := count + 1;
+END_METHOD
+END_FUNCTION_BLOCK
+"#;
+    let (db, file) = setup(source);
+    let use_in_b = source.find("count + 1").expect("use") as u32;
+    let result = goto_definition(&db, file, TextSize::from(use_in_b)).expect("definition");
+    let declaration_in_b = source.rfind("count : INT").expect("declaration") as u32;
+    assert_eq!(result.range.start(), TextSize::from(declaration_in_b));
+}
