@@ -82,6 +82,13 @@ Checks if assignment is valid (for interface references). If the instance implem
   compatibility is checked against inheritance and implemented interfaces.
   Success stores the compatible identity; failure stores `NULL`. (IEC
   61131-3 Ed.3, 6.6.6.7.2, Table 52)
+- With an interface on one side and a class, function block or interface on the
+  other, no relation between the two types is needed: a class may implement
+  both, and the class of the instance decides at run time. The standard's own
+  example takes `interf2 ?= interf1` between two interfaces that a class
+  implements, and `interf3 ?= interf1` gives `NULL` (IEC 61131-3 Ed.3,
+  6.6.6.7.3, EXAMPLE 2). Between two class or function block types, one must
+  derive from the other, since no instance is of two unrelated classes (E201).
 - For elementary, aggregate, and truST `POINTER TO` values, `?=` is a
   product-defined checked copy: the source must be `NULL` or have the exact
   same reference family and referenced type. Cross-family `REF_TO` /
