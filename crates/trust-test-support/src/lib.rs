@@ -42,20 +42,68 @@ fn process_tag() -> &'static str {
     })
 }
 
-/// A loopback TCP port that the test holds without listening on it. While the value lives, no other
-/// socket binds the port and nothing answers a connection to it: the address of an endpoint where
-/// nothing answers, for the whole test. Linux and Windows refuse such a connection at once; macOS
-/// answers it not at all, so that there a connection fails only at its own timeout (about 7.5 s for
-/// a plain connect), and a test that waits for the failure waits that long. A port read from a
-/// listener that the test then closes can be taken by any other socket before the test is done
-/// with it.
+/// A loopback TCP port where nothing answers: a connection to it is refused at once on every system,
+/// and no other socket binds the port while the value lives. The address of an endpoint where
+/// nothing answers, for the whole test. An established connection holds the port, so that no
+/// socket listens there: a socket bound to the port without listening would hold it too, but
+/// macOS answers no connection to one, which then fails only at its own timeout (7.8 s for a plain
+/// connect in CI). A port read from a listener that the test then closes can be taken by any other
+/// socket before the test is done with it.
 #[derive(Debug)]
 pub struct RefusedPort {
-    socket: socket2::Socket,
+    _held: std::net::TcpStream,
+    _peer: std::net::TcpStream,
     port: u16,
 }
 
 impl RefusedPort {
+    /// The held port.
+    #[must_use]
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+}
+
+/// Holds a free loopback port where nothing answers ([`RefusedPort`]): a socket bound to the port and
+/// connected to a listener, which closes once it has taken the connection.
+///
+/// # Panics
+///
+/// The operating system gives no socket, no port or no connection.
+#[must_use]
+pub fn refused_loopback_port() -> RefusedPort {
+    let listener = std::net::TcpListener::bind(std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
+        .expect("a loopback listener");
+    let held = loopback_socket();
+    let port = bound_port(&held);
+    held.connect(
+        &listener
+            .local_addr()
+            .expect("the listener's address")
+            .into(),
+    )
+    .expect("connect the held port");
+    let (peer, _) = listener.accept().expect("the held port's connection");
+    drop(listener);
+    RefusedPort {
+        _held: held.into(),
+        _peer: peer,
+        port,
+    }
+}
+
+/// A loopback TCP port that the test holds without listening on it, until a program that binds its
+/// port late listens there ([`HeldPort::listen`]); no other socket can take it in the meantime.
+/// Linux and Windows refuse a connection to it while it does not listen; macOS answers none, so that
+/// a connection there fails only at its own timeout. An endpoint where nothing answers is a
+/// [`RefusedPort`].
+#[derive(Debug)]
+pub struct HeldPort {
+    socket: socket2::Socket,
+    port: u16,
+}
+
+impl HeldPort {
     /// The held port.
     #[must_use]
     pub fn port(&self) -> u16 {
@@ -75,13 +123,20 @@ impl RefusedPort {
     }
 }
 
-/// Holds a free loopback port without listening on it ([`RefusedPort`]).
+/// Holds a free loopback port without listening on it ([`HeldPort`]).
 ///
 /// # Panics
 ///
 /// The operating system gives no socket or no port.
 #[must_use]
-pub fn refused_loopback_port() -> RefusedPort {
+pub fn held_loopback_port() -> HeldPort {
+    let socket = loopback_socket();
+    let port = bound_port(&socket);
+    HeldPort { socket, port }
+}
+
+/// A TCP socket bound to a free loopback port.
+fn loopback_socket() -> socket2::Socket {
     let socket = socket2::Socket::new(
         socket2::Domain::IPV4,
         socket2::Type::STREAM,
@@ -91,13 +146,17 @@ pub fn refused_loopback_port() -> RefusedPort {
     socket
         .bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)).into())
         .expect("bind a loopback port");
-    let port = socket
+    socket
+}
+
+/// The port that `socket` is bound to.
+fn bound_port(socket: &socket2::Socket) -> u16 {
+    socket
         .local_addr()
         .ok()
         .and_then(|address| address.as_socket())
         .map(|address| address.port())
-        .expect("the bound port");
-    RefusedPort { socket, port }
+        .expect("the bound port")
 }
 
 /// How `std::io::Error` writes this operating system's "address in use" error, with which a bind of
@@ -130,11 +189,11 @@ pub fn is_a_taken_port_error(error: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use std::net::{SocketAddr, TcpListener, TcpStream};
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use super::{
-        is_a_taken_port_error, process_temp_path, refused_loopback_port, reports_a_taken_port,
-        unique_temp_path,
+        held_loopback_port, is_a_taken_port_error, process_temp_path, refused_loopback_port,
+        reports_a_taken_port, unique_temp_path,
     };
 
     /// A bind of a port that a listener holds fails with this system's "address in use" error, which
@@ -168,17 +227,25 @@ mod tests {
         );
     }
 
-    /// A held port refuses a connection, and no listener takes it while it is held. Catches a
-    /// helper that listens (a connection is accepted and then waits for an answer) and one that
-    /// lets the port go (another socket can listen there and answer).
+    /// A refused port refuses a connection within 5 s on every system, and no listener takes it
+    /// while it is held. Catches a helper that listens (a connection is accepted and then waits for
+    /// an answer), one that lets the port go (another socket can listen there and answer), and one
+    /// that holds the port with a socket that does not listen, to which macOS answers nothing: a
+    /// connection there failed only at its timeout, 7.8 s in CI (#441).
     #[test]
-    fn a_refused_port_refuses_connections_and_stays_held() {
+    fn a_refused_port_refuses_connections_at_once_and_stays_held() {
         let refused = refused_loopback_port();
         let address = SocketAddr::from(([127, 0, 0, 1], refused.port()));
 
+        let started = Instant::now();
         assert!(
             TcpStream::connect_timeout(&address, Duration::from_secs(10)).is_err(),
             "a connection to the held port is refused"
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "refused at once, not at a timeout: {:?}",
+            started.elapsed()
         );
         assert!(
             TcpListener::bind(address).is_err(),
@@ -190,7 +257,7 @@ mod tests {
     /// that binds a new socket, on another port or on one that another socket took first.
     #[test]
     fn a_held_port_listens_when_asked() {
-        let held = refused_loopback_port();
+        let held = held_loopback_port();
         let port = held.port();
         let address = SocketAddr::from(([127, 0, 0, 1], port));
         let listener = held.listen();
