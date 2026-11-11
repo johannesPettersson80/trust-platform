@@ -753,8 +753,13 @@ the listener before something binds the port again: another socket, a client
 connection's source port among them, can take the port in between. A program
 that can listen on port 0 does so, and the test reads the port it bound. A test
 that serves a port keeps its listener. A test that needs an endpoint where
-nothing answers holds a port without listening on it (`trust-test-support`'s
-`refused_loopback_port`). Where a program takes only a concrete port, such as a
+nothing answers holds a port that nothing listens on (`trust-test-support`'s
+`refused_loopback_port`): an established connection keeps the port, so that
+every system refuses a connection there at once (macOS answers none to a socket
+bound without listening, which a connection then waits for until its timeout),
+and a test that starts a program on the port late holds it with
+`held_loopback_port` until the program listens. Where a program takes only a
+concrete port, such as a
 fleet's managed runtime, the test tries again with other ports when the
 program's bind found its port taken (`reports_a_taken_port` for a line of the
 program's log, `is_a_taken_port_error` for an error that a library returns),
