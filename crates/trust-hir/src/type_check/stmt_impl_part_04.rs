@@ -321,7 +321,15 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             (target, source) => {
                 let target = target.target();
                 let source = source.target();
-                self.checker.reference_types_compatible(target, source)
+                // With an interface on one side and a class, function block or interface on the
+                // other, the instance's class decides at run time: a class may implement both
+                // (IEC 61131-3 Ed.3 §6.6.6.7.3 EXAMPLE 2, `interf2 ?= interf1`; specification 06,
+                // "Assignment Attempt"). Two classes must be related, as no instance is of both.
+                let interface_attempt = (self.is_interface_type(target)
+                    && self.is_object_type(source))
+                    || (self.is_interface_type(source) && self.is_object_type(target));
+                interface_attempt
+                    || self.checker.reference_types_compatible(target, source)
                     || self.checker.reference_types_compatible(source, target)
             }
         };
@@ -338,6 +346,25 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 ),
             );
         }
+    }
+
+    /// Whether `type_id` is an interface type.
+    fn is_interface_type(&self, type_id: TypeId) -> bool {
+        let resolved = self.checker.resolve_alias_type(type_id);
+        matches!(
+            self.checker.symbols.type_by_id(resolved),
+            Some(Type::Interface { .. })
+        )
+    }
+
+    /// Whether `type_id` is a class, function block or interface type: the instances of the
+    /// object-oriented features (IEC 61131-3 Ed.3 §6.6).
+    fn is_object_type(&self, type_id: TypeId) -> bool {
+        let resolved = self.checker.resolve_alias_type(type_id);
+        matches!(
+            self.checker.symbols.type_by_id(resolved),
+            Some(Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. })
+        )
     }
 
     fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {
