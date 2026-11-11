@@ -510,6 +510,15 @@ contract:
   after pauses of 5, 15 and 45 seconds, so that one bad answer does not fail the
   job; a client error fails at once, and a server error on the fourth attempt
   fails the step, so that a lasting failure stays visible;
+- every Ubuntu package that a workflow or a gate script installs is installed
+  through `scripts/ci_apt_install.sh`. Before apt runs, it asks the runner's
+  resolver for the Ubuntu archives' hosts. When one does not resolve, it adds
+  the public resolvers 1.1.1.1, 8.8.8.8 and 9.9.9.9 beside the runner's own for
+  the rest of the job, which also serves a later step that installs through apt
+  itself (Playwright's `--with-deps`). apt retries each download three times,
+  and the whole install is tried three times. On 11 November 2026 the hosted
+  runners could not resolve the archives for hours while public resolvers
+  answered (`scripts/tests/test_ci_apt_install.py` pins the rule);
 - release-gate aggregation fails with verdict `FAIL` and the exact missing
   required artifact identities when any required gate artifact is absent, and
   returns verdict `PASS` with an empty missing set when all required artifacts

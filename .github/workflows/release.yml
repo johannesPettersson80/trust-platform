@@ -605,9 +605,7 @@ jobs:
           npx tsc -p ./
 
       - name: Install a virtual display
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
+        run: bash scripts/ci_apt_install.sh xvfb
 
       - name: Run the acceptance journeys
         working-directory: editors/vscode

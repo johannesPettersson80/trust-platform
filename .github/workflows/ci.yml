@@ -164,6 +164,8 @@ jobs:
           python3 scripts/update_syntax_pipeline.py --check
       - name: Guard workflow change detection
         run: python3 -m unittest scripts.tests.test_ci_changes scripts.tests.test_workflow_change_detection -v
+      - name: Guard the package installs
+        run: python3 -m unittest scripts.tests.test_ci_apt_install -v
       - name: Lint the workflows
         # actionlint at a pinned version and checksum, with the runner's shellcheck
         # (specification 22, "Pull-request checks and change detection"). The download is
@@ -264,9 +266,7 @@ jobs:
       - name: Guard Windows path hygiene in tests
         run: ./scripts/check_test_path_hygiene.sh
       - name: Install Windows cross-compiler for runtime warning gate
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-mingw-w64-x86-64
+        run: bash scripts/ci_apt_install.sh gcc-mingw-w64-x86-64
       - name: Guard trust-runtime cross-target warnings
         run: ./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross
       - run: cargo clippy --all-targets --all-features -- -D warnings
@@ -579,9 +579,7 @@ jobs:
           bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
           echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - name: Install real MQTT broker conformance dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mosquitto mosquitto-clients
+        run: bash scripts/ci_apt_install.sh mosquitto mosquitto-clients
       - name: Run conformance suite (pass 1)
         run: |
           mkdir -p gate-artifacts
@@ -920,10 +918,10 @@ jobs:
         working-directory: ${{ github.workspace }}
       - name: Add trust-lsp binary directory to PATH
         run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"
+      # Before the browser's `--with-deps`, which installs through apt: the script makes the
+      # Ubuntu archives resolvable for the rest of the job (checklist G144).
       - name: Install virtual display dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
+        run: bash scripts/ci_apt_install.sh xvfb
       - name: Install and identify the locked Chromium browser
         shell: bash
         working-directory: ${{ github.workspace }}
