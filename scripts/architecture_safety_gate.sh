@@ -5,8 +5,7 @@ set -euo pipefail
 export PATH="$PATH:${CARGO_HOME:-$HOME/.cargo}/bin"
 
 if ! command -v rg >/dev/null 2>&1; then
-  sudo apt-get update
-  sudo apt-get install -y ripgrep
+  bash "$(dirname "${BASH_SOURCE[0]}")/ci_apt_install.sh" ripgrep
 fi
 
 if ! command -v ast-grep >/dev/null 2>&1; then

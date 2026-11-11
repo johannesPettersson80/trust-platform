@@ -365,3 +365,6 @@ END_PROGRAM
     harness.assert_eq("m", 11i16);
     harness.assert_eq("runs", 1i16);
 }
+
+#[path = "pou_oop/instance_copies.rs"]
+mod instance_copies;

@@ -11,6 +11,7 @@ mod assertions;
 mod call;
 mod case;
 mod conversions;
+mod copies;
 mod dates;
 mod effects;
 mod enable;
@@ -671,11 +672,8 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                 self.line(&format!("{}.set({reference});", place.expr));
                 Ok(())
             }
-            // An instance, or an array or a structure that holds one, is no value to copy.
-            _ if self.model.types.holds_instance(place.ty) => Err(self.unsupported(
-                value,
-                "an assignment of a value that holds a function block or class instance",
-            )),
+            // An instance, or an array or a structure that holds one, is copied whole (`copies`).
+            _ if self.model.types.holds_instance(place.ty) => self.store_instance(place, value),
             Kind::Struct { members } if self.derived_structure(value, members) => {
                 // A structure of a type that extends the place's (`TYPE Derived EXTENDS Base`,
                 // specification 02 §3.5.1) gives its base part, which lies first in it; a call's

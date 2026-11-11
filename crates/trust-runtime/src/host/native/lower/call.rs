@@ -524,12 +524,17 @@ impl<'a> Lowerer<'_, 'a> {
                     destination.reference(),
                     place.reference()
                 )),
-                // An instance, or a value that holds one, is no value to copy.
+                // An instance, or a value that holds one, copies every variable of it, cell by
+                // cell, into a variable of its type (specification 44 §6.2; docs/IEC_DECISIONS.md).
                 _ if self.model.types.holds_instance(place.ty) => {
-                    return Err(self.unsupported(
-                        &target,
-                        "an output that holds a function block or class instance",
-                    ));
+                    if place.ty != destination.ty {
+                        return Err(self.unsupported(
+                            &target,
+                            "an output that holds a function block or class instance, to a \
+                             variable of another type",
+                        ));
+                    }
+                    self.copy_instance(&destination, &place);
                 }
                 _ if place.ty == destination.ty => self.line(&format!(
                     "Assign::assign({}, {});",

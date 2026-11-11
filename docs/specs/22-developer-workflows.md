@@ -510,6 +510,15 @@ contract:
   after pauses of 5, 15 and 45 seconds, so that one bad answer does not fail the
   job; a client error fails at once, and a server error on the fourth attempt
   fails the step, so that a lasting failure stays visible;
+- every Ubuntu package that a workflow or a gate script installs is installed
+  through `scripts/ci_apt_install.sh`. Before apt runs, it asks the runner's
+  resolver for the Ubuntu archives' hosts. When one does not resolve, it adds
+  the public resolvers 1.1.1.1, 8.8.8.8 and 9.9.9.9 beside the runner's own for
+  the rest of the job, which also serves a later step that installs through apt
+  itself (Playwright's `--with-deps`). apt retries each download three times,
+  and the whole install is tried three times. On 11 November 2026 the hosted
+  runners could not resolve the archives for hours while public resolvers
+  answered (`scripts/tests/test_ci_apt_install.py` pins the rule);
 - release-gate aggregation fails with verdict `FAIL` and the exact missing
   required artifact identities when any required gate artifact is absent, and
   returns verdict `PASS` with an empty missing set when all required artifacts
@@ -753,8 +762,13 @@ the listener before something binds the port again: another socket, a client
 connection's source port among them, can take the port in between. A program
 that can listen on port 0 does so, and the test reads the port it bound. A test
 that serves a port keeps its listener. A test that needs an endpoint where
-nothing answers holds a port without listening on it (`trust-test-support`'s
-`refused_loopback_port`). Where a program takes only a concrete port, such as a
+nothing answers holds a port that nothing listens on (`trust-test-support`'s
+`refused_loopback_port`): an established connection keeps the port, so that
+every system refuses a connection there at once (macOS answers none to a socket
+bound without listening, which a connection then waits for until its timeout),
+and a test that starts a program on the port late holds it with
+`held_loopback_port` until the program listens. Where a program takes only a
+concrete port, such as a
 fleet's managed runtime, the test tries again with other ports when the
 program's bind found its port taken (`reports_a_taken_port` for a line of the
 program's log, `is_a_taken_port_error` for an error that a library returns),
