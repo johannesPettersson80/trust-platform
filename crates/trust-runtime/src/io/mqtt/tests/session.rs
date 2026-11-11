@@ -244,9 +244,9 @@ payload_format = "binary_be"
 /// success). Catches a warned failure that faults the scan.
 #[test]
 fn on_error_warn_connect_failure_degrades_without_runtime_error() {
+    let (_held, nobody) = nothing_listens();
     let mut driver = start(&format!(
-        "broker = \"{}\"\nreconnect_ms = 60000\non_error = \"warn\"",
-        nothing_listens()
+        "broker = \"{nobody}\"\nreconnect_ms = 60000\non_error = \"warn\""
     ));
     eventually("failed connect in the health", || {
         matches!(driver.health(), IoDriverHealth::Degraded { error }
@@ -324,10 +324,8 @@ fn reconnection_test_retries_after_connect_failure() {
 /// that is being opened. Catches a scan that waits for the network.
 #[test]
 fn cycle_impact_test_driver_calls_are_non_blocking_without_session() {
-    let mut driver = start(&format!(
-        "broker = \"{}\"\nreconnect_ms = 1",
-        nothing_listens()
-    ));
+    let (_held, nobody) = nothing_listens();
+    let mut driver = start(&format!("broker = \"{nobody}\"\nreconnect_ms = 1"));
     let mut inputs = [0_u8; 8];
     let mut longest = Duration::ZERO;
     for _ in 0..50 {
@@ -677,10 +675,8 @@ fn fail_closed_publish_failure_returns_output_error() {
 /// a failed connect reported as a stale input.
 #[test]
 fn fail_closed_connect_failure_is_observable() {
-    let mut driver = start(&format!(
-        "broker = \"{}\"\nreconnect_ms = 60000",
-        nothing_listens()
-    ));
+    let (_held, nobody) = nothing_listens();
+    let mut driver = start(&format!("broker = \"{nobody}\"\nreconnect_ms = 60000"));
     eventually("failed connect in the health", || {
         faulted_with(&driver.health(), "mqtt connect failed: ")
     });

@@ -14,7 +14,7 @@ fn managed_status_unavailable_on_malformed_status() {
     let garbled = FakeRuntime::start(Script::running().answer("status", Reply::Raw("not-json")));
     let refused =
         FakeRuntime::start(Script::running().answer("status", Reply::Refuse("invalid_auth_token")));
-    let down = closed_endpoint();
+    let (_held, down) = closed_endpoint();
     let runtimes = [
         ("good", good.endpoint.as_str(), 10_001),
         ("garbled", garbled.endpoint.as_str(), 10_002),

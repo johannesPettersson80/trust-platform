@@ -2,7 +2,7 @@
 //! message lines and their 8 MiB limit, the loopback's answer read whole with its raw-byte limit,
 //! and the start, which needs the loopback's tool list.
 
-use std::net::{Ipv4Addr, SocketAddr, TcpListener};
+use std::net::{Ipv4Addr, SocketAddr};
 
 use serde_json::{json, Value};
 
@@ -133,12 +133,11 @@ fn the_answer_limit_counts_raw_bytes() {
 /// instead of failing at once with the message the agent's client shows.
 #[test]
 fn the_server_starts_only_with_the_loopbacks_tool_list() {
-    let closed = {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind");
-        listener.local_addr().expect("address").port()
-    };
+    // A port held without listening for the whole test, so no other socket takes it and answers
+    // (specification 22).
+    let closed = trust_test_support::refused_loopback_port();
     let nobody = Connection {
-        address: SocketAddr::from((Ipv4Addr::LOCALHOST, closed)),
+        address: SocketAddr::from((Ipv4Addr::LOCALHOST, closed.port())),
         capability: CAPABILITY.to_owned(),
         workspace_id: WORKSPACE.to_owned(),
     };

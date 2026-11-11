@@ -1,9 +1,8 @@
 //! Native peer authentication: a configured token must reject unauthenticated/wrong peers.
 use crate::config::{MeshConfig, MeshRole};
-use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
+use crate::scheduler::{ResourceControl, StdClock};
 use indexmap::IndexMap;
 use std::net::{SocketAddr, TcpListener};
-use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 use zenoh::Wait;
 
@@ -26,30 +25,30 @@ fn config(listen: String, connect: Vec<String>, token: Option<&str>) -> MeshConf
     }
 }
 
-/// The owner's mesh that `start` starts on a loopback port that was free a moment ago, with its
-/// resource's command receiver, and the port's address. The owner takes a concrete port: its peers
-/// and the test connect to the address, and Zenoh reports the endpoints it bound only through its
-/// unstable API. Another socket can take the port first; the mesh then starts without a session,
-/// degraded with the system's "address in use" error, and it is started again on another port, ten
-/// times at most, and after no other failure (specification 22).
+/// The mesh that `start` starts on a loopback port that was free a moment ago, and the port's
+/// address. A mesh takes a concrete port: its peers and the test connect to the address, and Zenoh
+/// reports the endpoints it bound only through its unstable API. Another socket can take the port
+/// first; the mesh then starts without a session, degraded with the system's "address in use"
+/// error, and it is started again on another port, ten times at most, and after no other failure
+/// (specification 22). A start without a session returns before it uses its resource, so each
+/// attempt may take a clone of the same one.
 // port-retry-ok: starts the mesh again when its session found the port taken, and only then.
-fn mesh_on_a_free_port(
-    start: impl Fn(SocketAddr, ResourceControl<StdClock>) -> super::MeshService,
-) -> (super::MeshService, Receiver<ResourceCommand>, SocketAddr) {
+pub(super) fn mesh_on_a_free_port(
+    start: impl Fn(SocketAddr) -> super::MeshService,
+) -> (super::MeshService, SocketAddr) {
     let mut taken = Vec::new();
     for _ in 0..10 {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         drop(listener);
-        let (resource, commands) = ResourceControl::stub(StdClock::new());
-        let mesh = start(address, resource);
+        let mesh = start(address);
         let port_taken = mesh.session.is_none()
             && mesh
                 .degraded_reason
                 .as_deref()
                 .is_some_and(trust_test_support::is_a_taken_port_error);
         if !port_taken {
-            return (mesh, commands, address);
+            return (mesh, address);
         }
         taken.push(address);
     }
@@ -58,7 +57,8 @@ fn mesh_on_a_free_port(
 
 #[test]
 fn configured_mesh_authentication_rejects_wrong_and_missing_peer_tokens() {
-    let (owner, _commands, address) = mesh_on_a_free_port(|address, resource| {
+    let (resource, _commands) = ResourceControl::stub(StdClock::new());
+    let (owner, address) = mesh_on_a_free_port(|address| {
         super::start_mesh(
             &config(
                 address.to_string(),
@@ -67,7 +67,7 @@ fn configured_mesh_authentication_rejects_wrong_and_missing_peer_tokens() {
             ),
             format!("auth-owner-{}", std::process::id()).into(),
             STABLE_ID.into(),
-            resource,
+            resource.clone(),
         )
         .unwrap()
         .unwrap()
@@ -139,14 +139,15 @@ fn mesh_tls_socket_presents_the_configured_certificate() {
         private_key_pem: std::fs::read(root.join("server-key.pem")).unwrap(),
         ca_pem: certificate,
     };
-    let (_owner, _commands, address) = mesh_on_a_free_port(|address, resource| {
+    let (resource, _commands) = ResourceControl::stub(StdClock::new());
+    let (_owner, address) = mesh_on_a_free_port(|address| {
         let mut configured = config(address.to_string(), Vec::new(), None);
         configured.tls = true;
         super::start_mesh_with_tls(
             &configured,
             "tls-socket-test".into(),
             STABLE_ID.into(),
-            resource,
+            resource.clone(),
             Some(&materials),
         )
         .unwrap()

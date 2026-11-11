@@ -68,10 +68,13 @@ pub(super) fn report(gathered: &Gathered, origin: TargetOrigin) -> &TargetReport
         .expect("a report of the target")
 }
 
-/// An endpoint on a local port that nothing listens on.
-pub(super) fn closed_endpoint() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
-    format!("tcp://{}", listener.local_addr().expect("local address"))
+/// An endpoint on a local port that nothing listens on, with the port held without listening
+/// (specification 22): the caller keeps the holder as long as it uses the endpoint, so no other
+/// socket takes the port and answers.
+pub(super) fn closed_endpoint() -> (trust_test_support::RefusedPort, String) {
+    let held = trust_test_support::refused_loopback_port();
+    let endpoint = format!("tcp://127.0.0.1:{}", held.port());
+    (held, endpoint)
 }
 
 /// Whether nothing connected to `listener`.
@@ -287,7 +290,7 @@ fn simulator_adopted_only_when_its_probe_answers() {
     let refusing =
         FakeRuntime::start(Script::running().answer("status", Reply::Refuse("invalid_auth_token")));
     let project = FakeRuntime::start(Script::running());
-    let unreachable = closed_endpoint();
+    let (_held, unreachable) = closed_endpoint();
     let gathered = |host: HostFacts| {
         gather(
             &view(host, GatherMode::Now),

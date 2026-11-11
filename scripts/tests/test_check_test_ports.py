@@ -86,6 +86,33 @@ class TestReleasedPorts(unittest.TestCase):
         )
         self.assertEqual([line for line, _ in check.violations(TEST_FILE, source, TESTS)], [2, 8])
 
+    def test_a_listener_that_the_end_of_its_block_drops_while_its_value_goes_on_is_refused(self) -> None:
+        """A listener named in a block that initializes a `let` and whose value is the port, one named in a function
+        that returns its endpoint as text, made from the address through a value in a format string's inline argument,
+        and one named in a function that returns its address: the end of each block drops the listener while the port
+        goes on, three findings, lines 3, 9 and 14. Catches a guard that sees a release only in a temporary, a `u16`
+        return or a `drop`, which misses a helper that returns its endpoint as a `String`, and one that takes a
+        `SocketAddr` for a socket."""
+        source = (
+            "fn closed() {\n"
+            "    let port = {\n"
+            '        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '        listener.local_addr().expect("address").port()\n'
+            "    };\n"
+            "    connect(port);\n"
+            "}\n"
+            "fn closed_endpoint() -> String {\n"
+            '    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '    let address = listener.local_addr().expect("address");\n'
+            '    format!("tcp://{address}")\n'
+            "}\n"
+            "fn closed_address() -> SocketAddr {\n"
+            '    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '    listener.local_addr().expect("address")\n'
+            "}\n"
+        )
+        self.assertEqual([line for line, _ in check.violations(TEST_FILE, source, TESTS)], [3, 9, 14])
+
 
 class TestKeptListeners(unittest.TestCase):
     """What the guard leaves alone: a listener that is kept, a concrete port, product code, the marker."""
@@ -118,6 +145,41 @@ class TestKeptListeners(unittest.TestCase):
             '    let url = format!("http://{}", hung.local_addr().expect("address"));\n'
             "    request(&url);\n"
             "    drop(hung);\n"
+            "}\n"
+        )
+        self.assertEqual(check.violations(TEST_FILE, source, TESTS), [])
+
+    def test_a_block_that_keeps_its_listener_or_whose_value_goes_nowhere_is_not_refused(self) -> None:
+        """A block whose value holds the listener with its port, a function that serves its listener in a thread and
+        returns its address, a test whose last expression reads the address of a listener it holds to its end, and an
+        `if` whose block ends the same way: no finding. Catches a guard that takes every block ending in a read of the
+        address for a release, though only a kept value (a `let`'s, a function's) outlives the listener."""
+        source = (
+            "fn held() {\n"
+            "    let pair = {\n"
+            '        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '        let port = listener.local_addr().expect("address").port();\n'
+            "        (listener, port)\n"
+            "    };\n"
+            "    connect(pair.1);\n"
+            "}\n"
+            "fn served() -> SocketAddr {\n"
+            '    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '    let address = listener.local_addr().expect("address");\n'
+            "    thread::spawn(move || listener.accept());\n"
+            "    address\n"
+            "}\n"
+            "fn hung() {\n"
+            '    let hung = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '    let address = hung.local_addr().expect("address");\n'
+            "    assert!(request(address).is_err())\n"
+            "}\n"
+            "fn checked(ready: bool) {\n"
+            "    if ready {\n"
+            '        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");\n'
+            '        let address = listener.local_addr().expect("address");\n'
+            "        assert!(probe(address))\n"
+            "    }\n"
             "}\n"
         )
         self.assertEqual(check.violations(TEST_FILE, source, TESTS), [])

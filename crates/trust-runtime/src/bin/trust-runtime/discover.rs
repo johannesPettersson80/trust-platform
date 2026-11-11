@@ -759,10 +759,13 @@ mod tests {
         address
     }
 
-    /// A port on this computer that nothing listens on.
-    fn closed_port() -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test listener");
-        listener.local_addr().expect("listener address").to_string()
+    /// A port on this computer that nothing listens on, held without listening (specification 22):
+    /// the caller keeps the holder as long as it uses the address, so no other socket takes the
+    /// port and answers.
+    fn closed_port() -> (trust_test_support::RefusedPort, String) {
+        let held = trust_test_support::refused_loopback_port();
+        let address = format!("127.0.0.1:{}", held.port());
+        (held, address)
     }
 
     /// A new project folder: a valid `runtime.toml` and the given `io.toml`.
@@ -827,7 +830,7 @@ mod tests {
         // the default networks and calls every configured device missing, prints the found devices instead
         // of the comparison, or calls the EtherCAT module missing.
         let silent = silent_port();
-        let closed = closed_port();
+        let (_held, closed) = closed_port();
         let folder = project(&format!(
             "[[io.drivers]]\nname = \"modbus-tcp\"\nparams = {{ address = \"{closed}\" }}\n\n\
              [[io.drivers]]\nname = \"ethercat\"\nparams = {{ adapter = \"eth9\", modules = [{{ model = \"EL2008\", slot = 2 }}] }}\n"

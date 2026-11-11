@@ -26,7 +26,6 @@ mod session;
 mod sparkplug;
 mod tag_mapping;
 
-use std::net::TcpListener;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -88,10 +87,13 @@ fn at(broker: &Broker, rest: &str) -> String {
     format!("broker = \"{}\"\n{rest}", broker.endpoint())
 }
 
-/// A broker on the loopback at which nothing listens: the port of a listener closed again.
-fn nothing_listens() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("a free port");
-    listener.local_addr().expect("its address").to_string()
+/// A broker on the loopback at which nothing listens: a port held without listening
+/// (specification 22), returned with its address. The caller keeps the holder as long as the
+/// driver tries the address, so no other socket takes the port and answers.
+fn nothing_listens() -> (trust_test_support::RefusedPort, String) {
+    let held = trust_test_support::refused_loopback_port();
+    let address = format!("127.0.0.1:{}", held.port());
+    (held, address)
 }
 
 /// Reads the inputs into `image` until a read finds the session running and a message since the

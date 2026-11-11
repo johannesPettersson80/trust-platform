@@ -11,7 +11,12 @@ does so:
   when it returns;
 - a listener of port 0 that `let` names, that the function then drops with `drop(name)`, while a value read from its
   address before the drop (a `let` whose initializer reads `name.local_addr()`, or names such a value) is used after
-  it. A listener dropped after the last use of its address is no release.
+  it. A listener dropped after the last use of its address is no release;
+- a listener of port 0 that `let` names in a block whose value is kept (the initializer of a `let`, or the body of a
+  function that returns a value), when the block's value reads the listener's address, directly or through such a
+  value, and the block names the listener nowhere after its `let` but in reads of its address: the end of the block
+  drops the listener while its value goes on. A block that names its listener otherwise (returns it, serves it) keeps
+  it.
 
 Test code is what `check_test_temp_paths.py` takes for test code. A helper whose callers try again with other ports
 when the program's bind found its port taken (`trust_test_support::reports_a_taken_port`), and after no other failure,
@@ -42,6 +47,8 @@ PORT_TYPE = re.compile(r"\bu16\b")
 # The start of a `let` whose initializer is the `bind` call, past its path (`TcpListener::`), and a whole `let` statement.
 LET_HEAD = re.compile(r"\blet\s+(?:mut\s+)?(\w+)\s*(?::[^=;]*)?=\s*(?:[\w:]+::)?$")
 LET_STATEMENT = re.compile(r"\blet\s+(?:mut\s+)?(\w+)\s*(?::[^=;]*)?=([^;]*);")
+# A `let` whose initializer is the block that opens where the text ends.
+LET_BLOCK_HEAD = re.compile(r"\blet\s+(?:mut\s+)?\w+\s*(?::[^=;]*)?=\s*$")
 # What may stand between the `bind` call and a read of its address in one expression.
 CHAIN_STEP = re.compile(r"\s*(?:\?|\.await\b|\.(?:unwrap|expect|context|with_context|map_err|unwrap_or_else)\s*(?=\())")
 
@@ -126,6 +133,74 @@ def released_while_used(code: str, text: str, call_start: int, close_index: int,
     return any(re.search(r"\b" + re.escape(value) + r"\b", after) for value in values)
 
 
+def innermost_block(code: str, index: int, body_open: int) -> int:
+    """Where the innermost block around `index` opens: an inner `{`, or the function body that opens at `body_open`."""
+    depth = 0
+    for position in range(index - 1, body_open, -1):
+        if code[position] == "}":
+            depth += 1
+        elif code[position] == "{":
+            if depth == 0:
+                return position
+            depth -= 1
+    return body_open
+
+
+def statement_end(code: str, index: int, block_close: int) -> int:
+    """The `;` that ends the statement going on at `index`, at its own depth, before the block closes at `block_close`;
+    -1 when the statement is the block's value."""
+    depth = 0
+    for position in range(index, block_close):
+        if code[position] in "([{":
+            depth += 1
+        elif code[position] in ")]}":
+            depth -= 1
+        elif code[position] == ";" and depth == 0:
+            return position
+    return -1
+
+
+def released_at_block_end(
+    code: str, text: str, call_start: int, close_index: int, function: tuple[int, int, int, str]
+) -> bool:
+    """Whether the `bind` call at `call_start` initializes `let name = …;` in a block whose value is kept (the initializer
+    of a `let`, or the body of `function` when it returns a value), the block's value reads the listener's address,
+    directly or through a `let` made from it, and the block names the listener nowhere after its `let` but in reads of
+    its address. The values are found in `code`; their uses in `text`, so that a format string's inline argument
+    (`"{address}"`) counts."""
+    statement_start = max(code.rfind(mark, 0, call_start) for mark in ";{}") + 1
+    head = LET_HEAD.search(code[statement_start:call_start].strip())
+    if not head:
+        return False
+    name = head.group(1)
+    block_open = innermost_block(code, call_start, function[1])
+    if block_open == function[1]:
+        kept = bool(function[3].strip())
+    else:
+        before = code[max(code.rfind(mark, 0, block_open) for mark in ";{}") + 1:block_open]
+        kept = bool(LET_BLOCK_HEAD.search(before))
+    if not kept:
+        return False
+    block_close = closing(code, block_open)
+    end = statement_end(code, close_index + 1, block_close)
+    if end < 0:
+        return False
+    address = re.compile(r"\b" + re.escape(name) + r"\s*\.\s*local_addr\b")
+    for use in re.finditer(r"\b" + re.escape(name) + r"\b", code[:block_close]):
+        if use.start() > end and not address.match(code, use.start()):
+            return False
+    value_start = end + 1
+    while (next_end := statement_end(code, value_start, block_close)) >= 0:
+        value_start = next_end + 1
+    values: set[str] = set()
+    for statement in LET_STATEMENT.finditer(code, end + 1, value_start):
+        initializer = text[statement.start(2):statement.end(2)]
+        if address.search(initializer) or any(re.search(r"\b" + re.escape(value) + r"\b", initializer) for value in values):
+            values.add(statement.group(1))
+    value = text[value_start:block_close]
+    return bool(address.search(value)) or any(re.search(r"\b" + re.escape(name) + r"\b", value) for name in values)
+
+
 def violations(relative: str, text: str, test_files: set[str]) -> list[tuple[int, str]]:
     """The binds of port 0 in the test code of the file `relative` whose listener is dropped while its port goes on,
     without the marker: (line, line text). `test_files` are the files that are test code as a whole."""
@@ -157,7 +232,10 @@ def violations(relative: str, text: str, test_files: set[str]) -> list[tuple[int
         returns_a_port = bool(
             function and PORT_TYPE.search(function[3]) and not SOCKET_TYPE.search(function[3])
         )
-        released = bool(function) and released_while_used(code, text, call.start(), close_index, function[2])
+        released = bool(function) and (
+            released_while_used(code, text, call.start(), close_index, function[2])
+            or released_at_block_end(code, text, call.start(), close_index, function)
+        )
         if not (reads_address_at_once(code, close_index + 1) or returns_a_port or released):
             continue
         if marked(line) or (function and marked(line_of(function[0]))):

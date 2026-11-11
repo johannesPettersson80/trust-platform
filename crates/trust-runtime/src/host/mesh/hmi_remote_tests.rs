@@ -49,10 +49,6 @@ impl Drop for Worker {
         }
     }
 }
-fn address() -> String {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.local_addr().unwrap().to_string()
-}
 #[test]
 fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tls");
@@ -127,34 +123,34 @@ fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
     };
     let owner_name = format!("Owner-{}", std::process::id());
     let origin_name = format!("Origin-{}", std::process::id());
-    let owner_address = address();
-    let owner = super::start_mesh_with_tls(
-        &config(owner_address.clone(), vec![], vec!["Main.Setpoint"]),
-        owner_name.clone().into(),
-        OWNER_ID.into(),
-        owner_resource,
-        Some(&tls),
-    )
-    .unwrap()
-    .unwrap();
+    let (owner, owner_address) = super::security_tests::mesh_on_a_free_port(|address| {
+        super::start_mesh_with_tls(
+            &config(address.to_string(), vec![], vec!["Main.Setpoint"]),
+            owner_name.clone().into(),
+            OWNER_ID.into(),
+            owner_resource.clone(),
+            Some(&tls),
+        )
+        .unwrap()
+        .unwrap()
+    });
     let (origin_resource, _origin_commands) = ResourceControl::stub(StdClock::new());
     let origin_exchange = origin_resource.hmi_exchange();
-    let origin = super::start_mesh_with_tls(
-        &config(
-            address(),
-            vec![format!(
-                "tls/localhost:{}",
-                owner_address.rsplit(':').next().unwrap()
-            )],
-            vec![],
-        ),
-        origin_name.clone().into(),
-        ORIGIN_ID.into(),
-        origin_resource,
-        Some(&tls),
-    )
-    .unwrap()
-    .unwrap();
+    let (origin, _) = super::security_tests::mesh_on_a_free_port(|address| {
+        super::start_mesh_with_tls(
+            &config(
+                address.to_string(),
+                vec![format!("tls/localhost:{}", owner_address.port())],
+                vec![],
+            ),
+            origin_name.clone().into(),
+            ORIGIN_ID.into(),
+            origin_resource.clone(),
+            Some(&tls),
+        )
+        .unwrap()
+        .unwrap()
+    });
     let connected = Instant::now() + Duration::from_secs(10);
     while !origin
         .topology_evidence()
