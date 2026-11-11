@@ -11,8 +11,8 @@ use trust_runtime_services::io_drivers::mqtt::MAX_PACKET_BYTES;
 
 use super::broker::{Answer, Broker, Connect};
 use super::{
-    at, degraded, eventually, faulted, faulted_with, nothing_listens, read_fresh, start, SCAN_WAIT,
-    TIMING_SLACK,
+    at, degraded, eventually, eventually_within, faulted, faulted_with, nothing_listens,
+    read_fresh, start, CONNECT_FAILURE_PATIENCE, SCAN_WAIT, TIMING_SLACK,
 };
 use crate::error::RuntimeError;
 use crate::io::{IoDriver, IoDriverHealth};
@@ -248,10 +248,14 @@ fn on_error_warn_connect_failure_degrades_without_runtime_error() {
     let mut driver = start(&format!(
         "broker = \"{nobody}\"\nreconnect_ms = 60000\non_error = \"warn\""
     ));
-    eventually("failed connect in the health", || {
-        matches!(driver.health(), IoDriverHealth::Degraded { error }
-            if error.starts_with("mqtt connect failed: "))
-    });
+    eventually_within(
+        "failed connect in the health",
+        CONNECT_FAILURE_PATIENCE,
+        || {
+            matches!(driver.health(), IoDriverHealth::Degraded { error }
+                if error.starts_with("mqtt connect failed: "))
+        },
+    );
     let mut inputs = [0x55];
     assert_eq!(driver.read_inputs(&mut inputs), Ok(()));
     assert_eq!(inputs, [0x55]);
@@ -677,9 +681,11 @@ fn fail_closed_publish_failure_returns_output_error() {
 fn fail_closed_connect_failure_is_observable() {
     let (_held, nobody) = nothing_listens();
     let mut driver = start(&format!("broker = \"{nobody}\"\nreconnect_ms = 60000"));
-    eventually("failed connect in the health", || {
-        faulted_with(&driver.health(), "mqtt connect failed: ")
-    });
+    eventually_within(
+        "failed connect in the health",
+        CONNECT_FAILURE_PATIENCE,
+        || faulted_with(&driver.health(), "mqtt connect failed: "),
+    );
     let mut inputs = [0_u8; 1];
     let error = driver
         .read_inputs(&mut inputs)

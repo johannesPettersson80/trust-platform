@@ -30,7 +30,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use smol_str::SmolStr;
-use trust_runtime_services::io_drivers::mqtt::{MqttParams, SCAN_WAIT_MS};
+use trust_runtime_services::io_drivers::mqtt::{MqttParams, CONNECT_TIMEOUT_MS, SCAN_WAIT_MS};
 
 use self::broker::{Broker, PATIENCE};
 use super::MqttIoDriver;
@@ -112,11 +112,23 @@ fn read_fresh(driver: &mut MqttIoDriver, image: &mut [u8]) -> Result<(), Runtime
     }
 }
 
+/// How long a failed connect to [`nothing_listens`] can take to show: at once where the system
+/// refuses a connection to a port that a socket holds without listening (Linux, Windows), and only
+/// after the client's connect timeout where the system answers no such connection at all (macOS),
+/// plus [`PATIENCE`].
+const CONNECT_FAILURE_PATIENCE: Duration =
+    Duration::from_millis(CONNECT_TIMEOUT_MS).saturating_add(PATIENCE);
+
 /// Waits until `done` holds, at most [`PATIENCE`]; fails the test with `what` otherwise.
-fn eventually(what: &str, mut done: impl FnMut() -> bool) {
-    let deadline = Instant::now() + PATIENCE;
+fn eventually(what: &str, done: impl FnMut() -> bool) {
+    eventually_within(what, PATIENCE, done);
+}
+
+/// Waits until `done` holds, at most `patience`; fails the test with `what` otherwise.
+fn eventually_within(what: &str, patience: Duration, mut done: impl FnMut() -> bool) {
+    let deadline = Instant::now() + patience;
     while !done() {
-        assert!(Instant::now() < deadline, "no {what} within {PATIENCE:?}");
+        assert!(Instant::now() < deadline, "no {what} within {patience:?}");
         thread::sleep(Duration::from_millis(1));
     }
 }
