@@ -724,6 +724,19 @@ fn frame(
                     param.name
                 )));
             }
+            // A string in-out is the caller's string seen through the capacity it declares
+            // (docs/IEC_DEVIATIONS.md DEV-035; specification 44 §7.3), a view named `sv_…`.
+            if let (false, Kind::Str(capacity) | Kind::WStr(capacity)) = (output, &info.kind) {
+                let within = if matches!(info.kind, Kind::WStr(_)) {
+                    "within_wide"
+                } else {
+                    "within"
+                };
+                let view = format!("sv_{argument}");
+                lowerer.line(&format!("let {view} = {within}({argument}, {capacity});"));
+                lowerer.declare_reference(&param.name, ty, &view);
+                continue;
+            }
             lowerer.declare_reference(&param.name, ty, &argument);
             if output && param.name.eq_ignore_ascii_case("ENO") {
                 // `ENO` starts TRUE, and the body may set it FALSE (specification 10 §7.5).
