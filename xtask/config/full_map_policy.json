@@ -713,6 +713,14 @@
       "status": "allowed",
       "owner": "verification",
       "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "trust-runtime-client",
+      "to": "trust-test-support",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "verification",
+      "rationale": "tests hold an endpoint where nothing answers with the shared test support's refused port (specification 22, the port rule)"
     }
   ],
   "forbidden_workspace_edges": [
