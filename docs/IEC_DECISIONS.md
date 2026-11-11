@@ -713,3 +713,13 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Cold restart initializes `RETAIN`, `PERSISTENT`, `NON_RETAIN`, and unqualified variables.
 - Reason:
   - This keeps warm-restart retention explicit in source and prevents unqualified variables from accidentally behaving as retained state.
+
+## 2026-11-11 - Two base interfaces with prototypes of one name
+
+- Area: ST interface inheritance
+- IEC context: IEC 61131-3 Ed.3 §6.6.6.6 lets an interface extend several base interfaces and inherit all their method prototypes, and §6.6.6.6.2 makes it an error only for an interface to declare a prototype with the name of one of its bases' prototypes. It does not say what an interface gives when two of its bases each have a prototype of one name. Figure 19 shows the common case, a class implementing `A1, A2`, which both extend `A`, with one method `ma`.
+- Decision:
+  - Prototypes of one name with the same signature, from one common base or from two bases, are one prototype of the derived interface, which an implementing function block or class implements with one method.
+  - Prototypes of one name with different signatures make the derived interface an error (E208).
+- Reason:
+  - No method can match two different signatures, so every implementation of such an interface would fail, and a call through a value of one base would pass arguments that the method does not take. Reporting it at the interface names the cause once, where it is written.

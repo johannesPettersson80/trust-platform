@@ -134,9 +134,9 @@ impl Parser<'_, '_> {
             self.error("expected interface name");
         }
 
-        // Parse EXTENDS clause
+        // Parse EXTENDS clause: an interface may extend several interfaces
         if self.at(TokenKind::KwExtends) {
-            self.parse_extends_clause();
+            self.parse_interface_extends_clause();
         }
 
         // Parse method and property signatures

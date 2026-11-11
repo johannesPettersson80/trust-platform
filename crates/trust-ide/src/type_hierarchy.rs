@@ -84,7 +84,8 @@ pub fn supertypes(db: &Database, item: &TypeHierarchyItem) -> Vec<TypeHierarchyI
         .unwrap_or(ScopeId::GLOBAL);
 
     let mut items = Vec::new();
-    if let Some(base) = symbols.extends_reference(symbol.id) {
+    // Every base: an interface may extend several (specification 04).
+    for base in symbols.extends_references(symbol.id) {
         let base_name = base.name().display();
         if let Some(base_id) = resolve_type_symbol_in_scope(&symbols, base_name.as_str(), scope_id)
             && let Some(key) = symbol_key(&symbols, base_id, item.file_id)
@@ -160,7 +161,7 @@ fn is_subtype_of(
     let scope_id = symbols
         .scope_for_owner(symbol.id)
         .unwrap_or(ScopeId::GLOBAL);
-    if let Some(base) = symbols.extends_reference(symbol.id) {
+    for base in symbols.extends_references(symbol.id) {
         let base_name = base.name().display();
         if let Some(base_id) = resolve_type_symbol_in_scope(symbols, base_name.as_str(), scope_id)
             && let Some(key) = symbol_key(symbols, base_id, target_item.file_id)

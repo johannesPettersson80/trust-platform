@@ -277,9 +277,10 @@ impl<'a> SymbolImporter<'a> {
                     }
                 }
             }
-            if let Some(base) = source.extends_name(*old_id) {
-                self.target.set_extends(*new_id, base.clone());
-            }
+            self.target.set_extends(
+                *new_id,
+                source.extends_names(*old_id).into_iter().cloned().collect(),
+            );
             if let Some(interfaces) = source.implements_names(*old_id) {
                 self.target
                     .set_implements(*new_id, interfaces.into_iter().cloned().collect());

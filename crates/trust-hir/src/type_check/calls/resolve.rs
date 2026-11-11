@@ -628,44 +628,24 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         }
     }
 
+    /// Whether `derived_id` is `base_id` or extends it, directly or through any of its bases: an
+    /// interface may extend several, and its value converts to each (specification 04, IEC
+    /// 61131-3 Ed.3 §6.6.6.5.1).
     pub(in crate::type_check) fn is_same_or_derived(
         &self,
         derived_id: SymbolId,
         base_id: SymbolId,
     ) -> bool {
-        if derived_id == base_id {
-            return true;
-        }
-
         let mut visited = FxHashSet::default();
-        let mut current = self
-            .checker
-            .symbols
-            .extends_name(derived_id)
-            .and_then(|name| {
-                self.checker
-                    .symbols
-                    .resolve_oop_reference_for_owner(derived_id, name.as_str())
-            });
-
-        while let Some(symbol_id) = current {
-            if !visited.insert(symbol_id) {
-                break;
-            }
+        let mut pending = vec![derived_id];
+        while let Some(symbol_id) = pending.pop() {
             if symbol_id == base_id {
                 return true;
             }
-            current = self
-                .checker
-                .symbols
-                .extends_name(symbol_id)
-                .and_then(|name| {
-                    self.checker
-                        .symbols
-                        .resolve_oop_reference_for_owner(symbol_id, name.as_str())
-                });
+            if visited.insert(symbol_id) {
+                pending.extend(self.checker.symbols.base_symbols(symbol_id));
+            }
         }
-
         false
     }
 

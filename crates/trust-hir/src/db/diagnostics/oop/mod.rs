@@ -208,15 +208,12 @@ pub(in crate::db) fn check_extends_implements_semantics(
     for node in root.descendants() {
         match node.kind() {
             SyntaxKind::Interface => {
-                let extends_clause = node
+                let Some(clause) = node
                     .children()
-                    .find(|child| child.kind() == SyntaxKind::ExtendsClause);
-                let Some(clause) = extends_clause.as_ref() else {
+                    .find(|child| child.kind() == SyntaxKind::ExtendsClause)
+                else {
                     continue;
                 };
-                let extends_range = qualified_name_parts(clause)
-                    .map(|(_, range)| range)
-                    .unwrap_or_else(|| clause.text_range());
                 let Some((name, range)) = name_from_node(&node) else {
                     continue;
                 };
@@ -224,24 +221,40 @@ pub(in crate::db) fn check_extends_implements_semantics(
                 else {
                     continue;
                 };
-                if let SemanticOutcome::Resolved(base_id) =
-                    resolve_extends_symbol_outcome(symbols, interface_id, Some(extends_range))
-                    && let Some(base_symbol) = symbols.get(base_id)
-                    && !matches!(base_symbol.kind, SymbolKind::Interface)
-                {
-                    diagnostics.error(
-                        DiagnosticCode::InvalidOperation,
-                        extends_range,
-                        "INTERFACE can only EXTENDS another INTERFACE",
-                    );
+                let Some(scope_id) = symbols.scope_for_owner(interface_id) else {
+                    continue;
+                };
+                // Each base, at its place in the list (specification 04, "Interface
+                // Inheritance"; IEC 61131-3 Ed.3 §6.6.6.6.2).
+                for (parts, base_range) in implements_clause_names(&clause) {
+                    let base_name = qualified_name_string(&parts);
+                    let SemanticOutcome::Resolved(base_id) =
+                        resolve_type_symbol_by_name_in_scope_outcome(
+                            symbols,
+                            base_name.as_str(),
+                            scope_id,
+                        )
+                    else {
+                        continue;
+                    };
+                    let Some(base_symbol) = symbols.get(base_id) else {
+                        continue;
+                    };
+                    if !matches!(base_symbol.kind, SymbolKind::Interface) {
+                        diagnostics.error(
+                            DiagnosticCode::InvalidOperation,
+                            base_range,
+                            "INTERFACE can only EXTENDS another INTERFACE",
+                        );
+                    } else if interface_reaches(symbols, base_id, interface_id) {
+                        diagnostics.error(
+                            DiagnosticCode::CyclicDependency,
+                            base_range,
+                            "interface inheritance cycle detected",
+                        );
+                    }
                 }
-                if interface_inheritance_cycle(symbols, interface_id) {
-                    diagnostics.error(
-                        DiagnosticCode::CyclicDependency,
-                        extends_range,
-                        "interface inheritance cycle detected",
-                    );
-                }
+                interfaces::check_base_prototypes(symbols, interface_id, &clause, diagnostics);
             }
             SyntaxKind::FunctionBlock => {
                 let extends_clause = node
@@ -352,13 +365,46 @@ pub(in crate::db) fn class_inheritance_cycle(symbols: &SymbolTable, class_id: Sy
     extends_chain_cycle(symbols, class_id, |_| true)
 }
 
-pub(in crate::db) fn interface_inheritance_cycle(
+/// The interfaces that `owner`'s bases resolve to, each looked up as its EXTENDS names it from
+/// `owner`'s scope, in their written order (an interface may extend several).
+pub(in crate::db) fn resolve_extends_interfaces(
     symbols: &SymbolTable,
-    interface_id: SymbolId,
-) -> bool {
-    extends_chain_cycle(symbols, interface_id, |kind| {
-        matches!(kind, SymbolKind::Interface)
-    })
+    owner: SymbolId,
+) -> Vec<SymbolId> {
+    let Some(scope_id) = symbols.scope_for_owner(owner) else {
+        return Vec::new();
+    };
+    symbols
+        .extends_names(owner)
+        .into_iter()
+        .filter_map(|name| {
+            match resolve_type_symbol_by_name_in_scope_outcome(symbols, name.as_str(), scope_id) {
+                SemanticOutcome::Resolved(base_id) => Some(base_id),
+                _ => None,
+            }
+        })
+        .filter(|base_id| {
+            symbols
+                .get(*base_id)
+                .is_some_and(|base| matches!(base.kind, SymbolKind::Interface))
+        })
+        .collect()
+}
+
+/// Whether interface `target` is `from` or one of its bases, directly or through any of them
+/// (IEC 61131-3 Ed.3 §6.6.6.6.2: an interface shall not be its own base).
+fn interface_reaches(symbols: &SymbolTable, from: SymbolId, target: SymbolId) -> bool {
+    let mut visited = FxHashSet::default();
+    let mut pending = vec![from];
+    while let Some(symbol_id) = pending.pop() {
+        if symbol_id == target {
+            return true;
+        }
+        if visited.insert(symbol_id) {
+            pending.extend(resolve_extends_interfaces(symbols, symbol_id));
+        }
+    }
+    false
 }
 
 pub(in crate::db) fn function_block_inheritance_cycle(
@@ -498,8 +544,8 @@ mod tests {
         symbols.set_current_scope(root_scope);
         symbols.push_scope(ScopeKind::Class, Some(class));
         symbols.set_current_scope(root_scope);
-        symbols.set_extends(fb, "Base".into());
-        symbols.set_extends(class, "Fb".into());
+        symbols.set_extends(fb, vec!["Base".into()]);
+        symbols.set_extends(class, vec!["Fb".into()]);
 
         assert!(function_block_inheritance_cycle(&symbols, fb));
     }
@@ -521,7 +567,7 @@ mod tests {
             TypeId(1001),
             TextRange::empty(0.into()),
         ));
-        symbols.set_extends(derived, "Base".into());
+        symbols.set_extends(derived, vec!["Base".into()]);
 
         assert_eq!(resolve_extends_symbol(&symbols, derived), None);
     }

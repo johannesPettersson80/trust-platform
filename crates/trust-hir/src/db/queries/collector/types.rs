@@ -100,7 +100,7 @@ impl SymbolCollector<'_> {
         if let Some(base) = extends_base
             && type_def.kind() == SyntaxKind::StructDef
         {
-            self.table.set_extends(type_symbol_id, base);
+            self.table.set_extends(type_symbol_id, vec![base]);
         }
 
         // Push TYPE symbol onto parent stack so enum values get it as parent

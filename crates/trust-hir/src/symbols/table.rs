@@ -80,8 +80,10 @@ pub struct SymbolTable {
     struct_packs: FxHashMap<TypeId, u8>,
     /// Enumerations declared `{attribute 'to_string'}` (specification 07 §2.7).
     named_text_types: FxHashSet<TypeId>,
-    /// Extends relationships retained as semantic reference records.
-    extends: FxHashMap<SymbolId, OopReference>,
+    /// Extends relationships retained as semantic reference records, the bases in their written
+    /// order: one for a function block, class or structure, one or more for an interface
+    /// (specification 04, "Interface Inheritance").
+    extends: FxHashMap<SymbolId, Vec<OopReference>>,
     /// Implements relationships retained as semantic reference records.
     implements: FxHashMap<SymbolId, Vec<OopReference>>,
     /// Constant values by (scope, name).
@@ -965,9 +967,18 @@ impl SymbolTable {
         self.symbols.is_empty()
     }
 
-    /// Records an extends relationship for a symbol.
-    pub(crate) fn set_extends(&mut self, owner: SymbolId, base: SmolStr) {
-        self.extends.insert(owner, OopReference::new(base, None));
+    /// Records the bases that a symbol names after EXTENDS, in their written order.
+    pub(crate) fn set_extends(&mut self, owner: SymbolId, bases: Vec<SmolStr>) {
+        if bases.is_empty() {
+            return;
+        }
+        self.extends.insert(
+            owner,
+            bases
+                .into_iter()
+                .map(|name| OopReference::new(name, None))
+                .collect(),
+        );
     }
 
     /// Records implemented interfaces for a symbol.
@@ -981,10 +992,34 @@ impl SymbolTable {
         );
     }
 
-    /// Returns the base type name for a symbol, if any.
+    /// Returns the base type name for a symbol, if any: the one base of a function block, class
+    /// or structure, or an interface's first.
     #[must_use]
     pub(crate) fn extends_name(&self, owner: SymbolId) -> Option<&SmolStr> {
-        self.extends.get(&owner).map(|reference| &reference.name)
+        self.extends
+            .get(&owner)?
+            .first()
+            .map(|reference| &reference.name)
+    }
+
+    /// The names of every base that a symbol extends, in their written order: an interface may
+    /// extend several (specification 04, "Interface Inheritance").
+    #[must_use]
+    pub(crate) fn extends_names(&self, owner: SymbolId) -> Vec<&SmolStr> {
+        self.extends
+            .get(&owner)
+            .map(|references| references.iter().map(|reference| &reference.name).collect())
+            .unwrap_or_default()
+    }
+
+    /// The function blocks, classes and interfaces that a symbol's bases resolve to, in their
+    /// written order; a base that does not resolve to one is left out.
+    #[must_use]
+    pub fn base_symbols(&self, owner: SymbolId) -> Vec<SymbolId> {
+        self.extends_names(owner)
+            .into_iter()
+            .filter_map(|name| self.resolve_oop_reference_for_owner(owner, name.as_str()))
+            .collect()
     }
 
     /// Returns implemented interface names for a symbol, if any.
@@ -998,16 +1033,37 @@ impl SymbolTable {
         })
     }
 
-    /// Returns the retained EXTENDS reference record for a symbol.
+    /// Returns the retained EXTENDS reference record for a symbol: the one base of a function
+    /// block, class or structure, or an interface's first.
     #[must_use]
     pub fn extends_reference(&self, owner: SymbolId) -> Option<DeclarationReferenceRecord> {
-        let reference = self.extends.get(&owner)?;
+        let reference = self.extends.get(&owner)?.first()?;
         Some(self.oop_reference_record(owner, DeclarationReferenceKind::Extends, reference))
+    }
+
+    /// The retained EXTENDS reference records of every base of a symbol, in their written order.
+    #[must_use]
+    pub fn extends_references(&self, owner: SymbolId) -> Vec<DeclarationReferenceRecord> {
+        self.extends
+            .get(&owner)
+            .map(|references| {
+                references
+                    .iter()
+                    .map(|reference| {
+                        self.oop_reference_record(
+                            owner,
+                            DeclarationReferenceKind::Extends,
+                            reference,
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// The interface methods that the method `method_id` implements (IEC 61131-3 Ed.3 §6.6.6): the
     /// method of the same name in each interface that its function block or class implements,
-    /// directly or through the blocks it extends, and in the interfaces those extend. A call through
+    /// directly or through the blocks it extends, and in every interface those extend. A call through
     /// an interface variable resolves to such a method, so it is a call that `method_id` may receive
     /// (specification 14 §6.3.2).
     #[must_use]
@@ -1049,7 +1105,11 @@ impl SymbolTable {
                     })
                     .map(|symbol| symbol.id),
             );
-            interfaces.extend(self.extends_reference(interface).and_then(resolved));
+            interfaces.extend(
+                self.extends_references(interface)
+                    .into_iter()
+                    .filter_map(resolved),
+            );
         }
         found
     }
@@ -1120,9 +1180,7 @@ impl SymbolTable {
             if self.get(owner).is_none_or(|symbol| symbol.range.is_empty()) {
                 continue;
             }
-            if let Some(reference) = self.extends_reference(owner) {
-                references.push(reference);
-            }
+            references.extend(self.extends_references(owner));
             references.extend(self.implements_references(owner));
         }
 
@@ -1183,7 +1241,8 @@ impl SymbolTable {
         }
     }
 
-    /// Resolves a member symbol in an inheritance chain.
+    /// Resolves a member symbol in an inheritance hierarchy: the symbol's own, else its bases'
+    /// depth first, in their written order (an interface may extend several).
     #[must_use]
     pub fn resolve_member_symbol_in_hierarchy(
         &self,
@@ -1191,11 +1250,11 @@ impl SymbolTable {
         member_name: &str,
     ) -> Option<SymbolId> {
         let mut visited = FxHashSet::default();
-        let mut current = Some(root_id);
+        let mut pending = vec![root_id];
 
-        while let Some(symbol_id) = current {
+        while let Some(symbol_id) = pending.pop() {
             if !visited.insert(symbol_id) {
-                break;
+                continue;
             }
 
             for sym in self.symbols.iter() {
@@ -1204,9 +1263,7 @@ impl SymbolTable {
                 }
             }
 
-            let base_name = self.extends_name(symbol_id)?;
-            let base_id = self.resolve_oop_reference_for_owner(symbol_id, base_name.as_str())?;
-            current = Some(base_id);
+            pending.extend(self.base_symbols(symbol_id).into_iter().rev());
         }
 
         None

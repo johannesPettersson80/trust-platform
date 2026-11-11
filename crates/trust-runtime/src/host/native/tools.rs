@@ -53,8 +53,8 @@ pub(super) struct Block {
 
 /// The interfaces that a laid-out function block or class implements, itself, through a base or
 /// through an interface that extends one, in the order of their declarations, each with its
-/// methods: its own, then those of the interfaces it extends, each name once, as a call through it
-/// finds them.
+/// methods: its own, then those of every interface it extends, depth first in their written order,
+/// each name once, as a call through it finds them.
 fn implemented<'a>(model: &Model<'a>) -> Vec<(&'a InterfaceDef, Vec<&'a MethodDef>)> {
     let defs = model.types.defs;
     let owners: Vec<_> = model
@@ -63,7 +63,6 @@ fn implemented<'a>(model: &Model<'a>) -> Vec<(&'a InterfaceDef, Vec<&'a MethodDe
         .into_iter()
         .filter_map(|(ty, _)| model.types.owner_of(ty))
         .collect();
-    let levels = defs.interfaces().count();
     defs.interfaces()
         .filter(|interface| {
             owners
@@ -72,12 +71,7 @@ fn implemented<'a>(model: &Model<'a>) -> Vec<(&'a InterfaceDef, Vec<&'a MethodDe
         })
         .map(|interface| {
             let mut methods: Vec<&'a MethodDef> = Vec::new();
-            let mut current = Some(interface);
-            // A chain of more interfaces than the project has is a cycle, which trust-hir refuses.
-            for _ in 0..=levels {
-                let Some(here) = current else {
-                    break;
-                };
+            for here in defs.interface_closure(&interface.name) {
                 for method in &here.methods {
                     if !methods
                         .iter()
@@ -86,7 +80,6 @@ fn implemented<'a>(model: &Model<'a>) -> Vec<(&'a InterfaceDef, Vec<&'a MethodDe
                         methods.push(method);
                     }
                 }
-                current = here.base.as_deref().and_then(|base| defs.interface(base));
             }
             (interface, methods)
         })

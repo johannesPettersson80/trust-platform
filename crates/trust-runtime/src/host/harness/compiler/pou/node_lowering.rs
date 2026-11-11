@@ -211,17 +211,21 @@ fn lower_interface_node(
         ));
     }
     let name = qualified_pou_name(node)?;
-    let mut base = None;
+    let mut bases = Vec::new();
     if let Some(extends_clause) = node
         .children()
         .find(|child| child.kind() == SyntaxKind::ExtendsClause)
-        && let Some(base_name) = extends_clause
-            .children()
-            .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
     {
-        // A base in a namespace is written qualified, for example `Lib.Base`.
-        let raw = node_text(&base_name);
-        base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
+        // Every base, in its written order: an interface may extend several (specification 04,
+        // "Interface Inheritance"). A base in a namespace is written qualified, for example
+        // `Lib.Base`; `__SYSTEM.IQueryInterface` is no base.
+        for base_name in extends_clause
+            .children()
+            .filter(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
+        {
+            let raw = node_text(&base_name);
+            bases.push(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
+        }
     }
 
     let mut methods = Vec::new();
@@ -240,7 +244,7 @@ fn lower_interface_node(
 
     Ok(InterfaceDef {
         name,
-        base,
+        bases,
         using: ctx.using.clone(),
         methods,
     })

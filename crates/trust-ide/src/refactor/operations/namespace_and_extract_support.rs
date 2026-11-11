@@ -243,14 +243,8 @@ fn collect_interface_stubs(
             }
         }
 
-        if let Some(base) = symbols.extends_reference(current) {
-            let base_name = base.name().display();
-            if let Some(base_id) =
-                symbols.resolve_oop_reference_for_owner(current, base_name.as_str())
-            {
-                stack.push(base_id);
-            }
-        }
+        // Every base: an interface may extend several (specification 04).
+        stack.extend(symbols.base_symbols(current));
     }
 }
 

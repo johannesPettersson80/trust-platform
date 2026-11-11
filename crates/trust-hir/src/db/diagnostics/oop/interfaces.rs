@@ -137,20 +137,92 @@ fn collect_interface_members_with_table(
             }
         }
 
-        let Some(base_id) = super::resolve_extends_symbol(symbols, symbol_id) else {
-            continue;
-        };
-        let Some(base_symbol) = symbols.get(base_id) else {
-            continue;
-        };
-        if matches!(base_symbol.kind, SymbolKind::Interface) {
-            stack.push(base_id);
-        }
+        // Every base, the first on top: an interface may extend several (specification 04).
+        stack.extend(
+            super::resolve_extends_interfaces(symbols, symbol_id)
+                .into_iter()
+                .rev(),
+        );
     }
 
     InterfaceMembers {
         methods,
         properties,
+    }
+}
+
+/// Two bases of an interface that give prototypes of one name with different signatures make the
+/// interface an error (E208; specification 04, "Interface Inheritance"; `docs/IEC_DECISIONS.md`):
+/// no method can match both. Prototypes of one signature are one, also when two bases inherit
+/// them from a common base. Reported at the later base, which brings the second signature.
+pub(super) fn check_base_prototypes(
+    symbols: &SymbolTable,
+    interface_id: SymbolId,
+    clause: &SyntaxNode,
+    diagnostics: &mut DiagnosticBuilder,
+) {
+    let Some(interface) = symbols.get(interface_id) else {
+        return;
+    };
+    let Some(scope_id) = symbols.scope_for_owner(interface_id) else {
+        return;
+    };
+    let mut methods: FxHashMap<SmolStr, (SmolStr, MethodSignature)> = FxHashMap::default();
+    let mut properties: FxHashMap<SmolStr, (SmolStr, PropertySignature)> = FxHashMap::default();
+    for (parts, base_range) in implements_clause_names(clause) {
+        let base_name = qualified_name_string(&parts);
+        let SemanticOutcome::Resolved(base_id) =
+            resolve_type_symbol_by_name_in_scope_outcome(symbols, base_name.as_str(), scope_id)
+        else {
+            continue;
+        };
+        if !symbols
+            .get(base_id)
+            .is_some_and(|base| matches!(base.kind, SymbolKind::Interface))
+        {
+            continue;
+        }
+        let members = collect_interface_members_with_table(symbols, base_id);
+        let mut base_methods: Vec<_> = members.methods.into_iter().collect();
+        base_methods.sort_by(|(left, _), (right, _)| left.cmp(right));
+        for (key, signature) in base_methods {
+            if let Some((first_base, first)) = methods.get(&key) {
+                if !method_signatures_match_with_table(symbols, first, &signature) {
+                    diagnostics.error(
+                        DiagnosticCode::InterfaceConformance,
+                        base_range,
+                        format!(
+                            "interface '{}' inherits method '{}' from '{}' and from '{}' with different signatures",
+                            interface.name, signature.name, first_base, base_name
+                        ),
+                    );
+                }
+            } else {
+                methods.insert(key, (base_name.clone(), signature));
+            }
+        }
+        let mut base_properties: Vec<_> = members.properties.into_iter().collect();
+        base_properties.sort_by(|(left, _), (right, _)| left.cmp(right));
+        for (key, signature) in base_properties {
+            if let Some((first_base, first)) = properties.get(&key) {
+                // The same type and the same accessors: an implementation offering one
+                // prototype's accessors may lack the other's.
+                if !(property_signatures_match_with_table(symbols, first, &signature)
+                    && property_signatures_match_with_table(symbols, &signature, first))
+                {
+                    diagnostics.error(
+                        DiagnosticCode::InterfaceConformance,
+                        base_range,
+                        format!(
+                            "interface '{}' inherits property '{}' from '{}' and from '{}' with different signatures",
+                            interface.name, signature.name, first_base, base_name
+                        ),
+                    );
+                }
+            } else {
+                properties.insert(key, (base_name.clone(), signature));
+            }
+        }
     }
 }
 

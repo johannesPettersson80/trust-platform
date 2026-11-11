@@ -159,7 +159,9 @@ pub struct PropertyAlias {
 #[derive(Debug, Clone)]
 pub struct InterfaceDef {
     pub name: SmolStr,
-    pub base: Option<SmolStr>,
+    /// The interfaces it extends, in their written order (specification 04, "Interface
+    /// Inheritance").
+    pub bases: Vec<SmolStr>,
     pub using: Vec<SmolStr>,
     pub methods: Vec<MethodDef>,
 }

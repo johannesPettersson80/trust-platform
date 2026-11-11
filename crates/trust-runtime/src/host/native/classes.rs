@@ -117,19 +117,35 @@ impl<'a> Defs<'a> {
         self.interfaces.values()
     }
 
-    /// Whether `interface` is `wanted` or extends it.
-    fn interface_is_a(&self, interface: &str, wanted: &str) -> bool {
-        let mut current = self.interface(interface);
-        for _ in 0..=self.interfaces.len() {
-            let Some(here) = current else {
-                return false;
-            };
-            if here.name.eq_ignore_ascii_case(wanted) {
-                return true;
+    /// Interface `name` and every interface it extends, each once: itself first, then its bases
+    /// depth first in their written order (specification 04, "Interface Inheritance"). A cycle,
+    /// which trust-hir refuses, ends where it repeats.
+    pub(in crate::native) fn interface_closure(&self, name: &str) -> Vec<&'a InterfaceDef> {
+        let mut closure: Vec<&'a InterfaceDef> = Vec::new();
+        let mut pending: Vec<&'a InterfaceDef> = self.interface(name).into_iter().collect();
+        while let Some(here) = pending.pop() {
+            if closure
+                .iter()
+                .any(|known| known.name.eq_ignore_ascii_case(&here.name))
+            {
+                continue;
             }
-            current = here.base.as_deref().and_then(|base| self.interface(base));
+            closure.push(here);
+            pending.extend(
+                here.bases
+                    .iter()
+                    .rev()
+                    .filter_map(|base| self.interface(base)),
+            );
         }
-        false
+        closure
+    }
+
+    /// Whether `interface` is `wanted` or extends it, through any of its bases.
+    fn interface_is_a(&self, interface: &str, wanted: &str) -> bool {
+        self.interface_closure(interface)
+            .iter()
+            .any(|here| here.name.eq_ignore_ascii_case(wanted))
     }
 
     /// Whether `owner` implements interface `wanted`: it or a base names it, or an interface that
@@ -186,25 +202,20 @@ impl<'a> Defs<'a> {
         None
     }
 
-    /// The method named `name` of interface `interface` or of an interface it extends.
+    /// The method named `name` of interface `interface` or of an interface it extends, through
+    /// any of its bases.
     pub(in crate::native) fn interface_method(
         &self,
         interface: &str,
         name: &str,
     ) -> Option<&'a MethodDef> {
-        let mut current = self.interface(interface);
-        for _ in 0..=self.interfaces.len() {
-            let here = current?;
-            if let Some(method) = here
-                .methods
-                .iter()
-                .find(|method| method.name.eq_ignore_ascii_case(name))
-            {
-                return Some(method);
-            }
-            current = here.base.as_deref().and_then(|base| self.interface(base));
-        }
-        None
+        self.interface_closure(interface)
+            .into_iter()
+            .find_map(|here| {
+                here.methods
+                    .iter()
+                    .find(|method| method.name.eq_ignore_ascii_case(name))
+            })
     }
 
     /// Whether a type derived from `owner` declares a method named `name` of its own, which a call

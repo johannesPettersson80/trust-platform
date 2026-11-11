@@ -115,6 +115,100 @@ END_PROGRAM
     harness.assert_eq("third", true);
 }
 
+/// Specification 04, "Interface Inheritance": a value of an interface that extends two interfaces
+/// calls the methods of both bases, converts to each base, and a query from a value of the first base
+/// for the second finds the instance (IEC 61131-3 Ed.3 §6.6.6.6, §6.6.6.5.1, §6.6.6.7). Worked by
+/// hand: the count starts at 0; Add(5) through ICounter makes 5; Add(2) through the ICount variable
+/// makes 7; Total reads 7; Reset through ICounter returns 7 and clears the count; Reset through the
+/// IReset variable returns 0; Add(4) makes 4; `__QUERYINTERFACE` from ICount for IReset is TRUE,
+/// and Reset through the queried value returns 4. Catches the second base lost: its method missing
+/// from the derived interface, no class answering a call or a query through it.
+#[test]
+fn an_interface_that_extends_two_interfaces_calls_and_converts_to_both() {
+    let source = r#"
+INTERFACE ICount
+METHOD Add : INT
+VAR_INPUT
+    amount : INT;
+END_VAR
+END_METHOD
+END_INTERFACE
+
+INTERFACE IReset
+METHOD Reset : INT
+END_METHOD
+END_INTERFACE
+
+INTERFACE ICounter EXTENDS ICount, IReset
+METHOD Total : INT
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Counter IMPLEMENTS ICounter
+VAR
+    count : INT;
+END_VAR
+METHOD PUBLIC Add : INT
+VAR_INPUT
+    amount : INT;
+END_VAR
+count := count + amount;
+Add := count;
+END_METHOD
+METHOD PUBLIC Reset : INT
+Reset := count;
+count := 0;
+END_METHOD
+METHOD PUBLIC Total : INT
+Total := count;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    counter : FB_Counter;
+    itf : ICounter;
+    adder : ICount;
+    resetter : IReset;
+    queried : IReset;
+    after_add : INT;
+    through_first : INT;
+    total : INT;
+    reset_from : INT;
+    through_second : INT;
+    after_reset : INT;
+    found : BOOL;
+    queried_reset : INT;
+END_VAR
+itf := counter;
+after_add := itf.Add(amount := 5);
+adder := itf;
+through_first := adder.Add(amount := 2);
+resetter := itf;
+total := itf.Total();
+reset_from := itf.Reset();
+through_second := resetter.Reset();
+after_reset := itf.Add(amount := 4);
+found := __QUERYINTERFACE(adder, queried);
+IF found THEN
+    queried_reset := queried.Reset();
+END_IF
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    harness.assert_eq("after_add", 5i16);
+    harness.assert_eq("through_first", 7i16);
+    harness.assert_eq("total", 7i16);
+    harness.assert_eq("reset_from", 7i16);
+    harness.assert_eq("through_second", 0i16);
+    harness.assert_eq("after_reset", 4i16);
+    harness.assert_eq("found", true);
+    harness.assert_eq("queried_reset", 4i16);
+}
+
 /// IEC 61131-3 Edition 3, 6.6.5.3: a derived function block inherits its base's input and output
 /// variables, so a call of the derived block binds them like its own (specification 04).
 #[test]

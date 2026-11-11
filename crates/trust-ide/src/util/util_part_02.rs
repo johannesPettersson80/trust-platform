@@ -101,9 +101,15 @@ impl<'a> SymbolFilter<'a> {
     {
         let mut items = Vec::new();
         let mut seen: FxHashSet<String> = FxHashSet::default();
-        let mut current = Some(owner_id);
+        let mut owners: FxHashSet<SymbolId> = FxHashSet::default();
+        // The owner's own members first, then its bases' depth first in their written order: an
+        // interface may extend several (specification 04).
+        let mut pending = vec![owner_id];
 
-        while let Some(owner_id) = current {
+        while let Some(owner_id) = pending.pop() {
+            if !owners.insert(owner_id) {
+                continue;
+            }
             for symbol in self
                 .symbols
                 .iter()
@@ -117,14 +123,7 @@ impl<'a> SymbolFilter<'a> {
                 }
                 items.push(symbol);
             }
-            current = self
-                .symbols
-                .extends_reference(owner_id)
-                .and_then(|reference| {
-                    let name = reference.name().display();
-                    self.symbols
-                        .resolve_oop_reference_for_owner(owner_id, name.as_str())
-                });
+            pending.extend(self.symbols.base_symbols(owner_id).into_iter().rev());
         }
 
         items
