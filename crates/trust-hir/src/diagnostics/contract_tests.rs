@@ -52,6 +52,7 @@ fn registered_codes() -> Vec<(DiagnosticCode, &'static str, DiagnosticSeverity)>
         (FloatingPointEquality, "W013", Warning),
         (LiteralDivisionByZero, "W014", Warning),
         (ArrayInitializerCardinality, "W015", Warning),
+        (CodesysOperatorName, "W016", Warning),
         (Simplification, "I001", Hint),
         (StyleSuggestion, "I002", Hint),
     ]

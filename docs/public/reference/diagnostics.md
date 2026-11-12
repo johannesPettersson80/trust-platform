@@ -85,6 +85,7 @@ language specifications.
 | `W012` | warning | Two tasks write one global, or one task writes data that one access does not cover (a string, an array, a structure, a function block instance or a 64-bit value, `TIME` included) and another task reads it. | The global's declaration is flagged as a task hazard. | Give the global one writing task, or declare a global that is shared by design with `{attribute 'cross_task'}` before it, before its `VAR_GLOBAL` list, or before the `NAMESPACE` that holds the list. The message names this remedy. |
 | `W013` | warning | The code compares floating-point values for exact equality. | The comparison is highlighted as numerically fragile. | Replace direct equality with a tolerance or epsilon comparison when appropriate. |
 | `W014` | warning | The denominator is provably zero at compile time. | The division or modulo expression is flagged before runtime. | Fix the literal or guard the operation before it is executed. |
+| `W016` | warning | Under the CODESYS profile, a declared name is the name of a CODESYS operator, such as `log`, `Max` or `LIMIT`, which CODESYS takes as a keyword. | The declaration is flagged: truST runs the program, but a CODESYS compiler refuses the name. | Rename it, for example `log` to `logSelect`. Set `W016 = "error"` in `severity_overrides` when the project must also build in CODESYS. |
 
 `W001`, `W002`, and `W009` are not reported for library files: the files whose
 deepest holding folder is a `[[libraries]]` path, a `library_paths` entry, or a

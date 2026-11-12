@@ -91,6 +91,19 @@ pub fn check_has_error_in(dialect: Dialect, source: &str, expected: DiagnosticCo
 }
 
 /// Helper to check warnings for a source file.
+/// The warning codes of `source` analyzed under `dialect`.
+pub fn check_warnings_in(dialect: Dialect, source: &str) -> Vec<DiagnosticCode> {
+    let mut db = Database::new();
+    db.set_dialect(dialect);
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    db.diagnostics(file)
+        .iter()
+        .filter(|d| d.severity == DiagnosticSeverity::Warning)
+        .map(|d| d.code)
+        .collect()
+}
+
 pub fn check_warnings(source: &str) -> Vec<DiagnosticCode> {
     let mut db = Database::new();
     let file = FileId(0);

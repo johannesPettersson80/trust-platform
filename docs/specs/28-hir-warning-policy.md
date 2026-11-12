@@ -276,3 +276,31 @@ Warnings use their registered diagnostic codes and remain warnings rather than
 errors. A warning is suppressed when its prerequisite cannot be resolved; a
 wrong-reason warning must not be manufactured from an unknown type, symbol,
 task, address, or expression.
+
+## 10. Names of CODESYS operators
+
+`CodesysOperatorName` (W016) is emitted under the CODESYS profile (specification
+14) for a declared name, of a variable, constant, parameter, structure or union
+member, enumeration value, POU or type, that is the name of a CODESYS operator in
+any case, as `log` is the name of `LOG`. CODESYS takes its operator names as
+keywords (CODESYS help, "Keywords", which lists `MUL` and `XOR` among them), and
+keywords "cannot be used as variable names": the CODESYS 3.5.17 compiler refuses
+an enumeration member `log` with "Identifier expected instead of 'log'"
+(contributor issue #477). The names are those of the CODESYS help's operator
+reference ("Operators"): `ABS`, `ACOS`, `ADD`, `ADR`, `AND_THEN`, `ASIN`, `ATAN`,
+`BITADR`, `CAL`, `COS`, `DIV`, `EQ`, `EXP`, `EXPT`, `GE`, `GT`, `INDEXOF`, `INI`,
+`LE`, `LIMIT`, `LN`, `LOG`, `LT`, `MAX`, `MIN`, `MOVE`, `MUL`, `MUX`, `NE`,
+`OR_ELSE`, `ROL`, `ROR`, `SEL`, `SHL`, `SHR`, `SIN`, `SIZEOF`, `SQRT`, `SUB`, `TAN`,
+`TEST_AND_SET`, `TRUNC`, `TRUNC_INT` and `XSIZEOF`. `AND`, `OR`, `XOR`, `NOT` and
+`MOD` are reserved under every profile already (error E106); the type conversion
+operators and the names that begin with two underscores, which CODESYS keeps for
+itself, are not listed.
+
+The name is legal in truST, which runs the program unchanged: the warning tells
+that a CODESYS compiler would refuse it, before a build there. It stays a warning,
+as the help gives no name-by-name rule and a refusal would block code that truST
+runs; `severity_overrides` (`W016 = "error"`) makes it an error where a project
+must also build in CODESYS. Like every warning but the unused ones it applies to
+library files too (specification 14 §7.6). The IEC profile has no such warning:
+IEC 61131-3 Ed.3 lists no keyword table, and its `Std_Func_Name` production is an
+incomplete list.
