@@ -245,11 +245,26 @@ jobs:
           name: release-conformance
           path: conformance-artifacts/
 
+      # Evidence of the validation, whose verdict is its steps above: tried twice, and a failed upload never fails the
+      # job (G146; specification 22). The conformance result above is the release's, so its upload still fails it.
       - name: Upload runtime VM validation artifacts
+        id: vm-validation-evidence
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: release-runtime-vm-validation
+          path: |
+            artifacts/release/runtime-vm-bench/**
+            artifacts/release/runtime-vm-determinism/**
+
+      - name: Upload runtime VM validation artifacts (second attempt)
+        if: ${{ always() && steps.vm-validation-evidence.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-runtime-vm-validation
+          overwrite: true
           path: |
             artifacts/release/runtime-vm-bench/**
             artifacts/release/runtime-vm-determinism/**
@@ -615,11 +630,26 @@ jobs:
           xvfb-run -a -s "-screen 0 1920x1080x24" \
             npm run acceptance -- --vsix "${vsix}" --out "${RUNNER_TEMP}/acceptance"
 
+      # Evidence of the journeys, whose verdict is the step above: tried twice, and a failed upload never fails the job
+      # (G146; specification 22).
       - name: Keep the journals and screenshots
+        id: journals
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: acceptance-journeys
+          path: ${{ runner.temp }}/acceptance
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Keep the journals and screenshots (second attempt)
+        if: ${{ always() && steps.journals.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: acceptance-journeys
+          overwrite: true
           path: ${{ runner.temp }}/acceptance
           retention-days: 30
           if-no-files-found: warn

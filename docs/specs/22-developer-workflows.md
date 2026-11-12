@@ -529,10 +529,19 @@ contract:
   validate, JUnit test, and report upload in the reviewed order;
 - the VS Code extension job remains a required release-gate input, so a failed
   or absent extension artifact cannot be aggregated as release-ready;
-- each native test job uploads its test log twice at most, the second time only
-  when the first upload failed, and a failed upload never fails a job whose tests
-  passed: the log is evidence of the tests, and the job's verdict is its tests';
-  and
+- in every job that checks a pull request or a release, an upload of evidence
+  (a test log, a report, test results, screenshots, fuzz findings) is tried
+  twice at most, the second time only when the first upload failed, and a failed
+  upload never fails a job whose checks passed: the evidence records the checks,
+  and the job's verdict is its checks'. An upload of what a later job or
+  workflow reads (a gate marker, the firmware image, a package, a toolchain
+  bundle, the release conformance result, the rehearsal's files, the release
+  bundle, the documentation captures) and of the real-database matrix's
+  evidence, which must exist, still fails its job. A runner's DNS failure
+  failed a macOS test job after all its tests had passed, and on 11 November
+  2026 GitHub's artifact service failed the VS Code job's log upload after all
+  its tests had passed, which failed the Release Gate Report too
+  (`scripts/tests/test_workflow_evidence_uploads.py` pins the rule); and
 - the Windows test job keeps a minidump of every process of its build and test
   suite that crashes, the 20 newest: Windows Error Reporting's local dumps are on
   from before the build, without a dialog, so that a crashed process ends

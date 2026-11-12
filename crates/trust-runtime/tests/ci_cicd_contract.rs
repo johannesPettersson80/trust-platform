@@ -734,10 +734,24 @@ fn ci_vscode_extension_job_contract_wires_failure_to_release_gate() {
         vscode_block.contains("xvfb-run -a npm test"),
         "vscode-extension job must execute integration tests under xvfb in CI"
     );
+    // Only the test log, evidence of the tests, may fail without failing the job (specification 22; G146): a test
+    // step or a gate marker upload that continued on error would let a failed extension run pass the release gate.
+    let steps: Vec<&str> = vscode_block.split("\n      - ").skip(1).collect();
     assert!(
-        !vscode_block.contains("continue-on-error: true"),
-        "vscode-extension tests must fail the job when tests fail"
+        steps
+            .iter()
+            .any(|step| step.contains("xvfb-run -a npm test")),
+        "vscode-extension job must run its tests in a step of its own"
     );
+    for step in steps {
+        assert!(
+            !step.contains("continue-on-error: true")
+                || (step.contains("uses: actions/upload-artifact@")
+                    && step.contains("name: vscode-extension-test-log")),
+            "vscode-extension tests must fail the job when tests fail; only the test log's upload may \
+             continue on error: {step}"
+        );
+    }
     assert!(
         vscode_block.contains("if: ${{ success() }}"),
         "vscode gate marker upload should only happen on successful test run"

@@ -62,9 +62,21 @@ jobs:
           else
             echo "verification-gate-report.md was not produced." >> "${GITHUB_STEP_SUMMARY}"
           fi
+      # The report's verdict is its step above; its files are evidence, tried twice, and a failed upload never fails
+      # the job (G146; specification 22).
       - name: Upload verification report
+        id: verification-report
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: verification-gate-report
+          path: target/gate-artifacts/verification/
+      - name: Upload verification report (second attempt)
+        if: ${{ always() && steps.verification-report.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-gate-report
+          overwrite: true
           path: target/gate-artifacts/verification/
