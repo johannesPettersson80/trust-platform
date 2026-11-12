@@ -272,6 +272,13 @@ MyEnum#Value        // Enumerated value
 #LocalVar           // Siemens SCL local reference (vendor extension)
 ```
 
+An enumerated value names its type by a plain type name (IEC 61131-3 Ed.3 Annex A:
+`Enum_Value : (Enum_Type_Name '#')? Identifier`), so a type declared in a namespace is named as the
+namespace makes it visible: after `USING Control;` a program writes `PIDMode#Auto` for the Control
+library's mode. `Control.PIDMode#Auto` is not an expression. Under the CODESYS profile the value can
+also be named with dots, `Control.PIDMode.Auto`, the namespace-qualified member access of
+specification 02 §3.1, as CODESYS names an enumeration value.
+
 #### 5.2.1 Literal typing (implementer-specific)
 
 - Untyped integer literals default to the **smallest integer type** that can represent the value.

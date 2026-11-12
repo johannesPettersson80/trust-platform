@@ -97,3 +97,23 @@ fn test_date_literals() {
 END_PROGRAM"#
     ));
 }
+
+/// Specification 05 §5.2 (IEC 61131-3 Ed.3 Annex A, `Enum_Value : (Enum_Type_Name '#')? Identifier`):
+/// the type of an enumerated value is a plain type name, so `PIDMode#Auto` parses and
+/// `Control.PIDMode#Auto` does not; a namespace's type is named through `USING`, or under the CODESYS
+/// profile the value with dots, `Control.PIDMode.Auto`, a field access to the parser. Catches a parser
+/// that took a namespace before the type of a typed value, a form neither the standard nor CODESYS has.
+#[test]
+fn a_typed_enumeration_value_takes_no_namespace_before_its_type() {
+    let program = |value: &str| {
+        format!("PROGRAM Main\nVAR mode : INT; END_VAR\nmode := {value};\nEND_PROGRAM")
+    };
+    for accepted in ["PIDMode#Auto", "Control.PIDMode.Auto"] {
+        let parsed = parse(&program(accepted));
+        assert!(parsed.ok(), "{accepted}: {:?}", parsed.errors());
+    }
+    assert!(
+        !parse(&program("Control.PIDMode#Auto")).ok(),
+        "Control.PIDMode#Auto"
+    );
+}

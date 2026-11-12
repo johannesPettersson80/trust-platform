@@ -513,3 +513,54 @@ END_PROGRAM
         DiagnosticCode::InvalidOperation,
     );
 }
+
+// Specification 05 §5.2 (IEC 61131-3 Ed.3 Annex A, `Enum_Value : (Enum_Type_Name '#')? Identifier`):
+// a typed enumeration value names its type by a plain type name, so a type declared in a namespace is
+// named through `USING`, as a program writes `USING Control;` for the Control library's
+// `PIDMode#Auto`; with dots the value names its namespace (specification 02 §3.1).
+const CONTROL_MODES: &str = r#"
+NAMESPACE Control
+TYPE PIDMode : (Manual, Auto);
+END_TYPE
+END_NAMESPACE
+"#;
+
+/// With `USING Control;` the typed value `PIDMode#Auto` names the namespace's type. Catches a typed
+/// value whose type is looked up at the top level only, which would refuse the documented form.
+#[test]
+fn a_typed_enum_value_names_a_namespaced_type_through_using() {
+    check_no_errors_multi(&[
+        CONTROL_MODES,
+        r#"
+USING Control;
+
+PROGRAM Main
+VAR
+    mode : PIDMode;
+END_VAR
+    mode := PIDMode#Auto;
+END_PROGRAM
+"#,
+    ]);
+}
+
+/// Without `USING`, `PIDMode` names no type at the top level, so `PIDMode#Auto` is an error though the
+/// variable names `Control.PIDMode` in full. The dotted `Control.PIDMode.Auto` names the value under the
+/// CODESYS profile only (specification 02 §3.1); under the IEC profile it is the type used as a value.
+/// Catches a typed value that searches every namespace for its type, and the CODESYS form missing from
+/// its profile or reaching the IEC one.
+#[test]
+fn a_typed_enum_value_of_a_namespaced_type_needs_using() {
+    let program = |value: &str| {
+        format!(
+            "{CONTROL_MODES}\nPROGRAM Main\nVAR\n    mode : Control.PIDMode;\nEND_VAR\n    mode := {value};\nEND_PROGRAM\n"
+        )
+    };
+    let errors = check_errors(&program("PIDMode#Auto"));
+    assert!(!errors.is_empty(), "PIDMode#Auto without USING: {errors:?}");
+    check_no_errors_in(Dialect::Codesys, &program("Control.PIDMode.Auto"));
+    assert_eq!(
+        check_errors(&program("Control.PIDMode.Auto")),
+        vec![DiagnosticCode::InvalidOperation]
+    );
+}
