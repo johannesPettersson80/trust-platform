@@ -142,18 +142,20 @@ class GovernanceTests(unittest.TestCase):
         # Specification 30: a change that moves the workspace version and changes only what the bump changes (the
         # manifests, the lockfiles, the VS Code package and the changelog) changes no behaviour. Catches a release pull
         # request refused for want of a test it cannot have (#176 on 1 November 2026), a dependency update of a lockfile
-        # let through as a bump, and a bump that carries code.
+        # let through as a bump, and a bump that carries code, the lockfiles of whose fuzz programs are no test.
         native_test_required = "behavior-changing production paths require a changed native executable test"
         bump = [
             "CHANGELOG.md",
             "Cargo.lock",
             "Cargo.toml",
             "changelog.d/live-values-timeout.md",
+            "crates/trust-ads-server/fuzz/Cargo.lock",
             "editors/vscode/package-lock.json",
             "editors/vscode/package.json",
             "firmware/trust-esp32c6/Cargo.lock",
             "firmware/trust-esp32c6/Cargo.toml",
             "firmware/trust-stm32u5a9/Cargo.lock",
+            "fuzz/Cargo.lock",
         ]
         self.assertEqual(validate_changed_files(self.document, bump, version_bump=True), [])
         self.assertEqual(

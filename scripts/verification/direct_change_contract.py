@@ -50,16 +50,19 @@ TEST_SUFFIXES = (
     ".spec.ts",
 )
 # What a version bump changes (specification 22, "Change and release workflow"; `scripts/bump_version.py`): the
-# workspace manifest, the firmware's, the three lockfiles, the VS Code package and its lockfile, and the changelog.
+# workspace manifest, the firmware's, every Cargo lockfile (its `LOCKFILES`), the VS Code package and its lockfile,
+# and the changelog. `scripts/tests/test_changelog_fragments.py` runs the bump and gives this contract what it wrote.
 VERSION_BUMP_PATHS = {
     "CHANGELOG.md",
     "Cargo.lock",
     "Cargo.toml",
+    "crates/trust-ads-server/fuzz/Cargo.lock",
     "editors/vscode/package-lock.json",
     "editors/vscode/package.json",
     "firmware/trust-esp32c6/Cargo.lock",
     "firmware/trust-esp32c6/Cargo.toml",
     "firmware/trust-stm32u5a9/Cargo.lock",
+    "fuzz/Cargo.lock",
 }
 CHANGELOG_FRAGMENTS = "changelog.d/"
 SPEC_PREFIXES = ("docs/specs/",)
@@ -187,6 +190,9 @@ def _is_version_bump_file(path: str) -> bool:
 
 
 def _is_native_test(path: str) -> bool:
+    # A lockfile runs nothing, wherever it lies; every version bump moves the fuzz programs' locks (specification 30).
+    if path.endswith(".lock"):
+        return False
     marked = f"/{path}"
     return any(marker in marked for marker in TEST_PATH_MARKERS) or path.endswith(
         TEST_SUFFIXES
