@@ -1198,11 +1198,11 @@ re-check them against this rule when touched.
 - Impact: CODESYS projects that read or write a string's bytes by index, and
   pass `ADR(s[i])` to a vendor memory function, compile and run as in
   CODESYS. A project that relied on truST's `CHAR` element under the CODESYS
-  profile reads the byte one position earlier, as CODESYS does. Two host
-  evaluations outside the compiled program still take the standard's
-  element: a starting value computed from constants and a test harness
-  place with a string index. The debugger's expressions take no index of a
-  string under any profile.
+  profile reads the byte one position earlier, as CODESYS does. A starting
+  value computed from constants (specification 44 §6.7) reads the byte as
+  the program does: the text's UTF-8 bytes, then the 0s of the string's
+  starting memory. The debugger's expressions take no index of a string
+  under any profile.
 - Mitigation: the IEC dialect keeps the standard's `CHAR` element at a
   position counted from 1, pinned by trust-hir and runtime tests; the
   profile applies only to projects whose `vendor_profile` is `codesys`,
