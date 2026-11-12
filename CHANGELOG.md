@@ -6,6 +6,28 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-12
+
+### Added
+
+- Under the CODESYS profile, a declared name that is the name of a CODESYS operator, such as an enumeration member `log`
+  (`LOG`), a variable `Max` or a constant `LIMIT`, is now reported with the warning `W016`. CODESYS takes its operator
+  names as keywords and refuses them as names, so the warning shows before a build in CODESYS what its compiler would
+  refuse; truST still runs the program (#477).
+
+### Changed
+
+- Under the CODESYS profile, `ws[i]` of a `WSTRING` is now the `WORD` at offset `i`, counted from 0, as in CODESYS,
+  instead of the `WCHAR` at position `i` counted from 1. `ADR(ws[i])` is a `POINTER TO WORD` that names it, a write
+  through it changes the text, which ends at its first 0, and `ws[n]` of a `WSTRING[n]` reads 0. The IEC profile keeps
+  the `WCHAR` from position 1.
+
+### Fixed
+
+- Under the CODESYS profile, an initial value that reads a string's byte, such as `first : BYTE := cText[0]`,
+  now starts at the byte at that offset, as the program reads it. The build refused it, with "array index 0 out
+  of bounds" or "type mismatch".
+
 ## [0.39.0] - 2026-11-12
 
 ### Added
