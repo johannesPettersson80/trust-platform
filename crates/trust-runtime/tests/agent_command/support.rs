@@ -85,6 +85,10 @@ fn trust_runtime_command_with_dev_alias() -> Command {
     command
 }
 
+/// The `trust-dev` binary: the one Cargo or `TRUST_DEV_BIN` names, else the one built beside the test
+/// in the target profile folder. trust-dev is another package, so `cargo test -p trust-runtime` does
+/// not build it; a test that finds none fails with the command that builds it, instead of an error
+/// of the first command it runs.
 fn trust_dev_bin() -> PathBuf {
     if let Some(path) = std::env::var_os("CARGO_BIN_EXE_trust-dev") {
         return path.into();
@@ -97,7 +101,13 @@ fn trust_dev_bin() -> PathBuf {
         .parent()
         .and_then(|deps| deps.parent())
         .expect("target debug dir");
-    debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX))
+    let executable = debug_dir.join(format!("trust-dev{}", std::env::consts::EXE_SUFFIX));
+    assert!(
+        executable.is_file(),
+        "{} is missing: run `cargo build -p trust-dev --bin trust-dev` first, or set TRUST_DEV_BIN",
+        executable.display()
+    );
+    executable
 }
 
 fn copy_file_with_retry(src: &Path, dst: &Path) {
