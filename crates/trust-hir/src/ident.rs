@@ -217,6 +217,69 @@ pub fn is_contextual_keyword_name(name: &str) -> bool {
     matches!(name.to_ascii_uppercase().as_str(), "ON" | "NULL" | "SET")
 }
 
+/// The CODESYS operators of the CODESYS help's operator reference ("Operators"), by their names,
+/// apart from those [`is_reserved_keyword`] already reserves (`AND`, `OR`, `XOR`, `NOT`, `MOD`),
+/// the type conversion operators and the names that begin with two underscores. CODESYS takes its
+/// operator names as keywords ("Keywords": `MUL` and `XOR` among them), which "cannot be used as
+/// variable names", whatever their case (specification 28 §10).
+const CODESYS_OPERATORS: &[&str] = &[
+    "ABS",
+    "ACOS",
+    "ADD",
+    "ADR",
+    "AND_THEN",
+    "ASIN",
+    "ATAN",
+    "BITADR",
+    "CAL",
+    "COS",
+    "DIV",
+    "EQ",
+    "EXP",
+    "EXPT",
+    "GE",
+    "GT",
+    "INDEXOF",
+    "INI",
+    "LE",
+    "LIMIT",
+    "LN",
+    "LOG",
+    "LT",
+    "MAX",
+    "MIN",
+    "MOVE",
+    "MUL",
+    "MUX",
+    "NE",
+    "OR_ELSE",
+    "ROL",
+    "ROR",
+    "SEL",
+    "SHL",
+    "SHR",
+    "SIN",
+    "SIZEOF",
+    "SQRT",
+    "SUB",
+    "TAN",
+    "TEST_AND_SET",
+    "TRUNC",
+    "TRUNC_INT",
+    "XSIZEOF",
+];
+
+/// The CODESYS operator that `name` names, in its upper-case spelling, when `name` is the name of
+/// one of the CODESYS operators that specification 28 §10 lists, in any case: under the CODESYS
+/// profile such a name is no identifier for a CODESYS compiler.
+#[must_use]
+pub fn codesys_operator_name(name: &str) -> Option<&'static str> {
+    CODESYS_OPERATORS
+        .iter()
+        .copied()
+        .find(|operator| operator.eq_ignore_ascii_case(name))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

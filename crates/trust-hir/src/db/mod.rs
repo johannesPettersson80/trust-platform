@@ -10,7 +10,9 @@ use std::sync::Arc;
 use text_size::{TextRange, TextSize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticBuilder, DiagnosticCode};
-use crate::ident::{is_contextual_keyword_name, is_reserved_keyword, is_valid_identifier};
+use crate::ident::{
+    codesys_operator_name, is_contextual_keyword_name, is_reserved_keyword, is_valid_identifier,
+};
 use crate::semantic::DeclarationCatalog;
 use crate::symbols::{
     EdgeQualifier, ParamDirection, ScopeId, ScopeKind, Symbol, SymbolId, SymbolKind,

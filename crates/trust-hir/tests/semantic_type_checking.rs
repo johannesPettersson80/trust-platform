@@ -14,6 +14,8 @@ mod call_binding_contract_acceptance;
 mod call_binding_contract_rejection;
 #[path = "semantic_type_checking/call_transfer_overlap_messages.rs"]
 mod call_transfer_overlap_messages;
+#[path = "semantic_type_checking/codesys_operator_names.rs"]
+mod codesys_operator_names;
 #[path = "semantic_type_checking/codesys_qualified_only_and_strict.rs"]
 mod codesys_qualified_only_and_strict;
 #[path = "semantic_type_checking/codesys_string_bytes.rs"]

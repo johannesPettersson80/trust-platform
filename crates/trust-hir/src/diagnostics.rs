@@ -120,6 +120,9 @@ pub enum DiagnosticCode {
     LiteralDivisionByZero,
     /// Array initializer cardinality differs from the declared capacity.
     ArrayInitializerCardinality,
+    /// Under the CODESYS profile, a declared name that is the name of a CODESYS operator, which
+    /// CODESYS takes as a keyword and refuses as a name.
+    CodesysOperatorName,
 
     // Info/Hints (I001-I099)
     /// Suggested simplification.
@@ -181,6 +184,7 @@ impl DiagnosticCode {
             Self::FloatingPointEquality => "W013",
             Self::LiteralDivisionByZero => "W014",
             Self::ArrayInitializerCardinality => "W015",
+            Self::CodesysOperatorName => "W016",
             // Info
             Self::Simplification => "I001",
             Self::StyleSuggestion => "I002",
@@ -236,7 +240,8 @@ impl DiagnosticCode {
             | Self::SharedGlobalTaskHazard
             | Self::FloatingPointEquality
             | Self::LiteralDivisionByZero
-            | Self::ArrayInitializerCardinality => DiagnosticSeverity::Warning,
+            | Self::ArrayInitializerCardinality
+            | Self::CodesysOperatorName => DiagnosticSeverity::Warning,
 
             // Info/Hints
             Self::Simplification | Self::StyleSuggestion => DiagnosticSeverity::Hint,

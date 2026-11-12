@@ -623,6 +623,23 @@ impl SymbolCollector<'_> {
                 range,
                 format!("invalid identifier '{}'", name),
             );
+            return;
+        }
+
+        // Under the CODESYS profile a name that is a CODESYS operator's, as `log` is LOG's, is no
+        // identifier for a CODESYS compiler, which takes its operator names as keywords
+        // (specification 28 §10).
+        if self.table.dialect().is_codesys()
+            && let Some(operator) = codesys_operator_name(name)
+        {
+            self.diagnostics.warning(
+                DiagnosticCode::CodesysOperatorName,
+                range,
+                format!(
+                    "'{name}' is the name of the CODESYS operator {operator}: CODESYS takes its \
+                     operator names as keywords and refuses them as names"
+                ),
+            );
         }
     }
 

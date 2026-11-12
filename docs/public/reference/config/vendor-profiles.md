@@ -67,6 +67,15 @@ Under `codesys`, `beckhoff` and `twincat`, a string's bytes behave as in CODESYS
 The other profiles keep the IEC rule: `s[i]` is the `CHAR` at position `i`, counted from 1
 (`docs/IEC_DEVIATIONS.md`, DEV-046). A `WSTRING` keeps that rule under every profile.
 
+## Names of CODESYS operators
+
+CODESYS takes the names of its operators (`LOG`, `ABS`, `MAX`, `LIMIT`, `SEL`, `MOVE` and the
+others of its operator reference) as keywords and refuses them as names, in any case. Under
+`codesys`, `beckhoff` and `twincat`, a declared name that is one of them, such as an enumeration
+member `log`, gets the warning `W016`; truST still runs the program. Make it an error with
+`W016 = "error"` under `severity_overrides` when the project must also build in CODESYS. See
+[Diagnostics](../diagnostics.md).
+
 ## Switching profiles safely
 
 1. change `vendor_profile`
