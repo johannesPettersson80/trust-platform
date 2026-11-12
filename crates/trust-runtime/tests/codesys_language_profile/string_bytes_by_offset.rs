@@ -75,3 +75,52 @@ fn a_strings_bytes_are_read_written_and_addressed_by_their_offsets() {
         assert_eq!(harness.get_output(name), Some(expected), "{name}");
     }
 }
+
+/// Starting values computed from a constant, which the build works out before the program runs
+/// (specification 44 §6.7), and the program's own reads of the same bytes.
+const STARTING_BYTES: &str = r#"
+VAR_GLOBAL CONSTANT
+    cText : STRING[4] := 'Ä1';
+END_VAR
+
+PROGRAM Main
+VAR
+    first : BYTE := cText[0];
+    second : BYTE := cText[1];
+    third : BYTE := cText[2];
+    terminator : BYTE := cText[3];
+    atCapacity : BYTE := cText[4];
+    readFirst : BYTE;
+    readThird : BYTE;
+END_VAR
+readFirst := cText[0];
+readThird := cText[2];
+END_PROGRAM
+"#;
+
+// Worked by hand: 'Ä1' is the UTF-8 bytes 195 132 ('Ä', U+00C4) and 49 ('1') of a STRING[4]
+// (specification 44 §6.2), then its 0 at offset 3 and, at the capacity 4, the 0 that CODESYS holds
+// after a full text. A starting value reads each byte as the program reads it (DEV-046).
+// Catches the build's IEC element in a starting value, which refused each of these: offset 0 with
+// "array index 0 out of bounds [1..9223372036854775807]", offset 1 with "type mismatch" (the CHAR at
+// position 1 for a BYTE); a character read where a byte is meant (196 for 'Ä' at offset 0); and a
+// starting value that differs from the program's read of the same offset.
+#[test]
+fn a_starting_value_reads_a_strings_byte_as_the_program_does() {
+    let harness = codesys_run(STARTING_BYTES, 1);
+    for (name, expected) in [
+        ("first", 195),
+        ("second", 132),
+        ("third", 49),
+        ("terminator", 0),
+        ("atCapacity", 0),
+        ("readFirst", 195),
+        ("readThird", 49),
+    ] {
+        assert_eq!(
+            harness.get_output(name),
+            Some(Value::Byte(expected)),
+            "{name}"
+        );
+    }
+}

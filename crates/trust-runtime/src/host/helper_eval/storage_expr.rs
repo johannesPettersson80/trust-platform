@@ -12,11 +12,12 @@ use crate::memory::{InstanceId, VariableStorage};
 use crate::program_model::{
     apply_binary, apply_unary, ArgValue, BinaryOp, CallArg, Expr, SizeOfTarget,
 };
+use crate::stdlib::conversions::ConversionProfile;
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
     checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
-    ref_indices_from_iter, size_of_type, ArrayValue, DateTimeProfile, PartialAccessError,
-    RefSegment, SizeOfError, StructValue, Value, ValueRef,
+    read_text_byte, ref_indices_from_iter, size_of_type, ArrayValue, DateTimeProfile,
+    PartialAccessError, RefSegment, SizeOfError, StructValue, Value, ValueRef,
 };
 
 use super::storage_lvalue::read_storage_lvalue_with_types;
@@ -169,7 +170,9 @@ pub(super) fn eval_storage_expr_with_types(
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            read_indices(target_value, &index_values)
+            let profile =
+                stdlib.map_or(ConversionProfile::Iec, StandardLibrary::conversion_profile);
+            read_indices(target_value, &index_values, profile)
         }
         Expr::Field { target, field } => {
             if let Some(qualified) = qualified_field_expr_name(expr)
@@ -842,7 +845,11 @@ fn read_field(
     }
 }
 
-fn read_indices(target: Value, indices: &[Value]) -> Result<Value, RuntimeError> {
+fn read_indices(
+    target: Value,
+    indices: &[Value],
+    profile: ConversionProfile,
+) -> Result<Value, RuntimeError> {
     match target {
         Value::Array(array) => {
             let offset = array_offset(array.dimensions(), indices)?;
@@ -851,6 +858,11 @@ fn read_indices(target: Value, indices: &[Value]) -> Result<Value, RuntimeError>
                 .get(offset)
                 .cloned()
                 .ok_or(RuntimeError::TypeMismatch)
+        }
+        // Under the CODESYS profile `s[i]` of a `STRING` is the `BYTE` at offset `i`, as the program
+        // reads it (docs/IEC_DEVIATIONS.md DEV-046).
+        Value::String(text) if profile == ConversionProfile::Codesys => {
+            read_text_byte(text.as_str(), single_index(indices)?)
         }
         Value::String(text) => read_string_index(text.as_str(), indices, false),
         Value::WString(text) => read_string_index(text.as_str(), indices, true),
@@ -889,10 +901,15 @@ fn index_to_i64(value: Value) -> Result<i64, RuntimeError> {
 }
 
 fn read_string_index(text: &str, indices: &[Value], wide: bool) -> Result<Value, RuntimeError> {
-    if indices.len() != 1 {
-        return Err(RuntimeError::TypeMismatch);
+    read_string_element(text, single_index(indices)?, wide)
+}
+
+/// The one index of a string's element.
+fn single_index(indices: &[Value]) -> Result<i64, RuntimeError> {
+    match indices {
+        [index] => index_to_i64(index.clone()),
+        _ => Err(RuntimeError::TypeMismatch),
     }
-    read_string_element(text, index_to_i64(indices[0].clone())?, wide)
 }
 
 fn qualified_field_expr_name(expr: &Expr) -> Option<SmolStr> {

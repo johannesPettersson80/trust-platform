@@ -115,6 +115,29 @@ pub fn read_string_element(text: &str, index: i64, wide: bool) -> Result<Value, 
     }
 }
 
+/// `s[index]` of a `STRING` under the CODESYS profile as the host works out a starting value
+/// (`docs/IEC_DEVIATIONS.md` DEV-046): the `BYTE` at offset `index`, counted from 0, of the string's
+/// starting memory, which holds the text's UTF-8 bytes and then 0s (specification 44 §6.2). The
+/// host holds the text, not the declared length, so an offset past the text reads 0; trust-hir
+/// checks a statically known index against a declared length.
+///
+/// # Errors
+///
+/// [`RuntimeError::IndexOutOfBounds`] for an offset below 0 or past [`MAX_STRING_CAPACITY`], the
+/// largest capacity a string may have.
+pub fn read_text_byte(text: &str, index: i64) -> Result<Value, RuntimeError> {
+    match usize::try_from(index) {
+        Ok(at) if at <= MAX_STRING_CAPACITY => {
+            Ok(Value::Byte(text.as_bytes().get(at).copied().unwrap_or(0)))
+        }
+        _ => Err(RuntimeError::IndexOutOfBounds {
+            index,
+            lower: 0,
+            upper: i64::try_from(MAX_STRING_CAPACITY).map_err(|_| RuntimeError::Overflow)?,
+        }),
+    }
+}
+
 /// Replace one element, then cut the text to its declared `capacity` when the replacement made
 /// it longer (`docs/IEC_DECISIONS.md` 2026-10-17, the `REPLACE` and assignment of IEC 61131-3
 /// Ed.3 §6.4.2.2 Example 1 d)). `capacity` counts UTF-8 bytes for `STRING` and UTF-16 code units
@@ -339,14 +362,34 @@ pub fn text_element_char(value: &Value, wide: bool) -> Result<char, RuntimeError
 #[cfg(test)]
 mod tests {
     use super::{
-        check_string_result, read_string_element, string_capacity, string_capacity_cut,
-        string_delete, string_element_count, string_element_position_in, string_find,
-        string_insert, string_left, string_mid, string_replace, string_right, write_string_element,
-        MAX_STRING_CAPACITY,
+        check_string_result, read_string_element, read_text_byte, string_capacity,
+        string_capacity_cut, string_delete, string_element_count, string_element_position_in,
+        string_find, string_insert, string_left, string_mid, string_replace, string_right,
+        write_string_element, MAX_STRING_CAPACITY,
     };
     use crate::error::RuntimeError;
     use crate::value::Value;
     use alloc::string::String;
+
+    // DEV-046 and specification 44 §6.2: under the CODESYS profile a starting value reads the BYTE
+    // at an offset from 0 of the string's starting memory, the text's UTF-8 bytes and then 0s.
+    // "Ä" is 0xC3 0x84 in UTF-8, "1" 0x31. Catches an offset counted from 1 (0 refused, 1 giving
+    // 0xC3), a character where a byte is meant (0xC4 at offset 0), and a refusal past the text.
+    #[test]
+    fn a_text_byte_is_the_utf8_byte_at_its_offset_and_0_past_the_text() {
+        assert_eq!(read_text_byte("Ä1", 0), Ok(Value::Byte(0xC3)));
+        assert_eq!(read_text_byte("Ä1", 1), Ok(Value::Byte(0x84)));
+        assert_eq!(read_text_byte("Ä1", 2), Ok(Value::Byte(0x31)));
+        assert_eq!(read_text_byte("Ä1", 3), Ok(Value::Byte(0)));
+        assert_eq!(read_text_byte("", 80), Ok(Value::Byte(0)));
+        let refused = |index| RuntimeError::IndexOutOfBounds {
+            index,
+            lower: 0,
+            upper: 65_535,
+        };
+        assert_eq!(read_text_byte("Ä1", -1), Err(refused(-1)));
+        assert_eq!(read_text_byte("Ä1", 65_536), Err(refused(65_536)));
+    }
 
     #[test]
     fn a_narrow_capacity_counts_utf8_bytes_and_never_splits_a_character() {
