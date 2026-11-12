@@ -476,7 +476,8 @@ fn types(source: &mut String, model: &Model<'_>) {
                             },
                         ))
                         .collect();
-                // A structure that holds an instance is never copied as a whole.
+                // A structure that holds an instance gets no `Assign`: it is copied cell by cell
+                // (`Plain::copy_cells`, `lower/copies.rs`).
                 let assign = matches!(info.kind, Kind::Struct { .. })
                     && !members
                         .iter()

@@ -8,18 +8,20 @@ pub struct RefValue {
     /// The id of the target's area; 0 with kind [`RefValue::NULL`].
     pub area: u8,
     /// What the reference names: [`RefValue::NULL`], [`RefValue::VARIABLE`],
-    /// [`RefValue::INSTANCE`], [`RefValue::CHARACTER`], [`RefValue::POINTER`] or
-    /// [`RefValue::TEXT_BYTES`].
+    /// [`RefValue::INSTANCE`], [`RefValue::CHARACTER`], [`RefValue::POINTER`],
+    /// [`RefValue::TEXT_BYTES`] or [`RefValue::TEXT_UNITS`].
     pub kind: u8,
-    /// The 1-based index of a character reference's character, the 0-based index among a string's
-    /// bytes of the first byte that a reference of kind [`RefValue::TEXT_BYTES`] names, 0
+    /// The 1-based index of a character reference's character; the 0-based index among a string's
+    /// bytes of the first byte that a reference of kind [`RefValue::TEXT_BYTES`] names, or among a
+    /// `WSTRING`'s code units of the unit that one of kind [`RefValue::TEXT_UNITS`] names; 0
     /// otherwise.
     pub char_index: u16,
     /// The target's first byte in its area; a string's first byte, its length's, for a reference
-    /// of kind [`RefValue::TEXT_BYTES`].
+    /// of kind [`RefValue::TEXT_BYTES`] or [`RefValue::TEXT_UNITS`].
     pub offset: u32,
     /// The bytes the target spans; for a reference of kind [`RefValue::TEXT_BYTES`], the string's
-    /// length and its bytes, 2 + its capacity.
+    /// length and its bytes, 2 + its capacity, and for one of kind [`RefValue::TEXT_UNITS`] its
+    /// length and its code units, 2 + 2 × its capacity.
     pub extent: u32,
     /// The installation generation the reference was taken in (specification 34 UPDATE-04).
     pub generation: u32,
@@ -51,4 +53,9 @@ impl RefValue {
     /// (`docs/IEC_DEVIATIONS.md` DEV-039). It names the whole string, so that a write through it
     /// can set the length the written bytes give the text (`module::Areas::bytes_written`).
     pub const TEXT_BYTES: u8 = 5;
+    /// The kind of a reference to a code unit of a `WSTRING`, a `WORD` from the unit `char_index`
+    /// (from 0), as the CODESYS profile takes `ws[i]` (`docs/IEC_DEVIATIONS.md` DEV-046). Like
+    /// [`RefValue::TEXT_BYTES`] it names the whole string, so that a write through it sets the
+    /// length the written units give the text.
+    pub const TEXT_UNITS: u8 = 6;
 }

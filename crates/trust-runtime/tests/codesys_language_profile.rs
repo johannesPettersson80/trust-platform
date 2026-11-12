@@ -31,6 +31,8 @@ mod string_byte_writes;
 mod string_bytes_by_offset;
 #[path = "codesys_language_profile/string_in_out.rs"]
 mod string_in_out;
+#[path = "codesys_language_profile/wide_string_units_by_offset.rs"]
+mod wide_string_units_by_offset;
 
 // Specification 14: the project's `vendor_profile` selects the language rules of the runtime build
 // with its conversion rules. A function block that assigns its own input in its body is refused

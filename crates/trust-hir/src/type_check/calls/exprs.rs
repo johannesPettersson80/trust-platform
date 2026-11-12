@@ -83,50 +83,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     return SemanticOutcome::Resolved(element);
                 }
                 Type::String { max_len } => {
-                    if index_count != 1 {
-                        return self.checker.diagnostic_type_outcome(
-                            DiagnosticCode::InvalidArrayIndex,
-                            node.text_range(),
-                            format!("expected 1 index value, found {index_count}"),
-                        );
-                    }
-                    // Under the CODESYS profile the index is the offset of a BYTE, counted from 0,
-                    // up to the 0 after a full text (docs/IEC_DEVIATIONS.md DEV-046); IEC 61131-3
-                    // counts a CHAR's position from 1 (§6.4.2.2).
-                    let by_offset = self.checker.symbols.dialect().is_codesys();
-                    if let Some(max_len) = max_len {
-                        self.check_index_bounds(
-                            &index_exprs[0].0,
-                            if by_offset { 0 } else { 1 },
-                            i64::from(*max_len),
-                            DiagnosticCode::OutOfRange,
-                            "string",
-                        );
-                    }
-                    return SemanticOutcome::Resolved(if by_offset {
-                        TypeId::BYTE
-                    } else {
-                        TypeId::CHAR
-                    });
+                    let max_len = *max_len;
+                    return self.string_element(node, &index_exprs, max_len, false);
                 }
                 Type::WString { max_len } => {
-                    if index_count != 1 {
-                        return self.checker.diagnostic_type_outcome(
-                            DiagnosticCode::InvalidArrayIndex,
-                            node.text_range(),
-                            format!("expected 1 index value, found {index_count}"),
-                        );
-                    }
-                    if let Some(max_len) = max_len {
-                        self.check_index_bounds(
-                            &index_exprs[0].0,
-                            1,
-                            i64::from(*max_len),
-                            DiagnosticCode::OutOfRange,
-                            "wstring",
-                        );
-                    }
-                    return SemanticOutcome::Resolved(TypeId::WCHAR);
+                    let max_len = *max_len;
+                    return self.string_element(node, &index_exprs, max_len, true);
                 }
                 _ => {}
             }
@@ -137,6 +99,42 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             node.text_range(),
             "indexing requires an array, STRING, or WSTRING type",
         )
+    }
+
+    /// `s[i]` of a `STRING`, or of a `WSTRING` when `wide`, of capacity `max_len`. IEC 61131-3
+    /// §6.4.2.2 gives the `CHAR` or `WCHAR` at position `i`, counted from 1. Under the CODESYS
+    /// profile `i` is an offset, counted from 0, up to the 0 after a full text: a `STRING` gives the
+    /// `BYTE` there and a `WSTRING` the `WORD` (docs/IEC_DEVIATIONS.md DEV-046).
+    fn string_element(
+        &mut self,
+        node: &SyntaxNode,
+        index_exprs: &[(SyntaxNode, TypeId, TypeId)],
+        max_len: Option<u32>,
+        wide: bool,
+    ) -> SemanticOutcome<TypeId> {
+        if index_exprs.len() != 1 {
+            return self.checker.diagnostic_type_outcome(
+                DiagnosticCode::InvalidArrayIndex,
+                node.text_range(),
+                format!("expected 1 index value, found {}", index_exprs.len()),
+            );
+        }
+        let by_offset = self.checker.symbols.dialect().is_codesys();
+        if let Some(max_len) = max_len {
+            self.check_index_bounds(
+                &index_exprs[0].0,
+                if by_offset { 0 } else { 1 },
+                i64::from(max_len),
+                DiagnosticCode::OutOfRange,
+                if wide { "wstring" } else { "string" },
+            );
+        }
+        SemanticOutcome::Resolved(match (wide, by_offset) {
+            (false, true) => TypeId::BYTE,
+            (false, false) => TypeId::CHAR,
+            (true, true) => TypeId::WORD,
+            (true, false) => TypeId::WCHAR,
+        })
     }
 
     pub(in crate::type_check) fn infer_field_expr(&mut self, node: &SyntaxNode) -> TypeId {

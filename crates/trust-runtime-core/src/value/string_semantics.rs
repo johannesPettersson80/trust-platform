@@ -126,10 +126,28 @@ pub fn read_string_element(text: &str, index: i64, wide: bool) -> Result<Value, 
 /// [`RuntimeError::IndexOutOfBounds`] for an offset below 0 or past [`MAX_STRING_CAPACITY`], the
 /// largest capacity a string may have.
 pub fn read_text_byte(text: &str, index: i64) -> Result<Value, RuntimeError> {
+    let at = text_offset(index)?;
+    Ok(Value::Byte(text.as_bytes().get(at).copied().unwrap_or(0)))
+}
+
+/// `ws[index]` of a `WSTRING` under the CODESYS profile as the host works out a starting value
+/// (`docs/IEC_DEVIATIONS.md` DEV-046): the `WORD` at offset `index`, counted from 0, of the string's
+/// starting memory, which holds the text's UTF-16 code units and then 0s (specification 44 §6.2),
+/// as [`read_text_byte`] reads a `STRING`'s byte.
+///
+/// # Errors
+///
+/// [`RuntimeError::IndexOutOfBounds`] for an offset below 0 or past [`MAX_STRING_CAPACITY`], the
+/// largest capacity a string may have.
+pub fn read_text_unit(text: &str, index: i64) -> Result<Value, RuntimeError> {
+    let at = text_offset(index)?;
+    Ok(Value::Word(text.encode_utf16().nth(at).unwrap_or(0)))
+}
+
+/// `index` as an offset into a string's starting memory: from 0 to [`MAX_STRING_CAPACITY`].
+fn text_offset(index: i64) -> Result<usize, RuntimeError> {
     match usize::try_from(index) {
-        Ok(at) if at <= MAX_STRING_CAPACITY => {
-            Ok(Value::Byte(text.as_bytes().get(at).copied().unwrap_or(0)))
-        }
+        Ok(at) if at <= MAX_STRING_CAPACITY => Ok(at),
         _ => Err(RuntimeError::IndexOutOfBounds {
             index,
             lower: 0,
@@ -362,7 +380,7 @@ pub fn text_element_char(value: &Value, wide: bool) -> Result<char, RuntimeError
 #[cfg(test)]
 mod tests {
     use super::{
-        check_string_result, read_string_element, read_text_byte, string_capacity,
+        check_string_result, read_string_element, read_text_byte, read_text_unit, string_capacity,
         string_capacity_cut, string_delete, string_element_count, string_element_position_in,
         string_find, string_insert, string_left, string_mid, string_replace, string_right,
         write_string_element, MAX_STRING_CAPACITY,
@@ -389,6 +407,28 @@ mod tests {
         };
         assert_eq!(read_text_byte("Ä1", -1), Err(refused(-1)));
         assert_eq!(read_text_byte("Ä1", 65_536), Err(refused(65_536)));
+    }
+
+    // DEV-046 and specification 44 §6.2: a WSTRING's starting value reads the WORD at an offset from
+    // 0 of its starting memory, the text's UTF-16 code units and then 0s. "Ä" is the unit 0x00C4,
+    // "€" 0x20AC and "😀" the pair 0xD83D 0xDE00. Catches an offset counted from 1 (0 refused, 1
+    // giving 0x00C4), a UTF-8 byte where a unit is meant (0xC3 at offset 0), a character where a unit
+    // is meant (0x1F600 does not fit, the pair's halves are the units), and a refusal past the text.
+    #[test]
+    fn a_text_unit_is_the_utf16_unit_at_its_offset_and_0_past_the_text() {
+        assert_eq!(read_text_unit("Ä€😀", 0), Ok(Value::Word(0x00C4)));
+        assert_eq!(read_text_unit("Ä€😀", 1), Ok(Value::Word(0x20AC)));
+        assert_eq!(read_text_unit("Ä€😀", 2), Ok(Value::Word(0xD83D)));
+        assert_eq!(read_text_unit("Ä€😀", 3), Ok(Value::Word(0xDE00)));
+        assert_eq!(read_text_unit("Ä€😀", 4), Ok(Value::Word(0)));
+        assert_eq!(read_text_unit("", 65_535), Ok(Value::Word(0)));
+        let refused = |index| RuntimeError::IndexOutOfBounds {
+            index,
+            lower: 0,
+            upper: 65_535,
+        };
+        assert_eq!(read_text_unit("Ä€", -1), Err(refused(-1)));
+        assert_eq!(read_text_unit("Ä€", 65_536), Err(refused(65_536)));
     }
 
     #[test]

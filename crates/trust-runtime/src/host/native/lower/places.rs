@@ -106,9 +106,10 @@ impl Lowerer<'_, '_> {
     }
 
     /// The variable of type `target` the reference value `reference` names, bound to a temporary; a
-    /// byte or an array of bytes may be a string's bytes (`dereference_bytes`).
+    /// byte or an array of bytes may be a string's bytes, and under the CODESYS profile a `WORD` a
+    /// `WSTRING`'s code unit (`dereference_bytes`).
     pub(in crate::native) fn dereference(&mut self, reference: &str, target: Ty) -> Place {
-        if self.names_text_bytes(target) {
+        if self.names_text_bytes(target) || self.names_text_unit(target) {
             return self.dereference_bytes(reference, target);
         }
         let storage = self.info(target).rust.clone();
@@ -611,10 +612,10 @@ impl Lowerer<'_, '_> {
         if matches!(self.info(array.ty).kind, Kind::Open { .. }) {
             return self.open_element(node, &array, &indices);
         }
-        // Under the CODESYS profile `s[i]` of a `STRING` is its byte at offset i
-        // (docs/IEC_DEVIATIONS.md DEV-046).
-        if let ([index], true) = (indices.as_slice(), self.bytes_by_offset(array.ty)) {
-            return self.text_byte_place(node, &array, index);
+        // Under the CODESYS profile `s[i]` of a `STRING` is its byte at offset i, and of a `WSTRING`
+        // its code unit there (docs/IEC_DEVIATIONS.md DEV-046).
+        if let ([index], true) = (indices.as_slice(), self.elements_by_offset(array.ty)) {
+            return self.text_element_place(node, &array, index);
         }
         if array.is_overlap_region() {
             return self.region_element(node, &array, &indices);

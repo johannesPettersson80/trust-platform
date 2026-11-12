@@ -220,7 +220,8 @@ impl Lowerer<'_, '_> {
 
     /// `text[index]` as a `CHAR`, or a `WCHAR` of a `WSTRING`, when `node` indexes a string
     /// (specification 02 §6); under the CODESYS profile a `STRING`'s byte at offset `index`, counted
-    /// from 0, and 0 after a full text (docs/IEC_DEVIATIONS.md DEV-046).
+    /// from 0, or a `WSTRING`'s code unit there as a `WORD`, and 0 after a full text
+    /// (docs/IEC_DEVIATIONS.md DEV-046).
     pub(super) fn string_element(
         &mut self,
         node: &SyntaxNode,
@@ -229,11 +230,12 @@ impl Lowerer<'_, '_> {
             return Ok(None);
         };
         let base_ty = self.type_of(&base)?;
-        let by_offset = self.bytes_by_offset(base_ty);
+        let by_offset = self.elements_by_offset(base_ty);
         let text = self.place(&base)?.reference();
         let index = self.count(&index)?;
         let function = match (wide, by_offset) {
-            (true, _) => "char_at_wide",
+            (true, true) => "text_word",
+            (true, false) => "char_at_wide",
             (false, true) => "text_byte",
             (false, false) => "char_at",
         };
@@ -243,8 +245,8 @@ impl Lowerer<'_, '_> {
     }
 
     /// `text[index] := value`, when `target` indexes a string; whether it does. Under the CODESYS
-    /// profile a `STRING`'s byte at offset `index`, counted from 0, whose write sets the length the
-    /// bytes give the text (docs/IEC_DEVIATIONS.md DEV-046).
+    /// profile a `STRING`'s byte at offset `index`, counted from 0, or a `WSTRING`'s code unit there,
+    /// whose write sets the length the elements give the text (docs/IEC_DEVIATIONS.md DEV-046).
     pub(super) fn string_element_write(
         &mut self,
         target: &SyntaxNode,
@@ -254,11 +256,12 @@ impl Lowerer<'_, '_> {
             return Ok(false);
         };
         let base_ty = self.type_of(&base)?;
-        let by_offset = self.bytes_by_offset(base_ty);
+        let by_offset = self.elements_by_offset(base_ty);
         let text = self.place(&base)?.reference();
         let index = self.count(&index)?;
         let (elem, function) = match (wide, by_offset) {
-            (true, _) => (Elem::WChar, "set_char_wide"),
+            (true, true) => (Elem::Word, "set_text_word"),
+            (true, false) => (Elem::WChar, "set_char_wide"),
             (false, true) => (Elem::Byte, "set_text_byte"),
             (false, false) => (Elem::Char, "set_char"),
         };

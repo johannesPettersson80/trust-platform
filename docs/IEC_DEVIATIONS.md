@@ -1170,43 +1170,48 @@ re-check them against this rule when touched.
 ## 2026-11-12 - CODESYS language profile: a STRING's element is the BYTE at its offset
 
 - ID: DEV-046
-- Area: index access to a `STRING`, `s[i]`, and `ADR(s[i])`, under a CODESYS
-  `vendor_profile` (specification 14).
+- Area: index access to a `STRING` or a `WSTRING`, `s[i]`, and `ADR(s[i])`,
+  under a CODESYS `vendor_profile` (specification 14).
 - Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.2.2: "Access to
   single characters of a string using elements of the data type CHAR or
   WCHAR shall be supported using square brackets and the position of the
   character in the string, starting with position 1."
 - truST behavior and conflict: under the CODESYS profile `s[i]` of a
   `STRING` is the `BYTE` at offset `i` of the string's bytes, counted from
-  0, as CODESYS gives it (CODESYS help, index access to a `STRING`: "you get
-  the character at the offset of the index expression. The result is of
-  type BYTE"). It is
-  read and written as that byte, and `ADR(s[i])` is a `POINTER TO BYTE` that
-  names it (contributor issue #453, `MemCopySecure(pDest := ADR(sJson[1]),
-  ...)`). A read gives the byte whatever the text's length, as CODESYS reads
-  the string's memory. A write sets the length that the bytes give the text,
+  0, and `s[i]` of a `WSTRING` the `WORD` at offset `i` of its code units,
+  as CODESYS gives them (CODESYS help, "Data Type: POINTER TO", index access
+  to a `STRING`: "you get the character at the offset of the index
+  expression. The result is of type BYTE", and to a `WSTRING`: "The result
+  is of type WORD"). It is read and written as that byte or word, and
+  `ADR(s[i])` is a `POINTER TO BYTE` or a `POINTER TO WORD` that names it
+  (contributor issue #453, `MemCopySecure(pDest := ADR(sJson[1]), ...)`). A
+  read gives the element whatever the text's length, as CODESYS reads the
+  string's memory. A write sets the length that the elements give the text,
   as a write through a pointer to them does (DEV-039; specification 44
-  §7.3). CODESYS lays a `STRING(n)` out in n + 1 bytes, its text and a 0;
-  truST's `STRING[n]` holds n bytes (specification 44 §6.2). So `s[n]` reads
-  0, which CODESYS holds there after a full text, a 0 written there changes
-  nothing, and another byte written there is refused with
+  §7.3). CODESYS lays a `STRING(n)` out in n + 1 bytes, its text and a 0, and
+  a `WSTRING(n)` in n + 1 code units; truST's `STRING[n]` holds n bytes and
+  its `WSTRING[n]` n code units (specification 44 §6.2). So `s[n]` reads 0,
+  which CODESYS holds there after a full text, a 0 written there changes
+  nothing, and another element written there is refused with
   `IndexOutOfBounds`, where CODESYS would overwrite the full text's 0. A
   statically known index is checked against 0 to n. This conflicts with the
-  standard's `CHAR` element at a position counted from 1. A `WSTRING` keeps
-  the standard's `WCHAR` element under every profile for now; CODESYS gives
-  a `WORD` there.
-- Impact: CODESYS projects that read or write a string's bytes by index, and
-  pass `ADR(s[i])` to a vendor memory function, compile and run as in
-  CODESYS. A project that relied on truST's `CHAR` element under the CODESYS
-  profile reads the byte one position earlier, as CODESYS does. A starting
-  value computed from constants (specification 44 §6.7) reads the byte as
-  the program does: the text's UTF-8 bytes, then the 0s of the string's
+  standard's `CHAR` and `WCHAR` elements at a position counted from 1. A
+  truST `WSTRING` holds UTF-16, where CODESYS holds UCS-2 (CODESYS help,
+  "Data Type: WSTRING"): a character outside UCS-2, which a CODESYS
+  `WSTRING` cannot hold, is two code units, each its own `WORD`.
+- Impact: CODESYS projects that read or write a string's bytes or a
+  `WSTRING`'s code units by index, and pass `ADR(s[i])` to a vendor memory
+  function, compile and run as in CODESYS. A project that relied on truST's
+  `CHAR` or `WCHAR` element under the CODESYS profile reads the element one
+  position earlier, as CODESYS does. A starting value computed from
+  constants (specification 44 §6.7) reads the element as the program does:
+  the text's UTF-8 bytes or UTF-16 code units, then the 0s of the string's
   starting memory. The debugger's expressions take no index of a string
   under any profile.
-- Mitigation: the IEC dialect keeps the standard's `CHAR` element at a
-  position counted from 1, pinned by trust-hir and runtime tests; the
-  profile applies only to projects whose `vendor_profile` is `codesys`,
-  `beckhoff` or `twincat`.
+- Mitigation: the IEC dialect keeps the standard's `CHAR` and `WCHAR`
+  elements at a position counted from 1, pinned by trust-hir and runtime
+  tests; the profile applies only to projects whose `vendor_profile` is
+  `codesys`, `beckhoff` or `twincat`.
 
 ## 2026-11-12 - CODESYS language profile: an interface may declare an inherited prototype again
 

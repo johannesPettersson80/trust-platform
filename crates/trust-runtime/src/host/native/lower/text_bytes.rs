@@ -3,7 +3,9 @@
 //! is wanted names the string's bytes by a reference of kind `TEXT_BYTES`, which names the whole
 //! string. Every write through a pointer of such a type then sets the length that the written bytes
 //! give the text, its first 0 byte, as CODESYS reads a string (`Areas::bytes_written`); a pointer to
-//! a variable of its own sets nothing.
+//! a variable of its own sets nothing. Under the same profile `s[i]` of a `STRING` is its byte at
+//! offset `i`, and of a `WSTRING` its code unit there, a `WORD`, named by a reference of kind
+//! `TEXT_BYTES` or `TEXT_UNITS` (DEV-046).
 
 use trust_syntax::syntax::SyntaxNode;
 
@@ -19,6 +21,14 @@ impl Lowerer<'_, '_> {
             return true;
         }
         matches!(&self.info(ty).kind, Kind::Array { elem, dims } if dims.len() == 1 && self.is_byte(*elem))
+    }
+
+    /// Whether a reference to `ty` may name a `WSTRING`'s code unit: a `WORD` under the CODESYS
+    /// profile, where `ADR(ws[i])`, `REF(ws[i])` and an in-out given `ws[i]` name one, so that a
+    /// write through it sets the string's length (docs/IEC_DEVIATIONS.md DEV-046).
+    pub(super) fn names_text_unit(&self, ty: Ty) -> bool {
+        matches!(self.info(ty).scalar(), Some(Elem::Word))
+            && crate::harness::dialect_of(self.model.conversions).is_codesys()
     }
 
     /// The reference to the bytes of `place`, a `STRING`, where a pointer to `target`, a byte or a
@@ -38,38 +48,51 @@ impl Lowerer<'_, '_> {
         )))
     }
 
-    /// Whether `s[i]` of a value of `ty` is the `BYTE` at offset `i`, counted from 0: `ty` is a
-    /// `STRING`, and the build follows the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-046).
-    pub(super) fn bytes_by_offset(&self, ty: Ty) -> bool {
-        matches!(self.info(ty).kind, Kind::Str(_))
+    /// Whether `s[i]` of a value of `ty` is the element at offset `i`, counted from 0: `ty` is a
+    /// `STRING`, whose element is then a `BYTE`, or a `WSTRING`, whose element is a `WORD`, and the
+    /// build follows the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-046).
+    pub(super) fn elements_by_offset(&self, ty: Ty) -> bool {
+        matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_))
             && crate::harness::dialect_of(self.model.conversions).is_codesys()
     }
 
-    /// `text[index]` of a `STRING` under the CODESYS profile as a place: the `BYTE` at offset
-    /// `index`, counted from 0, named by a reference to the string's bytes from it
-    /// (`Areas::refer_text_bytes`), so that a write into it, `ADR` of it and an in-out given it set
-    /// the string's length as a write through a pointer does (DEV-046, DEV-039).
-    pub(super) fn text_byte_place(
+    /// `text[index]` under the CODESYS profile as a place: the `BYTE` at offset `index` of a
+    /// `STRING`, counted from 0, named by a reference to the string's bytes from it
+    /// (`Areas::refer_text_bytes`), or the `WORD` there of a `WSTRING`, named by a reference to its
+    /// code units (`Areas::refer_text_units`), so that a write into it, `ADR` of it and an in-out
+    /// given it set the string's length as a write through a pointer does (DEV-046, DEV-039).
+    pub(super) fn text_element_place(
         &mut self,
         node: &SyntaxNode,
         text: &Place,
         index: &SyntaxNode,
     ) -> Result<Place, NativeError> {
+        let wide = matches!(self.info(text.ty).kind, Kind::WStr(_));
         if text.is_overlap_member() || text.is_overlap_region() {
             return Err(self.unsupported(
                 node,
-                "a byte of a string in a STRUCT OVERLAP, which no reference can name apart from \
-                 the members that share its bytes",
+                if wide {
+                    "a code unit of a WSTRING in a STRUCT OVERLAP, which no reference can name \
+                     apart from the members that share its bytes"
+                } else {
+                    "a byte of a string in a STRUCT OVERLAP, which no reference can name apart \
+                     from the members that share its bytes"
+                },
             ));
         }
+        let (refer, elem) = if wide {
+            ("refer_text_units", Elem::Word)
+        } else {
+            ("refer_text_bytes", Elem::Byte)
+        };
         let lint = self.model.types.elem(Elem::LInt);
         let index = self.scalar_to(index, lint)?;
         let reference = self.bind(&format!(
-            "w.areas.refer_text_bytes(cx, ({}).view(), {index})?",
+            "w.areas.{refer}(cx, ({}).view(), {index})?",
             text.reference()
         ));
-        let byte = self.model.types.elem(Elem::Byte);
-        Ok(self.dereference_bytes(&reference, byte))
+        let element = self.model.types.elem(elem);
+        Ok(self.dereference_bytes(&reference, element))
     }
 
     /// The variable of type `target`, a byte or an array of bytes, that the reference value

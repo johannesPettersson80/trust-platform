@@ -182,3 +182,6 @@ mod tests;
 
 #[cfg(test)]
 mod text_bytes_tests;
+
+#[cfg(test)]
+mod text_units_tests;

@@ -993,8 +993,12 @@ str[3] := 'X';     // str = 'ABXD'
   `STRING(n)` out in `n + 1` bytes, so `s[n]` reads 0, the 0 that CODESYS
   holds after a full text, and a 0 written there changes nothing; another
   byte written there, `s[n]` as a place (`ADR`, an in-out), and an index
-  outside 0 to `n` fail with `runtime_index_out_of_bounds`. A `WSTRING` keeps
-  the `WCHAR` rules above.
+  outside 0 to `n` fail with `runtime_index_out_of_bounds`. `s[i]` of a
+  `WSTRING` is likewise the `WORD` at offset `i` of its UTF-16 code units, read,
+  written and addressed as a `POINTER TO WORD` with the same rules, its text
+  ending at its first 0 unit (CODESYS lays a `WSTRING(n)` out in `n + 1` code
+  units). A character outside UCS-2, which a CODESYS `WSTRING` cannot hold, is
+  two code units there, each its own `WORD`.
 
 ## 7. Parser acceptance and recovery boundaries
 
