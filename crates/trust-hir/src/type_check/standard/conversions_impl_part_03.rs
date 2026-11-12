@@ -88,7 +88,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
     ) -> Option<TypeId> {
         let mut common: Option<TypeId> = None;
         for (arg, ty) in args {
-            let base = self.base_type_id(*ty);
+            let base = self.string_value_type(*ty);
             if base == TypeId::UNKNOWN {
                 return None;
             }
