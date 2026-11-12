@@ -759,6 +759,23 @@ fn modbus_safe_state_handoff_reports_unconfirmed_worker_delivery() {
     );
 }
 
+/// The first input read whose refresh completed. A refresh that misses the worker's scan-side
+/// deadline on a loaded system reads `modbus input refresh pending` (specification 11, "Modbus
+/// default-fault and deadline integrity"), and a later read takes the server's answer: on
+/// 12 November 2026 a Windows runner gave the pending error where a test expected the server's
+/// exception. Reads for up to five seconds.
+fn read_settled(driver: &mut ModbusTcpDriver, inputs: &mut [u8]) -> Result<(), RuntimeError> {
+    let pending = RuntimeError::IoTransport("modbus input refresh pending".into());
+    let deadline = Instant::now() + StdDuration::from_secs(5);
+    loop {
+        let read = driver.read_inputs(inputs);
+        if read.as_ref().err() != Some(&pending) || Instant::now() >= deadline {
+            return read;
+        }
+        thread::sleep(StdDuration::from_millis(10));
+    }
+}
+
 /// "A Modbus exception remains an `IoAddress` error", and "An exception response is the typed
 /// exception error with its code and the specification's name for it": the server has one input
 /// register, so the read of register 7 is refused with exception 2, ILLEGAL DATA ADDRESS (V1.1b3
@@ -778,9 +795,8 @@ fn modbus_exception_is_not_reported_as_generic_transport() {
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
     let mut inputs = vec![0u8; 2];
 
-    let err = driver
-        .read_inputs(&mut inputs)
-        .expect_err("Modbus exception must be observable");
+    let err =
+        read_settled(&mut driver, &mut inputs).expect_err("Modbus exception must be observable");
     assert_eq!(
         err,
         RuntimeError::IoAddress(

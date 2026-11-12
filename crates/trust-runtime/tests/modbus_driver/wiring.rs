@@ -168,7 +168,7 @@ fn an_input_failure_leaves_the_output_path_confirmed() {
         "modbus exception code 2 (ILLEGAL DATA ADDRESS): 0x04 Read Input Registers at address 7";
 
     assert_eq!(
-        driver.read_inputs(&mut [0; 2]),
+        super::read_settled(&mut driver, &mut [0; 2]),
         Err(RuntimeError::IoAddress(exception.into()))
     );
     assert_eq!(driver.write_outputs(&[0x12, 0x34]), Ok(()));
