@@ -6,6 +6,54 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-12
+
+### Added
+
+- An interface may extend several interfaces, as IEC 61131-3 §6.6.6.6 and CODESYS allow:
+  `INTERFACE IServiced EXTENDS IControl, IMaintenance`. It inherits the prototypes of every base, a value of it
+  converts to each base, and a function block or class that implements it implements them all. Two bases that give
+  prototypes of one name with different signatures make the interface an error (E208).
+
+### Changed
+
+- An interface that declares a method or property prototype again that it inherits from a base interface is now an
+  error (E208), as IEC 61131-3 §6.6.6.6.2 requires, reported at the repeated prototype. A project that does so gets
+  the error after updating; remove the repeated prototype, which the interface already inherits. Under the CODESYS
+  profile the declaration stays accepted.
+- Under the CODESYS profile, `s[i]` of a `STRING` is now the `BYTE` at offset `i`, counted from 0, as in CODESYS,
+  instead of the `CHAR` at position `i` counted from 1. A write through it changes the text as a write through a
+  pointer does, and `s[n]` of a `STRING[n]` reads 0, the 0 that CODESYS keeps after a full text. The IEC profile
+  keeps the `CHAR` from position 1, and a `WSTRING` keeps it under every profile.
+
+### Fixed
+
+- A malformed or missing TLS private key now stops the HTTPS web server's start with an error (`web tls bind: ...`),
+  where the runtime panicked.
+- `MAX`, `MIN`, `LIMIT`, `SEL` and `MUX` of strings now compile and run, comparing the texts as `<` and `>` compare them.
+  The build refused them with "a comparison of values that are not scalars" or "a value that is no scalar where a
+  scalar is needed".
+- Under the CODESYS profile, `ADR(s[i])` of a string's byte now compiles, as in
+  `MemCopySecure(pDest := ADR(sJson[1]), ...)`. The build refused it with "an index of a value that is no array"
+  (#453).
+- Under the CODESYS profile, bytes written into a string through a pointer, `ADR(s)` taken as a `POINTER TO BYTE` or a
+  `POINTER TO ARRAY[..] OF BYTE`, now change its text, which ends at its first 0 byte as CODESYS reads it. A copy
+  loop like the vendor `MemCopy` into an empty string gave the empty text, and a 0 written into a text did not end it
+  (#453).
+- Under the CODESYS profile the bytes of a string, which `ADR` names, now end its text with a 0 byte, as CODESYS lays
+  out a string. After a shorter text is written over a longer one, code that scans the bytes for the terminator stops
+  at the new text's end instead of reading on into the old text (#453).
+- Under the CODESYS profile the string functions (`LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`,
+  `REPLACE`, `FIND`) take a `REFERENCE TO STRING` or `REFERENCE TO WSTRING` as their text and read the string it
+  names. They refused it with E205 "expected STRING or WSTRING input" (#454).
+
+### Security
+
+- The runtime's HTTPS web server now runs its TLS on rustls 0.23 instead of rustls 0.20. This removes RUSTSEC-2024-0336,
+  by which crafted network input could keep the TLS server in an endless loop, and the other advisories of rustls 0.20
+  and ring 0.16. The web server, tiny_http, is vendored with that change, since its newest release still takes
+  rustls 0.20.
+
 ## [0.38.0] - 2026-11-11
 
 ### Fixed
