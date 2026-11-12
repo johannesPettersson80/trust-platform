@@ -242,7 +242,9 @@ END_TYPE
 - Qualified access: `TrafficLight#Red` resolves ambiguity
 - Qualified member access (CODESYS parity, vendor extension): `TrafficLight.Red`
   resolves to the value in initializers, expressions, and CASE labels,
-  optionally namespace-qualified to any depth (`Ns.TrafficLight.Red`); an
+  and under the CODESYS profile also namespace-qualified to any depth
+  (`Ns.TrafficLight.Red`); the IEC profile takes the two-part form only, and
+  names a namespace's enumeration through `USING` (specification 05 §5.2). An
   unknown member is rejected. The base name resolves through the enclosing
   scope chain, so enums declared inside namespaces are reachable by their
   bare type name. The analysis records the member as the value, so a compiled

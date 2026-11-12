@@ -31,7 +31,9 @@ Control = { path = "../../libraries/control", version = "0.1.0" }
 
 The library depends on nothing else. Its names are in the namespace `Control`: write
 `USING Control;` and use `PID`, or write `Control.PID` in full. Write enumeration values with their
-type, for example `PIDMode#Auto`.
+type, for example `PIDMode#Auto`. The type before `#` takes no namespace, so `PIDMode#Auto` needs
+`USING Control;` even in code that writes `Control.PID` in full. Under the CODESYS profile
+`Control.PIDMode.Auto`, with dots, names the value too, as CODESYS writes it.
 
 ## Design Rules
 
