@@ -2641,14 +2641,6 @@
         "removal_condition": "remove when opcua removes derivative or the opcua-wire feature is replaced"
       },
       {
-        "id": "RUSTSEC-2025-0009",
-        "package": "ring",
-        "owner": "runtime/web",
-        "rationale": "tiny_http 0.12 ssl-rustls pulls rustls 0.20/ring 0.16 for the existing HTTPS server and no tiny_http rustls 0.23 release is available",
-        "review_date": "2026-04-29",
-        "removal_condition": "remove when HTTPS hosting moves off tiny_http ssl-rustls or tiny_http upgrades rustls"
-      },
-      {
         "id": "RUSTSEC-2023-0071",
         "package": "rsa",
         "owner": "runtime/mesh",
@@ -2657,28 +2649,12 @@
         "removal_condition": "remove when the Zenoh baseline gate moves to a patched transport stack"
       },
       {
-        "id": "RUSTSEC-2024-0336",
-        "package": "rustls",
-        "owner": "runtime/web",
-        "rationale": "tiny_http 0.12 ssl-rustls pulls rustls 0.20 for the existing HTTPS server and no tiny_http rustls 0.23 release is available",
-        "review_date": "2026-04-29",
-        "removal_condition": "remove when HTTPS hosting moves off tiny_http ssl-rustls or tiny_http upgrades rustls"
-      },
-      {
-        "id": "RUSTSEC-2025-0010",
-        "package": "ring",
-        "owner": "runtime/web",
-        "rationale": "tiny_http 0.12 ssl-rustls pulls unmaintained ring 0.16 for the existing HTTPS server and no tiny_http rustls 0.23 release is available",
-        "review_date": "2026-04-29",
-        "removal_condition": "remove when HTTPS hosting moves off tiny_http ssl-rustls or tiny_http upgrades rustls"
-      },
-      {
         "id": "RUSTSEC-2025-0134",
         "package": "rustls-pemfile",
-        "owner": "runtime/web",
-        "rationale": "rustls-pemfile is used by current TLS PEM parsing and tiny_http 0.12 ssl-rustls",
-        "review_date": "2026-04-29",
-        "removal_condition": "replace direct parsing with rustls-pki-types PemObject and remove tiny_http ssl-rustls"
+        "owner": "runtime/persistence+mesh",
+        "rationale": "rustls-pemfile 2.2.0 is reached only through mysql 28.0.3 and zenoh-link-tls 1.7.2; truST's own PEM parsing and the vendored tiny_http use rustls pki_types PemObject",
+        "review_date": "2026-11-12",
+        "removal_condition": "remove when mysql and zenoh-link-tls stop pulling rustls-pemfile"
       },
       {
         "id": "RUSTSEC-2024-0436",

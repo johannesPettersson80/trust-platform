@@ -305,3 +305,39 @@ fn web_tls_handshake_and_downgrade_prevention() {
         }
     }
 }
+
+/// Specification 11 §6.9.6: a rustls server configuration rejects malformed or empty key material, a
+/// visible control error rather than a crash. A key file that holds only a certificate and one whose
+/// base64 is broken fail the TLS web server's start with `web tls bind:` and the private key named.
+/// Wrong behaviour caught: tiny_http 0.12.0, before it was vendored onto rustls 0.23, panicked on
+/// both, indexing an empty list of RSA keys and calling `expect` on the PEM reader, in the thread
+/// that starts the runtime.
+#[test]
+fn a_malformed_tls_key_fails_the_web_servers_start_without_a_panic() {
+    let config = WebConfig {
+        enabled: true,
+        listen: SmolStr::new("127.0.0.1:0"),
+        auth: WebAuthMode::Local,
+        tls: true,
+        hmi: Default::default(),
+    };
+    let certificate = include_bytes!("fixtures/tls/server-cert.pem").to_vec();
+    let broken = b"-----BEGIN PRIVATE KEY-----\n!!!!\n-----END PRIVATE KEY-----\n".to_vec();
+    for (case, key) in [("a certificate", certificate), ("broken base64", broken)] {
+        let materials = Arc::new(TlsMaterials {
+            private_key_pem: key,
+            ..(*tls_materials()).clone()
+        });
+        let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
+        let started = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            start_web_server(&config, state, None, None, None, Some(materials))
+        }));
+        let error = match started {
+            Ok(Ok(_)) => panic!("{case}: the TLS web server started with a malformed key"),
+            Ok(Err(error)) => error.to_string(),
+            Err(_) => panic!("{case}: the TLS web server's start panicked"),
+        };
+        assert!(error.contains("web tls bind"), "{case}: {error}");
+        assert!(error.contains("private key"), "{case}: {error}");
+    }
+}
