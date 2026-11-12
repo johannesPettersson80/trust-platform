@@ -131,3 +131,61 @@ fn the_incoming_calls_of_an_implementing_method_hold_its_calls_through_an_interf
     assert_eq!(calls_of("FB_A"), ["itf.Run()", "a.Run()"]);
     assert_eq!(calls_of("FB_C"), ["itf.Run()"]);
 }
+
+/// Specification 04, "Interface Inheritance": the editor shows every base of an interface that
+/// extends several, as its type hierarchy's supertypes and in its hover, and completes the methods
+/// that each base gives on a value of it. Catches the editor reading only the first base.
+#[test]
+fn test_an_interface_with_several_bases_shows_and_completes_each() {
+    let source = r#"
+INTERFACE IStart
+    METHOD Start : BOOL
+    END_METHOD
+END_INTERFACE
+
+INTERFACE IStop
+    METHOD Stop : BOOL
+    END_METHOD
+END_INTERFACE
+
+INTERFACE IMotor EXTENDS IStart, IStop
+END_INTERFACE
+
+PROGRAM Main
+VAR
+    itf : IMotor;
+END_VAR
+    itf.|
+END_PROGRAM
+"#;
+    let cursor = source.find('|').expect("cursor");
+    let mut cleaned = source.to_string();
+    cleaned.remove(cursor);
+    let (db, file) = setup(&cleaned);
+
+    let motor = TextSize::from(cleaned.find("IMotor EXTENDS").expect("IMotor") as u32);
+    let item = trust_ide::prepare_type_hierarchy(&db, file, motor).expect("type hierarchy item");
+    let bases: Vec<String> = trust_ide::supertypes(&db, &item)
+        .iter()
+        .map(|base| base.name.to_string())
+        .collect();
+    assert_eq!(bases, vec!["IStart".to_string(), "IStop".to_string()]);
+
+    let motor_hover = hover(&db, file, motor).expect("hover");
+    assert!(
+        motor_hover.contents.contains("EXTENDS IStart, IStop"),
+        "{}",
+        motor_hover.contents
+    );
+
+    let labels: Vec<String> = complete(&db, file, TextSize::from(cursor as u32))
+        .iter()
+        .map(|item| item.label.to_string())
+        .collect();
+    for member in ["Start", "Stop"] {
+        assert!(
+            labels.iter().any(|label| label == member),
+            "{member} missing from {labels:?}"
+        );
+    }
+}

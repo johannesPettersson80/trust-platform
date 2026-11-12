@@ -695,7 +695,32 @@ INTERFACE IAdvancedControl EXTENDS IControllable
   METHOD Resume
   END_METHOD
 END_INTERFACE
+
+INTERFACE IMaintenance
+  METHOD Service
+  END_METHOD
+END_INTERFACE
+
+INTERFACE IServicedControl EXTENDS IAdvancedControl, IMaintenance
+  METHOD Inspect
+  END_METHOD
+END_INTERFACE
 ```
+
+An interface extends one or more interfaces, its bases, named in a comma list after
+`EXTENDS` (IEC 61131-3 Ed.3 §6.6.6.6, `Interface_Name_List`; the CODESYS help,
+`_cds_obj_interface.html`: "Multiple inheritance is supported for interfaces"). Only an
+interface's `EXTENDS` takes a list: a function block or class extends one base (Tables
+40 and 48). The interface inherits every method and property prototype of each base,
+and of the bases' own bases, without declaring them again (§6.6.6.6.1 rules 1 to 4).
+A base reached on two paths, such as a common base of two bases, gives its prototypes
+once. Two bases may also give prototypes of one name. When they have the same signature,
+they are one prototype, which a function block or class implements with one method. When
+they differ, the interface is an error (E208), since no method can match both. IEC
+61131-3 does not say what two such prototypes give (`docs/IEC_DECISIONS.md`). A
+value of the interface converts to each of its bases and to theirs (§6.6.6.5). A
+function block or class that implements the interface owes every prototype that the
+interface inherits (§6.6.6.4).
 
 CODESYS lets an interface extend its system interface `__SYSTEM.IQueryInterface`, which
 there allows `__QUERYINTERFACE` on it, and lets a function block or class name the
@@ -736,12 +761,12 @@ forbids `__` in a name, so no valid IEC program changes.
 2. Every method prototype is implicitly `PUBLIC`; writing an explicit access
    specifier on a prototype is an error (IEC §6.6.5.9 and §6.6.6.3)
 3. Classes implementing interface MUST implement all methods
-4. Interfaces can extend other interfaces
+4. An interface can extend one or more interfaces (IEC 61131-3 Ed.3 §6.6.6.6)
 5. A class can implement multiple interfaces
 6. Interface variables are references and shall be assigned before use; they shall not be VAR_IN_OUT
 7. Interface variables can be assigned NULL (default) and compared for equality
    (IEC 61131-3 Ed.3 §6.6.6.5.1)
-8. EXTENDS must reference INTERFACE types; cyclic interface inheritance is invalid (Table 51, IEC 61131-3 Ed.3 §6.6.6.3)
+8. Each name after an interface's EXTENDS must be an INTERFACE; an interface that is its own base, directly or through any of its bases, is invalid (Table 51, IEC 61131-3 Ed.3 §6.6.6.6.2)
 
 ## 7. METHOD Declaration (Sections 6.6.5.4 and 6.6.7.2)
 

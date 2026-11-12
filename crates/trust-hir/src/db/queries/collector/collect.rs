@@ -485,21 +485,26 @@ impl SymbolCollector<'_> {
             return;
         };
 
-        let Some((parts, range)) = qualified_name_parts(&clause) else {
-            return;
-        };
+        // A function block or class names one base, an interface one or more (specification 04,
+        // "Interface Inheritance"); `__SYSTEM` names are not bases.
+        let bases = implements_clause_names(&clause);
+        self.table.set_extends(
+            owner,
+            bases
+                .iter()
+                .map(|(names, _)| qualified_name_string(names))
+                .collect(),
+        );
 
-        let names: Vec<SmolStr> = parts.iter().map(|(name, _)| name.clone()).collect();
-        let name = qualified_name_string(&names);
-        self.table.set_extends(owner, name.clone());
-
-        let type_id = self.resolve_type_path_at(&names, Some(range));
-        if type_id == TypeId::UNKNOWN {
-            self.pending_types.push(PendingType {
-                name,
-                range,
-                scope_id: self.table.current_scope(),
-            });
+        for (names, range) in bases {
+            let type_id = self.resolve_type_path_at(&names, Some(range));
+            if type_id == TypeId::UNKNOWN {
+                self.pending_types.push(PendingType {
+                    name: qualified_name_string(&names),
+                    range,
+                    scope_id: self.table.current_scope(),
+                });
+            }
         }
     }
 

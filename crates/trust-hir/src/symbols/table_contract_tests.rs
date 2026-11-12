@@ -553,7 +553,7 @@ fn extends_and_implements_references_resolve_and_reject_wrong_kind() {
         range(7, 8),
     ));
     table.ensure_scope_for_owner(derived, ScopeKind::Class);
-    table.set_extends(derived, SmolStr::new("Base"));
+    table.set_extends(derived, vec![SmolStr::new("Base")]);
     table.set_implements(
         derived,
         vec![SmolStr::new("Runnable"), SmolStr::new("NotAType")],
@@ -600,7 +600,7 @@ fn oop_reference_without_owner_scope_is_classified_not_global_fallback() {
         TypeId::VOID,
         range(3, 4),
     ));
-    table.set_extends(owner, SmolStr::new("Base"));
+    table.set_extends(owner, vec![SmolStr::new("Base")]);
 
     assert_eq!(table.resolve_oop_reference_for_owner(owner, "Base"), None);
     assert!(matches!(
@@ -680,7 +680,7 @@ fn hierarchy_member_resolution_prefers_derived_and_stops_on_cycle() {
         range(5, 6),
     ));
     table.ensure_scope_for_owner(derived, ScopeKind::Class);
-    table.set_extends(derived, SmolStr::new("Base"));
+    table.set_extends(derived, vec![SmolStr::new("Base")]);
     assert_eq!(
         table.resolve_member_symbol_in_hierarchy(derived, "run"),
         Some(base_member)
@@ -702,7 +702,7 @@ fn hierarchy_member_resolution_prefers_derived_and_stops_on_cycle() {
         Some(derived_member)
     );
 
-    table.set_extends(base, SmolStr::new("Derived"));
+    table.set_extends(base, vec![SmolStr::new("Derived")]);
     assert_eq!(
         table.resolve_member_symbol_in_hierarchy(derived, "missing"),
         None
@@ -814,7 +814,7 @@ fn declaration_catalog_retains_classified_inheritance_references() {
         range(3, 4),
     ));
     table.ensure_scope_for_owner(derived, ScopeKind::Class);
-    table.set_extends(derived, SmolStr::new("Base"));
+    table.set_extends(derived, vec![SmolStr::new("Base")]);
     table.set_implements(derived, vec![SmolStr::new("Missing")]);
 
     let catalog = table.declaration_catalog(FileId(1));

@@ -579,7 +579,7 @@ END_PROGRAM
         .values()
         .find(|interface| interface.name == "IDerived")
         .expect("IDerived");
-    assert_eq!(derived.base.as_deref(), Some("IBase"));
+    assert_eq!(derived.bases, ["IBase"]);
     assert!(derived.methods.iter().any(|method| method.name == "Write"));
 }
 

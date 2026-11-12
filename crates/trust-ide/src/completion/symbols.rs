@@ -258,26 +258,17 @@ fn is_member_visible(
     }
 }
 
+/// Whether `derived_id` is `base_id` or extends it, through any of its bases.
 fn is_same_or_derived(symbols: &SymbolTable, derived_id: SymbolId, base_id: SymbolId) -> bool {
-    if derived_id == base_id {
-        return true;
-    }
     let mut visited: FxHashSet<SymbolId> = FxHashSet::default();
-    let mut current = symbols.extends_reference(derived_id).and_then(|reference| {
-        let name = reference.name().display();
-        symbols.resolve_oop_reference_for_owner(derived_id, name.as_str())
-    });
-    while let Some(symbol_id) = current {
-        if !visited.insert(symbol_id) {
-            break;
-        }
+    let mut pending = vec![derived_id];
+    while let Some(symbol_id) = pending.pop() {
         if symbol_id == base_id {
             return true;
         }
-        current = symbols.extends_reference(symbol_id).and_then(|reference| {
-            let name = reference.name().display();
-            symbols.resolve_oop_reference_for_owner(symbol_id, name.as_str())
-        });
+        if visited.insert(symbol_id) {
+            pending.extend(symbols.base_symbols(symbol_id));
+        }
     }
     false
 }

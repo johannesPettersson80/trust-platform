@@ -74,12 +74,12 @@ pub(crate) fn implements_in(
             if !checked.insert(candidate.to_ascii_uppercase()) {
                 continue;
             }
+            // Every base of the interface: it may extend several (specification 04).
             if let Some(definition) = interface_defs
                 .values()
                 .find(|item| item.name.eq_ignore_ascii_case(&candidate))
-                && let Some(base) = &definition.base
             {
-                pending.push(base.to_string());
+                pending.extend(definition.bases.iter().map(ToString::to_string));
             }
         }
     }
@@ -99,12 +99,20 @@ pub(crate) fn declared_method_in<'a>(
     interface: &str,
     method: &str,
 ) -> Option<&'a MethodDef> {
-    let mut name = interface.to_owned();
+    // The interface's own methods first, then its bases' depth first in their written order: an
+    // interface may extend several (specification 04, "Interface Inheritance").
+    let mut pending = vec![interface.to_owned()];
     let mut visited = BTreeSet::new();
-    while visited.insert(name.to_ascii_uppercase()) {
-        let definition = interface_defs
+    while let Some(name) = pending.pop() {
+        if !visited.insert(name.to_ascii_uppercase()) {
+            continue;
+        }
+        let Some(definition) = interface_defs
             .values()
-            .find(|definition| definition.name.eq_ignore_ascii_case(&name))?;
+            .find(|definition| definition.name.eq_ignore_ascii_case(&name))
+        else {
+            continue;
+        };
         if let Some(found) = definition
             .methods
             .iter()
@@ -112,7 +120,7 @@ pub(crate) fn declared_method_in<'a>(
         {
             return Some(found);
         }
-        name = definition.base.as_ref()?.to_string();
+        pending.extend(definition.bases.iter().rev().map(ToString::to_string));
     }
     None
 }

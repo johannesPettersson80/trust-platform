@@ -299,14 +299,14 @@ fn class_preserves_base_variables_imports_and_methods_in_order() {
 fn interface_preserves_base_imports_and_method_order_without_variables() {
     let interface = InterfaceDef {
         name: "DerivedInterface".into(),
-        base: Some("BaseInterface".into()),
+        bases: vec!["BaseInterface".into(), "OtherInterface".into()],
         using: vec!["First".into(), "Second".into()],
         methods: vec![method("Read"), method("Write")],
     }
     .clone();
 
     assert_eq!(interface.name, "DerivedInterface");
-    assert_eq!(interface.base.as_deref(), Some("BaseInterface"));
+    assert_eq!(interface.bases, ["BaseInterface", "OtherInterface"]);
     assert_eq!(
         interface
             .using

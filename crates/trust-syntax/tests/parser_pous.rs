@@ -459,3 +459,52 @@ END_FUNCTION_BLOCK"#,
         "{implements:#?}"
     );
 }
+
+/// Specification 04, "Interface Inheritance": an interface's EXTENDS names one or more base
+/// interfaces separated by commas (IEC 61131-3 Ed.3 §6.6.6.6, `Interface_Name_List`), each a name,
+/// a qualified name or `__SYSTEM.IQueryInterface`. Catches the parse error at the first comma that
+/// a list gave while EXTENDS read one name.
+#[test]
+fn test_interface_extends_several_interfaces() {
+    let parsed = parse(
+        r#"INTERFACE IServiced EXTENDS IControl, Lib.IMaintenance, __SYSTEM.IQueryInterface
+METHOD Inspect
+END_METHOD
+END_INTERFACE"#,
+    );
+    assert!(parsed.ok(), "{:?}", parsed.errors());
+    let extends = parsed
+        .syntax()
+        .descendants()
+        .find(|node| node.kind() == SyntaxKind::ExtendsClause)
+        .expect("EXTENDS clause");
+    let bases: Vec<(SyntaxKind, String)> = extends
+        .children()
+        .map(|child| (child.kind(), child.text().to_string().trim().to_string()))
+        .collect();
+    assert_eq!(
+        bases,
+        vec![
+            (SyntaxKind::Name, "IControl".to_string()),
+            (SyntaxKind::QualifiedName, "Lib.IMaintenance".to_string()),
+            (
+                SyntaxKind::SystemName,
+                "__SYSTEM.IQueryInterface".to_string()
+            ),
+        ]
+    );
+}
+
+/// Specification 04: only an interface's EXTENDS takes a list, a function block extends one base
+/// (IEC 61131-3 Ed.3 Table 40). Catches the interface's list being taken for a function block too.
+#[test]
+fn test_function_block_extends_one_base() {
+    let parsed = parse(
+        r#"FUNCTION_BLOCK FB_Derived EXTENDS FB_A, FB_B
+END_FUNCTION_BLOCK"#,
+    );
+    assert!(
+        !parsed.ok(),
+        "a second base after a function block's EXTENDS parsed"
+    );
+}

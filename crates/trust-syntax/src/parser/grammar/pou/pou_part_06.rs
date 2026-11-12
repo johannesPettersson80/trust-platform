@@ -128,19 +128,21 @@ impl Parser<'_, '_> {
         self.finish_node();
     }
 
-    /// Parse EXTENDS clause.
+    /// Parse the EXTENDS clause of a function block, class or structure: one base (IEC 61131-3
+    /// Ed.3 Tables 40 and 48).
     pub(crate) fn parse_extends_clause(&mut self) {
         self.start_node(SyntaxKind::ExtendsClause);
         self.bump(); // EXTENDS
-        if self.at(TokenKind::KwSystemDunder) {
-            self.parse_system_name();
-        } else if self.at(TokenKind::Ident) {
-            if self.peek_kind_n(1) == TokenKind::Dot {
-                self.parse_qualified_name();
-            } else {
-                self.parse_name();
-            }
-        }
+        self.parse_oop_type_name();
+        self.finish_node();
+    }
+
+    /// Parse an interface's EXTENDS clause: one or more base interfaces separated by commas
+    /// (IEC 61131-3 Ed.3 §6.6.6.6, `Interface_Name_List`).
+    pub(crate) fn parse_interface_extends_clause(&mut self) {
+        self.start_node(SyntaxKind::ExtendsClause);
+        self.bump(); // EXTENDS
+        self.parse_oop_type_names();
         self.finish_node();
     }
 
@@ -148,7 +150,23 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_implements_clause(&mut self) {
         self.start_node(SyntaxKind::ImplementsClause);
         self.bump(); // IMPLEMENTS
+        self.parse_oop_type_names();
+        self.finish_node();
+    }
 
+    /// Parse the names of an IMPLEMENTS clause or of an interface's EXTENDS clause, separated by
+    /// commas.
+    fn parse_oop_type_names(&mut self) {
+        self.parse_oop_type_name();
+        while self.at(TokenKind::Comma) {
+            self.bump();
+            self.parse_oop_type_name();
+        }
+    }
+
+    /// Parse one name of an EXTENDS or IMPLEMENTS clause: `__SYSTEM.<name>`, a qualified name or
+    /// a name.
+    fn parse_oop_type_name(&mut self) {
         if self.at(TokenKind::KwSystemDunder) {
             self.parse_system_name();
         } else if self.at(TokenKind::Ident) {
@@ -158,21 +176,6 @@ impl Parser<'_, '_> {
                 self.parse_name();
             }
         }
-
-        while self.at(TokenKind::Comma) {
-            self.bump();
-            if self.at(TokenKind::KwSystemDunder) {
-                self.parse_system_name();
-            } else if self.at(TokenKind::Ident) {
-                if self.peek_kind_n(1) == TokenKind::Dot {
-                    self.parse_qualified_name();
-                } else {
-                    self.parse_name();
-                }
-            }
-        }
-
-        self.finish_node();
     }
 
     /// Parse CODESYS's `__SYSTEM.<name>`: a system interface in an EXTENDS or IMPLEMENTS list
