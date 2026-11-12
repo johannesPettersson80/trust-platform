@@ -80,6 +80,8 @@ mod string_size_qualified_references;
 mod struct_initializers;
 #[path = "semantic_type_checking/types_and_references.rs"]
 mod types_and_references;
+#[path = "semantic_type_checking/unused_parameters_of_implementing_methods.rs"]
+mod unused_parameters_of_implementing_methods;
 #[path = "semantic_type_checking/user_type_contract_acceptance.rs"]
 mod user_type_contract_acceptance;
 #[path = "semantic_type_checking/user_type_contract_rejection.rs"]

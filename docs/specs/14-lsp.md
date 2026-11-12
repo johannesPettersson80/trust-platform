@@ -1238,8 +1238,9 @@ struct Diagnostic {
 | E203 | Type | Incompatible assignment |
 | E208 | Type | Interface conformance |
 | W001 | Warning | Unused variable |
-| W002 | Warning | Unreachable code |
-| W003 | Warning | Implicit conversion |
+| W002 | Warning | Unused parameter |
+| W003 | Warning | Unreachable code |
+| W005 | Warning | Implicit conversion |
 
 ---
 
