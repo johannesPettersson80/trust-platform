@@ -611,6 +611,11 @@ impl Lowerer<'_, '_> {
         if matches!(self.info(array.ty).kind, Kind::Open { .. }) {
             return self.open_element(node, &array, &indices);
         }
+        // Under the CODESYS profile `s[i]` of a `STRING` is its byte at offset i
+        // (docs/IEC_DEVIATIONS.md DEV-046).
+        if let ([index], true) = (indices.as_slice(), self.bytes_by_offset(array.ty)) {
+            return self.text_byte_place(node, &array, index);
+        }
         if array.is_overlap_region() {
             return self.region_element(node, &array, &indices);
         }
