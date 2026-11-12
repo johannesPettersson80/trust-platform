@@ -4,7 +4,7 @@
 use core::marker::PhantomData;
 
 use crate::{
-    Area, Cx, Fault, FaultCode, FaultRecord, Plain, RefValue, Str, StrView, AREA_COUNT,
+    Area, Cx, Fault, FaultCode, FaultRecord, Plain, RefValue, StrView, AREA_COUNT,
     INTERFACE_VERSION,
 };
 
@@ -89,23 +89,48 @@ impl<'s> Areas<'s> {
     }
 
     /// A reference of kind [`RefValue::TEXT_BYTES`] to the bytes of `text`, a `STRING` that lies in
-    /// one of the areas, from its first byte (specification 44 §7.3; `docs/IEC_DEVIATIONS.md`
-    /// DEV-039): it names the whole string, its length and its `N` bytes, so that a write through it
-    /// can set the length the bytes give the text ([`Areas::bytes_written`]).
+    /// one of the areas, from its byte `first`, counted from 0 (specification 44 §7.3;
+    /// `docs/IEC_DEVIATIONS.md` DEV-039, DEV-046): it names the whole string, its length and its
+    /// bytes, so that a write through it can set the length the bytes give the text
+    /// ([`Areas::bytes_written`]).
     ///
     /// # Errors
     ///
-    /// [`FaultCode::ReferenceLifetime`] when `text` lies in no area.
-    pub fn refer_text_bytes<const N: usize>(
+    /// [`FaultCode::IndexOutOfBounds`] with `first` and the bounds 0 to the capacity - 1 for a byte
+    /// the string does not hold, [`FaultCode::ReferenceLifetime`] when `text` lies in no area, and
+    /// [`FaultCode::TypeMismatch`] when its bytes do not follow its length there.
+    pub fn refer_text_bytes(
         &self,
         cx: &mut Cx,
-        text: &Str<N>,
+        text: StrView<'_>,
+        first: i64,
     ) -> Result<RefValue, Fault> {
-        let reference = self.refer(cx, text, RefValue::TEXT_BYTES)?;
+        let capacity = text.capacity();
+        let char_index = usize::try_from(first)
+            .ok()
+            .filter(|first| *first < capacity)
+            .and_then(|first| u16::try_from(first).ok());
+        let Some(char_index) = char_index else {
+            let last = i64::try_from(capacity).unwrap_or(i64::MAX) - 1;
+            return Err(fault(cx, FaultCode::IndexOutOfBounds, first, 0, last));
+        };
+        let length = self.refer(cx, text.len, RefValue::TEXT_BYTES)?;
+        let bytes = self.refer_elements(cx, text.data, RefValue::TEXT_BYTES)?;
+        // A string's bytes follow its length (specification 44 §6.2).
+        if bytes.area != length.area || Some(bytes.offset) != length.offset.checked_add(2) {
+            return Err(fault(
+                cx,
+                FaultCode::TypeMismatch,
+                i64::from(length.offset),
+                i64::from(bytes.offset),
+                0,
+            ));
+        }
         Ok(RefValue {
+            char_index,
             // A capacity is at most 65,535 (specification 44 §7.6).
-            extent: u32::try_from(N + 2).unwrap_or(u32::MAX),
-            ..reference
+            extent: u32::try_from(capacity + 2).unwrap_or(u32::MAX),
+            ..length
         })
     }
 

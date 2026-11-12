@@ -27,6 +27,8 @@ mod reference_text;
 mod string_byte_pointers;
 #[path = "codesys_language_profile/string_byte_writes.rs"]
 mod string_byte_writes;
+#[path = "codesys_language_profile/string_bytes_by_offset.rs"]
+mod string_bytes_by_offset;
 #[path = "codesys_language_profile/string_in_out.rs"]
 mod string_in_out;
 

@@ -5,8 +5,11 @@
 //! give the text, its first 0 byte, as CODESYS reads a string (`Areas::bytes_written`); a pointer to
 //! a variable of its own sets nothing.
 
+use trust_syntax::syntax::SyntaxNode;
+
 use super::{Lowerer, Place};
-use crate::native::types::{Kind, Ty};
+use crate::native::types::{Elem, Kind, Ty};
+use crate::native::NativeError;
 
 impl Lowerer<'_, '_> {
     /// Whether a pointer to `ty` may name a string's bytes: a `BYTE`, a `CHAR` or a one-dimensional
@@ -30,9 +33,43 @@ impl Lowerer<'_, '_> {
             return None;
         }
         Some(self.bind(&format!(
-            "w.areas.refer_text_bytes(cx, {})?",
+            "w.areas.refer_text_bytes(cx, ({}).view(), 0)?",
             place.reference()
         )))
+    }
+
+    /// Whether `s[i]` of a value of `ty` is the `BYTE` at offset `i`, counted from 0: `ty` is a
+    /// `STRING`, and the build follows the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-046).
+    pub(super) fn bytes_by_offset(&self, ty: Ty) -> bool {
+        matches!(self.info(ty).kind, Kind::Str(_))
+            && crate::harness::dialect_of(self.model.conversions).is_codesys()
+    }
+
+    /// `text[index]` of a `STRING` under the CODESYS profile as a place: the `BYTE` at offset
+    /// `index`, counted from 0, named by a reference to the string's bytes from it
+    /// (`Areas::refer_text_bytes`), so that a write into it, `ADR` of it and an in-out given it set
+    /// the string's length as a write through a pointer does (DEV-046, DEV-039).
+    pub(super) fn text_byte_place(
+        &mut self,
+        node: &SyntaxNode,
+        text: &Place,
+        index: &SyntaxNode,
+    ) -> Result<Place, NativeError> {
+        if text.is_overlap_member() || text.is_overlap_region() {
+            return Err(self.unsupported(
+                node,
+                "a byte of a string in a STRUCT OVERLAP, which no reference can name apart from \
+                 the members that share its bytes",
+            ));
+        }
+        let lint = self.model.types.elem(Elem::LInt);
+        let index = self.scalar_to(index, lint)?;
+        let reference = self.bind(&format!(
+            "w.areas.refer_text_bytes(cx, ({}).view(), {index})?",
+            text.reference()
+        ));
+        let byte = self.model.types.elem(Elem::Byte);
+        Ok(self.dereference_bytes(&reference, byte))
     }
 
     /// The variable of type `target`, a byte or an array of bytes, that the reference value

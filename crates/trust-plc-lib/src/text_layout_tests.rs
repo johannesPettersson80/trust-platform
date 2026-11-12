@@ -141,3 +141,38 @@ fn an_element_of_a_strings_bytes_names_the_string_from_its_byte() {
     assert!(element_reference(&mut cx, third, 3, 0, 65535, 1).is_err());
     assert_eq!(cx.fault.detail, [3, 0, 2]);
 }
+
+// Worked by hand, under the CODESYS profile (DEV-046): 'Hello' in a STRING[8] is 72 101 108 108 111
+// and its 0. Offset 0 reads 72, offset 5 its 0, and offset 8, the capacity, 0, where CODESYS holds the
+// 0 after a full text; offsets 9 and -1 are refused with the bounds 0 to 8. Writing 97 at offset 1
+// makes 'Hallo'; 33 ('!') at offset 5, over its 0, makes 'Hallo!', whose 0 is the one at offset 6; a
+// 0 at offset 2 ends it at 'Ha'; a 0 at offset 8 changes nothing, and any other byte there is refused
+// with the bounds 0 to 7. Catches an offset counted from 1, a write that leaves the length as it
+// was, and a byte written past the capacity.
+#[test]
+fn a_strings_bytes_are_read_and_written_by_their_offsets() {
+    let mut cx = cx();
+    let text = Str::<8>::new();
+    assign_bytes(text.view(), b"Hello");
+    assert_eq!(text_byte(&mut cx, text.view(), 0), Ok(72));
+    assert_eq!(text_byte(&mut cx, text.view(), 5), Ok(0));
+    assert_eq!(text_byte(&mut cx, text.view(), 8), Ok(0));
+    assert!(text_byte(&mut cx, text.view(), 9).is_err());
+    assert_eq!(cx.fault.detail, [9, 0, 8]);
+    assert!(text_byte(&mut cx, text.view(), -1).is_err());
+    assert_eq!(cx.fault.detail, [-1, 0, 8]);
+
+    set_text_byte(&mut cx, text.view(), 1, 97).expect("offset 1 lies in the text");
+    assert_eq!((text.view().len(), bytes(&text)), (5, *b"Hallo\0\0\0"));
+    set_text_byte(&mut cx, text.view(), 5, 33).expect("offset 5 lies in the capacity");
+    assert_eq!((text.view().len(), bytes(&text)), (6, *b"Hallo!\0\0"));
+    set_text_byte(&mut cx, text.view(), 2, 0).expect("offset 2 lies in the text");
+    assert_eq!(text.view().len(), 2);
+    set_text_byte(&mut cx, text.view(), 8, 0).expect("a 0 at the capacity changes nothing");
+    assert_eq!(text.view().len(), 2);
+    assert!(set_text_byte(&mut cx, text.view(), 8, 33).is_err());
+    assert_eq!(
+        (cx.fault.code, cx.fault.detail),
+        (FaultCode::IndexOutOfBounds as u32, [8, 0, 7])
+    );
+}
