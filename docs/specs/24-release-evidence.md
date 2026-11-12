@@ -39,9 +39,18 @@ Every ignored dependency advisory has a stable identifier, owner, rationale,
 removal condition, review date, and expiry date. Expiry must be no more than 90
 days after review. Missing, expired, or overlong exceptions fail the supply
 chain check. The Rust workspace runs the owned-exception policy with
-`cargo-deny` and `cargo-audit`. The VS Code lockfile runs the same policy:
-every advisory `npm audit` reports, at any severity, needs an owned exception
-in `editors/vscode/audit-exceptions.toml`, with the same fields and limit and
+`cargo-deny` and `cargo-audit`, and so does every standalone Cargo workspace
+of the repository: the two firmware images (`firmware/*`) and the two fuzz
+harnesses (`fuzz`, `crates/trust-ads-server/fuzz`). Each committed
+`Cargo.lock` is a graph of its own and is read `--locked`, so a lock that its
+manifests have left behind fails the supply chain check, as an advisory does.
+A new standalone workspace joins `scripts/supply_chain_gate.sh`; the gate's
+test fails on a lock that the gate does not read. Each lock lists the workspace
+crates it builds at the workspace version, so the version bump
+(`scripts/bump_version.py`) moves them in every lock, and the gate's test also
+fails on a lock that the bump leaves out. The VS Code lockfile runs
+the same policy: every advisory `npm audit` reports, at any severity, needs an
+owned exception in `editors/vscode/audit-exceptions.toml`, with the same fields and limit and
 the advisory's GitHub id. `scripts/check_npm_audit.py` checks it in CI, in the
 release build, and in the preflight of a promoted release, which builds
 nothing; an advisory without an owned exception fails, and an exception whose

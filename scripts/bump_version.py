@@ -20,7 +20,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import changelog_fragments  # noqa: E402
 
-LOCKFILES = ("Cargo.lock", "firmware/trust-esp32c6/Cargo.lock", "firmware/trust-stm32u5a9/Cargo.lock")
+# Every Cargo lock of the repository. Each lists the workspace crates it builds at the workspace version, and the
+# supply chain gate reads each `--locked`, so a lock left out here fails the gate on the release pull request
+# (scripts/tests/test_supply_chain_gate.py).
+LOCKFILES = (
+    "Cargo.lock",
+    "firmware/trust-esp32c6/Cargo.lock",
+    "firmware/trust-stm32u5a9/Cargo.lock",
+    "fuzz/Cargo.lock",
+    "crates/trust-ads-server/fuzz/Cargo.lock",
+)
 
 
 def replace_once(files: dict[Path, str], path: Path, before: str, after: str) -> None:
