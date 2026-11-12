@@ -224,6 +224,46 @@ pub(super) fn check_base_prototypes(
             }
         }
     }
+    check_redeclared_prototypes(symbols, interface, &methods, &properties, diagnostics);
+}
+
+/// An interface that declares a prototype of the name of one it inherits is an error (E208; IEC
+/// 61131-3 Ed.3 §6.6.6.6.2 error 1), since an interface overrides nothing ("The OVERRIDE feature
+/// ... is not applicable for interfaces"). Reported at the interface's own prototype, naming the
+/// base it inherits the other from. The CODESYS help does not say what such a declaration gives,
+/// so that profile keeps the interface's own prototype (specification 04, "Interface
+/// Inheritance").
+fn check_redeclared_prototypes(
+    symbols: &SymbolTable,
+    interface: &Symbol,
+    methods: &FxHashMap<SmolStr, (SmolStr, MethodSignature)>,
+    properties: &FxHashMap<SmolStr, (SmolStr, PropertySignature)>,
+    diagnostics: &mut DiagnosticBuilder,
+) {
+    if symbols.dialect().is_codesys() {
+        return;
+    }
+    for member in symbols
+        .iter()
+        .filter(|member| member.parent == Some(interface.id))
+    {
+        let key = normalize_member_name(member.name.as_str());
+        let inherited = match member.kind {
+            SymbolKind::Method { .. } => methods.get(&key).map(|(base, _)| ("method", base)),
+            SymbolKind::Property { .. } => properties.get(&key).map(|(base, _)| ("property", base)),
+            _ => None,
+        };
+        if let Some((what, base)) = inherited {
+            diagnostics.error(
+                DiagnosticCode::InterfaceConformance,
+                member.range,
+                format!(
+                    "interface '{}' declares {what} '{}' again, which it inherits from '{base}'",
+                    interface.name, member.name
+                ),
+            );
+        }
+    }
 }
 
 fn collect_implementation_members_with_table(

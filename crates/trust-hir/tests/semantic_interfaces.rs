@@ -591,3 +591,91 @@ END_FUNCTION_BLOCK
 "#,
     );
 }
+
+/// IEC 61131-3 Ed.3 §6.6.6.6.2 error 1 (specification 04, "Interface Inheritance"): an interface
+/// that declares a method prototype of the name of one it inherits is an error (E208), with the
+/// same signature (`Start`) and with another one (`Stop`), reported at the interface's own
+/// prototype and naming the base. Catches the redeclaration taken silently, the derived prototype
+/// replacing the base's, as truST took it, and the error placed at the base's prototype.
+#[test]
+fn an_interface_that_declares_an_inherited_method_again_is_an_error() {
+    let source = format!(
+        r#"{START_AND_STOP}
+INTERFACE IMotor EXTENDS IStart, IStop
+    METHOD Start : BOOL
+    END_METHOD
+    METHOD Stop : INT
+    END_METHOD
+END_INTERFACE
+"#
+    );
+    let errors = errors_with_places(&source);
+    let messages: Vec<&str> = errors.iter().map(|error| error.1.as_str()).collect();
+    assert_eq!(
+        messages,
+        vec![
+            "interface 'IMotor' declares method 'Start' again, which it inherits from 'IStart'",
+            "interface 'IMotor' declares method 'Stop' again, which it inherits from 'IStop'",
+        ]
+    );
+    let motor = source.find("INTERFACE IMotor").expect("IMotor is declared");
+    for (error, name) in errors.iter().zip(["Start", "Stop"]) {
+        assert_eq!(error.0, DiagnosticCode::InterfaceConformance);
+        assert!(error.2 > motor, "{name} is reported inside IMotor");
+        assert_eq!(&source[error.2..error.3], name);
+    }
+}
+
+/// A property prototype of the name of one the interface inherits is an error too (E208), as a
+/// method's is. Catches the check reading methods only.
+#[test]
+fn an_interface_that_declares_an_inherited_property_again_is_an_error() {
+    let errors = errors_with_places(
+        r#"
+INTERFACE ILevel
+    PROPERTY Level : INT
+    GET END_GET
+    END_PROPERTY
+END_INTERFACE
+
+INTERFACE ITank EXTENDS ILevel
+    PROPERTY Level : INT
+    GET END_GET
+    END_PROPERTY
+END_INTERFACE
+"#,
+    );
+    let messages: Vec<&str> = errors.iter().map(|error| error.1.as_str()).collect();
+    assert_eq!(
+        messages,
+        vec!["interface 'ITank' declares property 'Level' again, which it inherits from 'ILevel'"]
+    );
+}
+
+/// Under the CODESYS profile, whose help does not say what such a declaration gives, the
+/// redeclaration is accepted and the interface's own prototype is the one a block owes
+/// (specification 04; docs/IEC_DEVIATIONS.md DEV-047). Catches the IEC error reaching a CODESYS
+/// project.
+#[test]
+fn the_codesys_profile_accepts_an_inherited_method_declared_again() {
+    check_no_errors_in(
+        Dialect::Codesys,
+        &format!(
+            r#"{START_AND_STOP}
+INTERFACE IMotor EXTENDS IStart, IStop
+    METHOD Start : BOOL
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_Motor IMPLEMENTS IMotor
+    METHOD PUBLIC Start : BOOL
+        Start := TRUE;
+    END_METHOD
+    METHOD PUBLIC Stop : BOOL
+        Stop := TRUE;
+    END_METHOD
+END_FUNCTION_BLOCK
+"#
+        ),
+    );
+}

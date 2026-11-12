@@ -1164,3 +1164,29 @@ re-check them against this rule when touched.
   them, and out-of-family pairs (`REAL_TO_LWORD` per DEV-025, an integer
   `TO_BYTE`) keep their existing rules. A non-finite `REAL`/`LREAL` source
   still returns `RuntimeError::Overflow`.
+
+## 2026-11-12 - CODESYS language profile: an interface may declare an inherited prototype again
+
+- ID: DEV-047
+- Area: interface inheritance (`INTERFACE ... EXTENDS ...`) under a CODESYS
+  `vendor_profile` (specification 14).
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.6.6.2 error 1:
+  "An interface defines an additional method prototype (according rule 3) with
+  the same name of a method prototype of one of its base interfaces" shall be
+  treated as an error, and "The OVERRIDE feature ... is not applicable for
+  interfaces".
+- truST behavior and conflict: under the IEC rules such an interface is an
+  error (E208) at its own prototype, a method's or a property's (specification
+  04, "Interface Inheritance"). Under the CODESYS profile truST accepts it: the
+  interface's own prototype replaces the inherited one, for a value of the
+  interface and for an implementation. The CODESYS help on interfaces and on
+  extending them does not say what such a declaration gives
+  (`_cds_obj_interface.html`, `_cds_extending_interface.html`), so the profile
+  keeps what truST accepted before, rather than refuse a vendor project that
+  CODESYS may compile. This conflicts with the requirement above.
+- Impact: a CODESYS project that repeats a base interface's prototype in a
+  derived interface compiles; a project under the IEC rules that does so gets
+  the error (changelog).
+- Mitigation: the acceptance applies only to projects whose
+  `vendor_profile` is `codesys`, `beckhoff` or `twincat`; the IEC error is
+  pinned by trust-hir tests, and the CODESYS acceptance by one more.
