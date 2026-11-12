@@ -5,7 +5,8 @@ use super::symbol_path::{self, ResolvedSymbol};
 use super::transfer::{check_physical_review, check_target_source};
 use super::{DebugControl, PendingVarTarget};
 use crate::runtime::{Located, ProgramRead, ProgramWrite};
-use crate::value::Value;
+use crate::value::{Duration, Value};
+use numbers::{time_nanos, time_seconds, validate_candidate, TIME_NOT_WHOLE_NANOSECONDS};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use sha2::{Digest, Sha256};
@@ -14,6 +15,8 @@ use trust_runtime_core::native::image::Image;
 
 #[path = "parameters/control_pid.rs"]
 mod control_pid;
+#[path = "parameters/numbers.rs"]
+mod numbers;
 #[path = "parameters/operations.rs"]
 mod operations;
 #[path = "parameters/session.rs"]
@@ -172,14 +175,16 @@ impl SetKind {
         }
     }
 
-    /// The value `parameter` takes, `number` being its candidate number: a client's member in its REAL or LREAL type,
-    /// a controller's field as the write sets it.
+    /// The value `parameter` takes, `number` being its candidate number: a client's member in its REAL, LREAL or TIME
+    /// type, a TIME's number being seconds (E7.1), a controller's field as the write sets it.
     fn value(&self, parameter: &Parameter, number: f64) -> Result<Value, String> {
         match self {
-            Self::Binding => Ok(if parameter.iec_type == "REAL" {
-                Value::Real(number as f32)
-            } else {
-                Value::LReal(number)
+            Self::Binding => Ok(match parameter.iec_type.as_str() {
+                "REAL" => Value::Real(number as f32),
+                "TIME" => Value::Time(Duration::from_nanos(
+                    time_nanos(number).ok_or(TIME_NOT_WHOLE_NANOSECONDS)?,
+                )),
+                _ => Value::LReal(number),
             }),
             Self::ControlPid(set) => set.value(&parameter.symbol),
         }
@@ -258,7 +263,9 @@ fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
         {
             return Err("duplicate parameter or mode symbol".into());
         }
-        if !matches!(parameter.iec_type.as_str(), "REAL" | "LREAL")
+        // A TIME parameter's values and bounds are seconds (E7.1).
+        if !matches!(parameter.iec_type.as_str(), "REAL" | "LREAL" | "TIME")
+            || (parameter.iec_type == "TIME" && parameter.unit != "s")
             || parameter.unit.trim().is_empty()
             || parameter.convention.trim().is_empty()
             || !parameter.minimum.is_finite()
@@ -317,6 +324,7 @@ fn parameter_number(program: &dyn ProgramRead, parameter: &Parameter) -> Result<
     let number = match (parameter.iec_type.as_str(), value) {
         ("LREAL", Value::LReal(v)) => v,
         ("REAL", Value::Real(v)) => f64::from(v),
+        ("TIME", Value::Time(v)) => time_seconds(v.as_nanos()),
         (control_pid::ENUMERATION, Value::Enum(v)) => v.numeric_value() as f64,
         _ => return Err("parameter IEC type does not match runtime".into()),
     };
@@ -384,32 +392,6 @@ impl DebugControl {
     }
 }
 
-fn validate_candidate(binding: &Binding, candidate: &BTreeMap<String, f64>) -> Result<(), String> {
-    if candidate.len() != binding.parameters.len() {
-        return Err("exact parameter set required".into());
-    }
-    for parameter in &binding.parameters {
-        let value = *candidate
-            .get(&parameter.symbol)
-            .ok_or("exact parameter set required")?;
-        if !value.is_finite()
-            || value < parameter.minimum
-            || value > parameter.maximum
-            || (parameter.iec_type == "REAL" && !(value as f32).is_finite())
-        {
-            return Err(format!(
-                "{} outside declared bounds or IEC range: {value} is not within [{}, {}]",
-                parameter.symbol, parameter.minimum, parameter.maximum
-            ));
-        }
-        if parameter.iec_type == "REAL" && f64::from(value as f32) != value {
-            return Err(
-                "REAL values must be explicitly rounded to their runtime representation".into(),
-            );
-        }
-    }
-    Ok(())
-}
 fn manual(binding: &Binding, program: &dyn ProgramRead) -> Result<(), String> {
     if !binding
         .mode
