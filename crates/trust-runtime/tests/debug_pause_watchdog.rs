@@ -16,8 +16,14 @@ use trust_runtime::{CompiledDebugger, CompiledRuntime};
 use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
 use trust_runtime_services::protocol::ControlRequest;
 
-const WATCHDOG_TIMEOUT_MS: i64 = 20;
-const PAUSE_DWELL: WallDuration = WallDuration::from_millis(100);
+/// The tests' watchdog. A 1 ms scan of a loaded CI runner, which the operating system may stall
+/// for tens of milliseconds, never overruns it: on 12 November 2026 a 20 ms watchdog let the hang
+/// supervisor fault a resource whose scan was stalled after a resume. It is shorter than
+/// `PAUSE_DWELL` by more than the supervisor's check interval, a quarter of it, so a pause or a
+/// hold that counted as execution time still faults the resource.
+const WATCHDOG_TIMEOUT_MS: i64 = 200;
+/// How long a pause or a hold lasts: longer than the watchdog and its check interval, 250 ms.
+const PAUSE_DWELL: WallDuration = WallDuration::from_millis(500);
 
 fn wait_for_state(
     handle: &trust_runtime::scheduler::ResourceHandle<StdClock>,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The version bump of a release (AGENTS.md "Releases", specification 22, "Change and release
-workflow"): the workspace version, the ESP32-C6 firmware's version, the workspace crates in the three
-Cargo lockfiles, the VS Code package and its lockfile's root entries, and the changelog: the
+workflow"): the workspace version, the ESP32-C6 firmware's version, the workspace crates in every
+Cargo lockfile, the VS Code package and its lockfile's root entries, and the changelog: the
 fragments under `changelog.d/` are gathered into `## [NEW] - DATE` under an empty `## [Unreleased]`,
 the newest first, and removed. Every replacement must find exactly what it expects, or nothing is
 written.
