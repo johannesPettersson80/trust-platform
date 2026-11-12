@@ -234,11 +234,11 @@ companions: a native executable test that the change adds or changes, and the
 written specification that the change follows. A version bump has none: a
 change that moves `[workspace.package].version` of `Cargo.toml` between its
 base and its head, and changes only what the bump changes (the workspace and
-ESP32-C6 manifests, the three Cargo lockfiles, the VS Code package and its
-lockfile, `CHANGELOG.md` and `changelog.d/`), changes no behaviour
-(specification 22, "Change and release workflow"). A lockfile changed without
-the version moving, or a bump that carries anything else, keeps both
-companions. The change either changes that
+ESP32-C6 manifests, every Cargo lockfile of the repository, the VS Code
+package and its lockfile, `CHANGELOG.md` and `changelog.d/`), changes no
+behaviour (specification 22, "Change and release workflow"). A lockfile
+changed without the version moving, or a bump that carries anything else,
+keeps both companions. The change either changes that
 specification or, when it follows a section that it does not change (a bug fix
 that brings the code back to its specification), names the section in a
 `Specification:` trailer of one of its commits, for example
@@ -253,8 +253,10 @@ its files are those that merging it into its base changes.
 A native executable test is a file below a `tests`, `test/suite`, `conformance`
 or `fuzz` folder, a Rust module file named `tests.rs` (the file of
 `#[cfg(test)] mod tests;`), or a file whose name ends in `_test.rs`,
-`_tests.rs`, `_test.py`, `_tests.py`, `.test.ts` or `.spec.ts`. Such a file is
-not a production path, so a change of tests alone needs no companion.
+`_tests.rs`, `_test.py`, `_tests.py`, `.test.ts` or `.spec.ts`. A lockfile (a
+name ending in `.lock`) is none, wherever it lies: it runs nothing, and every
+version bump moves the fuzz programs' `Cargo.lock` files. Such a test is not a
+production path, so a change of tests alone needs no companion.
 
 The trailer names the specification by its number, which must be the number of
 exactly one file `docs/specs/<number>-*.md`, or by the path of a written

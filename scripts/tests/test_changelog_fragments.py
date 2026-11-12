@@ -4,8 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.bump_version import bump
+from scripts import check_regression_test_first as regression_test_first
+from scripts.bump_version import LOCKFILES, bump
 from scripts.changelog_fragments import check, gather, sections
+from scripts.verification.direct_change_contract import validate_direct_change_contract
 
 # Specification 22, "Change and release workflow": a user-visible change adds a fragment under
 # `changelog.d/`, `## [Unreleased]` stays empty, and the version bump gathers the fragments into the
@@ -151,36 +153,79 @@ Intro.
         self.assertIn("nothing to release", str(raised.exception))
 
 
+def git(root: Path, *args: str) -> str:
+    # A fixed identity, so that a commit needs nothing of the configuration of the machine that runs the test.
+    identity = ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false"]
+    return subprocess.run(["git", *identity, *args], cwd=root, check=True, capture_output=True, text=True).stdout
+
+
+def write_checkout_at_0_28_0(root: Path) -> None:
+    """A git checkout at 0.28.0 with every file the version bump changes: each Cargo lockfile holds a workspace crate
+    and a registry package, and `changelog.d/` one fragment."""
+    package_lock = {
+        "name": "trust-lsp",
+        "version": "0.28.0",
+        "lockfileVersion": 3,
+        "packages": {"": {"name": "trust-lsp", "version": "0.28.0", "license": "MIT OR Apache-2.0"}},
+    }
+    lock = '# lock\n\n[[package]]\nname = "trust-hir"\nversion = "0.28.0"\n\n[[package]]\nname = "serde"\nversion = "0.28.0"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n'
+    write(
+        root,
+        {
+            "Cargo.toml": '[workspace]\nmembers = []\n\n[workspace.package]\nversion = "0.28.0"\nedition = "2024"\n\n[workspace.dependencies]\n',
+            "firmware/trust-esp32c6/Cargo.toml": '[package]\nname = "trust-esp32c6"\nversion = "0.28.0"\n',
+            **{name: lock for name in LOCKFILES},
+            "editors/vscode/package.json": '{\n  "name": "trust-lsp",\n  "version": "0.28.0"\n}\n',
+            "editors/vscode/package-lock.json": json.dumps(package_lock, indent=2) + "\n",
+            "CHANGELOG.md": CHANGELOG,
+            "changelog.d/README.md": "How to write a fragment.\n",
+            "changelog.d/a-fix.md": "### Fixed\n\n- A fix in 0.29.0.\n",
+        },
+    )
+    git(root, "init", "--quiet")
+
+
 class BumpTests(unittest.TestCase):
-    def test_the_bump_moves_every_version_and_gathers_the_fragments(self) -> None:
-        # Catches a version file left behind and a fragment kept after its release.
-        package_lock = {
-            "name": "trust-lsp",
-            "version": "0.28.0",
-            "lockfileVersion": 3,
-            "packages": {"": {"name": "trust-lsp", "version": "0.28.0", "license": "MIT OR Apache-2.0"}},
-        }
-        lock = '# lock\n\n[[package]]\nname = "trust-hir"\nversion = "0.28.0"\n\n[[package]]\nname = "serde"\nversion = "0.28.0"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n'
+    def test_a_release_pull_request_needs_no_companion_and_no_regression_test(self) -> None:
+        # Specification 30, "Owning-spec companion contract", and specification 22, "Change and release workflow": a
+        # change that moves the workspace version and changes only what the bump changes needs neither a test nor a
+        # specification. Catches a file the bump writes that these checks do not count as the bump's: the release pull
+        # request of 0.39.0 (#472) failed both, since the bump moved five Cargo lockfiles and the checks knew three.
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            write(
-                root,
-                {
-                    "Cargo.toml": '[workspace]\nmembers = []\n\n[workspace.package]\nversion = "0.28.0"\nedition = "2024"\n\n[workspace.dependencies]\n',
-                    "firmware/trust-esp32c6/Cargo.toml": '[package]\nname = "trust-esp32c6"\nversion = "0.28.0"\n',
-                    "Cargo.lock": lock,
-                    "firmware/trust-esp32c6/Cargo.lock": lock,
-                    "firmware/trust-stm32u5a9/Cargo.lock": lock,
-                    "fuzz/Cargo.lock": lock,
-                    "crates/trust-ads-server/fuzz/Cargo.lock": lock,
-                    "editors/vscode/package.json": '{\n  "name": "trust-lsp",\n  "version": "0.28.0"\n}\n',
-                    "editors/vscode/package-lock.json": json.dumps(package_lock, indent=2) + "\n",
-                    "CHANGELOG.md": CHANGELOG,
-                    "changelog.d/README.md": "How to write a fragment.\n",
-                    "changelog.d/a-fix.md": "### Fixed\n\n- A fix in 0.29.0.\n",
-                },
+            write_checkout_at_0_28_0(root)
+            git(root, "add", "--all")
+            git(root, "commit", "--quiet", "--message", "0.28.0")
+            bump(root, "0.28.0", "0.29.0", "2026-11-09")
+            git(root, "add", "--all")
+            changed = git(root, "diff", "--cached", "--name-only").split()
+            self.assertEqual(
+                sorted(changed),
+                sorted(
+                    [
+                        "CHANGELOG.md",
+                        "Cargo.toml",
+                        "changelog.d/a-fix.md",
+                        "editors/vscode/package-lock.json",
+                        "editors/vscode/package.json",
+                        "firmware/trust-esp32c6/Cargo.toml",
+                        *LOCKFILES,
+                    ]
+                ),
             )
-            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            self.assertEqual(validate_direct_change_contract(changed, version_bump=True), [])
+            self.assertEqual(
+                regression_test_first.findings_for_inputs(
+                    changed=changed, text="Release 0.29.0\n\nIt fixes #1.", inline_test_added=False, version_bump=True
+                ),
+                [],
+            )
+
+    def test_the_bump_moves_every_version_and_gathers_the_fragments(self) -> None:
+        # Catches a version file left behind and a fragment kept after its release.
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            write_checkout_at_0_28_0(root)
             report = bump(root, "0.28.0", "0.29.0", "2026-11-09")
             self.assertIn("1 changelog fragments gathered", report[-1])
             self.assertIn('version = "0.29.0"', (root / "Cargo.toml").read_text())
