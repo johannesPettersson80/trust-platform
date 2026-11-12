@@ -233,7 +233,7 @@ END_PROGRAM
 
 /// Specification 11 §6.8.1d: `build --json` prints one issue per construct that the build does not
 /// compile yet, at its place, as `trust-runtime check` reports them (§6.8.1c), and writes no image.
-/// Worked by hand: `MUX` of two strings in the function block `Picker`'s body on line 8, column 6,
+/// Worked by hand: `MUX` of two arrays in the function block `Picker`'s body on line 8, column 6,
 /// in `Main`'s body on line 18, column 6, and inside its `IF` on line 20, column 10. Catches a build
 /// that reports only the first construct it meets.
 #[test]
@@ -246,21 +246,21 @@ VAR_INPUT
     k : INT;
 END_VAR
 VAR_OUTPUT
-    s : STRING;
+    s : ARRAY[0..1] OF INT;
 END_VAR
-s := MUX(k, 'x', 'y');
+s := MUX(k, s, s);
 END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
     k : INT := 0;
-    s : STRING;
-    t : STRING;
+    s : ARRAY[0..1] OF INT;
+    t : ARRAY[0..1] OF INT;
     p : Picker;
 END_VAR
-s := MUX(k, 'a', 'b');
+s := MUX(k, s, t);
 IF k = 0 THEN
-    t := MUX(k, 'c', 'd');
+    t := MUX(k, t, s);
 END_IF;
 p(k := k);
 END_PROGRAM

@@ -412,25 +412,16 @@ impl Lowerer<'_, '_> {
         else {
             return Err(self.unsupported(node, "MUX with fewer than two inputs"));
         };
-        let selector_ty = self.type_of(selector)?;
-        let selector_elem = self.elem_of(node, selector_ty, "MUX")?;
-        let selector = self.scalar(selector)?;
-        let selector = self.bind(&selector);
+        let selector = self.mux_selector(node, selector)?;
+        if let Some(called) = self.text_mux(node, &selector, inputs)? {
+            return Ok(called);
+        }
         let ty = self.common_of(node, inputs)?;
         if !is_scalar(&self.info(ty).kind) {
             return Err(self.unsupported(node, "MUX of values that are not scalars"));
         }
         let scalars = self.scalars_of(inputs, ty)?;
-        let wide = if selector_elem.is_signed() {
-            format!("i64::from({selector})")
-        } else if selector_elem == Elem::ULInt {
-            self.bind(&format!("lib::uint_to::<i64>(cx, {selector})?"))
-        } else if selector_elem.is_unsigned() {
-            format!("i64::from({selector})")
-        } else {
-            return Err(self.unsupported(node, format!("MUX by a {}", selector_elem.name())));
-        };
-        let index = self.bind(&format!("lib::mux_index(cx, {wide}, {})?", scalars.len()));
+        let index = self.mux_index(node, &selector, scalars.len())?;
         let mut arms: Vec<String> = scalars
             .iter()
             .enumerate()
@@ -445,6 +436,38 @@ impl Lowerer<'_, '_> {
             ty,
             want,
         )
+    }
+
+    /// `MUX`'s selector `K`, read before its inputs, and its elementary type.
+    pub(super) fn mux_selector(
+        &mut self,
+        node: &SyntaxNode,
+        selector: &SyntaxNode,
+    ) -> Result<(String, Elem), NativeError> {
+        let selector_ty = self.type_of(selector)?;
+        let elem = self.elem_of(node, selector_ty, "MUX")?;
+        let value = self.scalar(selector)?;
+        Ok((self.bind(&value), elem))
+    }
+
+    /// The input of `count` that `MUX`'s selector, read by `mux_selector`, chooses, from 0: a
+    /// selector outside them ends the scan with `IndexOutOfBounds` (specification 07 §6.1).
+    pub(super) fn mux_index(
+        &mut self,
+        node: &SyntaxNode,
+        (selector, elem): &(String, Elem),
+        count: usize,
+    ) -> Result<String, NativeError> {
+        let wide = if elem.is_signed() {
+            format!("i64::from({selector})")
+        } else if *elem == Elem::ULInt {
+            self.bind(&format!("lib::uint_to::<i64>(cx, {selector})?"))
+        } else if elem.is_unsigned() {
+            format!("i64::from({selector})")
+        } else {
+            return Err(self.unsupported(node, format!("MUX by a {}", elem.name())));
+        };
+        Ok(self.bind(&format!("lib::mux_index(cx, {wide}, {count})?")))
     }
 
     /// `GT`, `GE`, `EQ`, `LE` and `LT` of their inputs in a chain, `NE` of two (specification 07 §5).
@@ -593,6 +616,9 @@ impl Lowerer<'_, '_> {
         values: &[SyntaxNode],
         want: &Want,
     ) -> Result<Called, NativeError> {
+        if let Some(called) = self.text_selection(node, name, values)? {
+            return Ok(called);
+        }
         let operands = if name == "SEL" {
             values.get(1..).unwrap_or(&[])
         } else {

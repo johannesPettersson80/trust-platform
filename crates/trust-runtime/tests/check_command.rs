@@ -536,16 +536,16 @@ END_PROGRAM
 }
 
 // Specification 11 §6.8.1c: a construct that the build does not compile yet (specification 44
-// NX-09) is one issue with the code `compile` at the construct's place. Here `MUX` of two strings,
-// which type checks: worked by hand, the call's first token `MUX` is line 6, column 6 of
-// `src/main.st`. Catches the place dropped (one issue without `file`, `line` and `column`, the
+// NX-09) is one issue with the code `compile` at the construct's place. Here `MUX` of two arrays,
+// which type checks (MUX takes ANY): worked by hand, the call's first token `MUX` is line 6, column
+// 6 of `src/main.st`. Catches the place dropped (one issue without `file`, `line` and `column`, the
 // contributor report on #407) and the place of another token.
 #[test]
 fn check_reports_an_uncompiled_construct_where_it_is() {
     let project = unique_temp_dir("check-uncompiled-place");
     write_project_fixture(
         &project,
-        "PROGRAM Main\nVAR\n    k : INT := 0;\n    s : STRING;\nEND_VAR\ns := MUX(k, 'a', 'b');\nEND_PROGRAM\n",
+        "PROGRAM Main\nVAR\n    k : INT := 0;\n    s : ARRAY[0..1] OF INT;\nEND_VAR\ns := MUX(k, s, s);\nEND_PROGRAM\n",
     );
     let output = run_check(&project);
     assert_eq!(
@@ -575,7 +575,7 @@ fn check_reports_an_uncompiled_construct_where_it_is() {
     let _ = std::fs::remove_dir_all(project);
 }
 
-/// The source of `check_reports_every_uncompiled_construct_where_it_is`: `MUX` of two strings, which
+/// The source of `check_reports_every_uncompiled_construct_where_it_is`: `MUX` of two arrays, which
 /// type checks and the build does not compile yet, in the function block `Picker`'s body, in
 /// `Main`'s body and inside `Main`'s `IF`, whose next statement calls `Picker`.
 const THREE_UNCOMPILED: &str = r#"FUNCTION_BLOCK Picker
@@ -583,21 +583,21 @@ VAR_INPUT
     k : INT;
 END_VAR
 VAR_OUTPUT
-    s : STRING;
+    s : ARRAY[0..1] OF INT;
 END_VAR
-s := MUX(k, 'x', 'y');
+s := MUX(k, s, s);
 END_FUNCTION_BLOCK
 
 PROGRAM Main
 VAR
     k : INT := 0;
-    s : STRING;
-    t : STRING;
+    s : ARRAY[0..1] OF INT;
+    t : ARRAY[0..1] OF INT;
     p : Picker;
 END_VAR
-s := MUX(k, 'a', 'b');
+s := MUX(k, s, t);
 IF k = 0 THEN
-    t := MUX(k, 'c', 'd');
+    t := MUX(k, t, s);
 END_IF;
 p(k := k);
 END_PROGRAM
