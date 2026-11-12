@@ -717,7 +717,15 @@ A base reached on two paths, such as a common base of two bases, gives its proto
 once. Two bases may also give prototypes of one name. When they have the same signature,
 they are one prototype, which a function block or class implements with one method. When
 they differ, the interface is an error (E208), since no method can match both. IEC
-61131-3 does not say what two such prototypes give (`docs/IEC_DECISIONS.md`). A
+61131-3 does not say what two such prototypes give (`docs/IEC_DECISIONS.md`). An
+interface that declares a method or property prototype of the name of one it inherits
+is an error (E208), whatever its signature, reported at its own prototype: IEC 61131-3
+Ed.3 §6.6.6.6.2 error 1, since "the OVERRIDE feature ... is not applicable for
+interfaces". The CODESYS help does not say what such a declaration gives
+(`_cds_obj_interface.html`, `_cds_extending_interface.html`), so under the CODESYS
+profile truST accepts it, and the interface's own prototype is the one that a value of
+it calls and that a function block or class implements (`docs/IEC_DEVIATIONS.md`
+DEV-047). A
 value of the interface converts to each of its bases and to theirs (§6.6.6.5). A
 function block or class that implements the interface owes every prototype that the
 interface inherits (§6.6.6.4).
