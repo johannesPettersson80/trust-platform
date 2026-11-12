@@ -130,3 +130,42 @@ fn a_read_past_the_string_through_an_array_pointer_is_refused() {
     assert_eq!(harness.get_output("inside"), Some(Value::Byte(0)));
     assert_eq!(harness.get_output("outside"), Some(Value::Byte(7)));
 }
+
+/// A shorter text written over a longer one, and a text that fills its string, read as bytes.
+const TERMINATED: &str = r#"
+PROGRAM Main
+VAR
+    sText : STRING[16] := 'Hello';
+    pData : POINTER TO ARRAY[0..15] OF BYTE;
+    afterText : BYTE := 7;
+    keptAfter : BYTE := 7;
+    sFull : STRING[5];
+    pFull : POINTER TO ARRAY[0..4] OF BYTE;
+    lastOfFull : BYTE := 7;
+END_VAR
+sText := 'Hi';
+pData := ADR(sText);
+afterText := pData^[2];
+keptAfter := pData^[3];
+sFull := 'World';
+pFull := ADR(sFull);
+lastOfFull := pFull^[4];
+END_PROGRAM
+"#;
+
+// Worked by hand: 'Hello' is 72 101 108 108 111. 'Hi' over it leaves 72 105, the 0 after the text
+// at index 2, and the old 108 at index 3, as CODESYS keeps "the contents of the (old) string, which
+// exist after the terminating null character" (help, "Data type: STRING"). 'World' fills a
+// STRING[5], so its last byte is 100 ('d') and no 0 follows inside it. Catches a shorter text whose
+// old bytes follow it: index 2 would read 108, so a scan of the bytes for the 0 would find 'Hillo'.
+#[test]
+fn a_shorter_text_is_followed_by_a_zero_byte_as_codesys_lays_it_out() {
+    let harness = codesys_run(TERMINATED, 1);
+    assert_eq!(harness.get_output("afterText"), Some(Value::Byte(0)));
+    assert_eq!(harness.get_output("keptAfter"), Some(Value::Byte(108)));
+    assert_eq!(harness.get_output("lastOfFull"), Some(Value::Byte(100)));
+    assert_eq!(
+        harness.get_output("sText"),
+        Some(Value::String("Hi".into()))
+    );
+}

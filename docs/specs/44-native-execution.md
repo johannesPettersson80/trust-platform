@@ -695,8 +695,8 @@ the kernel interface.
 | `TIME`, `LTIME` | `i64` nanoseconds | 8 | specification 10's temporal storage, kept |
 | `DATE`, `LDATE`, `TOD`, `LTOD`, `DT`, `LDT` | `i64` as specification 10 encodes them | 8 | |
 | `CHAR`, `WCHAR` | `u8`, `u16` | 1, 2 | |
-| `STRING[n]` | `Str<n>`: `u16` length, `[u8; n]` UTF-8 | 2 + n, rounded up to even | `STRING` is `STRING[80]` (specification 02 §6); even, so that each length in an array is aligned |
-| `WSTRING[n]` | `WStr<n>`: `u16` length, `[u16; n]` | 2 + 2n | |
+| `STRING[n]` | `Str<n>`: `u16` length, `[u8; n]` UTF-8 | 2 + n, rounded up to even | `STRING` is `STRING[80]` (specification 02 §6); even, so that each length in an array is aligned. Every write of the text puts a 0 byte after it when its length is below n and leaves the bytes after that 0 as they were (DEV-039) |
+| `WSTRING[n]` | `WStr<n>`: `u16` length, `[u16; n]` | 2 + 2n | Every write of the text puts a 0 code unit after it when its length is below n, like `STRING[n]` |
 | Enumeration (§6.4.4.2) | the base integer type | | values checked on assignment from an integer |
 | Subrange (§6.4.4.4) | the base type | | bounds checked on every assignment (§6.5) |
 | `ARRAY` (§6.4.4.5) | `[T; n]`, nested for several dimensions | n × size | bounds checked (§6.5) |

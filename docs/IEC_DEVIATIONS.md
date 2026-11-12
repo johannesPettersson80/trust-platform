@@ -903,6 +903,15 @@ re-check them against this rule when touched.
   them or at most the string's capacity, for a `POINTER TO ARRAY[i..j] OF
   BYTE`; an element past the bytes a pointer names is refused with
   `IndexOutOfBounds`, where CODESYS reads the memory after the string.
+  Those bytes are laid out as CODESYS lays out a string, its text followed
+  by its "terminating null character" (CODESYS help, "Data type: STRING",
+  `_cds_datatype_string.html`). Every write of a string's text puts a 0
+  byte after it when the capacity leaves room. The bytes after that 0 keep
+  what they held, as CODESYS keeps "the contents of the (old) string, which
+  exist after the terminating null character". So a scan of the bytes for
+  the 0 stops where the text ends (specification 44 §6.2). The text's
+  length is still its own: a byte written through such a pointer changes
+  the bytes, not the text.
 - Mitigation: the demotion is form-scoped, not blanket — element/record
   boundary mismatches keep their errors. A lenient binding whose source is
   a pointer value, not an `ADR` call, still produces one warning, so a
