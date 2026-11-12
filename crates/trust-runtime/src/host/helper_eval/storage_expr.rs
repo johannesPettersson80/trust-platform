@@ -16,8 +16,8 @@ use crate::stdlib::conversions::ConversionProfile;
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
     checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
-    read_text_byte, ref_indices_from_iter, size_of_type, ArrayValue, DateTimeProfile,
-    PartialAccessError, RefSegment, SizeOfError, StructValue, Value, ValueRef,
+    read_text_byte, read_text_unit, ref_indices_from_iter, size_of_type, ArrayValue,
+    DateTimeProfile, PartialAccessError, RefSegment, SizeOfError, StructValue, Value, ValueRef,
 };
 
 use super::storage_lvalue::read_storage_lvalue_with_types;
@@ -859,10 +859,13 @@ fn read_indices(
                 .cloned()
                 .ok_or(RuntimeError::TypeMismatch)
         }
-        // Under the CODESYS profile `s[i]` of a `STRING` is the `BYTE` at offset `i`, as the program
-        // reads it (docs/IEC_DEVIATIONS.md DEV-046).
+        // Under the CODESYS profile `s[i]` of a `STRING` is the `BYTE` at offset `i`, and of a
+        // `WSTRING` the `WORD` there, as the program reads them (docs/IEC_DEVIATIONS.md DEV-046).
         Value::String(text) if profile == ConversionProfile::Codesys => {
             read_text_byte(text.as_str(), single_index(indices)?)
+        }
+        Value::WString(text) if profile == ConversionProfile::Codesys => {
+            read_text_unit(text.as_str(), single_index(indices)?)
         }
         Value::String(text) => read_string_index(text.as_str(), indices, false),
         Value::WString(text) => read_string_index(text.as_str(), indices, true),

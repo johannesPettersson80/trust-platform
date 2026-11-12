@@ -136,25 +136,40 @@ impl StrView<'_> {
     /// be one an earlier, longer text left, or to the capacity; a write after that 0 leaves the
     /// text as it was. Only the length changes: the bytes are what was written.
     pub fn bytes_written(&self, first: usize, end: usize) {
-        let len = self.len();
-        let end = end.min(self.data.len());
-        if first > len {
-            return;
+        if let Some(len) = written_length(self.data, self.len(), first, end) {
+            // The capacity is at most 65,535 (specification 44 §7.6).
+            self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
         }
-        let zero = |from: usize, to: usize| {
-            self.data
-                .get(from..to)
-                .and_then(|bytes| bytes.iter().position(|byte| byte.get() == 0))
-                .map(|position| from + position)
-        };
-        let len = match zero(first, end) {
-            Some(written) => written,
-            // The 0 after the text, or the capacity, still ends it.
-            None if end <= len => return,
-            None => zero(end, self.data.len()).unwrap_or(self.data.len()),
-        };
-        // The capacity is at most 65,535 (specification 44 §7.6).
-        self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
+    }
+}
+
+/// The length that the elements `first..end`, written into `data`, give a text that was `len`
+/// long, as [`StrView::bytes_written`] describes it: the text ends at its first 0, or at the
+/// capacity. `None` when the length stays as it was.
+fn written_length<T: Copy + Default + PartialEq>(
+    data: &[Cell<T>],
+    len: usize,
+    first: usize,
+    end: usize,
+) -> Option<usize> {
+    let end = end.min(data.len());
+    if first > len {
+        return None;
+    }
+    let zero = |from: usize, to: usize| {
+        data.get(from..to)
+            .and_then(|elements| {
+                elements
+                    .iter()
+                    .position(|element| element.get() == T::default())
+            })
+            .map(|position| from + position)
+    };
+    match zero(first, end) {
+        Some(written) => Some(written),
+        // The 0 after the text, or the capacity, still ends it.
+        None if end <= len => None,
+        None => Some(zero(end, data.len()).unwrap_or(data.len())),
     }
 }
 
@@ -195,6 +210,17 @@ impl WStrView<'_> {
         self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
         if let Some(terminator) = self.data.get(len) {
             terminator.set(0);
+        }
+    }
+
+    /// Sets the length that the code units `first..end` give the text after a write of them, as
+    /// the CODESYS profile writes `ws[i]` (`docs/IEC_DEVIATIONS.md` DEV-046): the text ends at its
+    /// first 0 unit, or at the capacity, as [`StrView::bytes_written`] sets a string's length from
+    /// its bytes. Only the length changes: the units are what was written.
+    pub fn units_written(&self, first: usize, end: usize) {
+        if let Some(len) = written_length(self.data, self.len(), first, end) {
+            // The capacity is at most 65,535 (specification 44 §7.6).
+            self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
         }
     }
 }

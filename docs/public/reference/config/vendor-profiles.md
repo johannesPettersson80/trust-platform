@@ -63,9 +63,12 @@ Under `codesys`, `beckhoff` and `twincat`, a string's bytes behave as in CODESYS
   the string's bytes changes the text: a 0 ends it, and another byte written over its end extends it
   to the next 0.
 - `s[n]` of a `STRING[n]` reads 0, the 0 that CODESYS keeps after a full text.
+- `ws[i]` of a `WSTRING` is likewise the `WORD` at offset `i`, its code unit there, and
+  `ADR(ws[i])` is a `POINTER TO WORD` that names it. Its text ends at its first 0 unit, and
+  `ws[n]` of a `WSTRING[n]` reads 0.
 
-The other profiles keep the IEC rule: `s[i]` is the `CHAR` at position `i`, counted from 1
-(`docs/IEC_DEVIATIONS.md`, DEV-046). A `WSTRING` keeps that rule under every profile.
+The other profiles keep the IEC rule: `s[i]` is the `CHAR` at position `i`, counted from 1, and
+`ws[i]` the `WCHAR` there (`docs/IEC_DEVIATIONS.md`, DEV-046).
 
 ## Names of CODESYS operators
 

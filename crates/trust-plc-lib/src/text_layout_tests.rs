@@ -176,3 +176,46 @@ fn a_strings_bytes_are_read_and_written_by_their_offsets() {
         (FaultCode::IndexOutOfBounds as u32, [8, 0, 7])
     );
 }
+
+// Worked by hand, under the CODESYS profile (DEV-046), in UTF-16 code units: "Hé€" in a WSTRING[6]
+// is 72, 0x00E9 and 0x20AC, then its 0. Offset 0 reads 72, offset 2 0x20AC, offset 3 its 0, and
+// offset 6, the capacity, 0, where CODESYS holds the 0 after a full text; offsets 7 and -1 are refused
+// with the bounds 0 to 6. Writing 97 ('a') at offset 0 makes "aé€"; 33 ('!') at offset 3, over its 0,
+// makes "aé€!", whose 0 is the one at offset 4; a 0 at offset 1 ends it at "a"; a 0 at offset 6
+// changes nothing, and any other unit there is refused with the bounds 0 to 5. Catches an offset
+// counted from 1 (offset 0 refused, offset 2 reading 0x00E9), a write that leaves the length as it
+// was, and a unit written past the capacity.
+#[test]
+fn a_wide_strings_units_are_read_and_written_by_their_offsets() {
+    let mut cx = cx();
+    let text = WStr::<6>::new();
+    assign_units(text.view(), &[72, 0x00E9, 0x20AC]);
+    assert_eq!(text_word(&mut cx, text.view(), 0), Ok(72));
+    assert_eq!(text_word(&mut cx, text.view(), 2), Ok(0x20AC));
+    assert_eq!(text_word(&mut cx, text.view(), 3), Ok(0));
+    assert_eq!(text_word(&mut cx, text.view(), 6), Ok(0));
+    assert!(text_word(&mut cx, text.view(), 7).is_err());
+    assert_eq!(cx.fault.detail, [7, 0, 6]);
+    assert!(text_word(&mut cx, text.view(), -1).is_err());
+    assert_eq!(cx.fault.detail, [-1, 0, 6]);
+
+    set_text_word(&mut cx, text.view(), 0, 97).expect("offset 0 lies in the text");
+    assert_eq!(
+        (text.view().len(), units(&text)),
+        (3, [97, 0x00E9, 0x20AC, 0, 0, 0])
+    );
+    set_text_word(&mut cx, text.view(), 3, 33).expect("offset 3 lies in the capacity");
+    assert_eq!(
+        (text.view().len(), units(&text)),
+        (4, [97, 0x00E9, 0x20AC, 33, 0, 0])
+    );
+    set_text_word(&mut cx, text.view(), 1, 0).expect("offset 1 lies in the text");
+    assert_eq!(text.view().len(), 1);
+    set_text_word(&mut cx, text.view(), 6, 0).expect("a 0 at the capacity changes nothing");
+    assert_eq!(text.view().len(), 1);
+    assert!(set_text_word(&mut cx, text.view(), 6, 33).is_err());
+    assert_eq!(
+        (cx.fault.code, cx.fault.detail),
+        (FaultCode::IndexOutOfBounds as u32, [6, 0, 5])
+    );
+}

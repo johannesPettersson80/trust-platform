@@ -69,7 +69,7 @@ pub use text::{
     assign, assign_bytes, compare, concat, len, write_bool, write_duration, write_int, write_uint,
     Piece, LTIME_TEXT, MAX_TEXT, TIME_TEXT,
 };
-pub use text_bytes::{set_text_byte, text_byte};
+pub use text_bytes::{set_text_byte, set_text_word, text_byte, text_word};
 pub use text_functions::{
     char_at, delete, find, insert, left, len_int, mid, replace, right, set_char, text_to_char,
     write_char, write_wchar,

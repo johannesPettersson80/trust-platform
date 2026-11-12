@@ -70,12 +70,13 @@ fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
         && a.generation == b.generation
 }
 
-/// `named` when it names bytes of a string (`TEXT_BYTES`), so that a reference to a byte it names
-/// names that string's bytes too and a write through it sets the string's length
-/// (docs/IEC_DEVIATIONS.md DEV-039); `fresh`, a reference to the byte itself, otherwise.
+/// `named` when it names bytes of a string or code units of a `WSTRING` (`TEXT_BYTES`,
+/// `TEXT_UNITS`), so that a reference to an element it names names that string too and a write
+/// through it sets the string's length (docs/IEC_DEVIATIONS.md DEV-039, DEV-046); `fresh`, a
+/// reference to the element itself, otherwise.
 #[inline]
 fn text_bytes_or(named: abi::RefValue, fresh: abi::RefValue) -> abi::RefValue {
-    if named.kind == abi::RefValue::TEXT_BYTES {
+    if named.kind == abi::RefValue::TEXT_BYTES || named.kind == abi::RefValue::TEXT_UNITS {
         named
     } else {
         fresh
