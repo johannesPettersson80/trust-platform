@@ -219,7 +219,8 @@ impl Lowerer<'_, '_> {
     }
 
     /// `text[index]` as a `CHAR`, or a `WCHAR` of a `WSTRING`, when `node` indexes a string
-    /// (specification 02 §6).
+    /// (specification 02 §6); under the CODESYS profile a `STRING`'s byte at offset `index`, counted
+    /// from 0, and 0 after a full text (docs/IEC_DEVIATIONS.md DEV-046).
     pub(super) fn string_element(
         &mut self,
         node: &SyntaxNode,
@@ -227,15 +228,23 @@ impl Lowerer<'_, '_> {
         let Some((base, index, wide)) = self.string_index(node)? else {
             return Ok(None);
         };
+        let base_ty = self.type_of(&base)?;
+        let by_offset = self.bytes_by_offset(base_ty);
         let text = self.place(&base)?.reference();
         let index = self.count(&index)?;
-        let function = if wide { "char_at_wide" } else { "char_at" };
+        let function = match (wide, by_offset) {
+            (true, _) => "char_at_wide",
+            (false, true) => "text_byte",
+            (false, false) => "char_at",
+        };
         Ok(Some(self.bind(&format!(
             "lib::{function}(cx, ({text}).view(), {index})?"
         ))))
     }
 
-    /// `text[index] := value`, when `target` indexes a string; whether it does.
+    /// `text[index] := value`, when `target` indexes a string; whether it does. Under the CODESYS
+    /// profile a `STRING`'s byte at offset `index`, counted from 0, whose write sets the length the
+    /// bytes give the text (docs/IEC_DEVIATIONS.md DEV-046).
     pub(super) fn string_element_write(
         &mut self,
         target: &SyntaxNode,
@@ -244,12 +253,14 @@ impl Lowerer<'_, '_> {
         let Some((base, index, wide)) = self.string_index(target)? else {
             return Ok(false);
         };
+        let base_ty = self.type_of(&base)?;
+        let by_offset = self.bytes_by_offset(base_ty);
         let text = self.place(&base)?.reference();
         let index = self.count(&index)?;
-        let (elem, function) = if wide {
-            (Elem::WChar, "set_char_wide")
-        } else {
-            (Elem::Char, "set_char")
+        let (elem, function) = match (wide, by_offset) {
+            (true, _) => (Elem::WChar, "set_char_wide"),
+            (false, true) => (Elem::Byte, "set_text_byte"),
+            (false, false) => (Elem::Char, "set_char"),
         };
         let char_ty = self.model.types.elem(elem);
         let character = self.scalar_to(value, char_ty)?;

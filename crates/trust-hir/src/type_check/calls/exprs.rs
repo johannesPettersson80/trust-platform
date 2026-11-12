@@ -90,16 +90,24 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             format!("expected 1 index value, found {index_count}"),
                         );
                     }
+                    // Under the CODESYS profile the index is the offset of a BYTE, counted from 0,
+                    // up to the 0 after a full text (docs/IEC_DEVIATIONS.md DEV-046); IEC 61131-3
+                    // counts a CHAR's position from 1 (§6.4.2.2).
+                    let by_offset = self.checker.symbols.dialect().is_codesys();
                     if let Some(max_len) = max_len {
                         self.check_index_bounds(
                             &index_exprs[0].0,
-                            1,
+                            if by_offset { 0 } else { 1 },
                             i64::from(*max_len),
                             DiagnosticCode::OutOfRange,
                             "string",
                         );
                     }
-                    return SemanticOutcome::Resolved(TypeId::CHAR);
+                    return SemanticOutcome::Resolved(if by_offset {
+                        TypeId::BYTE
+                    } else {
+                        TypeId::CHAR
+                    });
                 }
                 Type::WString { max_len } => {
                     if index_count != 1 {

@@ -882,8 +882,10 @@ re-check them against this rule when touched.
   alike (round 2, #295); a binding from any other pointer source, such as a
   pointer variable, is a **warning** with the same code and message, not an
   error. `ADR` is a keyword, so no user POU can stand in for the operator.
-  Under the other profiles both forms stay errors. `ADR` keeps its pointee typing (`ADR(str[1])` stays
-  `POINTER TO CHAR`, `ADR(str)` stays `POINTER TO STRING[n]`), so the
+  Under the other profiles both forms stay errors. `ADR` keeps its pointee typing (`ADR(str)` stays
+  `POINTER TO STRING[n]`, and `ADR(str[1])` is a `POINTER TO BYTE`, the
+  byte at offset 1, since a `STRING`'s element is that `BYTE` under the
+  profile, DEV-046), so the
   vendor `MemCopy`/`MemCopySecure` `POINTER TO BYTE` formals bind an
   `ADR` of a string element, and the string's base address binds both
   the vendor `Fb_JSON_ParseAndModify` `pData : POINTER TO ARRAY[0..65535]
@@ -1164,3 +1166,41 @@ re-check them against this rule when touched.
   them, and out-of-family pairs (`REAL_TO_LWORD` per DEV-025, an integer
   `TO_BYTE`) keep their existing rules. A non-finite `REAL`/`LREAL` source
   still returns `RuntimeError::Overflow`.
+
+## 2026-11-12 - CODESYS language profile: a STRING's element is the BYTE at its offset
+
+- ID: DEV-046
+- Area: index access to a `STRING`, `s[i]`, and `ADR(s[i])`, under a CODESYS
+  `vendor_profile` (specification 14).
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.2.2: "Access to
+  single characters of a string using elements of the data type CHAR or
+  WCHAR shall be supported using square brackets and the position of the
+  character in the string, starting with position 1."
+- truST behavior and conflict: under the CODESYS profile `s[i]` of a
+  `STRING` is the `BYTE` at offset `i` of the string's bytes, counted from
+  0, as CODESYS gives it (CODESYS help, index access to a `STRING`: "you get
+  the character at the offset of the index expression. The result is of
+  type BYTE"). It is
+  read and written as that byte, and `ADR(s[i])` is a `POINTER TO BYTE` that
+  names it (contributor issue #453, `MemCopySecure(pDest := ADR(sJson[1]),
+  ...)`). A read gives the byte whatever the text's length, as CODESYS reads
+  the string's memory. A write sets the length that the bytes give the text,
+  as a write through a pointer to them does (DEV-039; specification 44
+  §7.3). CODESYS lays a `STRING(n)` out in n + 1 bytes, its text and a 0;
+  truST's `STRING[n]` holds n bytes (specification 44 §6.2). So `s[n]` reads
+  0, which CODESYS holds there after a full text, a 0 written there changes
+  nothing, and another byte written there is refused with
+  `IndexOutOfBounds`, where CODESYS would overwrite the full text's 0. A
+  statically known index is checked against 0 to n. This conflicts with the
+  standard's `CHAR` element at a position counted from 1. A `WSTRING` keeps
+  the standard's `WCHAR` element under every profile for now; CODESYS gives
+  a `WORD` there.
+- Impact: CODESYS projects that read or write a string's bytes by index, and
+  pass `ADR(s[i])` to a vendor memory function, compile and run as in
+  CODESYS. A project that relied on truST's `CHAR` element under the CODESYS
+  profile reads the byte one position earlier, as CODESYS does. Debugger
+  watch expressions still read `s[i]` by the standard's rule.
+- Mitigation: the IEC dialect keeps the standard's `CHAR` element at a
+  position counted from 1, pinned by trust-hir and runtime tests; the
+  profile applies only to projects whose `vendor_profile` is `codesys`,
+  `beckhoff` or `twincat`.

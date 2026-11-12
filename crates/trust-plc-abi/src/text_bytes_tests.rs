@@ -117,7 +117,7 @@ fn deref_outcome<T: Plain>(char_index: u16) -> (u32, [i64; 3]) {
     cx.set_area(AREA_GLOBALS, words.as_mut_ptr().cast(), 16);
     let result = run(&raw mut cx, |cx, areas| {
         let texts: &Texts = areas.view(cx, AREA_GLOBALS)?;
-        let bytes = areas.refer_text_bytes(cx, &texts.text)?;
+        let bytes = areas.refer_text_bytes(cx, texts.text.view(), 0)?;
         let _: &T = areas.deref(
             cx,
             &RefValue {
@@ -145,7 +145,7 @@ fn a_reference_to_a_strings_bytes_names_the_string_and_reaches_its_bytes() {
     cx.set_area(AREA_GLOBALS, words.as_mut_ptr().cast(), 16);
     let result = run(&raw mut cx, |cx, areas| {
         let texts: &Texts = areas.view(cx, AREA_GLOBALS)?;
-        let bytes = areas.refer_text_bytes(cx, &texts.text)?;
+        let bytes = areas.refer_text_bytes(cx, texts.text.view(), 0)?;
         assert_eq!(
             bytes,
             RefValue {
@@ -195,7 +195,7 @@ fn a_write_through_the_reference_sets_the_length_of_the_text() {
     cx.set_area(AREA_GLOBALS, words.as_mut_ptr().cast(), 16);
     let result = run(&raw mut cx, |cx, areas| {
         let texts: &Texts = areas.view(cx, AREA_GLOBALS)?;
-        let bytes = areas.refer_text_bytes(cx, &texts.text)?;
+        let bytes = areas.refer_text_bytes(cx, texts.text.view(), 0)?;
         let head: &[Cell<u8>; 3] = areas.deref(cx, &bytes)?;
         for (cell, byte) in head.iter().zip(*b"Hi\0") {
             cell.set(byte);
@@ -225,4 +225,34 @@ fn a_write_through_the_reference_sets_the_length_of_the_text() {
         Ok(())
     });
     assert_eq!(result, 0);
+}
+
+/// The fault and its numbers of a reference to the bytes of `Texts::text`, a `STRING[5]`, from its
+/// byte `first`, and the reference's index when it is taken.
+fn refer_outcome(first: i64) -> (u32, [i64; 3], u16) {
+    let mut words = [0u64; 2];
+    let mut cx = context();
+    cx.set_area(AREA_GLOBALS, words.as_mut_ptr().cast(), 16);
+    let mut index = u16::MAX;
+    let result = run(&raw mut cx, |cx, areas| {
+        let texts: &Texts = areas.view(cx, AREA_GLOBALS)?;
+        index = areas
+            .refer_text_bytes(cx, texts.text.view(), first)?
+            .char_index;
+        Ok(())
+    });
+    (result, cx.fault.detail, index)
+}
+
+/// `ADR(s[i])` under the CODESYS profile names the string's bytes from byte `i`, counted from 0
+/// (DEV-046): bytes 0 and 4 of a `STRING[5]` are named with those indices; -1 and 5, which the
+/// string does not hold, are refused with `IndexOutOfBounds` and the bounds 0 to 4. Catches an
+/// index counted from 1, and a reference past the string's bytes.
+#[test]
+fn a_reference_to_a_strings_byte_names_it_from_zero_within_the_capacity() {
+    assert_eq!(refer_outcome(0), (0, [0, 0, 0], 0));
+    assert_eq!(refer_outcome(4), (0, [0, 0, 0], 4));
+    let out = FaultCode::IndexOutOfBounds as u32;
+    assert_eq!(refer_outcome(-1), (out, [-1, 0, 4], u16::MAX));
+    assert_eq!(refer_outcome(5), (out, [5, 0, 4], u16::MAX));
 }
