@@ -74,8 +74,7 @@ pub(crate) fn write_parts(dst: StrView<'_>, start: usize, parts: &[Piece<'_>]) -
             index = end;
         }
     }
-    // The capacity is at most 65,535 (specification 44 §7.6).
-    dst.len.set(u16::try_from(at).unwrap_or(u16::MAX));
+    dst.set_len(at);
     at
 }
 
