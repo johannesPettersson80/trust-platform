@@ -7003,7 +7003,11 @@ root and resolves against it. An optional CA path resolves by the same rule.
 Read failures identify certificate, key, or CA ownership and the resolved
 path. When CA is omitted, the server certificate bytes are the client trust
 root. The tiny-http projection contains owned copies of certificate and
-private-key PEM only.
+private-key PEM only. The web server's TLS is tiny_http's, vendored onto
+rustls 0.23 with the aws-lc-rs provider (`third_party/tiny_http`, its
+`VENDORED.md`): an empty or malformed certificate chain, a missing or
+malformed private key, or a key that does not match the certificate fails
+the web server's start with `web tls bind:` and the reason, never a panic.
 
 A rustls server configuration requires at least one valid certificate and one
 valid private key, and rejects malformed, empty, or certificate/key-mismatched

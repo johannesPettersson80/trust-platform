@@ -36,6 +36,7 @@ members = [
     "crates/trust-test-support",
 ]
 exclude = [
+    "third_party/tiny_http",
     "third_party/tiverse-mmap",
     "firmware/trust-esp32c6",
     "firmware/trust-stm32u5a9",
@@ -195,4 +196,6 @@ opt-level = 3
 opt-level = 3
 
 [patch.crates-io]
+# tiny_http 0.12.0 with its TLS on rustls 0.23 (third_party/tiny_http/VENDORED.md).
+tiny_http = { path = "third_party/tiny_http" }
 tiverse-mmap = { path = "third_party/tiverse-mmap" }
