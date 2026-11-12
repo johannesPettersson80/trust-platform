@@ -4,7 +4,8 @@
 use core::marker::PhantomData;
 
 use crate::{
-    Area, Cx, Fault, FaultCode, FaultRecord, Plain, RefValue, AREA_COUNT, INTERFACE_VERSION,
+    Area, Cx, Fault, FaultCode, FaultRecord, Plain, RefValue, Str, StrView, AREA_COUNT,
+    INTERFACE_VERSION,
 };
 
 /// The generation of every reference a compiled program takes: 1, until an online change gives an
@@ -87,9 +88,62 @@ impl<'s> Areas<'s> {
         Err(fault(cx, FaultCode::ReferenceLifetime, 0, 0, 0))
     }
 
+    /// A reference of kind [`RefValue::TEXT_BYTES`] to the bytes of `text`, a `STRING` that lies in
+    /// one of the areas, from its first byte (specification 44 §7.3; `docs/IEC_DEVIATIONS.md`
+    /// DEV-039): it names the whole string, its length and its `N` bytes, so that a write through it
+    /// can set the length the bytes give the text ([`Areas::bytes_written`]).
+    ///
+    /// # Errors
+    ///
+    /// [`FaultCode::ReferenceLifetime`] when `text` lies in no area.
+    pub fn refer_text_bytes<const N: usize>(
+        &self,
+        cx: &mut Cx,
+        text: &Str<N>,
+    ) -> Result<RefValue, Fault> {
+        let reference = self.refer(cx, text, RefValue::TEXT_BYTES)?;
+        Ok(RefValue {
+            // A capacity is at most 65,535 (specification 44 §7.6).
+            extent: u32::try_from(N + 2).unwrap_or(u32::MAX),
+            ..reference
+        })
+    }
+
+    /// Sets the length of the string whose bytes `reference` names, a reference of kind
+    /// [`RefValue::TEXT_BYTES`], after `count` bytes from its first one were written through it: the
+    /// text ends at its first 0 byte, or at the capacity, as CODESYS reads a string
+    /// ([`StrView::bytes_written`]; `docs/IEC_DEVIATIONS.md` DEV-039). Any other reference names no
+    /// string's bytes, and nothing changes.
+    ///
+    /// # Errors
+    ///
+    /// As [`Areas::deref`], for a reference whose string lies outside its area.
+    pub fn bytes_written(
+        &self,
+        cx: &mut Cx,
+        reference: &RefValue,
+        count: usize,
+    ) -> Result<(), Fault> {
+        if reference.kind != RefValue::TEXT_BYTES {
+            return Ok(());
+        }
+        current(cx, reference)?;
+        let capacity = usize::try_from(reference.extent.saturating_sub(2)).unwrap_or(0);
+        let len = self.at(cx, reference)?;
+        let bytes = RefValue {
+            offset: reference.offset.saturating_add(2),
+            ..*reference
+        };
+        let data = self.elements(cx, &bytes, capacity)?;
+        let first = usize::from(reference.char_index);
+        StrView { len, data }.bytes_written(first, first.saturating_add(count));
+        Ok(())
+    }
+
     /// The variable `reference` names, viewed as `T` (specification 44 §7.3): the reference is not
     /// `NULL`, it was taken in this program's generation, it spans exactly a `T`, and its area holds
-    /// it, aligned for `T`.
+    /// it, aligned for `T`. A reference of kind [`RefValue::TEXT_BYTES`] names a string's bytes from
+    /// its byte `char_index`, as a byte or an array of bytes the string holds.
     ///
     /// # Errors
     ///
@@ -98,6 +152,10 @@ impl<'s> Areas<'s> {
     /// no `T`.
     pub fn deref<T: Plain>(&self, cx: &mut Cx, reference: &RefValue) -> Result<&'s T, Fault> {
         current(cx, reference)?;
+        if reference.kind == RefValue::TEXT_BYTES {
+            let bytes = text_bytes::<T>(cx, reference)?;
+            return self.at(cx, &bytes);
+        }
         let size = core::mem::size_of::<T>();
         if usize::try_from(reference.extent).ok() != Some(size) {
             return Err(fault(
@@ -300,6 +358,35 @@ impl<'s> Areas<'s> {
             ));
         }
         Ok(target)
+    }
+}
+
+/// The reference to the bytes that `reference`, of kind [`RefValue::TEXT_BYTES`], names as a `T`:
+/// from the string's byte `char_index`, after its length's 2 bytes. A `T` is a byte or an array of
+/// bytes (alignment 1) that the string's bytes hold from there; anything else is `TypeMismatch`, with
+/// the bytes from there and the bytes of a `T`.
+fn text_bytes<T>(cx: &mut Cx, reference: &RefValue) -> Result<RefValue, Fault> {
+    let first = 2 + u32::from(reference.char_index);
+    let size = u32::try_from(core::mem::size_of::<T>()).ok();
+    let fits = core::mem::align_of::<T>() == 1
+        && size
+            .and_then(|size| first.checked_add(size))
+            .is_some_and(|end| end <= reference.extent);
+    match (fits, size, reference.offset.checked_add(first)) {
+        (true, Some(extent), Some(offset)) => Ok(RefValue {
+            kind: RefValue::VARIABLE,
+            char_index: 0,
+            offset,
+            extent,
+            ..*reference
+        }),
+        _ => Err(fault(
+            cx,
+            FaultCode::TypeMismatch,
+            i64::from(reference.extent.saturating_sub(first)),
+            size.map_or(i64::MAX, i64::from),
+            0,
+        )),
     }
 }
 

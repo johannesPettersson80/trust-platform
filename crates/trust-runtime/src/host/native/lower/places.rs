@@ -105,8 +105,12 @@ impl Lowerer<'_, '_> {
         Ok(self.dereference(&value, target))
     }
 
-    /// The variable of type `target` the reference value `reference` names, bound to a temporary.
+    /// The variable of type `target` the reference value `reference` names, bound to a temporary; a
+    /// byte or an array of bytes may be a string's bytes (`dereference_bytes`).
     pub(in crate::native) fn dereference(&mut self, reference: &str, target: Ty) -> Place {
+        if self.names_text_bytes(target) {
+            return self.dereference_bytes(reference, target);
+        }
         let storage = self.info(target).rust.clone();
         let expr = self.bind(&format!("w.areas.deref::<{storage}>(cx, &{reference})?"));
         Place {
@@ -595,6 +599,15 @@ impl Lowerer<'_, '_> {
         }
         let array = self.place(&base)?;
         let array = self.referenced_place(array);
+        // An array that a pointer to bytes gave may be a string's bytes, whose element a write
+        // through it names with the string's reference (docs/IEC_DEVIATIONS.md DEV-039).
+        if let (Some(reference), [index], Some(shape)) = (
+            self.bytes_reference(&array),
+            indices.as_slice(),
+            self.scalar_elements(array.ty),
+        ) {
+            return self.element_through(&reference, index, shape);
+        }
         if matches!(self.info(array.ty).kind, Kind::Open { .. }) {
             return self.open_element(node, &array, &indices);
         }
@@ -650,21 +663,41 @@ impl Lowerer<'_, '_> {
         let Kind::Ref { target, .. } = self.info(reference_ty).kind else {
             return Ok(None);
         };
-        let Kind::Array { elem, dims } = self.info(target).kind.clone() else {
+        let Some(shape) = self.scalar_elements(target) else {
             return Ok(None);
         };
-        let ([(lower, upper)], true) = (dims.as_slice(), super::is_scalar(&self.info(elem).kind))
-        else {
-            return Ok(None);
+        let value = self.reference(&reference)?;
+        self.element_through(&value, index, shape).map(Some)
+    }
+
+    /// The element type and the bounds of `array` when it is a one-dimensional array of scalars,
+    /// whose element a reference names (`lib::element_reference`).
+    fn scalar_elements(&self, array: Ty) -> Option<(Ty, i64, i64)> {
+        let Kind::Array { elem, dims } = &self.info(array).kind else {
+            return None;
         };
+        match (dims.as_slice(), super::is_scalar(&self.info(*elem).kind)) {
+            ([(lower, upper)], true) => Some((*elem, *lower, *upper)),
+            _ => None,
+        }
+    }
+
+    /// The element `index` of the array of `elem` from `lower` to `upper` that the reference value
+    /// `reference` names: checked against the array's bounds and against the bytes the reference
+    /// names (`lib::element_reference`), then dereferenced as `^` dereferences (§7.3).
+    fn element_through(
+        &mut self,
+        reference: &str,
+        index: &SyntaxNode,
+        (elem, lower, upper): (Ty, i64, i64),
+    ) -> Result<Place, NativeError> {
         let size = self.info(elem).size;
         let lint = self.model.types.elem(Elem::LInt);
-        let value = self.reference(&reference)?;
         let index = self.scalar_to(index, lint)?;
         let element = self.bind(&format!(
-            "lib::element_reference(cx, {value}, {index}, {lower}, {upper}, {size})?"
+            "lib::element_reference(cx, {reference}, {index}, {lower}, {upper}, {size})?"
         ));
-        Ok(Some(self.dereference(&element, elem)))
+        Ok(self.dereference(&element, elem))
     }
 }
 

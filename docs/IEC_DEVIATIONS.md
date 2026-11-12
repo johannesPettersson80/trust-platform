@@ -909,9 +909,14 @@ re-check them against this rule when touched.
   byte after it when the capacity leaves room. The bytes after that 0 keep
   what they held, as CODESYS keeps "the contents of the (old) string, which
   exist after the terminating null character". So a scan of the bytes for
-  the 0 stops where the text ends (specification 44 §6.2). The text's
-  length is still its own: a byte written through such a pointer changes
-  the bytes, not the text.
+  the 0 stops where the text ends (specification 44 §6.2). Bytes written
+  through such a pointer change the text as CODESYS reads it, to its first
+  0 byte: a copy into an empty string, its 0 last, becomes its text; a 0
+  written into the text ends it there; a byte other than 0 written over the
+  0 after the text extends it to the next 0, through what an earlier,
+  longer text left; a byte written after that 0 leaves the text as it was
+  (specification 44 §7.3). A 0 that a text holds of its own, from a
+  literal's `$00`, does not end it, where CODESYS ends it there.
 - Mitigation: the demotion is form-scoped, not blanket — element/record
   boundary mismatches keep their errors. A lenient binding whose source is
   a pointer value, not an `ADR` call, still produces one warning, so a

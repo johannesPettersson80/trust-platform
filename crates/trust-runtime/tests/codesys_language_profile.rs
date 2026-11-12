@@ -25,6 +25,8 @@ mod online_change_calls;
 mod reference_text;
 #[path = "codesys_language_profile/string_byte_pointers.rs"]
 mod string_byte_pointers;
+#[path = "codesys_language_profile/string_byte_writes.rs"]
+mod string_byte_writes;
 #[path = "codesys_language_profile/string_in_out.rs"]
 mod string_in_out;
 

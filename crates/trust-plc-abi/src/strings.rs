@@ -127,6 +127,35 @@ impl StrView<'_> {
             terminator.set(0);
         }
     }
+
+    /// Sets the length that the bytes `first..end` give the text after a write through a pointer to
+    /// the string's bytes: the text ends at its first 0 byte, or at the capacity, as CODESYS reads
+    /// a string (`docs/IEC_DEVIATIONS.md` DEV-039). The bytes before `first` are as they were, and
+    /// none of them before the length is 0, so a 0 written before the length ends the text there; a
+    /// byte other than 0 written over the 0 after the text extends the text to the next 0, which may
+    /// be one an earlier, longer text left, or to the capacity; a write after that 0 leaves the
+    /// text as it was. Only the length changes: the bytes are what was written.
+    pub fn bytes_written(&self, first: usize, end: usize) {
+        let len = self.len();
+        let end = end.min(self.data.len());
+        if first > len {
+            return;
+        }
+        let zero = |from: usize, to: usize| {
+            self.data
+                .get(from..to)
+                .and_then(|bytes| bytes.iter().position(|byte| byte.get() == 0))
+                .map(|position| from + position)
+        };
+        let len = match zero(first, end) {
+            Some(written) => written,
+            // The 0 after the text, or the capacity, still ends it.
+            None if end <= len => return,
+            None => zero(end, self.data.len()).unwrap_or(self.data.len()),
+        };
+        // The capacity is at most 65,535 (specification 44 §7.6).
+        self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
+    }
 }
 
 /// A `WSTRING` of any capacity: its length and its code units.
