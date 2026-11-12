@@ -29,6 +29,7 @@ mod prelude;
 mod refusals;
 mod strings;
 mod text;
+mod text_selection;
 
 pub(super) use call::{ident as ident_of, parameter};
 pub(super) use prelude::PRELUDE;
