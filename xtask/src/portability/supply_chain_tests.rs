@@ -56,6 +56,11 @@ fi
     Fixture(root)
 }
 
+/// Specification 24, "Dependency Exceptions": the root, the two standalone firmware workspaces and
+/// the two fuzz harnesses are independent locked graphs, each checked by `cargo deny` and `cargo
+/// audit`, and a failure of any one fails the gate after every other check ran. Catches a graph
+/// left out, such as a fuzz harness whose lock its manifests have left behind, and one graph's
+/// failure hiding another's result.
 #[test]
 fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
     for exceptions in [true, false] {
@@ -65,10 +70,14 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             "--manifest-path firmware/",
             "--manifest-path firmware/trust-esp32c6/",
             "--manifest-path firmware/trust-stm32u5a9/",
+            "--manifest-path fuzz/",
+            "--manifest-path crates/trust-ads-server/fuzz/",
             "audit --json --file Cargo.lock",
             "audit --json --file firmware/",
             "audit --json --file firmware/trust-esp32c6/",
             "audit --json --file firmware/trust-stm32u5a9/",
+            "audit --json --file fuzz/",
+            "audit --json --file crates/trust-ads-server/fuzz/",
         ] {
             let fixture = fixture();
             let log = fixture.0.join("commands.txt");
@@ -96,36 +105,42 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             );
             let commands = fs::read_to_string(log).unwrap();
             let commands: Vec<_> = commands.lines().collect();
-            assert_eq!(commands.len(), 6, "every independent graph check must run");
+            assert_eq!(commands.len(), 10, "every independent graph check must run");
             assert_eq!(
                 commands[0],
                 "deny --locked check advisories licenses bans sources"
             );
-            assert!(commands[1].starts_with(
-                "deny --locked --manifest-path firmware/trust-esp32c6/Cargo.toml --config "
-            ));
-            assert!(commands[1].ends_with(" check advisories licenses bans sources"));
-            assert!(commands[2].starts_with(
-                "deny --locked --manifest-path firmware/trust-stm32u5a9/Cargo.toml --config "
-            ));
-            assert!(commands[2].ends_with(" check advisories licenses bans sources"));
+            for (command, manifest) in commands[1..5].iter().zip([
+                "firmware/trust-esp32c6/Cargo.toml",
+                "firmware/trust-stm32u5a9/Cargo.toml",
+                "fuzz/Cargo.toml",
+                "crates/trust-ads-server/fuzz/Cargo.toml",
+            ]) {
+                assert!(
+                    command.starts_with(&format!(
+                        "deny --locked --manifest-path {manifest} --config "
+                    )),
+                    "{command}"
+                );
+                assert!(
+                    command.ends_with(" check advisories licenses bans sources"),
+                    "{command}"
+                );
+            }
             let suffix = if exceptions {
                 " --ignore RUSTSEC-2026-0110"
             } else {
                 ""
             };
-            assert_eq!(
-                commands[3],
-                format!("audit --json --file Cargo.lock{suffix}")
-            );
-            assert_eq!(
-                commands[4],
-                format!("audit --json --file firmware/trust-esp32c6/Cargo.lock{suffix}")
-            );
-            assert_eq!(
-                commands[5],
-                format!("audit --json --file firmware/trust-stm32u5a9/Cargo.lock{suffix}")
-            );
+            for (command, lock) in commands[5..].iter().zip([
+                "Cargo.lock",
+                "firmware/trust-esp32c6/Cargo.lock",
+                "firmware/trust-stm32u5a9/Cargo.lock",
+                "fuzz/Cargo.lock",
+                "crates/trust-ads-server/fuzz/Cargo.lock",
+            ]) {
+                assert_eq!(*command, format!("audit --json --file {lock}{suffix}"));
+            }
         }
     }
 }
