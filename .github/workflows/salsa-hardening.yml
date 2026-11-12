@@ -54,11 +54,24 @@ jobs:
           cargo +1.99.0 install cargo-fuzz --version 0.13.2 --locked
       - name: Run PR smoke fuzz targets
         run: ./scripts/salsa_fuzz_gate.sh smoke
+      # Evidence of the fuzzing, whose verdict is the step above: tried twice, and a failed upload never fails the job
+      # (G146; specification 22).
       - name: Upload fuzz artifacts
+        id: fuzz-artifacts
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: salsa-fuzz-smoke-artifacts
+          path: |
+            fuzz/artifacts/
+      - name: Upload fuzz artifacts (second attempt)
+        if: ${{ always() && steps.fuzz-artifacts.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: salsa-fuzz-smoke-artifacts
+          overwrite: true
           path: |
             fuzz/artifacts/
 

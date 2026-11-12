@@ -189,8 +189,8 @@ jobs:
           "${RUNNER_TEMP}/actionlint" -color
       - name: Guard the workflow downloads
         run: python3 -m unittest scripts.tests.test_workflow_downloads -v
-      - name: Guard the test log upload
-        run: python3 -m unittest scripts.tests.test_workflow_test_log_upload -v
+      - name: Guard the evidence uploads
+        run: python3 -m unittest scripts.tests.test_workflow_evidence_uploads -v
       - name: Guard the release text from the changelog
         run: python3 -m unittest scripts.tests.test_extract_changelog_section -v
       - name: Guard the flake trend's requests to GitHub
@@ -659,11 +659,30 @@ jobs:
         run: |
           OUT_DIR=gate-artifacts/runtime-comms-conformance \
           ./scripts/runtime_comms_conformance_gate.sh
+      # Evidence of the checks, like the test log: tried twice, and a failed upload never fails the job (G146).
       - name: Upload conformance artifacts
+        id: conformance-evidence
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: conformance-suite
+          path: |
+            gate-artifacts/conformance-pass-*.json
+            gate-artifacts/conformance-pass-*.md
+            gate-artifacts/runtime-comms-fuzz/**
+            gate-artifacts/runtime-comms-bench/**
+            gate-artifacts/runtime-vm-bench/**
+            gate-artifacts/runtime-vm-determinism/**
+            gate-artifacts/runtime-cloud-security-profiles/**
+            gate-artifacts/runtime-comms-conformance/**
+      - name: Upload conformance artifacts (second attempt)
+        if: ${{ always() && steps.conformance-evidence.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: conformance-suite
+          overwrite: true
           path: |
             gate-artifacts/conformance-pass-*.json
             gate-artifacts/conformance-pass-*.md
@@ -698,11 +717,28 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run shared architecture safety gate
         run: bash scripts/architecture_safety_gate.sh
+      # Evidence of the checks, like the test log: tried twice, and a failed upload never fails the job (G146).
       - name: Upload architecture safety artifacts
+        id: architecture-evidence
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: architecture-safety
+          path: |
+            target/gate-artifacts/architecture-external-safety-*/**
+            target/gate-artifacts/runtime-boundary-fail-closed-*/**
+            target/gate-artifacts/runtime-safety-fail-closed-*/**
+            target/gate-artifacts/full-software-map-*/software-map.json
+            target/gate-artifacts/full-software-map-*/full-map-report.json
+            target/gate-artifacts/full-software-map-*/full-map-report.md
+      - name: Upload architecture safety artifacts (second attempt)
+        if: ${{ always() && steps.architecture-evidence.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: architecture-safety
+          overwrite: true
           path: |
             target/gate-artifacts/architecture-external-safety-*/**
             target/gate-artifacts/runtime-boundary-fail-closed-*/**
@@ -847,11 +883,22 @@ jobs:
       - name: Run current runtime and deterministic browser journeys
         working-directory: ${{ github.workspace }}
         run: bash scripts/hmi_ci_gate.sh browser
+      # Evidence of the checks, like the test log: tried twice, and a failed upload never fails the job (G146).
       - name: Upload the screen test results
+        id: screen-test-results
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: hmi-screen-test-results
+          path: scripts/hmi-screen-tests/test-results
+      - name: Upload the screen test results (second attempt)
+        if: ${{ always() && steps.screen-test-results.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: hmi-screen-test-results
+          overwrite: true
           path: scripts/hmi-screen-tests/test-results
       - name: Record successful HMI gate
         working-directory: ${{ github.workspace }}
@@ -962,11 +1009,26 @@ jobs:
         env:
           ST_LSP_TEST_SERVER: ${{ github.workspace }}/target/debug/trust-lsp
           ST_RUNTIME_TEST_BIN: ${{ github.workspace }}/target/debug/trust-dev
+      # Evidence of the tests, like the test suite log: tried twice, and a failed upload never fails the job. On 11
+      # November 2026 GitHub's artifact service failed this upload after every extension test had passed, which
+      # skipped the gate marker and so failed the Release Gate Report too (G146).
       - name: Upload VS Code integration test log
+        id: vscode-log
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: vscode-extension-test-log
+          path: |
+            gate-artifacts/vscode-extension-test.log
+            gate-artifacts/vscode-extension-retry-rescued.txt
+      - name: Upload VS Code integration test log (second attempt)
+        if: ${{ always() && steps.vscode-log.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: vscode-extension-test-log
+          overwrite: true
           path: |
             gate-artifacts/vscode-extension-test.log
             gate-artifacts/vscode-extension-retry-rescued.txt
@@ -1168,9 +1230,21 @@ jobs:
             --job-status "version-release-guard=${NEED_VERSION_RELEASE_GUARD}" \
             --checklist docs/release-gate-checklist.md
 
+      # The report's verdict is the step above; its files are evidence, tried twice, and a failed upload never fails
+      # the job (G146).
       - name: Upload release gate report
+        id: gate-report
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: release-gate-report
+          path: gate-report/
+      - name: Upload release gate report (second attempt)
+        if: ${{ always() && steps.gate-report.outcome == 'failure' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-gate-report
+          overwrite: true
           path: gate-report/
