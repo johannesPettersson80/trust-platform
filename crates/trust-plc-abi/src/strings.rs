@@ -9,7 +9,8 @@ use core::cell::Cell;
 pub struct Str<const N: usize> {
     /// The length in bytes; a length above `N` reads as `N`.
     pub len: Cell<u16>,
-    /// The bytes; those after the length are not part of the value.
+    /// The bytes. A write of the text puts a 0 after it when the length is below `N`
+    /// ([`StrView::set_len`]); the bytes after the length are not part of the value.
     pub data: [Cell<u8>; N],
 }
 
@@ -45,7 +46,8 @@ impl<const N: usize> Default for Str<N> {
 pub struct WStr<const N: usize> {
     /// The length in code units; a length above `N` reads as `N`.
     pub len: Cell<u16>,
-    /// The code units; those after the length are not part of the value.
+    /// The code units. A write of the text puts a 0 after it when the length is below `N`
+    /// ([`WStrView::set_len`]); the units after the length are not part of the value.
     pub data: [Cell<u16>; N],
 }
 
@@ -112,6 +114,48 @@ impl StrView<'_> {
             0
         }
     }
+
+    /// Sets the length to `len` bytes, at most the capacity, after a write of the text, and puts a
+    /// 0 byte after the text when the capacity leaves room, keeping the bytes after that 0. CODESYS
+    /// lays a string out as its text and a terminating 0, and its profile's `ADR(s)` names these
+    /// bytes (specification 44 §6.2, DEV-039 in `docs/IEC_DEVIATIONS.md`).
+    pub fn set_len(&self, len: usize) {
+        let len = len.min(self.data.len());
+        // The capacity is at most 65,535 (specification 44 §7.6).
+        self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
+        if let Some(terminator) = self.data.get(len) {
+            terminator.set(0);
+        }
+    }
+
+    /// Sets the length that the bytes `first..end` give the text after a write through a pointer to
+    /// the string's bytes: the text ends at its first 0 byte, or at the capacity, as CODESYS reads
+    /// a string (`docs/IEC_DEVIATIONS.md` DEV-039). The bytes before `first` are as they were, and
+    /// none of them before the length is 0, so a 0 written before the length ends the text there; a
+    /// byte other than 0 written over the 0 after the text extends the text to the next 0, which may
+    /// be one an earlier, longer text left, or to the capacity; a write after that 0 leaves the
+    /// text as it was. Only the length changes: the bytes are what was written.
+    pub fn bytes_written(&self, first: usize, end: usize) {
+        let len = self.len();
+        let end = end.min(self.data.len());
+        if first > len {
+            return;
+        }
+        let zero = |from: usize, to: usize| {
+            self.data
+                .get(from..to)
+                .and_then(|bytes| bytes.iter().position(|byte| byte.get() == 0))
+                .map(|position| from + position)
+        };
+        let len = match zero(first, end) {
+            Some(written) => written,
+            // The 0 after the text, or the capacity, still ends it.
+            None if end <= len => return,
+            None => zero(end, self.data.len()).unwrap_or(self.data.len()),
+        };
+        // The capacity is at most 65,535 (specification 44 §7.6).
+        self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
+    }
 }
 
 /// A `WSTRING` of any capacity: its length and its code units.
@@ -140,5 +184,17 @@ impl WStrView<'_> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Sets the length to `len` code units, at most the capacity, after a write of the text, and
+    /// puts a 0 code unit after the text when the capacity leaves room, like
+    /// [`StrView::set_len`].
+    pub fn set_len(&self, len: usize) {
+        let len = len.min(self.data.len());
+        // The capacity is at most 65,535 (specification 44 §7.6).
+        self.len.set(u16::try_from(len).unwrap_or(u16::MAX));
+        if let Some(terminator) = self.data.get(len) {
+            terminator.set(0);
+        }
     }
 }

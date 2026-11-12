@@ -29,6 +29,7 @@ mod math;
 mod number_text;
 mod select;
 mod text;
+mod text_bytes;
 mod text_functions;
 mod timers;
 mod wide;
@@ -68,6 +69,7 @@ pub use text::{
     assign, assign_bytes, compare, concat, len, write_bool, write_duration, write_int, write_uint,
     Piece, LTIME_TEXT, MAX_TEXT, TIME_TEXT,
 };
+pub use text_bytes::{set_text_byte, text_byte};
 pub use text_functions::{
     char_at, delete, find, insert, left, len_int, mid, replace, right, set_char, text_to_char,
     write_char, write_wchar,
@@ -81,5 +83,7 @@ pub use wide::{
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod text_layout_tests;
 #[cfg(test)]
 mod wide_tests;

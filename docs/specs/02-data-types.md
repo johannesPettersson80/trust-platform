@@ -982,6 +982,19 @@ str[3] := 'X';     // str = 'ABXD'
   code units. The capacity of §6 counts bytes or code units; a statically known
   index above the declared length is still a range error, because no text of
   `n` bytes or code units has more than `n` characters.
+- Under the CODESYS profile (specification 14; `docs/IEC_DEVIATIONS.md`
+  DEV-046) `s[i]` of a `STRING` is the `BYTE` at offset `i` of its bytes,
+  counted from 0, as CODESYS gives it, in place of the rules above. A read
+  gives the byte whatever the text's length. A write sets the length that the
+  bytes give the text, which ends at its first 0 byte, as a write through a
+  pointer to them does (specification 44 §7.3). `ADR(s[i])` is a
+  `POINTER TO BYTE` that names the byte. A statically known index outside 0 to
+  the declared capacity `n` is a compile-time range error. CODESYS lays a
+  `STRING(n)` out in `n + 1` bytes, so `s[n]` reads 0, the 0 that CODESYS
+  holds after a full text, and a 0 written there changes nothing; another
+  byte written there, `s[n]` as a place (`ADR`, an in-out), and an index
+  outside 0 to `n` fail with `runtime_index_out_of_bounds`. A `WSTRING` keeps
+  the `WCHAR` rules above.
 
 ## 7. Parser acceptance and recovery boundaries
 

@@ -8,13 +8,18 @@ pub struct RefValue {
     /// The id of the target's area; 0 with kind [`RefValue::NULL`].
     pub area: u8,
     /// What the reference names: [`RefValue::NULL`], [`RefValue::VARIABLE`],
-    /// [`RefValue::INSTANCE`], [`RefValue::CHARACTER`] or [`RefValue::POINTER`].
+    /// [`RefValue::INSTANCE`], [`RefValue::CHARACTER`], [`RefValue::POINTER`] or
+    /// [`RefValue::TEXT_BYTES`].
     pub kind: u8,
-    /// The 1-based index of a character reference's character, 0 otherwise.
+    /// The 1-based index of a character reference's character, the 0-based index among a string's
+    /// bytes of the first byte that a reference of kind [`RefValue::TEXT_BYTES`] names, 0
+    /// otherwise.
     pub char_index: u16,
-    /// The target's first byte in its area.
+    /// The target's first byte in its area; a string's first byte, its length's, for a reference
+    /// of kind [`RefValue::TEXT_BYTES`].
     pub offset: u32,
-    /// The bytes the target spans.
+    /// The bytes the target spans; for a reference of kind [`RefValue::TEXT_BYTES`], the string's
+    /// length and its bytes, 2 + its capacity.
     pub extent: u32,
     /// The installation generation the reference was taken in (specification 34 UPDATE-04).
     pub generation: u32,
@@ -41,4 +46,9 @@ impl RefValue {
     pub const CHARACTER: u8 = 3;
     /// The kind of a `POINTER TO` value.
     pub const POINTER: u8 = 4;
+    /// The kind of a reference to bytes of a string, a byte or an array of bytes from the byte
+    /// `char_index` (from 0), as the CODESYS profile takes a string as its bytes
+    /// (`docs/IEC_DEVIATIONS.md` DEV-039). It names the whole string, so that a write through it
+    /// can set the length the written bytes give the text (`module::Areas::bytes_written`).
+    pub const TEXT_BYTES: u8 = 5;
 }

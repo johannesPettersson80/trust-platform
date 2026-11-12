@@ -16,6 +16,8 @@ mod call_binding_contract_rejection;
 mod call_transfer_overlap_messages;
 #[path = "semantic_type_checking/codesys_qualified_only_and_strict.rs"]
 mod codesys_qualified_only_and_strict;
+#[path = "semantic_type_checking/codesys_string_bytes.rs"]
+mod codesys_string_bytes;
 #[path = "semantic_type_checking/codesys_try_catch.rs"]
 mod codesys_try_catch;
 #[path = "semantic_type_checking/control_flow_and_calls.rs"]

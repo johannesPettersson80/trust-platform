@@ -45,9 +45,14 @@ enum Callee<'a> {
     Standard(String),
 }
 
-/// The outputs of a call: each output's place in the caller and the variable it is copied to after
-/// the call.
-pub(super) type Outputs = Vec<(Place, SyntaxNode)>;
+/// What a call leaves to do when it returns: each output's place in the caller and the variable it
+/// is copied to, and the in-outs that a pointer to bytes gave, whose string's length follows what
+/// the call wrote into them (`after_write`; docs/IEC_DEVIATIONS.md DEV-039).
+#[derive(Default)]
+pub(super) struct Outputs {
+    copies: Vec<(Place, SyntaxNode)>,
+    written: Vec<Place>,
+}
 
 /// What a call's value is wanted as.
 pub(super) enum Want {
@@ -346,6 +351,7 @@ impl<'a> Lowerer<'_, 'a> {
         });
         let mut values: Vec<Option<String>> = vec![None; bound.len()];
         let mut outputs: Vec<(usize, Place, SyntaxNode)> = Vec::new();
+        let mut written = Vec::new();
         for slot in order {
             let (param, arg) = &bound[slot];
             let ty = self.model.ty(param.type_id)?;
@@ -402,6 +408,9 @@ impl<'a> Lowerer<'_, 'a> {
                 };
                 let place = self.place(&arg.value)?;
                 values[slot] = Some(self.as_type(&arg.value, &place, ty)?);
+                if self.bytes_reference(&place).is_some() {
+                    written.push(place);
+                }
                 continue;
             }
             if param.direction == ParamDirection::Out {
@@ -494,18 +503,23 @@ impl<'a> Lowerer<'_, 'a> {
             values[slot] = Some(value);
         }
         outputs.sort_by_key(|(slot, _, _)| *slot);
+        let copies = outputs
+            .into_iter()
+            .map(|(_, place, target)| (place, target))
+            .collect();
         Ok((
             values.into_iter().flatten().collect(),
-            outputs
-                .into_iter()
-                .map(|(_, place, target)| (place, target))
-                .collect(),
+            Outputs { copies, written },
         ))
     }
 
-    /// Copies each output's place to its variable, after the call (IEC §6.6.1.4).
+    /// After the call: sets the length of each string whose bytes an in-out names (`after_write`),
+    /// then copies each output's place to its variable (IEC §6.6.1.4).
     pub(super) fn copy_outputs(&mut self, outputs: Outputs) -> Result<(), NativeError> {
-        for (place, target) in outputs {
+        for place in &outputs.written {
+            self.after_write(place);
+        }
+        for (place, target) in outputs.copies {
             let destination = self.place(&target)?;
             let kind = self.info(place.ty).kind.clone();
             match kind {
@@ -536,11 +550,14 @@ impl<'a> Lowerer<'_, 'a> {
                     }
                     self.copy_instance(&destination, &place);
                 }
-                _ if place.ty == destination.ty => self.line(&format!(
-                    "Assign::assign({}, {});",
-                    destination.reference(),
-                    place.reference()
-                )),
+                _ if place.ty == destination.ty => {
+                    self.line(&format!(
+                        "Assign::assign({}, {});",
+                        destination.reference(),
+                        place.reference()
+                    ));
+                    self.after_write(&destination);
+                }
                 _ => {
                     return Err(self.unsupported(&target, "an output of another type"));
                 }
@@ -721,7 +738,7 @@ impl<'a> Lowerer<'_, 'a> {
                 self.store_scalar(member, "true");
             }
         }
-        let mut outputs = Vec::new();
+        let mut outputs = Outputs::default();
         // A positional actual takes the next input, output or in-out in declaration order, `EN`
         // and `ENO` left out (specification 06, "A complete non-formal call"). Under the CODESYS
         // profile a function block invocation binds positionally to its inputs and in-outs only;
@@ -789,13 +806,12 @@ impl<'a> Lowerer<'_, 'a> {
                 } else {
                     self.referenced_place(variable)
                 };
-                let variable = self.as_type(&arg.value, &variable, target)?;
-                self.line(&format!(
-                    "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
-                    place.expr
-                ));
+                let named = self.as_type(&arg.value, &variable, target)?;
+                let fresh = format!("w.areas.refer(cx, {named}, abi::RefValue::VARIABLE)?");
+                let reference = self.keep_text_bytes(&variable, fresh);
+                self.line(&format!("{}.set({reference});", place.expr));
             } else if arg.output || member.flags & SYMBOL_OUTPUT != 0 {
-                outputs.push((place, arg.value));
+                outputs.copies.push((place, arg.value));
             } else {
                 self.store(&place, &arg.value)?;
             }
@@ -893,7 +909,7 @@ impl Lowerer<'_, '_> {
                 })
             })
             .collect();
-        let mut outputs = Vec::new();
+        let mut outputs = Outputs::default();
         for (position, arg) in args.into_iter().enumerate() {
             let parameter = match &arg.name {
                 Some(name) => parameters
@@ -930,14 +946,13 @@ impl Lowerer<'_, '_> {
                     } else {
                         self.referenced_place(variable)
                     };
-                    let variable = self.as_type(&arg.value, &variable, target)?;
-                    self.line(&format!(
-                        "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
-                        place.expr
-                    ));
+                    let named = self.as_type(&arg.value, &variable, target)?;
+                    let fresh = format!("w.areas.refer(cx, {named}, abi::RefValue::VARIABLE)?");
+                    let reference = self.keep_text_bytes(&variable, fresh);
+                    self.line(&format!("{}.set({reference});", place.expr));
                 }
-                ParamDirection::Out => outputs.push((place, arg.value)),
-                ParamDirection::In if arg.output => outputs.push((place, arg.value)),
+                ParamDirection::Out => outputs.copies.push((place, arg.value)),
+                ParamDirection::In if arg.output => outputs.copies.push((place, arg.value)),
                 ParamDirection::In => self.store(&place, &arg.value)?,
             }
         }

@@ -70,6 +70,18 @@ fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
         && a.generation == b.generation
 }
 
+/// `named` when it names bytes of a string (`TEXT_BYTES`), so that a reference to a byte it names
+/// names that string's bytes too and a write through it sets the string's length
+/// (docs/IEC_DEVIATIONS.md DEV-039); `fresh`, a reference to the byte itself, otherwise.
+#[inline]
+fn text_bytes_or(named: abi::RefValue, fresh: abi::RefValue) -> abi::RefValue {
+    if named.kind == abi::RefValue::TEXT_BYTES {
+        named
+    } else {
+        fresh
+    }
+}
+
 /// The string that a string `VAR_IN_OUT` of a function or a method names: the caller's string, of
 /// any capacity of its family (docs/IEC_DEVIATIONS.md DEV-035), seen through the capacity `limit`
 /// that the in-out declares, so that it reads and writes at most that many characters and never

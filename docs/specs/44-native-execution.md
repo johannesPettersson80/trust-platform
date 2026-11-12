@@ -695,8 +695,8 @@ the kernel interface.
 | `TIME`, `LTIME` | `i64` nanoseconds | 8 | specification 10's temporal storage, kept |
 | `DATE`, `LDATE`, `TOD`, `LTOD`, `DT`, `LDT` | `i64` as specification 10 encodes them | 8 | |
 | `CHAR`, `WCHAR` | `u8`, `u16` | 1, 2 | |
-| `STRING[n]` | `Str<n>`: `u16` length, `[u8; n]` UTF-8 | 2 + n, rounded up to even | `STRING` is `STRING[80]` (specification 02 §6); even, so that each length in an array is aligned |
-| `WSTRING[n]` | `WStr<n>`: `u16` length, `[u16; n]` | 2 + 2n | |
+| `STRING[n]` | `Str<n>`: `u16` length, `[u8; n]` UTF-8 | 2 + n, rounded up to even | `STRING` is `STRING[80]` (specification 02 §6); even, so that each length in an array is aligned. Every write of the text puts a 0 byte after it when its length is below n and leaves the bytes after that 0 as they were (DEV-039) |
+| `WSTRING[n]` | `WStr<n>`: `u16` length, `[u16; n]` | 2 + 2n | Every write of the text puts a 0 code unit after it when its length is below n, like `STRING[n]` |
 | Enumeration (§6.4.4.2) | the base integer type | | values checked on assignment from an integer |
 | Subrange (§6.4.4.4) | the base type | | bounds checked on every assignment (§6.5) |
 | `ARRAY` (§6.4.4.5) | `[T; n]`, nested for several dimensions | n × size | bounds checked (§6.5) |
@@ -1080,7 +1080,8 @@ the wire (`types::pack`), as a structure's declared relative addresses do.
 ### 7.3 References
 
 A `Ref` is 16 bytes: area id (u8), kind (u8: 0 null, 1 variable, 2 instance, 3 character, 4
-pointer), character index (u16: the 1-based index of a character reference, 0 otherwise), offset
+pointer, 5 a string's bytes), character index (u16: the 1-based index of a character reference,
+the index from 0 of the first byte that a reference to a string's bytes names, 0 otherwise), offset
 (u32: the target's first byte in the area), extent (u32: the bytes the target spans), generation
 (u32: the installation generation of specification 34 UPDATE-04). A dereference checks that the area exists,
 that offset + extent lies inside it, and that the generation is the current one; an online change
@@ -1128,8 +1129,30 @@ since the starting memory cannot hold where a variable lies. An interface's refe
 instance and the extent of the type it was taken as, which may be a base of the instance's class;
 a call through it reads the class id the instance holds, and views the instance as that class's
 type where its area holds it, so the class id, not the extent, says what lies there. Two references
-are equal when they name the same variable or instance, whatever extent each carries. A reference
-to a frame variable (IEC
+are equal when they name the same variable or instance, whatever extent each carries.
+
+Under the CODESYS profile `ADR` of a `STRING` where a pointer to a `BYTE` or a `CHAR`, or to a
+one-dimensional array of them, is wanted names the string's bytes (docs/IEC_DEVIATIONS.md DEV-039)
+by a reference of kind 5: its offset is the string's first byte, its extent the string's length
+and bytes, 2 + its capacity, and its character index the index of its first byte, from 0. Its
+dereference as a byte or an array of bytes reaches the bytes from there, as far as the capacity;
+another type, or an array longer than the bytes left, is refused with `TypeMismatch`, and an
+element past those bytes with `IndexOutOfBounds` (`lib::element_reference`), where CODESYS reads on
+into the memory after the string. An element of such a reference, and the reference that `REF`,
+`ADR` or an in-out of a function block or a program takes to a byte it names, name the same string
+from that byte. Under the CODESYS profile `s[i]` of a `STRING` is such a byte, at offset `i` from 0
+(docs/IEC_DEVIATIONS.md DEV-046): a read gives the byte (`lib::text_byte`), an assignment writes it
+and sets the length (`lib::set_text_byte`), and a place of it, `ADR(s[i])`, an in-out or a bit of
+it, is the dereference of a reference of kind 5 from byte `i`. A write through a pointer to bytes then sets the length that the bytes give the
+text, as CODESYS reads a string to its first 0 byte: an assignment, an output, and an in-out of a
+function or a function block written through it. A 0 written before the length ends the text
+there; a byte other than 0 written over the 0 after the text extends the text to the next 0,
+through what an earlier, longer text left, or to the capacity; a byte written after that 0 leaves
+the text as it was. A 0 that a text holds of its own, from a literal's `$00`, does not end it: the
+text keeps its length, where CODESYS ends it at that 0. An online change makes such a reference
+`NULL` (§12.2).
+
+A reference to a frame variable (IEC
 §6.4.4.10.2 forbids references to temporaries; trust-hir refuses them) never exists.
 
 ### 7.4 Starting memory
@@ -2122,6 +2145,8 @@ finds no depth left, §6.4) is reported as the runtime error `CallDepthExceeded`
 | 0.47 | 11 November 2026 | A CODESYS reference to a `STRING` or a `WSTRING` read as its text compiled (contributor issue #454; `docs/IEC_DEVIATIONS.md` DEV-031): as an input, the source of an assignment and an operand of `=` and `<>`, it gives the text of the string it names, checked as `^` checks it (§7.3), and a `WSTRING` one takes the wide functions. trust-hir accepts such a read under the CODESYS profile; the build refused it with "a value that is no text where a text is needed" (NX-09). The image format is unchanged. |
 | 0.48 | 11 November 2026 | A value that holds a function block or class instance (an instance, or a structure or an array that holds one) copied whole (§6.2; contributor issue #451; `docs/IEC_DECISIONS.md`, "Copy of a function block instance"): an assignment from a variable of its type, and an output of its type bound with `=>`, give every variable of the target, the internal ones and a standard block's hidden state included, the value of the source's, through the interface's new `Plain::copy_cells` (§6.3), and the target stays an instance of its own. trust-hir accepts both under every profile, and CODESYS copies an instance's memory; the build refused them with "an output that holds a function block or class instance" and "an assignment of a value that holds a function block or class instance" (NX-09). A copy from another type stays refused. The image format and the kernel interface are unchanged. |
 | 0.49 | 11 November 2026 | A string taken as its bytes compiled under the CODESYS profile (§7.3; contributor issue #453; `docs/IEC_DEVIATIONS.md` DEV-039), which trust-hir accepts there: `ADR(s)` where a `POINTER TO BYTE` is wanted names the string's first byte, and where a `POINTER TO ARRAY[l..u] OF BYTE` is wanted its bytes, the array's length of them or, for a longer array, the string's capacity; a pointer to a `CHAR` names it as a `BYTE`. An element of a one-dimensional array of scalars read or written through a reference, `p^[i]`, is checked against the array's bounds and against the bytes the reference names (`lib::element_reference`), so an element past a string's bytes is refused with `IndexOutOfBounds` where CODESYS reads the memory after it. The build refused each conversion with "a variable of another type" (NX-09). `ADR` of a string's character, `ADR(s[i])`, stays refused until index access to a string follows CODESYS under its profile (checklist G143). The image format is unchanged. |
+| 0.50 | 12 November 2026 | Bytes written into a string through a pointer change its text under the CODESYS profile (§7.3; contributor issue #453; `docs/IEC_DEVIATIONS.md` DEV-039), whose text ends at its first 0 byte, as CODESYS reads a string. `ADR` of a string's bytes takes a reference of the new kind 5, which names the whole string and the index of its first byte, so that a write through a pointer to bytes sets the length the written bytes give the text (`Areas::bytes_written`): an assignment, an output, and an in-out of a function or a function block. A copy loop like the vendor `MemCopy` into an empty string read the empty text after it, and a 0 written into a text did not end it. Every other reference, and a pointer to a variable of its own, is unchanged. The image format and the kernel interface are unchanged. |
+| 0.51 | 12 November 2026 | Under the CODESYS profile `s[i]` of a `STRING` is the `BYTE` at offset `i`, counted from 0, and `ADR(s[i])` names it (§7.3; contributor issue #453; `docs/IEC_DEVIATIONS.md` DEV-046), as trust-hir types it there: a read gives the byte whatever the text's length (`lib::text_byte`), and 0 at the capacity, where CODESYS holds the 0 after a full text; an assignment writes the byte and sets the length the bytes give the text (`lib::set_text_byte`); a place of it is the dereference of a reference to the string's bytes from byte `i` (`Areas::refer_text_bytes`, which now takes the string's view and that byte). The build refused `ADR(sJson[1])` with "an index of a value that is no array" (NX-09), and read `s[i]` as the character at position `i` from 1. A `WSTRING` keeps its `WCHAR` element. The image format and the kernel interface are unchanged. |
 | 0.52 | 12 November 2026 | The selection functions of texts compiled (specification 07 §6; IEC 61131-3 Ed.3 Table 32, which types `MAX`, `MIN` and `LIMIT` as `ANY_ELEMENTARY` and `SEL` and `MUX` as `ANY`), which trust-hir accepts: `MAX`, `MIN` and `LIMIT` of `STRING`s or of `WSTRING`s compare them as two texts compare (`lib::compare`, specification 07 §7), keep the first of equal texts and raise to `MN` before they cap at `MX`, as for other values; `SEL` and `MUX` choose among texts. Every input is read once, in order, a selector first, and the chosen text is copied into a result of the inputs' greatest capacity. Under the CODESYS profile a reference to a string is the text it names (DEV-031). The build refused each with "a comparison of values that are not scalars" or "a value that is no scalar where a scalar is needed" (NX-09). The image format is unchanged. |
 | 0.42 | 6 November 2026 | A recursive call that finds no depth left is reported as the runtime error `CallDepthExceeded`, `call depth exceeded`, with its stable code `vm_call_stack_overflow` (§6.4, Appendix A). Before, the kernel reported it through the bytecode engine's fault type, which the deletion of the engine (0.22) had left with this one fault and a text for the others, `invalid bytecode '<detail>'`, that nothing produced any more. The error's text and stable code are unchanged (checklist G61). |
 | 0.41 | 6 November 2026 | Round 2 of the CODESYS vendor conversions of specification 07 §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045), which the type checker accepts under the CODESYS rules, compiled (§6.8): an integer (its low-order 32 bits) and a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day, and a text to an integer or a bit string by the vendor's parse. The build refused the first three, and parsed a text by the IEC rules. And a `TIME` or an `LTIME` as text, the vendor's text measured on a PFC200 (`T#1s500ms`), which the build refused (NX-09). |

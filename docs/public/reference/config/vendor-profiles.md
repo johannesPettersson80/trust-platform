@@ -53,6 +53,20 @@ CODESYS compiles it. Any other source, such as a pointer variable, gives the war
 argument or `E203` for an assignment. The other profiles report these bindings as errors
 (`docs/IEC_DEVIATIONS.md`, DEV-039).
 
+## String bytes
+
+Under `codesys`, `beckhoff` and `twincat`, a string's bytes behave as in CODESYS:
+
+- `s[i]` of a `STRING` is the `BYTE` at offset `i`, counted from 0, and `ADR(s[i])` is a
+  `POINTER TO BYTE` that names it, as in `MemCopySecure(pDest := ADR(sJson[1]), ...)`.
+- A string's text ends at its first 0 byte. A byte written through `s[i]` or through a pointer to
+  the string's bytes changes the text: a 0 ends it, and another byte written over its end extends it
+  to the next 0.
+- `s[n]` of a `STRING[n]` reads 0, the 0 that CODESYS keeps after a full text.
+
+The other profiles keep the IEC rule: `s[i]` is the `CHAR` at position `i`, counted from 1
+(`docs/IEC_DEVIATIONS.md`, DEV-046). A `WSTRING` keeps that rule under every profile.
+
 ## Switching profiles safely
 
 1. change `vendor_profile`

@@ -135,8 +135,7 @@ fn write_parts(dst: WStrView<'_>, parts: &[WPiece<'_>]) {
     for (cell, unit) in dst.data.iter().zip(joined(parts)).take(end) {
         cell.set(unit);
     }
-    // The capacity is at most 65,535 (specification 44 §7.6).
-    dst.len.set(u16::try_from(end).unwrap_or(u16::MAX));
+    dst.set_len(end);
 }
 
 /// `dst := "literal"`: the literal's code units, cut at `dst`'s capacity.
@@ -433,9 +432,8 @@ pub fn set_char_wide(
     if let Some(cell) = text.data.get(at) {
         cell.set(character);
     }
-    // A pair gives up one code unit; the capacity is at most 65,535 (specification 44 §7.6).
-    let kept = length + 1 - old;
-    text.len.set(u16::try_from(kept).unwrap_or(u16::MAX));
+    // A pair gives up one code unit.
+    text.set_len(length + 1 - old);
     Ok(())
 }
 
@@ -487,8 +485,7 @@ pub fn string_to_wstring(dst: WStrView<'_>, src: StrView<'_>) {
         written += units.len();
         read += bytes;
     }
-    // The capacity is at most 65,535 (specification 44 §7.6).
-    dst.len.set(u16::try_from(written).unwrap_or(u16::MAX));
+    dst.set_len(written);
 }
 
 /// `WSTRING_TO_STRING(src)`: the characters of `src` in UTF-8 into `dst`, cut at its capacity at
@@ -530,8 +527,7 @@ pub fn wstring_to_string(cx: &mut Cx, dst: StrView<'_>, src: WStrView<'_>) -> Re
         written += bytes.len();
         read += units;
     }
-    // The capacity is at most 65,535 (specification 44 §7.6).
-    dst.len.set(u16::try_from(written).unwrap_or(u16::MAX));
+    dst.set_len(written);
     Ok(())
 }
 

@@ -352,8 +352,7 @@ pub fn set_char(cx: &mut Cx, text: StrView<'_>, index: i64, character: u8) -> Re
             cell.set(*byte);
         }
     }
-    // The capacity is at most 65,535 (specification 44 §7.6).
-    text.len.set(u16::try_from(end).unwrap_or(u16::MAX));
+    text.set_len(end);
     Ok(())
 }
 
