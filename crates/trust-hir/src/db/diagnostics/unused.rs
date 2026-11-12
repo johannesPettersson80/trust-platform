@@ -294,30 +294,18 @@ fn is_interface_method_parameter(symbols: &SymbolTable, symbol: &Symbol) -> bool
     match &grandparent.kind {
         // Method declared inside the INTERFACE POU itself.
         SymbolKind::Interface => true,
-        // Method on an FB/CLASS that IMPLEMENTS the interface: the
+        // Method on an FB/CLASS that implements an interface's prototype: the
         // implementing POU must carry the full interface signature even
         // where the body ignores a pin, so such parameters are
         // contract-mandated (measured 2026-10-27: 19 of s4's 20 W002 sites
         // - the fbMqttSub*/fbMqttPayload* families implementing
-        // itfMqttSubscribe/itfMqttPayloadBuilder). Methods outside every
-        // implemented interface keep the warning.
+        // itfMqttSubscribe/itfMqttPayloadBuilder). The interface is one the
+        // POU or a block it extends implements, and the prototype may be one
+        // the interface inherits through EXTENDS (specification 28 §1; issue
+        // #482: `itfMqttPayloadBuilder EXTENDS itfMqttBuild, itfMqttResult`).
+        // Methods outside every implemented interface keep the warning.
         SymbolKind::FunctionBlock | SymbolKind::Class => {
-            let owner_id = grandparent.id;
-            let Some(names) = symbols.implements_names(owner_id) else {
-                return false;
-            };
-            names.iter().any(|name| {
-                symbols
-                    .resolve_oop_reference_for_owner(owner_id, name.as_str())
-                    .filter(|iface_id| {
-                        symbols
-                            .get(*iface_id)
-                            .is_some_and(|iface| matches!(iface.kind, SymbolKind::Interface))
-                    })
-                    .and_then(|iface_id| symbols.resolve_child_symbol(iface_id, &parent.name))
-                    .and_then(|method_id| symbols.get(method_id))
-                    .is_some_and(|method| matches!(method.kind, SymbolKind::Method { .. }))
-            })
+            !symbols.implemented_interface_methods(parent.id).is_empty()
         }
         _ => false,
     }

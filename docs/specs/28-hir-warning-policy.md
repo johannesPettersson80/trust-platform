@@ -36,12 +36,18 @@ following references count:
 
 Imported declarations, declarations without a source range, members of a
 FUNCTION_BLOCK, CLASS, or INTERFACE, interface-method parameters, and non-input
-parameters do not receive this warning from the owning file. Interface-method parameters cover both the methods declared inside an
-INTERFACE POU and the methods of a FUNCTION_BLOCK or CLASS that IMPLEMENTS an
-interface declaring a method of the same name — the implementing POU must
-carry the full interface signature even where its body ignores a pin. A
-method outside every implemented interface keeps the warning for its
-unused input parameters. A used declaration must not retain an unused warning.
+parameters do not receive this warning from the owning file. Interface-method
+parameters are those of a method declared inside an INTERFACE POU and those of
+a method of a FUNCTION_BLOCK or CLASS that implements a method prototype of an
+interface the POU implements. A POU implements the interfaces that its
+IMPLEMENTS names and those that the blocks it EXTENDS implement (IEC 61131-3
+Ed.3 §6.6.6.4), and an interface's prototypes are its own and those it
+inherits through EXTENDS from its bases, at any depth (§6.6.6.6.1, rules 1
+and 4). These are the methods that a call through the interface reaches
+(specification 14 §6.3.2). The implementing POU must carry the full interface
+signature even where its body ignores a pin. A method outside every implemented
+interface keeps the warning for its unused input parameters. A used
+declaration must not retain an unused warning.
 
 Use is project-wide and identity based. A program selected by a configuration,
 a function or function block referenced from another file, and a member

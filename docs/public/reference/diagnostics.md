@@ -72,7 +72,7 @@ language specifications.
 | Code | Default severity | Cause | User-visible symptom | Typical first fix |
 | --- | --- | --- | --- | --- |
 | `W001` | warning | A declared variable is never read. | The declaration is highlighted as unused. | Remove it or use it intentionally. Library files never receive it. |
-| `W002` | warning | A declared parameter is never read. | The parameter list shows an unused-parameter warning. | Remove it, use it, or document why it is intentionally reserved. Library files never receive it. |
+| `W002` | warning | A declared input parameter is never read. | The parameter list shows an unused-parameter warning. | Remove it, use it, or document why it is intentionally reserved. Library files never receive it. Neither does an input of a method that implements a method of an interface, including one the interface inherits through `EXTENDS` and one of an interface that a base block implements: the interface fixes the method's parameters. |
 | `W003` | warning | The compiler proved that a code path can never execute. | The dead block is marked unreachable. | Remove the dead block or simplify the surrounding control flow. |
 | `W004` | warning | A conditional branch has no fallback path. | The conditional is flagged as missing `ELSE`. | Add an `ELSE` if the branch should be exhaustive, or override severity if the omission is deliberate. |
 | `W005` | warning | The compiler inserted a conversion you did not write explicitly. | The expression is valid but marked with an implicit-conversion warning. | Replace it with an explicit conversion if you want the intent to be obvious and stable. |
