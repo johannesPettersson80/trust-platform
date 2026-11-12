@@ -952,7 +952,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.38.0"
+version = "0.39.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -961,7 +961,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.38.0"
+version = "0.39.0"
 dependencies = [
  "trust-ads-core",
 ]
@@ -977,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.38.0"
+version = "0.39.0"
 dependencies = [
  "boxcar",
  "parking_lot",
@@ -992,11 +992,11 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-abi"
-version = "0.38.0"
+version = "0.39.0"
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.38.0"
+version = "0.39.0"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -1014,7 +1014,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.38.0"
+version = "0.39.0"
 dependencies = [
  "drop_bomb",
  "logos",
