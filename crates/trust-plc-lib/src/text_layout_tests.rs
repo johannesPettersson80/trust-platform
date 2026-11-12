@@ -6,7 +6,7 @@
 //! these bytes, so code that scans them for the 0 finds where the text ends.
 
 use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
-use trust_plc_abi::{Cx, Str, WStr};
+use trust_plc_abi::{Cx, FaultCode, RefValue, Str, WStr};
 
 use crate::*;
 
@@ -96,4 +96,48 @@ fn a_conversion_ends_its_text_with_a_zero() {
     assign_bytes(narrow.view(), b"Hello");
     wstring_to_string(&mut cx(), narrow.view(), wide_source.view()).expect("ASCII converts");
     assert_eq!(bytes(&narrow), [72, 105, 0, 108, 111, 0, 0, 0]);
+}
+
+// Worked by hand: the bytes of a STRING[5] at offset 2 are named by a reference that spans 2 + 5 = 7
+// bytes from there. Taken as an ARRAY[0..65535] OF BYTE from byte 0, element 3 is the string's byte
+// 3 (index 3, the string's offset and extent kept), and element 5 lies past its 5 bytes:
+// IndexOutOfBounds with the index and the bounds 0 to 4. From byte 2, the array names 3 bytes, 0 to
+// 2, and its element 2 is byte 4. Catches an element reference that moves the offset, which a write
+// through it would take for the string's start, and an element past the string's bytes.
+#[test]
+fn an_element_of_a_strings_bytes_names_the_string_from_its_byte() {
+    let text = RefValue {
+        area: 4,
+        kind: RefValue::TEXT_BYTES,
+        char_index: 0,
+        offset: 2,
+        extent: 7,
+        generation: 1,
+    };
+    let mut cx = cx();
+    assert_eq!(
+        element_reference(&mut cx, text, 3, 0, 65535, 1),
+        Ok(RefValue {
+            char_index: 3,
+            ..text
+        })
+    );
+    assert!(element_reference(&mut cx, text, 5, 0, 65535, 1).is_err());
+    assert_eq!(
+        (cx.fault.code, cx.fault.detail),
+        (FaultCode::IndexOutOfBounds as u32, [5, 0, 4])
+    );
+    let third = RefValue {
+        char_index: 2,
+        ..text
+    };
+    assert_eq!(
+        element_reference(&mut cx, third, 2, 0, 65535, 1),
+        Ok(RefValue {
+            char_index: 4,
+            ..text
+        })
+    );
+    assert!(element_reference(&mut cx, third, 3, 0, 65535, 1).is_err());
+    assert_eq!(cx.fault.detail, [3, 0, 2]);
 }

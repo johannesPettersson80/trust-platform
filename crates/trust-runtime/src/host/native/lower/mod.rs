@@ -29,6 +29,7 @@ mod prelude;
 mod refusals;
 mod strings;
 mod text;
+mod text_bytes;
 
 pub(super) use call::{ident as ident_of, parameter};
 pub(super) use prelude::PRELUDE;
@@ -153,6 +154,9 @@ pub(super) struct Lowerer<'m, 'a> {
     /// The control variables of the enclosing `FOR` loops that a release image holds in Rust
     /// locals: each one's place and the local's name (specification 44 §6.6).
     held: Vec<(String, String)>,
+    /// The places that dereferences of pointers to bytes gave, each with its reference, through
+    /// which a write sets the length of the string whose bytes it names (`text_bytes`).
+    text_bytes: Vec<(String, String)>,
     /// The POU's id, which its statements and its frame carry (specification 44 §5.7, §5.9).
     pub(super) pou: u16,
     /// A debug image's frame variables, which lie in one structure `fr` at the offsets their
@@ -239,6 +243,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             called: BTreeSet::new(),
             recursive: BTreeSet::new(),
             held: Vec::new(),
+            text_bytes: Vec::new(),
             pou: u16::MAX,
             frame_vars: hooks.then(Vec::new),
             pointer_bytes,
@@ -704,6 +709,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                     place.reference(),
                     source.reference()
                 ));
+                self.after_write(place);
                 Ok(())
             }
             _ => {
@@ -722,6 +728,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             _ => value.to_string(),
         };
         self.line(&format!("{}.set({stored});", place.expr));
+        self.after_write(place);
     }
 
     /// Reads the scalar in `place` as a Rust value of its type: from the local that holds it when

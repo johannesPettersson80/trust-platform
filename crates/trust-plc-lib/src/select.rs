@@ -63,8 +63,10 @@ pub fn at<'a, T, const N: usize>(
 /// A reference to the element `index` of the array that `array` names, an array of `size`-byte
 /// elements whose indices run from `lower` to `upper` (IEC §6.4.4.5): `NULL` stays `NULL`, which its
 /// dereference refuses. A pointer may name fewer bytes than its array type spans: a string's bytes
-/// taken as an array of bytes name the string's capacity only (`docs/IEC_DEVIATIONS.md` DEV-039), so
-/// an element past the bytes `array` spans is refused as one past the bounds is.
+/// taken as an array of bytes (`docs/IEC_DEVIATIONS.md` DEV-039) are those from the reference's byte
+/// to the string's capacity, so an element past the bytes `array` spans is refused as one past the
+/// bounds is. Such an element's reference names the string still, from the element's byte, so that
+/// a write through it sets the string's length (`Areas::bytes_written`).
 ///
 /// # Errors
 ///
@@ -82,22 +84,39 @@ pub fn element_reference(
     if array.kind == RefValue::NULL {
         return Ok(array);
     }
-    let spanned = i64::from(array.extent / size.max(1));
+    let text = array.kind == RefValue::TEXT_BYTES;
+    // A string's bytes follow its length's 2 bytes, and the reference names them from its byte.
+    let bytes = if text {
+        array
+            .extent
+            .saturating_sub(2)
+            .saturating_sub(u32::from(array.char_index))
+    } else {
+        array.extent
+    };
+    let spanned = i64::from(bytes / size.max(1));
     let last = upper.min(lower.saturating_add(spanned).saturating_sub(1));
-    let offset = (lower..=last)
+    let from_first = (lower..=last)
         .contains(&index)
         .then(|| u32::try_from(index - lower).ok())
         .flatten()
-        .and_then(|position| position.checked_mul(size))
-        .and_then(|bytes| array.offset.checked_add(bytes));
-    match offset {
-        Some(offset) => Ok(RefValue {
+        .and_then(|position| position.checked_mul(size));
+    let element = match from_first {
+        Some(bytes) if text => u32::from(array.char_index)
+            .checked_add(bytes)
+            .and_then(|byte| u16::try_from(byte).ok())
+            .map(|char_index| RefValue {
+                char_index,
+                ..array
+            }),
+        Some(bytes) => array.offset.checked_add(bytes).map(|offset| RefValue {
             offset,
             extent: size,
             ..array
         }),
-        None => Err(fault(cx, FaultCode::IndexOutOfBounds, index, lower, last)),
-    }
+        None => None,
+    };
+    element.ok_or_else(|| fault(cx, FaultCode::IndexOutOfBounds, index, lower, last))
 }
 
 /// `value` when it lies in the subrange `lower..upper` (IEC §6.4.4.4).
