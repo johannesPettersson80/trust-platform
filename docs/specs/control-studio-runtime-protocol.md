@@ -163,7 +163,7 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 | Reads: inspection, recordings, isolated observations | BOOL, signed and unsigned integers, REAL, LREAL, and enumerations read as numbers |
 | Transfer and parameter modes | BOOL, or an enumeration named by its Manual and Auto members (E6.2, E7.1) |
 | Transfer states, guards and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
-| Parameters | REAL and LREAL |
+| Parameters | REAL, LREAL, or TIME with unit `s` (E7.1) |
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
 | Experiment activation and abort bindings | BOOL |
 | Search axes and objective channels | REAL and LREAL |
@@ -790,7 +790,7 @@ The runtime implements a `control.pid.*` write as that adapter: one parameter se
 ### E7.8 Unsupported forms
 
 - Integer and enumeration gains are refused. The only enumeration that `control.pid` accepts is AntiWindup.
-- A parameter whose type is not REAL or LREAL is refused with `invalid_parameter_request`.
+- A parameter whose type is not REAL, LREAL or TIME, and a TIME parameter whose unit is not `s`, are refused with `invalid_parameter_request`.
 - A parameter in Auto is refused, because apply needs Manual (E7.3).
 - Aliases and shared global ownership are refused with `invalid_parameter_request`.
 - A candidate value maps to a parameter only through the mapping that the loop definition declares. A missing or ambiguous mapping disables adoption (Part B).
