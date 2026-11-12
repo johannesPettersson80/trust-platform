@@ -171,7 +171,12 @@ def artifacts_api(test: unittest.TestCase, artifacts: list[dict], runs: dict[int
             return [pull_request()] if pulls is None else pulls
         if path.startswith(f"/repos/{OFFICIAL}/actions/workflows/ci.yml/runs?"):
             test.assertIn(f"head_sha={REHEARSED}&", path)
-            return {"workflow_runs": [ci_run()] if ci is None else ci}
+            listed = [ci_run()] if ci is None else ci
+            if "status=success" in path:
+                # GitHub's listing filtered by status=success leaves out a run that passed when its failed jobs ran
+                # again (12 November 2026: CI run 43259989301, attempt 2, conclusion success, listed only unfiltered).
+                listed = [run for run in listed if run.get("run_attempt", 1) == 1]
+            return {"workflow_runs": listed}
         return runs[int(path.rsplit("/", 1)[1])]
     return get
 
@@ -517,6 +522,17 @@ class ReleasePlanTests(unittest.TestCase):
             get=artifacts_api(self, [bundle_artifact()], {41707764199: manual_rehearsal_run()}),
         )
         self.assertEqual(dispatched, REHEARSAL, "a maintainer's manual rehearsal counts as well")
+
+    def test_a_rehearsal_whose_ci_passed_when_its_failed_jobs_ran_again_is_promoted(self) -> None:
+        # Specification 24 (Release after main CI): a CI run of the head that passed counts, also one that passed when
+        # its failed jobs ran again, as release 0.40.0's CI did after GitHub cancelled a macOS job that no runner took.
+        # Catches a plan that asks GitHub only for runs listed as successful, which leaves such a run out, so the push
+        # released nothing and the release built every package again after main's CI.
+        found = release_plan.find_rehearsal(
+            OFFICIAL, "0.27.0", TREE, "token",
+            get=artifacts_api(self, [bundle_artifact()], {41707764199: rehearsal_run()}, ci=[ci_run(run_attempt=2)]),
+        )
+        self.assertEqual(found, REHEARSAL)
 
     def test_a_rehearsal_whose_workflow_or_ci_did_not_run_on_this_tree_is_not_promoted(self) -> None:
         # Specification 24, review finding of 4 November 2026: a pull request's run executes the workflow of its test

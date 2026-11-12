@@ -219,7 +219,9 @@ head, exactly one has that head, and it came from the run's head branch of this
 repository, targets this repository's `main` and is merged when the release
 plans; GitHub's records give that tree to the run's head commit and to the
 commit whose workflow the run ran; and a CI run of the same head passed, whose
-head commit has that tree. The workflow's commit is the one that GitHub records for the
+head commit has that tree, also one that passed when its failed jobs ran again: the plan lists every CI
+run of the head and reads each one's conclusion, since GitHub's listing filtered
+by `status=success` leaves such a run out. The workflow's commit is the one that GitHub records for the
 run's local call of `.github/workflows/openot-real-databases.yml`, which the
 Release workflow calls: a local call is recorded with that commit's full sha in
 its path and with the run's own ref, which for a pull request's rehearsal is

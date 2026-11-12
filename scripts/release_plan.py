@@ -360,8 +360,10 @@ def merged_pull_request(
 
 def ci_passed(repository: str, commit: str, tree: str, token: str, get: Callable[[str, str], dict]) -> bool:
     """Whether a CI run of this repository for the head `commit` passed, whose head commit has `tree` by GitHub's
-    record of it."""
-    listed = get(f"/repos/{repository}/actions/workflows/ci.yml/runs?head_sha={commit}&status=success&per_page=100", token)
+    record of it. The plan lists every CI run of the head and reads each one's conclusion: GitHub's listing filtered by
+    `status=success` leaves out a run that passed when its failed jobs ran again (12 November 2026, CI run
+    43259989301 of release 0.40.0, attempt 2), and so missed a rehearsal that the release could promote."""
+    listed = get(f"/repos/{repository}/actions/workflows/ci.yml/runs?head_sha={commit}&per_page=100", token)
     return any(
         isinstance(run, dict)
         and run.get("path") == CI_WORKFLOW
