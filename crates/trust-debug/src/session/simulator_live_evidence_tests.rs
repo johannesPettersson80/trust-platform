@@ -10,14 +10,7 @@ use super::*;
 /// A project folder with one program, its configuration and the given project files; the second path is the
 /// configuration's source, the program a launch names.
 fn project(label: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf) {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("system clock before unix epoch")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-debug-{label}-{}-{nanos}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-debug-{label}"));
     let src = root.join("src");
     std::fs::create_dir_all(&src).expect("create project src");
     std::fs::write(

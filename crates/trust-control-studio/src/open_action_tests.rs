@@ -16,10 +16,7 @@ use crate::commands::{ControlStudio, OPEN};
 fn open_refuses_a_parked_loop_before_it_reads_or_moves_the_typescript_study() {
     // V6 decision D9: a loop with a parked feature stays on the TypeScript engine, whose study document is its own; opening it
     // through the engine must leave that document where it is. A top-level cascade (C6, the two-loop form) is still parked (V7).
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-control-open-parked-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-control-open-parked");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("project");
     let mut file: Value = serde_json::from_str(EXAMPLE).expect("example");
@@ -52,8 +49,7 @@ fn open_refuses_a_parked_loop_before_it_reads_or_moves_the_typescript_study() {
 
 #[test]
 fn open_lists_the_loops_then_opens_one_with_its_stages_and_no_operation() {
-    let root =
-        trust_test_support::unique_temp_path(&format!("trust-control-open-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("trust-control-open");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("project");
     fs::write(root.join("control-loop.json"), EXAMPLE).expect("loop");
@@ -96,10 +92,7 @@ fn open_serves_an_observation_lesson_whose_controller_stages_are_not_applicable(
     const OBSERVATION_LESSON: &str = include_str!(
         "../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json"
     );
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-control-open-c12-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-control-open-c12");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("project");
     fs::write(root.join("control-loop.json"), OBSERVATION_LESSON).expect("loop");

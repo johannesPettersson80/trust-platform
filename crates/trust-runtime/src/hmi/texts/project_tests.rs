@@ -7,14 +7,7 @@ use super::builtin;
 use super::project::{read_project_texts, LanguageEntry, ProjectText};
 
 fn temp(name: &str) -> PathBuf {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let dir = trust_test_support::unique_temp_path(&format!(
-        "trust-hmi-texts-{name}-{}-{stamp}",
-        std::process::id()
-    ));
+    let dir = trust_test_support::unique_temp_path(&format!("trust-hmi-texts-{name}"));
     std::fs::create_dir_all(&dir).expect("a folder");
     dir
 }

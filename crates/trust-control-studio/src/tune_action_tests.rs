@@ -72,10 +72,7 @@ impl Project {
 
     /// A project folder of one test whose `control-loop.json` is `text`, which must decode.
     fn with_loop(name: &str, text: &str) -> Self {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-tune-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-tune-{name}"));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("the project folder");
         fs::write(root.join("control-loop.json"), text).expect("the loop file");

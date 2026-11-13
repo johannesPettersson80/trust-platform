@@ -6,8 +6,7 @@ use super::*;
 /// on Windows), and the project is the folder's whole path without `\\?\`. Catches the whole path the list printed.
 #[test]
 fn the_agent_list_names_files_relative_to_the_project_folder() {
-    let project =
-        trust_test_support::unique_temp_path(&format!("trust-dev-t3-list-{}", std::process::id()));
+    let project = trust_test_support::unique_temp_path("trust-dev-t3-list");
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(
         project.join("src/tests.st"),

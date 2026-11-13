@@ -10,10 +10,7 @@ use trust_runtime::harness::TestHarness;
 #[test]
 fn the_simulator_compiles_the_sources_of_the_project_dependencies() {
     let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-debug-dependencies-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path("trust-debug-dependencies");
     std::fs::create_dir_all(project.join("src")).expect("src");
     std::fs::write(
         project.join("src/main.st"),

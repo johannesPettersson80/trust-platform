@@ -3,17 +3,9 @@
 
 use super::*;
 use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system time before unix epoch")
-        .as_nanos();
-    trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-bench-{prefix}-{}-{nanos}",
-        std::process::id()
-    ))
+    trust_test_support::unique_temp_path(&format!("trust-runtime-bench-{prefix}"))
 }
 
 #[test]

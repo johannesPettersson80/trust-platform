@@ -30,14 +30,7 @@ fn simulation_runtime() -> CompiledRuntime {
 
 #[test]
 fn simulation_toml_model_parses_rules_and_disturbances() {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("unix epoch")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-simulation-config-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-runtime-simulation-config");
     std::fs::create_dir_all(&root).expect("create temp dir");
     let path = root.join("simulation.toml");
     std::fs::write(
@@ -82,14 +75,8 @@ message = "fault-script"
 
 #[test]
 fn simulation_toml_rejects_non_finite_coupling_thresholds() {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("unix epoch")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-simulation-non-finite-threshold-{}-{stamp}",
-        std::process::id()
-    ));
+    let root =
+        trust_test_support::unique_temp_path("trust-runtime-simulation-non-finite-threshold");
     std::fs::create_dir_all(&root).expect("create temp dir");
     let path = root.join("simulation.toml");
 
@@ -123,14 +110,7 @@ on_false = "FALSE"
 
 #[test]
 fn simulation_toml_model_parses_physics_joints() {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("unix epoch")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-simulation-physics-config-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-runtime-simulation-physics-config");
     std::fs::create_dir_all(&root).expect("create temp dir");
     let path = root.join("simulation.toml");
     std::fs::write(
@@ -179,14 +159,7 @@ upper_rad = 1.570796
 
 #[test]
 fn physics_feedback_target_conflicts_are_rejected() {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("unix epoch")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-simulation-physics-conflict-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-runtime-simulation-physics-conflict");
     std::fs::create_dir_all(&root).expect("create temp dir");
     let path = root.join("simulation.toml");
     std::fs::write(

@@ -15,14 +15,7 @@ fn bundle(files: &[(&str, &[u8])]) -> HmiBundle {
 }
 
 fn temp(name: &str) -> std::path::PathBuf {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let dir = trust_test_support::unique_temp_path(&format!(
-        "trust-hmi-bundle-{name}-{}-{stamp}",
-        std::process::id()
-    ));
+    let dir = trust_test_support::unique_temp_path(&format!("trust-hmi-bundle-{name}"));
     std::fs::create_dir_all(&dir).expect("a folder");
     dir
 }

@@ -54,8 +54,7 @@ END_FUNCTION_BLOCK
 ";
 
 fn project(label: &str) -> std::path::PathBuf {
-    let project =
-        trust_test_support::unique_temp_path(&format!("trust-dev-{label}-{}", std::process::id()));
+    let project = trust_test_support::unique_temp_path(&format!("trust-dev-{label}"));
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(project.join("src/tests.st"), TESTS).expect("write the tests");
     std::fs::write(project.join("src/lib.st"), LIB).expect("write the library");
@@ -272,10 +271,7 @@ fn failing_device() -> String {
 /// statement and reports the test's declaration, lines 1 and 5, and one that drops the values.
 #[test]
 fn a_device_run_names_the_statement_its_step_names() {
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-device-failed-at-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path("trust-dev-device-failed-at");
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(
         project.join("src/tests.st"),

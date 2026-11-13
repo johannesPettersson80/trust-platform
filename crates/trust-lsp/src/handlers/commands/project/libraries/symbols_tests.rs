@@ -113,10 +113,7 @@ fn snippets_declare_an_instance_a_value_or_a_call() {
 fn library_symbols_read_st_and_pou_files_below_the_folder() {
     // `.ST` and `.Pou` count (any letter case), `.txt` does not, and subfolders are read. Catches: a
     // scan of the top folder only.
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-lsp-library-symbols-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-lsp-library-symbols");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("src/deep")).expect("folders");
     std::fs::write(root.join("src/A.ST"), "FUNCTION One : INT\n").expect("file");

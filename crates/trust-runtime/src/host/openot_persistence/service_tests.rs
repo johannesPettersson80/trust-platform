@@ -200,14 +200,7 @@ fn service_rejects_missing_database_environment_before_worker_start() {
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn service_faults_incompatible_pre_release_schema_without_spending_reconnect_budget() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-logging-service-incompatible-schema-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-logging-service-incompatible-schema");
     std::fs::create_dir_all(&root).expect("root");
     {
         use std::os::unix::fs::PermissionsExt;
@@ -272,14 +265,7 @@ fn service_faults_incompatible_pre_release_schema_without_spending_reconnect_bud
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-openot-persistence-service-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-openot-persistence-service");
     std::fs::create_dir_all(&root).expect("root");
     {
         use std::os::unix::fs::PermissionsExt;
@@ -330,14 +316,7 @@ fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn service_supplies_compiled_definition_to_typed_database_projection() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-logging-service-definition-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-logging-service-definition");
     std::fs::create_dir_all(&root).expect("root");
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).expect("secure root");
@@ -425,14 +404,7 @@ fn deterministic_commit_error_is_not_a_retryable_worker_transport_loss() {
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-openot-sqlite-service-restart-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-openot-sqlite-service-restart");
     std::fs::create_dir_all(&root).expect("root");
     #[cfg(unix)]
     {
@@ -580,14 +552,7 @@ fn shutdown_does_not_wait_past_the_configured_deadline_for_a_stuck_backend_call(
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn shutdown_drains_records_published_after_the_last_worker_poll() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-openot-shutdown-drain-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-openot-shutdown-drain");
     std::fs::create_dir_all(&root).expect("root");
     {
         use std::os::unix::fs::PermissionsExt;
@@ -650,14 +615,7 @@ fn shutdown_drains_records_published_after_the_last_worker_poll() {
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn shutdown_uses_a_fresh_head_when_an_older_poll_still_has_buffered_records() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-openot-shutdown-buffered-drain-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-openot-shutdown-buffered-drain");
     std::fs::create_dir_all(&root).expect("root");
     {
         use std::os::unix::fs::PermissionsExt;
@@ -866,14 +824,7 @@ fn wait_for_status(
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn unresolved_document_keeps_caught_up_service_degraded() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-openot-persistence-degraded-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-openot-persistence-degraded");
     std::fs::create_dir_all(&root).expect("root");
     {
         use std::os::unix::fs::PermissionsExt;

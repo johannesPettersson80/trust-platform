@@ -205,8 +205,7 @@ fn agent_serve_mcp_serves_one_json_rpc_message_per_line_and_refuses_an_overlappi
 /// relative `--project`, which the canonical file paths do not start with.
 #[test]
 fn test_reports_name_files_relative_to_the_project_folder() {
-    let parent =
-        trust_test_support::unique_temp_path(&format!("trust-dev-t3-{}", std::process::id()));
+    let parent = trust_test_support::unique_temp_path("trust-dev-t3");
     let project = parent.join("proj");
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(

@@ -3,14 +3,7 @@ use std::process::{Command, Stdio};
 
 #[test]
 fn plant_serve_exchanges_one_response_per_request_until_eof() {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("system time after epoch")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-plant-command-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-runtime-plant-command");
     std::fs::create_dir_all(&root).expect("create plant command fixture");
     std::fs::write(
         root.join("simulation.toml"),

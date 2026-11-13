@@ -265,10 +265,7 @@ mod tests {
 
     #[test]
     fn noncanonical_fallback_path_does_not_collide_with_canonical_path() {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-hir-path-collision-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trust-hir-path-collision");
         let real_dir = root.join("real");
         fs::create_dir_all(&real_dir).expect("create temp source dir");
         let real_file = real_dir.join("main.st");

@@ -233,10 +233,8 @@ struct Project(PathBuf);
 
 impl Project {
     fn new(label: &str) -> Self {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trust-lsp-journey-transport-{label}-{}",
-            std::process::id()
-        ));
+        let folder =
+            trust_test_support::unique_temp_path(&format!("trust-lsp-journey-transport-{label}"));
         let _ = fs::remove_dir_all(&folder);
         for (file, text) in [
             (

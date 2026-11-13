@@ -138,10 +138,7 @@ fn candidates() -> &'static Candidates {
         let toolchain = Toolchain::find()
             .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
         let target = Target::this_cpu().expect("a computer target");
-        let work = trust_test_support::unique_temp_path(&format!(
-            "trust-lifecycle-candidate-{}",
-            std::process::id()
-        ));
+        let work = trust_test_support::unique_temp_path("trust-lifecycle-candidate");
         let built = build(
             &[SourceFile::new(SOURCE_B)],
             &Options {

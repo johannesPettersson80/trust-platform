@@ -71,10 +71,7 @@ fn image() -> Vec<u8> {
         .get_or_init(|| {
             let toolchain = Toolchain::find()
                 .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-            let work = trust_test_support::unique_temp_path(&format!(
-                "trust-debugger-writes-{}",
-                std::process::id()
-            ));
+            let work = trust_test_support::unique_temp_path("trust-debugger-writes");
             let built = build(
                 &[SourceFile::with_path(PATH, SOURCE)],
                 &Options {

@@ -779,14 +779,7 @@ struct ScratchProject(std::path::PathBuf);
 
 impl ScratchProject {
     fn new(label: &str) -> Self {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|elapsed| elapsed.as_nanos())
-            .unwrap_or_default();
-        let path = trust_test_support::unique_temp_path(&format!(
-            "trust-config-set-{label}-{}-{nanos}",
-            std::process::id()
-        ));
+        let path = trust_test_support::unique_temp_path(&format!("trust-config-set-{label}"));
         std::fs::create_dir_all(&path).expect("create scratch project");
         Self(path)
     }

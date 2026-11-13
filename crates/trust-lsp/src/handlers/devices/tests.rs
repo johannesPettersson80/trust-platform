@@ -498,8 +498,7 @@ impl Drop for TempFolder {
 /// A folder for one test.
 #[cfg(unix)]
 fn temp_folder(label: &str) -> TempFolder {
-    let path =
-        trust_test_support::unique_temp_path(&format!("trust-lsp-{label}-{}", std::process::id()));
+    let path = trust_test_support::unique_temp_path(&format!("trust-lsp-{label}"));
     std::fs::create_dir_all(&path).expect("a test folder");
     TempFolder(path)
 }

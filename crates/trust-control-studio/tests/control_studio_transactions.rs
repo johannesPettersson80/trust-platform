@@ -121,10 +121,7 @@ impl TransferOwnerSink for Journal {
 #[test]
 #[allow(clippy::too_many_lines)] // One journey against the runtime, step by step; split, it would hide the order of the transactions (E11.2).
 fn the_transactions_of_lesson_30_are_confirmed_by_the_runtime() {
-    let folder = trust_test_support::unique_temp_path(&format!(
-        "trust-cs-v4-transactions-{}",
-        std::process::id()
-    ));
+    let folder = trust_test_support::unique_temp_path("trust-cs-v4-transactions");
     let _ = fs::remove_dir_all(&folder);
     let _remove = RemoveDir(folder.clone());
     let project = folder.join("project");

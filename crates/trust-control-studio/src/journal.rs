@@ -266,10 +266,7 @@ mod tests {
 
     #[test]
     fn an_identification_campaign_takes_the_place_of_its_recording_owner() {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trust-control-journal-campaign-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path("trust-control-journal-campaign");
         let _ = fs::remove_dir_all(&folder);
         let project = "project:sha256:abc";
         let mut journal = Journal::open(&folder, project, "loop:tank").expect("empty");
@@ -346,10 +343,7 @@ mod tests {
 
     #[test]
     fn a_journaled_operation_survives_a_restart_until_its_owner_is_cleared() {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trust-control-journal-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path("trust-control-journal");
         let _ = fs::remove_dir_all(&folder);
         let mut journal = Journal::open(&folder, "project:sha256:abc", "loop:tank").expect("empty");
         assert_eq!(journal.entries(), [] as [JournalEntry; 0]);
@@ -383,10 +377,7 @@ mod tests {
 
     #[test]
     fn a_recording_owner_is_replaced_not_repeated_and_an_experiment_is_journaled_in_two_steps() {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trust-control-journal-owners-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path("trust-control-journal-owners");
         let _ = fs::remove_dir_all(&folder);
         let project = "project:sha256:abc";
         let owner = RecordingRecoveryOwner {
@@ -470,10 +461,7 @@ mod tests {
     fn clearing_one_owner_keeps_the_other_journaled_operations() {
         // control-studio-study-store.test.ts: the Test journal clears only its owner (A8.5); another journaled operation
         // of the loop keeps its identity.
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trust-control-journal-clear-one-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path("trust-control-journal-clear-one");
         let _ = fs::remove_dir_all(&folder);
         let project = "project:sha256:abc";
         let mut journal = Journal::open(&folder, project, "loop:tank").expect("empty");

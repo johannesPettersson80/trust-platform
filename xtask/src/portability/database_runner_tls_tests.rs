@@ -16,14 +16,9 @@ impl Drop for Fixture {
 
 #[test]
 fn missing_generated_database_input_cannot_use_stale_child_settings() {
-    let nonce = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let fixture = Fixture(trust_test_support::unique_temp_path(&format!(
-        "trust-database-environment-{}-{nonce}",
-        std::process::id()
-    )));
+    let fixture = Fixture(trust_test_support::unique_temp_path(
+        "trust-database-environment",
+    ));
     let mut command = Command::new("bash");
     command
         .arg("scripts/openot_real_database_gate.sh")
@@ -51,14 +46,7 @@ fn missing_generated_database_input_cannot_use_stale_child_settings() {
 
 #[test]
 fn postgres_tls_mount_is_traversable_with_private_keys_under_umask_077() {
-    let nonce = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let fixture = Fixture(trust_test_support::unique_temp_path(&format!(
-        "trust-database-tls-{}-{nonce}",
-        std::process::id()
-    )));
+    let fixture = Fixture(trust_test_support::unique_temp_path("trust-database-tls"));
     let root = &fixture.0;
     fs::create_dir_all(root.join("tls")).unwrap();
     fs::create_dir(root.join("bin")).unwrap();

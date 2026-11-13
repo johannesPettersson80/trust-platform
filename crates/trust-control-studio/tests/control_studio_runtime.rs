@@ -50,8 +50,7 @@ const EXECUTIONS: u64 = 20;
 #[test]
 #[allow(clippy::too_many_lines)] // One journey against the runtime, step by step; split, it would hide the order (E11.2).
 fn opens_inspects_records_keeps_and_releases_on_a_real_runtime() {
-    let folder =
-        trust_test_support::unique_temp_path(&format!("trust-cs-v0-{}", std::process::id()));
+    let folder = trust_test_support::unique_temp_path("trust-cs-v0");
     let _ = fs::remove_dir_all(&folder);
     let _remove = RemoveDir(folder.clone());
     let project = folder.join("project");

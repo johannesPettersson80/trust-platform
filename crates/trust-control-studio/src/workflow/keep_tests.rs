@@ -51,10 +51,7 @@ struct Folder(PathBuf);
 
 impl Folder {
     fn new(name: &str, text: &str) -> Self {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-cs-keep-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-cs-keep-{name}"));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("src")).expect("the source folder");
         fs::write(root.join("src/Main.st"), text).expect("Main.st");

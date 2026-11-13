@@ -9,10 +9,7 @@ use super::super::fake_runtime::{closed_endpoint, FakeRuntime};
 use super::answer;
 
 fn temp_root(name: &str) -> PathBuf {
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-lsp-managed-{name}-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-lsp-managed-{name}"));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("a fleet root");
     root

@@ -5,7 +5,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 #[test]
 fn dispatch_initialize_emits_initialized_event() {
@@ -598,14 +598,7 @@ fn first_snapshot_scan(state: &trust_runtime::control::ControlState) -> u64 {
 }
 
 pub(super) fn unique_project_root(label: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-debug-{label}-{}-{nanos}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-debug-{label}"));
     fs::create_dir_all(&root).unwrap();
     root
 }
