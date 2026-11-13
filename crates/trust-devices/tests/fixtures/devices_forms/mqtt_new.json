@@ -124,7 +124,7 @@
           "kind": "number",
           "value": 500,
           "options": [],
-          "help": "Delay between reconnect attempts in milliseconds.",
+          "help": "Delay between reconnect attempts in milliseconds; 0 is read as 1.",
           "forget_after_post": false
         },
         {
@@ -135,7 +135,7 @@
           "kind": "number",
           "value": 5,
           "options": [],
-          "help": "MQTT keepalive in seconds.",
+          "help": "MQTT keepalive in seconds; 0 is read as 1.",
           "forget_after_post": false
         },
         {
