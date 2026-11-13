@@ -31,6 +31,8 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Compare memory/perf metrics with baseline
         env:
           SALSA_MEMORY_RECORD_IF_MISSING: "1"
@@ -48,6 +50,8 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install cargo-fuzz
         run: |
           rustup toolchain install 1.99.0 --profile minimal --no-self-update
@@ -89,6 +93,8 @@ jobs:
         with:
           components: miri
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Setup Miri
         run: cargo +nightly miri setup
       - name: Run targeted Miri allowlist
@@ -106,6 +112,8 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install cargo-fuzz
         run: |
           rustup toolchain install 1.99.0 --profile minimal --no-self-update

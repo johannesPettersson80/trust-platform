@@ -21,6 +21,8 @@ jobs:
       - run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Toolchain for compiled programs (specification 44 §4.6)
         run: |
           set -euo pipefail
