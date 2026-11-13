@@ -61,7 +61,8 @@ pub(super) fn time_nanos(seconds: f64) -> Option<i64> {
     (time_seconds(nanos) == seconds).then_some(nanos)
 }
 
-/// The seconds of a TIME value of `nanos` nanoseconds, as a parameter's number reads it (E7.2).
-pub(super) fn time_seconds(nanos: i64) -> f64 {
+/// The seconds of a TIME value of `nanos` nanoseconds, as a parameter's number and a transfer's TIME guard read it (E7.2,
+/// E6.3).
+pub(in super::super) fn time_seconds(nanos: i64) -> f64 {
     nanos as f64 / 1e9
 }

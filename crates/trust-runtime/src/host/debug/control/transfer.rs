@@ -304,8 +304,11 @@ fn check_owner(binding: &Binding, tasks: &[ProgramTask], symbol: &str) -> Result
     }
 }
 
-fn valid_number(member: &NumberMember) -> bool {
-    matches!(member.iec_type.as_str(), "REAL" | "LREAL" | "BOOL")
+/// A member's type, unit and bounds (E6.2): REAL, LREAL or BOOL, a BOOL with unit `1` and bounds 0 and 1; a guard, which
+/// the transfer only reads (`writes` false), may also be a TIME in seconds, with unit `s`.
+fn valid_number(member: &NumberMember, writes: bool) -> bool {
+    let time_guard = !writes && member.iec_type == "TIME" && member.unit == "s";
+    (matches!(member.iec_type.as_str(), "REAL" | "LREAL" | "BOOL") || time_guard)
         && (member.iec_type != "BOOL"
             || member.unit == "1" && member.minimum == 0.0 && member.maximum == 1.0)
         && !member.unit.trim().is_empty()
@@ -367,7 +370,7 @@ fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
         .chain(binding.additional_outputs.iter())
         .map(|member| (member, true));
     for (member, writes) in written.chain(binding.guards.iter().map(|member| (member, false))) {
-        if !valid_number(member) {
+        if !valid_number(member, writes) {
             return Err("invalid transfer member type, unit, or bounds".into());
         }
         if !symbols.insert(member.symbol.to_ascii_uppercase()) {
@@ -417,13 +420,14 @@ fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
     Ok(())
 }
 
-/// A member's runtime value as a finite number of its declared IEC type.
+/// A member's runtime value as a finite number of its declared IEC type; a TIME guard's in seconds (E6.3).
 fn number(program: &dyn ProgramRead, member: &NumberMember) -> Result<f64, String> {
     let value = parameters::resolve_path(program, &member.symbol)?.value;
     let value = match (member.iec_type.as_str(), value) {
         ("REAL", Value::Real(value)) => f64::from(value),
         ("LREAL", Value::LReal(value)) => value,
         ("BOOL", Value::Bool(value)) => f64::from(u8::from(value)),
+        ("TIME", Value::Time(value)) => parameters::time_seconds(value.as_nanos()),
         _ => {
             return Err(format!(
                 "{} is not of IEC type {}",
