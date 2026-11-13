@@ -83,6 +83,9 @@ include!("tests/control_studio_isolated_live_inputs.rs");
 // The delayed integrator runs as an isolated run, with the search fixture and the run's channel readers above.
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_delayed_integrator.rs");
+// A TIME parameter override (E8.4) runs as an isolated run, with the same fixture and readers.
+#[cfg(target_os = "linux")]
+include!("tests/control_studio_isolated_time_override.rs");
 
 include!("tests/control_studio_experiment_abort.rs");
 include!("tests/control_studio_experiment_boundary.rs");

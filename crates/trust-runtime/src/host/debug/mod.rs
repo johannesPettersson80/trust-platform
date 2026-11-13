@@ -8,9 +8,9 @@ mod resolve;
 mod types;
 
 pub(crate) use control::{
-    control_number_as, control_parameter_writable, control_program_tasks, numeric_control_value,
-    resolve_control_parameter_path, ControlPidOutcome, ControlPidView, ControlPidWrite,
-    ControlWrite, ScanObserver, ScanView,
+    control_number_as, control_parameter_writable, control_program_tasks, control_time_nanos,
+    control_time_seconds, numeric_control_value, resolve_control_parameter_path, ControlPidOutcome,
+    ControlPidView, ControlPidWrite, ControlWrite, ScanObserver, ScanView,
 };
 pub use control::{DebugControl, IoRecordingResult, IoRecordingSpec};
 pub use dap::{DebugScope, DebugSource, DebugVariable, DebugVariableHandles, VariableHandle};

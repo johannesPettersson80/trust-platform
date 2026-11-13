@@ -213,8 +213,48 @@ impl IsolatedProgram {
     /// A symbol that names nothing, a number the variable's type does not take, or a write the
     /// program refuses.
     pub(super) fn assign(&mut self, symbol: &str, number: f64) -> Result<(), String> {
-        let place = self.place(symbol)?;
         let value = crate::debug::control_number_as(&self.value(symbol)?, number)?;
+        self.write(symbol, value)
+    }
+
+    /// The number the parameter `symbol` holds: a TIME's seconds, its nanoseconds divided by 10^9
+    /// (protocol annex E8.4), and any other value as [`Self::read`] reads it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::read`].
+    pub(super) fn read_parameter(&mut self, symbol: &str) -> Result<f64, String> {
+        match self.value(symbol)? {
+            Value::Time(time) => Ok(crate::debug::control_time_seconds(time.as_nanos())),
+            _ => self.read(symbol),
+        }
+    }
+
+    /// Writes the parameter value `number` into `symbol`: a TIME's seconds as their whole
+    /// nanoseconds (protocol annex E8.4, E7.3 step 10), and any other value as [`Self::assign`]
+    /// writes it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::assign`], and seconds that are no whole number of nanoseconds.
+    pub(super) fn assign_parameter(&mut self, symbol: &str, number: f64) -> Result<(), String> {
+        match self.value(symbol)? {
+            Value::Time(_) => {
+                let nanos = crate::debug::control_time_nanos(number).ok_or_else(|| {
+                    format!(
+                        "{symbol}: a TIME value is the seconds of a whole number of nanoseconds"
+                    )
+                })?;
+                self.write(symbol, Value::Time(Duration::from_nanos(nanos)))
+            }
+            _ => self.assign(symbol, number),
+        }
+    }
+
+    /// Writes `value` into `symbol`, and at each process-image address the program binds it to, in
+    /// the image's representation.
+    fn write(&mut self, symbol: &str, value: Value) -> Result<(), String> {
+        let place = self.place(symbol)?;
         if let Ok(index) = self.runtime.find_variable(symbol) {
             let codec = self.runtime.io_codec(index);
             for address in self.runtime.bound_addresses(index) {

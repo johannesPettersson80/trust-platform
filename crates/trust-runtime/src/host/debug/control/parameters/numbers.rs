@@ -52,8 +52,9 @@ pub(super) const TIME_NOT_WHOLE_NANOSECONDS: &str =
 /// as `seconds`, the number as the client's JSON wrote it, when that decimal has at most nine digits after the point and
 /// its nanoseconds `n` read back as `seconds` (`n / 10^9`); `None` for any other value and outside TIME's range. The
 /// product `seconds x 10^9` in binary misses a whole nanosecond by half of one or more from 2^22 s (about 48.5 days)
-/// on, for example 4194792.263 s, whose product is 4194792263000000.5.
-pub(super) fn time_nanos(seconds: f64) -> Option<i64> {
+/// on, for example 4194792.263 s, whose product is 4194792263000000.5. An isolated run's TIME override takes it too
+/// (E8.4).
+pub(crate) fn time_nanos(seconds: f64) -> Option<i64> {
     if !seconds.is_finite() {
         return None;
     }
@@ -72,8 +73,8 @@ pub(super) fn time_nanos(seconds: f64) -> Option<i64> {
     (time_seconds(nanos) == seconds).then_some(nanos)
 }
 
-/// The seconds of a TIME value of `nanos` nanoseconds, as a parameter's number and a transfer's TIME guard read it (E7.2,
-/// E6.3).
-pub(in super::super) fn time_seconds(nanos: i64) -> f64 {
+/// The seconds of a TIME value of `nanos` nanoseconds, as a parameter's number, a transfer's TIME guard and an isolated
+/// run's TIME override read it (E7.2, E6.3, E8.4).
+pub(crate) fn time_seconds(nanos: i64) -> f64 {
     nanos as f64 / 1e9
 }

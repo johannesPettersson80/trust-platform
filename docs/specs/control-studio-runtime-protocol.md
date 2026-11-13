@@ -168,7 +168,7 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
 | Experiment activation and abort bindings | BOOL |
 | Search axes and objective channels | REAL and LREAL |
-| Isolated parameter overrides | REAL, LREAL, or a fixed configuration BOOL |
+| Isolated parameter overrides | REAL, LREAL, TIME with unit `s` (E8.4), or a fixed configuration BOOL |
 
 The `iec_type` of a binding MUST equal the name of the variable's type in upper case. Integer and enumeration gains are not supported (E7.8).
 
@@ -864,7 +864,7 @@ Start request:
 - `parameter_overrides`: optional, default `[]`, at most 64 entries.
 - `simulation_override`: optional object `{model_revision, model_provenance, simulation_toml}`. Its fields are limited to 256, 4,096 and 262,144 bytes. `feedback_relay`: optional object, checked against its declared bounds.
 
-A parameter override is `{symbol, iec_type, unit, convention, minimum, maximum, value}`. Its type is REAL or LREAL, or a fixed configuration BOOL. The value lies within the bounds and names a writable, scalar member. A BOOL override has unit `1` and bounds that contain 0 and 1, and its value is 0 or 1. It keeps its value for the whole run, from the task boundary after the program's first execution when the program sets it then (E8.3). Duplicate symbols and conflicts with `initial_values` or `events` are refused. The `parameterSchemaRevision` is a hash of the declarations (symbol, unit, minimum and maximum) in request order.
+A parameter override is `{symbol, iec_type, unit, convention, minimum, maximum, value}`. Its type is REAL, LREAL or TIME, or a fixed configuration BOOL. The value lies within the bounds and names a writable, scalar member. A BOOL override has unit `1` and bounds that contain 0 and 1, and its value is 0 or 1. A TIME override, a parameter that a law keeps as `TIME` (E7.1), has the unit `s`: its value and bounds are seconds, and the value is the seconds of a whole number of nanoseconds, as E7.3 step 10 reads it. The run reads it back, and records it in `parameters`, in seconds. A search's axes stay REAL and LREAL (E8.5). It keeps its value for the whole run, from the task boundary after the program's first execution when the program sets it then (E8.3). Duplicate symbols and conflicts with `initial_values` or `events` are refused. The `parameterSchemaRevision` is a hash of the declarations (symbol, unit, minimum and maximum) in request order.
 
 Success response: `job_id`, `status` set to `queued`, and `project_revision`. A repeated `request_id` with the same inputs returns the same fields.
 
