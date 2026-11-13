@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::identification::refusal::Refusal;
-use crate::loop_definition::{ControllerLaw, LoopDefinition, ParameterBinding, RealType};
+use crate::loop_definition::{ControllerLaw, LoopDefinition, ParameterBinding, ParameterType};
 use crate::tuning::cascade_candidate::{cascade_mapped_parameters, served_cascade};
 use crate::tuning::project_candidate::{served_seed, served_trajectory};
 use crate::tuning::project_seed::{GainForm, ParallelPidSeed};
@@ -66,8 +66,9 @@ pub struct MappedParameter {
     pub key: GainKey,
     /// The parameter's declared bounds.
     pub bounds: GainBounds,
-    /// Whether the parameter is `REAL` (a value is rounded to single precision before it is written, C0).
-    pub real: bool,
+    /// The parameter's IEC type: a REAL value is rounded to single precision and a TIME value to whole milliseconds
+    /// before it is written (C0).
+    pub iec_type: ParameterType,
 }
 
 /// The pins a user set on the settings of a controller (`ControllerSettingsPins`): the loop they belong to, the family
@@ -279,12 +280,13 @@ fn mapped_parameter(
             minimum: parameter.minimum,
             maximum: parameter.maximum,
         },
-        real: matches!(parameter.iec_type, RealType::Real),
+        iec_type: parameter.iec_type,
     })
 }
 
 /// Whether a value is within a parameter's bounds and representable in its type (C0): a gain by its magnitude (N6.4), the
-/// other settings by their signed bounds, and a `REAL` value only if single precision keeps it.
+/// other settings by their signed bounds, a `REAL` value only if single precision keeps it, and a `TIME` value only in whole
+/// milliseconds.
 fn within_bounds(value: f64, parameter: &MappedParameter) -> bool {
     let bounds = parameter.bounds;
     let in_range = if parameter.key.is_gain() {
@@ -294,7 +296,7 @@ fn within_bounds(value: f64, parameter: &MappedParameter) -> bool {
         value >= bounds.minimum && value <= bounds.maximum
     };
     // Exact identity, not a tolerance: single precision must hold the value unchanged (C0).
-    in_range && (!parameter.real || single_precision(value).to_bits() == value.to_bits())
+    in_range && parameter.iec_type.realize(value).to_bits() == value.to_bits()
 }
 
 /// The sentence of a pinned value that [`within_bounds`] refuses (A11.1): the setting, its value and its bounds as the check
@@ -451,7 +453,7 @@ mod tests {
             symbol: symbol.to_string(),
             key,
             bounds: GainBounds { minimum, maximum },
-            real: false,
+            iec_type: ParameterType::Lreal,
         }
     }
 
@@ -631,6 +633,24 @@ mod tests {
         assert_ne!(single_precision(0.1), 0.1);
     }
 
+    /// C0 and C2: a pinned or entered reset time held as a TIME is a whole number of milliseconds, as a REAL setting must survive
+    /// single precision; 1.2345 s would be written as another time. Catches a TIME pin taken with a fraction of a millisecond.
+    #[test]
+    fn a_time_setting_is_a_whole_number_of_milliseconds() {
+        let reset_time = MappedParameter {
+            symbol: "Main.Ti".to_owned(),
+            key: GainKey::ResetTime,
+            bounds: GainBounds {
+                minimum: 0.01,
+                maximum: 1000.0,
+            },
+            iec_type: ParameterType::Time,
+        };
+        assert!(within_bounds(1.235, &reset_time));
+        assert!(!within_bounds(1.2345, &reset_time));
+        assert!(!within_bounds(0.005, &reset_time), "below the bounds");
+    }
+
     #[test]
     fn a_manual_entry_needs_its_family_terms_and_refuses_a_changed_pin() {
         let entered = BTreeMap::from([("Main.Kp".to_string(), 1.0)]);
@@ -657,7 +677,7 @@ mod tests {
             AntiWindup, AntiWindupMethod, ModeBinding, Parameter, ParameterBinding, PidLaw,
         };
 
-        let bound = |symbol: &str, iec_type: RealType| Parameter {
+        let bound = |symbol: &str, iec_type: ParameterType| Parameter {
             symbol: symbol.to_owned(),
             iec_type,
             unit: "1".to_owned(),
@@ -685,17 +705,23 @@ mod tests {
             loop_id: "tank".to_owned(),
             task_name: "MainTask".to_owned(),
             parameters: vec![
-                bound("Main.Kp", RealType::Lreal),
-                bound("Main.Ki", RealType::Lreal),
-                bound("Main.Kd", RealType::Lreal),
-                bound("Main.Beta", RealType::Lreal),
-                bound("Main.Tf", RealType::Real),
+                bound("Main.Kp", ParameterType::Lreal),
+                bound("Main.Ki", ParameterType::Lreal),
+                bound("Main.Kd", ParameterType::Lreal),
+                bound("Main.Beta", ParameterType::Lreal),
+                bound("Main.Tf", ParameterType::Real),
             ],
             mode: ModeBinding::boolean("Main.Mode".to_owned(), false),
         });
         let mapped: Vec<(String, GainKey, bool)> = mapped_parameters(&loop_definition)
             .into_iter()
-            .map(|parameter| (parameter.symbol, parameter.key, parameter.real))
+            .map(|parameter| {
+                (
+                    parameter.symbol,
+                    parameter.key,
+                    parameter.iec_type == ParameterType::Real,
+                )
+            })
             .collect();
         assert_eq!(
             mapped,

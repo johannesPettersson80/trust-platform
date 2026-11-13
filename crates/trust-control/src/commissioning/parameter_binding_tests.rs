@@ -4,13 +4,13 @@ use super::*;
 use crate::commissioning::fixture_loops::parallel_pid_loop;
 use crate::commissioning::texts;
 use crate::failure::{Cause, NextAction};
-use crate::loop_definition::{ModeValue, RealType};
+use crate::loop_definition::{ModeValue, ParameterType};
 
 /// A gain of the fixture's parameter record as its loop file declares it: LREAL, in %/%, bounded to ±100.
 fn gain(symbol: &str, convention: &str) -> RuntimeParameter {
     RuntimeParameter {
         symbol: symbol.to_owned(),
-        iec_type: RealType::Lreal,
+        iec_type: ParameterType::Lreal,
         unit: "%/%".to_owned(),
         convention: convention.to_owned(),
         minimum: -100.0,

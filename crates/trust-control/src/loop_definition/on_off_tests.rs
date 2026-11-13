@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use super::{on_off_channels_raw, BandConvention, OnOffController, ThresholdEquality};
 use crate::loop_definition::{
-    InitialSource, InitialValue, ModeBinding, Parameter, ParameterBinding, RealType,
+    InitialSource, InitialValue, ModeBinding, Parameter, ParameterBinding, ParameterType,
 };
 
 /// The cold room's block as the TypeScript generator writes it, with `extra` fields laid over it.
@@ -45,7 +45,7 @@ fn block_json(extra: &Value) -> Value {
 fn binding() -> ParameterBinding {
     let parameter = |symbol: &str, unit: &str| Parameter {
         symbol: symbol.to_owned(),
-        iec_type: RealType::Lreal,
+        iec_type: ParameterType::Lreal,
         unit: unit.to_owned(),
         convention: "ON/OFF".to_owned(),
         minimum: 0.0,

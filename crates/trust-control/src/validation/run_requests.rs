@@ -20,7 +20,7 @@ use crate::identification::connected_record::{
     RunConditions, ValidationRun, ValidationSample, ValidationValue,
 };
 use crate::limits::ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS;
-use crate::loop_definition::{LoopDefinition, ModeValue, ParameterBinding, RealType};
+use crate::loop_definition::{LoopDefinition, ModeValue, ParameterBinding};
 use crate::model::{GeneralModel, SimulationOverride};
 use crate::recording::channels::ChannelQuality;
 use crate::signals::Quality;
@@ -33,9 +33,8 @@ use crate::validation::engineer_verification_plan::VerificationPlan;
 use crate::validation::gain_schedule_case;
 use crate::validation::group_case;
 use crate::validation::isolated_run_protocol::{
-    IsolatedExecution, IsolatedModeBinding, IsolatedParameterOverride, IsolatedParameterType,
-    IsolatedRunEvent, IsolatedRunObservation, IsolatedRunRecord, IsolatedRunRequest,
-    IsolatedRunSample,
+    IsolatedExecution, IsolatedModeBinding, IsolatedParameterOverride, IsolatedRunEvent,
+    IsolatedRunObservation, IsolatedRunRecord, IsolatedRunRequest, IsolatedRunSample,
 };
 use crate::validation::on_off_case;
 use crate::validation::search_case::candidate_coefficients;
@@ -553,10 +552,7 @@ pub(super) fn override_of(
         })?;
     Ok(IsolatedParameterOverride {
         symbol: parameter.symbol.clone(),
-        iec_type: match &parameter.iec_type {
-            RealType::Real => IsolatedParameterType::Real,
-            RealType::Lreal => IsolatedParameterType::Lreal,
-        },
+        iec_type: parameter.iec_type.into(),
         unit: parameter.unit.clone(),
         convention: parameter.convention.clone(),
         minimum: parameter.minimum,

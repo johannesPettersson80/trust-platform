@@ -60,6 +60,9 @@ pub mod starting_point;
 mod starting_point_wait_tests;
 pub mod state_adapter;
 pub mod texts;
+#[cfg(test)]
+#[path = "commissioning/time_parameter_tests.rs"]
+mod time_parameter_tests;
 pub mod transfer;
 pub mod transfer_protocol;
 pub mod transfer_tracking;

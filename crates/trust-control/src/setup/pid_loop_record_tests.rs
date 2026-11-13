@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use super::snapshot_age_ms;
 use super::test_support::{field, STATE_FIELDS};
-use crate::loop_definition::{InitialSource, InitialValue, PostScan, RealType, StateType};
+use crate::loop_definition::{InitialSource, InitialValue, ParameterType, PostScan, StateType};
 use crate::setup::loop_bindings::MeasuredSignal;
 use crate::setup::pid_bindings::{pid_parameters, pid_states};
 
@@ -83,7 +83,7 @@ fn the_pid_parameters_follow_the_control_pid_bounds() {
     assert_eq!(parameters.len(), expected.len());
     for (parameter, (name, unit, minimum, maximum)) in parameters.iter().zip(expected) {
         assert_eq!(parameter.symbol, format!("P1.Parameters.{name}"));
-        assert_eq!(parameter.iec_type, RealType::Lreal);
+        assert_eq!(parameter.iec_type, ParameterType::Lreal);
         assert_eq!(parameter.unit, unit, "{name}");
         assert_eq!(parameter.convention, format!("Control.PID {name}"));
         assert_eq!(

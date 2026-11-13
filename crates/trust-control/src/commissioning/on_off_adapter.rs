@@ -7,9 +7,8 @@ use std::collections::BTreeMap;
 
 use super::adapters::ControllerGains;
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{LoopDefinition, OnOffController, RealType};
+use crate::loop_definition::{LoopDefinition, OnOffController};
 use crate::tuning::on_off_candidate::OnOffCandidate;
-use crate::tuning::settings_pins::single_precision;
 use crate::validation::commissioning_assessment::{CommissioningCriteria, SwitchingCriteria};
 
 /// The refusal of a loop that the switching adapter is asked about without a switching block (C3).
@@ -98,10 +97,7 @@ pub fn materialize(
             .iter()
             .find(|parameter| parameter.symbol == symbol)
             .ok_or_else(|| outside(symbol))?;
-        let representable = match parameter.iec_type {
-            RealType::Real => single_precision(value).to_bits() == value.to_bits(),
-            RealType::Lreal => true,
-        };
+        let representable = parameter.iec_type.keeps(value);
         if !value.is_finite()
             || value < parameter.minimum
             || value > parameter.maximum

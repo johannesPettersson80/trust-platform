@@ -12,7 +12,7 @@ use crate::failure::Failure;
 use crate::json::decode_value;
 use crate::loop_definition::{
     Action, Design, InitialSource, InitialValue, InitializedState, LoopDefinition, LoopScope,
-    ModeWhenTrue, PostScan, RealType, StateType,
+    ModeWhenTrue, ParameterType, PostScan, StateType,
 };
 use crate::setup::catalog::{decode_catalog_answer, CompiledCatalog};
 use crate::setup::loop_bindings::FormSignal;
@@ -164,7 +164,7 @@ fn the_program_pi_is_a_project_controller_whose_seed_names_its_gains() {
         .parameter_binding
         .as_ref()
         .expect("the gains are bound");
-    let parameters: Vec<(&str, RealType, &str, f64, f64)> = binding
+    let parameters: Vec<(&str, ParameterType, &str, f64, f64)> = binding
         .parameters
         .iter()
         .map(|parameter| {
@@ -180,8 +180,8 @@ fn the_program_pi_is_a_project_controller_whose_seed_names_its_gains() {
     assert_eq!(
         parameters,
         vec![
-            ("P1.Kp", RealType::Lreal, "%/degC", 0.0, 20.0),
-            ("P1.Ki", RealType::Real, "%/(degC*s)", 0.0, 2.0),
+            ("P1.Kp", ParameterType::Lreal, "%/degC", 0.0, 20.0),
+            ("P1.Ki", ParameterType::Real, "%/(degC*s)", 0.0, 2.0),
         ],
         "each gain takes its own variable's REAL or LREAL"
     );

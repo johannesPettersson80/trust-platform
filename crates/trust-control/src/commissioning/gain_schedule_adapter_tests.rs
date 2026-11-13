@@ -16,7 +16,9 @@ use crate::commissioning::found_mode::FoundMode;
 use crate::commissioning::transfer::{
     TransferBinding, TransferMember, TransferModeBinding, TransferValue, TransferValueType,
 };
-use crate::loop_definition::{ModeBinding, Parameter, ParameterBinding, RealType, SchedulePoint};
+use crate::loop_definition::{
+    ModeBinding, Parameter, ParameterBinding, ParameterType, SchedulePoint,
+};
 use crate::tuning::candidate::{CandidateSource, LawCandidate};
 use crate::tuning::project_candidate::project_candidate;
 use crate::tuning::project_seed::ParallelPidSeed;
@@ -59,7 +61,7 @@ fn written(values: &BTreeMap<String, f64>) -> Vec<(&str, f64)> {
 }
 
 /// The record of the tank's Low loop: its own gains, named as the setup names them, in the units of the table.
-fn record(iec_type: RealType) -> ParameterBinding {
+fn record(iec_type: ParameterType) -> ParameterBinding {
     ParameterBinding {
         loop_id: "loop:low".to_owned(),
         task_name: "MainTask".to_owned(),
@@ -72,7 +74,7 @@ fn record(iec_type: RealType) -> ParameterBinding {
 }
 
 /// A record field of the tank's gains, with the bounds that Tune may choose.
-fn parameter(symbol: &str, unit: &str, iec_type: RealType) -> Parameter {
+fn parameter(symbol: &str, unit: &str, iec_type: ParameterType) -> Parameter {
     Parameter {
         symbol: symbol.to_owned(),
         iec_type,
@@ -294,8 +296,8 @@ fn restore_refuses_a_point_whose_previous_gain_is_not_known() {
 
 #[test]
 fn the_members_of_the_table_follow_the_record_in_table_order_with_its_units_and_bounds() {
-    let members =
-        schedule_members(&table(), &record(RealType::Lreal)).expect("the record names the gains");
+    let members = schedule_members(&table(), &record(ParameterType::Lreal))
+        .expect("the record names the gains");
     assert_eq!(
         members,
         vec![
@@ -309,8 +311,8 @@ fn the_members_of_the_table_follow_the_record_in_table_order_with_its_units_and_
 
 #[test]
 fn the_members_of_a_table_keep_the_real_type_of_a_real_record() {
-    let members =
-        schedule_members(&table(), &record(RealType::Real)).expect("the record names the gains");
+    let members = schedule_members(&table(), &record(ParameterType::Real))
+        .expect("the record names the gains");
     assert!(members
         .iter()
         .all(|member| member.iec_type == TransferValueType::Real));
@@ -318,7 +320,7 @@ fn the_members_of_a_table_keep_the_real_type_of_a_real_record() {
 
 #[test]
 fn a_record_that_names_none_of_the_table_s_gains_is_refused() {
-    let mut other = record(RealType::Lreal);
+    let mut other = record(ParameterType::Lreal);
     other.parameters.clear();
     let failure = schedule_members(&table(), &other).expect_err("no gain of the table");
     assert_eq!(
@@ -329,7 +331,7 @@ fn a_record_that_names_none_of_the_table_s_gains_is_refused() {
 
 #[test]
 fn the_schedule_states_the_table_after_the_own_states_and_drops_the_own_gains_from_the_guards() {
-    let widened = with_schedule_members(&table(), &record(RealType::Lreal), own_binding())
+    let widened = with_schedule_members(&table(), &record(ParameterType::Lreal), own_binding())
         .expect("the table fits the record");
     assert_eq!(
         names(&widened.states),
@@ -351,7 +353,7 @@ fn a_binding_that_already_states_a_table_variable_is_refused() {
     binding
         .states
         .push(member("P1.KpHigh", "%/m", TransferValueType::Lreal));
-    let failure = with_schedule_members(&table(), &record(RealType::Lreal), binding)
+    let failure = with_schedule_members(&table(), &record(ParameterType::Lreal), binding)
         .expect_err("KpHigh is already a state");
     assert_eq!(
         failure.message,

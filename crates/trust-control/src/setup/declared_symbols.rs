@@ -5,7 +5,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::loop_definition::{LoopDefinition, ManualOutputType, RealType};
+use crate::loop_definition::{LoopDefinition, ManualOutputType};
 
 /// The controller symbols a loop declares, as the `TypeScript` walk finds them (`declaredControllerSymbols`): every text under a key
 /// named `…symbol`, `…symbols` or `…Signal` that is dotted and not an address, except the record's own name and revision. The walk
@@ -62,7 +62,7 @@ pub(super) fn declared_controller_symbol_types(
     let mut types: Vec<(String, String)> = Vec::new();
     if let Some(binding) = &loop_definition.parameter_binding {
         for parameter in &binding.parameters {
-            set_type(&mut types, &parameter.symbol, real_name(parameter.iec_type));
+            set_type(&mut types, &parameter.symbol, parameter.iec_type.iec_name());
         }
         if !binding.mode.is_enumeration() {
             set_type(&mut types, &binding.mode.symbol, "BOOL");
@@ -120,14 +120,6 @@ fn set_type(types: &mut Vec<(String, String)>, symbol: &str, iec_type: &str) {
 /// The JSON of a loop part. Every part here is a record of serde types, so it serializes.
 fn value_of<T: Serialize>(part: &T) -> Value {
     serde_json::to_value(part).unwrap_or(Value::Null)
-}
-
-/// The IEC name of a real type.
-fn real_name(real: RealType) -> &'static str {
-    match real {
-        RealType::Real => "REAL",
-        RealType::Lreal => "LREAL",
-    }
 }
 
 /// The IEC name of a manual output's type.

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::commissioning::fixture_loops::smith_predictor_loop;
 use crate::identification::connected_record::ValidationValue;
-use crate::loop_definition::{LoopDefinition, Parameter, ProjectSeedBlock, RealType};
+use crate::loop_definition::{LoopDefinition, Parameter, ParameterType, ProjectSeedBlock};
 use crate::recording::channels::ChannelQuality;
 use crate::tuning::candidate::CandidateSource;
 use crate::tuning::project_candidate::{served_smith, smith_candidate};
@@ -46,7 +46,7 @@ fn with_library_block() -> LoopDefinition {
     {
         binding.parameters.push(Parameter {
             symbol: symbol.to_owned(),
-            iec_type: RealType::Lreal,
+            iec_type: ParameterType::Lreal,
             unit: unit.to_owned(),
             convention: "Smith predictor operating point".to_owned(),
             minimum,

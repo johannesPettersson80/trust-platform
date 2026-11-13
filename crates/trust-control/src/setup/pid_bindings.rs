@@ -8,7 +8,7 @@ use super::texts::configure::not_compiled_bool;
 use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
-    InitialSource, InitialValue, InitializedState, Parameter, PostScan, RealType, StateType,
+    InitialSource, InitialValue, InitializedState, Parameter, ParameterType, PostScan, StateType,
 };
 
 /// The parameter record of a `Control.PID`: its eleven numeric fields, each with its unit, its convention and the bounds Tune may
@@ -26,7 +26,7 @@ pub fn pid_parameters(
                 field_bounds(field, process_variable, manipulated_variable);
             Parameter {
                 symbol: format!("{record}.{field}"),
-                iec_type: RealType::Lreal,
+                iec_type: ParameterType::Lreal,
                 unit,
                 convention: format!("Control.PID {field}"),
                 minimum,

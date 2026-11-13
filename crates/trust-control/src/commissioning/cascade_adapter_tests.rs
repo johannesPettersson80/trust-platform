@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use super::*;
 use crate::commissioning::adapters::ControllerGains;
-use crate::loop_definition::{ModeBinding, Parameter, ParameterBinding, RealType};
+use crate::loop_definition::{ModeBinding, Parameter, ParameterBinding, ParameterType};
 use crate::tuning::project_seed::CascadeGains;
 use crate::tuning::structure::ParallelGains;
 
@@ -45,7 +45,7 @@ fn binding() -> ParameterBinding {
             .iter()
             .map(|symbol| Parameter {
                 symbol: (*symbol).to_owned(),
-                iec_type: RealType::Lreal,
+                iec_type: ParameterType::Lreal,
                 unit: "1".to_owned(),
                 convention: "Control.PID gain".to_owned(),
                 minimum: -1e6,

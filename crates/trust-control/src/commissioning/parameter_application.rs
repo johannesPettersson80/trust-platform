@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::failure::{Cause, Failure, NextAction};
 use crate::json;
-use crate::loop_definition::{ModeValue, RealType};
+use crate::loop_definition::{ModeValue, ParameterType};
 
 use super::parameter_status::{same_parameter_values, ParameterStatus, RecordState};
 use super::texts;
@@ -59,8 +59,8 @@ pub struct RuntimeBinding {
 pub struct RuntimeParameter {
     /// The symbol of the scalar member.
     pub symbol: String,
-    /// The IEC type: REAL or LREAL.
-    pub iec_type: RealType,
+    /// The IEC type: REAL, LREAL or TIME, a TIME in seconds (E7.1).
+    pub iec_type: ParameterType,
     /// The unit; not blank.
     pub unit: String,
     /// The convention, for example `proportional gain`; not blank.
@@ -286,8 +286,8 @@ pub fn values_of_text(review_json: Option<&str>) -> Result<BTreeMap<String, f64>
 }
 
 /// The values of a review, checked and rounded before the runtime is read (`review`, first part): exactly the declared symbols,
-/// each finite; each REAL value is rounded to single precision as `Math.fround` rounds it; and the rounded value lies within the
-/// bounds. The rounding is the IEC representation of the value (C0: a REAL value is rounded before it is submitted).
+/// each finite; each REAL value is rounded to single precision as `Math.fround` rounds it, and each TIME value to whole
+/// milliseconds; and the rounded value lies within the bounds. The rounding is the IEC representation of the value (C0: a REAL value is rounded before it is submitted).
 ///
 /// # Errors
 /// The values do not hold exactly the declared symbols, or one of them is outside its bounds after IEC rounding (B6.2, C0).
@@ -303,10 +303,7 @@ pub fn review_input(
         let Some(&raw) = input.get(&parameter.symbol) else {
             return Err(values_invalid());
         };
-        let rounded = match parameter.iec_type {
-            RealType::Real => round_to_single(raw),
-            RealType::Lreal => raw,
-        };
+        let rounded = parameter.iec_type.realize(raw);
         if !rounded.is_finite() || rounded < parameter.minimum || rounded > parameter.maximum {
             let text = texts::parameter_outside_bounds(
                 &parameter.symbol,
@@ -329,12 +326,6 @@ fn values_invalid() -> Failure {
         Cause::Settings,
         NextAction::None,
     )
-}
-
-/// The nearest single-precision value, as an `f64` (`Math.fround`).
-#[allow(clippy::cast_possible_truncation)] // Rounding to single precision is the purpose of this cast.
-fn round_to_single(value: f64) -> f64 {
-    f64::from(value as f32)
 }
 
 /// The review of checked values against the record that the runtime reported (`review`, second part). A pending record refuses

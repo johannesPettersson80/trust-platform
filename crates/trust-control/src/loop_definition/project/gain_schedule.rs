@@ -6,8 +6,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use super::{ProjectSeedBlock, RealType, Structure};
+use super::{ProjectSeedBlock, Structure};
 use crate::json::decode_value;
+use crate::loop_definition::RealType;
 use crate::tuning::project_seed::ParallelPidSeed;
 use crate::tuning::structures::gain_schedule::{
     check_operating_points, check_point_order, check_tolerance, OperatingPointGains,

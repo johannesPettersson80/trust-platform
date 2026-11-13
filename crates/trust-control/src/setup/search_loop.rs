@@ -541,7 +541,7 @@ fn axis_parameters(axes: &[Axis]) -> Vec<Parameter> {
     axes.iter()
         .map(|axis| Parameter {
             symbol: axis.symbol.clone(),
-            iec_type: axis.real,
+            iec_type: axis.real.into(),
             unit: axis.unit.clone(),
             convention: axis
                 .symbol

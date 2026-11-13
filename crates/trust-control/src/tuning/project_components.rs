@@ -15,7 +15,6 @@ use trust_control_math::notch::{self, NotchCoefficients};
 
 use crate::identification::refusal::Refusal;
 use crate::tuning::project_model::ModelParameter;
-use crate::tuning::settings_pins::single_precision;
 use crate::tuning::structure::is_exactly_zero;
 use crate::tuning::texts;
 
@@ -313,11 +312,7 @@ fn realize(
             .find(|parameter| &parameter.symbol == symbol)?;
         let pinned = pins.get(symbol).copied();
         let value = pinned.unwrap_or(*candidate);
-        let stored = if parameter.real {
-            single_precision(value)
-        } else {
-            value
-        };
+        let stored = parameter.iec_type.realize(value);
         let within = stored.is_finite()
             && stored >= parameter.bounds.minimum
             && stored <= parameter.bounds.maximum;
@@ -391,13 +386,14 @@ mod tests {
     #![allow(clippy::float_cmp)] // The grids are compared with the values they were built from.
 
     use super::*;
+    use crate::loop_definition::ParameterType;
     use crate::tuning::proportional::GainBounds;
 
     fn parameter(symbol: &str, unit: &str) -> ModelParameter {
         ModelParameter {
             symbol: symbol.to_string(),
             unit: unit.to_string(),
-            real: false,
+            iec_type: ParameterType::Lreal,
             bounds: GainBounds {
                 minimum: 0.0,
                 maximum: 10.0,
@@ -487,7 +483,7 @@ mod tests {
         ModelParameter {
             symbol: symbol.to_string(),
             unit: "1".to_string(),
-            real: false,
+            iec_type: ParameterType::Lreal,
             bounds: GainBounds {
                 minimum: -10.0,
                 maximum: 10.0,

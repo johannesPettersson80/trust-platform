@@ -221,7 +221,7 @@ fn feedforward_parameter(
 ) -> Result<Parameter, Failure> {
     Ok(Parameter {
         symbol: gain.symbol.clone(),
-        iec_type: real_type(compiled(catalog, &gain.symbol)?)?,
+        iec_type: real_type(compiled(catalog, &gain.symbol)?)?.into(),
         unit,
         convention: convention.to_owned(),
         minimum: gain.minimum,

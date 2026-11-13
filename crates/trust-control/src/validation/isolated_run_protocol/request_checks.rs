@@ -259,8 +259,12 @@ fn check_parameter(parameter: &IsolatedParameterOverride) -> Result<(), Failure>
     }
     match parameter.iec_type {
         IsolatedParameterType::Real => check_real_precision(parameter),
-        IsolatedParameterType::Lreal => Ok(()),
         IsolatedParameterType::Bool => check_fixed_bool(parameter),
+        IsolatedParameterType::Time if parameter.unit != "s" => Err(refuse_request(&format!(
+            "The parameter {symbol} is a TIME, whose unit is s."
+        ))),
+        // A TIME's whole nanoseconds are the runtime's check (E7.3 step 10).
+        IsolatedParameterType::Lreal | IsolatedParameterType::Time => Ok(()),
     }
 }
 

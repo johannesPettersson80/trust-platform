@@ -5,12 +5,13 @@ use std::collections::BTreeSet;
 
 use crate::commissioning::initial_state::{ControllerInitialization, MAXIMUM_STATES};
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
+use crate::tuning::project_seed::GainForm;
 
 use super::{
     Activation, AuxiliaryRole, ControllerLaw, Direction, Execution, Experiment, ExperimentKind,
     InitialSource, InitialValue, InitializedState, LoopDefinition, LoopRejection, LoopSignal,
-    ModeValue, ParameterBinding, ParameterPurpose, PidInitialization, PostScan, Range, StateType,
-    Topology,
+    ModeValue, ParameterBinding, ParameterPurpose, ParameterType, PidInitialization, PostScan,
+    ProjectSeedBlock, Range, StateType, Topology,
 };
 
 impl LoopDefinition {
@@ -67,6 +68,7 @@ impl LoopDefinition {
         if let Some(binding) = &self.parameter_binding {
             check_parameter_binding(binding, &self.id)?;
         }
+        self.check_time_parameters()?;
         if let Some(law) = &self.controller.law {
             let binding = self
                 .parameter_binding
@@ -206,6 +208,43 @@ impl LoopDefinition {
                 &signal.iec_type,
                 signal.range,
             )?;
+        }
+        Ok(())
+    }
+
+    /// A `TIME` parameter is the reset time or the derivative time of a law in standard form, in seconds (specification 35
+    /// C0, C2): the times a `parallel-pid` seed with `"form": "standard"` names. Every other parameter is REAL or LREAL.
+    pub(super) fn check_time_parameters(&self) -> Result<(), String> {
+        let Some(binding) = &self.parameter_binding else {
+            return Ok(());
+        };
+        let seed = self
+            .controller
+            .project
+            .as_ref()
+            .and_then(|project| project.seed.as_ref());
+        let times: Vec<&str> = match seed {
+            Some(ProjectSeedBlock::ParallelPid(seed)) if seed.form == GainForm::Standard => seed
+                .integral_symbol
+                .iter()
+                .chain(&seed.derivative_symbol)
+                .map(String::as_str)
+                .collect(),
+            _ => Vec::new(),
+        };
+        for parameter in &binding.parameters {
+            if parameter.iec_type != ParameterType::Time {
+                continue;
+            }
+            if !times.contains(&parameter.symbol.as_str()) {
+                return Err(format!(
+                    "{} is a TIME: only the reset time and the derivative time of a law in standard form may be TIME",
+                    parameter.symbol
+                ));
+            }
+            if parameter.unit != "s" {
+                return Err(format!("{} is a TIME, whose unit is s", parameter.symbol));
+            }
         }
         Ok(())
     }

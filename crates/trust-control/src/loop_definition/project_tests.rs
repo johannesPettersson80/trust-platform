@@ -548,3 +548,97 @@ fn a_seed_that_mixes_the_forms_or_a_standard_p_is_refused() {
         malformed(&standard_p)
     );
 }
+
+/// The loop `value` with its bound parameter `symbol` declared as `iec_type` in `unit`.
+fn retyped(mut value: Value, symbol: &str, iec_type: &str, unit: &str) -> Value {
+    let parameter = value["parameterBinding"]["parameters"]
+        .as_array_mut()
+        .expect("the parameters")
+        .iter_mut()
+        .find(|parameter| parameter["symbol"] == symbol)
+        .expect("the bound parameter");
+    parameter["iec_type"] = json!(iec_type);
+    parameter["unit"] = json!(unit);
+    value
+}
+
+/// C0 and C2: the reset time and the derivative time of a law in standard form may be TIME, in seconds, and no other parameter may
+/// be: not that law's gain, not a parallel law's integral gain, not a `Control.PID` field. Catches a gain accepted as a TIME, whose
+/// values Control Studio would round to whole milliseconds, a time in `ms`, whose numbers would mean thousandths, and a standard
+/// law's TIME times refused.
+#[test]
+fn only_a_standard_laws_reset_and_derivative_times_may_be_time_in_seconds() {
+    let timed = retyped(
+        retyped(
+            standard_loop("PID", true),
+            "Main.Parameters.Ti",
+            "TIME",
+            "s",
+        ),
+        "Main.Parameters.Td",
+        "TIME",
+        "s",
+    );
+    let decoded = decode(&timed).expect("a standard law's times may be TIME");
+    let types: Vec<ParameterType> = decoded
+        .parameter_binding
+        .as_ref()
+        .expect("the binding")
+        .parameters
+        .iter()
+        .map(|parameter| parameter.iec_type)
+        .collect();
+    assert_eq!(
+        types,
+        [
+            ParameterType::Lreal,
+            ParameterType::Lreal,
+            ParameterType::Lreal,
+            ParameterType::Time,
+            ParameterType::Time
+        ]
+    );
+    for (value, symbol) in [
+        (
+            retyped(
+                standard_loop("PI", false),
+                "Main.Parameters.Kp",
+                "TIME",
+                "s",
+            ),
+            "Main.Parameters.Kp",
+        ),
+        (
+            retyped(
+                project_loop(served_project("PI", true, false)),
+                "Main.Parameters.Ki",
+                "TIME",
+                "s",
+            ),
+            "Main.Parameters.Ki",
+        ),
+        (
+            retyped(complete_loop(), "Main.Parameters.Kd", "TIME", "s"),
+            "Main.Parameters.Kd",
+        ),
+    ] {
+        let refusal = malformed(&value);
+        assert!(
+            refusal.contains(&format!(
+                "{symbol} is a TIME: only the reset time and the derivative time of a law in standard form may be TIME"
+            )),
+            "{refusal}"
+        );
+    }
+    let milliseconds = retyped(
+        standard_loop("PI", false),
+        "Main.Parameters.Ti",
+        "TIME",
+        "ms",
+    );
+    let refusal = malformed(&milliseconds);
+    assert!(
+        refusal.contains("Main.Parameters.Ti is a TIME, whose unit is s"),
+        "{refusal}"
+    );
+}

@@ -8,8 +8,7 @@ use trust_control_math::linalg::DenseMatrix;
 
 use super::texts;
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{Parameter, RealType};
-use crate::tuning::settings_pins::single_precision;
+use crate::loop_definition::Parameter;
 
 /// The unit of a coefficient that maps a quantity in the denominator's unit to one in the numerator's: `1` when the two
 /// units are the same, otherwise `numerator/denominator` (`ratioUnit`).
@@ -66,10 +65,7 @@ pub fn map_coefficients(
                     NextAction::OpenLoopSetup,
                 ));
             }
-            let realized = match parameter.iec_type {
-                RealType::Real => single_precision(*value),
-                RealType::Lreal => *value,
-            };
+            let realized = parameter.iec_type.realize(*value);
             if !realized.is_finite() || realized < parameter.minimum || realized > parameter.maximum
             {
                 return Err(Failure::new(

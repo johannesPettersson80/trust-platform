@@ -12,7 +12,7 @@ use trust_control::commissioning::parameter_application::{
 };
 use trust_control::commissioning::parameter_status::RecordState;
 use trust_control::failure::NextAction;
-use trust_control::loop_definition::{ModeValue, ParameterBinding, RealType};
+use trust_control::loop_definition::{ModeValue, ParameterBinding, ParameterType};
 
 use super::*;
 use crate::runtime_client::fake_runtime::{answer, refusal, FakeRuntime};
@@ -27,7 +27,7 @@ fn binding() -> RuntimeBinding {
         task_name: "MainTask".to_owned(),
         parameters: vec![RuntimeParameter {
             symbol: "Main.Parameters.Kp".to_owned(),
-            iec_type: RealType::Lreal,
+            iec_type: ParameterType::Lreal,
             unit: "%/%".to_owned(),
             convention: "proportional gain".to_owned(),
             minimum: -100.0,

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use super::*;
 use crate::identification::identify_result::tests::plant_loop;
-use crate::loop_definition::{ControllerLaw, ModeBinding, ParameterBinding, PidLaw, RealType};
+use crate::loop_definition::{ControllerLaw, ModeBinding, ParameterBinding, ParameterType, PidLaw};
 use crate::messages::TuneRequest;
 use crate::tuning::candidate::{CandidateSource, ControlPidCandidate, LawCandidate};
 use crate::tuning::project_seed::{ParallelPidSeed, TrajectoryFeedforwardSeed};
@@ -27,12 +27,12 @@ fn pid(candidate: &LawCandidate) -> ControlPidCandidate {
 /// over `Main.Tf` (REAL, 0 to 5) when `with_filter` is set, which the law then declares as its measurement filter.
 fn bound_pi_loop(with_filter: bool) -> LoopDefinition {
     let mut parameters = vec![
-        bound("Main.Kp", RealType::Lreal, 10.0),
-        bound("Main.Ki", RealType::Lreal, 10.0),
-        bound("Main.Kd", RealType::Lreal, 10.0),
+        bound("Main.Kp", ParameterType::Lreal, 10.0),
+        bound("Main.Ki", ParameterType::Lreal, 10.0),
+        bound("Main.Kd", ParameterType::Lreal, 10.0),
     ];
     if with_filter {
-        parameters.push(bound("Main.Tf", RealType::Real, 5.0));
+        parameters.push(bound("Main.Tf", ParameterType::Real, 5.0));
     }
     let mut loop_definition = plant_loop();
     loop_definition.controller.law = Some(ControllerLaw::Pid(Box::new(PidLaw {
@@ -56,7 +56,7 @@ fn bound_pi_loop(with_filter: bool) -> LoopDefinition {
 }
 
 /// A parameter of the binding in unit 1, from zero to `maximum`.
-fn bound(symbol: &str, iec_type: RealType, maximum: f64) -> Parameter {
+fn bound(symbol: &str, iec_type: ParameterType, maximum: f64) -> Parameter {
     Parameter {
         symbol: symbol.to_owned(),
         iec_type,
@@ -355,7 +355,7 @@ fn gamma_loop() -> LoopDefinition {
         .as_mut()
         .expect("the loop binds its parameters")
         .parameters
-        .push(bound("Main.Gamma", RealType::Lreal, 1.0));
+        .push(bound("Main.Gamma", ParameterType::Lreal, 1.0));
     loop_definition
 }
 

@@ -14,15 +14,15 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::independent_validation::RequirementStatus;
 use crate::identification::recording_import::display_engineering_unit;
 use crate::limits::SEARCH_TRIAL_LIMIT;
-use crate::loop_definition::{LoopDefinition, ParameterBinding, ProjectAxis, RealType};
+use crate::loop_definition::{LoopDefinition, ParameterBinding, ParameterType, ProjectAxis};
 use crate::messages::AnswerKind;
 use crate::model::{GeneralModel, SimulationOverride};
 use crate::stages::{stage_availability, StageAvailability, StageEvidence};
 use crate::tuning::settings_pins::single_precision;
 use crate::validation::engineer_verification_campaign::CampaignCase;
 use crate::validation::isolated_run_protocol::{
-    IsolatedParameterOverride, IsolatedParameterType, IsolatedRunEvidence, IsolatedRunRecord,
-    IsolatedRunRequest, IsolatedRunStatus,
+    IsolatedParameterOverride, IsolatedRunEvidence, IsolatedRunRecord, IsolatedRunRequest,
+    IsolatedRunStatus,
 };
 use crate::validation::run_requests::{
     isolated_run_request, validation_run_of, RunRequestInput, RunSettings,
@@ -337,9 +337,11 @@ pub fn trial_settings(
                         NextAction::ConnectRuntime,
                     )
                 })?;
-            let value = match &parameter.iec_type {
-                RealType::Real => single_precision(value),
-                RealType::Lreal => value,
+            // A REAL's setting as single precision holds it; an LREAL's and a TIME's as given: a TIME's axis values and pins
+            // are whole milliseconds already, and its current value is what the runtime holds (C0).
+            let value = match parameter.iec_type {
+                ParameterType::Real => single_precision(value),
+                ParameterType::Lreal | ParameterType::Time => value,
             };
             Ok((parameter.symbol.clone(), value))
         })
@@ -410,10 +412,7 @@ fn bound_overrides(
             })?;
             Ok(IsolatedParameterOverride {
                 symbol: parameter.symbol.clone(),
-                iec_type: match &parameter.iec_type {
-                    RealType::Real => IsolatedParameterType::Real,
-                    RealType::Lreal => IsolatedParameterType::Lreal,
-                },
+                iec_type: parameter.iec_type.into(),
                 unit: parameter.unit.clone(),
                 convention: parameter.convention.clone(),
                 minimum: parameter.minimum,
