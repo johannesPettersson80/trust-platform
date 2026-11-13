@@ -1419,7 +1419,11 @@ declaration's real values.
      HMI's files ends it at once, both with `The HMI changed. Save and deploy it before operating
      again.` An unsaved HMI change is an editor's unsaved document under the project's `hmi/`
      folder: the editor sends the paths of its unsaved documents, to the gate as well, and the
-     language server decides. A
+     language server decides. The HMI's files are every file under that folder, at any depth. The
+     language server names them as a VS Code glob relative to the project (`trust-lsp.hmiFiles`
+     `hmi`, 13 November 2026), and the editor watches them with VS Code's file watcher and
+     document matcher from the moment Live mode starts to open until operation ends, so that a
+     change, saved or not, stops operation without waiting for an answer. A
      page read that the web server answers from another bundle ends it before the page shows: `The
      deployed HMI changed. Check and deploy the matching project before operating again.` An answer
      `409`, the named session's target changed or gone, is shown and then ends it: `The run target
@@ -2177,7 +2181,8 @@ the binding list and the page permissions. Its version is the hash of its conten
    server (`POST /api/hmi/deploy`, §16.4), found from the web endpoint the runtime reports, with
    the runtime's administrator access (its control token). Problems stop it and are listed. The
    simulator has no web server, so Deploy says to use Live mode or start a runtime. Deploy saves
-   the project's unsaved HMI files first, since the bundle is built from the saved files. After a
+   the project's unsaved HMI files first (the files `trust-lsp.hmiFiles` names, §11 item 6), since
+   the bundle is built from the saved files. After a
    deployment the editor offers Roll back (`POST /api/hmi/rollback`). The language server carries
    out both (`trust-lsp.hmiDeploy`, 1 November 2026): it builds and checks the bundle for Deploy,
    asks the runtime for its topology, sends the request and reads the runtime's answer. It follows

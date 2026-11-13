@@ -16,6 +16,10 @@
 //!   `start_page`, a docked panel's `pages` and `[object.click] page`; a panel's in an object's
 //!   `faceplate`, `[object.click] faceplate` and a definition's `faceplate`; a popup's in
 //!   `[object.click] popup`. A file that does not load is left as it is.
+//! - `hmi {}` → `{ pattern }`: the files of the project's HMI, relative to the project, as a VS
+//!   Code glob: every file under its `hmi/` folder (§11 item 6, §16.2 item 8). A change of one,
+//!   saved or not, ends Live operation at once, and Deploy saves the unsaved ones first. The
+//!   extension's file watcher and document matcher apply it, so it keeps no copy of the rule.
 
 use std::collections::BTreeMap;
 
@@ -27,6 +31,7 @@ use trust_runtime::hmi::page_files::{
     HmiPair, HmiPopup, HmiScreen, PageFileError,
 };
 
+use super::super::hmi_files::hmi_files_glob;
 use super::decode;
 
 /// What a name that cannot name a file is told.
@@ -56,6 +61,7 @@ enum Args {
         renames: Vec<Rename>,
         files: BTreeMap<String, String>,
     },
+    Hmi {},
 }
 
 /// The kind of file New HMI Page and New HMI Panel create.
@@ -105,6 +111,7 @@ pub(super) fn answer(argument: Value) -> Result<Value, String> {
         } => create(kind, &name, has_screen),
         Args::Renames { renames } => Ok(renamed_files(&renames)),
         Args::References { renames, files } => references(&renames, &files),
+        Args::Hmi {} => Ok(json!({ "ok": true, "pattern": hmi_files_glob() })),
     }
 }
 

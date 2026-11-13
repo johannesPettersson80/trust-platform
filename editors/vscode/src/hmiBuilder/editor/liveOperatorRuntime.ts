@@ -67,6 +67,37 @@ export async function liveOperation(event: LiveOperationEvent): Promise<LiveOper
   return { proceed: answer.proceed === true, end };
 }
 
+/** The HMI's files in the project at `root`, as the language server names them (`trust-lsp.hmiFiles`, §11 item 6 and
+ * §16.2 item 8), for VS Code's file watcher and document matcher. */
+export async function hmiFilesPattern(root: string): Promise<vscode.RelativePattern> {
+  const answer = await vscode.commands.executeCommand<{ ok?: boolean; pattern?: unknown; error?: string } | undefined>(
+    "trust-lsp.hmiFiles",
+    { action: "hmi" },
+  );
+  if (answer?.ok !== true || typeof answer.pattern !== "string" || answer.pattern === "") {
+    throw new Error(answer?.error ?? "trust-lsp.hmiFiles did not name the HMI's files");
+  }
+  return new vscode.RelativePattern(vscode.Uri.file(root), answer.pattern);
+}
+
+/** Calls `edited` at once for each change of one of the HMI's files in the project at `root`, saved or not (§11
+ * item 6), until the watch is disposed. */
+export async function watchHmiEdits(root: string, edited: () => void): Promise<vscode.Disposable> {
+  const pattern = await hmiFilesPattern(root);
+  const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+  const documents: vscode.DocumentFilter = { scheme: "file", pattern };
+  return vscode.Disposable.from(
+    watcher,
+    watcher.onDidCreate(() => edited()),
+    watcher.onDidChange(() => edited()),
+    watcher.onDidDelete(() => edited()),
+    vscode.workspace.onDidChangeTextDocument((change) => {
+      // VS Code also reports a change of the unsaved state alone, without a content change.
+      if (change.contentChanges.length > 0 && vscode.languages.match(documents, change.document) > 0) edited();
+    }),
+  );
+}
+
 /** The language server's answer to a bridge event (`trust-lsp.hmiLiveBridge`, §11 item 6). */
 async function bridgeAnswer(event: Record<string, unknown>): Promise<Record<string, unknown>> {
   const answer = await vscode.commands.executeCommand<Record<string, unknown> | undefined>(
@@ -124,6 +155,7 @@ export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): L
     runTarget: () => runtimeDeployDeps.target(),
     liveGate,
     liveOperation,
+    watchEdits: (edited) => watchHmiEdits(root, edited),
     session: {
       async target() {
         const selected = await runtimeDeployDeps.target();

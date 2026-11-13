@@ -6,8 +6,8 @@
 //!   `runtime.toml` (§12.2).
 //! - `trust-lsp.hmiUsers`: the runtime display's users in `runtime.toml` (§12.8).
 //! - `trust-lsp.hmiPages`: the Pages panel's order, names and visibility (§3.3 item 8, §4.6).
-//! - `trust-lsp.hmiFiles`: new page and panel files, and the references a renamed file keeps
-//!   (§3.1, §8.7).
+//! - `trust-lsp.hmiFiles`: new page and panel files, the references a renamed file keeps, and
+//!   which files are the HMI's (§3.1, §8.7, §11 item 6).
 //! - `trust-lsp.hmiNewScreen`: a screen layout and its first page from a template (§4.10).
 //! - `trust-lsp.hmiScreenColour`: a project colour chosen or reset in `hmi/screen.toml` (§14.1
 //!   item 2).
@@ -55,7 +55,7 @@ pub const HMI_WRITE_RULES_COMMAND: &str = "trust-lsp.hmiWriteRules";
 pub const HMI_USERS_COMMAND: &str = "trust-lsp.hmiUsers";
 /// The Pages panel.
 pub const HMI_PAGES_COMMAND: &str = "trust-lsp.hmiPages";
-/// New page and panel files, and renamed files' references.
+/// New page and panel files, renamed files' references, and the HMI's files.
 pub const HMI_FILES_COMMAND: &str = "trust-lsp.hmiFiles";
 /// New HMI Screen.
 pub const HMI_NEW_SCREEN_COMMAND: &str = "trust-lsp.hmiNewScreen";

@@ -46,6 +46,9 @@ export interface LiveOperatorDeps {
   liveGate(facts: LiveGateFacts): Promise<LiveGateVerdict>;
   /** Whether it ends, and why, as the language server decides it (§11 item 6). */
   liveOperation(event: LiveOperationEvent): Promise<LiveOperationVerdict>;
+  /** Calls `edited` at once for each change of one of the HMI's files, saved or not, until the watch is disposed
+   * (§11 item 6). The language server names the files. */
+  watchEdits(edited: () => void): Promise<{ dispose(): void }>;
 }
 /** An ending the language server gave no reason for, against its contract. */
 const NO_REASON = "trust-lsp.hmiLiveOperation gave no reason";
@@ -57,6 +60,8 @@ interface Connection {
   bundle?: string;
   session: LiveSession;
   sockets: Map<number, SocketLike>;
+  /** The watch of the HMI's files, from the start of opening until operation ends. */
+  edits?: { dispose(): void };
 }
 
 export class LiveOperator {
@@ -139,12 +144,6 @@ export class LiveOperator {
     }
   }
 
-  /** An HMI file changed while operating: operation ends at once, with the language server's reason. */
-  edited(): void {
-    const current = this.current;
-    if (current) void this.endAt(current, { event: "edited" });
-  }
-
   /** The language server's verdict on `event`; without its answer within 5 seconds, operation ends with its error. */
   private async verdict(event: LiveOperationEvent): Promise<LiveOperationVerdict> {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -181,6 +180,14 @@ export class LiveOperator {
       this.stop();
     };
     try {
+      // A change of the HMI's files ends operation at once, with the language server's reason (§11 item 6). The watch
+      // starts before the bundle is read, so that a change while Live mode opens ends it too.
+      const edits = await this.deps.watchEdits(() => void this.endAt(current, { event: "edited" }));
+      if (this.current !== current) {
+        edits.dispose();
+        return;
+      }
+      current.edits = edits;
       // The language server decides whether the operating view opens (§11 item 6): once from the
       // saved state, the bundle and the run target, and once more from the page the web server
       // serves. The editor gathers those and reads the page.
@@ -240,6 +247,7 @@ export class LiveOperator {
     const current = this.current;
     this.current = undefined;
     if (!current) return;
+    current.edits?.dispose();
     current.session.stop();
     current.sockets.clear();
     if (reason) this.post({ type: "operateEnded", id: current.id, reason });

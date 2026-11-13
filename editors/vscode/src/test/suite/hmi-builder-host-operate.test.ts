@@ -4,15 +4,29 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { openBuilder, postedOfType } from "./hmiBuilderHost";
-import { liveBridge, liveGate, liveOperation } from "../../hmiBuilder/editor/liveOperatorRuntime";
+import { liveBridge, liveGate, liveOperation, watchHmiEdits } from "../../hmiBuilder/editor/liveOperatorRuntime";
+
+/** Waits up to five seconds for `check` to hold. */
+async function until(check: () => boolean, what: string): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (!check()) {
+    assert.ok(Date.now() < deadline, what);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
 
 suite("HMI Builder host: named Live operation", function () {
   this.timeout(15000);
   test("the editor routes its operating connection and closes it with its panel", async () => {
+    // Catches an edit of the HMI that leaves operation running, and an edit of another project file that ends it: the
+    // language server names the HMI's files, and the editor watches them (specification 39, section 11 item 6).
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-hmi-live-"));
     fs.mkdirSync(path.join(root, "hmi", "pages"), { recursive: true });
+    fs.mkdirSync(path.join(root, "src"));
     const file = path.join(root, "hmi", "pages", "overview.toml");
+    const program = path.join(root, "src", "main.st");
     fs.writeFileSync(file, 'format = 1\ntitle = "Cell"\n');
+    fs.writeFileSync(program, "PROGRAM Main\nEND_PROGRAM\n");
     const requests: string[] = [];
     const { panel, webview } = await openBuilder(file, undefined, undefined, undefined, {
       unsaved: () => ({ root, unsaved: [] }),
@@ -20,6 +34,7 @@ suite("HMI Builder host: named Live operation", function () {
       runTarget: async () => ({ label: "Cell", simulator: false }),
       liveGate,
       liveOperation,
+      watchEdits: (edited) => watchHmiEdits(root, edited),
       session: {
         bridge: liveBridge,
         target: async () => ({ url: "http://plc:8080", endpoint: "tcp://plc:9000", label: "Cell" }),
@@ -31,16 +46,21 @@ suite("HMI Builder host: named Live operation", function () {
     });
     try {
       webview.send({ type: "operateOpen", id: "one", page: "overview" });
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await until(() => postedOfType(webview, "operateReady").length > 0, "the operating view opens");
       assert.deepStrictEqual(
         postedOfType(webview, "operateReady"),
         [{ type: "operateReady", id: "one", target: "Cell" }],
         "the provider connects the Live operating view",
       );
+      const source = new vscode.WorkspaceEdit();
+      source.insert(vscode.Uri.file(program), new vscode.Position(0, 0), "// changed\n");
+      await vscode.workspace.applyEdit(source);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      assert.deepStrictEqual(postedOfType(webview, "operateEnded"), [], "an edit of the program is no HMI change");
       const edit = new vscode.WorkspaceEdit();
       edit.insert(vscode.Uri.file(file), new vscode.Position(0, 0), "# changed\n");
       await vscode.workspace.applyEdit(edit);
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await until(() => postedOfType(webview, "operateEnded").length > 0, "editing the HMI ends operation");
       assert.ok(
         postedOfType(webview, "operateEnded").some(
           (message) => message.reason === "The HMI changed. Save and deploy it before operating again.",
