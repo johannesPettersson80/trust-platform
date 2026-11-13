@@ -65,9 +65,10 @@ refused key is not checked: TLS needs the broker's scheme, which a broker
 refused for its host or port still names, and the plaintext rule needs the
 broker and TLS. On a computer the TLS files are read after the
 rules, and a file's refusal marks its key. The form checks the parameters as
-it applies them, without empty optional values, and keeps the bounds that
-`comm.schema` advertises for its number fields, which are narrower than the
-driver's: `reconnect_ms` at most 60,000 and `keep_alive_s` at least 1.
+it applies them, without empty optional values, and `comm.schema` advertises
+the driver's own bounds for its number fields, so the form takes every setting
+that the driver runs with: `reconnect_ms` from 0 to the largest TOML integer
+and `keep_alive_s` from 0 to 65,535, a given 0 of either read as 1.
 
 The shipped traffic-light mapping is:
 

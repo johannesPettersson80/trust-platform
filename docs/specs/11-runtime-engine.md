@@ -881,9 +881,9 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
   order of the rules, the same way as for MQTT (specification 32 §2). A list of
   points needs its function, so a refused function leaves its points unjudged,
   and each list reports its first refusal. The form checks the parameters as it
-  applies them, without empty optional values, and keeps the bound that
-  `comm.schema` advertises for `timeout_ms`, at most 60,000, which is narrower
-  than the driver's.
+  applies them, without empty optional values, and `comm.schema` advertises the
+  driver's own bounds for `timeout_ms`, 1 to 4,294,967,295 ms, so the form takes
+  every setting that the driver runs with.
 - Default profile uses **input registers** (FC04) for input image.
 - Default profile uses **multiple holding-register writes** (FC16) for output image.
 - Explicit `io.toml` options can select `read_coils` (FC01),

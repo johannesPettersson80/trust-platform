@@ -172,6 +172,14 @@ pub enum MappingDirection {
 }
 
 impl MqttParams {
+    /// The values `reconnect_ms` takes (specification 32 §2): every integer from 0 that the TOML of `io.toml` holds, a given 0
+    /// read as 1 ms. A connection form advertises and enforces these bounds too.
+    pub const RECONNECT_MS_RANGE: (u64, u64) = (0, MAX_JSON_INTEGER);
+
+    /// The values `keep_alive_s` takes (specification 32 §2): 0 to 65,535 s, a given 0 read as 1 s. A connection form advertises and
+    /// enforces these bounds too.
+    pub const KEEP_ALIVE_S_RANGE: (u16, u16) = (0, u16::MAX);
+
     /// The parameters of the JSON text `text`, the driver's `params` table (specification 34
     /// §5.1.1, section 8), checked by the rules of specification 32. The paths of the TLS files
     /// are checked as text; the runtime that reads the files refuses one it cannot read.
@@ -287,11 +295,16 @@ fn check(text: &str) -> (Option<MqttParams>, Vec<ParamsError>) {
     let topic_in = kept(raw_topic(&root, "topic_in", DEFAULT_TOPIC_IN), refused);
     let topic_out = kept(raw_topic(&root, "topic_out", DEFAULT_TOPIC_OUT), refused);
     let reconnect_ms = kept(
-        root.integer("reconnect_ms", 0_u64, MAX_JSON_INTEGER),
+        root.integer(
+            "reconnect_ms",
+            MqttParams::RECONNECT_MS_RANGE.0,
+            MqttParams::RECONNECT_MS_RANGE.1,
+        ),
         refused,
     )
     .map(|value| value.unwrap_or(DEFAULT_RECONNECT_MS).max(1));
-    let keep_alive_s = kept(root.integer("keep_alive_s", 0_u16, u16::MAX), refused)
+    let (fewest, most) = MqttParams::KEEP_ALIVE_S_RANGE;
+    let keep_alive_s = kept(root.integer("keep_alive_s", fewest, most), refused)
         .map(|value| value.unwrap_or(DEFAULT_KEEP_ALIVE_S).max(1));
     let on_error = kept(on_error(&root), refused);
     let mappings = kept(mappings(&root), refused);
