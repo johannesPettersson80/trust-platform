@@ -14,15 +14,14 @@ jobs:
     timeout-minutes: 60
     env:
       RUSTC_WRAPPER: ''
+      # A run builds once and keeps no build cache, so incremental state would only cost time and disk.
+      CARGO_INCREMENTAL: 0
       TZ: UTC
       LANG: en_US.UTF-8
     steps:
       - uses: actions/checkout@v6
       - run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Toolchain for compiled programs (specification 44 §4.6)
         run: |
           set -euo pipefail

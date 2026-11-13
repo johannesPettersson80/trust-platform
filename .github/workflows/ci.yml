@@ -43,10 +43,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-          key: portable-core-${{ matrix.target }}
       - name: Check isolated no_std core and value layout
         run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
       - name: Record resolved target features
@@ -91,13 +87,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-          key: firmware-${{ matrix.chip }}
-          workspaces: |
-            . -> target
-            firmware/trust-${{ matrix.chip }} -> target
       - name: Build the firmware and check its image
         run: cargo run --locked -q -p xtask -- portability build-firmware ${{ matrix.chip }} firmware-build/build.json
       - name: Upload the firmware image and its report
@@ -733,9 +722,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Run shared architecture safety gate
         run: bash scripts/architecture_safety_gate.sh
       # Evidence of the checks, like the test log: tried twice, and a failed upload never fails the job (G146).
@@ -789,9 +775,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo check --all-targets
         env:
           CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
@@ -817,9 +800,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
@@ -845,9 +825,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-node@v7
         with:
           node-version: "24.21.0"
@@ -958,9 +935,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Toolchain for compiled programs (specification 44 §4.6)
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -1085,9 +1059,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Validate Neovim/Zed editor setup and core workflow coverage
         run: ./scripts/check_editor_integration_smoke.sh
       - name: Mark gate success
@@ -1112,9 +1083,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Verify split-test parity and discovery stability
         run: scripts/check_mp001_split_parity.sh --verify
       - name: Mark gate success
@@ -1139,9 +1107,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install cargo-deny and cargo-audit
         run: |
           cargo install cargo-deny --version 0.20.2 --locked --force

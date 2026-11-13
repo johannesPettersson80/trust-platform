@@ -715,13 +715,28 @@ Only a run on `main` saves the Rust build caches: every `Swatinem/rust-cache`
 step sets `save-if` to `${{ github.ref == 'refs/heads/main' }}`. A pull
 request's run, a merge group's and a run on any other branch restore what
 `main`'s runs saved and save nothing. GitHub keeps 10 GB of caches per
-repository and lets a pull request's cache serve only that pull request, so
-pull requests that saved their own, about 7 GB each, pushed out `main`'s, which
-every pull request restores. On 13 November 2026, 17 of the 21 Test jobs of the
-seven newest CI runs, three of them `main`'s, found no cache and compiled every
-dependency and cargo-nextest again; `main`'s Test jobs took 102, 59 and 59
-minutes on macOS, Ubuntu and Windows without the cache and 62, 37 and 51 with
-it.
+repository, evicts the least recently used, and lets a pull request's cache
+serve only that pull request, so pull requests that saved their own pushed out
+`main`'s, which every pull request restores. On 13 November 2026, 17 of the 21
+Test jobs of the seven newest CI runs, three of them `main`'s, found no cache
+and compiled every dependency and cargo-nextest again.
+
+Only the jobs that gain the most from a Rust cache keep one, so that their
+caches stay inside the 10 GB: CI's Test jobs on the three systems, Conformance,
+Clippy and HMI Screen Tests, and Docs Captures' refresh, about 7.4 GB together.
+Measured over six of `main`'s CI runs on 13 November, a restored cache
+shortened the Test jobs from 76–101 to 61–62 minutes on macOS, from 50–59 to
+36–41 on Ubuntu and from 58–77 to 35–50 on Windows, Conformance and Clippy by
+about 12 to 14 minutes, Docs Captures' refresh by 7 and HMI Screen Tests by
+about 5. Every other job gained under five minutes or nothing: VS Code's time
+is its tests, and MSRV, MP-001 Parity, Documentation and Editor Expansion
+gained about four. Their caches took about 7 GB more, so `main`'s own caches
+pushed each other out; that day the Ubuntu Test, VS Code, HMI Screen Tests,
+Editor Expansion and Clippy caches were evicted within two hours of their last
+use. The scheduled workflows found no cache in any run checked and saved a new
+one each time. The Release workflow's Runtime Validation keeps its cache: it
+runs on `main` only when a release builds there, which a promoted release does
+not, so it saves at most once per version.
 
 ### Documentation that follows the product
 
