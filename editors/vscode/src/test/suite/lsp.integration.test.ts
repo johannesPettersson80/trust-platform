@@ -1,4 +1,7 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 
 function delay(ms: number): Promise<void> {
@@ -348,6 +351,40 @@ suite("LSP integration (VS Code)", function () {
     ].join("\n");
     await replaceDocumentText(dependencyDoc.uri, fixedDependencySource);
     await waitForNoErrors(mainDoc.uri);
+  });
+
+  test("a file from outside the project leaves it when closed, and the duplicate it caused clears", async () => {
+    // A program of the project and a file outside every workspace folder that declares the same name collide while
+    // both are open. Once the outside file closes it leaves the project, and the server asks the client to pull
+    // again, so the project's own program loses the error without another edit (specification 14 §7.2.1). Catches
+    // the closed file kept in the project until the server restarts, and a close that leaves the open file's pulled
+    // diagnostics as they were.
+    const source = "PROGRAM OutsideCloseMain\nEND_PROGRAM\n";
+    const outsideFolder = fs.mkdtempSync(path.join(os.tmpdir(), "trust-lsp-outside-close-"));
+    const outside = vscode.Uri.file(path.join(outsideFolder, "Outside.st"));
+    fs.writeFileSync(outside.fsPath, source);
+    const isOutside = (open: vscode.TextDocument) => open.uri.toString() === outside.toString();
+    try {
+      // Opened in an editor, as a user opens a file: VS Code keeps a document that an extension opened with
+      // `openTextDocument` for up to three minutes after its editor closes, and sends `didClose` only then. Not as a
+      // preview, which the next file opened would replace, closing this one early.
+      const pinned: vscode.TextDocumentShowOptions = { preview: false };
+      await vscode.commands.executeCommand("vscode.open", outside, pinned);
+      const own = await createDocument("outside-close-own.st", source);
+      await waitForDiagnostics(own.uri, (diagnostics) =>
+        diagnostics.some((diag) => /duplicate/i.test(diag.message))
+      );
+      await vscode.commands.executeCommand("vscode.open", outside, pinned);
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+      const deadline = Date.now() + 10000;
+      while (vscode.workspace.textDocuments.some(isOutside)) {
+        assert.ok(Date.now() < deadline, "VS Code closes the outside document, which sends didClose");
+        await delay(100);
+      }
+      await waitForNoErrors(own.uri);
+    } finally {
+      fs.rmSync(outsideFolder, { recursive: true, force: true });
+    }
   });
 
   test("formatting applies canonical layout", async () => {

@@ -670,19 +670,36 @@ diagnostic or debug logs.
 URI. Closing a document never writes that buffer to disk and never treats its
 contents as durable project state.
 
-- When the URI resolves to a readable file, the server reloads the file from
-  disk, marks the document closed, and uses those bytes as project truth.
-- When the URI is not a file URI or its file cannot be read, the server removes
-  the document from the project index.
+- When the URI resolves to a readable file that a project folder holds, the
+  server reloads the file from disk, marks the document closed, and uses those
+  bytes as project truth. The project folders are the own source folders and
+  the library folders of each workspace folder's project (§7.6: `include_paths`
+  or the root, `[[libraries]]`, `library_paths` and the resolved
+  `[dependencies]`), compared where they resolve on disk.
+- Any other document leaves the project index: a URI that is not a file URI, a
+  file that cannot be read, and a file outside every project folder. A file
+  opened from another folder belongs to the project only while it is open, as
+  TypeScript's and Python's language servers treat a file outside their
+  project, so that the closed project is the one `trust-lsp check` and the
+  build see. Until 13 November 2026 such a file kept its declarations in the
+  project until the server restarted, and a `PROGRAM Main` in it collided with
+  the project's own `Main`.
 - Closing invalidates semantic, semantic-token, and diagnostic caches that
   could retain the discarded contents. Dependent files are recomputed against
   the reloaded or removed durable source. It also cancels semantic work started
   from the discarded buffer; cache writers verify that request generation while
   holding the cache lock, so a late result cannot repopulate an evicted cache.
-- For push diagnostics, the server publishes an empty diagnostic list only for
-  the closed URI. It does not publish an empty-success result for dependent
-  files. Pull-diagnostic clients receive results recomputed from durable project
-  truth on their next request.
+- For push diagnostics, the server publishes an empty diagnostic list for the
+  closed URI. A dependent file never receives an empty-success result merely
+  because a document closed.
+- When the close changed the project, because the document left it or its
+  discarded buffer differed from the file, the server refreshes the
+  diagnostics of the open documents: it asks a pull-diagnostic client to pull
+  again (`workspace/diagnostic/refresh`) and publishes each open document's
+  recomputed diagnostics to a push client. VS Code's client pulls another
+  document's diagnostics again only when asked, so a diagnostic computed from
+  the discarded state, such as a duplicate declaration of a file that left the
+  project, would otherwise stay until that document's next edit.
 
 This lifecycle is an LSP/project-state contract. It does not define IEC
 program execution or an IEC 61131-3 deviation.

@@ -114,11 +114,16 @@ pub async fn did_close(client: &Client, state: &ServerState, params: DidCloseTex
     info!("Document closed: {}", uri);
     state.record_activity();
 
-    state.close_document(&uri);
+    let changed = state.close_document(&uri);
 
     // Clear diagnostics only for push-based clients.
     if !state.use_pull_diagnostics() {
         client.publish_diagnostics(uri, vec![], None).await;
+    }
+    // The other open documents' diagnostics may rest on what the close discarded, and a client
+    // pulls them again only when asked (specification 14 §7.2.1).
+    if changed {
+        refresh_diagnostics(client, state).await;
     }
 }
 
@@ -201,6 +206,144 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "change start line 99 is outside the 2-line document"
+        );
+    }
+
+    const MAIN: &str = "PROGRAM Main\nEND_PROGRAM\n";
+
+    /// A project folder and a folder outside it, each with a saved `Main.st`, and a server whose
+    /// workspace folder is the project, with both files open.
+    struct Closing {
+        state: ServerState,
+        own: Url,
+        outside: Url,
+        folders: [std::path::PathBuf; 2],
+    }
+
+    impl Closing {
+        fn new() -> Self {
+            let folders = ["project", "elsewhere"].map(|name| {
+                let folder = trust_test_support::unique_temp_path(&format!(
+                    "trust-lsp-close-refresh-{name}"
+                ));
+                std::fs::create_dir_all(&folder).expect("create folder");
+                std::fs::write(folder.join("Main.st"), MAIN).expect("write Main.st");
+                folder
+            });
+            let state = ServerState::new();
+            state.set_workspace_config(
+                Url::from_file_path(&folders[0]).expect("project URI"),
+                crate::config::ProjectConfig::load(&folders[0]),
+            );
+            let [own, outside] = folders.each_ref().map(|folder| {
+                let uri = Url::from_file_path(folder.join("Main.st")).expect("file URI");
+                state.open_document(uri.clone(), 1, MAIN.to_string());
+                uri
+            });
+            Self {
+                state,
+                own,
+                outside,
+                folders,
+            }
+        }
+    }
+
+    impl Drop for Closing {
+        fn drop(&mut self) {
+            for folder in &self.folders {
+                std::fs::remove_dir_all(folder).ok();
+            }
+        }
+    }
+
+    fn close(uri: &Url) -> DidCloseTextDocumentParams {
+        DidCloseTextDocumentParams {
+            text_document: TextDocumentIdentifier { uri: uri.clone() },
+        }
+    }
+
+    /// A close that changed the project asks a pull client to pull the open documents'
+    /// diagnostics again; a saved file's close asks nothing (specification 14 §7.2.1). Catches
+    /// the stale diagnostics VS Code kept: its client pulls another document again only when the
+    /// server asks, so the duplicate `PROGRAM Main` of a file that left the project stayed on the
+    /// project's own `Main` until its next edit.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_close_that_changed_the_project_asks_a_pull_client_to_refresh() {
+        use futures_util::{FutureExt, SinkExt, StreamExt};
+        let closing = Closing::new();
+        let state = &closing.state;
+        state.set_diagnostic_pull_supported(true);
+        state.set_diagnostic_refresh_supported(true);
+        let (client, mut service, mut socket) = crate::test_support::test_client_with_socket();
+        crate::test_support::initialize_test_client(&mut service).await;
+        let deadline = std::time::Duration::from_secs(10);
+
+        // A refresh request would hold the close until the client answers.
+        tokio::time::timeout(deadline, did_close(&client, state, close(&closing.own)))
+            .await
+            .expect("the saved file's close asks the client nothing");
+        assert!(socket.next().now_or_never().is_none());
+
+        let mut closed = std::pin::pin!(did_close(&client, state, close(&closing.outside)));
+        let request = tokio::select! {
+            () = &mut closed => panic!("the close ended without asking the client to refresh"),
+            request = socket.next() => request.expect("the server asks the client"),
+        };
+        assert_eq!(request.method(), "workspace/diagnostic/refresh");
+        let id = request
+            .id()
+            .cloned()
+            .expect("a request, which waits for its answer");
+        socket
+            .send(tower_lsp::jsonrpc::Response::from_ok(
+                id,
+                serde_json::Value::Null,
+            ))
+            .await
+            .expect("answer the request");
+        tokio::time::timeout(deadline, closed)
+            .await
+            .expect("the outside file's close ends once the client answered");
+    }
+
+    /// A push client receives the empty list for the closed file and then each open document's
+    /// recomputed diagnostics, after a close that changed the project (specification 14 §7.2.1).
+    /// Catches the project's own `Main` left with the diagnostics published while the closed file
+    /// still collided with it.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_close_that_changed_the_project_publishes_the_open_documents_to_a_push_client() {
+        use futures_util::StreamExt;
+        let closing = Closing::new();
+        let (client, mut service, mut socket) = crate::test_support::test_client_with_socket();
+        crate::test_support::initialize_test_client(&mut service).await;
+
+        let published = async {
+            let mut uris = Vec::new();
+            while uris.len() < 2 {
+                let notification = socket.next().await.expect("a notification");
+                assert_eq!(notification.method(), "textDocument/publishDiagnostics");
+                let params = notification.params().expect("its parameters");
+                uris.push(params["uri"].as_str().expect("its URI").to_string());
+            }
+            uris
+        };
+        // Each list arrives as soon as it is published; the deadline only ends a run in which the
+        // second list never comes.
+        let (_, uris) = tokio::join!(
+            did_close(&client, &closing.state, close(&closing.outside)),
+            async {
+                tokio::time::timeout(std::time::Duration::from_secs(10), published)
+                    .await
+                    .expect(
+                        "after the closed file's empty list, the open project file's diagnostics",
+                    )
+            }
+        );
+        assert_eq!(
+            uris,
+            [closing.outside.to_string(), closing.own.to_string()],
+            "the closed file's empty list, then the open project file's diagnostics"
         );
     }
 }

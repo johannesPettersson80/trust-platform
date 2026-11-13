@@ -398,9 +398,11 @@ impl ServerState {
         documents::update_document(self, uri, version, content);
     }
 
-    /// Closes a document.
-    pub fn close_document(&self, uri: &Url) {
-        documents::close_document(self, uri);
+    /// Closes a document: a readable file that a project folder holds stays as its disk text, and
+    /// every other document leaves the project (specification 14 §7.2.1). Returns whether the
+    /// close changed the project, so that the open documents' diagnostics are refreshed.
+    pub fn close_document(&self, uri: &Url) -> bool {
+        documents::close_document(self, uri)
     }
 
     /// Removes a document and its source from the project.
@@ -748,6 +750,11 @@ evict_to_percent = 75
         let uri_b = Url::from_file_path(&file_b).expect("uri b");
 
         let state = ServerState::new();
+        // The project's own file, so its closed document stays (specification 14 §7.2.1).
+        state.set_workspace_config(
+            Url::from_file_path(&root).expect("root uri"),
+            ProjectConfig::load(&root),
+        );
         let file_id = state.open_document(uri_a.clone(), 1, "PROGRAM Main\nEND_PROGRAM\n".into());
         let opened = state.get_document(&uri_a).expect("opened doc");
         assert_eq!(opened.file_id, file_id);

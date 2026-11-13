@@ -141,11 +141,16 @@ pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, cont
     invalidate_project_caches(state);
 }
 
-pub(super) fn close_document(state: &ServerState, uri: &Url) {
+/// Closes `uri`'s document (specification 14 §7.2.1): a readable file that a project folder holds
+/// stays as its disk text, and every other document leaves the project. Returns whether the close
+/// changed the project, because the document left it or its buffer differed from the file.
+pub(super) fn close_document(state: &ServerState, uri: &Url) -> bool {
+    // Resolved on disk before the membership locks are taken.
+    let in_project = project_folder_holds(state, uri);
     let mut project = state.project.write();
     let mut docs = state.documents.write();
     let Some(doc) = docs.get_mut(uri).and_then(DocumentEntry::resident_mut) else {
-        return;
+        return false;
     };
     state.cancel_semantic_requests();
     let key = project
@@ -154,22 +159,45 @@ pub(super) fn close_document(state: &ServerState, uri: &Url) {
         .unwrap_or_else(|| source_key_for_uri(uri));
     // Read and commit while holding the membership locks, so deletion cannot
     // interleave between restoring disk text and closing the document entry.
-    if let Some(content) = uri_to_path(uri).and_then(|path| std::fs::read_to_string(path).ok()) {
+    let durable = if in_project {
+        uri_to_path(uri).and_then(|path| std::fs::read_to_string(path).ok())
+    } else {
+        None
+    };
+    let changed = if let Some(content) = durable {
+        let changed = doc.content != content;
         doc.file_id = project.set_source_text(key, content.clone());
         doc.version = 0;
         doc.content = content;
         doc.is_open = false;
         touch_document(doc, next_document_access(state));
+        changed
     } else {
         docs.remove(uri);
         project.remove_source(&key);
-    }
+        true
+    };
     drop(docs);
     drop(project);
     state.semantic_tokens.write().remove(uri);
     state.diagnostics.write().remove(uri);
     invalidate_project_caches(state);
     enforce_memory_budget(state);
+    changed
+}
+
+/// Whether a project folder holds `uri`'s file: an own source folder or a library folder of a
+/// workspace folder's project, compared where both resolve on disk (specification 14 §7.2.1).
+fn project_folder_holds(state: &ServerState, uri: &Url) -> bool {
+    let Some(path) = uri_to_path(uri) else {
+        return false;
+    };
+    let file = canonicalize_through_existing_ancestor(&path);
+    state
+        .project_folders
+        .read()
+        .values()
+        .any(|folders| folders.holds(&file))
 }
 
 pub(super) fn remove_document(state: &ServerState, uri: &Url) -> Option<FileId> {

@@ -8,6 +8,7 @@ use tower_lsp::LanguageServer;
 use trust_ide::semantic_tokens::{SemanticToken as IdeSemanticToken, SemanticTokenType};
 use verification_cases::{CaseRecord, TraceStep};
 
+use crate::config::ProjectConfig;
 use crate::state::ServerState;
 use crate::test_support::test_client;
 
@@ -297,7 +298,7 @@ fn tracked_reload_observation(check_caches: bool) -> Result<JsonValue, String> {
     let unsaved = "PROGRAM Unsaved\nEND_PROGRAM\n";
     std::fs::write(&path, disk).map_err(|error| error.to_string())?;
     let uri = Url::from_file_path(&path).map_err(|_| "invalid file URI".to_string())?;
-    let state = ServerState::new();
+    let state = project_state(&root)?;
     state.open_document(uri.clone(), 1, unsaved.to_string());
     if check_caches {
         state
@@ -326,6 +327,15 @@ fn tracked_reload_observation(check_caches: bool) -> Result<JsonValue, String> {
     Ok(observed)
 }
 
+/// A server whose workspace folder is `root`: its files are the project's own, so a closed one
+/// stays project truth from disk (specification 14 §7.2.1).
+fn project_state(root: &std::path::Path) -> Result<ServerState, String> {
+    let state = ServerState::new();
+    let uri = Url::from_file_path(root).map_err(|_| "invalid root URI".to_string())?;
+    state.set_workspace_config(uri, ProjectConfig::load(root));
+    Ok(state)
+}
+
 fn non_file_remove_observation() -> Result<JsonValue, String> {
     let uri = Url::parse("untitled:close-trace").map_err(|error| error.to_string())?;
     let state = ServerState::new();
@@ -350,7 +360,7 @@ fn dependent_recompute_observation(use_handler: bool) -> Result<JsonValue, Strin
     std::fs::write(&main_path, main).map_err(|error| error.to_string())?;
     let add_uri = Url::from_file_path(&add_path).map_err(|_| "invalid add URI".to_string())?;
     let main_uri = Url::from_file_path(&main_path).map_err(|_| "invalid main URI".to_string())?;
-    let state = ServerState::new();
+    let state = project_state(&root)?;
     state.open_document(add_uri.clone(), 1, add_unsaved.to_string());
     state.open_document(main_uri.clone(), 1, main.to_string());
     let before = full_document_diagnostics(&state, main_uri.clone())?;
