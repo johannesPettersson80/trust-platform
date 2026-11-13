@@ -162,7 +162,8 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 |---|---|
 | Reads: inspection, recordings, isolated observations | BOOL, signed and unsigned integers, REAL, LREAL, and enumerations read as numbers |
 | Transfer and parameter modes | BOOL, or an enumeration named by its Manual and Auto members (E6.2, E7.1) |
-| Transfer states, guards and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
+| Transfer states and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
+| Transfer guards | As states, or TIME with unit `s` (E6.2) |
 | Parameters | REAL, LREAL, or TIME with unit `s` (E7.1) |
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
 | Experiment activation and abort bindings | BOOL |
@@ -534,7 +535,7 @@ The status, apply and cancel operations take the same binding.
 - `additional_outputs`: optional array of 0 to 15 members.
 - `tracking_outputs`: optional object that maps an output symbol to a feedback guard symbol.
 
-A member is `{symbol, iec_type, unit, minimum, maximum}`. `iec_type` is REAL, LREAL or BOOL. The `unit` is not blank. `minimum` and `maximum` are finite and `minimum` does not exceed `maximum`. A BOOL member has unit `1` and bounds 0 and 1.
+A member is `{symbol, iec_type, unit, minimum, maximum}`. `iec_type` is REAL, LREAL or BOOL. The `unit` is not blank. `minimum` and `maximum` are finite and `minimum` does not exceed `maximum`. A BOOL member has unit `1` and bounds 0 and 1. A guard may also be TIME, a parameter that a law keeps as `TIME` (E7.1), such as the reset time of a law in standard form: its unit is `s`, and its values, `minimum` and `maximum` are seconds. A transfer only reads its guards, so it never writes a TIME.
 
 Rules:
 
@@ -555,7 +556,7 @@ Access: Viewer. Request: `binding`.
 Response:
 
 - `program_revision`, `binding_revision` and `runtime_time_ns`.
-- `values`: an object with one entry for each member and each mode. A BOOL mode is its boolean. An enumeration mode is TRUE in its Manual member and FALSE in its Auto member, so a reading means Manual exactly where a BOOL binding with `manual_value` TRUE reads TRUE. A status read of an enumeration mode in another member is refused, with the member's name: the loop is in neither mode (specification 35 A6.1). A BOOL member is 0 or 1.
+- `values`: an object with one entry for each member and each mode. A BOOL mode is its boolean. An enumeration mode is TRUE in its Manual member and FALSE in its Auto member, so a reading means Manual exactly where a BOOL binding with `manual_value` TRUE reads TRUE. A status read of an enumeration mode in another member is refused, with the member's name: the loop is in neither mode (specification 35 A6.1). A BOOL member is 0 or 1. A TIME guard is its seconds, its nanoseconds divided by 10^9 (E7.2).
 - `supported_tracking`: `["proportional", "parallel-pid-v1", "declared-state-v1", "declared-initialization-formulas"]`.
 - `transaction_id`: the identifier of the last transaction, or null.
 - `status`: the status of the last transaction, or `idle`.
@@ -737,7 +738,7 @@ Unknown fields are refused with `invalid_parameter_request`. The checks run in t
 7. Manual is observed now (`confirmed Manual mode required`). Custom Auto adoption is not supported.
 8. The expected revisions and the expected values match the current state (`stale program, binding, or expected values`).
 9. A status was read before the apply, and the binding has not changed since that read.
-10. `values` has exactly the declared symbols. Every value is finite, within its bounds, and exactly representable in its IEC type. A REAL value is explicitly rounded to single precision. A TIME value is the seconds of a whole number of nanoseconds, as TIME holds it: the number `n` of nanoseconds nearest the value times 10^9 gives the value back as `n / 10^9`.
+10. `values` has exactly the declared symbols. Every value is finite, within its bounds, and exactly representable in its IEC type. A REAL value is explicitly rounded to single precision. A TIME value is the seconds of a whole number of nanoseconds, as TIME holds it: the shortest decimal that reads as the value, the number as JSON writes it, has at most nine digits after the point, and its nanoseconds `n` give the value back as `n / 10^9`. The product of the value and 10^9 in binary is not used: from 2^22 s on, it can miss a whole number of milliseconds by a nanosecond.
 
 An accepted apply returns `status` set to `pending` and `confirmed` set to false. A request for another task remains pending until that task runs.
 

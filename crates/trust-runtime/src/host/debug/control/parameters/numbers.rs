@@ -48,20 +48,32 @@ pub(super) fn validate_candidate(
 pub(super) const TIME_NOT_WHOLE_NANOSECONDS: &str =
     "TIME values must be explicitly rounded to whole nanoseconds, their runtime representation";
 
-/// The nanoseconds of a TIME parameter's value `seconds` (E7.1, E7.3 step 10): the whole number of nanoseconds `n`
-/// whose seconds, `n / 10^9`, are exactly `seconds`; `None` for a value that is no such number or lies outside
-/// TIME's range.
+/// The nanoseconds of a TIME parameter's value `seconds` (E7.1, E7.3 step 10): those of the shortest decimal that reads
+/// as `seconds`, the number as the client's JSON wrote it, when that decimal has at most nine digits after the point and
+/// its nanoseconds `n` read back as `seconds` (`n / 10^9`); `None` for any other value and outside TIME's range. The
+/// product `seconds x 10^9` in binary misses a whole nanosecond by half of one or more from 2^22 s (about 48.5 days)
+/// on, for example 4194792.263 s, whose product is 4194792263000000.5.
 pub(super) fn time_nanos(seconds: f64) -> Option<i64> {
-    let scaled = (seconds * 1e9).round();
-    // i64 holds the magnitudes below 2^63, which `i64::MAX as f64` is exactly.
-    if !scaled.is_finite() || scaled.abs() >= i64::MAX as f64 {
+    if !seconds.is_finite() {
         return None;
     }
-    let nanos = scaled as i64;
+    // `Display` writes the shortest decimal that reads back as the number, never with an exponent.
+    let decimal = seconds.abs().to_string();
+    let (whole, fraction) = decimal.split_once('.').unwrap_or((decimal.as_str(), ""));
+    if fraction.len() > 9 {
+        return None;
+    }
+    let nanos = whole
+        .parse::<i64>()
+        .ok()?
+        .checked_mul(1_000_000_000)?
+        .checked_add(format!("{fraction:0<9}").parse::<i64>().ok()?)?;
+    let nanos = if seconds < 0.0 { -nanos } else { nanos };
     (time_seconds(nanos) == seconds).then_some(nanos)
 }
 
-/// The seconds of a TIME value of `nanos` nanoseconds, as a parameter's number reads it (E7.2).
-pub(super) fn time_seconds(nanos: i64) -> f64 {
+/// The seconds of a TIME value of `nanos` nanoseconds, as a parameter's number and a transfer's TIME guard read it (E7.2,
+/// E6.3).
+pub(in super::super) fn time_seconds(nanos: i64) -> f64 {
     nanos as f64 / 1e9
 }
