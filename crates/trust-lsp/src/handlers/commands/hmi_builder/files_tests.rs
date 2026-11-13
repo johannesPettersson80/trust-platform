@@ -292,3 +292,15 @@ fn a_file_that_does_not_load_or_holds_no_links_is_left_as_it_is() {
     });
     assert_eq!(rewritten("pages", "pump", "pumps", files), json!({}));
 }
+
+#[test]
+fn the_hmis_files_are_every_file_under_the_projects_hmi_folder() {
+    // Specification 39, §11 item 6 and §16.2 item 8: an HMI change is a change of a file under the
+    // project's `hmi/` folder, at any depth; the extension applies the glob relative to the
+    // project. Catches a glob that misses a nested file (`hmi/*`), takes a neighbouring folder
+    // such as `hmi-old/` (`hmi*/**`), or names files the editor would have to filter again.
+    assert_eq!(
+        ask(json!({ "action": "hmi" })),
+        json!({ "ok": true, "pattern": "hmi/**/*" })
+    );
+}

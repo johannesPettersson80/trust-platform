@@ -13,7 +13,7 @@ import { proposalFor, PROPOSAL_SCHEME, registerProposalDocuments, resolveProposa
 
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { LiveOperator, LiveOperatorDeps } from "./liveOperator";
-import { runtimeLiveOperatorDeps } from "./liveOperatorRuntime";
+import { hmiFilesPattern, runtimeLiveOperatorDeps } from "./liveOperatorRuntime";
 import type { QualityWarning } from "./quality";
 import { isPid, syncLinked } from "./pidSync";
 import type { DeployDeps } from "./deploy";
@@ -358,7 +358,9 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
     };
     const hmiFolder = vscode.Uri.joinPath(project, "hmi").fsPath + path.sep;
     const hmiFiles = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(project, "hmi/**/*.toml"));
-    const operatingFiles = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(project, "hmi/**/*"));
+    // What the editor draws again when an HMI file changes. Whether the change ends Live operation is the language
+    // server's rule, which the operator watches (§11 item 6).
+    const folderFiles = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(project, "hmi/**/*"));
     const hmiChanged = (uri: vscode.Uri): void => {
       if (/[/\\]panels[/\\][^/\\]+\.toml$/.test(uri.fsPath)) {
         void sendComposition();
@@ -366,14 +368,13 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
         void sendPlaced(true);
       }
       if (uri.toString() === screenUri.toString()) void sendScreen();
-      operator.edited();
       if (/[/\\](pages|popups)[/\\][^/\\]+\.toml$/.test(uri.fsPath)) resendCatalogue();
     };
     const subscriptions = [
-      operatingFiles,
-      operatingFiles.onDidCreate(hmiChanged),
-      operatingFiles.onDidChange(hmiChanged),
-      operatingFiles.onDidDelete(hmiChanged),
+      folderFiles,
+      folderFiles.onDidCreate(hmiChanged),
+      folderFiles.onDidChange(hmiChanged),
+      folderFiles.onDidDelete(hmiChanged),
       runtimeLifecycleService.onDidChange(() => void operator.checkTarget()),
       targetFiles,
       screenFile,
@@ -715,11 +716,11 @@ async function answerRust(command: string, argument: unknown): Promise<unknown> 
   }
 }
 
-/** Saves the project's HMI files the editor holds unsaved, so the bundle has them (§16.2, item 8). */
+/** Saves the HMI's files that the editor holds unsaved, as the language server names them (`trust-lsp.hmiFiles`), so
+ * the bundle has them (§16.2, item 8). */
 async function saveHmiFiles(project: vscode.Uri): Promise<void> {
-  const hmi = vscode.Uri.joinPath(project, "hmi").fsPath + path.sep;
+  const documents: vscode.DocumentFilter = { scheme: "file", pattern: await hmiFilesPattern(project.fsPath) };
   for (const document of vscode.workspace.textDocuments) {
-    if (document.isDirty && document.uri.scheme === "file" && document.uri.fsPath.startsWith(hmi))
-      await document.save();
+    if (document.isDirty && vscode.languages.match(documents, document) > 0) await document.save();
   }
 }

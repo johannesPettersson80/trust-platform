@@ -8,7 +8,7 @@
   "docs/diagrams/architecture/examples-project-landing.puml": "b8fa0f09f2d6a3ac9e4a72d5df64b4091d9f3746b4eb07b3e5b0ced9801c3bec",
   "docs/diagrams/architecture/full-software-map-generated.puml": "2125dbe9ab8fc0391bcef916c9c86fa8584f9285a430c4161ebf7cf064246e25",
   "docs/diagrams/architecture/hmi-agent-authoring.puml": "db0c4020f1926a8aee18de27a78d815a9e174216ad81fdadc88e9821d6c22b78",
-  "docs/diagrams/architecture/hmi-editor-live.puml": "7ddbfb8cd0ac3ead5a17699624bf2e2b085890a5f67b2f897b71ba1bfd8c4d43",
+  "docs/diagrams/architecture/hmi-editor-live.puml": "70d38e644bd6d1b0cd337319c501f379a376be27053920be1ba9c47ccf11847b",
   "docs/diagrams/architecture/hmi-runtime-display.puml": "3cdc3fff7273bf3a1119dee8745d7a9c58bbcae753728b64cc254582033f2cdb",
   "docs/diagrams/architecture/hmi-symbol-editor.puml": "ff8914315f62dc9ed2cad0ca2948c1ab80b9050bc2e1784c2686984d6d154695",
   "docs/diagrams/architecture/openot-database-persistence.puml": "d282c7810d61c4f45c768c94046a6e20a870649ae713c796e4498713a8af5d73",

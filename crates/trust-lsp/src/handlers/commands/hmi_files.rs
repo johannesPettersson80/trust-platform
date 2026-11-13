@@ -135,11 +135,21 @@ fn written<T: for<'de> Deserialize<'de>>(
     }
 }
 
+/// The folder of a project's HMI (specification 39, §3.1).
+const HMI_FOLDER: &str = "hmi";
+
+/// The files of a project's HMI, relative to the project, as a VS Code glob: every file under its
+/// `hmi/` folder, at any depth (specification 39, §11 item 6 and §16.2 item 8). The editor's file
+/// watcher and document matcher apply it; `holds_unsaved_hmi` takes the same files.
+pub(super) fn hmi_files_glob() -> String {
+    format!("{HMI_FOLDER}/**/*")
+}
+
 /// Whether an editor's unsaved documents hold an HMI change (specification 39, §11 item 6): one of
 /// `unsaved`, the paths of the editor's unsaved documents, lies under the `hmi/` folder of the
 /// project at `root`. Paths compare by whole components, so `hmi-old/` is not `hmi/`.
 pub(super) fn holds_unsaved_hmi(root: &Path, unsaved: &[PathBuf]) -> bool {
-    let hmi = root.join("hmi");
+    let hmi = root.join(HMI_FOLDER);
     unsaved
         .iter()
         .any(|path| path.starts_with(&hmi) && *path != hmi)

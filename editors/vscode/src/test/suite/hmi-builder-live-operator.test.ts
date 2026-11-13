@@ -8,6 +8,8 @@ import { liveBridge, liveGate, liveOperation } from "../../hmiBuilder/editor/liv
 const ROOT = "/work/plant";
 const SAVED = { root: ROOT, unsaved: [] as string[] };
 const EDITED = { root: ROOT, unsaved: ["/work/plant/hmi/pages/overview.toml"] };
+/** No change of the HMI's files while a test operates. */
+const NO_EDITS: LiveOperatorDeps["watchEdits"] = async () => ({ dispose: () => undefined });
 import type { HostToWebview } from "../../hmiBuilder/editor/messages";
 
 /** The first message that `find` picks, waiting up to five seconds for it. */
@@ -32,6 +34,7 @@ suite("HMI Builder: deployed Live connection", () => {
         runTarget: async () => ({ label: "Cell runtime", simulator: false }),
         liveGate,
         liveOperation,
+        watchEdits: NO_EDITS,
         session: {
           bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
@@ -63,6 +66,7 @@ suite("HMI Builder: deployed Live connection", () => {
           runTarget: async () => ({ label: "Cell runtime", simulator: false }),
           liveGate,
           liveOperation,
+          watchEdits: NO_EDITS,
           session: {
             bridge: liveBridge,
             target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
@@ -94,6 +98,7 @@ suite("HMI Builder: deployed Live connection", () => {
           runTarget: async () => selected,
           liveGate,
           liveOperation,
+          watchEdits: NO_EDITS,
           session: {
             bridge: liveBridge,
             target: async () => undefined,
@@ -127,6 +132,7 @@ suite("HMI Builder: deployed Live connection", () => {
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
         liveOperation,
+        watchEdits: NO_EDITS,
         session: {
           bridge: liveBridge,
           target: async () => ({ endpoint, url: "http://plc:8080", label: "Cell" }),
@@ -158,6 +164,7 @@ suite("HMI Builder: deployed Live connection", () => {
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
         liveOperation,
+        watchEdits: NO_EDITS,
         session: {
           bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
@@ -202,6 +209,7 @@ suite("HMI Builder: deployed Live connection", () => {
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
         liveOperation,
+        watchEdits: NO_EDITS,
         session: {
           bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
@@ -231,6 +239,7 @@ suite("HMI Builder: deployed Live connection", () => {
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
         liveOperation,
+        watchEdits: NO_EDITS,
         session: {
           bridge: liveBridge,
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
@@ -268,6 +277,7 @@ suite("HMI Builder: deployed Live connection", () => {
       runTarget: async () => ({ label: "Cell", simulator: false }),
       liveGate,
       liveOperation,
+      watchEdits: NO_EDITS,
       session: {
         bridge: liveBridge,
         target: async () => ({ endpoint: endpoint(), url: "http://plc:8080", label: "Cell" }),
@@ -367,8 +377,13 @@ suite("HMI Builder: deployed Live connection", () => {
     // own (specification 39, section 11 item 6).
     const messages: HostToWebview[] = [];
     const paths: string[] = [];
+    let edit = (): void => assert.fail("the operator watches the HMI's files");
     const operator = new LiveOperator(
       deps({
+        watchEdits: async (edited) => {
+          edit = edited;
+          return { dispose: () => undefined };
+        },
         request: async (_target, _method, path) => {
           paths.push(path);
           return { status: 200, body: { bundle: "v1", page: { name: "overview" } } };
@@ -377,10 +392,51 @@ suite("HMI Builder: deployed Live connection", () => {
       (message) => messages.push(message),
     );
     await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
-    operator.edited();
+    edit();
     await operator.handle({ type: "operateRequest", id: "one", request: 1, method: "GET", path: "/api/hmi/session" });
     assert.deepStrictEqual(paths, ["/api/hmi/page?name=overview"], "nothing goes out after the edit");
     assert.strictEqual(await posted(ended(messages)), "The HMI changed. Save and deploy it before operating again.");
+  });
+
+  test("the HMI's files are watched from the start of opening until operation ends", async () => {
+    // Catches a watch that starts after the bundle is read, which misses a change while Live mode opens, and one that
+    // outlives operation (specification 39, section 11 item 6: an edit stops operation at once).
+    const calls: string[] = [];
+    let edit = (): void => assert.fail("the operator watches the HMI's files");
+    const watchEdits: LiveOperatorDeps["watchEdits"] = async (edited) => {
+      calls.push("watch");
+      edit = edited;
+      return { dispose: () => calls.push("dispose") };
+    };
+    const bundle = async (): Promise<{ ok: boolean; version: string }> => {
+      calls.push("bundle");
+      return { ok: true, version: "v1" };
+    };
+    const operator = new LiveOperator(deps({ watchEdits, bundle }), () => undefined);
+    await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+    assert.deepStrictEqual(calls, ["watch", "bundle"], "the watch starts before the bundle is read and runs on");
+    await operator.handle({ type: "operateClose", id: "one" });
+    assert.deepStrictEqual(calls, ["watch", "bundle", "dispose"], "closing ends the watch");
+
+    calls.length = 0;
+    const refused = new LiveOperator(deps({ watchEdits, bundle, unsaved: () => EDITED }), () => undefined);
+    await refused.handle({ type: "operateOpen", id: "two", page: "overview" });
+    assert.deepStrictEqual(calls, ["watch", "bundle", "dispose"], "a read-only verdict ends the watch");
+
+    const messages: HostToWebview[] = [];
+    const opening = new LiveOperator(
+      deps({
+        watchEdits,
+        bundle: async () => {
+          edit();
+          return { ok: true, version: "v1" };
+        },
+      }),
+      (message) => messages.push(message),
+    );
+    await opening.handle({ type: "operateOpen", id: "three", page: "overview" });
+    assert.strictEqual(await posted(ended(messages)), "The HMI changed. Save and deploy it before operating again.");
+    assert.ok(!messages.some((message) => message.type === "operateReady"), "a change while it opens ends it first");
   });
 
   test("without the language server's verdict, operation ends with its error and nothing is sent", async () => {
