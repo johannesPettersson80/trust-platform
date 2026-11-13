@@ -23,7 +23,8 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
     InitialSource, InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, Parameter,
-    ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    ParameterBinding, ParameterType, PostScan, SampleTiming, Signals, Topology,
+    LOOP_SCHEMA_VERSION,
 };
 use crate::tuning::project_seed::GainForm;
 
@@ -675,11 +676,16 @@ fn gain_parameters(
         proportional.1,
         proportional.0,
     )?];
+    // The reset and derivative times of a law in standard form may be TIME variables (C0, C2).
+    let setting = |gain: &OwnLawGain, unit: String, convention: &str| match draft.form {
+        GainForm::Parallel => gain_parameter(catalog, gain, unit, convention),
+        GainForm::Standard => time_parameter(catalog, gain, unit, convention),
+    };
     if let Some((gain, _)) = parts.integral {
-        parameters.push(gain_parameter(catalog, gain, integral.1, integral.0)?);
+        parameters.push(setting(gain, integral.1, integral.0)?);
     }
     if let Some((gain, _, _)) = parts.derivative {
-        parameters.push(gain_parameter(catalog, gain, derivative.1, derivative.0)?);
+        parameters.push(setting(gain, derivative.1, derivative.0)?);
     }
     Ok(parameters)
 }
@@ -701,6 +707,39 @@ fn gain_parameter(
         convention: convention.to_string(),
         minimum: gain.minimum,
         maximum: gain.maximum,
+    })
+}
+
+/// A time of a law in standard form as a parameter (C0, C2): its variable's type, which may also be `TIME`, its unit (seconds), its
+/// convention and its range.
+///
+/// # Errors
+/// The time's variable is not compiled, or it is not `REAL`, `LREAL` or `TIME`.
+fn time_parameter(
+    catalog: &CompiledCatalog,
+    time: &OwnLawGain,
+    unit: String,
+    convention: &str,
+) -> Result<Parameter, Failure> {
+    let entry = compiled(catalog, &time.symbol)?;
+    let iec_type = match entry.iec_type.as_str() {
+        "TIME" => ParameterType::Time,
+        "REAL" | "LREAL" => real_type(entry)?.into(),
+        _ => {
+            return Err(Failure::new(
+                &texts::must_be_real_or_time(&time.symbol),
+                Cause::Settings,
+                NextAction::OpenLoopSetup,
+            ))
+        }
+    };
+    Ok(Parameter {
+        symbol: time.symbol.clone(),
+        iec_type,
+        unit,
+        convention: convention.to_string(),
+        minimum: time.minimum,
+        maximum: time.maximum,
     })
 }
 

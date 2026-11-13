@@ -491,7 +491,8 @@ fn feedforward_symbols(loop_definition: &LoopDefinition) -> Vec<&str> {
 }
 
 /// The parameter overrides of a candidate that is not a set of coefficients (C0, C10). A schedule's candidate writes the gains of every point
-/// of its table (C10 Validate), and any other candidate writes each record field that the controller maps.
+/// of its table (C10 Validate), and any other candidate writes each record field that the controller maps, as the field holds the value
+/// once Apply writes it (a REAL in single precision, a TIME in whole milliseconds), so that the run validates what Apply writes.
 fn candidate_record_overrides(
     loop_definition: &LoopDefinition,
     candidate: &LawCandidate,
@@ -504,7 +505,9 @@ fn candidate_record_overrides(
             let gains = gains_of_table(&schedule.points, &project.values)?;
             gain_schedule_case::run_overrides(loop_definition, schedule, &gains)
         }
-        _ => record_overrides(loop_definition, |mapped| candidate_value(candidate, mapped)),
+        _ => record_overrides(loop_definition, |mapped| {
+            candidate_value(candidate, mapped).map(|value| mapped.iec_type.realize(value))
+        }),
     }
 }
 

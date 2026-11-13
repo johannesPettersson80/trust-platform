@@ -754,6 +754,43 @@ fn a_standard_pi_names_its_reset_time_and_binds_it_in_seconds() {
     );
 }
 
+/// The oven's catalog with its reset time `P1.Ti` declared `iec_type`, as a Beckhoff program keeps `tTn : TIME` (C0, C2).
+fn oven_with_reset_time(iec_type: &str) -> CompiledCatalog {
+    let mut catalog = oven_json();
+    let symbols = catalog["symbols"].as_array_mut().expect("the symbols");
+    symbols.push(json!({ "symbol": "P1.Ti", "type": iec_type }));
+    decode(catalog)
+}
+
+/// C0 and C2: a standard law's reset time may be a TIME variable, which the binding holds as a TIME in seconds; a reset time of
+/// another type is refused by its name. Catches a TIME reset time refused as not REAL or bound as an LREAL, which the runtime refuses
+/// for a TIME variable, and an INT accepted.
+#[test]
+fn a_standard_laws_reset_time_may_be_a_time_variable() {
+    let loop_definition = own_law_loop_definition(
+        &oven_with_reset_time("TIME"),
+        &scope(),
+        &standard_pi_draft(),
+    )
+    .expect("a TIME reset time is set up");
+    let reset = loop_definition
+        .parameter_binding
+        .as_ref()
+        .expect("a parameter binding")
+        .parameters
+        .iter()
+        .find(|parameter| parameter.symbol == "P1.Ti")
+        .expect("the reset time is bound");
+    assert_eq!(
+        (reset.iec_type, reset.unit.as_str()),
+        (ParameterType::Time, "s")
+    );
+    let failure =
+        own_law_loop_definition(&oven_with_reset_time("INT"), &scope(), &standard_pi_draft())
+            .expect_err("an INT reset time is refused");
+    assert_eq!(text_of(&failure), "P1.Ti must be REAL, LREAL or TIME.");
+}
+
 /// C2: a law in standard form always integrates, and its reset time's range lies above zero; a PID's derivative time is needed.
 /// Catches a standard P accepted (Control Studio would have to write a reset time of zero) and a range that lets Tune choose zero.
 #[test]

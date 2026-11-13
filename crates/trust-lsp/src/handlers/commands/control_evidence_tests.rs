@@ -360,7 +360,7 @@ fn keep_in_project_refuses_a_program_variable_it_cannot_write_by_its_name() {
     let not_real = keep_value(&context, &root, "P1", json!({ "Count": 1.0 }));
     assert_eq!(not_real["ok"], false, "{not_real}");
     assert!(
-        refusal_of(&not_real).starts_with("P1.Count is not a REAL or LREAL variable"),
+        refusal_of(&not_real).starts_with("P1.Count is not a REAL, LREAL or TIME variable"),
         "{not_real}"
     );
     let shared = keep_value(&context, &root, "P1", json!({ "Kx": 2.0 }));
@@ -373,6 +373,41 @@ fn keep_in_project_refuses_a_program_variable_it_cannot_write_by_its_name() {
         refusal_of(&missing).starts_with("P1.Gain is not declared in PROGRAM Main"),
         "{missing}"
     );
+    std::fs::remove_dir_all(root).expect("remove temp dir");
+}
+
+/// A program whose law in standard form keeps its reset time `Ti` and its derivative time `Td` as TIME (specification 35 C2).
+const STANDARD_TIMES: &str = "PROGRAM Main\nVAR\n    Kp : LREAL := 1.0;\n    Ti : TIME := T#2s;\n    Td : TIME;\nEND_VAR\nEND_PROGRAM\n\nCONFIGURATION Config\nRESOURCE Res ON PLC\n    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM P1 WITH MainTask : Main;\nEND_RESOURCE\nEND_CONFIGURATION\n";
+
+/// C2 and B6.5, worked from the source: Keep writes a TIME variable's kept seconds as a TIME literal, in whole milliseconds as
+/// Control Studio writes a time (1.235 s as `T#1235ms`), and in microseconds when the value has a finer part (0.0005 s as
+/// `T#500us`, 1.0005 s as `T#1000500us`), so the kept value is the running one; `Td`, without an initializer, gets one. Catches a
+/// TIME refused as not REAL, a TIME written as a real number (`Ti : TIME := 1.235;` does not compile), a typed prefix doubled
+/// (`T#T#…`), and a finer running value rounded on its way into the project.
+#[test]
+fn keep_in_project_writes_a_standard_laws_times_as_time_literals() {
+    let (root, context) = control_project("trustlsp-control-keep-times", STANDARD_TIMES);
+    let uri = Url::from_file_path(root.join("src").join("main.st"))
+        .expect("source uri")
+        .to_string();
+    let answer = keep_value(
+        &context,
+        &root,
+        "P1",
+        json!({ "Kp": 2.5, "Ti": 1.235, "Td": 0.0005 }),
+    );
+    assert_eq!(answer["ok"], true, "{answer}");
+    let kept = with_lsp_edits(STANDARD_TIMES, &answer["edit"]["changes"][&uri]);
+    assert!(
+        kept.contains("    Kp : LREAL := 2.5;\n")
+            && kept.contains("    Ti : TIME := T#1235ms;\n")
+            && kept.contains("    Td : TIME := T#500us;\n"),
+        "{kept}"
+    );
+    let finer = keep_value(&context, &root, "P1", json!({ "Ti": 1.0005 }));
+    assert_eq!(finer["ok"], true, "{finer}");
+    let kept = with_lsp_edits(STANDARD_TIMES, &finer["edit"]["changes"][&uri]);
+    assert!(kept.contains("    Ti : TIME := T#1000500us;\n"), "{kept}");
     std::fs::remove_dir_all(root).expect("remove temp dir");
 }
 
@@ -403,7 +438,7 @@ fn keep_in_project_writes_a_gvls_gains_in_its_declarations() {
     );
     let not_real = keep_value(&context, &root, "GVL_Par", json!({ "iCount": 1.0 }));
     assert!(
-        refusal_of(&not_real).starts_with("GVL_Par.iCount is not a REAL or LREAL variable"),
+        refusal_of(&not_real).starts_with("GVL_Par.iCount is not a REAL, LREAL or TIME variable"),
         "{not_real}"
     );
     let missing = keep_value(&context, &root, "GVL_Par", json!({ "lrKd": 1.0 }));

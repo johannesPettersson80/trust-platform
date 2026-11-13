@@ -760,6 +760,29 @@ fn the_form_offers_the_values_each_choice_reads_in_the_order_the_page_lists_them
     assert_eq!(choices.actions, strings(&["direct", "reverse"]));
 }
 
+/// C0 and C2: the variables that may hold a standard law's reset or derivative time are the REAL, LREAL and TIME ones, as a Beckhoff
+/// program keeps `tTn : TIME`; the gains stay REAL and LREAL. Catches a TIME variable missing from the times' choices or offered for
+/// a gain, and an INT offered for a time.
+#[test]
+fn the_times_of_a_standard_law_offer_the_time_variables_as_well() {
+    let catalog = CompiledCatalog {
+        symbols: vec![
+            symbol("P1.Kp", "LREAL", None),
+            symbol("P1.Ti", "TIME", None),
+            symbol("P1.Tf", "REAL", None),
+            symbol("P1.Count", "INT", None),
+            symbol("P1.Enable", "BOOL", None),
+        ],
+        controllers: vec![controller("P1", "Main")],
+        links: Vec::new(),
+        writes: Vec::new(),
+        startup_flags: BTreeMap::new(),
+    };
+    let model = setup_form_model(&catalog);
+    assert_eq!(model.reals, strings(&["P1.Kp", "P1.Tf"]));
+    assert_eq!(model.times, strings(&["P1.Kp", "P1.Tf", "P1.Ti"]));
+}
+
 #[test]
 fn the_instances_that_can_hold_switching_logic_and_every_real_setting_are_offered() {
     // control-studio-loop-setup-onoff: "offers the instances that can hold switching logic and every REAL setting" (specification 35,
