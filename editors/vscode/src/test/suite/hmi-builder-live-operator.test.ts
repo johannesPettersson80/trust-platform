@@ -198,6 +198,10 @@ suite("HMI Builder: deployed Live connection", () => {
 
   test("requests cannot overtake the saved/deployed bundle check", async () => {
     let resolve!: (bundle: { ok: boolean; version: string }) => void;
+    let reading!: () => void;
+    const bundleRead = new Promise<void>((done) => {
+      reading = done;
+    });
     let requests = 0;
     const operator = new LiveOperator(
       {
@@ -205,6 +209,7 @@ suite("HMI Builder: deployed Live connection", () => {
         bundle: () =>
           new Promise((done) => {
             resolve = done;
+            reading();
           }),
         runTarget: async () => ({ label: "Cell", simulator: false }),
         liveGate,
@@ -222,6 +227,8 @@ suite("HMI Builder: deployed Live connection", () => {
       () => undefined,
     );
     const opening = operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+    // The request comes while the bundle check is pending, however many steps opening takes before it.
+    await bundleRead;
     await operator.handle({ type: "operateRequest", id: "one", request: 1, method: "GET", path: "/api/hmi/session" });
     const premature = requests;
     resolve({ ok: true, version: "v1" });
@@ -437,6 +444,42 @@ suite("HMI Builder: deployed Live connection", () => {
     await opening.handle({ type: "operateOpen", id: "three", page: "overview" });
     assert.strictEqual(await posted(ended(messages)), "The HMI changed. Save and deploy it before operating again.");
     assert.ok(!messages.some((message) => message.type === "operateReady"), "a change while it opens ends it first");
+  });
+
+  test("a language server without an answer leaves Live mode read-only with its error, not the runtime's", async () => {
+    // Catches the runtime blamed for a language server that failed while Live mode opened, and the language server
+    // blamed for a runtime that does not answer (specification 39, section 11 item 6).
+    const reason = async (changes: Parameters<typeof deps>[0]): Promise<string | undefined> => {
+      const messages: HostToWebview[] = [];
+      const operator = new LiveOperator(deps(changes), (message) => messages.push(message));
+      await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+      const ready = messages.find((message) => message.type === "operateReady");
+      return ready?.type === "operateReady" ? ready.reason : undefined;
+    };
+    assert.strictEqual(
+      await reason({
+        liveGate: async () => {
+          throw new Error("the truST language server stopped");
+        },
+      }),
+      "the truST language server stopped",
+    );
+    assert.strictEqual(
+      await reason({
+        watchEdits: async () => {
+          throw new Error("trust-lsp.hmiFiles did not name the HMI's files");
+        },
+      }),
+      "trust-lsp.hmiFiles did not name the HMI's files",
+    );
+    assert.strictEqual(
+      await reason({
+        request: async () => {
+          throw new Error("connection refused");
+        },
+      }),
+      "The runtime cannot be reached. Check its connection and HMI web server.",
+    );
   });
 
   test("without the language server's verdict, operation ends with its error and nothing is sent", async () => {
