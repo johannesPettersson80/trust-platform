@@ -1413,9 +1413,14 @@ declaration's real values.
      passes the editor check (`trust-lsp.hmiBundle`), and the run target has an HMI web server;
      then that web server serves the page from the active bundle that the first 16 characters of
      the project bundle's version name, and the HMI is still saved when it answers. The first
-     unmet condition is the reason Live mode stays read-only. While the operating view runs, the
-     language server also decides whether operation ends, and why (`trust-lsp.hmiLiveOperation`,
-     4 November 2026). Unsaved HMI changes end it before a request goes out, and a change of the
+     unmet condition is the reason Live mode stays read-only. When the language server gives no
+     usable answer while Live mode opens, Live mode stays read-only with the language server's
+     error; `The runtime cannot be reached. Check its connection and HMI web server.` is the
+     reason only when the run target or its HMI web server does not answer (13 November 2026,
+     when a language server failure was reported as the runtime's). While the operating view
+     runs, the language server also decides whether operation ends, and why
+     (`trust-lsp.hmiLiveOperation`, 4 November 2026). Unsaved HMI changes end it before a request
+     goes out, and a change of the
      HMI's files ends it at once, both with `The HMI changed. Save and deploy it before operating
      again.` An unsaved HMI change is an editor's unsaved document under the project's `hmi/`
      folder: the editor sends the paths of its unsaved documents, to the gate as well, and the

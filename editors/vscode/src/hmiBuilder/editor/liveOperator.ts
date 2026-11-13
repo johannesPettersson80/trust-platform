@@ -52,6 +52,21 @@ export interface LiveOperatorDeps {
 }
 /** An ending the language server gave no reason for, against its contract. */
 const NO_REASON = "trust-lsp.hmiLiveOperation gave no reason";
+/** Why Live mode stays read-only when the run target or its HMI web server does not answer while it opens. */
+const UNREACHABLE = "The runtime cannot be reached. Check its connection and HMI web server.";
+
+/** The language server gave no usable answer while Live mode opened: Live mode stays read-only with its error, never
+ * the runtime's reason (§11 item 6). */
+class NoVerdict extends Error {}
+
+/** `question`'s answer, or `NoVerdict` with the language server's error. */
+async function asked<T>(question: Promise<T>): Promise<T> {
+  try {
+    return await question;
+  } catch (error) {
+    throw new NoVerdict(error instanceof Error ? error.message : String(error));
+  }
+}
 /** How long the language server may take to give a verdict (specification 39, §11 item 6). */
 const VERDICT_WAIT_MS = 5_000;
 
@@ -182,7 +197,7 @@ export class LiveOperator {
     try {
       // A change of the HMI's files ends operation at once, with the language server's reason (§11 item 6). The watch
       // starts before the bundle is read, so that a change while Live mode opens ends it too.
-      const edits = await this.deps.watchEdits(() => void this.endAt(current, { event: "edited" }));
+      const edits = await asked(this.deps.watchEdits(() => void this.endAt(current, { event: "edited" })));
       if (this.current !== current) {
         edits.dispose();
         return;
@@ -203,30 +218,32 @@ export class LiveOperator {
         runTarget: selected && { label: selected.label, simulator: selected.simulator },
         page,
       };
-      const before = await this.deps.liveGate({ ...facts, ...this.deps.unsaved() });
+      const before = await asked(this.deps.liveGate({ ...facts, ...this.deps.unsaved() }));
       if (this.current !== current) return;
       if (before.kind === "read_only") {
         refuse(before.reason);
         return;
       }
-      if (!target) throw new Error("trust-lsp.hmiLiveGate opened Live mode without an HMI web server");
+      if (!target) throw new NoVerdict("trust-lsp.hmiLiveGate opened Live mode without an HMI web server");
       const answer = await current.session.request("GET", `/api/hmi/page?name=${encodeURIComponent(page)}`);
       if (this.current !== current) return;
-      const after = await this.deps.liveGate({
-        ...facts,
-        ...this.deps.unsaved(),
-        served: { status: answer.status, body: answer.body },
-      });
+      const after = await asked(
+        this.deps.liveGate({
+          ...facts,
+          ...this.deps.unsaved(),
+          served: { status: answer.status, body: answer.body },
+        }),
+      );
       if (this.current !== current) return;
       if (after.kind === "read_only") {
         refuse(after.reason);
         return;
       }
-      if (after.kind !== "operate") throw new Error("trust-lsp.hmiLiveGate gave no verdict on the page");
+      if (after.kind !== "operate") throw new NoVerdict("trust-lsp.hmiLiveGate gave no verdict on the page");
       current.bundle = after.bundle;
       this.post({ type: "operateReady", id, target: target.label });
-    } catch {
-      refuse("The runtime cannot be reached. Check its connection and HMI web server.");
+    } catch (error) {
+      refuse(error instanceof NoVerdict ? error.message : UNREACHABLE);
     }
   }
 
