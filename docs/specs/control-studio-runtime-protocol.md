@@ -738,7 +738,7 @@ Unknown fields are refused with `invalid_parameter_request`. The checks run in t
 7. Manual is observed now (`confirmed Manual mode required`). Custom Auto adoption is not supported.
 8. The expected revisions and the expected values match the current state (`stale program, binding, or expected values`).
 9. A status was read before the apply, and the binding has not changed since that read.
-10. `values` has exactly the declared symbols. Every value is finite, within its bounds, and exactly representable in its IEC type. A REAL value is explicitly rounded to single precision. A TIME value is the seconds of a whole number of nanoseconds, as TIME holds it: the number `n` of nanoseconds nearest the value times 10^9 gives the value back as `n / 10^9`.
+10. `values` has exactly the declared symbols. Every value is finite, within its bounds, and exactly representable in its IEC type. A REAL value is explicitly rounded to single precision. A TIME value is the seconds of a whole number of nanoseconds, as TIME holds it: the shortest decimal that reads as the value, the number as JSON writes it, has at most nine digits after the point, and its nanoseconds `n` give the value back as `n / 10^9`. The product of the value and 10^9 in binary is not used: from 2^22 s on, it can miss a whole number of milliseconds by a nanosecond.
 
 An accepted apply returns `status` set to `pending` and `confirmed` set to false. A request for another task remains pending until that task runs.
 

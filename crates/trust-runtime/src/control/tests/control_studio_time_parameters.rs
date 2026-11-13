@@ -4,9 +4,10 @@
 
 const TIME_PARAMETER_PROGRAM: &str = "PROGRAM Main VAR Ti : TIME := T#2s; Manual : BOOL := TRUE; Observed : TIME; END_VAR Observed := Ti; END_PROGRAM";
 
+/// A reset time of 1 ms up to `T#49d17h2m47s295ms`, the largest TIME of CODESYS.
 fn time_binding(unit: &str) -> serde_json::Value {
     json!({"loop_id":"standard-loop","task_name":"$background","parameters":[
-        {"symbol":"Main.Ti","iec_type":"TIME","unit":unit,"convention":"standard Ti","minimum":0.001,"maximum":3600}
+        {"symbol":"Main.Ti","iec_type":"TIME","unit":unit,"convention":"standard Ti","minimum":0.001,"maximum":4294967.295}
     ],"mode":{"symbol":"Main.Manual","manual_value":true}})
 }
 
@@ -56,6 +57,30 @@ fn a_time_parameter_reads_and_writes_its_seconds() {
         harness.get_output("Ti"),
         Some(crate::value::Value::Time(crate::value::Duration::from_millis(
             1_234_567
+        )))
+    );
+}
+
+/// 4194792.263 s, whole milliseconds (about 48.5 days), commits as `T#4194792263ms` and reads back as 4194792.263: the
+/// runtime takes the decimal the client wrote. Its product with 10^9 in binary is 4194792263000000.5, whose nearest
+/// nanoseconds read back as 4194792.263000001. Catches a TIME taken from that product, which refuses some of the
+/// whole-millisecond times from 2^22 s on.
+#[test]
+fn a_time_parameter_takes_the_decimal_the_client_wrote() {
+    let (state, mut harness) = generic_fixture_for(TIME_PARAMETER_PROGRAM);
+    let before = time_status(&state, "s");
+    assert!(before.ok, "{:?}", before.error);
+    let before = before.result.unwrap();
+    let apply = time_apply(&state, &before, 4_194_792.263);
+    assert!(apply.ok, "{:?}", apply.error);
+    assert!(harness.cycle().errors.is_empty());
+    let after = time_status(&state, "s").result.unwrap();
+    assert_eq!(after["status"], "applied", "{after}");
+    assert_eq!(after["values"]["Main.Ti"], 4_194_792.263);
+    assert_eq!(
+        harness.get_output("Ti"),
+        Some(crate::value::Value::Time(crate::value::Duration::from_millis(
+            4_194_792_263
         )))
     );
 }
