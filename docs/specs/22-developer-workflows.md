@@ -705,6 +705,18 @@ release follows the passed run of any commit whose version has no release yet
 share one group the same way, so the site skips the commits between (GitHub's
 Pages workflows do the same).
 
+Only a run on `main` saves the Rust build caches: every `Swatinem/rust-cache`
+step sets `save-if` to `${{ github.ref == 'refs/heads/main' }}`. A pull
+request's run, a merge group's and a run on any other branch restore what
+`main`'s runs saved and save nothing. GitHub keeps 10 GB of caches per
+repository and lets a pull request's cache serve only that pull request, so
+pull requests that saved their own, about 7 GB each, pushed out `main`'s, which
+every pull request restores. On 13 November 2026, 17 of the 21 Test jobs of the
+seven newest CI runs, three of them `main`'s, found no cache and compiled every
+dependency and cargo-nextest again; `main`'s Test jobs took 102, 59 and 59
+minutes on macOS, Ubuntu and Windows without the cache and 62, 37 and 51 with
+it.
+
 ### Documentation that follows the product
 
 The documentation is tested against the product, not only for its links,
