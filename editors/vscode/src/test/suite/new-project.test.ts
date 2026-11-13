@@ -64,6 +64,25 @@ async function waitForNoErrors(
   );
 }
 
+/** Resolves once VS Code holds the language server's first diagnostics of `uri`. Before then a file has no
+ * diagnostics whatever it holds, so a check of them proves nothing. */
+function firstDiagnostics(uri: vscode.Uri, timeoutMs = 10000): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let listener: vscode.Disposable | undefined;
+  return new Promise<void>((resolve, reject) => {
+    listener = vscode.languages.onDidChangeDiagnostics((event) => {
+      if (event.uris.some((changed) => changed.fsPath === uri.fsPath)) resolve();
+    });
+    timer = setTimeout(
+      () => reject(new Error(`The language server gave no diagnostics for ${uri.fsPath} within ${timeoutMs} ms.`)),
+      timeoutMs
+    );
+  }).finally(() => {
+    clearTimeout(timer);
+    listener?.dispose();
+  });
+}
+
 function completionItems(result: CompletionResult): vscode.CompletionItem[] {
   if (!result) {
     return [];
@@ -360,15 +379,19 @@ suite("New project command (VS Code)", function () {
   // child declaration from the running VS Code/LSP session.
   test("generated ST parses cleanly and TOML is usable by build", async function () {
     const targetUri = vscode.Uri.joinPath(fixturesRoot, "compile-smoke-project");
+    const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
+    // The command opens src/Main.st itself, so the wait for the language server's answer starts before it runs.
+    const answered = firstDiagnostics(mainUri);
+    answered.catch(() => undefined); // Awaited below; a test that stops earlier leaves no unhandled rejection.
     const created = await vscode.commands.executeCommand<boolean>(
       NEW_PROJECT_COMMAND,
       { targetUri, openWorkspace: false }
     );
     assert.strictEqual(created, true);
 
-    const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
     const mainDoc = await vscode.workspace.openTextDocument(mainUri);
     await vscode.window.showTextDocument(mainDoc);
+    await answered;
     await waitForNoErrors(mainUri);
 
     const completion = (await vscode.commands.executeCommand(
