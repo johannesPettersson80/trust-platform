@@ -10,7 +10,7 @@ use super::test_support::record;
 use super::*;
 use crate::experiment::ControlExperimentKind;
 use crate::identification::identify_result::identify_signals;
-use crate::loop_definition::{ControllerLaw, ControllerProject, Parameter, RealType};
+use crate::loop_definition::{ControllerLaw, ControllerProject, Parameter, ParameterType};
 use crate::messages::{TuneMethod, TuneRole};
 use crate::stages::stage_availability;
 use crate::tuning::candidate::CandidateSource;
@@ -45,7 +45,7 @@ fn example_loop_with_filter() -> LoopDefinition {
     if let Some(binding) = &mut loop_definition.parameter_binding {
         binding.parameters.push(Parameter {
             symbol: FILTER.to_owned(),
-            iec_type: RealType::Real,
+            iec_type: ParameterType::Real,
             unit: "s".to_owned(),
             convention: "Control.PID MeasurementFilterTime".to_owned(),
             minimum: 0.0,

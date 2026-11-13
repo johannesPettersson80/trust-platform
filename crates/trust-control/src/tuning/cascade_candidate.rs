@@ -3,7 +3,7 @@
 //! binding, which the candidate's values and the Validate runs write. The derivative variables are not in `values`: Apply writes them
 //! as zero, as it does for every PI (C0, C2).
 
-use crate::loop_definition::{LoopDefinition, ParameterBinding, RealType};
+use crate::loop_definition::{LoopDefinition, ParameterBinding};
 use crate::tuning::candidate::CandidateSource;
 use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::project_seed::CascadePidSeed;
@@ -95,7 +95,7 @@ fn mapped(binding: &ParameterBinding, symbol: &str, key: GainKey) -> Option<Mapp
             minimum: parameter.minimum,
             maximum: parameter.maximum,
         },
-        real: matches!(parameter.iec_type, RealType::Real),
+        iec_type: parameter.iec_type,
     })
 }
 

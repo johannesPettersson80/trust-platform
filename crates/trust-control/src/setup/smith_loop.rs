@@ -471,7 +471,7 @@ fn model_parameter(
 ) -> Result<Parameter, Failure> {
     Ok(Parameter {
         symbol: symbol.to_owned(),
-        iec_type: real_type(compiled(catalog, symbol)?)?,
+        iec_type: real_type(compiled(catalog, symbol)?)?.into(),
         unit,
         convention: convention.to_owned(),
         minimum,

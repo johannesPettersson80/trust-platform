@@ -23,7 +23,7 @@ use super::transfer_tracking::TransferTracking;
 use crate::experiment::status::RecordingRecoveryOwner;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::json::decode_value;
-use crate::loop_definition::{LoopDefinition, RealType};
+use crate::loop_definition::LoopDefinition;
 use crate::model::general::{decode_general_model, GeneralModel};
 use crate::recording::RecordedRun;
 use crate::validation::engineer_verification_plan::{engineer_requirements, EngineerRequirements};
@@ -269,17 +269,10 @@ fn parameter_values_hold(loop_definition: &LoopDefinition, values: &BTreeMap<Str
                         candidate.is_finite()
                             && candidate >= parameter.minimum
                             && candidate <= parameter.maximum
-                            && (parameter.iec_type != RealType::Real
-                                || is_single_precision(candidate))
+                            && parameter.iec_type.keeps(candidate)
                     })
                 })
         })
-}
-
-/// Whether `value` survives the rounding to single precision unchanged (`Math.fround(value) === value`).
-#[allow(clippy::cast_possible_truncation, clippy::float_cmp)] // The rounding is the test: the value must come through it unchanged.
-fn is_single_precision(value: f64) -> bool {
-    f64::from(value as f32) == value
 }
 
 #[cfg(test)]

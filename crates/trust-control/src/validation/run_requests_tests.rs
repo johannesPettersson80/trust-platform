@@ -20,6 +20,7 @@ use crate::tuning::structure::{ParallelGains, Structure};
 use crate::validation::engineer_verification_plan::{
     engineer_requirements, engineer_verification_plan, EngineerRequirements,
 };
+use crate::validation::isolated_run_protocol::IsolatedParameterType;
 use crate::validation::isolated_run_protocol::{
     IsolatedRunConditions, IsolatedRunSample, IsolatedRunValue,
 };

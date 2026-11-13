@@ -4,7 +4,7 @@
 use super::*;
 use crate::commissioning::adapters::controller_adapter;
 use crate::loop_definition::{
-    Direction, Execution, ExperimentKind, LoopDefinition, PidInitialization, RealType,
+    Direction, Execution, ExperimentKind, LoopDefinition, ParameterType, PidInitialization,
 };
 use crate::setup::catalog::{CompiledCatalog, CompiledSymbol};
 use std::collections::BTreeMap;
@@ -17,11 +17,8 @@ fn example() -> LoopDefinition {
     LoopDefinition::decode(EXAMPLE).expect("the example is a loop definition")
 }
 
-fn real_word(value: RealType) -> &'static str {
-    match value {
-        RealType::Real => "REAL",
-        RealType::Lreal => "LREAL",
-    }
+fn real_word(value: ParameterType) -> &'static str {
+    value.iec_name()
 }
 
 fn manual_word(value: ManualOutputType) -> &'static str {

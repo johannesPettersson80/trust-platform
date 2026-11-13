@@ -5,8 +5,7 @@
 use std::collections::BTreeMap;
 
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{LoopDefinition, RealType};
-use crate::tuning::settings_pins::single_precision;
+use crate::loop_definition::LoopDefinition;
 
 /// The refusal of a loop with no parameter binding, which its coefficients are written through.
 const NO_BINDING: &str =
@@ -40,10 +39,7 @@ pub fn coefficient_values(
                     NextAction::OpenLoopSetup,
                 )
             })?;
-        let realized = match parameter.iec_type {
-            RealType::Real => single_precision(*value),
-            RealType::Lreal => *value,
-        };
+        let realized = parameter.iec_type.realize(*value);
         if !realized.is_finite() || realized < parameter.minimum || realized > parameter.maximum {
             return Err(Failure::new(
                 &format!(

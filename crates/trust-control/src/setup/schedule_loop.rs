@@ -554,7 +554,7 @@ fn gain_parameter(
     let bounds = scheduled_gain_bounds();
     Ok(Parameter {
         symbol: symbol.to_owned(),
-        iec_type: real_type(compiled(catalog, symbol)?)?,
+        iec_type: real_type(compiled(catalog, symbol)?)?.into(),
         unit,
         convention: convention.to_owned(),
         minimum: bounds.minimum,

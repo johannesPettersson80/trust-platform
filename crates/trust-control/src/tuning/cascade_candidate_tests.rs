@@ -4,7 +4,7 @@
 #![allow(clippy::float_cmp)] // The gains are compared with the exact values the design wrote.
 
 use super::*;
-use crate::loop_definition::{ModeBinding, Parameter, ParameterBinding, RealType};
+use crate::loop_definition::{ModeBinding, Parameter, ParameterBinding, ParameterType};
 use crate::tuning::project_seed::CascadeGains;
 use crate::tuning::settings_pins::GainKey;
 
@@ -51,7 +51,7 @@ fn design() -> CascadeDesign {
 fn parameter(symbol: &str) -> Parameter {
     Parameter {
         symbol: symbol.to_owned(),
-        iec_type: RealType::Lreal,
+        iec_type: ParameterType::Lreal,
         unit: "1".to_owned(),
         convention: "Control.PID gain".to_owned(),
         minimum: -1e6,
@@ -124,7 +124,7 @@ fn the_loop_maps_the_six_gains_of_both_records_in_the_seed_order() {
     assert!(matches!(mapped[5].key, GainKey::DerivativeGain));
     assert!(mapped
         .iter()
-        .all(|item| !item.real && item.bounds.maximum == 1e6));
+        .all(|item| item.iec_type != ParameterType::Real && item.bounds.maximum == 1e6));
 }
 
 #[test]

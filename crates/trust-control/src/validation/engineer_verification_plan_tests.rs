@@ -4,6 +4,7 @@ use serde_json::json;
 
 use super::test_support::{base_task, text};
 use super::*;
+use crate::loop_definition::ParameterType;
 use crate::model::decode_general_model;
 
 /// A model channel with the fixtures' range of -20 to 20.
@@ -493,7 +494,7 @@ fn a_parameter_outside_its_bounds_or_not_representable_is_refused() {
         .as_mut()
         .expect("the binding")
         .parameters[0]
-        .iec_type = RealType::Real;
+        .iec_type = ParameterType::Real;
     let failure =
         plan_of(&real_loop, &task, &gains(0.1, 0.2, 0.0)).expect_err("0.1 is not a REAL value");
     assert_eq!(
@@ -518,7 +519,7 @@ fn loop_with_extra_gains(extra: usize) -> (LoopDefinition, BTreeMap<String, f64>
         let symbol = format!("Main.Extra{index}");
         binding.parameters.push(Parameter {
             symbol: symbol.clone(),
-            iec_type: RealType::Lreal,
+            iec_type: ParameterType::Lreal,
             unit: "1".to_owned(),
             convention: "extra".to_owned(),
             minimum: 0.0,

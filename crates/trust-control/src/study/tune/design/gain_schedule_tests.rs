@@ -15,8 +15,8 @@ use super::*;
 use crate::failure::Failure;
 use crate::identification::identify_result::kept_candidate;
 use crate::loop_definition::{
-    ControllerProject, GainSchedule, LoopDefinition, Parameter, RealType, SchedulePoint,
-    SchedulingVariable,
+    ControllerProject, GainSchedule, LoopDefinition, Parameter, ParameterType, RealType,
+    SchedulePoint, SchedulingVariable,
 };
 use crate::messages::{CandidateOutcome, ScheduleChoiceWord, TuneMethod, TuneRequest};
 use crate::model::{
@@ -90,7 +90,7 @@ fn schedule(own: &str) -> GainSchedule {
 fn bound(symbol: String) -> Parameter {
     Parameter {
         symbol,
-        iec_type: RealType::Real,
+        iec_type: ParameterType::Real,
         unit: "1".to_owned(),
         convention: "schedule gain".to_owned(),
         minimum: -1e6,

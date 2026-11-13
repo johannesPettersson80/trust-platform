@@ -15,7 +15,7 @@ use crate::commissioning::parameter_status::RecordState;
 use crate::commissioning::transfer::proportional_transfer_binding;
 use crate::commissioning::transfer_tracking::proportional_tracking;
 use crate::json::decode_value;
-use crate::loop_definition::{LoopDefinition, RealType};
+use crate::loop_definition::{LoopDefinition, ParameterType};
 
 /// The origin record: the gain `Main.Parameters.Kp` at `gain`, under the program and binding `program:1` and `binding:1`.
 fn origin_status(gain: f64) -> ParameterStatus {
@@ -129,7 +129,7 @@ fn a_real_parameter_is_exact_only_in_single_precision() {
         .as_mut()
         .expect("the loop has a parameter binding")
         .parameters[0]
-        .iec_type = RealType::Real;
+        .iec_type = ParameterType::Real;
     let stored = serde_json::to_value(checkpoint(&loop_definition)).expect("the record serializes");
 
     // 0.1 is not exact in single precision, so a REAL record cannot hold it; 0.5 is.

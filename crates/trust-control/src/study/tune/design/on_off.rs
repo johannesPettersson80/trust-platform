@@ -7,13 +7,10 @@
 use std::collections::BTreeMap;
 
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{
-    LoopDefinition, OnOffController, Parameter, ParameterBinding, RealType,
-};
+use crate::loop_definition::{LoopDefinition, OnOffController, Parameter, ParameterBinding};
 use crate::model::simulation::ActuatorCapabilities;
 use crate::tuning::on_off_candidate::OnOffCandidate;
 use crate::tuning::requirements::TuningRequirements;
-use crate::tuning::settings_pins::single_precision;
 
 /// The refusal of a switching controller whose channels do not declare the switched equipment's minimum times (D-9, C3).
 const EQUIPMENT_UNDECLARED: &str = "Declare the switched equipment's minimum ON and OFF times in Setup, zero when it has no such limit. Tune never guesses them.";
@@ -256,10 +253,7 @@ fn dwell(
 /// parameter's declared bounds (`parameter` of `designOnOffController`).
 fn setting(binding: &ParameterBinding, symbol: &str, proposed: f64) -> Result<f64, Failure> {
     let parameter = parameter_of(binding, symbol)?;
-    let value = match parameter.iec_type {
-        RealType::Real => single_precision(proposed),
-        RealType::Lreal => proposed,
-    };
+    let value = parameter.iec_type.realize(proposed);
     if value.is_finite() && value >= parameter.minimum && value <= parameter.maximum {
         Ok(value)
     } else {

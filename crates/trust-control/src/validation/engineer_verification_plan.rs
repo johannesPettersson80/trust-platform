@@ -22,9 +22,7 @@ use crate::limits::{
     ISOLATED_SIMULATION_DURATION_LIMIT_MS, ISOLATED_SIMULATION_SAMPLE_LIMIT,
     ISOLATED_SIMULATION_SCAN_LIMIT,
 };
-use crate::loop_definition::{
-    ChannelRequirements, ChannelSignal, LoopDefinition, Parameter, RealType,
-};
+use crate::loop_definition::{ChannelRequirements, ChannelSignal, LoopDefinition, Parameter};
 use crate::model::general::js_text;
 use crate::model::simulation::ActuatorKind;
 use crate::model::GeneralModel;
@@ -35,7 +33,6 @@ use crate::tuning::output_requirements::OutputRequirements;
 use crate::tuning::requirements::{
     response_deadline_seconds, RequirementRefusal, TuningRequirements,
 };
-use crate::tuning::settings_pins::single_precision;
 use crate::validation::gain_schedule_case;
 use crate::validation::isolated_run_sampling::{isolated_record_every, scan_count};
 use crate::validation::model_route::{bound_channels, BoundChannels, BoundOutput};
@@ -514,8 +511,7 @@ fn checked_parameters<'a>(
             let value = values.get(&parameter.symbol).copied().unwrap_or(f64::NAN);
             let in_bounds =
                 value.is_finite() && value >= parameter.minimum && value <= parameter.maximum;
-            let representable = parameter.iec_type == RealType::Lreal
-                || single_precision(value).to_bits() == value.to_bits();
+            let representable = parameter.iec_type.keeps(value);
             if in_bounds && representable {
                 Ok((parameter, value))
             } else {

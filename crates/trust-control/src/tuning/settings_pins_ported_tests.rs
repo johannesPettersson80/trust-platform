@@ -22,7 +22,7 @@ fn pid_loop_parameters() -> Vec<MappedParameter> {
             minimum: 0.0,
             maximum: 100.0,
         },
-        real: false,
+        iec_type: ParameterType::Lreal,
     })
     .collect()
 }

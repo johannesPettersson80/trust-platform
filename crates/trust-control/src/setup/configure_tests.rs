@@ -5,7 +5,7 @@ use super::*;
 use crate::limits::{record_period_executions, RECORDING_SAMPLE_LIMIT};
 use crate::loop_definition::{
     ControllerLaw, Design, Direction, Execution, ExperimentKind, ManualOutputType, ModeBinding,
-    ModeWhenTrue, Parameter, ParameterBinding, RealType, Topology,
+    ModeWhenTrue, Parameter, ParameterBinding, ParameterType, Topology,
 };
 use crate::setup::catalog::{
     CatalogAnswer, CompiledCatalog, CompiledController, CompiledSymbol, CompiledTask,
@@ -290,7 +290,7 @@ fn a_proportional_setup_declares_the_existing_law_its_gain_its_mode_and_its_manu
             task_name: "MainTask".into(),
             parameters: vec![Parameter {
                 symbol: "Main.Kp".into(),
-                iec_type: RealType::Lreal,
+                iec_type: ParameterType::Lreal,
                 unit: "%/bar".into(),
                 convention: "proportional gain".into(),
                 minimum: 0.0,

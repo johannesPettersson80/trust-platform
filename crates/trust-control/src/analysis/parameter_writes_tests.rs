@@ -212,14 +212,14 @@ fn a_real_value_is_checked_after_single_precision_rounding() {
     let real = WritableParameter {
         name: "Kp".to_string(),
         symbol: "P1.Kp".to_string(),
-        iec_type: RealType::Real,
+        iec_type: ParameterType::Real,
         unit: "N·m/rad".to_string(),
         minimum: 0.0,
         maximum: 0.1,
         selected: 0.1,
     };
     let lreal = WritableParameter {
-        iec_type: RealType::Lreal,
+        iec_type: ParameterType::Lreal,
         ..real.clone()
     };
     let values = BTreeMap::from([("P1.Kp".to_string(), 0.1)]);

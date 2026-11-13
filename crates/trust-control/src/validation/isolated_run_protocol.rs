@@ -70,7 +70,7 @@ impl IsolatedJobState {
     }
 }
 
-/// The type of an overridden parameter: `REAL` or `LREAL`, or a fixed configuration `BOOL` (E8.4).
+/// The type of an overridden parameter: `REAL`, `LREAL` or `TIME`, or a fixed configuration `BOOL` (E8.4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum IsolatedParameterType {
@@ -80,6 +80,19 @@ pub enum IsolatedParameterType {
     Lreal,
     /// A fixed configuration `BOOL`: unit `1`, bounds 0 to 1 and value 0 or 1 (E8.4).
     Bool,
+    /// `TIME`, in seconds (unit `s`): the seconds of a whole number of nanoseconds, which the runtime checks (E8.4,
+    /// E7.3 step 10).
+    Time,
+}
+
+impl From<crate::loop_definition::ParameterType> for IsolatedParameterType {
+    fn from(value: crate::loop_definition::ParameterType) -> Self {
+        match value {
+            crate::loop_definition::ParameterType::Real => Self::Real,
+            crate::loop_definition::ParameterType::Lreal => Self::Lreal,
+            crate::loop_definition::ParameterType::Time => Self::Time,
+        }
+    }
 }
 
 /// An observed channel of a run (E8.3): its symbol and its unit.

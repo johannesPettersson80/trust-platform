@@ -16,7 +16,7 @@ use crate::analysis::declared::{check_declared, DeclaredControlAnalysis, Declare
 use crate::commissioning::application_records::review_identity;
 use crate::commissioning::parameter_status::ParameterStatus;
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{LoopDefinition, Parameter, ParameterBinding, RealType};
+use crate::loop_definition::{LoopDefinition, Parameter, ParameterBinding, ParameterType};
 
 /// The refusal of a loop with no declared analysis, or with no mapping of its parameters.
 const NO_MAPPING: &str = "This loop declares no parameter mapping for its analysis, so Control Studio writes none of its parameters.";
@@ -47,7 +47,7 @@ pub struct WritableParameter {
     /// The program symbol that the mapping names (`P1.Kp`).
     pub symbol: String,
     /// The IEC type of the symbol.
-    pub iec_type: RealType,
+    pub iec_type: ParameterType,
     /// The unit that the analysis and the binding both declare.
     pub unit: String,
     /// The smallest value that the analysis allows.
@@ -250,7 +250,7 @@ pub fn written_record(
     let mut record = observed.clone();
     for parameter in writable {
         let value = proposed.get(&parameter.symbol).copied().unwrap_or(f64::NAN);
-        let rounded = to_iec(parameter.iec_type, value);
+        let rounded = parameter.iec_type.realize(value);
         if !rounded.is_finite() || rounded < parameter.minimum || rounded > parameter.maximum {
             return Err(Failure::new(
                 &outside_range(parameter, rounded),
@@ -269,16 +269,6 @@ fn outside_range(parameter: &WritableParameter, value: f64) -> String {
         "{} = {value} {} is outside the range {} to {} that its analysis parameter {} allows.",
         parameter.symbol, parameter.unit, parameter.minimum, parameter.maximum, parameter.name
     )
-}
-
-/// The value as its IEC type holds it: a REAL is rounded to single precision, as `Math.fround` rounds it (C0).
-#[allow(clippy::cast_possible_truncation)] // Single precision is what the IEC type REAL holds.
-#[must_use]
-fn to_iec(iec_type: RealType, value: f64) -> f64 {
-    match iec_type {
-        RealType::Real => f64::from(value as f32),
-        RealType::Lreal => value,
-    }
 }
 
 /// The values that a write changes, in the order of the writable parameters: the value in force and the value the write sets.

@@ -415,6 +415,26 @@ fn a_bool_override_is_a_fixed_zero_or_one_on_unit_one_with_bounds_zero_to_one() 
     assert!(refusal(&candidate).contains("its bounds are 0 to 1"));
 }
 
+/// E8.4: a TIME override, a reset time that a law keeps as `TIME`, is in seconds and travels as `TIME`; the runtime checks its whole
+/// nanoseconds. Catches a TIME in `ms`, whose numbers the runtime would take as seconds, sent instead of refused before the run.
+#[test]
+fn a_time_override_is_in_seconds() {
+    let mut reset_time = parameter("Main.Ti", IsolatedParameterType::Time, 0.001, 3600.0, 1.235);
+    reset_time.unit = "s".into();
+    let mut candidate = request();
+    candidate.parameter_overrides = vec![reset_time.clone()];
+    candidate.check().expect("a TIME in seconds is valid");
+    assert_eq!(
+        serde_json::to_value(&candidate.parameter_overrides[0]).expect("the override serializes")
+            ["iec_type"],
+        json!("TIME")
+    );
+    let mut milliseconds = reset_time;
+    milliseconds.unit = "ms".into();
+    candidate.parameter_overrides = vec![milliseconds];
+    assert!(refusal(&candidate).contains("is a TIME, whose unit is s"));
+}
+
 #[test]
 fn initial_values_are_finite_and_never_set_a_parameter() {
     let mut candidate = request();

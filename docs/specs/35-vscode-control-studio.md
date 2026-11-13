@@ -2619,7 +2619,8 @@ Each structure has one template. Its subsections are Setup, Identify, Tune, Vali
 
 A parameter-record adapter is a set of typed bindings. Each binding names an unaddressed scalar member of a program or function-block instance, by its symbol. Each binding has:
 
-- IEC type `REAL` or `LREAL`;
+- IEC type `REAL` or `LREAL`, or `TIME` for the reset time or the derivative time of a law in standard form (C2), whose unit is
+  `s` and whose values are seconds (protocol annex E7.1). No other parameter is `TIME`;
 - a non-empty unit and convention;
 - finite minimum and maximum values.
 
@@ -2630,10 +2631,10 @@ Aliases and shared global ownership need a different adapter.
 - The mode binding is a `BOOL` symbol with its Manual value, or an enumeration symbol with the member that means Manual and the member that means Auto (A6.1). The loop file names them as `manual_value` and `auto_value`; a `BOOL` binding has no `auto_value`. A further mode of the program's law (`controller.project.additionalModes`, such as a cascade's outer controller's) takes the same two shapes, as `manualValue` and `autoValue`. Setup writes an enumeration loop's `controller.modeWhenTrue` as `Manual`: the runtime reads an enumeration mode TRUE in its Manual member (protocol annex E6.3), and Control Studio reads an enumeration loop's mode that way whatever the file declares.
 - Discovery checks an enumeration mode, the loop's own and each further mode, against the compiled program: a compiled enumeration whose type has both members it names. Otherwise the loop is refused with `Compiled mode signal <symbol> is no enumeration with the members <Manual> and <Auto>.` A BOOL mode is checked by its type; a BOOL mode whose signal is a compiled enumeration is refused with `Mode signal <symbol> is an enumeration: name the members that mean Manual and Auto.`
 - The binding identity is a hash of the complete declaration, including units and limits. The adapter reports three revisions: the program revision (A2.2), the binding revision, and the active revision, which is the last confirmed set.
-- Values MUST be finite, within their bounds, and representable in their IEC type. A `REAL` value MUST be rounded to single precision before it is submitted. Integer and enumeration gains are rejected.
+- Values MUST be finite, within their bounds, and representable in their IEC type. A `REAL` value MUST be rounded to single precision before it is submitted, and a `TIME` value to whole milliseconds, the resolution in which CODESYS and TwinCAT keep a `TIME`. A value read back from the runtime is kept as the runtime holds it: a `TIME` there may be finer than a millisecond. Integer and enumeration gains are rejected.
 - A write is queued with the expected revisions and the expected current values. At the task boundary the runtime rechecks them and commits the whole set or nothing (A6.3, A6.8). Control Studio reads the values back after the task has executed. A program that rewrites any value is handled by A6.8.
 - A write that changes parameters only needs Manual when it is queued and again at the boundary. Custom adoption in Auto is not supported. An Auto entry is a transfer (A6.3), described for each structure below.
-- Declarations are checked before any runtime call. The checks reject unknown fields, duplicate symbols, a parameter that shares the mode signal, non-finite or reversed bounds, and unsupported types. Only schema version 2 loops declare parameter bindings (B1.4).
+- Declarations are checked before any runtime call. The checks reject unknown fields, duplicate symbols, a parameter that shares the mode signal, non-finite or reversed bounds, unsupported types, and a `TIME` parameter that is not a standard-form law's reset or derivative time or not in seconds. Only schema version 2 loops declare parameter bindings (B1.4).
 - `analysisParameterSymbols` maps each analysis parameter to one unique parameter symbol. The mapped parameter has the same unit, and bounds that contain the analysis range. A missing or ambiguous mapping disables adoption.
 
 #### Controller state initialization
@@ -2977,8 +2978,9 @@ derivative time `Td` in seconds, as CODESYS's `PID` (`KP`, `TN`, `TV`) and a pro
   refuses it with that reason. The ranges Tune may choose from are the variables' own: `Kp` by magnitude, `Ti` and `Td` in seconds. A
   pin or an entered setting of `Ti` or `Td` is a time in seconds.
 - **Apply, Restore and Keep in project** write and keep the variables' values, `Kp`, `Ti` and `Td`, as for the parallel form.
-- A reset or derivative time held as a `TIME` value (TwinCAT's `FB_CTRL_PI` takes `tTn : TIME`) is not a REAL or LREAL parameter
-  (C0), so such a law is not served yet; it is on the checklist.
+- A reset or derivative time held as a `TIME` value (TwinCAT's `FB_CTRL_PI` takes `tTn : TIME`) is a `TIME` parameter in seconds,
+  whose written values are whole milliseconds (C0). Setup does not offer such a variable yet, and Keep in project does not write
+  one yet; both are on the checklist.
 
 #### Identify
 

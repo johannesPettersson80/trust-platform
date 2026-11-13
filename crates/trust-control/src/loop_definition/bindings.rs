@@ -24,8 +24,8 @@ pub struct ParameterBinding {
 pub struct Parameter {
     /// The field's path.
     pub symbol: String,
-    /// `REAL` or `LREAL`.
-    pub iec_type: RealType,
+    /// `REAL`, `LREAL` or, for a time in seconds, `TIME` (specification 35 C0).
+    pub iec_type: ParameterType,
     /// The field's unit.
     pub unit: String,
     /// What the field means, for example `proportional gain`.
@@ -98,6 +98,65 @@ pub enum RealType {
     Real,
     /// `LREAL`.
     Lreal,
+}
+
+/// The IEC type of a parameter of the record (specification 35 C0; protocol annex E7.1): a real, or `TIME` for a time
+/// that the program keeps as `TIME`, such as the reset time `tTn` of Beckhoff's `FB_CTRL_PI`, whose value is seconds. Only the
+/// reset time and the derivative time of a law in standard form may be `TIME` (C2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum ParameterType {
+    /// `REAL`.
+    Real,
+    /// `LREAL`.
+    Lreal,
+    /// `TIME`, its value in seconds.
+    Time,
+}
+
+impl ParameterType {
+    /// A new value as the parameter holds it once written, which is what Control Studio submits (C0; E7.3 step 10): a
+    /// REAL's rounded to single precision, an LREAL's unchanged, and a TIME's rounded to whole milliseconds, the
+    /// resolution of a `TIME` in CODESYS and Beckhoff controllers.
+    #[allow(clippy::cast_possible_truncation)] // Single precision is what the IEC type REAL holds (C0), not an accident.
+    #[must_use]
+    pub fn realize(self, value: f64) -> f64 {
+        match self {
+            Self::Real => f64::from(value as f32),
+            Self::Lreal => value,
+            Self::Time => (value * 1_000.0).round() / 1_000.0,
+        }
+    }
+
+    /// Whether the parameter holds `value` unchanged (C0): a REAL only when single precision keeps it, an LREAL always, and
+    /// a TIME always, since a value read back from the runtime is the seconds of the whole nanoseconds it holds, which may
+    /// be finer than a millisecond; the runtime checks a written one (E7.3 step 10).
+    #[must_use]
+    pub fn keeps(self, value: f64) -> bool {
+        match self {
+            Self::Real => self.realize(value).to_bits() == value.to_bits(),
+            Self::Lreal | Self::Time => true,
+        }
+    }
+
+    /// The type's IEC name.
+    #[must_use]
+    pub fn iec_name(self) -> &'static str {
+        match self {
+            Self::Real => "REAL",
+            Self::Lreal => "LREAL",
+            Self::Time => "TIME",
+        }
+    }
+}
+
+impl From<RealType> for ParameterType {
+    fn from(real: RealType) -> Self {
+        match real {
+            RealType::Real => Self::Real,
+            RealType::Lreal => Self::Lreal,
+        }
+    }
 }
 
 /// What the bound parameters are for.

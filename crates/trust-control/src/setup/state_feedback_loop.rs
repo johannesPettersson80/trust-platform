@@ -591,7 +591,7 @@ pub(super) fn gain_parameter(
     let limit = 1000.0 * (input.maximum - input.minimum) / (output.maximum - output.minimum);
     Ok(Parameter {
         symbol: symbol.to_string(),
-        iec_type: real_type(compiled(catalog, symbol)?)?,
+        iec_type: real_type(compiled(catalog, symbol)?)?.into(),
         unit: ratio_unit(&input.unit, &output.unit),
         convention,
         minimum: -limit,

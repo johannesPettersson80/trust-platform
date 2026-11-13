@@ -42,7 +42,7 @@ use super::transfer_tracking::{parallel_pid_tracking, proportional_tracking, Tra
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     ControllerLaw, ControllerProject, InitialValue, LoopDefinition, Parameter, ParameterBinding,
-    PidControllerGroup, PidInitialization, PidLaw, RealType,
+    PidControllerGroup, PidInitialization, PidLaw,
 };
 use crate::model::GeneralModel;
 use crate::tuning::cascade_candidate::served_cascade;
@@ -51,7 +51,6 @@ use crate::tuning::project_seed::{
     TrajectoryFeedforwardSeed,
 };
 use crate::tuning::proportional::GainBounds;
-use crate::tuning::settings_pins::single_precision;
 use crate::tuning::structure::{is_exactly_zero, ParallelGains, Structure};
 use crate::validation::engineer_verification_plan::EngineerRequirements;
 
@@ -895,11 +894,7 @@ pub(super) fn bound_values(
         if !term.value.is_finite() || !within(term.value, bounds, term.gain) {
             return Err(outside_binding(term, term.value, parameter, false));
         }
-        let realized = if matches!(parameter.iec_type, RealType::Real) {
-            single_precision(term.value)
-        } else {
-            term.value
-        };
+        let realized = parameter.iec_type.realize(term.value);
         if !realized.is_finite() || !within(realized, bounds, term.gain) {
             return Err(outside_binding(term, realized, parameter, true));
         }
@@ -963,11 +958,7 @@ fn connected_p_values(
         ));
     }
     let parameter = proportional_parameter(loop_definition)?;
-    let value = if matches!(parameter.iec_type, RealType::Real) {
-        single_precision(proportional)
-    } else {
-        proportional
-    };
+    let value = parameter.iec_type.realize(proportional);
     let bounds = GainBounds {
         minimum: parameter.minimum,
         maximum: parameter.maximum,

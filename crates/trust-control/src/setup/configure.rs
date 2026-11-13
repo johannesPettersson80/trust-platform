@@ -499,7 +499,7 @@ fn parameter_binding(parts: &Assembly<'_>, proportional: &Proportional<'_>) -> P
         task_name: proportional.task_name.clone(),
         parameters: vec![Parameter {
             symbol: proportional.gain.symbol.clone(),
-            iec_type: proportional.gain_type,
+            iec_type: proportional.gain_type.into(),
             unit: format!("{}/{}", parts.output_range.unit, parts.process_range.unit),
             convention: "proportional gain".into(),
             minimum: proportional.gain_minimum,

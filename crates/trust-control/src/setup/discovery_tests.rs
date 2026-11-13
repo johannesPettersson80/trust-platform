@@ -17,7 +17,7 @@ use super::{
 };
 use crate::failure::{Cause, NextAction};
 use crate::loop_definition::{
-    ControllerLaw, LoopScope, ModeBinding, ModeValue, Parameter, ParameterBinding, RealType,
+    ControllerLaw, LoopScope, ModeBinding, ModeValue, Parameter, ParameterBinding, ParameterType,
 };
 use crate::setup::binding_route::answer_selection;
 use crate::setup::catalog::{
@@ -472,7 +472,7 @@ fn a_declared_controller_symbol_must_exist_with_the_declared_type() {
         task_name: "MainTask".to_string(),
         parameters: vec![Parameter {
             symbol: "Main.Parameters.Kp".to_string(),
-            iec_type: RealType::Lreal,
+            iec_type: ParameterType::Lreal,
             unit: "%/degC".to_string(),
             convention: "proportional gain".to_string(),
             minimum: 0.0,
@@ -516,7 +516,7 @@ fn an_enumeration_mode_is_discovered_by_its_members() {
         task_name: "MainTask".to_string(),
         parameters: vec![Parameter {
             symbol: "Main.Parameters.Kp".to_string(),
-            iec_type: RealType::Lreal,
+            iec_type: ParameterType::Lreal,
             unit: "%/degC".to_string(),
             convention: "proportional gain".to_string(),
             minimum: 0.0,

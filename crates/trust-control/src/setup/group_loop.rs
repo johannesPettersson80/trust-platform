@@ -816,7 +816,7 @@ fn decoupler_parameters(
         for (symbol, from) in row.iter().zip(members) {
             parameters.push(Parameter {
                 symbol: symbol.clone(),
-                iec_type: real_type(compiled(catalog, symbol)?)?,
+                iec_type: real_type(compiled(catalog, symbol)?)?.into(),
                 unit: unit_ratio(&input.manipulated.unit, &from.manipulated.unit),
                 convention: format!(
                     "Decoupler entry for {} from {}",

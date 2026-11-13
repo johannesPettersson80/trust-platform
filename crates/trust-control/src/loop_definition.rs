@@ -41,7 +41,7 @@ pub use texts::NO_CONTROLLER_LAW;
 pub use bindings::{
     Activation, AuxiliaryRole, AuxiliarySignal, Direction, Execution, Experiment, ExperimentKind,
     Limits, LoopSignal, ModeBinding, ModeValue, Parameter, ParameterBinding, ParameterPurpose,
-    Range, RealType, RelayDirection, SampleTiming, Signals, Topology,
+    ParameterType, Range, RealType, RelayDirection, SampleTiming, Signals, Topology,
 };
 pub use controller::{
     Action, AntiWindup, AntiWindupMethod, Controller, ControllerLaw, Design, InitialSource,

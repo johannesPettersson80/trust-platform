@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 
 use crate::identification::refusal::Refusal;
+use crate::loop_definition::ParameterType;
 use crate::tuning::plant::TuningPlant;
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::structure::is_exactly_zero;
@@ -35,8 +36,8 @@ pub struct ModelParameter {
     pub symbol: String,
     /// The parameter's declared unit.
     pub unit: String,
-    /// Whether the parameter is `REAL` (rounded to single precision, C0).
-    pub real: bool,
+    /// The parameter's IEC type, whose rounding a stored value takes (C0).
+    pub iec_type: ParameterType,
     /// The parameter's declared bounds.
     pub bounds: GainBounds,
 }
@@ -70,11 +71,7 @@ pub fn model_values(
             .find(|candidate| &candidate.symbol == symbol)
             .ok_or_else(|| Refusal::new(texts::MODEL_SETTING_NOT_BOUND))?;
         let value = model_value(*source, parameter, task_period_ms, plant, units)?;
-        let stored = if parameter.real {
-            crate::tuning::settings_pins::single_precision(value)
-        } else {
-            value
-        };
+        let stored = parameter.iec_type.realize(value);
         if !stored.is_finite()
             || stored < parameter.bounds.minimum
             || stored > parameter.bounds.maximum
@@ -162,7 +159,7 @@ mod tests {
         ModelParameter {
             symbol: symbol.to_string(),
             unit: unit.to_string(),
-            real: false,
+            iec_type: ParameterType::Lreal,
             bounds: GainBounds {
                 minimum: -1000.0,
                 maximum: 1000.0,
@@ -252,7 +249,7 @@ mod tests {
         let narrow = ModelParameter {
             symbol: "Main.Td".to_string(),
             unit: "s".to_string(),
-            real: true,
+            iec_type: ParameterType::Real,
             bounds: GainBounds {
                 minimum: 0.0,
                 maximum: 1.0,

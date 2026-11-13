@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use crate::failure::Failure;
 use crate::json::decode_value;
 use crate::loop_definition::{
-    InitialValue, LoopDefinition, LoopScope, ObjectiveDirection, RealType,
+    InitialValue, LoopDefinition, LoopScope, ObjectiveDirection, ParameterType,
 };
 use crate::setup::catalog::{decode_catalog_answer, CompiledCatalog};
 use crate::setup::save::{check_setup_targets, parse_setup_draft, plan_setup_save, SetupDraft};
@@ -175,7 +175,7 @@ fn the_search_law_writes_a_project_controller_that_tries_every_combination_on_th
             .parameter_binding
             .as_ref()
             .map(|binding| binding.parameters[1].iec_type),
-        Some(RealType::Real)
+        Some(ParameterType::Real)
     ));
 }
 

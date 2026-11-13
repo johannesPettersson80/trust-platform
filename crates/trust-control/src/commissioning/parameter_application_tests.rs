@@ -8,7 +8,7 @@ fn gain_binding() -> RuntimeBinding {
     RuntimeBinding {
         loop_id: "engineer-loop".to_owned(),
         task_name: "ControlTask".to_owned(),
-        parameters: vec![gain_parameter("P1.Gain", RealType::Real, 0.0, 20.0)],
+        parameters: vec![gain_parameter("P1.Gain", ParameterType::Real, 0.0, 20.0)],
         mode: RuntimeMode {
             symbol: "P1.Enabled".to_owned(),
             manual_value: ModeValue::Bool(false),
@@ -19,7 +19,7 @@ fn gain_binding() -> RuntimeBinding {
 
 fn gain_parameter(
     symbol: &str,
-    iec_type: RealType,
+    iec_type: ParameterType,
     minimum: f64,
     maximum: f64,
 ) -> RuntimeParameter {
@@ -157,7 +157,7 @@ fn a_binding_is_checked_before_any_runtime_call() {
     let mut case_clash = gain_binding();
     case_clash
         .parameters
-        .push(gain_parameter("p1.gain", RealType::Lreal, 0.0, 1.0));
+        .push(gain_parameter("p1.gain", ParameterType::Lreal, 0.0, 1.0));
     let clash = check_binding(&case_clash, "engineer-loop")
         .expect_err("symbols are unique without regard to case");
     assert!(detail(&clash).contains("p1.gain"));
@@ -195,7 +195,7 @@ fn a_binding_is_checked_before_any_runtime_call() {
 
     let mut too_many = gain_binding();
     too_many.parameters = (0..65)
-        .map(|index| gain_parameter(&format!("P{index}.Gain"), RealType::Real, 0.0, 1.0))
+        .map(|index| gain_parameter(&format!("P{index}.Gain"), ParameterType::Real, 0.0, 1.0))
         .collect();
     let many = check_binding(&too_many, "engineer-loop")
         .expect_err("a binding holds 64 parameters at most");
@@ -251,7 +251,7 @@ fn a_review_writes_only_the_declared_values_rounded_as_their_iec_type_and_within
     );
 
     let mut lreal = gain_binding();
-    lreal.parameters[0].iec_type = RealType::Lreal;
+    lreal.parameters[0].iec_type = ParameterType::Lreal;
     let exact = review_input(&lreal, &BTreeMap::from([("P1.Gain".to_owned(), 0.1)]))
         .expect("an LREAL keeps its value");
     assert_eq!(exact, BTreeMap::from([("P1.Gain".to_owned(), 0.1)]));

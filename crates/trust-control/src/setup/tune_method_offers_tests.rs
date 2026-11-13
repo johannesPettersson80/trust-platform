@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use super::study_tune_methods;
 use crate::commissioning::fixture_loops::smith_predictor_loop;
 use crate::loop_definition::{
-    AntiWindup, AntiWindupMethod, ControllerLaw, LoopDefinition, Parameter, RealType,
+    AntiWindup, AntiWindupMethod, ControllerLaw, LoopDefinition, Parameter, ParameterType,
 };
 use crate::setup::discovery::{adapter_compatibility, ControllerCompatibility};
 use crate::setup::discovery_test_support::{
@@ -127,7 +127,7 @@ fn a_control_pid_loop_names_the_settings_each_family_takes_as_the_page_did() {
     if let Some(binding) = &mut loop_definition.parameter_binding {
         binding.parameters.push(Parameter {
             symbol: TF.to_owned(),
-            iec_type: RealType::Real,
+            iec_type: ParameterType::Real,
             unit: "s".to_owned(),
             convention: "Control.PID MeasurementFilterTime".to_owned(),
             minimum: 0.0,

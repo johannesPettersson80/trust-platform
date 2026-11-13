@@ -17,9 +17,8 @@ use super::reference::reference_gain;
 use super::sampling::{sample_model, state_channels, state_space};
 use super::{texts, StateControllerFamily};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{LoopDefinition, Parameter, RealType};
+use crate::loop_definition::{LoopDefinition, Parameter};
 use crate::model::GeneralModel;
-use crate::tuning::settings_pins::single_precision;
 
 /// The status of a state-controller design: provisional until the actual Structured Text verifies it (C4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -255,10 +254,7 @@ pub fn pin_state_design(
             .iter()
             .find(|parameter| parameter.symbol == *symbol)
             .ok_or_else(not_mapped)?;
-        let realized = match parameter.iec_type {
-            RealType::Real => single_precision(*value),
-            RealType::Lreal => *value,
-        };
+        let realized = parameter.iec_type.realize(*value);
         if !realized.is_finite() || realized < parameter.minimum || realized > parameter.maximum {
             return Err(Failure::new(
                 &texts::pin_outside_bounds(symbol),

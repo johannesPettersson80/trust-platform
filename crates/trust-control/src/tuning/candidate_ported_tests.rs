@@ -10,6 +10,7 @@ use crate::tuning::settings_pins::{
 };
 
 use super::*;
+use crate::loop_definition::ParameterType;
 
 /// The loop revision of the `TypeScript` fixture (`control-loop.json`).
 const LOOP_REVISION: &str = "sha256:control-studio-engineer-v3";
@@ -29,7 +30,7 @@ fn pid_loop_parameters() -> Vec<MappedParameter> {
             minimum: 0.0,
             maximum: 100.0,
         },
-        real: false,
+        iec_type: ParameterType::Lreal,
     })
     .collect()
 }

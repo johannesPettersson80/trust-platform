@@ -10,14 +10,13 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::connected_record::ValidationRun;
 use crate::identification::independent_validation::RequirementStatus;
 use crate::loop_definition::{
-    GainSchedule, LoopDefinition, Parameter, ParameterBinding, RealType, SchedulePoint,
-    SchedulingVariable,
+    GainSchedule, LoopDefinition, Parameter, ParameterBinding, SchedulePoint, SchedulingVariable,
 };
 use crate::recording::channels::ChannelQuality;
 use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::structure::ParallelGains;
 use crate::tuning::structures::gain_schedule::{gain_spans, GainSpans};
-use crate::validation::isolated_run_protocol::{IsolatedParameterOverride, IsolatedParameterType};
+use crate::validation::isolated_run_protocol::IsolatedParameterOverride;
 use crate::validation::isolated_run_sampling::isolated_record_every;
 use crate::validation::requirement_record::RunRequirementResult;
 use crate::validation::run_validation::RecordedRunEvaluation;
@@ -160,10 +159,7 @@ fn override_of(
 ) -> IsolatedParameterOverride {
     IsolatedParameterOverride {
         symbol: symbol.to_owned(),
-        iec_type: match parameter.iec_type {
-            RealType::Real => IsolatedParameterType::Real,
-            RealType::Lreal => IsolatedParameterType::Lreal,
-        },
+        iec_type: parameter.iec_type.into(),
         unit: parameter.unit.clone(),
         convention: convention.to_owned(),
         minimum: parameter.minimum,

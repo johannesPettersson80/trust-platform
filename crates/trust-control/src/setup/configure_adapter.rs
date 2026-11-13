@@ -211,10 +211,10 @@ fn check_member(
     symbol: &str,
     expected: TransferValueType,
 ) -> Result<(), Failure> {
-    let declared = catalog.symbols.iter().any(|candidate| {
-        candidate.symbol == symbol
-            && TransferValueType::from_iec(&candidate.iec_type) == Some(expected)
-    });
+    let declared = catalog
+        .symbols
+        .iter()
+        .any(|candidate| candidate.symbol == symbol && candidate.iec_type == type_word(expected));
     if is_member_path(symbol) && declared {
         return Ok(());
     }
@@ -245,6 +245,7 @@ const fn type_word(value: TransferValueType) -> &'static str {
         TransferValueType::Real => "REAL",
         TransferValueType::Lreal => "LREAL",
         TransferValueType::Bool => "BOOL",
+        TransferValueType::Time => "TIME",
     }
 }
 

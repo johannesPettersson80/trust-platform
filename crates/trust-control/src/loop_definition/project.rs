@@ -13,7 +13,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Map, Value};
 
-use super::{InitializedState, LoopDefinition, ModeValue, Parameter, ParameterBinding, RealType};
+use super::{InitializedState, LoopDefinition, ModeValue, Parameter, ParameterBinding};
 use crate::commissioning::initial_state::ControllerInitialization;
 use crate::limits::{ISOLATED_SIMULATION_SCAN_LIMIT, SEARCH_WALL_TIME_LIMIT_MS};
 use crate::tuning::project_components::{
@@ -25,7 +25,6 @@ use crate::tuning::project_seed::{
     SmithPidSeed, TrajectoryFeedforwardSeed,
 };
 use crate::tuning::proportional::GainBounds;
-use crate::tuning::settings_pins::single_precision;
 use crate::tuning::structure::Structure;
 
 mod cascade_channels;
@@ -558,16 +557,17 @@ impl ControllerProject {
         }
         for axis in &self.axes {
             let parameter = require_bound(binding, &axis.symbol, "controller.project.axes")?;
-            let single = parameter.iec_type == RealType::Real;
+            // A REAL value single precision keeps, a TIME value in whole milliseconds (C0).
             let fits = axis.values.iter().all(|value| {
                 *value >= parameter.minimum
                     && *value <= parameter.maximum
-                    && (!single || single_precision(*value).to_bits() == value.to_bits())
+                    && parameter.iec_type.realize(*value).to_bits() == value.to_bits()
             });
             if !fits {
                 return Err(format!(
-                    "controller.project.axes values of {} are outside its bounds or not exact REAL values",
-                    axis.symbol
+                    "controller.project.axes values of {} are outside its bounds or not exact {} values",
+                    axis.symbol,
+                    parameter.iec_type.iec_name()
                 ));
             }
         }
@@ -577,7 +577,7 @@ impl ControllerProject {
             .map(|parameter| ModelParameter {
                 symbol: parameter.symbol.clone(),
                 unit: parameter.unit.clone(),
-                real: parameter.iec_type == RealType::Real,
+                iec_type: parameter.iec_type,
                 bounds: GainBounds {
                     minimum: parameter.minimum,
                     maximum: parameter.maximum,

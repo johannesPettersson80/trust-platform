@@ -18,10 +18,10 @@ use super::texts;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     ControllerLaw, LoopDefinition, LoopSignal, ManualOutputType, Parameter, ParameterBinding,
-    PidInitialization, RealType, StateReference,
+    ParameterType, PidInitialization, RealType, StateReference,
 };
 
-/// The IEC type of a transfer member (E6.2): `REAL`, `LREAL` or `BOOL`.
+/// The IEC type of a transfer member (E6.2): `REAL`, `LREAL` or `BOOL`, and `TIME` for a guard.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum TransferValueType {
@@ -31,6 +31,8 @@ pub enum TransferValueType {
     Lreal,
     /// `BOOL`, 0 or 1 only.
     Bool,
+    /// `TIME`, in seconds: a guard only, a parameter that a law keeps as `TIME`, which a transfer reads and never writes.
+    Time,
 }
 
 impl TransferValueType {
@@ -51,6 +53,16 @@ impl From<RealType> for TransferValueType {
         match value {
             RealType::Real => Self::Real,
             RealType::Lreal => Self::Lreal,
+        }
+    }
+}
+
+impl From<ParameterType> for TransferValueType {
+    fn from(value: ParameterType) -> Self {
+        match value {
+            ParameterType::Real => Self::Real,
+            ParameterType::Lreal => Self::Lreal,
+            ParameterType::Time => Self::Time,
         }
     }
 }
@@ -139,7 +151,7 @@ pub fn rounded_transfer_value(member: &TransferMember, value: f64) -> Result<f64
     }
     let rounded = match member.iec_type {
         TransferValueType::Real => round_to_single(value),
-        TransferValueType::Lreal | TransferValueType::Bool => value,
+        TransferValueType::Lreal | TransferValueType::Bool | TransferValueType::Time => value,
     };
     if !rounded.is_finite() || !(member.minimum..=member.maximum).contains(&rounded) {
         return Err(Failure::new(

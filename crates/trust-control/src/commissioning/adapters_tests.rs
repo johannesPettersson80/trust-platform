@@ -7,6 +7,7 @@ use crate::commissioning::fixture_loops::{
     project_p_loop_with_formula_application, project_p_loop_with_law_state,
     project_p_loop_with_startup, project_pid_loop, proportional_loop, requirements,
 };
+use crate::loop_definition::ParameterType;
 use crate::loop_definition::{AntiWindup, AntiWindupMethod, Parameter, ProjectSeedBlock};
 use crate::tuning::project_seed::ParallelPidSeed;
 use serde_json::json;
@@ -195,7 +196,7 @@ fn the_connected_p_writes_its_gain_and_keeps_the_observed_values() {
 fn a_real_connected_gain_is_rounded_to_single_precision_before_it_is_written() {
     // C0: a REAL value is rounded to single precision before it is submitted.
     let mut loop_definition = proportional_loop();
-    parameter_mut(&mut loop_definition, "Main.Parameters.Kp").iec_type = RealType::Real;
+    parameter_mut(&mut loop_definition, "Main.Parameters.Kp").iec_type = ParameterType::Real;
     let adapter = controller_adapter(&loop_definition).expect("valid");
     let values = adapter
         .materialize(&proportional(0.1), &BTreeMap::new())
@@ -338,7 +339,7 @@ fn a_declared_anti_windup_term_takes_the_back_calculation_gain() {
         .parameters
         .push(Parameter {
             symbol: "Main.Parameters.Tracking".to_owned(),
-            iec_type: RealType::Lreal,
+            iec_type: ParameterType::Lreal,
             unit: "1/s".to_owned(),
             convention: "tracking gain".to_owned(),
             minimum: 0.0,
@@ -423,7 +424,7 @@ fn a_pid_gain_outside_its_binding_is_refused_and_a_gain_is_bounded_by_magnitude(
 #[test]
 fn a_real_pid_value_is_single_precision_and_is_checked_again() {
     let mut loop_definition = parallel_pid_loop();
-    parameter_mut(&mut loop_definition, "Main.Parameters.Kp").iec_type = RealType::Real;
+    parameter_mut(&mut loop_definition, "Main.Parameters.Kp").iec_type = ParameterType::Real;
     let adapter = controller_adapter(&loop_definition).expect("valid");
     let values = adapter
         .materialize(&three_gains(0.1, 0.0, 0.0), &BTreeMap::new())
@@ -600,7 +601,7 @@ fn a_program_law_refuses_the_setpoint_weight_and_filter_it_cannot_hold() {
 #[test]
 fn a_real_program_gain_is_rounded_to_single_precision_before_it_is_written() {
     let mut loop_definition = project_pid_loop();
-    parameter_mut(&mut loop_definition, "Main.Program.Kp").iec_type = RealType::Real;
+    parameter_mut(&mut loop_definition, "Main.Program.Kp").iec_type = ParameterType::Real;
     let adapter = controller_adapter(&loop_definition).expect("valid");
     let values = adapter
         .materialize(&three_gains(0.1, 0.0, 0.0), &BTreeMap::new())

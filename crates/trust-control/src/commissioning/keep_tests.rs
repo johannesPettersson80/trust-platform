@@ -9,7 +9,7 @@ use serde_json::json;
 
 use super::*;
 use crate::commissioning::fixture_loops;
-use crate::loop_definition::{Parameter, RealType};
+use crate::loop_definition::{Parameter, ParameterType};
 
 fn decode_ok(answer: Value, command: &str) -> Reply {
     decode_reply(answer, command, "fallback").expect("a well-formed reply")
@@ -60,7 +60,7 @@ fn the_record_is_the_one_the_pid_law_is_configured_from_with_its_bound_fields() 
     for field in numeric {
         binding.parameters.push(Parameter {
             symbol: format!("Main.Parameters.{field}"),
-            iec_type: RealType::Lreal,
+            iec_type: ParameterType::Lreal,
             unit: "%".to_owned(),
             convention: field.to_owned(),
             minimum: -100.0,
@@ -70,7 +70,7 @@ fn the_record_is_the_one_the_pid_law_is_configured_from_with_its_bound_fields() 
     // A field of a nested structure is not a field of the record (`!symbol.slice(prefix.length).includes(".")`).
     binding.parameters.push(Parameter {
         symbol: "Main.Parameters.Nested.Gain".to_owned(),
-        iec_type: RealType::Lreal,
+        iec_type: ParameterType::Lreal,
         unit: "%".to_owned(),
         convention: "nested".to_owned(),
         minimum: -100.0,

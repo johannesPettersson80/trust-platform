@@ -3238,9 +3238,9 @@ export interface Parameter {
    */
   convention: string;
   /**
-   * `REAL` or `LREAL`.
+   * `REAL`, `LREAL` or, for a time in seconds, `TIME` (specification 35 C0).
    */
-  iec_type: "REAL" | "LREAL";
+  iec_type: "REAL" | "LREAL" | "TIME";
   /**
    * The largest value Tune may choose.
    */
