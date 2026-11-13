@@ -56,6 +56,7 @@ include!("tests/control_studio_recording.rs");
 include!("tests/control_studio_runtime_facts.rs");
 
 include!("tests/control_studio_parameters.rs");
+include!("tests/control_studio_time_parameters.rs");
 include!("tests/control_studio_transfer.rs");
 include!("tests/control_studio_transfer_formulas.rs");
 include!("tests/control_studio_enum_mode.rs");

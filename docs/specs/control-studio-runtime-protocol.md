@@ -163,7 +163,7 @@ An enumeration is read as its numeric value. Its binding names the enumeration t
 | Reads: inspection, recordings, isolated observations | BOOL, signed and unsigned integers, REAL, LREAL, and enumerations read as numbers |
 | Transfer and parameter modes | BOOL, or an enumeration named by its Manual and Auto members (E6.2, E7.1) |
 | Transfer states, guards and outputs | REAL, LREAL, or BOOL with unit `1` and bounds 0 to 1 |
-| Parameters | REAL and LREAL |
+| Parameters | REAL, LREAL, or TIME with unit `s` (E7.1) |
 | Experiment targets | REAL, LREAL and integer types for a symbol. Any value type of E5.3 for an address. |
 | Experiment activation and abort bindings | BOOL |
 | Search axes and objective channels | REAL and LREAL |
@@ -694,7 +694,7 @@ The binding is `{loop_id, task_name, parameters, mode}`.
 
 - `loop_id`: string, not blank.
 - `task_name`: string. `$background` selects unscheduled programs.
-- `parameters`: 1 to 64 members. Each is `{symbol, iec_type, unit, convention, minimum, maximum}`. `iec_type` is REAL or LREAL. `unit` and `convention` are not blank. `minimum` and `maximum` are finite, and `minimum` does not exceed `maximum`. Unknown fields are refused.
+- `parameters`: 1 to 64 members. Each is `{symbol, iec_type, unit, convention, minimum, maximum}`. `iec_type` is REAL, LREAL or TIME. A TIME parameter, a time that a law keeps as `TIME` (TwinCAT's `FB_CTRL_PI` keeps its reset time as `tTn : TIME`), has the `unit` `s`: its values, `minimum` and `maximum` are seconds. `unit` and `convention` are not blank. `minimum` and `maximum` are finite, and `minimum` does not exceed `maximum`. Unknown fields are refused.
 - `mode`: `{symbol, manual_value, auto_value}`, as a transfer's mode (E6.2): a BOOL variable with its Manual boolean, or an enumeration variable with the names of its Manual and its Auto member.
 
 Rules:
@@ -708,7 +708,7 @@ Rules:
 
 Access: Viewer. Request: `binding`. Response:
 
-- `program_revision`, `binding_revision`, `active_revision` (a hash of the current values) and `values` (the actual values, read at the last completed scan).
+- `program_revision`, `binding_revision`, `active_revision` (a hash of the current values) and `values` (the actual values, read at the last completed scan; a TIME parameter's in seconds, its nanoseconds divided by 10^9).
 - `status`: `idle`, `pending`, `applied` or `rejected`.
 - `reason`: text or null.
 - `previous_revision` and `previous_values`: the retained previous values, or null.
@@ -737,7 +737,7 @@ Unknown fields are refused with `invalid_parameter_request`. The checks run in t
 7. Manual is observed now (`confirmed Manual mode required`). Custom Auto adoption is not supported.
 8. The expected revisions and the expected values match the current state (`stale program, binding, or expected values`).
 9. A status was read before the apply, and the binding has not changed since that read.
-10. `values` has exactly the declared symbols. Every value is finite, within its bounds, and exactly representable in its IEC type. A REAL value is explicitly rounded to single precision.
+10. `values` has exactly the declared symbols. Every value is finite, within its bounds, and exactly representable in its IEC type. A REAL value is explicitly rounded to single precision. A TIME value is the seconds of a whole number of nanoseconds, as TIME holds it: the number `n` of nanoseconds nearest the value times 10^9 gives the value back as `n / 10^9`.
 
 An accepted apply returns `status` set to `pending` and `confirmed` set to false. A request for another task remains pending until that task runs.
 
@@ -790,7 +790,7 @@ The runtime implements a `control.pid.*` write as that adapter: one parameter se
 ### E7.8 Unsupported forms
 
 - Integer and enumeration gains are refused. The only enumeration that `control.pid` accepts is AntiWindup.
-- A parameter whose type is not REAL or LREAL is refused with `invalid_parameter_request`.
+- A parameter whose type is not REAL, LREAL or TIME, and a TIME parameter whose unit is not `s`, are refused with `invalid_parameter_request`.
 - A parameter in Auto is refused, because apply needs Manual (E7.3).
 - Aliases and shared global ownership are refused with `invalid_parameter_request`.
 - A candidate value maps to a parameter only through the mapping that the loop definition declares. A missing or ambiguous mapping disables adoption (Part B).
