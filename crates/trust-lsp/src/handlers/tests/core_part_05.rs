@@ -502,6 +502,10 @@ END_PROGRAM
     std::fs::write(&main_path, main).expect("write main");
 
     let state = ServerState::new();
+    // Both files are the project's own, so the closed one is project truth from disk
+    // (specification 14 §7.2.1).
+    let root_uri = tower_lsp::lsp_types::Url::from_file_path(&root).expect("root uri");
+    state.set_workspace_config(root_uri, ProjectConfig::load(&root));
     let client = test_client();
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()

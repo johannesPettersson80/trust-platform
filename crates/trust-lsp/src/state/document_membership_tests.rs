@@ -5,6 +5,93 @@ use trust_hir::SourceDatabase;
 
 const MAIN: &str = "PROGRAM Main\nEND_PROGRAM\n";
 
+/// A server whose one workspace folder is `root`, with `config` as its `trust-lsp.toml`.
+fn workspace(root: &std::path::Path, config: &str) -> ServerState {
+    let state = ServerState::new();
+    state.set_workspace_config(
+        Url::from_file_path(root).unwrap(),
+        ProjectConfig::from_contents(root, Some(root.join("trust-lsp.toml")), config),
+    );
+    state
+}
+
+/// A file opened from outside every project folder belongs to the project only while it is open,
+/// with a workspace or without one (specification 14 §7.2.1). Catches the closed file kept as
+/// project truth wherever it lies: its `PROGRAM Main` stayed in the project until the server
+/// restarted and collided with the project's own (G160).
+#[test]
+fn a_closed_file_outside_every_project_folder_leaves_the_project() {
+    let root = TempTree::new("trust-lsp-close-project");
+    let elsewhere = TempTree::new("trust-lsp-close-elsewhere");
+    let own = Url::from_file_path(root.path().join("Main.st")).unwrap();
+    let outside_path = elsewhere.path().join("Main.st");
+    std::fs::write(&outside_path, MAIN).unwrap();
+    let outside = Url::from_file_path(&outside_path).unwrap();
+    for state in [workspace(root.path(), ""), ServerState::new()] {
+        let own_id = state.open_document(own.clone(), 1, MAIN.to_string());
+        let outside_id = state.open_document(outside.clone(), 1, MAIN.to_string());
+        assert!(state.close_document(&outside), "the project lost a source");
+        assert!(state.get_document(&outside).is_none());
+        state.with_database(|database| {
+            assert!(
+                !database.file_ids().contains(&outside_id),
+                "its PROGRAM Main left the project"
+            );
+            assert!(database.file_ids().contains(&own_id), "the open file stays");
+        });
+    }
+}
+
+/// The project's own files and its library files outside the root stay project truth from disk
+/// when closed; `include_paths` name the own folders in place of the root, so a file beside them
+/// at the root leaves (specification 14 §7.2.1 and §7.6). Catches a rule that takes only the root
+/// for the project, or the root although `include_paths` replace it, and a saved file's close
+/// reported as a change, which would refresh every open document's diagnostics for nothing.
+#[test]
+fn closed_files_in_own_and_library_folders_stay_as_their_disk_text() {
+    let root = TempTree::new("trust-lsp-close-project");
+    let library = TempTree::new("trust-lsp-close-library");
+    let state = workspace(
+        root.path(),
+        &format!(
+            "[project]\ninclude_paths = ['src']\n\n[[libraries]]\nname = 'Vendor'\npath = '{}'\n",
+            library.path().display()
+        ),
+    );
+    let disk = "PROGRAM Disk\nEND_PROGRAM\n";
+    let file = |folder: &std::path::Path, name: &str| {
+        std::fs::create_dir_all(folder).unwrap();
+        let path = folder.join(name);
+        std::fs::write(&path, disk).unwrap();
+        Url::from_file_path(path).unwrap()
+    };
+    let own = file(&root.path().join("src"), "Main.st");
+    let vendor = file(library.path(), "Vendor.st");
+    let beside = file(root.path(), "Scratch.st");
+    for uri in [&own, &vendor, &beside] {
+        state.open_document(uri.clone(), 1, "PROGRAM Unsaved\nEND_PROGRAM\n".to_string());
+        assert!(
+            state.close_document(uri),
+            "{uri}: the unsaved text gave way"
+        );
+    }
+    for uri in [&own, &vendor] {
+        let closed = state.get_document(uri).expect("a project file stays");
+        assert!(!closed.is_open);
+        assert_eq!(closed.content, disk, "{uri} is its disk text again");
+    }
+    assert!(
+        state.get_document(&beside).is_none(),
+        "a file beside the include paths is not the project's"
+    );
+
+    state.open_document(own.clone(), 2, disk.to_string());
+    assert!(
+        !state.close_document(&own),
+        "a saved file's close changes nothing"
+    );
+}
+
 #[test]
 fn deletion_removes_a_source_after_its_document_text_was_evicted() {
     let root = TempTree::new("trust-lsp-source-membership");

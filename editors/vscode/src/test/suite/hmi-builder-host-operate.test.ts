@@ -83,8 +83,9 @@ suite("HMI Builder host: named Live operation", function () {
     } finally {
       panel.dispose();
       // Nothing of this test stays in the language server for the tests after it, where its `PROGRAM Main` would
-      // collide with each project's `Main`. A closed document stays in the server's project while its file exists
-      // (specification 14, 7.2.1), so the folder goes first; the edited documents then close without saving.
+      // collide with each project's `Main`. A closed document outside every project folder leaves the server's
+      // project, as does one whose file is gone (specification 14, 7.2.1): the folder goes first, and the edited
+      // documents then close without saving.
       fs.rmSync(root, { recursive: true, force: true });
       await discardEdits([program, file]);
     }

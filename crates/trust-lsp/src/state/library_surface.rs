@@ -10,7 +10,8 @@
 //! name and a canonicalized `[dependencies]` path all name the folder the client opened. A
 //! project's folders are resolved once, when its configuration is set; a document is resolved
 //! only when its project has library folders, and for a file outside every workspace root, which
-//! follows the project whose library folder holds it (specification 14 §7.6.4).
+//! follows the project whose library folder holds it (specification 14 §7.6.4). The same folders
+//! decide whether a closed document stays in the project (specification 14 §7.2.1).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -61,6 +62,16 @@ impl ProjectFolders {
     /// Whether the resolved `file` is library surface.
     fn is_library_surface(&self, file: &Path) -> bool {
         library_holds(&self.own, &self.libraries, file)
+    }
+
+    /// Whether one of the project's own source folders or library folders holds the resolved
+    /// `file`: only such a file stays project truth when its document closes (specification 14
+    /// §7.2.1).
+    pub(super) fn holds(&self, file: &Path) -> bool {
+        self.own
+            .iter()
+            .chain(&self.libraries)
+            .any(|folder| file.starts_with(folder))
     }
 }
 
