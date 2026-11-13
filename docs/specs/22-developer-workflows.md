@@ -519,6 +519,12 @@ contract:
   and the whole install is tried three times. On 11 November 2026 the hosted
   runners could not resolve the archives for hours while public resolvers
   answered (`scripts/tests/test_ci_apt_install.py` pins the rule);
+- every Python test module under `scripts/tests` runs in CI: a workflow, or a
+  script that a workflow runs, names it, because a module that nothing names
+  never runs. On 13 November 2026 five of the 34 ran nowhere, and the comms
+  conformance gate's had failed unseen since 11 November, when the package
+  installs above moved into `scripts/ci_apt_install.sh`
+  (`scripts/tests/test_ci_runs_every_test_module.py` pins the rule);
 - release-gate aggregation fails with verdict `FAIL` and the exact missing
   required artifact identities when any required gate artifact is absent, and
   returns verdict `PASS` with an empty missing set when all required artifacts
