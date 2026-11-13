@@ -529,14 +529,7 @@ mod tests {
     use super::*;
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time before unix epoch")
-            .as_nanos();
-        trust_test_support::unique_temp_path(&format!(
-            "trust-runtime-{prefix}-{}-{nanos}",
-            std::process::id()
-        ))
+        trust_test_support::unique_temp_path(&format!("trust-runtime-{prefix}"))
     }
 
     /// R5 (E37): setup mode announces its setup web port over mDNS, with the stable runtime ID of

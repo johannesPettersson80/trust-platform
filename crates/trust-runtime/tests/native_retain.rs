@@ -162,10 +162,7 @@ fn compiled(name: &str) -> (Build, Device) {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
-    let work = trust_test_support::unique_temp_path(&format!(
-        "trust-native-{name}-{}",
-        std::process::id()
-    ));
+    let work = trust_test_support::unique_temp_path(&format!("trust-native-{name}"));
     let built = build(
         &[SourceFile::new(PROGRAM)],
         &Options {
@@ -396,10 +393,7 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
-    let work = trust_test_support::unique_temp_path(&format!(
-        "trust-native-instances-{}",
-        std::process::id()
-    ));
+    let work = trust_test_support::unique_temp_path("trust-native-instances");
     let built = build(
         &[SourceFile::new(INSTANCES)],
         &Options {
@@ -581,10 +575,7 @@ fn a_retained_program_instance_retains_its_variables_but_not_into_its_instances(
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
-    let work = trust_test_support::unique_temp_path(&format!(
-        "trust-native-retained-program-{}",
-        std::process::id()
-    ));
+    let work = trust_test_support::unique_temp_path("trust-native-retained-program");
     let built = build(
         &[SourceFile::new(RETAINED_PROGRAM)],
         &Options {

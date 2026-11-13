@@ -122,10 +122,7 @@ fn baseline() -> BaselineSummary {
 
 /// A journal folder of its own for one test.
 pub(crate) fn folder(name: &str) -> PathBuf {
-    let folder = trust_test_support::unique_temp_path(&format!(
-        "trust-identify-recovery-{name}-{}",
-        std::process::id()
-    ));
+    let folder = trust_test_support::unique_temp_path(&format!("trust-identify-recovery-{name}"));
     let _ = fs::remove_dir_all(&folder);
     folder
 }

@@ -4,7 +4,6 @@ use super::*;
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 fn output_text(state: &UiState) -> String {
     state
@@ -77,14 +76,7 @@ fn finish_scripted_client(client: ControlClient, server: JoinHandle<()>) {
 }
 
 fn unique_console_root(label: &str) -> PathBuf {
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock after epoch")
-        .as_nanos();
-    trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-console-contract-{label}-{}-{nonce}",
-        std::process::id()
-    ))
+    trust_test_support::unique_temp_path(&format!("trust-runtime-console-contract-{label}"))
 }
 
 // Specification 11, 6.8.1: the watch list shows what `eval` answers: a number as a number, a

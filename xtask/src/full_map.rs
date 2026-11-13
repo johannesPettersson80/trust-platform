@@ -4919,14 +4919,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
 
     #[test]
     fn top_level_module_summary_prefers_directory_for_split_module() -> Result<()> {
-        let suffix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-full-map-module-summary-{}-{suffix}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trust-full-map-module-summary");
         let crate_dir = root.join("crates/demo");
         let src_dir = crate_dir.join("src");
         fs::create_dir_all(src_dir.join("web"))?;
@@ -5166,13 +5159,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
     #[test]
     fn separate_firmware_workspace_safety_sites_are_discovered_without_build_outputs() -> Result<()>
     {
-        let suffix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos();
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-firmware-safety-{}-{suffix}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trust-firmware-safety");
         let firmware = root.join("firmware/demo");
         fs::create_dir_all(firmware.join("src"))?;
         fs::create_dir_all(firmware.join("target/debug"))?;

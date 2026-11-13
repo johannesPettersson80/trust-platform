@@ -11,14 +11,9 @@ impl Drop for Fixture {
 #[test]
 fn worker_import_tests_require_the_locked_frontend_install_to_succeed() {
     for install_fails in [false, true] {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let fixture = Fixture(trust_test_support::unique_temp_path(&format!(
-            "trust-worker-prerequisite-{}-{nonce}",
-            std::process::id()
-        )));
+        let fixture = Fixture(trust_test_support::unique_temp_path(
+            "trust-worker-prerequisite",
+        ));
         fs::create_dir_all(fixture.0.join("scripts")).unwrap();
         let gate = fixture
             .0

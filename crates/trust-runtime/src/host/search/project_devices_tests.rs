@@ -167,10 +167,7 @@ fn a_folder_without_runtime_toml_is_not_a_project() {
     // Specification 11, "Request" and "The project's devices": the devices come from a project folder. A
     // folder without `runtime.toml` is refused with its name, not read as a project without devices, so that
     // a mistyped folder does not make every device look unused.
-    let folder = trust_test_support::unique_temp_path(&format!(
-        "trust-project-devices-empty-{}",
-        std::process::id()
-    ));
+    let folder = trust_test_support::unique_temp_path("trust-project-devices-empty");
     fs::create_dir_all(&folder).expect("create the folder");
 
     let error = load(&folder).expect_err("not a project");

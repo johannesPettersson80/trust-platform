@@ -132,10 +132,7 @@ fn git_pins_are_classified_and_paths_use_forward_slashes() {
 
 #[test]
 fn the_package_version_is_read_from_the_library_manifest() {
-    let folder = trust_test_support::unique_temp_path(&format!(
-        "trust-lsp-package-version-{}",
-        std::process::id()
-    ));
+    let folder = trust_test_support::unique_temp_path("trust-lsp-package-version");
     let _ = std::fs::remove_dir_all(&folder);
     std::fs::create_dir_all(&folder).expect("folder");
     std::fs::write(

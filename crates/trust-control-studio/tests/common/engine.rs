@@ -245,10 +245,7 @@ impl Lab {
     /// and waits for the first complete scan, which makes the target a simulated plant (E1.3). `loop_file` is the loop's file,
     /// relative to the project. The copy drops any `TEST_PROGRAM` source, which an ordinary runtime build rejects.
     pub fn start(name: &str, example: &str, loop_file: &str, time_scale: u32) -> Self {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trust-cs-{name}-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path(&format!("trust-cs-{name}"));
         let _ = fs::remove_dir_all(&folder);
         let remove = RemoveDir(folder.clone());
         let project = folder.join("project");

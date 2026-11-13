@@ -47,8 +47,7 @@ END_TEST_PROGRAM
 /// and an assertion object on a test that no assertion failed.
 #[test]
 fn the_json_report_gives_a_failed_assertions_typed_values() {
-    let project =
-        trust_test_support::unique_temp_path(&format!("trust-dev-t2b-{}", std::process::id()));
+    let project = trust_test_support::unique_temp_path("trust-dev-t2b");
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(project.join("src/tests.st"), TESTS).expect("write the tests");
     let sources =

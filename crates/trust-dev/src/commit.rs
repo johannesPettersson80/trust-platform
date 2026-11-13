@@ -328,7 +328,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use std::process::Command;
-    use std::time::{SystemTime, UNIX_EPOCH};
+
     use verification_cases::{
         run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
     };
@@ -339,14 +339,7 @@ mod tests {
         "sha256:b9ef57776fc509e2a304a09b39f408bf53b82e983ee23443f6e80c35f75db70c";
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time before unix epoch")
-            .as_nanos();
-        trust_test_support::unique_temp_path(&format!(
-            "trust-dev-{prefix}-{}-{nanos}",
-            std::process::id()
-        ))
+        trust_test_support::unique_temp_path(&format!("trust-dev-{prefix}"))
     }
 
     fn run_git(repo: &Path, args: &[&str]) -> String {

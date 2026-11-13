@@ -6,10 +6,7 @@ const PROJECT: &str = "project:sha256:topology";
 
 /// The `plant.read` answer of a project whose `simulation.toml` is `simulation`.
 fn read_of(name: &str, simulation: &str) -> Value {
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-plant-topology-{name}-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-plant-topology-{name}"));
     std::fs::create_dir_all(&root).expect("create the project folder");
     std::fs::write(root.join("simulation.toml"), simulation).expect("write simulation.toml");
     let Ok(read) = saved_plants(1, &root, PROJECT) else {

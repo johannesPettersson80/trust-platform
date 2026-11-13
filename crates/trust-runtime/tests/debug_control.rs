@@ -95,8 +95,7 @@ END_CONFIGURATION
 fn image(source: &str, name: &str) -> Vec<u8> {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let work =
-        trust_test_support::unique_temp_path(&format!("trust-debug-{name}-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path(&format!("trust-debug-{name}"));
     let built = build(
         &[SourceFile::with_path(PATH, source)],
         &Options {

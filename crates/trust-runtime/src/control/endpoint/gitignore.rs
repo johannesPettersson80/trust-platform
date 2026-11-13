@@ -64,14 +64,8 @@ mod tests {
 
     impl Scratch {
         fn new(label: &str) -> Self {
-            let nanos = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|elapsed| elapsed.as_nanos())
-                .unwrap_or_default();
-            let path = trust_test_support::unique_temp_path(&format!(
-                "trust-endpoint-gitignore-{label}-{}-{nanos}",
-                std::process::id()
-            ));
+            let path =
+                trust_test_support::unique_temp_path(&format!("trust-endpoint-gitignore-{label}"));
             fs::create_dir_all(&path).expect("create scratch project");
             Self(path)
         }

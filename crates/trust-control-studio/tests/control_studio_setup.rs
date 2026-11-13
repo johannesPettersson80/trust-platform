@@ -49,10 +49,7 @@ fn project_copy(name: &str) -> PathBuf {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join(EXAMPLE);
-    let target = trust_test_support::unique_temp_path(&format!(
-        "trust-control-setup-{name}-{}",
-        std::process::id()
-    ));
+    let target = trust_test_support::unique_temp_path(&format!("trust-control-setup-{name}"));
     let _ = fs::remove_dir_all(&target);
     common::copy_dir(&source, &target);
     let _ = fs::remove_file(target.join(LOOP_FILE));
@@ -248,10 +245,7 @@ fn opening_a_state_feedback_lesson_offers_its_families_and_the_state_space_metho
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join(STATE_LESSON);
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-control-setup-state-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path("trust-control-setup-state");
     let _ = fs::remove_dir_all(&project);
     common::copy_dir(&source, &project);
 

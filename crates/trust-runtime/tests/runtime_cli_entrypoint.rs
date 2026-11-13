@@ -238,14 +238,7 @@ fn play_rejects_invalid_options_before_project_creation() {
 
 #[test]
 fn ide_serve_reports_invalid_primary_runtime_before_server_start() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system time after epoch")
-        .as_nanos();
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-invalid-ide-project-{}-{stamp}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path("trust-runtime-invalid-ide-project");
     std::fs::create_dir_all(&project).expect("create invalid IDE project");
     std::fs::write(project.join("runtime.toml"), "not valid TOML = [")
         .expect("write invalid runtime.toml");

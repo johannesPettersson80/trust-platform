@@ -3,7 +3,6 @@
 
 use super::*;
 use std::collections::BTreeMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
 };
@@ -15,14 +14,7 @@ const DISCOVERY_TRACE_CASE_DIGEST: &str =
     "sha256:d217e40fa2ade0354fd1ad5bda019650d382c05eda109b8dbc74d76b3bfb0cff";
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system time before unix epoch")
-        .as_nanos();
-    trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-{prefix}-{}-{nanos}",
-        std::process::id()
-    ))
+    trust_test_support::unique_temp_path(&format!("trust-runtime-{prefix}"))
 }
 
 fn strip_ansi(text: &str) -> String {
@@ -1231,10 +1223,7 @@ END_TEST_PROGRAM
 /// §4.6 at `TRUST_TOOLCHAIN`.
 #[test]
 fn compiled_tests_pass_and_fail_with_the_runtimes_words() {
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-native-tests-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path("trust-dev-native-tests");
     let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(
@@ -1397,10 +1386,7 @@ fn the_test_image_is_the_kind_of_image_the_project_builds() {
     use trust_runtime::native::{Target, Toolchain};
     use trust_runtime_core::native::image::Image;
 
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-image-kind-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path("trust-dev-image-kind");
     let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(

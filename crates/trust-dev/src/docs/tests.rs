@@ -1,16 +1,7 @@
 use super::*;
 
 fn contract_temp_dir(prefix: &str) -> PathBuf {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("time before Unix epoch")
-        .as_nanos();
-    let path = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-docs-{prefix}-{}-{stamp}",
-        std::process::id()
-    ));
+    let path = trust_test_support::unique_temp_path(&format!("trust-dev-docs-{prefix}"));
     std::fs::create_dir_all(&path).expect("create documentation test directory");
     path
 }

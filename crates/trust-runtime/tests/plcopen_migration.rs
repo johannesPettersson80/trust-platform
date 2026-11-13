@@ -1,19 +1,11 @@
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use trust_runtime::plcopen::import_xml_to_project;
 
 include!("../../../tests/support/generated_output_oracle.rs");
 
 fn unique_temp_dir(prefix: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system time before unix epoch")
-        .as_nanos();
-    let dir = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-{prefix}-{}-{nanos}",
-        std::process::id()
-    ));
+    let dir = trust_test_support::unique_temp_path(&format!("trust-runtime-{prefix}"));
     std::fs::create_dir_all(&dir).expect("create temp directory");
     dir
 }

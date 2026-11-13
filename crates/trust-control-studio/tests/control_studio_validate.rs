@@ -145,10 +145,7 @@ struct Scratch {
 
 impl Scratch {
     fn new(name: &str, example: &str) -> Self {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trust-cs-validate-{name}-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path(&format!("trust-cs-validate-{name}"));
         let _ = fs::remove_dir_all(&folder);
         let remove = RemoveDir(folder.clone());
         let project = folder.join("project");

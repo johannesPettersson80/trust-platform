@@ -45,10 +45,8 @@ impl UpdateSink for Ignore {
 
 /// A project folder with the example loop, and the arguments of `validate` for it, with `connection` when one is given.
 fn example_project(name: &str, connection: Option<Value>) -> (PathBuf, LoopDefinition, Value) {
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-control-validate-action-{name}-{}",
-        std::process::id()
-    ));
+    let root =
+        trust_test_support::unique_temp_path(&format!("trust-control-validate-action-{name}"));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("project");
     fs::write(root.join("control-loop.json"), EXAMPLE).expect("loop");

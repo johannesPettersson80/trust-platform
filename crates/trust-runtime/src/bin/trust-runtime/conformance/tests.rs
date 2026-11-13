@@ -1,18 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
     use super::*;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time after epoch")
-            .as_nanos();
-        let path = trust_test_support::unique_temp_path(&format!(
-            "trust-conformance-{name}-{}-{stamp}",
-            std::process::id()
-        ));
+        let path = trust_test_support::unique_temp_path(&format!("trust-conformance-{name}"));
         std::fs::create_dir_all(&path).expect("create conformance test directory");
         path
     }

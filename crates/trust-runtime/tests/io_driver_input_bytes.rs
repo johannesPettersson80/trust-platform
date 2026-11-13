@@ -5,7 +5,6 @@
 use std::fs;
 use std::ops::Range;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use trust_runtime::io::{EthercatIoDriver, GpioDriver, IoDriver, ModbusTcpDriver, MqttIoDriver};
 
@@ -94,14 +93,7 @@ channels = 8
 
 #[test]
 fn gpio_declares_the_bytes_of_its_input_lines() {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let base = trust_test_support::unique_temp_path(&format!(
-        "trust-gpio-bytes-{}-{stamp}",
-        std::process::id()
-    ));
+    let base = trust_test_support::unique_temp_path("trust-gpio-bytes");
     for line in [4, 5, 9, 17] {
         let dir: PathBuf = base.join(format!("gpio{line}"));
         fs::create_dir_all(&dir).expect("gpio dir");

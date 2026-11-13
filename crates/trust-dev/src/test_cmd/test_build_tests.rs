@@ -6,8 +6,7 @@ use super::*;
 /// computer. Catches the whole path that the test build gave every file.
 #[test]
 fn a_compile_error_of_the_tests_names_its_file_relative_to_the_project() {
-    let project =
-        trust_test_support::unique_temp_path(&format!("trust-dev-g101-{}", std::process::id()));
+    let project = trust_test_support::unique_temp_path("trust-dev-g101");
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(
         project.join("src/tests.st"),

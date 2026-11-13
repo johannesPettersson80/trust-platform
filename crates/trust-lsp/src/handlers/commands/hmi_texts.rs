@@ -56,14 +56,7 @@ mod tests {
     use super::*;
 
     fn project() -> PathBuf {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-lsp-hmi-texts-{}-{stamp}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trust-lsp-hmi-texts");
         let write = |file: &str, text: &str| {
             let path = root.join(file);
             std::fs::create_dir_all(path.parent().expect("a folder")).expect("a folder");

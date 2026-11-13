@@ -15,10 +15,7 @@ const LOOP_ID: &str = "control-pid-commissioning";
 const PROJECT_ID: &str = "project:control-pid-commissioning";
 
 fn project(name: &str) -> PathBuf {
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-control-project-loops-{name}-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-control-project-loops-{name}"));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(root.join("control-loops")).expect("project folder");
     root

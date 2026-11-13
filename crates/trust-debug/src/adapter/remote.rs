@@ -775,8 +775,7 @@ mod client_source_path_tests {
     #[cfg(unix)]
     #[test]
     fn a_file_the_build_resolved_through_a_link_keeps_the_clients_path() {
-        let folder =
-            trust_test_support::unique_temp_path(&format!("trust-dap-link-{}", std::process::id()));
+        let folder = trust_test_support::unique_temp_path("trust-dap-link");
         let target = folder.join("target");
         std::fs::create_dir_all(target.join("src")).expect("project folder");
         let link = folder.join("link");

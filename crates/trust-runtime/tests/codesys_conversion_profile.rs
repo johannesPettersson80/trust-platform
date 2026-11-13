@@ -97,8 +97,7 @@ fn iec_image(source: &str) -> Vec<u8> {
     use trust_runtime::native::{build, Options, Target, Toolchain};
     let toolchain = Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain");
     let target = Target::this_cpu().expect("a computer target");
-    let work =
-        trust_test_support::unique_temp_path(&format!("trust-codesys-iec-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path("trust-codesys-iec");
     let built = build(
         &[trust_runtime::harness::SourceFile::new(source)],
         &Options {
@@ -163,10 +162,7 @@ fn a_project_build_takes_the_rules_of_its_vendor_profile() {
     let toolchain = Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain");
     let target = Target::this_cpu().expect("a computer target");
     let project = |name: &str, settings: Option<&str>| {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-codesys-project-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-codesys-project-{name}"));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("src")).expect("the project folder");
         std::fs::write(root.join("src/main.st"), NUMBERS).expect("the source");

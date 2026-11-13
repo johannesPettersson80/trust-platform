@@ -36,8 +36,7 @@ fn the_pasteurizer_runs_natively_and_completes_its_batches() {
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/vat_pasteurizer");
     let sources = collect_project_source_files(&project, &[]).expect("the project's sources");
-    let work =
-        trust_test_support::unique_temp_path(&format!("trust-native-vat-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path("trust-native-vat");
     let built = build(
         &sources,
         &Options {

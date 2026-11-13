@@ -9,14 +9,7 @@ use crate::hmi::bundle::store::BundleStore;
 use crate::hmi::bundle::HmiBundle;
 
 fn temp(name: &str) -> PathBuf {
-    let stamp = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-hmi-snapshot-{name}-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-hmi-snapshot-{name}"));
     std::fs::create_dir_all(&root).expect("a folder");
     root
 }

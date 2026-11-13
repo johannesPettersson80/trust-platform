@@ -101,10 +101,7 @@ mod tests {
     /// its calls and the page objects that show it, also while its program is not open.
     #[test]
     fn renaming_equipment_renames_the_program_and_its_page_objects() {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trustlsp-hmi-rename-instance-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trustlsp-hmi-rename-instance");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("src")).expect("src");
         std::fs::create_dir_all(root.join("hmi/pages")).expect("pages");
@@ -156,10 +153,7 @@ mod tests {
         // The loop's declarations stand first in their regions, right after the begin markers, as
         // Create PLC code writes them: a name is found by its code, not by the comment before it.
         let program = "NAMESPACE Control\nFUNCTION_BLOCK PID\nVAR_INPUT\n    Setpoint : LREAL;\nEND_VAR\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\n\nPROGRAM Main\nVAR\n    TIC101X : BOOL;\nEND_VAR\nVAR\n    (* truST plant: declarations sha256:0 *)\n    TIC101 : Control.PID;\n    (* end of truST plant declarations *)\nEND_VAR\nVAR RETAIN\n    (* truST plant: retained declarations sha256:0 *)\n    TIC101_Setpoint : LREAL;\n    TIC101_Manual : BOOL;\n    (* end of truST plant retained declarations *)\nEND_VAR\n    TIC101(Setpoint := TIC101_Setpoint);\n    TIC101_Manual := TIC101X;\nEND_PROGRAM\n";
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trustlsp-hmi-rename-loop-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trustlsp-hmi-rename-loop");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("src")).expect("src");
         std::fs::write(root.join("src/main.st"), program).expect("source");

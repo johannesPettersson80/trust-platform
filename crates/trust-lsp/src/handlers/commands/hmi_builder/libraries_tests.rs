@@ -12,10 +12,7 @@ struct Folder(PathBuf);
 
 impl Folder {
     fn new(name: &str) -> Self {
-        let path = trust_test_support::unique_temp_path(&format!(
-            "trust-lsp-hmi-libraries-{name}-{}",
-            std::process::id()
-        ));
+        let path = trust_test_support::unique_temp_path(&format!("trust-lsp-hmi-libraries-{name}"));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
