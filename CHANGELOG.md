@@ -6,6 +6,29 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-13
+
+### Added
+
+- Control Studio serves a law in standard form whose reset time or derivative time is a `TIME` variable, such as `tTn : TIME` of
+  TwinCAT's `FB_CTRL_PI`. Setup offers the `TIME` variables for the times, Validate and Apply use the same whole milliseconds, and
+  Keep in project writes the time as a TIME literal, `T#<n>ms`.
+- The runtime's parameter transactions (`control.parameters.status`, `apply` and `rollback`) take a `TIME` parameter, a
+  time that a law keeps as `TIME`, such as the reset time `tTn` of TwinCAT's `FB_CTRL_PI`. Its unit is `s`: its values
+  and bounds are seconds, whole nanoseconds as `TIME` holds them, and it reads back in seconds. A controller transfer
+  (`control.transfer.*`) takes such a time as a guard, which it reads in seconds and never writes, and an isolated run
+  (`control.simulation.run.start`) as a parameter override in seconds.
+
+### Fixed
+
+- The connection form of an MQTT or a Modbus TCP device takes every setting that its driver runs with: an MQTT reconnect delay
+  above 60 s, an MQTT keep alive of 0 (which the driver reads as 1 s) and a Modbus timeout above 60 s. It refused them when the
+  form was saved, although a hand-written `io.toml` runs with them.
+- An input of a method that implements a method an interface inherits through `EXTENDS`, such as a prototype of
+  `itfMqttBuild` in a block that implements `itfMqttPayloadBuilder EXTENDS itfMqttBuild, itfMqttResult`, is no longer
+  reported as an unused parameter (`W002`): the interface fixes the method's parameters, as it does for its own
+  prototypes. The same holds for a method of a block that extends a block implementing the interface (#482).
+
 ## [0.40.0] - 2026-11-12
 
 ### Added

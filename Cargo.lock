@@ -7591,7 +7591,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -7600,14 +7600,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-chips"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -7616,7 +7616,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "base64 0.22.1",
  "hex",
@@ -7630,7 +7630,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control-math"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "nalgebra 0.34.2",
  "num-bigint",
@@ -7641,7 +7641,7 @@ dependencies = [
 
 [[package]]
 name = "trust-control-studio"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "clap",
  "parking_lot",
@@ -7657,7 +7657,7 @@ dependencies = [
 
 [[package]]
 name = "trust-debug"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "base64 0.23.1",
  "indexmap 2.14.2",
@@ -7673,7 +7673,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -7697,7 +7697,7 @@ dependencies = [
 
 [[package]]
 name = "trust-devices"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "base64 0.23.1",
  "serde",
@@ -7711,7 +7711,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "boxcar",
  "insta",
@@ -7731,7 +7731,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -7744,7 +7744,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -7787,11 +7787,11 @@ dependencies = [
 
 [[package]]
 name = "trust-modbus"
-version = "0.40.0"
+version = "0.41.0"
 
 [[package]]
 name = "trust-platform-esp32"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "critical-section",
  "embassy-net-driver",
@@ -7812,7 +7812,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-memory"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "crc32fast",
  "critical-section",
@@ -7821,7 +7821,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-net"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "hmac 0.13.0",
  "serde",
@@ -7834,11 +7834,11 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-stm32"
-version = "0.40.0"
+version = "0.41.0"
 
 [[package]]
 name = "trust-platform-stm32u5"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -7856,14 +7856,14 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-abi"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "memmap2",
 ]
 
 [[package]]
 name = "trust-plc-lib"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "libm",
  "ryu",
@@ -7872,11 +7872,11 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-mem"
-version = "0.40.0"
+version = "0.41.0"
 
 [[package]]
 name = "trust-plcopen"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -7889,7 +7889,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "ads",
  "anyhow",
@@ -7988,7 +7988,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-client"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "base64 0.23.1",
  "crc32fast",
@@ -8002,7 +8002,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -8021,7 +8021,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-services"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "base64 0.23.1",
  "indexmap 2.14.2",
@@ -8036,7 +8036,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -8048,21 +8048,21 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "libloading 0.9.0",
 ]
 
 [[package]]
 name = "trust-test-support"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "socket2 0.6.5",
 ]
 
 [[package]]
 name = "trust-visual"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -8072,7 +8072,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "rowan",
  "serde",
@@ -8411,7 +8411,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "verification-cases"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "hex",
  "serde",
@@ -9170,7 +9170,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.40.0"
+version = "0.41.0"
 dependencies = [
  "anyhow",
  "crc32fast",
