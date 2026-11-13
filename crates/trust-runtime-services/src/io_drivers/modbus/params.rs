@@ -221,6 +221,10 @@ pub struct ModbusTcpParams {
 }
 
 impl ModbusTcpParams {
+    /// The values `timeout_ms` takes (specification 11 §6.5): 1 ms to `u32::MAX` ms. A connection form advertises and enforces these
+    /// bounds too.
+    pub const TIMEOUT_MS_RANGE: (u32, u32) = (1, u32::MAX);
+
     /// The parameters of the JSON text `text`, the driver's `params` table (specification 34
     /// §5.1.1, section 8), checked by the rules of specification 11 §6.5: an unknown key is
     /// refused, integers are JSON integers in their ranges, functions and types are the words of
@@ -304,7 +308,8 @@ fn check(text: &str) -> (Option<ModbusTcpParams>, Vec<ParamsError>) {
         kept(root.integer("input_start", 0, u16::MAX), refused).map(|start| start.unwrap_or(0));
     let output_start =
         kept(root.integer("output_start", 0, u16::MAX), refused).map(|start| start.unwrap_or(0));
-    let timeout_ms = kept(root.integer("timeout_ms", 1, u32::MAX), refused)
+    let (shortest, longest) = ModbusTcpParams::TIMEOUT_MS_RANGE;
+    let timeout_ms = kept(root.integer("timeout_ms", shortest, longest), refused)
         .map(|timeout| timeout.unwrap_or(DEFAULT_TIMEOUT_MS));
     let on_error = kept(on_error(&root), refused);
     let input_function = kept(

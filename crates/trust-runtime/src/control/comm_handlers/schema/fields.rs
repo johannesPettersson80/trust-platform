@@ -1,4 +1,6 @@
 use serde_json::json;
+use trust_runtime_services::io_drivers::modbus::ModbusTcpParams;
+use trust_runtime_services::io_drivers::mqtt::MqttParams;
 
 use super::CommFieldSchema;
 
@@ -49,6 +51,11 @@ fn socket_addr_field(
     let mut field = field(id, label, "endpoint", json!(default), true, help);
     field.validation = Some(json!({ "kind": "socket_addr" }));
     field
+}
+
+/// A driver's bound as the integer of a TOML table, which holds at most `i64::MAX`.
+fn toml_integer(bound: u64) -> i64 {
+    i64::try_from(bound).unwrap_or(i64::MAX)
 }
 
 fn number_field(
@@ -157,8 +164,8 @@ pub(super) fn modbus_fields() -> Vec<CommFieldSchema> {
             "timeout_ms",
             "Timeout",
             500,
-            1,
-            60000,
+            i64::from(ModbusTcpParams::TIMEOUT_MS_RANGE.0),
+            i64::from(ModbusTcpParams::TIMEOUT_MS_RANGE.1),
             "Request timeout in milliseconds.",
         ),
         enum_field(
@@ -241,17 +248,17 @@ pub(super) fn mqtt_fields() -> Vec<CommFieldSchema> {
             "reconnect_ms",
             "Reconnect delay",
             500,
-            1,
-            60000,
-            "Delay between reconnect attempts in milliseconds.",
+            toml_integer(MqttParams::RECONNECT_MS_RANGE.0),
+            toml_integer(MqttParams::RECONNECT_MS_RANGE.1),
+            "Delay between reconnect attempts in milliseconds; 0 is read as 1.",
         ),
         number_field(
             "keep_alive_s",
             "Keepalive",
             5,
-            1,
-            65535,
-            "MQTT keepalive in seconds.",
+            i64::from(MqttParams::KEEP_ALIVE_S_RANGE.0),
+            i64::from(MqttParams::KEEP_ALIVE_S_RANGE.1),
+            "MQTT keepalive in seconds; 0 is read as 1.",
         ),
         enum_field(
             "on_error",

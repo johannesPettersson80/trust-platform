@@ -777,8 +777,12 @@ fn integer_maximums_are_enforced_by_the_owning_apply_validator() {
             let max = field.validation.as_ref().expect("number validation")["max"]
                 .as_i64()
                 .expect("integer max");
+            // A maximum of `i64::MAX` takes every integer a TOML table holds: nothing lies above it.
+            let Some(above) = max.checked_add(1) else {
+                continue;
+            };
             let mut params = defaults_as_toml(protocol);
-            params.insert(field.id.to_string(), toml::Value::Integer(max + 1));
+            params.insert(field.id.to_string(), toml::Value::Integer(above));
             let errors = validate_defaults(protocol, &params);
             assert!(
                 errors_contain_field(&errors, field.id),
