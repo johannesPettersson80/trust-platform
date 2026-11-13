@@ -8,7 +8,8 @@
 //! settings the HMI Builder's equipment edit (`trust-lsp.hmiEquipment`) keeps, so the generated
 //! declarations stay the generator's own.
 //!
-//! A REAL or LREAL variable takes its value as its initial value, written `: <type> := <value>;`. A
+//! A REAL or LREAL variable takes its value as its initial value, written `: <type> := <value>;`, and a
+//! TIME variable, a standard-form law's reset or derivative time, as a TIME literal (`T#<n>ms`). A
 //! program's own law keeps its gain variables this way (specification 35, C2 and B6.5): the request names
 //! the program instance, and its values name the variables. Nothing is compiled, written or run here.
 
@@ -42,12 +43,12 @@ struct Args {
     /// instance, `P1`, whose variables the values name (a program's own law, C2).
     record: String,
     /// The applied value of each kept field, or of each variable the program instance names. A
-    /// `root.variable` that is a REAL or LREAL variable takes its one value, keyed by its own name.
+    /// `root.variable` that is a REAL, LREAL or TIME variable takes its one value, keyed by its own name.
     values: BTreeMap<String, f64>,
 }
 
 /// `trust-lsp.controlKeepParameters`: `{ ok, edit: { changes }, expected, kept }` for a record
-/// written by hand, or for a program's REAL or LREAL variables; `{ ok: false, generated: { instance,
+/// written by hand, or for a program's REAL, LREAL or TIME variables; `{ ok: false, generated: { instance,
 /// settings } }` for a record Create PLC code declared; `{ ok: false, errors }` when the values
 /// cannot be kept safely.
 pub(super) fn keep<C: ServerContext>(context: &C, args: Vec<Value>) -> Value {
@@ -72,7 +73,7 @@ fn keep_result<C: ServerContext>(context: &C, args: Vec<Value>) -> Result<Value,
             args.record
         ));
     }
-    // `root.variable` names a record, or a REAL or LREAL variable that takes its own name's value; `root` names
+    // `root.variable` names a record, or a REAL, LREAL or TIME variable that takes its own name's value; `root` names
     // a program instance, and the values name its variables (C2).
     let (root, variable) = match args.record.split('.').collect::<Vec<_>>().as_slice() {
         [root, variable] if is_identifier(root) && is_identifier(variable) => {
@@ -214,7 +215,7 @@ fn edit_answer(
     }))
 }
 
-/// The edit of a program's own variables, or of a GVL's (C2, B6.5): each named variable must be a REAL or LREAL variable of the
+/// The edit of a program's own variables, or of a GVL's (C2, B6.5): each named variable must be a REAL, LREAL or TIME variable of the
 /// program or the namespace, `container` (`PROGRAM Main`, `NAMESPACE GVL_Par`), and its value becomes its initial value.
 fn program_variables_answer(
     pou: &SyntaxNode,
@@ -234,9 +235,9 @@ fn program_variables_answer(
                 "{record} is declared by Create PLC code; copy its value into the PLC code by hand."
             ));
         }
-        if !is_real(&declaration) {
+        if scalar_kind(&declaration).is_none() {
             return Err(format!(
-                "{record} is not a REAL or LREAL variable; copy its value into the program by hand."
+                "{record} is not a REAL, LREAL or TIME variable; copy its value into the program by hand."
             ));
         }
         let one = BTreeMap::from([(name.clone(), *value)]);
@@ -247,7 +248,7 @@ fn program_variables_answer(
 
 /// The edits setting each value in the declaration's initializer: a field present takes the new
 /// value, written as the old one was (`LREAL#…` stays typed); a missing field is added; a
-/// declaration without an initializer gets one. A REAL or LREAL declaration takes its one value
+/// declaration without an initializer gets one. A REAL, LREAL or TIME declaration takes its one value
 /// instead (`scalar_edits`).
 fn declaration_edits(
     text: &str,
@@ -255,8 +256,8 @@ fn declaration_edits(
     values: &BTreeMap<String, f64>,
     record: &str,
 ) -> Result<Vec<TextEdit>, String> {
-    if is_real(declaration) {
-        return scalar_edits(text, declaration, values, record);
+    if let Some(kind) = scalar_kind(declaration) {
+        return scalar_edits(text, declaration, values, record, kind);
     }
     if !is_record(declaration) {
         return Err(format!(
@@ -340,14 +341,16 @@ fn declaration_edits(
     Ok(edits)
 }
 
-/// The edit of a REAL or LREAL variable's initial value (B6.5, C2), written `: <type> := <value>;`: an initializer takes the value
-/// and keeps its typed prefix (`LREAL#`), and a variable without one gets ` := <value>` before its `;`. A declaration that names
-/// other variables, or whose initializer is not one expression, cannot be edited safely and is refused by the variable's name.
+/// The edit of a REAL, LREAL or TIME variable's initial value (B6.5, C2), written `: <type> := <value>;`: an initializer takes the
+/// value, a REAL's keeping its typed prefix (`LREAL#`) and a TIME's as a whole TIME literal, and a variable without one gets
+/// ` := <value>` before its `;`. A declaration that names other variables, or whose initializer is not one expression, cannot be
+/// edited safely and is refused by the variable's name.
 fn scalar_edits(
     text: &str,
     declaration: &SyntaxNode,
     values: &BTreeMap<String, f64>,
     record: &str,
+    kind: ScalarKind,
 ) -> Result<Vec<TextEdit>, String> {
     let Ok([(key, &value)]) = <[(&String, &f64); 1]>::try_from(values.iter().collect::<Vec<_>>())
     else {
@@ -386,19 +389,30 @@ fn scalar_edits(
         .children()
         .find(|child| child.kind().is_initializer_expression_node());
     let range = |start: usize, end: usize| lsp_range(text, start, end);
+    let literal = match kind {
+        ScalarKind::Real => st_real(value),
+        ScalarKind::Time => st_time(value).ok_or_else(|| {
+            format!("{record} keeps {value} s, which is no whole number of nanoseconds; copy its value into the program by hand.")
+        })?,
+    };
     match (assigned, initializer) {
         (false, None) => Ok(vec![TextEdit {
             range: range(semicolon, semicolon),
-            new_text: format!(" := {}", st_real(value)),
+            new_text: format!(" := {literal}"),
         }]),
         (true, Some(initializer)) if initializer.kind().is_expression_node() => {
             let (start, end) = code_range(&initializer)
                 .ok_or_else(|| format!("{record} has no value to replace."))?;
-            let written = code_text(&initializer);
-            let prefix = typed_prefix(&written).unwrap_or_default();
+            // A TIME literal names its own type (`T#`); a REAL's typed prefix (`LREAL#`) stays as written.
+            let prefix = match kind {
+                ScalarKind::Real => typed_prefix(&code_text(&initializer))
+                    .unwrap_or_default()
+                    .to_owned(),
+                ScalarKind::Time => String::new(),
+            };
             Ok(vec![TextEdit {
                 range: range(start, end),
-                new_text: format!("{prefix}{}", st_real(value)),
+                new_text: format!("{prefix}{literal}"),
             }])
         }
         _ => Err(format!(
@@ -407,15 +421,28 @@ fn scalar_edits(
     }
 }
 
-/// Whether a declaration's type is REAL or LREAL: the scalar variables whose initial value Keep in project writes (C2, B6.5).
-fn is_real(declaration: &SyntaxNode) -> bool {
-    declaration
+/// The kind of a scalar variable whose initial value Keep in project writes (C2, B6.5).
+#[derive(Clone, Copy)]
+enum ScalarKind {
+    /// `REAL` or `LREAL`: the value as a real literal.
+    Real,
+    /// `TIME`, a law's reset or derivative time in standard form: the value, in seconds, as a TIME literal.
+    Time,
+}
+
+/// The kind of a declaration's type when Keep in project writes its initial value: REAL, LREAL or TIME (C2, B6.5).
+fn scalar_kind(declaration: &SyntaxNode) -> Option<ScalarKind> {
+    let type_ref = declaration
         .children()
-        .find(|child| child.kind() == SyntaxKind::TypeRef)
-        .is_some_and(|type_ref| {
-            let written = code_text(&type_ref);
-            written.eq_ignore_ascii_case("REAL") || written.eq_ignore_ascii_case("LREAL")
-        })
+        .find(|child| child.kind() == SyntaxKind::TypeRef)?;
+    let written = code_text(&type_ref);
+    if written.eq_ignore_ascii_case("REAL") || written.eq_ignore_ascii_case("LREAL") {
+        Some(ScalarKind::Real)
+    } else if written.eq_ignore_ascii_case("TIME") {
+        Some(ScalarKind::Time)
+    } else {
+        None
+    }
 }
 
 /// Whether a declaration's type is a named type, such as a record (`Control.PIDParameters`), rather than an elementary, array or
@@ -557,6 +584,34 @@ fn typed_prefix(text: &str) -> Option<&str> {
     let hash = text.find('#')?;
     let prefix = &text[..hash];
     is_identifier(prefix).then(|| &text[..=hash])
+}
+
+/// A TIME literal of `seconds` (C0, B6.5): `T#<n>ms` in whole milliseconds, the resolution Control Studio writes a time in, and in
+/// microseconds or nanoseconds when the running value has a finer part, so that the kept value is the running one. The nanoseconds
+/// are those of the shortest decimal that reads as `seconds`, as the runtime reads a TIME value (protocol annex E7.3 step 10);
+/// `None` for a value that is no whole number of nanoseconds or lies outside TIME's range.
+fn st_time(seconds: f64) -> Option<String> {
+    if !seconds.is_finite() {
+        return None;
+    }
+    let decimal = seconds.abs().to_string();
+    let (whole, fraction) = decimal.split_once('.').unwrap_or((decimal.as_str(), ""));
+    if fraction.len() > 9 {
+        return None;
+    }
+    let nanos = whole
+        .parse::<i64>()
+        .ok()?
+        .checked_mul(1_000_000_000)?
+        .checked_add(format!("{fraction:0<9}").parse::<i64>().ok()?)?;
+    let sign = if seconds < 0.0 { "-" } else { "" };
+    Some(if nanos % 1_000_000 == 0 {
+        format!("T#{sign}{}ms", nanos / 1_000_000)
+    } else if nanos % 1_000 == 0 {
+        format!("T#{sign}{}us", nanos / 1_000)
+    } else {
+        format!("T#{sign}{nanos}ns")
+    })
 }
 
 /// A REAL literal of `value`: its shortest exact decimal, with a decimal point.

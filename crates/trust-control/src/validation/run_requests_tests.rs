@@ -9,8 +9,11 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use super::*;
-use crate::commissioning::fixture_loops::{first_order_model, project_pid_loop};
+use crate::commissioning::fixture_loops::{
+    first_order_model, project_pid_loop, project_standard_pi_loop_on_p1,
+};
 use crate::identification::connected_record::{RunEvent, RunEvidence, ValidationChannel};
+use crate::loop_definition::ParameterType;
 use crate::model::decode_general_model;
 use crate::tuning::candidate::{
     AntiWindup, CandidateSource, ControlPidParameters, LawCandidate, DEFAULT_RATE_LIMIT_PER_S,
@@ -349,6 +352,69 @@ fn a_program_candidate_writes_its_seed_variables_and_an_explicit_zero_for_the_te
             ("Main.Program.Ki".to_owned(), 0.5),
             ("Main.Program.Kp".to_owned(), 2.0)
         ])
+    );
+}
+
+/// C0 and E8.4: a law in standard form whose reset time is a TIME writes the candidate's reset time `Kp/Ki` = 2/0.75 = 2.666… s as
+/// Apply writes it, in whole milliseconds, 2.667 s, as a TIME override; its gain stays as designed. Catches a Validate that runs
+/// another value than Apply writes, and a reset time that the runtime would refuse as no whole number of nanoseconds.
+#[test]
+fn a_standard_candidates_time_reset_time_is_validated_as_apply_writes_it() {
+    let mut loop_definition = project_standard_pi_loop_on_p1();
+    loop_definition
+        .parameter_binding
+        .as_mut()
+        .expect("the binding")
+        .parameters
+        .iter_mut()
+        .find(|parameter| parameter.symbol == "P1.Ti")
+        .expect("the reset time is bound")
+        .iec_type = ParameterType::Time;
+    let model = first_order_model();
+    let settings = BTreeMap::from([("P1.Kp".to_owned(), 2.0), ("P1.Ti".to_owned(), 2.667)]);
+    let plan = engineer_verification_plan(
+        &loop_definition,
+        &model,
+        &fixture_task(),
+        &settings,
+        &BTreeMap::new(),
+    )
+    .expect("the plan of the standard law");
+    let seed = served_seed(&loop_definition).expect("the served seed");
+    let candidate = LawCandidate::Project(project_candidate(
+        seed,
+        CandidateSource::Simc,
+        ParallelGains {
+            proportional_gain: 2.0,
+            integral_gain: 0.75,
+            derivative_gain: 0.0,
+        },
+    ));
+    let request = isolated_run_request(&RunRequestInput {
+        loop_definition: &loop_definition,
+        model: &model,
+        plan: &plan,
+        case: &nominal_case(&plan),
+        settings: RunSettings::Candidate(&candidate),
+        simulation: None,
+        request_id: "run-standard-candidate",
+        expected_project_revision: "sha256:project",
+    })
+    .expect("the candidate request of the standard law");
+    let overridden = |symbol: &str| {
+        request
+            .parameter_overrides
+            .iter()
+            .find(|parameter| parameter.symbol == symbol)
+            .map(|parameter| (parameter.iec_type, parameter.value))
+    };
+    assert_eq!(
+        overridden("P1.Ti"),
+        Some((IsolatedParameterType::Time, 2.667))
+    );
+    assert_eq!(
+        overridden("P1.Kp"),
+        Some((IsolatedParameterType::Lreal, 2.0))
     );
 }
 

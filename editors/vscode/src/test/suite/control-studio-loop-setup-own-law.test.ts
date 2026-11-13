@@ -56,6 +56,19 @@ suite("Control Studio own P or PI law setup form", () => {
     } finally { view.close(); }
   });
 
+  test("offers a TIME variable for the standard form's reset time and none for a gain (C0, C2)", () => {
+    // The engine's `times` hold the REAL, LREAL and TIME variables (setup/form.rs); a program may keep its reset time as `tTn : TIME`.
+    const view = open({ ...ownLawModel, times: [...ownLawModel.reals, "P1.Ti"].sort() });
+    try {
+      const choices = (field: string) => Array.from(view.root.querySelectorAll<HTMLOptionElement>(`[data-setup-field="${field}"] option`))
+        .map(option => option.value).filter(value => value !== "");
+      assert.ok(choices("own.resetTime").includes("P1.Ti"), "the reset time offers the TIME variable");
+      assert.ok(choices("own.derivativeTime").includes("P1.Ti"), "so does the derivative time");
+      assert.ok(!choices("own.proportionalGain").includes("P1.Ti") && !choices("own.integralGain").includes("P1.Ti"),
+        "a gain offers no TIME variable");
+    } finally { view.close(); }
+  });
+
   test("asks a law in standard form for its reset time in place of its integral gain, and posts the form (C2)", () => {
     const view = open({ ...ownLawModel, reals: [...ownLawModel.reals, "P1.Ti"].sort() });
     try {

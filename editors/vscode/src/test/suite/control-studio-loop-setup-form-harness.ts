@@ -79,6 +79,8 @@ export function open(model: any): { dom: any; posts: any[]; root: HTMLElement; s
   const { JSDOM } = require("jsdom");
   const answer: any = { ...ENGINE_FORM_FIELDS, ...EMPTY_LISTS, structures: DEFAULT_STRUCTURES, ...model };
   answer.signals = model.signals ?? answer.reals;
+  // The engine's `times` are its REAL and LREAL symbols and its TIME ones (C2): a fixture that names no TIME variable gets its reals.
+  answer.times = model.times ?? answer.reals;
   answer.measurements = model.measurements ?? answer.addressedReal ?? [];
   // The engine's decoupler has a row and a column for each library PID of the program (C7), unless a fixture names another shape.
   answer.decoupler = model.decoupler ?? { rows: answer.pids.length, columns: answer.pids.length };

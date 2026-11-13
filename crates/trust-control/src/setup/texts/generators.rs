@@ -85,6 +85,12 @@ pub fn must_be_real(symbol: &str) -> String {
     format!("{symbol} must be REAL or LREAL.")
 }
 
+/// The variable of a standard law's reset or derivative time is not REAL, LREAL or TIME (C0, C2).
+#[must_use]
+pub fn must_be_real_or_time(symbol: &str) -> String {
+    format!("{symbol} must be REAL, LREAL or TIME.")
+}
+
 /// The program computes the measurement, so a simulated plant would overwrite it (`measurementBinding`, B5 and §13.2).
 #[must_use]
 pub fn computed_measurement(symbol: &str) -> String {

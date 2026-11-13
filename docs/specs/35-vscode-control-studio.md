@@ -2007,7 +2007,7 @@ never a side effect of Apply or Restore and is not offered after a Restore.
 - Gains that a CODESYS project keeps in a GVL, truST's `NAMESPACE GVL_Par` with
   its `VAR_GLOBAL` (protocol annex E2.3), are kept in the GVL's declarations as a
   program's own gain variables are kept in the program's: each named global must
-  be a REAL or LREAL variable that the namespace declares, and a refusal names it
+  be a REAL, LREAL or TIME variable that the namespace declares, and a refusal names it
   with the namespace ("GVL_Par.lrKd is not declared in NAMESPACE GVL_Par of this
   project."). A name that is neither a program nor a namespace of the project is
   refused as such.
@@ -2963,8 +2963,8 @@ derivative time `Td` in seconds, as CODESYS's `PID` (`KP`, `TN`, `TV`) and a pro
 - **The integral term.** The program's integral variable holds the integral term `I` in the output's unit, updated each scan as
   `I_new = I_old + (Kp/Ti)·e·Δt`, as in the parallel form. Validate and Apply start it as the `parallel-pid-v1` adapter does, with
   `Ki = Kp/Ti`. A program that integrates the error instead (`∫e dt`, scaled at the output) is not this form.
-- **Setup** asks for the variable that holds the reset time and, for PID, the variable that holds the derivative time, each REAL or
-  LREAL in seconds, with the range Tune may choose from; the reset time's range lies above zero and the derivative time's starts at
+- **Setup** asks for the variable that holds the reset time and, for PID, the variable that holds the derivative time, each REAL,
+  LREAL or TIME in seconds, with the range Tune may choose from; the form offers the REAL, LREAL and TIME variables for them; the reset time's range lies above zero and the derivative time's starts at
   zero or above. The form offers the choice (`gainForms`, preselected `parallel`), and the draft names it as `form` with the times
   as `resetTime` and `derivativeTime`, each a variable with its range as the gains are; the engine takes the gains or the times the
   form needs (B1.3). A trajectory feedforward's law (C11) stays in parallel form. The seed is `parallel-pid` with
@@ -2978,9 +2978,9 @@ derivative time `Td` in seconds, as CODESYS's `PID` (`KP`, `TN`, `TV`) and a pro
   refuses it with that reason. The ranges Tune may choose from are the variables' own: `Kp` by magnitude, `Ti` and `Td` in seconds. A
   pin or an entered setting of `Ti` or `Td` is a time in seconds.
 - **Apply, Restore and Keep in project** write and keep the variables' values, `Kp`, `Ti` and `Td`, as for the parallel form.
-- A reset or derivative time held as a `TIME` value (TwinCAT's `FB_CTRL_PI` takes `tTn : TIME`) is a `TIME` parameter in seconds,
-  whose written values are whole milliseconds (C0). Setup does not offer such a variable yet, and Keep in project does not write
-  one yet; both are on the checklist.
+- A reset or derivative time held as a `TIME` value (TwinCAT's `FB_CTRL_PI` takes `tTn : TIME`) is a `TIME` parameter in seconds
+  (C0). The values Validate runs and Apply writes are whole milliseconds, the same values, and Keep in project writes the running
+  value as a TIME literal (B6.5).
 
 #### Identify
 
@@ -3005,7 +3005,7 @@ As C1. The startup flag is set as for a PID; Identify chooses the step and its h
 - Restore previous settings returns the gains and the mode from before Apply (B6.4).
 - The route follows the variables that the seed names, not the structure Tune chose. A seed that names an integral or a derivative variable starts its declared states for every structure it offers, and writes an explicit zero to each term that the structure does not use (C0).
 - A seed that names neither variable is a P law. It enters Auto through C13's tracking reference `r = y + u/Kp`, with its proportional variable as the gain, and its allowance is C13's. Such a law declares no law state: its application states (C1, such as a startup-done flag) are written with the entry at the same boundary, and a law state that a P law declares is refused by its name.
-- Keep in project writes the running values of the gain variables into the program's declarations (B6.5): each becomes the initial value of its REAL or LREAL variable, written as `: <type> := <value>;`, and the other declarations stay as written.
+- Keep in project writes the running values of the gain variables into the program's declarations (B6.5): each becomes the initial value of its REAL, LREAL or TIME variable, written as `: <type> := <value>;`, a TIME's as a TIME literal: `T#<n>ms` in whole milliseconds, or in microseconds or nanoseconds when the running value has a finer part, so that the kept value is the running one. The other declarations stay as written.
 
 ### C3. Switching (ON/OFF) controller
 

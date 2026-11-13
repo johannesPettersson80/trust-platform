@@ -101,6 +101,9 @@ pub struct SetupFormModel {
     pub instances: Vec<String>,
     /// Every REAL and LREAL symbol: Studio writes controller settings directly, so they need no address.
     pub reals: Vec<String>,
+    /// Every REAL, LREAL and TIME symbol: the variables that may hold a law's reset or derivative time in standard form, which a
+    /// program may keep as a `TIME` (C0, C2).
+    pub times: Vec<String>,
     /// The symbols the program assigns, as the compiler reports them, in the order it reports them.
     pub writes: Vec<String>,
     /// The library PIDs whose Initialize the program calls.
@@ -348,6 +351,14 @@ pub fn setup_form_model(catalog: &CompiledCatalog) -> SetupFormModel {
             .map(symbol_of)
             .collect(),
     );
+    let times = sorted(
+        catalog
+            .symbols
+            .iter()
+            .filter(|entry| is_real(entry) || entry.iec_type == "TIME")
+            .map(symbol_of)
+            .collect(),
+    );
     let signals = sorted(
         catalog
             .symbols
@@ -429,6 +440,7 @@ pub fn setup_form_model(catalog: &CompiledCatalog) -> SetupFormModel {
         records,
         instances,
         reals,
+        times,
         writes: catalog.writes.clone(),
         initializes,
         prefills,

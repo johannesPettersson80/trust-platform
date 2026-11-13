@@ -45,8 +45,9 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
     <label class="studio-field">Maximum<input type="text" data-setup-field="${field}.maximum"></label>
    </div>
   </div>`;
-  /** A variable holding a gain of the program's own law, with the range Tune may choose from; its unit follows the signals'. */
-  const gain = (field: string, label: string) => `${select(field, label, model.reals)}
+  /** A variable holding a gain of the program's own law, with the range Tune may choose from; its unit follows the signals'. A time of
+   * the standard form offers `model.times`, the variables that may hold it, a TIME among them (C2). */
+  const gain = (field: string, label: string, variables: readonly string[] = model.reals) => `${select(field, label, variables)}
   <div class="studio-field-group">
    <label class="studio-field">Minimum<input type="text" data-setup-field="${field}.minimum"></label>
    <label class="studio-field">Maximum<input type="text" data-setup-field="${field}.maximum"></label>
@@ -214,12 +215,12 @@ export function renderLoopSetupBody(model: SetupPageModel, escape: (value: strin
   ${gain("own.proportionalGain", "Proportional gain Kp")}
   <div class="studio-fields" data-own-integral>
    <div data-own-parallel>${gain("own.integralGain", "Integral gain Ki")}</div>
-   <div data-own-standard hidden>${gain("own.resetTime", "Reset time Ti, in seconds")}</div>
+   <div data-own-standard hidden>${gain("own.resetTime", "Reset time Ti, in seconds", model.times)}</div>
    ${select("own.integralTerm", "Integral term I, in the output's unit", model.reals)}
   </div>
   <div class="studio-fields" data-own-derivative hidden>
    <div data-own-parallel>${gain("own.derivativeGain", "Derivative gain Kd")}</div>
-   <div data-own-standard hidden>${gain("own.derivativeTime", "Derivative time Td, in seconds")}</div>
+   <div data-own-standard hidden>${gain("own.derivativeTime", "Derivative time Td, in seconds", model.times)}</div>
    ${select("own.derivativeState", "Previous value the derivative is taken from", model.reals)}
    <label class="studio-field">That previous value is<select data-setup-field="own.derivativeOn">${options([], undefined)}${labelled(choices.derivativeOn, labels.derivativeOn).map(([value, text]) =>
      `<option value="${escape(value)}">${escape(text)}</option>`).join("")}</select></label>

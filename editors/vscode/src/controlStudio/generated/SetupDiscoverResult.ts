@@ -261,6 +261,11 @@ export interface SetupFormModel {
    * an instance of its own, the structures that run on it, and identify last (`loopSetupTemplate.ts`, B1.3).
    */
   structures: string[];
+  /**
+   * Every REAL, LREAL and TIME symbol: the variables that may hold a law's reset or derivative time in standard form, which a
+   * program may keep as a `TIME` (C0, C2).
+   */
+  times: string[];
   wording: SetupFormWording;
   /**
    * The symbols the program assigns, as the compiler reports them, in the order it reports them.
