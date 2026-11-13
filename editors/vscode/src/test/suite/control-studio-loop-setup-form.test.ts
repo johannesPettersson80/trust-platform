@@ -471,6 +471,34 @@ suite("Control Studio loop setup form", () => {
     } finally { view.close(); }
   });
 
+  test("keeps the rows the engine's limits set while the engineer edits, and draws none of its own (B1.3)", () => {
+    // Catches a form that adds, removes or replaces a row or section on an edit: the rows are the engine's, drawn when the form
+    // renders, and the form looks up each list of the rows it shows and hides once.
+    const pids = [1, 2].map(n => ({ instance: `P1.Zone${n}` }));
+    const view = open({ ...singleModel, structure: "group", pids, prefill: undefined, prefills: [], loopNames: [], structures: GROUP_STRUCTURES });
+    try {
+      const shownOrHidden = ["[data-setup-section]", "[data-setup-range-group]", "[data-own-parallel]", "[data-own-standard]", "[data-feedback-state]",
+        "[data-estimate-state]", "[data-search-coefficient]", "[data-search-state]", "[data-schedule-point]", "[data-group-member]",
+        "[data-decoupler-entry]", "[data-mode-when-true]", "[data-setup-found-value]"];
+      const drawn = () => shownOrHidden.map(selector => Array.from(view.root.querySelectorAll(selector)));
+      const before = drawn();
+      assert.deepStrictEqual(shownOrHidden.filter((_, index) => before[index].length === 0), [], "the fixture draws every kind of row");
+      const check = (field: string) => { const box = view.root.querySelector<HTMLInputElement>(`[data-setup-field="${field}"]`)!;
+        box.checked = true; box.dispatchEvent(new view.dom.window.Event("change", { bubbles: true })); };
+      for (const structure of GROUP_STRUCTURES) view.set("structure", structure);
+      for (const [field, value] of [["own.form", "standard"], ["feedback.family", "LQG"], ["feedback.state.0", "P1.TemperatureC"],
+        ["search.coefficient.0", "P1.SetpointC"], ["search.state.0", "P1.SetpointC"], ["schedule.0.name", "Low"], ["structure", "group"]]) view.set(field, value);
+      check("group.0.include"); check("group.1.include"); check("group.decoupled");
+      view.showError("The engine's refusal", "name");
+      view.set("name", "Zones");
+      const after = drawn();
+      for (const [index, selector] of shownOrHidden.entries()) {
+        assert.ok(after[index].length === before[index].length && after[index].every((row, n) => row === before[index][n]),
+          `${selector}: the form shows and hides the rows it rendered, and no others`);
+      }
+    } finally { view.close(); }
+  });
+
   test("marks as optional the operating points the engine does not require, whatever their number (C10)", () => {
     const view = open({ ...singleModel, schedulePoints: [{ required: true }, { required: false }, { required: true }, { required: false }, { required: false }] });
     try {

@@ -11,6 +11,8 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   // The form's fields are fixed when it renders, so each is looked up once.
   const fields = new Map(Array.from(root.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-setup-field]"))
     .map(element => [element.dataset.setupField ?? "", element]));
+  // The rows and sections it shows and hides are fixed too: each list is looked up once, not on every edit.
+  const all = <T extends HTMLElement = HTMLElement>(selector: string): T[] => Array.from(root.querySelectorAll<T>(selector));
   const value = (field: string): string => fields.get(field)?.value.trim() ?? "";
   const checked = (field: string): boolean => (fields.get(field) as HTMLInputElement | undefined)?.checked === true;
   const structure = (): string => value("structure");
@@ -40,14 +42,17 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     const select = fields.get(`${prefix}mode`) as HTMLSelectElement | undefined;
     return (select?.selectedOptions[0]?.dataset.members ?? "").split(" ").filter(Boolean);
   };
+  const modeChoices = all("[data-mode-when-true]").map(shown => {
+    const prefix = shown.dataset.modeWhenTrue ?? "";
+    return { shown, prefix, labels: all(`[data-mode-member="${prefix}"]`) };
+  });
   /** Shows an enumeration's member choices in place of what a BOOL's TRUE value means, filled with the chosen signal's members; a
    * member stays chosen while the signal has it. */
   const refreshModeMembers = (): void => {
-    for (const shown of Array.from(root.querySelectorAll<HTMLElement>("[data-mode-when-true]"))) {
-      const prefix = shown.dataset.modeWhenTrue ?? "";
+    for (const { shown, prefix, labels } of modeChoices) {
       const members = modeMembers(prefix);
       shown.hidden = members.length > 0;
-      root.querySelectorAll<HTMLElement>(`[data-mode-member="${prefix}"]`).forEach(label => { label.hidden = members.length === 0; });
+      labels.forEach(label => { label.hidden = members.length === 0; });
       for (const field of [`${prefix}modeManual`, `${prefix}modeAuto`]) {
         const select = fields.get(field) as HTMLSelectElement | undefined;
         if (!select || select.dataset.members === members.join(" ")) continue;
@@ -84,7 +89,8 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   };
 
   /** The number of states the chosen estimator model has, which sets the estimate rows shown (C4): the engine's count for each model file. */
-  const estimatorStates = (): number => Number(root.querySelector<HTMLSelectElement>('[data-setup-field="feedback.estimatorModel"]')?.selectedOptions[0]?.dataset.states ?? 0);
+  const estimatorModel = root.querySelector<HTMLSelectElement>('[data-setup-field="feedback.estimatorModel"]');
+  const estimatorStates = (): number => Number(estimatorModel?.selectedOptions[0]?.dataset.states ?? 0);
   /** The state-feedback draft as the engine reads it (`StateFeedbackLoopDraft`, C4): the form's values as typed, and no check of its own.
    * It carries the measured gain and further outputs and the estimator for every design; the engine takes the ones the design uses. */
   const stateFeedbackDraft = (): Record<string, unknown> => ({ structure: "state-feedback", name: value("name"), action: value("action"),
@@ -189,8 +195,8 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   };
   // A trajectory feedforward's program law is the one its section holds (C11, the engine's preselection); the other own-law setups take the chosen law.
   const ownLaw = (): string => structure() === "trajectory-feedforward" ? value("traj.ownLaw") : value("own.law");
-  const included = (): string[] => Array.from(root.querySelectorAll<HTMLInputElement>('[data-setup-field^="group."][data-setup-field$=".include"]'))
-    .filter(box => box.checked).map(box => (box.dataset.setupField ?? "").replace(/include$/, ""));
+  const includeBoxes = all<HTMLInputElement>('[data-setup-field^="group."][data-setup-field$=".include"]');
+  const included = (): string[] => includeBoxes.filter(box => box.checked).map(box => (box.dataset.setupField ?? "").replace(/include$/, ""));
   /** The controllers whose program needs the startup-done flag at their default settings: the engine's answer (C1 Setup). */
   const flaggedInstances = new Set(Array.from(root.querySelectorAll<HTMLElement>("[data-setup-startup-instances] li")).map(item => item.textContent ?? ""));
   /** A chosen controller fills in what its own calls say, except fields the user has chosen. */
@@ -237,8 +243,9 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   };
   // The compiled task of each PID comes from the program; it is shown, never chosen.
   const tasks = new Map(Array.from(root.querySelectorAll<HTMLElement>("[data-setup-tasks] li")).map(item => [item.dataset.instance ?? "", item.dataset.task ?? ""]));
+  const foundValues = all("[data-setup-found-value]");
   const refreshFound = (): void => {
-    for (const element of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-found-value]"))) {
+    for (const element of foundValues) {
       const field = element.dataset.setupFoundValue ?? "";
       const text = field === "mode" ? (!chosenText("mode") ? "" : modeMembers("").length > 0
           ? `${chosenText("mode")} · Manual ${chosenText("modeManual") || "?"} · Auto ${chosenText("modeAuto") || "?"}`
@@ -286,68 +293,78 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     refusal.textContent = reason;
     (element.closest("label") ?? element).insertAdjacentElement("afterend", refusal);
   };
+  const rangeGroups = all("[data-setup-range-group]");
+  const searchRows = ([["data-search-coefficient", "search.coefficient"], ["data-search-state", "search.state"]] as const)
+    .map(([attribute, field]) => ({ attribute, field, rows: all(`[${attribute}]`) }));
+  const integralFields = root.querySelector<HTMLElement>("[data-own-integral]");
+  const derivativeFields = root.querySelector<HTMLElement>("[data-own-derivative]");
+  const parallelGains = all("[data-own-parallel]"), standardTimes = all("[data-own-standard]");
+  const lawChoice = root.querySelector<HTMLElement>("[data-own-law-choice]");
+  const feedbackStates = all("[data-feedback-state]");
+  const measuredGain = root.querySelector<HTMLElement>("[data-feedback-measured]"), estimator = root.querySelector<HTMLElement>("[data-feedback-estimator]");
+  const estimateStates = all("[data-estimate-state]");
+  const groupMembers = all("[data-group-member]").map(member => ({ panel: member.querySelector<HTMLElement>("[data-group-member-fields]"),
+    box: member.querySelector<HTMLInputElement>('input[type="checkbox"]') }));
+  const sections = all("[data-setup-section]");
+  const grid = root.querySelector<HTMLElement>("[data-group-decoupler]");
+  const decouplerEntries = all("[data-decoupler-entry]");
+  const schedulePoints = all("[data-schedule-point]");
+  const smithBlock = root.querySelector<HTMLElement>("[data-smith-block]");
+  const startup = root.querySelector<HTMLElement>("[data-setup-startup]");
   const render = (): void => {
     clearRefusal();
     message.textContent = "";
     prefillName();
     refreshModeMembers();
     refreshFound();
-    for (const group of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-range-group]"))) {
+    for (const group of rangeGroups) {
       const field = group.dataset.setupRangeGroup ?? "";
       group.hidden = Boolean(value(`${field}.unit`) && value(`${field}.minimum`) && value(`${field}.maximum`));
     }
     // A further coefficient or kept value appears once the previous one is chosen.
-    for (const [attribute, field] of [["data-search-coefficient", "search.coefficient"], ["data-search-state", "search.state"]] as const) {
-      root.querySelectorAll<HTMLElement>(`[${attribute}]`).forEach(row => {
+    for (const { attribute, field, rows } of searchRows) {
+      rows.forEach(row => {
         const index = Number(row.getAttribute(attribute));
         row.hidden = index > 0 && !value(`${field}.${index - 1}`) && !value(`${field}.${index}`);
       });
     }
-    const integralFields = root.querySelector<HTMLElement>("[data-own-integral]");
     if (integralFields) integralFields.hidden = ownLaw() === "P";
-    const derivativeFields = root.querySelector<HTMLElement>("[data-own-derivative]");
     if (derivativeFields) derivativeFields.hidden = ownLaw() !== "PID";
     // The form chosen shows its own settings: the gains Ki and Kd, or the times Ti and Td (C2). A trajectory's law is a parallel PID.
     const standard = value("own.form") === "standard" && structure() !== "trajectory-feedforward";
-    root.querySelectorAll<HTMLElement>("[data-own-parallel]").forEach(element => { element.hidden = standard; });
-    root.querySelectorAll<HTMLElement>("[data-own-standard]").forEach(element => { element.hidden = !standard; });
+    parallelGains.forEach(element => { element.hidden = standard; });
+    standardTimes.forEach(element => { element.hidden = !standard; });
     // A trajectory feedforward's law is PID by its structure, so its law choice does not show.
-    const lawChoice = root.querySelector<HTMLElement>("[data-own-law-choice]");
     if (lawChoice) lawChoice.hidden = structure() === "trajectory-feedforward";
     // A further measured output appears once the previous one is chosen; LQG shows one estimate per state of its model instead.
     const lqg = value("feedback.family") === "LQG";
-    root.querySelectorAll<HTMLElement>("[data-feedback-state]").forEach(row => {
+    feedbackStates.forEach(row => {
       const index = Number(row.dataset.feedbackState);
       row.hidden = lqg || index > 0 && !value(`feedback.state.${index - 1}`) && !value(`feedback.state.${index}`);
     });
-    const measuredGain = root.querySelector<HTMLElement>("[data-feedback-measured]"), estimator = root.querySelector<HTMLElement>("[data-feedback-estimator]");
     if (measuredGain) measuredGain.hidden = lqg;
     if (estimator) estimator.hidden = !lqg;
-    root.querySelectorAll<HTMLElement>("[data-estimate-state]").forEach(row => { row.hidden = Number(row.dataset.estimateState) >= estimatorStates(); });
-    root.querySelectorAll<HTMLElement>("[data-group-member]").forEach(member => {
-      const fields = member.querySelector<HTMLElement>("[data-group-member-fields]");
-      if (fields) fields.hidden = !member.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked;
-    });
+    const states = estimatorStates();
+    estimateStates.forEach(row => { row.hidden = Number(row.dataset.estimateState) >= states; });
+    groupMembers.forEach(({ panel, box }) => { if (panel) panel.hidden = !box?.checked; });
     // A feedforward or a Smith predictor is one PID loop plus its own variables. A trajectory feedforward is the program's own PID law
     // (its section) plus the trajectory's variables (its section).
     const shown = structure() === "trajectory-feedforward" ? ["own-law", "trajectory-feedforward"] : [structure()];
-    for (const section of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-section]"))) section.hidden = !shown.includes(section.dataset.setupSection ?? "")
+    for (const section of sections) section.hidden = !shown.includes(section.dataset.setupSection ?? "")
       && !(section.dataset.setupSection === "pid" && ["feedforward", "smith", "schedule"].includes(structure()));
     // A decoupler has one entry per plant input and included member.
     const decoupled = checked("group.decoupled"), size = included().length;
-    const grid = root.querySelector<HTMLElement>("[data-group-decoupler]");
     if (grid) grid.hidden = !decoupled;
-    root.querySelectorAll<HTMLElement>("[data-decoupler-entry]").forEach(entry => {
+    decouplerEntries.forEach(entry => {
       const [row, column] = (entry.dataset.decouplerEntry ?? "").split(".").map(Number);
       entry.hidden = !decoupled || row >= size || column >= size;
     });
     // A further operating point appears once the previous one has a name. The points the engine always asks for are not optional (C10).
-    root.querySelectorAll<HTMLElement>("[data-schedule-point]").forEach(row => {
+    schedulePoints.forEach(row => {
       const index = Number(row.dataset.schedulePoint);
       row.hidden = row.hasAttribute("data-schedule-optional") && !value(`schedule.${index - 1}.name`) && !value(`schedule.${index}.name`);
     });
     // The Smith predictor's library block is asked together, and only when the program uses it (C9).
-    const smithBlock = root.querySelector<HTMLElement>("[data-smith-block]");
     if (smithBlock) smithBlock.hidden = !checked("smith.libraryBlock");
     // A blank output level is the output's limit (C3): the limit shows in the level's place until a level is typed.
     for (const [field, limit] of [["onoff.lowOutput", "onoff.manipulatedVariable.minimum"], ["onoff.highOutput", "onoff.manipulatedVariable.maximum"]]) {
@@ -356,7 +373,6 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     }
     // The startup-done section shows where the engine asks for a flag: a chosen controller that needs one, a refusal that names it, or a flag
     // the user has already chosen (C1 Setup).
-    const startup = root.querySelector<HTMLElement>("[data-setup-startup]");
     if (startup) startup.hidden = !(startupRefused || value("startupFlag") || chosenInstances().some(name => flaggedInstances.has(name)));
   };
   form.addEventListener("input", render);
