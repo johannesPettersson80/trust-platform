@@ -142,7 +142,7 @@ fn hold_candidate(
         .cloned()
         .collect();
     for (symbol, value) in parameters {
-        if program.read(symbol)? == *value {
+        if program.read_parameter(symbol)? == *value {
             continue;
         }
         // A parameter outside every program may be set by the startup of whichever program first executes.
@@ -155,8 +155,8 @@ fn hold_candidate(
                 "ST changed controller parameter {symbol}; candidate not adopted"
             ));
         }
-        program.assign(symbol, *value)?;
-        if program.read(symbol)? != *value {
+        program.assign_parameter(symbol, *value)?;
+        if program.read_parameter(symbol)? != *value {
             return Err("candidate must use exact runtime floating-point representation".into());
         }
     }
@@ -170,13 +170,14 @@ fn parameter_type(value: &Value) -> Option<&'static str> {
         Value::Bool(_) => Some("BOOL"),
         Value::Real(_) => Some("REAL"),
         Value::LReal(_) => Some("LREAL"),
+        Value::Time(_) => Some("TIME"),
         _ => None,
     }
 }
 
 /// Checks that each parameter of `input` names a writable, unaddressed REAL or LREAL member, or a
-/// fixed configuration BOOL, of the type its declaration gives (protocol annex E8.4, E8.5), in the
-/// run's program.
+/// fixed configuration BOOL or a TIME in a test run, of the type its declaration gives (protocol
+/// annex E8.4, E8.5), in the run's program.
 fn check_parameters(
     input: &super::execution_plan::ExecutionPlan,
     program: &mut IsolatedProgram,
@@ -186,14 +187,17 @@ fn check_parameters(
             return Err(format!("{symbol} is not a writable unaddressed parameter"));
         }
         let value = program.value(symbol)?;
-        let fixed_bool = input.evaluation.is_none()
-            && input
-                .parameter_types
-                .get(symbol)
-                .is_some_and(|kind| kind == "BOOL")
-            && matches!(value, Value::Bool(_));
-        if !matches!(value, Value::Real(_) | Value::LReal(_)) && !fixed_bool {
-            return Err("parameters require REAL/LREAL values".into());
+        let declared = |kind: &str| {
+            input.evaluation.is_none()
+                && input
+                    .parameter_types
+                    .get(symbol)
+                    .is_some_and(|given| given == kind)
+        };
+        let fixed_bool = declared("BOOL") && matches!(value, Value::Bool(_));
+        let time = declared("TIME") && matches!(value, Value::Time(_));
+        if !matches!(value, Value::Real(_) | Value::LReal(_)) && !fixed_bool && !time {
+            return Err("parameters require REAL, LREAL or TIME values".into());
         }
         if input
             .parameter_types
@@ -273,8 +277,8 @@ fn execute(
         super::mode_channels::assign(&mut program, modes, symbol, *value)?;
     }
     for (symbol, value) in &input.parameters {
-        program.assign(symbol, *value)?;
-        if program.read(symbol)? != *value {
+        program.assign_parameter(symbol, *value)?;
+        if program.read_parameter(symbol)? != *value {
             return Err("candidate must use exact runtime floating-point representation".into());
         }
     }

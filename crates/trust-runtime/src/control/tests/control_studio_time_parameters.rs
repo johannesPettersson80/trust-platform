@@ -1,6 +1,6 @@
 // A TIME parameter (protocol annex E7.1, E7.3 step 10): its number is seconds, the seconds of a whole number of
 // nanoseconds, as the standard form's reset time of TwinCAT's `FB_CTRL_PI` (`tTn : TIME`) holds it. A transfer reads
-// it as a guard in seconds (E6.2, E6.3).
+// it as a guard in seconds (E6.2, E6.3). An isolated run's TIME override is tested with the isolated runs.
 
 const TIME_PARAMETER_PROGRAM: &str = "PROGRAM Main VAR Ti : TIME := T#2s; Manual : BOOL := TRUE; Observed : TIME; END_VAR Observed := Ti; END_PROGRAM";
 

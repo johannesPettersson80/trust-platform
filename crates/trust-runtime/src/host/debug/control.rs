@@ -43,6 +43,9 @@ mod symbol_path;
 #[path = "control/transfer.rs"]
 mod transfer;
 pub(crate) use parameters::resolve_path as resolve_control_parameter_path;
+pub(crate) use parameters::{
+    time_nanos as control_time_nanos, time_seconds as control_time_seconds,
+};
 pub(crate) use parameters::{ControlPidOutcome, ControlPidView, ControlPidWrite};
 pub(crate) use program_facts::{
     parameter_writable as control_parameter_writable, program_tasks as control_program_tasks,

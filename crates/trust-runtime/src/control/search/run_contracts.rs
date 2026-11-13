@@ -117,7 +117,7 @@ impl RunRequest {
             if p.symbol.is_empty()
                 || p.symbol.len() > 256
                 || !symbols.insert(p.symbol.to_ascii_uppercase())
-                || !matches!(p.iec_type.as_str(), "REAL" | "LREAL" | "BOOL")
+                || !matches!(p.iec_type.as_str(), "REAL" | "LREAL" | "BOOL" | "TIME")
                 || p.unit.is_empty()
                 || p.convention.is_empty()
                 || !p.minimum.is_finite()
@@ -131,6 +131,9 @@ impl RunRequest {
                         || p.minimum < 0.0
                         || p.maximum > 1.0
                         || (p.value != 0.0 && p.value != 1.0)))
+                // A TIME's value and bounds are seconds, its value a whole number of nanoseconds (E8.4).
+                || (p.iec_type == "TIME"
+                    && (p.unit != "s" || crate::debug::control_time_nanos(p.value).is_none()))
             {
                 return Err("invalid typed parameter override or bounds".into());
             }
