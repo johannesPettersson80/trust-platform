@@ -10,10 +10,7 @@ struct Project(PathBuf);
 
 impl Project {
     fn new(name: &str) -> Self {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-lsp-check-command-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-lsp-check-command-{name}"));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("src")).expect("src dir");
         std::fs::write(

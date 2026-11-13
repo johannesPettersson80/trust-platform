@@ -15,6 +15,15 @@ async function until(check: () => boolean, what: string): Promise<void> {
   }
 }
 
+/** Drops the unsaved edits of the open documents at `paths` and closes them. */
+async function discardEdits(paths: string[]): Promise<void> {
+  const uris = new Set(paths.map((file) => vscode.Uri.file(file).toString()));
+  for (const document of vscode.workspace.textDocuments.filter((open) => uris.has(open.uri.toString()))) {
+    await vscode.window.showTextDocument(document);
+    await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+  }
+}
+
 suite("HMI Builder host: named Live operation", function () {
   this.timeout(15000);
   test("the editor routes its operating connection and closes it with its panel", async () => {
@@ -73,6 +82,15 @@ suite("HMI Builder host: named Live operation", function () {
       assert.deepStrictEqual(requests, ["/api/hmi/page?name=overview"]);
     } finally {
       panel.dispose();
+      // Nothing of this test stays in the language server for the tests after it, where its `PROGRAM Main` would
+      // collide with each project's `Main`. A closed document stays in the server's project while its file exists
+      // (specification 14, 7.2.1), so the folder goes first; the edited documents then close without saving.
+      fs.rmSync(root, { recursive: true, force: true });
+      await discardEdits([program, file]);
     }
+    await until(
+      () => !vscode.workspace.textDocuments.some((open) => open.uri.fsPath === program),
+      "the edited program closes, so that the language server drops it",
+    );
   });
 });

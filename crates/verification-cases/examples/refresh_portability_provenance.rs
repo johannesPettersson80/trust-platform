@@ -291,14 +291,7 @@ selector_name = "current.rs:10:5: replace == with != in probe"
 
     #[test]
     fn discovery_includes_unit_and_integration_pin_files_in_both_crates() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-a4-provenance-{}-{stamp}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trust-a4-provenance");
         let mut expected = Vec::new();
         for package in ["trust-runtime", "trust-runtime-core"] {
             for directory in ["src/runtime/vm/type_policy", "tests"] {

@@ -186,10 +186,7 @@ mod tests {
 
     #[test]
     fn open_answers_with_the_loops_as_its_result() {
-        let folder = Folder(trust_test_support::unique_temp_path(&format!(
-            "trust-serve-open-{}",
-            std::process::id()
-        )));
+        let folder = Folder(trust_test_support::unique_temp_path("trust-serve-open"));
         let _ = fs::remove_dir_all(&folder.0);
         fs::create_dir_all(&folder.0).expect("the project folder");
         fs::write(folder.0.join("control-loop.json"), EXAMPLE).expect("the loop");

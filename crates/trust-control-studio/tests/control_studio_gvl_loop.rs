@@ -119,8 +119,7 @@ fn codesys_copy(folder: &Path) -> PathBuf {
 /// 0.35.0 ("transfer members must belong to one compiled program").
 #[test]
 fn a_loop_kept_in_a_gvl_is_identified_tuned_validated_and_applied() {
-    let folder =
-        trust_test_support::unique_temp_path(&format!("trust-cs-gvl-{}", std::process::id()));
+    let folder = trust_test_support::unique_temp_path("trust-cs-gvl");
     let _ = fs::remove_dir_all(&folder);
     let _remove = RemoveDir(folder.clone());
     let copy = codesys_copy(&folder);

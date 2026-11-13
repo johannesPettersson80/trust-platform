@@ -407,14 +407,7 @@ mod search_provenance_tests {
     /// A project folder labelled `label` with `main` as its program in `src/Main.st` and `simulation` as its
     /// `simulation.toml`.
     fn project(label: &str, main: &str, simulation: &str) -> PathBuf {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = trust_test_support::unique_temp_path(&format!(
-            "{label}-{}-{stamp}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(label);
         std::fs::create_dir_all(root.join("src")).unwrap();
         std::fs::write(root.join("src/Main.st"), main).unwrap();
         std::fs::write(root.join("simulation.toml"), simulation).unwrap();
@@ -534,14 +527,7 @@ mod display_read_tests {
     /// values from its `Hmi.Display` call, also after the program is reloaded.
     #[test]
     fn the_runtime_display_reads_the_debugged_programs_values() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = trust_test_support::unique_temp_path(&format!(
-            "debug-hmi-read-{}-{stamp}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("debug-hmi-read");
         std::fs::create_dir_all(root.join("src")).unwrap();
         std::fs::write(
             root.join("src/hmi.st"),

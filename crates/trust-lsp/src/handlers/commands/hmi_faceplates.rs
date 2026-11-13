@@ -149,14 +149,7 @@ mod tests {
 
     #[test]
     fn the_projects_faceplates_come_first_then_its_libraries_not_of_a_name_it_has() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trustlsp-hmi-faceplates-{}-{stamp}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trustlsp-hmi-faceplates");
         let write = |path: &str, text: &str| {
             let file = root.join(path);
             std::fs::create_dir_all(file.parent().expect("a folder")).expect("folders");

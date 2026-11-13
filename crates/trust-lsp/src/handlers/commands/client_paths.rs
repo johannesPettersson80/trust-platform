@@ -72,10 +72,7 @@ mod path_form_tests {
     /// Keep takes Create PLC code's program for a library's (Windows CI, 28 October 2026).
     #[test]
     fn another_spelling_of_a_project_file_is_named_under_the_clients_root() {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trustlsp-path-forms-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path("trustlsp-path-forms");
         let root = folder.join("project");
         std::fs::create_dir_all(root.join("src")).expect("project folder");
         std::fs::create_dir_all(folder.join("sibling")).expect("sibling folder");
@@ -108,10 +105,7 @@ mod tests {
     /// as outside the project.
     #[test]
     fn a_project_behind_a_link_keeps_the_clients_paths() {
-        let folder = trust_test_support::unique_temp_path(&format!(
-            "trustlsp-client-paths-{}",
-            std::process::id()
-        ));
+        let folder = trust_test_support::unique_temp_path("trustlsp-client-paths");
         let target = folder.join("target");
         std::fs::create_dir_all(target.join("src")).expect("project folder");
         let link = folder.join("link");

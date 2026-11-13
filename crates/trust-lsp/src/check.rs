@@ -345,10 +345,7 @@ mod tests {
 
     impl Project {
         fn new(name: &str) -> Self {
-            let root = trust_test_support::unique_temp_path(&format!(
-                "trust-lsp-check-{name}-{}",
-                std::process::id()
-            ));
+            let root = trust_test_support::unique_temp_path(&format!("trust-lsp-check-{name}"));
             let _ = std::fs::remove_dir_all(&root);
             std::fs::create_dir_all(root.join("src")).expect("src dir");
             std::fs::write(
@@ -488,10 +485,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_project_without_source_files_is_a_usage_error() {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-lsp-check-empty-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path("trust-lsp-check-empty");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("empty project");
         let (status, out, err) =
@@ -558,10 +552,7 @@ mod tests {
 
         /// `files` under a fresh temporary folder.
         fn with_files(name: &str, files: &[(&str, &str)]) -> Self {
-            let root = trust_test_support::unique_temp_path(&format!(
-                "trust-lsp-check-{name}-{}",
-                std::process::id()
-            ));
+            let root = trust_test_support::unique_temp_path(&format!("trust-lsp-check-{name}"));
             let _ = std::fs::remove_dir_all(&root);
             for (path, text) in files {
                 let file = root.join(path);

@@ -198,10 +198,7 @@ fn a_constant_index_inside_the_bounds_is_not_checked() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
-    let work = trust_test_support::unique_temp_path(&format!(
-        "trust-native-indexes-{}",
-        std::process::id()
-    ));
+    let work = trust_test_support::unique_temp_path("trust-native-indexes");
     let built = build(
         &[SourceFile::new(INDEXES)],
         &Options {
@@ -273,8 +270,7 @@ fn a_test_image_runs_its_test_programs_only_when_invoked() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
-    let work =
-        trust_test_support::unique_temp_path(&format!("trust-native-tests-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path("trust-native-tests");
     let built = build_with_tests(
         &[SourceFile::new(WITH_TEST)],
         &["CountsItsRuns".into()],
@@ -360,8 +356,7 @@ END_CONFIGURATION
 fn the_stack_bound_holds_the_frame_of_a_called_function() {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let work =
-        trust_test_support::unique_temp_path(&format!("trust-native-deep-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path("trust-native-deep");
     let built = build(
         &[SourceFile::new(DEEP)],
         &Options {
@@ -414,10 +409,7 @@ policy = \"halt\"
 /// folder `name`, with `settings` as its `trust-lsp.toml` when given: one warmup and four measured
 /// cycles, watching `Main.Count`.
 fn bench_counter(name: &str, settings: Option<&str>) -> serde_json::Value {
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-native-{name}-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path(&format!("trust-native-{name}"));
     let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(project.join("src")).expect("create the project");
     std::fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("write runtime.toml");
@@ -503,10 +495,7 @@ fn built_here(source: &str, label: &str, hooks: bool) -> (Build, Device) {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
-    let work = trust_test_support::unique_temp_path(&format!(
-        "trust-native-{label}-{hooks}-{}",
-        std::process::id()
-    ));
+    let work = trust_test_support::unique_temp_path(&format!("trust-native-{label}-{hooks}"));
     let built = build(
         &[SourceFile::new(source)],
         &Options { target, hooks },

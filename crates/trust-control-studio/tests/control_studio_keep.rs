@@ -31,8 +31,7 @@ const ROOM_HEATING: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/
 /// names it, unresolved: the tool names the files under the root its client gave (specification 13, "Source Mapping"), also
 /// where the temporary folder lies behind a link (macOS) or a short name (Windows).
 fn copy_of(example: &str, name: &str) -> (PathBuf, RemoveDir) {
-    let root =
-        trust_test_support::unique_temp_path(&format!("trust-keep-{name}-{}", std::process::id()));
+    let root = trust_test_support::unique_temp_path(&format!("trust-keep-{name}"));
     let _ = fs::remove_dir_all(&root);
     copy_dir(Path::new(example), &root);
     (root.clone(), RemoveDir(root))

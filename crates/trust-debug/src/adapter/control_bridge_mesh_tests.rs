@@ -7,12 +7,7 @@ use trust_runtime::scheduler::ResourceCommand;
 /// `TRUST_TOOLCHAIN`.
 #[test]
 fn debug_mesh_catalogue_returns_an_explicit_unavailable_result() {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let root =
-        trust_test_support::unique_temp_path(&format!("debug-mesh-{}-{stamp}", std::process::id()));
+    let root = trust_test_support::unique_temp_path("debug-mesh");
     std::fs::create_dir_all(root.join("src")).unwrap();
     std::fs::write(
         root.join("src/Main.st"),

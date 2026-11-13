@@ -121,10 +121,7 @@ mod tests {
 
     /// A folder of its own with `text` as its `trust-lsp.toml`, or none for `None`.
     fn project(name: &str, text: Option<&str>) -> std::path::PathBuf {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-native-settings-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-native-settings-{name}"));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("a test folder");
         if let Some(text) = text {

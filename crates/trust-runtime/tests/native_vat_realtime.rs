@@ -77,8 +77,7 @@ fn the_pasteurizer_runs_in_real_time() {
         .unwrap_or(3_600);
     let target = Target::this_cpu().expect("a computer target");
     let sources = collect_project_source_files(&project, &[]).expect("the project's sources");
-    let work =
-        trust_test_support::unique_temp_path(&format!("trust-native-rt-{}", std::process::id()));
+    let work = trust_test_support::unique_temp_path("trust-native-rt");
     let built = build(
         &sources,
         &Options {

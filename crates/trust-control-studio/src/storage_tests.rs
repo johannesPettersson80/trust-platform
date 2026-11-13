@@ -23,10 +23,7 @@ use trust_control::study::StudySection;
 use super::*;
 
 fn project(name: &str) -> PathBuf {
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-control-storage-{name}-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-control-storage-{name}"));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("project folder");
     root

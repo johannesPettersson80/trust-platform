@@ -529,10 +529,7 @@ fn changed(before: &BTreeMap<String, f64>, after: &BTreeMap<String, f64>, symbol
 #[test]
 #[allow(clippy::too_many_lines)] // One journey through the engine, in the order of a commissioning; each step needs the one before.
 fn pid_group_tunes_validates_applies_and_restores_two_members_without_changing_the_third_pid() {
-    let source = trust_test_support::unique_temp_path(&format!(
-        "trust-cs-pid-group-source-{}",
-        std::process::id()
-    ));
+    let source = trust_test_support::unique_temp_path("trust-cs-pid-group-source");
     let _ = fs::remove_dir_all(&source);
     let _source = RemoveDir(source.clone());
     prepare_source(&source);
@@ -816,10 +813,7 @@ fn pid_group_tunes_validates_applies_and_restores_two_members_without_changing_t
 /// group held them.
 #[test]
 fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime() {
-    let source = trust_test_support::unique_temp_path(&format!(
-        "trust-cs-pid-group-mode-source-{}",
-        std::process::id()
-    ));
+    let source = trust_test_support::unique_temp_path("trust-cs-pid-group-mode-source");
     let _ = fs::remove_dir_all(&source);
     let _source = RemoveDir(source.clone());
     prepare_source_in_auto(&source);
@@ -918,10 +912,7 @@ fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime()
 /// minute at real time.
 #[test]
 fn identify_runs_the_pid_group_campaign_and_returns_the_group_to_auto() {
-    let source = trust_test_support::unique_temp_path(&format!(
-        "trust-cs-pid-group-identify-source-{}",
-        std::process::id()
-    ));
+    let source = trust_test_support::unique_temp_path("trust-cs-pid-group-identify-source");
     let _ = fs::remove_dir_all(&source);
     let _source = RemoveDir(source.clone());
     prepare_source_for_identify(&source);

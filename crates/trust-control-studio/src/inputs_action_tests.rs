@@ -48,10 +48,7 @@ impl Project {
 
     /// A project folder holding the loop file `text`.
     fn with_loop(name: &str, text: &str) -> Self {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-control-studio-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-control-studio-{name}"));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("project");
         fs::write(root.join("control-loop.json"), text).expect("loop");

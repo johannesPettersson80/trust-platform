@@ -231,14 +231,7 @@ mod host {
         #[cfg(unix)]
         #[test]
         fn browser_timeout_terminates_descendants_and_returns_promptly() {
-            let nonce = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let marker = trust_test_support::unique_temp_path(&format!(
-                "trust-browser-descendant-{}-{nonce}",
-                std::process::id()
-            ));
+            let marker = trust_test_support::unique_temp_path("trust-browser-descendant");
             let start = Instant::now();
             let result = execute(
                 Command::new("/bin/sh")
@@ -310,14 +303,7 @@ mod host {
         fn windows_successful_leader_exit_cleans_its_live_descendant() {
             use std::os::windows::process::CommandExt;
 
-            let nonce = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let marker = trust_test_support::unique_temp_path(&format!(
-                "trust-browser-descendant-{}-{nonce}",
-                std::process::id()
-            ));
+            let marker = trust_test_support::unique_temp_path("trust-browser-descendant");
             // cmd.exe does not parse the quoting Rust applies to ordinary arguments, so the
             // command line is passed verbatim; `exit 0` overrides `set /p`'s ERRORLEVEL 1.
             let command = format!(
@@ -342,14 +328,7 @@ mod host {
         #[cfg(windows)]
         #[test]
         fn windows_browser_timeout_terminates_descendants() {
-            let nonce = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let marker = trust_test_support::unique_temp_path(&format!(
-                "trust-browser-descendant-{}-{nonce}",
-                std::process::id()
-            ));
+            let marker = trust_test_support::unique_temp_path("trust-browser-descendant");
             let command = format!(
                 "start \"\" /B cmd.exe /C \"ping -n 3 127.0.0.1 > nul & echo escaped > \"{}\"\" & ping -n 20 127.0.0.1 > nul",
                 marker.display()

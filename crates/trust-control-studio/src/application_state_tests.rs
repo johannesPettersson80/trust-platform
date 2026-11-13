@@ -57,10 +57,8 @@ impl UpdateSink for Ignore {
 
 /// A project folder with the example loop and its working study, and the arguments of `open` for it.
 fn example_project(name: &str) -> (PathBuf, LoopDefinition, Value) {
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-control-application-state-{name}-{}",
-        std::process::id()
-    ));
+    let root =
+        trust_test_support::unique_temp_path(&format!("trust-control-application-state-{name}"));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("project");
     fs::write(root.join("control-loop.json"), EXAMPLE).expect("loop");

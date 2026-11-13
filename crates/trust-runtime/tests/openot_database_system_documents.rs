@@ -23,14 +23,8 @@ const RECEIVE_TIME_NS: u64 = 1_781_000_000_000_000_000;
 fn private_root(label: &str) -> std::path::PathBuf {
     use std::os::unix::fs::PermissionsExt;
 
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-openot-system-documents-{label}-{}-{stamp}",
-        std::process::id()
-    ));
+    let root =
+        trust_test_support::unique_temp_path(&format!("trust-openot-system-documents-{label}"));
     std::fs::create_dir_all(&root).expect("create private fixture root");
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
         .expect("secure fixture root");

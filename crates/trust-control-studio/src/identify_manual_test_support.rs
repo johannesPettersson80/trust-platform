@@ -124,10 +124,7 @@ impl Drop for Project {
 
 impl Project {
     pub(super) fn new(name: &str) -> Self {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-identify-manual-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-identify-manual-{name}"));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("storage")).expect("the storage folder");
         fs::write(root.join("control-loop.json"), EXAMPLE).expect("the loop file");

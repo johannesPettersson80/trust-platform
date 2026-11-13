@@ -124,10 +124,7 @@ fn no_quick_fix_when_the_manifest_names_the_library_or_quick_fixes_are_not_asked
 
 #[test]
 fn the_command_answers_the_view_and_refuses_unknown_actions() {
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-lsp-libraries-answer-{}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path("trust-lsp-libraries-answer");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("project");
     std::fs::write(root.join("trust-lsp.toml"), "include_paths = [\"src\"]\n").expect("manifest");

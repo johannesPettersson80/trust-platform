@@ -500,10 +500,7 @@ fn baseline() -> BaselineSummary {
 
 /// A journal folder of its own for one test.
 fn folder(name: &str) -> PathBuf {
-    let folder = trust_test_support::unique_temp_path(&format!(
-        "trust-identify-{name}-{}",
-        std::process::id()
-    ));
+    let folder = trust_test_support::unique_temp_path(&format!("trust-identify-{name}"));
     let _ = fs::remove_dir_all(&folder);
     folder
 }

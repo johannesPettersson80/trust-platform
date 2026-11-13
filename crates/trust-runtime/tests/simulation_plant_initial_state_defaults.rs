@@ -3,14 +3,7 @@ use trust_runtime::simulation::{SimulationConfig, SimulationController};
 
 #[test]
 fn omitted_initial_state_resolves_to_exact_zero_dimensions_for_every_model() {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let directory = trust_test_support::unique_temp_path(&format!(
-        "trust-omitted-plant-state-{}-{stamp}",
-        std::process::id()
-    ));
+    let directory = trust_test_support::unique_temp_path("trust-omitted-plant-state");
     std::fs::create_dir(&directory).unwrap();
     let cases = [
         ("static_gain", "gain = 2.0", 0, 1),

@@ -20,14 +20,7 @@ fn bundle(title: &str) -> HmiBundle {
 }
 
 fn project(name: &str, first: &HmiBundle) -> std::path::PathBuf {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-hmi-store-{name}-{}-{stamp}",
-        std::process::id()
-    ));
+    let root = trust_test_support::unique_temp_path(&format!("trust-hmi-store-{name}"));
     std::fs::create_dir_all(&root).expect("a folder");
     first.write(&root).expect("the first bundle");
     root

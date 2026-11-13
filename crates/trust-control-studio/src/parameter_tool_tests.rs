@@ -161,10 +161,7 @@ struct Engine {
 
 impl Engine {
     fn new(name: &str) -> Self {
-        let root = trust_test_support::unique_temp_path(&format!(
-            "trust-parameter-tool-{name}-{}",
-            std::process::id()
-        ));
+        let root = trust_test_support::unique_temp_path(&format!("trust-parameter-tool-{name}"));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("the project folder");
         fs::write(root.join("control-loop.json"), LESSON_21).expect("the loop file");

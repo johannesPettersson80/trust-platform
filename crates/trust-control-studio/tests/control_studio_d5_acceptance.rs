@@ -540,8 +540,7 @@ fn text_of(value: &Value, field: &str) -> String {
 #[allow(clippy::too_many_lines)] // The project copy, the runtime, the journey and the evidence, in the order they happen.
 fn room_heating_tic101_is_identified_tuned_validated_applied_restored_and_kept() {
     let started = Instant::now();
-    let folder =
-        trust_test_support::unique_temp_path(&format!("trust-cs-d5-{}", std::process::id()));
+    let folder = trust_test_support::unique_temp_path("trust-cs-d5");
     let _ = fs::remove_dir_all(&folder);
     let _remove = RemoveDir(folder.clone());
     let project = folder.join("project");

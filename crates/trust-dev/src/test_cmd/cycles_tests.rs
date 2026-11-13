@@ -16,10 +16,7 @@ fn results_with_simulation(
     simulation: Option<&str>,
     run: &[&str],
 ) -> Vec<ExecutedTest> {
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-cycles-{label}-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path(&format!("trust-dev-cycles-{label}"));
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(project.join("src/tests.st"), source).expect("write the tests");
     if let Some(simulation) = simulation {
@@ -237,10 +234,7 @@ fn stepping_device() -> (String, std::sync::Arc<std::sync::Mutex<Vec<u64>>>) {
 /// 50 ms, which the device refused with `time before the last step`.
 #[test]
 fn on_a_device_each_test_starts_where_the_previous_test_left_the_stepped_time() {
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-device-time-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path("trust-dev-device-time");
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(
         project.join("src/tests.st"),
@@ -445,10 +439,7 @@ fn stepping_runtime_device(image: Vec<u8>) -> String {
 /// The results of running every test of a project whose only source is `source`, with `simulation` as its
 /// `simulation.toml`, on a device that steps a real program (`stepping_runtime_device`).
 fn results_on_a_stepping_device(label: &str, source: &str, simulation: &str) -> Vec<ExecutedTest> {
-    let project = trust_test_support::unique_temp_path(&format!(
-        "trust-dev-device-{label}-{}",
-        std::process::id()
-    ));
+    let project = trust_test_support::unique_temp_path(&format!("trust-dev-device-{label}"));
     std::fs::create_dir_all(project.join("src")).expect("project folder");
     std::fs::write(project.join("src/tests.st"), source).expect("write the tests");
     std::fs::write(project.join("simulation.toml"), simulation).expect("write the simulation");
