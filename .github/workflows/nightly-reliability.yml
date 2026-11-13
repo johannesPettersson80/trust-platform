@@ -50,6 +50,8 @@ env:
   CARGO_TERM_COLOR: always
   # GitHub runners do not guarantee sccache availability; disable wrapper in CI/nightly reliability.
   RUSTC_WRAPPER: ""
+  # A run builds once and keeps no build cache, so incremental state would only cost time and disk.
+  CARGO_INCREMENTAL: 0
 
 permissions:
   contents: read
@@ -69,10 +71,6 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
 
       - uses: dtolnay/rust-toolchain@1.99.0
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Toolchain for compiled programs (specification 44 §4.6)
         shell: bash
