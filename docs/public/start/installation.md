@@ -48,6 +48,10 @@ Choose the package that matches your machine:
 - `trust-runtime-darwin-arm64.tar.gz`
 - `trust-runtime-win32-x64.zip`
 
+The Linux packages run on every Linux with glibc 2.28 or newer: Debian 10,
+Ubuntu 18.10, Red Hat Enterprise Linux 8 and their later releases. The first
+line of `ldd --version` shows your glibc version.
+
 Use [Install On Target](../operate/install-on-target.md) when you need the
 runtime to survive reboot on a Raspberry Pi or another Linux host.
 
@@ -59,7 +63,7 @@ check that the runtime bundle landed on your machine correctly.
 
 ## If It Did Not Work
 
-### No `Structured Text:` commands appear
+### No `truST:` commands appear
 
 - restart VS Code once
 - confirm the extension is enabled for this workspace
@@ -69,6 +73,15 @@ check that the runtime bundle landed on your machine correctly.
 
 - check the latest GitHub release again
 - if you need an unreleased build, use [Install From Source](install-from-source.md)
+
+### A Linux binary stops with ``version `GLIBC_2.43' not found``
+
+The Linux x64 packages of 0.35.0 to 0.41.1 needed glibc 2.43, so their
+`trust-runtime`, `trust-dev` and debugger did not start on Ubuntu 24.04,
+Debian 13 or older Linux. Their language server needed glibc 2.38. Install
+0.41.2 or newer, whose Linux packages run with glibc 2.28 or newer. Update the
+extension from the Marketplace too: it carries its own copies of these
+programs.
 
 ## Next
 
