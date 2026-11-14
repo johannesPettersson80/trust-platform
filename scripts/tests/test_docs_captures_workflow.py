@@ -212,40 +212,18 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         # whose /bin/bash is 3.2, the runner ended before its first capture, with exit status 0
         # (Codex's review of 0.25.1 and a macOS run, 29 October 2026). The runner runs here under
         # /bin/bash.
-        runner = ROOT / "scripts" / "captures" / "run-terminal-captures.sh"
-        tapes = sorted(
-            tape.relative_to(ROOT).as_posix()
-            for tape in (ROOT / "scripts" / "captures" / "terminal").glob("*.tape")
-        )
+        tapes = terminal_tapes()
         self.assertTrue(tapes)
 
         with tempfile.TemporaryDirectory() as temp:
-            stubs = Path(temp) / "bin"
-            stubs.mkdir()
-            calls = Path(temp) / "docker-calls"
-            (stubs / "cargo").write_text("#!/bin/sh\nexit 0\n")
-            (stubs / "rustc").write_text("#!/bin/sh\necho /opt/rust-sysroot\n")
-            (stubs / "docker").write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" "" >> "{calls}"\n')
-            for stub in stubs.iterdir():
-                stub.chmod(0o755)
-            env = {name: value for name, value in os.environ.items() if name != "TRUST_TOOLCHAIN"}
-            env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
-            env["TRUST_CAPTURE_VHS_IMAGE"] = "vhs-under-test"
 
             def container_arguments(extra_env: dict[str, str]) -> list[list[str]]:
-                calls.unlink(missing_ok=True)
-                result = subprocess.run(
-                    ["/bin/bash", str(runner)],
-                    env={**env, **extra_env},
-                    capture_output=True,
-                    text=True,
-                )
+                result, runs, _ = run_terminal_captures(Path(temp), extra_env)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue(calls.exists(), f"the runner ran no capture: {result.stderr}")
-                runs =[run.split("\n") for run in calls.read_text().split("\n\n") if run]
+                self.assertTrue(tape_runs(runs), f"the runner ran no capture: {result.stderr}")
                 # What follows `-w <working folder>`: the toolchain's arguments, the image, the
                 # tape; sorted, because the shell orders its glob by its locale.
-                return sorted(run[run.index("-w") + 2 :] for run in runs)
+                return sorted(run[run.index("-w") + 2 :] for run in tape_runs(runs))
 
             self.assertEqual(
                 container_arguments({}),
@@ -267,6 +245,107 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
                     for tape in tapes
                 ],
             )
+
+    def test_terminal_captures_run_programs_built_in_cross_that_start_in_the_image(self) -> None:
+        # Catches the terminal captures running programs built on the runner in the vhs image, a
+        # Debian stable system: they bound the runner's newer glibc and stopped at start, and on
+        # 14 November 2026 every terminal capture of main showed only "version `GLIBC_2.43' not
+        # found". The programs are built in cross for x86_64-unknown-linux-gnu, as the release builds
+        # its Linux packages, each program the tapes run starts once in the image before the first
+        # tape, and every tape sees that build as target/debug (specification 22, "Docs Captures").
+        built = f"{ROOT}/target/x86_64-unknown-linux-gnu/debug"
+        with tempfile.TemporaryDirectory() as temp:
+            result, runs, cross = run_terminal_captures(Path(temp), {})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # The container's cargo runs without the repository's sccache wrapper, which its image lacks.
+        self.assertEqual(
+            cross,
+            "--env RUSTC_WRAPPER= | build --target x86_64-unknown-linux-gnu"
+            " -p trust-lsp -p trust-runtime -p trust-debug -p trust-dev",
+        )
+        starts = [run for run in runs if "--version" in run]
+        self.assertEqual(
+            starts,
+            [
+                [
+                    "run",
+                    "--rm",
+                    "-v",
+                    f"{built}:/workspaces/trust-platform/target/debug:ro",
+                    "--entrypoint",
+                    f"/workspaces/trust-platform/target/debug/{program}",
+                    "vhs-under-test",
+                    "--version",
+                ]
+                for program in ("trust-runtime", "trust-dev")
+            ],
+        )
+        self.assertEqual(runs[: len(starts)], starts)
+        self.assertEqual(len(tape_runs(runs)), len(terminal_tapes()))
+        for run in tape_runs(runs):
+            mounts = [run[index + 1] for index, argument in enumerate(run) if argument == "-v"]
+            self.assertIn(f"{built}:/workspaces/trust-platform/target/debug", mounts)
+
+    def test_terminal_captures_stop_when_a_program_does_not_start_in_the_image(self) -> None:
+        # Catches captures that go on after a program failed to start in the image: each tape would
+        # record the loader's error, and the site would show it in place of the command's output.
+        with tempfile.TemporaryDirectory() as temp:
+            result, runs, _ = run_terminal_captures(Path(temp), {"DOCKER_STUB_FAILS_VERSION": "1"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("trust-runtime does not start in vhs-under-test", result.stderr)
+        self.assertEqual(tape_runs(runs), [])
+
+
+def terminal_tapes() -> list[str]:
+    return sorted(
+        tape.relative_to(ROOT).as_posix()
+        for tape in (ROOT / "scripts" / "captures" / "terminal").glob("*.tape")
+    )
+
+
+def run_terminal_captures(
+    temp: Path, extra_env: dict[str, str]
+) -> tuple[subprocess.CompletedProcess[str], list[list[str]], str]:
+    """Runs `run-terminal-captures.sh` under /bin/bash with `cross`, `rustc` and `docker` stubbed: the
+    result, the arguments of each `docker` call in order, and the `cross` call as
+    "<CROSS_CONTAINER_OPTS> | <arguments>". The docker stub fails a `--version` call when
+    DOCKER_STUB_FAILS_VERSION is set."""
+    stubs = temp / "bin"
+    stubs.mkdir(exist_ok=True)
+    docker_calls = temp / "docker-calls"
+    cross_calls = temp / "cross-calls"
+    docker_calls.unlink(missing_ok=True)
+    cross_calls.unlink(missing_ok=True)
+    (stubs / "cross").write_text(f'#!/bin/sh\necho "$CROSS_CONTAINER_OPTS | $*" >> "{cross_calls}"\n')
+    (stubs / "rustc").write_text("#!/bin/sh\necho /opt/rust-sysroot\n")
+    (stubs / "docker").write_text(
+        f'#!/bin/sh\nprintf "%s\\n" "$@" "" >> "{docker_calls}"\n'
+        'case " $* " in *" --version "*) [ -n "$DOCKER_STUB_FAILS_VERSION" ] && exit 1 ;; esac\n'
+        "exit 0\n"
+    )
+    for stub in stubs.iterdir():
+        stub.chmod(0o755)
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("TRUST_TOOLCHAIN", "CARGO_TARGET_DIR")
+    }
+    env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
+    env["TRUST_CAPTURE_VHS_IMAGE"] = "vhs-under-test"
+    result = subprocess.run(
+        ["/bin/bash", str(ROOT / "scripts" / "captures" / "run-terminal-captures.sh")],
+        env={**env, **extra_env},
+        capture_output=True,
+        text=True,
+    )
+    runs = [run.split("\n") for run in docker_calls.read_text().split("\n\n") if run] if docker_calls.exists() else []
+    cross = cross_calls.read_text().strip() if cross_calls.exists() else ""
+    return result, runs, cross
+
+
+def tape_runs(runs: list[list[str]]) -> list[list[str]]:
+    """The `docker` calls that record a tape: those that run in the repository's folder."""
+    return [run for run in runs if "-w" in run]
 
 
 if __name__ == "__main__":

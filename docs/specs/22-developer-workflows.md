@@ -864,6 +864,17 @@ listing's README, which each release may change: 0.25.1's listing no longer
 said "truST LSP", and the capture that waited for it failed every run (29 October
 2026).
 
+The terminal captures record their tapes in the `vhs` image, a Debian stable
+system, and run the programs they show there. A program built on the runner
+binds the runner's glibc and stops at start where that glibc is newer than the
+image's: on 14 November 2026 every terminal capture of `main` showed only
+``version `GLIBC_2.43' not found``. So the capture script builds the programs in
+`cross` for `x86_64-unknown-linux-gnu`, as the release builds its Linux packages
+(specification 24, "Platform Support Matrix"), and the container sees that build
+as `target/debug`, the folder the tapes name. Before the tapes, each program
+that they run starts once in the image with `--version`, and the captures fail
+when one does not start, so that a capture never shows a loader's error.
+
 The documentation site shows the screenshots of `main` without a commit of the
 images. The workflow runs on pull requests, on pushes to `main`, every night and
 by hand, and none of its jobs writes to the repository. It marks the time before
