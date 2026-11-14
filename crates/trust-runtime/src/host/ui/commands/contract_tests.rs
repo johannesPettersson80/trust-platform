@@ -1,4 +1,5 @@
 use super::*;
+use std::io::{BufRead, Write};
 
 use super::control_config::{
     config_set, is_bool_value, parse_bool_value, parse_toml_value, set_simple_response,
@@ -84,12 +85,15 @@ fn scripted_client(
             }
             let request =
                 serde_json::from_str::<serde_json::Value>(&line).expect("decode command request");
+            let id = request["id"].clone();
             captured.lock().expect("lock request log").push(request);
-            let response = responses
+            let mut response = responses
                 .get(response_index)
                 .cloned()
                 .unwrap_or_else(|| json!({"ok": true, "result": {}}));
             response_index += 1;
+            // A runtime answers with its request's id (spec 11, section 6.8.1).
+            response["id"] = id;
             writer
                 .write_all(format!("{response}\n").as_bytes())
                 .and_then(|_| writer.flush())

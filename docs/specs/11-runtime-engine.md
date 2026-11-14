@@ -3422,7 +3422,9 @@ reload within 65 seconds (section 6.7.1), and a client that gave up sooner would
 leave its user without the outcome of a change that may still apply. trust-dev's
 requests to a runtime's socket, those of the agent methods `runtime.reload` and
 `runtime.compile_reload` (specification 20), go through the same shared client
-as `ctl`'s, with these waits and checks.
+as `ctl`'s, with these waits and checks, and so do those of the `trust-runtime
+ui` console, which keeps its connection for its requests: each of them waits as
+its own type gives, so only a reload waits a reload's time.
 
 The breakpoint actions count lines as an editor shows them, from 1, while the
 protocol counts lines and columns from 0 (section 6.13.3): `ctl breakpoints-set
