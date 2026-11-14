@@ -254,15 +254,15 @@
     },
     {
       "path": "images/vscode/vscode-run-check-passed.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code truST Compile passed state capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the truST view after Compile on a copy of examples/memory_marker_counter in code-server (scripts/captures/vscode/run-compile.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-run-simulator-running.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code truST simulator running state capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the simulator running a copy of examples/memory_marker_counter after Start in code-server, with Live Values (scripts/captures/vscode/run-compile.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-st-completion.png",

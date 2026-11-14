@@ -33,6 +33,10 @@ The pictures of "Create A New Project", the truST view of a window without a
 folder and the project that `+ Create project` makes in it, are captured by
 `vscode/create-project.spec.mjs`.
 
+Compile and Start of "Run & Compile" run in a copy of
+`examples/memory_marker_counter` (`vscode/run-compile.spec.mjs`), with the
+toolchain that `TRUST_TOOLCHAIN` names.
+
 ## Current entry points
 
 ```bash
