@@ -67,6 +67,10 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
 
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
+          # The browser captures build the browser IDE's WebAssembly (scripts/build_browser_analysis_wasm_spike.sh).
+          targets: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v2
         with:

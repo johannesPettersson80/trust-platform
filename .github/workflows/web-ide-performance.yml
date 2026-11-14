@@ -61,6 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - name: Free disk space
         shell: bash
         run: |

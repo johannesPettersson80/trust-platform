@@ -32,6 +32,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - name: Compare memory/perf metrics with baseline
         env:
           SALSA_MEMORY_RECORD_IF_MISSING: "1"
@@ -47,11 +49,13 @@ jobs:
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
+      - uses: dtolnay/rust-toolchain@1.99.0
+        # Builds cargo-fuzz; the fuzzing itself runs on nightly (`cargo +nightly fuzz`).
+        with:
+          components: clippy, rustfmt, rust-src
       - uses: dtolnay/rust-toolchain@nightly
       - name: Install cargo-fuzz
-        run: |
-          rustup toolchain install 1.99.0 --profile minimal --no-self-update
-          cargo +1.99.0 install cargo-fuzz --version 0.13.2 --locked
+        run: cargo +1.99.0 install cargo-fuzz --version 0.13.2 --locked
       - name: Run PR smoke fuzz targets
         run: ./scripts/salsa_fuzz_gate.sh smoke
       # Evidence of the fuzzing, whose verdict is the step above: tried twice, and a failed upload never fails the job
@@ -103,11 +107,13 @@ jobs:
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
+      - uses: dtolnay/rust-toolchain@1.99.0
+        # Builds cargo-fuzz; the fuzzing itself runs on nightly (`cargo +nightly fuzz`).
+        with:
+          components: clippy, rustfmt, rust-src
       - uses: dtolnay/rust-toolchain@nightly
       - name: Install cargo-fuzz
-        run: |
-          rustup toolchain install 1.99.0 --profile minimal --no-self-update
-          cargo +1.99.0 install cargo-fuzz --version 0.13.2 --locked
+        run: cargo +1.99.0 install cargo-fuzz --version 0.13.2 --locked
       - name: Run extended fuzz targets
         env:
           SALSA_FUZZ_EXTENDED_SECONDS: "900"

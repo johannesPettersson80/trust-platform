@@ -33,6 +33,8 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
 
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
 
       - name: Build trust-runtime
         run: cargo build -p trust-runtime

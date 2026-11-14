@@ -738,6 +738,19 @@ one each time. The Release workflow's Runtime Validation keeps its cache: it
 runs on `main` only when a release builds there, which a promoted release does
 not, so it saves at most once per version.
 
+Every job installs the Rust toolchain that `rust-toolchain.toml` names in one
+setup step, with the components that file lists (`clippy`, `rustfmt` and
+`rust-src`) and every other component and target the job uses; no later step
+adds one. A rustup download after the setup is outside the setup's retry: when
+the setup leaves a listed component out, the job's first `cargo` or `rustc`
+makes rustup fetch the channel again to install it, and `rustup target add`
+downloads the target's library. On 14 November 2026 such a download failed on
+the runner's DNS and failed a release rehearsal's darwin-x64 toolchain bundle.
+The workflow tests check that each setup step installs the file's channel and
+components and that no other step installs a toolchain, component or target.
+A job that needs nightly, for Miri or fuzzing, installs it in a setup step of
+its own and names the toolchain in each `cargo` command.
+
 ### Documentation that follows the product
 
 The documentation is tested against the product, not only for its links,
