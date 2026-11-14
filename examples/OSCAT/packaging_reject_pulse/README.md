@@ -157,8 +157,8 @@ machines) or `boiler_room_heating_plant/oop` (full alarm-bus model).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/packaging_reject_pulse/non-oop
-trust-runtime test --project examples/OSCAT/packaging_reject_pulse/oop
+trust-dev test --project examples/OSCAT/packaging_reject_pulse/non-oop
+trust-dev test --project examples/OSCAT/packaging_reject_pulse/oop
 ```
 
 ---

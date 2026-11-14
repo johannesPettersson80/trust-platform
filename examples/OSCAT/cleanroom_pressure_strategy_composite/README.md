@@ -173,8 +173,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/cleanroom_pressure_strategy_composite/non-oop
-trust-runtime test --project examples/OSCAT/cleanroom_pressure_strategy_composite/oop
+trust-dev test --project examples/OSCAT/cleanroom_pressure_strategy_composite/non-oop
+trust-dev test --project examples/OSCAT/cleanroom_pressure_strategy_composite/oop
 ```
 
 ---

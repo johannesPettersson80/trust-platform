@@ -83,8 +83,8 @@ and Modbus/MQTT/OPC UA boundaries, look at
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/closed_loop_polymorphism/non-oop
-trust-runtime test --project examples/OSCAT/closed_loop_polymorphism/oop
+trust-dev test --project examples/OSCAT/closed_loop_polymorphism/non-oop
+trust-dev test --project examples/OSCAT/closed_loop_polymorphism/oop
 ```
 
 ---

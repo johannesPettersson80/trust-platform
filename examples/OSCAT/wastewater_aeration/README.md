@@ -148,8 +148,8 @@ For composition combined with patterns inside a real-world plant, see
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/wastewater_aeration/non-oop
-trust-runtime test --project examples/OSCAT/wastewater_aeration/oop
+trust-dev test --project examples/OSCAT/wastewater_aeration/non-oop
+trust-dev test --project examples/OSCAT/wastewater_aeration/oop
 ```
 
 ---

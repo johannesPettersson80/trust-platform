@@ -61,7 +61,7 @@ Expected result:
 Why: JUnit is broadly compatible with CI report viewers.
 
 ```bash
-trust-runtime test --project examples/tutorials/11_unit_testing_102 --ci --output junit > /tmp/trust-tutorial-21-junit.xml
+trust-dev test --project examples/tutorials/11_unit_testing_102 --ci --output junit > /tmp/trust-tutorial-21-junit.xml
 ```
 
 Expected result:
@@ -72,7 +72,7 @@ Expected result:
 Why: JSON is easier for custom dashboards and programmatic quality gates.
 
 ```bash
-trust-runtime test --project examples/tutorials/11_unit_testing_102 --ci --output json > /tmp/trust-tutorial-21-report.json
+trust-dev test --project examples/tutorials/11_unit_testing_102 --ci --output json > /tmp/trust-tutorial-21-report.json
 ```
 
 Expected result:
@@ -125,7 +125,7 @@ Why: containerized CI avoids host drift and missing tools.
 ```bash
 docker build -f docker/ci/trust-runtime-ci.Dockerfile -t trust-runtime-ci:local .
 docker run --rm -v "$PWD":/workspace -w /workspace trust-runtime-ci:local \
-  cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --ci --output junit
+  cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --ci --output junit
 ```
 
 ## Common mistakes

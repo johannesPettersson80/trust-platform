@@ -178,8 +178,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/mixed_vendor_vfd_adapter/non-oop
-trust-runtime test --project examples/OSCAT/mixed_vendor_vfd_adapter/oop
+trust-dev test --project examples/OSCAT/mixed_vendor_vfd_adapter/non-oop
+trust-dev test --project examples/OSCAT/mixed_vendor_vfd_adapter/oop
 ```
 
 ---

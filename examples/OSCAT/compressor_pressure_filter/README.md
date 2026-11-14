@@ -152,8 +152,8 @@ MQTT subscribers).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/compressor_pressure_filter/non-oop
-trust-runtime test --project examples/OSCAT/compressor_pressure_filter/oop
+trust-dev test --project examples/OSCAT/compressor_pressure_filter/non-oop
+trust-dev test --project examples/OSCAT/compressor_pressure_filter/oop
 ```
 
 ---

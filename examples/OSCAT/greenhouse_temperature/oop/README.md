@@ -9,5 +9,5 @@ Read the teaching README one level up:
 Run this project with:
 
 ```bash
-trust-runtime test --project examples/OSCAT/greenhouse_temperature/oop
+trust-dev test --project examples/OSCAT/greenhouse_temperature/oop
 ```

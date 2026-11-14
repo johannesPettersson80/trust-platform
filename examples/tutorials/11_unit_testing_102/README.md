@@ -50,7 +50,7 @@ No physical addresses are needed in tests.
 From repository root:
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102
 ```
 
 ## Step 4: Triage a failure (red-green-refactor)
@@ -70,17 +70,17 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 ## Step 5: Debug one test while iterating
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --filter BAND
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --filter BAND
 ```
 
 ## Step 6: List tests and set timeout
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --list
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --list
 ```
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --timeout 5
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --timeout 5
 ```
 
 `--timeout` is per test case in seconds. `--timeout 0` disables timeout.
@@ -88,11 +88,11 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 ## Step 7: Export machine-readable output for CI
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --output junit
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --output junit
 ```
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/11_unit_testing_102 --output json
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/11_unit_testing_102 --output json
 ```
 
 JSON includes per-test and summary `duration_ms` fields.

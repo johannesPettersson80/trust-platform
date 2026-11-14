@@ -127,7 +127,7 @@ Recommended pre-hardware command set:
 ```bash
 trust-runtime build --project .
 trust-runtime validate --project .
-trust-runtime test --project . --output junit
+trust-dev test --project . --output junit
 ```
 
 ## Common mistakes

@@ -219,8 +219,8 @@ OPC UA exposed records (from `oop/runtime.toml`):
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/pasteurizer_quality_chain/non-oop
-trust-runtime test --project examples/OSCAT/pasteurizer_quality_chain/oop
+trust-dev test --project examples/OSCAT/pasteurizer_quality_chain/non-oop
+trust-dev test --project examples/OSCAT/pasteurizer_quality_chain/oop
 ```
 
 ---

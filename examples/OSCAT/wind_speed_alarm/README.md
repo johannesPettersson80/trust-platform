@@ -149,8 +149,8 @@ inputs) or `wastewater_aeration/oop` (hysteresis combined with a
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/wind_speed_alarm/non-oop
-trust-runtime test --project examples/OSCAT/wind_speed_alarm/oop
+trust-dev test --project examples/OSCAT/wind_speed_alarm/non-oop
+trust-dev test --project examples/OSCAT/wind_speed_alarm/oop
 ```
 
 ---

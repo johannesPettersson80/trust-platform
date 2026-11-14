@@ -152,8 +152,8 @@ lookups).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/weather_station_conversion/non-oop
-trust-runtime test --project examples/OSCAT/weather_station_conversion/oop
+trust-dev test --project examples/OSCAT/weather_station_conversion/non-oop
+trust-dev test --project examples/OSCAT/weather_station_conversion/oop
 ```
 
 ---

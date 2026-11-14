@@ -210,8 +210,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/crane_hoist_adapter_state/non-oop
-trust-runtime test --project examples/OSCAT/crane_hoist_adapter_state/oop
+trust-dev test --project examples/OSCAT/crane_hoist_adapter_state/non-oop
+trust-dev test --project examples/OSCAT/crane_hoist_adapter_state/oop
 ```
 
 ---

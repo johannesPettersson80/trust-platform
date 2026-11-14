@@ -163,8 +163,8 @@ larger plant see `boiler_room_heating_plant/oop`.
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/recipe_batch_stack/non-oop
-trust-runtime test --project examples/OSCAT/recipe_batch_stack/oop
+trust-dev test --project examples/OSCAT/recipe_batch_stack/non-oop
+trust-dev test --project examples/OSCAT/recipe_batch_stack/oop
 ```
 
 ---

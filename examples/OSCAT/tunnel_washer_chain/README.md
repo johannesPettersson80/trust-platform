@@ -206,8 +206,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/tunnel_washer_chain/non-oop
-trust-runtime test --project examples/OSCAT/tunnel_washer_chain/oop
+trust-dev test --project examples/OSCAT/tunnel_washer_chain/non-oop
+trust-dev test --project examples/OSCAT/tunnel_washer_chain/oop
 ```
 
 ---

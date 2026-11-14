@@ -163,8 +163,8 @@ with queues).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/shift_order_queue/non-oop
-trust-runtime test --project examples/OSCAT/shift_order_queue/oop
+trust-dev test --project examples/OSCAT/shift_order_queue/non-oop
+trust-dev test --project examples/OSCAT/shift_order_queue/oop
 ```
 
 ---

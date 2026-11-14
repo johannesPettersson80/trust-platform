@@ -35,8 +35,8 @@ why it fits that process, how to reuse it, and when classic ST is still better.
 ## Run A Pair
 
 ```bash
-trust-runtime test --project examples/OSCAT/airport_baggage_command_observer/non-oop
-trust-runtime test --project examples/OSCAT/airport_baggage_command_observer/oop
+trust-dev test --project examples/OSCAT/airport_baggage_command_observer/non-oop
+trust-dev test --project examples/OSCAT/airport_baggage_command_observer/oop
 ```
 
 ## Catalog

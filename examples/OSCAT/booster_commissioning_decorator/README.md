@@ -184,8 +184,8 @@ to a Modbus tag and the pump driver to a VFD reference.
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/booster_commissioning_decorator/non-oop
-trust-runtime test --project examples/OSCAT/booster_commissioning_decorator/oop
+trust-dev test --project examples/OSCAT/booster_commissioning_decorator/non-oop
+trust-dev test --project examples/OSCAT/booster_commissioning_decorator/oop
 ```
 
 ---

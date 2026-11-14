@@ -162,8 +162,8 @@ the ST tests can drive the component directly.
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/conveyor_pulse/non-oop
-trust-runtime test --project examples/OSCAT/conveyor_pulse/oop
+trust-dev test --project examples/OSCAT/conveyor_pulse/non-oop
+trust-dev test --project examples/OSCAT/conveyor_pulse/oop
 ```
 
 ---
