@@ -1,7 +1,7 @@
 //! Remote control client helpers for attach sessions.
 
-use std::io::{self, BufRead, BufReader, Read, Write};
-use std::net::{SocketAddr, TcpStream};
+use std::io;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -12,11 +12,14 @@ use crate::protocol::{
     EvaluateResponseBody, IoStateEntry, IoStateEventBody, Scope, Source, StackFrame, Variable,
     VariablesArguments,
 };
+use trust_runtime::control::endpoint::socket_client::{self, ConnectFailed};
 use trust_runtime::control::endpoint::{
     control_token_from_env, resolve_control_target, ControlTarget, ControlTargetError,
 };
 use trust_runtime::control::ControlEndpoint;
 
+#[cfg(test)]
+mod client_tests;
 pub(in crate::adapter) mod writes;
 
 type RemoteResult<T> = std::result::Result<T, String>;
@@ -88,7 +91,8 @@ pub struct RemoteSession {
 
 impl RemoteSession {
     pub fn connect(endpoint: RemoteEndpoint, token: Option<String>) -> RemoteResult<Self> {
-        let client = ControlClient::connect(endpoint.clone(), token.clone())?;
+        let client =
+            ControlClient::connect(&endpoint, token.as_deref(), |error| error.to_string())?;
         Ok(Self {
             endpoint,
             token,
@@ -100,8 +104,9 @@ impl RemoteSession {
     /// platform default means that the runtime is not running (spec 11, section 6.8.0a).
     fn connect_target(target: &ControlTarget) -> RemoteResult<Self> {
         let endpoint = to_remote_endpoint(target.endpoint.clone());
-        let client =
-            ControlClient::open(endpoint.clone()).map_err(|error| target.connect_error(&error))?;
+        let client = ControlClient::connect(&endpoint, target.auth_token.as_deref(), |error| {
+            target.connect_error(error)
+        })?;
         Ok(Self {
             endpoint,
             token: target.auth_token.clone(),
@@ -443,15 +448,7 @@ impl RemoteSession {
 
     /// Sends the request `kind` with `params` and reads the runtime's response.
     fn exchange(&mut self, kind: &str, params: Option<Value>) -> RemoteResult<ControlResponse> {
-        let mut payload = json!({
-            "id": self.client.next_id(),
-            "type": kind,
-            "params": params,
-        });
-        if let Some(token) = self.token.as_deref() {
-            payload["auth"] = json!(token);
-        }
-        self.client.request(payload)
+        self.client.request(kind, params)
     }
 }
 
@@ -570,97 +567,36 @@ fn to_remote_endpoint(endpoint: ControlEndpoint) -> RemoteEndpoint {
     }
 }
 
+/// The session's connection to a runtime's socket: the shared control client, with its waits, its
+/// response limit and its checks of a response (specification 11, 6.8.1). The reply to
+/// `bytecode.reload` is awaited as long as the runtime may take to answer it, every other reply 750
+/// milliseconds.
 #[derive(Debug)]
-struct ControlClient {
-    seq: u64,
-    reader: BufReader<ControlStream>,
-}
+struct ControlClient(socket_client::ControlClient);
 
 impl ControlClient {
-    fn connect(endpoint: RemoteEndpoint, _token: Option<String>) -> RemoteResult<Self> {
-        Self::open(endpoint).map_err(|err| err.to_string())
-    }
-
-    /// Opens the connection, keeping the operating-system error so that a caller can tell a
+    /// Connects to `endpoint`; every request of the connection carries `token`. A failed connection
+    /// is worded by `connect_failed` from the operating system's error, so that a caller can tell a
     /// runtime that is not running from another failure.
-    fn open(endpoint: RemoteEndpoint) -> io::Result<Self> {
-        let stream = match endpoint {
-            RemoteEndpoint::Tcp(addr) => ControlStream::Tcp(TcpStream::connect(addr)?),
-            #[cfg(unix)]
-            RemoteEndpoint::Unix(path) => {
-                ControlStream::Unix(std::os::unix::net::UnixStream::connect(path)?)
-            }
-        };
-        Ok(Self {
-            seq: 1,
-            reader: BufReader::new(stream),
-        })
+    fn connect(
+        endpoint: &RemoteEndpoint,
+        token: Option<&str>,
+        connect_failed: impl FnOnce(&io::Error) -> String,
+    ) -> RemoteResult<Self> {
+        socket_client::connect(&to_control_endpoint(endpoint.clone()), token)
+            .map(Self)
+            .map_err(|error| match error.downcast_ref::<ConnectFailed>() {
+                Some(failed) => connect_failed(&failed.error),
+                None => format!("{error:#}"),
+            })
     }
 
-    fn next_id(&mut self) -> u64 {
-        let id = self.seq;
-        self.seq = self.seq.saturating_add(1);
-        id
-    }
-
-    fn request(&mut self, payload: Value) -> RemoteResult<ControlResponse> {
-        exchange(&mut self.reader, &payload)
-    }
-}
-
-/// Sends `payload` as one request line through `reader`'s connection and reads the response line.
-/// The line goes out with its newline in one write: a newline written on its own waits on TCP until
-/// the runtime acknowledges the line before it, 41 to 44 ms a request on Linux and up to 200 ms on
-/// Windows (specification 11, "Runtime control request, job, and state-surface contract").
-fn exchange<S: Read + Write>(
-    reader: &mut BufReader<S>,
-    payload: &Value,
-) -> RemoteResult<ControlResponse> {
-    let line = serde_json::to_string(payload).map_err(|err| err.to_string())?;
-    let stream = reader.get_mut();
-    stream
-        .write_all(format!("{line}\n").as_bytes())
-        .map_err(|err| err.to_string())?;
-    stream.flush().map_err(|err| err.to_string())?;
-    let mut response = String::new();
-    reader
-        .read_line(&mut response)
-        .map_err(|err| err.to_string())?;
-    serde_json::from_str(&response).map_err(|err| err.to_string())
-}
-
-#[derive(Debug)]
-enum ControlStream {
-    Tcp(TcpStream),
-    #[cfg(unix)]
-    Unix(std::os::unix::net::UnixStream),
-}
-
-impl Read for ControlStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            ControlStream::Tcp(stream) => stream.read(buf),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.read(buf),
-        }
-    }
-}
-
-impl Write for ControlStream {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            ControlStream::Tcp(stream) => stream.write(buf),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self {
-            ControlStream::Tcp(stream) => stream.flush(),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.flush(),
-        }
+    /// Sends the request `kind` with `params` and reads the runtime's response.
+    fn request(&mut self, kind: &str, params: Option<Value>) -> RemoteResult<ControlResponse> {
+        let response =
+            socket_client::exchange(&mut self.0, &json!({"type": kind, "params": params}))
+                .map_err(|error| format!("{error:#}"))?;
+        serde_json::from_value(response).map_err(|error| error.to_string())
     }
 }
 
@@ -799,56 +735,5 @@ mod client_source_path_tests {
             elsewhere
         );
         std::fs::remove_dir_all(&folder).expect("remove the project folder");
-    }
-}
-
-#[cfg(test)]
-mod exchange_tests {
-    use std::io::{self, BufReader, Read, Write};
-
-    use serde_json::json;
-
-    use super::exchange;
-
-    /// A control connection that answers with `reply` and keeps each write it is given.
-    struct Recorded {
-        reply: io::Cursor<Vec<u8>>,
-        writes: Vec<Vec<u8>>,
-    }
-
-    impl Read for Recorded {
-        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-            self.reply.read(buf)
-        }
-    }
-
-    impl Write for Recorded {
-        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-            self.writes.push(buf.to_vec());
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    /// Specification 11, "Runtime control request, job, and state-surface contract": a request
-    /// line goes out with its newline in one write. Catches the request written as its JSON and
-    /// then its newline: on TCP the newline waits for the runtime's acknowledgement, 41 to 44 ms a
-    /// debug request on Linux and up to 200 ms on Windows.
-    #[test]
-    fn a_request_line_goes_out_in_one_write() {
-        let mut connection = BufReader::new(Recorded {
-            reply: io::Cursor::new(b"{\"id\":1,\"ok\":true,\"result\":{}}\n".to_vec()),
-            writes: Vec::new(),
-        });
-        let response =
-            exchange(&mut connection, &json!({"id": 1, "type": "debug.state"})).expect("an answer");
-        assert!(response.ok);
-        assert_eq!(
-            connection.get_ref().writes,
-            [b"{\"id\":1,\"type\":\"debug.state\"}\n".to_vec()]
-        );
     }
 }
