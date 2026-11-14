@@ -2,6 +2,7 @@ use super::*;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 use serde_json::json;
+use std::io::{BufRead, Write};
 use std::net::TcpListener;
 use std::thread;
 

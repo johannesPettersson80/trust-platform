@@ -1,85 +1,27 @@
 use super::*;
+use crate::control::endpoint::socket_client::{self, ConnectFailed};
 use crate::control::endpoint::{resolve_control_target, ControlTarget};
 
-pub(super) enum ControlStream {
-    Tcp(std::net::TcpStream),
-    #[cfg(unix)]
-    Unix(std::os::unix::net::UnixStream),
-}
-
-impl Read for ControlStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            ControlStream::Tcp(stream) => stream.read(buf),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.read(buf),
-        }
-    }
-}
-
-impl Write for ControlStream {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            ControlStream::Tcp(stream) => stream.write(buf),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self {
-            ControlStream::Tcp(stream) => stream.flush(),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.flush(),
-        }
-    }
-}
-
-pub(super) struct ControlClient {
-    pub(super) token: Option<String>,
-    pub(super) reader: io::BufReader<ControlStream>,
-}
+/// The console's connection to a runtime's socket: the shared control client, with its waits, its
+/// response limit and its checks of a response (spec 11, section 6.8.1).
+pub(super) struct ControlClient(trust_runtime_client::ControlClient);
 
 impl ControlClient {
-    pub(super) fn connect(endpoint: ControlEndpoint, token: Option<String>) -> io::Result<Self> {
-        let stream = match &endpoint {
-            ControlEndpoint::Tcp(addr) => ControlStream::Tcp(std::net::TcpStream::connect(addr)?),
-            #[cfg(unix)]
-            ControlEndpoint::Unix(path) => {
-                ControlStream::Unix(std::os::unix::net::UnixStream::connect(path)?)
-            }
-        };
-        Ok(Self {
-            token,
-            reader: io::BufReader::new(stream),
-        })
+    /// Connects to `endpoint`; every request of the connection carries `token`. A failed
+    /// connection keeps the operating system's error ([`ConnectFailed`]).
+    pub(super) fn connect(endpoint: ControlEndpoint, token: Option<&str>) -> anyhow::Result<Self> {
+        Ok(Self(socket_client::connect(&endpoint, token)?))
     }
 
+    /// Sends `payload`, a request with its `type` and its `params`, and returns the whole
+    /// response. The reply to `bytecode.reload` is awaited as long as the runtime may take to
+    /// answer it, every other reply 750 milliseconds (spec 11, section 6.8.1).
     pub(super) fn request(
         &mut self,
-        mut payload: serde_json::Value,
+        payload: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
-        if let Some(token) = self.token.as_deref() {
-            payload["auth"] = json!(token);
-        }
-        exchange(&mut self.reader, &payload)
+        socket_client::exchange(&mut self.0, &payload)
     }
-}
-
-/// Sends `payload` as one request line through `reader`'s connection and reads the response line.
-/// The line goes out with its newline in one write (spec 11, "Runtime control request, job, and
-/// state-surface contract").
-fn exchange<S: Read + Write>(
-    reader: &mut io::BufReader<S>,
-    payload: &serde_json::Value,
-) -> anyhow::Result<serde_json::Value> {
-    let line = serde_json::to_string(payload)?;
-    let stream = reader.get_mut();
-    crate::control::write_line(stream, &line)?;
-    stream.flush()?;
-    let mut response = String::new();
-    reader.read_line(&mut response)?;
-    Ok(serde_json::from_str(&response)?)
 }
 
 /// What the console connects to: the project folder, an explicit endpoint and the caller's token
@@ -141,8 +83,12 @@ impl ConsoleTarget {
 /// Connects the console to a resolved target. Nothing listening at the endpoint file's endpoint
 /// or at the platform default means that the runtime is not running (spec 11, section 6.8.0a).
 pub(super) fn connect_console(target: &ControlTarget) -> anyhow::Result<ControlClient> {
-    ControlClient::connect(target.endpoint.clone(), target.auth_token.clone())
-        .map_err(|error| anyhow::anyhow!(target.connect_error(&error)))
+    ControlClient::connect(target.endpoint.clone(), target.auth_token.as_deref()).map_err(|error| {
+        match error.downcast_ref::<ConnectFailed>() {
+            Some(failed) => anyhow::anyhow!(target.connect_error(&failed.error)),
+            None => error,
+        }
+    })
 }
 
 pub(super) fn load_console_config(root: &Path) -> ConsoleConfig {

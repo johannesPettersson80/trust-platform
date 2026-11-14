@@ -1,5 +1,6 @@
 use super::input::{handle_prompt_confirm, handle_prompt_key};
 use super::*;
+use std::io::{BufRead, Write};
 
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
@@ -35,6 +36,18 @@ fn scripted_client(
     Arc<Mutex<Vec<serde_json::Value>>>,
     JoinHandle<()>,
 ) {
+    scripted_client_with_token(responses, None)
+}
+
+/// A scripted runtime and a console client connected to it whose requests carry `token`.
+fn scripted_client_with_token(
+    responses: Vec<serde_json::Value>,
+    token: Option<&str>,
+) -> (
+    ControlClient,
+    Arc<Mutex<Vec<serde_json::Value>>>,
+    JoinHandle<()>,
+) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind scripted control server");
     let address = listener.local_addr().expect("read scripted address");
     let requests = Arc::new(Mutex::new(Vec::new()));
@@ -53,19 +66,22 @@ fn scripted_client(
             }
             let request =
                 serde_json::from_str::<serde_json::Value>(&line).expect("decode console request");
+            let id = request["id"].clone();
             captured.lock().expect("lock request log").push(request);
-            let response = responses
+            let mut response = responses
                 .get(response_index)
                 .cloned()
                 .unwrap_or_else(|| json!({"ok": true, "result": {}}));
             response_index += 1;
+            // A runtime answers with its request's id (spec 11, section 6.8.1).
+            response["id"] = id;
             writer
                 .write_all(format!("{response}\n").as_bytes())
                 .and_then(|_| writer.flush())
                 .expect("write scripted response");
         }
     });
-    let client = ControlClient::connect(ControlEndpoint::Tcp(address), None)
+    let client = ControlClient::connect(ControlEndpoint::Tcp(address), token)
         .expect("connect scripted client");
     (client, requests, server)
 }
@@ -559,8 +575,8 @@ fn fetch_transaction_uses_stable_order_ids_limit_and_auth() {
         json!({"result": []}),
         json!({"result": {}}),
     ];
-    let (mut client, requests, server) = scripted_client(responses);
-    client.token = Some("secret-token".to_string());
+    let (mut client, requests, server) =
+        scripted_client_with_token(responses, Some("secret-token"));
     let data = fetch_data(&mut client).expect("fetch complete console snapshot");
     assert!(data.status.is_some());
     assert!(data.tasks.is_empty());

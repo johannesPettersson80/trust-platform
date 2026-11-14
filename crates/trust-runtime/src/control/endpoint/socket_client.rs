@@ -1,7 +1,7 @@
 //! Requests to a runtime's socket on this computer, through the shared control client
-//! (specification 11, 6.8.1). `trust-runtime ctl` and trust-dev's requests both go through here, so
-//! that a client's waits, the limit of a response line and the checks of a response are the same
-//! for every client of a runtime's socket.
+//! (specification 11, 6.8.1). `trust-runtime ctl`, the `trust-runtime ui` console and trust-dev's
+//! requests go through here, so that a client's waits, the limit of a response line and the checks
+//! of a response are the same for every client of a runtime's socket.
 
 use std::fmt;
 use std::io;
@@ -95,19 +95,29 @@ pub fn connect(endpoint: &ControlEndpoint, auth: Option<&str>) -> anyhow::Result
 }
 
 /// Sends `request`, a request object with its `type` and, when it has them, `auth` and `params`,
-/// to a runtime's socket on this computer over a new connection, waits for the reply as long as
-/// [`reply_wait`] gives for its `type`, and returns the whole response object. The client numbers
-/// the requests of its connection from 1 and writes each as one line.
+/// to a runtime's socket on this computer over a new connection, as [`exchange`] sends it.
 ///
 /// # Errors
-/// The request has no `type`, the connection failed ([`ConnectFailed`]), the exchange failed, or
-/// the response does not carry the request's id.
+/// The connection failed ([`ConnectFailed`]), or as [`exchange`].
 pub fn request(endpoint: &ControlEndpoint, request: &Value) -> anyhow::Result<Value> {
+    let mut client = connect(endpoint, request.get("auth").and_then(Value::as_str))?;
+    exchange(&mut client, request)
+}
+
+/// Sends `request`, a request object with its `type` and, when it has them, `params`, over
+/// `client`'s connection to a runtime's socket, waits for the reply as long as [`reply_wait`]
+/// gives for its `type`, and returns the whole response object. The connection's next request
+/// waits [`REPLY_WAIT`] again, so that a connection the caller keeps, as the `trust-runtime ui`
+/// console does, waits a reload's time only for a reload. The client numbers the requests of its
+/// connection from 1 and writes each as one line; an `id` in `request` is not sent.
+///
+/// # Errors
+/// The request has no `type`, the exchange failed, or the response does not carry the request's id.
+pub fn exchange(client: &mut ControlClient, request: &Value) -> anyhow::Result<Value> {
     let kind = request
         .get("type")
         .and_then(Value::as_str)
         .context("control request missing string 'type'")?;
-    let mut client = connect(endpoint, request.get("auth").and_then(Value::as_str))?;
     let wait = reply_wait(kind);
     if wait != REPLY_WAIT {
         client
@@ -115,7 +125,14 @@ pub fn request(endpoint: &ControlEndpoint, request: &Value) -> anyhow::Result<Va
             .context("set the control endpoint's read and write timeout")?;
     }
     let request_id = client.next_id();
-    let response = client.exchange(kind, request.get("params").cloned())?;
+    let response = client.exchange(kind, request.get("params").cloned());
+    let restored = if wait == REPLY_WAIT {
+        Ok(())
+    } else {
+        client.set_timeout(REPLY_WAIT)
+    };
+    let response = response?;
+    restored.context("set the control endpoint's read and write timeout")?;
     ensure_response_id(&response, request_id)?;
     Ok(response)
 }
