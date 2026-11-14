@@ -40,11 +40,14 @@ if ! docker run --rm \
 fi
 
 # The user settings name the language server and the runtime of that build for every folder a
-# capture opens, not only for the smoke workspace, which names its own.
+# capture opens, not only for the smoke workspace, which names its own. The pictures show truST, so
+# the image's own AI features are off: its chat, its status bar item and the AI light bulb in the
+# editor.
 cat >"$SETTINGS_PATH" <<'EOF'
 {
   "trust.languageServer.executablePath": "/workspaces/trust-platform/target/debug/trust-lsp",
   "trust.runtime.executablePath": "/workspaces/trust-platform/target/debug/trust-runtime",
+  "chat.disableAIFeatures": true,
   "workbench.colorTheme": "Default Dark Modern",
   "security.workspace.trust.enabled": false,
   "workbench.startupEditor": "none",

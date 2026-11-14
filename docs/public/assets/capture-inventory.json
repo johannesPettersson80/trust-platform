@@ -164,9 +164,9 @@
     },
     {
       "path": "images/vscode/iec-diagnostics.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code Problems panel showing IEC-aware diagnostics"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the Problems panel with an IEC rule for a REAL assigned to an INT in a copy of examples/filling_line in code-server (scripts/captures/vscode/editor-language.spec.mjs)"
     },
     {
       "path": "images/vscode/debugger-stopped-at-breakpoint.png",
@@ -176,9 +176,9 @@
     },
     {
       "path": "images/vscode/lsp-rename-across-files.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code rename preview across files for a Structured Text symbol"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the Refactor Preview of a rename of the function block LevelController across the files of a copy of examples/filling_line in code-server (scripts/captures/vscode/editor-language.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-add-device-modbus-form.png",
@@ -266,21 +266,21 @@
     },
     {
       "path": "images/vscode/vscode-st-completion.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code Structured Text completion capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "completion of REAL_TO_I in src/Main.st of a copy of examples/filling_line in code-server (scripts/captures/vscode/editor-language.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-st-hover.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code Structured Text hover capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the hover of the function block LevelController, declared in another file of a copy of examples/filling_line, in code-server (scripts/captures/vscode/editor-language.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-st-syntax.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code Structured Text syntax highlighting capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "src/LevelController.st of a copy of examples/filling_line in code-server, with the count of its references from src/Main.st (scripts/captures/vscode/editor-language.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-test-runner.png",

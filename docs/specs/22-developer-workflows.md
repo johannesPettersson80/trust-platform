@@ -860,7 +860,9 @@ process reaping can complete before the test runner times out.
 The Docs Captures workflow must run for pull-request and main-push changes to
 the runtime Web UI source tree so browser-visible runtime changes cannot bypass
 their registered Playwright journeys. Its change detection uses one list of
-paths for pull requests and pushes to `main`. The Marketplace listing capture waits for the extension's
+paths for pull requests and pushes to `main`. The list holds every shipped
+project that a capture opens, so that a change to the project renders its
+pictures again. The Marketplace listing capture waits for the extension's
 display name and publisher, which hold across releases, not for text of the
 listing's README, which each release may change: 0.25.1's listing no longer
 said "truST LSP", and the capture that waited for it failed every run (29 October
