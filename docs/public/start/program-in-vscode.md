@@ -4,9 +4,11 @@ This is the primary truST engineering workflow.
 
 Start with the shipped tutorial project in desktop VS Code.
 
-![Structured Text with full syntax highlighting and inline reference counts](../assets/images/vscode/vscode-st-syntax.png)
+![The function block LevelController with semantic highlighting and the count of its references](../assets/images/vscode/vscode-st-syntax.png)
 
-*Structured Text with full syntax highlighting and inline reference counts (CodeLens).*
+*The function block `LevelController` of the capstone tutorial `examples/filling_line`, with
+semantic highlighting and, above its declaration, the count of its references in the project
+(CodeLens). The pictures on this page show that project.*
 
 ## What You Get In One Window
 
@@ -39,21 +41,24 @@ code examples/tutorials/12_hmi_pid_process_dashboard
 
 ## IEC-Aware Diagnostics
 
-![IEC-aware diagnostics in VS Code](../assets/images/vscode/iec-diagnostics.png)
+![The Problems panel naming the IEC rule that an assignment breaks](../assets/images/vscode/iec-diagnostics.png)
 
-*Figure:* The Problems panel reports the IEC rule directly, so the editor tells
-you what language rule was broken instead of only showing a generic parser
-failure.
+*Figure:* `PumpSpeedOut := LevelPct;` assigns a `REAL` to an `INT`. The Problems
+panel names the broken rule with its section of IEC 61131-3 and suggests the
+explicit conversion, `REAL_TO_INT`, instead of only reporting a generic error.
 
 ## Completion And Hover
 
-![Context-aware completion popup from the language server](../assets/images/vscode/vscode-st-completion.png)
+![Completion of the standard conversion functions while typing](../assets/images/vscode/vscode-st-completion.png)
 
-*Context-aware completion from the language server — suggesting functions, function blocks, and standard library symbols as you type.*
+*Completion from the language server as you type: after `REAL_TO_I` it offers the standard
+conversion functions from `REAL`. It suggests variables, functions, function blocks and the rest
+of the standard library the same way.*
 
-![Hover showing a resolved Structured Text signature](../assets/images/vscode/vscode-st-hover.png)
+![Hover on a function block showing its declaration from another file](../assets/images/vscode/vscode-st-hover.png)
 
-*Hover shows the resolved signature; go-to-definition, references, and rename work the same way across files.*
+*Hover on `LevelController` in `Main.st` shows the declaration of the function block from
+`LevelController.st`; go to definition, references and rename work across files the same way.*
 
 ## Debug Live
 
@@ -63,10 +68,12 @@ highlight, Variables, and the Call Stack).
 
 ## Refactor Safely
 
-![Rename across files in VS Code](../assets/images/vscode/lsp-rename-across-files.png)
+![The Refactor Preview of a rename across files](../assets/images/vscode/lsp-rename-across-files.png)
 
-*Figure:* Rename a Structured Text symbol across files from the editor and
-preview the affected definition before you apply the change.
+*Figure:* F2 on `LevelController`, a new name, then Ctrl+Enter: the Refactor
+Preview shows every change before you apply it. Here it renames the function
+block where `LevelController.st` declares it, the file itself, and its use in
+`Main.st`.
 
 ## Safe Signals In The Tutorial
 

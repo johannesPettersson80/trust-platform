@@ -6,6 +6,9 @@ crates/trust-runtime/src/web/ui/**
 docs/public/assets/capture-inventory.json
 docs/public/assets/images/**
 editors/vscode/**
+# The shipped projects that the captures open.
+examples/filling_line/**
+examples/memory_marker_counter/**
 examples/tutorials/12_hmi_pid_process_dashboard/**
 manual-tests/trust-lsp-smoke/**
 scripts/build_browser_analysis_wasm_spike.sh

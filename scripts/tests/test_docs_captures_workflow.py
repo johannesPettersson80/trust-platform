@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import posixpath
+import re
 import subprocess
 import tempfile
 import unittest
@@ -393,6 +394,29 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(folder, "/workspaces/trust-platform/target/debug")
         self.assertEqual(settings["trust.languageServer.executablePath"], f"{folder}/trust-lsp")
         self.assertEqual(settings["trust.runtime.executablePath"], f"{folder}/trust-runtime")
+
+    def test_a_change_to_a_project_that_a_code_server_capture_opens_renders_its_pictures_again(self) -> None:
+        # Catches a picture that stays old while the project it shows changes. The code-server captures open shipped
+        # examples (Devices & Connections examples/memory_marker_counter, the editor pictures examples/filling_line),
+        # and a pull request that changes one must run the captures again (specification 22, change detection):
+        # memory_marker_counter was missing from the path list since its capture came (#513).
+        import sys
+
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import ci_changes
+
+        regexes = [ci_changes.pattern_regex(pattern) for pattern in ci_changes.read_patterns(PATHS.read_text())]
+        listed = lambda path: any(regex.match(path) for regex in regexes)
+        opened = set()
+        for spec in sorted((CAPTURES / "vscode").glob("*.spec.mjs")):
+            opened.update(re.findall(r"\bexamples/[A-Za-z0-9_.-]+", spec.read_text()))
+        self.assertGreaterEqual(opened, {"examples/memory_marker_counter", "examples/filling_line"})
+        for project in sorted(opened):
+            files = [path for path in sorted((ROOT / project).rglob("*")) if path.is_file()]
+            self.assertTrue(files, f"a capture opens {project}, which holds no file")
+            for path in files:
+                relative = path.relative_to(ROOT).as_posix()
+                self.assertTrue(listed(relative), f"a capture opens {project}, but a change to {relative} does not run it")
 
     def test_vscode_captures_build_the_language_server_in_cross_before_playwright_waits_for_it(self) -> None:
         # Catches the VS Code captures building the language server on the runner, a build that does

@@ -17,8 +17,11 @@ the public docs.
   capture genuinely depends on native desktop debugger chrome or OS dialogs.
 
 The code-server lane captures command-palette proof for the current public
-`truST` commands, and Devices & Connections of the shipped project
-`examples/memory_marker_counter` (`vscode/devices-overview.spec.mjs`). Runtime
+`truST` commands, Devices & Connections of the shipped project
+`examples/memory_marker_counter` (`vscode/devices-overview.spec.mjs`), and the
+editor pictures of "Program In VS Code" (highlighting, hover, completion, an IEC
+rule in the Problems panel and a rename across files) in a copy of the shipped
+project `examples/filling_line` (`vscode/editor-language.spec.mjs`). Runtime
 lifecycle, Live Values, and test execution remain on their dedicated product
 surfaces rather than leaking into the palette.
 
