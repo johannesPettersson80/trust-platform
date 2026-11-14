@@ -44,10 +44,20 @@ and read the result.
 
 ## Worked Example
 
+The unit-testing tutorial holds sources and tests, so it builds and runs its
+tests:
+
 ```bash
 trust-runtime build --project ./examples/tutorials/10_unit_testing_101 --sources src
-trust-runtime validate --project ./examples/tutorials/10_unit_testing_101
 trust-dev test --project ./examples/tutorials/10_unit_testing_101 --output json
+```
+
+`validate` checks a project that a runtime runs, with its `runtime.toml` and
+`io.toml`; the tutorial has neither, so on it `validate` reports `missing
+runtime.toml`. Validate a shipped runtime project instead:
+
+```bash
+trust-runtime validate --project ./examples/memory_marker_counter
 ```
 
 ![Validation success](../assets/images/terminal/validate-success.gif)

@@ -2,22 +2,25 @@
 
 ## Quick start
 
-Use a small shipped project first:
+Use two small shipped projects first:
 
-- `examples/memory_marker_counter`
+- `examples/memory_marker_counter`, a project that a runtime runs, to build and
+  validate;
+- `examples/tutorials/10_unit_testing_101`, whose ST tests `trust-dev test`
+  runs.
 
 Run:
 
 ```bash
 trust-runtime build --project examples/memory_marker_counter --sources src
 trust-runtime validate --project examples/memory_marker_counter
-trust-dev test --project examples/memory_marker_counter --output human
+trust-dev test --project examples/tutorials/10_unit_testing_101 --output human
 ```
 
 ![CLI build, validate, test](../assets/images/terminal/build-validate-test.gif)
 
-*Figure:* A shipped project built, validated, and tested from the terminal
-before you move to CI or `agent serve`.
+*Figure:* Shipped projects built, validated, and tested from the terminal before
+you move to CI or `agent serve`.
 
 ## Describe the Agent API
 
