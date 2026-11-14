@@ -1,10 +1,9 @@
 //! Agent-facing control request helpers.
 
-use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
-use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
+use trust_runtime::control::endpoint::socket_client::{self, ConnectFailed};
 use trust_runtime::control::endpoint::{control_token_from_env, ControlTarget};
 use trust_runtime::control::ControlEndpoint;
 
@@ -21,7 +20,6 @@ pub(crate) fn call_control_request(
     let token = token.or_else(control_token_from_env);
     let target = resolve_control_target(bundle, endpoint, token)?;
     let request = json!({
-        "id": 1,
         "type": request_type,
         "auth": target.auth_token.as_deref(),
         "params": params,
@@ -71,42 +69,18 @@ fn resolve_control_target(
     )?)
 }
 
-/// Sends one request. A failed connection is reported through the target, so nothing listening
-/// at the project's own endpoint reads as a runtime that is not running (spec 11, section 6.8.0a).
+/// Sends one request through the shared control client of a runtime's socket, with the waits,
+/// the response limit and the checks that `trust-runtime ctl` has (spec 11, section 6.8.1). A
+/// failed connection is reported through the target, so nothing listening at the project's own
+/// endpoint reads as a runtime that is not running (spec 11, section 6.8.0a).
 fn send_control_request_value(
     target: &ControlTarget,
     request: &JsonValue,
 ) -> anyhow::Result<JsonValue> {
-    let connect_error = |error: std::io::Error| anyhow::anyhow!(target.connect_error(&error));
-    match &target.endpoint {
-        ControlEndpoint::Tcp(addr) => {
-            let mut stream = std::net::TcpStream::connect(addr).map_err(connect_error)?;
-            let mut reader = BufReader::new(stream.try_clone()?);
-            exchange_control_request(&mut stream, &mut reader, request)
+    socket_client::request(&target.endpoint, request).map_err(|error| {
+        match error.downcast_ref::<ConnectFailed>() {
+            Some(failed) => anyhow::anyhow!(target.connect_error(&failed.error)),
+            None => error,
         }
-        #[cfg(unix)]
-        ControlEndpoint::Unix(path) => {
-            let mut stream =
-                std::os::unix::net::UnixStream::connect(path).map_err(connect_error)?;
-            let mut reader = BufReader::new(stream.try_clone()?);
-            exchange_control_request(&mut stream, &mut reader, request)
-        }
-    }
-}
-
-fn exchange_control_request<S: Write, R: BufRead>(
-    stream: &mut S,
-    reader: &mut R,
-    request: &JsonValue,
-) -> anyhow::Result<JsonValue> {
-    let line = serde_json::to_string(request)?;
-    // One write: a newline written on its own waits for the runtime's acknowledgement.
-    stream.write_all(format!("{line}\n").as_bytes())?;
-    stream.flush()?;
-    let mut response = String::new();
-    reader.read_line(&mut response)?;
-    if response.trim().is_empty() {
-        anyhow::bail!("empty control response");
-    }
-    serde_json::from_str::<JsonValue>(response.trim_end()).context("parse control response")
+    })
 }

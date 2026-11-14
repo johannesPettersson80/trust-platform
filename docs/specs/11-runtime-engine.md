@@ -2810,7 +2810,12 @@ A reload request waits up to five seconds for the resource to take it. If the
 resource has not started applying the request by then, the request is withdrawn
 and never applied, and the reply reports the timeout; once the resource has
 started applying it, the reply reports the commit or preparation result. A
-reload therefore never commits after its caller was told it timed out.
+reload therefore never commits after its caller was told it timed out. The
+runtime waits at most 60 seconds more for that result; a request that the
+resource took and whose result has not come by then is answered `reload commit
+outcome is unknown`, because it may still commit. The reply to a reload
+therefore comes within 65 seconds, and a client waits up to 70 seconds for it
+(section 6.8.1).
 
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
@@ -3411,7 +3416,13 @@ a command failure and must produce a non-zero process exit rather than being
 printed as a successful scripted result. A TCP connection attempt is bounded to
 500 milliseconds;
 after a TCP or Unix connection is established, reads and writes are bounded to
-750 milliseconds, and a response line may not exceed 1 MiB.
+750 milliseconds, and a response line may not exceed 1 MiB. A client that sends
+`bytecode.reload` waits at most 70 seconds for its reply: the runtime answers a
+reload within 65 seconds (section 6.7.1), and a client that gave up sooner would
+leave its user without the outcome of a change that may still apply. trust-dev's
+requests to a runtime's socket, those of the agent methods `runtime.reload` and
+`runtime.compile_reload` (specification 20), go through the same shared client
+as `ctl`'s, with these waits and checks.
 
 The breakpoint actions count lines as an editor shows them, from 1, while the
 protocol counts lines and columns from 0 (section 6.13.3): `ctl breakpoints-set

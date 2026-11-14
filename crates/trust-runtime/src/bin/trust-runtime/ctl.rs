@@ -6,6 +6,7 @@ use std::time::Duration;
 use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use trust_runtime::config::RuntimeConfig;
+use trust_runtime::control::endpoint::socket_client::{self, ConnectFailed};
 use trust_runtime::control::endpoint::{control_token_from_env, ControlTarget};
 use trust_runtime::control::ControlEndpoint;
 use trust_runtime_client::{ControlClient, ControlEndpoint as ClientEndpoint, VersionAdvice};
@@ -23,14 +24,16 @@ mod firmware;
 #[path = "ctl/install.rs"]
 mod install;
 
-const CONTROL_CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
-const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(750);
+/// The waits and the response limit of a runtime's socket on this computer, which every client of
+/// one shares (specification 11, 6.8.1).
+const CONTROL_CONNECT_TIMEOUT: Duration = socket_client::CONNECT_WAIT;
+const CONTROL_IO_TIMEOUT: Duration = socket_client::REPLY_WAIT;
 /// How long a chip's serial port may take to answer one request (specification 11, 6.8.1).
 const SERIAL_IO_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a chip on the network may take to accept the connection and to answer one request: as
 /// long as its serial port (specification 11, 6.8.1).
 const NETWORK_IO_TIMEOUT: Duration = SERIAL_IO_TIMEOUT;
-const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
+const MAX_CONTROL_RESPONSE_BYTES: usize = socket_client::MAX_RESPONSE_BYTES;
 
 /// Where `ctl` sends its requests (specification 11, 6.8.1).
 #[derive(Debug, Clone)]
@@ -170,27 +173,6 @@ fn configured_token(project: Option<&Path>) -> anyhow::Result<Option<String>> {
         .map(|token| token.to_string()))
 }
 
-/// The connection step failed before any request was written. It keeps the operating-system
-/// error, so that the target can tell a runtime that is not running from another failure (spec
-/// 11, section 6.8.0a).
-#[derive(Debug)]
-struct ConnectFailed {
-    endpoint: String,
-    error: std::io::Error,
-}
-
-impl std::fmt::Display for ConnectFailed {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            formatter,
-            "connect control endpoint {}: {}",
-            self.endpoint, self.error
-        )
-    }
-}
-
-impl std::error::Error for ConnectFailed {}
-
 fn send_control_request(
     target: &ResolvedControlTarget,
     action: &ControlAction,
@@ -202,7 +184,7 @@ fn send_control_request(
         CtlEndpoint::Socket(socket) => {
             // The version check goes over a connection of its own (specification 11, 6.8.1).
             advise_version(
-                socket_client(socket, target.auth_token.as_deref())
+                socket_client::connect(socket, target.auth_token.as_deref())
                     .and_then(|mut client| client.version_check().map_err(anyhow::Error::from)),
             );
             send_control_request_value(socket, &request).map_err(|error| target.reported(error))?
@@ -292,17 +274,8 @@ fn exchange_with(client: &mut ControlClient, request: &JsonValue) -> anyhow::Res
         .and_then(JsonValue::as_str)
         .context("control request missing string 'type'")?;
     let response = client.exchange(kind, request.get("params").cloned())?;
-    ensure_response_id(&response, request_id)?;
+    socket_client::ensure_response_id(&response, request_id)?;
     Ok(response)
-}
-
-/// A response must carry the id of its request: a missing, noninteger or other id is a protocol
-/// failure (specification 11, 6.8.1).
-fn ensure_response_id(response: &JsonValue, request_id: u64) -> anyhow::Result<()> {
-    if response.get("id").and_then(JsonValue::as_u64) != Some(request_id) {
-        anyhow::bail!("control response id is missing or does not match request id {request_id}");
-    }
-    Ok(())
 }
 
 pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
@@ -328,39 +301,7 @@ pub(crate) fn send_control_request_value(
     endpoint: &ControlEndpoint,
     request: &JsonValue,
 ) -> anyhow::Result<JsonValue> {
-    let auth = request.get("auth").and_then(JsonValue::as_str);
-    exchange_with(&mut socket_client(endpoint, auth)?, request)
-}
-
-/// The shared client over a new connection to a runtime's socket on this computer: a TCP
-/// connection attempt of at most 500 milliseconds, then reads and writes of at most 750 each and a
-/// response line of at most 1 MiB (specification 11, 6.8.1). The command connects itself, so that a
-/// failed connection keeps the operating-system error that tells a runtime that is not running from
-/// another failure (section 6.8.0a).
-fn socket_client(endpoint: &ControlEndpoint, auth: Option<&str>) -> anyhow::Result<ControlClient> {
-    let client = match endpoint {
-        ControlEndpoint::Tcp(addr) => ControlClient::from_stream(
-            std::net::TcpStream::connect_timeout(addr, CONTROL_CONNECT_TIMEOUT).map_err(
-                |error| ConnectFailed {
-                    endpoint: format!("tcp://{addr}"),
-                    error,
-                },
-            )?,
-            auth,
-        ),
-        #[cfg(unix)]
-        ControlEndpoint::Unix(path) => ControlClient::from_stream(
-            std::os::unix::net::UnixStream::connect(path).map_err(|error| ConnectFailed {
-                endpoint: format!("unix://{}", path.display()),
-                error,
-            })?,
-            auth,
-        ),
-    };
-    client
-        .set_timeout(CONTROL_IO_TIMEOUT)
-        .context("set the control endpoint's read and write timeout")?;
-    Ok(client.with_response_limit(MAX_CONTROL_RESPONSE_BYTES))
+    socket_client::request(endpoint, request)
 }
 
 fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyhow::Result<()> {
