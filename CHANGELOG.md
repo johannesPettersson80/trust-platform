@@ -6,6 +6,26 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.41.2] - 2026-11-14
+
+### Changed
+
+- `trust-runtime ctl`, `trust-runtime identify` and the `ads server` commands send their requests to a
+  runtime on this computer through the shared control client, as they already did to a chip, instead of
+  a copy of it. An invalid answer is reported in the client's words, and a request without a token
+  carries no `auth` member (specification 11 §6.8.1).
+
+### Fixed
+
+- The Linux x64 packages start again on Linux with an older glibc. From 0.35.0 to 0.41.1, `trust-runtime` and
+  `trust-dev` (in 0.41.1 also `trust-debug`) needed glibc 2.43 and failed on Ubuntu 24.04 and Debian 13 with
+  ``version `GLIBC_2.43' not found``, and `trust-lsp` needed glibc 2.38, which Debian 12 and Ubuntu 22.04 lack. The
+  Linux x64 binaries are now built as the Linux arm64 ones are, and run on every Linux with glibc 2.28 or newer; a
+  release refuses a Linux binary that needs a newer glibc (specification 24).
+- The control client used by the extension, Control Studio and the command line refuses an answer that
+  ends before its line end, for example from a runtime that stopped while it answered, instead of
+  taking it as complete (specification 11 §6.8.1).
+
 ## [0.41.1] - 2026-11-13
 
 ### Fixed
