@@ -10,12 +10,15 @@
 mod defaults;
 mod file;
 mod gitignore;
+pub mod socket_client;
 mod token_file;
 
 #[cfg(test)]
 mod defaults_tests;
 #[cfg(test)]
 mod publication_tests;
+#[cfg(test)]
+mod socket_client_tests;
 #[cfg(test)]
 mod store_files_tests;
 #[cfg(test)]
