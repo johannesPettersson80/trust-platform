@@ -3423,8 +3423,10 @@ leave its user without the outcome of a change that may still apply. trust-dev's
 requests to a runtime's socket, those of the agent methods `runtime.reload` and
 `runtime.compile_reload` (specification 20), go through the same shared client
 as `ctl`'s, with these waits and checks, and so do those of the `trust-runtime
-ui` console, which keeps its connection for its requests: each of them waits as
-its own type gives, so only a reload waits a reload's time.
+ui` console and of the debug adapter's session with a running runtime
+(specification 13, "Attach / Detach"), which keep their connection for their
+requests: each of them waits as its own type gives, so only a reload waits a
+reload's time.
 
 The breakpoint actions count lines as an editor shows them, from 1, while the
 protocol counts lines and columns from 0 (section 6.13.3): `ctl breakpoints-set

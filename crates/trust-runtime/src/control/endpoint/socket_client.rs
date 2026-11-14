@@ -9,7 +9,8 @@ use std::time::Duration;
 
 use anyhow::Context;
 use serde_json::Value;
-use trust_runtime_client::ControlClient;
+/// The shared control client that [`connect`] gives, so that a caller of another crate can keep it.
+pub use trust_runtime_client::ControlClient;
 
 use super::ControlEndpoint;
 
