@@ -874,8 +874,10 @@ built on the same system stopped in the `code-server` image with the same error.
 So the captures build these programs in `cross` for `x86_64-unknown-linux-gnu`,
 as the release builds its Linux packages (specification 24, "Platform Support
 Matrix"), and each container sees that build as `target/debug`: the folder the
-tapes name, and the language server that the captured workspace names
-(`trust-lsp.server.path`). Before the tapes, each program that they run starts
+tapes name, and the language server and runtime that the `code-server` user
+settings name for every folder a capture opens
+(`trust.languageServer.executablePath`, `trust.runtime.executablePath`). Before
+the tapes, each program that they run starts
 once in the `vhs` image with `--version`, and before `code-server` starts, the
 language server starts once in its image with `command --help`. The captures
 fail when one does not start, so that a capture never shows a loader's error or

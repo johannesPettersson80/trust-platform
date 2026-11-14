@@ -218,9 +218,9 @@
     },
     {
       "path": "images/vscode/vscode-devices-overview.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code Devices & Connections overview capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "Devices & Connections of examples/memory_marker_counter in code-server (scripts/captures/vscode/devices-overview.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-live-values-force.png",
