@@ -45,6 +45,12 @@ async function runCommand(page, title) {
 /** Moves the cursor and waits until the status bar shows it there, so that keys typed next reach that place. */
 async function goTo(page, { line, column }) {
   const widget = await quickInput(page, `:${line}:${column}`);
+  // The palette turns into Go to Line once it has read the colon; an Enter before that goes nowhere,
+  // and the palette stays open (two captures of #520's first Docs Captures run).
+  await expect(widget.locator(".quick-input-list")).toContainText(
+    `go to line ${line} at column ${column}`,
+    { timeout: 10_000 }
+  );
   await page.keyboard.press("Enter");
   await expect(widget).toBeHidden({ timeout: 10_000 });
   await expect(page.getByRole("button", { name: /^Ln \d+, Col \d+$/ })).toHaveText(`Ln ${line}, Col ${column}`, {
