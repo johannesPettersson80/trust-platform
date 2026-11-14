@@ -206,7 +206,7 @@ jobs:
         run: |
           python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan \
             scripts.tests.test_check_release_bundle scripts.tests.test_check_published_release \
-            scripts.release_artifact_generators_tests -v
+            scripts.tests.test_wait_for_run_artifact scripts.release_artifact_generators_tests -v
       - name: Guard the Test jobs' one build
         run: python3 -m unittest scripts.tests.test_ci_test_jobs -v
       - name: Guard the docs' command and setting names
@@ -230,6 +230,15 @@ jobs:
         run: |
           python3 -m unittest scripts.tests.test_check_test_ports -v
           python3 ./scripts/check_test_ports.py
+      - name: Guard the editor smoke, comms conformance and mesh TLS gates
+        run: |
+          python3 -m unittest scripts.tests.test_editor_integration_smoke \
+            scripts.tests.test_runtime_comms_conformance_gate scripts.tests.test_runtime_mesh_tls_gate -v
+      - name: Guard the database runner's prepare and teardown
+        run: python3 -m unittest scripts.tests.test_openot_database_runner_contract -v
+      - name: Guard that CI runs every Python test module
+        # A test module that no workflow or gate script names never runs (specification 22).
+        run: python3 -m unittest scripts.tests.test_ci_runs_every_test_module -v
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}
