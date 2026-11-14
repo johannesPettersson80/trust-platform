@@ -81,13 +81,18 @@ if ! (
 fi
 
 # code-server runs without its update check, whose notice of a newer release would cover the corner of
-# a picture.
+# a picture. It runs as this computer's user, as the terminal captures' container does, so that what it
+# writes into the repository, such as the project that Create Project makes, belongs to that user: as
+# the image's own user it could write nothing into a checkout that another user owns, as the runner's
+# is. Its home is in the container's /tmp, where that user can write.
 exec docker run \
   --rm \
   --name "$CONTAINER_NAME" \
   --entrypoint sh \
+  -u "$(id -u):$(id -g)" \
+  -e HOME=/tmp/trust-docs-code-server-home \
   -p "127.0.0.1:${PORT}:8080" \
   -v "$ROOT_DIR:/workspaces/trust-platform" \
   -v "$programs:/workspaces/trust-platform/target/debug:ro" \
   "$IMAGE" \
-  -lc "USER_DATA_DIR=/tmp/trust-docs-code-server-user-data; EXTENSIONS_DIR=/tmp/trust-docs-code-server-extensions; mkdir -p \"\${USER_DATA_DIR}/User\" \"\${EXTENSIONS_DIR}\"; cp /workspaces/trust-platform/scripts/captures/.cache/code-server-settings.json \"\${USER_DATA_DIR}/User/settings.json\"; code-server --install-extension /workspaces/trust-platform/scripts/captures/.cache/trust-lsp.vsix --force --user-data-dir \"\${USER_DATA_DIR}\" --extensions-dir \"\${EXTENSIONS_DIR}\" >/tmp/trust-install.log 2>&1 || { cat /tmp/trust-install.log >&2; exit 1; }; exec code-server --bind-addr 0.0.0.0:8080 --auth none --disable-telemetry --disable-update-check --disable-workspace-trust --user-data-dir \"\${USER_DATA_DIR}\" --extensions-dir \"\${EXTENSIONS_DIR}\" ${WORKSPACE_PATH_IN_CONTAINER}"
+  -lc "USER_DATA_DIR=/tmp/trust-docs-code-server-user-data; EXTENSIONS_DIR=/tmp/trust-docs-code-server-extensions; mkdir -p \"\${HOME}\" \"\${USER_DATA_DIR}/User\" \"\${EXTENSIONS_DIR}\"; cp /workspaces/trust-platform/scripts/captures/.cache/code-server-settings.json \"\${USER_DATA_DIR}/User/settings.json\"; code-server --install-extension /workspaces/trust-platform/scripts/captures/.cache/trust-lsp.vsix --force --user-data-dir \"\${USER_DATA_DIR}\" --extensions-dir \"\${EXTENSIONS_DIR}\" >/tmp/trust-install.log 2>&1 || { cat /tmp/trust-install.log >&2; exit 1; }; exec code-server --bind-addr 0.0.0.0:8080 --auth none --disable-telemetry --disable-update-check --disable-workspace-trust --user-data-dir \"\${USER_DATA_DIR}\" --extensions-dir \"\${EXTENSIONS_DIR}\" ${WORKSPACE_PATH_IN_CONTAINER}"

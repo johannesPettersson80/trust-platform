@@ -378,6 +378,21 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         server = run[-1].rsplit("exec code-server ", 1)[1].split()
         self.assertIn("--disable-update-check", server)
 
+    def test_code_server_writes_as_the_user_who_runs_the_captures(self) -> None:
+        # Catches a capture that cannot write into the repository: as the image's own user, code-server could not create
+        # the project of "Create A New Project" in the runner's checkout, which another user owns, and the window never
+        # opened it (#523's first Docs Captures run, 14 November 2026). It runs as the user who runs the captures, as
+        # the terminal captures' container does, with a home in the container's /tmp (specification 22, "Docs
+        # Captures").
+        with tempfile.TemporaryDirectory() as temp:
+            result, calls = run_stubbed(Path(temp), ["/bin/bash", str(CAPTURES / "vscode" / "start-code-server.sh")], {})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        (run,) = code_server_runs(calls)
+        self.assertEqual(run[run.index("-u") + 1], f"{os.getuid()}:{os.getgid()}")
+        home = run[run.index("-e") + 1]
+        self.assertEqual(home, "HOME=/tmp/trust-docs-code-server-home")
+        self.assertIn('mkdir -p "${HOME}"', run[-1])
+
     def test_code_server_settings_name_the_mounted_programs_for_every_folder(self) -> None:
         # Catches a capture of a folder other than the smoke workspace running the extension without
         # its programs. The smoke workspace names its language server itself, but a folder that a
