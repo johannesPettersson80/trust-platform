@@ -39,8 +39,12 @@ if ! docker run --rm \
   exit 1
 fi
 
+# The user settings name the language server and the runtime of that build for every folder a
+# capture opens, not only for the smoke workspace, which names its own.
 cat >"$SETTINGS_PATH" <<'EOF'
 {
+  "trust.languageServer.executablePath": "/workspaces/trust-platform/target/debug/trust-lsp",
+  "trust.runtime.executablePath": "/workspaces/trust-platform/target/debug/trust-runtime",
   "workbench.colorTheme": "Default Dark Modern",
   "security.workspace.trust.enabled": false,
   "workbench.startupEditor": "none",

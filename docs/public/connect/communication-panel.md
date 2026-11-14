@@ -14,17 +14,20 @@ In the truST view, click **Devices & Connections**. The graph opens as an editor
 
 ## Read the graph
 
-![Devices & Connections: a host card with a stopped truST runtime and a simulated I/O endpoint](../assets/images/vscode/vscode-devices-overview.png)
+![Devices & Connections: This computer, with the stopped Simulator as the run target and a simulated I/O endpoint](../assets/images/vscode/vscode-devices-overview.png)
 
-*Devices & Connections shows your whole topology as a node graph — here one host, one runtime (Stopped, shown grey), and a Simulated I/O endpoint. Nothing is green until the runtime is running and the connection is proven.*
+*Devices & Connections shows your whole topology as a node graph — here the shipped project `examples/memory_marker_counter`: one host, one runtime (the Simulator, Stopped, shown grey), and a Simulated I/O endpoint. Nothing is green until the runtime is running and the connection is proven.*
 
 The graph nests **Host → Runtime → Endpoint**:
 
-- **Host** (e.g. `raspberrypi`) — the machine the runtime runs on; its badge is *reachability*
-  (**Reachable**), not the runtime's run state.
-- **Runtime** (e.g. `truST runtime`) — your runtime, shown **Stopped** in grey until you start it. truST
-  never shows a fabricated green: a node is green only when it is genuinely running/connected.
-- **Endpoints** — each device or service on the runtime, with a role badge (here **Simulated · I/O**).
+- **Host** — the machine the runtime runs on: **This computer** for the one VS Code runs on, `Computer
+  <IP>` for another computer, or a chip's name and address. Its badge is *reachability* (**Reachable**),
+  not the runtime's run state.
+- **Runtime** — your runtime, or the **Simulator** while it is the run target (badge **Run target**), as
+  here; shown **Stopped** in grey until you start it. truST never shows a fabricated green: a node is
+  green only when it is genuinely running/connected.
+- **Endpoints** — each device or service on the runtime, with a role badge (here **Simulated I/O**, role
+  **I/O**).
   As you add devices, Modbus, MQTT, OPC UA, and other endpoints appear here, and the external systems they
   link out to render as connected nodes.
 
@@ -43,6 +46,8 @@ The footer summarizes the topology (**1 host · 1 runtime · 1 endpoint**).
 - **Discover** — scan for devices, servers, and other runtimes. *Discovered* means *seen*, not connected
   or live.
 - **+ Add** — open the device/connection picker for the selected or default runtime.
+- **Edit** — edit mode, which shows **+** on each runtime to add a device or service there; **Done**
+  leaves it.
 
 ## Add a device
 

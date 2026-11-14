@@ -17,8 +17,10 @@ the public docs.
   capture genuinely depends on native desktop debugger chrome or OS dialogs.
 
 The code-server lane captures command-palette proof for the current public
-`truST` commands. Runtime lifecycle, Live Values, and test execution remain on
-their dedicated product surfaces rather than leaking into the palette.
+`truST` commands, and Devices & Connections of the shipped project
+`examples/memory_marker_counter` (`vscode/devices-overview.spec.mjs`). Runtime
+lifecycle, Live Values, and test execution remain on their dedicated product
+surfaces rather than leaking into the palette.
 
 ## Current entry points
 
@@ -62,10 +64,10 @@ These commands write checked-in assets directly to:
   once in the image before the tapes run: a program built on the runner needs
   the runner's newer glibc and showed only the loader's error.
 - VS Code captures run on GitHub-hosted Linux runners with Playwright plus a
-  disposable `code-server` Docker container, also a Debian stable system. The
-  captured workspace names `target/debug/trust-lsp` as its language server, and
-  the container sees the `cross` build there; the language server starts once in
-  the image before `code-server` does.
+  disposable `code-server` Docker container, also a Debian stable system. Its
+  user settings name `target/debug/trust-lsp` and `target/debug/trust-runtime`
+  for every folder a capture opens, and the container sees the `cross` build
+  there; the language server starts once in the image before `code-server` does.
 - The checked-in completeness contract lives in
   `docs/public/assets/capture-inventory.json`.
 - That inventory only enforces the subset of captures that are currently
