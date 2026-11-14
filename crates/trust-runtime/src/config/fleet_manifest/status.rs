@@ -3,22 +3,19 @@
 //! broke, so that a stop can tell a runtime that went away from a status that is unknown.
 
 use std::fs;
-use std::io::{BufRead, BufReader, Read};
-use std::net::TcpStream;
 use std::path::Path;
-use std::time::Duration;
 
 use anyhow::Context;
 use serde::Serialize;
+use trust_runtime_client::ControlError;
 
+use crate::control::endpoint::socket_client::{self, ConnectFailed};
 use crate::control::ControlEndpoint;
 
 use super::{
     lifecycle_paths, read_control_auth_token, runtime_project_path, FleetManifestRuntime,
     FLEET_MANIFEST_SCHEMA_VERSION,
 };
-
-const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
 
 /// What the fleet commands report about a managed runtime: its status, and after a start or a
 /// stop what the command reached.
@@ -100,45 +97,29 @@ fn read_pid(path: &Path) -> anyhow::Result<u32> {
         .with_context(|| format!("failed to parse {}", path.display()))
 }
 
-// A typed boundary prevents configuration I/O errors from becoming retryable probes.
-#[derive(Debug)]
-struct InterruptedControlTransport(std::io::Error);
-
-impl std::fmt::Display for InterruptedControlTransport {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, formatter)
-    }
-}
-
-impl std::error::Error for InterruptedControlTransport {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
-
-fn control_transport_error(error: std::io::Error) -> anyhow::Error {
-    if matches!(
-        error.kind(),
-        std::io::ErrorKind::ConnectionReset
-            | std::io::ErrorKind::ConnectionAborted
-            | std::io::ErrorKind::BrokenPipe
-            | std::io::ErrorKind::UnexpectedEof
-            | std::io::ErrorKind::TimedOut
-            | std::io::ErrorKind::WouldBlock
-    ) {
-        InterruptedControlTransport(error).into()
-    } else {
-        error.into()
-    }
-}
-
 /// Whether a failed status read broke off in transport after the connection was accepted, so
-/// that a stop may ask again instead of failing.
+/// that a stop may ask again instead of failing (specification 11 §6.8.3): a connection reset,
+/// broken pipe, aborted connection, end of the connection before an answer, or a read or write
+/// that waited out. Only a failure of the control exchange counts; an I/O error of the same kind
+/// elsewhere, reading the configuration for example, does not.
 #[must_use]
 pub fn interrupted_stop_probe(error: &anyhow::Error) -> bool {
-    error
-        .downcast_ref::<InterruptedControlTransport>()
-        .is_some()
+    error.chain().any(|cause| {
+        cause
+            .downcast_ref::<ControlError>()
+            .and_then(ControlError::io_kind)
+            .is_some_and(|kind| {
+                matches!(
+                    kind,
+                    std::io::ErrorKind::ConnectionReset
+                        | std::io::ErrorKind::ConnectionAborted
+                        | std::io::ErrorKind::BrokenPipe
+                        | std::io::ErrorKind::UnexpectedEof
+                        | std::io::ErrorKind::TimedOut
+                        | std::io::ErrorKind::WouldBlock
+                )
+            })
+    })
 }
 
 enum ControlExchange {
@@ -177,6 +158,9 @@ pub fn request_control_with_params(
     }
 }
 
+/// Sends one request over a new connection of the shared control client of a runtime's socket,
+/// with its waits, its response limit and its checks of a response (specification 11, 6.8.1). A
+/// connection that nothing accepts is `Unreachable`, not an error.
 fn exchange_control(
     endpoint: &str,
     auth_token: Option<&str>,
@@ -184,65 +168,23 @@ fn exchange_control(
     params: Option<serde_json::Value>,
 ) -> anyhow::Result<ControlExchange> {
     let endpoint = ControlEndpoint::parse(endpoint).map_err(anyhow::Error::msg)?;
-    let mut payload = serde_json::json!({
-        "id": 1,
-        "type": request_type,
-        "auth": auth_token,
-    });
-    if let Some(params) = params {
-        payload["params"] = params;
-    }
-    let response = match endpoint {
-        ControlEndpoint::Tcp(addr) => {
-            let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(500)) {
-                Ok(stream) => stream,
-                Err(error) => {
-                    return Ok(ControlExchange::Unreachable(format!(
-                        "failed to connect to tcp://{addr}: {error}"
-                    )))
-                }
+    let mut client = match socket_client::connect(&endpoint, auth_token) {
+        Ok(client) => client,
+        Err(error) => {
+            return match error.downcast_ref::<ConnectFailed>() {
+                Some(failed) => Ok(ControlExchange::Unreachable(format!(
+                    "failed to connect to {}: {}",
+                    failed.endpoint, failed.error
+                ))),
+                None => Err(error),
             };
-            stream
-                .set_read_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            stream
-                .set_write_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            crate::control::write_line(&mut stream, &payload.to_string())
-                .map_err(control_transport_error)
-                .context("failed to send control request")?;
-            let mut reader = BufReader::new(stream);
-            read_control_response(&mut reader)?
-        }
-        #[cfg(unix)]
-        ControlEndpoint::Unix(path) => {
-            let mut stream = match std::os::unix::net::UnixStream::connect(&path) {
-                Ok(stream) => stream,
-                Err(error) => {
-                    return Ok(ControlExchange::Unreachable(format!(
-                        "failed to connect to unix://{}: {error}",
-                        path.display()
-                    )))
-                }
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            stream
-                .set_write_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            crate::control::write_line(&mut stream, &payload.to_string())
-                .map_err(control_transport_error)
-                .context("failed to send control request")?;
-            let mut reader = BufReader::new(stream);
-            read_control_response(&mut reader)?
         }
     };
-    let response: serde_json::Value =
-        serde_json::from_str(response.trim()).context("control response was not JSON")?;
-    if response.get("id").and_then(serde_json::Value::as_u64) != Some(1) {
-        anyhow::bail!("control response id is missing or does not match request id 1");
+    let mut request = serde_json::json!({ "type": request_type });
+    if let Some(params) = params {
+        request["params"] = params;
     }
+    let response = socket_client::exchange(&mut client, &request)?;
     if response
         .get("ok")
         .and_then(serde_json::Value::as_bool)
@@ -260,27 +202,6 @@ fn exchange_control(
         .and_then(serde_json::Value::as_str)
         .unwrap_or("control request failed");
     anyhow::bail!("{message}");
-}
-
-fn read_control_response(reader: &mut impl BufRead) -> anyhow::Result<String> {
-    let mut line = String::new();
-    let bytes = reader
-        .take((MAX_CONTROL_RESPONSE_BYTES + 1) as u64)
-        .read_line(&mut line)
-        .map_err(control_transport_error)
-        .context("failed to read control response")?;
-    if bytes == 0 {
-        return Err(control_transport_error(std::io::Error::new(
-            std::io::ErrorKind::UnexpectedEof,
-            "control response was empty",
-        )));
-    }
-    if bytes > MAX_CONTROL_RESPONSE_BYTES {
-        anyhow::bail!(
-            "control response exceeded {MAX_CONTROL_RESPONSE_BYTES} bytes without a complete line"
-        );
-    }
-    Ok(line)
 }
 
 #[cfg(test)]
