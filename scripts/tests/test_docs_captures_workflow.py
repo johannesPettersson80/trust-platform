@@ -365,6 +365,18 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(code_server_runs(calls), [])
         self.assertNotIn("npx", [call[0] for call in calls])
 
+    def test_code_server_starts_without_its_update_check(self) -> None:
+        # Catches a picture with code-server's own notice in its corner: code-server looks for a newer
+        # release when it starts and says "code-server v4.145.2 has been released!" in the bottom right,
+        # over both pictures of "Add A Device" on 14 November 2026, unless it starts with
+        # --disable-update-check (specification 22, "Docs Captures").
+        with tempfile.TemporaryDirectory() as temp:
+            result, calls = run_stubbed(Path(temp), ["/bin/bash", str(CAPTURES / "vscode" / "start-code-server.sh")], {})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        (run,) = code_server_runs(calls)
+        server = run[-1].rsplit("exec code-server ", 1)[1].split()
+        self.assertIn("--disable-update-check", server)
+
     def test_code_server_settings_name_the_mounted_programs_for_every_folder(self) -> None:
         # Catches a capture of a folder other than the smoke workspace running the extension without
         # its programs. The smoke workspace names its language server itself, but a folder that a

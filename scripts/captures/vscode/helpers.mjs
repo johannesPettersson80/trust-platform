@@ -97,6 +97,31 @@ export async function dismissCodeServerChrome(page) {
   }
 }
 
+// The footer of the Devices & Connections graph, which counts what it draws once the language server
+// and the runtime answered.
+export const DEVICES_SUMMARY = /\d+ hosts? · \d+ runtimes? · \d+ endpoints?/;
+
+/** Runs "truST: Open Devices & Connections" and returns its webview's frame once the graph is drawn. */
+export async function openDevicesAndConnections(page, timeout = 120_000) {
+  await page.keyboard.press("Control+Shift+P");
+  const quickInput = page.locator(".quick-input-widget");
+  await expect(quickInput).toBeVisible({ timeout: 30_000 });
+  await quickInput.locator("input").fill(">truST: Open Devices & Connections");
+  await expect(quickInput).toContainText("Open Devices & Connections", { timeout: 30_000 });
+  await page.keyboard.press("Enter");
+
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      if ((await frame.getByText(DEVICES_SUMMARY).count().catch(() => 0)) > 0) {
+        return frame;
+      }
+    }
+    await page.waitForTimeout(1_000);
+  }
+  throw new Error("Devices & Connections drew no graph");
+}
+
 export async function openSmokeMainFile(page) {
   await dismissCodeServerChrome(page);
   await expect(page.locator(".explorer-folders-view")).toContainText("src");
