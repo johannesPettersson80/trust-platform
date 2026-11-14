@@ -70,7 +70,7 @@ fn managed_status_unavailable_on_malformed_status() {
     assert!(garbled_status
         .error
         .as_deref()
-        .is_some_and(|error| error.contains("not JSON")));
+        .is_some_and(|error| error.contains("not a control response")));
 
     // The running runtime's live data is read with the token of its runtime.toml, and its fleet
     // root is the chosen project.

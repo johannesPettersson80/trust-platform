@@ -6483,7 +6483,11 @@ exhausts its budget, return `stopping` and retain the PID rather than claiming
 success. Authentication failures, malformed or oversized responses, wrong IDs,
 and configuration errors remain errors, including after acknowledgement.
 Ordinary status and the initial stop probe retain their existing strict error
-behavior. A transport interruption alone never proves a completed stop.
+behavior. A transport interruption alone never proves a completed stop. The
+fleet commands send their control requests through the shared client of a
+runtime's socket, with the waits, the response limit and the checks of section
+6.8.1; that client keeps the kind of the operating system's error, by which a
+confirmation probe tells these interruptions from any other failure.
 
 `status` and `logs` are read-only and do not create `.trust-runtime` state when
 it is absent. Log tailing retains only the requested final lines in memory
