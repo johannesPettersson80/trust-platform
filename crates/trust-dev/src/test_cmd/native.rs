@@ -2,6 +2,21 @@
 /// (specification 44 §8.4), the compiled counterpart of the bytecode runner's timeout.
 const NATIVE_TEST_STATEMENTS: u32 = 100_000_000;
 
+/// The working folder of one run of `kind` for the project at `project_root`: `test` for the build of
+/// its tests, `device` for the programs that a run on a device installs. It is named after this
+/// process and the project, so that runs of two projects at once in one process, as the tests of
+/// trust-dev make, never share one: a run removes its folder when it ends, and a shared folder lost
+/// the other run's files while it still linked them.
+fn work_folder(kind: &str, project_root: &Path) -> PathBuf {
+    let project_name = project_root
+        .file_name()
+        .map_or_else(|| "project".into(), |name| name.to_string_lossy());
+    std::env::temp_dir().join(format!(
+        "trust-dev-{kind}-{}-{project_name}",
+        std::process::id()
+    ))
+}
+
 /// The name of the test program that runs `TEST_FUNCTION_BLOCK` `name` in a compiled image: an
 /// identifier (IEC 61131-3 §6.1.2) for every name, a qualified one included, whose dots become
 /// underscores, followed by a hash of the whole name so that `A.B_C` and `A_B.C` stay apart.
@@ -88,16 +103,7 @@ fn build_test_image(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-    // A folder of this process and this project, so that builds of two projects running at once in
-    // one process, as the tests of trust-dev do, never share one: a build removes its folder when
-    // it ends.
-    let project_name = project_root
-        .file_name()
-        .map_or_else(|| "project".into(), |name| name.to_string_lossy());
-    let work = std::env::temp_dir().join(format!(
-        "trust-dev-test-{}-{project_name}",
-        std::process::id()
-    ));
+    let work = work_folder("test", project_root);
     let built = build_with_conversions(
         &sources,
         &programs,
@@ -383,7 +389,7 @@ fn execute_native_tests_on_device(
         &mut built.image,
         &trust_runtime::native::project_key(project_root)?,
     )?;
-    let work = std::env::temp_dir().join(format!("trust-dev-device-{}", std::process::id()));
+    let work = work_folder("device", project_root);
     // A device whose settings set a control token refuses a request without it (specification 34
     // PORT-06): the caller's token, else the project's, which the device was installed with.
     let token = trust_runtime::control::endpoint::device_token(Some(project_root), token)?;
