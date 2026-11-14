@@ -1,13 +1,18 @@
-//! The client's protocol checks against a scripted runtime: the response id, the response line
-//! limit, credential failures by code, and the time budget.
+//! The client's protocol checks against a scripted runtime: the request written in one piece, the
+//! response id, the response line limit and line end, credential failures by code, and the time
+//! budget.
 
+use std::io::{Cursor, Read, Write};
 use std::net::TcpListener;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
 use crate::fake_runtime;
-use crate::{AuthFailure, ControlClient, ControlEndpoint, ControlError, RESPONSE_LINE_LIMIT};
+use crate::{
+    AuthFailure, ByteStream, ControlClient, ControlEndpoint, ControlError, RESPONSE_LINE_LIMIT,
+};
 
 /// Scheduling slack on a busy test machine; far below the budgets the tests tell apart.
 const SLACK: Duration = Duration::from_millis(1500);
@@ -141,6 +146,97 @@ fn client_bounds_the_response_size() {
     );
     drop(client);
     runtime.requests();
+}
+
+/// A stream that keeps each write it is given apart and answers with `answer`.
+#[derive(Debug)]
+struct Writes {
+    writes: Arc<Mutex<Vec<Vec<u8>>>>,
+    answer: Cursor<Vec<u8>>,
+}
+
+impl Read for Writes {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.answer.read(buf)
+    }
+}
+
+impl Write for Writes {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.writes
+            .lock()
+            .expect("the lock is not poisoned")
+            .push(buf.to_vec());
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl ByteStream for Writes {
+    fn set_timeout(&self, _timeout: Duration) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Specification 11 §6.8.1 (Runtime control request, job, and state-surface contract): the request
+/// line goes out in one write, its line end included. Catches the request written as its JSON and
+/// then its line end: the TCP stack holds the line end until the runtime acknowledges the JSON, 41
+/// to 44 ms a request on Linux.
+#[test]
+fn the_request_line_goes_out_in_one_write() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let stream = Writes {
+        writes: Arc::clone(&writes),
+        answer: Cursor::new(
+            b"{\"id\":1,\"ok\":true,\"result\":{\"state\":\"running\"}}\n".to_vec(),
+        ),
+    };
+    let mut client = ControlClient::from_stream(stream, Some("token"));
+
+    client.request("status", None).expect("a valid exchange");
+
+    let writes = writes.lock().expect("the lock is not poisoned").clone();
+    assert_eq!(writes.len(), 1, "one write: {writes:?}");
+    assert_eq!(writes[0].last(), Some(&b'\n'), "the line end goes with it");
+    assert_eq!(
+        serde_json::from_slice::<Value>(&writes[0]).expect("a JSON request line"),
+        json!({"id": 1, "type": "status", "auth": "token"})
+    );
+}
+
+/// Specification 11 §6.8.1: the response must end with a newline. A runtime that stops while it
+/// writes its answer, after a whole JSON object but before the line end, has given no answer.
+/// Catches the line read up to the end of the connection taken as the answer.
+#[test]
+fn an_answer_that_the_connection_cuts_before_its_line_end_is_malformed() {
+    use std::io::{BufRead, BufReader};
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+    let endpoint = format!("tcp://{}", listener.local_addr().expect("local address"));
+    let server = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept the client");
+        let mut writer = stream.try_clone().expect("clone the connection");
+        let mut line = String::new();
+        BufReader::new(stream)
+            .read_line(&mut line)
+            .expect("read the request");
+        writer
+            .write_all(br#"{"id":1,"ok":true,"result":{"state":"running"}}"#)
+            .expect("answer without the line end");
+        // Returning closes the connection.
+    });
+    let mut client = connect(&endpoint, None, Duration::from_secs(5));
+
+    let answer = client.request("status", None);
+    server.join().expect("the fake runtime ends");
+
+    assert!(
+        matches!(&answer, Err(ControlError::Malformed(reason)) if reason.contains("line end")),
+        "{answer:?}"
+    );
 }
 
 #[test]

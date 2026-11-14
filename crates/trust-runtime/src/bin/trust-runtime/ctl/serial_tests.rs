@@ -3,6 +3,7 @@
 //! a socket. A canned stream stands for the chip's port; no test opens a real one.
 
 use std::collections::VecDeque;
+use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 
 use trust_runtime_client::ByteStream;

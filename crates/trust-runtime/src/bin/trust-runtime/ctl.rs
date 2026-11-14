@@ -1,6 +1,5 @@
 //! Control CLI helpers.
 
-use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -9,9 +8,7 @@ use serde_json::{json, Value as JsonValue};
 use trust_runtime::config::RuntimeConfig;
 use trust_runtime::control::endpoint::{control_token_from_env, ControlTarget};
 use trust_runtime::control::ControlEndpoint;
-use trust_runtime_client::{
-    ControlClient, ControlEndpoint as ClientEndpoint, VersionAdvice, VERSION_CHECK_ID,
-};
+use trust_runtime_client::{ControlClient, ControlEndpoint as ClientEndpoint, VersionAdvice};
 
 use crate::cli::ControlAction;
 
@@ -203,12 +200,11 @@ fn send_control_request(
     expressions::attach(&mut request, action, project)?;
     let response = match &target.endpoint {
         CtlEndpoint::Socket(socket) => {
-            let status = json!({
-                "id": VERSION_CHECK_ID,
-                "type": "status",
-                "auth": target.auth_token,
-            });
-            advise_version(send_control_request_value(socket, &status));
+            // The version check goes over a connection of its own (specification 11, 6.8.1).
+            advise_version(
+                socket_client(socket, target.auth_token.as_deref())
+                    .and_then(|mut client| client.version_check().map_err(anyhow::Error::from)),
+            );
             send_control_request_value(socket, &request).map_err(|error| target.reported(error))?
         }
         CtlEndpoint::Serial(endpoint) => checked_exchange(
@@ -326,77 +322,45 @@ pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result
     }
 }
 
+/// Sends one request to a runtime's socket on this computer and returns the whole response object,
+/// through the shared control client, as a request to a chip goes (specification 11, 6.8.1).
 pub(crate) fn send_control_request_value(
     endpoint: &ControlEndpoint,
     request: &JsonValue,
 ) -> anyhow::Result<JsonValue> {
-    match endpoint {
-        ControlEndpoint::Tcp(addr) => {
-            let mut stream = std::net::TcpStream::connect_timeout(addr, CONTROL_CONNECT_TIMEOUT)
-                .map_err(|error| ConnectFailed {
-                    endpoint: format!("tcp://{addr}"),
-                    error,
-                })?;
-            stream
-                .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
-                .context("set control endpoint read timeout")?;
-            stream
-                .set_write_timeout(Some(CONTROL_IO_TIMEOUT))
-                .context("set control endpoint write timeout")?;
-            let mut reader = BufReader::new(stream.try_clone()?);
-            exchange_control_request(&mut stream, &mut reader, request)
-        }
-        #[cfg(unix)]
-        ControlEndpoint::Unix(path) => {
-            let mut stream =
-                std::os::unix::net::UnixStream::connect(path).map_err(|error| ConnectFailed {
-                    endpoint: format!("unix://{}", path.display()),
-                    error,
-                })?;
-            stream
-                .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
-                .context("set control endpoint read timeout")?;
-            stream
-                .set_write_timeout(Some(CONTROL_IO_TIMEOUT))
-                .context("set control endpoint write timeout")?;
-            let mut reader = BufReader::new(stream.try_clone()?);
-            exchange_control_request(&mut stream, &mut reader, request)
-        }
-    }
+    let auth = request.get("auth").and_then(JsonValue::as_str);
+    exchange_with(&mut socket_client(endpoint, auth)?, request)
 }
 
-fn exchange_control_request<S: Write, R: BufRead>(
-    stream: &mut S,
-    reader: &mut R,
-    request: &JsonValue,
-) -> anyhow::Result<JsonValue> {
-    let line = serde_json::to_string(request)?;
-    // One write: a newline written on its own waits for the runtime's acknowledgement.
-    stream.write_all(format!("{line}\n").as_bytes())?;
-    stream.flush()?;
-    let mut response = String::new();
-    let bytes = reader
-        .take((MAX_CONTROL_RESPONSE_BYTES + 1) as u64)
-        .read_line(&mut response)?;
-    if bytes == 0 || response.trim().is_empty() {
-        anyhow::bail!("empty control response");
-    }
-    if bytes > MAX_CONTROL_RESPONSE_BYTES {
-        anyhow::bail!(
-            "control response exceeded {MAX_CONTROL_RESPONSE_BYTES} bytes without a complete line"
-        );
-    }
-    if !response.ends_with('\n') {
-        anyhow::bail!("control response missing newline terminator");
-    }
-    let response =
-        serde_json::from_str::<JsonValue>(response.trim_end()).context("parse control response")?;
-    let request_id = request
-        .get("id")
-        .and_then(JsonValue::as_u64)
-        .context("control request missing numeric 'id'")?;
-    ensure_response_id(&response, request_id)?;
-    Ok(response)
+/// The shared client over a new connection to a runtime's socket on this computer: a TCP
+/// connection attempt of at most 500 milliseconds, then reads and writes of at most 750 each and a
+/// response line of at most 1 MiB (specification 11, 6.8.1). The command connects itself, so that a
+/// failed connection keeps the operating-system error that tells a runtime that is not running from
+/// another failure (section 6.8.0a).
+fn socket_client(endpoint: &ControlEndpoint, auth: Option<&str>) -> anyhow::Result<ControlClient> {
+    let client = match endpoint {
+        ControlEndpoint::Tcp(addr) => ControlClient::from_stream(
+            std::net::TcpStream::connect_timeout(addr, CONTROL_CONNECT_TIMEOUT).map_err(
+                |error| ConnectFailed {
+                    endpoint: format!("tcp://{addr}"),
+                    error,
+                },
+            )?,
+            auth,
+        ),
+        #[cfg(unix)]
+        ControlEndpoint::Unix(path) => ControlClient::from_stream(
+            std::os::unix::net::UnixStream::connect(path).map_err(|error| ConnectFailed {
+                endpoint: format!("unix://{}", path.display()),
+                error,
+            })?,
+            auth,
+        ),
+    };
+    client
+        .set_timeout(CONTROL_IO_TIMEOUT)
+        .context("set the control endpoint's read and write timeout")?;
+    Ok(client.with_response_limit(MAX_CONTROL_RESPONSE_BYTES))
 }
 
 fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyhow::Result<()> {
@@ -686,6 +650,7 @@ fn parse_config_value(value: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{BufRead, BufReader, Write};
     use trust_runtime::control::endpoint::EndpointSource;
 
     #[test]
@@ -942,57 +907,64 @@ mod tests {
         }
     }
 
+    /// A runtime's socket on this computer that answers one request with exactly `answer` and
+    /// closes the connection; gives its endpoint and the request line it read.
+    fn answering_once(answer: Vec<u8>) -> (ControlEndpoint, std::thread::JoinHandle<JsonValue>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+        let endpoint = ControlEndpoint::Tcp(listener.local_addr().expect("local address"));
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept the request");
+            let mut writer = stream.try_clone().expect("clone the connection");
+            let mut line = String::new();
+            BufReader::new(stream)
+                .read_line(&mut line)
+                .expect("read the request");
+            writer.write_all(&answer).expect("write the answer");
+            serde_json::from_str(&line).expect("a JSON request line")
+        });
+        (endpoint, server)
+    }
+
     #[test]
-    fn control_exchange_uses_one_json_line_and_rejects_invalid_responses() {
-        let request = json!({"id": 1, "type": "status", "auth": null});
-        let mut output = Vec::new();
-        let mut response = std::io::Cursor::new(b"{\"id\":1,\"ok\":true}\n");
-        let parsed = exchange_control_request(&mut output, &mut response, &request)
-            .expect("valid control exchange");
-        assert_eq!(parsed, json!({"id": 1, "ok": true}));
-        assert_eq!(
-            String::from_utf8(output).expect("request is UTF-8"),
-            "{\"auth\":null,\"id\":1,\"type\":\"status\"}\n"
-        );
+    fn a_runtimes_socket_gets_one_json_line_and_an_invalid_answer_is_refused() {
+        // Specification 11, 6.8.1: the request is one JSON line with the action's `id`, `type` and
+        // `auth`; the command accepts exactly one JSON response line, which ends with a newline,
+        // carries the request's id and is at most 1 MiB long. An empty, malformed, unterminated,
+        // foreign or oversized answer is a protocol failure. Wrong behaviour: any of them taken as
+        // the runtime's answer, or the request reaching the runtime changed.
+        let request = json!({"id": 1, "type": "status", "auth": "token"});
+        let (endpoint, server) = answering_once(b"{\"id\":1,\"ok\":true}\n".to_vec());
+        let response = send_control_request_value(&endpoint, &request)
+            .unwrap_or_else(|error| panic!("a valid exchange: {error:#}"));
+        assert_eq!(response, json!({"id": 1, "ok": true}));
+        assert_eq!(server.join().expect("the runtime"), request);
 
-        let mut output = Vec::new();
-        let mut empty = std::io::Cursor::new(b"");
-        let error = exchange_control_request(&mut output, &mut empty, &request)
-            .expect_err("empty response must fail");
-        assert!(error.to_string().contains("empty control response"));
-
-        let mut output = Vec::new();
-        let mut malformed = std::io::Cursor::new(b"not-json\n");
-        let error = exchange_control_request(&mut output, &mut malformed, &request)
-            .expect_err("malformed response must fail");
-        assert!(error.to_string().contains("parse control response"));
-
-        let mut output = Vec::new();
-        let mut unterminated = std::io::Cursor::new(b"{\"id\":1,\"ok\":true}");
-        let error = exchange_control_request(&mut output, &mut unterminated, &request)
-            .expect_err("unterminated response must fail");
-        assert!(
-            error.to_string().contains("newline terminator"),
-            "{error:#}"
-        );
-
-        for response in [
-            b"{\"ok\":true}\n".as_slice(),
-            b"{\"id\":2,\"ok\":true}\n".as_slice(),
+        for (answer, refusal) in [
+            (b"".to_vec(), "closed the connection"),
+            (b"not-json\n".to_vec(), "not a control response"),
+            (
+                b"{\"id\":1,\"ok\":true}".to_vec(),
+                "ends before its line end",
+            ),
+            (
+                b"{\"ok\":true}\n".to_vec(),
+                "control response id is missing or does not match request id 1",
+            ),
+            (
+                b"{\"id\":2,\"ok\":true}\n".to_vec(),
+                "carries id 2 instead of 1",
+            ),
+            (vec![b'x'; 1024 * 1024 + 1], "longer than 1048576 bytes"),
         ] {
-            let mut output = Vec::new();
-            let mut response = std::io::Cursor::new(response);
-            let error = exchange_control_request(&mut output, &mut response, &request)
-                .expect_err("missing or mismatched response ID must fail");
-            assert!(error.to_string().contains("response id"), "{error:#}");
+            let (endpoint, server) = answering_once(answer);
+            let error = send_control_request_value(&endpoint, &request)
+                .expect_err("an invalid answer is refused");
+            server.join().expect("the runtime");
+            assert!(
+                format!("{error:#}").contains(refusal),
+                "{refusal}: {error:#}"
+            );
         }
-
-        let mut output = Vec::new();
-        let oversized = vec![b'x'; 1024 * 1024 + 1];
-        let mut response = std::io::Cursor::new(oversized);
-        let error = exchange_control_request(&mut output, &mut response, &request)
-            .expect_err("oversized response must fail");
-        assert!(error.to_string().contains("exceeded"), "{error:#}");
     }
 
     #[test]
@@ -1050,9 +1022,10 @@ mod tests {
             BufReader::new(stream.try_clone().expect("clone Unix control stream"))
                 .read_line(&mut request)
                 .expect("read Unix control request");
+            // No token: the request carries no `auth`, as over a serial endpoint.
             assert_eq!(
                 serde_json::from_str::<JsonValue>(request.trim_end()).expect("request JSON"),
-                json!({"id": 1, "type": "health", "auth": null})
+                json!({"id": 1, "type": "health"})
             );
             writeln!(
                 stream,
@@ -1228,7 +1201,3 @@ mod breakpoint_line_tests {
 #[cfg(test)]
 #[path = "ctl/serial_tests.rs"]
 mod serial_tests;
-
-#[cfg(test)]
-#[path = "ctl/exchange_tests.rs"]
-mod exchange_tests;

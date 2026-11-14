@@ -399,7 +399,9 @@ impl ControlClient {
         }
     }
 
-    /// Reads one line with its line end, no longer than the limits allow.
+    /// Reads one line with its line end, no longer than the limits allow. A line that the end of
+    /// the connection cuts before its line end is no answer (specification 11 §6.8.1: the response
+    /// ends with a newline).
     fn read_line(&mut self, kind: &str) -> Result<Vec<u8>, ControlError> {
         let transport = |error: std::io::Error| ControlError::Transport(error.to_string());
         let limit = self.line_limit();
@@ -422,6 +424,11 @@ impl ControlClient {
         {
             return Err(ControlError::Malformed(format!(
                 "the answer to {kind} is longer than {limit} bytes"
+            )));
+        }
+        if line.last() != Some(&b'\n') {
+            return Err(ControlError::Malformed(format!(
+                "the answer to {kind} ends before its line end"
             )));
         }
         Ok(line)
