@@ -148,8 +148,8 @@ MQTT subscribers).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/cold_storage_alarm/non-oop
-trust-runtime test --project examples/OSCAT/cold_storage_alarm/oop
+trust-dev test --project examples/OSCAT/cold_storage_alarm/non-oop
+trust-dev test --project examples/OSCAT/cold_storage_alarm/oop
 ```
 
 ---

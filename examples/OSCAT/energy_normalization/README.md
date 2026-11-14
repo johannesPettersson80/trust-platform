@@ -147,8 +147,8 @@ conversions on a real plant) or `pharma_filling_builder_state/oop`
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/energy_normalization/non-oop
-trust-runtime test --project examples/OSCAT/energy_normalization/oop
+trust-dev test --project examples/OSCAT/energy_normalization/non-oop
+trust-dev test --project examples/OSCAT/energy_normalization/oop
 ```
 
 ---

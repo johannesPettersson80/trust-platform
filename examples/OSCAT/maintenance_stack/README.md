@@ -155,8 +155,8 @@ configures the runtime only: `cycle_interval_ms = 100`, `retain.mode = "none"`,
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/maintenance_stack/non-oop
-trust-runtime test --project examples/OSCAT/maintenance_stack/oop
+trust-dev test --project examples/OSCAT/maintenance_stack/non-oop
+trust-dev test --project examples/OSCAT/maintenance_stack/oop
 ```
 
 ---

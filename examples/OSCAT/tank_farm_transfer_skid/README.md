@@ -188,8 +188,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/tank_farm_transfer_skid/non-oop
-trust-runtime test --project examples/OSCAT/tank_farm_transfer_skid/oop
+trust-dev test --project examples/OSCAT/tank_farm_transfer_skid/non-oop
+trust-dev test --project examples/OSCAT/tank_farm_transfer_skid/oop
 ```
 
 ---

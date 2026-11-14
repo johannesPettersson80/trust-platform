@@ -218,8 +218,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/refinery_temperature_conditioning/non-oop
-trust-runtime test --project examples/OSCAT/refinery_temperature_conditioning/oop
+trust-dev test --project examples/OSCAT/refinery_temperature_conditioning/non-oop
+trust-dev test --project examples/OSCAT/refinery_temperature_conditioning/oop
 ```
 
 ---

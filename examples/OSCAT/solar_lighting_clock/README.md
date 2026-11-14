@@ -161,8 +161,8 @@ maintenance subscribers).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/solar_lighting_clock/non-oop
-trust-runtime test --project examples/OSCAT/solar_lighting_clock/oop
+trust-dev test --project examples/OSCAT/solar_lighting_clock/non-oop
+trust-dev test --project examples/OSCAT/solar_lighting_clock/oop
 ```
 
 ---

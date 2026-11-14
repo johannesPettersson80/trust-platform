@@ -166,8 +166,8 @@ with maintenance subscribers).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/greenhouse_temperature/non-oop
-trust-runtime test --project examples/OSCAT/greenhouse_temperature/oop
+trust-dev test --project examples/OSCAT/greenhouse_temperature/non-oop
+trust-dev test --project examples/OSCAT/greenhouse_temperature/oop
 ```
 
 ---

@@ -193,8 +193,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/kiln_dryer_decorator_strategy/non-oop
-trust-runtime test --project examples/OSCAT/kiln_dryer_decorator_strategy/oop
+trust-dev test --project examples/OSCAT/kiln_dryer_decorator_strategy/non-oop
+trust-dev test --project examples/OSCAT/kiln_dryer_decorator_strategy/oop
 ```
 
 ---

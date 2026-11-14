@@ -185,8 +185,8 @@ OPC UA exposed records (where present): `Dosing.LastCommandId`,
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/chemical_dosing_command/non-oop
-trust-runtime test --project examples/OSCAT/chemical_dosing_command/oop
+trust-dev test --project examples/OSCAT/chemical_dosing_command/non-oop
+trust-dev test --project examples/OSCAT/chemical_dosing_command/oop
 ```
 
 ---

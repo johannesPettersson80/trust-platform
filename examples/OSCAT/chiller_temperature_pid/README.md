@@ -160,8 +160,8 @@ component composition with full I/O and alarm fan-out see
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/chiller_temperature_pid/non-oop
-trust-runtime test --project examples/OSCAT/chiller_temperature_pid/oop
+trust-dev test --project examples/OSCAT/chiller_temperature_pid/non-oop
+trust-dev test --project examples/OSCAT/chiller_temperature_pid/oop
 ```
 
 ---

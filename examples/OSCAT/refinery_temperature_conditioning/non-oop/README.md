@@ -9,5 +9,5 @@ Read the teaching README one level up:
 Run this project with:
 
 ```bash
-trust-runtime test --project examples/OSCAT/refinery_temperature_conditioning/non-oop
+trust-dev test --project examples/OSCAT/refinery_temperature_conditioning/non-oop
 ```

@@ -19,6 +19,9 @@ mod style;
 mod test;
 mod workflow;
 
+#[cfg(test)]
+mod docs_tests;
+
 mod cli {
     use clap::ValueEnum;
 

@@ -182,8 +182,8 @@ A/B/C and per-subscriber sinks) or `cold_storage_plant/oop`
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/pump_pressure/non-oop
-trust-runtime test --project examples/OSCAT/pump_pressure/oop
+trust-dev test --project examples/OSCAT/pump_pressure/non-oop
+trust-dev test --project examples/OSCAT/pump_pressure/oop
 ```
 
 ---

@@ -1,5 +1,7 @@
 //! Support that the workspace's tests share; no product uses it.
 
+pub mod doc_commands;
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;

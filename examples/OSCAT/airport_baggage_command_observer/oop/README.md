@@ -9,5 +9,5 @@ Read the teaching README one level up:
 Run this project with:
 
 ```bash
-trust-runtime test --project examples/OSCAT/airport_baggage_command_observer/oop
+trust-dev test --project examples/OSCAT/airport_baggage_command_observer/oop
 ```

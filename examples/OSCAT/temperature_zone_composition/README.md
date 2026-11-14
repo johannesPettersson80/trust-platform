@@ -82,8 +82,8 @@ For composition combined with patterns inside a real-world plant, see
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/temperature_zone_composition/non-oop
-trust-runtime test --project examples/OSCAT/temperature_zone_composition/oop
+trust-dev test --project examples/OSCAT/temperature_zone_composition/non-oop
+trust-dev test --project examples/OSCAT/temperature_zone_composition/oop
 ```
 
 ---

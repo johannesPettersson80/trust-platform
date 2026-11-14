@@ -22,10 +22,10 @@ truST adds test-focused ST constructs:
 When you run:
 
 ```bash
-trust-runtime test --project <project-dir>
+trust-dev test --project <project-dir>
 ```
 
-the runtime:
+the test runner:
 
 1. discovers test POUs in project sources,
 2. executes each test in deterministic order,
@@ -76,7 +76,7 @@ Open `src/tests.st`.
 From repository root:
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/10_unit_testing_101
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101
 ```
 
 Expected summary:
@@ -86,7 +86,7 @@ Expected summary:
 ## Step 4: List tests without running
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/10_unit_testing_101 --list
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --list
 ```
 
 Use this to verify discovery and names before selecting filters.
@@ -94,7 +94,7 @@ Use this to verify discovery and names before selecting filters.
 ## Step 5: Run a subset (filter)
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/10_unit_testing_101 --filter START_STOP
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --filter START_STOP
 ```
 
 If a filter matches nothing but tests exist, the runner prints a filtered-out message instead of reporting no discovery.
@@ -102,7 +102,7 @@ If a filter matches nothing but tests exist, the runner prints a filtered-out me
 ## Step 6: Set per-test timeout
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/10_unit_testing_101 --timeout 5
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --timeout 5
 ```
 
 `--timeout` is per test case in seconds. `--timeout 0` disables timeout.
@@ -112,19 +112,19 @@ cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutori
 JUnit:
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/10_unit_testing_101 --output junit
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --output junit
 ```
 
 TAP:
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/10_unit_testing_101 --output tap
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --output tap
 ```
 
 JSON:
 
 ```bash
-cargo run -p trust-runtime --bin trust-runtime -- test --project examples/tutorials/10_unit_testing_101 --output json
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --output json
 ```
 
 JSON includes test-level and summary `duration_ms` fields, and a failed test's `failure` object:

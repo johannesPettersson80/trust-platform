@@ -163,8 +163,8 @@ gain); for cascade control see `boiler_room_heating_plant/oop`.
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/tank_level_pid/non-oop
-trust-runtime test --project examples/OSCAT/tank_level_pid/oop
+trust-dev test --project examples/OSCAT/tank_level_pid/non-oop
+trust-dev test --project examples/OSCAT/tank_level_pid/oop
 ```
 
 ---

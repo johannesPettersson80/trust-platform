@@ -179,8 +179,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/district_pump_network_proxy_mediator/non-oop
-trust-runtime test --project examples/OSCAT/district_pump_network_proxy_mediator/oop
+trust-dev test --project examples/OSCAT/district_pump_network_proxy_mediator/non-oop
+trust-dev test --project examples/OSCAT/district_pump_network_proxy_mediator/oop
 ```
 
 ---

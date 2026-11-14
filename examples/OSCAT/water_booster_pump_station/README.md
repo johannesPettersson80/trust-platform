@@ -208,8 +208,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/water_booster_pump_station/non-oop
-trust-runtime test --project examples/OSCAT/water_booster_pump_station/oop
+trust-dev test --project examples/OSCAT/water_booster_pump_station/non-oop
+trust-dev test --project examples/OSCAT/water_booster_pump_station/oop
 ```
 
 ---

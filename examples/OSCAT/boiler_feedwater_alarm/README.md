@@ -130,8 +130,8 @@ composite tree with maintenance + MQTT subscribers).
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/boiler_feedwater_alarm/non-oop
-trust-runtime test --project examples/OSCAT/boiler_feedwater_alarm/oop
+trust-dev test --project examples/OSCAT/boiler_feedwater_alarm/non-oop
+trust-dev test --project examples/OSCAT/boiler_feedwater_alarm/oop
 ```
 
 ---

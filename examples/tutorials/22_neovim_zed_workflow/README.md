@@ -83,7 +83,7 @@ Why: runtime, tests, and CI workflows stay editor-agnostic.
 ```bash
 trust-runtime build --project examples/tutorials/10_unit_testing_101 --sources examples/tutorials/10_unit_testing_101/sources
 trust-runtime validate --project examples/tutorials/10_unit_testing_101
-trust-runtime test --project examples/tutorials/10_unit_testing_101 --output json
+trust-dev test --project examples/tutorials/10_unit_testing_101 --output json
 ```
 
 Expected result:

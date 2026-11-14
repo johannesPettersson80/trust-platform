@@ -179,8 +179,8 @@ OPC UA exposed records (from `oop/runtime.toml`, namespace
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/filter_backwash_template/non-oop
-trust-runtime test --project examples/OSCAT/filter_backwash_template/oop
+trust-dev test --project examples/OSCAT/filter_backwash_template/non-oop
+trust-dev test --project examples/OSCAT/filter_backwash_template/oop
 ```
 
 ---

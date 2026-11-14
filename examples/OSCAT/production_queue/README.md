@@ -168,8 +168,8 @@ A/B/C and per-subscriber sinks) or `cold_storage_plant/oop`
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/production_queue/non-oop
-trust-runtime test --project examples/OSCAT/production_queue/oop
+trust-dev test --project examples/OSCAT/production_queue/non-oop
+trust-dev test --project examples/OSCAT/production_queue/oop
 ```
 
 ---

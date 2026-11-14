@@ -201,8 +201,8 @@ OPC UA exposed records (from `oop/runtime.toml`):
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/cold_storage_plant/non-oop
-trust-runtime test --project examples/OSCAT/cold_storage_plant/oop
+trust-dev test --project examples/OSCAT/cold_storage_plant/non-oop
+trust-dev test --project examples/OSCAT/cold_storage_plant/oop
 ```
 
 ---

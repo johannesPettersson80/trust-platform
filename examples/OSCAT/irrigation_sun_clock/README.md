@@ -174,8 +174,8 @@ For composition combined with patterns inside a real-world plant, see
 ## Run
 
 ```bash
-trust-runtime test --project examples/OSCAT/irrigation_sun_clock/non-oop
-trust-runtime test --project examples/OSCAT/irrigation_sun_clock/oop
+trust-dev test --project examples/OSCAT/irrigation_sun_clock/non-oop
+trust-dev test --project examples/OSCAT/irrigation_sun_clock/oop
 ```
 
 ---
