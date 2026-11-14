@@ -59,7 +59,9 @@ fi
 
 if [[ "$MODE" == "vscode" || "$MODE" == "all" ]]; then
   require_cmd docker
-  cargo build -p trust-lsp
+  # The code-server container runs the language server built in cross (start-code-server.sh, which
+  # Playwright starts and waits for); building it first keeps a long first build out of that wait.
+  "$CAPTURE_DIR/build-container-programs.sh" >/dev/null
   npm --prefix "$ROOT_DIR/editors/vscode" ci
   npm --prefix "$ROOT_DIR/editors/vscode" run compile
   CODESERVER_OWNED=1

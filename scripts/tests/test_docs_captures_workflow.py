@@ -1,5 +1,7 @@
+import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import posixpath
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +13,23 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "docs-captures.yml"
 PAGES = ROOT / ".github" / "workflows" / "demo-pages.yml"
 PATHS = ROOT / ".github" / "paths" / "docs-captures.txt"
+CAPTURES = ROOT / "scripts" / "captures"
+# The programs that the captures run in Linux containers, built as the release builds its Linux packages.
+CROSS_BUILD = [
+    "build",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "-p",
+    "trust-lsp",
+    "-p",
+    "trust-runtime",
+    "-p",
+    "trust-debug",
+    "-p",
+    "trust-dev",
+]
+# The cross build's folder, as a container sees it in place of target/debug.
+BUILT = f"{ROOT}/target/x86_64-unknown-linux-gnu/debug"
 # The condition of the steps and jobs that publish the site: neither a pull request nor a merge group does.
 PUBLISHING = "github.event_name != 'pull_request' && github.event_name != 'merge_group'"
 
@@ -253,16 +272,11 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         # found". The programs are built in cross for x86_64-unknown-linux-gnu, as the release builds
         # its Linux packages, each program the tapes run starts once in the image before the first
         # tape, and every tape sees that build as target/debug (specification 22, "Docs Captures").
-        built = f"{ROOT}/target/x86_64-unknown-linux-gnu/debug"
         with tempfile.TemporaryDirectory() as temp:
             result, runs, cross = run_terminal_captures(Path(temp), {})
         self.assertEqual(result.returncode, 0, result.stderr)
         # The container's cargo runs without the repository's sccache wrapper, which its image lacks.
-        self.assertEqual(
-            cross,
-            "--env RUSTC_WRAPPER= | build --target x86_64-unknown-linux-gnu"
-            " -p trust-lsp -p trust-runtime -p trust-debug -p trust-dev",
-        )
+        self.assertEqual(cross, [["CROSS_CONTAINER_OPTS=--env RUSTC_WRAPPER=", *CROSS_BUILD]])
         starts = [run for run in runs if "--version" in run]
         self.assertEqual(
             starts,
@@ -271,7 +285,7 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
                     "run",
                     "--rm",
                     "-v",
-                    f"{built}:/workspaces/trust-platform/target/debug:ro",
+                    f"{BUILT}:/workspaces/trust-platform/target/debug:ro",
                     "--entrypoint",
                     f"/workspaces/trust-platform/target/debug/{program}",
                     "vhs-under-test",
@@ -283,8 +297,7 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(runs[: len(starts)], starts)
         self.assertEqual(len(tape_runs(runs)), len(terminal_tapes()))
         for run in tape_runs(runs):
-            mounts = [run[index + 1] for index, argument in enumerate(run) if argument == "-v"]
-            self.assertIn(f"{built}:/workspaces/trust-platform/target/debug", mounts)
+            self.assertIn(f"{BUILT}:/workspaces/trust-platform/target/debug", mounts(run))
 
     def test_terminal_captures_stop_when_a_program_does_not_start_in_the_image(self) -> None:
         # Catches captures that go on after a program failed to start in the image: each tape would
@@ -295,6 +308,77 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertIn("trust-runtime does not start in vhs-under-test", result.stderr)
         self.assertEqual(tape_runs(runs), [])
 
+    def test_code_server_captures_run_the_language_server_built_in_cross_that_starts_in_the_image(self) -> None:
+        # Catches the code-server captures running a language server built on the runner. The
+        # captured workspace names target/debug/trust-lsp, which was the runner's own build, and a
+        # trust-lsp built on Ubuntu 26.04 (glibc 2.43) stops in the code-server image (Debian 13,
+        # glibc 2.41) with "version `GLIBC_2.43' not found" (measured 14 November 2026): every view
+        # that needs it would be captured without it. The container sees the cross build as
+        # target/debug, and the language server starts once in the image before code-server does
+        # (specification 22, "Docs Captures").
+        with tempfile.TemporaryDirectory() as temp:
+            result, calls = run_stubbed(Path(temp), ["/bin/bash", str(CAPTURES / "vscode" / "start-code-server.sh")], {})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            [call for call in calls if call[0] == "cross"],
+            [["cross", "CROSS_CONTAINER_OPTS=--env RUSTC_WRAPPER=", *CROSS_BUILD]],
+        )
+        start = [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{BUILT}:/workspaces/trust-platform/target/debug:ro",
+            "--entrypoint",
+            "/workspaces/trust-platform/target/debug/trust-lsp",
+            "code-server-under-test",
+            "command",
+            "--help",
+        ]
+        self.assertIn(start, calls)
+        servers = code_server_runs(calls)
+        self.assertEqual(len(servers), 1, calls)
+        self.assertIn(f"{BUILT}:/workspaces/trust-platform/target/debug:ro", mounts(servers[0]))
+        # The build, then the start check, then the extension's package and the server.
+        names = [call[0] for call in calls]
+        self.assertLess(names.index("cross"), calls.index(start))
+        self.assertLess(calls.index(start), names.index("npx"))
+        self.assertLess(calls.index(start), calls.index(servers[0]))
+        # The language server that the opened workspace names is the one the container sees there.
+        opened = PurePosixPath(servers[0][-1].split()[-1])
+        workspace = json.loads((ROOT / opened.relative_to("/workspaces/trust-platform")).read_text())
+        folder = opened.parent / workspace["folders"][0]["path"]
+        named = workspace["settings"]["trust-lsp.server.path"].replace("${workspaceFolder}", str(folder))
+        self.assertEqual(posixpath.normpath(named), "/workspaces/trust-platform/target/debug/trust-lsp")
+
+    def test_code_server_captures_stop_when_the_language_server_does_not_start_in_the_image(self) -> None:
+        # Catches captures that go on after the language server failed to start in the image: the
+        # extension would run without it, and every view that needs it would be captured empty.
+        with tempfile.TemporaryDirectory() as temp:
+            result, calls = run_stubbed(
+                Path(temp),
+                ["/bin/bash", str(CAPTURES / "vscode" / "start-code-server.sh")],
+                {"DOCKER_STUB_FAILS_HELP": "1"},
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("trust-lsp does not start in code-server-under-test", result.stderr)
+        self.assertEqual(code_server_runs(calls), [])
+        self.assertNotIn("npx", [call[0] for call in calls])
+
+    def test_vscode_captures_build_the_language_server_in_cross_before_playwright_waits_for_it(self) -> None:
+        # Catches the VS Code captures building the language server on the runner, a build that does
+        # not start in the code-server image, or leaving a first cross build to start-code-server.sh,
+        # which Playwright gives 240 seconds to answer (playwright.vscode.config.mjs).
+        with tempfile.TemporaryDirectory() as temp:
+            result, calls = run_stubbed(
+                Path(temp), ["/bin/bash", str(CAPTURES / "run-playwright-captures.sh"), "vscode"], {}
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([call for call in calls if call[0] == "cargo"], [])
+        captures = [call for call in calls if call[0] == "npm" and call[-1] == "capture:vscode"]
+        self.assertEqual(len(captures), 1, calls)
+        self.assertLess([call[0] for call in calls].index("cross"), calls.index(captures[0]))
+
 
 def terminal_tapes() -> list[str]:
     return sorted(
@@ -303,26 +387,28 @@ def terminal_tapes() -> list[str]:
     )
 
 
-def run_terminal_captures(
-    temp: Path, extra_env: dict[str, str]
-) -> tuple[subprocess.CompletedProcess[str], list[list[str]], str]:
-    """Runs `run-terminal-captures.sh` under /bin/bash with `cross`, `rustc` and `docker` stubbed: the
-    result, the arguments of each `docker` call in order, and the `cross` call as
-    "<CROSS_CONTAINER_OPTS> | <arguments>". The docker stub fails a `--version` call when
-    DOCKER_STUB_FAILS_VERSION is set."""
+def run_stubbed(
+    temp: Path, command: list[str], extra_env: dict[str, str]
+) -> tuple[subprocess.CompletedProcess[str], list[list[str]]]:
+    """Runs `command` with `cross`, `docker`, `npm`, `npx`, `cargo` and `rustc` stubbed, the images
+    named `vhs-under-test` and `code-server-under-test`: the result, and each stubbed call in order as
+    [name, argument, ...], where a `cross` call names its CROSS_CONTAINER_OPTS first. The docker stub
+    fails a call with `--version` when DOCKER_STUB_FAILS_VERSION is set, and one with
+    `command --help` when DOCKER_STUB_FAILS_HELP is set; `rustc` prints /opt/rust-sysroot."""
     stubs = temp / "bin"
     stubs.mkdir(exist_ok=True)
-    docker_calls = temp / "docker-calls"
-    cross_calls = temp / "cross-calls"
-    docker_calls.unlink(missing_ok=True)
-    cross_calls.unlink(missing_ok=True)
-    (stubs / "cross").write_text(f'#!/bin/sh\necho "$CROSS_CONTAINER_OPTS | $*" >> "{cross_calls}"\n')
+    log = temp / "calls"
+    log.unlink(missing_ok=True)
+    for name in ("cross", "docker", "npm", "npx", "cargo"):
+        options = ' "CROSS_CONTAINER_OPTS=$CROSS_CONTAINER_OPTS"' if name == "cross" else ""
+        failures = (
+            'case " $* " in *" --version "*) [ -n "$DOCKER_STUB_FAILS_VERSION" ] && exit 1 ;; esac\n'
+            'case " $* " in *" command --help "*) [ -n "$DOCKER_STUB_FAILS_HELP" ] && exit 1 ;; esac\n'
+            if name == "docker"
+            else ""
+        )
+        (stubs / name).write_text(f'#!/bin/sh\nprintf "%s\\n" {name}{options} "$@" "" >> "{log}"\n{failures}exit 0\n')
     (stubs / "rustc").write_text("#!/bin/sh\necho /opt/rust-sysroot\n")
-    (stubs / "docker").write_text(
-        f'#!/bin/sh\nprintf "%s\\n" "$@" "" >> "{docker_calls}"\n'
-        'case " $* " in *" --version "*) [ -n "$DOCKER_STUB_FAILS_VERSION" ] && exit 1 ;; esac\n'
-        "exit 0\n"
-    )
     for stub in stubs.iterdir():
         stub.chmod(0o755)
     env = {
@@ -332,20 +418,36 @@ def run_terminal_captures(
     }
     env["PATH"] = f"{stubs}{os.pathsep}{env['PATH']}"
     env["TRUST_CAPTURE_VHS_IMAGE"] = "vhs-under-test"
-    result = subprocess.run(
-        ["/bin/bash", str(ROOT / "scripts" / "captures" / "run-terminal-captures.sh")],
-        env={**env, **extra_env},
-        capture_output=True,
-        text=True,
-    )
-    runs = [run.split("\n") for run in docker_calls.read_text().split("\n\n") if run] if docker_calls.exists() else []
-    cross = cross_calls.read_text().strip() if cross_calls.exists() else ""
+    env["TRUST_CAPTURE_CODESERVER_IMAGE"] = "code-server-under-test"
+    result = subprocess.run(command, env={**env, **extra_env}, capture_output=True, text=True)
+    calls = [call.split("\n") for call in log.read_text().split("\n\n") if call] if log.exists() else []
+    return result, calls
+
+
+def run_terminal_captures(
+    temp: Path, extra_env: dict[str, str]
+) -> tuple[subprocess.CompletedProcess[str], list[list[str]], list[list[str]]]:
+    """Runs `run-terminal-captures.sh` under /bin/bash through `run_stubbed`: the result, the arguments
+    of each `docker` call in order, and those of each `cross` call."""
+    result, calls = run_stubbed(temp, ["/bin/bash", str(CAPTURES / "run-terminal-captures.sh")], extra_env)
+    runs = [call[1:] for call in calls if call[0] == "docker"]
+    cross = [call[1:] for call in calls if call[0] == "cross"]
     return result, runs, cross
 
 
 def tape_runs(runs: list[list[str]]) -> list[list[str]]:
     """The `docker` calls that record a tape: those that run in the repository's folder."""
     return [run for run in runs if "-w" in run]
+
+
+def code_server_runs(calls: list[list[str]]) -> list[list[str]]:
+    """The `docker` calls that start the code-server container: those that name it."""
+    return [call for call in calls if call[0] == "docker" and "--name" in call]
+
+
+def mounts(run: list[str]) -> list[str]:
+    """The volumes that a `docker` call mounts."""
+    return [run[index + 1] for index, argument in enumerate(run) if argument == "-v"]
 
 
 if __name__ == "__main__":

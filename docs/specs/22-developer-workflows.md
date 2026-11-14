@@ -864,16 +864,22 @@ listing's README, which each release may change: 0.25.1's listing no longer
 said "truST LSP", and the capture that waited for it failed every run (29 October
 2026).
 
-The terminal captures record their tapes in the `vhs` image, a Debian stable
-system, and run the programs they show there. A program built on the runner
-binds the runner's glibc and stops at start where that glibc is newer than the
-image's: on 14 November 2026 every terminal capture of `main` showed only
-``version `GLIBC_2.43' not found``. So the capture script builds the programs in
-`cross` for `x86_64-unknown-linux-gnu`, as the release builds its Linux packages
-(specification 24, "Platform Support Matrix"), and the container sees that build
-as `target/debug`, the folder the tapes name. Before the tapes, each program
-that they run starts once in the image with `--version`, and the captures fail
-when one does not start, so that a capture never shows a loader's error.
+The terminal captures record their tapes in the `vhs` image and run the programs
+they show there; the VS Code captures run the extension in the `code-server`
+image, and its language server there. Both images are Debian stable systems. A
+program built on the runner binds the runner's glibc and stops at start where
+that glibc is newer than the image's: on 14 November 2026 every terminal capture
+of `main` showed only ``version `GLIBC_2.43' not found``, and a language server
+built on the same system stopped in the `code-server` image with the same error.
+So the captures build these programs in `cross` for `x86_64-unknown-linux-gnu`,
+as the release builds its Linux packages (specification 24, "Platform Support
+Matrix"), and each container sees that build as `target/debug`: the folder the
+tapes name, and the language server that the captured workspace names
+(`trust-lsp.server.path`). Before the tapes, each program that they run starts
+once in the `vhs` image with `--version`, and before `code-server` starts, the
+language server starts once in its image with `command --help`. The captures
+fail when one does not start, so that a capture never shows a loader's error or
+an extension without its language server.
 
 The documentation site shows the screenshots of `main` without a commit of the
 images. The workflow runs on pull requests, on pushes to `main`, every night and
