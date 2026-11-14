@@ -14,10 +14,10 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use crate::util::{
     contains_ascii_case_insensitive, field_declaration_ranges, ident_token_in_name,
-    is_type_name_node, is_type_symbol_kind, qualified_name_from_field_expr,
-    resolve_action_callee_target, resolve_program_qualified_action_target,
-    resolve_target_at_position_with_context, resolve_type_symbol_at_node, scope_at_position,
-    FieldTarget, IdeContext, ResolvedTarget,
+    is_type_name_node, is_type_symbol_kind, program_config_type_name,
+    qualified_name_from_field_expr, resolve_action_callee_target,
+    resolve_program_qualified_action_target, resolve_target_at_position_with_context,
+    resolve_type_symbol_at_node, scope_at_position, FieldTarget, IdeContext, ResolvedTarget,
 };
 
 /// A reference to a symbol.
@@ -286,6 +286,37 @@ fn find_references_to_symbol_in_file_by_identity(
                 file_id,
                 range,
                 access,
+            });
+        }
+    }
+
+    // The program that a configuration's program instance runs (`PROGRAM P1 WITH Cycle :
+    // MainProgram;`) is named outside any expression, so neither scan above sees it.
+    for program_config in root
+        .descendants()
+        .filter(|n| n.kind() == SyntaxKind::ProgramConfig)
+    {
+        let Some(ident_token) =
+            program_config_type_name(&program_config).and_then(|name| ident_token_in_name(&name))
+        else {
+            continue;
+        };
+        if !ident_token.text().eq_ignore_ascii_case(target_name) {
+            continue;
+        }
+        if let Some(ResolvedTarget::Symbol(resolved_id)) = resolve_target_at_position_with_context(
+            db,
+            file_id,
+            ident_token.text_range().start(),
+            &source,
+            &root,
+            &symbols,
+        ) && symbol_identity(&symbols, resolved_id, file_id) == Some(identity)
+        {
+            references.push(Reference {
+                file_id,
+                range: ident_token.text_range(),
+                access: Access::Read,
             });
         }
     }

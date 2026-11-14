@@ -39,3 +39,5 @@ mod ide_features_part_06;
 mod ide_features_part_07;
 #[path = "ide_features/ide_features_part_08.rs"]
 mod ide_features_part_08;
+#[path = "ide_features/ide_features_part_09.rs"]
+mod ide_features_part_09;

@@ -314,10 +314,12 @@ contract, including when a newer document or workspace request supersedes it.
 - All usages of a symbol: every name, member and callee that the analysis resolves to it, in every
   file of the project. A global used through its namespace's qualifier (`GVL_IO.level`, a CODESYS
   GVL), a member or method of an instance declared in another file (`gTank.level`,
-  `gTank.Start()`) and a method call count as a plain name does. The references come from the
-  names the type check resolved (the map the compiled-program generator reads, specification 44
-  §3), so find references, rename and the call hierarchy's incoming calls agree with go to
-  definition.
+  `gTank.Start()`), a method call, and the program that a configuration's program instance runs
+  (`MainProgram` in `PROGRAM P1 WITH Cycle : MainProgram;`, IEC 61131-3 Ed.3 §6.8.1, Table 62
+  feature 6a) count as a plain name does, so renaming a program renames it there too. The
+  references come from the names the type check resolved (the map the compiled-program generator
+  reads, specification 44 §3), so find references, rename and the call hierarchy's incoming calls
+  agree with go to definition.
 - A call through an interface variable (`itf.Run()`, IEC 61131-3 Ed.3 §6.6.6) resolves to the
   interface's method. It is a call that each implementing method may receive, so the references and
   the incoming calls of a method of a function block or class include the calls of the same-named
