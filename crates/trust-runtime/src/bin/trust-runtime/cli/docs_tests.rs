@@ -6,12 +6,17 @@ mod docs_tests {
     //! continuations, cut at a comment, a pipe, a list operator or a redirection, and parsed with [`Cli`]. A renamed command
     //! or flag fails here instead of leaving the page behind. A placeholder such as `<project>` is a value; a line whose
     //! command is a placeholder, `trust-runtime <command>`, names no command and is left out.
+    //!
+    //! The page "Create A New Project" lists the files of the project that `trust-runtime new` writes.
 
     use std::fs;
+    use std::path::Path;
 
     use clap::error::ErrorKind;
     use clap::Parser;
+    use trust_runtime::new_project::create_project;
     use trust_test_support::doc_commands::{command_lines, pages, repository, words};
+    use trust_test_support::unique_temp_path;
 
     use super::Cli;
 
@@ -60,5 +65,72 @@ mod docs_tests {
             failures.len(),
             failures.join("\n")
         );
+    }
+
+    /// The files of the tree that "Create A New Project" shows under `my-first-plc/`: two spaces per level, a folder
+    /// ends in `/`, and `#` starts a comment.
+    fn listed_files(page: &str) -> Vec<String> {
+        let tree = page
+            .split("```text\nmy-first-plc/\n")
+            .nth(1)
+            .and_then(|rest| rest.split("```").next())
+            .expect("the page shows the tree of my-first-plc/");
+        let mut folders: Vec<&str> = Vec::new();
+        let mut files = Vec::new();
+        for line in tree.lines() {
+            let entry = line.split('#').next().unwrap_or_default().trim_end();
+            let name = entry.trim_start();
+            if name.is_empty() {
+                continue;
+            }
+            let depth = ((entry.len() - name.len()) / 2)
+                .checked_sub(1)
+                .expect("each entry of the tree is indented under my-first-plc/");
+            folders.truncate(depth);
+            match name.strip_suffix('/') {
+                Some(folder) => folders.push(folder),
+                None => files.push([folders.as_slice(), &[name]].concat().join("/")),
+            }
+        }
+        files.sort();
+        files
+    }
+
+    /// The files under `folder`, relative to `root` and joined with `/` on every platform.
+    fn written_files(root: &Path, folder: &Path, found: &mut Vec<String>) {
+        for entry in fs::read_dir(folder).expect("read a folder of the project") {
+            let path = entry.expect("a folder entry").path();
+            if path.is_dir() {
+                written_files(root, &path, found);
+            } else {
+                let relative = path.strip_prefix(root).expect("a file of the project");
+                let parts: Vec<String> = relative
+                    .components()
+                    .map(|part| part.as_os_str().to_string_lossy().into_owned())
+                    .collect();
+                found.push(parts.join("/"));
+            }
+        }
+    }
+
+    #[test]
+    fn create_a_new_project_lists_the_files_that_trust_runtime_new_writes() {
+        // Catches the page and the scaffold drifting apart: until 14 November 2026 the page listed five files of a new
+        // project, which holds eight; `.gitignore` and the two files of `.vscode` were missing.
+        let parent = unique_temp_path("trust-runtime-docs-new-project");
+        fs::create_dir_all(&parent).expect("create the parent folder");
+        let created = create_project(&parent, "my-first-plc", false).map(|project| {
+            let mut written = Vec::new();
+            written_files(&project, &project, &mut written);
+            written
+        });
+        let _ = fs::remove_dir_all(&parent);
+        let mut written = created.expect("trust-runtime new creates the project");
+        written.sort();
+        let page = fs::read_to_string(
+            repository(env!("CARGO_MANIFEST_DIR")).join("docs/public/start/create-new-project.md"),
+        )
+        .expect("read the page");
+        assert_eq!(listed_files(&page), written);
     }
 }

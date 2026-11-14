@@ -194,15 +194,15 @@
     },
     {
       "path": "images/vscode/vscode-create-no-project.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code truST sidebar no-project onboarding capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the truST view of a code-server window without a folder (scripts/captures/vscode/create-project.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-create-project-shell.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code newly created truST project shell capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the truST view and src/Main.st of the project my-first-plc that + Create project made in code-server (scripts/captures/vscode/create-project.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-debug-breakpoint.png",

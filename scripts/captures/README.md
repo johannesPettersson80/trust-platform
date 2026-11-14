@@ -29,6 +29,10 @@ The add flow of Devices & Connections, its choices and the Modbus TCP form of
 "Add A Device", is captured on a copy of the same project
 (`vscode/devices-add.spec.mjs`).
 
+The pictures of "Create A New Project", the truST view of a window without a
+folder and the project that `+ Create project` makes in it, are captured by
+`vscode/create-project.spec.mjs`.
+
 ## Current entry points
 
 ```bash
