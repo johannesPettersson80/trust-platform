@@ -43,6 +43,8 @@ class CaptureLifecycleTests(unittest.TestCase):
         self.child_pid_file = self.root / "child.pid"
 
         write_executable(self.bin_dir / "cargo", "#!/usr/bin/env bash\nexit 0\n")
+        # The VS Code captures build their language server in cross (build-container-programs.sh).
+        write_executable(self.bin_dir / "cross", "#!/usr/bin/env bash\nexit 0\n")
         write_executable(
             self.bin_dir / "docker",
             "#!/usr/bin/env bash\n"
