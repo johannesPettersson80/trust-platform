@@ -562,3 +562,45 @@ fn a_test_with_test_simulation_in_a_project_without_one_is_an_error() {
         )
     );
 }
+
+/// Runs of two projects work in two folders, a build's apart from a device run's. Catches the device
+/// run's folder named after the process alone, which every device run of the process shared.
+#[test]
+fn runs_of_two_projects_never_share_a_working_folder() {
+    let first = work_folder("device", Path::new("/projects/first"));
+    assert_ne!(first, work_folder("device", Path::new("/projects/second")));
+    assert_ne!(first, work_folder("test", Path::new("/projects/first")));
+    assert!(
+        // temp-root-ok: the folder of a run is in the system's temporary folder, which this checks.
+        first.starts_with(std::env::temp_dir()),
+        "{}",
+        first.display()
+    );
+}
+
+/// Two device runs at once in one process, as `cargo test` runs this crate's tests in threads, both
+/// pass, each as it passes alone (9.0 in cycle 3 at 20 ms, above). Catches the shared working folder:
+/// the first run to end removed it while the other linked its programs there, and on 14 November 2026
+/// one to three of the device tests failed in each `cargo test` with "rust-lld: error: cannot open
+/// .../trust-dev-device-<process>/idle/native/...rcgu.o: No such file or directory".
+#[test]
+fn two_device_runs_at_once_in_one_process_both_pass() {
+    let (first, second) = std::thread::scope(|scope| {
+        let first = scope
+            .spawn(|| results_on_a_stepping_device("together-first", ON_ADDRESSES, ADDRESS_PLANT));
+        let second = scope
+            .spawn(|| results_on_a_stepping_device("together-second", ON_ADDRESSES, ADDRESS_PLANT));
+        (
+            first.join().expect("the first run"),
+            second.join().expect("the second run"),
+        )
+    });
+    for results in [first, second] {
+        assert_eq!(
+            outcome(&results[0]),
+            (TestOutcome::Passed, String::new(), Some((3, 20))),
+            "{:?}",
+            results[0].message
+        );
+    }
+}
