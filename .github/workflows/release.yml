@@ -194,6 +194,9 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
 
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
+          targets: riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -203,8 +206,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
-            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
           bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
           echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
 
@@ -310,6 +311,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
         with:
+          components: clippy, rustfmt, rust-src
           targets: riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
 
       - name: Install Windows vendored OpenSSL Perl prerequisites
@@ -365,6 +367,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
         with:
+          components: clippy, rustfmt, rust-src
           targets: ${{ matrix.target }}
 
       - name: Install cross (for cross-compilation)

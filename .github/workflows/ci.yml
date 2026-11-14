@@ -42,6 +42,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
+          components: clippy, rustfmt, rust-src
           targets: ${{ matrix.target }}
       - name: Check isolated no_std core and value layout
         run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
@@ -86,6 +87,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
+          components: clippy, rustfmt, rust-src
           targets: ${{ matrix.target }}
       - name: Build the firmware and check its image
         run: cargo run --locked -q -p xtask -- portability build-firmware ${{ matrix.chip }} firmware-build/build.json
@@ -119,7 +121,7 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
-          components: rustfmt
+          components: clippy, rustfmt, rust-src
       - name: Guard IEC log paths
         run: python3 ./scripts/check_iec_log_paths.py
       - name: Guard expensive gate observability
@@ -210,6 +212,8 @@ jobs:
             scripts.release_artifact_generators_tests -v
       - name: Guard the Test jobs' one build
         run: python3 -m unittest scripts.tests.test_ci_test_jobs -v
+      - name: Guard the Rust toolchain setup of every job
+        run: python3 -m unittest scripts.tests.test_workflow_rust_toolchain -v
       - name: Guard the docs' command and setting names
         run: python3 -m unittest scripts.tests.test_check_public_docs_commands -v
       - name: Guard the example walkthroughs
@@ -264,7 +268,8 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
-          components: clippy
+          components: clippy, rustfmt, rust-src
+          targets: x86_64-pc-windows-gnu
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -273,7 +278,7 @@ jobs:
       - name: Install Windows cross-compiler for runtime warning gate
         run: bash "$GITHUB_WORKSPACE/scripts/ci_apt_install.sh" gcc-mingw-w64-x86-64
       - name: Guard trust-runtime cross-target warnings
-        run: ./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross
+        run: ./scripts/check_runtime_cross_target_warnings.sh --require-cross
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Mark gate success
         if: ${{ success() }}
@@ -307,6 +312,10 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          # llvm-tools: native_aarch64_registers reads an AArch64 module's machine code with llvm-objdump.
+          components: clippy, rustfmt, rust-src, llvm-tools
+          targets: riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -405,10 +414,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
-            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
-          # native_aarch64_registers reads an AArch64 module's machine code with llvm-objdump.
-          rustup component add llvm-tools
           folder="${RUNNER_TEMP}/trust-toolchain"
           bash scripts/native/build_toolchain_libraries.sh "${folder}"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
@@ -576,6 +581,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
+          targets: riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -583,8 +591,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
-            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
           bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
           echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - name: Install real MQTT broker conformance dependencies
@@ -723,6 +729,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - name: Run shared architecture safety gate
         run: bash scripts/architecture_safety_gate.sh
       # Evidence of the checks, like the test log: tried twice, and a failed upload never fails the job (G146).
@@ -776,6 +784,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - run: cargo check --all-targets
         env:
           CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
@@ -801,6 +811,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
@@ -826,11 +838,12 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
+          targets: wasm32-unknown-unknown
       - uses: actions/setup-node@v7
         with:
           node-version: "24.21.0"
-      - name: Install wasm target
-        run: rustup target add wasm32-unknown-unknown
       - name: Run parity + latency + memory + incremental gates
         run: ./scripts/check_mp010_browser_analysis.sh
       - name: Run browser host smoke gate
@@ -864,6 +877,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
+          targets: riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -872,8 +888,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
-            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
           bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
           echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - uses: actions/setup-node@v6
@@ -936,13 +950,14 @@ jobs:
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
+          targets: riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
       - name: Toolchain for compiled programs (specification 44 §4.6)
         shell: bash
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
-            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
           bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
           echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - name: Install wasm-pack
@@ -1060,6 +1075,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - name: Validate Neovim/Zed editor setup and core workflow coverage
         run: ./scripts/check_editor_integration_smoke.sh
       - name: Mark gate success
@@ -1084,6 +1101,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - name: Verify split-test parity and discovery stability
         run: scripts/check_mp001_split_parity.sh --verify
       - name: Mark gate success
@@ -1108,6 +1127,8 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
       - name: Install cargo-deny and cargo-audit
         run: |
           cargo install cargo-deny --version 0.20.2 --locked --force
