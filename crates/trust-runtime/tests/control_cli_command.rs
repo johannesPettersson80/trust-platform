@@ -419,10 +419,8 @@ fn ctl_stats_renders_each_task_in_stable_compact_form() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(
-        request,
-        json!({"id": 1, "type": "tasks.stats", "auth": null})
-    );
+    // No token: the request carries no `auth`.
+    assert_eq!(request, json!({"id": 1, "type": "tasks.stats"}));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).trim(),
         "task=Main min_ms=1.000 avg_ms=2.250 max_ms=3.500 last_ms=2.000 overruns=4"
