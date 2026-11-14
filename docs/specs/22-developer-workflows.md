@@ -767,7 +767,9 @@ in backticks, is one the VS Code extension contributes. No page names a name
 the extension retired: the command category `Structured Text:`, in bold or
 backticks, and the Runtime Panel or Runtime pane, which Live Values and the
 truST view replaced. Every `trust-runtime` command line in a fenced block
-parses with the runtime's command line. A quote that its program no longer
+parses with the runtime's command line, and every `trust-dev` command line with
+trust-dev's (14 November 2026: the examples' 218 lines that ran their tests with
+the deprecated `trust-runtime test` name `trust-dev test`). A quote that its program no longer
 holds, a renamed or retired command or setting, and a renamed flag therefore
 fail a pull request instead of leaving the page behind (30 October 2026: five
 blocks that no parser accepted, among them an OpenOT variable named with the
