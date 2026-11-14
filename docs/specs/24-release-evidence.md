@@ -26,6 +26,21 @@ Paths, archive layouts, executable suffixes, and VSIX embedded binaries must be
 validated for the target platform. Unsupported targets fail with a named
 diagnostic rather than borrowing another platform's claim.
 
+The Linux packages run on every Linux with glibc 2.28 or newer. A binary binds
+each glibc function it calls to the newest version of it in the glibc it was
+built against, and does not start where that version is missing, so both Linux
+platforms build in the images of `cross`, whose glibc is older than 2.28,
+never on the runner's own Ubuntu. Before a release or a rehearsal keeps or
+publishes anything, it refuses a Linux binary that the packages ship
+(`trust-lsp`, `trust-debug`, `trust-runtime`, `trust-control-studio`,
+`trust-dev` and `trust-bundle-gen`) when it needs a glibc version newer than
+2.28, naming each such version and the functions that need it
+(`scripts/check_glibc_baseline.py`); a weak need does not count, since the
+binary starts without it. Until 0.41.1 linux-x64 was built on the runner's own
+Ubuntu: from 0.35.0 its `trust-runtime` and `trust-dev` needed glibc 2.43
+(`asinf`) and did not start on Ubuntu 24.04 or Debian 13, and its `trust-lsp`
+needed glibc 2.38.
+
 ## Source Builds
 
 The documented normal source build of shipped Rust binaries must succeed from

@@ -10,6 +10,7 @@ scripts/check_published_release.py
 scripts/ci_apt_install.sh
 scripts/ci_changes.py
 scripts/check_dependency_exceptions.py
+scripts/check_glibc_baseline.py
 scripts/check_npm_audit.py
 scripts/checkout_openot_ref.sh
 scripts/check_release_tag_preflight.py
