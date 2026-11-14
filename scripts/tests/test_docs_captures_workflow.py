@@ -365,6 +365,23 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(code_server_runs(calls), [])
         self.assertNotIn("npx", [call[0] for call in calls])
 
+    def test_code_server_settings_name_the_mounted_programs_for_every_folder(self) -> None:
+        # Catches a capture of a folder other than the smoke workspace running the extension without
+        # its programs. The smoke workspace names its language server itself, but a folder that a
+        # capture opens with `?folder=`, as Devices & Connections' does, has only the user settings,
+        # and without them the extension looks for `trust-lsp` and `trust-runtime` on the
+        # container's PATH, which has neither. Both name the build that the container mounts at
+        # target/debug (specification 22, "Docs Captures").
+        with tempfile.TemporaryDirectory() as temp:
+            result, calls = run_stubbed(Path(temp), ["/bin/bash", str(CAPTURES / "vscode" / "start-code-server.sh")], {})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = json.loads((CAPTURES / ".cache" / "code-server-settings.json").read_text())
+        (mounted,) = [volume for volume in mounts(code_server_runs(calls)[0]) if volume.startswith(f"{BUILT}:")]
+        folder = mounted.split(":")[1]
+        self.assertEqual(folder, "/workspaces/trust-platform/target/debug")
+        self.assertEqual(settings["trust.languageServer.executablePath"], f"{folder}/trust-lsp")
+        self.assertEqual(settings["trust.runtime.executablePath"], f"{folder}/trust-runtime")
+
     def test_vscode_captures_build_the_language_server_in_cross_before_playwright_waits_for_it(self) -> None:
         # Catches the VS Code captures building the language server on the runner, a build that does
         # not start in the code-server image, or leaving a first cross build to start-code-server.sh,
