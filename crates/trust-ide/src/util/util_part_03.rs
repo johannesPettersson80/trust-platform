@@ -60,6 +60,12 @@ pub(crate) fn resolve_target_at_position_with_context(
             continue;
         };
         if name_node.kind() == SyntaxKind::Name {
+            if let Some(program_id) = resolve_program_config_type(symbols, &name_node) {
+                return Some(ResolvedTarget::Symbol(canonical_symbol_id(
+                    symbols, file_id, root, program_id,
+                )));
+            }
+
             if let Some(field_target) = resolve_field_decl_target(symbols, &name_node, name) {
                 return Some(ResolvedTarget::Field(field_target));
             }
@@ -301,6 +307,41 @@ pub(crate) fn is_type_name_node(name_node: &SyntaxNode) -> bool {
         matches!(
             n.kind(),
             SyntaxKind::TypeRef | SyntaxKind::ExtendsClause | SyntaxKind::ImplementsClause
+        )
+    })
+}
+
+/// The name of the program that a configuration's program instance runs, `MainProgram` in
+/// `PROGRAM P1 WITH Cycle : MainProgram;` (IEC 61131-3 Ed.3 §6.8.1, Table 62 features 6a and 6c):
+/// the last name of the qualified name that follows the colon of the `ProgramConfig`. The parser
+/// keeps it there, not under a `TypeRef`; the names of the instance and the task are no part of it.
+pub(crate) fn program_config_type_name(program_config: &SyntaxNode) -> Option<SyntaxNode> {
+    program_config
+        .children()
+        .find(|child| child.kind() == SyntaxKind::QualifiedName)?
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Name)
+        .last()
+}
+
+/// The program that `name_node` names when it is the program type of a configuration's program
+/// instance, resolved as the analysis resolves it (`collect_program_config` in trust-hir): a global
+/// name, or a path through namespaces, that names a PROGRAM.
+pub(crate) fn resolve_program_config_type(
+    symbols: &SymbolTable,
+    name_node: &SyntaxNode,
+) -> Option<SymbolId> {
+    let program_config = name_node.parent()?.parent()?;
+    if program_config.kind() != SyntaxKind::ProgramConfig
+        || program_config_type_name(&program_config).as_ref() != Some(name_node)
+    {
+        return None;
+    }
+    let parts = qualified_name_parts_from_node(name_node)?;
+    symbols.resolve_qualified(&parts).filter(|symbol_id| {
+        matches!(
+            symbols.get(*symbol_id).map(|symbol| &symbol.kind),
+            Some(SymbolKind::Program)
         )
     })
 }
