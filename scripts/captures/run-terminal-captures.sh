@@ -14,7 +14,6 @@ require_cmd() {
   fi
 }
 
-require_cmd cross
 require_cmd docker
 
 mkdir -p "$OUTPUT_DIR"
@@ -29,16 +28,10 @@ cleanup() {
 
 trap cleanup EXIT
 
-# The tapes run the programs in the vhs image, a Debian stable system. A program built on this
-# computer binds this computer's glibc and stops at start where that glibc is newer than the
-# image's: on 14 November 2026 every terminal capture showed only "version `GLIBC_2.43' not
-# found". So the programs are built in cross, as the release builds its Linux packages, and the
-# container sees that build as target/debug, the folder the tapes name (specification 22, "Docs
-# Captures"). The repository's cargo configuration names sccache as the compiler wrapper, which the
-# cross image does not have, so the build runs without one, as the release's does.
-CROSS_CONTAINER_OPTS="--env RUSTC_WRAPPER=" \
-  cross build --target x86_64-unknown-linux-gnu -p trust-lsp -p trust-runtime -p trust-debug -p trust-dev
-programs="${CARGO_TARGET_DIR:-$ROOT_DIR/target}/x86_64-unknown-linux-gnu/debug"
+# The tapes run the programs in the vhs image, a Debian stable system, so they run the build that
+# starts there (build-container-programs.sh), which the container sees as target/debug, the folder
+# the tapes name (specification 22, "Docs Captures").
+programs=$("$ROOT_DIR/scripts/captures/build-container-programs.sh")
 # The folder the build is mounted over, made here so that Docker does not make it as root.
 mkdir -p "$ROOT_DIR/target/debug"
 

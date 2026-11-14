@@ -22,6 +22,23 @@ fi
 
 mkdir -p "$CAPTURE_CACHE_DIR"
 
+# The captured workspace names its language server as target/debug/trust-lsp (its trust-lsp.server.path),
+# which the container sees as the build that starts in the code-server image, a Debian stable system
+# (build-container-programs.sh; specification 22, "Docs Captures"). A language server that does not
+# start leaves every view that needs it empty, so it starts once in the image first, and the
+# captures stop when it does not.
+programs=$("$ROOT_DIR/scripts/captures/build-container-programs.sh")
+# The folder the build is mounted over, made here so that Docker does not make it as root.
+mkdir -p "$ROOT_DIR/target/debug"
+if ! docker run --rm \
+  -v "$programs:/workspaces/trust-platform/target/debug:ro" \
+  --entrypoint /workspaces/trust-platform/target/debug/trust-lsp \
+  "$IMAGE" \
+  command --help >/dev/null; then
+  echo "trust-lsp does not start in $IMAGE" >&2
+  exit 1
+fi
+
 cat >"$SETTINGS_PATH" <<'EOF'
 {
   "workbench.colorTheme": "Default Dark Modern",
@@ -62,5 +79,6 @@ exec docker run \
   --entrypoint sh \
   -p "127.0.0.1:${PORT}:8080" \
   -v "$ROOT_DIR:/workspaces/trust-platform" \
+  -v "$programs:/workspaces/trust-platform/target/debug:ro" \
   "$IMAGE" \
   -lc "USER_DATA_DIR=/tmp/trust-docs-code-server-user-data; EXTENSIONS_DIR=/tmp/trust-docs-code-server-extensions; mkdir -p \"\${USER_DATA_DIR}/User\" \"\${EXTENSIONS_DIR}\"; cp /workspaces/trust-platform/scripts/captures/.cache/code-server-settings.json \"\${USER_DATA_DIR}/User/settings.json\"; code-server --install-extension /workspaces/trust-platform/scripts/captures/.cache/trust-lsp.vsix --force --user-data-dir \"\${USER_DATA_DIR}\" --extensions-dir \"\${EXTENSIONS_DIR}\" >/tmp/trust-install.log 2>&1 || { cat /tmp/trust-install.log >&2; exit 1; }; exec code-server --bind-addr 0.0.0.0:8080 --auth none --disable-telemetry --disable-workspace-trust --user-data-dir \"\${USER_DATA_DIR}\" --extensions-dir \"\${EXTENSIONS_DIR}\" ${WORKSPACE_PATH_IN_CONTAINER}"

@@ -44,9 +44,10 @@ These commands write checked-in assets directly to:
 
 - `cargo` with locally built binaries under `target/debug/`
 - `docker` for the terminal and `code-server` capture paths
-- `cross` (`cargo install cross --version 0.2.5 --locked`) for the terminal
-  captures: they build their programs in it for `x86_64-unknown-linux-gnu`, so
-  that the programs start in the `vhs` image (an x86-64 Linux computer runs it)
+- `cross` (`cargo install cross --version 0.2.5 --locked`) for the terminal and
+  `code-server` captures: `build-container-programs.sh` builds their programs in
+  it for `x86_64-unknown-linux-gnu`, so that the programs start in the `vhs` and
+  `code-server` images (an x86-64 Linux computer runs them)
 - Node 24.21.0 (the pinned project build baseline)
 - `npm --prefix scripts/captures ci`
 - `npm --prefix editors/vscode ci && npm --prefix editors/vscode run compile` for
@@ -61,7 +62,10 @@ These commands write checked-in assets directly to:
   once in the image before the tapes run: a program built on the runner needs
   the runner's newer glibc and showed only the loader's error.
 - VS Code captures run on GitHub-hosted Linux runners with Playwright plus a
-  disposable `code-server` Docker container.
+  disposable `code-server` Docker container, also a Debian stable system. The
+  captured workspace names `target/debug/trust-lsp` as its language server, and
+  the container sees the `cross` build there; the language server starts once in
+  the image before `code-server` does.
 - The checked-in completeness contract lives in
   `docs/public/assets/capture-inventory.json`.
 - That inventory only enforces the subset of captures that are currently
