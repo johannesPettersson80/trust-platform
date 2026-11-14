@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { ensureParent, publicImagePath, repoRoot } from "../lib/paths.mjs";
-import { dismissCodeServerChrome, waitForStructuredTextMode } from "./helpers.mjs";
+import { dismissCodeServerChrome, runCommand, waitForStructuredTextMode } from "./helpers.mjs";
 
 // The editor pictures of "Program In VS Code" show the shipped capstone tutorial: its program calls the
 // function block LevelController, which another file declares, so hover, rename and completion answer
@@ -33,13 +33,6 @@ async function quickInput(page, text) {
   await expect(widget).toBeVisible({ timeout: 30_000 });
   await widget.locator("input").fill(text);
   return widget;
-}
-
-async function runCommand(page, title) {
-  const widget = await quickInput(page, `>${title}`);
-  await expect(widget.locator(".quick-input-list")).toContainText(title, { timeout: 30_000 });
-  await page.keyboard.press("Enter");
-  await expect(widget).toBeHidden({ timeout: 10_000 });
 }
 
 /** Moves the cursor and waits until the status bar shows it there, so that keys typed next reach that place. */

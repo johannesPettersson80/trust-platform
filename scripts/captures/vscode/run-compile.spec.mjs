@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { ensureParent, publicImagePath, repoRoot } from "../lib/paths.mjs";
-import { dismissCodeServerChrome } from "./helpers.mjs";
+import { dismissCodeServerChrome, runCommand } from "./helpers.mjs";
 
 // "Run & Compile" shows Compile and Start of the truST view on the shipped project that the Devices &
 // Connections pictures show. Each attempt opens a copy of its own, so that the build writes into the
@@ -14,16 +14,6 @@ const COPIES = path.join(repoRoot, "scripts/captures/.cache/run-compile");
 const CONTAINER_COPIES = "/workspaces/trust-platform/scripts/captures/.cache/run-compile";
 // The screenshots take CSS animations at their end, so that no view is caught while it changes.
 const FINISHED_ANIMATIONS = { animations: "disabled" };
-
-async function runCommand(page, title) {
-  await page.keyboard.press("Control+Shift+P");
-  const widget = page.locator(".quick-input-widget");
-  await expect(widget).toBeVisible({ timeout: 30_000 });
-  await widget.locator("input").fill(`>${title}`);
-  await expect(widget.locator(".quick-input-list")).toContainText(title, { timeout: 30_000 });
-  await page.keyboard.press("Enter");
-  await expect(widget).toBeHidden({ timeout: 10_000 });
-}
 
 /** The frame of the webview that shows `text`: a webview's, not the workbench's own. */
 async function webview(page, text, timeout = 120_000) {
