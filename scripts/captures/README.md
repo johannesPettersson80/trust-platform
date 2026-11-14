@@ -43,7 +43,10 @@ These commands write checked-in assets directly to:
 ## Local prerequisites
 
 - `cargo` with locally built binaries under `target/debug/`
-- `docker` for the `code-server` capture path
+- `docker` for the terminal and `code-server` capture paths
+- `cross` (`cargo install cross --version 0.2.5 --locked`) for the terminal
+  captures: they build their programs in it for `x86_64-unknown-linux-gnu`, so
+  that the programs start in the `vhs` image (an x86-64 Linux computer runs it)
 - Node 24.21.0 (the pinned project build baseline)
 - `npm --prefix scripts/captures ci`
 - `npm --prefix editors/vscode ci && npm --prefix editors/vscode run compile` for
@@ -53,7 +56,10 @@ These commands write checked-in assets directly to:
 
 - Browser captures run on GitHub-hosted Linux runners with Playwright.
 - Terminal captures run on GitHub-hosted Linux runners with `vhs` inside its
-  published container image.
+  published container image, a Debian stable system. The programs they show are
+  built in `cross`, as the release's Linux packages are, and each one starts
+  once in the image before the tapes run: a program built on the runner needs
+  the runner's newer glibc and showed only the loader's error.
 - VS Code captures run on GitHub-hosted Linux runners with Playwright plus a
   disposable `code-server` Docker container.
 - The checked-in completeness contract lives in

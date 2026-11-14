@@ -92,8 +92,10 @@ jobs:
         run: python3 -m unittest scripts.tests.test_capture_lifecycle -v
 
       - name: Install capture dependencies
+        # cross builds the programs that the terminal captures run in the vhs image (specification 22).
         run: |
           cargo install wasm-pack --version 0.15.0 --locked
+          cargo install cross --version 0.2.5 --locked
           npm --prefix scripts/captures ci
           npm --prefix scripts/captures run capture:install
 
