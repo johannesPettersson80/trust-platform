@@ -220,14 +220,17 @@ class ReleasePlanTests(unittest.TestCase):
 
     def test_a_pull_request_that_keeps_the_version_builds_the_linux_package_only_when_it_changes_one(self) -> None:
         # Specification 24: a pull request that changes what the packages hold builds the linux-x64 package for its
-        # acceptance journeys. Catches every pull request building all five targets (hours of runners), a change to the
-        # packages merged without its journeys, and a documentation change that builds packages.
+        # acceptance journeys, in `cross`'s image as a release builds it. Catches every pull request building all five
+        # targets (hours of runners), a change to the packages merged without its journeys, a package for the journeys
+        # built otherwise than the released one, and a documentation change that builds packages.
         package = lambda base, head, paths: paths.name == "package.txt"
         packaged = plan(event="pull_request", pr_base="base", pr_head="same", pr_head_repository=OFFICIAL, changes=package)
         self.assertEqual((packaged.mode, packaged.sha, packaged.platforms), ("package", "same", ("linux-x64",)))
         self.assertEqual(packaged.matrices(), {
             "toolchain_targets": [{"os": "ubuntu-latest", "platform": "linux-x64"}],
-            "build_targets": [{"os": "ubuntu-latest", "target": "x86_64-unknown-linux-gnu", "platform": "linux-x64"}],
+            "build_targets": [
+                {"os": "ubuntu-latest", "target": "x86_64-unknown-linux-gnu", "platform": "linux-x64", "cross": True}
+            ],
         })
         documents = plan(event="pull_request", pr_base="base", pr_head="same", pr_head_repository=OFFICIAL)
         self.assertEqual(documents.mode, "skip")
@@ -240,8 +243,9 @@ class ReleasePlanTests(unittest.TestCase):
         self.assertEqual((rehearsed.mode, rehearsed.platforms), ("rehearsal", release_plan.ALL_PLATFORMS))
 
     def test_a_rehearsal_and_a_release_build_every_platform(self) -> None:
-        # Specification 24: the five platforms of the packages, each on its runner; only linux-arm64 cross-compiles.
-        # Catches a release or a rehearsal that loses a platform, or a native build marked as cross.
+        # Specification 24: the five platforms of the packages, each on its runner; both Linux platforms build in `cross`'s
+        # images, whose old glibc the packages need. Catches a release or a rehearsal that loses a platform, and a Linux
+        # package built on the runner's own Ubuntu: from 0.35.0 to 0.41.1 linux-x64 needed that Ubuntu's glibc 2.43.
         for result in (plan(event="pull_request", pr_base="base", pr_head="bumped", pr_head_repository=OFFICIAL), after_ci()):
             matrices = result.matrices()
             self.assertEqual(
@@ -249,7 +253,9 @@ class ReleasePlanTests(unittest.TestCase):
                 ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64", "win32-x64"],
                 result.mode,
             )
-            self.assertEqual([entry["platform"] for entry in matrices["build_targets"] if entry.get("cross")], ["linux-arm64"])
+            self.assertEqual(
+                [entry["platform"] for entry in matrices["build_targets"] if entry.get("cross")], ["linux-x64", "linux-arm64"]
+            )
             self.assertEqual(
                 [entry["os"] for entry in matrices["toolchain_targets"]],
                 ["ubuntu-latest", "ubuntu-24.04-arm", "macos-15-intel", "macos-latest", "windows-latest"],

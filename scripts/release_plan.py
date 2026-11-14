@@ -87,9 +87,12 @@ MAIN_BRANCHES = ("main", "master")
 
 
 # The platforms of the release packages (specification 24): the runner that builds each one's toolchain bundle, and the
-# runner and Rust target that build its packages, cross-compiled where the runner is not of that platform.
+# runner and Rust target that build its packages. Both Linux platforms build in `cross`'s images, whose old glibc keeps
+# the binaries running on every Linux with glibc 2.28 or newer; a build on the runner's own Ubuntu needs that Ubuntu's
+# glibc (0.35.0 to 0.41.1 needed glibc 2.43 on linux-x64).
 TARGETS = (
-    {"platform": "linux-x64", "toolchain_os": "ubuntu-latest", "os": "ubuntu-latest", "target": "x86_64-unknown-linux-gnu"},
+    {"platform": "linux-x64", "toolchain_os": "ubuntu-latest", "os": "ubuntu-latest", "target": "x86_64-unknown-linux-gnu",
+     "cross": True},
     {"platform": "linux-arm64", "toolchain_os": "ubuntu-24.04-arm", "os": "ubuntu-latest", "target": "aarch64-unknown-linux-gnu",
      "cross": True},
     {"platform": "darwin-x64", "toolchain_os": "macos-15-intel", "os": "macos-latest", "target": "x86_64-apple-darwin"},

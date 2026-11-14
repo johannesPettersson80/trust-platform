@@ -389,6 +389,17 @@ jobs:
           fi
         shell: bash
 
+      - name: Check the Linux binaries' glibc (specification 24)
+        # The Linux packages run on every Linux with glibc 2.28 or newer. A binary that needs a newer glibc does not
+        # start on an older one: from 0.35.0 to 0.41.1 linux-x64 needed glibc 2.43, the runner's, and did not start on
+        # Ubuntu 24.04 or Debian 13.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          release="target/${{ matrix.target }}/release"
+          python3 scripts/check_glibc_baseline.py "${release}/trust-lsp" "${release}/trust-debug" \
+            "${release}/trust-runtime" "${release}/trust-control-studio" "${release}/trust-dev" "${release}/trust-bundle-gen"
+
       - name: Prepare extension binaries (Unix)
         if: runner.os != 'Windows'
         run: |

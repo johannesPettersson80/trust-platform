@@ -352,6 +352,24 @@ class ReleaseWorkflowTests(unittest.TestCase):
         for path in copied:
             self.assertTrue(any(ci_changes.pattern_regex(pattern).match(path) for pattern in patterns), path)
 
+    def test_every_linux_binary_a_package_ships_is_checked_against_the_glibc_baseline(self) -> None:
+        # Specification 24: the Linux packages run on every Linux with glibc 2.28 or newer. Catches a Linux binary that
+        # reaches a package unchecked, as linux-x64's trust-runtime did from 0.35.0 to 0.41.1 needing glibc 2.43, and a
+        # check placed after the binaries are copied into the extension.
+        build = self.jobs["build"]
+        names = list(steps(build))
+        check = steps(build)["Check the Linux binaries' glibc (specification 24)"]
+        self.assertEqual(field(check, "if"), "runner.os == 'Linux'")
+        self.assertLess(names.index("Build binaries"), names.index("Check the Linux binaries' glibc (specification 24)"))
+        self.assertLess(
+            names.index("Check the Linux binaries' glibc (specification 24)"), names.index("Prepare extension binaries (Unix)")
+        )
+        shipped = set(re.findall(r"cp target/\$\{\{ matrix\.target \}\}/release/([a-z-]+) ", build))
+        self.assertGreaterEqual(shipped, {"trust-lsp", "trust-runtime", "trust-bundle-gen"})
+        script = run_block(check)
+        self.assertIn("python3 scripts/check_glibc_baseline.py", script)
+        self.assertEqual(set(re.findall(r'"\$\{release\}/([a-z-]+)"', script)), shipped)
+
     def test_every_script_the_release_runs_is_in_the_release_list(self) -> None:
         # Specification 24: a pull request that changes a script the release runs is rehearsed. Catches a script added to
         # the release, or to its release-files action, whose changes would merge without a rehearsal.
