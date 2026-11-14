@@ -617,7 +617,7 @@ fn project_runtime_keeps_its_topology() {
     );
 
     let mut primary = answered(LINE, fleet_topology());
-    primary.connectors = Some(Err(ControlError::Transport(
+    primary.connectors = Some(Err(ControlError::transport(
         "connection reset by peer".to_owned(),
     )));
     let merged = topology::merge(&TopologyInputs {

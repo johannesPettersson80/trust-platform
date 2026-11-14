@@ -266,7 +266,7 @@ fn banner_keeps_the_failed_start_and_the_unread_reports() {
         status("running", "admin"),
         json!({}),
     );
-    unread.live.topology = Some(Err(ControlError::Transport("connection reset".to_owned())));
+    unread.live.topology = Some(Err(ControlError::transport("connection reset")));
     let view = view_of(vec![unread], host(RunMode::Simulate, ""), plain());
     let text = "tcp://192.168.77.12:5680 topology: connection reset";
     let banner = view.banner.as_ref().expect("a banner");

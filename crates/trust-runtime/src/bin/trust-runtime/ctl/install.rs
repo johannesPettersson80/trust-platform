@@ -256,7 +256,7 @@ fn send_part(
                 );
                 return Ok(());
             }
-            Err(ControlError::Transport(_)) if attempts < PART_ATTEMPTS => {}
+            Err(ControlError::Transport { .. }) if attempts < PART_ATTEMPTS => {}
             Err(error) => {
                 return Err(step_failed(
                     &format!("transfer.part at offset {offset}"),

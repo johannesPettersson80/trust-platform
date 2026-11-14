@@ -90,8 +90,14 @@ impl ControlEndpoint {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ControlError {
     /// The endpoint could not be reached, or the connection failed.
-    #[error("{0}")]
-    Transport(String),
+    #[error("{message}")]
+    Transport {
+        /// What failed, as the operating system or the client words it.
+        message: String,
+        /// The kind of the operating system's error when an I/O call failed, so that a caller can
+        /// tell a connection that broke off, which it may ask again, from one that was never made.
+        kind: Option<std::io::ErrorKind>,
+    },
     /// The runtime refused the request (annex E0.4).
     #[error("{error}")]
     Refused {
@@ -106,6 +112,33 @@ pub enum ControlError {
 }
 
 impl ControlError {
+    /// A transport failure that the client words itself, without an operating-system error.
+    #[must_use]
+    pub fn transport(message: impl Into<String>) -> Self {
+        Self::Transport {
+            message: message.into(),
+            kind: None,
+        }
+    }
+
+    /// The transport failure of an I/O call that failed with `error`, keeping its kind.
+    #[must_use]
+    pub fn io(error: &std::io::Error) -> Self {
+        Self::Transport {
+            message: error.to_string(),
+            kind: Some(error.kind()),
+        }
+    }
+
+    /// The kind of the operating system's error of a transport failure, when an I/O call failed.
+    #[must_use]
+    pub fn io_kind(&self) -> Option<std::io::ErrorKind> {
+        match self {
+            Self::Transport { kind, .. } => *kind,
+            Self::Refused { .. } | Self::Malformed(_) => None,
+        }
+    }
+
     /// The credential failure that a refusal names by its code (specification 11, 6.9.6):
     /// `missing_auth_token` or `invalid_auth_token`. Every other refusal and every other error
     /// give `None`; the runtime's text is never read.
@@ -234,7 +267,7 @@ impl ControlClient {
         self.reader
             .get_ref()
             .set_timeout(timeout)
-            .map_err(|error| ControlError::Transport(error.to_string()))
+            .map_err(|error| ControlError::io(&error))
     }
 
     /// The id of the next request: the client numbers the requests of its connection from 1.
@@ -330,7 +363,7 @@ impl ControlClient {
 
     /// Writes the request `line` and reads the response to it.
     fn send_line(&mut self, line: &str, kind: &str) -> Result<Value, ControlError> {
-        let transport = |error: std::io::Error| ControlError::Transport(error.to_string());
+        let transport = |error: std::io::Error| ControlError::io(&error);
         let stream = self.reader.get_mut();
         stream.write_all(line.as_bytes()).map_err(transport)?;
         stream.flush().map_err(transport)?;
@@ -403,7 +436,7 @@ impl ControlClient {
     /// the connection cuts before its line end is no answer (specification 11 §6.8.1: the response
     /// ends with a newline).
     fn read_line(&mut self, kind: &str) -> Result<Vec<u8>, ControlError> {
-        let transport = |error: std::io::Error| ControlError::Transport(error.to_string());
+        let transport = |error: std::io::Error| ControlError::io(&error);
         let limit = self.line_limit();
         let mut line = Vec::new();
         let read = match limit {
@@ -415,9 +448,10 @@ impl ControlClient {
         }
         .map_err(transport)?;
         if read == 0 {
-            return Err(ControlError::Transport(
-                "the runtime closed the connection".into(),
-            ));
+            return Err(ControlError::Transport {
+                message: "the runtime closed the connection".into(),
+                kind: Some(std::io::ErrorKind::UnexpectedEof),
+            });
         }
         if let Some(limit) = limit
             && line.len() > limit
@@ -471,11 +505,11 @@ fn open_stream(
     endpoint: &ControlEndpoint,
     timeout: Duration,
 ) -> Result<Box<dyn ByteStream>, ControlError> {
-    let transport = |error: std::io::Error| ControlError::Transport(error.to_string());
+    let transport = |error: std::io::Error| ControlError::io(&error);
     Ok(match endpoint {
         ControlEndpoint::Tcp(address) => {
             let socket = resolve_socket_addr(address).ok_or_else(|| {
-                ControlError::Transport(format!("{address} is not a socket address"))
+                ControlError::transport(format!("{address} is not a socket address"))
             })?;
             let stream = TcpStream::connect_timeout(&socket, timeout).map_err(transport)?;
             stream.set_timeout(timeout).map_err(transport)?;
@@ -487,9 +521,12 @@ fn open_stream(
             stream.set_timeout(timeout).map_err(transport)?;
             Box::new(stream)
         }
-        ControlEndpoint::Serial(name) => serial_port::open(name, timeout).map_err(|error| {
-            ControlError::Transport(format!("cannot open the serial port {name}: {error}"))
-        })?,
+        ControlEndpoint::Serial(name) => {
+            serial_port::open(name, timeout).map_err(|error| ControlError::Transport {
+                message: format!("cannot open the serial port {name}: {error}"),
+                kind: Some(error.kind()),
+            })?
+        }
     })
 }
 

@@ -500,9 +500,9 @@ impl RuntimeClient {
         self.client
             .request(operation, params)
             .map_err(|error| match error {
-                ControlError::Transport(reason) => {
-                    CallFailure::without_code(Failure::unreachable(&reason))
-                }
+                ControlError::Transport {
+                    message: reason, ..
+                } => CallFailure::without_code(Failure::unreachable(&reason)),
                 ControlError::Refused { error, code } => {
                     let failure =
                         Failure::from_runtime(code.as_deref().unwrap_or_default(), &error);

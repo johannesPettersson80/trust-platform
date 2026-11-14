@@ -175,7 +175,7 @@ fn decoded(response: Value) -> Outcome {
 fn failed(error: ControlError) -> Outcome {
     let auth = error.auth_failure();
     match error {
-        ControlError::Transport(text) => Outcome::Transport(text),
+        ControlError::Transport { message: text, .. } => Outcome::Transport(text),
         ControlError::Malformed(text) => Outcome::Malformed(text),
         ControlError::Refused { error, code } => Outcome::Refused {
             error,

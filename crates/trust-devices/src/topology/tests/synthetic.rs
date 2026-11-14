@@ -582,7 +582,7 @@ fn local_connections_need_live_evidence() {
 /// view stays visible.
 fn peer_failure_keeps_the_local_view() {
     let reset = || {
-        Some(Err(ControlError::Transport(
+        Some(Err(ControlError::transport(
             "connection reset by peer".to_owned(),
         )))
     };
