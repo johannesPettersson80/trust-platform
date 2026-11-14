@@ -248,6 +248,8 @@ const FIXTURES = [
 // visible status truth against the actual React/SVG DOM for the dedicated contract fixture.
 const MEASURE = `
 function __finishMeasure(result){
+  result.edgeWait=window.__edgeWait||null;
+  result.edgesAtEnd=document.querySelectorAll('.react-flow__edge').length;
   var pre=document.createElement('pre');pre.id='nc-geom-result';
   pre.textContent=JSON.stringify(result);
   document.body.appendChild(pre);
@@ -398,7 +400,14 @@ function harnessHtml(fixture) {
 <script>window.__NC__=${JSON.stringify(fixture.nc)};</script>
 <script>${MEASURE}
 function __click(t){var b=[].slice.call(document.querySelectorAll("button")).find(function(x){return x.textContent.replace(/\\s+/g," ").indexOf(t)>=0;});if(b)b.click();}
-setTimeout(function(){ ${fixture.edit ? '__click("Edit");' : ""} setTimeout(function(){__measure(${JSON.stringify(fixture.renderContractRuntimeId ?? null)});},1100); },800);
+// React Flow draws the edges only after it has measured the nodes: every fixture has edges, so the
+// measurement waits until one is drawn instead of taking them as drawn after the settle time below,
+// and at the deadline the missing edges fail the check as before. On 14 November 2026 the "status
+// truth" fixture failed in CI with all its edges missing at the measurement (23 failures, which a
+// mutant that removes the drawn edges just before the measurement reproduces) and passed when run
+// again; a failure now prints what the page held (G175).
+function __afterEdges(then){var started=Date.now(),deadline=started+3000;(function poll(){if(document.querySelector('.react-flow__edge path[d]')||Date.now()>=deadline){window.__edgeWait={waitedMs:Date.now()-started,edges:document.querySelectorAll('.react-flow__edge').length,paths:document.querySelectorAll('.react-flow__edge path[d]').length};setTimeout(then,100);}else{setTimeout(poll,50);}})();}
+setTimeout(function(){ ${fixture.edit ? '__click("Edit");' : ""} setTimeout(function(){__afterEdges(function(){__measure(${JSON.stringify(fixture.renderContractRuntimeId ?? null)});});},1100); },800);
 </script>
 <script src="file://${BUNDLE}"></script>
 </body></html>`;
@@ -436,7 +445,7 @@ function main() {
       console.error(`[canvas-geometry] fixture=${fixture.name} start`);
       dom = runBrowser(
         "render", chrome,
-        ["--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", `--user-data-dir=${profile}`, "--window-size=1600,900", "--virtual-time-budget=5000", "--dump-dom", `file://${file}`]
+        ["--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", `--user-data-dir=${profile}`, "--window-size=1600,900", "--virtual-time-budget=8000", "--dump-dom", `file://${file}`]
       );
     } catch (err) {
       console.error(`[canvas-geometry] ${fixture.name}: chromium failed — ${err.message}`);
@@ -476,6 +485,11 @@ function main() {
       fixtureFailed = true;
     }
     if (fixtureFailed) {
+      // What the page held when it was measured, so that a failure names its state (G175).
+      const wait = result.edgeWait;
+      console.error(
+        `    state: ${result.count} nodes; ${wait ? `${wait.edges} edges (${wait.paths} paths) after waiting ${wait.waitedMs} ms for them` : "no edge wait recorded"}; ${result.edgesAtEnd} edges at the end`
+      );
       failures++;
     } else {
       console.log(`[canvas-geometry] ✓ ${fixture.name}: no overlaps (${result.count} nodes)`);
