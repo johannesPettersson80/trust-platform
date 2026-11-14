@@ -182,15 +182,15 @@
     },
     {
       "path": "images/vscode/vscode-add-device-modbus-form.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code Devices & Connections Add Modbus TCP form capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the Add Modbus TCP form of Devices & Connections on a copy of examples/memory_marker_counter in code-server (scripts/captures/vscode/devices-add.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-add-device-picker.png",
-      "class": "vscode-desktop-surface",
-      "generator": "synced-media",
-      "source": "desktop VS Code Devices & Connections protocol picker capture"
+      "class": "vscode-browser-surface",
+      "generator": "playwright",
+      "source": "the + Add choices of Devices & Connections on a copy of examples/memory_marker_counter in code-server (scripts/captures/vscode/devices-add.spec.mjs)"
     },
     {
       "path": "images/vscode/vscode-create-no-project.png",

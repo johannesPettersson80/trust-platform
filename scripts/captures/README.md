@@ -22,6 +22,10 @@ The code-server lane captures command-palette proof for the current public
 lifecycle, Live Values, and test execution remain on their dedicated product
 surfaces rather than leaking into the palette.
 
+The add flow of Devices & Connections, its choices and the Modbus TCP form of
+"Add A Device", is captured on a copy of the same project
+(`vscode/devices-add.spec.mjs`).
+
 ## Current entry points
 
 ```bash

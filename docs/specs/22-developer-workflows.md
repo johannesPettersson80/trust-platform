@@ -883,7 +883,9 @@ the tapes, each program that they run starts
 once in the `vhs` image with `--version`, and before `code-server` starts, the
 language server starts once in its image with `command --help`. The captures
 fail when one does not start, so that a capture never shows a loader's error or
-an extension without its language server.
+an extension without its language server. `code-server` starts without its
+update check (`--disable-update-check`): its notice of a newer release would
+cover the corner of a picture.
 
 The documentation site shows the screenshots of `main` without a commit of the
 images. The workflow runs on pull requests, on pushes to `main`, every night and

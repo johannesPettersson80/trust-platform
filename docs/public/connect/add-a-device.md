@@ -8,22 +8,24 @@ typed form — you never hand-edit `io.toml`.
 In Devices & Connections, click the first-class **+ Add** toolbar action. You do not need to enter a
 hidden Edit mode first.
 
-## 2. Pick a protocol
+## 2. Pick what to add
 
-A drawer opens — **Add device or connection** — with searchable choices grouped by what you want to do.
+A drawer opens for the runtime you add to: **Add device, connection, or simulated plant**. At its top,
+**Discover devices and runtimes** scans the network first, when the hardware is already connected.
+Below it each choice says what it is for, grouped by what you want to do:
 
-The top-level choices are:
+- **Simulation**: a simulated plant that models the process behind the program's I/O, where the
+  runtime supports one
+- **Devices and I/O**: Modbus, EtherCAT, GPIO, Simulated I/O and Loopback I/O
+- **Read tags from another PLC or server**: OPC UA client and ADS client (Beckhoff)
+- **Share truST values**: OPC UA server and ADS server (Beckhoff)
+- **Send and receive messages**: MQTT broker
 
-- **Discover devices and runtimes**
-- **Devices and I/O**
-- **Read tags from another PLC or server**
-- **Share truST values**
-- **Send and receive messages**
-- **Advanced integrations**
+**Show advanced integrations** adds Mesh / Zenoh, OpenOT, Realtime T0 and Runtime cloud.
 
-Each entry explains its purpose before exposing wire details. Across those groups you can choose
-EtherCAT, GPIO, Simulated I/O, Loopback I/O, Modbus TCP, MQTT, OPC UA client/server, Beckhoff ADS
-client/server, OpenOT, Discovery, Mesh / Zenoh, Realtime T0, and Runtime cloud / federation.
+![The drawer of + Add with Discover devices and runtimes at its top and the Simulation, Devices and I/O, Read tags from another PLC or server and Share truST values groups](../assets/images/vscode/vscode-add-device-picker.png)
+
+*+ Add on the Simulator of `examples/memory_marker_counter`.*
 
 ## 3. Fill the typed form
 
@@ -31,9 +33,11 @@ Pick a protocol and truST renders its form from the runtime's own schema — eve
 a safe default, and inline help; required fields are marked. As you fill it in, a **DRAFT** node previews
 on the canvas.
 
-![The Add Modbus TCP form with Device address, Unit ID, registers, Timeout, and On error fields](../assets/images/vscode/vscode-add-device-modbus-form.png)
+![The Add Modbus TCP form beside the canvas, where a Modbus TCP DRAFT node previews the device](../assets/images/vscode/vscode-add-device-modbus-form.png)
 
-*A typed form per protocol — here Modbus TCP: device address, unit ID, register starts, timeout, and on-error behaviour, each with a default and help.*
+*A typed form per protocol, here Modbus TCP: device address, unit ID, register starts, timeout and
+what the runtime does on an error, each with a default and help. The **DRAFT** node on the canvas
+previews the device until you save it.*
 
 Click **Save** to write the configuration. truST applies it to the project (`io.toml` or the relevant
 config), and the draft becomes a real endpoint node. If the runtime is running, you can also apply it live.
