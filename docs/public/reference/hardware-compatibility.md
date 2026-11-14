@@ -10,6 +10,10 @@
 | macOS | tooling-friendly, runtime varies | good for editing/building; validate hardware-dependent paths locally |
 | Windows | tooling-friendly, runtime varies | good for VS Code and CLI authoring; validate service/runtime expectations locally |
 
+The Linux packages, x86_64 and ARM64, run on every Linux with glibc 2.28 or
+newer: Debian 10, Ubuntu 18.10, Red Hat Enterprise Linux 8 and their later
+releases.
+
 ## Hardware-Dependent Surfaces
 
 | Surface | Notes |
