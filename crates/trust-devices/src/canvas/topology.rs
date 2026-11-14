@@ -357,7 +357,7 @@ fn report(runtime: &CanvasRuntime) -> RuntimeReport {
 fn answer(answer: &Answer) -> Result<Value, ControlError> {
     match answer {
         Answer::Ok(value) => Ok(value.clone()),
-        Answer::Error(reason) => Err(ControlError::Transport(reason.clone())),
+        Answer::Error(reason) => Err(ControlError::transport(reason.clone())),
     }
 }
 

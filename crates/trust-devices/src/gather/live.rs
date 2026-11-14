@@ -103,7 +103,7 @@ impl Connection<'_> {
         let reply = client.request(kind, None);
         if !matches!(
             reply,
-            Err(ControlError::Transport(_) | ControlError::Malformed(_))
+            Err(ControlError::Transport { .. } | ControlError::Malformed(_))
         ) {
             self.client = Some(client);
         }
@@ -112,7 +112,7 @@ impl Connection<'_> {
 
     fn connect(&self) -> Result<ControlClient, ControlError> {
         let endpoint = ControlEndpoint::parse(self.endpoint).ok_or_else(|| {
-            ControlError::Transport(format!("{} is not a control endpoint", self.endpoint))
+            ControlError::transport(format!("{} is not a control endpoint", self.endpoint))
         })?;
         let client = ControlClient::connect(&endpoint, self.token, self.budget.probe.connect)?
             .with_response_limit(RESPONSE_LINE_LIMIT);

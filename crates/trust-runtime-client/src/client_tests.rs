@@ -97,7 +97,7 @@ fn client_maps_missing_and_rejected_tokens() {
     );
     // Only a refusal names a credential failure.
     for error in [
-        ControlError::Transport("missing_auth_token".into()),
+        ControlError::transport("missing_auth_token"),
         ControlError::Malformed("invalid_auth_token".into()),
     ] {
         assert_eq!(error.auth_failure(), None, "{error:?}");
@@ -250,7 +250,7 @@ fn client_times_out_within_its_budget() {
     let answer = client.request("status", None);
     let waited = started.elapsed();
     assert!(
-        matches!(answer, Err(ControlError::Transport(_))),
+        matches!(answer, Err(ControlError::Transport { .. })),
         "{answer:?}"
     );
     assert!(waited < budget + SLACK, "waited {waited:?}");
@@ -265,7 +265,7 @@ fn client_times_out_within_its_budget() {
     let answer = client.request("status", None);
     let waited = started.elapsed();
     assert!(
-        matches!(answer, Err(ControlError::Transport(_))),
+        matches!(answer, Err(ControlError::Transport { .. })),
         "{answer:?}"
     );
     assert!(waited < budget + SLACK, "waited {waited:?}");
@@ -279,10 +279,72 @@ fn client_times_out_within_its_budget() {
     let started = Instant::now();
     let refused = ControlClient::connect(&endpoint, None, budget);
     assert!(
-        matches!(refused, Err(ControlError::Transport(_))),
+        matches!(refused, Err(ControlError::Transport { .. })),
         "{refused:?}"
     );
     assert!(started.elapsed() < budget + SLACK);
+}
+
+#[test]
+fn a_transport_failure_keeps_the_kind_of_its_io_error() {
+    // A caller tells a connection that broke off, which it may ask again, from one that was never
+    // made, by the kind of the operating system's error: a stop that reads the runtime's status asks
+    // again when the read broke off (`fleet_manifest::status::interrupted_stop_probe`). Wrong
+    // behaviour: a transport failure that is only a text, so that a caller cannot tell.
+    use std::io::{BufRead, BufReader, ErrorKind};
+
+    let budget = Duration::from_millis(250);
+
+    // A runtime that takes the request and closes the connection without an answer.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+    let address = listener.local_addr().expect("local address");
+    let server = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept the request");
+        let mut line = String::new();
+        BufReader::new(&stream)
+            .read_line(&mut line)
+            .expect("read the request");
+    });
+    let endpoint = ControlEndpoint::parse(&format!("tcp://{address}")).expect("a control endpoint");
+    let mut client = ControlClient::connect(&endpoint, None, budget).expect("connect");
+    let closed = client
+        .request("status", None)
+        .expect_err("the runtime closed the connection");
+    server.join().expect("the runtime");
+    assert_eq!(
+        closed.io_kind(),
+        Some(ErrorKind::UnexpectedEof),
+        "{closed:?}"
+    );
+
+    // A runtime that takes the request and never answers: the wait runs out.
+    let runtime = fake_runtime::answering(Vec::new());
+    let mut client = connect(&runtime.endpoint, None, budget);
+    let silent = client.request("status", None).expect_err("no answer");
+    assert!(
+        matches!(
+            silent.io_kind(),
+            Some(ErrorKind::WouldBlock | ErrorKind::TimedOut)
+        ),
+        "{silent:?}"
+    );
+    drop(client);
+    runtime.requests();
+
+    // Nothing listening: the connection fails, with the kind the system gives (Windows can give
+    // a timeout, because it tries a refused connection again).
+    let closed_port = trust_test_support::refused_loopback_port();
+    let endpoint = ControlEndpoint::parse(&format!("tcp://127.0.0.1:{}", closed_port.port()))
+        .expect("a control endpoint");
+    let refused = ControlClient::connect(&endpoint, None, budget).expect_err("nothing listens");
+    assert!(refused.io_kind().is_some(), "{refused:?}");
+
+    // A refusal by the runtime is no transport failure.
+    let denied = ControlError::Refused {
+        error: "denied".into(),
+        code: None,
+    };
+    assert_eq!(denied.io_kind(), None);
 }
 
 /// The busy answer of a device that another client holds (specification 34 PORT-06).

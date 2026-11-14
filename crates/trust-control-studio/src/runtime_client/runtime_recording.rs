@@ -616,7 +616,9 @@ fn unconfirmed_start(
 
 fn lost_failure(error: ControlError) -> Failure {
     match error {
-        ControlError::Transport(reason) => Failure::unreachable(&reason),
+        ControlError::Transport {
+            message: reason, ..
+        } => Failure::unreachable(&reason),
         ControlError::Refused { error, code } => {
             Failure::from_runtime(code.as_deref().unwrap_or_default(), &error)
         }

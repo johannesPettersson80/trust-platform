@@ -236,7 +236,10 @@ fn a_port_that_went_away_is_reported_plainly() {
     ] {
         assert_eq!(
             status_over(line),
-            Err(ControlError::Transport(plain(reason)))
+            Err(ControlError::Transport {
+                message: plain(reason),
+                kind: Some(io::ErrorKind::BrokenPipe),
+            })
         );
     }
 }
@@ -248,9 +251,10 @@ fn a_wait_that_runs_out_is_not_a_port_that_went_away() {
     let calls = Arc::new(Mutex::new(Vec::new()));
     assert_eq!(
         status_over(ScriptedLine::new(&calls)),
-        Err(ControlError::Transport(
-            "no response from serial port /dev/ttyACM0 within 5000 ms".into()
-        ))
+        Err(ControlError::Transport {
+            message: "no response from serial port /dev/ttyACM0 within 5000 ms".into(),
+            kind: Some(io::ErrorKind::TimedOut),
+        })
     );
 }
 
@@ -272,7 +276,7 @@ fn the_wait_the_caller_sets_reaches_the_port() {
         .expect("the stream takes the wait");
     assert!(matches!(
         client.request("program.install", None),
-        Err(ControlError::Transport(_))
+        Err(ControlError::Transport { .. })
     ));
     assert_eq!(
         calls_of(&calls).last(),
