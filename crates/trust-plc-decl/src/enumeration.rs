@@ -141,12 +141,12 @@ pub fn enumeration(args: TokenStream, item: &ItemEnum) -> Result<Enumeration, Er
                 ),
             ));
         }
-        if !crate::names::takes_variable_name(&variant_name) {
+        if crate::names::is_reserved(&variant_name) {
             return Err(Error::new(
                 variant.ident.span(),
                 format!(
-                    "`{variant_name}` is a reserved word of Structured Text (specification 01 §3), \
-                     which no value of an enumeration is named: rename it"
+                    "{}: rename the value",
+                    crate::names::reserved_reason(&variant_name)
                 ),
             ));
         }

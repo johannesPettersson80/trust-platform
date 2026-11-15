@@ -1,8 +1,6 @@
-//! Which names Structured Text takes (IEC §6.1.2; specification 01 §3): an IEC identifier that is no
-//! reserved word. A variable, a field, a parameter and an enumeration value may also be named by one
-//! of the contextual names `NULL`, `ON` and `SET`; a POU, a type, a namespace and a method may not.
-//! The declarations the attributes write are Structured Text, so a name it would not read is refused
-//! at the attribute, where the Rust name stands (specification 48 RU-22).
+//! Which names a Rust POU's declarations take (IEC §6.1.2; specification 01 §3): an IEC identifier
+//! that is no reserved word, so that the declarations parse and check under every profile. The
+//! attribute refuses another name where the Rust name stands (specification 48 RU-22).
 
 /// The reserved words of Structured Text as truST's lexer reads them (specification 01 §3), in any
 /// case; trust-runtime's tests keep the list equal to the lexer's and to what its parser takes.
@@ -182,9 +180,9 @@ pub const RESERVED: [&str; 173] = [
     "__TRY",
 ];
 
-/// The reserved words that may still name a variable, a field, a parameter or an enumeration value
-/// (specification 01 §3: CODESYS's `TIMER_EXT.ON`, `FF_DRE.SET`, `eChar.Null`).
-const CONTEXTUAL: [&str; 3] = ["NULL", "ON", "SET"];
+/// The reserved words that only the CODESYS profile takes as a name of a variable, a parameter or
+/// an enumeration value (specification 01 §3; `docs/IEC_DEVIATIONS.md` DEV-034).
+const CODESYS_NAMES: [&str; 3] = ["NULL", "ON", "SET"];
 
 /// Whether `name` is one of Structured Text's reserved words, in any case.
 #[must_use]
@@ -192,22 +190,29 @@ pub fn is_reserved(name: &str) -> bool {
     RESERVED.iter().any(|word| word.eq_ignore_ascii_case(name))
 }
 
-/// Whether Structured Text takes `name` as the name of a variable, a field, a parameter or an
-/// enumeration value: an IEC identifier that is no reserved word but `NULL`, `ON` or `SET`.
+/// Whether a Rust POU's declarations may name anything `name`: a POU, a type, a namespace, a
+/// variable, a field, a parameter or an enumeration value. It is an IEC identifier and no reserved
+/// word, in every profile: not `NULL`, `ON` or `SET` either, which only the CODESYS profile takes.
 #[must_use]
-pub fn takes_variable_name(name: &str) -> bool {
-    crate::is_identifier(name)
-        && (!is_reserved(name)
-            || CONTEXTUAL
-                .iter()
-                .any(|word| word.eq_ignore_ascii_case(name)))
+pub fn takes_name(name: &str) -> bool {
+    crate::is_identifier(name) && !is_reserved(name)
 }
 
-/// Whether Structured Text takes `name` as the name of a POU, a type, a namespace or a method: an
-/// IEC identifier that is no reserved word.
-#[must_use]
-pub fn takes_pou_name(name: &str) -> bool {
-    crate::is_identifier(name) && !is_reserved(name)
+/// The refusal's reason for `name`, a reserved word: why it names nothing, and the CODESYS
+/// profile's names said so.
+pub(crate) fn reserved_reason(name: &str) -> String {
+    let codesys = CODESYS_NAMES
+        .iter()
+        .any(|word| word.eq_ignore_ascii_case(name));
+    format!(
+        "`{name}` is a reserved word of Structured Text (specification 01 §3){}",
+        if codesys {
+            ", which only the CODESYS profile takes as a name (docs/IEC_DEVIATIONS.md DEV-034); \
+             a Rust POU's declarations hold under every profile"
+        } else {
+            ""
+        }
+    )
 }
 
 #[cfg(test)]

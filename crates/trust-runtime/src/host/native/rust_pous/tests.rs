@@ -463,18 +463,23 @@ fn a_structure_the_generated_code_cannot_reach_or_a_variable_of_it_with_a_value_
 }
 
 #[test]
-fn the_declarations_take_the_names_the_parser_takes() {
-    // RU-22 and specification 01 §3: the declarations a crate's attributes write are Structured
-    // Text, so every name the attributes take, truST's parser takes, as a POU's and as a variable's,
-    // and they refuse the reserved words specification 01 §3 reserves: every word the lexer
-    // reserves is checked. Catches a word the lexer gains that the declarations' list lacks, a name
-    // the attributes take that the parser does not, and one they refuse that it takes.
-    let lexer = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../trust-syntax/src/lexer/tokens/token_kind.rs"),
-    )
-    .expect("the lexer's tokens");
-    let mut words: Vec<&str> = lexer
+fn the_declarations_take_only_names_structured_text_takes() {
+    // RU-22 and specification 01 §3: the declarations a crate's attributes write parse and check
+    // under every profile, so every name the attributes take, truST's parser and its check of
+    // identifiers take at each place a Rust POU names one (a POU, a VAR variable, a parameter, a
+    // structure's field, an enumeration's value) under the IEC profile, the stricter. The list of
+    // reserved words is the lexer's and the check's. The check takes three reserved words the
+    // attributes keep refusing, as specification 01 §3 reserves them: STEP as a VAR variable, EN and
+    // ENO as parameters (IEC Table 18), pinned here (checklist G182). Catches a word the lexer or
+    // the check gains that the list lacks, and a name the attributes take that a project's check
+    // refuses.
+    use trust_hir::db::{Database, FileId, SemanticDatabase, SourceDatabase};
+    let source = |path: &str| {
+        std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path))
+            .expect("a source of the language")
+    };
+    let lexer = source("../trust-syntax/src/lexer/tokens/token_kind.rs");
+    let mut words: Vec<String> = lexer
         .split("#[token(\"")
         .skip(1)
         .filter_map(|rest| rest.split_once("\", ignore(case))]").map(|(word, _)| word))
@@ -482,45 +487,85 @@ fn the_declarations_take_the_names_the_parser_takes() {
             word.bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
         })
+        .map(str::to_string)
         .collect();
+    // The check's own table, `trust_hir::ident::is_reserved_keyword`'s words.
+    let ident = source("../trust-hir/src/ident.rs");
+    let table = ident
+        .split_once("pub fn is_reserved_keyword")
+        .and_then(|(_, rest)| rest.split_once("\n}\n"))
+        .map(|(body, _)| body)
+        .expect("the check's table");
+    words.extend(table.split('"').skip(1).step_by(2).map(str::to_string));
     words.sort_unstable();
     words.dedup();
-    let mut reserved = trust_plc_decl::names::RESERVED.to_vec();
+    let mut reserved: Vec<String> = trust_plc_decl::names::RESERVED
+        .iter()
+        .map(|word| (*word).to_string())
+        .collect();
     reserved.sort_unstable();
     assert_eq!(
         reserved, words,
-        "the declarations' reserved words are the lexer's"
+        "the declarations' reserved words are the lexer's and the check's"
     );
-    // The words specification 01 §3 reserves that the parser still takes as a variable's name: the
-    // explicit EN and ENO of IEC Table 18, GET and STEP (checklist G182); the attributes keep to
-    // the specification.
-    let stricter = ["EN", "ENO", "GET", "STEP"];
-    let parses = |text: &str| trust_syntax::parser::parse(text).errors().is_empty();
+    let places = [
+        ("a POU", "FUNCTION_BLOCK {}\nEND_FUNCTION_BLOCK\n"),
+        (
+            "a VAR variable",
+            "FUNCTION_BLOCK FB_NAMES\nVAR\n    {} : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+        ),
+        (
+            "a parameter",
+            "FUNCTION_BLOCK FB_NAMES\nVAR_INPUT\n    {} : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+        ),
+        (
+            "a field",
+            "TYPE S_NAMES :\nSTRUCT\n    {} : INT;\nEND_STRUCT\nEND_TYPE\n",
+        ),
+        (
+            "a value",
+            "TYPE E_NAMES : ({} := 0, OTHER := 1);\nEND_TYPE\n",
+        ),
+    ];
+    let pinned = [
+        ("a VAR variable", "STEP"),
+        ("a parameter", "EN"),
+        ("a parameter", "ENO"),
+    ];
+    let mut database = Database::new();
+    database.set_dialect(trust_hir::Dialect::Iec);
+    let mut takes = |text: String| {
+        let parsed = trust_syntax::parser::parse(&text).errors().is_empty();
+        database.set_source_text(FileId(0), text);
+        parsed
+            && !database.diagnostics(FileId(0)).iter().any(|diagnostic| {
+                diagnostic.code == trust_hir::diagnostics::DiagnosticCode::InvalidIdentifier
+            })
+    };
     let mut differing = Vec::new();
-    for word in words
-        .iter()
-        .copied()
-        .chain(["LEVEL", "Level", "REFERENCE", "_ALPHA2"])
+    for word in
+        words
+            .iter()
+            .map(String::as_str)
+            .chain(["LEVEL", "Level", "REFERENCE", "_ALPHA2", "ONWARD"])
     {
-        let as_variable = parses(&format!(
-            "FUNCTION_BLOCK FB_NAMES\nVAR\n    {word} : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
-        ));
-        let as_pou = parses(&format!("FUNCTION_BLOCK {word}\nEND_FUNCTION_BLOCK\n"));
-        let expected = as_variable && !stricter.contains(&word);
-        if trust_plc_decl::names::takes_variable_name(word) != expected {
-            differing.push(format!(
-                "{word} as a variable's name: the parser takes it {as_variable}"
-            ));
-        }
-        if stricter.contains(&word) && !as_variable {
-            differing.push(format!(
-                "{word}: the parser no longer takes it, so it is no exception"
-            ));
-        }
-        if trust_plc_decl::names::takes_pou_name(word) != as_pou {
-            differing.push(format!(
-                "{word} as a POU's name: the parser takes it {as_pou}"
-            ));
+        let attributes = trust_plc_decl::names::takes_name(word);
+        for (place, template) in places {
+            let checked = takes(template.replace("{}", word));
+            let exception = pinned.contains(&(place, word));
+            if attributes && !checked {
+                differing.push(format!(
+                    "{word} as {place}: taken by the attributes, refused by the check"
+                ));
+            } else if !attributes && checked && !exception {
+                differing.push(format!(
+                    "{word} as {place}: taken by the check, refused by the attributes"
+                ));
+            } else if exception && !checked {
+                differing.push(format!(
+                    "{word} as {place}: no longer taken by the check, no exception"
+                ));
+            }
         }
     }
     assert!(differing.is_empty(), "{differing:#?}");

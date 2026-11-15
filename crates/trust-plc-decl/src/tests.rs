@@ -835,7 +835,7 @@ fn an_enumeration_that_structured_text_cannot_hold_is_refused() {
         ("#[derive(Clone, Copy)] enum E { A = 0 }", "is `pub`"),
         ("#[derive(Clone, Copy)] pub enum E {}", "one value at least"),
         (
-            "#[derive(Clone, Copy)] pub enum E { On = 0, ON = 1 }",
+            "#[derive(Clone, Copy)] pub enum E { Idle = 0, IDLE = 1 }",
             "one name in Structured Text",
         ),
     ] {
