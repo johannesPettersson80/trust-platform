@@ -9,8 +9,8 @@ use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
 use core::cell::Cell;
 
 use crate::{
-    checked, math, Byte, Char, Cx, Date, Dt, Dword, Fault, FaultCode, LDate, LTime, LTod, Ldt,
-    Placed, Stored, Str, Time, Tod, WStr, Word,
+    checked, math, Array, Byte, Char, Cx, Date, Dt, Dword, Fault, FaultCode, LDate, LTime, LTod,
+    Ldt, Placed, Stored, Str, Time, Tod, WStr, Word,
 };
 
 fn cx() -> Cx {
@@ -329,4 +329,55 @@ fn strings_keep_whole_characters_and_lie_in_their_cells_as_structured_text_reads
         <WStr<4> as Placed>::load(&wide_area),
         WStr::<4>::from_text("é😀")
     );
+}
+
+#[test]
+fn arrays_are_indexed_from_their_lower_bound_and_lie_in_their_cells() {
+    // RU-25: `Array<T, A, N>` is indexed from `A` as Structured Text indexes it, and an index
+    // outside the bounds gives `None`, never a panic; specification 44 §6.2: an array lies as its
+    // elements' cells in order, a BOOL's a byte. Catches an index counted from 0, a bound off by
+    // one, an element read from another cell, and a BOOL read from a byte other than 0 or 1.
+    let mut values = Array::<i16, -1, 3>::from_items([10, 20, 30]);
+    assert_eq!(values.get(-1), Some(&10));
+    assert_eq!(values.get(1), Some(&30));
+    assert_eq!(values.get(-2), None);
+    assert_eq!(values.get(2), None);
+    assert_eq!(values.get(i64::MIN), None);
+    if let Some(middle) = values.get_mut(0) {
+        *middle = 25;
+    }
+    assert_eq!(values.as_slice(), &[10, 25, 30]);
+    assert_eq!(Array::<bool, 1, 2>::filled(true).as_slice(), &[true, true]);
+
+    let cells = [Cell::new(0_i16), Cell::new(0), Cell::new(0)];
+    values.store(&cells);
+    assert_eq!(cells.each_ref().map(Cell::get), [10, 25, 30]);
+    cells[2].set(-7);
+    assert_eq!(
+        <Array<i16, -1, 3> as Placed>::load(&cells).as_slice(),
+        &[10, 25, -7]
+    );
+
+    let flags = [Cell::new(1_u8), Cell::new(0)];
+    assert_eq!(
+        <Array<bool, 1, 2> as Placed>::load(&flags).as_slice(),
+        &[true, false]
+    );
+    Array::<bool, 1, 2>::from_items([false, true]).store(&flags);
+    assert_eq!(flags.each_ref().map(Cell::get), [0, 1]);
+
+    let names = [
+        trust_plc_abi::Str::<4>::new(),
+        trust_plc_abi::Str::<4>::new(),
+    ];
+    Array::<Str<4>, 1, 2>::from_items([Str::from_text("ab"), Str::from_text("cde")]).store(&names);
+    let loaded = <Array<Str<4>, 1, 2> as Placed>::load(&names);
+    assert_eq!(loaded.get(2).and_then(Str::as_str), Some("cde"));
+
+    let grid = [
+        [Cell::new(1_u8), Cell::new(2)],
+        [Cell::new(3), Cell::new(4)],
+    ];
+    let rows = <Array<Array<u8, 1, 2>, 1, 2> as Placed>::load(&grid);
+    assert_eq!(rows.get(2).and_then(|row| row.get(1)), Some(&3));
 }

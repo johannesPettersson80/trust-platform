@@ -26,7 +26,7 @@ use syn::{
 };
 
 pub use literal::Value;
-pub use types::Elementary;
+pub use types::{DataType, Elementary};
 
 /// What a Rust POU is (specification 48 RU-22).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,7 +60,7 @@ pub struct Variable {
     /// Whether it is retained (`#[retain]`): it then lies in the retained area (RU-27).
     pub retain: bool,
     /// Its IEC type (RU-25).
-    pub ty: Elementary,
+    pub ty: DataType,
     /// Its initial value (`#[init(...)]`, RU-26); `None` starts it at its type's default.
     pub init: Option<Value>,
 }
@@ -81,7 +81,7 @@ pub struct Pou {
     /// after its context.
     pub variables: Vec<Variable>,
     /// A function's result; `None` for a function block and for a function that returns `()`.
-    pub result: Option<Elementary>,
+    pub result: Option<DataType>,
 }
 
 impl Pou {
@@ -246,7 +246,7 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
             name: variable_name(ident)?,
             section: Section::Input,
             retain: false,
-            ty: Elementary::of(&typed.ty)?,
+            ty: DataType::of(&typed.ty)?,
             init: None,
         };
         add(&mut variables, variable, ident.span())?;
@@ -345,8 +345,10 @@ fn field_variable(ident: &Ident, ty: &Type, attributes: &[Attribute]) -> Result<
             init = Some(attribute.parse_args::<syn::Expr>()?);
         }
     }
-    let ty = Elementary::of(ty)?;
-    let init = init.map(|value| literal::initial(&value, ty)).transpose()?;
+    let ty = DataType::of(ty)?;
+    let init = init
+        .map(|value| literal::initial_of(&value, &ty))
+        .transpose()?;
     Ok(Variable {
         name,
         section: section.unwrap_or(Section::Var),
@@ -428,7 +430,7 @@ fn last_path_segment(ty: &Type) -> Option<String> {
 }
 
 /// A function's result: `Result<T, Fault>` with `T` of RU-25's types or `()`.
-fn result(output: &ReturnType, item: Span) -> Result<Option<Elementary>, Error> {
+fn result(output: &ReturnType, item: Span) -> Result<Option<DataType>, Error> {
     let refused = |span| {
         Error::new(
             span,
@@ -464,7 +466,7 @@ fn result(output: &ReturnType, item: Span) -> Result<Option<Elementary>, Error> 
     }
     match value {
         Type::Tuple(tuple) if tuple.elems.is_empty() => Ok(None),
-        other => Elementary::of(other).map(Some),
+        other => DataType::of(other).map(Some),
     }
 }
 

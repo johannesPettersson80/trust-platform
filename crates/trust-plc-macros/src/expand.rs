@@ -3,7 +3,7 @@
 use proc_macro2::{Literal, Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{Attribute, Fields, Item, ItemFn, ItemStruct};
-use trust_plc_decl::{Elementary, Pou, Value, Variable};
+use trust_plc_decl::{DataType, Elementary, Pou, Value, Variable};
 
 /// `#[trust_fb]`: the struct without the attributes its reader reads, and its calls.
 pub(crate) fn function_block(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -172,6 +172,33 @@ fn capacity(ty: Elementary) -> u16 {
 /// The starting value of `variable`: its initial value, else its type's default (IEC §6.4.2,
 /// Table 10: FALSE, 0 and 0.0).
 fn start(variable: &Variable) -> TokenStream {
+    value(&variable.ty, variable.init.as_ref())
+}
+
+/// The value of type `ty` that `init` gives, else the type's default; an array's elements each so,
+/// those its list leaves out at their default.
+fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
+    match ty {
+        DataType::Elementary(elementary) => elementary_value(*elementary, init),
+        DataType::Array { element, len, .. } => {
+            if let Some(Value::List(items)) = init {
+                let len = usize::try_from(*len).unwrap_or(0);
+                let default = value(element, None);
+                let items = (0..len).map(|index| match items.get(index) {
+                    Some(item) => value(element, Some(item)),
+                    None => default.clone(),
+                });
+                quote!(::trust_plc::Array::from_items([#(#items),*]))
+            } else {
+                let item = value(element, None);
+                quote!(::trust_plc::Array::filled(#item))
+            }
+        }
+    }
+}
+
+/// The value of the elementary type `ty` that `init` gives, else the type's default.
+fn elementary_value(ty: Elementary, init: Option<&Value>) -> TokenStream {
     let signed = |negative: bool, literal: Literal| {
         if negative {
             quote!(-#literal)
@@ -180,8 +207,8 @@ fn start(variable: &Variable) -> TokenStream {
         }
     };
     // The SDK's type of a bit string, a character or a duration, by the name RU-25 gives it.
-    let sdk_type = format_ident!("{}", variable.ty.rust());
-    match &variable.init {
+    let sdk_type = format_ident!("{}", ty.rust());
+    match init {
         Some(Value::Bool(value)) => quote!(#value),
         Some(Value::Integer(value)) => {
             signed(*value < 0, Literal::u128_unsuffixed(value.unsigned_abs()))
@@ -212,7 +239,7 @@ fn start(variable: &Variable) -> TokenStream {
         }
         // A text's bytes or code units, which the reader checked its capacity holds.
         Some(Value::Text { wide, text }) => {
-            let capacity = Literal::u16_unsuffixed(capacity(variable.ty));
+            let capacity = Literal::u16_unsuffixed(capacity(ty));
             if *wide {
                 let units = text.encode_utf16().map(Literal::u16_unsuffixed);
                 quote!(::trust_plc::#sdk_type::<#capacity>::__from_units(&[#(#units),*]))
@@ -221,7 +248,7 @@ fn start(variable: &Variable) -> TokenStream {
                 quote!(::trust_plc::#sdk_type::<#capacity>::__from_bytes(#bytes))
             }
         }
-        None => match variable.ty {
+        _ => match ty {
             Elementary::Bool => quote!(false),
             Elementary::Real | Elementary::Lreal => quote!(0.0),
             Elementary::Byte
@@ -238,11 +265,11 @@ fn start(variable: &Variable) -> TokenStream {
             | Elementary::LTod
             | Elementary::Dt
             | Elementary::Ldt => {
-                let from = date_constructor(variable.ty);
+                let from = date_constructor(ty);
                 quote!(::trust_plc::#sdk_type::#from(0))
             }
             Elementary::Str(_) | Elementary::WStr(_) => {
-                let capacity = Literal::u16_unsuffixed(capacity(variable.ty));
+                let capacity = Literal::u16_unsuffixed(capacity(ty));
                 quote!(::trust_plc::#sdk_type::<#capacity>::new())
             }
             _ => quote!(0),

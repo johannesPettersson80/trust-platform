@@ -397,7 +397,7 @@ Rust as the SDK names them:
 | `CHAR`, `WCHAR` | `Char`, `WChar` |
 | `STRING[n]`, `WSTRING[n]` | `Str<n>`, `WStr<n>` |
 | an enumeration | a Rust `enum` with `#[trust_enum]` and explicit values |
-| `ARRAY[a..b] OF T` | `Array<T, A, B>`, indexed from `A` as Structured Text indexes it |
+| `ARRAY[a..b] OF T` | `Array<T, A, N>`: the `N` = b − a + 1 elements, indexed from `A` as Structured Text indexes them |
 | a structure | a Rust `struct` with `#[trust_struct]`, every field of a type of this table |
 | a function block instance | a field of a function block's type, Rust or Structured Text (§8) |
 | `REF_TO T`, an interface | `Ref<T>`, `IfaceRef<I>` |
@@ -419,6 +419,12 @@ into one (`set`, `from_text`) keeps the longest prefix of whole characters its c
 every write of Structured Text does (specification 10 §2.3.1); `as_bytes`, `as_str`, `as_units` and
 `chars` read it.
 
+`Array<T, A, N>` names its length rather than its upper bound because Rust's constant generics
+cannot compute a length from two bounds (stable Rust refuses `[T; B - A + 1]`); `Array<f64, 1, 10>`
+is `ARRAY[1..10] OF LREAL`, and `Array<Array<i16, 1, 3>, 1, 2>` is `ARRAY[1..2] OF ARRAY[1..3] OF
+INT`. `get` and `get_mut` give the element at an index or `None` outside the bounds, never a
+panic; `as_slice` and `iter` give the elements in order.
+
 A field of another Rust type is refused at the declaration with the table's types. Generic types
 (IEC §6.4.3) are not declared by a Rust POU; a Rust function may be generic in Rust only when it is
 not a POU.
@@ -432,7 +438,9 @@ a byte (`'A'`, `b'\xE9'`), of a `WCHAR` a character of one UTF-16 code unit, of 
 `LTIME` an IEC duration in a string (`#[init("T#1.5s")]`, declared `T#1s500ms`; IEC §6.3.4), of a
 `STRING[n]` or a `WSTRING[n]` a text whose UTF-8 bytes, or UTF-16 code units, `n` holds
 (`#[init("pump 1")]`, declared `'pump 1'` with `$` and the quote as `$$` and `$'`, a control
-character as `$` and its code, and every other character as itself; IEC §6.3.3, Table 7), and of
+character as `$` and its code, and every other character as itself; IEC §6.3.3, Table 7), of an
+array a list of its leading elements, each an initial value of its element's type, the others at
+their default (`#[init([1, 2, 3])]`, declared `[1, 2, 3]`; specification 10 §2.3), and of
 a date, a time of day or both, or a long form of one, an IEC literal of its kind in a string, its
 prefix short or long (`#[init("D#2024-02-29")]`, `#[init("TOD#12:30:15.25")]`,
 `#[init("DT#2024-02-29-12:30:15")]`; IEC §6.3.5, Table 9), naming a date and a time of day that

@@ -6,7 +6,9 @@
 //! functions of IEC §6.6.2.5.12 and §6.6.2.5.13 (Tables 36 and 37) run in Structured Text, with
 //! their faults.
 
-use crate::types::{LTime, Stored, Time};
+use core::cell::Cell;
+
+use crate::types::{LTime, Placed, Stored, Time};
 use crate::{Cx, Fault};
 
 macro_rules! instant {
@@ -41,6 +43,18 @@ macro_rules! instant {
             #[inline]
             fn into_raw(self) -> i64 {
                 self.0
+            }
+        }
+
+        impl Placed for $name {
+            type Area = Cell<i64>;
+            #[inline]
+            fn load(area: &Cell<i64>) -> Self {
+                Self(area.get())
+            }
+            #[inline]
+            fn store(&self, area: &Cell<i64>) {
+                area.set(self.0);
             }
         }
     };

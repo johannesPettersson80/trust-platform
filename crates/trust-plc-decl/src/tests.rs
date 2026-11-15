@@ -6,8 +6,8 @@ use proc_macro2::TokenStream;
 use syn::{parse_quote, ItemFn, ItemStruct};
 
 use crate::{
-    budget, declared_kind, function, function_block, is_budget, is_field_attribute, Elementary,
-    Kind, Pou, Value,
+    budget, declared_kind, function, function_block, is_budget, is_field_attribute, DataType,
+    Elementary, Kind, Pou, Value,
 };
 
 fn args(text: &str) -> TokenStream {
@@ -610,7 +610,10 @@ fn strings_are_declared_with_their_capacities_and_iec_literals() {
             "f : WSTRING[80] := \"\"",
         ]
     );
-    assert_eq!(pou.variables[0].ty, Elementary::Str(20));
+    assert_eq!(
+        pou.variables[0].ty,
+        DataType::Elementary(Elementary::Str(20))
+    );
 }
 
 #[test]
@@ -636,6 +639,85 @@ fn a_text_its_string_does_not_hold_is_refused() {
             "a string's capacity is a whole number from 1 to 65,535",
         ),
         ("#[init(5)] a: Str<3>", "`#[init(\"text\")]`"),
+    ] {
+        let message = fields_refusal(field);
+        assert!(message.contains(expected), "{field}: {message}");
+    }
+}
+
+#[test]
+fn arrays_are_declared_with_their_bounds_and_lists() {
+    // RU-25 and RU-26: `Array<T, A, N>` is `ARRAY[A..A + N - 1] OF T`, an array of arrays too, a
+    // lower bound below zero too, and its initial value is a list of its leading elements, each a
+    // literal of the element's type. Catches an upper bound off by one, a negative bound lost, an
+    // element type dropped, and a list written in another form.
+    let item: ItemStruct = parse_quote! {
+        #[budget("1us")]
+        pub struct Lists {
+            #[init([1, 2, 3])] a: Array<i16, 1, 10>,
+            b: Array<Str<8>, 0, 2>,
+            #[init([[true], [false, true]])] c: Array<Array<bool, 1, 3>, -1, 2>,
+            #[init(["pump"])] d: Array<Str<4>, 1, 2>,
+        }
+    };
+    let pou = function_block(args("name = \"LISTS\""), &item).unwrap();
+    let declared: Vec<String> = pou
+        .variables
+        .iter()
+        .map(|variable| match &variable.init {
+            Some(init) => format!(
+                "{} : {} := {}",
+                variable.name,
+                variable.ty.iec(),
+                init.structured_text()
+            ),
+            None => format!("{} : {}", variable.name, variable.ty.iec()),
+        })
+        .collect();
+    assert_eq!(
+        declared,
+        [
+            "a : ARRAY[1..10] OF INT := [1, 2, 3]",
+            "b : ARRAY[0..1] OF STRING[8]",
+            "c : ARRAY[-1..0] OF ARRAY[1..3] OF BOOL := [[TRUE], [FALSE, TRUE]]",
+            "d : ARRAY[1..2] OF STRING[4] := ['pump']",
+        ]
+    );
+    assert_eq!(
+        pou.variables[0].ty,
+        DataType::Array {
+            element: Box::new(DataType::Elementary(Elementary::Int)),
+            lower: 1,
+            len: 10
+        }
+    );
+}
+
+#[test]
+fn an_array_without_elements_or_a_list_it_does_not_hold_is_refused() {
+    // Catches an array the build cannot lay out and a list the build would cut: RU-25's
+    // `Array<T, A, N>` has one element at least, and RU-26's list has no more elements than the
+    // array, each of the element's type.
+    for (field, expected) in [
+        ("a: Array<i16, 1, 0>", "an array is `Array<T, A, N>`"),
+        ("a: Array<i16, 1>", "an array is `Array<T, A, N>`"),
+        ("a: Array<i16, x, 3>", "an array is `Array<T, A, N>`"),
+        (
+            "#[init([1, 2, 3])] a: Array<i16, 1, 2>",
+            "the list has 3 elements, more than ARRAY[1..2] OF INT has",
+        ),
+        (
+            "#[init(5)] a: Array<i16, 1, 3>",
+            "a list of its leading elements",
+        ),
+        (
+            "#[init([70000])] a: Array<i16, 1, 3>",
+            "70000 is outside INT",
+        ),
+        (
+            "a: Array<Vec<u8>, 1, 3>",
+            "one of the types of specification 48 RU-25",
+        ),
     ] {
         let message = fields_refusal(field);
         assert!(message.contains(expected), "{field}: {message}");

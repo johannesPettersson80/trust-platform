@@ -164,6 +164,39 @@ fn a_function_block_starts_at_its_declared_texts() {
     assert_eq!(starts.c.capacity(), 80);
 }
 
+/// Arrays with and without their initial lists.
+#[trust_fb(name = "ARRAY_STARTS")]
+#[budget("1us")]
+pub struct ArrayStarts {
+    #[init([1, 2])]
+    pub a: Array<i16, 1, 4>,
+    pub b: Array<bool, 0, 2>,
+    #[init(["x", "yz"])]
+    pub c: Array<Str<4>, 1, 2>,
+    #[init([[1, 2], [3]])]
+    pub d: Array<Array<u8, 1, 2>, -1, 2>,
+}
+
+impl Body for ArrayStarts {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_function_block_starts_at_its_declared_lists() {
+    // RU-26: an array starts at its list's leading elements, the others at their type's default,
+    // an array of arrays row by row. Catches a list placed from another index, the elements it
+    // leaves out not at their default, and a row of an inner array lost.
+    let starts = ArrayStarts::new();
+    assert_eq!(starts.a.as_slice(), &[1, 2, 0, 0]);
+    assert_eq!(starts.b.as_slice(), &[false, false]);
+    assert_eq!(starts.c.get(1).and_then(Str::as_str), Some("x"));
+    assert_eq!(starts.c.get(2).and_then(Str::as_str), Some("yz"));
+    assert_eq!(starts.d.get(-1).map(Array::as_slice), Some(&[1_u8, 2][..]));
+    assert_eq!(starts.d.get(0).map(Array::as_slice), Some(&[3_u8, 0][..]));
+}
+
 #[test]
 fn a_function_block_starts_at_its_declared_values() {
     // Catches a start that ignores `#[init]` or a literal turned into another value: RU-26 starts a
