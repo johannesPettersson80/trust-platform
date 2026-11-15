@@ -42,7 +42,7 @@ instructions an ARM CPU fetches, §10.3; 0.39 keeps every instruction of an AArc
 0.41 compiles their round 2, §6.8; 0.42 reports a recursion beyond the call depth with an error of its
 own, §6.4, Appendix B; 0.54 has the kernel interface version 6 with the fault code `RustFault` of
 specification 48, approved by the owner with that specification on 15 November 2026, Appendix A;
-0.55 the version 7 with the running task's interval that specification 48 RU-16 gives a Rust POU,
+0.56 the version 7 with the running task's interval that specification 48 RU-16 gives a Rust POU,
 §8.2),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 (Ed25519ph since 0.30) with unsigned
@@ -235,7 +235,10 @@ and `extern "C"` elsewhere (AAPCS64 and Apple's arm64 convention agree for the i
 signatures, which pass everything in registers). The AArch64 module reserves `x18`, which macOS
 reserves and may overwrite when it switches threads: no instruction of the linked module names it,
 neither the generated code nor the libraries it links (§4.5) nor the compiler's own functions it
-takes in.
+takes in. Its atomic operations are its own instructions (`-outline-atomics`): the compiler's outline
+atomics, its default on `aarch64-unknown-linux-gnu`, ask the C library (`getauxval`) which
+instructions the CPU has, which a freestanding module cannot call, and its link failed on them (a
+Rust POU's `AtomicU32` on macOS, 15 November 2026).
 
 ### 4.5 Compiler flags
 
@@ -257,7 +260,7 @@ position-independent executable, so that an absolute address anywhere in it woul
 relocation, which the image builder refuses (§5.3); a module that links has none. The program
 library and the interface crates are compiled for each target with the same relocation model, abort
 on panic and embedded bitcode, so that link-time optimization takes in what the program calls, and
-for AArch64 with the module's `-C target-feature=+reserve-x18` (§4.4): link-time optimization keeps
+for AArch64 with the module's `-C target-feature=+reserve-x18,-outline-atomics` (§4.4): link-time optimization keeps
 each function's own target features, so a library built without it kept values in `x18`, and on
 macOS a program computed a wrong value or crashed at random (found 6 November 2026). rustc 1.99
 warns that the feature will no longer be accepted this way and names the unstable `-Zfixed-x18`
@@ -2169,7 +2172,8 @@ the runtime error `RustFault`, `Rust fault <number> (<first>, <second>)`, stable
 | 0.52 | 12 November 2026 | The selection functions of texts compiled (specification 07 §6; IEC 61131-3 Ed.3 Table 32, which types `MAX`, `MIN` and `LIMIT` as `ANY_ELEMENTARY` and `SEL` and `MUX` as `ANY`), which trust-hir accepts: `MAX`, `MIN` and `LIMIT` of `STRING`s or of `WSTRING`s compare them as two texts compare (`lib::compare`, specification 07 §7), keep the first of equal texts and raise to `MN` before they cap at `MX`, as for other values; `SEL` and `MUX` choose among texts. Every input is read once, in order, a selector first, and the chosen text is copied into a result of the inputs' greatest capacity. Under the CODESYS profile a reference to a string is the text it names (DEV-031). The build refused each with "a comparison of values that are not scalars" or "a value that is no scalar where a scalar is needed" (NX-09). The image format is unchanged. |
 | 0.53 | 12 November 2026 | Under the CODESYS profile `ws[i]` of a `WSTRING` is the `WORD` at offset `i`, counted from 0, and `ADR(ws[i])` names it (§7.3; `docs/IEC_DEVIATIONS.md` DEV-046), as trust-hir now types it there: a read gives the code unit whatever the text's length (`lib::text_word`), and 0 at the capacity, where CODESYS holds the 0 after a full text; an assignment writes it and sets the length the units give the text (`lib::set_text_word`); a place of it is the dereference of a reference of the new kind 6 to the string's code units from unit `i` (`Areas::refer_text_units`), and a write through a pointer to a `WORD`, `ADR(ws[i])` given to a function among them, sets that length (`Areas::bytes_written`). A starting value computed from constants reads the unit as the program does (§6.7). The build read `ws[i]` as the `WCHAR` at position `i` from 1, which the IEC profile keeps. The image format and the kernel interface are unchanged. |
 | 0.54 | 15 November 2026 | The kernel interface version 6 (§8.2): the fault code 20 `RustFault`, a Rust POU's own fault with the number the POU chose and two numbers of detail, reported as the runtime error `RustFault`, stable code `runtime_rust_fault` (Appendix A; specification 48 RU-14, approved by the owner with that specification on 15 November 2026). An image of version 5 is refused with `kernel interface 5 required, this runtime has 6: rebuild the project` (§10.2), as at every change of the version. |
-| 0.55 | 15 November 2026 | The kernel interface version 7 (§8.2): `Cx::interval_ns`, the interval of the task whose activation runs, the resource's cycle interval for the programs without a task and 0 outside a task, which a Rust POU reads as `cx.interval()` (specification 48 RU-16, approved by the owner with that specification on 15 November 2026). An image of version 6 is refused with `kernel interface 6 required, this runtime has 7: rebuild the project` (§10.2), as at every change of the version. |
+| 0.55 | 15 November 2026 | The AArch64 module and the libraries it links are built with `-outline-atomics` (§4.4, §4.5): the compiler's outline atomics ask the C library's `getauxval` which instructions the CPU has, so the link of a module whose Rust POU used an `AtomicU32` failed on macOS; its atomic operations are now its own instructions. |
+| 0.56 | 15 November 2026 | The kernel interface version 7 (§8.2): `Cx::interval_ns`, the interval of the task whose activation runs, the resource's cycle interval for the programs without a task and 0 outside a task, which a Rust POU reads as `cx.interval()` (specification 48 RU-16, approved by the owner with that specification on 15 November 2026). An image of version 6 is refused with `kernel interface 6 required, this runtime has 7: rebuild the project` (§10.2), as at every change of the version. |
 | 0.42 | 6 November 2026 | A recursive call that finds no depth left is reported as the runtime error `CallDepthExceeded`, `call depth exceeded`, with its stable code `vm_call_stack_overflow` (§6.4, Appendix A). Before, the kernel reported it through the bytecode engine's fault type, which the deletion of the engine (0.22) had left with this one fault and a text for the others, `invalid bytecode '<detail>'`, that nothing produced any more. The error's text and stable code are unchanged (checklist G61). |
 | 0.41 | 6 November 2026 | Round 2 of the CODESYS vendor conversions of specification 07 §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045), which the type checker accepts under the CODESYS rules, compiled (§6.8): an integer (its low-order 32 bits) and a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day, and a text to an integer or a bit string by the vendor's parse. The build refused the first three, and parsed a text by the IEC rules. And a `TIME` or an `LTIME` as text, the vendor's text measured on a PFC200 (`T#1s500ms`), which the build refused (NX-09). |
 | 0.40 | 6 November 2026 | The CODESYS vendor conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036), which the type checker accepted under the CODESYS rules since 31 October 2026, compiled (§6.8): a duration to an integer, a time of day to a `DWORD`, a `BOOL` and an enumerated value as text. The build refused the first three, and spelled an enumerated value as its number. `TO_STRING` of a duration stays refused (NX-09) until the vendor's text is measured. |
