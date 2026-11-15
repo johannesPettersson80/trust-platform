@@ -1,8 +1,8 @@
 # 48 — Rust in truST projects
 
-- **Status:** 0.1, the first complete draft for the owner's review (15 November 2026), written from
-  the owner's decisions of that day (below) against the compiled runtime of specification 44. §21
-  lists every decision this draft takes that the owner has not yet approved.
+- **Status:** 0.1, approved by the owner on 15 November 2026 ("approved"), with the decisions of §21;
+  written from the owner's decisions of that day (below) against the compiled runtime of
+  specification 44.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -931,8 +931,8 @@ Each milestone is a set of small pull requests (owner, 31 October 2026), accepte
 
 ## 21. Decisions for the owner
 
-The owner's decisions of 15 November 2026 are above. This draft takes the decisions below within
-them; each needs the owner's approval before the milestone that builds it:
+The owner's decisions of 15 November 2026 are above. The draft took the decisions below within
+them, and the owner approved them with the draft on 15 November 2026 ("approved"):
 
 1. **The bundle grows** by `cargo` and the computer's own standard library (RU-74), which a build of
    a Rust crate with dependencies needs.
