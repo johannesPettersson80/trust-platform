@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 
 use super::super::lower::{Lowerer, Place};
-use super::super::rust_pous::RustLink;
+use super::super::rust_pous::{MethodLink, RustLink};
 use super::super::types::{Kind, Ty};
 use super::super::NativeError;
 use crate::program_model::Param;
@@ -31,9 +31,127 @@ pub(super) fn block(
     link: &RustLink,
     structures: &HashMap<String, String>,
 ) -> Result<(), NativeError> {
+    let instance = instance(lowerer, ty, link, structures)?;
+    let arguments: String = instance
+        .values
+        .iter()
+        .map(|value| format!(", &mut {value}"))
+        .collect();
+    let (called, eno) = call_rust(
+        lowerer,
+        |cx| format!("{}::__trust_call({cx}{arguments})", link.call),
+        true,
+    );
+    lowerer.line(&format!("{called}?;"));
+    store_instance(lowerer, &instance, structures)?;
+    let (place, eno_ty) = block_eno(lowerer, ty, link)?;
+    store_eno(lowerer, place, eno_ty, &eno.unwrap_or_default());
+    Ok(())
+}
+
+/// The body of the Rust function with the parameters `params`, called through `link`: its inputs
+/// in declaration order, its result into the function's result.
+pub(super) fn function(
+    lowerer: &mut Lowerer<'_, '_>,
+    params: &[Param],
+    link: &RustLink,
+    structures: &HashMap<String, String>,
+) -> Result<(), NativeError> {
+    let mut arguments = String::new();
+    for name in &link.variables {
+        let param = parameter_named(params, name, &link.call)?;
+        arguments.push_str(&format!(", {}", argument(lowerer, param, structures)?));
+    }
+    let (called, eno) = call_rust(
+        lowerer,
+        |cx| format!("{}({cx}{arguments})", link.call),
+        true,
+    );
+    store_result(lowerer, &format!("{called}?"), structures)?;
+    let Some(output) = params.iter().find(|param| {
+        param.direction == ParamDirection::Out && param.name.eq_ignore_ascii_case("ENO")
+    }) else {
+        return Err(NativeError::Compile(format!(
+            "the output ENO of {} is not in its declaration",
+            link.call
+        )));
+    };
+    let ty = lowerer.model.ty(output.type_id)?;
+    let place = format!("(*{})", crate::native::lower::parameter(&output.name));
+    store_eno(lowerer, place, ty, &eno.unwrap_or_default());
+    Ok(())
+}
+
+/// The body of the method `method` of the Rust function block whose instance type is `ty`, called
+/// through `link` (specification 48 RU-32): the instance's variables as the block's body reads
+/// them, the method's inputs and in-outs as a function's, its outputs from their places in its
+/// frame, all written back with its result when it returns `Ok`.
+pub(super) fn method(
+    lowerer: &mut Lowerer<'_, '_>,
+    ty: Ty,
+    params: &[Param],
+    (link, method): (&RustLink, &MethodLink),
+    structures: &HashMap<String, String>,
+) -> Result<(), NativeError> {
+    let instance = instance(lowerer, ty, link, structures)?;
+    let mut arguments = String::new();
+    let mut outputs = Vec::new();
+    for name in &method.variables {
+        let param = parameter_named(params, name, &link.call)?;
+        if param.direction != ParamDirection::Out {
+            arguments.push_str(&format!(", {}", argument(lowerer, param, structures)?));
+            continue;
+        }
+        // An output starts where the method's frame holds it, at its type's default.
+        let ty = lowerer.model.ty(param.type_id)?;
+        let place = format!("(*{})", crate::native::lower::parameter(&param.name));
+        let local = format!("ro{}", outputs.len());
+        let loaded = load(lowerer, ty, &place, structures, 0)?;
+        lowerer.line(&format!("let mut {local} = {loaded};"));
+        arguments.push_str(&format!(", &mut {local}"));
+        outputs.push((ty, place, local));
+    }
+    let fields: String = instance
+        .values
+        .iter()
+        .map(|value| format!(", &mut {value}"))
+        .collect();
+    let (called, _) = call_rust(
+        lowerer,
+        |cx| {
+            format!(
+                "{}::__trust_with({cx}{fields}, |rme, rcx| rme.{}(rcx{arguments}))",
+                link.call, method.item
+            )
+        },
+        false,
+    );
+    store_result(lowerer, &format!("{called}?"), structures)?;
+    store_instance(lowerer, &instance, structures)?;
+    for (ty, place, local) in outputs {
+        store(lowerer, ty, &place, &local, structures, 0)?;
+    }
+    Ok(())
+}
+
+/// The variables of a Rust function block's instance as a call of it reads them (specification
+/// 48 RU-28): their places, the locals they are loaded into, and which of them are in-outs, whose
+/// references the call reads but never rebinds (RU-29).
+struct Instance {
+    places: Vec<Place>,
+    values: Vec<String>,
+    in_outs: Vec<bool>,
+}
+
+/// Loads the variables of the instance of type `ty` that `link` names into locals.
+fn instance(
+    lowerer: &mut Lowerer<'_, '_>,
+    ty: Ty,
+    link: &RustLink,
+    structures: &HashMap<String, String>,
+) -> Result<Instance, NativeError> {
     let members = lowerer.info(ty).members().to_vec();
     let mut places = Vec::with_capacity(link.variables.len());
-    // The in-outs, whose references the body reads but never rebinds (specification 48 RU-29).
     let mut in_outs = Vec::with_capacity(link.variables.len());
     for name in &link.variables {
         let Some(member) = members
@@ -59,113 +177,140 @@ pub(super) fn block(
         let loaded = load(lowerer, place.ty, &place.expr, structures, 0)?;
         lowerer.line(&format!("let mut {value} = {loaded};"));
     }
-    let arguments: String = values
+    Ok(Instance {
+        places,
+        values,
+        in_outs,
+    })
+}
+
+/// Writes the instance's variables back but its in-outs: a string's length and the 0 after its
+/// text as Structured Text's writes leave them (DEV-039).
+fn store_instance(
+    lowerer: &mut Lowerer<'_, '_>,
+    instance: &Instance,
+    structures: &HashMap<String, String>,
+) -> Result<(), NativeError> {
+    for ((place, value), in_out) in instance
+        .places
         .iter()
-        .map(|value| format!(", &mut {value}"))
-        .collect();
-    let (called, eno) = call_rust(lowerer, |cx| {
-        format!("{}::__trust_call({cx}{arguments})", link.call)
-    });
-    lowerer.line(&format!("{called}?;"));
-    // The instance's own variables, which no pointer names: a string's length and the 0 after its
-    // text as Structured Text's writes leave them (DEV-039).
-    for ((place, value), in_out) in places.iter().zip(&values).zip(in_outs) {
+        .zip(&instance.values)
+        .zip(&instance.in_outs)
+    {
         if !in_out {
             store(lowerer, place.ty, &place.expr, value, structures, 0)?;
         }
     }
-    let Some(member) = members
-        .iter()
-        .find(|member| member.via.is_empty() && member.name.eq_ignore_ascii_case("ENO"))
-    else {
-        return Err(NativeError::Compile(format!(
-            "the output ENO of {} is not in its declaration",
-            link.call
-        )));
-    };
-    store_eno(lowerer, format!("me.{}", member.field()), member.ty, &eno);
     Ok(())
 }
 
-/// The body of the Rust function with the parameters `params`, called through `link`: its inputs
-/// in declaration order, its result into the function's result.
-pub(super) fn function(
-    lowerer: &mut Lowerer<'_, '_>,
-    params: &[Param],
+/// The place and type of the output `ENO` of the instance of type `ty` (RU-30).
+fn block_eno(
+    lowerer: &Lowerer<'_, '_>,
+    ty: Ty,
     link: &RustLink,
+) -> Result<(String, Ty), NativeError> {
+    lowerer
+        .info(ty)
+        .members()
+        .iter()
+        .find(|member| member.via.is_empty() && member.name.eq_ignore_ascii_case("ENO"))
+        .map(|member| (format!("me.{}", member.field()), member.ty))
+        .ok_or_else(|| {
+            NativeError::Compile(format!(
+                "the output ENO of {} is not in its declaration",
+                link.call
+            ))
+        })
+}
+
+/// The input or in-out `name` of `params`, of the POU `call`.
+fn parameter_named<'p>(
+    params: &'p [Param],
+    name: &str,
+    call: &str,
+) -> Result<&'p Param, NativeError> {
+    params
+        .iter()
+        .find(|param| param.name.eq_ignore_ascii_case(name))
+        .ok_or_else(|| {
+            NativeError::Compile(format!(
+                "the parameter {name} of {call} is not in its declaration"
+            ))
+        })
+}
+
+/// The argument a Rust function or method takes for its input or in-out `param`: a scalar input
+/// its value, another input the value of the caller's that it is given a reference to
+/// (specification 44 §6.2), an in-out `InOut` of the caller's variable itself, whose place the
+/// generated code passes (specification 48 RU-29); a string's in-out, a view of any capacity, the
+/// SDK does not carry yet.
+fn argument(
+    lowerer: &mut Lowerer<'_, '_>,
+    param: &Param,
+    structures: &HashMap<String, String>,
+) -> Result<String, NativeError> {
+    let ty = lowerer.model.ty(param.type_id)?;
+    let argument = crate::native::lower::parameter(&param.name);
+    if param.direction == ParamDirection::InOut {
+        if matches!(lowerer.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
+            return Err(not_carried(&lowerer.info(ty).name));
+        }
+        return Ok(format!("::trust_plc::InOut::new({argument})"));
+    }
+    if lowerer.info(ty).scalar().is_some() {
+        return Ok(format!("::trust_plc::Stored::from_raw({argument})"));
+    }
+    load(lowerer, ty, &format!("(*{argument})"), structures, 0)
+}
+
+/// Writes the value of `call`, an expression that ends the body on a fault, into the POU's result:
+/// a result that is not a scalar into the result variable, which its exit copies out.
+fn store_result(
+    lowerer: &mut Lowerer<'_, '_>,
+    call: &str,
     structures: &HashMap<String, String>,
 ) -> Result<(), NativeError> {
-    let mut arguments = String::new();
-    for name in &link.variables {
-        let Some(param) = params.iter().find(|param| {
-            matches!(param.direction, ParamDirection::In | ParamDirection::InOut)
-                && param.name.eq_ignore_ascii_case(name)
-        }) else {
-            return Err(NativeError::Compile(format!(
-                "the input or in-out {name} of {} is not in its declaration",
-                link.call
-            )));
-        };
-        let ty = lowerer.model.ty(param.type_id)?;
-        let argument = crate::native::lower::parameter(&param.name);
-        // An in-out is the caller's variable itself, which the generated code passes as its place
-        // (specification 48 RU-29); a string's is a view of any capacity, which the SDK does not
-        // carry yet.
-        let value = if param.direction == ParamDirection::InOut {
-            if matches!(lowerer.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
-                return Err(not_carried(&lowerer.info(ty).name));
-            }
-            format!("::trust_plc::InOut::new({argument})")
-        // A scalar input is its value; any other is a reference to the caller's (specification 44
-        // §6.2).
-        } else if lowerer.info(ty).scalar().is_some() {
-            format!("::trust_plc::Stored::from_raw({argument})")
-        } else {
-            load(lowerer, ty, &format!("(*{argument})"), structures, 0)?
-        };
-        arguments.push_str(&format!(", {value}"));
-    }
-    let (called, eno) = call_rust(lowerer, |cx| format!("{}({cx}{arguments})", link.call));
-    let call = format!("{called}?");
     match lowerer.result.clone() {
-        // A result that is not a scalar goes into the function's result variable, which its exit
-        // copies out.
         Some(result) if lowerer.info(result.ty).scalar().is_none() => {
-            let value = lowerer.bind(&call);
-            store(lowerer, result.ty, &result.expr, &value, structures, 0)?;
+            let value = lowerer.bind(call);
+            store(lowerer, result.ty, &result.expr, &value, structures, 0)
         }
         Some(result) => {
             let value = lowerer.bind(&format!("::trust_plc::Stored::into_raw({call})"));
             lowerer.store_scalar(&result, &value);
+            Ok(())
         }
-        None => lowerer.line(&format!("{call};")),
+        None => {
+            lowerer.line(&format!("{call};"));
+            Ok(())
+        }
     }
-    let Some(output) = params.iter().find(|param| {
-        param.direction == ParamDirection::Out && param.name.eq_ignore_ascii_case("ENO")
-    }) else {
-        return Err(NativeError::Compile(format!(
-            "the output ENO of {} is not in its declaration",
-            link.call
-        )));
-    };
-    let ty = lowerer.model.ty(output.type_id)?;
-    let place = format!("(*{})", crate::native::lower::parameter(&output.name));
-    store_eno(lowerer, place, ty, &eno);
-    Ok(())
 }
 
-/// Calls a Rust POU with `call`, which writes the call given the expression of its context: the
-/// SDK's context, made from a clone of the generated code's `cx`, from which only the record of the
-/// fault the call returns goes back (specification 48 RU-11). Returns the temporaries that hold the
-/// call's `Result` and the POU's `ENO` (RU-30).
-fn call_rust(lowerer: &mut Lowerer<'_, '_>, call: impl FnOnce(&str) -> String) -> (String, String) {
+/// Calls a Rust POU or method with `call`, which writes the call given the expression of its
+/// context: the SDK's context, made from a clone of the generated code's `cx`, from which only the
+/// record of the fault the call returns goes back (specification 48 RU-11). Returns the temporary
+/// that holds the call's `Result` and, when `eno` asks for it, the one that holds the POU's `ENO`
+/// (RU-30), which a method has not.
+fn call_rust(
+    lowerer: &mut Lowerer<'_, '_>,
+    call: impl FnOnce(&str) -> String,
+    eno: bool,
+) -> (String, Option<String>) {
     let context = lowerer.temp();
     lowerer.line(&format!(
         "let mut {context} = ::trust_plc::__private::enter(cx);"
     ));
     let called = lowerer.bind(&call(&format!("&mut {context}")));
-    let eno = lowerer.bind(&format!("::trust_plc::__private::leave({context}, cx)"));
-    (called, eno)
+    let leave = format!("::trust_plc::__private::leave({context}, cx)");
+    if eno {
+        let eno = lowerer.bind(&leave);
+        (called, Some(eno))
+    } else {
+        lowerer.line(&format!("let _ = {leave};"));
+        (called, None)
+    }
 }
 
 /// Writes the POU's `ENO`, the Rust expression `eno`, into its output `ENO`, the place `place` of

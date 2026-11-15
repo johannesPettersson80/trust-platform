@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 
 use proc_macro2::{Span, TokenStream};
 use syn::ext::IdentExt as _;
-use syn::{Attribute, Ident, Item, UseTree, Visibility};
-use trust_plc_decl::{Kind, Pou};
+use syn::{Attribute, Ident, ImplItem, Item, ItemImpl, Type, UseTree, Visibility};
+use trust_plc_decl::{Kind, Method, Pou};
 
 use super::types::{RustEnumeration, RustStructure};
 use super::{RustPou, RustPouError};
@@ -67,6 +67,8 @@ struct Walk<'a> {
     /// The `pub use` of the crate's root: the path each names without `crate::` or `self::`, and
     /// the name it exports, `*` for a glob.
     exports: Vec<(Vec<String>, String)>,
+    /// The methods (RU-32), each with the name of its `impl` block's type, its file and its place.
+    methods: Vec<(String, Method, String, Span)>,
     errors: Vec<RustPouError>,
 }
 
@@ -78,6 +80,7 @@ pub(super) fn walk(project: &Path, root: &Path) -> Found {
         enumerations: Vec::new(),
         structures: Vec::new(),
         exports: Vec::new(),
+        methods: Vec::new(),
         errors: Vec::new(),
     };
     let children = root.parent().map(Path::to_path_buf).unwrap_or_default();
@@ -188,6 +191,9 @@ impl Walk<'_> {
                 Item::Enum(item) if !is_test_only(&item.attrs) => {
                     self.enumeration(place.label, item);
                 }
+                Item::Impl(item) if !is_test_only(&item.attrs) => {
+                    self.methods(place.label, item);
+                }
                 Item::Use(used)
                     if module.path.is_empty() && matches!(used.vis, Visibility::Public(_)) =>
                 {
@@ -287,6 +293,64 @@ impl Walk<'_> {
             Err(errors) => {
                 for error in errors {
                     self.error(label, error.span(), error.to_string());
+                }
+            }
+        }
+    }
+
+    /// The methods that `#[trust_method]` marks in the `impl` block `item` (RU-32), kept with the
+    /// name of the block's type until the walk knows its function blocks.
+    fn methods(&mut self, label: &str, item: &ItemImpl) {
+        let marked: Vec<_> = item
+            .items
+            .iter()
+            .filter_map(|member| match member {
+                ImplItem::Fn(function) if function.attrs.iter().any(trust_plc_decl::is_method) => {
+                    Some(function)
+                }
+                _ => None,
+            })
+            .collect();
+        let Some(first) = marked.first() else {
+            return;
+        };
+        let owner = match (&item.trait_, &*item.self_ty) {
+            (None, Type::Path(path)) if path.qself.is_none() => path
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident.unraw().to_string()),
+            _ => None,
+        };
+        let Some(owner) = owner else {
+            self.error(
+                label,
+                first.sig.ident.span(),
+                "a method lies in an `impl` block of its function block's struct, not of a trait \
+                 or another type: `impl Axis { ... }` (specification 48 RU-32)"
+                    .to_string(),
+            );
+            return;
+        };
+        for function in marked {
+            let args = function
+                .attrs
+                .iter()
+                .find(|attribute| trust_plc_decl::is_method(attribute))
+                .and_then(|attribute| attribute.meta.require_list().ok())
+                .map(|list| list.tokens.clone())
+                .unwrap_or_default();
+            match trust_plc_decl::method(args, function) {
+                Ok(method) => self.methods.push((
+                    owner.clone(),
+                    method,
+                    label.to_string(),
+                    function.sig.ident.span(),
+                )),
+                Err(errors) => {
+                    for error in errors {
+                        self.error(label, error.span(), error.to_string());
+                    }
                 }
             }
         }
@@ -453,11 +517,50 @@ impl Walk<'_> {
                 });
             }
         }
+        self.attach_methods(&mut pous);
         Found {
             pous: pous.into_iter().map(|(pou, _)| pou).collect(),
             enumerations,
             structures,
             errors: self.errors,
+        }
+    }
+
+    /// Gives each function block of `pous` the methods its struct's `impl` blocks declare
+    /// (RU-32), in their order, refusing a method of no function block of the crate, one of two
+    /// blocks of that name, and a second of one name or one named like a variable of its block.
+    fn attach_methods(&mut self, pous: &mut [(RustPou, Span)]) {
+        for (owner, method, file, span) in std::mem::take(&mut self.methods) {
+            let mut blocks = pous
+                .iter_mut()
+                .filter(|(pou, _)| pou.pou.kind == Kind::FunctionBlock && pou.pou.item == owner);
+            let (Some((block, _)), None) = (blocks.next(), blocks.next()) else {
+                let message = format!(
+                    "the method {} is of `{owner}`, which is not one `#[trust_fb]` struct of the \
+                     crate (specification 48 RU-32)",
+                    method.name
+                );
+                self.error(&file, span, message);
+                continue;
+            };
+            let block = &mut block.pou;
+            let taken = block
+                .variables
+                .iter()
+                .map(|variable| variable.name.as_str())
+                .chain(["EN", "ENO"])
+                .chain(block.methods.iter().map(|other| other.name.as_str()))
+                .find(|name| name.eq_ignore_ascii_case(&method.name));
+            if let Some(name) = taken {
+                let message = format!(
+                    "the method {} of {} is named as {name} of the block is: Structured Text, \
+                     which ignores case, takes them for one name (specification 48 RU-32)",
+                    method.name, block.name
+                );
+                self.error(&file, span, message);
+                continue;
+            }
+            block.methods.push(method);
         }
     }
 

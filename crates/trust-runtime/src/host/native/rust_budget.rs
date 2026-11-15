@@ -241,6 +241,10 @@ impl<'a> Admission<'_, 'a> {
             owner.to_ascii_uppercase(),
             method.name.to_ascii_uppercase()
         );
+        // A Rust function block's method is a call of its budget (specification 48 RU-32).
+        if self.budgets.contains_key(&key) {
+            return Work::call_of(&key);
+        }
         self.walked_once(key, |front| {
             let (file, list) = super::emit::method_body(front, owner, method)?;
             Some((file, list.into_iter().collect()))

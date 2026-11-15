@@ -15,6 +15,7 @@ mod budget;
 mod dates;
 mod enumeration;
 mod literal;
+mod method;
 pub mod names;
 mod render;
 mod structure;
@@ -30,6 +31,7 @@ use syn::{
 
 pub use enumeration::{enumeration, is_enumeration, Enumeration};
 pub use literal::Value;
+pub use method::{method, Access, Method};
 pub use structure::{is_structure, structure, Field, Structure};
 pub use types::{DataType, Elementary};
 
@@ -90,6 +92,10 @@ pub struct Pou {
     pub variables: Vec<Variable>,
     /// A function's result; `None` for a function block and for a function that returns `()`.
     pub result: Option<DataType>,
+    /// A function block's methods (RU-32), which its `impl` blocks declare: none as its own
+    /// attribute reads it, the crate's as the declarations' writer, which reads the whole crate,
+    /// gives them.
+    pub methods: Vec<Method>,
 }
 
 impl Pou {
@@ -119,6 +125,12 @@ pub fn is_field_attribute(attribute: &Attribute) -> bool {
     FIELD_ATTRIBUTES
         .iter()
         .any(|name| attribute.path().is_ident(name))
+}
+
+/// Whether `attribute` is `#[trust_method(...)]`, also written with its crate's path (RU-32).
+#[must_use]
+pub fn is_method(attribute: &Attribute) -> bool {
+    last_segment_is(attribute, "trust_method")
 }
 
 /// Whether `attribute` is `#[budget(...)]`, also written `#[trust_plc::budget(...)]`.
@@ -186,6 +198,7 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
         budget_ns: budget::of(&item.attrs, item.ident.span())?,
         variables,
         result: None,
+        methods: Vec::new(),
     })
 }
 
@@ -271,6 +284,7 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
         budget_ns: budget::of(&item.attrs, signature.ident.span())?,
         variables,
         result: result(&signature.output, signature.ident.span())?,
+        methods: Vec::new(),
     })
 }
 
