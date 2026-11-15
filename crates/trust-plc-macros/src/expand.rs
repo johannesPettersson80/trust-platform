@@ -2,7 +2,7 @@
 
 use proc_macro2::{Literal, Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{Attribute, Fields, Item, ItemFn, ItemStruct};
+use syn::{Attribute, Fields, Item, ItemEnum, ItemFn, ItemStruct};
 use trust_plc_decl::{DataType, Elementary, Pou, Value, Variable};
 
 /// `#[trust_fb]`: the struct without the attributes its reader reads, and its calls.
@@ -49,6 +49,78 @@ pub(crate) fn function(args: TokenStream, item: TokenStream) -> TokenStream {
         Err(error) => {
             let error = error.to_compile_error();
             quote! { #error #parsed }
+        }
+    }
+}
+
+/// `#[trust_enum]`: the enumeration as written, and what makes it a type of a Rust POU's
+/// variables: its value as `INT` (`trust_plc::Stored`), its cell (`trust_plc::Placed`) and its
+/// default, its first variant (`trust_plc::Declared`), a value none of its variants has reading as
+/// that variant (specification 48 RU-25).
+pub(crate) fn enumeration(args: TokenStream, item: TokenStream) -> TokenStream {
+    let Ok(parsed) = syn::parse2::<ItemEnum>(item.clone()) else {
+        return refused("`#[trust_enum]` declares an enum a Rust enumeration", item);
+    };
+    let enumeration = match trust_plc_decl::enumeration(args, &parsed) {
+        Ok(enumeration) => enumeration,
+        Err(error) => {
+            let error = error.to_compile_error();
+            return quote! { #error #parsed };
+        }
+    };
+    let ident = &parsed.ident;
+    let variants: Vec<proc_macro2::Ident> = enumeration
+        .variants
+        .iter()
+        .map(|(variant, _)| format_ident!("{variant}"))
+        .collect();
+    let values: Vec<TokenStream> = enumeration
+        .variants
+        .iter()
+        .map(|(_, value)| {
+            let magnitude = Literal::i64_unsuffixed(value.abs());
+            if *value < 0 {
+                quote!(-#magnitude)
+            } else {
+                quote!(#magnitude)
+            }
+        })
+        .collect();
+    let first = &variants[0];
+    quote! {
+        #parsed
+
+        impl ::trust_plc::Stored for #ident {
+            type Raw = i16;
+            #[inline]
+            fn from_raw(raw: i16) -> Self {
+                match raw {
+                    #(#values => Self::#variants,)*
+                    _ => Self::#first,
+                }
+            }
+            #[inline]
+            fn into_raw(self) -> i16 {
+                match self {
+                    #(Self::#variants => #values,)*
+                }
+            }
+        }
+
+        impl ::trust_plc::Placed for #ident {
+            type Area = ::core::cell::Cell<i16>;
+            #[inline]
+            fn load(area: &Self::Area) -> Self {
+                <Self as ::trust_plc::Stored>::from_raw(area.get())
+            }
+            #[inline]
+            fn store(&self, area: &Self::Area) {
+                area.set(::trust_plc::Stored::into_raw(*self));
+            }
+        }
+
+        impl ::trust_plc::Declared for #ident {
+            const DEFAULT: Self = Self::#first;
         }
     }
 }
@@ -180,6 +252,15 @@ fn start(variable: &Variable) -> TokenStream {
 fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
     match ty {
         DataType::Elementary(elementary) => elementary_value(*elementary, init),
+        // A type the crate declares: the variant written, else the type's default.
+        DataType::Named(_) => {
+            if let Some(Value::Variant(path)) = init {
+                let segments = path.iter().map(|segment| format_ident!("{segment}"));
+                quote!(#(#segments)::*)
+            } else {
+                quote!(::trust_plc::declared_default())
+            }
+        }
         DataType::Array { element, len, .. } => {
             if let Some(Value::List(items)) = init {
                 let len = usize::try_from(*len).unwrap_or(0);

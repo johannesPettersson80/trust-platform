@@ -51,6 +51,24 @@ pub trait Placed: Sized {
     fn store(&self, area: &Self::Area);
 }
 
+/// A type the project's crate declares for its Rust POUs' variables, an enumeration
+/// (`#[trust_enum]`, specification 48 RU-25): its default, which a variable without an initial value
+/// starts at.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is no type of specification 48 RU-25",
+    label = "mark its `enum` with `#[trust_enum]`, or use a type of RU-25's table"
+)]
+pub trait Declared: Copy {
+    /// The type's default: an enumeration's first variant (IEC §6.4.4.2).
+    const DEFAULT: Self;
+}
+
+/// The default of the declared type `T`, which a block's `new()` gives a variable of it.
+#[must_use]
+pub const fn declared_default<T: Declared>() -> T {
+    T::DEFAULT
+}
+
 /// A `BOOL` lies in a byte, 0 or 1 (specification 44 §6.2).
 impl Placed for bool {
     type Area = Cell<u8>;

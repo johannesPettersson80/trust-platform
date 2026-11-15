@@ -10,11 +10,13 @@ use syn::ext::IdentExt as _;
 use syn::{Attribute, Ident, Item, UseTree, Visibility};
 use trust_plc_decl::{Kind, Pou};
 
+use super::types::RustEnumeration;
 use super::{RustPou, RustPouError};
 
 /// What the walk found: the POUs, or the errors that keep their declarations from being written.
 pub(super) struct Found {
     pub(super) pous: Vec<RustPou>,
+    pub(super) enumerations: Vec<RustEnumeration>,
     pub(super) errors: Vec<RustPouError>,
 }
 
@@ -57,6 +59,7 @@ struct Place<'a> {
 struct Walk<'a> {
     project: &'a Path,
     declared: Vec<Declared>,
+    enumerations: Vec<RustEnumeration>,
     /// The `pub use` of the crate's root: the path each names without `crate::` or `self::`, and
     /// the name it exports, `*` for a glob.
     exports: Vec<(Vec<String>, String)>,
@@ -68,6 +71,7 @@ pub(super) fn walk(project: &Path, root: &Path) -> Found {
     let mut walk = Walk {
         project,
         declared: Vec::new(),
+        enumerations: Vec::new(),
         exports: Vec::new(),
         errors: Vec::new(),
     };
@@ -169,6 +173,9 @@ impl Walk<'_> {
                         Kind::Function,
                         |args| trust_plc_decl::function(args, item),
                     );
+                }
+                Item::Enum(item) if !is_test_only(&item.attrs) => {
+                    self.enumeration(place.label, item);
                 }
                 Item::Use(used)
                     if module.path.is_empty() && matches!(used.vis, Visibility::Public(_)) =>
@@ -274,6 +281,34 @@ impl Walk<'_> {
         }
     }
 
+    /// The enumeration the enum `item` declares, when `#[trust_enum]` marks it (RU-25).
+    fn enumeration(&mut self, label: &str, item: &syn::ItemEnum) {
+        let Some(attribute) = item
+            .attrs
+            .iter()
+            .find(|attribute| trust_plc_decl::is_enumeration(attribute))
+        else {
+            return;
+        };
+        let args = attribute
+            .meta
+            .require_list()
+            .map(|list| list.tokens.clone())
+            .unwrap_or_default();
+        match trust_plc_decl::enumeration(args, item) {
+            Ok(enumeration) => self.enumerations.push(RustEnumeration {
+                enumeration,
+                file: label.to_string(),
+                line: item.ident.span().start().line,
+            }),
+            Err(errors) => {
+                for error in errors {
+                    self.error(label, error.span(), error.to_string());
+                }
+            }
+        }
+    }
+
     /// The POUs with the paths the generated code reaches them by: through `pub` modules, or as
     /// the crate root's `pub use` of the item or of its module's items; and no name twice.
     fn finish(mut self) -> Found {
@@ -305,8 +340,39 @@ impl Walk<'_> {
             pou.path = path;
             pous.push((pou, declared.span));
         }
+        // A type's names, Structured Text's and Rust's, are its alone: a variable names it by the
+        // one, the declarations by the other.
+        let enumerations = std::mem::take(&mut self.enumerations);
+        for (index, found) in enumerations.iter().enumerate() {
+            let earlier = enumerations[..index].iter().find(|other| {
+                other
+                    .enumeration
+                    .name
+                    .eq_ignore_ascii_case(&found.enumeration.name)
+                    || other.enumeration.item == found.enumeration.item
+            });
+            let clash = earlier
+                .map(|other| (other.file.clone(), other.line))
+                .or_else(|| {
+                    pous.iter()
+                        .find(|(pou, _)| pou.pou.name.eq_ignore_ascii_case(&found.enumeration.name))
+                        .map(|(pou, _)| (pou.file.clone(), pou.line))
+                });
+            if let Some((file, line)) = clash {
+                self.errors.push(RustPouError {
+                    file: found.file.clone(),
+                    line: found.line,
+                    column: 1,
+                    message: format!(
+                        "{} is declared twice: also at {file}:{line}",
+                        found.enumeration.name
+                    ),
+                });
+            }
+        }
         Found {
             pous: pous.into_iter().map(|(pou, _)| pou).collect(),
+            enumerations,
             errors: self.errors,
         }
     }

@@ -55,6 +55,24 @@ pub fn trust_function(args: TokenStream, item: TokenStream) -> TokenStream {
     expand::function(args.into(), item.into()).into()
 }
 
+/// Declares an enum a Rust enumeration (specification 48 RU-25): its variants hold no data, each
+/// has its value within `INT`, and it derives `Clone` and `Copy`. The generated declarations
+/// declare it as a closed enumeration of Structured Text with these names and values.
+///
+/// ```ignore
+/// #[trust_enum(name = "MODE")]
+/// #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// pub enum Mode {
+///     Off = 0,
+///     Auto = 1,
+///     Manual = 5,
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn trust_enum(args: TokenStream, item: TokenStream) -> TokenStream {
+    expand::enumeration(args.into(), item.into()).into()
+}
+
 /// The budget of a Rust POU (specification 48 RU-46): the longest one call may take on the slowest
 /// target of its project, `500ns`, `15us`, `1.5ms` or `2s`. The POU's attribute reads it, below or
 /// above that attribute.

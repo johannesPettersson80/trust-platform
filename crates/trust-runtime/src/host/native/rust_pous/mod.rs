@@ -9,6 +9,9 @@
 
 mod rules;
 mod tree;
+mod types;
+
+pub use types::RustEnumeration;
 
 pub(super) use rules::check_crate;
 
@@ -47,6 +50,8 @@ pub struct RustCrate {
     pub root: std::path::PathBuf,
     /// The Rust POUs, in the order the crate's modules declare them.
     pub pous: Vec<RustPou>,
+    /// The enumerations, in the order the crate's modules declare them (RU-25).
+    pub enumerations: Vec<RustEnumeration>,
 }
 
 /// Something of the project's crate that keeps its declarations from being written, where it is.
@@ -117,29 +122,33 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
         .and_then(toml::Value::as_str)
         .unwrap_or("src/lib.rs");
     let root = folder.join(root);
-    let found = tree::walk(project, &root);
+    let mut found = tree::walk(project, &root);
+    // A POU's variable of one of the crate's types bears the type's Structured Text name (RU-25).
+    let unresolved = types::resolve(&mut found.pous, &found.enumerations);
+    found.errors.extend(unresolved);
     if found.errors.is_empty() {
         Ok(Some(RustCrate {
             name,
             package,
             root,
             pous: found.pous,
+            enumerations: found.enumerations,
         }))
     } else {
         Err(found.errors)
     }
 }
 
-/// The generated declarations of `krate` (RU-23): each POU's declaration, in the order the crate
-/// declares them, with a blank line between two.
+/// The generated declarations of `krate` (RU-23, RU-25): each enumeration's declaration, then each
+/// POU's, in the order the crate declares them, with a blank line between two.
 #[must_use]
 pub fn declarations_text(krate: &RustCrate) -> String {
-    krate
-        .pous
+    let types = krate
+        .enumerations
         .iter()
-        .map(|pou| pou.pou.declaration(&pou.file))
-        .collect::<Vec<_>>()
-        .join("\n")
+        .map(|found| found.enumeration.declaration(&found.file));
+    let pous = krate.pous.iter().map(|pou| pou.pou.declaration(&pou.file));
+    types.chain(pous).collect::<Vec<_>>().join("\n")
 }
 
 /// What [`write_declarations`] did.

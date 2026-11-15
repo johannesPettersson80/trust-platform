@@ -30,8 +30,10 @@ pub use arrays::Array;
 pub use dates::{Date, Dt, LDate, LTod, Ldt, Tod};
 pub use strings::{Str, WStr};
 pub use trust_plc_abi::{Cx, Fault, FaultCode};
-pub use trust_plc_macros::{budget, trust_fb, trust_function};
-pub use types::{Byte, Char, Dword, LTime, Lword, Placed, Stored, Time, WChar, Word};
+pub use trust_plc_macros::{budget, trust_enum, trust_fb, trust_function};
+pub use types::{
+    declared_default, Byte, Char, Declared, Dword, LTime, Lword, Placed, Stored, Time, WChar, Word,
+};
 
 /// A Rust POU's own fault (specification 48 RU-14): the number the POU chooses and two numbers of
 /// detail, which the kernel reports with the Structured Text statement that called the POU. It ends

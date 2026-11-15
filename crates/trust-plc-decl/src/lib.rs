@@ -13,6 +13,7 @@
 
 mod budget;
 mod dates;
+mod enumeration;
 mod literal;
 mod render;
 mod types;
@@ -25,6 +26,7 @@ use syn::{
     Visibility,
 };
 
+pub use enumeration::{enumeration, is_enumeration, Enumeration};
 pub use literal::Value;
 pub use types::{DataType, Elementary};
 
@@ -261,13 +263,25 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
     })
 }
 
-/// The Structured Text name of the attribute's arguments `args`, `name = "..."`.
+/// The Structured Text name of a POU's attribute's arguments `args`, `name = "..."`.
 fn pou_name(args: TokenStream, item: Span) -> Result<String, Error> {
+    declared_name(
+        args,
+        item,
+        "a Rust POU names itself for Structured Text: `#[trust_fb(name = \"FILTER_EMA\")]` \
+         (specification 48 RU-22)",
+    )
+}
+
+/// The Structured Text name of an attribute's arguments `args`, `name = "..."`, which `missing`
+/// asks for when they have none.
+fn declared_name(args: TokenStream, item: Span, missing: &str) -> Result<String, Error> {
     let mut name: Option<LitStr> = None;
     let parser = syn::meta::parser(|meta| {
         if !meta.path.is_ident("name") {
-            return Err(meta
-                .error("a Rust POU's attribute takes `name = \"...\"`, its Structured Text name"));
+            return Err(meta.error(
+                "the attribute takes `name = \"...\"`, the Structured Text name of what it declares",
+            ));
         }
         if name.is_some() {
             return Err(meta.error("`name` is given twice"));
@@ -277,11 +291,7 @@ fn pou_name(args: TokenStream, item: Span) -> Result<String, Error> {
     });
     syn::parse::Parser::parse2(parser, args)?;
     let Some(name) = name else {
-        return Err(Error::new(
-            item,
-            "a Rust POU names itself for Structured Text: `#[trust_fb(name = \"FILTER_EMA\")]` \
-             (specification 48 RU-22)",
-        ));
+        return Err(Error::new(item, missing));
     };
     let text = name.value();
     if text.split('.').all(is_identifier) {
