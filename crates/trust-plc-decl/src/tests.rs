@@ -175,7 +175,7 @@ fn initial_values_are_literals_of_the_variables_type() {
     let inits: Vec<Option<String>> = pou
         .variables
         .iter()
-        .map(|variable| variable.init.map(Value::structured_text))
+        .map(|variable| variable.init.as_ref().map(Value::structured_text))
         .collect();
     let expected = [
         "TRUE",
@@ -451,7 +451,7 @@ fn bit_strings_characters_and_durations_are_declared_with_iec_literals() {
     let declared: Vec<String> = pou
         .variables
         .iter()
-        .map(|variable| match variable.init {
+        .map(|variable| match &variable.init {
             Some(init) => format!(
                 "{} : {} := {}",
                 variable.name,
@@ -509,7 +509,7 @@ fn dates_and_times_of_day_are_declared_with_iec_literals() {
     let declared: Vec<String> = pou
         .variables
         .iter()
-        .map(|variable| match variable.init {
+        .map(|variable| match &variable.init {
             Some(init) => format!(
                 "{} : {} := {}",
                 variable.name,
@@ -560,6 +560,82 @@ fn a_date_literal_that_does_not_exist_or_does_not_fit_is_refused() {
         ),
         ("#[init(\"T#1s\")] a: Dt", "an IEC literal of its kind"),
         ("#[init(0)] a: Date", "`#[init(\"D#2024-02-29\")]`"),
+    ] {
+        let message = fields_refusal(field);
+        assert!(message.contains(expected), "{field}: {message}");
+    }
+}
+
+#[test]
+fn strings_are_declared_with_their_capacities_and_iec_literals() {
+    // RU-25 and RU-26: `Str<n>` and `WStr<n>` are STRING[n] and WSTRING[n], `Str` alone
+    // STRING[80], and their initial values are IEC string literals (IEC §6.3.3, Table 7): `$` and
+    // the quote escaped, a control character as `$` and its code, any other character as itself,
+    // since Structured Text reads `$hh` as the character U+00hh (specification 10 §2.3.2). Catches
+    // a capacity lost, a quote that ends the literal early, and a character outside ASCII written
+    // as the bytes of its UTF-8 form, which Structured Text would read as other characters.
+    let item: ItemStruct = parse_quote! {
+        #[budget("1us")]
+        pub struct Texts {
+            #[init("pump 1")] a: Str<20>,
+            b: Str,
+            #[init("it's $5")] c: Str<10>,
+            #[init("é")] d: Str<2>,
+            #[init("é\"")] e: WStr<4>,
+            #[init("")] f: WStr,
+        }
+    };
+    let pou = function_block(args("name = \"TEXTS\""), &item).unwrap();
+    let declared: Vec<String> = pou
+        .variables
+        .iter()
+        .map(|variable| match &variable.init {
+            Some(init) => format!(
+                "{} : {} := {}",
+                variable.name,
+                variable.ty.iec(),
+                init.structured_text()
+            ),
+            None => format!("{} : {}", variable.name, variable.ty.iec()),
+        })
+        .collect();
+    assert_eq!(
+        declared,
+        [
+            "a : STRING[20] := 'pump 1'",
+            "b : STRING[80]",
+            "c : STRING[10] := 'it$'s $$5'",
+            "d : STRING[2] := 'é'",
+            "e : WSTRING[4] := \"é$\"\"",
+            "f : WSTRING[80] := \"\"",
+        ]
+    );
+    assert_eq!(pou.variables[0].ty, Elementary::Str(20));
+}
+
+#[test]
+fn a_text_its_string_does_not_hold_is_refused() {
+    // Catches a text the build would cut: RU-26 gives a string a text its capacity holds, counted
+    // in UTF-8 bytes or UTF-16 code units, and a capacity is a whole number from 1 to 65,535
+    // (specification 44 §7.6).
+    for (field, expected) in [
+        (
+            "#[init(\"too long\")] a: Str<3>",
+            "the text is 8 bytes of UTF-8, more than STRING[3] holds",
+        ),
+        (
+            "#[init(\"ééé\")] a: WStr<2>",
+            "the text is 3 UTF-16 code units, more than WSTRING[2] holds",
+        ),
+        (
+            "a: Str<0>",
+            "a string's capacity is a whole number from 1 to 65,535",
+        ),
+        (
+            "a: Str<70000>",
+            "a string's capacity is a whole number from 1 to 65,535",
+        ),
+        ("#[init(5)] a: Str<3>", "`#[init(\"text\")]`"),
     ] {
         let message = fields_refusal(field);
         assert!(message.contains(expected), "{field}: {message}");

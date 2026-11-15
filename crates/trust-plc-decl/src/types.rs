@@ -1,7 +1,9 @@
 //! The IEC types of a Rust POU's variables (specification 48 RU-25).
 
+use std::borrow::Cow;
+
 use syn::spanned::Spanned;
-use syn::{Error, Type};
+use syn::{Error, Expr, ExprLit, GenericArgument, Lit, PathArguments, Type};
 
 /// An elementary IEC type, which a Rust POU writes as the Rust type of RU-25's table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,7 +58,14 @@ pub enum Elementary {
     Dt,
     /// `LDATE_AND_TIME`, written `Ldt`.
     Ldt,
+    /// `STRING[n]`, written `Str<n>`: up to `n` bytes of UTF-8 (`Str` alone is `Str<80>`).
+    Str(u16),
+    /// `WSTRING[n]`, written `WStr<n>`: up to `n` UTF-16 code units.
+    WStr(u16),
 }
+
+/// The capacity of a `STRING` or a `WSTRING` declared without one (specification 10 §2.3.1).
+const DEFAULT_CAPACITY: u16 = 80;
 
 const ALL: [Elementary; 25] = [
     Elementary::Bool,
@@ -89,8 +98,19 @@ const ALL: [Elementary; 25] = [
 impl Elementary {
     /// The IEC name, as the generated declaration writes it.
     #[must_use]
-    pub fn iec(self) -> &'static str {
+    pub fn iec(self) -> Cow<'static, str> {
         match self {
+            Self::Str(capacity) => Cow::Owned(format!("STRING[{capacity}]")),
+            Self::WStr(capacity) => Cow::Owned(format!("WSTRING[{capacity}]")),
+            other => Cow::Borrowed(other.name()),
+        }
+    }
+
+    /// The IEC name of an elementary type without a capacity.
+    fn name(self) -> &'static str {
+        match self {
+            Self::Str(_) => "STRING",
+            Self::WStr(_) => "WSTRING",
             Self::Bool => "BOOL",
             Self::Sint => "SINT",
             Self::Int => "INT",
@@ -148,6 +168,8 @@ impl Elementary {
             Self::LTod => "LTod",
             Self::Dt => "Dt",
             Self::Ldt => "Ldt",
+            Self::Str(_) => "Str",
+            Self::WStr(_) => "WStr",
         }
     }
 
@@ -192,7 +214,9 @@ impl Elementary {
             | Self::Tod
             | Self::LTod
             | Self::Dt
-            | Self::Ldt => return None,
+            | Self::Ldt
+            | Self::Str(_)
+            | Self::WStr(_) => return None,
         };
         Some(range)
     }
@@ -200,11 +224,15 @@ impl Elementary {
     /// The type `ty` names. The attribute sees the type as written, so a variable's type is one of
     /// the table's names, not an alias of one.
     pub(crate) fn of(ty: &Type) -> Result<Self, Error> {
+        if let Some(string) = string_type(ty) {
+            return string;
+        }
         let written = crate::last_path_segment(ty);
         written
             .and_then(|name| ALL.into_iter().find(|candidate| candidate.rust() == name))
             .ok_or_else(|| {
-                let names: Vec<&str> = ALL.iter().map(|candidate| candidate.rust()).collect();
+                let mut names: Vec<&str> = ALL.iter().map(|candidate| candidate.rust()).collect();
+                names.extend(["Str<n>", "WStr<n>"]);
                 Error::new(
                     ty.span(),
                     format!(
@@ -215,4 +243,47 @@ impl Elementary {
                 )
             })
     }
+}
+
+/// The string type `ty` names: `Str<n>` or `WStr<n>`, `Str` alone for `Str<80>`; `None` for another
+/// type, and an error for a capacity that is not a whole number from 1 to 65,535 (specification 44
+/// §7.6).
+fn string_type(ty: &Type) -> Option<Result<Elementary, Error>> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    if path.qself.is_some() {
+        return None;
+    }
+    let segment = path.path.segments.last()?;
+    let wide = match segment.ident.to_string().as_str() {
+        "Str" => false,
+        "WStr" => true,
+        _ => return None,
+    };
+    let capacity = match &segment.arguments {
+        PathArguments::None => Some(DEFAULT_CAPACITY),
+        PathArguments::AngleBracketed(arguments) if arguments.args.len() == 1 => {
+            match arguments.args.first() {
+                Some(GenericArgument::Const(Expr::Lit(ExprLit {
+                    lit: Lit::Int(capacity),
+                    ..
+                }))) => capacity
+                    .base10_parse::<u16>()
+                    .ok()
+                    .filter(|capacity| *capacity > 0),
+                _ => None,
+            }
+        }
+        _ => None,
+    };
+    Some(match capacity {
+        Some(capacity) if wide => Ok(Elementary::WStr(capacity)),
+        Some(capacity) => Ok(Elementary::Str(capacity)),
+        None => Err(Error::new(
+            segment.span(),
+            "a string's capacity is a whole number from 1 to 65,535: `Str<20>`, `WStr<80>` \
+             (specification 44 §7.6)",
+        )),
+    })
 }

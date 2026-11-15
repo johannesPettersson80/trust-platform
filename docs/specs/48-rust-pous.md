@@ -412,6 +412,13 @@ Text, with their faults: `from_ymd`, `ymd` and `day_of_week` of a date, `from_hm
 time of day, `new`, `from_parts`, `parts`, `date` and `tod` of a date and time, `checked_add`,
 `checked_sub` and `since` where Structured Text adds, takes away and subtracts them.
 
+`Str<n>` and `WStr<n>` (`Str` alone is `Str<80>`, as `STRING` is `STRING[80]`) are values the POU
+owns, its text and its length, which the generated code reads from the instance's string and writes
+back, its length and the 0 after its text as Structured Text's writes leave them (DEV-039). A write
+into one (`set`, `from_text`) keeps the longest prefix of whole characters its capacity holds, as
+every write of Structured Text does (specification 10 §2.3.1); `as_bytes`, `as_str`, `as_units` and
+`chars` read it.
+
 A field of another Rust type is refused at the declaration with the table's types. Generic types
 (IEC §6.4.3) are not declared by a Rust POU; a Rust function may be generic in Rust only when it is
 not a POU.
@@ -422,7 +429,10 @@ build computes it into the starting memory (specification 44 §7.4) as for Struc
 without `#[init]` starts at the type's default (IEC §6.4.2, Table 10). The literal of a bit string
 is an integer within its bits (`#[init(0x0F)]`, declared `16#0F`), of a `CHAR` an ASCII character or
 a byte (`'A'`, `b'\xE9'`), of a `WCHAR` a character of one UTF-16 code unit, of a `TIME` or an
-`LTIME` an IEC duration in a string (`#[init("T#1.5s")]`, declared `T#1s500ms`; IEC §6.3.4), and of
+`LTIME` an IEC duration in a string (`#[init("T#1.5s")]`, declared `T#1s500ms`; IEC §6.3.4), of a
+`STRING[n]` or a `WSTRING[n]` a text whose UTF-8 bytes, or UTF-16 code units, `n` holds
+(`#[init("pump 1")]`, declared `'pump 1'` with `$` and the quote as `$$` and `$'`, a control
+character as `$` and its code, and every other character as itself; IEC §6.3.3, Table 7), and of
 a date, a time of day or both, or a long form of one, an IEC literal of its kind in a string, its
 prefix short or long (`#[init("D#2024-02-29")]`, `#[init("TOD#12:30:15.25")]`,
 `#[init("DT#2024-02-29-12:30:15")]`; IEC §6.3.5, Table 9), naming a date and a time of day that

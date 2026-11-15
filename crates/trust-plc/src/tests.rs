@@ -6,9 +6,11 @@
 
 use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
 
+use core::cell::Cell;
+
 use crate::{
     checked, math, Byte, Char, Cx, Date, Dt, Dword, Fault, FaultCode, LDate, LTime, LTod, Ldt,
-    Stored, Time, Tod, Word,
+    Placed, Stored, Str, Time, Tod, WStr, Word,
 };
 
 fn cx() -> Cx {
@@ -283,4 +285,48 @@ fn dates_are_built_split_and_moved_as_structured_text_does() {
     let whole = Ldt::from_parts(&mut cx, 2024, 2, 29, 12, 30, 15, 250).expect("a long moment");
     assert_eq!(Stored::into_raw(whole), 1_709_209_815_250_000_000_i64);
     assert_eq!(long_moment.since(&mut cx, whole), Ok(LTime::from_nanos(1)));
+}
+
+#[test]
+fn strings_keep_whole_characters_and_lie_in_their_cells_as_structured_text_reads_them() {
+    // Specification 10 §2.3.1: a write keeps the longest prefix of whole characters the capacity
+    // holds; specification 44 §6.2 and DEV-039: a string's cells hold its length, its text and a
+    // 0 after it, the bytes after that 0 as they were. Catches a cut inside a character, a length
+    // counted in characters, bytes after the length taken for text, and a write that clears the
+    // bytes after the 0.
+    // "aéb" is 4 bytes (é is C3 A9): three keep "aé"; two would split é and keep "a".
+    assert_eq!(Str::<3>::from_text("aéb").as_str(), Some("aé"));
+    assert_eq!(Str::<3>::from_text("aéb").len(), 3);
+    assert_eq!(Str::<2>::from_text("aé").as_str(), Some("a"));
+    // 😀 is two UTF-16 code units.
+    assert_eq!(WStr::<2>::from_text("a😀").as_units(), &[0x61]);
+    assert_eq!(
+        WStr::<3>::from_text("a😀").chars().collect::<String>(),
+        "a😀"
+    );
+    let mut shorter = Str::<8>::from_text("abcdef");
+    shorter.set("ab");
+    assert_eq!(shorter, Str::<8>::from_text("ab"));
+    assert_eq!(Str::<80>::default().capacity(), 80);
+
+    let area = trust_plc_abi::Str::<6>::new();
+    Str::<6>::from_text("hello").store(&area);
+    Str::<6>::from_text("hi").store(&area);
+    assert_eq!(area.len.get(), 2);
+    let cells: Vec<u8> = area.data.iter().map(Cell::get).collect();
+    assert_eq!(cells, b"hi\0lo\0");
+    assert_eq!(<Str<6> as Placed>::load(&area), Str::<6>::from_text("hi"));
+    // A length above the capacity reads as the capacity (specification 44 §7.2).
+    area.len.set(9);
+    assert_eq!(<Str<6> as Placed>::load(&area).len(), 6);
+
+    let wide_area = trust_plc_abi::WStr::<4>::new();
+    WStr::<4>::from_text("é😀").store(&wide_area);
+    assert_eq!(wide_area.len.get(), 3);
+    let units: Vec<u16> = wide_area.data.iter().map(Cell::get).collect();
+    assert_eq!(units, [0x00E9, 0xD83D, 0xDE00, 0]);
+    assert_eq!(
+        <WStr<4> as Placed>::load(&wide_area),
+        WStr::<4>::from_text("é😀")
+    );
 }
