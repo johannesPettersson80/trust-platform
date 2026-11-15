@@ -1238,3 +1238,26 @@ re-check them against this rule when touched.
 - Mitigation: the acceptance applies only to projects whose
   `vendor_profile` is `codesys`, `beckhoff` or `twincat`; the IEC error is
   pinned by trust-hir tests, and the CODESYS acceptance by one more.
+
+## 2026-11-15 - Rust programs
+
+- ID: DEV-048
+- Area: a `PROGRAM` whose body is Rust (specification 48 §7).
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 4.3 rule 4: "A program shall be declared
+  using standard or user-defined data types, functions, function blocks and classes. This
+  declaration shall use the mechanisms defined for the IL, ST, LD, or FBD language, and can include
+  Sequential Function Chart (SFC) elements." The same section allows another language only for "a
+  function, function block type and methods": "A programming language other than one of those
+  defined in this standard may be used for programming of a function, function block type and
+  methods."
+- truST behavior and conflict: a Rust program's declaration is Structured Text that the build
+  generates (`PROGRAM ... {rust}` without a body, specification 48 RU-23, RU-35), so its interface,
+  its variables and its place in a configuration are the standard's; its body is Rust, which the
+  standard allows for functions, function blocks and methods but not for a program. This conflicts
+  with rule 4.
+- Impact: a project may run a Rust program on a task as it runs a Structured Text program; nothing
+  changes for a project without Rust.
+- Mitigation: the owner's decision of 15 November 2026 makes Rust programs part of truST
+  (specification 48, "Owner requirements"); a Rust program keeps every rule of the scan of
+  specification 48 §5, and its generated declaration lets every Structured Text tool treat it as a
+  program. Status: specified (specification 48 0.1); not built yet.
