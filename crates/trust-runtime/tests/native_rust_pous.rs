@@ -285,6 +285,130 @@ fn a_project_whose_declarations_are_out_of_date_does_not_build() {
     );
 }
 
+/// A project with the crate files `files` (relative to `rust/`) and a program that calls `PASS_ON`.
+fn custom_project(name: &str, files: &[(&str, &str)]) -> PathBuf {
+    let root = trust_test_support::unique_temp_path(name);
+    for (path, text) in files {
+        let file = root.join("rust").join(path);
+        std::fs::create_dir_all(file.parent().expect("a folder")).expect("the folder");
+        std::fs::write(file, text).expect("the file");
+    }
+    let program =
+        "PROGRAM Line\nVAR\n    result : DINT;\nEND_VAR\nresult := PASS_ON(a := 1);\nEND_PROGRAM\n";
+    std::fs::create_dir_all(root.join("src")).expect("the sources' folder");
+    std::fs::write(root.join("src/main.st"), program).expect("the program");
+    assert_eq!(write_declarations(&root), Ok(Written::Wrote(1)));
+    root
+}
+
+/// The crate's manifest with the dependencies `extra`.
+fn manifest(extra: &str) -> String {
+    format!(
+        "[package]\nname = \"rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+         [dependencies]\ntrust-plc = \"={}\"\n{extra}",
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
+/// A crate root with the function `PASS_ON`, after the attributes `head`.
+fn root(head: &str) -> String {
+    format!(
+        "{head}use trust_plc::prelude::*;\n\n#[trust_function(name = \"PASS_ON\")]\n#[budget(\"1us\")]\n\
+         pub fn pass_on(_cx: &mut Cx, a: i32) -> Result<i32, Fault> {{\n    Ok(a)\n}}\n"
+    )
+}
+
+/// The error of building the project in `root` for this computer.
+fn build_error(root: &Path) -> (String, Toolchain) {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let error = build_project(
+        root,
+        &sources(root),
+        &[],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        ConversionProfile::Iec,
+        &toolchain,
+        &root.join("build/native"),
+    )
+    .err()
+    .expect("the build is refused")
+    .to_string();
+    (error, toolchain)
+}
+
+#[test]
+fn a_crate_that_breaks_its_rules_is_refused_before_it_compiles() {
+    // RU-08: a crate whose root does not forbid unsafe code is refused, naming the line to write,
+    // whatever the toolchain, since nothing has compiled yet.
+    let root = custom_project(
+        "rust-pous-rules-root",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &root("#![cfg_attr(not(test), no_std)]\n\n")),
+        ],
+    );
+    let (error, _) = build_error(&root);
+    assert!(
+        error.contains("#![forbid(unsafe_code)]") && error.contains("RU-08"),
+        "{error}"
+    );
+}
+
+#[test]
+fn a_dependency_with_unsafe_code_or_a_build_script_is_refused() {
+    // RU-09 and RU-20: a crate the project's crate builds with holds no unsafe code and has no
+    // build script; the build names each and where, before it compiles them. A toolchain without
+    // cargo refuses the build for that reason first.
+    let keep = "#![cfg_attr(not(test), no_std)]\n#![forbid(unsafe_code)]\n\n";
+    let root = custom_project(
+        "rust-pous-rules-graph",
+        &[
+            (
+                "Cargo.toml",
+                &manifest(
+                    "fast = { path = \"vendor/fast\" }\nscripted = { path = \"vendor/scripted\" }\n",
+                ),
+            ),
+            ("src/lib.rs", &root(keep)),
+            (
+                "vendor/fast/Cargo.toml",
+                "[package]\nname = \"fast\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            ),
+            (
+                "vendor/fast/src/lib.rs",
+                "#![no_std]\npub fn read(p: *const u8) -> u8 {\n    unsafe { *p }\n}\n",
+            ),
+            (
+                "vendor/scripted/Cargo.toml",
+                "[package]\nname = \"scripted\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            ),
+            ("vendor/scripted/build.rs", "fn main() {}\n"),
+            ("vendor/scripted/src/lib.rs", "#![no_std]\n"),
+        ],
+    );
+    let (error, toolchain) = build_error(&root);
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
+    let lines: Vec<&str> = error.lines().collect();
+    assert_eq!(lines.len(), 2, "{error}");
+    assert!(
+        lines[0].starts_with("fast 0.1.0 holds `unsafe` code at ")
+            && lines[0].contains("lib.rs:3")
+            && lines[0].contains("RU-20"),
+        "{error}"
+    );
+    assert!(
+        lines[1].starts_with("scripted 0.1.0 has a build script") && lines[1].contains("RU-09"),
+        "{error}"
+    );
+}
+
 /// `path` named relative to this process's folder, as `trust-runtime build --project .` names a
 /// project.
 #[cfg(unix)]

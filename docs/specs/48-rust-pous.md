@@ -161,10 +161,10 @@ them, naming the line to add.
 **RU-09. Dependencies.** The crate may depend on other crates, from crates.io or vendored into the
 project (`cargo vendor`), with `Cargo.lock` committed. Every crate of the scan crate graph keeps
 §5.7 and §5.8: it builds without the standard library and without `alloc`, and it holds no `unsafe`
-code. The build compiles the whole graph with `unsafe` forbidden, so a dependency that holds
-`unsafe` code fails to compile, naming the crate. A crate of the graph has no build script and no
-procedural macro: both run code on the engineering computer while a project builds, which a PLC
-project's build does not allow (§17). The SDK and the crates it is built from are the exception:
+code. The build refuses a dependency whose sources hold `unsafe` code, naming the crate, the file
+and the line (§9.3). A crate of the graph has no build script and no procedural macro: both run
+code on the engineering computer while a project builds, which a PLC project's build does not allow
+(§17); the build refuses one, naming it. The SDK and the crates it is built from are the exception:
 the toolchain bundle carries their sources, reviewed with each release (§16), and the SDK's own
 `unsafe` is the interface crate's (specification 44 §6.9). A crate that does not build for one of
 the project's targets fails the build for that target (§18).
@@ -269,7 +269,7 @@ module, naming the crate. A crate's own tests may use `std` (`#![cfg_attr(not(te
 
 **RU-20.** No crate of the scan crate graph holds `unsafe` code, except the SDK's
 interface crate (specification 44 §6.9). The project's crate forbids it at its root (RU-08), and the
-build compiles every other crate of the graph with `unsafe` forbidden (§9.3). A Rust POU reaches the
+build refuses every other crate of the graph whose sources hold it (§9.3). A Rust POU reaches the
 program's memory, its references and the kernel only through the SDK's safe types.
 
 ### 5.9 Work per activation
@@ -553,9 +553,15 @@ definition of each.
 ### 9.3 Compilation
 
 **RU-43.** The build compiles the scan crate graph with the bundle's `cargo` and `rustc`, offline
-when the sources are vendored or cached (RU-10), with a compiler wrapper of trust-runtime that adds
-`-F unsafe-code` and specification 44 §4.5's flags to every crate outside the SDK's sources (RU-09,
-RU-20). The user's own `cargo` and toolchain are never used (§16). The generated crate of layer 3
+when the sources are vendored or cached (RU-10), every crate with specification 44 §4.5's flags.
+Before it compiles, the build checks the project's crate (RU-08) and the graph as cargo resolves it
+for the module's target: a crate outside the SDK and the crates the SDK is built from that has a
+build script or is a procedural macro (RU-09), or whose sources hold the token `unsafe` (RU-20), is
+refused, naming the crate, and for `unsafe` the file and the line. The check reads the sources as
+the compiler reads them, so a comment or a string that says "unsafe" is none; since no procedural
+macro of the graph writes code, a crate's code is its source text, so the check sees every `unsafe`
+a crate could compile. (A compiler flag cannot do this: cargo caps the lint levels of every crate
+from a registry.) The user's own `cargo` and toolchain are never used (§16). The generated crate of layer 3
 is a cargo package that depends on the project's crate, with the SDK's crates patched to the
 toolchain's sources whatever version the project's manifest names (RU-12), and the build starts
 from the project's `Cargo.lock`. The package and cargo's target folder lie in the build's folder of
