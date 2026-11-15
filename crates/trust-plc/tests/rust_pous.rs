@@ -243,6 +243,24 @@ fn an_enumeration_starts_at_its_variant_and_lies_as_its_value() {
     assert_eq!(<Mode as Placed>::load(&cell), Mode::Back);
 }
 
+#[test]
+fn an_in_out_of_an_enumeration_reads_and_writes_its_cell() {
+    // RU-29: an in-out of an enumeration is the caller's INT cell, which the generated code passes:
+    // it reads the variant of the value there and writes the variant's value at once, an array of
+    // them each element's cell. Catches an enumeration without a place of its own, which an in-out
+    // of it needs, and a variant written as its position.
+    let cell = core::cell::Cell::new(5_i16);
+    let mode: InOut<'_, Mode> = InOut::new(&cell);
+    assert_eq!(mode.get(), Mode::Manual);
+    mode.set(Mode::Back);
+    assert_eq!(cell.get(), -1);
+    let cells = [core::cell::Cell::new(1_i16), core::cell::Cell::new(0)];
+    let modes: InOut<'_, Array<Mode, 0, 2>> = InOut::new(&cells);
+    assert_eq!(modes.get().as_slice(), &[Mode::Auto, Mode::Off]);
+    modes.set(Array::from_items([Mode::Off, Mode::Manual]));
+    assert_eq!([cells[0].get(), cells[1].get()], [0, 5]);
+}
+
 /// A structure whose fields start at a number, a variant, a text and a list.
 #[trust_struct(name = "SAMPLE")]
 #[derive(Clone, Copy, Debug, PartialEq)]

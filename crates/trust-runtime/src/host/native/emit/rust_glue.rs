@@ -8,16 +8,18 @@
 //! only the record of the fault the call returns: a Rust POU reaches neither the statement budget,
 //! the call depth nor the kernel's pointers (RU-11).
 //!
-//! A value goes through the SDK's form of its type (RU-25): a scalar through `trust_plc::Stored`,
-//! a `TIME` read as `Time`, a `BYTE` as `Byte`; a string, or an array of such values, through
-//! `trust_plc::Placed`, from the cells it lies in; a structure of the project's crate, or an array
-//! that holds one, field by field and element by element, built by the structure's path.
+//! A value goes through its place (`trust_plc::Place`, RU-25, RU-29): a scalar and a string in
+//! the SDK's form of its type, a `TIME` read as `Time`, a `BYTE` as `Byte`; a structure of the
+//! project's crate through the place the generated code gives its type (`rust_places`), field by
+//! field; an array element by element; a reference as a `trust_plc::Ref` that reads its variable as
+//! the type it lies as. A function's or a method's in-out is the place of the caller's variable
+//! itself, which the call reads and writes at once.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use super::super::lower::{Lowerer, Place};
 use super::super::rust_pous::{MethodLink, RustLink};
-use super::super::types::{Kind, Ty};
+use super::super::types::{Kind, Ty, Types};
 use super::super::NativeError;
 use crate::program_model::Param;
 use trust_hir::symbols::ParamDirection;
@@ -106,7 +108,7 @@ pub(super) fn method(
         let ty = lowerer.model.ty(param.type_id)?;
         let place = format!("(*{})", crate::native::lower::parameter(&param.name));
         let local = format!("ro{}", outputs.len());
-        let loaded = load(lowerer, ty, &place, structures, 0)?;
+        let loaded = load_in(lowerer, ty, &place, structures)?;
         lowerer.line(&format!("let mut {local} = {loaded};"));
         arguments.push_str(&format!(", &mut {local}"));
         outputs.push((ty, place, local));
@@ -129,7 +131,7 @@ pub(super) fn method(
     store_result(lowerer, &format!("{called}?"), structures)?;
     store_instance(lowerer, &instance, structures)?;
     for (ty, place, local) in outputs {
-        store(lowerer, ty, &place, &local, structures, 0)?;
+        store_in(lowerer, ty, &place, &local, structures)?;
     }
     Ok(())
 }
@@ -174,7 +176,7 @@ fn instance(
         .map(|index| format!("rv{index}"))
         .collect();
     for (place, value) in places.iter().zip(&values) {
-        let loaded = load(lowerer, place.ty, &place.expr, structures, 0)?;
+        let loaded = load_in(lowerer, place.ty, &place.expr, structures)?;
         lowerer.line(&format!("let mut {value} = {loaded};"));
     }
     Ok(Instance {
@@ -198,7 +200,7 @@ fn store_instance(
         .zip(&instance.in_outs)
     {
         if !in_out {
-            store(lowerer, place.ty, &place.expr, value, structures, 0)?;
+            store_in(lowerer, place.ty, &place.expr, value, structures)?;
         }
     }
     Ok(())
@@ -256,12 +258,14 @@ fn argument(
         if matches!(lowerer.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
             return Err(not_carried(&lowerer.info(ty).name));
         }
+        let model = &mut *lowerer.model;
+        reach(&model.types, ty, structures, &mut model.rust_places)?;
         return Ok(format!("::trust_plc::InOut::new({argument})"));
     }
     if lowerer.info(ty).scalar().is_some() {
         return Ok(format!("::trust_plc::Stored::from_raw({argument})"));
     }
-    load(lowerer, ty, &format!("(*{argument})"), structures, 0)
+    load_in(lowerer, ty, &format!("(*{argument})"), structures)
 }
 
 /// Writes the value of `call`, an expression that ends the body on a fault, into the POU's result:
@@ -274,7 +278,7 @@ fn store_result(
     match lowerer.result.clone() {
         Some(result) if lowerer.info(result.ty).scalar().is_none() => {
             let value = lowerer.bind(call);
-            store(lowerer, result.ty, &result.expr, &value, structures, 0)
+            store_in(lowerer, result.ty, &result.expr, &value, structures)
         }
         Some(result) => {
             let value = lowerer.bind(&format!("::trust_plc::Stored::into_raw({call})"));
@@ -324,142 +328,176 @@ fn store_eno(lowerer: &mut Lowerer<'_, '_>, place: String, ty: Ty, eno: &str) {
     lowerer.store_scalar(&target, eno);
 }
 
-/// Whether the SDK reads and writes a value of `ty` as it lies (`trust_plc::Placed`): a string, or
-/// an array of scalars or of such values, no structure in it.
-fn placed_by_sdk(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
-    match &lowerer.info(ty).kind {
-        Kind::Str(_) | Kind::WStr(_) => true,
-        Kind::Array { elem, .. } => {
-            let elem = *elem;
-            lowerer.info(elem).scalar().is_some() || placed_by_sdk(lowerer, elem)
-        }
-        _ => false,
-    }
-}
-
-/// Whether `ty` is a reference that lies as one `RefValue` cell, `REF_TO` of anything but an open
-/// array (specification 44 §7.3), which the SDK holds as a `trust_plc::Ref`.
-fn reference(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
-    match lowerer.info(ty).kind {
+/// The type a reference of type `ty` names, when `ty` is a reference that lies as one `RefValue`
+/// cell, `REF_TO` of anything but an open array (specification 44 §7.3), which the SDK holds as a
+/// `trust_plc::Ref`.
+fn reference_target(types: &Types<'_>, ty: Ty) -> Option<Ty> {
+    match types.info(ty).kind {
         Kind::Ref {
             target,
             pointer: false,
-        } => !matches!(lowerer.info(target).kind, Kind::Open { .. }),
-        _ => false,
+        } if !matches!(types.info(target).kind, Kind::Open { .. }) => Some(target),
+        _ => None,
     }
 }
 
-/// The Rust expression of the value of type `ty` that the place `place` holds, an expression of
-/// the generated code's type; `depth` names the closures' variables apart.
-fn load(
+/// [`load`] of the generated code's place `place` of type `ty`, which records in the model the
+/// structures the value reaches.
+fn load_in(
     lowerer: &mut Lowerer<'_, '_>,
     ty: Ty,
     place: &str,
     structures: &HashMap<String, String>,
-    depth: usize,
 ) -> Result<String, NativeError> {
-    let info = lowerer.info(ty).clone();
-    if info.scalar().is_some() {
-        let loaded = lowerer.load(&Place {
-            expr: place.to_string(),
-            ty,
-            is_ref: false,
-        });
-        return Ok(format!("::trust_plc::Stored::from_raw({loaded})"));
-    }
-    if placed_by_sdk(lowerer, ty) {
-        return Ok(format!("::trust_plc::Placed::load(&{place})"));
-    }
-    if reference(lowerer, ty) {
-        return Ok(format!("::trust_plc::__private::reference({place}.get())"));
-    }
-    match &info.kind {
-        Kind::Array { elem, .. } => {
-            let cell = format!("e{depth}");
-            let item = load(lowerer, *elem, &format!("(*{cell})"), structures, depth + 1)?;
-            Ok(format!(
-                "::trust_plc::Array::from_items({place}.each_ref().map(|{cell}| {item}))"
-            ))
-        }
-        Kind::Struct { members } => {
-            let path = structure_path(structures, &info.name)?;
-            let mut fields = Vec::with_capacity(members.len());
-            for member in members {
-                let value = load(
-                    lowerer,
-                    member.ty,
-                    &format!("{place}.{}", member.field()),
-                    structures,
-                    depth,
-                )?;
-                fields.push(format!("{}: {value}", member.name));
-            }
-            Ok(format!("{path} {{ {} }}", fields.join(", ")))
-        }
-        _ => Err(not_carried(&info.name)),
-    }
+    let model = &mut *lowerer.model;
+    load(
+        &model.types,
+        ty,
+        place,
+        structures,
+        &mut model.rust_places,
+        0,
+    )
 }
 
-/// Writes the value `value` of type `ty`, a Rust expression, into the place `place`; `depth` names
-/// the loops' variables apart.
-fn store(
+/// [`store`] of `value` into the generated code's place `place` of type `ty`, which records in the
+/// model the structures the value reaches.
+fn store_in(
     lowerer: &mut Lowerer<'_, '_>,
     ty: Ty,
     place: &str,
     value: &str,
     structures: &HashMap<String, String>,
-    depth: usize,
 ) -> Result<(), NativeError> {
-    let info = lowerer.info(ty).clone();
-    if info.scalar().is_some() {
-        let target = Place {
-            expr: place.to_string(),
-            ty,
-            is_ref: false,
-        };
-        lowerer.store_scalar(&target, &format!("::trust_plc::Stored::into_raw({value})"));
-        return Ok(());
+    let model = &mut *lowerer.model;
+    let text = store(
+        &model.types,
+        ty,
+        place,
+        value,
+        structures,
+        &mut model.rust_places,
+        0,
+    )?;
+    lowerer.line(&text);
+    Ok(())
+}
+
+/// Adds to `places` each structure of the project's crate that a value of `ty` holds or names:
+/// itself, an array's elements' and a reference's target's, whose places the generated code gives
+/// (`rust_places`).
+fn reach(
+    types: &Types<'_>,
+    ty: Ty,
+    structures: &HashMap<String, String>,
+    places: &mut BTreeSet<Ty>,
+) -> Result<(), NativeError> {
+    let info = types.info(ty);
+    match &info.kind {
+        Kind::Struct { .. } => {
+            structure_path(structures, &info.name)?;
+            places.insert(ty);
+            Ok(())
+        }
+        Kind::Array { elem, .. } => reach(types, *elem, structures, places),
+        _ => match reference_target(types, ty) {
+            Some(target) => reach(types, target, structures, places),
+            None => Ok(()),
+        },
     }
-    if placed_by_sdk(lowerer, ty) {
-        lowerer.line(&format!("::trust_plc::Placed::store(&{value}, &{place});"));
-        return Ok(());
+}
+
+/// Whether the SDK carries a value of `ty` in a place of its own type (`trust_plc::Place`): a
+/// scalar of RU-25's table or of a `#[trust_enum]`, or a string.
+fn placed_by_sdk(types: &Types<'_>, ty: Ty) -> bool {
+    let info = types.info(ty);
+    info.scalar().is_some() || matches!(info.kind, Kind::Str(_) | Kind::WStr(_))
+}
+
+/// The Rust expression of the value of type `ty` that the place `place` holds, an expression of
+/// the generated code's type; `depth` names the closures' variables apart. Adds to `places` the
+/// structures it reaches.
+pub(super) fn load(
+    types: &Types<'_>,
+    ty: Ty,
+    place: &str,
+    structures: &HashMap<String, String>,
+    places: &mut BTreeSet<Ty>,
+    depth: usize,
+) -> Result<String, NativeError> {
+    if let Some(target) = reference_target(types, ty) {
+        reach(types, target, structures, places)?;
+        return Ok(format!(
+            "::trust_plc::__private::reference::<_, {}>({place}.get())",
+            types.info(target).rust
+        ));
     }
-    if reference(lowerer, ty) {
-        lowerer.line(&format!(
+    if placed_by_sdk(types, ty) {
+        return Ok(format!("::trust_plc::Place::load(&{place})"));
+    }
+    let info = types.info(ty);
+    match &info.kind {
+        Kind::Array { elem, .. } => {
+            let cell = format!("e{depth}");
+            let item = load(
+                types,
+                *elem,
+                &format!("(*{cell})"),
+                structures,
+                places,
+                depth + 1,
+            )?;
+            Ok(format!(
+                "::trust_plc::Array::from_items({place}.each_ref().map(|{cell}| {item}))"
+            ))
+        }
+        Kind::Struct { .. } => {
+            reach(types, ty, structures, places)?;
+            Ok(format!("::trust_plc::Place::load(&{place})"))
+        }
+        _ => Err(not_carried(&info.name)),
+    }
+}
+
+/// The statements that write the value `value` of type `ty`, a Rust expression, into the place
+/// `place`; `depth` names the loops' variables apart. Adds to `places` the structures it reaches.
+pub(super) fn store(
+    types: &Types<'_>,
+    ty: Ty,
+    place: &str,
+    value: &str,
+    structures: &HashMap<String, String>,
+    places: &mut BTreeSet<Ty>,
+    depth: usize,
+) -> Result<String, NativeError> {
+    if reference_target(types, ty).is_some() {
+        return Ok(format!(
             "{place}.set(::trust_plc::__private::reference_value({value}));"
         ));
-        return Ok(());
     }
+    if placed_by_sdk(types, ty) {
+        return Ok(format!("::trust_plc::Place::store(&{place}, &{value});"));
+    }
+    let info = types.info(ty);
     match &info.kind {
         Kind::Array { elem, .. } => {
             let (item, cell) = (format!("v{depth}"), format!("e{depth}"));
-            lowerer.line(&format!(
-                "for ({item}, {cell}) in {value}.iter().zip({place}.iter()) {{"
-            ));
-            store(
-                lowerer,
+            let inner = store(
+                types,
                 *elem,
                 &format!("(*{cell})"),
                 &format!("(*{item})"),
                 structures,
+                places,
                 depth + 1,
             )?;
-            lowerer.line("}");
-            Ok(())
+            Ok(format!(
+                "for ({item}, {cell}) in {value}.iter().zip({place}.iter()) {{ {inner} }}"
+            ))
         }
-        Kind::Struct { members } => {
-            structure_path(structures, &info.name)?;
-            for member in members {
-                store(
-                    lowerer,
-                    member.ty,
-                    &format!("{place}.{}", member.field()),
-                    &format!("{value}.{}", member.name),
-                    structures,
-                    depth,
-                )?;
-            }
-            Ok(())
+        Kind::Struct { .. } => {
+            reach(types, ty, structures, places)?;
+            Ok(format!("::trust_plc::Place::store(&{place}, &{value});"))
         }
         _ => Err(not_carried(&info.name)),
     }
@@ -467,7 +505,7 @@ fn store(
 
 /// The path the generated code builds the crate's structure `name` by: its full name's, else, for
 /// a type the registry names without its namespaces, the one structure of that own name.
-fn structure_path<'s>(
+pub(super) fn structure_path<'s>(
     structures: &'s HashMap<String, String>,
     name: &str,
 ) -> Result<&'s str, NativeError> {

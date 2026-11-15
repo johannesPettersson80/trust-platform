@@ -86,7 +86,8 @@ pub(super) fn resolve(
         let mut found = Vec::new();
         for field in &mut structure.structure.fields {
             let outcome = rename(&mut field.ty, &types)
-                .and_then(|()| check(&field.ty, field.init.as_ref(), &types));
+                .and_then(|()| check(&field.ty, field.init.as_ref(), &types))
+                .and_then(|()| named(&field.ty));
             if let Err(message) = outcome {
                 found.push(format!("the field {}: {message}", field.name));
             }
@@ -107,7 +108,7 @@ pub(super) fn resolve(
         for variable in &mut pou.pou.variables {
             let outcome = rename(&mut variable.ty, &types)
                 .and_then(|()| check(&variable.ty, variable.init.as_ref(), &types))
-                .and_then(|()| carried(&variable.ty, variable.section, borrowed, &types));
+                .and_then(|()| carried(&variable.ty, variable.section, borrowed));
             if let Err(message) = outcome {
                 found.push(format!("the variable {}: {message}", variable.name));
             }
@@ -122,7 +123,7 @@ pub(super) fn resolve(
         for method in &mut pou.pou.methods {
             for variable in &mut method.variables {
                 let outcome = rename(&mut variable.ty, &types)
-                    .and_then(|()| carried(&variable.ty, variable.section, true, &types));
+                    .and_then(|()| carried(&variable.ty, variable.section, true));
                 if let Err(message) = outcome {
                     found.push(format!(
                         "the variable {} of the method {}: {message}",
@@ -168,36 +169,19 @@ fn rename(ty: &mut DataType, types: &Types<'_>) -> Result<(), String> {
 }
 
 /// Checks that the SDK carries a variable of type `ty` in `section` of a POU whose in-outs are
-/// `borrowed` for the call, a function's or a method's (specification 48 RU-29): an in-out or a
-/// reference names no structure, which the SDK reads field by field, not where it lies; and such an
-/// in-out is no string, which a function or a method takes of any capacity of its family as a view
-/// (docs/IEC_DEVIATIONS.md DEV-035). Both are on the checklist (G183).
-fn carried(
-    ty: &DataType,
-    section: Section,
-    borrowed: bool,
-    types: &Types<'_>,
-) -> Result<(), String> {
-    // What the variable names: its own variable when it is an in-out, and each reference's target.
-    let mut targets = Vec::new();
-    if section == Section::InOut {
-        targets.push(ty);
-    }
-    reference_targets(ty, &mut targets);
-    let structure = |ty: &&DataType| {
-        let mut ty = *ty;
-        while let DataType::Array { element, .. } = ty {
-            ty = element;
-        }
-        matches!(ty, DataType::Named(name) if types.enumeration(name).is_none())
-    };
-    if targets.iter().any(structure) {
+/// `borrowed` for the call, a function's or a method's (specification 48 RU-29): an in-out is the
+/// place of a type its variable has, so its variable is no reference ([`named`]); and such an in-out
+/// is no string, which a function or a method takes of any capacity of its family as a view
+/// (docs/IEC_DEVIATIONS.md DEV-035), on the checklist (G183).
+fn carried(ty: &DataType, section: Section, borrowed: bool) -> Result<(), String> {
+    if section == Section::InOut && is_reference(ty) {
         return Err(
-            "an in-out of a structure, or a reference to one, is not carried yet: the SDK reads a \
-             structure field by field, not where it lies"
+            "an in-out of a reference is not carried yet: the SDK reaches an in-out's variable as \
+             the type it has, and a reference's place does not hold the type it names"
                 .to_string(),
         );
     }
+    named(ty)?;
     if section == Section::InOut
         && borrowed
         && matches!(
@@ -212,6 +196,31 @@ fn carried(
         );
     }
     Ok(())
+}
+
+/// Checks that each reference in a value of type `ty` names a type, not a reference or an array of
+/// them (specification 48 RU-29): the SDK reads a reference's variable as the type it names, and a
+/// reference's place does not hold the type it names.
+fn named(ty: &DataType) -> Result<(), String> {
+    let mut targets = Vec::new();
+    reference_targets(ty, &mut targets);
+    if targets.iter().any(|target| is_reference(target)) {
+        return Err(
+            "a reference to a reference is not carried yet: the SDK reads a reference's variable \
+             as the type it names, and a reference's place does not hold the type it names"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
+/// Whether `ty` is a reference or an array of them.
+fn is_reference(ty: &DataType) -> bool {
+    match ty {
+        DataType::Ref(_) => true,
+        DataType::Array { element, .. } => is_reference(element),
+        DataType::Elementary(_) | DataType::Named(_) => false,
+    }
 }
 
 /// Adds to `targets` the type each reference in `ty` names, through arrays and references.

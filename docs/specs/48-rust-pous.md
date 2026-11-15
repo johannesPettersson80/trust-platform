@@ -813,7 +813,10 @@ the kernel does: `let mut fb = FilterEma::new(); fb.x = 1.0; fb.call(&mut cx)?;`
 the POU's Rust code, not the program. `test::task(interval)` is the context of the task 0 at the
 logical time 0 with that interval, and `test::advance(&mut cx)` moves its logical time on by the
 interval, as the task's next activation does; `test::cx()` is an activation outside a task, at the
-logical time 0 with the interval `T#0s`.
+logical time 0 with the interval `T#0s`. A function's or a method's in-out takes a variable of the
+test's own, a `Cell` of a value of any of its types, a structure's too:
+`InOut::new(&Cell::new(point))`, which the call reads and writes as it does the caller's variable
+(RU-29).
 
 **RU-57. Project tests.** Structured Text test POUs (specification 04) call Rust POUs like any POU and
 run with `trust-dev test`, which builds the project with its crate through the bundle and runs the

@@ -575,16 +575,23 @@ fn the_declarations_take_only_names_structured_text_takes() {
 
 #[test]
 fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
-    // RU-29 as built so far (checklist G183): the SDK reads a structure field by field, not where
-    // it lies, so an in-out of a structure, or a reference to one, is refused; and a function takes
-    // a string in-out as a view of any capacity (DEV-035), which `InOut<Str<N>>` is not. Catches a
-    // declaration whose glue could not be built, with a compiler error in its place.
+    // RU-29 as built so far (checklist G183): an in-out and a reference reach their variable through
+    // the place of the type it has, a structure's too, so HOLDER's in-out of a structure is
+    // declared. A reference's place does not hold the type it names, so an in-out of a reference,
+    // a reference to one, an array of them included, and a structure's field that is a reference to
+    // a reference are refused, each with its reason, as is a function's string in-out, which a
+    // function takes as a view of any capacity (DEV-035). Catches a declaration whose glue could not
+    // be built, with a compiler error in its place, and a structure refused that is carried now.
     let lib =
         "#![cfg_attr(not(test), no_std)]\n\npub mod modes;\npub mod geometry;\npub mod tracker;\n\
                pub mod uses;\n";
     let uses = "use trust_plc::prelude::*;\nuse crate::geometry::Point;\n\n\
+                #[trust_struct(name = \"LINKED\")]\n#[derive(Clone, Copy)]\npub struct Linked {\n    \
+                pub next: Ref<Ref<i16>>,\n}\n\n\
                 #[trust_fb(name = \"HOLDER\")]\n#[budget(\"1us\")]\npub struct Holder {\n    \
-                #[in_out] pub spot: Ref<Point>,\n}\n\n\
+                #[in_out] pub spot: Ref<Point>,\n    #[input] pub seen: Ref<Point>,\n}\n\n\
+                #[trust_fb(name = \"CHAIN\")]\n#[budget(\"1us\")]\npub struct Chain {\n    \
+                #[in_out] pub link: Ref<Ref<i16>>,\n    #[input] pub far: Ref<Array<Ref<i16>, 0, 1>>,\n}\n\n\
                 #[trust_function(name = \"LABEL\")]\n#[budget(\"1us\")]\n\
                 pub fn label(_cx: &mut Cx, text: InOut<'_, Str<20>>) -> Result<(), Fault> {\n    \
                 let _ = text;\n    Ok(())\n}\n";
@@ -598,15 +605,35 @@ fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
     ]);
     let found = errors(&root);
     assert!(
-        found.iter().any(|error| error.contains("HOLDER")
-            && error.contains("the variable spot: an in-out of a structure")),
+        !found.iter().any(|error| error.contains("HOLDER")),
         "{found:?}"
     );
-    assert!(
-        found.iter().any(|error| error.contains("LABEL")
-            && error.contains("the variable text: a function's or a method's string in-out")),
-        "{found:?}"
-    );
+    let refused = [
+        (
+            "LINKED",
+            "the field next: a reference to a reference is not carried yet",
+        ),
+        (
+            "CHAIN",
+            "the variable link: an in-out of a reference is not carried yet",
+        ),
+        (
+            "CHAIN",
+            "the variable far: a reference to a reference is not carried yet",
+        ),
+        (
+            "LABEL",
+            "the variable text: a function's or a method's string in-out is not carried yet",
+        ),
+    ];
+    for (pou, reason) in refused {
+        assert!(
+            found
+                .iter()
+                .any(|error| error.contains(pou) && error.contains(reason)),
+            "{pou}: {reason}\n{found:?}"
+        );
+    }
 }
 
 /// A crate whose block AXIS has the method `jog`.
