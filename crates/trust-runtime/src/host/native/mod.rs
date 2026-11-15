@@ -9,6 +9,7 @@
 //! module is checked (`module`) and the image is written (`tables`).
 
 pub mod bundle;
+mod call_graph;
 mod cargo_build;
 mod classes;
 mod crate_graph;
@@ -25,12 +26,14 @@ mod located;
 mod lower;
 mod model;
 mod module;
+mod module_rules;
 mod panics;
 mod recursion;
 mod retain_map;
 mod run;
 mod rust_budget;
 pub mod rust_pous;
+mod self_calls;
 mod settings;
 mod signing;
 mod stack;
@@ -557,11 +560,21 @@ fn build_sources(
         )?,
         None => toolchain.compile(&generated.source, options.target, &symbols, work)?,
     };
-    // A Rust POU's panic is named with the POU and the form to use instead (specification 48 RU-45).
+    // A Rust POU's panic is named with the POU and the form to use instead, a changing `static`,
+    // a recursion through Rust and the target's inexact math with the item (specification 48
+    // RU-45).
     if let Some(krate) = &krate {
-        let calls = panics::panic_calls(&elf, options.target)?;
+        let graph = call_graph::read(&elf, options.target)?;
+        let calls = panics::panic_calls(&graph);
         if !calls.is_empty() {
             return Err(NativeError::Module(rust_pous::panic_refusal(krate, &calls)));
+        }
+        let broken = module_rules::refusals(&elf, &graph)?;
+        if !broken.is_empty() {
+            return Err(NativeError::Module(format!(
+                "the module breaks the rules of Rust in the scan (specification 48 §9.4):\n  - {}",
+                broken.join("\n  - ")
+            )));
         }
     }
     let module = module::extract(&elf, options.target, &symbols)?;
