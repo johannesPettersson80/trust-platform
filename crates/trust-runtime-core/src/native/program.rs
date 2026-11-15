@@ -308,6 +308,10 @@ pub struct NativeProgram<'i, C> {
     /// then a restart leaves nothing, as the starts that bring a program up have made no instance
     /// run (specification 44 §6.7).
     pub(super) ran: bool,
+    /// The resource's cycle interval, at which the programs without a task run and which their
+    /// activations read as the task's interval (specification 44 §8.2); zero until the resource
+    /// gives it ([`NativeProgram::set_cycle_interval`]).
+    pub(super) cycle_interval: Duration,
 }
 
 /// The address of the value of hierarchical `address` in its slot: its first byte, a bit at bit 0.
@@ -357,6 +361,13 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// Where the module's code is.
     pub fn code(&self) -> &C {
         &self.code
+    }
+
+    /// Gives the program the resource's cycle interval, at which its programs without a task run
+    /// and which their activations read as the task's interval (specification 44 §8.2): the
+    /// resource loop gives it before the first scan and whenever it changes.
+    pub fn set_cycle_interval(&mut self, interval: Duration) {
+        self.cycle_interval = interval;
     }
 
     /// The tasks by name and priority, in the image's order; the programs without a task are the
@@ -892,7 +903,14 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             for position in 0..self.tasks[index].programs.len() {
                 let program = self.tasks[index].programs[position];
                 hooks.program_started(program);
-                let called = self.call(program, u32::MAX, now, Some(&mut *hooks));
+                let called = self.call_within(
+                    program,
+                    u32::MAX,
+                    self.cycle_interval,
+                    now,
+                    self.budget,
+                    Some(&mut *hooks),
+                );
                 hooks.program_finished(program);
                 called?;
             }
@@ -902,8 +920,9 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.publish()
     }
 
-    /// Calls entry `entry` for task `task` at logical time `now`; a statement that stops goes to
-    /// `hooks` (specification 44 §13.2).
+    /// Calls entry `entry` for task `task` at logical time `now`, with the task's interval, or none
+    /// outside a task (`u32::MAX`); a statement that stops goes to `hooks` (specification 44 §8.2,
+    /// §13.2).
     pub(super) fn call(
         &mut self,
         entry: usize,
@@ -911,14 +930,21 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         now: Duration,
         hooks: Option<&mut dyn ScanHooks>,
     ) -> Result<(), RuntimeError> {
-        self.call_within(entry, task, now, self.budget, hooks)
+        let interval = usize::try_from(task)
+            .ok()
+            .and_then(|index| self.tasks.get(index))
+            .map_or(Duration::ZERO, |task| task.interval);
+        self.call_within(entry, task, interval, now, self.budget, hooks)
     }
 
-    /// [`Self::call`] with the statement budget `budget` (specification 44 §8.4).
+    /// Calls entry `entry` for task `task`, whose activations read `interval` as the task's
+    /// interval, at logical time `now`, with the statement budget `budget` (specification 44 §8.2,
+    /// §8.4).
     pub(super) fn call_within(
         &mut self,
         entry: usize,
         task: u32,
+        interval: Duration,
         now: Duration,
         budget: u32,
         hooks: Option<&mut dyn ScanHooks>,
@@ -934,6 +960,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         self.cx.task = task;
         self.cx.now_ns = now.as_nanos();
+        self.cx.interval_ns = interval.as_nanos();
         self.cx.budget = budget;
         self.cx.depth = self.depth;
         self.cx.fault = FaultRecord::default();

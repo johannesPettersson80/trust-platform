@@ -5,6 +5,7 @@
 mod bodies;
 mod connections;
 mod rust_glue;
+mod rust_places;
 
 use std::fmt::Write as _;
 
@@ -207,6 +208,13 @@ pub(super) fn generate<'a>(
     }
     let tools = super::tools::tools(model)?;
     functions.push_str(&super::dispatch::emit(model, &dispatchers, &mut graph)?);
+    // The places of the crate's structures that the Rust POUs' values reach (specification 48
+    // RU-29).
+    functions.push_str(&rust_places::places(
+        &model.types,
+        &model.rust_places,
+        &front.rust_structures,
+    )?);
     connections::connections(front, ids, model, target.pointer_bytes(), &mut functions)?;
 
     let mut source = String::new();

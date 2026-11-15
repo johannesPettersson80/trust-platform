@@ -96,6 +96,9 @@ pub struct Pou {
     /// attribute reads it, the crate's as the declarations' writer, which reads the whole crate,
     /// gives them.
     pub methods: Vec<Method>,
+    /// The Structured Text interfaces a function block implements, `implements = "..."`, in their
+    /// order (RU-33); none for a function.
+    pub implements: Vec<String>,
 }
 
 impl Pou {
@@ -166,7 +169,7 @@ fn last_segment_is(attribute: &Attribute, name: &str) -> bool {
 ///
 /// An error at the part of the item that breaks a rule of specification 48 §6, naming the rule.
 pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
-    let name = pou_name(args, item.ident.span())?;
+    let (name, implements) = block_arguments(args, item.ident.span())?;
     public(&item.vis, &item.ident, "function block")?;
     if !item.generics.params.is_empty() || item.generics.where_clause.is_some() {
         return Err(Error::new(
@@ -199,6 +202,7 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
         variables,
         result: None,
         methods: Vec::new(),
+        implements,
     })
 }
 
@@ -285,17 +289,83 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
         variables,
         result: result(&signature.output, signature.ident.span())?,
         methods: Vec::new(),
+        implements: Vec::new(),
     })
 }
 
+/// What a POU's attribute without `name` is told.
+const POU_NAME_MISSING: &str = "a Rust POU names itself for Structured Text: \
+                                `#[trust_fb(name = \"FILTER_EMA\")]` (specification 48 RU-22)";
+
 /// The Structured Text name of a POU's attribute's arguments `args`, `name = "..."`.
 fn pou_name(args: TokenStream, item: Span) -> Result<String, Error> {
-    declared_name(
-        args,
-        item,
-        "a Rust POU names itself for Structured Text: `#[trust_fb(name = \"FILTER_EMA\")]` \
-         (specification 48 RU-22)",
-    )
+    declared_name(args, item, POU_NAME_MISSING)
+}
+
+/// The arguments `args` of `#[trust_fb(...)]`: the block's Structured Text name, `name = "..."`,
+/// and the interfaces it implements, `implements = "I_RUN, I_RESET"` (RU-33), none without it.
+fn block_arguments(args: TokenStream, item: Span) -> Result<(String, Vec<String>), Error> {
+    let mut name: Option<LitStr> = None;
+    let mut implements: Option<LitStr> = None;
+    let parser = syn::meta::parser(|meta| {
+        let (slot, key) = if meta.path.is_ident("name") {
+            (&mut name, "name")
+        } else if meta.path.is_ident("implements") {
+            (&mut implements, "implements")
+        } else {
+            return Err(meta.error(
+                "`#[trust_fb]` takes `name = \"...\"`, the block's Structured Text name, and \
+                 `implements = \"...\"`, the interfaces it implements (specification 48 RU-33)",
+            ));
+        };
+        if slot.is_some() {
+            return Err(meta.error(format!("`{key}` is given twice")));
+        }
+        *slot = Some(meta.value()?.parse()?);
+        Ok(())
+    });
+    syn::parse::Parser::parse2(parser, args)?;
+    let Some(name) = name else {
+        return Err(Error::new(item, POU_NAME_MISSING));
+    };
+    let implements = match implements {
+        Some(list) => interfaces(&list)?,
+        None => Vec::new(),
+    };
+    Ok((
+        structured_text_name(&name.value(), name.span())?,
+        implements,
+    ))
+}
+
+/// The interfaces `implements = "..."` names: Structured Text names separated by commas, each
+/// once (IEC §6.6.6).
+fn interfaces(list: &LitStr) -> Result<Vec<String>, Error> {
+    let mut interfaces: Vec<String> = Vec::new();
+    for entry in list.value().split(',').map(str::trim) {
+        if entry.is_empty() {
+            return Err(Error::new(
+                list.span(),
+                "`implements` names the interfaces the block implements, separated by commas: \
+                 `implements = \"I_RUN, I_RESET\"`",
+            ));
+        }
+        let interface = structured_text_name(entry, list.span())?;
+        if let Some(other) = interfaces
+            .iter()
+            .find(|other| other.eq_ignore_ascii_case(&interface))
+        {
+            return Err(Error::new(
+                list.span(),
+                format!(
+                    "`{other}` and `{interface}` are one interface in Structured Text, which \
+                     ignores case (IEC §6.1.2): name it once"
+                ),
+            ));
+        }
+        interfaces.push(interface);
+    }
+    Ok(interfaces)
 }
 
 /// The Structured Text name of an attribute's arguments `args`, `name = "..."`, which `missing`
@@ -303,6 +373,12 @@ fn pou_name(args: TokenStream, item: Span) -> Result<String, Error> {
 fn declared_name(args: TokenStream, item: Span, missing: &str) -> Result<String, Error> {
     let mut name: Option<LitStr> = None;
     let parser = syn::meta::parser(|meta| {
+        if meta.path.is_ident("implements") {
+            return Err(meta.error(
+                "`implements` belongs to `#[trust_fb]`: a function block implements interfaces \
+                 (specification 48 RU-33)",
+            ));
+        }
         if !meta.path.is_ident("name") {
             return Err(meta.error(
                 "the attribute takes `name = \"...\"`, the Structured Text name of what it declares",
@@ -318,10 +394,15 @@ fn declared_name(args: TokenStream, item: Span, missing: &str) -> Result<String,
     let Some(name) = name else {
         return Err(Error::new(item, missing));
     };
-    let text = name.value();
+    structured_text_name(&name.value(), name.span())
+}
+
+/// `text` as the Structured Text name of a POU, a type or an interface, at `span`: identifiers (IEC
+/// §6.1.2) joined by `.` for its namespaces (IEC §6.9), none of them a reserved word.
+fn structured_text_name(text: &str, span: Span) -> Result<String, Error> {
     if !text.split('.').all(is_identifier) {
         return Err(Error::new(
-            name.span(),
+            span,
             format!(
                 "`{text}` is not a Structured Text name: identifiers (IEC §6.1.2) joined by `.` \
                  for its namespaces (IEC §6.9)"
@@ -330,14 +411,14 @@ fn declared_name(args: TokenStream, item: Span, missing: &str) -> Result<String,
     }
     if let Some(word) = text.split('.').find(|segment| names::is_reserved(segment)) {
         return Err(Error::new(
-            name.span(),
+            span,
             format!(
                 "{}: no POU, type or namespace is named by it",
                 names::reserved_reason(word)
             ),
         ));
     }
-    Ok(text)
+    Ok(text.to_string())
 }
 
 fn public(visibility: &Visibility, ident: &Ident, what: &str) -> Result<(), Error> {
@@ -544,3 +625,7 @@ mod tests;
 #[cfg(test)]
 #[path = "references_tests.rs"]
 mod references_tests;
+
+#[cfg(test)]
+#[path = "interface_tests.rs"]
+mod interface_tests;

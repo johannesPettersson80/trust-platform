@@ -1,6 +1,7 @@
 //! Structured Text calls a Rust function block's methods as its own (specification 48 RU-32): the
 //! method runs on the instance as the block's body does, its inputs, in-outs, outputs and result
-//! reach the caller, and a task counts its budget (RU-47).
+//! reach the caller, and a task counts its budget (RU-47). A Rust block implements Structured
+//! Text interfaces, and a call through one reaches its method (RU-33).
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`. A toolchain without
 //! cargo and the SDK's sources, as a release's bundle is until specification 48 §16, refuses the
@@ -8,8 +9,9 @@
 
 mod rust_pous_support;
 
-use rust_pous_support::{built, custom_project, manifest};
+use rust_pous_support::{build_error, built, custom_project, manifest};
 use trust_runtime::error::RuntimeError;
+use trust_runtime::native::rust_pous::DECLARATIONS_FILE;
 use trust_runtime::native::{load, NoHooks};
 use trust_runtime::value::{Duration, Value};
 
@@ -170,4 +172,179 @@ END_PROGRAM
     );
     assert_eq!(program.value("MAIN.AXIS.MOVES"), Some(Value::Int(1)));
     assert_eq!(program.value("MAIN.AFTER"), Some(Value::Bool(false)));
+}
+
+/// A crate with the block COUNTER, which implements I_COUNTER, and the methods `methods`.
+fn counter(methods: &str) -> String {
+    format!(
+        "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+/// A counter that counts by the amounts its method `count_by` is given.
+#[trust_fb(name = \"COUNTER\", implements = \"I_COUNTER\")]
+#[budget(\"1us\")]
+pub struct Counter {{
+    #[output]
+    pub count: i32,
+}}
+
+impl Body for Counter {{
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {{
+        Ok(())
+    }}
+}}
+{methods}"
+    )
+}
+
+/// COUNTER's method `count_by`, its input `amount` of the Rust type `ty`, with a budget of 4 ms.
+fn count_by(ty: &str) -> String {
+    format!(
+        "
+impl Counter {{
+    /// Counts by `amount`; the result is the new count.
+    #[trust_method]
+    #[budget(\"4ms\")]
+    pub fn count_by(&mut self, cx: &mut Cx, amount: {ty}) -> Result<i32, Fault> {{
+        self.count = checked::add(cx, self.count, i32::from(amount))?;
+        Ok(self.count)
+    }}
+}}
+"
+    )
+}
+
+/// The interface I_COUNTER, and ST_COUNTER, a Structured Text block that implements it and counts
+/// by ten times the amount.
+const I_COUNTER: &str = "INTERFACE I_COUNTER
+METHOD count_by : DINT
+VAR_INPUT
+    amount : DINT;
+END_VAR
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK ST_COUNTER IMPLEMENTS I_COUNTER
+VAR_OUTPUT
+    count : DINT;
+END_VAR
+METHOD PUBLIC count_by : DINT
+VAR_INPUT
+    amount : DINT;
+END_VAR
+count := count + 10 * amount;
+count_by := count;
+END_METHOD
+END_FUNCTION_BLOCK
+";
+
+#[test]
+fn a_call_through_an_interface_reaches_a_rust_blocks_method() {
+    // RU-33, one scan at 10 ms: the interface variable holds the Rust COUNTER for `count_by(2)`
+    // and `count_by(3)`, which count it to 2 and 5, then the Structured Text ST_COUNTER for
+    // `count_by(3)`, 10 × 3 = 30. RU-47: each of the three calls through I_COUNTER can reach
+    // COUNTER's `count_by`, so the task counts 3 × 4 ms = 12 ms, more than its interval. Catches a
+    // dispatcher without the Rust block's arm, an arm that runs another type's method, a Rust
+    // method whose count is lost, and an interface call whose Rust work the admission does not
+    // count.
+    let program = format!(
+        "{I_COUNTER}
+PROGRAM Line
+VAR
+    in_rust : COUNTER;
+    in_st : ST_COUNTER;
+    counter : I_COUNTER;
+    first : DINT;
+    second : DINT;
+    third : DINT;
+END_VAR
+counter := in_rust;
+first := counter.count_by(amount := 2);
+second := counter.count_by(amount := 3);
+counter := in_st;
+third := counter.count_by(amount := 3);
+END_PROGRAM
+
+{TASK}"
+    );
+    let root = custom_project(
+        "rust-pous-interfaces",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &counter(&count_by("i32"))),
+        ],
+        &program,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    assert!(
+        built
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("COUNTER.COUNT_BY 3 × 4 ms")
+                && warning.contains("RU-47")),
+        "{:?}",
+        built.warnings
+    );
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    let expected = [
+        ("MAIN.FIRST", Value::DInt(2)),
+        ("MAIN.SECOND", Value::DInt(5)),
+        ("MAIN.IN_RUST.COUNT", Value::DInt(5)),
+        ("MAIN.THIRD", Value::DInt(30)),
+        ("MAIN.IN_ST.COUNT", Value::DInt(30)),
+    ];
+    for (name, value) in expected {
+        assert_eq!(program.value(name), Some(value), "{name}");
+    }
+}
+
+#[test]
+fn a_rust_block_must_have_each_method_of_its_interfaces() {
+    // RU-33: the build checks the Rust block against each prototype of the interfaces it
+    // implements, as it checks a Structured Text block (IEC §6.6.6), before anything compiles, so
+    // whatever the toolchain: without `count_by`, and with a `count_by` whose input is INT where
+    // the prototype's is DINT. Catches a Rust block whose declaration claims an interface its
+    // methods do not give, which a call through the interface would reach.
+    let program = format!(
+        "{I_COUNTER}
+PROGRAM Line
+VAR
+    in_rust : COUNTER;
+END_VAR
+END_PROGRAM
+
+{TASK}"
+    );
+    let cases = [
+        (
+            "rust-pous-interface-missing",
+            counter(""),
+            "type 'COUNTER' must implement method 'count_by' from interface 'I_COUNTER'",
+        ),
+        (
+            "rust-pous-interface-signature",
+            counter(&count_by("i16")),
+            "method 'count_by' does not match interface 'I_COUNTER' signature",
+        ),
+    ];
+    for (name, crate_root, message) in cases {
+        let root = custom_project(
+            name,
+            &[("Cargo.toml", &manifest("")), ("src/lib.rs", &crate_root)],
+            &program,
+        );
+        let (error, _) = build_error(&root);
+        assert!(
+            error.contains(message) && error.contains(DECLARATIONS_FILE),
+            "{name}: {error}"
+        );
+    }
 }

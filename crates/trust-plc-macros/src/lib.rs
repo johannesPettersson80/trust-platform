@@ -23,7 +23,8 @@ use proc_macro::TokenStream;
 /// Declares a struct a Rust function block (specification 48 §6.1): its named fields are the
 /// block's variables, `#[input]` and `#[output]` ones, internal ones without either, `#[retain]`
 /// and `#[init(...)]` ones, in declaration order. The struct implements `trust_plc::Body`, and
-/// `#[budget("...")]` gives the longest one call may take.
+/// `#[budget("...")]` gives the longest one call may take. `implements = "I_RUN, I_RESET"` names
+/// the Structured Text interfaces the block implements with its methods (RU-33).
 ///
 /// ```ignore
 /// #[trust_fb(name = "FILTER_EMA")]

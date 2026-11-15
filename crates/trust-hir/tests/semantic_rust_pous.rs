@@ -107,3 +107,61 @@ fn a_statement_in_a_rust_pou_is_error_e310() {
     assert_eq!(check_errors(text), vec![DiagnosticCode::InvalidRustPou]);
     assert_eq!(DiagnosticCode::InvalidRustPou.code(), "E310");
 }
+
+/// The interface I_COUNTER and RU-33's generated declaration of COUNTER, which implements it, with
+/// the method lines `method`.
+fn counter_implementing(method: &str) -> String {
+    format!(
+        "INTERFACE I_COUNTER
+METHOD count_by : DINT
+VAR_INPUT
+    amount : DINT;
+END_VAR
+END_METHOD
+END_INTERFACE
+
+{{attribute 'rust'}}
+FUNCTION_BLOCK COUNTER IMPLEMENTS I_COUNTER
+VAR_OUTPUT
+    count : DINT;
+END_VAR
+{method}END_FUNCTION_BLOCK
+"
+    )
+}
+
+#[test]
+fn a_rust_blocks_interfaces_are_checked_against_its_methods() {
+    // RU-33, IEC §6.6.6: a Rust block that implements an interface is checked as a Structured Text
+    // block is, its body being Rust changes nothing there: its PUBLIC method `count_by` of the
+    // prototype's signature conforms; without it, with an INT input where the prototype has DINT,
+    // and PRIVATE, it is E208. Catches the check passing over a Rust POU's declaration as the
+    // checks of a body do, which would let a Rust block claim an interface its methods do not give.
+    let conforming =
+        "METHOD PUBLIC count_by : DINT\nVAR_INPUT\n    amount : DINT;\nEND_VAR\nEND_METHOD\n";
+    assert_eq!(
+        check_errors(&counter_implementing(conforming)),
+        Vec::<DiagnosticCode>::new()
+    );
+    for method in [
+        "",
+        "METHOD PUBLIC count_by : DINT\nVAR_INPUT\n    amount : INT;\nEND_VAR\nEND_METHOD\n",
+        "METHOD PRIVATE count_by : DINT\nVAR_INPUT\n    amount : DINT;\nEND_VAR\nEND_METHOD\n",
+    ] {
+        assert_eq!(
+            check_errors(&counter_implementing(method)),
+            vec![DiagnosticCode::InterfaceConformance],
+            "{method}"
+        );
+    }
+    // An interface with a property is one a Rust block cannot implement: it has no properties
+    // (RU-34).
+    let with_property = counter_implementing(conforming).replace(
+        "END_METHOD\nEND_INTERFACE",
+        "END_METHOD\nPROPERTY level : DINT\nGET END_GET\nEND_PROPERTY\nEND_INTERFACE",
+    );
+    assert_eq!(
+        check_errors(&with_property),
+        vec![DiagnosticCode::InterfaceConformance]
+    );
+}

@@ -60,6 +60,7 @@ impl Cx {
                 len: 0,
             }; AREA_COUNT],
             now_ns: 0,
+            interval_ns: 0,
             budget: 0,
             depth: 0,
             stmt: 0,
