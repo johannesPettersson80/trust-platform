@@ -1251,10 +1251,10 @@ re-check them against this rule when touched.
   defined in this standard may be used for programming of a function, function block type and
   methods."
 - truST behavior and conflict: a Rust program's declaration is Structured Text that the build
-  generates (`PROGRAM ... {rust}` without a body, specification 48 RU-23, RU-35), so its interface,
-  its variables and its place in a configuration are the standard's; its body is Rust, which the
-  standard allows for functions, function blocks and methods but not for a program. This conflicts
-  with rule 4.
+  generates (a `PROGRAM` marked `{attribute 'rust'}` without a body, specification 48 RU-23,
+  RU-35), so its interface, its variables and its place in a configuration are the standard's; its
+  body is Rust, which the standard allows for functions, function blocks and methods but not for a
+  program. This conflicts with rule 4.
 - Impact: a project may run a Rust program on a task as it runs a Structured Text program; nothing
   changes for a project without Rust.
 - Mitigation: the owner's decision of 15 November 2026 makes Rust programs part of truST
