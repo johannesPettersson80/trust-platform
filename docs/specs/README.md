@@ -57,6 +57,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [45-control-pid.md](45-control-pid.md) | Combined-form PID controller and independent low-pass filter contract | libraries/control, trust-runtime |
 | [46-simulation-plant-models.md](46-simulation-plant-models.md) | Dynamic fake-plant models, controlled uncertainty, seeded replay, and process-image simulation contract | trust-runtime |
 | [47-vscode-plant-simulation-ui.md](47-vscode-plant-simulation-ui.md) | Devices & Connections behavior for creating, configuring, and observing simulated plants | editors/vscode, trust-runtime |
+| [48-rust-pous.md](48-rust-pous.md) | Rust in truST projects: Rust functions, function blocks and programs compiled into the program image, Rust-first projects, Rust services beside a runtime, the SDK, sequences, traces and replay (0.1, approved) | trust-plc, trust-plc-macros, trust-service, trust-sim, trust-runtime (build), trust-hir, trust-lsp, trust-dev, editors/vscode |
 | [trust-plant-library.md](trust-plant-library.md) | The native OOP Plant library: equipment, instruments, controllers, groups and sequences with mode-based authority, retained settings and runtime discovery | libraries/plant, trust-runtime, trust-lsp, editors/vscode |
 | [hmi-component-catalogue.md](hmi-component-catalogue.md) | Exact FB-to-HMI asset catalogue, reuse/new work, instrument ownership and drag-and-drop code-generation contract | libraries, trust-lsp, trust-runtime, editors/vscode |
 | [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, execution of a visual SFC (IEC 61131-3 §6.7), textual SFC boundary | editors/vscode, trust-syntax, trust-visual |
@@ -82,6 +83,7 @@ These specifications are based on:
 - Runtime semantics (see `10-runtime-semantics.md`)
 - Runtime engine/platform architecture (see `11-runtime-engine.md`)
 - Native execution: compiled programs, the program image, the kernel and the toolchain (see `44-native-execution.md`)
+- Rust in truST projects: Rust POUs, Rust-first projects and Rust services (see `48-rust-pous.md`)
 - Debug adapter behavior (see `13-debug-adapter.md`)
 - LSP/IDE behavior (see `14-lsp.md`)
 - Ladder Diagram (LD) normative semantics (see `15-ladder-diagram.md`)
