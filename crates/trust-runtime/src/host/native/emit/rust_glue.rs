@@ -63,7 +63,7 @@ pub(super) fn block(
         .iter()
         .map(|value| format!(", &mut {value}"))
         .collect();
-    let called = call_rust(lowerer, |cx| {
+    let (called, eno) = call_rust(lowerer, |cx| {
         format!("{}::__trust_call({cx}{arguments})", link.call)
     });
     lowerer.line(&format!("{called}?;"));
@@ -74,6 +74,16 @@ pub(super) fn block(
             store(lowerer, place.ty, &place.expr, value, structures, 0)?;
         }
     }
+    let Some(member) = members
+        .iter()
+        .find(|member| member.via.is_empty() && member.name.eq_ignore_ascii_case("ENO"))
+    else {
+        return Err(NativeError::Compile(format!(
+            "the output ENO of {} is not in its declaration",
+            link.call
+        )));
+    };
+    store_eno(lowerer, format!("me.{}", member.field()), member.ty, &eno);
     Ok(())
 }
 
@@ -115,7 +125,7 @@ pub(super) fn function(
         };
         arguments.push_str(&format!(", {value}"));
     }
-    let called = call_rust(lowerer, |cx| format!("{}({cx}{arguments})", link.call));
+    let (called, eno) = call_rust(lowerer, |cx| format!("{}({cx}{arguments})", link.call));
     let call = format!("{called}?");
     match lowerer.result.clone() {
         // A result that is not a scalar goes into the function's result variable, which its exit
@@ -130,21 +140,43 @@ pub(super) fn function(
         }
         None => lowerer.line(&format!("{call};")),
     }
+    let Some(output) = params.iter().find(|param| {
+        param.direction == ParamDirection::Out && param.name.eq_ignore_ascii_case("ENO")
+    }) else {
+        return Err(NativeError::Compile(format!(
+            "the output ENO of {} is not in its declaration",
+            link.call
+        )));
+    };
+    let ty = lowerer.model.ty(output.type_id)?;
+    let place = format!("(*{})", crate::native::lower::parameter(&output.name));
+    store_eno(lowerer, place, ty, &eno);
     Ok(())
 }
 
 /// Calls a Rust POU with `call`, which writes the call given the expression of its context: the
 /// SDK's context, made from a clone of the generated code's `cx`, from which only the record of the
-/// fault the call returns goes back (specification 48 RU-11). Returns the temporary that holds the
-/// call's `Result`.
-fn call_rust(lowerer: &mut Lowerer<'_, '_>, call: impl FnOnce(&str) -> String) -> String {
+/// fault the call returns goes back (specification 48 RU-11). Returns the temporaries that hold the
+/// call's `Result` and the POU's `ENO` (RU-30).
+fn call_rust(lowerer: &mut Lowerer<'_, '_>, call: impl FnOnce(&str) -> String) -> (String, String) {
     let context = lowerer.temp();
     lowerer.line(&format!(
         "let mut {context} = ::trust_plc::__private::enter(cx);"
     ));
     let called = lowerer.bind(&call(&format!("&mut {context}")));
-    lowerer.line(&format!("::trust_plc::__private::leave({context}, cx);"));
-    called
+    let eno = lowerer.bind(&format!("::trust_plc::__private::leave({context}, cx)"));
+    (called, eno)
+}
+
+/// Writes the POU's `ENO`, the Rust expression `eno`, into its output `ENO`, the place `place` of
+/// type `ty` (specification 48 RU-30).
+fn store_eno(lowerer: &mut Lowerer<'_, '_>, place: String, ty: Ty, eno: &str) {
+    let target = Place {
+        expr: place,
+        ty,
+        is_ref: false,
+    };
+    lowerer.store_scalar(&target, eno);
 }
 
 /// Whether the SDK reads and writes a value of `ty` as it lies (`trust_plc::Placed`): a string, or

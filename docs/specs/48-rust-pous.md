@@ -376,6 +376,7 @@ real given as `2`):
 {attribute 'rust'}
 FUNCTION_BLOCK FILTER_EMA
 VAR_INPUT
+    EN : BOOL := TRUE;
     x : LREAL;
     alpha : LREAL := 0.1;
 END_VAR
@@ -384,6 +385,9 @@ VAR_OUTPUT
 END_VAR
 VAR
     primed : BOOL;
+END_VAR
+VAR_OUTPUT
+    ENO : BOOL;
 END_VAR
 END_FUNCTION_BLOCK
 ```
@@ -545,7 +549,13 @@ them.
 
 **RU-30. EN and ENO.** A Rust function and function block have `EN` and `ENO` as specification 04
 §EN/ENO gives every POU: `EN` = `FALSE` skips the body, and the body sets `ENO` through
-`cx.set_eno(false)`; a body that returns a fault ends the scan whatever `ENO` says.
+`cx.set_eno(false)`; a body that returns a fault ends the scan whatever `ENO` says. A POU offers
+them by declaring them (IEC Table 18's explicit form), so the generated declaration gives each Rust
+POU the input `EN : BOOL := TRUE` before its own variables and the output `ENO : BOOL` after them;
+the generated code moves the Rust item's variables by name, so its layout of them is the
+declaration's (RU-27). An enabled call starts the context's `ENO` `TRUE`, and the generated code
+writes it into the output when the body returns `Ok`, with the POU's result and outputs. A unit test
+reads it with `cx.eno()`.
 
 ### 6.4 In the symbol table
 
