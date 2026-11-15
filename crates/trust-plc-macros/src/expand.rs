@@ -151,6 +151,16 @@ fn calls(item: &ItemStruct, pou: &Pou) -> TokenStream {
     }
 }
 
+/// The SDK's constant constructor of a date type's stored value (specification 44 §6.2): its
+/// milliseconds, or a long form's nanoseconds, so that `new()` stays a constant function.
+fn date_constructor(ty: Elementary) -> proc_macro2::Ident {
+    if matches!(ty, Elementary::LDate | Elementary::LTod | Elementary::Ldt) {
+        format_ident!("from_nanos")
+    } else {
+        format_ident!("from_millis")
+    }
+}
+
 /// The starting value of `variable`: its initial value, else its type's default (IEC §6.4.2,
 /// Table 10: FALSE, 0 and 0.0).
 fn start(variable: &Variable) -> TokenStream {
@@ -186,6 +196,12 @@ fn start(variable: &Variable) -> TokenStream {
             let nanos = signed(nanos < 0, Literal::u64_unsuffixed(nanos.unsigned_abs()));
             quote!(::trust_plc::#sdk_type::from_nanos(#nanos))
         }
+        // A date's value as the areas store it, which the reader computed from the literal.
+        Some(Value::Instant { ty, value }) => {
+            let value = signed(value < 0, Literal::u64_unsuffixed(value.unsigned_abs()));
+            let from = date_constructor(ty);
+            quote!(::trust_plc::#sdk_type::#from(#value))
+        }
         None => match variable.ty {
             Elementary::Bool => quote!(false),
             Elementary::Real | Elementary::Lreal => quote!(0.0),
@@ -196,6 +212,16 @@ fn start(variable: &Variable) -> TokenStream {
             | Elementary::Char
             | Elementary::WChar => quote!(::trust_plc::#sdk_type(0)),
             Elementary::Time | Elementary::LTime => quote!(::trust_plc::#sdk_type::ZERO),
+            // 1970-01-01 and midnight (specification 02).
+            Elementary::Date
+            | Elementary::LDate
+            | Elementary::Tod
+            | Elementary::LTod
+            | Elementary::Dt
+            | Elementary::Ldt => {
+                let from = date_constructor(variable.ty);
+                quote!(::trust_plc::#sdk_type::#from(0))
+            }
             _ => quote!(0),
         },
     }

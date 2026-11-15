@@ -403,6 +403,15 @@ Rust as the SDK names them:
 | `REF_TO T`, an interface | `Ref<T>`, `IfaceRef<I>` |
 | `VAR_IN_OUT` of `T` | `InOut<T>` |
 
+The SDK's `Date`, `Tod` and `Dt` and their long forms hold what the areas store (milliseconds since
+1970-01-01, a time of day's since midnight, nanoseconds for a long form), which `from_millis` and
+`as_millis`, or `from_nanos` and `as_nanos` for a long form, make and give, and are built, split and
+moved by a duration with the program library's code, as `CONCAT_DATE`, `SPLIT_DT`, `ADD_DT_TIME`
+and the other functions of IEC §6.6.2.5.12 and §6.6.2.5.13 (Tables 36 and 37) are in Structured
+Text, with their faults: `from_ymd`, `ymd` and `day_of_week` of a date, `from_hms` and `hms` of a
+time of day, `new`, `from_parts`, `parts`, `date` and `tod` of a date and time, `checked_add`,
+`checked_sub` and `since` where Structured Text adds, takes away and subtracts them.
+
 A field of another Rust type is refused at the declaration with the table's types. Generic types
 (IEC §6.4.3) are not declared by a Rust POU; a Rust function may be generic in Rust only when it is
 not a POU.
@@ -412,8 +421,13 @@ type, which the generated declaration carries as the variable's Structured Text 
 build computes it into the starting memory (specification 44 §7.4) as for Structured Text. A variable
 without `#[init]` starts at the type's default (IEC §6.4.2, Table 10). The literal of a bit string
 is an integer within its bits (`#[init(0x0F)]`, declared `16#0F`), of a `CHAR` an ASCII character or
-a byte (`'A'`, `b'\xE9'`), of a `WCHAR` a character of one UTF-16 code unit, and of a `TIME` or an
-`LTIME` an IEC duration in a string (`#[init("T#1.5s")]`, declared `T#1s500ms`; IEC §6.3.4). A Rust
+a byte (`'A'`, `b'\xE9'`), of a `WCHAR` a character of one UTF-16 code unit, of a `TIME` or an
+`LTIME` an IEC duration in a string (`#[init("T#1.5s")]`, declared `T#1s500ms`; IEC §6.3.4), and of
+a date, a time of day or both, or a long form of one, an IEC literal of its kind in a string, its
+prefix short or long (`#[init("D#2024-02-29")]`, `#[init("TOD#12:30:15.25")]`,
+`#[init("DT#2024-02-29-12:30:15")]`; IEC §6.3.5, Table 9), naming a date and a time of day that
+exist, in whole milliseconds or, for a long form, nanoseconds, and declared with its type's own
+prefix (`DATE#2024-02-29`, `LTOD#12:00:00.000000001`). A Rust
 POU has no code that runs at a restart: its starting values are its declared values, as the
 standard's are.
 
@@ -606,7 +620,15 @@ budget times the most calls the scan can make of it: one for a call outside a lo
 loop. A task whose Rust work, so counted, exceeds its interval, or that calls a Rust POU in a loop
 without a bound, gets a warning at build that names the task and the calls; the deployment's
 profile (`trust.toml` `[timing] profile`) makes it an error in `production`, a warning in
-`development` (the default).
+`development` (the default). The calls are counted through the Structured Text that makes them:
+its programs, functions and function blocks, their methods, actions and properties, and the
+function block instances the task runs on their own (IEC §6.8.2), each counted as often as the
+scan can reach it. A call that can run one of several bodies (a method that a derived type
+overrides, a method of an interface, the body of a function block that another extends) counts the
+most Rust work among them, since the build knows every type of the program; a call on a variable
+that holds an instance of the type itself (one the POU declares, not an input or an in-out, which
+a caller fills) or through `SUPER^` runs that type's body. `trust-runtime build` prints each
+warning.
 
 **RU-48. Evidence.** `trust-dev rust bench` runs each Rust POU of the project on a device or the
 simulator with the inputs of its `#[bench]` cases (or the declared initial values) and records the

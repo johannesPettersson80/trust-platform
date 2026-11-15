@@ -119,16 +119,23 @@ pub fn ticks_to_nanos(cx: &mut Cx, ticks: i64) -> Result<i64, Fault> {
         .ok_or_else(|| overflow(cx))
 }
 
-/// The days of the date `year-month-day` from 1970-01-01, as the runtime counts them (Howard
-/// Hinnant's `days_from_civil`).
+/// The days of the date `year-month-day` from 1970-01-01, as the runtime counts them.
 ///
 /// # Errors
 ///
 /// `Overflow` for a month outside 1 to 12, a day outside its month, or a date no `i64` of days
 /// holds.
 fn days_from_civil(cx: &mut Cx, year: i64, month: i64, day: i64) -> Result<i64, Fault> {
+    civil_days(year, month, day).ok_or_else(|| overflow(cx))
+}
+
+/// The days of the proleptic Gregorian date `year-month-day` from 1970-01-01 (Howard Hinnant's
+/// `days_from_civil`), which the date functions and a Rust POU's date literals count with; `None`
+/// for a month outside 1 to 12, a day outside its month, or a date no `i64` of days holds.
+#[must_use]
+pub fn civil_days(year: i64, month: i64, day: i64) -> Option<i64> {
     if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-        return Err(overflow(cx));
+        return None;
     }
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     let length = match month {
@@ -138,7 +145,7 @@ fn days_from_civil(cx: &mut Cx, year: i64, month: i64, day: i64) -> Result<i64, 
         _ => 28,
     };
     if day > length {
-        return Err(overflow(cx));
+        return None;
     }
     let mut era = year.div_euclid(400);
     let mut yoe = year.rem_euclid(400);
@@ -153,7 +160,7 @@ fn days_from_civil(cx: &mut Cx, year: i64, month: i64, day: i64) -> Result<i64, 
     let m = month + if month > 2 { -3 } else { 9 };
     let doy = (153 * m + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    i64::try_from(i128::from(era) * 146_097 + i128::from(doe) - 719_468).map_err(|_| overflow(cx))
+    i64::try_from(i128::from(era) * 146_097 + i128::from(doe) - 719_468).ok()
 }
 
 /// The date of day `days` from 1970-01-01: year, month, day.

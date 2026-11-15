@@ -18,6 +18,7 @@ use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
 use crate::program_model::{FunctionDef, MethodDef, Param};
 use bodies::{body, BodyContext};
+pub(super) use bodies::{find_pou, method_body};
 use trust_runtime_core::native::image::Target;
 
 /// The generated crate and what the image's tables need of it.

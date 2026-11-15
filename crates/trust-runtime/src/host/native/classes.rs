@@ -79,7 +79,7 @@ impl<'a> Defs<'a> {
     }
 
     /// Every function block and class.
-    fn owners(&self) -> impl Iterator<Item = Owner<'a>> + '_ {
+    pub(in crate::native) fn owners(&self) -> impl Iterator<Item = Owner<'a>> + '_ {
         self.function_blocks
             .values()
             .map(Owner::Fb)

@@ -18,11 +18,13 @@
 #![warn(missing_docs)]
 
 pub mod checked;
+pub mod dates;
 pub mod math;
 pub mod prelude;
 pub mod test;
 pub mod types;
 
+pub use dates::{Date, Dt, LDate, LTod, Ldt, Tod};
 pub use trust_plc_abi::{Cx, Fault, FaultCode, Str, WStr};
 pub use trust_plc_macros::{budget, trust_fb, trust_function};
 pub use types::{Byte, Char, Dword, LTime, Lword, Stored, Time, WChar, Word};

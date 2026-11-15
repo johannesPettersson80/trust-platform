@@ -80,6 +80,26 @@ pub(in crate::native) fn ident(node: &SyntaxNode) -> String {
         .unwrap_or_default()
 }
 
+/// `symbol`'s name with the namespaces that hold it (`Motion.AXIS_CONTROLLER`), as the program
+/// model names POUs (IEC §6.9).
+pub(in crate::native) fn qualified(
+    symbols: &trust_hir::symbols::SymbolTable,
+    symbol: &trust_hir::Symbol,
+) -> String {
+    let mut name = symbol.name.to_string();
+    let mut parent = symbol.parent;
+    while let Some(id) = parent {
+        let Some(owner) = symbols.get(id) else {
+            break;
+        };
+        if matches!(owner.kind, SymbolKind::Namespace) {
+            name = format!("{}.{name}", owner.name);
+        }
+        parent = owner.parent;
+    }
+    name
+}
+
 fn arguments(node: &SyntaxNode) -> Vec<Arg> {
     let Some(list) = node
         .children()
@@ -180,18 +200,7 @@ impl<'a> Lowerer<'_, 'a> {
     fn qualified(&self, node: &SyntaxNode) -> Option<(String, SymbolKind)> {
         let symbols = &self.src.analysis.symbols;
         let symbol = symbols.get(self.src.symbol_of(node)?)?;
-        let mut name = symbol.name.to_string();
-        let mut parent = symbol.parent;
-        while let Some(id) = parent {
-            let Some(owner) = symbols.get(id) else {
-                break;
-            };
-            if matches!(owner.kind, SymbolKind::Namespace) {
-                name = format!("{}.{name}", owner.name);
-            }
-            parent = owner.parent;
-        }
-        Some((name, symbol.kind.clone()))
+        Some((qualified(symbols, symbol), symbol.kind.clone()))
     }
 
     fn callee(&mut self, target: &SyntaxNode) -> Result<Callee<'a>, NativeError> {

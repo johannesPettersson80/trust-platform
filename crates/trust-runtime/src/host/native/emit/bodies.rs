@@ -386,7 +386,7 @@ fn rust_link(
 }
 
 /// The source file of a POU: the file whose syntax tree holds its body.
-pub(super) fn find_pou(
+pub(in crate::native) fn find_pou(
     front: &Front,
     kind: trust_syntax::syntax::SyntaxKind,
     name: &str,
@@ -442,7 +442,7 @@ fn body_of(node: &trust_syntax::syntax::SyntaxNode) -> Option<trust_syntax::synt
 /// The file and the statement list of `method` of the POU `owner`: a method's body, a textual
 /// action's (specification 04 §8), or a property's `GET` or `SET`, which the declarations hold as a
 /// method named like the property and one named `__set_<property>`.
-fn method_body(
+pub(in crate::native) fn method_body(
     front: &Front,
     owner: &str,
     method: &MethodDef,

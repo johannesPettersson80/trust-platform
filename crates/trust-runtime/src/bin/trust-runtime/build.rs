@@ -147,6 +147,10 @@ pub fn run_native_build(
     );
     // The public key a device must trust to run the image (specification 44 §5.11).
     println!("Signed by the key {}", built.signer);
+    // A task whose Rust POUs may outlast its interval (specification 48 RU-47).
+    for warning in &built.warnings {
+        eprintln!("warning: {warning}");
+    }
     println!("Sources: {} file(s)", built.sources.len());
     for path in built.sources.iter().take(5) {
         println!(" - {}", path.display());

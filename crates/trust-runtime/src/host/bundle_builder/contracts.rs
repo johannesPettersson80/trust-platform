@@ -31,6 +31,8 @@ pub struct BundleBuildReport {
     pub resolved_dependencies: Vec<String>,
     /// The report, also written as `build/build.json`.
     pub json: serde_json::Value,
+    /// What the build warns of (specification 48 RU-47).
+    pub warnings: Vec<String>,
 }
 
 /// What a check of a project's program found, without building it (specification 44 §4.1).

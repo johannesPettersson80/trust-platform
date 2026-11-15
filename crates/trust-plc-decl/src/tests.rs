@@ -6,8 +6,8 @@ use proc_macro2::TokenStream;
 use syn::{parse_quote, ItemFn, ItemStruct};
 
 use crate::{
-    budget, declared_kind, function, function_block, is_budget, is_field_attribute, Kind, Pou,
-    Value,
+    budget, declared_kind, function, function_block, is_budget, is_field_attribute, Elementary,
+    Kind, Pou, Value,
 };
 
 fn args(text: &str) -> TokenStream {
@@ -485,6 +485,85 @@ fn bit_strings_characters_and_durations_are_declared_with_iec_literals() {
             nanos: 1_500_000_000
         })
     );
+}
+
+#[test]
+fn dates_and_times_of_day_are_declared_with_iec_literals() {
+    // RU-25 and RU-26: `Date` to `Ldt` are DATE to LDT, and their initial values are IEC literals
+    // of their kind, short or long (IEC §6.3.5, Table 9), declared with the type's own prefix; a
+    // variable without one starts at its type's default. Catches a date declared as an integer, a
+    // long form declared with a short prefix, and a fraction's trailing zero kept.
+    let item: ItemStruct = parse_quote! {
+        #[budget("1us")]
+        pub struct Dated {
+            #[init("D#2024-02-29")] a: Date,
+            #[init("LD#2024-02-29")] b: LDate,
+            #[init("TIME_OF_DAY#12:30:15.250")] c: Tod,
+            #[init("TOD#12:00:00.000000001")] d: LTod,
+            #[init("DT#2024-02-29-12:30:15")] e: Dt,
+            #[init("LDT#2024-02-29-12:30:15.5")] f: Ldt,
+            g: Date,
+        }
+    };
+    let pou = function_block(args("name = \"DATED\""), &item).unwrap();
+    let declared: Vec<String> = pou
+        .variables
+        .iter()
+        .map(|variable| match variable.init {
+            Some(init) => format!(
+                "{} : {} := {}",
+                variable.name,
+                variable.ty.iec(),
+                init.structured_text()
+            ),
+            None => format!("{} : {}", variable.name, variable.ty.iec()),
+        })
+        .collect();
+    assert_eq!(
+        declared,
+        [
+            "a : DATE := DATE#2024-02-29",
+            "b : LDATE := LDATE#2024-02-29",
+            "c : TOD := TOD#12:30:15.25",
+            "d : LTOD := LTOD#12:00:00.000000001",
+            "e : DT := DT#2024-02-29-12:30:15",
+            "f : LDT := LDT#2024-02-29-12:30:15.5",
+            "g : DATE",
+        ]
+    );
+    // 2024-02-29 is day 19,782 after 1970-01-01: 1,709,164,800,000 ms.
+    assert_eq!(
+        pou.variables[0].init,
+        Some(Value::Instant {
+            ty: Elementary::Date,
+            value: 1_709_164_800_000
+        })
+    );
+}
+
+#[test]
+fn a_date_literal_that_does_not_exist_or_does_not_fit_is_refused() {
+    // Catches a value the build would read as another day or cut: a date that does not exist, a
+    // fraction finer than the type keeps, a literal of another kind, and a number for a date.
+    for (field, expected) in [
+        (
+            "#[init(\"D#2023-02-29\")] a: Date",
+            "an IEC literal of its kind that exists",
+        ),
+        (
+            "#[init(\"TOD#12:00:00.0005\")] a: Tod",
+            "in whole milliseconds",
+        ),
+        (
+            "#[init(\"LTOD#12:00:00.0000000005\")] a: LTod",
+            "in whole nanoseconds",
+        ),
+        ("#[init(\"T#1s\")] a: Dt", "an IEC literal of its kind"),
+        ("#[init(0)] a: Date", "`#[init(\"D#2024-02-29\")]`"),
+    ] {
+        let message = fields_refusal(field);
+        assert!(message.contains(expected), "{field}: {message}");
+    }
 }
 
 #[test]

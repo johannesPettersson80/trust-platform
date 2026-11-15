@@ -7,14 +7,14 @@
 //! cargo and the SDK's sources, as a release's bundle is until specification 48 §16, refuses the
 //! build with that reason.
 
+mod rust_pous_support;
+
 use std::path::{Path, PathBuf};
 
+use rust_pous_support::{built, custom_project, manifest, sources};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::SourceFile;
 use trust_runtime::native::rust_pous::{write_declarations, Written, DECLARATIONS_FILE};
-use trust_runtime::native::{
-    build_project, load, Build, Device, NoHooks, Options, Target, Toolchain,
-};
+use trust_runtime::native::{build_project, load, Build, NoHooks, Options, Target, Toolchain};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
@@ -139,52 +139,6 @@ fn project(name: &str, program: &str) -> PathBuf {
     root
 }
 
-/// The project's Structured Text, as `trust-runtime build` collects it.
-fn sources(root: &Path) -> Vec<SourceFile> {
-    ["src/main.st", DECLARATIONS_FILE]
-        .into_iter()
-        .map(|label| {
-            let text = std::fs::read_to_string(root.join(label)).expect("the source");
-            SourceFile::with_path(label, text)
-        })
-        .collect()
-}
-
-/// The project built for this computer; `None` with a toolchain that has no cargo and SDK sources,
-/// whose refusal names them.
-fn built(root: &Path) -> Option<(Build, Device)> {
-    let toolchain =
-        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let target = Target::this_cpu().expect("a computer target");
-    let work = root.join("build/native");
-    let result = build_project(
-        root,
-        &sources(root),
-        &[],
-        &Options {
-            target,
-            hooks: true,
-        },
-        ConversionProfile::Iec,
-        &toolchain,
-        &work,
-    );
-    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
-        let error = result.err().expect("the build is refused").to_string();
-        assert!(error.contains("no cargo and SDK sources"), "{error}");
-        return None;
-    }
-    let built = result.unwrap_or_else(|error| panic!("the project builds: {error}"));
-    let device = Device {
-        target,
-        program_memory: 1 << 20,
-        task_stack: 1 << 20,
-        max_statements: 1_000,
-        trusted_keys: &[],
-    };
-    Some((built, device))
-}
-
 #[test]
 fn structured_text_calls_rust_pous_as_its_own() {
     // Catches a build that leaves the Rust POUs out or calls them with their variables in other
@@ -288,30 +242,6 @@ fn a_project_whose_declarations_are_out_of_date_does_not_build() {
 /// A program that calls `PASS_ON`.
 const PASS_ON_PROGRAM: &str =
     "PROGRAM Line\nVAR\n    result : DINT;\nEND_VAR\nresult := PASS_ON(a := 1);\nEND_PROGRAM\n";
-
-/// A project with the crate files `files` (relative to `rust/`) and the program `program`.
-fn custom_project(name: &str, files: &[(&str, &str)], program: &str) -> PathBuf {
-    let root = trust_test_support::unique_temp_path(name);
-    for (path, text) in files {
-        let file = root.join("rust").join(path);
-        std::fs::create_dir_all(file.parent().expect("a folder")).expect("the folder");
-        std::fs::write(file, text).expect("the file");
-    }
-    std::fs::create_dir_all(root.join("src")).expect("the sources' folder");
-    std::fs::write(root.join("src/main.st"), program).expect("the program");
-    let written = write_declarations(&root);
-    assert!(matches!(written, Ok(Written::Wrote(_))), "{written:?}");
-    root
-}
-
-/// The crate's manifest with the dependencies `extra`.
-fn manifest(extra: &str) -> String {
-    format!(
-        "[package]\nname = \"rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
-         [dependencies]\ntrust-plc = \"={}\"\n{extra}",
-        env!("CARGO_PKG_VERSION")
-    )
-}
 
 /// A crate root with the function `PASS_ON`, after the attributes `head`.
 fn root(head: &str) -> String {
@@ -613,57 +543,42 @@ fn a_rust_pou_that_can_panic_is_named_with_the_form_to_use() {
     );
 }
 
-/// A block that computes with a duration, a bit string and a character.
-const TYPED: &str = "#![cfg_attr(not(test), no_std)]
+/// A block whose budget is 4 ms and a function whose budget is 1 µs.
+const TIMED: &str = "#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
 use trust_plc::prelude::*;
 
-#[trust_fb(name = \"TYPED_BLOCK\")]
-#[budget(\"1us\")]
-pub struct TypedBlock {
-    #[input]
-    pub period: Time,
-    #[input]
-    pub flags: Byte,
-    #[input]
-    pub letter: Char,
-    #[output]
-    pub half: Time,
-    #[output]
-    pub low: Byte,
-    #[output]
-    pub next: Char,
-    #[output]
-    #[init(\"T#1s\")]
-    pub total: Time,
-}
+#[trust_fb(name = \"SLOW\")]
+#[budget(\"4ms\")]
+pub struct Slow;
 
-impl Body for TypedBlock {
-    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
-        self.half = Time::from_nanos(self.period.as_nanos() / 2);
-        self.low = self.flags & Byte(0x0F);
-        self.next = Char(self.letter.0 + 1);
-        self.total = self.total.checked_add(cx, self.period)?;
+impl Body for Slow {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
         Ok(())
     }
 }
+
+#[trust_function(name = \"QUICK\")]
+#[budget(\"1us\")]
+pub fn quick(_cx: &mut Cx, a: i32) -> Result<i32, Fault> {
+    Ok(a.wrapping_add(1))
+}
 ";
 
-/// A program that calls TYPED_BLOCK once per 10 ms with IEC literals.
-const TYPED_PROGRAM: &str = "PROGRAM Line
+/// A 10 ms task that calls SLOW five times and QUICK in a WHILE loop.
+const TIMED_PROGRAM: &str = "PROGRAM Line
 VAR
-    block : TYPED_BLOCK;
-    half : TIME;
-    low : BYTE;
-    next : CHAR;
-    total : TIME;
+    slow : SLOW;
+    i : INT;
+    n : DINT;
 END_VAR
-block(period := T#500ms, flags := 16#AB, letter := 'Y');
-half := block.half;
-low := block.low;
-next := block.next;
-total := block.total;
+FOR i := 1 TO 5 DO
+    slow();
+END_FOR;
+WHILE n < 3 DO
+    n := QUICK(a := n);
+END_WHILE;
 END_PROGRAM
 
 CONFIGURATION Probe
@@ -674,36 +589,214 @@ END_RESOURCE
 END_CONFIGURATION
 ";
 
+/// The result of building the project in `root` for this computer.
+fn build_result(root: &Path) -> (Result<Build, String>, Toolchain) {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let result = build_project(
+        root,
+        &sources(root),
+        &[],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        ConversionProfile::Iec,
+        &toolchain,
+        &root.join("build/native"),
+    )
+    .map_err(|error| error.to_string());
+    (result, toolchain)
+}
+
 #[test]
-fn a_rust_pou_computes_with_durations_bit_strings_and_characters() {
-    // Catches a TIME, BYTE or CHAR that reaches the Rust POU as another value, or comes back so:
-    // RU-25's `Time`, `Byte` and `Char` hold what the areas store (specification 44 §6.2). Three
-    // calls at 10, 20 and 30 ms: half of T#500ms is T#250ms, 16#AB AND 16#0F is 16#0B, 'Y' + 1 is
-    // 'Z', and the total starts at its declared T#1s (RU-26) and grows by T#500ms at each call:
-    // T#2.5s.
+fn a_task_whose_rust_work_may_outlast_its_interval_is_warned() {
+    // RU-47: the task's Rust work is each budget times the most calls a scan makes: SLOW 5 × 4 ms
+    // = 20 ms, more than the 10 ms interval; QUICK in a WHILE loop has no bound. Both are warnings
+    // in the default `development` profile, and the image still builds.
     let root = custom_project(
-        "rust-pous-typed",
-        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TYPED)],
-        TYPED_PROGRAM,
+        "rust-pous-admission",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TIMED)],
+        TIMED_PROGRAM,
     );
-    let Some((built, device)) = built(&root) else {
+    let (result, toolchain) = build_result(&root);
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        let error = result.err().expect("the build is refused");
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
         return;
-    };
-    let mut program = load(&built.image, &device).expect("the image loads");
-    program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
     }
+    let built = result.unwrap_or_else(|error| panic!("the project builds: {error}"));
     assert_eq!(
-        program.value("MAIN.HALF"),
-        Some(Value::Time(Duration::from_millis(250)))
+        built.warnings,
+        [
+            "the task Fast calls the Rust POU QUICK in a loop without a bound, so its Rust work per \
+             scan has no bound (specification 48 RU-47)",
+            "the task Fast may spend 20 ms per scan in Rust POUs (SLOW 5 × 4 ms), more than its \
+             interval 10 ms (specification 48 RU-47)",
+        ]
     );
-    assert_eq!(program.value("MAIN.LOW"), Some(Value::Byte(0x0B)));
-    assert_eq!(program.value("MAIN.NEXT"), Some(Value::Char(b'Z')));
-    assert_eq!(
-        program.value("MAIN.TOTAL"),
-        Some(Value::Time(Duration::from_millis(2_500)))
+}
+
+#[test]
+fn a_production_profile_makes_the_findings_errors() {
+    // RU-47: `[timing] profile = "production"` refuses what `development` warns of, before the
+    // crate compiles, whatever the toolchain.
+    let root = custom_project(
+        "rust-pous-production",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TIMED)],
+        TIMED_PROGRAM,
     );
+    std::fs::write(
+        root.join("trust.toml"),
+        "[timing]\nprofile = \"production\"\n",
+    )
+    .expect("trust.toml");
+    let (result, _) = build_result(&root);
+    let error = result.err().expect("the build is refused");
+    assert!(
+        error.contains("SLOW 5 × 4 ms") && error.contains("QUICK in a loop without a bound"),
+        "{error}"
+    );
+}
+
+#[test]
+fn trust_toml_lowers_a_budget_and_never_raises_it() {
+    // RU-46: `[timing.budgets]` may lower SLOW's budget for this target, here to 1 ms, so that
+    // 5 × 1 ms fits the 10 ms interval; a budget above the POU's own 4 ms is refused.
+    let root = custom_project(
+        "rust-pous-budgets",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TIMED)],
+        TIMED_PROGRAM,
+    );
+    let triple = trust_runtime::native::triple(Target::this_cpu().expect("a computer target"));
+    let lowered = format!(
+        "[timing]\nprofile = \"production\"\n[timing.budgets]\n\"SLOW\" = {{ \"{triple}\" = \"1ms\" }}\n"
+    );
+    std::fs::write(root.join("trust.toml"), &lowered).expect("trust.toml");
+    let (result, _) = build_result(&root);
+    let error = result.err().unwrap_or_default();
+    // Only QUICK's loop is left, which production refuses before the crate compiles: SLOW's work
+    // fits now.
+    assert!(!error.contains("SLOW"), "{error}");
+    assert!(error.contains("QUICK in a loop without a bound"), "{error}");
+    std::fs::write(root.join("trust.toml"), lowered.replace("1ms", "10ms")).expect("trust.toml");
+    let (result, _) = build_result(&root);
+    let error = result.err().expect("the raised budget is refused");
+    assert!(error.contains("never raise it"), "{error}");
+}
+
+/// Structured Text that reaches the Rust POUs of [`TIMED`] through a method in a FOR loop, a
+/// property, an interface, an override behind a `VAR_IN_OUT`, and a function block instance that
+/// the task runs on its own; a method that is never called holds QUICK in a WHILE loop.
+const REACHED_PROGRAM: &str = "INTERFACE IWork
+METHOD Run : DINT
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK Worker IMPLEMENTS IWork
+VAR
+    slow : SLOW;
+END_VAR
+METHOD PUBLIC Run : DINT
+slow();
+Run := 0;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Counter
+VAR
+    n : DINT;
+END_VAR
+METHOD PUBLIC Advance : DINT
+n := QUICK(a := n);
+Advance := n;
+END_METHOD
+METHOD PUBLIC Unused : DINT
+WHILE n < 10 DO
+    n := QUICK(a := n);
+END_WHILE;
+Unused := n;
+END_METHOD
+PUBLIC PROPERTY Next : DINT
+GET
+    Next := QUICK(a := n);
+END_GET
+END_PROPERTY
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Faster EXTENDS Counter
+METHOD PUBLIC OVERRIDE Advance : DINT
+n := QUICK(a := QUICK(a := n));
+Advance := n;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION Twice : DINT
+VAR_IN_OUT
+    c : Counter;
+END_VAR
+Twice := c.Advance() + c.Advance();
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    worker : Worker;
+    work : IWork;
+    counter : Counter;
+    ticker : SLOW;
+    i : INT;
+    n : DINT;
+END_VAR
+work := worker;
+FOR i := 1 TO 4 DO
+    n := counter.Advance();
+END_FOR;
+n := counter.Next;
+n := work.Run();
+n := Twice(c := counter);
+counter();
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#5ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line (ticker WITH Fast);
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_task_counts_the_rust_work_its_methods_properties_and_overrides_reach() {
+    // RU-47: the calls are counted through the Structured Text that makes them. By hand, QUICK
+    // (1 µs): `counter.Advance()` in the FOR loop, on a variable of Counter, runs Counter's
+    // Advance, 4 × 1; the property read runs its GET, 1; `Twice` calls Advance twice on its
+    // VAR_IN_OUT, which may hold a Faster, whose Advance calls QUICK twice, 2 × 2; 9 in all. SLOW
+    // (4 ms): the interface call runs Worker's Run, the only implementation, 1; the task runs
+    // `ticker` on its own, 1;
+    // 2 in all. 9 µs + 8 ms = 8.009 ms, more than the 5 ms interval. `counter()` runs Counter's
+    // own body, which has no statements: its never called method Unused, whose WHILE loop calls
+    // QUICK without a bound, is not part of it. Catches a method's calls not counted or counted
+    // once for a loop, a property, an interface or a task's block left out, a VAR_IN_OUT taken
+    // for its declared type, a variable taken for a derived type, and a block's methods counted
+    // as its body. The production profile refuses the program before the crate compiles.
+    let root = custom_project(
+        "rust-pous-reached",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TIMED)],
+        REACHED_PROGRAM,
+    );
+    std::fs::write(
+        root.join("trust.toml"),
+        "[timing]\nprofile = \"production\"\n",
+    )
+    .expect("trust.toml");
+    let (result, _) = build_result(&root);
+    let error = result.err().expect("the build is refused");
+    assert!(
+        error.contains(
+            "the task Fast may spend 8.009 ms per scan in Rust POUs (QUICK 9 × 1 µs, SLOW 2 × \
+             4 ms), more than its interval 5 ms (specification 48 RU-47)"
+        ),
+        "{error}"
+    );
+    assert!(!error.contains("without a bound"), "{error}");
 }

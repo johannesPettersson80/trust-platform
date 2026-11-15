@@ -6572,6 +6572,7 @@ version = "0.41.2"
 dependencies = [
  "proc-macro2",
  "syn 3.0.7",
+ "trust-plc-lib",
 ]
 
 [[package]]

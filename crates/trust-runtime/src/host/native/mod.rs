@@ -29,6 +29,7 @@ mod panics;
 mod recursion;
 mod retain_map;
 mod run;
+mod rust_budget;
 pub mod rust_pous;
 mod settings;
 mod signing;
@@ -315,6 +316,9 @@ pub struct Build {
     /// The name of the `RESOURCE` the program declares; `None` for a program without a
     /// `CONFIGURATION`, which runs under the name its project gives it (specification 11 §6.7.1).
     pub resource: Option<smol_str::SmolStr>,
+    /// What the build warns of: a task whose Rust POUs may take longer than its interval, or that
+    /// calls one in a loop without a bound (specification 48 RU-47).
+    pub warnings: Vec<String>,
 }
 
 /// The generated crate of `sources`, without compiling it.
@@ -429,6 +433,9 @@ struct CrateBuild {
     links: std::collections::HashMap<String, rust_pous::RustLink>,
     project: cargo_build::ProjectCrate,
     krate: rust_pous::RustCrate,
+    /// The Rust POUs' budgets for the build's target (RU-46) and whether the deployment's profile
+    /// is `production`, which makes RU-47's findings errors.
+    timing: rust_pous::Timing,
 }
 
 /// Builds the program image of the project in folder `project` from `sources`, its Structured
@@ -465,6 +472,8 @@ pub fn build_project(
         let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
         NativeError::Compile(lines.join("\n"))
     })?;
+    let timing =
+        rust_pous::timing(project, triple(options.target), &krate).map_err(NativeError::Compile)?;
     let crate_build = CrateBuild {
         links: rust_pous::links(&krate),
         project: cargo_build::ProjectCrate {
@@ -472,6 +481,7 @@ pub fn build_project(
             package: krate.package.clone(),
         },
         krate,
+        timing,
     };
     build_sources(
         sources,
@@ -499,13 +509,14 @@ fn build_sources(
     // the sources as written.
     let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
         .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
-    let (links, project, krate) = match crate_build {
+    let (links, project, krate, timing) = match crate_build {
         Some(CrateBuild {
             links,
             project,
             krate,
-        }) => (links, Some(project), Some(krate)),
-        None => (std::collections::HashMap::new(), None, None),
+            timing,
+        }) => (links, Some(project), Some(krate), Some(timing)),
+        None => (std::collections::HashMap::new(), None, None, None),
     };
     let front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
     init::check_declared_conversions(&front, conversions)?;
@@ -514,6 +525,18 @@ fn build_sources(
     let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
     model.conversions = conversions;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
+    // The Rust work of each task against its interval (specification 48 RU-47): warnings, or errors
+    // in a `production` profile.
+    let warnings = match &timing {
+        Some(timing) => {
+            let findings = rust_budget::findings(&front, &model, &timing.budgets);
+            if timing.production && !findings.is_empty() {
+                return Err(NativeError::Compile(findings.join("\n")));
+            }
+            findings
+        }
+        None => Vec::new(),
+    };
     let memory = init::starting_memory(&front.lowered, &mut model)?;
     let symbols: Vec<String> = generated
         .entries
@@ -600,6 +623,7 @@ fn build_sources(
             .configuration
             .as_ref()
             .and_then(|configuration| configuration.resource_name.clone()),
+        warnings,
     })
 }
 

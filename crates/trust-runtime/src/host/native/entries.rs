@@ -415,31 +415,14 @@ fn lifecycle_entries(
 
 /// The call of the body of the function block instance `block` names, in an entry.
 fn block_body(model: &Model<'_>, block: &super::model::BlockTask) -> Result<String, NativeError> {
-    let instance = &model.instances[block.instance];
     let unknown = || {
         NativeError::Compile(format!(
             "{}.{} bound to a task is no function block instance",
-            instance.name,
+            model.instances[block.instance].name,
             block.path.join(".")
         ))
     };
-    let (first, rest) = block.path.split_first().ok_or_else(unknown)?;
-    let program = &model.program_types[instance.program];
-    let (member, retained) = program.member(first).ok_or_else(unknown)?;
-    let owner = if retained { "w.r" } else { "w.p" };
-    let mut place = format!("{owner}.{}.{}", rust_field(&instance.name), member.field());
-    let mut ty = member.ty;
-    for name in rest {
-        let member = model
-            .types
-            .info(ty)
-            .members()
-            .iter()
-            .find(|member| member.name.eq_ignore_ascii_case(name))
-            .ok_or_else(unknown)?;
-        place = format!("{place}.{}", member.field());
-        ty = member.ty;
-    }
+    let (place, ty) = block_instance(model, block).ok_or_else(unknown)?;
     match &model.types.info(ty).kind {
         Kind::Fb { def, .. } => Ok(format!(
             "fb_{}(cx, &w, &{place})",
@@ -454,4 +437,30 @@ fn block_body(model: &Model<'_>, block: &super::model::BlockTask) -> Result<Stri
         }
         _ => Err(unknown()),
     }
+}
+
+/// The place and the type of the function block instance that a task runs on its own (IEC
+/// §6.8.2): its path from the program instance, member by member; `None` for a path that names no
+/// member.
+pub(super) fn block_instance(
+    model: &Model<'_>,
+    block: &super::model::BlockTask,
+) -> Option<(String, Ty)> {
+    let instance = &model.instances[block.instance];
+    let (first, rest) = block.path.split_first()?;
+    let (member, retained) = model.program_types[instance.program].member(first)?;
+    let owner = if retained { "w.r" } else { "w.p" };
+    let mut place = format!("{owner}.{}.{}", rust_field(&instance.name), member.field());
+    let mut ty = member.ty;
+    for name in rest {
+        let member = model
+            .types
+            .info(ty)
+            .members()
+            .iter()
+            .find(|member| member.name.eq_ignore_ascii_case(name))?;
+        place = format!("{place}.{}", member.field());
+        ty = member.ty;
+    }
+    Some((place, ty))
 }
