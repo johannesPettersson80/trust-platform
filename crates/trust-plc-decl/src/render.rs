@@ -38,7 +38,7 @@ pub(crate) fn declaration(pou: &Pou, source: &str) -> String {
             open = Some(section);
         }
         let _ = write!(text, "    {} : {}", variable.name, variable.ty.iec());
-        if let Some(init) = variable.init {
+        if let Some(init) = &variable.init {
             let _ = write!(text, " := {}", init.structured_text());
         }
         text.push_str(";\n");

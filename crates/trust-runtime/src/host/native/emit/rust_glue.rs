@@ -6,7 +6,7 @@
 
 use super::super::lower::{Lowerer, Place};
 use super::super::rust_pous::RustLink;
-use super::super::types::Ty;
+use super::super::types::{Kind, Ty};
 use super::super::NativeError;
 use crate::program_model::Param;
 use trust_hir::symbols::ParamDirection;
@@ -29,38 +29,65 @@ pub(super) fn block(
                 link.call
             )));
         };
-        if lowerer.info(member.ty).scalar().is_none() {
+        let placed = is_text(lowerer, member.ty);
+        if lowerer.info(member.ty).scalar().is_none() && !placed {
             return Err(NativeError::unsupported(format!(
                 "the variable {name} of the Rust POU {}, whose type is not elementary",
                 link.call
             )));
         }
-        places.push(Place {
-            expr: format!("me.{}", member.field()),
-            ty: member.ty,
-            is_ref: false,
-        });
+        places.push((
+            Place {
+                expr: format!("me.{}", member.field()),
+                ty: member.ty,
+                is_ref: false,
+            },
+            placed,
+        ));
     }
     let values: Vec<String> = (0..places.len())
         .map(|index| format!("rv{index}"))
         .collect();
-    // Each value through the SDK's form of its type (`trust_plc::Stored`): a `TIME` read as `Time`,
-    // a `BYTE` as `Byte` (specification 48 RU-25).
-    for (place, value) in places.iter().zip(&values) {
-        let loaded = lowerer.load(place);
-        lowerer.line(&format!(
-            "let mut {value} = ::trust_plc::Stored::from_raw({loaded});"
-        ));
+    // Each value through the SDK's form of its type: a scalar's (`trust_plc::Stored`), a `TIME`
+    // read as `Time`, a `BYTE` as `Byte`; a string's (`trust_plc::Placed`), read from the cells it
+    // lies in (specification 48 RU-25).
+    for ((place, placed), value) in places.iter().zip(&values) {
+        if *placed {
+            lowerer.line(&format!(
+                "let mut {value} = ::trust_plc::Placed::load(&{});",
+                place.expr
+            ));
+        } else {
+            let loaded = lowerer.load(place);
+            lowerer.line(&format!(
+                "let mut {value} = ::trust_plc::Stored::from_raw({loaded});"
+            ));
+        }
     }
     let arguments: String = values
         .iter()
         .map(|value| format!(", &mut {value}"))
         .collect();
     lowerer.line(&format!("{}::__trust_call(cx{arguments})?;", link.call));
-    for (place, value) in places.iter().zip(&values) {
-        lowerer.store_scalar(place, &format!("::trust_plc::Stored::into_raw({value})"));
+    for ((place, placed), value) in places.iter().zip(&values) {
+        if *placed {
+            // The instance's own string, which no pointer names: its length and the 0 after its
+            // text (DEV-039).
+            lowerer.line(&format!(
+                "::trust_plc::Placed::store(&{value}, &{});",
+                place.expr
+            ));
+        } else {
+            lowerer.store_scalar(place, &format!("::trust_plc::Stored::into_raw({value})"));
+        }
     }
     Ok(())
+}
+
+/// Whether `ty` is a `STRING[n]` or a `WSTRING[n]`, which the SDK reads and writes as it lies in
+/// its cells.
+fn is_text(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
+    matches!(lowerer.info(ty).kind, Kind::Str(_) | Kind::WStr(_))
 }
 
 /// The body of the Rust function with the parameters `params`, called through `link`: its inputs
@@ -80,13 +107,28 @@ pub(super) fn function(
                 link.call
             )));
         };
+        let ty = lowerer.model.ty(param.type_id)?;
+        // A string input is a reference to the caller's string (specification 44 §6.2).
+        let form = if is_text(lowerer, ty) {
+            "::trust_plc::Placed::load"
+        } else {
+            "::trust_plc::Stored::from_raw"
+        };
         arguments.push_str(&format!(
-            ", ::trust_plc::Stored::from_raw({})",
+            ", {form}({})",
             crate::native::lower::parameter(&param.name)
         ));
     }
     let call = format!("{}(cx{arguments})?", link.call);
     match lowerer.result.clone() {
+        // A string result goes into the function's result variable, which its exit copies out.
+        Some(result) if is_text(lowerer, result.ty) => {
+            let value = lowerer.bind(&call);
+            lowerer.line(&format!(
+                "::trust_plc::Placed::store(&{value}, &{});",
+                result.expr
+            ));
+        }
         Some(result) => {
             let value = lowerer.bind(&format!("::trust_plc::Stored::into_raw({call})"));
             lowerer.store_scalar(&result, &value);

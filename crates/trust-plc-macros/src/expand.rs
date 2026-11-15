@@ -161,6 +161,14 @@ fn date_constructor(ty: Elementary) -> proc_macro2::Ident {
     }
 }
 
+/// The capacity of a string type; 0 for another type.
+fn capacity(ty: Elementary) -> u16 {
+    match ty {
+        Elementary::Str(capacity) | Elementary::WStr(capacity) => capacity,
+        _ => 0,
+    }
+}
+
 /// The starting value of `variable`: its initial value, else its type's default (IEC §6.4.2,
 /// Table 10: FALSE, 0 and 0.0).
 fn start(variable: &Variable) -> TokenStream {
@@ -173,10 +181,10 @@ fn start(variable: &Variable) -> TokenStream {
     };
     // The SDK's type of a bit string, a character or a duration, by the name RU-25 gives it.
     let sdk_type = format_ident!("{}", variable.ty.rust());
-    match variable.init {
+    match &variable.init {
         Some(Value::Bool(value)) => quote!(#value),
         Some(Value::Integer(value)) => {
-            signed(value < 0, Literal::u128_unsuffixed(value.unsigned_abs()))
+            signed(*value < 0, Literal::u128_unsuffixed(value.unsigned_abs()))
         }
         Some(Value::Real(value)) => {
             signed(value.is_sign_negative(), Literal::f32_suffixed(value.abs()))
@@ -185,22 +193,33 @@ fn start(variable: &Variable) -> TokenStream {
             signed(value.is_sign_negative(), Literal::f64_suffixed(value.abs()))
         }
         Some(Value::Bits { value, .. }) => {
-            let value = Literal::u64_unsuffixed(value);
+            let value = Literal::u64_unsuffixed(*value);
             quote!(::trust_plc::#sdk_type(#value))
         }
         Some(Value::Char { code, .. }) => {
-            let code = Literal::u32_unsuffixed(code);
+            let code = Literal::u32_unsuffixed(*code);
             quote!(::trust_plc::#sdk_type(#code))
         }
         Some(Value::Duration { nanos, .. }) => {
-            let nanos = signed(nanos < 0, Literal::u64_unsuffixed(nanos.unsigned_abs()));
+            let nanos = signed(*nanos < 0, Literal::u64_unsuffixed(nanos.unsigned_abs()));
             quote!(::trust_plc::#sdk_type::from_nanos(#nanos))
         }
         // A date's value as the areas store it, which the reader computed from the literal.
         Some(Value::Instant { ty, value }) => {
-            let value = signed(value < 0, Literal::u64_unsuffixed(value.unsigned_abs()));
-            let from = date_constructor(ty);
+            let value = signed(*value < 0, Literal::u64_unsuffixed(value.unsigned_abs()));
+            let from = date_constructor(*ty);
             quote!(::trust_plc::#sdk_type::#from(#value))
+        }
+        // A text's bytes or code units, which the reader checked its capacity holds.
+        Some(Value::Text { wide, text }) => {
+            let capacity = Literal::u16_unsuffixed(capacity(variable.ty));
+            if *wide {
+                let units = text.encode_utf16().map(Literal::u16_unsuffixed);
+                quote!(::trust_plc::#sdk_type::<#capacity>::__from_units(&[#(#units),*]))
+            } else {
+                let bytes = Literal::byte_string(text.as_bytes());
+                quote!(::trust_plc::#sdk_type::<#capacity>::__from_bytes(#bytes))
+            }
         }
         None => match variable.ty {
             Elementary::Bool => quote!(false),
@@ -221,6 +240,10 @@ fn start(variable: &Variable) -> TokenStream {
             | Elementary::Ldt => {
                 let from = date_constructor(variable.ty);
                 quote!(::trust_plc::#sdk_type::#from(0))
+            }
+            Elementary::Str(_) | Elementary::WStr(_) => {
+                let capacity = Literal::u16_unsuffixed(capacity(variable.ty));
+                quote!(::trust_plc::#sdk_type::<#capacity>::new())
             }
             _ => quote!(0),
         },

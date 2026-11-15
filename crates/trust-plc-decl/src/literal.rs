@@ -3,12 +3,12 @@
 use std::fmt::Write as _;
 
 use syn::spanned::Spanned;
-use syn::{Error, Expr, ExprLit, ExprUnary, Lit, LitInt, UnOp};
+use syn::{Error, Expr, ExprLit, ExprUnary, Lit, LitInt, LitStr, UnOp};
 
 use crate::Elementary;
 
 /// A variable's initial value, checked against its type.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     /// A `BOOL`'s.
     Bool(bool),
@@ -48,25 +48,56 @@ pub enum Value {
         /// The value.
         value: i64,
     },
+    /// A `STRING[n]`'s text, or a `WSTRING[n]`'s (`wide`), which its capacity holds.
+    Text {
+        /// Whether it is a `WSTRING`'s.
+        wide: bool,
+        /// The text.
+        text: String,
+    },
 }
 
 impl Value {
     /// The value as a Structured Text literal (IEC §6.3.2, Table 5).
     #[must_use]
-    pub fn structured_text(self) -> String {
+    pub fn structured_text(&self) -> String {
         match self {
-            Self::Bool(value) => if value { "TRUE" } else { "FALSE" }.into(),
+            Self::Bool(value) => if *value { "TRUE" } else { "FALSE" }.into(),
             Self::Integer(value) => value.to_string(),
             Self::Real(value) => real_literal(&format!("{value:?}")),
             Self::Lreal(value) => real_literal(&format!("{value:?}")),
             Self::Bits { bits, value } => {
                 format!("16#{value:0width$X}", width = (bits / 4) as usize)
             }
-            Self::Char { wide, code } => character_literal(wide, code),
-            Self::Duration { long, nanos } => duration_literal(long, nanos),
-            Self::Instant { ty, value } => crate::dates::literal(ty, value),
+            Self::Char { wide, code } => character_literal(*wide, *code),
+            Self::Duration { long, nanos } => duration_literal(*long, *nanos),
+            Self::Instant { ty, value } => crate::dates::literal(*ty, *value),
+            Self::Text { wide, text } => text_literal(*wide, text),
         }
     }
+}
+
+/// A text as an IEC string literal (IEC §6.3.3, Table 7): `'…'` for a `STRING`, `"…"` for a
+/// `WSTRING`; `$` and the quote as `$$` and `$'` (`$"`), a control character as `$` and its code in
+/// hexadecimal (two digits, four in a `WSTRING`), and every other character as itself, which a
+/// UTF-8 source holds: Structured Text reads `$hh` as the character U+00hh, not as a byte of the
+/// text (specification 10 §2.3.2).
+fn text_literal(wide: bool, text: &str) -> String {
+    let (quote, digits) = if wide { ('"', 4) } else { ('\'', 2) };
+    let mut literal = String::new();
+    literal.push(quote);
+    for character in text.chars() {
+        if character == '$' || character == quote {
+            literal.push('$');
+            literal.push(character);
+        } else if character.is_control() {
+            let _ = write!(literal, "${:0digits$X}", u32::from(character));
+        } else {
+            literal.push(character);
+        }
+    }
+    literal.push(quote);
+    literal
 }
 
 /// A character as an IEC character literal (IEC §6.3.3, Table 6): a printable ASCII character as
@@ -191,6 +222,7 @@ pub(crate) fn initial(value: &Expr, ty: Elementary) -> Result<Value, Error> {
             Elementary::Date | Elementary::LDate => "\"D#2024-02-29\"",
             Elementary::Tod | Elementary::LTod => "\"TOD#12:30:15.25\"",
             Elementary::Dt | Elementary::Ldt => "\"DT#2024-02-29-12:30:15\"",
+            Elementary::Str(_) | Elementary::WStr(_) => "\"text\"",
             _ => "10",
         };
         Error::new(
@@ -265,6 +297,7 @@ pub(crate) fn initial(value: &Expr, ty: Elementary) -> Result<Value, Error> {
                     )
                 })
         }
+        (Elementary::Str(_) | Elementary::WStr(_), Lit::Str(text)) if !negative => string(text, ty),
         (_, Lit::Str(text)) if !negative && crate::dates::is_date(ty) => {
             crate::dates::initial(text, ty)
         }
@@ -274,6 +307,32 @@ pub(crate) fn initial(value: &Expr, ty: Elementary) -> Result<Value, Error> {
         },
         _ => Err(refused()),
     }
+}
+
+/// A `STRING[n]`'s or a `WSTRING[n]`'s initial value: a text whose UTF-8 bytes, or UTF-16 code
+/// units, its capacity holds.
+fn string(literal: &LitStr, ty: Elementary) -> Result<Value, Error> {
+    let text = literal.value();
+    let (wide, capacity, length, unit) = match ty {
+        Elementary::WStr(capacity) => (
+            true,
+            capacity,
+            text.encode_utf16().count(),
+            "UTF-16 code units",
+        ),
+        Elementary::Str(capacity) => (false, capacity, text.len(), "bytes of UTF-8"),
+        _ => return Err(Error::new(literal.span(), "a text is a string's value")),
+    };
+    if length > usize::from(capacity) {
+        return Err(Error::new(
+            literal.span(),
+            format!(
+                "the text is {length} {unit}, more than {} holds (specification 48 RU-26)",
+                ty.iec()
+            ),
+        ));
+    }
+    Ok(Value::Text { wide, text })
 }
 
 fn integer(

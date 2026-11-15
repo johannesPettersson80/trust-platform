@@ -1,6 +1,6 @@
 //! A Rust POU's variables of the IEC types beside Rust's own reach it and come back as the
 //! program's areas store them (specification 48 RU-25, RU-26; specification 44 §6.2): bit strings,
-//! characters, durations, dates and times of day, each with its declared starting value.
+//! characters, durations, dates and times of day, and strings, each with its declared starting value.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`. A toolchain without
 //! cargo and the SDK's sources, as a release's bundle is until specification 48 §16, refuses the
@@ -226,4 +226,116 @@ fn a_rust_pou_keeps_dates_and_times_of_day_as_structured_text_does() {
         Some(Value::Date(DateValue::new(1_709_164_800_000)))
     );
     assert_eq!(program.value("MAIN.SAMEDAY"), Some(Value::Bool(true)));
+}
+
+/// A block that keeps a name and its length, and a function that shouts a text.
+const TEXTED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"LABEL\")]
+#[budget(\"1us\")]
+pub struct Label {
+    #[input]
+    pub name: Str<12>,
+    #[output]
+    #[init(\"none\")]
+    pub last: Str<12>,
+    #[output]
+    pub wide: WStr<4>,
+    #[output]
+    pub length: i16,
+}
+
+impl Body for Label {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        self.last = self.name;
+        self.wide.set(self.name.as_str().unwrap_or(\"?\"));
+        self.length = i16::try_from(self.name.len()).unwrap_or(-1);
+        Ok(())
+    }
+}
+
+#[trust_function(name = \"SHOUT\")]
+#[budget(\"1us\")]
+pub fn shout(_cx: &mut Cx, text: Str<8>) -> Result<Str<8>, Fault> {
+    let mut upper = [0_u8; 8];
+    for (slot, byte) in upper.iter_mut().zip(text.as_bytes()) {
+        *slot = byte.to_ascii_uppercase();
+    }
+    let shouted = upper.get(..text.len()).and_then(|bytes| core::str::from_utf8(bytes).ok());
+    Ok(Str::from_text(shouted.unwrap_or(\"\")))
+}
+";
+
+/// A program that names a valve with a character outside ASCII, reads an instance never called,
+/// and shouts.
+const TEXTED_PROGRAM: &str = "PROGRAM Line
+VAR
+    label : LABEL;
+    idle : LABEL;
+    last : STRING[12];
+    wide : WSTRING[4];
+    length : INT;
+    loud : STRING[8];
+    idleLast : STRING[12];
+END_VAR
+label(name := 'valve 2$E9');
+last := label.last;
+wide := label.wide;
+length := label.length;
+loud := SHOUT(text := 'ab-c');
+idleLast := idle.last;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_rust_pou_keeps_strings_as_structured_text_does() {
+    // RU-25, RU-26: a STRING and a WSTRING reach the Rust POU and come back as they lie in their
+    // cells, an input, an output and a function's argument and result alike, and a string's
+    // declared text is its starting value. By hand: 'valve 2' and é ($E9, U+00E9, C3 A9 in UTF-8)
+    // are 9 bytes; the WSTRING[4] keeps the first four characters, "valv"; SHOUT gives 'AB-C'; the
+    // instance never called keeps its declared 'none'. Catches a text cut or lengthened on its
+    // way, a length read in characters, a character outside ASCII broken, a function's string
+    // result lost, and a starting text the Rust POU and its declaration disagree on.
+    let root = custom_project(
+        "rust-pous-texted",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TEXTED)],
+        TEXTED_PROGRAM,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10, 20, 30] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(
+        program.value("MAIN.LAST"),
+        Some(Value::String("valve 2é".into()))
+    );
+    assert_eq!(
+        program.value("MAIN.WIDE"),
+        Some(Value::WString("valv".into()))
+    );
+    assert_eq!(program.value("MAIN.LENGTH"), Some(Value::Int(9)));
+    assert_eq!(
+        program.value("MAIN.LOUD"),
+        Some(Value::String("AB-C".into()))
+    );
+    assert_eq!(
+        program.value("MAIN.IDLELAST"),
+        Some(Value::String("none".into()))
+    );
 }

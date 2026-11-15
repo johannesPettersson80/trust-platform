@@ -135,6 +135,35 @@ fn a_function_block_starts_at_its_declared_dates() {
     assert_eq!(Stored::into_raw(starts.g), 0_i64);
 }
 
+/// Strings with and without their initial values.
+#[trust_fb(name = "TEXT_STARTS")]
+#[budget("1us")]
+pub struct TextStarts {
+    #[init("pump 1")]
+    pub a: Str<20>,
+    #[init("é")]
+    pub b: WStr<4>,
+    pub c: Str,
+}
+
+impl Body for TextStarts {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_function_block_starts_at_its_declared_texts() {
+    // RU-26: a string starts at its declared text, else empty, with the capacity its type names
+    // (`Str` alone is `Str<80>`). Catches a text the attribute loses or encodes in another form.
+    let starts = TextStarts::new();
+    assert_eq!(starts.a.as_str(), Some("pump 1"));
+    assert_eq!(starts.a.capacity(), 20);
+    assert_eq!(starts.b.as_units(), &[0x00E9]);
+    assert!(starts.c.is_empty());
+    assert_eq!(starts.c.capacity(), 80);
+}
+
 #[test]
 fn a_function_block_starts_at_its_declared_values() {
     // Catches a start that ignores `#[init]` or a literal turned into another value: RU-26 starts a
