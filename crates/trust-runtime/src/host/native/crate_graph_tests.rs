@@ -85,3 +85,44 @@ fn the_graph_refuses_build_scripts_procedural_macros_and_unsafe_outside_the_sdk(
     }
     assert!(found[1].contains("inner.rs:2"), "{}", found[1]);
 }
+
+#[cfg(unix)]
+#[test]
+fn a_project_named_through_a_link_is_checked_all_the_same() {
+    // Catches a check that compares the folders as named with cargo's canonical paths: macOS's
+    // temporary folder `/var/folders` is a link to `/private/var/folders`, so on macOS a crate the
+    // project builds with went unchecked and its `unsafe` code through (pull request #530's macOS
+    // run). Here the project is named through a link while the metadata names its real folders.
+    let real = trust_test_support::unique_temp_path("rust-pou-graph-real");
+    let crate_folder = real.join("project/rust");
+    let dirty = crate_folder.join("vendor/dirty/src");
+    std::fs::create_dir_all(crate_folder.join("src")).expect("the crate's folder");
+    std::fs::create_dir_all(&dirty).expect("the vendored crate's folder");
+    std::fs::write(crate_folder.join("src/lib.rs"), ROOT).expect("the root");
+    std::fs::write(
+        dirty.join("lib.rs"),
+        "pub fn f(p: *const u8) -> u8 { unsafe { *p } }\n",
+    )
+    .expect("the vendored crate");
+    let link = trust_test_support::unique_temp_path("rust-pou-graph-link");
+    std::os::unix::fs::symlink(&real, &link).expect("the link");
+    let canonical = std::fs::canonicalize(&crate_folder).expect("the real folder");
+    let manifest = |folder: &PathBuf| folder.join("Cargo.toml").display().to_string();
+    let vendored = canonical.join("vendor/dirty");
+    let metadata = json!({
+        "packages": [
+            package("project", &manifest(&canonical), &["lib"], &canonical.join("src").display().to_string()),
+            package("dirty", &manifest(&vendored), &["lib"], &vendored.join("src").display().to_string()),
+        ],
+        "resolve": { "nodes": [
+            { "id": "project", "deps": [{ "pkg": "dirty", "dep_kinds": [{ "kind": null }] }] },
+        ]},
+    });
+    let found = check(&metadata, &link.join("sdk"), &link.join("project/rust"));
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0].starts_with("dirty 1.0.0 holds `unsafe` code at "),
+        "{}",
+        found[0]
+    );
+}
