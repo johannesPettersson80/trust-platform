@@ -25,6 +25,7 @@ use crate::{Dt, Fault, Time};
 /// ```
 pub struct Cx {
     raw: trust_plc_abi::Cx,
+    eno: bool,
 }
 
 impl Cx {
@@ -46,9 +47,23 @@ impl Cx {
         module::wall_clock(&mut self.raw).map(Dt::from_millis)
     }
 
-    /// A context holding `raw`, the kernel interface's.
+    /// Sets the POU's `ENO` (specification 04 §EN/ENO; specification 48 RU-30), which a call
+    /// starts `TRUE` and the generated code writes into the POU's output when the body returns
+    /// `Ok`: `cx.set_eno(false)` tells the caller that the call did not do its work, as
+    /// specification 04's `SafeDiv` does for a zero divisor.
+    pub fn set_eno(&mut self, eno: bool) {
+        self.eno = eno;
+    }
+
+    /// The POU's `ENO` as the body has set it, `TRUE` until it sets it `FALSE`.
+    #[must_use]
+    pub fn eno(&self) -> bool {
+        self.eno
+    }
+
+    /// A context holding `raw`, the kernel interface's, with `ENO` `TRUE`.
     pub(crate) fn of(raw: trust_plc_abi::Cx) -> Self {
-        Self { raw }
+        Self { raw, eno: true }
     }
 
     /// The kernel interface's context, which the program library's functions take.
@@ -64,10 +79,12 @@ pub fn enter(raw: &trust_plc_abi::Cx) -> Cx {
     Cx::of(raw.clone())
 }
 
-/// Ends the call's context `cx` and takes back into `kernel` the record of the fault the call
-/// returns, the only part of the context a Rust POU writes.
+/// Ends the call's context `cx`: takes back into `kernel` the record of the fault the call returns,
+/// the only part of the kernel's context a Rust POU writes, and gives the POU's `ENO` (RU-30).
 #[inline]
-pub fn leave(cx: Cx, kernel: &mut trust_plc_abi::Cx) {
-    let Cx { raw: called } = cx;
+#[must_use]
+pub fn leave(cx: Cx, kernel: &mut trust_plc_abi::Cx) -> bool {
+    let Cx { raw: called, eno } = cx;
     kernel.fault = called.fault;
+    eno
 }

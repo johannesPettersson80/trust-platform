@@ -24,8 +24,9 @@ fn in_outs_and_references_are_declared_as_structured_text_declares_them() {
     let pou = function(args("name = \"BUMP\""), &bump).expect("the function is declared");
     assert!(
         pou.declaration("rust/src/lib.rs").ends_with(
-            "FUNCTION BUMP\nVAR_IN_OUT\n    count : INT;\nEND_VAR\n\
-             VAR_INPUT\n    limit : REF_TO INT;\nEND_VAR\nEND_FUNCTION\n"
+            "FUNCTION BUMP\nVAR_INPUT\n    EN : BOOL := TRUE;\nEND_VAR\nVAR_IN_OUT\n    count : INT;\nEND_VAR\n\
+             VAR_INPUT\n    limit : REF_TO INT;\nEND_VAR\n\
+             VAR_OUTPUT\n    ENO : BOOL;\nEND_VAR\nEND_FUNCTION\n"
         ),
         "{}",
         pou.declaration("rust/src/lib.rs")
@@ -41,9 +42,10 @@ fn in_outs_and_references_are_declared_as_structured_text_declares_them() {
     let pou = function_block(args("name = \"FILL\""), &fill).expect("the block is declared");
     assert!(
         pou.declaration("rust/src/lib.rs").ends_with(
-            "FUNCTION_BLOCK FILL\nVAR_INPUT\n    rate : LREAL;\nEND_VAR\n\
+            "FUNCTION_BLOCK FILL\nVAR_INPUT\n    EN : BOOL := TRUE;\n    rate : LREAL;\nEND_VAR\n\
              VAR_IN_OUT\n    level : LREAL;\nEND_VAR\n\
-             VAR_OUTPUT\n    last : REF_TO ARRAY[1..4] OF LREAL;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
+             VAR_OUTPUT\n    last : REF_TO ARRAY[1..4] OF LREAL;\n    ENO : BOOL;\nEND_VAR\n\
+             END_FUNCTION_BLOCK\n"
         ),
         "{}",
         pou.declaration("rust/src/lib.rs")

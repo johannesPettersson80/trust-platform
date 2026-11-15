@@ -407,10 +407,25 @@ fn only_the_fault_goes_back_to_the_kernels_context() {
     cx.raw().budget = u32::MAX;
     cx.raw().depth = u32::MAX;
     let fault = crate::rust_fault(&mut cx, 9, 1, 2);
-    crate::__private::leave(cx, &mut raw);
+    let eno = crate::__private::leave(cx, &mut raw);
+    assert!(eno, "ENO stays TRUE when the POU does not set it");
     assert_eq!(fault.raw(), FaultCode::RustFault as u32);
     assert_eq!((raw.budget, raw.depth), (7, 3));
     assert_eq!(raw.fault.code, FaultCode::RustFault as u32);
     assert_eq!(raw.fault.stmt, 12, "the statement that called the POU");
     assert_eq!(raw.fault.detail, [9, 1, 2]);
+}
+
+#[test]
+fn a_pou_sets_its_eno_for_the_generated_code() {
+    // RU-30 and specification 04 §EN/ENO: an enabled call starts ENO TRUE; the body sets it FALSE
+    // with `set_eno`, which the context gives back to the generated code when the call ends.
+    // Catches an ENO that starts FALSE, or that the context loses.
+    let raw = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    let mut kernel = raw.clone();
+    let mut cx = crate::__private::enter(&raw);
+    assert!(cx.eno());
+    cx.set_eno(false);
+    assert!(!cx.eno());
+    assert!(!crate::__private::leave(cx, &mut kernel));
 }
