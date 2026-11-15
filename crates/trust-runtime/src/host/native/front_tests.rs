@@ -1,4 +1,4 @@
-//! A Rust POU is refused by the build, with its place, until the build compiles a project's crate
+//! A Rust POU that no item of a project's crate declares is refused by the build, with its place
 //! (specification 48 RU-23, §9).
 
 use super::super::{generate_source, NativeError, Options, Target};
@@ -26,10 +26,11 @@ fn project() -> [SourceFile; 2] {
 }
 
 #[test]
-fn a_rust_pou_is_refused_with_its_place_until_the_crate_is_built() {
-    // Catches a build that compiles the generated declaration as an empty Structured Text body,
-    // which would run a machine with a function block that does nothing: the build refuses the
-    // POU, naming it where it is declared (the keyword on line 3 of the generated file).
+fn a_rust_pou_without_its_rust_item_is_refused_with_its_place() {
+    // Catches a build that compiles a Rust POU's declaration as an empty Structured Text body, which
+    // would run a machine with a function block that does nothing: built without the project's
+    // crate, the build refuses the POU, naming it where it is declared (the keyword on line 3 of
+    // the generated file).
     let error = generate_source(
         &project(),
         &Options {
@@ -45,7 +46,10 @@ fn a_rust_pou_is_refused_with_its_place_until_the_crate_is_built() {
     else {
         panic!("one refusal with its place: {error}");
     };
-    assert_eq!(construct, "the Rust POU FILTER_EMA (specification 48)");
+    assert_eq!(
+        construct,
+        "the Rust POU FILTER_EMA without its Rust item (specification 48 RU-23)"
+    );
     assert_eq!(
         (place.file.as_str(), place.line, place.column),
         ("src/generated/rust_pous.st", 3, 1)

@@ -51,8 +51,8 @@ use compiler::{
     validate_project_aliases, LoweringContext,
 };
 pub(crate) use compiler::{
-    class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
-    ConfigModel, ConnectionEnd, GlobalInit, NamedAccess, ProgramConnection, ProgramInstanceConfig,
-    ResolvedAccess, WildcardRequirement,
+    class_type_name, function_block_type_name, qualified_pou_name, AccessDecl, AccessPart,
+    AccessPath, ConfigInit, ConfigModel, ConnectionEnd, GlobalInit, NamedAccess, ProgramConnection,
+    ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
 use lower::lower_expr;

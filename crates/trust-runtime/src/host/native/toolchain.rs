@@ -22,7 +22,7 @@ pub fn triple(target: Target) -> &'static str {
 
 /// The CPU and features of a module for `target`, fixed so that every device computes the same
 /// bits (specification 44 §9).
-fn cpu(target: Target) -> (&'static str, &'static str) {
+pub(super) fn cpu(target: Target) -> (&'static str, &'static str) {
     match target {
         Target::Rv32imac => ("generic-rv32", "+m,+a,+c"),
         Target::ThumbV8mMainHf => ("cortex-m33", "+fp-armv8d16sp"),
@@ -36,7 +36,7 @@ fn cpu(target: Target) -> (&'static str, &'static str) {
 /// a position-independent executable has (the dynamic symbols and the dynamic section, which the
 /// image does not carry) are placed after them: left to the linker, they go before the code of a
 /// module without read-only data.
-const LINKER_SCRIPT: &str = "SECTIONS
+pub(super) const LINKER_SCRIPT: &str = "SECTIONS
 {
   . = 0;
   .text : ALIGN(64) { *(.text.trust_entry_*) *(.text .text.*) }
@@ -63,6 +63,12 @@ pub struct Toolchain {
     pub libraries: PathBuf,
     /// The compiler's version, for the image header.
     pub version: String,
+    /// The compiler's `cargo`, which builds a program whose project has a Rust crate (specification
+    /// 48 §9.3); `None` in a toolchain without it.
+    pub cargo: Option<PathBuf>,
+    /// The folder of the SDK's crates' sources, `trust-plc` and the crates it is built from, which
+    /// such a build compiles (specification 48 RU-12); `None` in a toolchain without them.
+    pub sdk: Option<PathBuf>,
 }
 
 /// Where the tools found their toolchain (specification 44 §4.6).
@@ -134,11 +140,20 @@ impl Toolchain {
             .nth(1)
             .unwrap_or_default()
             .to_string();
+        let cargo =
+            Some(root.join("bin").join(format!("cargo{suffix}"))).filter(|cargo| cargo.is_file());
+        // The SDK's folder as the file system names it, so that cargo finds the workspace a crate
+        // of a development checkout inherits its settings from.
+        let sdk = std::fs::canonicalize(root.join("sdk"))
+            .ok()
+            .filter(|sdk| sdk.is_dir());
         Ok(Self {
             rustc,
             linker,
             libraries: root.join("lib"),
             version,
+            cargo,
+            sdk,
         })
     }
 

@@ -125,6 +125,9 @@ pub(super) struct Front {
     /// The owner of each global the project declares (control-studio-runtime-protocol annex E2.3),
     /// as trust-hir judges it.
     pub(super) global_owners: Vec<trust_hir::db::GlobalOwnership>,
+    /// How the generated code calls each Rust POU of the project's crate, by its name in capitals
+    /// (specification 48 RU-28); empty for a project without one.
+    pub(super) rust: HashMap<String, super::rust_pous::RustLink>,
 }
 
 impl Front {
@@ -138,6 +141,22 @@ impl Front {
         sources: &[SourceFile],
         tests: &[SmolStr],
         conversions: ConversionProfile,
+    ) -> Result<Self, NativeError> {
+        Self::analyze_with_rust(sources, tests, conversions, HashMap::new())
+    }
+
+    /// Checks and lowers `sources` as [`Front::analyze`] does, with the Rust POUs of the project's
+    /// crate that `rust` calls (specification 48 §9).
+    ///
+    /// # Errors
+    ///
+    /// As [`Front::analyze`], and [`NativeError::Unsupported`] for a Rust POU that no item of the
+    /// crate declares.
+    pub(super) fn analyze_with_rust(
+        sources: &[SourceFile],
+        tests: &[SmolStr],
+        conversions: ConversionProfile,
+        rust: HashMap<String, super::rust_pous::RustLink>,
     ) -> Result<Self, NativeError> {
         // The declarations only: the statements are generated from the syntax tree (§3).
         let (lowered, frontend) = lower_application_and_frontend(sources, true, false, conversions)
@@ -177,11 +196,12 @@ impl Front {
             });
             global_owners.extend(database.global_owners(*file_id).iter().cloned());
         }
-        refuse_rust_pous(&checked)?;
+        refuse_rust_pous(&checked, &rust)?;
         Ok(Self {
             lowered,
             sources: checked,
             global_owners,
+            rust,
         })
     }
 
@@ -288,31 +308,54 @@ impl StatementIds {
     }
 }
 
-/// Refuses each Rust POU of `sources` with its place (specification 48 RU-23): its body is a Rust
-/// item of the project's crate, which this build does not compile yet (specification 48 §9), so
-/// that its declaration never runs as an empty body.
-fn refuse_rust_pous(sources: &[Source]) -> Result<(), NativeError> {
-    let refused: Vec<NativeError> = sources
-        .iter()
-        .flat_map(|source| {
-            source
-                .root
+/// Refuses each Rust POU of `sources` that no item of the project's crate declares, with its place
+/// (specification 48 RU-23, §9): a declaration written by hand, or left from an item that is gone,
+/// whose body would never run. A method of a Rust POU is refused too until the build calls Rust
+/// methods (RU-32).
+fn refuse_rust_pous(
+    sources: &[Source],
+    rust: &HashMap<String, super::rust_pous::RustLink>,
+) -> Result<(), NativeError> {
+    use trust_syntax::syntax::SyntaxKind;
+    let name_of = |node: &SyntaxNode| {
+        node.children()
+            .find(|child| child.kind() == SyntaxKind::Name)
+            .map(|name| name.text().to_string().trim().to_string())
+            .unwrap_or_default()
+    };
+    let mut refused = Vec::new();
+    for source in sources {
+        for pou in source
+            .root
+            .descendants()
+            .filter(trust_hir::rust_pous::is_rust_pou)
+        {
+            let linked = crate::harness::qualified_pou_name(&pou)
+                .is_ok_and(|name| rust.contains_key(&name.to_ascii_uppercase()));
+            let name = name_of(&pou);
+            if !linked {
+                refused.push(NativeError::Unsupported {
+                    construct: format!(
+                        "the Rust POU {name} without its Rust item (specification 48 RU-23)"
+                    ),
+                    at: Some(source.place(&pou)),
+                });
+                continue;
+            }
+            for method in pou
                 .descendants()
-                .filter(trust_hir::rust_pous::is_rust_pou)
-                .map(|pou| {
-                    let name = pou
-                        .children()
-                        .find(|child| child.kind() == trust_syntax::syntax::SyntaxKind::Name)
-                        .map(|name| name.text().to_string().trim().to_string())
-                        .unwrap_or_default();
-                    NativeError::Unsupported {
-                        construct: format!("the Rust POU {name} (specification 48)"),
-                        at: Some(source.place(&pou)),
-                    }
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
+                .filter(|node| node.kind() == SyntaxKind::Method)
+            {
+                refused.push(NativeError::Unsupported {
+                    construct: format!(
+                        "the method {} of the Rust POU {name} (specification 48 RU-32)",
+                        name_of(&method)
+                    ),
+                    at: Some(source.place(&method)),
+                });
+            }
+        }
+    }
     NativeError::refusals(refused).map_or(Ok(()), Err)
 }
 

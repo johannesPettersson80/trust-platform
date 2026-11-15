@@ -17,7 +17,7 @@ pub fn build_program_image(
     for_this_computer: bool,
 ) -> anyhow::Result<BundleBuildReport> {
     use crate::native::{
-        build_with_conversions, conversion_profile, debug_hooks, project_key, sign, triple, Options,
+        build_project, conversion_profile, debug_hooks, project_key, sign, triple, Options,
     };
     let layout = inspect_project_layout(bundle_root, sources)?;
     let files = collect_project_sources_labelled(bundle_root, sources)?;
@@ -31,7 +31,9 @@ pub fn build_program_image(
     let conversions = conversion_profile(bundle_root)?;
     let build_folder = bundle_root.join("build");
     let work = build_folder.join("native").join(triple(target));
-    let mut built = build_with_conversions(
+    // With the project's Rust crate when it declares Rust POUs (specification 48 §9).
+    let mut built = build_project(
+        bundle_root,
         &files,
         &[],
         &Options {

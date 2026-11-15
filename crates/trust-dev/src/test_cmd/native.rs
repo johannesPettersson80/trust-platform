@@ -72,7 +72,7 @@ fn build_test_image(
     toolchain: &trust_runtime::native::Toolchain,
 ) -> anyhow::Result<trust_runtime::native::Build> {
     use trust_runtime::harness::SourceFile;
-    use trust_runtime::native::{build_with_conversions, conversion_profile, debug_hooks, Options};
+    use trust_runtime::native::{build_project, conversion_profile, debug_hooks, Options};
 
     let hooks = debug_hooks(project_root)?;
     // A `vendor_profile` that names no conversion rules refuses the run before anything builds.
@@ -104,7 +104,9 @@ fn build_test_image(
         .into_iter()
         .collect();
     let work = work_folder("test", project_root);
-    let built = build_with_conversions(
+    // With the project's Rust crate when it declares Rust POUs (specification 48 RU-57).
+    let built = build_project(
+        project_root,
         &sources,
         &programs,
         &Options { target, hooks },

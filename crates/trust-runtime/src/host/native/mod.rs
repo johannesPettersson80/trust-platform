@@ -9,6 +9,7 @@
 //! module is checked (`module`) and the image is written (`tables`).
 
 pub mod bundle;
+mod cargo_build;
 mod classes;
 mod dispatch;
 mod emit;
@@ -417,12 +418,83 @@ pub fn build_with_conversions(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
+    build_sources(sources, tests, options, conversions, toolchain, work, None)
+}
+
+/// The Rust crate a build compiles with the program: how the generated code calls its POUs, and
+/// the crate cargo links (specification 48 §9).
+struct CrateBuild {
+    links: std::collections::HashMap<String, rust_pous::RustLink>,
+    project: cargo_build::ProjectCrate,
+}
+
+/// Builds the program image of the project in folder `project` from `sources`, its Structured
+/// Text, as [`build_with_conversions`] does, with the project's Rust crate when it declares Rust
+/// POUs (specification 48 §9.1): the committed declarations must be what the crate's sources
+/// declare (RU-24), and the toolchain's cargo builds the program's module with the crate (§9.3).
+///
+/// # Errors
+///
+/// [`NativeError`] naming the step that failed: the crate's errors where they are, declarations
+/// that are out of date, and those of [`build_with_conversions`].
+pub fn build_project(
+    project: &Path,
+    sources: &[SourceFile],
+    tests: &[smol_str::SmolStr],
+    options: &Options,
+    conversions: ConversionProfile,
+    toolchain: &Toolchain,
+    work: &Path,
+) -> Result<Build, NativeError> {
+    let krate = rust_pous::read(project).map_err(|errors| {
+        let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
+        NativeError::Compile(lines.join("\n"))
+    })?;
+    let Some(krate) = krate else {
+        return build_sources(sources, tests, options, conversions, toolchain, work, None);
+    };
+    rust_pous::check_declarations(project, &krate).map_err(NativeError::Compile)?;
+    if krate.pous.is_empty() {
+        return build_sources(sources, tests, options, conversions, toolchain, work, None);
+    }
+    let crate_build = CrateBuild {
+        links: rust_pous::links(&krate),
+        project: cargo_build::ProjectCrate {
+            folder: project.join(rust_pous::CRATE_FOLDER),
+            package: krate.package,
+        },
+    };
+    build_sources(
+        sources,
+        tests,
+        options,
+        conversions,
+        toolchain,
+        work,
+        Some(crate_build),
+    )
+}
+
+/// Builds the program image of `sources`, with the Rust crate `crate_build` when there is one.
+fn build_sources(
+    sources: &[SourceFile],
+    tests: &[smol_str::SmolStr],
+    options: &Options,
+    conversions: ConversionProfile,
+    toolchain: &Toolchain,
+    work: &Path,
+    crate_build: Option<CrateBuild>,
+) -> Result<Build, NativeError> {
     // The OpenOT authoring of annotated variables is compiled with the program, and a build whose
     // authoring does not validate fails (specification 27 §10.3, §10.4); the header's hash is of
     // the sources as written.
     let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
         .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
-    let front = front::Front::analyze(&instrumented, tests, conversions)?;
+    let (links, project) = match crate_build {
+        Some(CrateBuild { links, project }) => (links, Some(project)),
+        None => (std::collections::HashMap::new(), None),
+    };
+    let front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
     init::check_declared_conversions(&front, conversions)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
@@ -435,7 +507,17 @@ pub fn build_with_conversions(
         .iter()
         .map(|entry| entry.symbol.clone())
         .collect();
-    let (elf, remarks) = toolchain.compile(&generated.source, options.target, &symbols, work)?;
+    let (elf, remarks) = match &project {
+        Some(project) => cargo_build::compile(
+            toolchain,
+            &generated.source,
+            options.target,
+            &symbols,
+            work,
+            project,
+        )?,
+        None => toolchain.compile(&generated.source, options.target, &symbols, work)?,
+    };
     let module = module::extract(&elf, options.target, &symbols)?;
     let stack = stack::bound(&elf, options.target, &stack_frames(&remarks), &symbols)?;
     let mut writer = ImageWriter::new(
