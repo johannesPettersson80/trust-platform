@@ -115,9 +115,21 @@ if [[ ! -S "${control_socket}" ]]; then
   echo "[mqtt-mosquitto-e2e] ERROR: runtime control socket was not created" >&2
   exit 1
 fi
-"${runtime_bin}" ctl --endpoint "unix://${control_socket}" status \
-  >"${OUT_DIR}/status.log" 2>&1
-grep -q '^state=running fault=none ' "${OUT_DIR}/status.log"
+# The runtime opens its control endpoint before it opens the scan start gate, and the resource is
+# `ready` until the gate opens (specification 11, runtime launcher startup contract), so a status
+# read just after the socket appears may still say `ready`. Wait while it says `boot` or `ready`.
+for _attempt in $(seq 1 50); do
+  "${runtime_bin}" ctl --endpoint "unix://${control_socket}" status \
+    >"${OUT_DIR}/status.log" 2>&1
+  if ! grep -q '^state=\(boot\|ready\) ' "${OUT_DIR}/status.log"; then
+    break
+  fi
+  sleep 0.1
+done
+if ! grep -q '^state=running fault=none ' "${OUT_DIR}/status.log"; then
+  echo "[mqtt-mosquitto-e2e] ERROR: runtime is not running: $(cat "${OUT_DIR}/status.log")" >&2
+  exit 1
+fi
 wait "${subscriber_pid}"
 subscriber_pid=""
 
