@@ -310,8 +310,8 @@ fn declared_name(args: TokenStream, item: Span, missing: &str) -> Result<String,
         return Err(Error::new(
             name.span(),
             format!(
-                "`{word}` is a reserved word of Structured Text (specification 01 §3), which no \
-                 POU, type or namespace is named"
+                "{}: no POU, type or namespace is named by it",
+                names::reserved_reason(word)
             ),
         ));
     }
@@ -390,13 +390,10 @@ fn variable_name(ident: &Ident) -> Result<String, Error> {
             ),
         ));
     }
-    if !names::takes_variable_name(&name) {
+    if names::is_reserved(&name) {
         return Err(Error::new(
             ident.span(),
-            format!(
-                "`{name}` is a reserved word of Structured Text (specification 01 §3), which no \
-                 variable is named: rename it"
-            ),
+            format!("{}: rename the variable", names::reserved_reason(&name)),
         ));
     }
     Ok(name)

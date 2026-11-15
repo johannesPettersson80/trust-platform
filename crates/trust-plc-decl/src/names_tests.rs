@@ -24,12 +24,12 @@ fn fields_refusal(fields: &str) -> String {
 }
 
 #[test]
-fn a_reserved_word_names_nothing_but_where_structured_text_takes_it() {
-    // RU-22 and specification 01 §3: no POU, type, namespace or variable is named by a reserved
-    // word, in any case: a field `at` became the variable `AT`, and the declaration did not parse
-    // (R1q's first check). `NULL`, `ON` and `SET` still name a variable, a field and an enumeration
-    // value, never a POU or a namespace. Catches a reserved word let through, or a contextual name
-    // refused where Structured Text takes it.
+fn a_reserved_word_names_nothing_a_rust_pou_declares() {
+    // RU-22 and specification 01 §3: no POU, type, namespace, variable, field, parameter or
+    // enumeration value is named by a reserved word, in any case: a field `at` became the variable
+    // `AT`, and the declaration did not parse (R1q's first check). `NULL`, `ON` and `SET` neither,
+    // which only the CODESYS profile takes as names (DEV-034), the reason saying so. Catches a
+    // reserved word let through, or a CODESYS-only name taken that an IEC project's check refuses.
     let item: ItemStruct = parse_quote! { #[budget("1us")] pub struct Named; };
     for name in ["STEP", "Motion.TASK", "on", "Null.AXIS"] {
         let message = refusal(function_block(args(&format!("name = \"{name}\"")), &item));
@@ -38,27 +38,40 @@ fn a_reserved_word_names_nothing_but_where_structured_text_takes_it() {
             "{name}: {message}"
         );
     }
-    for field in ["at: bool", "Time: bool", "en: bool", "r#type: i16"] {
+    for field in [
+        "at: bool",
+        "Time: bool",
+        "en: bool",
+        "r#type: i16",
+        "step: i16",
+        "on: bool",
+        "#[input] pub set: bool",
+    ] {
         let message = fields_refusal(field);
         assert!(
             message.contains("is a reserved word of Structured Text") && message.contains("rename"),
             "{field}: {message}"
         );
     }
+    assert!(fields_refusal("null: bool").contains("only the CODESYS profile takes"));
     let parameter: ItemFn = parse_quote! {
         #[budget("1us")]
         pub fn f(_cx: &mut Cx, step: i32) -> Result<i32, Fault> { Ok(step) }
     };
     assert!(refusal(function(args("name = \"F\""), &parameter)).contains("`step` is a reserved"));
-    let contextual: ItemStruct = parse_quote! {
+    let ordinary: ItemStruct = parse_quote! {
         #[budget("1us")]
-        pub struct Switch { #[input] pub on: bool, #[input] pub set: bool, null: bool }
+        pub struct Switch { #[input] pub onward: bool, #[input] pub settle: bool, nullable: bool }
     };
-    assert!(function_block(args("name = \"SWITCH\""), &contextual).is_ok());
+    assert!(function_block(args("name = \"SWITCH\""), &ordinary).is_ok());
     for (item, accepted) in [
         (
-            "#[derive(Clone, Copy)] pub enum E { Null = 0, Set = 1 }",
+            "#[derive(Clone, Copy)] pub enum E { Idle = 0, Running = 1 }",
             true,
+        ),
+        (
+            "#[derive(Clone, Copy)] pub enum E { Null = 0, Set = 1 }",
+            false,
         ),
         (
             "#[derive(Clone, Copy)] pub enum E { Idle = 0, Step = 1 }",
