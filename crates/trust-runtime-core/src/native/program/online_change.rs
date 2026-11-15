@@ -61,6 +61,8 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
                 .map_or_else(|| TaskState::new(now), |running| running.state.clone());
         }
         self.live = old.live;
+        // The programs without a task run at the resource's cycle interval as before (§8.2).
+        self.cycle_interval = old.cycle_interval;
         // The candidate holds the running program's values, so that its next restart gives the
         // variables marked `noinit` back what they hold (§6.7), and its instances, which have lived
         // when the running program's had, so that its next restart leaves them first.

@@ -14,7 +14,7 @@ use super::*;
 use crate::native::image::{
     type_kind, AreaRecord, CodeImage, FileRecord, ImageWriter, IoBindRecord, MemoryFigure,
     RetainRecord, SectionId, StmtRecord, StringPool, Target, TaskRecord, TypeRecord, AREA_HAS_INIT,
-    SYMBOL_PROGRAM,
+    BACKGROUND_PRIORITY, SYMBOL_PROGRAM,
 };
 
 const MS: i64 = 1_000_000;
@@ -55,6 +55,13 @@ entry!(dividing_by_zero, |cx, _| Err(fault(
 
 entry!(nothing, |_, _| Ok(()));
 
+// The program `MAIN` of the interval tests: byte 2 is the interval its activation reads, in ms.
+entry!(reading_interval, |cx, areas| {
+    let view: &[Cell<u8>; 8] = areas.view(cx, AREA_INSTANCES)?;
+    view[2].set(u8::try_from(cx.interval_ns / MS).unwrap_or(u8::MAX));
+    Ok(())
+});
+
 /// A recursion that does not end: each call counts in byte 0 and calls itself again.
 fn deeper(cx: &mut Cx, view: &[Cell<u8>; 8]) -> Result<(), Fault> {
     view[0].set(view[0].get().wrapping_add(1));
@@ -69,7 +76,8 @@ entry!(recursing, |cx, areas| {
     deeper(cx, view)
 });
 
-/// The module of the tests: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 recurses.
+/// The module of the tests: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 recurses,
+/// 56 reads its task's interval.
 struct StandIn;
 
 impl ModuleCode for StandIn {
@@ -79,6 +87,7 @@ impl ModuleCode for StandIn {
             16 => Some(Entry::from_fn(dividing_by_zero)),
             32 => Some(Entry::from_fn(nothing)),
             48 => Some(Entry::from_fn(recursing)),
+            56 => Some(Entry::from_fn(reading_interval)),
             _ => None,
         }
     }
@@ -409,6 +418,70 @@ fn a_scan_runs_the_due_tasks_and_publishes_the_bound_outputs() {
 /// (`write_flat_image`); the next scan still publishes the program's output byte into its first byte
 /// and leaves the rest. Catches a publication that copies nothing once the image is longer than the
 /// program's outputs.
+/// The interval `MAIN` read in its last activation, in ms.
+fn interval_read(program: &NativeProgram<'_, StandIn>) -> u8 {
+    let mut byte = [0u8; 1];
+    program.read(AREA_INSTANCES, 2, &mut byte);
+    byte[0]
+}
+
+/// An activation reads the interval of its task (specification 44 §8.2): `MAIN` in its 10 ms task
+/// reads 10 ms; a call outside a task reads 0; as a program without a task, `MAIN` reads the
+/// resource's cycle interval, 0 until the resource gives it and then 20 ms. Catches an interval
+/// that is not the running task's, one left from the last activation, and a program without a task
+/// that reads its record's instead of the resource's.
+#[test]
+fn an_activation_reads_its_tasks_interval() {
+    let device = device();
+    let bytes = image(56, 100, 50, device.target);
+    let image = admit(&bytes, &device).unwrap();
+    let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    program
+        .scan(Duration::from_nanos(10 * MS), &mut NoHooks)
+        .unwrap();
+    assert_eq!(interval_read(&program), 10);
+    program
+        .run_instance(0, Duration::from_nanos(15 * MS))
+        .unwrap();
+    assert_eq!(interval_read(&program), 0);
+    program.tasks[0].priority = BACKGROUND_PRIORITY;
+    program
+        .scan(Duration::from_nanos(20 * MS), &mut NoHooks)
+        .unwrap();
+    assert_eq!(interval_read(&program), 0);
+    program.set_cycle_interval(Duration::from_nanos(20 * MS));
+    program
+        .scan(Duration::from_nanos(40 * MS), &mut NoHooks)
+        .unwrap();
+    assert_eq!(interval_read(&program), 20);
+}
+
+/// The program of an online change runs its programs without a task at the running program's
+/// cycle interval (specification 44 §8.2, §12.3): 20 ms here. Catches a changed program whose
+/// programs without a task read no interval until the resource gives it again.
+#[test]
+fn an_online_change_keeps_the_cycle_interval() {
+    let device = device();
+    let bytes = image(56, 100, 50, device.target);
+    let program = || {
+        let image = admit(&bytes, &device).unwrap();
+        NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap()
+    };
+    let mut running = program();
+    running.cold_start(Duration::ZERO).unwrap();
+    running.set_cycle_interval(Duration::from_nanos(20 * MS));
+    let mut changed = program();
+    changed
+        .change_from(&mut running, Duration::from_nanos(10 * MS))
+        .unwrap();
+    changed.tasks[0].priority = BACKGROUND_PRIORITY;
+    changed
+        .scan(Duration::from_nanos(20 * MS), &mut NoHooks)
+        .unwrap();
+    assert_eq!(interval_read(&changed), 20);
+}
+
 #[test]
 fn a_grown_output_image_still_takes_the_programs_outputs() {
     let device = device();

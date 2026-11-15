@@ -243,8 +243,10 @@ POU's and the SDK's documentation says what each gives.
 ### 5.4 Time
 
 **RU-16.** A Rust POU reads time only from `Cx`: the task's logical time
-(`cx.now()`, specification 11 §5.2.1), the task's interval and the wall clock through the kernel
-function specification 44 §8.2 gives (`cx.wall_clock()`). It never reads a clock of its own, never
+(`cx.now()`, specification 11 §5.2.1), the task's interval (`cx.interval()`: its `INTERVAL`, the
+resource's cycle interval for a program without a task, and `T#0s` for a task that only its
+`SINGLE` variable starts and outside a task, specification 44 §8.2) and the wall clock through the
+kernel function specification 44 §8.2 gives (`cx.wall_clock()`). It never reads a clock of its own, never
 waits and never sleeps; `core` gives it none. This keeps the scan's results a function of its inputs
 and logical time (specification 44 NX-04), which §12's replay needs.
 
@@ -808,7 +810,10 @@ its path, as they reach a Structured Text variable.
 `cargo test` runs on the computer with the standard library (RU-19). `trust_plc::test` gives them a
 `Cx` of a simulated task (its logical time, interval and task) and runs a function block's call as
 the kernel does: `let mut fb = FilterEma::new(); fb.x = 1.0; fb.call(&mut cx)?;`. A unit test runs
-the POU's Rust code, not the program.
+the POU's Rust code, not the program. `test::task(interval)` is the context of the task 0 at the
+logical time 0 with that interval, and `test::advance(&mut cx)` moves its logical time on by the
+interval, as the task's next activation does; `test::cx()` is an activation outside a task, at the
+logical time 0 with the interval `T#0s`.
 
 **RU-57. Project tests.** Structured Text test POUs (specification 04) call Rust POUs like any POU and
 run with `trust-dev test`, which builds the project with its crate through the bundle and runs the

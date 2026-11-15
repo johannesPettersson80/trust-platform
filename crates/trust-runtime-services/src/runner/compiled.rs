@@ -133,8 +133,11 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: Cyc
     }
 
     /// The cycle of `program` as its memory is, in the first generation: its tasks, its snapshot
-    /// and its debugger.
-    fn built(program: NativeProgram<'i, K>, io: I, settings: CycleSettings, clock: C) -> Self {
+    /// and its debugger. Its programs without a task run at the settings' cycle interval, which
+    /// their activations read as the task's interval (specification 44 §8.2); a computer, whose
+    /// scheduler paces the cycle, gives the program its own ([`NativeProgram::set_cycle_interval`]).
+    fn built(mut program: NativeProgram<'i, K>, io: I, settings: CycleSettings, clock: C) -> Self {
+        program.set_cycle_interval(settings.cycle_interval);
         let debug = debug::CompiledDebug::new(&program.image());
         let mut tasks = Vec::new();
         let task_index = program

@@ -328,6 +328,11 @@ fn execute(
     } else {
         None
     };
+    // A scan per step: the programs without a task read the step as their task's interval, as they read the resource's
+    // cycle interval in a run (specification 44 §8.2).
+    program
+        .runtime_mut()
+        .set_cycle_interval(Duration::from_millis(input.settings.step_ms as i64));
     // The programs that have executed in an earlier scan of the run: a program's writes during its first execution are its
     // startup (E8.3).
     let mut started_programs: BTreeSet<String> = BTreeSet::new();

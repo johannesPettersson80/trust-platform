@@ -3953,7 +3953,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 100,
+        "line": 101,
         "owner": "native execution (specification 44)",
         "invariant": "A context's raw pointers name memory its owning cycle owns with it (areas, breakpoint bits, function table); the cycle moves them as one and a module reads them only during a call on the cycle's thread.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3961,7 +3961,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 172,
+        "line": 173,
         "owner": "native execution (specification 44)",
         "invariant": "A module calls read_real with its own copy of the text, len bytes at text that it holds for the call (module::read_real), and null is refused before; the kernel only reads them during the call.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3969,7 +3969,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 243,
+        "line": 244,
         "owner": "native execution (specification 44)",
         "invariant": "out is the module's own aligned i64, which it holds for the call (module::wall_clock); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --lib runtime_clock_source (CURRENT_DT on this computer's wall clock).",
@@ -3977,7 +3977,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 176,
+        "line": 177,
         "owner": "native execution (specification 44)",
         "invariant": "out is the module's own aligned f64, which it holds for the call (module::read_real); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3985,7 +3985,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 270,
+        "line": 271,
         "owner": "native execution (specification 44)",
         "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 \u00a710.2) promises it.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3993,7 +3993,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 285,
+        "line": 286,
         "owner": "native execution (specification 44)",
         "invariant": "The module is executable and unchanged as the caller of InPlace::new promised, and offset is checked inside the module.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -4001,7 +4001,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 324,
+        "line": 325,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",

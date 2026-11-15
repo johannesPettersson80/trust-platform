@@ -195,6 +195,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             enum_values,
             started: false,
             ran: false,
+            cycle_interval: Duration::ZERO,
         };
         // The process images take their starting memory once; a restart carries them over
         // (specification 11 §6.7, "Directly represented variables at restart").
