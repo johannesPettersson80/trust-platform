@@ -1,14 +1,24 @@
 //! The rules of the scan crate graph (specification 48 RU-09, RU-20): no crate of it but the SDK's
-//! and those the SDK is built from has a build script or is a procedural macro, and none of them
-//! holds `unsafe` code. Since no procedural macro of the graph writes code, every crate's code
-//! comes from its source text, so the build finds `unsafe` in the sources: a crate whose sources
-//! name it is refused, naming the place. The graph is cargo's own, from its metadata of the build's
-//! package for the module's target.
+//! and those the SDK is built from has a build script or is a procedural macro, none of them holds
+//! `unsafe` code, and none depends on a crate of the SDK that RU-12 does not publish for projects.
+//! Since no procedural macro of the graph writes code, every crate's code comes from its source
+//! text, so the build finds `unsafe` in the sources: a crate whose sources name it is refused,
+//! naming the place. The graph is cargo's own, from its metadata of the build's package for the
+//! module's target.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
+
+/// The SDK's crates that a crate outside the SDK may depend on, those RU-12 publishes for projects;
+/// the others the SDK is built from serve the generated code (specification 48 RU-20).
+const PUBLISHED: [&str; 4] = [
+    "trust-plc",
+    "trust-plc-macros",
+    "trust-service",
+    "trust-sim",
+];
 
 /// A package of the graph, as cargo's metadata describes it.
 struct Package {
@@ -99,6 +109,21 @@ pub(super) fn check(metadata: &Value, sdk: &Path, project: &Path) -> Vec<String>
                  project builds: no crate of the scan crate graph but the SDK's is one \
                  (specification 48 RU-09)"
             ));
+        }
+        for (dependency, built) in dependencies.get(id).into_iter().flatten() {
+            let Some(internal) = packages
+                .get(dependency)
+                .filter(|_| *built && sdk_crates.contains(dependency))
+            else {
+                continue;
+            };
+            if !PUBLISHED.contains(&internal.name.as_str()) {
+                errors.push(format!(
+                    "{named} depends on {} {}, which the SDK is built from: a crate outside the SDK \
+                     reaches it through `trust-plc` (specification 48 RU-20)",
+                    internal.name, internal.version
+                ));
+            }
         }
         if let Some(sources) = &package.sources {
             for (file, line) in unsafe_places(sources) {

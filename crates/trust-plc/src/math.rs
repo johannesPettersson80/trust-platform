@@ -5,10 +5,30 @@
 //! (specification 44 NX-04), and the same as Structured Text's `SQRT`, `SIN` and the rest
 //! (IEC 61131-3 Table 28): a `REAL` is computed in binary64 and rounded once.
 
-use trust_plc_abi::{Cx, Fault};
 use trust_plc_lib::Math;
 
-pub use trust_plc_lib::{atan2_32, atan2_64, expt32, expt64};
+use crate::{Cx, Fault};
+
+pub use trust_plc_lib::{atan2_32, atan2_64};
+
+/// `EXPT(IN1, IN2)` of a `REAL` base: `IN1 ** IN2` computed in binary64, the exponent in binary64
+/// as the runtime converts it, and rounded once.
+///
+/// # Errors
+///
+/// `Overflow` for a result that is not finite.
+pub fn expt32(cx: &mut Cx, base: f32, exponent: f64) -> Result<f32, Fault> {
+    trust_plc_lib::expt32(cx.raw(), base, exponent)
+}
+
+/// `EXPT(IN1, IN2)` of an `LREAL` base.
+///
+/// # Errors
+///
+/// `Overflow` for a result that is not finite.
+pub fn expt64(cx: &mut Cx, base: f64, exponent: f64) -> Result<f64, Fault> {
+    trust_plc_lib::expt64(cx.raw(), base, exponent)
+}
 
 /// A real type of IEC 61131-3 that the elementary functions take: `REAL` (`f32`) or `LREAL`
 /// (`f64`).
@@ -30,13 +50,13 @@ mod sealed {
 
 impl Elementary for f32 {
     fn elementary(cx: &mut Cx, function: Math, value: f32) -> Result<f32, Fault> {
-        trust_plc_lib::real32(cx, function, value)
+        trust_plc_lib::real32(cx.raw(), function, value)
     }
 }
 
 impl Elementary for f64 {
     fn elementary(cx: &mut Cx, function: Math, value: f64) -> Result<f64, Fault> {
-        trust_plc_lib::real64(cx, function, value)
+        trust_plc_lib::real64(cx.raw(), function, value)
     }
 }
 

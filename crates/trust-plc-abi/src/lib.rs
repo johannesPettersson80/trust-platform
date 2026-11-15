@@ -125,7 +125,11 @@ pub struct KernelApi {
 /// What the kernel gives an entry point: the areas, the task's logical time, the statement budget,
 /// the breakpoint bits and the kernel's functions; and what the module gives back: the statement it
 /// is executing and, when it ends with a fault, the fault's record (specification 44 §8.2, §8.3).
+///
+/// A Rust POU never holds it: the SDK gives each call of one its own context, made from a clone of
+/// this one (specification 48 RU-11).
 #[repr(C)]
+#[derive(Clone)]
 pub struct Cx {
     /// The interface version the kernel implements, [`INTERFACE_VERSION`].
     pub version: u32,

@@ -4,8 +4,6 @@
 // The expected values are exact: the standard's and the specification's, compared bit for bit.
 #![allow(clippy::float_cmp)]
 
-use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
-
 use core::cell::Cell;
 
 use crate::{
@@ -14,7 +12,7 @@ use crate::{
 };
 
 fn cx() -> Cx {
-    Cx::new(&WITHOUT_DEBUGGER)
+    crate::test::cx()
 }
 
 fn code<T: core::fmt::Debug>(result: Result<T, Fault>) -> u32 {
@@ -32,7 +30,7 @@ fn integer_arithmetic_faults_where_structured_text_faults() {
         FaultCode::Overflow as u32
     );
     assert_eq!(
-        cx.fault.code,
+        cx.raw().fault.code,
         FaultCode::Overflow as u32,
         "the fault is recorded for the kernel"
     );
@@ -380,4 +378,39 @@ fn arrays_are_indexed_from_their_lower_bound_and_lie_in_their_cells() {
     ];
     let rows = <Array<Array<u8, 1, 2>, 1, 2> as Placed>::load(&grid);
     assert_eq!(rows.get(2).and_then(|row| row.get(1)), Some(&3));
+}
+
+#[test]
+fn a_rust_pou_reads_the_tasks_logical_time_and_the_wall_clock_from_its_context() {
+    // RU-16: the logical time is the activation's, 30 ms here, as a TIME; the wall clock comes
+    // through the kernel's function, which faults with `ModuleInternal` where the device has none
+    // (specification 44 §8.2), as the test context's kernel has none. Catches a context that loses
+    // the activation's time, or reads a clock of its own.
+    let mut raw = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    raw.now_ns = 30_000_000;
+    let mut cx = Cx::of(raw);
+    assert_eq!(cx.now(), Time::from_nanos(30_000_000));
+    assert_eq!(code(cx.wall_clock()), FaultCode::ModuleInternal as u32);
+}
+
+#[test]
+fn only_the_fault_goes_back_to_the_kernels_context() {
+    // RU-11: a Rust POU's call gets a clone of the kernel interface's context, and only the record
+    // of the fault it returns goes back; the budget and the call depth stay the generated code's.
+    // The SDK itself stands in here for a change no Rust POU can make. Catches a context that
+    // writes the rest back, or loses the fault and its numbers.
+    let mut raw = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    raw.budget = 7;
+    raw.depth = 3;
+    raw.stmt = 12;
+    let mut cx = crate::__private::enter(&raw);
+    cx.raw().budget = u32::MAX;
+    cx.raw().depth = u32::MAX;
+    let fault = crate::rust_fault(&mut cx, 9, 1, 2);
+    crate::__private::leave(cx, &mut raw);
+    assert_eq!(fault.raw(), FaultCode::RustFault as u32);
+    assert_eq!((raw.budget, raw.depth), (7, 3));
+    assert_eq!(raw.fault.code, FaultCode::RustFault as u32);
+    assert_eq!(raw.fault.stmt, 12, "the statement that called the POU");
+    assert_eq!(raw.fault.detail, [9, 1, 2]);
 }

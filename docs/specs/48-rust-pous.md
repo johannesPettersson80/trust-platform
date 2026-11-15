@@ -182,7 +182,12 @@ a module, behind safe types: `Cx` (the activation's context), `Fault`, the IEC d
 and interfaces, the standard functions and function blocks of the program library (`trust_plc::std`,
 the same code `trust-plc-lib` gives Structured Text), the checked arithmetic of §5.3, and the
 attributes of `trust-plc-macros` (§6). It holds no `unsafe` code of its own; the `unsafe` of a module
-stays in `trust-plc-abi` (specification 44 §6.9).
+stays in `trust-plc-abi` (specification 44 §6.9). `Cx` is the SDK's own type: it gives a Rust POU the task's
+logical time and the wall clock (RU-16) and records the faults the POU returns, and it keeps the
+kernel interface's context (specification 44 §8.2) to itself, so that no Rust code reaches the
+statement budget, the call depth, the breakpoints or the kernel's pointers, which the generated code
+and the kernel keep. The generated code gives each call of a Rust POU a `Cx` made from the kernel's
+context and takes back only the record of the fault the call returns.
 
 **RU-12.** Each truST release publishes `trust-plc`, `trust-plc-macros`, `trust-service` and
 `trust-sim` to crates.io at the release's version, with the crates they are built from
@@ -276,7 +281,12 @@ module, naming the crate. A crate's own tests may use `std` (`#![cfg_attr(not(te
 **RU-20.** No crate of the scan crate graph holds `unsafe` code, except the SDK's
 interface crate (specification 44 §6.9). The project's crate forbids it at its root (RU-08), and the
 build refuses every other crate of the graph whose sources hold it (§9.3). A Rust POU reaches the
-program's memory, its references and the kernel only through the SDK's safe types.
+program's memory, its references and the kernel only through the SDK's safe types. A crate of the
+graph outside the SDK depends on the SDK through the crates RU-12 publishes for projects
+(`trust-plc`, `trust-plc-macros`, `trust-service`, `trust-sim`), never on the crates they are built
+from (`trust-plc-abi`, `trust-plc-lib`, `trust-plc-mem`, `trust-plc-decl`): their functions serve the
+generated code and trust what it gives them, as the interface crate's `run` trusts the kernel's
+context it is handed. The build refuses such a dependency, naming both crates (§9.3).
 
 ### 5.9 Work per activation
 

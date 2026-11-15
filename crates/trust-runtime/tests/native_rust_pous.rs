@@ -883,3 +883,89 @@ fn a_changing_static_and_a_recursion_through_rust_are_named() {
         );
     }
 }
+
+/// A crate whose block gives the task's logical time at its call.
+const CLOCKED: &str = r#"#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+/// The task's logical time at its call.
+#[trust_fb(name = "CLOCKED")]
+#[budget("1us")]
+pub struct Clocked {
+    #[output] pub stamp: Time,
+}
+
+impl Body for Clocked {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.stamp = cx.now();
+        Ok(())
+    }
+}
+"#;
+
+#[test]
+fn a_rust_pou_reads_the_logical_time_structured_text_reads() {
+    // RU-16 and RU-11: a Rust POU reads the task's logical time from its own context, the time
+    // Structured Text's `TIME()` reads in the same activation. Three calls at 10, 20 and 30 ms (the
+    // task is not due at 0, specification 10 §4.3): both read 30 ms at the last. Catches a context
+    // that loses or stales the activation's time.
+    let root = custom_project(
+        "rust-pous-logical-time",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", CLOCKED)],
+        "PROGRAM Line\nVAR\n    clock : CLOCKED;\n    rust_time : TIME;\n    st_time : TIME;\nEND_VAR\n\
+         clock();\nrust_time := clock.stamp;\nst_time := TIME();\nEND_PROGRAM\n\n\
+         CONFIGURATION Probe\nRESOURCE Probe ON PLC\n    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);\n\
+         \x20   PROGRAM Main WITH Fast : Line;\nEND_RESOURCE\nEND_CONFIGURATION\n",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10, 20, 30] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    let thirty = Some(Value::Time(Duration::from_millis(30)));
+    assert_eq!(program.value("MAIN.ST_TIME"), thirty);
+    assert_eq!(program.value("MAIN.RUST_TIME"), thirty);
+}
+
+#[test]
+fn a_crate_that_depends_on_the_sdks_interface_is_refused() {
+    // RU-20: the interface crate's functions trust what the generated code hands them (`run` takes
+    // the kernel's context), so the project's crate reaches the SDK through `trust-plc` only; one
+    // that names `trust-plc-abi` itself is refused, naming both crates, before it compiles. Catches
+    // a build that lets a project's code past the SDK's safe types.
+    let version = env!("CARGO_PKG_VERSION");
+    let root = custom_project(
+        "rust-pous-sdk-interface",
+        &[
+            (
+                "Cargo.toml",
+                &manifest(&format!("trust-plc-abi = \"={version}\"\n")),
+            ),
+            (
+                "src/lib.rs",
+                &root("#![cfg_attr(not(test), no_std)]\n#![forbid(unsafe_code)]\n\n"),
+            ),
+        ],
+        PASS_ON_PROGRAM,
+    );
+    let (error, toolchain) = build_error(&root);
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
+    let lines: Vec<&str> = error.lines().collect();
+    assert_eq!(lines.len(), 1, "{error}");
+    assert!(
+        lines[0].starts_with(&format!(
+            "rules 0.1.0 depends on trust-plc-abi {version}, which the SDK is built from"
+        )) && lines[0].contains("RU-20"),
+        "{error}"
+    );
+}

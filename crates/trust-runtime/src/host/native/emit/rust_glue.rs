@@ -4,6 +4,10 @@
 //! Rust function calls the Rust function with its inputs and returns its result. A fault the item
 //! returns ends the scan as a fault of Structured Text does (RU-14).
 //!
+//! The call gets the SDK's own context, made from a clone of the generated code's, which takes back
+//! only the record of the fault the call returns: a Rust POU reaches neither the statement budget,
+//! the call depth nor the kernel's pointers (RU-11).
+//!
 //! A value goes through the SDK's form of its type (RU-25): a scalar through `trust_plc::Stored`,
 //! a `TIME` read as `Time`, a `BYTE` as `Byte`; a string, or an array of such values, through
 //! `trust_plc::Placed`, from the cells it lies in; a structure of the project's crate, or an array
@@ -55,7 +59,10 @@ pub(super) fn block(
         .iter()
         .map(|value| format!(", &mut {value}"))
         .collect();
-    lowerer.line(&format!("{}::__trust_call(cx{arguments})?;", link.call));
+    let called = call_rust(lowerer, |cx| {
+        format!("{}::__trust_call({cx}{arguments})", link.call)
+    });
+    lowerer.line(&format!("{called}?;"));
     // The instance's own variables, which no pointer names: a string's length and the 0 after its
     // text as Structured Text's writes leave them (DEV-039).
     for (place, value) in places.iter().zip(&values) {
@@ -93,7 +100,8 @@ pub(super) fn function(
         };
         arguments.push_str(&format!(", {value}"));
     }
-    let call = format!("{}(cx{arguments})?", link.call);
+    let called = call_rust(lowerer, |cx| format!("{}({cx}{arguments})", link.call));
+    let call = format!("{called}?");
     match lowerer.result.clone() {
         // A result that is not a scalar goes into the function's result variable, which its exit
         // copies out.
@@ -108,6 +116,20 @@ pub(super) fn function(
         None => lowerer.line(&format!("{call};")),
     }
     Ok(())
+}
+
+/// Calls a Rust POU with `call`, which writes the call given the expression of its context: the
+/// SDK's context, made from a clone of the generated code's `cx`, from which only the record of the
+/// fault the call returns goes back (specification 48 RU-11). Returns the temporary that holds the
+/// call's `Result`.
+fn call_rust(lowerer: &mut Lowerer<'_, '_>, call: impl FnOnce(&str) -> String) -> String {
+    let context = lowerer.temp();
+    lowerer.line(&format!(
+        "let mut {context} = ::trust_plc::__private::enter(cx);"
+    ));
+    let called = lowerer.bind(&call(&format!("&mut {context}")));
+    lowerer.line(&format!("::trust_plc::__private::leave({context}, cx);"));
+    called
 }
 
 /// Whether the SDK reads and writes a value of `ty` as it lies (`trust_plc::Placed`): a string, or

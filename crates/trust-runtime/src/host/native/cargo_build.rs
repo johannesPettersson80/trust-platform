@@ -20,8 +20,9 @@ use trust_runtime_core::native::image::Target;
 /// The name the generated code gives the project's crate.
 pub(super) const PROJECT_CRATE: &str = "trust_project";
 
-/// The SDK's crates the project's crate may name, which the build takes from the toolchain's
-/// sources whatever version the project's manifest names (RU-12).
+/// The SDK's crates, which the build takes from the toolchain's sources whatever version a
+/// manifest names (RU-12); of them, a crate outside the SDK may name only those RU-12 publishes for
+/// projects (RU-20, `crate_graph`).
 const SDK_CRATES: [&str; 5] = [
     "trust-plc",
     "trust-plc-macros",
