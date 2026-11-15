@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 proc-macro2 = "1.0.107"
 syn = { version = "3.0.7", features = ["full"] }
+trust-plc-lib = { workspace = true }
 
 [lints.rust]
 unsafe_code = "forbid"

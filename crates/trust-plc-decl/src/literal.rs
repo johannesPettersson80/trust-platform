@@ -39,6 +39,15 @@ pub enum Value {
         /// The nanoseconds.
         nanos: i64,
     },
+    /// A `DATE`'s, `TIME_OF_DAY`'s or `DATE_AND_TIME`'s value, or a long form's, as the program's
+    /// areas hold it: milliseconds since 1970-01-01, a time of day's since midnight, and
+    /// nanoseconds for a long form.
+    Instant {
+        /// The date type.
+        ty: Elementary,
+        /// The value.
+        value: i64,
+    },
 }
 
 impl Value {
@@ -55,6 +64,7 @@ impl Value {
             }
             Self::Char { wide, code } => character_literal(wide, code),
             Self::Duration { long, nanos } => duration_literal(long, nanos),
+            Self::Instant { ty, value } => crate::dates::literal(ty, value),
         }
     }
 }
@@ -178,6 +188,9 @@ pub(crate) fn initial(value: &Expr, ty: Elementary) -> Result<Value, Error> {
             Elementary::Byte | Elementary::Word | Elementary::Dword | Elementary::Lword => "0x0F",
             Elementary::Char | Elementary::WChar => "'A'",
             Elementary::Time | Elementary::LTime => "\"T#500ms\"",
+            Elementary::Date | Elementary::LDate => "\"D#2024-02-29\"",
+            Elementary::Tod | Elementary::LTod => "\"TOD#12:30:15.25\"",
+            Elementary::Dt | Elementary::Ldt => "\"DT#2024-02-29-12:30:15\"",
             _ => "10",
         };
         Error::new(
@@ -251,6 +264,9 @@ pub(crate) fn initial(value: &Expr, ty: Elementary) -> Result<Value, Error> {
                         ),
                     )
                 })
+        }
+        (_, Lit::Str(text)) if !negative && crate::dates::is_date(ty) => {
+            crate::dates::initial(text, ty)
         }
         (_, Lit::Int(literal)) => match ty.range() {
             Some(range) => integer(negative, literal, ty, range),

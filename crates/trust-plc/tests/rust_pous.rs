@@ -5,6 +5,7 @@
 #![allow(clippy::float_cmp)]
 
 use trust_plc::prelude::*;
+use trust_plc::Stored;
 
 /// Exponential moving average of one input: specification 48 RU-22's function block.
 #[trust_fb(name = "FILTER_EMA")]
@@ -91,6 +92,47 @@ impl Body for Starts {
     fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
         Ok(())
     }
+}
+
+/// One variable of each date type, each with its initial value but the last.
+#[trust_fb(name = "DATED_STARTS")]
+#[budget("1us")]
+pub struct DatedStarts {
+    #[init("D#2024-02-29")]
+    pub a: Date,
+    #[init("LDATE#1969-12-31")]
+    pub b: LDate,
+    #[init("TOD#12:30:15.25")]
+    pub c: Tod,
+    #[init("LTOD#00:00:00.000000001")]
+    pub d: LTod,
+    #[init("DT#2024-02-29-12:30:15")]
+    pub e: Dt,
+    #[init("LDT#1970-01-01-00:00:01")]
+    pub f: Ldt,
+    pub g: Dt,
+}
+
+impl Body for DatedStarts {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_function_block_starts_at_its_declared_dates() {
+    // RU-26: a date variable starts at its literal's value as the areas store it, else at
+    // 1970-01-01 at midnight. By hand: 2024-02-29 is day 19,782, 1,709,164,800,000 ms; 1969-12-31
+    // is day -1, -86,400,000,000,000 ns; 12:30:15.25 is 45,015,250 ms. Catches a literal the
+    // attribute turns into another day, another unit or the wrong sign.
+    let starts = DatedStarts::new();
+    assert_eq!(Stored::into_raw(starts.a), 1_709_164_800_000_i64);
+    assert_eq!(Stored::into_raw(starts.b), -86_400_000_000_000_i64);
+    assert_eq!(Stored::into_raw(starts.c), 45_015_250_i64);
+    assert_eq!(Stored::into_raw(starts.d), 1_i64);
+    assert_eq!(Stored::into_raw(starts.e), 1_709_209_815_000_i64);
+    assert_eq!(Stored::into_raw(starts.f), 1_000_000_000_i64);
+    assert_eq!(Stored::into_raw(starts.g), 0_i64);
 }
 
 #[test]

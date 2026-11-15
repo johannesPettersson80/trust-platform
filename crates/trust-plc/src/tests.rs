@@ -6,7 +6,10 @@
 
 use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
 
-use crate::{checked, math, Byte, Char, Cx, Dword, Fault, FaultCode, Stored, Time, Word};
+use crate::{
+    checked, math, Byte, Char, Cx, Date, Dt, Dword, Fault, FaultCode, LDate, LTime, LTod, Ldt,
+    Stored, Time, Tod, Word,
+};
 
 fn cx() -> Cx {
     Cx::new(&WITHOUT_DEBUGGER)
@@ -186,4 +189,98 @@ fn bit_strings_combine_bit_by_bit_and_durations_fault_beyond_their_range() {
     );
     assert_eq!(Stored::into_raw(half), 500_000_000_i64);
     assert_eq!(<Char as Stored>::from_raw(b'A'), Char(b'A'));
+}
+
+#[test]
+fn dates_are_built_split_and_moved_as_structured_text_does() {
+    // Catches a day counted off by one, a leap day lost, a time of day wrapped at midnight, a
+    // duration rounded instead of cut, a long form left in milliseconds and a date that does not
+    // exist accepted: IEC Tables 36 and 37 with the runtime's encoding (specification 44 §6.2;
+    // specification 07 §9), each value worked out by hand. 2024-02-29 is day 54 × 365 + 13 + 59 =
+    // 19,782 after 1970-01-01, 1,709,164,800,000 ms, a Thursday (4); 12:30:15.250 is 45,015,250 ms.
+    let mut cx = cx();
+    let day = Date::from_ymd(&mut cx, 2024, 2, 29).expect("a leap day");
+    assert_eq!(Stored::into_raw(day), 1_709_164_800_000_i64);
+    assert_eq!(day.ymd(), [2024, 2, 29]);
+    assert_eq!(day.day_of_week(), 4);
+    assert_eq!(
+        code(Date::from_ymd(&mut cx, 2023, 2, 29)),
+        FaultCode::Overflow as u32
+    );
+    let next = Date::from_ymd(&mut cx, 2024, 3, 1).expect("the next day");
+    assert_eq!(
+        next.since(&mut cx, day),
+        Ok(Time::from_nanos(86_400_000_000_000))
+    );
+    let long_day = LDate::from_ymd(&mut cx, 2024, 2, 29).expect("a long date");
+    assert_eq!(Stored::into_raw(long_day), 1_709_164_800_000_000_000_i64);
+    assert_eq!(long_day.ymd(), [2024, 2, 29]);
+    assert_eq!(Date::default(), <Date as Stored>::from_raw(0));
+
+    let clock = Tod::from_hms(&mut cx, 12, 30, 15, 250).expect("a time of day");
+    assert_eq!(Stored::into_raw(clock), 45_015_250_i64);
+    assert_eq!(clock.hms(&mut cx), Ok([12, 30, 15, 250]));
+    // 23:59:59 + 2 s is 86,401,000 ms, not wrapped; + 1.9 ms adds one whole millisecond.
+    let late = Tod::from_hms(&mut cx, 23, 59, 59, 0).expect("late");
+    assert_eq!(
+        late.checked_add(&mut cx, Time::from_nanos(2_000_000_000))
+            .map(Stored::into_raw),
+        Ok(86_401_000_i64)
+    );
+    assert_eq!(
+        clock
+            .checked_add(&mut cx, Time::from_nanos(1_900_000))
+            .map(Stored::into_raw),
+        Ok(45_015_251_i64)
+    );
+    assert_eq!(
+        clock.checked_sub(&mut cx, Time::from_nanos(250_000_000)),
+        Tod::from_hms(&mut cx, 12, 30, 15, 0)
+    );
+    assert_eq!(
+        code(Tod::from_hms(&mut cx, 24, 0, 0, 0)),
+        FaultCode::Overflow as u32
+    );
+
+    let moment = Dt::new(&mut cx, day, clock).expect("a moment");
+    assert_eq!(Stored::into_raw(moment), 1_709_209_815_250_i64);
+    assert_eq!(Dt::from_millis(1_709_209_815_250), moment);
+    assert_eq!(moment.as_millis(), 1_709_209_815_250);
+    assert_eq!(moment.parts(), [2024, 2, 29, 12, 30, 15, 250]);
+    assert_eq!(moment.date(&mut cx), Ok(day));
+    assert_eq!(moment.tod(), clock);
+    assert_eq!(
+        Dt::from_parts(&mut cx, 2024, 2, 29, 12, 30, 15, 250),
+        Ok(moment)
+    );
+    let later = moment
+        .checked_add(&mut cx, Time::from_nanos(60_000_000_000))
+        .expect("a minute later");
+    assert_eq!(
+        later.since(&mut cx, moment),
+        Ok(Time::from_nanos(60_000_000_000))
+    );
+    assert_eq!(
+        code(Dt::from_parts(&mut cx, 2024, 2, 30, 0, 0, 0, 0)),
+        FaultCode::Overflow as u32
+    );
+    assert_eq!(
+        code(<Dt as Stored>::from_raw(i64::MAX).checked_add(&mut cx, Time::from_nanos(1_000_000))),
+        FaultCode::DateTimeRange as u32
+    );
+
+    let precise = LTod::from_hms(&mut cx, 12, 30, 15, 250)
+        .and_then(|tod| tod.checked_add(&mut cx, LTime::from_nanos(1)))
+        .expect("a nanosecond later");
+    assert_eq!(Stored::into_raw(precise), 45_015_250_000_001_i64);
+    assert_eq!(LTod::from_nanos(45_015_250_000_001), precise);
+    assert_eq!(precise.hms(), [12, 30, 15, 250]);
+    let long_moment = Ldt::new(&mut cx, day, precise).expect("a long moment");
+    assert_eq!(Stored::into_raw(long_moment), 1_709_209_815_250_000_001_i64);
+    assert_eq!(long_moment.date(), day);
+    assert_eq!(long_moment.tod(), precise);
+    assert_eq!(long_moment.parts(), [2024, 2, 29, 12, 30, 15, 250]);
+    let whole = Ldt::from_parts(&mut cx, 2024, 2, 29, 12, 30, 15, 250).expect("a long moment");
+    assert_eq!(Stored::into_raw(whole), 1_709_209_815_250_000_000_i64);
+    assert_eq!(long_moment.since(&mut cx, whole), Ok(LTime::from_nanos(1)));
 }

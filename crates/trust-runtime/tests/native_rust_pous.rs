@@ -7,14 +7,14 @@
 //! cargo and the SDK's sources, as a release's bundle is until specification 48 §16, refuses the
 //! build with that reason.
 
+mod rust_pous_support;
+
 use std::path::{Path, PathBuf};
 
+use rust_pous_support::{built, custom_project, manifest, sources};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::SourceFile;
 use trust_runtime::native::rust_pous::{write_declarations, Written, DECLARATIONS_FILE};
-use trust_runtime::native::{
-    build_project, load, Build, Device, NoHooks, Options, Target, Toolchain,
-};
+use trust_runtime::native::{build_project, load, Build, NoHooks, Options, Target, Toolchain};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
@@ -139,52 +139,6 @@ fn project(name: &str, program: &str) -> PathBuf {
     root
 }
 
-/// The project's Structured Text, as `trust-runtime build` collects it.
-fn sources(root: &Path) -> Vec<SourceFile> {
-    ["src/main.st", DECLARATIONS_FILE]
-        .into_iter()
-        .map(|label| {
-            let text = std::fs::read_to_string(root.join(label)).expect("the source");
-            SourceFile::with_path(label, text)
-        })
-        .collect()
-}
-
-/// The project built for this computer; `None` with a toolchain that has no cargo and SDK sources,
-/// whose refusal names them.
-fn built(root: &Path) -> Option<(Build, Device)> {
-    let toolchain =
-        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let target = Target::this_cpu().expect("a computer target");
-    let work = root.join("build/native");
-    let result = build_project(
-        root,
-        &sources(root),
-        &[],
-        &Options {
-            target,
-            hooks: true,
-        },
-        ConversionProfile::Iec,
-        &toolchain,
-        &work,
-    );
-    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
-        let error = result.err().expect("the build is refused").to_string();
-        assert!(error.contains("no cargo and SDK sources"), "{error}");
-        return None;
-    }
-    let built = result.unwrap_or_else(|error| panic!("the project builds: {error}"));
-    let device = Device {
-        target,
-        program_memory: 1 << 20,
-        task_stack: 1 << 20,
-        max_statements: 1_000,
-        trusted_keys: &[],
-    };
-    Some((built, device))
-}
-
 #[test]
 fn structured_text_calls_rust_pous_as_its_own() {
     // Catches a build that leaves the Rust POUs out or calls them with their variables in other
@@ -288,30 +242,6 @@ fn a_project_whose_declarations_are_out_of_date_does_not_build() {
 /// A program that calls `PASS_ON`.
 const PASS_ON_PROGRAM: &str =
     "PROGRAM Line\nVAR\n    result : DINT;\nEND_VAR\nresult := PASS_ON(a := 1);\nEND_PROGRAM\n";
-
-/// A project with the crate files `files` (relative to `rust/`) and the program `program`.
-fn custom_project(name: &str, files: &[(&str, &str)], program: &str) -> PathBuf {
-    let root = trust_test_support::unique_temp_path(name);
-    for (path, text) in files {
-        let file = root.join("rust").join(path);
-        std::fs::create_dir_all(file.parent().expect("a folder")).expect("the folder");
-        std::fs::write(file, text).expect("the file");
-    }
-    std::fs::create_dir_all(root.join("src")).expect("the sources' folder");
-    std::fs::write(root.join("src/main.st"), program).expect("the program");
-    let written = write_declarations(&root);
-    assert!(matches!(written, Ok(Written::Wrote(_))), "{written:?}");
-    root
-}
-
-/// The crate's manifest with the dependencies `extra`.
-fn manifest(extra: &str) -> String {
-    format!(
-        "[package]\nname = \"rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
-         [dependencies]\ntrust-plc = \"={}\"\n{extra}",
-        env!("CARGO_PKG_VERSION")
-    )
-}
 
 /// A crate root with the function `PASS_ON`, after the attributes `head`.
 fn root(head: &str) -> String {
@@ -610,101 +540,6 @@ fn a_rust_pou_that_can_panic_is_named_with_the_form_to_use() {
             "`get(index)`"
         ),
         "{error}"
-    );
-}
-
-/// A block that computes with a duration, a bit string and a character.
-const TYPED: &str = "#![cfg_attr(not(test), no_std)]
-#![forbid(unsafe_code)]
-
-use trust_plc::prelude::*;
-
-#[trust_fb(name = \"TYPED_BLOCK\")]
-#[budget(\"1us\")]
-pub struct TypedBlock {
-    #[input]
-    pub period: Time,
-    #[input]
-    pub flags: Byte,
-    #[input]
-    pub letter: Char,
-    #[output]
-    pub half: Time,
-    #[output]
-    pub low: Byte,
-    #[output]
-    pub next: Char,
-    #[output]
-    #[init(\"T#1s\")]
-    pub total: Time,
-}
-
-impl Body for TypedBlock {
-    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
-        self.half = Time::from_nanos(self.period.as_nanos() / 2);
-        self.low = self.flags & Byte(0x0F);
-        self.next = Char(self.letter.0 + 1);
-        self.total = self.total.checked_add(cx, self.period)?;
-        Ok(())
-    }
-}
-";
-
-/// A program that calls TYPED_BLOCK once per 10 ms with IEC literals.
-const TYPED_PROGRAM: &str = "PROGRAM Line
-VAR
-    block : TYPED_BLOCK;
-    half : TIME;
-    low : BYTE;
-    next : CHAR;
-    total : TIME;
-END_VAR
-block(period := T#500ms, flags := 16#AB, letter := 'Y');
-half := block.half;
-low := block.low;
-next := block.next;
-total := block.total;
-END_PROGRAM
-
-CONFIGURATION Probe
-RESOURCE Probe ON PLC
-    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
-    PROGRAM Main WITH Fast : Line;
-END_RESOURCE
-END_CONFIGURATION
-";
-
-#[test]
-fn a_rust_pou_computes_with_durations_bit_strings_and_characters() {
-    // Catches a TIME, BYTE or CHAR that reaches the Rust POU as another value, or comes back so:
-    // RU-25's `Time`, `Byte` and `Char` hold what the areas store (specification 44 §6.2). Three
-    // calls at 10, 20 and 30 ms: half of T#500ms is T#250ms, 16#AB AND 16#0F is 16#0B, 'Y' + 1 is
-    // 'Z', and the total starts at its declared T#1s (RU-26) and grows by T#500ms at each call:
-    // T#2.5s.
-    let root = custom_project(
-        "rust-pous-typed",
-        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TYPED)],
-        TYPED_PROGRAM,
-    );
-    let Some((built, device)) = built(&root) else {
-        return;
-    };
-    let mut program = load(&built.image, &device).expect("the image loads");
-    program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
-    assert_eq!(
-        program.value("MAIN.HALF"),
-        Some(Value::Time(Duration::from_millis(250)))
-    );
-    assert_eq!(program.value("MAIN.LOW"), Some(Value::Byte(0x0B)));
-    assert_eq!(program.value("MAIN.NEXT"), Some(Value::Char(b'Z')));
-    assert_eq!(
-        program.value("MAIN.TOTAL"),
-        Some(Value::Time(Duration::from_millis(2_500)))
     );
 }
 

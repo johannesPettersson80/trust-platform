@@ -44,9 +44,21 @@ pub enum Elementary {
     Time,
     /// `LTIME`, written `LTime`.
     LTime,
+    /// `DATE`, written `Date`.
+    Date,
+    /// `LDATE`, written `LDate`.
+    LDate,
+    /// `TIME_OF_DAY`, written `Tod`.
+    Tod,
+    /// `LTIME_OF_DAY`, written `LTod`.
+    LTod,
+    /// `DATE_AND_TIME`, written `Dt`.
+    Dt,
+    /// `LDATE_AND_TIME`, written `Ldt`.
+    Ldt,
 }
 
-const ALL: [Elementary; 19] = [
+const ALL: [Elementary; 25] = [
     Elementary::Bool,
     Elementary::Sint,
     Elementary::Int,
@@ -66,6 +78,12 @@ const ALL: [Elementary; 19] = [
     Elementary::WChar,
     Elementary::Time,
     Elementary::LTime,
+    Elementary::Date,
+    Elementary::LDate,
+    Elementary::Tod,
+    Elementary::LTod,
+    Elementary::Dt,
+    Elementary::Ldt,
 ];
 
 impl Elementary {
@@ -92,6 +110,12 @@ impl Elementary {
             Self::WChar => "WCHAR",
             Self::Time => "TIME",
             Self::LTime => "LTIME",
+            Self::Date => "DATE",
+            Self::LDate => "LDATE",
+            Self::Tod => "TOD",
+            Self::LTod => "LTOD",
+            Self::Dt => "DT",
+            Self::Ldt => "LDT",
         }
     }
 
@@ -118,6 +142,12 @@ impl Elementary {
             Self::WChar => "WChar",
             Self::Time => "Time",
             Self::LTime => "LTime",
+            Self::Date => "Date",
+            Self::LDate => "LDate",
+            Self::Tod => "Tod",
+            Self::LTod => "LTod",
+            Self::Dt => "Dt",
+            Self::Ldt => "Ldt",
         }
     }
 
@@ -156,7 +186,13 @@ impl Elementary {
             | Self::Char
             | Self::WChar
             | Self::Time
-            | Self::LTime => return None,
+            | Self::LTime
+            | Self::Date
+            | Self::LDate
+            | Self::Tod
+            | Self::LTod
+            | Self::Dt
+            | Self::Ldt => return None,
         };
         Some(range)
     }
