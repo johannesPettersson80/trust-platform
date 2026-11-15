@@ -5,9 +5,10 @@ immediately, no config to write.
 
 ## Open the example gallery
 
-With no project open, the truST view offers **Start from example** (alongside Create and Open).
+With no project open, the truST view offers **Start from example** first, then **+ Create project** and
+**Open project**.
 
-![truST with no project open, showing Create / Open / Start from example](../assets/images/vscode/vscode-create-no-project.png)
+![truST with no project open: Start from example, Create project and Open project](../assets/images/vscode/vscode-create-no-project.png)
 
 *With no project open, **Start from example** copies a ready-made starter.*
 

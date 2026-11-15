@@ -887,7 +887,10 @@ language server starts once in its image with `command --help`. The captures
 fail when one does not start, so that a capture never shows a loader's error or
 an extension without its language server. `code-server` starts without its
 update check (`--disable-update-check`): its notice of a newer release would
-cover the corner of a picture.
+cover the corner of a picture. It runs as the user who runs the captures, as the
+terminal captures' container does, with its home in the container's `/tmp`, so
+that what a capture writes into the repository, such as a new project, belongs
+to that user.
 
 The documentation site shows the screenshots of `main` without a commit of the
 images. The workflow runs on pull requests, on pushes to `main`, every night and
