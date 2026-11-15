@@ -23,7 +23,7 @@ const UNKNOWN_FRAME: u64 = 512;
 /// The call relocations of each target, and the distance from a relocation's place to the
 /// called address that its addend leaves out: an x86-64 call's displacement counts from the end
 /// of its four bytes.
-fn calls(target: Target) -> (&'static [u32], i64) {
+pub(super) fn calls(target: Target) -> (&'static [u32], i64) {
     match target {
         // R_X86_64_PC32, R_X86_64_PLT32, R_X86_64_GOTPCREL (a call through the table the image
         // builder relaxes).

@@ -25,6 +25,7 @@ mod located;
 mod lower;
 mod model;
 mod module;
+mod panics;
 mod recursion;
 mod retain_map;
 mod run;
@@ -427,6 +428,7 @@ pub fn build_with_conversions(
 struct CrateBuild {
     links: std::collections::HashMap<String, rust_pous::RustLink>,
     project: cargo_build::ProjectCrate,
+    krate: rust_pous::RustCrate,
 }
 
 /// Builds the program image of the project in folder `project` from `sources`, its Structured
@@ -467,8 +469,9 @@ pub fn build_project(
         links: rust_pous::links(&krate),
         project: cargo_build::ProjectCrate {
             folder: project.join(rust_pous::CRATE_FOLDER),
-            package: krate.package,
+            package: krate.package.clone(),
         },
+        krate,
     };
     build_sources(
         sources,
@@ -496,9 +499,13 @@ fn build_sources(
     // the sources as written.
     let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
         .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
-    let (links, project) = match crate_build {
-        Some(CrateBuild { links, project }) => (links, Some(project)),
-        None => (std::collections::HashMap::new(), None),
+    let (links, project, krate) = match crate_build {
+        Some(CrateBuild {
+            links,
+            project,
+            krate,
+        }) => (links, Some(project), Some(krate)),
+        None => (std::collections::HashMap::new(), None, None),
     };
     let front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
     init::check_declared_conversions(&front, conversions)?;
@@ -524,6 +531,13 @@ fn build_sources(
         )?,
         None => toolchain.compile(&generated.source, options.target, &symbols, work)?,
     };
+    // A Rust POU's panic is named with the POU and the form to use instead (specification 48 RU-45).
+    if let Some(krate) = &krate {
+        let calls = panics::panic_calls(&elf, options.target)?;
+        if !calls.is_empty() {
+            return Err(NativeError::Module(rust_pous::panic_refusal(krate, &calls)));
+        }
+    }
     let module = module::extract(&elf, options.target, &symbols)?;
     let stack = stack::bound(&elf, options.target, &stack_frames(&remarks), &symbols)?;
     let mut writer = ImageWriter::new(
