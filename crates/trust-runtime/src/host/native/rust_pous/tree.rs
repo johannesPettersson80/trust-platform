@@ -174,8 +174,14 @@ impl Walk<'_> {
                         module,
                         &item.attrs,
                         &item.ident,
-                        Kind::FunctionBlock,
-                        |args| trust_plc_decl::function_block(args, item),
+                        &[Kind::FunctionBlock, Kind::Program],
+                        |kind, args| {
+                            if kind == Kind::Program {
+                                trust_plc_decl::program(args, item)
+                            } else {
+                                trust_plc_decl::function_block(args, item)
+                            }
+                        },
                     );
                 }
                 Item::Fn(item) if !is_test_only(&item.attrs) => {
@@ -184,8 +190,8 @@ impl Walk<'_> {
                         module,
                         &item.attrs,
                         &item.sig.ident,
-                        Kind::Function,
-                        |args| trust_plc_decl::function(args, item),
+                        &[Kind::Function],
+                        |_, args| trust_plc_decl::function(args, item),
                     );
                 }
                 Item::Enum(item) if !is_test_only(&item.attrs) => {
@@ -244,26 +250,29 @@ impl Walk<'_> {
     }
 
     /// The POU the item `ident` with the attributes `attributes` declares, when one of them is a
-    /// POU's attribute: `read` reads the item with that attribute's arguments.
+    /// POU's attribute of one of `item_kinds`, the kinds such an item can be: `read` reads the
+    /// item as that kind with that attribute's arguments.
     fn pou(
         &mut self,
         label: &str,
         module: &Module,
         attributes: &[Attribute],
         ident: &Ident,
-        item_kind: Kind,
-        read: impl FnOnce(TokenStream) -> syn::Result<Pou>,
+        item_kinds: &[Kind],
+        read: impl FnOnce(Kind, TokenStream) -> syn::Result<Pou>,
     ) {
         let Some((attribute, kind)) = attributes.iter().find_map(|attribute| {
             trust_plc_decl::declared_kind(attribute).map(|kind| (attribute, kind))
         }) else {
             return;
         };
-        if kind != item_kind {
+        if !item_kinds.contains(&kind) {
             self.error(
                 label,
                 ident.span(),
-                "`#[trust_fb]` declares a struct and `#[trust_function]` a function".into(),
+                "`#[trust_fb]` and `#[trust_program]` declare a struct, `#[trust_function]` a \
+                 function"
+                    .into(),
             );
             return;
         }
@@ -272,7 +281,7 @@ impl Walk<'_> {
             .require_list()
             .map(|list| list.tokens.clone())
             .unwrap_or_default();
-        match read(args) {
+        match read(kind, args) {
             Ok(pou) => {
                 let item = ident.unraw().to_string();
                 let mut path = module.path.clone();
@@ -531,6 +540,18 @@ impl Walk<'_> {
     /// blocks of that name, and a second of one name or one named like a variable of its block.
     fn attach_methods(&mut self, pous: &mut [(RustPou, Span)]) {
         for (owner, method, file, span) in std::mem::take(&mut self.methods) {
+            if pous
+                .iter()
+                .any(|(pou, _)| pou.pou.kind == Kind::Program && pou.pou.item == owner)
+            {
+                let message = format!(
+                    "the method {} is of the Rust program `{owner}`, and a Rust program has no \
+                     methods (specification 48 RU-37)",
+                    method.name
+                );
+                self.error(&file, span, message);
+                continue;
+            }
             let mut blocks = pous
                 .iter_mut()
                 .filter(|(pou, _)| pou.pou.kind == Kind::FunctionBlock && pou.pou.item == owner);

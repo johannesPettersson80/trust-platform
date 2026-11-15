@@ -393,10 +393,13 @@ pub(super) fn panic_refusal(krate: &RustCrate, calls: &[super::panics::PanicCall
             let prefix = match pou.pou.kind {
                 trust_plc_decl::Kind::FunctionBlock => "fb_",
                 trust_plc_decl::Kind::Function => "f_",
+                trust_plc_decl::Kind::Program => "prog_",
             };
             let glue = format!("{prefix}{}", super::types::mangle(&pou.pou.name));
             let item = format!("{}::{}", krate.name, pou.path.join("::"));
-            last == glue || call.caller.contains(&item)
+            // A program's instances declared `RETAIN` have a body of their own (specification 11
+            // §6.7).
+            last == glue || last == format!("{glue}_RETAIN") || call.caller.contains(&item)
         });
         let who = match pou {
             Some(pou) => format!("the Rust POU {} ({}:{})", pou.pou.name, pou.file, pou.line),

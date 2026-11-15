@@ -51,6 +51,47 @@ pub(super) fn block(
     Ok(())
 }
 
+/// The body of the Rust program of the program type `index`, called through `link` (specification
+/// 48 RU-35): its variables read from the instance's places, a retained one's from the retained
+/// area's, in declaration order, and written back when the item returns `Ok`. A program has no
+/// `ENO`.
+pub(super) fn program(
+    lowerer: &mut Lowerer<'_, '_>,
+    index: usize,
+    link: &RustLink,
+    structures: &HashMap<String, String>,
+) -> Result<(), NativeError> {
+    let mut places = Vec::with_capacity(link.variables.len());
+    for name in &link.variables {
+        let Some((member, retained)) = lowerer.model.program_types[index].member(name) else {
+            return Err(NativeError::Compile(format!(
+                "the variable {name} of {} is not in its declaration",
+                link.call
+            )));
+        };
+        let owner = if retained { "mr" } else { "me" };
+        places.push(Place {
+            expr: format!("{owner}.{}", member.field()),
+            ty: member.ty,
+            is_ref: false,
+        });
+    }
+    let in_outs = vec![false; places.len()];
+    let instance = loaded(lowerer, places, in_outs, structures)?;
+    let arguments: String = instance
+        .values
+        .iter()
+        .map(|value| format!(", &mut {value}"))
+        .collect();
+    let (called, _) = call_rust(
+        lowerer,
+        |cx| format!("{}::__trust_call({cx}{arguments})", link.call),
+        false,
+    );
+    lowerer.line(&format!("{called}?;"));
+    store_instance(lowerer, &instance, structures)
+}
+
 /// The body of the Rust function with the parameters `params`, called through `link`: its inputs
 /// in declaration order, its result into the function's result.
 pub(super) fn function(
@@ -172,6 +213,16 @@ fn instance(
         });
         in_outs.push(member.flags & SYMBOL_IN_OUT != 0);
     }
+    loaded(lowerer, places, in_outs, structures)
+}
+
+/// Loads the variables at `places` into locals, `in_outs` saying which of them are in-outs.
+fn loaded(
+    lowerer: &mut Lowerer<'_, '_>,
+    places: Vec<Place>,
+    in_outs: Vec<bool>,
+    structures: &HashMap<String, String>,
+) -> Result<Instance, NativeError> {
     let values: Vec<String> = (0..places.len())
         .map(|index| format!("rv{index}"))
         .collect();

@@ -624,7 +624,10 @@ an ST-first project names it in its `CONFIGURATION` (`PROGRAM Axis WITH Fast : A
 IEC §6.8.1, Table 62), a Rust-first project in `trust.toml` (§14.2). Its instance lies in the
 instance area, retained variables in `R`, and its program connections (IEC Table 62 features 8 and
 9) bind its inputs and outputs to directly represented or global variables as for a Structured Text
-program.
+program. It has no in-outs, which its connections do not bind here, and no `EN` or `ENO`, which no
+program has (RU-30); the generated code reads its variables from where the instance and the retained
+area hold them before its body and writes them back when the body returns `Ok`, as a block's
+(RU-28), and its budget counts once for each activation of its task (RU-47).
 
 **RU-36. The deviation.** IEC §4.3 rule 4 requires a program's declaration to "use the mechanisms
 defined for the IL, ST, LD, or FBD language"; a Rust program's declaration does (it is the generated
@@ -813,8 +816,8 @@ its path, as they reach a Structured Text variable.
 
 **RU-56. Unit tests in Rust.** The project's crate has Rust tests (`#[test]`), which a user's own
 `cargo test` runs on the computer with the standard library (RU-19). `trust_plc::test` gives them a
-`Cx` of a simulated task (its logical time, interval and task) and runs a function block's call as
-the kernel does: `let mut fb = FilterEma::new(); fb.x = 1.0; fb.call(&mut cx)?;`. A unit test runs
+`Cx` of a simulated task (its logical time, interval and task) and runs a function block's or a
+program's call as the kernel does: `let mut fb = FilterEma::new(); fb.x = 1.0; fb.call(&mut cx)?;`. A unit test runs
 the POU's Rust code, not the program. `test::task(interval)` is the context of the task 0 at the
 logical time 0 with that interval, and `test::advance(&mut cx)` moves its logical time on by the
 interval, as the task's next activation does; `test::cx()` is an activation outside a task, at the
