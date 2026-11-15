@@ -248,16 +248,21 @@ and logical time (specification 44 NX-04), which §12's replay needs.
 **RU-17.** A Rust POU computes the same results on every device for the same inputs
 and logical times (specification 44 NX-04). Integer and IEEE 754 operations give that by
 themselves. The elementary functions (`sin`, `exp`, `sqrt` and the rest) come from
-`trust_plc::math`, the program library's pure-Rust `libm`, never from a target's own; `core`'s float
-methods that call the target's library are refused by the build (§9.4). A Rust POU has no source of
+`trust_plc::math`, the program library's pure-Rust `libm`, never from a target's own: a call of a
+function of the target's library whose results IEEE 754 does not fix (`sin`, `exp`, `log`, `pow` and
+the rest) is refused by the build (§9.4), while those it rounds exactly (`sqrt`, `fma`, `floor`,
+`fmod` and the rest) give one result everywhere. A Rust POU has no source of
 randomness but a seeded generator it keeps in its instance (`trust_plc::Rng`).
 
 ### 5.6 No recursion
 
 **RU-18.** A Rust POU's code calls nothing that calls it again: the build finds
 the cycles of the linked module's call graph (specification 44 §8.5) and refuses one through a Rust
-function, naming the functions of the cycle. Structured Text's bounded recursion (specification 44
-§6.4) stays Structured Text's.
+function, naming the functions of the cycle. A function's direct call of itself, which the assembler
+resolves inside the function's own section without a call relocation (specification 44 §6.4), is
+read from its call instruction: on x86-64 and RISC-V from the function's instructions read one after
+the other from its start, so that no constant or part of another instruction is taken for a call.
+Structured Text's bounded recursion (specification 44 §6.4) stays Structured Text's.
 
 ### 5.7 No standard library, no heap
 
@@ -660,8 +665,8 @@ that names the Rust function or item when one breaks a rule:
 |---|---|---|
 | No panic (RU-14) | specification 44 §8.6's check of the panic machinery, then the call graph back from it, through the functions of `core` and `alloc` that call it, to the first function outside them; the generated function of a Rust POU is never inlined, so code of the POU inlined into it is named by the POU | each Rust POU (its file and line) or other function that can panic, what panics, and the form that returns a fault instead (`trust_plc::checked::div`, `get`, `ok_or(...)?`) |
 | No changing `static` (RU-13) | the module's writable data sections outside the areas, by symbol | the `static` |
-| No recursion through Rust (RU-18) | the call graph's cycles (specification 44 §8.5) | the cycle's functions |
-| No target library math (RU-17) | calls of the target's `libm` symbols outside `trust-plc-lib` | the function and `trust_plc::math` |
+| No recursion through Rust (RU-18) | the call graph's cycles (specification 44 §8.5), with each function's direct call of itself read from its call instruction | the cycle's functions |
+| No target library math (RU-17) | calls of the target library's inexact functions (`sin`, `exp`, …) outside `trust-plc-lib` | the function and `trust_plc::math` |
 | The stack bound (specification 44 §8.5) | the frames of the Rust functions count as the generated ones do | as today |
 
 ## 10. Time

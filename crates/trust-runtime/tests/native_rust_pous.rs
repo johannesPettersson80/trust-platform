@@ -800,3 +800,86 @@ fn a_task_counts_the_rust_work_its_methods_properties_and_overrides_reach() {
     );
     assert!(!error.contains("without a bound"), "{error}");
 }
+
+/// A function that counts its calls in a `static`, and one that recurses, neither of which can
+/// panic.
+const RULE_BREAKING: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use core::sync::atomic::{AtomicU32, Ordering};
+use trust_plc::prelude::*;
+
+static CALLS: AtomicU32 = AtomicU32::new(0);
+
+#[trust_function(name = \"COUNTED\")]
+#[budget(\"1us\")]
+pub fn counted(_cx: &mut Cx, a: i32) -> Result<i32, Fault> {
+    CALLS.fetch_add(1, Ordering::Relaxed);
+    Ok(a)
+}
+
+#[inline(never)]
+fn fib(n: u32) -> u32 {
+    if n < 2 {
+        n
+    } else {
+        fib(n.saturating_sub(1)).wrapping_add(fib(n.saturating_sub(2)))
+    }
+}
+
+#[trust_function(name = \"FIBONACCI\")]
+#[budget(\"1us\")]
+pub fn fibonacci(_cx: &mut Cx, n: u32) -> Result<u32, Fault> {
+    Ok(fib(n))
+}
+";
+
+#[test]
+fn a_changing_static_and_a_recursion_through_rust_are_named() {
+    // RU-13, RU-18, RU-45: the build refuses a module with a `static` that changes, which keeps
+    // state outside the program's areas, and with a recursion through Rust, which the stack bound
+    // and the call levels do not cover, naming the `static` and the function; for each computer's
+    // CPU (specification 44 §4.4), whatever this computer's is. Catches a check that lets them
+    // through, a refusal that names neither, and an AArch64 module whose atomics call the C
+    // library's `getauxval` (the compiler's outline atomics), which failed its link before the
+    // rules (macOS, 15 November 2026).
+    let root = custom_project(
+        "rust-pous-module-rules",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", RULE_BREAKING)],
+        "PROGRAM Line\nVAR\n    a : DINT;\n    n : UDINT;\nEND_VAR\na := COUNTED(a := 1);\nn := FIBONACCI(n := 10);\nEND_PROGRAM\n",
+    );
+    let (error, toolchain) = build_error(&root);
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
+    for target in [Target::X86_64, Target::Aarch64] {
+        let error = build_project(
+            &root,
+            &sources(&root),
+            &[],
+            &Options {
+                target,
+                hooks: true,
+            },
+            ConversionProfile::Iec,
+            &toolchain,
+            &root.join(format!(
+                "build/native-{}",
+                trust_runtime::native::triple(target)
+            )),
+        )
+        .err()
+        .expect("the build is refused")
+        .to_string();
+        assert!(
+            error.contains("the `static` rules::CALLS changes")
+                && error.contains("specification 48 RU-13"),
+            "{target:?}: {error}"
+        );
+        assert!(
+            error.contains("rules::fib calls itself") && error.contains("specification 48 RU-18"),
+            "{target:?}: {error}"
+        );
+    }
+}
