@@ -838,8 +838,11 @@ pub fn fibonacci(_cx: &mut Cx, n: u32) -> Result<u32, Fault> {
 fn a_changing_static_and_a_recursion_through_rust_are_named() {
     // RU-13, RU-18, RU-45: the build refuses a module with a `static` that changes, which keeps
     // state outside the program's areas, and with a recursion through Rust, which the stack bound
-    // and the call levels do not cover, naming the `static` and the function. Catches a check that
-    // lets them through, and a refusal that names neither.
+    // and the call levels do not cover, naming the `static` and the function; for each computer's
+    // CPU (specification 44 §4.4), whatever this computer's is. Catches a check that lets them
+    // through, a refusal that names neither, and an AArch64 module whose atomics call the C
+    // library's `getauxval` (the compiler's outline atomics), which failed its link before the
+    // rules (macOS, 15 November 2026).
     let root = custom_project(
         "rust-pous-module-rules",
         &[("Cargo.toml", &manifest("")), ("src/lib.rs", RULE_BREAKING)],
@@ -850,13 +853,33 @@ fn a_changing_static_and_a_recursion_through_rust_are_named() {
         assert!(error.contains("no cargo and SDK sources"), "{error}");
         return;
     }
-    assert!(
-        error.contains("the `static` rules::CALLS changes")
-            && error.contains("specification 48 RU-13"),
-        "{error}"
-    );
-    assert!(
-        error.contains("rules::fib calls itself") && error.contains("specification 48 RU-18"),
-        "{error}"
-    );
+    for target in [Target::X86_64, Target::Aarch64] {
+        let error = build_project(
+            &root,
+            &sources(&root),
+            &[],
+            &Options {
+                target,
+                hooks: true,
+            },
+            ConversionProfile::Iec,
+            &toolchain,
+            &root.join(format!(
+                "build/native-{}",
+                trust_runtime::native::triple(target)
+            )),
+        )
+        .err()
+        .expect("the build is refused")
+        .to_string();
+        assert!(
+            error.contains("the `static` rules::CALLS changes")
+                && error.contains("specification 48 RU-13"),
+            "{target:?}: {error}"
+        );
+        assert!(
+            error.contains("rules::fib calls itself") && error.contains("specification 48 RU-18"),
+            "{target:?}: {error}"
+        );
+    }
 }

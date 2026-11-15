@@ -66,11 +66,13 @@ for triple in "${triples[@]}"; do
   esac
   flags="-C relocation-model=pic -C panic=abort -C embed-bitcode=yes -C opt-level=2 -C codegen-units=1 -C relro-level=off"
   # The AArch64 module reserves x18, which macOS reserves and may overwrite when it switches
-  # threads (§4.4). Link-time optimization keeps each function's own target features, so the
-  # libraries reserve it too: a library function that kept a value in x18 computed a wrong value
-  # or crashed at random on macOS.
+  # threads, and makes its atomic operations its own instructions, as the compiler's outline atomics
+  # call the C library's getauxval, which a freestanding module cannot (§4.4). Link-time
+  # optimization keeps each function's own target features, so the libraries are built with the
+  # module's: a library function that kept a value in x18 computed a wrong value or crashed at
+  # random on macOS.
   case $triple in
-    aarch64-*) flags="$flags -C target-feature=+reserve-x18" ;;
+    aarch64-*) flags="$flags -C target-feature=+reserve-x18,-outline-atomics" ;;
   esac
   RUSTFLAGS="$flags" \
     cargo build --quiet --release "${packages[@]}" --target "$triple" --target-dir "$build"
