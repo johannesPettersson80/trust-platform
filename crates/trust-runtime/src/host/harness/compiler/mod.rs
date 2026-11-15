@@ -29,9 +29,9 @@ pub(crate) use model::{
     ProgramConnection, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
 pub(super) use model::{CompileTimeConsts, LoweringContext, LoweringInputs};
+pub(crate) use pou::qualified_pou_name;
 pub(super) use pou::{
     lower_classes, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
-    qualified_pou_name,
 };
 pub(super) use struct_extends::add_struct_bases;
 pub(crate) use types::{class_type_name, function_block_type_name};

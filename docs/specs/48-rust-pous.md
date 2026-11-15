@@ -370,8 +370,8 @@ trust-hir checks the project with these declarations as with any other: a Struct
 Rust POU is checked against them, the language server's hover, completion, references and rename
 read them (specification 14). A POU marked `{attribute 'rust'}` has no statements, its body being
 the Rust item; trust-hir reports a statement in one, and the attribute on a declaration that is not
-a function, function block or program, as an error. A rename of a Rust POU from the Structured Text
-side is refused with the advice to rename it in Rust, where its name lives.
+a function, function block or program, as the error E310. A rename of a Rust POU from the
+Structured Text side is refused with the advice to rename it in Rust, where its name lives.
 
 **RU-24. Writing them.** `trust-dev rust declarations` writes the generated declarations from the
 crate's sources, without compiling them: it reads the attributed items with the reader the
@@ -555,9 +555,12 @@ definition of each.
 **RU-43.** The build compiles the scan crate graph with the bundle's `cargo` and `rustc`, offline
 when the sources are vendored or cached (RU-10), with a compiler wrapper of trust-runtime that adds
 `-F unsafe-code` and specification 44 §4.5's flags to every crate outside the SDK's sources (RU-09,
-RU-20). The user's own `cargo` and toolchain are never used (§16). The build's folder is
-`build/rust/` in the project, which `.gitignore` lists; it holds the generated crates and cargo's
-target folder, so a second build compiles only what changed.
+RU-20). The user's own `cargo` and toolchain are never used (§16). The generated crate of layer 3
+is a cargo package that depends on the project's crate, with the SDK's crates patched to the
+toolchain's sources whatever version the project's manifest names (RU-12), and the build starts
+from the project's `Cargo.lock`. The package and cargo's target folder lie in the build's folder of
+the target, `build/native/<target>/` in the project, which `.gitignore` lists, so a second build
+compiles only what changed.
 
 **RU-44. Diagnostics.** A Rust compiler error or warning of the project's crate is reported by the
 build with its `.rs` file, line, column and message (`rustc`'s JSON diagnostics), and the VS Code

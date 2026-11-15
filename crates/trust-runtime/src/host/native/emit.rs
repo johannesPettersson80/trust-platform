@@ -4,6 +4,7 @@
 
 mod bodies;
 mod connections;
+mod rust_glue;
 
 use std::fmt::Write as _;
 

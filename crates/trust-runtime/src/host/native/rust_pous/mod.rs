@@ -38,6 +38,8 @@ pub struct RustCrate {
     /// The crate's name as Rust code names it: `[lib] name`, else the package's name with `_` for
     /// `-`.
     pub name: String,
+    /// The crate's package, as its manifest names it.
+    pub package: String,
     /// The Rust POUs, in the order the crate's modules declare them.
     pub pous: Vec<RustPou>,
 }
@@ -94,12 +96,17 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
     let text = std::fs::read_to_string(&manifest).map_err(|error| whole(error.to_string()))?;
     let table: toml::Table = toml::from_str(&text).map_err(|error| whole(error.to_string()))?;
     let lib = table.get("lib").and_then(toml::Value::as_table);
+    let package = table
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| whole("the crate's manifest names no package".into()))?
+        .to_string();
     let name = lib
         .and_then(|lib| lib.get("name"))
-        .or_else(|| table.get("package").and_then(|package| package.get("name")))
         .and_then(toml::Value::as_str)
-        .map(|name| name.replace('-', "_"))
-        .ok_or_else(|| whole("the crate's manifest names no package".into()))?;
+        .unwrap_or(&package)
+        .replace('-', "_");
     let root = lib
         .and_then(|lib| lib.get("path"))
         .and_then(toml::Value::as_str)
@@ -108,6 +115,7 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
     if found.errors.is_empty() {
         Ok(Some(RustCrate {
             name,
+            package,
             pous: found.pous,
         }))
     } else {
@@ -174,6 +182,61 @@ pub fn write_declarations(project: &Path) -> Result<Written, Vec<RustPouError>> 
     }
     std::fs::write(&file, text).map_err(failed)?;
     Ok(Written::Wrote(krate.pous.len()))
+}
+
+/// How the generated code calls a Rust POU (specification 48 RU-28): the Rust path of its item
+/// in the build's crate graph and its variables in declaration order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RustLink {
+    /// The path of the struct or the function: `::trust_project::filter::FilterEma`.
+    pub(super) call: String,
+    /// The variables' names in declaration order, the order the call takes them.
+    pub(super) variables: Vec<String>,
+}
+
+/// The calls of `krate`'s POUs, by their Structured Text names in capitals.
+pub(super) fn links(krate: &RustCrate) -> std::collections::HashMap<String, RustLink> {
+    krate
+        .pous
+        .iter()
+        .map(|pou| {
+            let call = format!(
+                "::{}::{}",
+                super::cargo_build::PROJECT_CRATE,
+                pou.path.join("::")
+            );
+            let variables = pou
+                .pou
+                .variables
+                .iter()
+                .map(|variable| variable.name.clone())
+                .collect();
+            (
+                pou.pou.name.to_ascii_uppercase(),
+                RustLink { call, variables },
+            )
+        })
+        .collect()
+}
+
+/// Whether the project in `project` holds the declarations of `krate` (RU-24): the build refuses
+/// a project whose committed declarations are not what its crate declares, naming the command
+/// that writes them.
+///
+/// # Errors
+///
+/// The refusal's message.
+pub(super) fn check_declarations(project: &Path, krate: &RustCrate) -> Result<(), String> {
+    let held = std::fs::read_to_string(project.join(DECLARATIONS_FILE)).ok();
+    let wanted = (!krate.pous.is_empty()).then(|| declarations_text(krate));
+    if held == wanted {
+        Ok(())
+    } else {
+        Err(format!(
+            "{DECLARATIONS_FILE} does not hold the declarations of the project's Rust crate: write \
+             them with `trust-dev rust declarations` (specification 48 RU-24)"
+        ))
+    }
 }
 
 #[cfg(test)]

@@ -41,6 +41,15 @@ case $host in
     ln -sfn "$sysroot/lib/rustlib/$host/bin/rust-lld" "$out/bin/rust-lld"
     ;;
 esac
+# A program whose project has a Rust crate is built by the compiler's cargo against the SDK's
+# crates (specification 48 §9.3, RU-12): the folder names this checkout's crates.
+case $host in
+  *-windows-*) ;;
+  *)
+    ln -sfn "$sysroot/bin/cargo" "$out/bin/cargo"
+    ln -sfn "$root/crates" "$out/sdk"
+    ;;
+esac
 for triple in "${triples[@]}"; do
   build="$out/build"
   # The module flags of specification 44 §4.5 that the libraries share with the module:

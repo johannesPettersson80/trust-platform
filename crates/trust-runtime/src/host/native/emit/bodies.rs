@@ -154,6 +154,12 @@ fn block_body(
             .find(|member| member.via.is_empty() && member.name.eq_ignore_ascii_case(input))
             .map(|member| format!("me.{}", member.field()))
     })?;
+    // A Rust function block's body is its Rust item, which the glue calls (specification 48 RU-28);
+    // its declaration holds no statements.
+    if trust_hir::rust_pous::is_rust_pou(&node) {
+        let link = rust_link(context, &def.name)?;
+        super::rust_glue::block(&mut lowerer, ty, &link)?;
+    }
     // Its statements may stand before and after its methods and actions, each run of them a
     // statement list of its own, run in source order (specification 04 §8).
     for list in node.children().filter(|child| child.kind() == K::StmtList) {
@@ -336,6 +342,11 @@ fn function_body(
         let area = if retained { "w.r" } else { "w.g" };
         lowerer.bind_static(&local.name, format!("{area}.{}", rust_field(&hidden)), ty);
     }
+    // A Rust function's body is the call of its Rust item (specification 48 RU-28).
+    if trust_hir::rust_pous::is_rust_pou(&node) {
+        let link = rust_link(context, &def.name)?;
+        super::rust_glue::function(&mut lowerer, &def.params, &link)?;
+    }
     if let Some(list) = body_of(&node) {
         lowerer.body(&list)?;
     }
@@ -349,6 +360,19 @@ fn function_body(
         returns,
     };
     Ok(finished(lowerer, &signature, name, of))
+}
+
+/// How the generated code calls the Rust POU `name` (specification 48 RU-28).
+fn rust_link(
+    context: &BodyContext<'_>,
+    name: &str,
+) -> Result<super::super::rust_pous::RustLink, NativeError> {
+    context
+        .front
+        .rust
+        .get(&name.to_ascii_uppercase())
+        .cloned()
+        .ok_or_else(|| NativeError::Compile(format!("the Rust POU {name} has no Rust item")))
 }
 
 /// The source file of a POU: the file whose syntax tree holds its body.

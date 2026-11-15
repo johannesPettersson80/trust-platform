@@ -41,7 +41,7 @@ fn load_runtime(
         });
         let sources = load_sources(&runtime_root)?;
         let profile = trust_runtime::native::conversion_profile(&runtime_root)?;
-        let runtime = build_sources(&sources, profile)?;
+        let runtime = build_sources(&sources, profile, Some(&runtime_root))?;
         return Ok(LoadedRuntime {
             bundle: None,
             runtime,
@@ -59,7 +59,7 @@ fn load_runtime(
         text: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
     };
     let sources = SourceRegistry::new(vec![bootstrap_source]);
-    let runtime = build_sources(&sources, ConversionProfile::Iec)?;
+    let runtime = build_sources(&sources, ConversionProfile::Iec, None)?;
 
     Ok(LoadedRuntime {
         bundle: None,
@@ -101,10 +101,12 @@ fn check_bundle_identify_output(bundle: &RuntimeBundle) -> anyhow::Result<()> {
 /// The program of `sources`, built for this computer with the toolchain, installed on the first
 /// build that needs it (specification 44 §8.8, §4.6), with the conversion rules `profile` of the
 /// project's `vendor_profile` (docs/specs/07-standard-functions.md 2.10): a launch without a
-/// project builds the sources it is given, in a temporary folder.
+/// project builds the sources it is given, in a temporary folder, and a project's build takes its
+/// Rust crate (specification 48 §9).
 fn build_sources(
     sources: &SourceRegistry,
     profile: ConversionProfile,
+    project: Option<&Path>,
 ) -> anyhow::Result<trust_runtime::CompiledRuntime> {
     let toolchain = crate::toolchain::build_toolchain()?;
     let target = trust_runtime::native::Target::this_cpu()
@@ -120,17 +122,18 @@ fn build_sources(
         })
         .collect::<Vec<_>>();
     let work = std::env::temp_dir().join(format!("trust-runtime-sources-{}", std::process::id()));
-    let built = trust_runtime::native::build_with_conversions(
-        &files,
-        &[],
-        &trust_runtime::native::Options {
-            target,
-            hooks: true,
-        },
-        profile,
-        &toolchain,
-        &work,
-    );
+    let options = trust_runtime::native::Options {
+        target,
+        hooks: true,
+    };
+    let built = match project {
+        Some(project) => trust_runtime::native::build_project(
+            project, &files, &[], &options, profile, &toolchain, &work,
+        ),
+        None => trust_runtime::native::build_with_conversions(
+            &files, &[], &options, profile, &toolchain, &work,
+        ),
+    };
     let _ = std::fs::remove_dir_all(&work);
     Ok(trust_runtime::CompiledRuntime::load(
         built?.image,
