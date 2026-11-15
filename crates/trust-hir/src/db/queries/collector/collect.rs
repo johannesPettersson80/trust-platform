@@ -224,6 +224,7 @@ impl SymbolCollector<'_> {
         // (specification 14 §6.1.2).
         symbol.modifiers.hidden = declares_attribute(node, "hide");
         symbol.modifiers.hides_locals = declares_attribute(node, "hide_all_locals");
+        symbol.modifiers.rust = crate::rust_pous::is_rust_pou(node);
         symbol.parent = self.current_parent();
         if let Some(owner_parts) = owner_parts {
             let owner_id = self

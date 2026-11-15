@@ -370,7 +370,7 @@ trust-hir checks the project with these declarations as with any other: a Struct
 Rust POU is checked against them, the language server's hover, completion, references and rename
 read them (specification 14). A POU marked `{attribute 'rust'}` has no statements, its body being
 the Rust item; trust-hir reports a statement in one, and the attribute on a declaration that is not
-a function, function block or program, as an error. A rename of a Rust POU from the Structured Text
+a function, function block or program, as the error E310. A rename of a Rust POU from the Structured Text
 side is refused with the advice to rename it in Rust, where its name lives.
 
 **RU-24. Writing them.** `trust-dev rust declarations` writes the generated declarations from the

@@ -241,6 +241,9 @@ pub struct SymbolModifiers {
     pub hidden: bool,
     /// `{attribute 'hide_all_locals'}` on a POU: its `VAR` locals are hidden.
     pub hides_locals: bool,
+    /// `{attribute 'rust'}` on a function, function block or program: its body is a Rust item of
+    /// the project's crate (specification 48 RU-23, RU-31).
+    pub rust: bool,
 }
 
 /// Edge transformation applied to an accepted `VAR_INPUT BOOL` declaration.

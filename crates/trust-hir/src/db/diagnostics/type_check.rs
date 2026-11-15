@@ -143,7 +143,10 @@ fn type_check_pou_with_expression_types(
         checker.stmt().check_statement_list_with_labels(&stmt_list);
     }
 
-    checker.finish_return_checks(node);
+    // A Rust function's result is its Rust item's (specification 48 RU-23).
+    if !crate::rust_pous::is_rust_pou(node) {
+        checker.finish_return_checks(node);
+    }
 
     if let Some(expression_types) = expression_types {
         expression_types.take_from(&mut checker);
