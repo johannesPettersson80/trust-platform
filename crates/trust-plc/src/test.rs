@@ -6,8 +6,9 @@ use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
 
 use crate::Cx;
 
-/// A context as the kernel gives an activation outside a task: logical time 0, no debugger.
+/// A context as the kernel gives an activation outside a task: logical time 0, no debugger, no
+/// wall clock.
 #[must_use]
 pub fn cx() -> Cx {
-    Cx::new(&WITHOUT_DEBUGGER)
+    Cx::of(trust_plc_abi::Cx::new(&WITHOUT_DEBUGGER))
 }

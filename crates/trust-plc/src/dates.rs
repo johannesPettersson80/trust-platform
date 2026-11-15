@@ -110,7 +110,7 @@ impl Date {
     ///
     /// `Overflow` for a date that does not exist or that no `DATE` holds.
     pub fn from_ymd(cx: &mut Cx, year: i64, month: i64, day: i64) -> Result<Self, Fault> {
-        trust_plc_lib::concat_date(cx, year, month, day).map(Self)
+        trust_plc_lib::concat_date(cx.raw(), year, month, day).map(Self)
     }
 
     /// Its year, month and day, as `SPLIT_DATE` gives them.
@@ -131,7 +131,7 @@ impl Date {
     ///
     /// `Overflow` for a difference no `TIME` holds.
     pub fn since(self, cx: &mut Cx, earlier: Self) -> Result<Time, Fault> {
-        trust_plc_lib::ticks_diff(cx, self.0, earlier.0).map(Time::from_nanos)
+        trust_plc_lib::ticks_diff(cx.raw(), self.0, earlier.0).map(Time::from_nanos)
     }
 }
 
@@ -142,8 +142,8 @@ impl LDate {
     ///
     /// `Overflow` for a date that does not exist or that no `LDATE` holds.
     pub fn from_ymd(cx: &mut Cx, year: i64, month: i64, day: i64) -> Result<Self, Fault> {
-        let ticks = trust_plc_lib::concat_date(cx, year, month, day)?;
-        trust_plc_lib::ticks_to_nanos(cx, ticks).map(Self)
+        let ticks = trust_plc_lib::concat_date(cx.raw(), year, month, day)?;
+        trust_plc_lib::ticks_to_nanos(cx.raw(), ticks).map(Self)
     }
 
     /// Its year, month and day.
@@ -166,7 +166,7 @@ impl Tod {
         second: i64,
         millisecond: i64,
     ) -> Result<Self, Fault> {
-        trust_plc_lib::concat_tod(cx, hour, minute, second, millisecond).map(Self)
+        trust_plc_lib::concat_tod(cx.raw(), hour, minute, second, millisecond).map(Self)
     }
 
     /// Its hour, minute, second and millisecond, as `SPLIT_TOD` gives them.
@@ -175,7 +175,7 @@ impl Tod {
     ///
     /// `Overflow` for a time of day whose nanoseconds no `i64` holds.
     pub fn hms(self, cx: &mut Cx) -> Result<[i64; 4], Fault> {
-        trust_plc_lib::split_tod(cx, self.0)
+        trust_plc_lib::split_tod(cx.raw(), self.0)
     }
 
     /// The time of day `duration` later, `TOD + TIME`: the duration in whole milliseconds toward
@@ -185,7 +185,7 @@ impl Tod {
     ///
     /// `DateTimeRange` for a result no `TIME_OF_DAY` holds.
     pub fn checked_add(self, cx: &mut Cx, duration: Time) -> Result<Self, Fault> {
-        trust_plc_lib::ticks_add(cx, self.0, duration.as_nanos(), true).map(Self)
+        trust_plc_lib::ticks_add(cx.raw(), self.0, duration.as_nanos(), true).map(Self)
     }
 
     /// The time of day `duration` earlier, `TOD - TIME`.
@@ -194,7 +194,7 @@ impl Tod {
     ///
     /// `DateTimeRange` for a result no `TIME_OF_DAY` holds.
     pub fn checked_sub(self, cx: &mut Cx, duration: Time) -> Result<Self, Fault> {
-        trust_plc_lib::ticks_add(cx, self.0, duration.as_nanos(), false).map(Self)
+        trust_plc_lib::ticks_add(cx.raw(), self.0, duration.as_nanos(), false).map(Self)
     }
 
     /// The time from `earlier` to it, `TOD - TOD`.
@@ -203,7 +203,7 @@ impl Tod {
     ///
     /// `Overflow` for a difference no `TIME` holds.
     pub fn since(self, cx: &mut Cx, earlier: Self) -> Result<Time, Fault> {
-        trust_plc_lib::ticks_diff(cx, self.0, earlier.0).map(Time::from_nanos)
+        trust_plc_lib::ticks_diff(cx.raw(), self.0, earlier.0).map(Time::from_nanos)
     }
 }
 
@@ -220,7 +220,7 @@ impl LTod {
         second: i64,
         millisecond: i64,
     ) -> Result<Self, Fault> {
-        trust_plc_lib::concat_ltod(cx, hour, minute, second, millisecond).map(Self)
+        trust_plc_lib::concat_ltod(cx.raw(), hour, minute, second, millisecond).map(Self)
     }
 
     /// Its hour, minute, second and millisecond, as `SPLIT_LTOD` gives them.
@@ -235,7 +235,7 @@ impl LTod {
     ///
     /// `Overflow` for a result no `LTIME_OF_DAY` holds.
     pub fn checked_add(self, cx: &mut Cx, duration: LTime) -> Result<Self, Fault> {
-        trust_plc_lib::nanos_add(cx, self.0, duration.as_nanos(), true).map(Self)
+        trust_plc_lib::nanos_add(cx.raw(), self.0, duration.as_nanos(), true).map(Self)
     }
 
     /// The time of day `duration` earlier, `LTOD - LTIME`.
@@ -244,7 +244,7 @@ impl LTod {
     ///
     /// `Overflow` for a result no `LTIME_OF_DAY` holds.
     pub fn checked_sub(self, cx: &mut Cx, duration: LTime) -> Result<Self, Fault> {
-        trust_plc_lib::nanos_add(cx, self.0, duration.as_nanos(), false).map(Self)
+        trust_plc_lib::nanos_add(cx.raw(), self.0, duration.as_nanos(), false).map(Self)
     }
 
     /// The time from `earlier` to it, `LTOD - LTOD`.
@@ -253,7 +253,7 @@ impl LTod {
     ///
     /// `Overflow` for a difference no `LTIME` holds.
     pub fn since(self, cx: &mut Cx, earlier: Self) -> Result<LTime, Fault> {
-        trust_plc_lib::nanos_add(cx, self.0, earlier.0, false).map(LTime::from_nanos)
+        trust_plc_lib::nanos_add(cx.raw(), self.0, earlier.0, false).map(LTime::from_nanos)
     }
 }
 
@@ -264,7 +264,7 @@ impl Dt {
     ///
     /// `DateTimeRange` for a sum no `DATE_AND_TIME` holds.
     pub fn new(cx: &mut Cx, date: Date, tod: Tod) -> Result<Self, Fault> {
-        trust_plc_lib::concat_date_tod(cx, date.0, tod.0).map(Self)
+        trust_plc_lib::concat_date_tod(cx.raw(), date.0, tod.0).map(Self)
     }
 
     /// `year-month-day-hour:minute:second.millisecond`, as `CONCAT_DT` makes it.
@@ -284,7 +284,17 @@ impl Dt {
         second: i64,
         millisecond: i64,
     ) -> Result<Self, Fault> {
-        trust_plc_lib::concat_dt(cx, year, month, day, hour, minute, second, millisecond).map(Self)
+        trust_plc_lib::concat_dt(
+            cx.raw(),
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            millisecond,
+        )
+        .map(Self)
     }
 
     /// Its year, month, day, hour, minute, second and millisecond, as `SPLIT_DT` gives them.
@@ -299,7 +309,7 @@ impl Dt {
     ///
     /// `Overflow` on the first day of the range, whose midnight no `DATE` holds.
     pub fn date(self, cx: &mut Cx) -> Result<Date, Fault> {
-        trust_plc_lib::dt_to_date(cx, self.0).map(Date)
+        trust_plc_lib::dt_to_date(cx.raw(), self.0).map(Date)
     }
 
     /// Its time of day, as `DT_TO_TOD` gives it.
@@ -314,7 +324,7 @@ impl Dt {
     ///
     /// `DateTimeRange` for a result no `DATE_AND_TIME` holds.
     pub fn checked_add(self, cx: &mut Cx, duration: Time) -> Result<Self, Fault> {
-        trust_plc_lib::ticks_add(cx, self.0, duration.as_nanos(), true).map(Self)
+        trust_plc_lib::ticks_add(cx.raw(), self.0, duration.as_nanos(), true).map(Self)
     }
 
     /// The moment `duration` earlier, `DT - TIME`.
@@ -323,7 +333,7 @@ impl Dt {
     ///
     /// `DateTimeRange` for a result no `DATE_AND_TIME` holds.
     pub fn checked_sub(self, cx: &mut Cx, duration: Time) -> Result<Self, Fault> {
-        trust_plc_lib::ticks_add(cx, self.0, duration.as_nanos(), false).map(Self)
+        trust_plc_lib::ticks_add(cx.raw(), self.0, duration.as_nanos(), false).map(Self)
     }
 
     /// The time from `earlier` to it, `DT - DT`.
@@ -332,7 +342,7 @@ impl Dt {
     ///
     /// `Overflow` for a difference no `TIME` holds.
     pub fn since(self, cx: &mut Cx, earlier: Self) -> Result<Time, Fault> {
-        trust_plc_lib::ticks_diff(cx, self.0, earlier.0).map(Time::from_nanos)
+        trust_plc_lib::ticks_diff(cx.raw(), self.0, earlier.0).map(Time::from_nanos)
     }
 }
 
@@ -343,7 +353,7 @@ impl Ldt {
     ///
     /// `Overflow` for a sum no `LDATE_AND_TIME` holds.
     pub fn new(cx: &mut Cx, date: Date, tod: LTod) -> Result<Self, Fault> {
-        trust_plc_lib::concat_date_ltod(cx, date.0, tod.0).map(Self)
+        trust_plc_lib::concat_date_ltod(cx.raw(), date.0, tod.0).map(Self)
     }
 
     /// `year-month-day-hour:minute:second.millisecond`, as `CONCAT_LDT` makes it.
@@ -363,7 +373,17 @@ impl Ldt {
         second: i64,
         millisecond: i64,
     ) -> Result<Self, Fault> {
-        trust_plc_lib::concat_ldt(cx, year, month, day, hour, minute, second, millisecond).map(Self)
+        trust_plc_lib::concat_ldt(
+            cx.raw(),
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            millisecond,
+        )
+        .map(Self)
     }
 
     /// Its year, month, day, hour, minute, second and millisecond, as `SPLIT_LDT` gives them.
@@ -390,7 +410,7 @@ impl Ldt {
     ///
     /// `Overflow` for a result no `LDATE_AND_TIME` holds.
     pub fn checked_add(self, cx: &mut Cx, duration: LTime) -> Result<Self, Fault> {
-        trust_plc_lib::nanos_add(cx, self.0, duration.as_nanos(), true).map(Self)
+        trust_plc_lib::nanos_add(cx.raw(), self.0, duration.as_nanos(), true).map(Self)
     }
 
     /// The moment `duration` earlier, `LDT - LTIME`.
@@ -399,7 +419,7 @@ impl Ldt {
     ///
     /// `Overflow` for a result no `LDATE_AND_TIME` holds.
     pub fn checked_sub(self, cx: &mut Cx, duration: LTime) -> Result<Self, Fault> {
-        trust_plc_lib::nanos_add(cx, self.0, duration.as_nanos(), false).map(Self)
+        trust_plc_lib::nanos_add(cx.raw(), self.0, duration.as_nanos(), false).map(Self)
     }
 
     /// The time from `earlier` to it, `LDT - LDT`.
@@ -408,6 +428,6 @@ impl Ldt {
     ///
     /// `Overflow` for a difference no `LTIME` holds.
     pub fn since(self, cx: &mut Cx, earlier: Self) -> Result<LTime, Fault> {
-        trust_plc_lib::nanos_add(cx, self.0, earlier.0, false).map(LTime::from_nanos)
+        trust_plc_lib::nanos_add(cx.raw(), self.0, earlier.0, false).map(LTime::from_nanos)
     }
 }

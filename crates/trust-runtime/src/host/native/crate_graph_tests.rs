@@ -126,3 +126,66 @@ fn a_project_named_through_a_link_is_checked_all_the_same() {
         found[0]
     );
 }
+
+#[test]
+fn a_crate_outside_the_sdk_depends_only_on_the_crates_the_sdk_publishes() {
+    // RU-20: the crates the SDK is built from serve the generated code (`trust-plc-abi`'s `run`
+    // trusts the context it is handed), so a crate outside the SDK, the project's or one it builds
+    // with, depends on `trust-plc` and `trust-plc-macros` but not on them; what the SDK itself is
+    // built from (`libm`) and a test-only dependency stay allowed. Catches a check that lets the
+    // project or a vendored crate reach the interface crate, or that refuses the SDK's own edges.
+    let root = trust_test_support::unique_temp_path("rust-pou-graph-sdk");
+    let sdk = root.join("sdk");
+    let crate_folder = root.join("project/rust");
+    std::fs::create_dir_all(crate_folder.join("src")).expect("the crate's folder");
+    std::fs::write(crate_folder.join("src/lib.rs"), ROOT).expect("the root");
+    let manifest = |folder: &PathBuf| folder.join("Cargo.toml").display().to_string();
+    let sources = |folder: &PathBuf| folder.join("src").display().to_string();
+    let sdk_crate = |name: &str| {
+        package(
+            name,
+            &manifest(&sdk.join(name)),
+            &["lib"],
+            &sources(&sdk.join(name)),
+        )
+    };
+    let helper = root.join("registry/helper");
+    let metadata = json!({
+        "packages": [
+            package("project", &manifest(&crate_folder), &["lib"], &sources(&crate_folder)),
+            sdk_crate("trust-plc"),
+            sdk_crate("trust-plc-macros"),
+            sdk_crate("trust-plc-abi"),
+            sdk_crate("trust-plc-lib"),
+            package("libm", "/registry/libm/Cargo.toml", &["lib"], "/registry/libm/src"),
+            package("helper", &manifest(&helper), &["lib"], &sources(&helper)),
+        ],
+        "resolve": { "nodes": [
+            { "id": "project", "deps": [
+                { "pkg": "trust-plc", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust-plc-macros", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust-plc-abi", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust-plc-lib", "dep_kinds": [{ "kind": "dev" }] },
+                { "pkg": "libm", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "helper", "dep_kinds": [{ "kind": null }] },
+            ]},
+            { "id": "helper", "deps": [{ "pkg": "trust-plc-lib", "dep_kinds": [{ "kind": null }] }] },
+            { "id": "trust-plc", "deps": [
+                { "pkg": "trust-plc-abi", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust-plc-lib", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust-plc-macros", "dep_kinds": [{ "kind": null }] },
+            ]},
+            { "id": "trust-plc-lib", "deps": [{ "pkg": "libm", "dep_kinds": [{ "kind": null }] }] },
+        ]},
+    });
+    let found = check(&metadata, &sdk, &crate_folder);
+    let expected = [
+        "helper 1.0.0 depends on trust-plc-lib 1.0.0, which the SDK is built from",
+        "project 1.0.0 depends on trust-plc-abi 1.0.0, which the SDK is built from",
+    ];
+    assert_eq!(found.len(), expected.len(), "{found:#?}");
+    for (message, start) in found.iter().zip(expected) {
+        assert!(message.starts_with(start), "{message}\n  expected: {start}");
+        assert!(message.contains("RU-20"), "{message}");
+    }
+}

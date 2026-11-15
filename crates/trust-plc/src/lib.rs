@@ -4,11 +4,11 @@
 //! module with the generated Structured Text, and keeps the scan's rules (specification 48 §5): it
 //! returns faults instead of panicking, allocates nothing and runs without the standard library.
 //! This crate gives it the attributes that declare it (`#[trust_fb]`, `#[trust_function]` and
-//! `#[budget]`, §6.1) and what it needs from the two crates every module already links: the
-//! activation's context and the faults of the kernel interface (`trust-plc-abi`), and the
-//! standard's arithmetic and mathematics of the program library (`trust-plc-lib`). A Rust POU
-//! therefore computes and faults as the Structured Text beside it does: both call the same
-//! functions.
+//! `#[budget]`, §6.1), its own context of a call ([`Cx`]: the task's logical time, the wall clock
+//! and its faults, RU-11), and what it needs from the two crates every module already links: the
+//! faults of the kernel interface (`trust-plc-abi`), and the standard's arithmetic and mathematics
+//! of the program library (`trust-plc-lib`). A Rust POU therefore computes and faults as the
+//! Structured Text beside it does: both call the same functions.
 //!
 //! The crate holds no `unsafe` code; the `unsafe` of a module stays in the interface crate
 //! (specification 44 §6.9).
@@ -19,6 +19,7 @@
 
 pub mod arrays;
 pub mod checked;
+mod context;
 pub mod dates;
 pub mod math;
 pub mod prelude;
@@ -27,9 +28,12 @@ pub mod test;
 pub mod types;
 
 pub use arrays::Array;
+#[doc(hidden)]
+pub use context::__private;
+pub use context::Cx;
 pub use dates::{Date, Dt, LDate, LTod, Ldt, Tod};
 pub use strings::{Str, WStr};
-pub use trust_plc_abi::{Cx, Fault, FaultCode};
+pub use trust_plc_abi::{Fault, FaultCode};
 pub use trust_plc_macros::{budget, trust_enum, trust_fb, trust_function, trust_struct};
 pub use types::{
     declared_default, Byte, Char, Declared, Dword, LTime, Lword, Placed, Stored, Time, WChar, Word,
@@ -40,7 +44,7 @@ pub use types::{
 /// the scan as a fault of Structured Text does; return it from the POU: `return
 /// Err(rust_fault(cx, 7, level, limit))`.
 pub fn rust_fault(cx: &mut Cx, number: i64, first: i64, second: i64) -> Fault {
-    trust_plc_abi::module::fault(cx, FaultCode::RustFault, number, first, second)
+    trust_plc_abi::module::fault(cx.raw(), FaultCode::RustFault, number, first, second)
 }
 
 /// The body of a Rust function block (specification 48 §6.1): what one call runs on the block's
