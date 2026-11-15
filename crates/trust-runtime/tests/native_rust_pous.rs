@@ -285,16 +285,18 @@ fn a_project_whose_declarations_are_out_of_date_does_not_build() {
     );
 }
 
-/// A project with the crate files `files` (relative to `rust/`) and a program that calls `PASS_ON`.
-fn custom_project(name: &str, files: &[(&str, &str)]) -> PathBuf {
+/// A program that calls `PASS_ON`.
+const PASS_ON_PROGRAM: &str =
+    "PROGRAM Line\nVAR\n    result : DINT;\nEND_VAR\nresult := PASS_ON(a := 1);\nEND_PROGRAM\n";
+
+/// A project with the crate files `files` (relative to `rust/`) and the program `program`.
+fn custom_project(name: &str, files: &[(&str, &str)], program: &str) -> PathBuf {
     let root = trust_test_support::unique_temp_path(name);
     for (path, text) in files {
         let file = root.join("rust").join(path);
         std::fs::create_dir_all(file.parent().expect("a folder")).expect("the folder");
         std::fs::write(file, text).expect("the file");
     }
-    let program =
-        "PROGRAM Line\nVAR\n    result : DINT;\nEND_VAR\nresult := PASS_ON(a := 1);\nEND_PROGRAM\n";
     std::fs::create_dir_all(root.join("src")).expect("the sources' folder");
     std::fs::write(root.join("src/main.st"), program).expect("the program");
     assert_eq!(write_declarations(&root), Ok(Written::Wrote(1)));
@@ -350,6 +352,7 @@ fn a_crate_that_breaks_its_rules_is_refused_before_it_compiles() {
             ("Cargo.toml", &manifest("")),
             ("src/lib.rs", &root("#![cfg_attr(not(test), no_std)]\n\n")),
         ],
+        PASS_ON_PROGRAM,
     );
     let (error, _) = build_error(&root);
     assert!(
@@ -389,6 +392,7 @@ fn a_dependency_with_unsafe_code_or_a_build_script_is_refused() {
             ("vendor/scripted/build.rs", "fn main() {}\n"),
             ("vendor/scripted/src/lib.rs", "#![no_std]\n"),
         ],
+        PASS_ON_PROGRAM,
     );
     let (error, toolchain) = build_error(&root);
     if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
@@ -458,4 +462,67 @@ fn a_project_named_by_a_relative_path_builds() {
         return;
     }
     result.unwrap_or_else(|error| panic!("the project builds named {}: {error}", named.display()));
+}
+
+/// A function that refuses a level above 100 with a fault of its own.
+const CHECKED_LEVEL: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"CHECKED_LEVEL\")]
+#[budget(\"1us\")]
+pub fn checked_level(cx: &mut Cx, level: i32) -> Result<i32, Fault> {
+    if level > 100 {
+        return Err(rust_fault(cx, 7, i64::from(level), 100));
+    }
+    Ok(level)
+}
+";
+
+/// A program that calls CHECKED_LEVEL with 150 in a 10 ms task.
+const CHECKED_PROGRAM: &str = "PROGRAM Line
+VAR
+    result : DINT := -1;
+END_VAR
+result := CHECKED_LEVEL(level := 150);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_rust_pous_own_fault_ends_the_scan_with_its_numbers() {
+    // Catches a Rust POU's own fault reported as another, or without the numbers it chose: RU-14
+    // gives it the code RustFault (specification 44 Appendix A, 20) with the POU's number 7 and its
+    // detail 150 and 100, whose stable code is `runtime_rust_fault`; the assignment it ended never
+    // stores, so the result keeps -1.
+    let root = custom_project(
+        "rust-pous-rust-fault",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", CHECKED_LEVEL)],
+        CHECKED_PROGRAM,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let error = program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect_err("the fault ends the scan");
+    assert_eq!(
+        error,
+        RuntimeError::RustFault {
+            number: 7,
+            first: 150,
+            second: 100
+        }
+    );
+    assert_eq!(error.stable_code().as_str(), "runtime_rust_fault");
+    assert_eq!(program.value("MAIN.RESULT"), Some(Value::DInt(-1)));
 }

@@ -35,7 +35,8 @@ pub use strings::{Str, StrView, WStr, WStrView};
 
 /// The version of this interface. A module carries the version it was built against in its image's
 /// header, and a kernel runs only a module of its own version (specification 44 §8.2, §10.2).
-pub const INTERFACE_VERSION: u32 = 5;
+/// Version 6 has the fault code `RustFault` (specification 48 RU-14).
+pub const INTERFACE_VERSION: u32 = 6;
 
 /// The id of the input area, `%I` (specification 44 §7.1).
 pub const AREA_INPUTS: u8 = 1;

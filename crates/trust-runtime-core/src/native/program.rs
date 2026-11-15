@@ -1167,6 +1167,11 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
             RuntimeError::AssertionFailed("assertion failed".into())
         }
         Some(FaultCode::CallDepth) => RuntimeError::CallDepthExceeded,
+        Some(FaultCode::RustFault) => RuntimeError::RustFault {
+            number: a,
+            first: b,
+            second: c,
+        },
         Some(
             FaultCode::StackOverflow | FaultCode::MemoryProtection | FaultCode::ModuleInternal,
         )

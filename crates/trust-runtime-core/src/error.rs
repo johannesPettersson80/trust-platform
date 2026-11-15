@@ -175,6 +175,18 @@ pub enum RuntimeError {
     #[error("call depth exceeded")]
     CallDepthExceeded,
 
+    /// A Rust POU's own fault (specification 48 RU-14, specification 44 Appendix A): the number the
+    /// POU chose and its two numbers of detail.
+    #[error("Rust fault {number} ({first}, {second})")]
+    RustFault {
+        /// The number the POU chose.
+        number: i64,
+        /// The first number of detail.
+        first: i64,
+        /// The second number of detail.
+        second: i64,
+    },
+
     /// Thread spawn error.
     #[error("thread spawn error '{0}'")]
     ThreadSpawn(SmolStr),
@@ -304,6 +316,7 @@ impl RuntimeError {
             Self::IoFreshness(_) => StableErrorCode::RuntimeIoFreshness,
             Self::InitFailed { .. } => StableErrorCode::RuntimeInitFailed,
             Self::CallDepthExceeded => StableErrorCode::VmCallStackOverflow,
+            Self::RustFault { .. } => StableErrorCode::RuntimeRustFault,
             Self::ThreadSpawn(_) => StableErrorCode::RuntimeThreadSpawn,
             Self::WatchdogTimeout => StableErrorCode::RuntimeWatchdogTimeout,
             Self::RestartLimitExceeded { .. } => StableErrorCode::RuntimeRestartLimitExceeded,

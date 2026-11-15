@@ -3288,7 +3288,8 @@ variants map to `runtime_<variant-name>` in lower snake case, including
 `runtime_index_out_of_bounds`, `runtime_subrange_violation`,
 `runtime_null_reference`, `runtime_for_step_zero`, `runtime_watchdog_timeout`, and
 `runtime_execution_timeout`. A call deeper than the kernel gives an activation keeps
-`vm_call_stack_overflow` (specification 44 §6.4). The codes of the bytecode container and its
+`vm_call_stack_overflow` (specification 44 §6.4). A Rust POU's own fault is `runtime_rust_fault`,
+with the number the POU chose and two numbers of detail (specification 48 RU-14). The codes of the bytecode container and its
 virtual machine (`bytecode_*`, every other `vm_*` code, `runtime_invalid_bytecode`,
 `runtime_invalid_bytecode_metadata`, `runtime_unsupported_bytecode_version`) and of the checks
 that engine made while it ran (`runtime_condition_not_bool`, `runtime_case_selector_type`,

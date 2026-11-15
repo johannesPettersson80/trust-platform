@@ -54,6 +54,7 @@ pub enum StableErrorCode {
     RuntimeNonFiniteValue,
     RuntimeDeploymentRecordInvalid,
     RuntimeDeploymentRefused,
+    RuntimeRustFault,
 }
 
 impl StableErrorCode {
@@ -108,6 +109,7 @@ impl StableErrorCode {
             Self::RuntimeNonFiniteValue => "runtime_non_finite_value",
             Self::RuntimeDeploymentRecordInvalid => "runtime_deployment_record_invalid",
             Self::RuntimeDeploymentRefused => "runtime_deployment_refused",
+            Self::RuntimeRustFault => "runtime_rust_fault",
         }
     }
 }
@@ -198,9 +200,10 @@ mod tests {
             RuntimeNonFiniteValue,
             RuntimeDeploymentRecordInvalid,
             RuntimeDeploymentRefused,
+            RuntimeRustFault,
         ];
 
-        assert_eq!(codes.len(), 47);
+        assert_eq!(codes.len(), 48);
         for (index, code) in codes.iter().copied().enumerate() {
             assert!(
                 !codes[..index].contains(&code),
@@ -263,7 +266,8 @@ mod tests {
             | RuntimeStringCapacityExceeded
             | RuntimeNonFiniteValue
             | RuntimeDeploymentRecordInvalid
-            | RuntimeDeploymentRefused => {}
+            | RuntimeDeploymentRefused
+            | RuntimeRustFault => {}
         }
     }
 

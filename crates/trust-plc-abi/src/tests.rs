@@ -48,8 +48,9 @@ fn fault_codes_are_numbered_from_one_in_appendix_order() {
     assert_eq!(FaultCode::AssertionFailed as u32, 17);
     assert_eq!(FaultCode::AssertionNear as u32, 18);
     assert_eq!(FaultCode::CallDepth as u32, 19);
+    assert_eq!(FaultCode::RustFault as u32, 20);
     assert_eq!(FaultCode::from_raw(0), None);
-    assert_eq!(FaultCode::from_raw(20), None);
+    assert_eq!(FaultCode::from_raw(21), None);
 }
 
 plain_struct! {
@@ -581,6 +582,7 @@ fn a_catchable_fault_maps_to_its_codesys_exception_code_and_the_others_to_none()
         FaultCode::ForStepZero,
         FaultCode::TypeMismatch,
         FaultCode::StringCapacityExceeded,
+        FaultCode::RustFault,
     ] {
         assert_eq!(code(unknown), Some(0xFFFF_FFFF), "{unknown:?}");
     }

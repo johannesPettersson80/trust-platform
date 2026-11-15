@@ -87,11 +87,14 @@ pub enum FaultCode {
     /// A recursive call found no call depth left (specification 44 §6.4): the bytecode engine's
     /// call beyond its call levels, `call depth exceeded`.
     CallDepth = 19,
+    /// A Rust POU's own fault (specification 48 RU-14): the number the POU chose and two numbers of
+    /// detail: `runtime_rust_fault`.
+    RustFault = 20,
 }
 
 impl FaultCode {
     /// Every code, in the order of their numbers.
-    pub const ALL: [Self; 19] = [
+    pub const ALL: [Self; 20] = [
         Self::DivisionByZero,
         Self::ModuloByZero,
         Self::Overflow,
@@ -111,6 +114,7 @@ impl FaultCode {
         Self::AssertionFailed,
         Self::AssertionNear,
         Self::CallDepth,
+        Self::RustFault,
     ];
 
     /// The code numbered `raw`, or `None` for a number no code has.
@@ -151,7 +155,8 @@ pub fn exception_code(fault: Fault) -> Option<u32> {
         FaultCode::SubrangeViolation
         | FaultCode::ForStepZero
         | FaultCode::TypeMismatch
-        | FaultCode::StringCapacityExceeded => Some(UNKNOWN),
+        | FaultCode::StringCapacityExceeded
+        | FaultCode::RustFault => Some(UNKNOWN),
         FaultCode::InfiniteLoop
         | FaultCode::StackOverflow
         | FaultCode::MemoryProtection

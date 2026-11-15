@@ -212,7 +212,8 @@ reference beyond its call. The build refuses a changing `static` in the scan cra
 **RU-14.** A Rust POU returns `Result<_, Fault>`. `Fault` carries one of
 specification 10 §10.2's stable codes, with the detail specification 44 §8.6 gives each, or the
 code `RustFault` (Appendix A of specification 44, added by this specification) with a number the POU
-chooses and up to two numbers of detail. A fault ends the scan as a fault of Structured Text does:
+chooses and two numbers of detail, which `trust_plc::rust_fault(cx, number, first, second)` makes:
+`return Err(rust_fault(cx, 7, level, limit))`. A fault ends the scan as a fault of Structured Text does:
 the kernel latches it, applies the output policy and reports it with the Structured Text statement
 that called the Rust POU, the Rust POU's name and its fault (§11.3). A Rust POU never panics:
 specification 44 §8.6 refuses a module whose code references the panic machinery, and the build
@@ -999,7 +1000,7 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
 
 | Name | Code | Detail |
 |---|---|---|
-| `RustFault` | specification 10 §10.2's next stable code, numbered in `trust-plc-abi` | the POU's number, then up to two numbers of its choice; the Rust POU's name from the symbol table |
+| `RustFault` | 20 in `trust-plc-abi` (specification 44 Appendix A, kernel interface version 6), stable code `runtime_rust_fault` (specification 10 §10.2), `RTSEXCPT_UNKNOWN` in `__TRY` (specification 06 §15) | the POU's number, then two numbers of its choice; the calling statement names the Rust POU |
 | event `rust_budget_exceeded` | specification 11's events | the POU's name, the measured time, the budget |
 
 ## Appendix B — `trust.toml`

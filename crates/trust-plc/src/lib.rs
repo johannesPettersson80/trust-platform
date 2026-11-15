@@ -25,6 +25,14 @@ pub mod test;
 pub use trust_plc_abi::{Cx, Fault, FaultCode, Str, WStr};
 pub use trust_plc_macros::{budget, trust_fb, trust_function};
 
+/// A Rust POU's own fault (specification 48 RU-14): the number the POU chooses and two numbers of
+/// detail, which the kernel reports with the Structured Text statement that called the POU. It ends
+/// the scan as a fault of Structured Text does; return it from the POU: `return
+/// Err(rust_fault(cx, 7, level, limit))`.
+pub fn rust_fault(cx: &mut Cx, number: i64, first: i64, second: i64) -> Fault {
+    trust_plc_abi::module::fault(cx, FaultCode::RustFault, number, first, second)
+}
+
 /// The body of a Rust function block (specification 48 §6.1): what one call runs on the block's
 /// variables. `#[trust_fb]` gives the block the calls that run it as the kernel does (RU-28).
 #[diagnostic::on_unimplemented(
