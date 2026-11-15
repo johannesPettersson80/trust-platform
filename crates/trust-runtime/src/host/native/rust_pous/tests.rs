@@ -604,7 +604,7 @@ fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
     );
     assert!(
         found.iter().any(|error| error.contains("LABEL")
-            && error.contains("the variable text: a function's string in-out")),
+            && error.contains("the variable text: a function's or a method's string in-out")),
         "{found:?}"
     );
 }
@@ -671,6 +671,84 @@ fn a_blocks_methods_are_declared_with_it() {
         found.iter().any(
             |error| error.contains("the method target of AXIS is named as target of the block")
         ),
+        "{found:?}"
+    );
+}
+
+/// A crate whose block AIM has a method with variables and a result of the crate's types, one of
+/// them named otherwise in Structured Text.
+const AIM: &str = "use trust_plc::prelude::*;
+use crate::modes::Mode;
+
+#[trust_struct(name = \"S_SPOT\")]
+#[derive(Clone, Copy)]
+pub struct Spot {
+    pub x: f64,
+}
+
+#[trust_fb(name = \"AIM\")]
+#[budget(\"1us\")]
+pub struct Aim {
+    #[input] pub gain: f64,
+}
+
+impl Aim {
+    #[trust_method]
+    #[budget(\"1us\")]
+    pub fn aim(&mut self, _cx: &mut Cx, spot: Spot, mode: Mode) -> Result<Spot, Fault> {
+        let _ = mode;
+        Ok(spot)
+    }
+}
+";
+
+#[test]
+fn a_methods_variables_bear_the_crates_type_names_and_take_its_checks() {
+    // RU-25, RU-29, RU-32: a method's variables and result of the crate's types bear their
+    // Structured Text names, as the block's own variables do, and take the same checks: a type the
+    // crate does not declare is refused, and so is a method's string in-out, which a method takes
+    // of any capacity as a view (DEV-035), as a function does. Catches a method declared with its
+    // types' Rust names, which Structured Text does not know, and a method's variable that skips
+    // the checks.
+    let lib = "#![cfg_attr(not(test), no_std)]\n\npub mod modes;\npub mod aim;\n";
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        ("rust/src/lib.rs", lib),
+        ("rust/src/modes.rs", MODES),
+        ("rust/src/aim.rs", AIM),
+    ]);
+    let krate = read(&root).expect("the crate reads").expect("a crate");
+    let text = declarations_text(&krate);
+    assert!(
+        text.ends_with(
+            "METHOD PUBLIC aim : S_SPOT\nVAR_INPUT\n    spot : S_SPOT;\n    mode : MODE;\nEND_VAR\n\
+             END_METHOD\nEND_FUNCTION_BLOCK\n"
+        ),
+        "{text}"
+    );
+    let refused = format!(
+        "{AIM}\nimpl Aim {{\n    #[trust_method]\n    #[budget(\"1us\")]\n    \
+         pub fn tag(&mut self, _cx: &mut Cx, text: InOut<'_, Str<8>>) -> Result<(), Fault> {{\n        \
+         let _ = text;\n        Ok(())\n    }}\n\n    #[trust_method]\n    #[budget(\"1us\")]\n    \
+         pub fn odd(&mut self, _cx: &mut Cx, x: Unknown) -> Result<(), Fault> {{\n        \
+         let _ = x;\n        Ok(())\n    }}\n}}\n"
+    );
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        ("rust/src/lib.rs", lib),
+        ("rust/src/modes.rs", MODES),
+        ("rust/src/aim.rs", &refused),
+    ]);
+    let found = errors(&root);
+    assert!(
+        found.iter().any(|error| error.contains(
+            "AIM: the variable text of the method tag: a function's or a method's string in-out"
+        )),
+        "{found:?}"
+    );
+    assert!(
+        found.iter().any(|error| error
+            .contains("AIM: the variable x of the method odd: its type `Unknown` is no")),
         "{found:?}"
     );
 }
