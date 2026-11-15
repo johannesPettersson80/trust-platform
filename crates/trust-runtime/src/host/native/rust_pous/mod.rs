@@ -251,10 +251,21 @@ pub(super) struct Timing {
 /// of a POU the crate has not, one that does not read, and one above the POU's own.
 pub(super) fn timing(project: &Path, triple: &str, krate: &RustCrate) -> Result<Timing, String> {
     let mut timing = Timing {
+        // A method's budget by its block's and its own name, as a call of it names it (RU-32).
         budgets: krate
             .pous
             .iter()
-            .map(|pou| (pou.pou.name.to_ascii_uppercase(), pou.pou.budget_ns))
+            .flat_map(|pou| {
+                let block = pou.pou.name.to_ascii_uppercase();
+                let methods = pou.pou.methods.iter().map(move |method| {
+                    (
+                        format!("{block}.{}", method.name.to_ascii_uppercase()),
+                        method.budget_ns,
+                    )
+                });
+                core::iter::once((pou.pou.name.to_ascii_uppercase(), pou.pou.budget_ns))
+                    .chain(methods)
+            })
             .collect(),
         production: false,
     };
@@ -311,6 +322,19 @@ pub(super) struct RustLink {
     pub(super) call: String,
     /// The variables' names in declaration order, the order the call takes them.
     pub(super) variables: Vec<String>,
+    /// A function block's methods (RU-32).
+    pub(super) methods: Vec<MethodLink>,
+}
+
+/// How the generated code calls a method of a Rust function block (specification 48 RU-32).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct MethodLink {
+    /// Its Structured Text name.
+    pub(super) name: String,
+    /// The Rust function's name.
+    pub(super) item: String,
+    /// Its parameters' names after the context, the order the call takes them.
+    pub(super) variables: Vec<String>,
 }
 
 /// The calls of `krate`'s POUs, by their Structured Text names in capitals.
@@ -330,9 +354,27 @@ pub(super) fn links(krate: &RustCrate) -> std::collections::HashMap<String, Rust
                 .iter()
                 .map(|variable| variable.name.clone())
                 .collect();
+            let methods = pou
+                .pou
+                .methods
+                .iter()
+                .map(|method| MethodLink {
+                    name: method.name.clone(),
+                    item: method.item.clone(),
+                    variables: method
+                        .variables
+                        .iter()
+                        .map(|variable| variable.name.clone())
+                        .collect(),
+                })
+                .collect();
             (
                 pou.pou.name.to_ascii_uppercase(),
-                RustLink { call, variables },
+                RustLink {
+                    call,
+                    variables,
+                    methods,
+                },
             )
         })
         .collect()

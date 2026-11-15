@@ -143,8 +143,9 @@ fn type_check_pou_with_expression_types(
         checker.stmt().check_statement_list_with_labels(&stmt_list);
     }
 
-    // A Rust function's result is its Rust item's (specification 48 RU-23).
-    if !crate::rust_pous::is_rust_pou(node) {
+    // A Rust function's result is its Rust item's (specification 48 RU-23), and a Rust function
+    // block's method's its Rust method's (RU-32).
+    if !crate::rust_pous::is_in_rust_pou(node) {
         checker.finish_return_checks(node);
     }
 

@@ -138,3 +138,25 @@ fn the_attribute_on_another_declaration_is_refused() {
         );
     }
 }
+
+#[test]
+fn a_rust_blocks_method_has_its_result_from_rust() {
+    // RU-32: a Rust function block's method is its Rust method, whose result its Rust code gives,
+    // so its declaration without statements is no missing return value (E206), as a Rust
+    // function's is not; a Structured Text block's method without one is. Catches the check
+    // applied to a Rust method, or skipped for Structured Text's.
+    use crate::db::{Database, FileId, SemanticDatabase, SourceDatabase};
+    let missing = |text: String| {
+        let mut database = Database::new();
+        database.set_source_text(FileId(0), text);
+        database
+            .diagnostics(FileId(0))
+            .iter()
+            .any(|diagnostic| diagnostic.code == crate::diagnostics::DiagnosticCode::MissingReturn)
+    };
+    let block =
+        "FUNCTION_BLOCK AXIS\nMETHOD PUBLIC jog : LREAL\nVAR_INPUT\n    distance : LREAL;\n\
+                 END_VAR\nEND_METHOD\nEND_FUNCTION_BLOCK\n";
+    assert!(!missing(format!("{{attribute 'rust'}}\n{block}")));
+    assert!(missing(block.to_string()));
+}

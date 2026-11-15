@@ -314,8 +314,8 @@ impl StatementIds {
 
 /// Refuses each Rust POU of `sources` that no item of the project's crate declares, with its place
 /// (specification 48 RU-23, §9): a declaration written by hand, or left from an item that is gone,
-/// whose body would never run. A method of a Rust POU is refused too until the build calls Rust
-/// methods (RU-32).
+/// whose body would never run; and so each method of a Rust POU that no Rust method declares
+/// (RU-32).
 fn refuse_rust_pous(
     sources: &[Source],
     rust: &HashMap<String, super::rust_pous::RustLink>,
@@ -334,10 +334,11 @@ fn refuse_rust_pous(
             .descendants()
             .filter(trust_hir::rust_pous::is_rust_pou)
         {
-            let linked = crate::harness::qualified_pou_name(&pou)
-                .is_ok_and(|name| rust.contains_key(&name.to_ascii_uppercase()));
+            let link = crate::harness::qualified_pou_name(&pou)
+                .ok()
+                .and_then(|name| rust.get(&name.to_ascii_uppercase()));
             let name = name_of(&pou);
-            if !linked {
+            let Some(link) = link else {
                 refused.push(NativeError::Unsupported {
                     construct: format!(
                         "the Rust POU {name} without its Rust item (specification 48 RU-23)"
@@ -345,18 +346,25 @@ fn refuse_rust_pous(
                     at: Some(source.place(&pou)),
                 });
                 continue;
-            }
+            };
             for method in pou
                 .descendants()
                 .filter(|node| node.kind() == SyntaxKind::Method)
             {
-                refused.push(NativeError::Unsupported {
-                    construct: format!(
-                        "the method {} of the Rust POU {name} (specification 48 RU-32)",
-                        name_of(&method)
-                    ),
-                    at: Some(source.place(&method)),
-                });
+                let method_name = name_of(&method);
+                if !link
+                    .methods
+                    .iter()
+                    .any(|linked| linked.name.eq_ignore_ascii_case(&method_name))
+                {
+                    refused.push(NativeError::Unsupported {
+                        construct: format!(
+                            "the method {method_name} of the Rust POU {name} without its Rust \
+                             method (specification 48 RU-32)"
+                        ),
+                        at: Some(source.place(&method)),
+                    });
+                }
             }
         }
     }

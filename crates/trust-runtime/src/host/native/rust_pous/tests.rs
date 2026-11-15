@@ -608,3 +608,69 @@ fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
         "{found:?}"
     );
 }
+
+/// A crate whose block AXIS has the method `jog`.
+const AXIS: &str = "use trust_plc::prelude::*;
+
+#[trust_fb(name = \"AXIS\")]
+#[budget(\"1us\")]
+pub struct Axis {
+    #[input] pub target: f64,
+}
+
+impl Axis {
+    #[trust_method]
+    #[budget(\"2us\")]
+    pub fn jog(&mut self, _cx: &mut Cx, distance: f64) -> Result<f64, Fault> {
+        Ok(distance)
+    }
+}
+";
+
+#[test]
+fn a_blocks_methods_are_declared_with_it() {
+    // RU-32: the `#[trust_method]` functions of a block's `impl` blocks are its methods, declared
+    // after its variables; a method of a type that is no `#[trust_fb]` struct, and one named as a
+    // variable of its block is, are refused at their place. Catches a method left out of the
+    // declarations, and one its declaration could not hold.
+    let lib = "#![cfg_attr(not(test), no_std)]\n\npub mod axis;\n";
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        ("rust/src/lib.rs", lib),
+        ("rust/src/axis.rs", AXIS),
+    ]);
+    let krate = read(&root).expect("the crate reads").expect("a crate");
+    let text = declarations_text(&krate);
+    assert!(
+        text.ends_with(
+            "VAR_OUTPUT\n    ENO : BOOL;\nEND_VAR\n\
+             METHOD PUBLIC jog : LREAL\nVAR_INPUT\n    distance : LREAL;\nEND_VAR\nEND_METHOD\n\
+             END_FUNCTION_BLOCK\n"
+        ),
+        "{text}"
+    );
+    let stray = format!(
+        "{AXIS}\npub struct Other;\n\nimpl Other {{\n    #[trust_method]\n    #[budget(\"1us\")]\n    \
+         pub fn run(&mut self, _cx: &mut Cx) -> Result<(), Fault> {{\n        Ok(())\n    }}\n}}\n\n\
+         impl Axis {{\n    #[trust_method]\n    #[budget(\"1us\")]\n    \
+         pub fn target(&mut self, _cx: &mut Cx) -> Result<(), Fault> {{\n        Ok(())\n    }}\n}}\n"
+    );
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        ("rust/src/lib.rs", lib),
+        ("rust/src/axis.rs", &stray),
+    ]);
+    let found = errors(&root);
+    assert!(
+        found
+            .iter()
+            .any(|error| error.contains("the method run is of `Other`, which is not one")),
+        "{found:?}"
+    );
+    assert!(
+        found.iter().any(
+            |error| error.contains("the method target of AXIS is named as target of the block")
+        ),
+        "{found:?}"
+    );
+}
