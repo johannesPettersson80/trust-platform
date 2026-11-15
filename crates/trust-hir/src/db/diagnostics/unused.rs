@@ -254,6 +254,15 @@ pub(in crate::db) fn unused_warning_kind(
     ) {
         return None;
     }
+    // A Rust POU's variables are its Rust item's, which reads and writes them (specification 48
+    // RU-23).
+    if symbol
+        .parent
+        .and_then(|id| symbols.get(id))
+        .is_some_and(|parent| parent.modifiers.rust)
+    {
+        return None;
+    }
 
     match symbol.kind {
         SymbolKind::Program => Some((DiagnosticCode::UnusedPou, "program")),

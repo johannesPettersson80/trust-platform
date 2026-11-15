@@ -5,6 +5,7 @@ mod expression;
 mod globals;
 mod nondeterminism;
 mod oop;
+mod rust_pous;
 mod shared_globals;
 mod test_attributes;
 mod type_check;
@@ -31,6 +32,7 @@ pub(super) use oop::{
     check_abstract_instantiations, check_class_semantics, check_dut_extends_semantics,
     check_extends_implements_semantics, check_interface_conformance, check_property_accessors,
 };
+pub(super) use rust_pous::check_rust_pous;
 pub(super) use shared_globals::{
     check_shared_global_task_hazards, shared_global_owners, CallFacts,
 };

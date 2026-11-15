@@ -37,6 +37,7 @@ fn registered_codes() -> Vec<(DiagnosticCode, &'static str, DiagnosticSeverity)>
         (UnknownTask, "E307", Error),
         (InvalidOpenOtAttribute, "E308", Error),
         (InvalidTestAttribute, "E309", Error),
+        (InvalidRustPou, "E310", Error),
         (UnusedVariable, "W001", Warning),
         (UnusedParameter, "W002", Warning),
         (UnreachableCode, "W003", Warning),

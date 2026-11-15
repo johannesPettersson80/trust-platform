@@ -88,6 +88,9 @@ pub enum DiagnosticCode {
     InvalidOpenOtAttribute,
     /// A test attribute whose value does not read, or that no test program carries (specification 22, "Multi-cycle tests").
     InvalidTestAttribute,
+    /// A Rust POU's declaration that breaks specification 48's rules (RU-23, RU-34): a statement,
+    /// an action, a property or a base, or `{attribute 'rust'}` on another declaration.
+    InvalidRustPou,
 
     // Warnings (W001-W099)
     /// Unused variable.
@@ -168,6 +171,7 @@ impl DiagnosticCode {
             Self::UnknownTask => "E307",
             Self::InvalidOpenOtAttribute => "E308",
             Self::InvalidTestAttribute => "E309",
+            Self::InvalidRustPou => "E310",
             // Warnings
             Self::UnusedVariable => "W001",
             Self::UnusedParameter => "W002",
@@ -223,7 +227,8 @@ impl DiagnosticCode {
             | Self::InvalidTaskConfig
             | Self::UnknownTask
             | Self::InvalidOpenOtAttribute
-            | Self::InvalidTestAttribute => DiagnosticSeverity::Error,
+            | Self::InvalidTestAttribute
+            | Self::InvalidRustPou => DiagnosticSeverity::Error,
 
             // Warnings
             Self::UnusedVariable
