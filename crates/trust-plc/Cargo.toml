@@ -1,0 +1,22 @@
+[package]
+name = "trust-plc"
+description = "The SDK of truST's Rust POUs: the context, faults, checked arithmetic and mathematics a Rust function, function block or program uses (specification 48)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+trust-plc-abi = { workspace = true }
+trust-plc-lib = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[dev-dependencies]
+libm.workspace = true

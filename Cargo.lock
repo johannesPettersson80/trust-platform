@@ -7855,6 +7855,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plc"
+version = "0.41.2"
+dependencies = [
+ "libm",
+ "trust-plc-abi",
+ "trust-plc-lib",
+]
+
+[[package]]
 name = "trust-plc-abi"
 version = "0.41.2"
 dependencies = [

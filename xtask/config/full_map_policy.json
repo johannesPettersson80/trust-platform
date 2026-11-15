@@ -547,6 +547,22 @@
       "rationale": "The program library is compiled into every program module together with the kernel interface whose cells, strings and faults its functions use (specification 44 \u00a76.9)."
     },
     {
+      "from": "trust-plc",
+      "to": "trust-plc-abi",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "The SDK of Rust POUs gives a Rust function, function block or program the activation's context, the faults and the strings of the kernel interface, which every module links (specification 48 \u00a74.3)."
+    },
+    {
+      "from": "trust-plc",
+      "to": "trust-plc-lib",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "The SDK gives a Rust POU the program library's checked arithmetic and elementary functions, the ones the generated Structured Text calls, so that both compute and fault alike (specification 48 \u00a75.3, \u00a75.5)."
+    },
+    {
       "from": "trust-runtime-core",
       "to": "trust-plc-abi",
       "kind": "normal",

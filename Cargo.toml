@@ -13,6 +13,7 @@ members = [
     "crates/trust-ads-server",
     "crates/verification-cases",
     "crates/trust-runtime-core",
+    "crates/trust-plc",
     "crates/trust-plc-abi",
     "crates/trust-plc-lib",
     "crates/trust-plc-mem",
