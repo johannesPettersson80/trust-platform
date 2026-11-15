@@ -6561,6 +6561,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plc-decl"
+version = "0.41.2"
+dependencies = [
+ "proc-macro2",
+ "syn 3.0.7",
+]
+
+[[package]]
 name = "trust-plc-lib"
 version = "0.41.2"
 dependencies = [
@@ -6625,6 +6633,7 @@ dependencies = [
  "png",
  "postgres",
  "postgres-native-tls",
+ "proc-macro2",
  "qrcode",
  "rand 0.10.3",
  "rapier3d",
@@ -6643,6 +6652,7 @@ dependencies = [
  "signal-hook 0.4.5",
  "smol_str",
  "socketcan",
+ "syn 3.0.7",
  "tar",
  "text-size",
  "tiberius",
@@ -6660,6 +6670,7 @@ dependencies = [
  "trust-hir",
  "trust-ide",
  "trust-plc-abi",
+ "trust-plc-decl",
  "trust-plc-lib",
  "trust-plcopen",
  "trust-runtime-client",

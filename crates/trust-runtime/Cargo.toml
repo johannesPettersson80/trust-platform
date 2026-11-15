@@ -27,6 +27,10 @@ critical-section = { version = "1.2.0", features = ["std"], optional = true }
 # the generator lays out against, and the reader of the modules the pinned compiler links.
 trust-plc-abi = { workspace = true, optional = true, features = ["host"] }
 trust-plc-lib = { workspace = true, optional = true }
+# The declarations of a project's Rust POUs, read from its crate's sources (specification 48 RU-24).
+trust-plc-decl = { workspace = true, optional = true }
+syn = { version = "3.0.7", features = ["full"], optional = true }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"], optional = true }
 object = { version = "0.37.3", default-features = false, features = ["read_core", "elf", "std"], optional = true }
 # The one control client of the command line's runtime requests (`trust-runtime discover`).
 trust-runtime-client = { workspace = true, optional = true }
@@ -178,6 +182,9 @@ full = [
     "dep:critical-section",
     "dep:trust-plc-abi",
     "dep:trust-plc-lib",
+    "dep:trust-plc-decl",
+    "dep:syn",
+    "dep:proc-macro2",
     "dep:object",
     "dep:trust-runtime-client",
     "dep:trust-wasm-analysis",

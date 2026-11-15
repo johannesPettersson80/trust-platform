@@ -15,6 +15,7 @@ mod docs;
 mod git;
 mod prompt;
 mod run;
+mod rust;
 mod style;
 mod test;
 mod workflow;
@@ -83,6 +84,11 @@ enum Command {
         #[arg(long, value_enum, default_value_t = cli::DocsFormat::Both)]
         format: cli::DocsFormat,
     },
+    /// The project's Rust POUs (specification 48).
+    Rust {
+        #[command(subcommand)]
+        action: RustAction,
+    },
     /// Discover and execute ST tests in a project.
     Test {
         /// Project folder directory (defaults to auto-detect or current directory).
@@ -114,6 +120,17 @@ enum Command {
         /// the project's `runtime.control.auth_token` (specification 11 §6.8.1).
         #[arg(long, requires = "device")]
         token: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum RustAction {
+    /// Write the Structured Text declarations of the project's Rust POUs,
+    /// src/generated/rust_pous.st, from its crate in rust/ (specification 48 RU-24).
+    Declarations {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
     },
 }
 
@@ -171,6 +188,9 @@ fn run() -> anyhow::Result<()> {
             out_dir,
             format,
         } => docs::run_docs(project, out_dir, format),
+        Command::Rust { action } => match action {
+            RustAction::Declarations { project } => rust::run_declarations(project),
+        },
         Command::Test {
             project,
             filter,
