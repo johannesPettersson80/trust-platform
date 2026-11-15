@@ -461,3 +461,67 @@ fn a_structure_the_generated_code_cannot_reach_or_a_variable_of_it_with_a_value_
         "{found:?}"
     );
 }
+
+#[test]
+fn the_declarations_take_the_names_the_parser_takes() {
+    // RU-22 and specification 01 §3: the declarations a crate's attributes write are Structured
+    // Text, so every name the attributes take, truST's parser takes, as a POU's and as a variable's,
+    // and they refuse the reserved words specification 01 §3 reserves: every word the lexer
+    // reserves is checked. Catches a word the lexer gains that the declarations' list lacks, a name
+    // the attributes take that the parser does not, and one they refuse that it takes.
+    let lexer = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../trust-syntax/src/lexer/tokens/token_kind.rs"),
+    )
+    .expect("the lexer's tokens");
+    let mut words: Vec<&str> = lexer
+        .split("#[token(\"")
+        .skip(1)
+        .filter_map(|rest| rest.split_once("\", ignore(case))]").map(|(word, _)| word))
+        .filter(|word| {
+            word.bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        })
+        .collect();
+    words.sort_unstable();
+    words.dedup();
+    let mut reserved = trust_plc_decl::names::RESERVED.to_vec();
+    reserved.sort_unstable();
+    assert_eq!(
+        reserved, words,
+        "the declarations' reserved words are the lexer's"
+    );
+    // The words specification 01 §3 reserves that the parser still takes as a variable's name: the
+    // explicit EN and ENO of IEC Table 18, GET and STEP (checklist G182); the attributes keep to
+    // the specification.
+    let stricter = ["EN", "ENO", "GET", "STEP"];
+    let parses = |text: &str| trust_syntax::parser::parse(text).errors().is_empty();
+    let mut differing = Vec::new();
+    for word in words
+        .iter()
+        .copied()
+        .chain(["LEVEL", "Level", "REFERENCE", "_ALPHA2"])
+    {
+        let as_variable = parses(&format!(
+            "FUNCTION_BLOCK FB_NAMES\nVAR\n    {word} : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
+        ));
+        let as_pou = parses(&format!("FUNCTION_BLOCK {word}\nEND_FUNCTION_BLOCK\n"));
+        let expected = as_variable && !stricter.contains(&word);
+        if trust_plc_decl::names::takes_variable_name(word) != expected {
+            differing.push(format!(
+                "{word} as a variable's name: the parser takes it {as_variable}"
+            ));
+        }
+        if stricter.contains(&word) && !as_variable {
+            differing.push(format!(
+                "{word}: the parser no longer takes it, so it is no exception"
+            ));
+        }
+        if trust_plc_decl::names::takes_pou_name(word) != as_pou {
+            differing.push(format!(
+                "{word} as a POU's name: the parser takes it {as_pou}"
+            ));
+        }
+    }
+    assert!(differing.is_empty(), "{differing:#?}");
+}

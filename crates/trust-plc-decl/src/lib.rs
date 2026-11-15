@@ -15,6 +15,7 @@ mod budget;
 mod dates;
 mod enumeration;
 mod literal;
+pub mod names;
 mod render;
 mod structure;
 mod types;
@@ -296,17 +297,25 @@ fn declared_name(args: TokenStream, item: Span, missing: &str) -> Result<String,
         return Err(Error::new(item, missing));
     };
     let text = name.value();
-    if text.split('.').all(is_identifier) {
-        Ok(text)
-    } else {
-        Err(Error::new(
+    if !text.split('.').all(is_identifier) {
+        return Err(Error::new(
             name.span(),
             format!(
                 "`{text}` is not a Structured Text name: identifiers (IEC §6.1.2) joined by `.` \
                  for its namespaces (IEC §6.9)"
             ),
-        ))
+        ));
     }
+    if let Some(word) = text.split('.').find(|segment| names::is_reserved(segment)) {
+        return Err(Error::new(
+            name.span(),
+            format!(
+                "`{word}` is a reserved word of Structured Text (specification 01 §3), which no \
+                 POU, type or namespace is named"
+            ),
+        ));
+    }
+    Ok(text)
 }
 
 fn public(visibility: &Visibility, ident: &Ident, what: &str) -> Result<(), Error> {
@@ -372,17 +381,25 @@ fn field_variable(ident: &Ident, ty: &Type, attributes: &[Attribute]) -> Result<
 
 fn variable_name(ident: &Ident) -> Result<String, Error> {
     let name = ident.unraw().to_string();
-    if is_identifier(&name) {
-        Ok(name)
-    } else {
-        Err(Error::new(
+    if !is_identifier(&name) {
+        return Err(Error::new(
             ident.span(),
             format!(
                 "`{name}` is not an IEC identifier (IEC §6.1.2), which Structured Text names the \
                  variable by: letters, digits and single underscores, not ending in one"
             ),
-        ))
+        ));
     }
+    if !names::takes_variable_name(&name) {
+        return Err(Error::new(
+            ident.span(),
+            format!(
+                "`{name}` is a reserved word of Structured Text (specification 01 §3), which no \
+                 variable is named: rename it"
+            ),
+        ));
+    }
+    Ok(name)
 }
 
 /// Adds `variable`, refusing a name another variable has: Structured Text ignores case.

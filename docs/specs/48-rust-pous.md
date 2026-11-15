@@ -350,7 +350,12 @@ that is `const`, `async`, `extern` or generic, whose first parameter is not its 
 `Result<T, Fault>` with `T` of §6.2's types, or `()` for a function without a result (IEC
 §6.6.2.2 rule 2, Table 19 feature 1a). A variable's Structured Text name is its field's or
 parameter's, an IEC identifier; two names that differ only in case are one name in Structured
-Text and are refused. A function block's struct gains `new()`, its starting values (RU-26),
+Text and are refused. An IEC identifier is no reserved word of Structured Text in any case
+(specification 01 §3, IEC §6.1.2): no POU, type or namespace is named by one, and no variable,
+field, parameter or enumeration value but by the contextual names `NULL`, `ON` and `SET`, which
+specification 01 §3 allows there; the attribute refuses a reserved word where the name stands
+(`at` is a reserved word of Structured Text: rename it), so that no declaration it writes fails to
+parse. A function block's struct gains `new()`, its starting values (RU-26),
 and `call(&mut self, cx)`, its call as the kernel makes it (RU-28), which a unit test uses
 (RU-56).
 

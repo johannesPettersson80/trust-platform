@@ -141,6 +141,15 @@ pub fn enumeration(args: TokenStream, item: &ItemEnum) -> Result<Enumeration, Er
                 ),
             ));
         }
+        if !crate::names::takes_variable_name(&variant_name) {
+            return Err(Error::new(
+                variant.ident.span(),
+                format!(
+                    "`{variant_name}` is a reserved word of Structured Text (specification 01 §3), \
+                     which no value of an enumeration is named: rename it"
+                ),
+            ));
+        }
         if let Some((other, _)) = variants
             .iter()
             .find(|(other, _)| other.eq_ignore_ascii_case(&variant_name))
