@@ -51,18 +51,28 @@ pub(super) fn check(metadata: &Value, sdk: &Path, project: &Path) -> Vec<String>
             Some((node["id"].as_str()?, deps))
         })
         .collect();
-    let under = |package: &Package, folder: &Path| package.manifest.starts_with(folder);
+    // Cargo names each package by its canonical path; the folders may be named through a link
+    // (macOS's temporary folder `/var` is `/private/var`), so both sides are compared canonical.
+    let canonical =
+        |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let (sdk, project) = (canonical(sdk), canonical(project));
+    let under = |package: &Package, folder: &Path| {
+        package
+            .manifest
+            .parent()
+            .is_some_and(|parent| canonical(parent).starts_with(folder))
+    };
     // The SDK's crates and every crate they are built from (RU-09's exception).
     let sdk_crates: Vec<&str> = packages
         .iter()
-        .filter(|(_, package)| under(package, sdk))
+        .filter(|(_, package)| under(package, &sdk))
         .map(|(id, _)| *id)
         .collect();
     let exempt = closure(&sdk_crates, &dependencies);
     // The project's crate and every crate it is built with.
     let roots: Vec<&str> = packages
         .iter()
-        .filter(|(_, package)| under(package, project))
+        .filter(|(_, package)| under(package, &project))
         .map(|(id, _)| *id)
         .collect();
     let mut errors = Vec::new();
