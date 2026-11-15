@@ -44,9 +44,13 @@ pub(super) fn block(
     let values: Vec<String> = (0..places.len())
         .map(|index| format!("rv{index}"))
         .collect();
+    // Each value through the SDK's form of its type (`trust_plc::Stored`): a `TIME` read as `Time`,
+    // a `BYTE` as `Byte` (specification 48 RU-25).
     for (place, value) in places.iter().zip(&values) {
         let loaded = lowerer.load(place);
-        lowerer.line(&format!("let mut {value} = {loaded};"));
+        lowerer.line(&format!(
+            "let mut {value} = ::trust_plc::Stored::from_raw({loaded});"
+        ));
     }
     let arguments: String = values
         .iter()
@@ -54,7 +58,7 @@ pub(super) fn block(
         .collect();
     lowerer.line(&format!("{}::__trust_call(cx{arguments})?;", link.call));
     for (place, value) in places.iter().zip(&values) {
-        lowerer.store_scalar(place, value);
+        lowerer.store_scalar(place, &format!("::trust_plc::Stored::into_raw({value})"));
     }
     Ok(())
 }
@@ -76,13 +80,15 @@ pub(super) fn function(
                 link.call
             )));
         };
-        arguments.push_str(", ");
-        arguments.push_str(&crate::native::lower::parameter(&param.name));
+        arguments.push_str(&format!(
+            ", ::trust_plc::Stored::from_raw({})",
+            crate::native::lower::parameter(&param.name)
+        ));
     }
     let call = format!("{}(cx{arguments})?", link.call);
     match lowerer.result.clone() {
         Some(result) => {
-            let value = lowerer.bind(&call);
+            let value = lowerer.bind(&format!("::trust_plc::Stored::into_raw({call})"));
             lowerer.store_scalar(&result, &value);
         }
         None => lowerer.line(&format!("{call};")),

@@ -612,3 +612,98 @@ fn a_rust_pou_that_can_panic_is_named_with_the_form_to_use() {
         "{error}"
     );
 }
+
+/// A block that computes with a duration, a bit string and a character.
+const TYPED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"TYPED_BLOCK\")]
+#[budget(\"1us\")]
+pub struct TypedBlock {
+    #[input]
+    pub period: Time,
+    #[input]
+    pub flags: Byte,
+    #[input]
+    pub letter: Char,
+    #[output]
+    pub half: Time,
+    #[output]
+    pub low: Byte,
+    #[output]
+    pub next: Char,
+    #[output]
+    #[init(\"T#1s\")]
+    pub total: Time,
+}
+
+impl Body for TypedBlock {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.half = Time::from_nanos(self.period.as_nanos() / 2);
+        self.low = self.flags & Byte(0x0F);
+        self.next = Char(self.letter.0 + 1);
+        self.total = self.total.checked_add(cx, self.period)?;
+        Ok(())
+    }
+}
+";
+
+/// A program that calls TYPED_BLOCK once per 10 ms with IEC literals.
+const TYPED_PROGRAM: &str = "PROGRAM Line
+VAR
+    block : TYPED_BLOCK;
+    half : TIME;
+    low : BYTE;
+    next : CHAR;
+    total : TIME;
+END_VAR
+block(period := T#500ms, flags := 16#AB, letter := 'Y');
+half := block.half;
+low := block.low;
+next := block.next;
+total := block.total;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_rust_pou_computes_with_durations_bit_strings_and_characters() {
+    // Catches a TIME, BYTE or CHAR that reaches the Rust POU as another value, or comes back so:
+    // RU-25's `Time`, `Byte` and `Char` hold what the areas store (specification 44 §6.2). Three
+    // calls at 10, 20 and 30 ms: half of T#500ms is T#250ms, 16#AB AND 16#0F is 16#0B, 'Y' + 1 is
+    // 'Z', and the total starts at its declared T#1s (RU-26) and grows by T#500ms at each call:
+    // T#2.5s.
+    let root = custom_project(
+        "rust-pous-typed",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TYPED)],
+        TYPED_PROGRAM,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10, 20, 30] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(
+        program.value("MAIN.HALF"),
+        Some(Value::Time(Duration::from_millis(250)))
+    );
+    assert_eq!(program.value("MAIN.LOW"), Some(Value::Byte(0x0B)));
+    assert_eq!(program.value("MAIN.NEXT"), Some(Value::Char(b'Z')));
+    assert_eq!(
+        program.value("MAIN.TOTAL"),
+        Some(Value::Time(Duration::from_millis(2_500)))
+    );
+}

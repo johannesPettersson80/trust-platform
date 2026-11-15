@@ -410,8 +410,12 @@ not a POU.
 **RU-26. Initial values.** A variable's initial value is given by `#[init(...)]` with a literal of its
 type, which the generated declaration carries as the variable's Structured Text initializer, so the
 build computes it into the starting memory (specification 44 §7.4) as for Structured Text. A variable
-without `#[init]` starts at the type's default (IEC §6.4.2, Table 10). A Rust POU has no code that
-runs at a restart: its starting values are its declared values, as the standard's are.
+without `#[init]` starts at the type's default (IEC §6.4.2, Table 10). The literal of a bit string
+is an integer within its bits (`#[init(0x0F)]`, declared `16#0F`), of a `CHAR` an ASCII character or
+a byte (`'A'`, `b'\xE9'`), of a `WCHAR` a character of one UTF-16 code unit, and of a `TIME` or an
+`LTIME` an IEC duration in a string (`#[init("T#1.5s")]`, declared `T#1s500ms`; IEC §6.3.4). A Rust
+POU has no code that runs at a restart: its starting values are its declared values, as the
+standard's are.
 
 ### 6.3 The instance and the call
 

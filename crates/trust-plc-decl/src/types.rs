@@ -28,9 +28,25 @@ pub enum Elementary {
     Real,
     /// `LREAL`, written `f64`.
     Lreal,
+    /// `BYTE`, written `Byte`.
+    Byte,
+    /// `WORD`, written `Word`.
+    Word,
+    /// `DWORD`, written `Dword`.
+    Dword,
+    /// `LWORD`, written `Lword`.
+    Lword,
+    /// `CHAR`, written `Char`.
+    Char,
+    /// `WCHAR`, written `WChar`.
+    WChar,
+    /// `TIME`, written `Time`.
+    Time,
+    /// `LTIME`, written `LTime`.
+    LTime,
 }
 
-const ALL: [Elementary; 11] = [
+const ALL: [Elementary; 19] = [
     Elementary::Bool,
     Elementary::Sint,
     Elementary::Int,
@@ -42,6 +58,14 @@ const ALL: [Elementary; 11] = [
     Elementary::Ulint,
     Elementary::Real,
     Elementary::Lreal,
+    Elementary::Byte,
+    Elementary::Word,
+    Elementary::Dword,
+    Elementary::Lword,
+    Elementary::Char,
+    Elementary::WChar,
+    Elementary::Time,
+    Elementary::LTime,
 ];
 
 impl Elementary {
@@ -60,6 +84,14 @@ impl Elementary {
             Self::Ulint => "ULINT",
             Self::Real => "REAL",
             Self::Lreal => "LREAL",
+            Self::Byte => "BYTE",
+            Self::Word => "WORD",
+            Self::Dword => "DWORD",
+            Self::Lword => "LWORD",
+            Self::Char => "CHAR",
+            Self::WChar => "WCHAR",
+            Self::Time => "TIME",
+            Self::LTime => "LTIME",
         }
     }
 
@@ -78,6 +110,26 @@ impl Elementary {
             Self::Ulint => "u64",
             Self::Real => "f32",
             Self::Lreal => "f64",
+            Self::Byte => "Byte",
+            Self::Word => "Word",
+            Self::Dword => "Dword",
+            Self::Lword => "Lword",
+            Self::Char => "Char",
+            Self::WChar => "WChar",
+            Self::Time => "Time",
+            Self::LTime => "LTime",
+        }
+    }
+
+    /// The bits of a bit string (IEC §6.4.2, Table 10); `None` for another type.
+    #[must_use]
+    pub fn bits(self) -> Option<u32> {
+        match self {
+            Self::Byte => Some(8),
+            Self::Word => Some(16),
+            Self::Dword => Some(32),
+            Self::Lword => Some(64),
+            _ => None,
         }
     }
 
@@ -94,7 +146,17 @@ impl Elementary {
             Self::Uint => (0, u16::MAX.into()),
             Self::Udint => (0, u32::MAX.into()),
             Self::Ulint => (0, u64::MAX.into()),
-            Self::Bool | Self::Real | Self::Lreal => return None,
+            Self::Bool
+            | Self::Real
+            | Self::Lreal
+            | Self::Byte
+            | Self::Word
+            | Self::Dword
+            | Self::Lword
+            | Self::Char
+            | Self::WChar
+            | Self::Time
+            | Self::LTime => return None,
         };
         Some(range)
     }

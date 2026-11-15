@@ -53,7 +53,8 @@ fn manifest(target: Target, sdk: &Path, project: &ProjectCrate) -> String {
          [[bin]]\nname = \"trust_module\"\npath = \"module.rs\"\ntest = false\nbench = false\n\n\
          [dependencies]\n",
     );
-    for crate_name in ["trust-plc-abi", "trust-plc-lib"] {
+    // The SDK too: the generated code reads a Rust POU's variables through its types (RU-25).
+    for crate_name in ["trust-plc-abi", "trust-plc-lib", "trust-plc"] {
         let _ = writeln!(text, "{crate_name} = {{ path = \"{}\" }}", path(crate_name));
     }
     // A computer's module takes the memory functions from trust-plc-mem; a chip's target builtins

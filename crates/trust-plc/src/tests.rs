@@ -6,7 +6,7 @@
 
 use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
 
-use crate::{checked, math, Cx, Fault, FaultCode};
+use crate::{checked, math, Byte, Char, Cx, Dword, Fault, FaultCode, Stored, Time, Word};
 
 fn cx() -> Cx {
     Cx::new(&WITHOUT_DEBUGGER)
@@ -152,4 +152,38 @@ fn a_reals_elementary_function_is_computed_in_binary64_and_rounded_once() {
             "EXP({x})"
         );
     }
+}
+
+#[test]
+fn bit_strings_combine_bit_by_bit_and_durations_fault_beyond_their_range() {
+    // Catches a bit string that computes as an integer, or a duration that wraps: IEC §6.4.2,
+    // Table 10 gives BYTE to LWORD AND, OR, XOR and NOT bit by bit, and specification 05 §3 faults
+    // a duration beyond its type with `Overflow`; TIME is stored in nanoseconds (specification 44
+    // §6.2).
+    let (a, b) = (Byte(0b1100_1010), Byte(0b1010_0110));
+    assert_eq!(a & b, Byte(0b1000_0010));
+    assert_eq!(a | b, Byte(0b1110_1110));
+    assert_eq!(a ^ b, Byte(0b0110_1100));
+    assert_eq!(!a, Byte(0b0011_0101));
+    assert!(a.bit(1) && !a.bit(0) && !a.bit(8));
+    assert_eq!(Word(0).with_bit(15, true), Word(0x8000));
+    assert_eq!(Word(0x8000).with_bit(15, false), Word(0));
+    assert_eq!(Dword(1).with_bit(32, true), Dword(1));
+    let mut cx = cx();
+    let half = Time::from_millis(&mut cx, 500).expect("500 ms");
+    assert_eq!(half.as_nanos(), 500_000_000);
+    assert_eq!(
+        half.checked_add(&mut cx, Time::from_nanos(250_000_000)),
+        Ok(Time::from_nanos(750_000_000))
+    );
+    assert_eq!(
+        code(Time::from_nanos(i64::MAX).checked_add(&mut cx, Time::from_nanos(1))),
+        FaultCode::Overflow as u32
+    );
+    assert_eq!(
+        code(Time::from_millis(&mut cx, i64::MAX)),
+        FaultCode::Overflow as u32
+    );
+    assert_eq!(Stored::into_raw(half), 500_000_000_i64);
+    assert_eq!(<Char as Stored>::from_raw(b'A'), Char(b'A'));
 }
