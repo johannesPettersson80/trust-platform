@@ -845,7 +845,7 @@ A built-in enumeration with the base type `UDINT` and CODESYS's values. A variab
    | dereference of `NULL`, a reference whose target is gone | `RTSEXCPT_ACCESS_VIOLATION` |
    | call depth exceeded | `RTSEXCPT_STACK_OVERFLOW` |
    | a non-finite real where a finite one is required | `RTSEXCPT_FPU_INVALID_OPERATION` |
-   | a value outside its subrange, a `FOR` step of zero, an integer that is no value of its enumeration, a text over 65,535 characters | `RTSEXCPT_UNKNOWN` |
+   | a value outside its subrange, a `FOR` step of zero, an integer that is no value of its enumeration, a text over 65,535 characters, a Rust POU's own fault (specification 48 RU-14) | `RTSEXCPT_UNKNOWN` |
 
    It never handles the statement budget (specification 44 §8.4), the task stack's margin (§8.5),
    the CPU's memory protection (§10.5), a module's internal fault (§8.6) or a test's failed
