@@ -576,12 +576,12 @@ fn the_declarations_take_only_names_structured_text_takes() {
 #[test]
 fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
     // RU-29 as built so far (checklist G183): an in-out and a reference reach their variable through
-    // the place of the type it has, a structure's too, so HOLDER's in-out of a structure is
-    // declared. A reference's place does not hold the type it names, so an in-out of a reference,
-    // a reference to one, an array of them included, and a structure's field that is a reference to
-    // a reference are refused, each with its reason, as is a function's string in-out, which a
-    // function takes as a view of any capacity (DEV-035). Catches a declaration whose glue could not
-    // be built, with a compiler error in its place, and a structure refused that is carried now.
+    // the place of the type it has, a structure's too, and a function's string in-out the caller's
+    // string of any capacity (DEV-035), so HOLDER and LABEL are declared. A reference's place does
+    // not hold the type it names, so an in-out of a reference, a reference to one, an array of them
+    // included, and a structure's field that is a reference to a reference are refused, each with
+    // its reason. Catches a declaration whose glue could not be built, with a compiler error in its
+    // place, and an in-out refused that is carried now.
     let lib =
         "#![cfg_attr(not(test), no_std)]\n\npub mod modes;\npub mod geometry;\npub mod tracker;\n\
                pub mod uses;\n";
@@ -605,7 +605,9 @@ fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
     ]);
     let found = errors(&root);
     assert!(
-        !found.iter().any(|error| error.contains("HOLDER")),
+        !found
+            .iter()
+            .any(|error| error.contains("HOLDER") || error.contains("LABEL")),
         "{found:?}"
     );
     let refused = [
@@ -620,10 +622,6 @@ fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
         (
             "CHAIN",
             "the variable far: a reference to a reference is not carried yet",
-        ),
-        (
-            "LABEL",
-            "the variable text: a function's or a method's string in-out is not carried yet",
         ),
     ];
     for (pou, reason) in refused {
@@ -733,10 +731,9 @@ impl Aim {
 fn a_methods_variables_bear_the_crates_type_names_and_take_its_checks() {
     // RU-25, RU-29, RU-32: a method's variables and result of the crate's types bear their
     // Structured Text names, as the block's own variables do, and take the same checks: a type the
-    // crate does not declare is refused, and so is a method's string in-out, which a method takes
-    // of any capacity as a view (DEV-035), as a function does. Catches a method declared with its
-    // types' Rust names, which Structured Text does not know, and a method's variable that skips
-    // the checks.
+    // crate does not declare is refused, and a method's string in-out is the caller's string of any
+    // capacity (DEV-035), as a function's is. Catches a method declared with its types' Rust names,
+    // which Structured Text does not know, and a method's variable that skips the checks.
     let lib = "#![cfg_attr(not(test), no_std)]\n\npub mod modes;\npub mod aim;\n";
     let root = project(&[
         ("rust/Cargo.toml", MANIFEST),
@@ -768,9 +765,7 @@ fn a_methods_variables_bear_the_crates_type_names_and_take_its_checks() {
     ]);
     let found = errors(&root);
     assert!(
-        found.iter().any(|error| error.contains(
-            "AIM: the variable text of the method tag: a function's or a method's string in-out"
-        )),
+        !found.iter().any(|error| error.contains("method tag")),
         "{found:?}"
     );
     assert!(

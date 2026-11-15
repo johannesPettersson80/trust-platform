@@ -2,9 +2,10 @@
 //! variable a function's in-out is, and the one a reference names, as it lies in its place.
 //!
 //! A [`Place`] of `T` is where a value of `T` lies. The SDK gives the places of RU-25's types as
-//! the generated code lays them out (specification 44 §6.2), `#[trust_enum]` gives an enumeration's
-//! and the generated code a structure's, through its fields' places; a unit test gives an in-out a
-//! [`Cell`] of its own, of any type.
+//! the generated code lays them out (specification 44 §6.2) and the caller's string a function's
+//! string in-out is (DEV-035), `#[trust_enum]` gives an enumeration's and the generated
+//! code a structure's, through its fields' places; a unit test gives an in-out a [`Cell`] of its
+//! own, of any type.
 
 use core::cell::Cell;
 
@@ -84,6 +85,40 @@ impl<const N: usize> Place<WStr<N>> for trust_plc_abi::WStr<N> {
     #[inline]
     fn store(&self, value: &WStr<N>) {
         <WStr<N> as Placed>::store(value, self);
+    }
+}
+
+/// A function's or a method's in-out of a `STRING[N]`, the caller's string, which the CODESYS
+/// profile lets be of any capacity (`docs/IEC_DEVIATIONS.md` DEV-035): it reads the caller's text as
+/// an assignment to a `STRING[N]` does and writes a value as an assignment to the caller's string
+/// does, each cut to the longest prefix of whole characters the target's capacity holds
+/// (specification 10 §2.3.1), with the program library's assignment.
+impl<const N: usize> Place<Str<N>> for trust_plc_abi::StrView<'_> {
+    fn load(&self) -> Str<N> {
+        let text = trust_plc_abi::Str::<N>::new();
+        trust_plc_lib::assign(text.view(), *self);
+        <Str<N> as Placed>::load(&text)
+    }
+
+    fn store(&self, value: &Str<N>) {
+        let text = trust_plc_abi::Str::<N>::new();
+        <Str<N> as Placed>::store(value, &text);
+        trust_plc_lib::assign(*self, text.view());
+    }
+}
+
+/// A function's or a method's in-out of a `WSTRING[N]`, as a `STRING[N]`'s.
+impl<const N: usize> Place<WStr<N>> for trust_plc_abi::WStrView<'_> {
+    fn load(&self) -> WStr<N> {
+        let text = trust_plc_abi::WStr::<N>::new();
+        trust_plc_lib::assign_wide(text.view(), *self);
+        <WStr<N> as Placed>::load(&text)
+    }
+
+    fn store(&self, value: &WStr<N>) {
+        let text = trust_plc_abi::WStr::<N>::new();
+        <WStr<N> as Placed>::store(value, &text);
+        trust_plc_lib::assign_wide(*self, text.view());
     }
 }
 

@@ -3,7 +3,7 @@
 //! variable's type by its Rust name; this gives the variable the type's Structured Text name, which
 //! the generated declarations write, and checks that a variant it starts at is one of the type's.
 
-use trust_plc_decl::{DataType, Elementary, Enumeration, Kind, Section, Structure, Value};
+use trust_plc_decl::{DataType, Enumeration, Section, Structure, Value};
 
 use super::{RustPou, RustPouError};
 
@@ -104,11 +104,10 @@ pub(super) fn resolve(
     }
     for pou in pous.iter_mut() {
         let mut found = Vec::new();
-        let borrowed = pou.pou.kind == Kind::Function;
         for variable in &mut pou.pou.variables {
             let outcome = rename(&mut variable.ty, &types)
                 .and_then(|()| check(&variable.ty, variable.init.as_ref(), &types))
-                .and_then(|()| carried(&variable.ty, variable.section, borrowed));
+                .and_then(|()| carried(&variable.ty, variable.section));
             if let Err(message) = outcome {
                 found.push(format!("the variable {}: {message}", variable.name));
             }
@@ -118,12 +117,11 @@ pub(super) fn resolve(
         {
             found.push(format!("the result: {message}"));
         }
-        // A method's variables and result as a function's: its in-outs are borrowed for the call
-        // (RU-29, RU-32).
+        // A method's variables and result as the block's (RU-29, RU-32).
         for method in &mut pou.pou.methods {
             for variable in &mut method.variables {
                 let outcome = rename(&mut variable.ty, &types)
-                    .and_then(|()| carried(&variable.ty, variable.section, true));
+                    .and_then(|()| carried(&variable.ty, variable.section));
                 if let Err(message) = outcome {
                     found.push(format!(
                         "the variable {} of the method {}: {message}",
@@ -168,12 +166,10 @@ fn rename(ty: &mut DataType, types: &Types<'_>) -> Result<(), String> {
     }
 }
 
-/// Checks that the SDK carries a variable of type `ty` in `section` of a POU whose in-outs are
-/// `borrowed` for the call, a function's or a method's (specification 48 RU-29): an in-out is the
-/// place of a type its variable has, so its variable is no reference ([`named`]); and such an in-out
-/// is no string, which a function or a method takes of any capacity of its family as a view
-/// (docs/IEC_DEVIATIONS.md DEV-035), on the checklist (G183).
-fn carried(ty: &DataType, section: Section, borrowed: bool) -> Result<(), String> {
+/// Checks that the SDK carries a variable of type `ty` in `section` (specification 48 RU-29): an
+/// in-out is the place of a type its variable has, so its variable is no reference, and each of its
+/// references names a type ([`named`]).
+fn carried(ty: &DataType, section: Section) -> Result<(), String> {
     if section == Section::InOut && is_reference(ty) {
         return Err(
             "an in-out of a reference is not carried yet: the SDK reaches an in-out's variable as \
@@ -181,21 +177,7 @@ fn carried(ty: &DataType, section: Section, borrowed: bool) -> Result<(), String
                 .to_string(),
         );
     }
-    named(ty)?;
-    if section == Section::InOut
-        && borrowed
-        && matches!(
-            ty,
-            DataType::Elementary(Elementary::Str(_) | Elementary::WStr(_))
-        )
-    {
-        return Err(
-            "a function's or a method's string in-out is not carried yet: it takes a string \
-             in-out of any capacity as a view (docs/IEC_DEVIATIONS.md DEV-035)"
-                .to_string(),
-        );
-    }
-    Ok(())
+    named(ty)
 }
 
 /// Checks that each reference in a value of type `ty` names a type, not a reference or an array of

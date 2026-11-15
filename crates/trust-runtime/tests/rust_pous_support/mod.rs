@@ -25,6 +25,12 @@ pub fn sources(root: &Path) -> Vec<SourceFile> {
 /// The project built for this computer; `None` with a toolchain that has no cargo and SDK sources,
 /// whose refusal names them.
 pub fn built(root: &Path) -> Option<(Build, Device)> {
+    built_under(root, ConversionProfile::Iec)
+}
+
+/// The project built for this computer under the profile `conversions`, as [`built`] builds it
+/// under the IEC profile.
+pub fn built_under(root: &Path, conversions: ConversionProfile) -> Option<(Build, Device)> {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
@@ -37,7 +43,7 @@ pub fn built(root: &Path) -> Option<(Build, Device)> {
             target,
             hooks: true,
         },
-        ConversionProfile::Iec,
+        conversions,
         &toolchain,
         &work,
     );

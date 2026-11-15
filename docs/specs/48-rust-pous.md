@@ -545,7 +545,12 @@ specification 44 §6.5 makes: null (`NullReference`), the area, the offset and t
 generation (`ReferenceLifetime`), and the type the reference names (`TypeMismatch`). `Ref::NULL` is
 `NULL`; a reference is copied and compared as Structured Text's is (specification 44 §7.3). A write
 through an in-out or a reference is made at once, as Structured Text's is, so a fault after it leaves
-it written, while the instance's own variables stay as they were (RU-28). A Rust POU takes no
+it written, while the instance's own variables stay as they were (RU-28). A function's or a method's
+in-out of a string is the caller's string, which the CODESYS profile lets be of any capacity of its
+family, as it lets a Structured Text function's (`docs/IEC_DEVIATIONS.md` DEV-035): `get()` reads its
+text as an assignment to the in-out's own type does and `set(value)` writes as an assignment to the
+caller's string does, each cut to the longest prefix of whole characters the target holds
+(specification 10 §2.3.1). A Rust POU takes no
 reference of its own variables, which lie in its struct while it runs, not where a reference names
 them.
 

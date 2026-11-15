@@ -245,8 +245,8 @@ fn parameter_named<'p>(
 /// The argument a Rust function or method takes for its input or in-out `param`: a scalar input
 /// its value, another input the value of the caller's that it is given a reference to
 /// (specification 44 §6.2), an in-out `InOut` of the caller's variable itself, whose place the
-/// generated code passes (specification 48 RU-29); a string's in-out, a view of any capacity, the
-/// SDK does not carry yet.
+/// generated code passes (specification 48 RU-29): a reference to it, or the view of a string's of
+/// any capacity of its family (docs/IEC_DEVIATIONS.md DEV-035).
 fn argument(
     lowerer: &mut Lowerer<'_, '_>,
     param: &Param,
@@ -256,7 +256,7 @@ fn argument(
     let argument = crate::native::lower::parameter(&param.name);
     if param.direction == ParamDirection::InOut {
         if matches!(lowerer.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
-            return Err(not_carried(&lowerer.info(ty).name));
+            return Ok(format!("::trust_plc::InOut::new(&{argument})"));
         }
         let model = &mut *lowerer.model;
         reach(&model.types, ty, structures, &mut model.rust_places)?;

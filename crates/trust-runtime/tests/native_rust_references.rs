@@ -9,9 +9,10 @@
 
 mod rust_pous_support;
 
-use rust_pous_support::{built, custom_project, manifest};
+use rust_pous_support::{built, built_under, custom_project, manifest};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::native::{load, NoHooks};
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
 /// A block that fills the level it is given, a function that counts up its in-out, and one that
@@ -397,4 +398,69 @@ END_PROGRAM
     assert_eq!(program.value("MAIN.SPOT.Y"), Some(Value::LReal(2.0)));
     assert_eq!(program.value("MAIN.JUMPER.JUMPS"), Some(Value::Int(0)));
     assert_eq!(program.value("MAIN.AFTER"), Some(Value::Bool(false)));
+}
+
+/// A function whose string in-out takes the caller's string of any capacity.
+const TEXTS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+/// Gives the length of the text it reads, at most 6 bytes, and writes 'XYZ' into it.
+#[trust_function(name = \"MARK\")]
+#[budget(\"1us\")]
+pub fn mark(_cx: &mut Cx, text: InOut<'_, Str<6>>) -> Result<i16, Fault> {
+    let read = text.get();
+    text.set(Str::from_text(\"XYZ\"));
+    Ok(i16::try_from(read.len()).unwrap_or(i16::MAX))
+}
+";
+
+#[test]
+fn a_functions_string_in_out_is_the_callers_string_of_any_capacity() {
+    // RU-29 and docs/IEC_DEVIATIONS.md DEV-035, under the CODESYS profile, which binds a string
+    // in-out across capacities: one call at 10 ms. MARK's in-out is a STRING[6]: the caller's
+    // STRING[20] holding 'abcdefghij' reads as an assignment to STRING[6] does, 'abcdef', 6 bytes,
+    // and takes 'XYZ'; the caller's STRING[2] holding 'ab' reads its 2 bytes and takes 'XY', the
+    // assignment's cut at its capacity. Catches a string in-out that works on a copy, reads past the
+    // in-out's capacity or writes past the caller's.
+    let program = format!(
+        "PROGRAM Line
+VAR
+    long : STRING[20] := 'abcdefghij';
+    short : STRING[2] := 'ab';
+    longRead : INT;
+    shortRead : INT;
+END_VAR
+longRead := MARK(text := long);
+shortRead := MARK(text := short);
+END_PROGRAM
+
+{TASK}"
+    );
+    let root = custom_project(
+        "rust-pous-string-in-outs",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", TEXTS)],
+        &program,
+    );
+    let Some((built, device)) = built_under(&root, ConversionProfile::Codesys) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.LONGREAD"), Some(Value::Int(6)));
+    assert_eq!(
+        program.value("MAIN.LONG"),
+        Some(Value::String("XYZ".into()))
+    );
+    assert_eq!(program.value("MAIN.SHORTREAD"), Some(Value::Int(2)));
+    assert_eq!(
+        program.value("MAIN.SHORT"),
+        Some(Value::String("XY".into()))
+    );
 }

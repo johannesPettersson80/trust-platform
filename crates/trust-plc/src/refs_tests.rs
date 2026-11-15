@@ -9,7 +9,7 @@ use trust_plc_abi::module::GENERATION;
 use trust_plc_abi::{FaultCode, RefValue, AREA_GLOBALS};
 
 use super::{reference, reference_value, InOut, Ref};
-use crate::{Array, Cx};
+use crate::{Array, Cx, Str, WStr};
 
 /// A reference of kind VARIABLE into the globals, at `offset` with `extent` bytes, of `generation`.
 fn variable(offset: u32, extent: u32, generation: u32) -> RefValue {
@@ -138,4 +138,35 @@ fn a_reference_to_an_array_reads_and_writes_every_element_through_its_place() {
         .map(|pair| i16::from_ne_bytes([pair[0], pair[1]]))
         .collect();
     assert_eq!(elements, [7, -8, 9]);
+}
+
+#[test]
+fn a_string_in_out_reads_and_writes_the_callers_string_of_any_capacity() {
+    // RU-29, docs/IEC_DEVIATIONS.md DEV-035: a function's string in-out is the caller's string of
+    // any capacity. Its text reads as an assignment to the in-out's STRING[5] does, cut to the
+    // longest prefix of whole characters 5 bytes hold: 'abcdé' (é is 2 bytes) reads 'abcd'; a value
+    // writes as an assignment to the caller's string does: 'xyz' into its STRING[8] is 'xyz',
+    // 'hello' into a STRING[2] is 'he', and 'abcde' into a WSTRING[3] is 'abc'. Catches a read that
+    // splits a character or keeps more than the in-out holds, and a write past the caller's
+    // capacity.
+    let wide = trust_plc_abi::Str::<8>::new();
+    trust_plc_lib::assign_bytes(wide.view(), "abcdé".as_bytes());
+    let view = wide.view();
+    let text: InOut<'_, Str<5>> = InOut::new(&view);
+    assert_eq!(text.get().as_str(), Some("abcd"));
+    text.set(Str::from_text("xyz"));
+    assert_eq!(
+        (view.len(), [view.byte(0), view.byte(1), view.byte(2)]),
+        (3, *b"xyz")
+    );
+    let narrow = trust_plc_abi::Str::<2>::new();
+    let view = narrow.view();
+    let short: InOut<'_, Str<5>> = InOut::new(&view);
+    short.set(Str::from_text("hello"));
+    assert_eq!((view.len(), [view.byte(0), view.byte(1)]), (2, *b"he"));
+    let units = trust_plc_abi::WStr::<3>::new();
+    let view = units.view();
+    let wide_text: InOut<'_, WStr<5>> = InOut::new(&view);
+    wide_text.set(WStr::from_text("abcde"));
+    assert_eq!(wide_text.get().chars().collect::<String>(), "abc");
 }
