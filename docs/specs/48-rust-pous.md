@@ -761,9 +761,9 @@ without ending the scan; the watchdog (NX-11) still ends a scan that overruns th
 
 **RU-50.** The language server treats `src/generated/rust_pous.st` as part of the project. The
 file is read-only: the extension marks it so for VS Code (`files.readonlyInclude`), which refuses an
-edit of it, and its header names the Rust source to change instead. "Go to Definition" of a Rust POU
-opens the Rust item in its `.rs` file, from its attribute to its name, and "Go to Declaration" its
-generated declaration. The extension recommends rust-analyzer for a project with a crate and writes
+edit of it, and its header names the Rust source to change instead. "Go to Definition" of a Rust POU,
+or of a method of a Rust function block, opens the Rust item in its `.rs` file, from its attribute
+to its name, and "Go to Declaration" its generated declaration. The extension recommends rust-analyzer for a project with a crate and writes
 its settings (§16.3); it never needs it.
 
 **RU-51.** Create Project (specification 25 §3.2) offers three starts: a Structured Text project as

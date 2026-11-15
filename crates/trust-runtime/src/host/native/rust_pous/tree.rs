@@ -68,7 +68,7 @@ struct Walk<'a> {
     /// the name it exports, `*` for a glob.
     exports: Vec<(Vec<String>, String)>,
     /// The methods (RU-32), each with the name of its `impl` block's type, its file and its place.
-    methods: Vec<(String, Method, String, Span)>,
+    methods: Vec<(String, Method, String, Span, ItemSpan)>,
     errors: Vec<RustPouError>,
 }
 
@@ -287,6 +287,7 @@ impl Walk<'_> {
                             start: (start.line, start.column),
                             end: (end.line, end.column),
                         },
+                        method_items: Vec::new(),
                         path,
                     },
                     public: module.public,
@@ -338,19 +339,30 @@ impl Walk<'_> {
             return;
         };
         for function in marked {
-            let args = function
+            let attribute = function
                 .attrs
                 .iter()
-                .find(|attribute| trust_plc_decl::is_method(attribute))
+                .find(|attribute| trust_plc_decl::is_method(attribute));
+            let args = attribute
                 .and_then(|attribute| attribute.meta.require_list().ok())
                 .map(|list| list.tokens.clone())
                 .unwrap_or_default();
+            let start = attribute.map_or_else(
+                || function.sig.ident.span().start(),
+                |attribute| attribute.pound_token.span.start(),
+            );
+            let end = function.sig.ident.span().end();
+            let item = ItemSpan {
+                start: (start.line, start.column),
+                end: (end.line, end.column),
+            };
             match trust_plc_decl::method(args, function) {
                 Ok(method) => self.methods.push((
                     owner.clone(),
                     method,
                     label.to_string(),
                     function.sig.ident.span(),
+                    item,
                 )),
                 Err(errors) => {
                     for error in errors {
@@ -535,11 +547,11 @@ impl Walk<'_> {
     /// (RU-32), in their order, refusing a method of no function block of the crate, one of two
     /// blocks of that name, and a second of one name or one named like a variable of its block.
     fn attach_methods(&mut self, pous: &mut [(RustPou, Span)]) {
-        for (owner, method, file, span) in std::mem::take(&mut self.methods) {
+        for (owner, method, file, span, item) in std::mem::take(&mut self.methods) {
             let mut blocks = pous
                 .iter_mut()
                 .filter(|(pou, _)| pou.pou.kind == Kind::FunctionBlock && pou.pou.item == owner);
-            let (Some((block, _)), None) = (blocks.next(), blocks.next()) else {
+            let (Some((rust_pou, _)), None) = (blocks.next(), blocks.next()) else {
                 let message = format!(
                     "the method {} is of `{owner}`, which is not one `#[trust_fb]` struct of the \
                      crate (specification 48 RU-32)",
@@ -548,7 +560,7 @@ impl Walk<'_> {
                 self.error(&file, span, message);
                 continue;
             };
-            let block = &mut block.pou;
+            let block = &mut rust_pou.pou;
             let taken = block
                 .variables
                 .iter()
@@ -566,6 +578,7 @@ impl Walk<'_> {
                 continue;
             }
             block.methods.push(method);
+            rust_pou.method_items.push((file, item));
         }
     }
 

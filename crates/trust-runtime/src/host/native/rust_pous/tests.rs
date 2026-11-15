@@ -648,9 +648,10 @@ impl Axis {
 #[test]
 fn a_blocks_methods_are_declared_with_it() {
     // RU-32: the `#[trust_method]` functions of a block's `impl` blocks are its methods, declared
-    // after its variables; a method of a type that is no `#[trust_fb]` struct, and one named as a
-    // variable of its block is, are refused at their place. Catches a method left out of the
-    // declarations, and one its declaration could not hold.
+    // after its variables, each found where it lies for a tool to open (RU-50); a method of a type
+    // that is no `#[trust_fb]` struct, and one named as a variable of its block is, are refused at
+    // their place. Catches a method left out of the declarations, one its declaration could not
+    // hold, and a tool sent away from a method's `fn`.
     let lib = "#![cfg_attr(not(test), no_std)]\n\npub mod axis;\n";
     let root = project(&[
         ("rust/Cargo.toml", MANIFEST),
@@ -666,6 +667,17 @@ fn a_blocks_methods_are_declared_with_it() {
              END_FUNCTION_BLOCK\n"
         ),
         "{text}"
+    );
+    // `#[trust_method]` at column 4 of line 10 to the end of `jog`, column 14 of line 12.
+    assert_eq!(
+        krate.pous[0].method_items,
+        [(
+            "rust/src/axis.rs".to_string(),
+            ItemSpan {
+                start: (10, 4),
+                end: (12, 14)
+            }
+        )]
     );
     let stray = format!(
         "{AXIS}\npub struct Other;\n\nimpl Other {{\n    #[trust_method]\n    #[budget(\"1us\")]\n    \
