@@ -109,7 +109,7 @@ fn a_function_keeps_its_signature() {
     let [Item::Fn(function)] = expanded.items.as_slice() else {
         panic!("one function: {}", expanded.to_token_stream());
     };
-    assert!(function.attrs.is_empty());
+    assert_eq!(attribute_names(&function.attrs), Vec::<String>::new());
     assert_eq!(function.sig.ident, "max_limited");
     assert_eq!(function.sig.inputs.len(), 4);
 }
