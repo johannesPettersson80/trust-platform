@@ -30,6 +30,7 @@ pub(crate) fn declaration(pou: &Pou, source: &str) -> String {
                 Section::Input => "VAR_INPUT",
                 Section::Output => "VAR_OUTPUT",
                 Section::Var => "VAR",
+                Section::InOut => "VAR_IN_OUT",
             });
             text.push_str(if variable.retain { " RETAIN\n" } else { "\n" });
             open = Some(section);

@@ -461,3 +461,148 @@ fn a_structure_the_generated_code_cannot_reach_or_a_variable_of_it_with_a_value_
         "{found:?}"
     );
 }
+
+#[test]
+fn the_declarations_take_only_names_structured_text_takes() {
+    // RU-22 and specification 01 §3: the declarations a crate's attributes write parse and check
+    // under every profile, so every name the attributes take, truST's parser and its check of
+    // identifiers take at each place a Rust POU names one (a POU, a VAR variable, a parameter, a
+    // structure's field, an enumeration's value) under the IEC profile, the stricter. The list of
+    // reserved words is the lexer's and the check's. The check takes three reserved words the
+    // attributes keep refusing, as specification 01 §3 reserves them: STEP as a VAR variable, EN and
+    // ENO as parameters (IEC Table 18), pinned here (checklist G182). Catches a word the lexer or
+    // the check gains that the list lacks, and a name the attributes take that a project's check
+    // refuses.
+    use trust_hir::db::{Database, FileId, SemanticDatabase, SourceDatabase};
+    let source = |path: &str| {
+        std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path))
+            .expect("a source of the language")
+    };
+    let lexer = source("../trust-syntax/src/lexer/tokens/token_kind.rs");
+    let mut words: Vec<String> = lexer
+        .split("#[token(\"")
+        .skip(1)
+        .filter_map(|rest| rest.split_once("\", ignore(case))]").map(|(word, _)| word))
+        .filter(|word| {
+            word.bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        })
+        .map(str::to_string)
+        .collect();
+    // The check's own table, `trust_hir::ident::is_reserved_keyword`'s words.
+    let ident = source("../trust-hir/src/ident.rs");
+    let table = ident
+        .split_once("pub fn is_reserved_keyword")
+        .and_then(|(_, rest)| rest.split_once("\n}\n"))
+        .map(|(body, _)| body)
+        .expect("the check's table");
+    words.extend(table.split('"').skip(1).step_by(2).map(str::to_string));
+    words.sort_unstable();
+    words.dedup();
+    let mut reserved: Vec<String> = trust_plc_decl::names::RESERVED
+        .iter()
+        .map(|word| (*word).to_string())
+        .collect();
+    reserved.sort_unstable();
+    assert_eq!(
+        reserved, words,
+        "the declarations' reserved words are the lexer's and the check's"
+    );
+    let places = [
+        ("a POU", "FUNCTION_BLOCK {}\nEND_FUNCTION_BLOCK\n"),
+        (
+            "a VAR variable",
+            "FUNCTION_BLOCK FB_NAMES\nVAR\n    {} : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+        ),
+        (
+            "a parameter",
+            "FUNCTION_BLOCK FB_NAMES\nVAR_INPUT\n    {} : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+        ),
+        (
+            "a field",
+            "TYPE S_NAMES :\nSTRUCT\n    {} : INT;\nEND_STRUCT\nEND_TYPE\n",
+        ),
+        (
+            "a value",
+            "TYPE E_NAMES : ({} := 0, OTHER := 1);\nEND_TYPE\n",
+        ),
+    ];
+    let pinned = [
+        ("a VAR variable", "STEP"),
+        ("a parameter", "EN"),
+        ("a parameter", "ENO"),
+    ];
+    let mut database = Database::new();
+    database.set_dialect(trust_hir::Dialect::Iec);
+    let mut takes = |text: String| {
+        let parsed = trust_syntax::parser::parse(&text).errors().is_empty();
+        database.set_source_text(FileId(0), text);
+        parsed
+            && !database.diagnostics(FileId(0)).iter().any(|diagnostic| {
+                diagnostic.code == trust_hir::diagnostics::DiagnosticCode::InvalidIdentifier
+            })
+    };
+    let mut differing = Vec::new();
+    for word in
+        words
+            .iter()
+            .map(String::as_str)
+            .chain(["LEVEL", "Level", "REFERENCE", "_ALPHA2", "ONWARD"])
+    {
+        let attributes = trust_plc_decl::names::takes_name(word);
+        for (place, template) in places {
+            let checked = takes(template.replace("{}", word));
+            let exception = pinned.contains(&(place, word));
+            if attributes && !checked {
+                differing.push(format!(
+                    "{word} as {place}: taken by the attributes, refused by the check"
+                ));
+            } else if !attributes && checked && !exception {
+                differing.push(format!(
+                    "{word} as {place}: taken by the check, refused by the attributes"
+                ));
+            } else if exception && !checked {
+                differing.push(format!(
+                    "{word} as {place}: no longer taken by the check, no exception"
+                ));
+            }
+        }
+    }
+    assert!(differing.is_empty(), "{differing:#?}");
+}
+
+#[test]
+fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
+    // RU-29 as built so far (checklist G183): the SDK reads a structure field by field, not where
+    // it lies, so an in-out of a structure, or a reference to one, is refused; and a function takes
+    // a string in-out as a view of any capacity (DEV-035), which `InOut<Str<N>>` is not. Catches a
+    // declaration whose glue could not be built, with a compiler error in its place.
+    let lib =
+        "#![cfg_attr(not(test), no_std)]\n\npub mod modes;\npub mod geometry;\npub mod tracker;\n\
+               pub mod uses;\n";
+    let uses = "use trust_plc::prelude::*;\nuse crate::geometry::Point;\n\n\
+                #[trust_fb(name = \"HOLDER\")]\n#[budget(\"1us\")]\npub struct Holder {\n    \
+                #[in_out] pub spot: Ref<Point>,\n}\n\n\
+                #[trust_function(name = \"LABEL\")]\n#[budget(\"1us\")]\n\
+                pub fn label(_cx: &mut Cx, text: InOut<'_, Str<20>>) -> Result<(), Fault> {\n    \
+                let _ = text;\n    Ok(())\n}\n";
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        ("rust/src/lib.rs", lib),
+        ("rust/src/modes.rs", MODES),
+        ("rust/src/geometry.rs", GEOMETRY),
+        ("rust/src/tracker.rs", TRACKER),
+        ("rust/src/uses.rs", uses),
+    ]);
+    let found = errors(&root);
+    assert!(
+        found.iter().any(|error| error.contains("HOLDER")
+            && error.contains("the variable spot: an in-out of a structure")),
+        "{found:?}"
+    );
+    assert!(
+        found.iter().any(|error| error.contains("LABEL")
+            && error.contains("the variable text: a function's string in-out")),
+        "{found:?}"
+    );
+}

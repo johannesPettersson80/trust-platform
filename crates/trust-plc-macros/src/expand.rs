@@ -3,7 +3,7 @@
 use proc_macro2::{Literal, Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{Attribute, Fields, Item, ItemEnum, ItemFn, ItemStruct};
-use trust_plc_decl::{DataType, Elementary, Pou, Value, Variable};
+use trust_plc_decl::{DataType, Elementary, Pou, Section, Value, Variable};
 
 /// `#[trust_fb]`: the struct without the attributes its reader reads, and its calls.
 pub(crate) fn function_block(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -286,6 +286,11 @@ fn capacity(ty: Elementary) -> u16 {
 /// The starting value of `variable`: its initial value, else its type's default (IEC §6.4.2,
 /// Table 10: FALSE, 0 and 0.0).
 fn start(variable: &Variable) -> TokenStream {
+    // An in-out's field holds the reference of the block's last call, `NULL` before the first
+    // (specification 48 RU-29).
+    if variable.section == Section::InOut {
+        return quote!(::trust_plc::Ref::NULL);
+    }
     value(&variable.ty, variable.init.as_ref())
 }
 
@@ -303,6 +308,8 @@ fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
                 quote!(::trust_plc::declared_default())
             }
         }
+        // A reference starts `NULL` (specification 48 RU-29).
+        DataType::Ref(_) => quote!(::trust_plc::Ref::NULL),
         DataType::Array { element, len, .. } => {
             if let Some(Value::List(items)) = init {
                 let len = usize::try_from(*len).unwrap_or(0);

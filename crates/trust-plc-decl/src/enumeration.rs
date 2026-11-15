@@ -141,6 +141,15 @@ pub fn enumeration(args: TokenStream, item: &ItemEnum) -> Result<Enumeration, Er
                 ),
             ));
         }
+        if crate::names::is_reserved(&variant_name) {
+            return Err(Error::new(
+                variant.ident.span(),
+                format!(
+                    "{}: rename the value",
+                    crate::names::reserved_reason(&variant_name)
+                ),
+            ));
+        }
         if let Some((other, _)) = variants
             .iter()
             .find(|(other, _)| other.eq_ignore_ascii_case(&variant_name))

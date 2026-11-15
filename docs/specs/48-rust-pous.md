@@ -178,8 +178,8 @@ cargo cache; a build that would need to download and cannot fails, naming the cr
 
 **RU-11.** `trust-plc` is the only crate a Rust POU needs. It re-exports what specification 44 gives
 a module, behind safe types: `Cx` (the activation's context), `Fault`, the IEC data types of §6.2
-(`Str<N>`, `WStr<N>`, `Time`, `Date`, `Tod`, `Dt` and the rest), `Ref<T>` for `VAR_IN_OUT`, `REF_TO`
-and interfaces, the standard functions and function blocks of the program library (`trust_plc::std`,
+(`Str<N>`, `WStr<N>`, `Time`, `Date`, `Tod`, `Dt` and the rest), `InOut<T>` and `Ref<T>` for
+`VAR_IN_OUT` and `REF_TO`, `IfaceRef<I>` for interfaces, the standard functions and function blocks of the program library (`trust_plc::std`,
 the same code `trust-plc-lib` gives Structured Text), the checked arithmetic of §5.3, and the
 attributes of `trust-plc-macros` (§6). It holds no `unsafe` code of its own; the `unsafe` of a module
 stays in `trust-plc-abi` (specification 44 §6.9). `Cx` is the SDK's own type: it gives a Rust POU the task's
@@ -350,7 +350,13 @@ that is `const`, `async`, `extern` or generic, whose first parameter is not its 
 `Result<T, Fault>` with `T` of §6.2's types, or `()` for a function without a result (IEC
 §6.6.2.2 rule 2, Table 19 feature 1a). A variable's Structured Text name is its field's or
 parameter's, an IEC identifier; two names that differ only in case are one name in Structured
-Text and are refused. A function block's struct gains `new()`, its starting values (RU-26),
+Text and are refused. An IEC identifier is no reserved word of Structured Text in any case
+(specification 01 §3, IEC §6.1.2), so no POU, type, namespace, variable, field, parameter or
+enumeration value of a Rust POU is named by one; nor by `NULL`, `ON` or `SET`, which only the
+CODESYS profile takes as names (docs/IEC_DEVIATIONS.md DEV-034), since a Rust POU's declarations
+hold under every profile. The attribute refuses a reserved word where the name stands (`at` is a
+reserved word of Structured Text: rename the variable), so that no declaration it writes fails to
+parse or to check. A function block's struct gains `new()`, its starting values (RU-26),
 and `call(&mut self, cx)`, its call as the kernel makes it (RU-28), which a unit test uses
 (RU-56).
 
@@ -416,7 +422,7 @@ Rust as the SDK names them:
 | a structure | a Rust `struct` with `#[trust_struct]`, every field of a type of this table |
 | a function block instance | a field of a function block's type, Rust or Structured Text (§8) |
 | `REF_TO T`, an interface | `Ref<T>`, `IfaceRef<I>` |
-| `VAR_IN_OUT` of `T` | `InOut<T>` |
+| `VAR_IN_OUT` of `T` | a function's or a method's parameter `InOut<T>`; a function block's field `#[in_out]` of type `Ref<T>` (RU-29) |
 
 The SDK's `Date`, `Tod` and `Dt` and their long forms hold what the areas store (milliseconds since
 1970-01-01, a time of day's since midnight, nanoseconds for a long form), which `from_millis` and
@@ -522,10 +528,20 @@ the area into the struct before the body and copies the struct's variables back 
 fault ends the scan (RU-14). A function is called with its inputs by value and its in-outs as
 `InOut<T>`, and returns its result; it has no instance.
 
-**RU-29. In-outs and references.** An `InOut<T>` and a `Ref<T>` read and write the variable they name
-through the SDK, which makes the checks specification 44 §6.5 makes: null (`NullReferenceDereference`),
-the area, the offset, the extent and the generation (`ReferenceLifetime`). A function block's in-out
-keeps the reference of its last call (specification 44 §7.3).
+**RU-29. In-outs and references.** A function's or a method's in-out is the caller's variable itself
+(IEC §6.6.1.2.2, specification 44 §7.3), which may be a variable of the caller's frame: an
+`InOut<'_, T>` for the length of the call, whose `get()` reads the variable and `set(value)` writes it.
+A function block's in-out keeps the reference of its last call (specification 44 §7.3), as a
+Structured Text block's does: a field `#[in_out]` of type `Ref<T>`, which the call sets and the body
+reads but never rebinds. A `Ref<T>`, of such an in-out or of a `REF_TO` variable or input, reads and
+writes the variable it names through the SDK, `get(cx)` and `set(cx, value)`, which make the checks
+specification 44 §6.5 makes: null (`NullReference`), the area, the offset and the extent and the
+generation (`ReferenceLifetime`), and the type the reference names (`TypeMismatch`). `Ref::NULL` is
+`NULL`; a reference is copied and compared as Structured Text's is (specification 44 §7.3). A write
+through an in-out or a reference is made at once, as Structured Text's is, so a fault after it leaves
+it written, while the instance's own variables stay as they were (RU-28). A Rust POU takes no
+reference of its own variables, which lie in its struct while it runs, not where a reference names
+them.
 
 **RU-30. EN and ENO.** A Rust function and function block have `EN` and `ENO` as specification 04
 §EN/ENO gives every POU: `EN` = `FALSE` skips the body, and the body sets `ENO` through
