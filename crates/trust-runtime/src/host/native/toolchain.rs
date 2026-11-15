@@ -21,13 +21,15 @@ pub fn triple(target: Target) -> &'static str {
 }
 
 /// The CPU and features of a module for `target`, fixed so that every device computes the same
-/// bits (specification 44 §9).
+/// bits (specification 44 §9). The AArch64 module reserves `x18` and makes its atomic operations
+/// its own instructions: the compiler's outline atomics ask the C library (`getauxval`) which
+/// instructions the CPU has, which a freestanding module cannot call (§4.4).
 pub(super) fn cpu(target: Target) -> (&'static str, &'static str) {
     match target {
         Target::Rv32imac => ("generic-rv32", "+m,+a,+c"),
         Target::ThumbV8mMainHf => ("cortex-m33", "+fp-armv8d16sp"),
         Target::X86_64 => ("x86-64", "+sse2"),
-        Target::Aarch64 => ("generic", "+reserve-x18"),
+        Target::Aarch64 => ("generic", "+reserve-x18,-outline-atomics"),
     }
 }
 
