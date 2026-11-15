@@ -606,7 +606,15 @@ budget times the most calls the scan can make of it: one for a call outside a lo
 loop. A task whose Rust work, so counted, exceeds its interval, or that calls a Rust POU in a loop
 without a bound, gets a warning at build that names the task and the calls; the deployment's
 profile (`trust.toml` `[timing] profile`) makes it an error in `production`, a warning in
-`development` (the default).
+`development` (the default). The calls are counted through the Structured Text that makes them:
+its programs, functions and function blocks, their methods, actions and properties, and the
+function block instances the task runs on their own (IEC §6.8.2), each counted as often as the
+scan can reach it. A call that can run one of several bodies (a method that a derived type
+overrides, a method of an interface, the body of a function block that another extends) counts the
+most Rust work among them, since the build knows every type of the program; a call on a variable
+that holds an instance of the type itself (one the POU declares, not an input or an in-out, which
+a caller fills) or through `SUPER^` runs that type's body. `trust-runtime build` prints each
+warning.
 
 **RU-48. Evidence.** `trust-dev rust bench` runs each Rust POU of the project on a device or the
 simulator with the inputs of its `#[bench]` cases (or the declared initial values) and records the

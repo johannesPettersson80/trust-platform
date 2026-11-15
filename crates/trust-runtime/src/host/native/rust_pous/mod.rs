@@ -191,6 +191,78 @@ pub fn write_declarations(project: &Path) -> Result<Written, Vec<RustPouError>> 
     Ok(Written::Wrote(krate.pous.len()))
 }
 
+/// The timing of a project's Rust POUs (specification 48 RU-46, RU-47, Appendix B): each POU's
+/// budget for the build's target, and whether the deployment's profile is `production`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct Timing {
+    /// The budget of each Rust POU in nanoseconds, by its name in capitals.
+    pub(super) budgets: std::collections::HashMap<String, u64>,
+    /// `[timing] profile = "production"`: RU-47's findings are errors.
+    pub(super) production: bool,
+}
+
+/// The timing of `krate`'s POUs for the target `triple`, from their budgets and `trust.toml`'s
+/// `[timing]` in the project in `project`: its `profile`, and `[timing.budgets]`, which may lower a
+/// POU's budget for a target and never raise it (RU-46).
+///
+/// # Errors
+///
+/// A `trust.toml` that does not read, a profile other than `development` and `production`, a budget
+/// of a POU the crate has not, one that does not read, and one above the POU's own.
+pub(super) fn timing(project: &Path, triple: &str, krate: &RustCrate) -> Result<Timing, String> {
+    let mut timing = Timing {
+        budgets: krate
+            .pous
+            .iter()
+            .map(|pou| (pou.pou.name.to_ascii_uppercase(), pou.pou.budget_ns))
+            .collect(),
+        production: false,
+    };
+    let file = project.join("trust.toml");
+    let Ok(text) = std::fs::read_to_string(&file) else {
+        return Ok(timing);
+    };
+    let table: toml::Table =
+        toml::from_str(&text).map_err(|error| format!("trust.toml: {error}"))?;
+    let Some(section) = table.get("timing").and_then(toml::Value::as_table) else {
+        return Ok(timing);
+    };
+    match section.get("profile").map(|profile| profile.as_str()) {
+        None | Some(Some("development")) => {}
+        Some(Some("production")) => timing.production = true,
+        Some(_) => {
+            return Err(
+                "trust.toml: [timing] profile is \"development\" or \"production\" (specification \
+                 48 RU-47)"
+                    .into(),
+            )
+        }
+    }
+    let budgets = section.get("budgets").and_then(toml::Value::as_table);
+    for (pou, targets) in budgets.into_iter().flatten() {
+        let key = pou.to_ascii_uppercase();
+        let Some(declared) = timing.budgets.get(&key).copied() else {
+            return Err(format!(
+                "trust.toml: [timing.budgets] names {pou}, which is no Rust POU of the crate"
+            ));
+        };
+        let Some(text) = targets.get(triple).and_then(toml::Value::as_str) else {
+            continue;
+        };
+        let lowered = trust_plc_decl::duration_nanoseconds(text).ok_or_else(|| {
+            format!("trust.toml: the budget \"{text}\" of {pou} is no duration: `40us`, `1.5ms`")
+        })?;
+        if lowered > declared {
+            return Err(format!(
+                "trust.toml: the budget of {pou} for {triple} is {text}, above its own; trust.toml \
+                 may lower a budget, never raise it (specification 48 RU-46)"
+            ));
+        }
+        timing.budgets.insert(key, lowered);
+    }
+    Ok(timing)
+}
+
 /// How the generated code calls a Rust POU (specification 48 RU-28): the Rust path of its item
 /// in the build's crate graph and its variables in declaration order.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -93,6 +93,13 @@ impl Pou {
     }
 }
 
+/// The nanoseconds of a duration as a budget writes it: `500ns`, `15us`, `1.5ms`, `2s`; `None` for
+/// another text, zero and a fraction of a nanosecond (RU-46).
+#[must_use]
+pub fn duration_nanoseconds(text: &str) -> Option<u64> {
+    budget::nanoseconds(text)
+}
+
 /// The attributes of a function block's fields that this crate reads and the attribute removes.
 const FIELD_ATTRIBUTES: [&str; 4] = ["input", "output", "retain", "init"];
 
