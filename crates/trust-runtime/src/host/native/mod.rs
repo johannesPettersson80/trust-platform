@@ -11,6 +11,7 @@
 pub mod bundle;
 mod cargo_build;
 mod classes;
+mod crate_graph;
 mod dispatch;
 mod emit;
 mod entries;
@@ -457,6 +458,11 @@ pub fn build_project(
     if krate.pous.is_empty() {
         return build_sources(sources, tests, options, conversions, toolchain, work, None);
     }
+    // The crate's own rules hold before anything compiles (specification 48 RU-08).
+    rust_pous::check_crate(project, &krate.root).map_err(|errors| {
+        let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
+        NativeError::Compile(lines.join("\n"))
+    })?;
     let crate_build = CrateBuild {
         links: rust_pous::links(&krate),
         project: cargo_build::ProjectCrate {

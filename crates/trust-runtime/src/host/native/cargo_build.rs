@@ -155,6 +155,7 @@ pub(super) fn compile(
             registry.display()
         ));
     }
+    check_graph(cargo, toolchain, sdk, target, work, project)?;
     let mut command = Command::new(cargo);
     command
         .current_dir(work)
@@ -202,6 +203,44 @@ pub(super) fn compile(
     let module = std::fs::read(&output)
         .map_err(|error| NativeError::Toolchain(format!("{}: {error}", output.display())))?;
     Ok((module, diagnostics))
+}
+
+/// Refuses the scan crate graph of the package in `work` where it breaks specification 48's rules
+/// (RU-09, RU-20), from cargo's metadata of it for `target`.
+fn check_graph(
+    cargo: &Path,
+    toolchain: &Toolchain,
+    sdk: &Path,
+    target: Target,
+    work: &Path,
+    project: &ProjectCrate,
+) -> Result<(), NativeError> {
+    let output = Command::new(cargo)
+        .current_dir(work)
+        .args(["metadata", "--offline", "--format-version", "1"])
+        .args(["--filter-platform", triple(target)])
+        .env("RUSTC", &toolchain.rustc)
+        .env("CARGO_TARGET_DIR", work.join("target"))
+        .env_remove("RUSTC_WRAPPER")
+        .env_remove("RUSTC_WORKSPACE_WRAPPER")
+        .output()
+        .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
+    if !output.status.success() {
+        return Err(NativeError::Toolchain(
+            String::from_utf8_lossy(&output.stderr).to_string(),
+        ));
+    }
+    let metadata: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|error| NativeError::Toolchain(format!("cargo metadata: {error}")))?;
+    // The metadata names every manifest by the file system's own path.
+    let crate_folder =
+        std::fs::canonicalize(&project.folder).unwrap_or_else(|_| project.folder.clone());
+    let errors = super::crate_graph::check(&metadata, sdk, &crate_folder);
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(NativeError::Compile(errors.join("\n")))
+    }
 }
 
 /// Cargo's home folder, whose registry holds the downloaded crates' sources.

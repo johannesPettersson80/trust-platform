@@ -7,7 +7,10 @@
 //! the reader the attributes check items with, so the declarations and the compiled code agree by
 //! construction (RU-24).
 
+mod rules;
 mod tree;
+
+pub(super) use rules::check_crate;
 
 use std::fmt;
 use std::path::Path;
@@ -40,6 +43,8 @@ pub struct RustCrate {
     pub name: String,
     /// The crate's package, as its manifest names it.
     pub package: String,
+    /// The crate's root file: `[lib] path`, else `src/lib.rs` of the crate's folder.
+    pub root: std::path::PathBuf,
     /// The Rust POUs, in the order the crate's modules declare them.
     pub pous: Vec<RustPou>,
 }
@@ -111,11 +116,13 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
         .and_then(|lib| lib.get("path"))
         .and_then(toml::Value::as_str)
         .unwrap_or("src/lib.rs");
-    let found = tree::walk(project, &folder.join(root));
+    let root = folder.join(root);
+    let found = tree::walk(project, &root);
     if found.errors.is_empty() {
         Ok(Some(RustCrate {
             name,
             package,
+            root,
             pous: found.pous,
         }))
     } else {
