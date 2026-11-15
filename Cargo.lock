@@ -7855,10 +7855,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plc"
+version = "0.41.2"
+dependencies = [
+ "libm",
+ "trust-plc-abi",
+ "trust-plc-lib",
+ "trust-plc-macros",
+]
+
+[[package]]
 name = "trust-plc-abi"
 version = "0.41.2"
 dependencies = [
  "memmap2",
+]
+
+[[package]]
+name = "trust-plc-decl"
+version = "0.41.2"
+dependencies = [
+ "proc-macro2",
+ "syn 3.0.7",
 ]
 
 [[package]]
@@ -7868,6 +7886,16 @@ dependencies = [
  "libm",
  "ryu",
  "trust-plc-abi",
+]
+
+[[package]]
+name = "trust-plc-macros"
+version = "0.41.2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.7",
+ "trust-plc-decl",
 ]
 
 [[package]]
