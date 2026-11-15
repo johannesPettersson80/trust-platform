@@ -125,6 +125,48 @@ pub(crate) fn enumeration(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
+/// `#[trust_struct]`: the structure without the attributes its reader reads, and its default, its
+/// fields' initial values and their types' defaults (`trust_plc::Declared`, specification 48
+/// RU-25, RU-26).
+pub(crate) fn structure(args: TokenStream, item: TokenStream) -> TokenStream {
+    let Ok(mut parsed) = syn::parse2::<ItemStruct>(item.clone()) else {
+        return refused("`#[trust_struct]` declares a struct a Rust structure", item);
+    };
+    let structure = trust_plc_decl::structure(args, &parsed);
+    if let Fields::Named(fields) = &mut parsed.fields {
+        for field in &mut fields.named {
+            field
+                .attrs
+                .retain(|attribute| !trust_plc_decl::is_field_attribute(attribute));
+        }
+    }
+    let structure = match structure {
+        Ok(structure) => structure,
+        Err(error) => {
+            let error = error.to_compile_error();
+            return quote! { #error #parsed };
+        }
+    };
+    let ident = &parsed.ident;
+    let fields: Vec<proc_macro2::Ident> = structure
+        .fields
+        .iter()
+        .map(|field| format_ident!("{}", field.name))
+        .collect();
+    let starts: Vec<TokenStream> = structure
+        .fields
+        .iter()
+        .map(|field| value(&field.ty, field.init.as_ref()))
+        .collect();
+    quote! {
+        #parsed
+
+        impl ::trust_plc::Declared for #ident {
+            const DEFAULT: Self = Self { #(#fields: #starts),* };
+        }
+    }
+}
+
 /// `#[budget]` written above the POU's attribute expands first: it puts itself below that
 /// attribute, which reads it. Without a POU's attribute it is refused.
 pub(crate) fn budget(args: &TokenStream, item: TokenStream) -> TokenStream {

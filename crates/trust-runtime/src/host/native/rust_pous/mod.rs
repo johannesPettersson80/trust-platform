@@ -11,7 +11,7 @@ mod rules;
 mod tree;
 mod types;
 
-pub use types::RustEnumeration;
+pub use types::{RustEnumeration, RustStructure};
 
 pub(super) use rules::check_crate;
 
@@ -52,6 +52,8 @@ pub struct RustCrate {
     pub pous: Vec<RustPou>,
     /// The enumerations, in the order the crate's modules declare them (RU-25).
     pub enumerations: Vec<RustEnumeration>,
+    /// The structures, in the order the crate's modules declare them (RU-25).
+    pub structures: Vec<RustStructure>,
 }
 
 /// Something of the project's crate that keeps its declarations from being written, where it is.
@@ -124,7 +126,7 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
     let root = folder.join(root);
     let mut found = tree::walk(project, &root);
     // A POU's variable of one of the crate's types bears the type's Structured Text name (RU-25).
-    let unresolved = types::resolve(&mut found.pous, &found.enumerations);
+    let unresolved = types::resolve(&mut found.pous, &found.enumerations, &mut found.structures);
     found.errors.extend(unresolved);
     if found.errors.is_empty() {
         Ok(Some(RustCrate {
@@ -133,6 +135,7 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
             root,
             pous: found.pous,
             enumerations: found.enumerations,
+            structures: found.structures,
         }))
     } else {
         Err(found.errors)
@@ -140,15 +143,43 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
 }
 
 /// The generated declarations of `krate` (RU-23, RU-25): each enumeration's declaration, then each
-/// POU's, in the order the crate declares them, with a blank line between two.
+/// structure's, then each POU's, in the order the crate declares them, with a blank line between
+/// two.
 #[must_use]
 pub fn declarations_text(krate: &RustCrate) -> String {
-    let types = krate
+    let enumerations = krate
         .enumerations
         .iter()
         .map(|found| found.enumeration.declaration(&found.file));
+    let structures = krate
+        .structures
+        .iter()
+        .map(|found| found.structure.declaration(&found.file));
     let pous = krate.pous.iter().map(|pou| pou.pou.declaration(&pou.file));
-    types.chain(pous).collect::<Vec<_>>().join("\n")
+    enumerations
+        .chain(structures)
+        .chain(pous)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The path the program's generated code builds each structure of `krate` by, by its Structured
+/// Text name in capitals (RU-25, RU-28).
+pub(super) fn structure_paths(krate: &RustCrate) -> std::collections::HashMap<String, String> {
+    krate
+        .structures
+        .iter()
+        .map(|found| {
+            (
+                found.structure.name.to_ascii_uppercase(),
+                format!(
+                    "::{}::{}",
+                    super::cargo_build::PROJECT_CRATE,
+                    found.path.join("::")
+                ),
+            )
+        })
+        .collect()
 }
 
 /// What [`write_declarations`] did.

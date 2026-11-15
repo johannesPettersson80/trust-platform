@@ -303,9 +303,9 @@ pub enum DataType {
         /// The number of elements, at least one.
         len: u32,
     },
-    /// A type the crate declares, an enumeration (`#[trust_enum]`), by its name: the Rust item's
-    /// as the reader reads a POU, its Structured Text name once the declarations' writer, which
-    /// reads the whole crate, gives it.
+    /// A type the crate declares, an enumeration (`#[trust_enum]`) or a structure
+    /// (`#[trust_struct]`), by its name: the Rust item's as the reader reads a POU, its Structured
+    /// Text name once the declarations' writer, which reads the whole crate, gives it.
     Named(String),
 }
 

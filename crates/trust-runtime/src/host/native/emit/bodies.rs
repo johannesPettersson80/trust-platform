@@ -160,7 +160,7 @@ fn block_body(
     let rust = trust_hir::rust_pous::is_rust_pou(&node);
     if rust {
         let link = rust_link(context, &def.name)?;
-        super::rust_glue::block(&mut lowerer, ty, &link)?;
+        super::rust_glue::block(&mut lowerer, ty, &link, &context.front.rust_structures)?;
     }
     let signature = if rust {
         format!("#[inline(never)]\n{signature}")
@@ -354,7 +354,12 @@ fn function_body(
     let rust = trust_hir::rust_pous::is_rust_pou(&node);
     if rust {
         let link = rust_link(context, &def.name)?;
-        super::rust_glue::function(&mut lowerer, &def.params, &link)?;
+        super::rust_glue::function(
+            &mut lowerer,
+            &def.params,
+            &link,
+            &context.front.rust_structures,
+        )?;
     }
     if let Some(list) = body_of(&node) {
         lowerer.body(&list)?;

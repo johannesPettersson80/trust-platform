@@ -518,7 +518,10 @@ fn build_sources(
         }) => (links, Some(project), Some(krate), Some(timing)),
         None => (std::collections::HashMap::new(), None, None, None),
     };
-    let front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
+    let mut front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
+    if let Some(krate) = &krate {
+        front.rust_structures = rust_pous::structure_paths(krate);
+    }
     init::check_declared_conversions(&front, conversions)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();

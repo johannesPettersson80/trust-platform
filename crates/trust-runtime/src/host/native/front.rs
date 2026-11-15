@@ -128,6 +128,9 @@ pub(super) struct Front {
     /// How the generated code calls each Rust POU of the project's crate, by its name in capitals
     /// (specification 48 RU-28); empty for a project without one.
     pub(super) rust: HashMap<String, super::rust_pous::RustLink>,
+    /// The path the generated code builds each structure of the project's crate by, by its name
+    /// in capitals (specification 48 RU-25); empty for a project without one.
+    pub(super) rust_structures: HashMap<String, String>,
 }
 
 impl Front {
@@ -202,6 +205,7 @@ impl Front {
             sources: checked,
             global_owners,
             rust,
+            rust_structures: HashMap::new(),
         })
     }
 

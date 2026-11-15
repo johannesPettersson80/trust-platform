@@ -52,14 +52,16 @@ pub trait Placed: Sized {
 }
 
 /// A type the project's crate declares for its Rust POUs' variables, an enumeration
-/// (`#[trust_enum]`, specification 48 RU-25): its default, which a variable without an initial value
-/// starts at.
+/// (`#[trust_enum]`) or a structure (`#[trust_struct]`, specification 48 RU-25): its default, which
+/// a variable without an initial value starts at.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is no type of specification 48 RU-25",
-    label = "mark its `enum` with `#[trust_enum]`, or use a type of RU-25's table"
+    label = "mark its `enum` with `#[trust_enum]` or its `struct` with `#[trust_struct]`, or use a \
+             type of RU-25's table"
 )]
 pub trait Declared: Copy {
-    /// The type's default: an enumeration's first variant (IEC §6.4.4.2).
+    /// The type's default: an enumeration's first variant (IEC §6.4.4.2), a structure's fields'
+    /// initial values.
     const DEFAULT: Self;
 }
 
