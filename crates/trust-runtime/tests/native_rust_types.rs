@@ -1,6 +1,7 @@
 //! A Rust POU's variables of the IEC types beside Rust's own reach it and come back as the
 //! program's areas store them (specification 48 RU-25, RU-26; specification 44 §6.2): bit strings,
-//! characters, durations, dates and times of day, and strings, each with its declared starting value.
+//! characters, durations, dates and times of day, strings, arrays and enumerations, each with its
+//! declared starting value.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`. A toolchain without
 //! cargo and the SDK's sources, as a release's bundle is until specification 48 §16, refuses the
@@ -491,4 +492,137 @@ fn a_rust_pou_keeps_arrays_as_structured_text_does() {
         elements(program.value("MAIN.IDLESCALED")),
         [Value::DInt(10), Value::DInt(20), Value::DInt(0)]
     );
+}
+
+/// An enumeration, a block that runs a pump by its mode and keeps its last two modes, and a
+/// function that gives the next mode.
+const MODED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_enum(name = \"MODE\")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Off = 0,
+    Auto = 1,
+    Manual = 5,
+}
+
+#[trust_fb(name = \"PUMP\")]
+#[budget(\"1us\")]
+pub struct Pump {
+    #[input]
+    pub mode: Mode,
+    #[input]
+    pub level: i16,
+    #[output]
+    pub running: bool,
+    #[output]
+    #[init(Mode::Auto)]
+    pub last: Mode,
+    #[output]
+    pub history: Array<Mode, 1, 2>,
+}
+
+impl Body for Pump {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        self.running = match self.mode {
+            Mode::Off => false,
+            Mode::Auto => self.level < 50,
+            Mode::Manual => true,
+        };
+        self.history = Array::from_items([self.last, self.mode]);
+        self.last = self.mode;
+        Ok(())
+    }
+}
+
+#[trust_function(name = \"NEXT_MODE\")]
+#[budget(\"1us\")]
+pub fn next_mode(_cx: &mut Cx, mode: Mode) -> Result<Mode, Fault> {
+    Ok(match mode {
+        Mode::Off => Mode::Auto,
+        Mode::Auto => Mode::Manual,
+        Mode::Manual => Mode::Off,
+    })
+}
+";
+
+/// A program that runs the pump in its manual mode, asks for the next mode and compares the
+/// pump's mode in Structured Text.
+const MODED_PROGRAM: &str = "PROGRAM Line
+VAR
+    pump : PUMP;
+    idle : PUMP;
+    mode : MODE := Manual;
+    running : BOOL;
+    last : MODE;
+    history : ARRAY[1..2] OF MODE;
+    next : MODE;
+    isManual : BOOL;
+    idleLast : MODE;
+END_VAR
+pump(mode := mode, level := 80);
+running := pump.running;
+last := pump.last;
+history := pump.history;
+next := NEXT_MODE(mode := pump.last);
+isManual := pump.last = MODE#Manual;
+idleLast := idle.last;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// The variant and the value of an enumerated value a program read.
+fn variant(value: &Value) -> (String, i64) {
+    match value {
+        Value::Enum(value) => (value.variant_name().to_string(), value.numeric_value()),
+        other => panic!("{other:?} is no enumerated value"),
+    }
+}
+
+#[test]
+fn a_rust_pou_keeps_enumerations_as_structured_text_does() {
+    // RU-25, RU-26: a variable of an enumeration reaches the Rust POU and comes back as its value,
+    // an input, an output, an array's element and a function's argument and result alike, and its
+    // declared variant is its starting value. By hand: the pump runs in Manual (5) whatever its
+    // level; its history after three calls is [Manual, Manual]; the next mode after Manual is Off
+    // (0); Structured Text takes the pump's mode for MODE#Manual; the instance never called keeps
+    // its declared Auto (1). Catches a variant read as its position instead of its value, an
+    // enumeration's array element lost, and a starting variant the Rust POU and its declaration
+    // disagree on.
+    let root = custom_project(
+        "rust-pous-moded",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", MODED)],
+        MODED_PROGRAM,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10, 20, 30] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    let read = |path: &str| {
+        program
+            .value(path)
+            .unwrap_or_else(|| panic!("{path} is a variable"))
+    };
+    assert_eq!(read("MAIN.RUNNING"), Value::Bool(true));
+    assert_eq!(variant(&read("MAIN.LAST")), ("Manual".into(), 5));
+    let history: Vec<(String, i64)> = flat(read("MAIN.HISTORY")).iter().map(variant).collect();
+    assert_eq!(history, [("Manual".into(), 5), ("Manual".into(), 5)]);
+    assert_eq!(variant(&read("MAIN.NEXT")), ("Off".into(), 0));
+    assert_eq!(read("MAIN.ISMANUAL"), Value::Bool(true));
+    assert_eq!(variant(&read("MAIN.IDLELAST")), ("Auto".into(), 1));
 }

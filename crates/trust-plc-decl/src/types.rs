@@ -303,6 +303,10 @@ pub enum DataType {
         /// The number of elements, at least one.
         len: u32,
     },
+    /// A type the crate declares, an enumeration (`#[trust_enum]`), by its name: the Rust item's
+    /// as the reader reads a POU, its Structured Text name once the declarations' writer, which
+    /// reads the whole crate, gives it.
+    Named(String),
 }
 
 impl DataType {
@@ -321,6 +325,7 @@ impl DataType {
                 lower.saturating_add(i64::from(*len)).saturating_sub(1),
                 element.iec()
             )),
+            Self::Named(name) => Cow::Owned(name.clone()),
         }
     }
 
@@ -329,18 +334,28 @@ impl DataType {
     pub fn elementary(&self) -> Option<Elementary> {
         match self {
             Self::Elementary(elementary) => Some(*elementary),
-            Self::Array { .. } => None,
+            Self::Array { .. } | Self::Named(_) => None,
         }
     }
 
-    /// The type `ty` names (RU-25).
+    /// The type `ty` names (RU-25): a type of RU-25's table, else a name, which the crate's type of
+    /// that name must declare.
     pub(crate) fn of(ty: &Type) -> Result<Self, Error> {
-        match array_type(ty) {
-            Some(array) => array,
-            None => Elementary::of(ty).map(Self::Elementary),
+        if let Some(array) = array_type(ty) {
+            return array;
         }
+        Elementary::of(ty).map(Self::Elementary).or_else(|error| {
+            match crate::last_path_segment(ty) {
+                Some(name) if !RUST_ONLY.contains(&name.as_str()) => Ok(Self::Named(name)),
+                _ => Err(error),
+            }
+        })
     }
 }
+
+/// Rust's own types that are no type of RU-25's table and that no type of the crate is: a variable
+/// of one is refused with the table's types rather than taken for a crate type's name.
+const RUST_ONLY: [&str; 7] = ["usize", "isize", "i128", "u128", "char", "str", "String"];
 
 /// The array type `ty` names, `Array<T, A, N>`: `N` elements of `T` indexed from `A`; `None` for
 /// another type.

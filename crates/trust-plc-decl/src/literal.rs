@@ -58,6 +58,8 @@ pub enum Value {
     /// An array's leading elements, as many as it has at most; the others start at their type's
     /// default (specification 10 §2.3).
     List(Vec<Value>),
+    /// An enumeration's value: its variant's path as written, `["Mode", "Auto"]`.
+    Variant(Vec<String>),
 }
 
 impl Value {
@@ -80,6 +82,7 @@ impl Value {
                 let items: Vec<String> = items.iter().map(Value::structured_text).collect();
                 format!("[{}]", items.join(", "))
             }
+            Self::Variant(path) => path.last().cloned().unwrap_or_default(),
         }
     }
 }
@@ -222,6 +225,24 @@ fn real_literal(shortest: &str) -> String {
 pub(crate) fn initial_of(value: &Expr, ty: &DataType) -> Result<Value, Error> {
     match ty {
         DataType::Elementary(elementary) => initial(value, *elementary),
+        // One of the enumeration's variants; the declarations' writer checks it is one.
+        DataType::Named(_) => match value {
+            Expr::Path(path) if path.qself.is_none() => Ok(Value::Variant(
+                path.path
+                    .segments
+                    .iter()
+                    .map(|segment| segment.ident.to_string())
+                    .collect(),
+            )),
+            _ => Err(Error::new(
+                value.span(),
+                format!(
+                    "the initial value of a {} is one of its variants, `#[init(Mode::Auto)]` \
+                     (specification 48 RU-26)",
+                    ty.iec()
+                ),
+            )),
+        },
         DataType::Array { element, len, .. } => {
             let Expr::Array(ExprArray { elems, .. }) = value else {
                 return Err(Error::new(

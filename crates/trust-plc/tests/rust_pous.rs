@@ -5,7 +5,7 @@
 #![allow(clippy::float_cmp)]
 
 use trust_plc::prelude::*;
-use trust_plc::Stored;
+use trust_plc::{Placed, Stored};
 
 /// Exponential moving average of one input: specification 48 RU-22's function block.
 #[trust_fb(name = "FILTER_EMA")]
@@ -195,6 +195,52 @@ fn a_function_block_starts_at_its_declared_lists() {
     assert_eq!(starts.c.get(2).and_then(Str::as_str), Some("yz"));
     assert_eq!(starts.d.get(-1).map(Array::as_slice), Some(&[1_u8, 2][..]));
     assert_eq!(starts.d.get(0).map(Array::as_slice), Some(&[3_u8, 0][..]));
+}
+
+/// The modes of a pump, one below zero.
+#[trust_enum(name = "MODE")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    Off = 0,
+    Auto = 1,
+    Manual = 5,
+    Back = -1,
+}
+
+/// Variables of the enumeration with and without their initial values.
+#[trust_fb(name = "MODE_STARTS")]
+#[budget("1us")]
+pub struct ModeStarts {
+    #[init(Mode::Manual)]
+    pub a: Mode,
+    pub b: Mode,
+    #[init([Mode::Back])]
+    pub c: Array<Mode, 1, 2>,
+}
+
+impl Body for ModeStarts {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        Ok(())
+    }
+}
+
+#[test]
+fn an_enumeration_starts_at_its_variant_and_lies_as_its_value() {
+    // RU-25, RU-26: a variable of an enumeration starts at the variant written, else at the first
+    // variant, the type's default (IEC §6.4.4.2); it lies as its value within INT, and a value none
+    // of its variants has reads as the first. Catches a variant stored as its position instead of
+    // its value, a value below zero lost, and a stray value that reads as another variant.
+    let starts = ModeStarts::new();
+    assert_eq!((starts.a, starts.b), (Mode::Manual, Mode::Off));
+    assert_eq!(starts.c.as_slice(), &[Mode::Back, Mode::Off]);
+    assert_eq!(Stored::into_raw(Mode::Manual), 5_i16);
+    assert_eq!(Stored::into_raw(Mode::Back), -1_i16);
+    assert_eq!(<Mode as Stored>::from_raw(5), Mode::Manual);
+    assert_eq!(<Mode as Stored>::from_raw(2), Mode::Off);
+    let cell = core::cell::Cell::new(0_i16);
+    Mode::Back.store(&cell);
+    assert_eq!(cell.get(), -1);
+    assert_eq!(<Mode as Placed>::load(&cell), Mode::Back);
 }
 
 #[test]
