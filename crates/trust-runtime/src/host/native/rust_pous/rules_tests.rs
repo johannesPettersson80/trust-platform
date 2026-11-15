@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use super::check_crate;
+use crate::native::rust_pous::layout;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -27,7 +28,8 @@ const ROOT: &str = "#![cfg_attr(not(test), no_std)]\n#![forbid(unsafe_code)]\n";
 
 fn refusals(manifest: &str, root: &str) -> Vec<String> {
     let folder = project(manifest, root);
-    match check_crate(&folder, &folder.join("rust/src/lib.rs")) {
+    let layout = layout(&folder).expect("the project's layout");
+    match check_crate(&folder, &layout, &folder.join("rust/src/lib.rs")) {
         Ok(()) => Vec::new(),
         Err(errors) => errors.iter().map(ToString::to_string).collect(),
     }

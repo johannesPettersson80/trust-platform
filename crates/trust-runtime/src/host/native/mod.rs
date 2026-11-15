@@ -471,7 +471,7 @@ pub fn build_project(
         return build_sources(sources, tests, options, conversions, toolchain, work, None);
     }
     // The crate's own rules hold before anything compiles (specification 48 RU-08).
-    rust_pous::check_crate(project, &krate.root).map_err(|errors| {
+    rust_pous::check_crate(project, &krate.layout, &krate.root).map_err(|errors| {
         let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
         NativeError::Compile(lines.join("\n"))
     })?;
@@ -480,7 +480,7 @@ pub fn build_project(
     let crate_build = CrateBuild {
         links: rust_pous::links(&krate),
         project: cargo_build::ProjectCrate {
-            folder: project.join(rust_pous::CRATE_FOLDER),
+            folder: project.join(&krate.layout.crate_folder),
             package: krate.package.clone(),
         },
         krate,

@@ -934,7 +934,15 @@ variables (`[bindings]`: `"P1.start" = "%IX0.0"`, IEC's `VAR_CONFIG`). Appendix 
 `CONFIGURATION` with its resource, `TASK`s, `PROGRAM ... WITH ...` instances, `VAR_GLOBAL` and
 `VAR_CONFIG`, in the order `trust.toml` gives them, with the generated-file header. The file is
 committed, and the build fails when it differs from what `trust.toml` gives (RU-41, step 1), so a
-review sees exactly the configuration that runs. Every Structured Text tool reads it: the language
+review sees exactly the configuration that runs. `trust-dev rust declarations` writes it with the
+declarations (RU-24). The configuration and its resource bear `[resource] name`, the resource
+`ON PLC`; a task is `TASK <name> (INTERVAL := <time>, PRIORITY := <n>)`, its interval a `TIME`
+literal in the largest unit that holds it whole, or `TASK <name> (SINGLE := <event>, PRIORITY :=
+<n>)` for an `event`, a `BOOL` global; the globals are the configuration's `VAR_GLOBAL`; and each
+binding is a `VAR_CONFIG` entry `<instance>.<variable> AT <address> : <type>`, with the type the
+Rust program declares. A value that Appendix B's schema does not take, a program that is no
+`#[trust_program]` of the crate, a task, a variable or an address that does not exist, is refused at
+`trust.toml` with its reason before anything is written. Every Structured Text tool reads it: the language
 server, the run targets, Devices & Connections, the HMI Builder and the debugger work on a Rust-first
 project as on any project.
 
@@ -1172,7 +1180,7 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
 
 ```toml
 [rust]
-crate = "rust"                  # the crate's folder; "." in a Rust-first project
+crate = "rust"                  # the crate's folder inside the project; "." in a Rust-first project
 
 [timing]
 profile = "development"         # or "production" (RU-47)

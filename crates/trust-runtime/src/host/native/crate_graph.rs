@@ -79,10 +79,13 @@ pub(super) fn check(metadata: &Value, sdk: &Path, project: &Path) -> Vec<String>
         .map(|(id, _)| *id)
         .collect();
     let exempt = closure(&sdk_crates, &dependencies);
-    // The project's crate and every crate it is built with.
+    // The project's crate and every crate it is built with. The build's own package, the generated
+    // code that `cargo metadata` runs in, lies inside a Rust-first project's crate folder, the
+    // project's own (RU-65), and is none of the project's crates.
+    let generated = metadata["resolve"]["root"].as_str();
     let roots: Vec<&str> = packages
         .iter()
-        .filter(|(_, package)| under(package, &project))
+        .filter(|(id, package)| Some(**id) != generated && under(package, &project))
         .map(|(id, _)| *id)
         .collect();
     let mut errors = Vec::new();

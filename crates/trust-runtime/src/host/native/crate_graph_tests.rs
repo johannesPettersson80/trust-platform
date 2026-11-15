@@ -189,3 +189,68 @@ fn a_crate_outside_the_sdk_depends_only_on_the_crates_the_sdk_publishes() {
         assert!(message.contains("RU-20"), "{message}");
     }
 }
+
+#[test]
+fn the_generated_package_in_a_rust_first_project_is_the_builds_own() {
+    // RU-20, RU-65: in a Rust-first project the crate's folder is the project's own, so the build's
+    // generated package, which `cargo metadata` names as its root, lies inside it; it depends on the
+    // crates the SDK is built from as the generated code does, while the project's crate still may
+    // not. Catches the generated package taken for one of the project's crates, which refused every
+    // Rust-first project.
+    let root = trust_test_support::unique_temp_path("rust-pou-graph-first");
+    let sdk = root.join("sdk");
+    let crate_folder = root.join("project");
+    let generated = crate_folder.join("build/native/x86_64-unknown-linux-gnu/module");
+    std::fs::create_dir_all(crate_folder.join("src")).expect("the crate's folder");
+    std::fs::write(crate_folder.join("src/lib.rs"), ROOT).expect("the root");
+    std::fs::create_dir_all(generated.join("src")).expect("the generated package's folder");
+    let manifest = |folder: &PathBuf| folder.join("Cargo.toml").display().to_string();
+    let sources = |folder: &PathBuf| folder.join("src").display().to_string();
+    let sdk_crate = |name: &str| {
+        package(
+            name,
+            &manifest(&sdk.join(name)),
+            &["lib"],
+            &sources(&sdk.join(name)),
+        )
+    };
+    let metadata = |project_reaches_abi: bool| {
+        let mut project_deps = vec![json!({ "pkg": "trust-plc", "dep_kinds": [{ "kind": null }] })];
+        if project_reaches_abi {
+            project_deps.push(json!({ "pkg": "trust-plc-abi", "dep_kinds": [{ "kind": null }] }));
+        }
+        json!({
+            "packages": [
+                package("trust_module", &manifest(&generated), &["lib"], &sources(&generated)),
+                package("project", &manifest(&crate_folder), &["lib"], &sources(&crate_folder)),
+                sdk_crate("trust-plc"),
+                sdk_crate("trust-plc-abi"),
+                sdk_crate("trust-plc-lib"),
+            ],
+            "resolve": {
+                "root": "trust_module",
+                "nodes": [
+                    { "id": "trust_module", "deps": [
+                        { "pkg": "project", "dep_kinds": [{ "kind": null }] },
+                        { "pkg": "trust-plc-abi", "dep_kinds": [{ "kind": null }] },
+                        { "pkg": "trust-plc-lib", "dep_kinds": [{ "kind": null }] },
+                    ]},
+                    { "id": "project", "deps": project_deps },
+                    { "id": "trust-plc", "deps": [
+                        { "pkg": "trust-plc-abi", "dep_kinds": [{ "kind": null }] },
+                    ]},
+                ],
+            },
+        })
+    };
+    assert_eq!(
+        check(&metadata(false), &sdk, &crate_folder),
+        Vec::<String>::new()
+    );
+    let found = check(&metadata(true), &sdk, &crate_folder);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0].starts_with("project 1.0.0 depends on trust-plc-abi 1.0.0"),
+        "{found:#?}"
+    );
+}
