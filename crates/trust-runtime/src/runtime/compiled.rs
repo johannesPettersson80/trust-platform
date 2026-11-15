@@ -292,6 +292,12 @@ impl CompiledRuntime {
         self.current_time = now;
     }
 
+    /// Sets the resource's cycle interval, which the programs without a task read as their task's
+    /// interval (specification 44 §8.2): the scheduler's, or an isolated run's step.
+    pub fn set_cycle_interval(&mut self, interval: Duration) {
+        self.cycle.program_mut().set_cycle_interval(interval);
+    }
+
     /// Every task counts its next activation from `now`, which becomes the program's time.
     pub fn reset_task_timing(&mut self, now: Duration) {
         self.cycle.reset_task_timing(now);

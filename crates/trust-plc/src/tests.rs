@@ -394,6 +394,32 @@ fn a_rust_pou_reads_the_tasks_logical_time_and_the_wall_clock_from_its_context()
 }
 
 #[test]
+fn a_rust_pou_reads_its_tasks_interval_and_a_simulated_task_moves_on_by_it() {
+    // RU-16: the interval is the activation's, 10 ms for a task of T#10ms. RU-56: `test::task(10
+    // ms)` is the task 0 at the logical time 0 with that interval, each `test::advance` moves it on
+    // by one interval, 10 ms then 20 ms, and `test::cx()` is outside a task, at 0 with the interval
+    // 0. Catches a context that loses the interval, and a simulated task that does not move on or
+    // moves by another amount.
+    let mut raw = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    raw.interval_ns = 10_000_000;
+    assert_eq!(Cx::of(raw).interval(), Time::from_nanos(10_000_000));
+    let mut cx = crate::test::task(Time::from_nanos(10_000_000));
+    assert_eq!(
+        (cx.now(), cx.interval()),
+        (Time::from_nanos(0), Time::from_nanos(10_000_000))
+    );
+    crate::test::advance(&mut cx);
+    assert_eq!(cx.now(), Time::from_nanos(10_000_000));
+    crate::test::advance(&mut cx);
+    assert_eq!(cx.now(), Time::from_nanos(20_000_000));
+    let outside = crate::test::cx();
+    assert_eq!(
+        (outside.now(), outside.interval()),
+        (Time::from_nanos(0), Time::from_nanos(0))
+    );
+}
+
+#[test]
 fn only_the_fault_goes_back_to_the_kernels_context() {
     // RU-11: a Rust POU's call gets a clone of the kernel interface's context, and only the record
     // of the fault it returns goes back; the budget and the call depth stay the generated code's.

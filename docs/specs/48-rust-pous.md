@@ -243,8 +243,10 @@ POU's and the SDK's documentation says what each gives.
 ### 5.4 Time
 
 **RU-16.** A Rust POU reads time only from `Cx`: the task's logical time
-(`cx.now()`, specification 11 §5.2.1), the task's interval and the wall clock through the kernel
-function specification 44 §8.2 gives (`cx.wall_clock()`). It never reads a clock of its own, never
+(`cx.now()`, specification 11 §5.2.1), the task's interval (`cx.interval()`: its `INTERVAL`, the
+resource's cycle interval for a program without a task, and `T#0s` for a task that only its
+`SINGLE` variable starts and outside a task, specification 44 §8.2) and the wall clock through the
+kernel function specification 44 §8.2 gives (`cx.wall_clock()`). It never reads a clock of its own, never
 waits and never sleeps; `core` gives it none. This keeps the scan's results a function of its inputs
 and logical time (specification 44 NX-04), which §12's replay needs.
 
@@ -543,7 +545,12 @@ specification 44 §6.5 makes: null (`NullReference`), the area, the offset and t
 generation (`ReferenceLifetime`), and the type the reference names (`TypeMismatch`). `Ref::NULL` is
 `NULL`; a reference is copied and compared as Structured Text's is (specification 44 §7.3). A write
 through an in-out or a reference is made at once, as Structured Text's is, so a fault after it leaves
-it written, while the instance's own variables stay as they were (RU-28). A Rust POU takes no
+it written, while the instance's own variables stay as they were (RU-28). A function's or a method's
+in-out of a string is the caller's string, which the CODESYS profile lets be of any capacity of its
+family, as it lets a Structured Text function's (`docs/IEC_DEVIATIONS.md` DEV-035): `get()` reads its
+text as an assignment to the in-out's own type does and `set(value)` writes as an assignment to the
+caller's string does, each cut to the longest prefix of whole characters the target holds
+(specification 10 §2.3.1). A Rust POU takes no
 reference of its own variables, which lie in its struct while it runs, not where a reference names
 them.
 
@@ -588,6 +595,16 @@ of the crate's `impl` blocks and their functions.
 of each prototype with its signature, and a call through an interface reaches the Rust method as it
 reaches a Structured Text one (specification 44 §6.4, the dispatch by class id). A Rust POU calls a
 method through an interface it holds with `IfaceRef<I>::call`.
+
+`implements` names the interfaces separated by commas, each a Structured Text name with its
+namespaces (IEC §6.1.2, §6.9) and each once; `#[trust_fb]` alone takes it, as a function implements
+no interface. The generated declaration carries them in their order, `FUNCTION_BLOCK COUNTER
+IMPLEMENTS I_COUNTER`, so the build checks the block as it checks a Structured Text block: a
+prototype without the block's method, a method of another signature and one that is neither
+`PUBLIC` nor `INTERNAL` are error E208 at the generated declaration, and so is an interface with a
+property, which a Rust block cannot have (RU-34). An instance of the block is then assigned to a
+variable of the interface, and the admission counts a call through the interface as the most Rust
+work among the methods it can reach (RU-47).
 
 ### 6.6 What a Rust POU is not
 
@@ -798,7 +815,13 @@ its path, as they reach a Structured Text variable.
 `cargo test` runs on the computer with the standard library (RU-19). `trust_plc::test` gives them a
 `Cx` of a simulated task (its logical time, interval and task) and runs a function block's call as
 the kernel does: `let mut fb = FilterEma::new(); fb.x = 1.0; fb.call(&mut cx)?;`. A unit test runs
-the POU's Rust code, not the program.
+the POU's Rust code, not the program. `test::task(interval)` is the context of the task 0 at the
+logical time 0 with that interval, and `test::advance(&mut cx)` moves its logical time on by the
+interval, as the task's next activation does; `test::cx()` is an activation outside a task, at the
+logical time 0 with the interval `T#0s`. A function's or a method's in-out takes a variable of the
+test's own, a `Cell` of a value of any of its types, a structure's too:
+`InOut::new(&Cell::new(point))`, which the call reads and writes as it does the caller's variable
+(RU-29).
 
 **RU-57. Project tests.** Structured Text test POUs (specification 04) call Rust POUs like any POU and
 run with `trust-dev test`, which builds the project with its crate through the bundle and runs the

@@ -325,7 +325,7 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
         // block is the call's own.
         let stack = usize::from(AREA_STACK) - 1;
         let kept: Vec<Vec<u8>> = self.areas[..stack].iter().map(Memory::bytes).collect();
-        match self.call_within(entry, u32::MAX, now, allowance, None) {
+        match self.call_within(entry, u32::MAX, Duration::ZERO, now, allowance, None) {
             Ok(()) => Ok(allowance.saturating_sub(self.cx.budget)),
             Err(
                 error @ RuntimeError::ExecutionLimit {

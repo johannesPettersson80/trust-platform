@@ -1,6 +1,6 @@
 //! The context of a Rust POU's call (specification 48 RU-11, RU-16): what the POU reads of its
-//! activation, the task's logical time and the wall clock, and where the faults it returns are
-//! recorded.
+//! activation, the task's logical time and interval and the wall clock, and where the faults it
+//! returns are recorded.
 //!
 //! The kernel interface's own context (specification 44 §8.2) holds the statement budget, the call
 //! depth, the breakpoints and the kernel's pointers, which only the generated code and the kernel
@@ -12,8 +12,9 @@ use trust_plc_abi::module;
 use crate::{Dt, Fault, Time};
 
 /// The context of one call of a Rust POU (specification 48 RU-11): the task's logical time
-/// ([`now`](Cx::now)), the wall clock ([`wall_clock`](Cx::wall_clock)) and the record of the fault
-/// the POU returns, which the SDK's functions and [`rust_fault`](crate::rust_fault) write.
+/// ([`now`](Cx::now)) and interval ([`interval`](Cx::interval)), the wall clock
+/// ([`wall_clock`](Cx::wall_clock)) and the record of the fault the POU returns, which the SDK's
+/// functions and [`rust_fault`](crate::rust_fault) write.
 ///
 /// It keeps the kernel interface's context to itself: a Rust POU changes neither the statement
 /// budget, the call depth nor the breakpoints, and reaches none of the kernel's pointers.
@@ -34,6 +35,15 @@ impl Cx {
     #[must_use]
     pub fn now(&self) -> Time {
         Time::from_nanos(self.raw.now_ns)
+    }
+
+    /// The task's interval (specification 48 RU-16): its `INTERVAL`, the resource's cycle interval
+    /// for a program without a task, and `T#0s` for a task that only its `SINGLE` variable starts
+    /// and outside a task (specification 44 §8.2). A block that integrates or differentiates over
+    /// its calls reads its sample time here.
+    #[must_use]
+    pub fn interval(&self) -> Time {
+        Time::from_nanos(self.raw.interval_ns)
     }
 
     /// The platform's wall clock in UTC, as Structured Text's `CURRENT_DT` reads it through the

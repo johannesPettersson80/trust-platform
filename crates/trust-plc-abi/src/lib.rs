@@ -35,8 +35,9 @@ pub use strings::{Str, StrView, WStr, WStrView};
 
 /// The version of this interface. A module carries the version it was built against in its image's
 /// header, and a kernel runs only a module of its own version (specification 44 §8.2, §10.2).
-/// Version 6 has the fault code `RustFault` (specification 48 RU-14).
-pub const INTERFACE_VERSION: u32 = 6;
+/// Version 6 has the fault code `RustFault` (specification 48 RU-14); version 7 the running task's
+/// interval, [`Cx::interval_ns`] (specification 48 RU-16).
+pub const INTERFACE_VERSION: u32 = 7;
 
 /// The id of the input area, `%I` (specification 44 §7.1).
 pub const AREA_INPUTS: u8 = 1;
@@ -122,9 +123,10 @@ pub struct KernelApi {
     pub wall_clock: WallClockFn,
 }
 
-/// What the kernel gives an entry point: the areas, the task's logical time, the statement budget,
-/// the breakpoint bits and the kernel's functions; and what the module gives back: the statement it
-/// is executing and, when it ends with a fault, the fault's record (specification 44 §8.2, §8.3).
+/// What the kernel gives an entry point: the areas, the task's logical time and interval, the
+/// statement budget, the breakpoint bits and the kernel's functions; and what the module gives
+/// back: the statement it is executing and, when it ends with a fault, the fault's record
+/// (specification 44 §8.2, §8.3).
 ///
 /// A Rust POU never holds it: the SDK gives each call of one its own context, made from a clone of
 /// this one (specification 48 RU-11).
@@ -140,6 +142,10 @@ pub struct Cx {
     pub areas: [Area; AREA_COUNT],
     /// The task's logical time in nanoseconds, `TIME()` (specification 11 §5.2.1).
     pub now_ns: i64,
+    /// The interval of the running task in nanoseconds, its record's (0 for a task that only its
+    /// `SINGLE` variable starts); the resource's cycle interval for the programs without a task; 0
+    /// outside a task (specification 44 §8.2, specification 48 RU-16).
+    pub interval_ns: i64,
     /// The statements this activation may still execute (specification 44 §8.4).
     pub budget: u32,
     /// The recursive calls this activation may still make (specification 44 §6.4, §8.5).

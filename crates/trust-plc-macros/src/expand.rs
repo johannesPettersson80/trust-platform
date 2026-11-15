@@ -74,7 +74,8 @@ pub(crate) fn method(args: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// `#[trust_enum]`: the enumeration as written, and what makes it a type of a Rust POU's
-/// variables: its value as `INT` (`trust_plc::Stored`), its cell (`trust_plc::Placed`) and its
+/// variables: its value as `INT` (`trust_plc::Stored`), its cell (`trust_plc::Placed`), that cell
+/// as the place an in-out or a reference reads and writes it in (`trust_plc::Place`, RU-29) and its
 /// default, its first variant (`trust_plc::Declared`), a value none of its variants has reading as
 /// that variant (specification 48 RU-25).
 pub(crate) fn enumeration(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -136,6 +137,17 @@ pub(crate) fn enumeration(args: TokenStream, item: TokenStream) -> TokenStream {
             #[inline]
             fn store(&self, area: &Self::Area) {
                 area.set(::trust_plc::Stored::into_raw(*self));
+            }
+        }
+
+        impl ::trust_plc::Place<#ident> for ::core::cell::Cell<i16> {
+            #[inline]
+            fn load(&self) -> #ident {
+                <#ident as ::trust_plc::Placed>::load(self)
+            }
+            #[inline]
+            fn store(&self, value: &#ident) {
+                <#ident as ::trust_plc::Placed>::store(value, self);
             }
         }
 

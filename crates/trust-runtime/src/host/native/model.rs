@@ -212,6 +212,9 @@ pub(super) struct Model<'a> {
     /// generation goes on, and the build fails with all of them at its end (specification 11
     /// §6.8.1c, specification 44 NX-09).
     pub(super) refused: Vec<NativeError>,
+    /// The structures of the project's crate that a Rust POU's value reaches, each the place of its
+    /// Rust struct (`trust_plc::Place`, specification 48 RU-29) that the generated code writes.
+    pub(super) rust_places: std::collections::BTreeSet<Ty>,
 }
 
 impl<'a> Model<'a> {
@@ -310,6 +313,7 @@ impl<'a> Model<'a> {
             access: configuration.access.clone(),
             program_access: lowered.program_access.clone(),
             refused: Vec::new(),
+            rust_places: std::collections::BTreeSet::new(),
         })
     }
 

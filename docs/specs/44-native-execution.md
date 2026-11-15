@@ -41,7 +41,9 @@ instructions an ARM CPU fetches, §10.3; 0.39 keeps every instruction of an AArc
 `x18`, §4.4, §4.5; 0.40 compiles the CODESYS vendor conversions of specification 07, §6.8;
 0.41 compiles their round 2, §6.8; 0.42 reports a recursion beyond the call depth with an error of its
 own, §6.4, Appendix B; 0.54 has the kernel interface version 6 with the fault code `RustFault` of
-specification 48, approved by the owner with that specification on 15 November 2026, Appendix A),
+specification 48, approved by the owner with that specification on 15 November 2026, Appendix A;
+0.56 the version 7 with the running task's interval that specification 48 RU-16 gives a Rust POU,
+§8.2),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 (Ed25519ph since 0.30) with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -1209,6 +1211,7 @@ pub struct Cx {
     pub task: u32,               // the running task's index, u32::MAX for none
     pub areas: [Area; 7],        // base pointer and length of each area, §7.1
     pub now_ns: i64,             // the task's logical time, TIME() (specification 11 §5.2.1)
+    pub interval_ns: i64,        // the running task's interval, below
     pub budget: u32,             // statements left in this activation, §8.4
     pub depth: u32,              // recursive calls this activation may still make, §6.4, §8.5
     pub stmt: u32,               // the id of the statement being executed, §13
@@ -1253,7 +1256,14 @@ reads its system clock and the ESP32-C6 its calendar clock (specification 34 TAR
 device without a wall clock, the STM32U5A9 until its clock, never runs a program that reads one,
 since the program's header says it does (§5.2, flags bit 1), its deployment record requires the
 capability and admission refuses it (§10.2), so its kernel's function only returns
-`ModuleInternal`. The interface is version 5 since `wall_clock` (25 October 2026, N11: the bytecode
+`ModuleInternal`. `interval_ns` is the interval of the task whose activation runs, its record's
+(§5.6; 0 for a task that only its `SINGLE` variable starts); for the programs without a task, the
+resource's cycle interval (specification 10 §4: `runtime.toml` on a computer, the device's settings
+on a chip), which the resource gives the kernel; and 0 for a call outside a task, as the start and a
+test's invocation are. A Rust POU reads it as `cx.interval()` (specification 48 RU-16). The
+interface is version 7 since `interval_ns` (15 November 2026, specification 48 RU-16); version 6
+since the fault code `RustFault` (15 November 2026, specification 48 RU-14, Appendix A); version 5
+since `wall_clock` (25 October 2026, N11: the bytecode
 engine's `CURRENT_DT` moved into compiled programs); version 4 since `Cx` carries the call frames of
 a debug image (§13.2, 24 October 2026); version 3 added the call depth of §6.4 (the owner, 23 October
 2026);
@@ -2168,6 +2178,7 @@ the runtime error `RustFault`, `Rust fault <number> (<first>, <second>)`, stable
 | 0.53 | 12 November 2026 | Under the CODESYS profile `ws[i]` of a `WSTRING` is the `WORD` at offset `i`, counted from 0, and `ADR(ws[i])` names it (§7.3; `docs/IEC_DEVIATIONS.md` DEV-046), as trust-hir now types it there: a read gives the code unit whatever the text's length (`lib::text_word`), and 0 at the capacity, where CODESYS holds the 0 after a full text; an assignment writes it and sets the length the units give the text (`lib::set_text_word`); a place of it is the dereference of a reference of the new kind 6 to the string's code units from unit `i` (`Areas::refer_text_units`), and a write through a pointer to a `WORD`, `ADR(ws[i])` given to a function among them, sets that length (`Areas::bytes_written`). A starting value computed from constants reads the unit as the program does (§6.7). The build read `ws[i]` as the `WCHAR` at position `i` from 1, which the IEC profile keeps. The image format and the kernel interface are unchanged. |
 | 0.54 | 15 November 2026 | The kernel interface version 6 (§8.2): the fault code 20 `RustFault`, a Rust POU's own fault with the number the POU chose and two numbers of detail, reported as the runtime error `RustFault`, stable code `runtime_rust_fault` (Appendix A; specification 48 RU-14, approved by the owner with that specification on 15 November 2026). An image of version 5 is refused with `kernel interface 5 required, this runtime has 6: rebuild the project` (§10.2), as at every change of the version. |
 | 0.55 | 15 November 2026 | The AArch64 module and the libraries it links are built with `-outline-atomics` (§4.4, §4.5): the compiler's outline atomics ask the C library's `getauxval` which instructions the CPU has, so the link of a module whose Rust POU used an `AtomicU32` failed on macOS; its atomic operations are now its own instructions. |
+| 0.56 | 15 November 2026 | The kernel interface version 7 (§8.2): `Cx::interval_ns`, the interval of the task whose activation runs, the resource's cycle interval for the programs without a task and 0 outside a task, which a Rust POU reads as `cx.interval()` (specification 48 RU-16, approved by the owner with that specification on 15 November 2026). An image of version 6 is refused with `kernel interface 6 required, this runtime has 7: rebuild the project` (§10.2), as at every change of the version. |
 | 0.42 | 6 November 2026 | A recursive call that finds no depth left is reported as the runtime error `CallDepthExceeded`, `call depth exceeded`, with its stable code `vm_call_stack_overflow` (§6.4, Appendix A). Before, the kernel reported it through the bytecode engine's fault type, which the deletion of the engine (0.22) had left with this one fault and a text for the others, `invalid bytecode '<detail>'`, that nothing produced any more. The error's text and stable code are unchanged (checklist G61). |
 | 0.41 | 6 November 2026 | Round 2 of the CODESYS vendor conversions of specification 07 §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045), which the type checker accepts under the CODESYS rules, compiled (§6.8): an integer (its low-order 32 bits) and a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day, and a text to an integer or a bit string by the vendor's parse. The build refused the first three, and parsed a text by the IEC rules. And a `TIME` or an `LTIME` as text, the vendor's text measured on a PFC200 (`T#1s500ms`), which the build refused (NX-09). |
 | 0.40 | 6 November 2026 | The CODESYS vendor conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036), which the type checker accepted under the CODESYS rules since 31 October 2026, compiled (§6.8): a duration to an integer, a time of day to a `DWORD`, a `BOOL` and an enumerated value as text. The build refused the first three, and spelled an enumerated value as its number. `TO_STRING` of a duration stays refused (NX-09) until the vendor's text is measured. |

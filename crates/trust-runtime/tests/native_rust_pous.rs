@@ -11,7 +11,7 @@ mod rust_pous_support;
 
 use std::path::{Path, PathBuf};
 
-use rust_pous_support::{built, custom_project, manifest, sources};
+use rust_pous_support::{build_error, built, custom_project, manifest, sources};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::native::rust_pous::{write_declarations, Written, DECLARATIONS_FILE};
 use trust_runtime::native::{build_project, load, Build, NoHooks, Options, Target, Toolchain};
@@ -249,28 +249,6 @@ fn root(head: &str) -> String {
         "{head}use trust_plc::prelude::*;\n\n#[trust_function(name = \"PASS_ON\")]\n#[budget(\"1us\")]\n\
          pub fn pass_on(_cx: &mut Cx, a: i32) -> Result<i32, Fault> {{\n    Ok(a)\n}}\n"
     )
-}
-
-/// The error of building the project in `root` for this computer.
-fn build_error(root: &Path) -> (String, Toolchain) {
-    let toolchain =
-        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
-    let error = build_project(
-        root,
-        &sources(root),
-        &[],
-        &Options {
-            target: Target::this_cpu().expect("a computer target"),
-            hooks: true,
-        },
-        ConversionProfile::Iec,
-        &toolchain,
-        &root.join("build/native"),
-    )
-    .err()
-    .expect("the build is refused")
-    .to_string();
-    (error, toolchain)
 }
 
 #[test]
@@ -890,16 +868,18 @@ const CLOCKED: &str = r#"#![cfg_attr(not(test), no_std)]
 
 use trust_plc::prelude::*;
 
-/// The task's logical time at its call.
+/// The task's logical time and interval at its call.
 #[trust_fb(name = "CLOCKED")]
 #[budget("1us")]
 pub struct Clocked {
     #[output] pub stamp: Time,
+    #[output] pub interval: Time,
 }
 
 impl Body for Clocked {
     fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
         self.stamp = cx.now();
+        self.interval = cx.interval();
         Ok(())
     }
 }
@@ -932,6 +912,40 @@ fn a_rust_pou_reads_the_logical_time_structured_text_reads() {
     let thirty = Some(Value::Time(Duration::from_millis(30)));
     assert_eq!(program.value("MAIN.ST_TIME"), thirty);
     assert_eq!(program.value("MAIN.RUST_TIME"), thirty);
+}
+
+#[test]
+fn a_rust_pou_reads_its_tasks_interval() {
+    // RU-16 and specification 44 §8.2: `cx.interval()` is the running task's interval, T#10ms for
+    // the instance Main in the task Fast; the instance Free runs in no task, at the resource's cycle
+    // interval, which the resource gives the program, 20 ms here. Catches an interval that is not
+    // the task's, and a program without a task that reads none.
+    let root = custom_project(
+        "rust-pous-interval",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", CLOCKED)],
+        "PROGRAM Line\nVAR\n    clock : CLOCKED;\n    interval : TIME;\nEND_VAR\n\
+         clock();\ninterval := clock.interval;\nEND_PROGRAM\n\n\
+         CONFIGURATION Probe\nRESOURCE Probe ON PLC\n    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);\n\
+         \x20   PROGRAM Main WITH Fast : Line;\n    PROGRAM Free : Line;\nEND_RESOURCE\n\
+         END_CONFIGURATION\n",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program.set_cycle_interval(Duration::from_millis(20));
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    assert_eq!(
+        program.value("MAIN.INTERVAL"),
+        Some(Value::Time(Duration::from_millis(10)))
+    );
+    assert_eq!(
+        program.value("FREE.INTERVAL"),
+        Some(Value::Time(Duration::from_millis(20)))
+    );
 }
 
 #[test]

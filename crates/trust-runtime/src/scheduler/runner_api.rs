@@ -40,8 +40,11 @@ pub struct ResourceRunner<C: Clock + Clone> {
 }
 
 impl<C: Clock + Clone> ResourceRunner<C> {
+    /// The runner of `runtime` at the resource's `cycle_interval`, which its programs without a
+    /// task run at and read as their task's interval (specification 44 §8.2).
     #[must_use]
-    pub fn new(runtime: CompiledRuntime, clock: C, cycle_interval: Duration) -> Self {
+    pub fn new(mut runtime: CompiledRuntime, clock: C, cycle_interval: Duration) -> Self {
+        runtime.set_cycle_interval(cycle_interval);
         Self {
             runtime,
             clock,
@@ -274,6 +277,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         };
         let started = loader(&mut self.runtime, mode)?;
         self.cycle_interval = started.cycle_interval;
+        self.runtime.set_cycle_interval(self.cycle_interval);
         self.timing = self.timing_of_loaded(started.simulation.is_some(), started.time_scale);
         self.simulation
             .set(started.simulation, self.runtime.simulation_only_io());
