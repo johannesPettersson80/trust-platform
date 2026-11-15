@@ -101,14 +101,26 @@ export async function dismissCodeServerChrome(page) {
 // and the runtime answered.
 export const DEVICES_SUMMARY = /\d+ hosts? · \d+ runtimes? · \d+ endpoints?/;
 
+/**
+ * Runs a command from the command palette. Enter runs the palette's first row, which can be another
+ * command whose title holds the words of this one: for ">Debug: Stop" it is "Debug: Start Debugging
+ * and Stop on Entry", which pauses a running simulator. So the first row must be the command.
+ */
+export async function runCommand(page, title) {
+  await page.keyboard.press("Control+Shift+P");
+  const widget = page.locator(".quick-input-widget");
+  await expect(widget).toBeVisible({ timeout: 30_000 });
+  await widget.locator("input").fill(`>${title}`);
+  await expect(widget.locator('.quick-input-list .monaco-list-row[data-index="0"]')).toContainText(title, {
+    timeout: 30_000
+  });
+  await page.keyboard.press("Enter");
+  await expect(widget).toBeHidden({ timeout: 10_000 });
+}
+
 /** Runs "truST: Open Devices & Connections" and returns its webview's frame once the graph is drawn. */
 export async function openDevicesAndConnections(page, timeout = 120_000) {
-  await page.keyboard.press("Control+Shift+P");
-  const quickInput = page.locator(".quick-input-widget");
-  await expect(quickInput).toBeVisible({ timeout: 30_000 });
-  await quickInput.locator("input").fill(">truST: Open Devices & Connections");
-  await expect(quickInput).toContainText("Open Devices & Connections", { timeout: 30_000 });
-  await page.keyboard.press("Enter");
+  await runCommand(page, "truST: Open Devices & Connections");
 
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {

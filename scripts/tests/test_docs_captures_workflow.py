@@ -393,6 +393,34 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(home, "HOME=/tmp/trust-docs-code-server-home")
         self.assertIn('mkdir -p "${HOME}"', run[-1])
 
+    def test_code_server_captures_hand_the_toolchain_to_the_container_only_when_one_is_named(self) -> None:
+        # Catches a capture that compiles or runs a program in code-server without the toolchain of specification 44
+        # §4.6: Compile and Start would fail in the container, and a picture of the truST view would show the failure.
+        # The container sees the folder that TRUST_TOOLCHAIN names and the Rust sysroot at the same paths, as the
+        # terminal captures' container does; without TRUST_TOOLCHAIN nothing is handed over.
+        def handed_over(extra_env: dict[str, str]) -> tuple[list[str], list[str]]:
+            with tempfile.TemporaryDirectory() as temp:
+                result, calls = run_stubbed(
+                    Path(temp), ["/bin/bash", str(CAPTURES / "vscode" / "start-code-server.sh")], extra_env
+                )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            (run,) = code_server_runs(calls)
+            volumes = [volume for volume in mounts(run) if not volume.startswith((f"{ROOT}:", f"{BUILT}:"))]
+            # HOME is the container's own (test_code_server_writes_as_the_user_who_runs_the_captures).
+            variables = [
+                run[index + 1] for index, argument in enumerate(run) if argument == "-e" and not run[index + 1].startswith("HOME=")
+            ]
+            return volumes, variables
+
+        self.assertEqual(handed_over({}), ([], []))
+        self.assertEqual(
+            handed_over({"TRUST_TOOLCHAIN": "/opt/trust-toolchain"}),
+            (
+                ["/opt/trust-toolchain:/opt/trust-toolchain:ro", "/opt/rust-sysroot:/opt/rust-sysroot:ro"],
+                ["TRUST_TOOLCHAIN=/opt/trust-toolchain"],
+            ),
+        )
+
     def test_code_server_settings_name_the_mounted_programs_for_every_folder(self) -> None:
         # Catches a capture of a folder other than the smoke workspace running the extension without
         # its programs. The smoke workspace names its language server itself, but a folder that a
@@ -409,6 +437,9 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(folder, "/workspaces/trust-platform/target/debug")
         self.assertEqual(settings["trust.languageServer.executablePath"], f"{folder}/trust-lsp")
         self.assertEqual(settings["trust.runtime.executablePath"], f"{folder}/trust-runtime")
+        # Start and Debug run the debug adapter, and the Testing view the test runner (specification 22, "Docs Captures").
+        self.assertEqual(settings["trust.debugAdapter.executablePath"], f"{folder}/trust-debug")
+        self.assertEqual(settings["trust.testRunner.executablePath"], f"{folder}/trust-dev")
 
     def test_a_change_to_a_project_that_a_code_server_capture_opens_renders_its_pictures_again(self) -> None:
         # Catches a picture that stays old while the project it shows changes. The code-server captures open shipped

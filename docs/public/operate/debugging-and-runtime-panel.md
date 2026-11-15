@@ -1,50 +1,55 @@
 # Run & Compile
 
-Compile your program, then run it on the simulator — both from the **Run** card in the truST
-view, with honest status at every step.
+Compile your program, then run it on the simulator, both from the truST view: the **truST** icon in
+the Activity Bar.
 
 ## Compile your program
 
-Running **Compile** validates the whole project. On success you get a confirmation such as
-*"Compile passed — 2 sources, no errors."* and the Run card's passive line reads
-**✓ No known errors**.
+Click **Compile**. It checks the whole project and builds the program. When it passes, the button shows
+a check, and the status bar says so for a few seconds, for example *"Compile passed — 3 sources, no
+errors."*
 
-![The Run card showing No known errors and a "Project check passed" toast](../assets/images/vscode/vscode-run-check-passed.png)
+![The truST view after Compile: the Compile button with a check, and "Compile passed — 3 sources, no errors." in the status bar](../assets/images/vscode/vscode-run-check-passed.png)
 
-*Compile validates the whole project before you run — the Run card shows "No known errors", the simulator selected, and a single Start button.*
-
-The **✓ No known errors** line is diagnostics-derived: it means *nothing is currently flagged*, and it
-updates live as you edit. It never claims a build is good when it isn't.
+*Compile on the shipped project `examples/memory_marker_counter`: the button shows a check, and the status
+bar counts the sources it compiled.*
 
 ### When Compile fails
 
-If the project has errors, they appear in VS Code's **Problems** panel with their IEC references (for
-example an undefined identifier on a specific line), and the Run card reflects that there are errors. Fix
-them in the editor — the Problems entries are clickable and jump to the source. truST is honest here: a
-broken config surfaces an error and a fallback, never a fake-green runtime.
+If the project has errors, Compile does not pass, and the button shows their number with an error icon,
+for example **Compile 2**. The errors are in VS Code's **Problems** panel with their IEC references (for
+example an undefined identifier on a specific line). Fix them in the editor — the Problems entries are
+clickable and jump to the source.
 
 ## Choose where it runs
 
-**Run target** selects where the program runs. For a new project this is **Simulator (this computer)** —
-the built-in simulator, no hardware required. The dropdown lists only existing targets (the simulator, and
-any runtimes you've added in [Devices & Connections](../connect/communication-panel.md)); you add or
-connect targets there, not from this dropdown.
+**Target** selects where the program runs. For a new project this is the **Simulator**, the built-in
+simulator on this computer, no hardware required. **Speed ×1** beside it is the simulation speed, which
+**Change…** sets. The list shows the simulator and the runtimes you've added in
+[Devices & Connections](../connect/communication-panel.md); you add or connect targets there, not from
+this list.
 
 ## Run on the simulator
 
-Press **Start**. truST compiles your program and runs it on the simulator; the status changes to
-**● Running** and the button becomes **Stop**. The status bar mirrors this (`truST: Simulator running`).
+Click **Start**. truST runs the program on the simulator in a debug session:
 
-![The Run card with the simulator running: Status Running and a Stop button](../assets/images/vscode/vscode-run-simulator-running.png)
+- the status bar says `truST: Simulator running`, beside the session's name;
+- VS Code's debug toolbar appears at the top, with pause, the step buttons, restart and stop;
+- the Run and Debug view lists the program's tasks as running;
+- **Live Values** opens on the program's inputs, outputs and memory, updated every scan.
 
-*Start runs your program on the local simulator — honest Running status, one Stop button, and the same state echoed in the status bar.*
+![The simulator running: the debug toolbar, the tasks Cycle and ScreenTask running, and Live Values with P1.Counter counting](../assets/images/vscode/vscode-run-simulator-running.png)
 
-- **Start** — compile, then run on the selected target.
-- **Stop** — stop the simulator.
-- **Apply changes** — appears when you've edited the source while the simulator is running, to hot-reload
-  without a full restart (simulator only).
+*Start on `examples/memory_marker_counter`: its tasks run, and Live Values shows `P1.Counter` and
+`P1.CounterLatched` counting with the scan.*
 
-While it runs, open [Live Values](live-values.md) to watch and drive I/O, or set a breakpoint and use
+- **Start** — run the program on the selected target.
+- **Debug** — run it with breakpoints and stepping; see [Debugging In VS Code](debugging-in-vscode.md).
+- **Stop** — the debug toolbar's stop button ends the simulation.
+- **Update running simulation** — appears in the truST view when you've edited the source while the
+  simulator runs, to load the change without a restart (simulator only).
+
+In [Live Values](live-values.md) you watch and drive the I/O while it runs; set a breakpoint and use
 [Debugging In VS Code](debugging-in-vscode.md) to step through the logic.
 
 ## Related
