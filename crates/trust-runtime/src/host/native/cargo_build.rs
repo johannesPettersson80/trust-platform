@@ -108,6 +108,17 @@ pub(super) fn compile(
                 .into(),
         ));
     };
+    // Cargo runs in the build's folder, so every path it is given is absolute: a project named
+    // `.` would otherwise be looked for below that folder.
+    let absolute = |path: &Path| {
+        std::path::absolute(path)
+            .map_err(|error| NativeError::Toolchain(format!("{}: {error}", path.display())))
+    };
+    let work = &absolute(work)?;
+    let project = &ProjectCrate {
+        folder: absolute(&project.folder)?,
+        package: project.package.clone(),
+    };
     let failed =
         |error: std::io::Error| NativeError::Toolchain(format!("{}: {error}", work.display()));
     std::fs::create_dir_all(work).map_err(failed)?;

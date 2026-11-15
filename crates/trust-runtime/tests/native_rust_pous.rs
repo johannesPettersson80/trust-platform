@@ -284,3 +284,54 @@ fn a_project_whose_declarations_are_out_of_date_does_not_build() {
         "{error}"
     );
 }
+
+/// `path` named relative to this process's folder, as `trust-runtime build --project .` names a
+/// project.
+#[cfg(unix)]
+fn relative(path: &Path) -> PathBuf {
+    let here = std::env::current_dir().expect("this process's folder");
+    let mut here_parts = here.components().peekable();
+    let mut path_parts = path.components().peekable();
+    while let (Some(left), Some(right)) = (here_parts.peek(), path_parts.peek()) {
+        if left != right {
+            break;
+        }
+        here_parts.next();
+        path_parts.next();
+    }
+    let mut relative: PathBuf = here_parts.map(|_| "..").collect();
+    relative.extend(path_parts);
+    relative
+}
+
+#[cfg(unix)]
+#[test]
+fn a_project_named_by_a_relative_path_builds() {
+    // Catches a build that hands cargo the project's folder as it is named: `trust-runtime build
+    // --project .` names it `.`, and cargo, which runs in the build's folder, looked for the crate
+    // below that folder (found by the C6 case, 15 November 2026). Named relative to this process's
+    // folder, the project and its build folder build as they do named in full.
+    let root = project("rust-pous-relative", LINE);
+    let named = relative(&root);
+    assert!(named.is_relative(), "{}", named.display());
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let result = build_project(
+        &named,
+        &sources(&root),
+        &[],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        ConversionProfile::Iec,
+        &toolchain,
+        &named.join("build/native"),
+    );
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        let error = result.err().expect("the build is refused").to_string();
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
+    result.unwrap_or_else(|error| panic!("the project builds named {}: {error}", named.display()));
+}
