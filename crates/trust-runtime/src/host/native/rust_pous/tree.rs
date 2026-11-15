@@ -11,7 +11,7 @@ use syn::{Attribute, Ident, Item, UseTree, Visibility};
 use trust_plc_decl::{Kind, Pou};
 
 use super::types::{RustEnumeration, RustStructure};
-use super::{RustPou, RustPouError};
+use super::{ItemSpan, RustPou, RustPouError};
 
 /// What the walk found: the POUs, or the errors that keep their declarations from being written.
 pub(super) struct Found {
@@ -271,11 +271,16 @@ impl Walk<'_> {
                 let item = ident.unraw().to_string();
                 let mut path = module.path.clone();
                 path.push(item.clone());
+                let (start, end) = (attribute.pound_token.span.start(), ident.span().end());
                 self.declared.push(Declared {
                     pou: RustPou {
                         pou,
                         file: label.to_string(),
                         line: ident.span().start().line,
+                        item: ItemSpan {
+                            start: (start.line, start.column),
+                            end: (end.line, end.column),
+                        },
                         path,
                     },
                     public: module.public,
