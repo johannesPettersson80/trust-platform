@@ -7861,6 +7861,7 @@ dependencies = [
  "libm",
  "trust-plc-abi",
  "trust-plc-lib",
+ "trust-plc-macros",
 ]
 
 [[package]]
@@ -7871,12 +7872,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plc-decl"
+version = "0.41.2"
+dependencies = [
+ "proc-macro2",
+ "syn 3.0.7",
+]
+
+[[package]]
 name = "trust-plc-lib"
 version = "0.41.2"
 dependencies = [
  "libm",
  "ryu",
  "trust-plc-abi",
+]
+
+[[package]]
+name = "trust-plc-macros"
+version = "0.41.2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.7",
+ "trust-plc-decl",
 ]
 
 [[package]]

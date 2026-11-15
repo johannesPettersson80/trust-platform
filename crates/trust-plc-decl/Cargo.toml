@@ -1,0 +1,19 @@
+[package]
+name = "trust-plc-decl"
+description = "The Structured Text declarations of truST's Rust POUs, read from their attributes: what trust-plc-macros checks and the build writes (specification 48)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+proc-macro2 = "1.0.107"
+syn = { version = "3.0.7", features = ["full"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
