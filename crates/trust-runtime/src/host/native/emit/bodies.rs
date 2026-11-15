@@ -155,11 +155,18 @@ fn block_body(
             .map(|member| format!("me.{}", member.field()))
     })?;
     // A Rust function block's body is its Rust item, which the glue calls (specification 48 RU-28);
-    // its declaration holds no statements.
-    if trust_hir::rust_pous::is_rust_pou(&node) {
+    // its declaration holds no statements. The glue stays a function of its own, so that the code
+    // of the item inlined into it carries the POU's name (RU-45).
+    let rust = trust_hir::rust_pous::is_rust_pou(&node);
+    if rust {
         let link = rust_link(context, &def.name)?;
         super::rust_glue::block(&mut lowerer, ty, &link)?;
     }
+    let signature = if rust {
+        format!("#[inline(never)]\n{signature}")
+    } else {
+        signature
+    };
     // Its statements may stand before and after its methods and actions, each run of them a
     // statement list of its own, run in source order (specification 04 §8).
     for list in node.children().filter(|child| child.kind() == K::StmtList) {
@@ -342,8 +349,10 @@ fn function_body(
         let area = if retained { "w.r" } else { "w.g" };
         lowerer.bind_static(&local.name, format!("{area}.{}", rust_field(&hidden)), ty);
     }
-    // A Rust function's body is the call of its Rust item (specification 48 RU-28).
-    if trust_hir::rust_pous::is_rust_pou(&node) {
+    // A Rust function's body is the call of its Rust item (specification 48 RU-28), a function of
+    // its own that carries the POU's name (RU-45).
+    let rust = trust_hir::rust_pous::is_rust_pou(&node);
+    if rust {
         let link = rust_link(context, &def.name)?;
         super::rust_glue::function(&mut lowerer, &def.params, &link)?;
     }
@@ -352,8 +361,9 @@ fn function_body(
     }
     let exit = lowerer.exit.clone();
     lowerer.line(&exit);
+    let inline = if rust { "#[inline(never)]\n" } else { "" };
     let signature =
-        format!("fn {name}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n");
+        format!("{inline}fn {name}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n");
     let of = PouOf {
         name: def.name.to_string(),
         instance: None,

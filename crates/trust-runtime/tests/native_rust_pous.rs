@@ -299,7 +299,8 @@ fn custom_project(name: &str, files: &[(&str, &str)], program: &str) -> PathBuf 
     }
     std::fs::create_dir_all(root.join("src")).expect("the sources' folder");
     std::fs::write(root.join("src/main.st"), program).expect("the program");
-    assert_eq!(write_declarations(&root), Ok(Written::Wrote(1)));
+    let written = write_declarations(&root);
+    assert!(matches!(written, Ok(Written::Wrote(_))), "{written:?}");
     root
 }
 
@@ -525,4 +526,89 @@ fn a_rust_pous_own_fault_ends_the_scan_with_its_numbers() {
     );
     assert_eq!(error.stable_code().as_str(), "runtime_rust_fault");
     assert_eq!(program.value("MAIN.RESULT"), Some(Value::DInt(-1)));
+}
+
+/// A block that divides by its input and a function that indexes a table by its input.
+const PANICKING: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"RATIO\")]
+#[budget(\"1us\")]
+pub struct Ratio {
+    #[input]
+    pub num: i32,
+    #[input]
+    pub den: i32,
+    #[output]
+    pub q: i32,
+}
+
+impl Body for Ratio {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        self.q = self.num / self.den;
+        Ok(())
+    }
+}
+
+#[trust_function(name = \"PICK\")]
+#[budget(\"1us\")]
+pub fn pick(_cx: &mut Cx, index: i32) -> Result<i32, Fault> {
+    let table = [10, 20, 30];
+    Ok(table[index as usize])
+}
+";
+
+/// A program that calls RATIO and PICK with values that change at each scan, so that the link
+/// cannot prove their checks away.
+const PANICKING_PROGRAM: &str = "PROGRAM Line
+VAR
+    ratio : RATIO;
+    scans : DINT;
+    picked : DINT;
+END_VAR
+scans := scans + 1;
+ratio(num := 10, den := scans);
+picked := PICK(index := scans);
+END_PROGRAM
+";
+
+#[test]
+fn a_rust_pou_that_can_panic_is_named_with_the_form_to_use() {
+    // RU-14 and RU-45: a Rust POU never panics; the build names each POU whose code can, where it is
+    // declared, with what panics and the form that returns a fault instead: `/` on integers can
+    // divide by zero (checked::div), an index can leave the table (`get`).
+    let root = custom_project(
+        "rust-pous-panics",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", PANICKING)],
+        PANICKING_PROGRAM,
+    );
+    let (error, toolchain) = build_error(&root);
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
+    assert!(error.contains("the module can panic"), "{error}");
+    let named = |pou: &str, operation: &str, form: &str| {
+        error.lines().any(|line| {
+            line.contains(&format!("{pou} can panic: {operation}")) && line.contains(form)
+        })
+    };
+    assert!(
+        named(
+            "the Rust POU RATIO (rust/src/lib.rs:8)",
+            "an integer division by zero",
+            "trust_plc::checked::div"
+        ),
+        "{error}"
+    );
+    assert!(
+        named(
+            "the Rust POU PICK (rust/src/lib.rs:26)",
+            "an index outside an array or a slice",
+            "`get(index)`"
+        ),
+        "{error}"
+    );
 }

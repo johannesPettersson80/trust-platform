@@ -581,7 +581,7 @@ that names the Rust function or item when one breaks a rule:
 
 | Check | How | Message names |
 |---|---|---|
-| No panic (RU-14) | specification 44 §8.6's check of `panic_fmt`, then the call graph back from it to the first Rust function of the project's crate | the function and the operation's form to use instead |
+| No panic (RU-14) | specification 44 §8.6's check of the panic machinery, then the call graph back from it, through the functions of `core` and `alloc` that call it, to the first function outside them; the generated function of a Rust POU is never inlined, so code of the POU inlined into it is named by the POU | each Rust POU (its file and line) or other function that can panic, what panics, and the form that returns a fault instead (`trust_plc::checked::div`, `get`, `ok_or(...)?`) |
 | No changing `static` (RU-13) | the module's writable data sections outside the areas, by symbol | the `static` |
 | No recursion through Rust (RU-18) | the call graph's cycles (specification 44 §8.5) | the cycle's functions |
 | No target library math (RU-17) | calls of the target's `libm` symbols outside `trust-plc-lib` | the function and `trust_plc::math` |

@@ -31,6 +31,8 @@ trust-plc-lib = { workspace = true, optional = true }
 trust-plc-decl = { workspace = true, optional = true }
 syn = { version = "3.0.7", features = ["full"], optional = true }
 proc-macro2 = { version = "1.0.107", features = ["span-locations"], optional = true }
+# A Rust POU's panic named as Rust writes it (specification 48 RU-45).
+rustc-demangle = { version = "0.1.28", optional = true }
 object = { version = "0.37.3", default-features = false, features = ["read_core", "elf", "std"], optional = true }
 # The one control client of the command line's runtime requests (`trust-runtime discover`).
 trust-runtime-client = { workspace = true, optional = true }
@@ -185,6 +187,7 @@ full = [
     "dep:trust-plc-decl",
     "dep:syn",
     "dep:proc-macro2",
+    "dep:rustc-demangle",
     "dep:object",
     "dep:trust-runtime-client",
     "dep:trust-wasm-analysis",

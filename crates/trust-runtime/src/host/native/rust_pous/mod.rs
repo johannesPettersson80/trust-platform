@@ -226,6 +226,41 @@ pub(super) fn links(krate: &RustCrate) -> std::collections::HashMap<String, Rust
         .collect()
 }
 
+/// The refusal of a module whose Rust code can panic (specification 44 §8.6; specification 48 RU-14,
+/// RU-45): each Rust POU that calls the panic machinery, with its file and line, or else the
+/// function that does, with what the call does and the form that returns a fault instead. The code
+/// of a Rust POU lies in the generated function that calls it, which the build never inlines, or in
+/// a function of the crate that names the POU's item.
+pub(super) fn panic_refusal(krate: &RustCrate, calls: &[super::panics::PanicCall]) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    for call in calls {
+        let last = call.caller.rsplit("::").next().unwrap_or(&call.caller);
+        let pou = krate.pous.iter().find(|pou| {
+            let prefix = match pou.pou.kind {
+                trust_plc_decl::Kind::FunctionBlock => "fb_",
+                trust_plc_decl::Kind::Function => "f_",
+            };
+            let glue = format!("{prefix}{}", super::types::mangle(&pou.pou.name));
+            let item = format!("{}::{}", krate.name, pou.path.join("::"));
+            last == glue || call.caller.contains(&item)
+        });
+        let who = match pou {
+            Some(pou) => format!("the Rust POU {} ({}:{})", pou.pou.name, pou.file, pou.line),
+            None => format!("the function {}", call.caller),
+        };
+        let (operation, advice) = super::panics::advice(&call.panic);
+        let line = format!("{who} can panic: {operation} ({}); {advice}", call.panic);
+        if !lines.contains(&line) {
+            lines.push(line);
+        }
+    }
+    format!(
+        "the module can panic (specification 44 §8.6), which a Rust POU never does (specification \
+         48 RU-14):\n  - {}",
+        lines.join("\n  - ")
+    )
+}
+
 /// Whether the project in `project` holds the declarations of `krate` (RU-24): the build refuses
 /// a project whose committed declarations are not what its crate declares, naming the command
 /// that writes them.
