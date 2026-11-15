@@ -119,6 +119,33 @@ pub(super) fn read(elf: &[u8], target: Target) -> Result<CallGraph, NativeError>
     Ok(CallGraph { functions, edges })
 }
 
+/// The cycles of `graph`: each group of functions that call one another, a function that calls
+/// itself among them, as their positions in `graph.functions` in their addresses' order, the cycles
+/// in the order of their first functions.
+pub(super) fn cycles(graph: &CallGraph) -> Vec<Vec<usize>> {
+    let mut callees: Vec<Vec<usize>> = vec![Vec::new(); graph.functions.len()];
+    for &(caller, callee) in &graph.edges {
+        callees[caller].push(callee);
+    }
+    let (group, groups) = super::stack::cycle_groups(&callees);
+    let mut members: Vec<Vec<usize>> = vec![Vec::new(); groups];
+    for (function, of) in group.iter().enumerate() {
+        members[*of].push(function);
+    }
+    let mut cycles: Vec<Vec<usize>> = members
+        .into_iter()
+        .filter(|cycle| {
+            // A group of one is a cycle only when its function calls itself.
+            cycle.len() > 1
+                || cycle
+                    .first()
+                    .is_some_and(|function| callees[*function].contains(function))
+        })
+        .collect();
+    cycles.sort_by_key(|cycle| cycle.first().copied());
+    cycles
+}
+
 /// `name` as Rust writes it, without the hash of its crate.
 pub(super) fn demangled(name: &str) -> String {
     format!("{:#}", rustc_demangle::demangle(name))
