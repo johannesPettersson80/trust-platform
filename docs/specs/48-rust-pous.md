@@ -224,8 +224,10 @@ form to use.
 **RU-15.** Structured Text faults on integer overflow, division by zero and a real
 result that is not finite (specification 44 §6.5). Rust wraps or panics instead. A Rust POU that
 wants the standard's behaviour uses `trust_plc::checked`: `add`, `sub`, `mul`, `div`, `rem`, `neg`
-and `abs` on every integer type return the fault of specification 44 §6.5 (`IntegerOverflow`,
-`DivisionByZero`), and the real operations return `Overflow` for a result that is not finite. Plain
+and `abs` on every integer type are the program library's own operations, which the generated
+Structured Text calls, and return its faults: `Overflow` for a result outside the type (the code of
+specification 44 §6.5's integer overflow), `DivisionByZero` and `ModuloByZero`; the real operations
+return `Overflow` for a result that is not finite. Plain
 `+`, `-` and `*` on integers are compiled with Rust's overflow checks off, as the module's flags have
 them (specification 44 §4.5), and wrap; the build cannot see a POU's intent, so the choice is the
 POU's and the SDK's documentation says what each gives.
