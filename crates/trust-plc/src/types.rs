@@ -4,6 +4,7 @@
 //! (specification 44 §6.2), so that a Rust POU and the Structured Text beside it read the same
 //! bits.
 
+use core::cell::Cell;
 use core::ops::{BitAnd, BitOr, BitXor, Not};
 
 use crate::{checked, Cx, Fault};
@@ -36,6 +37,52 @@ macro_rules! stored_as_itself {
 }
 
 stored_as_itself!(bool, i8, i16, i32, i64, u8, u16, u32, u64, f32, f64);
+
+/// A value of a Rust POU's variable as it lies in its place, one cell or more: the generated code
+/// reads a string or an array of the instance from its place with it and writes it back
+/// (specification 48 RU-28). Every type of RU-25's table has it, its place the type the generated
+/// code gives the variable (specification 44 §6.2).
+pub trait Placed: Sized {
+    /// The generated code's type of the place.
+    type Area;
+    /// The value the place `area` holds.
+    fn load(area: &Self::Area) -> Self;
+    /// Writes the value into the place `area`.
+    fn store(&self, area: &Self::Area);
+}
+
+/// A `BOOL` lies in a byte, 0 or 1 (specification 44 §6.2).
+impl Placed for bool {
+    type Area = Cell<u8>;
+    #[inline]
+    fn load(area: &Cell<u8>) -> Self {
+        area.get() != 0
+    }
+    #[inline]
+    fn store(&self, area: &Cell<u8>) {
+        area.set(u8::from(*self));
+    }
+}
+
+/// Every other elementary value lies in a cell of its stored form.
+macro_rules! placed_in_its_cell {
+    ($($ty:ty),*) => {$(
+        impl Placed for $ty {
+            type Area = Cell<<$ty as Stored>::Raw>;
+            #[inline]
+            fn load(area: &Self::Area) -> Self {
+                <$ty as Stored>::from_raw(area.get())
+            }
+            #[inline]
+            fn store(&self, area: &Self::Area) {
+                area.set(Stored::into_raw(*self));
+            }
+        }
+    )*};
+}
+
+placed_in_its_cell!(i8, i16, i32, i64, u8, u16, u32, u64, f32, f64);
+placed_in_its_cell!(Byte, Word, Dword, Lword, Char, WChar, Time, LTime);
 
 macro_rules! bit_string {
     ($(#[$doc:meta])* $name:ident, $raw:ty, $bits:expr) => {

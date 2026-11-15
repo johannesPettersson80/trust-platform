@@ -3,9 +3,9 @@
 use std::fmt::Write as _;
 
 use syn::spanned::Spanned;
-use syn::{Error, Expr, ExprLit, ExprUnary, Lit, LitInt, LitStr, UnOp};
+use syn::{Error, Expr, ExprArray, ExprLit, ExprUnary, Lit, LitInt, LitStr, UnOp};
 
-use crate::Elementary;
+use crate::{DataType, Elementary};
 
 /// A variable's initial value, checked against its type.
 #[derive(Clone, Debug, PartialEq)]
@@ -55,6 +55,9 @@ pub enum Value {
         /// The text.
         text: String,
     },
+    /// An array's leading elements, as many as it has at most; the others start at their type's
+    /// default (specification 10 §2.3).
+    List(Vec<Value>),
 }
 
 impl Value {
@@ -73,6 +76,10 @@ impl Value {
             Self::Duration { long, nanos } => duration_literal(*long, *nanos),
             Self::Instant { ty, value } => crate::dates::literal(*ty, *value),
             Self::Text { wide, text } => text_literal(*wide, text),
+            Self::List(items) => {
+                let items: Vec<String> = items.iter().map(Value::structured_text).collect();
+                format!("[{}]", items.join(", "))
+            }
         }
     }
 }
@@ -207,6 +214,41 @@ fn real_literal(shortest: &str) -> String {
         Some((mantissa, exponent)) if mantissa.contains('.') => format!("{mantissa}E{exponent}"),
         Some((mantissa, exponent)) => format!("{mantissa}.0E{exponent}"),
         None => shortest.to_string(),
+    }
+}
+
+/// The initial value `value` gives a variable of type `ty`: a literal of an elementary type, or a
+/// list of an array's leading elements, `[1, 2, 3]`.
+pub(crate) fn initial_of(value: &Expr, ty: &DataType) -> Result<Value, Error> {
+    match ty {
+        DataType::Elementary(elementary) => initial(value, *elementary),
+        DataType::Array { element, len, .. } => {
+            let Expr::Array(ExprArray { elems, .. }) = value else {
+                return Err(Error::new(
+                    value.span(),
+                    format!(
+                        "the initial value of an {} is a list of its leading elements, \
+                         `#[init([1, 2, 3])]` (specification 48 RU-26)",
+                        ty.iec()
+                    ),
+                ));
+            };
+            if elems.len() > usize::try_from(*len).unwrap_or(usize::MAX) {
+                return Err(Error::new(
+                    value.span(),
+                    format!(
+                        "the list has {} elements, more than {} has",
+                        elems.len(),
+                        ty.iec()
+                    ),
+                ));
+            }
+            elems
+                .iter()
+                .map(|item| initial_of(item, element))
+                .collect::<Result<Vec<_>, _>>()
+                .map(Value::List)
+        }
     }
 }
 

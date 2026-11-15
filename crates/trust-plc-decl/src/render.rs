@@ -17,7 +17,7 @@ pub(crate) fn declaration(pou: &Pou, source: &str) -> String {
         let _ = writeln!(text, "NAMESPACE {namespace}");
     }
     text.push_str("{attribute 'rust'}\n");
-    let _ = match (pou.kind, pou.result) {
+    let _ = match (pou.kind, &pou.result) {
         (Kind::FunctionBlock, _) => writeln!(text, "FUNCTION_BLOCK {name}"),
         (Kind::Function, Some(result)) => writeln!(text, "FUNCTION {name} : {}", result.iec()),
         (Kind::Function, None) => writeln!(text, "FUNCTION {name}"),

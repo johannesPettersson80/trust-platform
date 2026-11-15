@@ -7,16 +7,7 @@
 
 use core::fmt;
 
-/// A value of a Rust POU's variable that lies in its area as more than one cell, a string: the
-/// generated code reads it from its place and writes it back (specification 48 RU-28).
-pub trait Placed: Sized {
-    /// The generated code's type of the place.
-    type Area;
-    /// The value the place `area` holds.
-    fn load(area: &Self::Area) -> Self;
-    /// Writes the value into the place `area`.
-    fn store(&self, area: &Self::Area);
-}
+use crate::types::Placed;
 
 /// A `STRING[N]`: up to `N` bytes of UTF-8 text.
 #[derive(Clone, Copy)]

@@ -339,3 +339,156 @@ fn a_rust_pou_keeps_strings_as_structured_text_does() {
         Some(Value::String("none".into()))
     );
 }
+
+/// A block that reads an array of samples into a scaled array, the largest sample, a cell of a
+/// grid and a flag, and a function that totals an array.
+const LISTED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"STATS\")]
+#[budget(\"1us\")]
+pub struct Stats {
+    #[input]
+    pub samples: Array<i16, 1, 4>,
+    #[output]
+    #[init([10, 20])]
+    pub scaled: Array<i32, 0, 3>,
+    #[output]
+    pub largest: i16,
+    #[output]
+    #[init([[1, 2], [3, 4]])]
+    pub grid: Array<Array<u8, 1, 2>, 1, 2>,
+    #[output]
+    #[init([\"a\", \"bc\"])]
+    pub names: Array<Str<4>, 1, 2>,
+    #[output]
+    pub flags: Array<bool, 1, 3>,
+}
+
+impl Body for Stats {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.largest = self.samples.iter().copied().max().unwrap_or(0);
+        for (slot, sample) in self.scaled.as_mut_slice().iter_mut().zip(self.samples.iter()) {
+            *slot = checked::mul(cx, i32::from(*sample), 2)?;
+        }
+        if let Some(cell) = self.grid.get_mut(2).and_then(|row| row.get_mut(1)) {
+            *cell = 9;
+        }
+        if let Some(flag) = self.flags.get_mut(3) {
+            *flag = self.largest > 5;
+        }
+        Ok(())
+    }
+}
+
+#[trust_function(name = \"TOTAL\")]
+#[budget(\"1us\")]
+pub fn total(cx: &mut Cx, values: Array<i16, 1, 4>) -> Result<i32, Fault> {
+    values
+        .iter()
+        .try_fold(0_i32, |sum, value| checked::add(cx, sum, i32::from(*value)))
+}
+";
+
+/// A program that gives the block its samples, reads its arrays and totals the samples.
+const LISTED_PROGRAM: &str = "PROGRAM Line
+VAR
+    stats : STATS;
+    idle : STATS;
+    samples : ARRAY[1..4] OF INT := [3, 7, -2, 5];
+    scaled : ARRAY[0..2] OF DINT;
+    largest : INT;
+    grid : ARRAY[1..2] OF ARRAY[1..2] OF USINT;
+    names : ARRAY[1..2] OF STRING[4];
+    flags : ARRAY[1..3] OF BOOL;
+    sum : DINT;
+    idleScaled : ARRAY[0..2] OF DINT;
+END_VAR
+stats(samples := samples);
+scaled := stats.scaled;
+largest := stats.largest;
+grid := stats.grid;
+names := stats.names;
+flags := stats.flags;
+sum := TOTAL(values := samples);
+idleScaled := idle.scaled;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// The elements of an array value, an array of arrays row by row.
+fn flat(value: Value) -> Vec<Value> {
+    match value {
+        Value::Array(array) => array.elements().iter().cloned().flat_map(flat).collect(),
+        other => vec![other],
+    }
+}
+
+/// The elements of the array value `value` a program read, an array of arrays row by row.
+fn elements(value: Option<Value>) -> Vec<Value> {
+    flat(value.expect("the array is a variable"))
+}
+
+#[test]
+fn a_rust_pou_keeps_arrays_as_structured_text_does() {
+    // RU-25, RU-26: an array reaches the Rust POU and comes back element by element, indexed from
+    // its lower bound, an input, an output, an array of arrays, an array of strings and a
+    // function's argument alike, and an array's declared list is its starting value. By hand: the
+    // samples [3, 7, -2, 5] give the largest 7; the scaled ARRAY[0..2] takes the first three
+    // doubled, [6, 14, -4]; GRID[2][1] becomes 9, [[1, 2], [9, 4]]; the names keep their declared
+    // ['a', 'bc']; FLAGS[3] is TRUE since 7 > 5; TOTAL gives 3 + 7 - 2 + 5 = 13; the instance never
+    // called keeps its declared [10, 20, 0]. Catches an element moved by an index counted from 0,
+    // an array cut or lengthened on its way, a row of an inner array lost, a function's array
+    // argument read from another place, and a starting list the Rust POU and its declaration
+    // disagree on.
+    let root = custom_project(
+        "rust-pous-listed",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", LISTED)],
+        LISTED_PROGRAM,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10, 20, 30] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(
+        elements(program.value("MAIN.SCALED")),
+        [Value::DInt(6), Value::DInt(14), Value::DInt(-4)]
+    );
+    assert_eq!(program.value("MAIN.LARGEST"), Some(Value::Int(7)));
+    assert_eq!(
+        elements(program.value("MAIN.GRID")),
+        [
+            Value::USInt(1),
+            Value::USInt(2),
+            Value::USInt(9),
+            Value::USInt(4)
+        ]
+    );
+    assert_eq!(
+        elements(program.value("MAIN.NAMES")),
+        [Value::String("a".into()), Value::String("bc".into())]
+    );
+    assert_eq!(
+        elements(program.value("MAIN.FLAGS")),
+        [Value::Bool(false), Value::Bool(false), Value::Bool(true)]
+    );
+    assert_eq!(program.value("MAIN.SUM"), Some(Value::DInt(13)));
+    assert_eq!(
+        elements(program.value("MAIN.IDLESCALED")),
+        [Value::DInt(10), Value::DInt(20), Value::DInt(0)]
+    );
+}

@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use syn::spanned::Spanned;
-use syn::{Error, Expr, ExprLit, GenericArgument, Lit, PathArguments, Type};
+use syn::{Error, Expr, ExprLit, ExprUnary, GenericArgument, Lit, PathArguments, Type, UnOp};
 
 /// An elementary IEC type, which a Rust POU writes as the Rust type of RU-25's table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -286,4 +286,128 @@ fn string_type(ty: &Type) -> Option<Result<Elementary, Error>> {
              (specification 44 §7.6)",
         )),
     })
+}
+
+/// The IEC type of a Rust POU's variable (RU-25): an elementary type, or an array of a type of this
+/// kind.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DataType {
+    /// An elementary type.
+    Elementary(Elementary),
+    /// `ARRAY[lower..lower + len - 1] OF element`, written `Array<element, lower, len>`.
+    Array {
+        /// The elements' type.
+        element: Box<DataType>,
+        /// The index of the first element.
+        lower: i64,
+        /// The number of elements, at least one.
+        len: u32,
+    },
+}
+
+impl DataType {
+    /// The IEC type as the generated declaration writes it: `INT`, `STRING[20]`,
+    /// `ARRAY[1..10] OF INT`.
+    #[must_use]
+    pub fn iec(&self) -> Cow<'static, str> {
+        match self {
+            Self::Elementary(elementary) => elementary.iec(),
+            Self::Array {
+                element,
+                lower,
+                len,
+            } => Cow::Owned(format!(
+                "ARRAY[{lower}..{}] OF {}",
+                lower.saturating_add(i64::from(*len)).saturating_sub(1),
+                element.iec()
+            )),
+        }
+    }
+
+    /// The elementary type; `None` for an array.
+    #[must_use]
+    pub fn elementary(&self) -> Option<Elementary> {
+        match self {
+            Self::Elementary(elementary) => Some(*elementary),
+            Self::Array { .. } => None,
+        }
+    }
+
+    /// The type `ty` names (RU-25).
+    pub(crate) fn of(ty: &Type) -> Result<Self, Error> {
+        match array_type(ty) {
+            Some(array) => array,
+            None => Elementary::of(ty).map(Self::Elementary),
+        }
+    }
+}
+
+/// The array type `ty` names, `Array<T, A, N>`: `N` elements of `T` indexed from `A`; `None` for
+/// another type.
+fn array_type(ty: &Type) -> Option<Result<DataType, Error>> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    if path.qself.is_some() {
+        return None;
+    }
+    let segment = path.path.segments.last()?;
+    if segment.ident != "Array" {
+        return None;
+    }
+    let refused = || {
+        Error::new(
+            segment.span(),
+            "an array is `Array<T, A, N>`: `N` elements of a type of specification 48 RU-25, \
+             indexed from `A`; `Array<f64, 1, 10>` is `ARRAY[1..10] OF LREAL`",
+        )
+    };
+    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return Some(Err(refused()));
+    };
+    let arguments: Vec<&GenericArgument> = arguments.args.iter().collect();
+    let [GenericArgument::Type(element), lower, len] = arguments.as_slice() else {
+        return Some(Err(refused()));
+    };
+    let (Some(lower), Some(len)) = (constant(lower), constant(len)) else {
+        return Some(Err(refused()));
+    };
+    let (Ok(lower), Ok(len)) = (i64::try_from(lower), u32::try_from(len)) else {
+        return Some(Err(refused()));
+    };
+    if len == 0 || lower.checked_add(i64::from(len) - 1).is_none() {
+        return Some(Err(refused()));
+    }
+    Some(DataType::of(element).map(|element| DataType::Array {
+        element: Box::new(element),
+        lower,
+        len,
+    }))
+}
+
+/// The value of the constant argument `argument`, an integer literal, `-` before one allowed.
+fn constant(argument: &GenericArgument) -> Option<i128> {
+    let GenericArgument::Const(expression) = argument else {
+        return None;
+    };
+    let (negative, literal) = match expression {
+        Expr::Lit(ExprLit {
+            lit: Lit::Int(literal),
+            ..
+        }) => (false, literal),
+        Expr::Unary(ExprUnary {
+            op: UnOp::Neg(_),
+            expr,
+            ..
+        }) => match &**expr {
+            Expr::Lit(ExprLit {
+                lit: Lit::Int(literal),
+                ..
+            }) => (true, literal),
+            _ => return None,
+        },
+        _ => return None,
+    };
+    let value: i128 = literal.base10_parse().ok()?;
+    Some(if negative { -value } else { value })
 }

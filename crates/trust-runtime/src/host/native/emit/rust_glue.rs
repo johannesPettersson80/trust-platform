@@ -29,7 +29,7 @@ pub(super) fn block(
                 link.call
             )));
         };
-        let placed = is_text(lowerer, member.ty);
+        let placed = is_placed(lowerer, member.ty);
         if lowerer.info(member.ty).scalar().is_none() && !placed {
             return Err(NativeError::unsupported(format!(
                 "the variable {name} of the Rust POU {}, whose type is not elementary",
@@ -49,8 +49,8 @@ pub(super) fn block(
         .map(|index| format!("rv{index}"))
         .collect();
     // Each value through the SDK's form of its type: a scalar's (`trust_plc::Stored`), a `TIME`
-    // read as `Time`, a `BYTE` as `Byte`; a string's (`trust_plc::Placed`), read from the cells it
-    // lies in (specification 48 RU-25).
+    // read as `Time`, a `BYTE` as `Byte`; a string's or an array's (`trust_plc::Placed`), read from
+    // the cells it lies in (specification 48 RU-25).
     for ((place, placed), value) in places.iter().zip(&values) {
         if *placed {
             lowerer.line(&format!(
@@ -71,8 +71,8 @@ pub(super) fn block(
     lowerer.line(&format!("{}::__trust_call(cx{arguments})?;", link.call));
     for ((place, placed), value) in places.iter().zip(&values) {
         if *placed {
-            // The instance's own string, which no pointer names: its length and the 0 after its
-            // text (DEV-039).
+            // The instance's own string or array, which no pointer names: a string's length and the
+            // 0 after its text (DEV-039).
             lowerer.line(&format!(
                 "::trust_plc::Placed::store(&{value}, &{});",
                 place.expr
@@ -84,10 +84,13 @@ pub(super) fn block(
     Ok(())
 }
 
-/// Whether `ty` is a `STRING[n]` or a `WSTRING[n]`, which the SDK reads and writes as it lies in
-/// its cells.
-fn is_text(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
-    matches!(lowerer.info(ty).kind, Kind::Str(_) | Kind::WStr(_))
+/// Whether `ty` lies in more than one cell, a `STRING[n]`, a `WSTRING[n]` or an array, which the
+/// SDK reads and writes as it lies in its cells (`trust_plc::Placed`).
+fn is_placed(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
+    matches!(
+        lowerer.info(ty).kind,
+        Kind::Str(_) | Kind::WStr(_) | Kind::Array { .. }
+    )
 }
 
 /// The body of the Rust function with the parameters `params`, called through `link`: its inputs
@@ -108,8 +111,8 @@ pub(super) fn function(
             )));
         };
         let ty = lowerer.model.ty(param.type_id)?;
-        // A string input is a reference to the caller's string (specification 44 §6.2).
-        let form = if is_text(lowerer, ty) {
+        // A string or an array input is a reference to the caller's (specification 44 §6.2).
+        let form = if is_placed(lowerer, ty) {
             "::trust_plc::Placed::load"
         } else {
             "::trust_plc::Stored::from_raw"
@@ -121,8 +124,9 @@ pub(super) fn function(
     }
     let call = format!("{}(cx{arguments})?", link.call);
     match lowerer.result.clone() {
-        // A string result goes into the function's result variable, which its exit copies out.
-        Some(result) if is_text(lowerer, result.ty) => {
+        // A string or an array result goes into the function's result variable, which its exit
+        // copies out.
+        Some(result) if is_placed(lowerer, result.ty) => {
             let value = lowerer.bind(&call);
             lowerer.line(&format!(
                 "::trust_plc::Placed::store(&{value}, &{});",
