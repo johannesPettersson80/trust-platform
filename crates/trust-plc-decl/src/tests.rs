@@ -423,3 +423,110 @@ fn the_attributes_are_known_by_their_last_segment() {
     let function: ItemFn = parse_quote! { #[trust_function(name = "F")] pub fn f() {} };
     assert_eq!(declared_kind(&function.attrs[0]), Some(Kind::Function));
 }
+
+#[test]
+fn bit_strings_characters_and_durations_are_declared_with_iec_literals() {
+    // RU-25 and RU-26: `Byte` to `Lword`, `Char`, `WChar`, `Time` and `LTime` are BYTE to LWORD,
+    // CHAR, WCHAR, TIME and LTIME, and their initial values are IEC literals (IEC §6.3.2 to
+    // §6.3.4): a bit string in hexadecimal at its width, a character quoted, a duration in units
+    // from the largest. Catches a type declared as an integer, which ST would let a program add to.
+    let item: ItemStruct = parse_quote! {
+        #[budget("1us")]
+        pub struct Typed {
+            #[init(0x0F)] a: Byte,
+            #[init(0xBEEF)] b: Word,
+            #[init(1)] c: Dword,
+            d: Lword,
+            #[init('A')] e: Char,
+            #[init(b'\xE9')] f: Char,
+            #[init('é')] g: WChar,
+            #[init("T#1.5s")] h: Time,
+            #[init("T#-2h")] i: LTime,
+            #[init("t#1d2h3m4s5ms6us7ns")] j: Time,
+            #[init("T#0ms")] k: Time,
+            #[init('$')] l: Char,
+        }
+    };
+    let pou = function_block(args("name = \"TYPED\""), &item).unwrap();
+    let declared: Vec<String> = pou
+        .variables
+        .iter()
+        .map(|variable| match variable.init {
+            Some(init) => format!(
+                "{} : {} := {}",
+                variable.name,
+                variable.ty.iec(),
+                init.structured_text()
+            ),
+            None => format!("{} : {}", variable.name, variable.ty.iec()),
+        })
+        .collect();
+    assert_eq!(
+        declared,
+        [
+            "a : BYTE := 16#0F",
+            "b : WORD := 16#BEEF",
+            "c : DWORD := 16#00000001",
+            "d : LWORD",
+            "e : CHAR := 'A'",
+            "f : CHAR := '$E9'",
+            "g : WCHAR := \"$00E9\"",
+            "h : TIME := T#1s500ms",
+            "i : LTIME := LTIME#-2h",
+            "j : TIME := T#1d2h3m4s5ms6us7ns",
+            "k : TIME := T#0s",
+            "l : CHAR := '$24'",
+        ]
+    );
+    assert_eq!(
+        pou.variables[7].init,
+        Some(Value::Duration {
+            long: false,
+            nanos: 1_500_000_000
+        })
+    );
+}
+
+#[test]
+fn a_literal_outside_a_bit_string_a_character_or_a_duration_is_refused() {
+    // Catches a value the build would cut into another: a bit string's value within its bits, a
+    // CHAR one byte (ASCII or a byte literal), a WCHAR one UTF-16 code unit, a duration in whole
+    // nanoseconds with its units in order (IEC §6.3.4).
+    for (field, expected) in [
+        ("#[init(256)] a: Byte", "256 is outside BYTE (0 to 255)"),
+        ("#[init(-1)] a: Byte", "a literal of its type"),
+        ("#[init(0x0Fu8)] a: Byte", "needs no suffix"),
+        ("#[init('é')] a: Char", "one byte of a STRING's UTF-8 text"),
+        ("#[init('😀')] a: WChar", "one UTF-16 code unit"),
+        ("#[init(\"T#1ms500s\")] a: Time", "an IEC duration"),
+        ("#[init(\"T#0.5ns\")] a: Time", "an IEC duration"),
+        ("#[init(\"500ms\")] a: Time", "an IEC duration"),
+        ("#[init(500)] a: Time", "`#[init(\"T#500ms\")]`"),
+    ] {
+        let message = fields_refusal(field);
+        assert!(message.contains(expected), "{field}: {message}");
+    }
+}
+
+#[test]
+fn an_iec_duration_reads_as_its_nanoseconds() {
+    // IEC §6.3.4, Table 8: the prefixes, the sign, `_` between digits, a fraction on the last unit,
+    // and the units from days to nanoseconds, each once and in order.
+    use crate::literal::duration_nanos;
+    for (text, nanos) in [
+        ("T#500ms", Some(500_000_000)),
+        ("TIME#1h_30m", Some(5_400_000_000_000)),
+        ("LT#1.5s", Some(1_500_000_000)),
+        ("LTIME#-25h", Some(-90_000_000_000_000)),
+        ("t#1_000us", Some(1_000_000)),
+        ("T#1ms500s", None),
+        ("T#1m1m", None),
+        ("T#1.5s500ms", None),
+        ("T#", None),
+        ("T#5", None),
+        ("T#5x", None),
+        ("T#106752d", None),
+    ] {
+        assert_eq!(duration_nanos(text), nanos, "{text}");
+    }
+}

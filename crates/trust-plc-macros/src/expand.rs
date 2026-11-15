@@ -161,6 +161,8 @@ fn start(variable: &Variable) -> TokenStream {
             literal.into_token_stream()
         }
     };
+    // The SDK's type of a bit string, a character or a duration, by the name RU-25 gives it.
+    let sdk_type = format_ident!("{}", variable.ty.rust());
     match variable.init {
         Some(Value::Bool(value)) => quote!(#value),
         Some(Value::Integer(value)) => {
@@ -172,9 +174,28 @@ fn start(variable: &Variable) -> TokenStream {
         Some(Value::Lreal(value)) => {
             signed(value.is_sign_negative(), Literal::f64_suffixed(value.abs()))
         }
+        Some(Value::Bits { value, .. }) => {
+            let value = Literal::u64_unsuffixed(value);
+            quote!(::trust_plc::#sdk_type(#value))
+        }
+        Some(Value::Char { code, .. }) => {
+            let code = Literal::u32_unsuffixed(code);
+            quote!(::trust_plc::#sdk_type(#code))
+        }
+        Some(Value::Duration { nanos, .. }) => {
+            let nanos = signed(nanos < 0, Literal::u64_unsuffixed(nanos.unsigned_abs()));
+            quote!(::trust_plc::#sdk_type::from_nanos(#nanos))
+        }
         None => match variable.ty {
             Elementary::Bool => quote!(false),
             Elementary::Real | Elementary::Lreal => quote!(0.0),
+            Elementary::Byte
+            | Elementary::Word
+            | Elementary::Dword
+            | Elementary::Lword
+            | Elementary::Char
+            | Elementary::WChar => quote!(::trust_plc::#sdk_type(0)),
+            Elementary::Time | Elementary::LTime => quote!(::trust_plc::#sdk_type::ZERO),
             _ => quote!(0),
         },
     }
