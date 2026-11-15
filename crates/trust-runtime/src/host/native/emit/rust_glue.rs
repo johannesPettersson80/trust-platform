@@ -3,6 +3,13 @@
 //! declaration order and writes them back when the item returns `Ok`; the generated function of a
 //! Rust function calls the Rust function with its inputs and returns its result. A fault the item
 //! returns ends the scan as a fault of Structured Text does (RU-14).
+//!
+//! A value goes through the SDK's form of its type (RU-25): a scalar through `trust_plc::Stored`,
+//! a `TIME` read as `Time`, a `BYTE` as `Byte`; a string, or an array of such values, through
+//! `trust_plc::Placed`, from the cells it lies in; a structure of the project's crate, or an array
+//! that holds one, field by field and element by element, built by the structure's path.
+
+use std::collections::HashMap;
 
 use super::super::lower::{Lowerer, Place};
 use super::super::rust_pous::RustLink;
@@ -11,11 +18,13 @@ use super::super::NativeError;
 use crate::program_model::Param;
 use trust_hir::symbols::ParamDirection;
 
-/// The body of the Rust function block whose instance type is `ty`, called through `link`.
+/// The body of the Rust function block whose instance type is `ty`, called through `link`;
+/// `structures` gives the path of each structure of the crate by its name in capitals.
 pub(super) fn block(
     lowerer: &mut Lowerer<'_, '_>,
     ty: Ty,
     link: &RustLink,
+    structures: &HashMap<String, String>,
 ) -> Result<(), NativeError> {
     let members = lowerer.info(ty).members().to_vec();
     let mut places = Vec::with_capacity(link.variables.len());
@@ -29,68 +38,30 @@ pub(super) fn block(
                 link.call
             )));
         };
-        let placed = is_placed(lowerer, member.ty);
-        if lowerer.info(member.ty).scalar().is_none() && !placed {
-            return Err(NativeError::unsupported(format!(
-                "the variable {name} of the Rust POU {}, whose type is not elementary",
-                link.call
-            )));
-        }
-        places.push((
-            Place {
-                expr: format!("me.{}", member.field()),
-                ty: member.ty,
-                is_ref: false,
-            },
-            placed,
-        ));
+        places.push(Place {
+            expr: format!("me.{}", member.field()),
+            ty: member.ty,
+            is_ref: false,
+        });
     }
     let values: Vec<String> = (0..places.len())
         .map(|index| format!("rv{index}"))
         .collect();
-    // Each value through the SDK's form of its type: a scalar's (`trust_plc::Stored`), a `TIME`
-    // read as `Time`, a `BYTE` as `Byte`; a string's or an array's (`trust_plc::Placed`), read from
-    // the cells it lies in (specification 48 RU-25).
-    for ((place, placed), value) in places.iter().zip(&values) {
-        if *placed {
-            lowerer.line(&format!(
-                "let mut {value} = ::trust_plc::Placed::load(&{});",
-                place.expr
-            ));
-        } else {
-            let loaded = lowerer.load(place);
-            lowerer.line(&format!(
-                "let mut {value} = ::trust_plc::Stored::from_raw({loaded});"
-            ));
-        }
+    for (place, value) in places.iter().zip(&values) {
+        let loaded = load(lowerer, place.ty, &place.expr, structures, 0)?;
+        lowerer.line(&format!("let mut {value} = {loaded};"));
     }
     let arguments: String = values
         .iter()
         .map(|value| format!(", &mut {value}"))
         .collect();
     lowerer.line(&format!("{}::__trust_call(cx{arguments})?;", link.call));
-    for ((place, placed), value) in places.iter().zip(&values) {
-        if *placed {
-            // The instance's own string or array, which no pointer names: a string's length and the
-            // 0 after its text (DEV-039).
-            lowerer.line(&format!(
-                "::trust_plc::Placed::store(&{value}, &{});",
-                place.expr
-            ));
-        } else {
-            lowerer.store_scalar(place, &format!("::trust_plc::Stored::into_raw({value})"));
-        }
+    // The instance's own variables, which no pointer names: a string's length and the 0 after its
+    // text as Structured Text's writes leave them (DEV-039).
+    for (place, value) in places.iter().zip(&values) {
+        store(lowerer, place.ty, &place.expr, value, structures, 0)?;
     }
     Ok(())
-}
-
-/// Whether `ty` lies in more than one cell, a `STRING[n]`, a `WSTRING[n]` or an array, which the
-/// SDK reads and writes as it lies in its cells (`trust_plc::Placed`).
-fn is_placed(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
-    matches!(
-        lowerer.info(ty).kind,
-        Kind::Str(_) | Kind::WStr(_) | Kind::Array { .. }
-    )
 }
 
 /// The body of the Rust function with the parameters `params`, called through `link`: its inputs
@@ -99,6 +70,7 @@ pub(super) fn function(
     lowerer: &mut Lowerer<'_, '_>,
     params: &[Param],
     link: &RustLink,
+    structures: &HashMap<String, String>,
 ) -> Result<(), NativeError> {
     let mut arguments = String::new();
     for name in &link.variables {
@@ -111,27 +83,23 @@ pub(super) fn function(
             )));
         };
         let ty = lowerer.model.ty(param.type_id)?;
-        // A string or an array input is a reference to the caller's (specification 44 §6.2).
-        let form = if is_placed(lowerer, ty) {
-            "::trust_plc::Placed::load"
+        let argument = crate::native::lower::parameter(&param.name);
+        // A scalar input is its value; any other is a reference to the caller's (specification 44
+        // §6.2).
+        let value = if lowerer.info(ty).scalar().is_some() {
+            format!("::trust_plc::Stored::from_raw({argument})")
         } else {
-            "::trust_plc::Stored::from_raw"
+            load(lowerer, ty, &format!("(*{argument})"), structures, 0)?
         };
-        arguments.push_str(&format!(
-            ", {form}({})",
-            crate::native::lower::parameter(&param.name)
-        ));
+        arguments.push_str(&format!(", {value}"));
     }
     let call = format!("{}(cx{arguments})?", link.call);
     match lowerer.result.clone() {
-        // A string or an array result goes into the function's result variable, which its exit
+        // A result that is not a scalar goes into the function's result variable, which its exit
         // copies out.
-        Some(result) if is_placed(lowerer, result.ty) => {
+        Some(result) if lowerer.info(result.ty).scalar().is_none() => {
             let value = lowerer.bind(&call);
-            lowerer.line(&format!(
-                "::trust_plc::Placed::store(&{value}, &{});",
-                result.expr
-            ));
+            store(lowerer, result.ty, &result.expr, &value, structures, 0)?;
         }
         Some(result) => {
             let value = lowerer.bind(&format!("::trust_plc::Stored::into_raw({call})"));
@@ -140,4 +108,153 @@ pub(super) fn function(
         None => lowerer.line(&format!("{call};")),
     }
     Ok(())
+}
+
+/// Whether the SDK reads and writes a value of `ty` as it lies (`trust_plc::Placed`): a string, or
+/// an array of scalars or of such values, no structure in it.
+fn placed_by_sdk(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
+    match &lowerer.info(ty).kind {
+        Kind::Str(_) | Kind::WStr(_) => true,
+        Kind::Array { elem, .. } => {
+            let elem = *elem;
+            lowerer.info(elem).scalar().is_some() || placed_by_sdk(lowerer, elem)
+        }
+        _ => false,
+    }
+}
+
+/// The Rust expression of the value of type `ty` that the place `place` holds, an expression of
+/// the generated code's type; `depth` names the closures' variables apart.
+fn load(
+    lowerer: &mut Lowerer<'_, '_>,
+    ty: Ty,
+    place: &str,
+    structures: &HashMap<String, String>,
+    depth: usize,
+) -> Result<String, NativeError> {
+    let info = lowerer.info(ty).clone();
+    if info.scalar().is_some() {
+        let loaded = lowerer.load(&Place {
+            expr: place.to_string(),
+            ty,
+            is_ref: false,
+        });
+        return Ok(format!("::trust_plc::Stored::from_raw({loaded})"));
+    }
+    if placed_by_sdk(lowerer, ty) {
+        return Ok(format!("::trust_plc::Placed::load(&{place})"));
+    }
+    match &info.kind {
+        Kind::Array { elem, .. } => {
+            let cell = format!("e{depth}");
+            let item = load(lowerer, *elem, &format!("(*{cell})"), structures, depth + 1)?;
+            Ok(format!(
+                "::trust_plc::Array::from_items({place}.each_ref().map(|{cell}| {item}))"
+            ))
+        }
+        Kind::Struct { members } => {
+            let path = structure_path(structures, &info.name)?;
+            let mut fields = Vec::with_capacity(members.len());
+            for member in members {
+                let value = load(
+                    lowerer,
+                    member.ty,
+                    &format!("{place}.{}", member.field()),
+                    structures,
+                    depth,
+                )?;
+                fields.push(format!("{}: {value}", member.name));
+            }
+            Ok(format!("{path} {{ {} }}", fields.join(", ")))
+        }
+        _ => Err(not_carried(&info.name)),
+    }
+}
+
+/// Writes the value `value` of type `ty`, a Rust expression, into the place `place`; `depth` names
+/// the loops' variables apart.
+fn store(
+    lowerer: &mut Lowerer<'_, '_>,
+    ty: Ty,
+    place: &str,
+    value: &str,
+    structures: &HashMap<String, String>,
+    depth: usize,
+) -> Result<(), NativeError> {
+    let info = lowerer.info(ty).clone();
+    if info.scalar().is_some() {
+        let target = Place {
+            expr: place.to_string(),
+            ty,
+            is_ref: false,
+        };
+        lowerer.store_scalar(&target, &format!("::trust_plc::Stored::into_raw({value})"));
+        return Ok(());
+    }
+    if placed_by_sdk(lowerer, ty) {
+        lowerer.line(&format!("::trust_plc::Placed::store(&{value}, &{place});"));
+        return Ok(());
+    }
+    match &info.kind {
+        Kind::Array { elem, .. } => {
+            let (item, cell) = (format!("v{depth}"), format!("e{depth}"));
+            lowerer.line(&format!(
+                "for ({item}, {cell}) in {value}.iter().zip({place}.iter()) {{"
+            ));
+            store(
+                lowerer,
+                *elem,
+                &format!("(*{cell})"),
+                &format!("(*{item})"),
+                structures,
+                depth + 1,
+            )?;
+            lowerer.line("}");
+            Ok(())
+        }
+        Kind::Struct { members } => {
+            structure_path(structures, &info.name)?;
+            for member in members {
+                store(
+                    lowerer,
+                    member.ty,
+                    &format!("{place}.{}", member.field()),
+                    &format!("{value}.{}", member.name),
+                    structures,
+                    depth,
+                )?;
+            }
+            Ok(())
+        }
+        _ => Err(not_carried(&info.name)),
+    }
+}
+
+/// The path the generated code builds the crate's structure `name` by: its full name's, else, for
+/// a type the registry names without its namespaces, the one structure of that own name.
+fn structure_path<'s>(
+    structures: &'s HashMap<String, String>,
+    name: &str,
+) -> Result<&'s str, NativeError> {
+    let upper = name.to_ascii_uppercase();
+    if let Some(path) = structures.get(&upper) {
+        return Ok(path);
+    }
+    let suffix = format!(".{upper}");
+    let mut matching = structures
+        .iter()
+        .filter(|(full, _)| full.ends_with(&suffix))
+        .map(|(_, path)| path.as_str());
+    match (matching.next(), matching.next()) {
+        (Some(path), None) => Ok(path),
+        _ => Err(not_carried(name)),
+    }
+}
+
+/// The refusal of a Rust POU's variable whose type the SDK does not carry.
+fn not_carried(name: &str) -> NativeError {
+    NativeError::unsupported(format!(
+        "a value of the type {name} in a Rust POU's variable, which is no type of specification 48 \
+         RU-25 nor a structure of the project's crate"
+    ))
 }

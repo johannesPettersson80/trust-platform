@@ -163,7 +163,7 @@ pub fn enumeration(args: TokenStream, item: &ItemEnum) -> Result<Enumeration, Er
 }
 
 /// The names of the traits `attributes` derive.
-fn derived(attributes: &[Attribute]) -> Result<Vec<String>, Error> {
+pub(crate) fn derived(attributes: &[Attribute]) -> Result<Vec<String>, Error> {
     let mut names = Vec::new();
     for attribute in attributes {
         if attribute.path().is_ident("derive") {

@@ -73,6 +73,24 @@ pub fn trust_enum(args: TokenStream, item: TokenStream) -> TokenStream {
     expand::enumeration(args.into(), item.into()).into()
 }
 
+/// Declares a struct a Rust structure (specification 48 RU-25): its named `pub` fields are of
+/// RU-25's types, each with `#[init(...)]` or its type's default, and it derives `Clone` and `Copy`.
+/// The generated declarations declare it as a structure of Structured Text with these fields.
+///
+/// ```ignore
+/// #[trust_struct(name = "POINT")]
+/// #[derive(Clone, Copy, Debug, PartialEq)]
+/// pub struct Point {
+///     pub x: f64,
+///     #[init(2.0)]
+///     pub y: f64,
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn trust_struct(args: TokenStream, item: TokenStream) -> TokenStream {
+    expand::structure(args.into(), item.into()).into()
+}
+
 /// The budget of a Rust POU (specification 48 RU-46): the longest one call may take on the slowest
 /// target of its project, `500ns`, `15us`, `1.5ms` or `2s`. The POU's attribute reads it, below or
 /// above that attribute.

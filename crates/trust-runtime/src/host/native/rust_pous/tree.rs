@@ -10,13 +10,14 @@ use syn::ext::IdentExt as _;
 use syn::{Attribute, Ident, Item, UseTree, Visibility};
 use trust_plc_decl::{Kind, Pou};
 
-use super::types::RustEnumeration;
+use super::types::{RustEnumeration, RustStructure};
 use super::{RustPou, RustPouError};
 
 /// What the walk found: the POUs, or the errors that keep their declarations from being written.
 pub(super) struct Found {
     pub(super) pous: Vec<RustPou>,
     pub(super) enumerations: Vec<RustEnumeration>,
+    pub(super) structures: Vec<RustStructure>,
     pub(super) errors: Vec<RustPouError>,
 }
 
@@ -60,6 +61,9 @@ struct Walk<'a> {
     project: &'a Path,
     declared: Vec<Declared>,
     enumerations: Vec<RustEnumeration>,
+    /// The structures, each with whether its module is public, its module and its item's name,
+    /// before the walk knows how the generated code reaches them.
+    structures: Vec<(RustStructure, bool, Vec<String>, Span)>,
     /// The `pub use` of the crate's root: the path each names without `crate::` or `self::`, and
     /// the name it exports, `*` for a glob.
     exports: Vec<(Vec<String>, String)>,
@@ -72,6 +76,7 @@ pub(super) fn walk(project: &Path, root: &Path) -> Found {
         project,
         declared: Vec::new(),
         enumerations: Vec::new(),
+        structures: Vec::new(),
         exports: Vec::new(),
         errors: Vec::new(),
     };
@@ -153,6 +158,12 @@ impl Walk<'_> {
                     } else {
                         self.module_file(place, &declared.attrs, &declared.ident, &child, folder);
                     }
+                }
+                Item::Struct(item)
+                    if !is_test_only(&item.attrs)
+                        && item.attrs.iter().any(trust_plc_decl::is_structure) =>
+                {
+                    self.structure(place.label, module, item);
                 }
                 Item::Struct(item) if !is_test_only(&item.attrs) => {
                     self.pou(
@@ -309,6 +320,44 @@ impl Walk<'_> {
         }
     }
 
+    /// The structure the struct `item` of `module` declares with `#[trust_struct]` (RU-25).
+    fn structure(&mut self, label: &str, module: &Module, item: &syn::ItemStruct) {
+        let Some(attribute) = item
+            .attrs
+            .iter()
+            .find(|attribute| trust_plc_decl::is_structure(attribute))
+        else {
+            return;
+        };
+        let args = attribute
+            .meta
+            .require_list()
+            .map(|list| list.tokens.clone())
+            .unwrap_or_default();
+        match trust_plc_decl::structure(args, item) {
+            Ok(structure) => {
+                let mut path = module.path.clone();
+                path.push(item.ident.unraw().to_string());
+                self.structures.push((
+                    RustStructure {
+                        structure,
+                        file: label.to_string(),
+                        line: item.ident.span().start().line,
+                        path,
+                    },
+                    module.public,
+                    module.path.clone(),
+                    item.ident.span(),
+                ));
+            }
+            Err(errors) => {
+                for error in errors {
+                    self.error(label, error.span(), error.to_string());
+                }
+            }
+        }
+    }
+
     /// The POUs with the paths the generated code reaches them by: through `pub` modules, or as
     /// the crate root's `pub use` of the item or of its module's items; and no name twice.
     fn finish(mut self) -> Found {
@@ -340,52 +389,105 @@ impl Walk<'_> {
             pou.path = path;
             pous.push((pou, declared.span));
         }
+        let mut structures = Vec::new();
+        for (mut found, public, module, span) in std::mem::take(&mut self.structures) {
+            let item = found.path.last().cloned().unwrap_or_default();
+            match self.reach(public, &found.path, &module, &item) {
+                Some(path) => {
+                    found.path = path;
+                    structures.push(found);
+                }
+                None => {
+                    let module = module.join("::");
+                    let message = format!(
+                        "{} lies in the module `{module}`, which is not public: declare the modules \
+                         `pub mod`, or re-export it in the crate's root with `pub use \
+                         {module}::{item};`, so that the program's generated code can build it \
+                         (specification 48 RU-25)",
+                        found.structure.name
+                    );
+                    self.error(&found.file.clone(), span, message);
+                }
+            }
+        }
         // A type's names, Structured Text's and Rust's, are its alone: a variable names it by the
         // one, the declarations by the other.
         let enumerations = std::mem::take(&mut self.enumerations);
-        for (index, found) in enumerations.iter().enumerate() {
-            let earlier = enumerations[..index].iter().find(|other| {
-                other
-                    .enumeration
-                    .name
-                    .eq_ignore_ascii_case(&found.enumeration.name)
-                    || other.enumeration.item == found.enumeration.item
-            });
-            let clash = earlier
-                .map(|other| (other.file.clone(), other.line))
+        let types: Vec<(&str, &str, &str, usize)> = enumerations
+            .iter()
+            .map(|found| {
+                (
+                    found.enumeration.name.as_str(),
+                    found.enumeration.item.as_str(),
+                    found.file.as_str(),
+                    found.line,
+                )
+            })
+            .chain(structures.iter().map(|found| {
+                (
+                    found.structure.name.as_str(),
+                    found.structure.item.as_str(),
+                    found.file.as_str(),
+                    found.line,
+                )
+            }))
+            .collect();
+        for (index, (name, item, file, line)) in types.iter().enumerate() {
+            let clash = types[..index]
+                .iter()
+                .find(|(other, other_item, _, _)| {
+                    other.eq_ignore_ascii_case(name) || other_item == item
+                })
+                .map(|(_, _, other_file, other_line)| ((*other_file).to_string(), *other_line))
                 .or_else(|| {
                     pous.iter()
-                        .find(|(pou, _)| pou.pou.name.eq_ignore_ascii_case(&found.enumeration.name))
+                        .find(|(pou, _)| pou.pou.name.eq_ignore_ascii_case(name))
                         .map(|(pou, _)| (pou.file.clone(), pou.line))
                 });
-            if let Some((file, line)) = clash {
+            if let Some((other_file, other_line)) = clash {
                 self.errors.push(RustPouError {
-                    file: found.file.clone(),
-                    line: found.line,
+                    file: (*file).to_string(),
+                    line: *line,
                     column: 1,
-                    message: format!(
-                        "{} is declared twice: also at {file}:{line}",
-                        found.enumeration.name
-                    ),
+                    message: format!("{name} is declared twice: also at {other_file}:{other_line}"),
                 });
             }
         }
         Found {
             pous: pous.into_iter().map(|(pou, _)| pou).collect(),
             enumerations,
+            structures,
             errors: self.errors,
         }
     }
 
     fn reachable(&self, declared: &Declared) -> Option<Vec<String>> {
-        if declared.public {
-            return Some(declared.pou.path.clone());
+        self.reach(
+            declared.public,
+            &declared.pou.path,
+            &declared.module,
+            &declared.item,
+        )
+    }
+
+    /// The path the generated code reaches the item `item` of the module `module` by, whose path is
+    /// `path`: that path through `pub` modules (`public`), else the crate root's `pub use` of it or
+    /// of its module's items.
+    fn reach(
+        &self,
+        public: bool,
+        path: &[String],
+        module: &[String],
+        item: &str,
+    ) -> Option<Vec<String>> {
+        if public {
+            return Some(path.to_vec());
         }
         self.exports.iter().find_map(|(used, name)| {
             if name == "*" {
-                (*used == declared.module).then(|| vec![declared.item.clone()])
+                (*used == module).then(|| vec![item.to_string()])
             } else {
-                (*used == declared.pou.path).then(|| vec![name.clone()])
+                (*used == path).then(|| vec![name.clone()])
             }
         })
     }

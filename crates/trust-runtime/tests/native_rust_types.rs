@@ -1,7 +1,7 @@
 //! A Rust POU's variables of the IEC types beside Rust's own reach it and come back as the
 //! program's areas store them (specification 48 RU-25, RU-26; specification 44 §6.2): bit strings,
-//! characters, durations, dates and times of day, strings, arrays and enumerations, each with its
-//! declared starting value.
+//! characters, durations, dates and times of day, strings, arrays, enumerations and structures, each
+//! with its declared starting value.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`. A toolchain without
 //! cargo and the SDK's sources, as a release's bundle is until specification 48 §16, refuses the
@@ -625,4 +625,170 @@ fn a_rust_pou_keeps_enumerations_as_structured_text_does() {
     assert_eq!(variant(&read("MAIN.NEXT")), ("Off".into(), 0));
     assert_eq!(read("MAIN.ISMANUAL"), Value::Bool(true));
     assert_eq!(variant(&read("MAIN.IDLELAST")), ("Auto".into(), 1));
+}
+
+/// An enumeration, two structures, one inside the other, a block that moves a point by a delta and
+/// keeps the last segment and a trail of points, and a function that gives a segment's midpoint.
+const SHAPED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_enum(name = \"SIDE\")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Left = 0,
+    Right = 1,
+}
+
+#[trust_struct(name = \"POINT\")]
+#[derive(Clone, Copy)]
+pub struct Point {
+    pub x: f64,
+    #[init(2.0)]
+    pub y: f64,
+}
+
+#[trust_struct(name = \"SEGMENT\")]
+#[derive(Clone, Copy)]
+pub struct Segment {
+    pub origin: Point,
+    pub target: Point,
+    #[init(Side::Right)]
+    pub side: Side,
+    #[init(\"seg\")]
+    pub name: Str<8>,
+}
+
+#[trust_fb(name = \"TRACER\")]
+#[budget(\"1us\")]
+pub struct Tracer {
+    #[input]
+    pub delta: Point,
+    #[output]
+    pub pos: Point,
+    #[output]
+    pub last: Segment,
+    #[output]
+    pub trail: Array<Point, 1, 3>,
+}
+
+impl Body for Tracer {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        let next = Point {
+            x: self.pos.x + self.delta.x,
+            y: self.pos.y + self.delta.y,
+        };
+        let side = if next.x >= 0.0 { Side::Right } else { Side::Left };
+        self.last = Segment {
+            origin: self.pos,
+            target: next,
+            side,
+            name: self.last.name,
+        };
+        let old = self.trail;
+        if let [_, second, third] = old.as_slice() {
+            self.trail = Array::from_items([*second, *third, next]);
+        }
+        self.pos = next;
+        Ok(())
+    }
+}
+
+#[trust_function(name = \"MIDPOINT\")]
+#[budget(\"1us\")]
+pub fn midpoint(_cx: &mut Cx, segment: Segment) -> Result<Point, Fault> {
+    Ok(Point {
+        x: (segment.origin.x + segment.target.x) / 2.0,
+        y: (segment.origin.y + segment.target.y) / 2.0,
+    })
+}
+";
+
+/// A program that moves the tracer three times and reads its structures' fields.
+const SHAPED_PROGRAM: &str = "PROGRAM Line
+VAR
+    tracer : TRACER;
+    idle : TRACER;
+    delta : POINT := (x := 1.0, y := -0.5);
+    middle : POINT;
+    posX : LREAL;
+    posY : LREAL;
+    originX : LREAL;
+    targetY : LREAL;
+    sideRight : BOOL;
+    name : STRING[8];
+    trail1X : LREAL;
+    trail3Y : LREAL;
+    middleX : LREAL;
+    middleY : LREAL;
+    idleY : LREAL;
+END_VAR
+tracer(delta := delta);
+posX := tracer.pos.x;
+posY := tracer.pos.y;
+originX := tracer.last.origin.x;
+targetY := tracer.last.target.y;
+sideRight := tracer.last.side = SIDE#Right;
+name := tracer.last.name;
+trail1X := tracer.trail[1].x;
+trail3Y := tracer.trail[3].y;
+middle := MIDPOINT(segment := tracer.last);
+middleX := middle.x;
+middleY := middle.y;
+idleY := idle.pos.y;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_rust_pou_keeps_structures_as_structured_text_does() {
+    // RU-25, RU-28: a structure of the crate reaches the Rust POU and comes back field by field, a
+    // structure inside it, its enumeration and string fields, an array of it, an input, an output
+    // and a function's argument and result alike; it starts at its fields' initial values. By
+    // hand: the tracer starts at (0, 2) and moves by (1, -0.5) at each of three calls, to (1, 1.5),
+    // (2, 1) and (3, 0.5); its last segment runs from (2, 1) to (3, 0.5) on the Right, named 'seg'
+    // as declared; its trail is [(1, 1.5), (2, 1), (3, 0.5)]; the segment's midpoint is
+    // (2.5, 0.75); the instance never called stays at its declared y, 2.0. Catches a field read
+    // from another field's cell, a structure inside a structure or an array lost, and a starting
+    // value the Rust POU and its declaration disagree on.
+    let root = custom_project(
+        "rust-pous-shaped",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", SHAPED)],
+        SHAPED_PROGRAM,
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10, 20, 30] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    for (path, expected) in [
+        ("MAIN.POSX", 3.0),
+        ("MAIN.POSY", 0.5),
+        ("MAIN.ORIGINX", 2.0),
+        ("MAIN.TARGETY", 0.5),
+        ("MAIN.TRAIL1X", 1.0),
+        ("MAIN.TRAIL3Y", 0.5),
+        ("MAIN.MIDDLEX", 2.5),
+        ("MAIN.MIDDLEY", 0.75),
+        ("MAIN.IDLEY", 2.0),
+    ] {
+        assert_eq!(program.value(path), Some(Value::LReal(expected)), "{path}");
+    }
+    assert_eq!(program.value("MAIN.SIDERIGHT"), Some(Value::Bool(true)));
+    assert_eq!(
+        program.value("MAIN.NAME"),
+        Some(Value::String("seg".into()))
+    );
 }

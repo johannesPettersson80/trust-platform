@@ -16,6 +16,7 @@ mod dates;
 mod enumeration;
 mod literal;
 mod render;
+mod structure;
 mod types;
 
 use proc_macro2::{Span, TokenStream};
@@ -28,6 +29,7 @@ use syn::{
 
 pub use enumeration::{enumeration, is_enumeration, Enumeration};
 pub use literal::Value;
+pub use structure::{is_structure, structure, Field, Structure};
 pub use types::{DataType, Elementary};
 
 /// What a Rust POU is (specification 48 RU-22).

@@ -5,7 +5,7 @@
 #![allow(clippy::float_cmp)]
 
 use trust_plc::prelude::*;
-use trust_plc::{Placed, Stored};
+use trust_plc::{Declared, Placed, Stored};
 
 /// Exponential moving average of one input: specification 48 RU-22's function block.
 #[trust_fb(name = "FILTER_EMA")]
@@ -241,6 +241,54 @@ fn an_enumeration_starts_at_its_variant_and_lies_as_its_value() {
     Mode::Back.store(&cell);
     assert_eq!(cell.get(), -1);
     assert_eq!(<Mode as Placed>::load(&cell), Mode::Back);
+}
+
+/// A structure whose fields start at a number, a variant, a text and a list.
+#[trust_struct(name = "SAMPLE")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sample {
+    pub x: f64,
+    #[init(2.5)]
+    pub y: f64,
+    #[init(Mode::Auto)]
+    pub mode: Mode,
+    #[init("ok")]
+    pub note: Str<4>,
+    #[init([1, 2])]
+    pub counts: Array<i16, 1, 3>,
+}
+
+/// A block with a variable of the structure and an array of it.
+#[trust_fb(name = "SAMPLE_STARTS")]
+#[budget("1us")]
+pub struct SampleStarts {
+    pub one: Sample,
+    pub many: Array<Sample, 0, 2>,
+}
+
+impl Body for SampleStarts {
+    fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_structure_starts_at_its_fields_initial_values() {
+    // RU-25, RU-26: a structure's default is its fields' initial values and their types' defaults,
+    // a nested enumeration's, string's and array's too, and a variable of it, an array's element
+    // too, starts at that default. Catches a field's initial value lost and an array of structures
+    // started at zeros.
+    let expected = Sample {
+        x: 0.0,
+        y: 2.5,
+        mode: Mode::Auto,
+        note: Str::from_text("ok"),
+        counts: Array::from_items([1, 2, 0]),
+    };
+    assert_eq!(<Sample as Declared>::DEFAULT, expected);
+    let starts = SampleStarts::new();
+    assert_eq!(starts.one, expected);
+    assert_eq!(starts.many.as_slice(), &[expected, expected]);
 }
 
 #[test]
