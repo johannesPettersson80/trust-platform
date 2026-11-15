@@ -177,6 +177,7 @@ impl Front {
             });
             global_owners.extend(database.global_owners(*file_id).iter().cloned());
         }
+        refuse_rust_pous(&checked)?;
         Ok(Self {
             lowered,
             sources: checked,
@@ -286,3 +287,35 @@ impl StatementIds {
             .copied()
     }
 }
+
+/// Refuses each Rust POU of `sources` with its place (specification 48 RU-23): its body is a Rust
+/// item of the project's crate, which this build does not compile yet (specification 48 §9), so
+/// that its declaration never runs as an empty body.
+fn refuse_rust_pous(sources: &[Source]) -> Result<(), NativeError> {
+    let refused: Vec<NativeError> = sources
+        .iter()
+        .flat_map(|source| {
+            source
+                .root
+                .descendants()
+                .filter(trust_hir::rust_pous::is_rust_pou)
+                .map(|pou| {
+                    let name = pou
+                        .children()
+                        .find(|child| child.kind() == trust_syntax::syntax::SyntaxKind::Name)
+                        .map(|name| name.text().to_string().trim().to_string())
+                        .unwrap_or_default();
+                    NativeError::Unsupported {
+                        construct: format!("the Rust POU {name} (specification 48)"),
+                        at: Some(source.place(&pou)),
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    NativeError::refusals(refused).map_or(Ok(()), Err)
+}
+
+#[cfg(test)]
+#[path = "front_tests.rs"]
+mod tests;
