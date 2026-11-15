@@ -589,6 +589,16 @@ of each prototype with its signature, and a call through an interface reaches th
 reaches a Structured Text one (specification 44 §6.4, the dispatch by class id). A Rust POU calls a
 method through an interface it holds with `IfaceRef<I>::call`.
 
+`implements` names the interfaces separated by commas, each a Structured Text name with its
+namespaces (IEC §6.1.2, §6.9) and each once; `#[trust_fb]` alone takes it, as a function implements
+no interface. The generated declaration carries them in their order, `FUNCTION_BLOCK COUNTER
+IMPLEMENTS I_COUNTER`, so the build checks the block as it checks a Structured Text block: a
+prototype without the block's method, a method of another signature and one that is neither
+`PUBLIC` nor `INTERNAL` are error E208 at the generated declaration, and so is an interface with a
+property, which a Rust block cannot have (RU-34). An instance of the block is then assigned to a
+variable of the interface, and the admission counts a call through the interface as the most Rust
+work among the methods it can reach (RU-47).
+
 ### 6.6 What a Rust POU is not
 
 **RU-34.** A Rust function block does not extend a function block or class (`EXTENDS`), and no

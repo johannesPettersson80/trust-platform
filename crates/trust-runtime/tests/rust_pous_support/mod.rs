@@ -57,6 +57,28 @@ pub fn built(root: &Path) -> Option<(Build, Device)> {
     Some((built, device))
 }
 
+/// The error of building the project in `root` for this computer, with the toolchain.
+pub fn build_error(root: &Path) -> (String, Toolchain) {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let error = build_project(
+        root,
+        &sources(root),
+        &[],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        ConversionProfile::Iec,
+        &toolchain,
+        &root.join("build/native"),
+    )
+    .err()
+    .expect("the build is refused")
+    .to_string();
+    (error, toolchain)
+}
+
 /// A project with the crate files `files` (relative to `rust/`) and the program `program`.
 pub fn custom_project(name: &str, files: &[(&str, &str)], program: &str) -> PathBuf {
     let root = trust_test_support::unique_temp_path(name);
