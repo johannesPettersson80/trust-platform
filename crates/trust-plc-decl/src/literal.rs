@@ -225,6 +225,10 @@ fn real_literal(shortest: &str) -> String {
 pub(crate) fn initial_of(value: &Expr, ty: &DataType) -> Result<Value, Error> {
     match ty {
         DataType::Elementary(elementary) => initial(value, *elementary),
+        DataType::Ref(_) => Err(Error::new(
+            value.span(),
+            "a reference starts `NULL` and takes no `#[init]` (specification 48 RU-29)",
+        )),
         // One of the enumeration's variants; the declarations' writer checks it is one.
         DataType::Named(_) => match value {
             Expr::Path(path) if path.qself.is_none() => Ok(Value::Variant(

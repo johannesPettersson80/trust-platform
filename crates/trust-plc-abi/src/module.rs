@@ -521,6 +521,20 @@ pub fn run(
     }
 }
 
+/// Lends `body` the areas of `cx` for its length (specification 48 RU-29): the SDK reads and writes
+/// what a Rust POU's reference names through them, with [`Areas::deref`]'s checks.
+///
+/// Like [`run`], it trusts that `cx` holds the kernel's areas: only the SDK and the generated code
+/// depend on this crate (specification 48 RU-20), and the SDK's context of a Rust POU is a clone of
+/// the generated code's, which the kernel gave it.
+pub fn with_areas<T>(cx: &mut Cx, body: impl for<'s> FnOnce(&'s mut Cx, Areas<'s>) -> T) -> T {
+    let areas = Areas {
+        areas: cx.areas,
+        scope: PhantomData,
+    };
+    body(cx, areas)
+}
+
 /// Starts statement `id`: records it, counts it against the budget and stops at its breakpoint
 /// (specification 44 §8.4, §13.2). Two loads and two branches when no debugger is armed.
 ///

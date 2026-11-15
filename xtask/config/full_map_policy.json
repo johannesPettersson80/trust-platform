@@ -4153,7 +4153,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 604,
+        "line": 618,
         "owner": "native execution (specification 44)",
         "invariant": "index is below breakpoint_bytes and the kernel keeps breakpoint_bytes readable bytes at breakpoints for the call (specification 44 \u00a713.2); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -4161,7 +4161,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 609,
+        "line": 623,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -4169,7 +4169,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 629,
+        "line": 643,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -4177,7 +4177,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 652,
+        "line": 666,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-runtime --lib runtime_clock_source (CURRENT_DT reads the wall clock through the table).",

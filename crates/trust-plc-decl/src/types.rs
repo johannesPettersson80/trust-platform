@@ -307,6 +307,8 @@ pub enum DataType {
     /// (`#[trust_struct]`), by its name: the Rust item's as the reader reads a POU, its Structured
     /// Text name once the declarations' writer, which reads the whole crate, gives it.
     Named(String),
+    /// `REF_TO target`, written `Ref<target>` (specification 48 RU-29).
+    Ref(Box<DataType>),
 }
 
 impl DataType {
@@ -326,6 +328,7 @@ impl DataType {
                 element.iec()
             )),
             Self::Named(name) => Cow::Owned(name.clone()),
+            Self::Ref(target) => Cow::Owned(format!("REF_TO {}", target.iec())),
         }
     }
 
@@ -334,13 +337,24 @@ impl DataType {
     pub fn elementary(&self) -> Option<Elementary> {
         match self {
             Self::Elementary(elementary) => Some(*elementary),
-            Self::Array { .. } | Self::Named(_) => None,
+            Self::Array { .. } | Self::Named(_) | Self::Ref(_) => None,
         }
     }
 
     /// The type `ty` names (RU-25): a type of RU-25's table, else a name, which the crate's type of
     /// that name must declare.
     pub(crate) fn of(ty: &Type) -> Result<Self, Error> {
+        if let Some(target) = wrapped(ty, "Ref") {
+            return Self::of(target).map(|target| Self::Ref(Box::new(target)));
+        }
+        if wrapped(ty, "InOut").is_some() {
+            return Err(Error::new(
+                ty.span(),
+                "an in-out is a function's parameter `InOut<T>`; a function block's in-out keeps \
+                 the reference of its last call, a field `#[in_out]` of type `Ref<T>` \
+                 (specification 48 RU-29)",
+            ));
+        }
         if let Some(array) = array_type(ty) {
             return array;
         }
@@ -356,6 +370,32 @@ impl DataType {
 /// Rust's own types that are no type of RU-25's table and that no type of the crate is: a variable
 /// of one is refused with the table's types rather than taken for a crate type's name.
 const RUST_ONLY: [&str; 7] = ["usize", "isize", "i128", "u128", "char", "str", "String"];
+
+/// The type `T` of `ty` when it is the SDK's `name<T>`, `name<'_, T>` too: `Ref<T>` or `InOut<T>`.
+pub(crate) fn wrapped<'t>(ty: &'t Type, name: &str) -> Option<&'t Type> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    let segment = path.path.segments.last()?;
+    if path.qself.is_some() || segment.ident != name {
+        return None;
+    }
+    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return None;
+    };
+    let mut types = arguments.args.iter().filter_map(|argument| match argument {
+        GenericArgument::Type(target) => Some(target),
+        _ => None,
+    });
+    let target = types.next()?;
+    let lifetimes_only = arguments.args.iter().all(|argument| {
+        matches!(
+            argument,
+            GenericArgument::Type(_) | GenericArgument::Lifetime(_)
+        )
+    });
+    (types.next().is_none() && lifetimes_only).then_some(target)
+}
 
 /// The array type `ty` names, `Array<T, A, N>`: `N` elements of `T` indexed from `A`; `None` for
 /// another type.

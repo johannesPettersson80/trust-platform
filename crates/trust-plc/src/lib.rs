@@ -23,21 +23,29 @@ mod context;
 pub mod dates;
 pub mod math;
 pub mod prelude;
+mod refs;
 pub mod strings;
 pub mod test;
 pub mod types;
 
 pub use arrays::Array;
-#[doc(hidden)]
-pub use context::__private;
 pub use context::Cx;
 pub use dates::{Date, Dt, LDate, LTod, Ldt, Tod};
+pub use refs::{InOut, Ref};
 pub use strings::{Str, WStr};
 pub use trust_plc_abi::{Fault, FaultCode};
 pub use trust_plc_macros::{budget, trust_enum, trust_fb, trust_function, trust_struct};
 pub use types::{
     declared_default, Byte, Char, Declared, Dword, LTime, Lword, Placed, Stored, Time, WChar, Word,
 };
+
+/// What the generated code calls around a Rust POU (specification 48 RU-11, RU-29). A Rust POU has
+/// no use for it: it never holds the kernel interface's context or a reference's raw form.
+#[doc(hidden)]
+pub mod __private {
+    pub use crate::context::{enter, leave};
+    pub use crate::refs::{reference, reference_value};
+}
 
 /// A Rust POU's own fault (specification 48 RU-14): the number the POU chooses and two numbers of
 /// detail, which the kernel reports with the Structured Text statement that called the POU. It ends

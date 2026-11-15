@@ -57,24 +57,17 @@ impl Cx {
     }
 }
 
-/// What the generated code calls around each call of a Rust POU (specification 48 RU-11). A Rust POU
-/// has no use for it: it never holds the kernel interface's context these take.
-#[doc(hidden)]
-pub mod __private {
-    use super::Cx;
+/// The context of a Rust POU's call, made from a clone of `raw`, the generated code's.
+#[must_use]
+#[inline]
+pub fn enter(raw: &trust_plc_abi::Cx) -> Cx {
+    Cx::of(raw.clone())
+}
 
-    /// The context of a Rust POU's call, made from a clone of `raw`, the generated code's.
-    #[must_use]
-    #[inline]
-    pub fn enter(raw: &trust_plc_abi::Cx) -> Cx {
-        Cx::of(raw.clone())
-    }
-
-    /// Ends the call's context `cx` and takes back into `kernel` the record of the fault the call
-    /// returns, the only part of the context a Rust POU writes.
-    #[inline]
-    pub fn leave(cx: Cx, kernel: &mut trust_plc_abi::Cx) {
-        let Cx { raw: called } = cx;
-        kernel.fault = called.fault;
-    }
+/// Ends the call's context `cx` and takes back into `kernel` the record of the fault the call
+/// returns, the only part of the context a Rust POU writes.
+#[inline]
+pub fn leave(cx: Cx, kernel: &mut trust_plc_abi::Cx) {
+    let Cx { raw: called } = cx;
+    kernel.fault = called.fault;
 }

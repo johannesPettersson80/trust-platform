@@ -53,6 +53,9 @@ pub enum Section {
     Output,
     /// `VAR`: a field with neither.
     Var,
+    /// `VAR_IN_OUT`: a function's parameter `InOut<T>`, or a function block's field `#[in_out]` of
+    /// type `Ref<T>` (specification 48 RU-29).
+    InOut,
 }
 
 /// A variable of a Rust POU.
@@ -107,10 +110,10 @@ pub fn duration_nanoseconds(text: &str) -> Option<u64> {
 }
 
 /// The attributes of a function block's fields that this crate reads and the attribute removes.
-const FIELD_ATTRIBUTES: [&str; 4] = ["input", "output", "retain", "init"];
+const FIELD_ATTRIBUTES: [&str; 5] = ["input", "output", "in_out", "retain", "init"];
 
 /// Whether `attribute` is one this crate reads on a function block's field: `#[input]`,
-/// `#[output]`, `#[retain]` or `#[init(...)]`.
+/// `#[output]`, `#[in_out]`, `#[retain]` or `#[init(...)]`.
 #[must_use]
 pub fn is_field_attribute(attribute: &Attribute) -> bool {
     FIELD_ATTRIBUTES
@@ -247,11 +250,16 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
                 ))
             }
         };
+        // An in-out is the caller's variable itself, borrowed for the call (RU-29).
+        let (section, ty) = match types::wrapped(&typed.ty, "InOut") {
+            Some(target) => (Section::InOut, DataType::of(target)?),
+            None => (Section::Input, DataType::of(&typed.ty)?),
+        };
         let variable = Variable {
             name: variable_name(ident)?,
-            section: Section::Input,
+            section,
             retain: false,
-            ty: DataType::of(&typed.ty)?,
+            ty,
             init: None,
         };
         add(&mut variables, variable, ident.span())?;
@@ -340,18 +348,20 @@ fn field_variable(ident: &Ident, ty: &Type, attributes: &[Attribute]) -> Result<
     let mut init = None;
     for attribute in attributes {
         let path = attribute.path();
-        if path.is_ident("input") || path.is_ident("output") {
+        if path.is_ident("input") || path.is_ident("output") || path.is_ident("in_out") {
             attribute.meta.require_path_only()?;
             if section.is_some() {
                 return Err(Error::new(
                     attribute.span(),
-                    "a variable has one section, `#[input]` or `#[output]`",
+                    "a variable has one section, `#[input]`, `#[output]` or `#[in_out]`",
                 ));
             }
             section = Some(if path.is_ident("input") {
                 Section::Input
-            } else {
+            } else if path.is_ident("output") {
                 Section::Output
+            } else {
+                Section::InOut
             });
         } else if path.is_ident("retain") {
             attribute.meta.require_path_only()?;
@@ -366,7 +376,25 @@ fn field_variable(ident: &Ident, ty: &Type, attributes: &[Attribute]) -> Result<
             init = Some(attribute.parse_args::<syn::Expr>()?);
         }
     }
-    let ty = DataType::of(ty)?;
+    let ty = if section == Some(Section::InOut) {
+        // The block keeps the reference of its last call, of the in-out's type (RU-29).
+        let Some(target) = types::wrapped(ty, "Ref") else {
+            return Err(Error::new(
+                ty.span(),
+                "a function block's in-out keeps the reference of its last call: a field \
+                 `#[in_out]` of type `Ref<T>`, `T` its type (specification 48 RU-29)",
+            ));
+        };
+        if retain || init.is_some() {
+            return Err(Error::new(
+                ident.span(),
+                "an in-out names the caller's variable: it takes no `#[retain]` and no `#[init]`",
+            ));
+        }
+        DataType::of(target)?
+    } else {
+        DataType::of(ty)?
+    };
     let init = init
         .map(|value| literal::initial_of(&value, &ty))
         .transpose()?;
@@ -501,3 +529,7 @@ fn result(output: &ReturnType, item: Span) -> Result<Option<DataType>, Error> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "references_tests.rs"]
+mod references_tests;

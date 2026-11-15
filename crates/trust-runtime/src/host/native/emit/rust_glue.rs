@@ -21,6 +21,7 @@ use super::super::types::{Kind, Ty};
 use super::super::NativeError;
 use crate::program_model::Param;
 use trust_hir::symbols::ParamDirection;
+use trust_runtime_core::native::image::SYMBOL_IN_OUT;
 
 /// The body of the Rust function block whose instance type is `ty`, called through `link`;
 /// `structures` gives the path of each structure of the crate by its name in capitals.
@@ -32,6 +33,8 @@ pub(super) fn block(
 ) -> Result<(), NativeError> {
     let members = lowerer.info(ty).members().to_vec();
     let mut places = Vec::with_capacity(link.variables.len());
+    // The in-outs, whose references the body reads but never rebinds (specification 48 RU-29).
+    let mut in_outs = Vec::with_capacity(link.variables.len());
     for name in &link.variables {
         let Some(member) = members
             .iter()
@@ -47,6 +50,7 @@ pub(super) fn block(
             ty: member.ty,
             is_ref: false,
         });
+        in_outs.push(member.flags & SYMBOL_IN_OUT != 0);
     }
     let values: Vec<String> = (0..places.len())
         .map(|index| format!("rv{index}"))
@@ -65,8 +69,10 @@ pub(super) fn block(
     lowerer.line(&format!("{called}?;"));
     // The instance's own variables, which no pointer names: a string's length and the 0 after its
     // text as Structured Text's writes leave them (DEV-039).
-    for (place, value) in places.iter().zip(&values) {
-        store(lowerer, place.ty, &place.expr, value, structures, 0)?;
+    for ((place, value), in_out) in places.iter().zip(&values).zip(in_outs) {
+        if !in_out {
+            store(lowerer, place.ty, &place.expr, value, structures, 0)?;
+        }
     }
     Ok(())
 }
@@ -82,18 +88,27 @@ pub(super) fn function(
     let mut arguments = String::new();
     for name in &link.variables {
         let Some(param) = params.iter().find(|param| {
-            param.direction == ParamDirection::In && param.name.eq_ignore_ascii_case(name)
+            matches!(param.direction, ParamDirection::In | ParamDirection::InOut)
+                && param.name.eq_ignore_ascii_case(name)
         }) else {
             return Err(NativeError::Compile(format!(
-                "the input {name} of {} is not in its declaration",
+                "the input or in-out {name} of {} is not in its declaration",
                 link.call
             )));
         };
         let ty = lowerer.model.ty(param.type_id)?;
         let argument = crate::native::lower::parameter(&param.name);
+        // An in-out is the caller's variable itself, which the generated code passes as its place
+        // (specification 48 RU-29); a string's is a view of any capacity, which the SDK does not
+        // carry yet.
+        let value = if param.direction == ParamDirection::InOut {
+            if matches!(lowerer.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
+                return Err(not_carried(&lowerer.info(ty).name));
+            }
+            format!("::trust_plc::InOut::new({argument})")
         // A scalar input is its value; any other is a reference to the caller's (specification 44
         // §6.2).
-        let value = if lowerer.info(ty).scalar().is_some() {
+        } else if lowerer.info(ty).scalar().is_some() {
             format!("::trust_plc::Stored::from_raw({argument})")
         } else {
             load(lowerer, ty, &format!("(*{argument})"), structures, 0)?
@@ -145,6 +160,18 @@ fn placed_by_sdk(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
     }
 }
 
+/// Whether `ty` is a reference that lies as one `RefValue` cell, `REF_TO` of anything but an open
+/// array (specification 44 §7.3), which the SDK holds as a `trust_plc::Ref`.
+fn reference(lowerer: &Lowerer<'_, '_>, ty: Ty) -> bool {
+    match lowerer.info(ty).kind {
+        Kind::Ref {
+            target,
+            pointer: false,
+        } => !matches!(lowerer.info(target).kind, Kind::Open { .. }),
+        _ => false,
+    }
+}
+
 /// The Rust expression of the value of type `ty` that the place `place` holds, an expression of
 /// the generated code's type; `depth` names the closures' variables apart.
 fn load(
@@ -165,6 +192,9 @@ fn load(
     }
     if placed_by_sdk(lowerer, ty) {
         return Ok(format!("::trust_plc::Placed::load(&{place})"));
+    }
+    if reference(lowerer, ty) {
+        return Ok(format!("::trust_plc::__private::reference({place}.get())"));
     }
     match &info.kind {
         Kind::Array { elem, .. } => {
@@ -215,6 +245,12 @@ fn store(
     }
     if placed_by_sdk(lowerer, ty) {
         lowerer.line(&format!("::trust_plc::Placed::store(&{value}, &{place});"));
+        return Ok(());
+    }
+    if reference(lowerer, ty) {
+        lowerer.line(&format!(
+            "{place}.set(::trust_plc::__private::reference_value({value}));"
+        ));
         return Ok(());
     }
     match &info.kind {

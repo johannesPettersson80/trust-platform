@@ -525,3 +525,39 @@ fn the_declarations_take_the_names_the_parser_takes() {
     }
     assert!(differing.is_empty(), "{differing:#?}");
 }
+
+#[test]
+fn an_in_out_or_a_reference_the_sdk_does_not_carry_yet_is_refused() {
+    // RU-29 as built so far (checklist G183): the SDK reads a structure field by field, not where
+    // it lies, so an in-out of a structure, or a reference to one, is refused; and a function takes
+    // a string in-out as a view of any capacity (DEV-035), which `InOut<Str<N>>` is not. Catches a
+    // declaration whose glue could not be built, with a compiler error in its place.
+    let lib =
+        "#![cfg_attr(not(test), no_std)]\n\npub mod modes;\npub mod geometry;\npub mod tracker;\n\
+               pub mod uses;\n";
+    let uses = "use trust_plc::prelude::*;\nuse crate::geometry::Point;\n\n\
+                #[trust_fb(name = \"HOLDER\")]\n#[budget(\"1us\")]\npub struct Holder {\n    \
+                #[in_out] pub spot: Ref<Point>,\n}\n\n\
+                #[trust_function(name = \"LABEL\")]\n#[budget(\"1us\")]\n\
+                pub fn label(_cx: &mut Cx, text: InOut<'_, Str<20>>) -> Result<(), Fault> {\n    \
+                let _ = text;\n    Ok(())\n}\n";
+    let root = project(&[
+        ("rust/Cargo.toml", MANIFEST),
+        ("rust/src/lib.rs", lib),
+        ("rust/src/modes.rs", MODES),
+        ("rust/src/geometry.rs", GEOMETRY),
+        ("rust/src/tracker.rs", TRACKER),
+        ("rust/src/uses.rs", uses),
+    ]);
+    let found = errors(&root);
+    assert!(
+        found.iter().any(|error| error.contains("HOLDER")
+            && error.contains("the variable spot: an in-out of a structure")),
+        "{found:?}"
+    );
+    assert!(
+        found.iter().any(|error| error.contains("LABEL")
+            && error.contains("the variable text: a function's string in-out")),
+        "{found:?}"
+    );
+}
