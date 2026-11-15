@@ -571,6 +571,14 @@
       "rationale": "The SDK gives a Rust POU the attributes that declare it, #[trust_fb], #[trust_function] and #[budget] (specification 48 \u00a76.1)."
     },
     {
+      "from": "trust-runtime",
+      "to": "trust-plc-decl",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "Rust in truST projects (specification 48)",
+      "rationale": "The build and trust-dev write a project's generated declarations from its crate's sources with the reader the attributes use, so the declarations and the compiled code agree (specification 48 RU-24)."
+    },
+    {
       "from": "trust-plc-macros",
       "to": "trust-plc-decl",
       "kind": "normal",

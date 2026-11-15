@@ -26,6 +26,7 @@ mod module;
 mod recursion;
 mod retain_map;
 mod run;
+pub mod rust_pous;
 mod settings;
 mod signing;
 mod stack;
