@@ -24,6 +24,13 @@ pub fn is_rust_pou(node: &SyntaxNode) -> bool {
     ) && declares_attribute(node, RUST_ATTRIBUTE)
 }
 
+/// Whether the declaration `node` is a Rust POU or lies in one, as a method of a Rust function
+/// block does (RU-32): its body is Rust code too, so the checks that read a body do not apply.
+#[must_use]
+pub fn is_in_rust_pou(node: &SyntaxNode) -> bool {
+    node.ancestors().any(|ancestor| is_rust_pou(&ancestor))
+}
+
 /// The declarations that may carry a pragma and are no POU a Rust item can be.
 const OTHER_DECLARATIONS: [SyntaxKind; 11] = [
     SyntaxKind::Class,

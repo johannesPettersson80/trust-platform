@@ -61,8 +61,9 @@ impl Types<'_> {
     }
 }
 
-/// Gives each variable and result of `pous`, and each field of `structures`, of a type the crate
-/// declares that type's Structured Text name, and checks the values they start at.
+/// Gives each variable and result of `pous` and of their methods, and each field of `structures`,
+/// of a type the crate declares that type's Structured Text name, and checks the values they start
+/// at.
 ///
 /// # Errors
 ///
@@ -102,11 +103,11 @@ pub(super) fn resolve(
     }
     for pou in pous.iter_mut() {
         let mut found = Vec::new();
-        let kind = pou.pou.kind;
+        let borrowed = pou.pou.kind == Kind::Function;
         for variable in &mut pou.pou.variables {
             let outcome = rename(&mut variable.ty, &types)
                 .and_then(|()| check(&variable.ty, variable.init.as_ref(), &types))
-                .and_then(|()| carried(&variable.ty, variable.section, kind, &types));
+                .and_then(|()| carried(&variable.ty, variable.section, borrowed, &types));
             if let Err(message) = outcome {
                 found.push(format!("the variable {}: {message}", variable.name));
             }
@@ -115,6 +116,28 @@ pub(super) fn resolve(
             && let Err(message) = rename(result, &types)
         {
             found.push(format!("the result: {message}"));
+        }
+        // A method's variables and result as a function's: its in-outs are borrowed for the call
+        // (RU-29, RU-32).
+        for method in &mut pou.pou.methods {
+            for variable in &mut method.variables {
+                let outcome = rename(&mut variable.ty, &types)
+                    .and_then(|()| carried(&variable.ty, variable.section, true, &types));
+                if let Err(message) = outcome {
+                    found.push(format!(
+                        "the variable {} of the method {}: {message}",
+                        variable.name, method.name
+                    ));
+                }
+            }
+            if let Some(result) = &mut method.result
+                && let Err(message) = rename(result, &types)
+            {
+                found.push(format!(
+                    "the result of the method {}: {message}",
+                    method.name
+                ));
+            }
         }
         errors.extend(found.into_iter().map(|message| RustPouError {
             file: pou.file.clone(),
@@ -144,11 +167,17 @@ fn rename(ty: &mut DataType, types: &Types<'_>) -> Result<(), String> {
     }
 }
 
-/// Checks that the SDK carries a variable of type `ty` in `section` of a POU of `kind` (specification
-/// 48 RU-29): an in-out or a reference names no structure, which the SDK reads field by field, not
-/// where it lies; and a function's in-out is no string, which a function takes of any capacity of its
-/// family as a view (docs/IEC_DEVIATIONS.md DEV-035). Both are on the checklist (G183).
-fn carried(ty: &DataType, section: Section, kind: Kind, types: &Types<'_>) -> Result<(), String> {
+/// Checks that the SDK carries a variable of type `ty` in `section` of a POU whose in-outs are
+/// `borrowed` for the call, a function's or a method's (specification 48 RU-29): an in-out or a
+/// reference names no structure, which the SDK reads field by field, not where it lies; and such an
+/// in-out is no string, which a function or a method takes of any capacity of its family as a view
+/// (docs/IEC_DEVIATIONS.md DEV-035). Both are on the checklist (G183).
+fn carried(
+    ty: &DataType,
+    section: Section,
+    borrowed: bool,
+    types: &Types<'_>,
+) -> Result<(), String> {
     // What the variable names: its own variable when it is an in-out, and each reference's target.
     let mut targets = Vec::new();
     if section == Section::InOut {
@@ -170,15 +199,15 @@ fn carried(ty: &DataType, section: Section, kind: Kind, types: &Types<'_>) -> Re
         );
     }
     if section == Section::InOut
-        && kind == Kind::Function
+        && borrowed
         && matches!(
             ty,
             DataType::Elementary(Elementary::Str(_) | Elementary::WStr(_))
         )
     {
         return Err(
-            "a function's string in-out is not carried yet: a function takes a string in-out of \
-             any capacity as a view (docs/IEC_DEVIATIONS.md DEV-035)"
+            "a function's or a method's string in-out is not carried yet: it takes a string \
+             in-out of any capacity as a view (docs/IEC_DEVIATIONS.md DEV-035)"
                 .to_string(),
         );
     }

@@ -59,14 +59,16 @@ fn a_function_block_keeps_its_struct_without_the_attributes_and_gains_its_calls(
             _ => None,
         })
         .collect();
-    // `new()`, `call(&mut self, cx)` and the generated code's call with the context and the four
-    // variables in declaration order.
+    // `new()`, `call(&mut self, cx)`, the generated code's call with the context and the four
+    // variables in declaration order, and its call of a method with them and the method to run
+    // (specification 48 RU-32).
     assert_eq!(
         functions,
         [
             ("new".to_string(), 0),
             ("call".to_string(), 2),
-            ("__trust_call".to_string(), 5)
+            ("__trust_call".to_string(), 5),
+            ("__trust_with".to_string(), 6)
         ]
     );
 }

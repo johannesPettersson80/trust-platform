@@ -572,6 +572,19 @@ outputs as the method's `&mut` parameters, a result, access specifiers `PUBLIC`,
 `PROTECTED`, `INTERNAL` (IEC §6.6.5.9) as an attribute, `PUBLIC` when none is given. The generated
 declaration carries each method's declaration without a body.
 
+A method is a `pub fn` of an `impl` block of the block's struct, in the project's crate, with
+`#[trust_method]` and its `#[budget]` (RU-46), named in Structured Text by its Rust name (an IEC
+identifier, RU-22). Its parameters are `&mut self`, the instance, then the context `cx: &mut Cx`,
+then its inputs by value, its in-outs as `InOut<'_, T>` (RU-29) and its outputs as `&mut T`, each
+a name with its type, in the order of its declaration; its result is `Result<T, Fault>` with `T` of
+§6.2's types, or `Result<(), Fault>` for a method without a result. `#[trust_method(private)]`,
+`(protected)` and `(internal)` give its access specifier. A call of the method runs as the block's
+body does (RU-28): on a copy of the instance's variables, which replaces them when it returns
+`Ok`, as its outputs and its result reach the caller then; its outputs start at their types'
+defaults, as a method's do at each call; on `Err` the instance stays as it was and the fault ends
+the scan. The generated declaration carries each method after the block's variables, in the order
+of the crate's `impl` blocks and their functions.
+
 **RU-33. Interfaces.** A Rust function block may implement Structured Text interfaces
 (`#[trust_fb(implements = "I_RUN, I_RESET")]`, IEC §6.6.6): the build checks that it has a method
 of each prototype with its signature, and a call through an interface reaches the Rust method as it

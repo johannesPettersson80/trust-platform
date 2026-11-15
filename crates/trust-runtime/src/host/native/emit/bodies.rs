@@ -228,13 +228,39 @@ fn method_pou_body(
         };
         lowerer.bind_static(&local.name, format!("me.{}", member.field()), member.ty);
     }
-    if let Some(list) = list {
+    // A Rust function block's method is its Rust method, which the glue calls (specification 48
+    // RU-32): its declaration holds no statements, and its function stays one of its own, so that
+    // the code of the method inlined into it carries the method's name (RU-45).
+    let rust = context
+        .front
+        .rust
+        .get(&owner.name().to_ascii_uppercase())
+        .and_then(|link| {
+            link.methods
+                .iter()
+                .find(|linked| linked.name.eq_ignore_ascii_case(&method.name))
+                .map(|linked| (link.clone(), linked.clone()))
+        });
+    if let Some((link, linked)) = &rust {
+        super::rust_glue::method(
+            &mut lowerer,
+            ty,
+            &method.params,
+            (link, linked),
+            &context.front.rust_structures,
+        )?;
+    } else if let Some(list) = list {
         lowerer.body(&list)?;
     }
     let exit = lowerer.exit.clone();
     lowerer.line(&exit);
+    let inline = if rust.is_some() {
+        "#[inline(never)]\n"
+    } else {
+        ""
+    };
     let signature = format!(
-        "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
+        "{inline}fn {name}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
         info.rust
     );
     let of = PouOf {

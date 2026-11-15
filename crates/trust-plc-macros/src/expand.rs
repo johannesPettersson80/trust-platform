@@ -2,7 +2,7 @@
 
 use proc_macro2::{Literal, Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{Attribute, Fields, Item, ItemEnum, ItemFn, ItemStruct};
+use syn::{Attribute, Fields, ImplItemFn, Item, ItemEnum, ItemFn, ItemStruct};
 use trust_plc_decl::{DataType, Elementary, Pou, Section, Value, Variable};
 
 /// `#[trust_fb]`: the struct without the attributes its reader reads, and its calls.
@@ -45,6 +45,26 @@ pub(crate) fn function(args: TokenStream, item: TokenStream) -> TokenStream {
     let pou = trust_plc_decl::function(args, &parsed);
     remove_budget(&mut parsed.attrs);
     match pou {
+        Ok(_) => quote! { #parsed },
+        Err(error) => {
+            let error = error.to_compile_error();
+            quote! { #error #parsed }
+        }
+    }
+}
+
+/// `#[trust_method]`: the method as written, without its budget, which only the reader reads.
+pub(crate) fn method(args: TokenStream, item: TokenStream) -> TokenStream {
+    let Ok(mut parsed) = syn::parse2::<ImplItemFn>(item.clone()) else {
+        return refused(
+            "`#[trust_method]` declares a function of a Rust function block's `impl` block a \
+             method of the block",
+            item,
+        );
+    };
+    let method = trust_plc_decl::method(args, &parsed);
+    remove_budget(&mut parsed.attrs);
+    match method {
         Ok(_) => quote! { #parsed },
         Err(error) => {
             let error = error.to_compile_error();
@@ -170,8 +190,9 @@ pub(crate) fn structure(args: TokenStream, item: TokenStream) -> TokenStream {
 /// `#[budget]` written above the POU's attribute expands first: it puts itself below that
 /// attribute, which reads it. Without a POU's attribute it is refused.
 pub(crate) fn budget(args: &TokenStream, item: TokenStream) -> TokenStream {
-    const ALONE: &str = "`#[budget]` gives a Rust POU its budget: write it with `#[trust_fb]` or \
-                         `#[trust_function]` (specification 48 RU-46)";
+    const ALONE: &str = "`#[budget]` gives a Rust POU or method its budget: write it with \
+                         `#[trust_fb]`, `#[trust_function]` or `#[trust_method]` (specification 48 \
+                         RU-46)";
     let Ok(mut parsed) = syn::parse2::<Item>(item.clone()) else {
         return refused(ALONE, item);
     };
@@ -180,10 +201,9 @@ pub(crate) fn budget(args: &TokenStream, item: TokenStream) -> TokenStream {
         Item::Fn(item) => &mut item.attrs,
         _ => return refused(ALONE, item),
     };
-    if !attributes
-        .iter()
-        .any(|attribute| trust_plc_decl::declared_kind(attribute).is_some())
-    {
+    if !attributes.iter().any(|attribute| {
+        trust_plc_decl::declared_kind(attribute).is_some() || trust_plc_decl::is_method(attribute)
+    }) {
         return refused(ALONE, item);
     }
     attributes.push(syn::parse_quote!(#[budget(#args)]));
@@ -260,6 +280,30 @@ fn calls(item: &ItemStruct, pou: &Pou) -> TokenStream {
                 ::trust_plc::Body::body(&mut next, cx)?;
                 #(*#values = next.#fields;)*
                 ::core::result::Result::Ok(())
+            }
+
+            /// A call of a method of the block as the program's generated code makes it, with the
+            /// instance's variables in declaration order: `run` runs on a copy of them, which
+            /// replaces them when it returns `Ok` (specification 48 RU-32).
+            ///
+            /// # Errors
+            ///
+            /// `run`'s fault; the variables then keep their values.
+            #[doc(hidden)]
+            #[inline]
+            #[allow(clippy::too_many_arguments)]
+            pub fn __trust_with<R>(
+                cx: &mut ::trust_plc::Cx,
+                #(#values: &mut #types,)*
+                run: impl ::core::ops::FnOnce(
+                    &mut Self,
+                    &mut ::trust_plc::Cx,
+                ) -> ::core::result::Result<R, ::trust_plc::Fault>,
+            ) -> ::core::result::Result<R, ::trust_plc::Fault> {
+                let mut next = Self { #(#fields: *#values),* };
+                let result = run(&mut next, cx)?;
+                #(*#values = next.#fields;)*
+                ::core::result::Result::Ok(result)
             }
         }
     }

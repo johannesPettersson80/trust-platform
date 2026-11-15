@@ -55,6 +55,28 @@ pub fn trust_function(args: TokenStream, item: TokenStream) -> TokenStream {
     expand::function(args.into(), item.into()).into()
 }
 
+/// Declares a function of a Rust function block's `impl` block a method of the block
+/// (specification 48 RU-32): `pub fn`, `&mut self` first, its context second, then its inputs by
+/// value, its in-outs as `InOut<T>` and its outputs as `&mut T`, and a `Result` of its value and a
+/// fault, with `#[budget("...")]`. `#[trust_method(private)]`, `(protected)` and `(internal)` give
+/// its access specifier; a method without one is public.
+///
+/// ```ignore
+/// impl Axis {
+///     #[trust_method]
+///     #[budget("2us")]
+///     pub fn jog(&mut self, cx: &mut Cx, step: f64, reached: &mut bool) -> Result<f64, Fault> {
+///         self.position = checked::fadd(cx, self.position, step)?;
+///         *reached = self.position >= self.target;
+///         Ok(self.position)
+///     }
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn trust_method(args: TokenStream, item: TokenStream) -> TokenStream {
+    expand::method(args.into(), item.into()).into()
+}
+
 /// Declares an enum a Rust enumeration (specification 48 RU-25): its variants hold no data, each
 /// has its value within `INT`, and it derives `Clone` and `Copy`. The generated declarations
 /// declare it as a closed enumeration of Structured Text with these names and values.
