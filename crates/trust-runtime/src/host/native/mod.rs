@@ -22,6 +22,7 @@ mod fb_reinit;
 mod frame_init;
 mod front;
 mod init;
+mod layers;
 mod located;
 mod lower;
 mod model;
@@ -467,15 +468,6 @@ pub fn build_project(
         return build_sources(sources, tests, options, conversions, toolchain, work, None);
     };
     rust_pous::check_declarations(project, &krate).map_err(NativeError::Compile)?;
-    // A call of Structured Text from Rust (specification 48 §8) needs the layers of §9.2, which the
-    // build does not make yet (milestone R3).
-    if let Some(first) = krate.structured_text.first() {
-        return Err(NativeError::Compile(format!(
-            "the crate calls Structured Text (st::{} at {}:{}), which the build does not compile \
-             yet (specification 48 §8, milestone R3)",
-            first.name, first.file, first.line
-        )));
-    }
     if krate.pous.is_empty() {
         return build_sources(sources, tests, options, conversions, toolchain, work, None);
     }
@@ -533,6 +525,7 @@ fn build_sources(
     let mut front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
     if let Some(krate) = &krate {
         front.rust_structures = rust_pous::structure_paths(krate);
+        front.structured_text.clone_from(&krate.structured_text);
     }
     init::check_declared_conversions(&front, conversions)?;
     let ids = front.statement_ids();
@@ -540,6 +533,18 @@ fn build_sources(
     let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
     model.conversions = conversions;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
+    // Layer 1 of specification 48 §9.2, what the Structured Text that Rust calls reaches, is not
+    // compiled yet (milestone R3).
+    if let (false, Some(first)) = (
+        generated.layer_one.is_empty(),
+        front.structured_text.first(),
+    ) {
+        return Err(NativeError::Compile(format!(
+            "the crate calls Structured Text (st::{} at {}:{}), which the build does not compile \
+             yet (specification 48 §8, milestone R3)",
+            first.name, first.file, first.line
+        )));
+    }
     // The Rust work of each task against its interval (specification 48 RU-47): warnings, or errors
     // in a `production` profile.
     let warnings = match &timing {

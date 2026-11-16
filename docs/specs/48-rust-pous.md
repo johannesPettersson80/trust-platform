@@ -682,11 +682,13 @@ block held by a Rust instance lies inside the Rust instance in the area, as a ne
 in a Structured Text one (specification 44 §6.2), so the symbol table, Live Values and online change
 see it.
 
-**RU-40. What can be called.** The build puts every Structured Text POU that a Rust POU calls or
-holds, with every POU those call, into layer 1, compiled before the project's crate (§9.2). A POU of
-layer 1 that calls a Rust POU, directly or through others, would make the layers a cycle; the build
-refuses it, naming the chain (`TANK_GUARD` (Rust) calls `HYSTERESIS`, which calls `FILTER_EMA`
-(Rust)). Composition across the two languages in both directions goes through a program's order on
+**RU-40. What can be called.** `st::` names the project's Structured Text functions and function
+blocks: a name of none of them, or of a Rust POU, is refused at its call. The build puts every
+Structured Text POU that a Rust POU calls or holds, with every POU those call, into layer 1, compiled
+before the project's crate (§9.2); a call through an interface or a reference reaches every method
+that can be there (specification 44 §6.4). A POU of layer 1 that calls a Rust POU, directly or
+through others, would make the layers a cycle; the build refuses it, naming the chain from the call
+(`st::HYSTERESIS at rust/src/tank.rs:14 calls HYSTERESIS, which calls FILTER_EMA (Rust)`). Composition across the two languages in both directions goes through a program's order on
 its task and through variables, which the cycle's rules keep consistent (specification 10 §4).
 
 ## 9. The build

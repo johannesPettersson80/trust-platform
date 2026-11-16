@@ -7,14 +7,17 @@ mod connections;
 mod rust_glue;
 mod rust_places;
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use super::classes::Owner;
 use super::entries::{entries, reference_initializers, Entry};
 use super::front::{Front, StatementIds};
+use super::layers::BodyPou;
 use super::lower::{FrameVar, Need, PRELUDE};
 use super::model::{AreaLayout, Model};
 use super::recursion::{CallGraph, Recursion};
+use super::rust_pous::StructuredTextUse;
 use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
 use crate::program_model::{FunctionDef, MethodDef, Param};
@@ -34,6 +37,9 @@ pub(super) struct Generated {
     /// The methods a tool may call between scans, which the tool symbols name (specification 44
     /// §5.7, §13.3).
     pub(super) tools: Vec<super::tools::Tool>,
+    /// The generated functions of layer 1, what the Structured Text that the project's crate calls
+    /// reaches (specification 48 §9.2); empty for a crate that calls none.
+    pub(super) layer_one: BTreeSet<String>,
 }
 
 /// One POU of a debug image: its name, the type its instance has, and its frame's variables at
@@ -113,6 +119,10 @@ pub(super) fn generate<'a>(
     for need in fb_reinit.needs {
         queue(model, need, &mut queued, &mut work)?;
     }
+    // The Structured Text functions that the crate calls, whether a program calls them or not
+    // (specification 48 RU-40).
+    let roots = structured_text_calls(front, model, &mut queued, &mut work)?;
+    let mut bodies: BTreeMap<String, BodyPou> = BTreeMap::new();
     let mut index = 0;
     loop {
         // Every function block type the bodies use needs its body; a class has none.
@@ -168,6 +178,7 @@ pub(super) fn generate<'a>(
             pou,
             pointer_bytes: target.pointer_bytes(),
         };
+        let of = body_pou(front, model, &item);
         let (text, statements, needs, name, called, frame) = match body(&context, model, &item) {
             Ok(generated) => generated,
             // A body that holds a construct not compiled yet outside its statements is left out,
@@ -183,6 +194,7 @@ pub(super) fn generate<'a>(
             pou_frames.push(pou_frame);
         }
         graph.body(&name, called);
+        bodies.insert(name.clone(), of);
         pous += 1;
         for statement in statements {
             if let Some(slot) = statement_pous.get_mut(statement as usize) {
@@ -208,6 +220,7 @@ pub(super) fn generate<'a>(
     }
     let tools = super::tools::tools(model)?;
     functions.push_str(&super::dispatch::emit(model, &dispatchers, &mut graph)?);
+    let layer_one = super::layers::layer_one(&graph, &roots, &bodies)?;
     // The places of the crate's structures that the Rust POUs' values reach (specification 48
     // RU-29).
     functions.push_str(&rust_places::places(
@@ -259,9 +272,71 @@ pub(super) fn generate<'a>(
             statement_pous,
             pous: pou_frames,
             tools,
+            layer_one,
         },
         graph,
     ))
+}
+
+/// Queues the Structured Text function of each call that the project's crate makes (specification
+/// 48 RU-38) and gives the function's name with the call; refuses a call of anything else.
+fn structured_text_calls<'a>(
+    front: &Front,
+    model: &Model<'a>,
+    queued: &mut Vec<Need>,
+    work: &mut Vec<Work<'a>>,
+) -> Result<Vec<(String, StructuredTextUse)>, NativeError> {
+    let mut roots = Vec::new();
+    for used in &front.structured_text {
+        let call = format!("st::{} at {}:{}", used.name, used.file, used.line);
+        if front.rust.contains_key(&used.name.to_ascii_uppercase()) {
+            return Err(NativeError::Compile(format!(
+                "{call} names a Rust POU, which the crate calls as Rust (specification 48 RU-38)"
+            )));
+        }
+        if let Some(def) = model.function(&used.name) {
+            queue(model, Need::Function(def.name.clone()), queued, work)?;
+            roots.push((format!("f_{}", mangle(&def.name)), used.clone()));
+        } else if model.types.owner(&used.name).is_some() {
+            return Err(NativeError::Compile(format!(
+                "{call} names a Structured Text function block, which the build does not compile \
+                 for Rust yet (specification 48 RU-38, milestone R3)"
+            )));
+        } else {
+            return Err(NativeError::Compile(format!(
+                "{call} names no Structured Text function or function block of the project \
+                 (specification 48 RU-38)"
+            )));
+        }
+    }
+    Ok(roots)
+}
+
+/// The POU whose body `item` is, and whether it is a Rust POU (specification 48 RU-40).
+fn body_pou(front: &Front, model: &Model<'_>, item: &Work<'_>) -> BodyPou {
+    let (name, pou) = match item {
+        Work::Program(index) => {
+            let name = model.program_types[*index].def.name.to_string();
+            (name.clone(), name)
+        }
+        Work::FunctionBlock(ty) => {
+            let name = model.types.info(*ty).name.to_string();
+            (name.clone(), name)
+        }
+        Work::Method(owner, method, _) => (
+            format!("{}.{}", owner.name(), method.name),
+            owner.name().to_string(),
+        ),
+        Work::ProgramMethod(index, method) => {
+            let owner = model.program_types[*index].def.name.to_string();
+            (format!("{owner}.{}", method.name), owner)
+        }
+        Work::Function(def) => (def.name.to_string(), def.name.to_string()),
+    };
+    BodyPou {
+        rust: front.rust.contains_key(&pou.to_ascii_uppercase()),
+        name,
+    }
 }
 
 /// Queues the body of the function or method `need` names, once; returns whether it is new.
