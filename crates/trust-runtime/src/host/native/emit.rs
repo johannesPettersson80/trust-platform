@@ -7,6 +7,7 @@ mod connections;
 mod rust_glue;
 mod rust_places;
 mod st_bindings;
+mod st_defaults;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;

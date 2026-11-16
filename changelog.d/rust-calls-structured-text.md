@@ -8,4 +8,5 @@
   of no Structured Text function, `use st::*`, and Structured Text that Rust calls and that calls
   Rust back are refused with the place and the chain (RU-39, RU-40). Functions whose inputs and
   result are elementary types, strings, one-dimensional arrays or the project's structures are
-  called, a structure through its binding `st::NAME`.
+  called, a structure through its binding `st::NAME`, whose default is the value a variable of the
+  structure starts at.

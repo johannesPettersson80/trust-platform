@@ -569,3 +569,120 @@ END_CONFIGURATION
         Some(Value::DInt(1))
     );
 }
+
+/// A crate whose block reads the default of the Structured Text structure LIMITS and passes it.
+const DEFAULTS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"READER\")]
+#[budget(\"2us\")]
+pub struct Reader {
+    #[output] pub low: f64,
+    #[output] pub tag: Str<8>,
+    #[output] pub step2: i16,
+    #[output] pub wait: Time,
+    #[output] pub mask: Byte,
+    #[output] pub corner_y: f64,
+    #[output] pub same: bool,
+    #[output] pub width: f64,
+}
+
+impl Body for Reader {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        let limits = st::LIMITS::default();
+        self.low = limits.LOW;
+        self.tag = limits.TAG;
+        self.step2 = limits.STEPS.get(2).copied().unwrap_or(0);
+        self.wait = limits.WAIT;
+        self.mask = limits.MASK;
+        self.corner_y = limits.AT_CORNER.Y;
+        self.same = limits == trust_plc::declared_default::<st::LIMITS>();
+        self.width = st::WIDTH(cx, limits)?;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_structure_binding_starts_at_its_declared_initial_values() {
+    // RU-39: the binding of a Structured Text structure has, as its `Default` and its `Declared`
+    // default, the value a variable of the type starts at: LOW -5.0, TAG 'ok', STEPS [3, 4],
+    // WAIT T#250ms and MASK 16#0F as LIMITS declares them, AT_CORNER.Y -1.0 as CORNER declares it
+    // (IEC §6.4.4.6.2), and WIDTH(LIMITS) = HIGH - LOW = 20.0 - (-5.0) = 25.0, at the task's first
+    // call at 10 ms. Catches a default at the field types' zeros (0.0, '', 0, T#0s, 16#00) and a
+    // `Default` other than the `Declared` default.
+    let root = custom_project(
+        "rust-pous-structured-text-defaults",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", DEFAULTS),
+        ],
+        "TYPE CORNER :
+STRUCT
+    X : LREAL := 0.5;
+    Y : LREAL := -1.0;
+END_STRUCT
+END_TYPE
+
+TYPE LIMITS :
+STRUCT
+    LOW : LREAL := -5.0;
+    HIGH : LREAL := 20.0;
+    TAG : STRING[8] := 'ok';
+    STEPS : ARRAY[1..2] OF INT := [3, 4];
+    WAIT : TIME := T#250ms;
+    MASK : BYTE := 16#0F;
+    AT_CORNER : CORNER;
+END_STRUCT
+END_TYPE
+
+FUNCTION WIDTH : LREAL
+VAR_INPUT
+    L : LIMITS;
+END_VAR
+WIDTH := L.HIGH - L.LOW;
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    reader : READER;
+END_VAR
+reader();
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    let reader = |name: &str| program.value(&format!("MAIN.READER.{name}"));
+    assert_eq!(reader("LOW"), Some(Value::LReal(-5.0)));
+    assert_eq!(reader("TAG"), Some(Value::String("ok".into())));
+    assert_eq!(reader("STEP2"), Some(Value::Int(4)));
+    assert_eq!(
+        reader("WAIT"),
+        Some(Value::Time(Duration::from_millis(250)))
+    );
+    assert_eq!(reader("MASK"), Some(Value::Byte(0x0F)));
+    assert_eq!(reader("CORNER_Y"), Some(Value::LReal(-1.0)));
+    assert_eq!(reader("SAME"), Some(Value::Bool(true)));
+    assert_eq!(reader("WIDTH"), Some(Value::LReal(25.0)));
+}
