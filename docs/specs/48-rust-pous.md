@@ -187,7 +187,8 @@ logical time and the wall clock (RU-16) and records the faults the POU returns, 
 kernel interface's context (specification 44 §8.2) to itself, so that no Rust code reaches the
 statement budget, the call depth, the breakpoints or the kernel's pointers, which the generated code
 and the kernel keep. The generated code gives each call of a Rust POU a `Cx` made from the kernel's
-context and takes back only the record of the fault the call returns.
+context and takes back the record of the fault the call returns and the statement budget that the
+Structured Text it calls spent (RU-38), which only the generated bindings run on that context.
 
 **RU-12.** Each truST release publishes `trust-plc`, `trust-plc-macros`, `trust-service` and
 `trust-sim` to crates.io at the release's version, with the crates they are built from
@@ -663,10 +664,22 @@ impl Body for TankGuard {
 }
 ```
 
-**RU-39. The bindings.** The build generates a Rust module `st` (`trust_st` crate, layer 1, §9.2)
-with a Rust function for each Structured Text function the crate calls and a Rust struct for each
-Structured Text function block type it holds, whose fields are the block's inputs and outputs and
-whose `call(&mut self, cx)` is the standard's call, as RU-38's example makes it. A Structured Text function
+**RU-39. The bindings.** The build generates the crate `trust_st` (layer 1, §9.2), a library named
+`st`, with a Rust function for each Structured Text function the crate calls and a Rust struct for
+each Structured Text function block type it holds, whose fields are the block's inputs and outputs
+and whose `call(&mut self, cx)` is the standard's call, as RU-38's example makes it. It lies in the
+project's `build/trust_st/`, outside version control: `trust-dev rust declarations` and every build
+write it, and the extension writes it when it opens the project and when its sources change, so
+rust-analyzer and `cargo test` find it (§16.3); its code is the same for every target. A crate that
+calls Structured Text names it in `[dependencies]`, `trust_st = { path = "../build/trust_st" }`
+(`build/trust_st` in a Rust-first project), and the build refuses a crate that writes `st::` without
+it, naming the line, as it names RU-08's. The crate names each Structured Text POU it calls,
+`st::SCALE(cx, x)` or `use st::{SCALE, HYSTERESIS};`, which tells the build what layer 1 holds;
+`use st::*`, which hides them, is refused. A crate's own `st`, a `mod st` or an `… as st`, is what
+its `st::` names, as Rust resolves it, so such a crate calls no Structured Text; one that also names
+the bindings is refused at its own `st`, which Rust could not tell from them. A call runs the Structured Text on the kernel's context
+that the SDK's `Cx` keeps, so its statements count against the activation's budget and stop at
+their breakpoints (RU-52); no Rust code reaches that context (RU-11, RU-20). A Structured Text function
 block held by a Rust instance lies inside the Rust instance in the area, as a nested instance lies
 in a Structured Text one (specification 44 §6.2), so the symbol table, Live Values and online change
 see it.
@@ -1045,7 +1058,9 @@ version and the module targets, so a user's `rustup` gives rust-analyzer and `ca
 compiler the build uses. The extension writes the project's rust-analyzer settings: the crate, the
 `trust_module` configuration of a module (specification 44 §4.5) off for analysis, and checks with
 `cargo check` of the computer's target. A difference between the user's Rust and the pinned version
-gives a warning in the extension, never a different build.
+gives a warning in the extension, never a different build. A crate that calls Structured Text finds
+its bindings in `build/trust_st/` (RU-39): a fresh clone needs one `trust-dev rust declarations` or
+one build before the user's own `cargo test`, which the extension does when it opens the project.
 
 ## 17. Security
 

@@ -421,10 +421,11 @@ fn a_rust_pou_reads_its_tasks_interval_and_a_simulated_task_moves_on_by_it() {
 
 #[test]
 fn only_the_fault_goes_back_to_the_kernels_context() {
-    // RU-11: a Rust POU's call gets a clone of the kernel interface's context, and only the record
-    // of the fault it returns goes back; the budget and the call depth stay the generated code's.
-    // The SDK itself stands in here for a change no Rust POU can make. Catches a context that
-    // writes the rest back, or loses the fault and its numbers.
+    // RU-11: a Rust POU's call gets a clone of the kernel interface's context, and the record of
+    // the fault it returns goes back; the budget only goes down, by what the Structured Text it
+    // calls spends (RU-38), never up, and the call depth stays the generated code's. The SDK itself
+    // stands in here for a change no Rust POU can make. Catches a context that writes the rest
+    // back, or loses the fault and its numbers.
     let mut raw = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
     raw.budget = 7;
     raw.depth = 3;
@@ -454,4 +455,84 @@ fn a_pou_sets_its_eno_for_the_generated_code() {
     cx.set_eno(false);
     assert!(!cx.eno());
     assert!(!crate::__private::leave(cx, &mut kernel));
+}
+
+/// Structured Text that runs three statements, its last the statement 42, and gives 5.
+struct ThreeStatements;
+
+impl trust_plc_abi::StructuredTextCall for ThreeStatements {
+    type Output = i32;
+
+    fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<i32, Fault> {
+        cx.budget = cx.budget.saturating_sub(3);
+        cx.stmt = 42;
+        Ok(5)
+    }
+}
+
+#[test]
+fn structured_text_a_pou_calls_spends_the_activations_budget() {
+    // RU-38, RU-11, RU-53: the generated bindings run Structured Text on the kernel's context
+    // through the SDK's context: its three statements count against the activation's budget, which
+    // the call's end takes back (100 - 3 = 97), and the context's statement is the calling one again
+    // once it returns, so a fault the POU returns after it names the statement 12 that called the
+    // POU, not the callee's 42. Catches Structured Text run on a context whose spending the kernel
+    // never sees, and a fault reported inside the callee.
+    let mut kernel = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    kernel.budget = 100;
+    kernel.stmt = 12;
+    let mut cx = crate::__private::enter(&kernel);
+    assert_eq!(cx.__call_structured_text(ThreeStatements), Ok(5));
+    let fault = crate::rust_fault(&mut cx, 4, 0, 0);
+    let _ = crate::__private::leave(cx, &mut kernel);
+    assert_eq!(fault.raw(), FaultCode::RustFault as u32);
+    assert_eq!(kernel.budget, 97);
+    assert_eq!(kernel.fault.stmt, 12, "the statement that called the POU");
+}
+
+/// Structured Text whose statement 42 divides by zero.
+struct DividesByZeroAt42;
+
+impl trust_plc_abi::StructuredTextCall for DividesByZeroAt42 {
+    type Output = ();
+
+    fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<(), Fault> {
+        cx.stmt = 42;
+        Err(trust_plc_abi::module::fault(
+            cx,
+            FaultCode::DivisionByZero,
+            0,
+            0,
+            0,
+        ))
+    }
+}
+
+#[test]
+fn a_fault_of_the_structured_text_keeps_its_statement() {
+    // RU-53 and specification 44 §8.6: the Structured Text's division by zero is recorded at its
+    // own statement 42, where the POU that passes it on reports it; a fault the POU raises itself
+    // after the failed call names the statement 12 that called the POU. Catches a context left at
+    // the callee's statement after its fault.
+    let mut kernel = trust_plc_abi::Cx::new(&trust_plc_abi::kernel::WITHOUT_DEBUGGER);
+    kernel.stmt = 12;
+    let mut cx = crate::__private::enter(&kernel);
+    let fault = cx
+        .__call_structured_text(DividesByZeroAt42)
+        .expect_err("the Structured Text faults");
+    assert_eq!(fault.raw(), FaultCode::DivisionByZero as u32);
+    let _ = crate::__private::leave(cx, &mut kernel);
+    assert_eq!(
+        (kernel.fault.code, kernel.fault.stmt),
+        (FaultCode::DivisionByZero as u32, 42)
+    );
+    let mut cx = crate::__private::enter(&kernel);
+    let _ = cx.__call_structured_text(DividesByZeroAt42);
+    let fault = crate::rust_fault(&mut cx, 4, 0, 0);
+    let _ = crate::__private::leave(cx, &mut kernel);
+    assert_eq!(fault.raw(), FaultCode::RustFault as u32);
+    assert_eq!(
+        (kernel.fault.code, kernel.fault.stmt),
+        (FaultCode::RustFault as u32, 12)
+    );
 }

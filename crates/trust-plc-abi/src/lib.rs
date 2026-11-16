@@ -25,12 +25,14 @@ pub mod module;
 mod open;
 mod plain;
 mod reference;
+mod st_call;
 mod strings;
 
 pub use fault::{exception_code, Fault, FaultCode, FaultRecord};
 pub use open::{Open, OpenRef};
 pub use plain::Plain;
 pub use reference::RefValue;
+pub use st_call::StructuredTextCall;
 pub use strings::{Str, StrView, WStr, WStrView};
 
 /// The version of this interface. A module carries the version it was built against in its image's

@@ -11,10 +11,12 @@
 mod configuration;
 mod layout;
 mod rules;
+mod structured_text;
 mod tree;
 mod types;
 
 pub use layout::{layout, Layout, CRATE_FOLDER, DECLARATIONS_FILE};
+pub use structured_text::StructuredTextUse;
 pub use types::{RustEnumeration, RustStructure};
 
 pub(super) use rules::check_crate;
@@ -70,6 +72,8 @@ pub struct RustCrate {
     pub structures: Vec<RustStructure>,
     /// Where the crate and its generated Structured Text lie in the project.
     pub layout: Layout,
+    /// The Structured Text the crate calls, by the names it writes under `st::` (RU-38, RU-39).
+    pub structured_text: Vec<StructuredTextUse>,
 }
 
 /// Something of the project's crate that keeps its declarations from being written, where it is.
@@ -145,6 +149,18 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
     // A POU's variable of one of the crate's types bears the type's Structured Text name (RU-25).
     let unresolved = types::resolve(&mut found.pous, &found.enumerations, &mut found.structures);
     found.errors.extend(unresolved);
+    // The Structured Text the crate calls, through the bindings it names (RU-39).
+    let named = table
+        .get("dependencies")
+        .and_then(toml::Value::as_table)
+        .is_some_and(|dependencies| dependencies.contains_key("trust_st"));
+    let structured_text = structured_text::calls(
+        std::mem::take(&mut found.structured_text),
+        named,
+        &layout.crate_folder,
+        &manifest_name,
+        &mut found.errors,
+    );
     if found.errors.is_empty() {
         Ok(Some(RustCrate {
             name,
@@ -154,6 +170,7 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
             enumerations: found.enumerations,
             structures: found.structures,
             layout,
+            structured_text,
         }))
     } else {
         Err(found.errors)
