@@ -130,8 +130,9 @@ pub(super) fn bindings(
             let name = parameter_name(&param.name);
             let index = values.len();
             let kind = &model.types.info(ty).kind;
-            match (param.direction == ParamDirection::In, kind) {
-                (true, Kind::Elem(elem)) => {
+            let cells = by_cells(&model.types, ty);
+            match (param.direction == ParamDirection::In, kind, cells) {
+                (true, Kind::Elem(elem), _) => {
                     let (rust, own) = passed(*elem);
                     let _ = write!(parameters, ", {name}: {rust}");
                     values.push(if own {
@@ -146,14 +147,13 @@ pub(super) fn bindings(
                     fields.push(elem.rust().to_string());
                     let _ = write!(arguments, ", self.{index}");
                 }
-                (true, Kind::Str(_) | Kind::WStr(_)) => {
-                    let (rust, cells) = text_types(kind);
+                (true, _, Some((rust, zero))) => {
                     let _ = write!(parameters, ", {name}: {rust}");
                     values.push(name);
                     fields.push(rust);
                     let _ = writeln!(
                         setup,
-                        "                let t{index} = {cells}::new();\n                \
+                        "                let t{index} = {zero};\n                \
                          trust_plc::Place::store(&t{index}, &self.{index});"
                     );
                     let _ = write!(arguments, ", &t{index}");
@@ -177,8 +177,8 @@ pub(super) fn bindings(
                 format!("__generated::f_{function}(cx, &w{arguments})"),
                 "result",
             ),
-            Some(ty) => match &model.types.info(ty).kind {
-                Kind::Elem(elem) => {
+            Some(ty) => match (&model.types.info(ty).kind, by_cells(&model.types, ty)) {
+                (Kind::Elem(elem), _) => {
                     let (rust, own) = passed(*elem);
                     let load = if own {
                         "result"
@@ -188,11 +188,11 @@ pub(super) fn bindings(
                     let run = format!("__generated::f_{function}(cx, &w{arguments})");
                     (rust, elem.rust().to_string(), run, load)
                 }
-                kind @ (Kind::Str(_) | Kind::WStr(_)) => {
-                    // A string result is written into the cell the function takes first.
-                    let (rust, cells) = text_types(kind);
+                (_, Some((rust, zero))) => {
+                    // A string or an array result is written into the cells the function takes
+                    // first.
                     let run = format!(
-                        "let out = {cells}::new();\n                \
+                        "let out = {zero};\n                \
                          __generated::f_{function}(cx, &w, &out{arguments})?;\n                \
                          Ok(trust_plc::Place::load(&out))"
                     );
@@ -254,6 +254,33 @@ fn text_types(kind: &Kind) -> (String, String) {
     }
 }
 
+/// The Rust type of RU-25's table of a value of `ty` that the generated code holds in cells and
+/// takes by reference, with the expression of empty cells of it: a string, `Str<N>` or `WStr<N>`, or
+/// a one-dimensional array of an elementary type, a string or such an array, `Array<T, A, N>`;
+/// `None` for another type.
+fn by_cells(types: &Types<'_>, ty: Ty) -> Option<(String, String)> {
+    let info = types.info(ty);
+    match &info.kind {
+        Kind::Str(_) | Kind::WStr(_) => {
+            let (rust, cells) = text_types(&info.kind);
+            Some((rust, format!("{cells}::new()")))
+        }
+        Kind::Array { elem, dims } if dims.len() == 1 => {
+            let (lower, upper) = dims[0];
+            let len = upper.checked_sub(lower)?.checked_add(1)?;
+            let (element, zero) = match &types.info(*elem).kind {
+                Kind::Elem(elem) => (passed(*elem).0, "Default::default()".to_string()),
+                _ => by_cells(types, *elem)?,
+            };
+            Some((
+                format!("trust_plc::Array<{element}, {lower}, {len}>"),
+                format!("core::array::from_fn(|_| {zero})"),
+            ))
+        }
+        _ => None,
+    }
+}
+
 /// The name of a held block's input or output in its binding: the Structured Text name as declared,
 /// with `_` after one that Rust keeps as a keyword.
 fn field_name(name: &str) -> String {
@@ -280,7 +307,7 @@ pub(super) struct HeldMember {
 /// # Errors
 ///
 /// What the binding does not pass yet, described: a name in a namespace, an in-out, a variable of
-/// a type other than RU-25's elementary types and strings.
+/// a type other than RU-25's elementary types, strings and one-dimensional arrays of them.
 pub(super) fn held_members(
     types: &Types<'_>,
     ty: Ty,
@@ -305,9 +332,9 @@ pub(super) fn held_members(
             continue;
         };
         let member_info = types.info(member.ty);
-        let rust = match &member_info.kind {
-            Kind::Elem(elem) => passed(*elem).0,
-            kind @ (Kind::Str(_) | Kind::WStr(_)) => text_types(kind).0,
+        let rust = match (&member_info.kind, by_cells(types, member.ty)) {
+            (Kind::Elem(elem), _) => passed(*elem).0,
+            (_, Some((rust, _))) => rust,
             _ => {
                 return Err(format!(
                     "has the variable {} of type {}",

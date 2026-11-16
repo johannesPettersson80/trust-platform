@@ -243,18 +243,18 @@ END_FUNCTION
 
 #[test]
 fn a_call_that_passes_what_rust_does_not_pass_yet_is_refused() {
-    // RU-38 as built so far (checklist G186): a call passes elementary and string inputs and
-    // results; a function with an array input is refused at the call, naming it. Catches a binding
-    // that passes an array's cells as a number.
+    // RU-38 as built so far (checklist G186): a call passes elementary, string and one-dimensional
+    // array inputs and results; a function with a two-dimensional array input is refused at the
+    // call, naming it. Catches a binding that passes a matrix's cells as a row of rows.
     let declarations = "FUNCTION SCALE : LREAL
 VAR_INPUT
     x : LREAL;
-    factors : ARRAY[1..3] OF LREAL;
+    factors : ARRAY[1..2, 1..2] OF LREAL;
 END_VAR
 SCALE := x;
 END_FUNCTION
 ";
-    let error = refusal("rust-pous-structured-text-array", "SCALE", declarations);
+    let error = refusal("rust-pous-structured-text-matrix", "SCALE", declarations);
     assert!(
         error.contains("st::SCALE at rust/src/lib.rs:9: SCALE has the parameter factors of type")
             && error.contains("which a call from Rust does not pass yet"),
@@ -825,5 +825,141 @@ END_CONFIGURATION
     assert_eq!(
         program.value("MAIN.LABELLER.TAGGER.LABEL"),
         Some(Value::String("pump".into()))
+    );
+}
+
+/// A crate whose functions pass arrays to Structured Text and back, and whose block holds one.
+const ARRAYS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"TOTAL3\")]
+#[budget(\"1us\")]
+pub fn total3(cx: &mut Cx, values: Array<f64, 1, 3>) -> Result<f64, Fault> {
+    st::SUM3(cx, values)
+}
+
+#[trust_function(name = \"STEPS\")]
+#[budget(\"1us\")]
+pub fn steps(cx: &mut Cx, rise: i16) -> Result<Array<i16, 0, 3>, Fault> {
+    st::RAMP(cx, rise)
+}
+
+#[trust_fb(name = \"PAIR_COUNTER\")]
+#[budget(\"2us\")]
+pub struct PairCounter {
+    #[input] pub a: i32,
+    #[input] pub b: i32,
+    #[output] pub total: i32,
+    accum: st::ACCUM,
+}
+
+impl Body for PairCounter {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.accum.input.SAMPLES = Array::from_items([self.a, self.b]);
+        self.accum.call(cx)?;
+        self.total = self.accum.output.TOTAL;
+        Ok(())
+    }
+}
+";
+
+/// The elements of the array value `value` a program read.
+fn items(value: Option<Value>) -> Vec<Value> {
+    match value.expect("the array is a variable") {
+        Value::Array(array) => array.elements().to_vec(),
+        other => vec![other],
+    }
+}
+
+#[test]
+fn arrays_pass_through_calls_and_held_blocks() {
+    // RU-25, RU-38, RU-39: a call passes an ARRAY[1..3] OF LREAL input and gives an
+    // ARRAY[0..2] OF INT result as the Rust POU's `Array<f64, 1, 3>` and `Array<i16, 0, 3>`, and a
+    // held block's ARRAY[1..2] OF DINT input is `Array<i32, 1, 2>`: SUM3([1.0, 2.0, 3.5]) = 6.5,
+    // RAMP(10) = [0, 10, 20], and ACCUM's total after one call with 4 and 5 is 0 + 4 + 5 = 9, at the
+    // task's first call at 10 ms; the instance keeps its samples. Catches elements that change
+    // places, a lower bound taken for the first index, and a result left in the generated cells.
+    let root = custom_project(
+        "rust-pous-structured-text-arrays",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", ARRAYS),
+        ],
+        "FUNCTION SUM3 : LREAL
+VAR_INPUT
+    values : ARRAY[1..3] OF LREAL;
+END_VAR
+SUM3 := values[1] + values[2] + values[3];
+END_FUNCTION
+
+FUNCTION RAMP : ARRAY[0..2] OF INT
+VAR_INPUT
+    rise : INT;
+END_VAR
+VAR
+    r : ARRAY[0..2] OF INT;
+END_VAR
+r[0] := 0;
+r[1] := rise;
+r[2] := rise * 2;
+RAMP := r;
+END_FUNCTION
+
+FUNCTION_BLOCK ACCUM
+VAR_INPUT
+    SAMPLES : ARRAY[1..2] OF DINT;
+END_VAR
+VAR_OUTPUT
+    TOTAL : DINT;
+END_VAR
+TOTAL := TOTAL + SAMPLES[1] + SAMPLES[2];
+END_FUNCTION_BLOCK
+
+PROGRAM Line
+VAR
+    values : ARRAY[1..3] OF LREAL := [1.0, 2.0, 3.5];
+    sum : LREAL;
+    ramp : ARRAY[0..2] OF INT;
+    counter : PAIR_COUNTER;
+    total : DINT;
+END_VAR
+sum := TOTAL3(values := values);
+ramp := STEPS(rise := 10);
+counter(a := 4, b := 5);
+total := counter.total;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(6.5)));
+    assert_eq!(
+        items(program.value("MAIN.RAMP")),
+        [Value::Int(0), Value::Int(10), Value::Int(20)]
+    );
+    assert_eq!(program.value("MAIN.TOTAL"), Some(Value::DInt(9)));
+    assert_eq!(
+        items(program.value("MAIN.COUNTER.ACCUM.SAMPLES")),
+        [Value::DInt(4), Value::DInt(5)]
     );
 }
