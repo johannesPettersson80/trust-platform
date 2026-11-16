@@ -642,8 +642,8 @@ pub(super) struct HeldMember {
 ///
 /// # Errors
 ///
-/// What the binding does not pass yet, described: a name in a namespace, an in-out, a variable of
-/// a type the bindings have no Rust type for.
+/// What the binding does not pass yet, described: a name in a namespace, a variable of a type the
+/// bindings have no Rust type for.
 pub(super) fn held_members(
     types: &Types<'_>,
     ty: Ty,
@@ -659,12 +659,12 @@ pub(super) fn held_members(
     let mut inputs = Vec::new();
     let mut outputs = Vec::new();
     for member in members {
-        let list = if member.flags & SYMBOL_INPUT != 0 {
+        // An in-out, which the instance holds as the reference of its last call (specification 44
+        // §7.3), is a field of `input` of type `Ref<T>` (RU-29).
+        let list = if member.flags & (SYMBOL_INPUT | SYMBOL_IN_OUT) != 0 {
             &mut inputs
         } else if member.flags & SYMBOL_OUTPUT != 0 {
             &mut outputs
-        } else if member.flags & SYMBOL_IN_OUT != 0 {
-            return Err(format!("has the in-out {}", member.name));
         } else {
             continue;
         };
