@@ -528,8 +528,54 @@ pub(super) fn load(
                 "<Places as ::trust_plc::__private::PlaceOf<_, _>>::load(&{place})"
             ))
         }
+        // A Structured Text function block the Rust POU holds (specification 48 RU-39): its
+        // binding, with its instance's place and the values of its inputs and outputs.
+        Kind::Fb {
+            is_class: false, ..
+        } => {
+            let (inputs, outputs) = held(types, ty)?;
+            let values = |list: &[super::st_bindings::HeldMember]| {
+                list.iter()
+                    .map(|member| {
+                        format!(
+                            "{}: ::trust_plc::Place::load(&{place}.{})",
+                            member.field, member.cells
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let name = &info.name;
+            Ok(format!(
+                "::st::{name}::__held(w.areas.refer(cx, &{place}, abi::RefValue::INSTANCE)?, \
+                 ::st::{name}_Input {{ {} }}, ::st::{name}_Output {{ {} }})",
+                values(&inputs),
+                values(&outputs)
+            ))
+        }
         _ => Err(not_carried(&info.name)),
     }
+}
+
+/// The inputs and the outputs of the Structured Text function block `ty` that a Rust POU holds
+/// (specification 48 RU-39).
+fn held(
+    types: &Types<'_>,
+    ty: Ty,
+) -> Result<
+    (
+        Vec<super::st_bindings::HeldMember>,
+        Vec<super::st_bindings::HeldMember>,
+    ),
+    NativeError,
+> {
+    super::st_bindings::held_members(types, ty).map_err(|what| {
+        NativeError::Compile(format!(
+            "the held block {} {what}, which a held block does not pass yet (specification 48 \
+             RU-39, milestone R3)",
+            types.info(ty).name
+        ))
+    })
 }
 
 /// The statements that write the value `value` of type `ty`, a Rust expression, into the place
@@ -573,6 +619,23 @@ pub(super) fn store(
             Ok(format!(
                 "<Places as ::trust_plc::__private::PlaceOf<_, _>>::store(&{place}, &{value});"
             ))
+        }
+        // A held block's inputs, which the Rust POU gives it, go back; its outputs are its own
+        // (specification 48 RU-39).
+        Kind::Fb {
+            is_class: false, ..
+        } => {
+            let (inputs, _) = held(types, ty)?;
+            Ok(inputs
+                .iter()
+                .map(|member| {
+                    format!(
+                        "::trust_plc::Place::store(&{place}.{}, &{value}.input.{});",
+                        member.cells, member.field
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" "))
         }
         _ => Err(not_carried(&info.name)),
     }

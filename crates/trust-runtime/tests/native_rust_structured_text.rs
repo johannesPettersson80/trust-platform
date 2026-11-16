@@ -297,8 +297,9 @@ END_FUNCTION
 fn a_call_of_what_is_no_structured_text_function_is_refused() {
     // RU-38: `st::` names the project's Structured Text functions and function blocks. A name of
     // none of them, and the name of a Rust POU, are refused at the call; a function block, which
-    // Rust holds (RU-39), is refused until the build compiles it for Rust. Catches a call that
-    // reaches the compiler as an unknown item, and a Rust POU called through `st::`.
+    // a field holds (RU-39), is refused where no field holds it. Catches a call that reaches the
+    // compiler as an unknown item, a Rust POU called through `st::`, and a block called as a
+    // function.
     let block = "FUNCTION_BLOCK HOLD
 VAR_INPUT
     x : LREAL;
@@ -321,8 +322,9 @@ END_FUNCTION_BLOCK
         (
             "HOLD",
             block,
-            "st::HOLD at rust/src/lib.rs:9 names a Structured Text function block, which the \
-             build does not compile for Rust yet (specification 48 RU-38, milestone R3)",
+            "st::HOLD at rust/src/lib.rs:9 names the Structured Text function block HOLD, which \
+             a Rust function block or program holds as a field, `name: st::HOLD`, and no field \
+             holds (specification 48 RU-38)",
         ),
     ] {
         let error = refusal("rust-pous-structured-text-names", call, declarations);
@@ -404,4 +406,113 @@ END_CONFIGURATION
     assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(3.0)));
     assert_eq!(program.value("MAIN.POINT.X"), Some(Value::LReal(1.0)));
     assert_eq!(program.value("MAIN.POINT.Y"), Some(Value::LReal(2.0)));
+}
+
+/// RU-38's example: a Rust function block that holds the Structured Text block HYSTERESIS.
+const GUARD: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+/// Raises its alarm above the high level and drops it below the low one.
+#[trust_fb(name = \"TANK_GUARD\")]
+#[budget(\"2us\")]
+pub struct TankGuard {
+    #[input] pub level: f64,
+    #[output] pub alarm: bool,
+    hysteresis: st::HYSTERESIS,
+}
+
+impl Body for TankGuard {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.hysteresis.input.IN = self.level;
+        self.hysteresis.input.HIGH = 10.0;
+        self.hysteresis.input.LOW = 8.0;
+        self.hysteresis.call(cx)?;
+        self.alarm = self.hysteresis.output.Q;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_rust_block_holds_and_calls_a_structured_text_block() {
+    // RU-38, RU-39: TANK_GUARD holds the Structured Text block HYSTERESIS as its field, which lies
+    // inside TANK_GUARD's instance in the area, and calls it each call with IN := level, HIGH :=
+    // 10, LOW := 8. The levels 5, 12, 9 and 7 at the task's calls at 10, 20, 30 and 40 ms give Q
+    // FALSE (5 < 10), TRUE (12 > 10), TRUE (9 lies between 8 and 10: the block keeps its state)
+    // and FALSE (7 < 8). The instance's own variables are the program's, IN the last level and Q
+    // the alarm. Catches a held block that keeps no state from call to call, inputs that do not
+    // reach it, and an instance outside the area.
+    let root = custom_project(
+        "rust-pous-structured-text-held",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", GUARD),
+        ],
+        "FUNCTION_BLOCK HYSTERESIS
+VAR_INPUT
+    IN : LREAL;
+    HIGH : LREAL;
+    LOW : LREAL;
+END_VAR
+VAR_OUTPUT
+    Q : BOOL;
+END_VAR
+IF IN > HIGH THEN
+    Q := TRUE;
+ELSIF IN < LOW THEN
+    Q := FALSE;
+END_IF;
+END_FUNCTION_BLOCK
+
+PROGRAM Line
+VAR
+    guard : TANK_GUARD;
+    levels : ARRAY[1..4] OF LREAL := [5.0, 12.0, 9.0, 7.0];
+    turn : INT;
+    alarm : BOOL;
+END_VAR
+turn := turn + 1;
+guard(level := levels[turn]);
+alarm := guard.alarm;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("no task is due at the start");
+    for (time, expected) in [(10, false), (20, true), (30, true), (40, false)] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+        assert_eq!(
+            program.value("MAIN.ALARM"),
+            Some(Value::Bool(expected)),
+            "at {time} ms"
+        );
+    }
+    assert_eq!(
+        program.value("MAIN.GUARD.HYSTERESIS.IN"),
+        Some(Value::LReal(7.0))
+    );
+    assert_eq!(
+        program.value("MAIN.GUARD.HYSTERESIS.Q"),
+        Some(Value::Bool(false))
+    );
 }

@@ -151,7 +151,8 @@ pub(super) fn resolve(
 /// Gives the types `ty` names by their Rust names their Structured Text names.
 fn rename(ty: &mut DataType, types: &Types<'_>) -> Result<(), String> {
     match ty {
-        DataType::Elementary(_) => Ok(()),
+        // A held Structured Text function block bears its Structured Text name (RU-39).
+        DataType::Elementary(_) | DataType::Held(_) => Ok(()),
         DataType::Array { element, .. } | DataType::Ref(element) => rename(element, types),
         DataType::Named(rust) => {
             let name = types.name_of(rust).ok_or_else(|| {
@@ -201,7 +202,7 @@ fn is_reference(ty: &DataType) -> bool {
     match ty {
         DataType::Ref(_) => true,
         DataType::Array { element, .. } => is_reference(element),
-        DataType::Elementary(_) | DataType::Named(_) => false,
+        DataType::Elementary(_) | DataType::Named(_) | DataType::Held(_) => false,
     }
 }
 
@@ -213,7 +214,7 @@ fn reference_targets<'t>(ty: &'t DataType, targets: &mut Vec<&'t DataType>) {
             reference_targets(target, targets);
         }
         DataType::Array { element, .. } => reference_targets(element, targets),
-        DataType::Elementary(_) | DataType::Named(_) => {}
+        DataType::Elementary(_) | DataType::Named(_) | DataType::Held(_) => {}
     }
 }
 

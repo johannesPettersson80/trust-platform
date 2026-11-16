@@ -365,10 +365,22 @@ fn structured_text_calls<'a>(
         if let Some(def) = model.function(&used.name) {
             queue(model, Need::Function(def.name.clone()), queued, work)?;
             roots.push((format!("f_{}", mangle(&def.name)), used.clone()));
+        } else if let Some(Owner::Fb(def)) = model.types.owner(&used.name) {
+            // A block a Rust POU holds (RU-39), laid out as its field's type: its body, which every
+            // function block type of the program has.
+            if model.types.by_rust(&Owner::Fb(def).rust()).is_none() {
+                return Err(NativeError::Compile(format!(
+                    "{call} names the Structured Text function block {}, which a Rust function \
+                     block or program holds as a field, `name: st::{}`, and no field holds \
+                     (specification 48 RU-38)",
+                    def.name, used.name
+                )));
+            }
+            roots.push((format!("fb_{}", mangle(&def.name)), used.clone()));
         } else if model.types.owner(&used.name).is_some() {
             return Err(NativeError::Compile(format!(
-                "{call} names a Structured Text function block, which the build does not compile \
-                 for Rust yet (specification 48 RU-38, milestone R3)"
+                "{call} names a Structured Text class, which Rust does not hold yet \
+                 (specification 48 RU-38, milestone R3)"
             )));
         } else {
             return Err(NativeError::Compile(format!(

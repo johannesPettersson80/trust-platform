@@ -309,6 +309,9 @@ pub enum DataType {
     Named(String),
     /// `REF_TO target`, written `Ref<target>` (specification 48 RU-29).
     Ref(Box<DataType>),
+    /// An instance of the project's Structured Text function block `X`, written `st::X`, which a
+    /// Rust function block or program holds as a field (specification 48 RU-38, RU-39).
+    Held(String),
 }
 
 impl DataType {
@@ -327,7 +330,7 @@ impl DataType {
                 lower.saturating_add(i64::from(*len)).saturating_sub(1),
                 element.iec()
             )),
-            Self::Named(name) => Cow::Owned(name.clone()),
+            Self::Named(name) | Self::Held(name) => Cow::Owned(name.clone()),
             Self::Ref(target) => Cow::Owned(format!("REF_TO {}", target.iec())),
         }
     }
@@ -337,8 +340,31 @@ impl DataType {
     pub fn elementary(&self) -> Option<Elementary> {
         match self {
             Self::Elementary(elementary) => Some(*elementary),
-            Self::Array { .. } | Self::Named(_) | Self::Ref(_) => None,
+            Self::Array { .. } | Self::Named(_) | Self::Ref(_) | Self::Held(_) => None,
         }
+    }
+
+    /// Whether the type is or holds a Structured Text function block, `st::X` (RU-39).
+    pub(crate) fn holds_block(&self) -> bool {
+        match self {
+            Self::Held(_) => true,
+            Self::Array { element, .. } | Self::Ref(element) => element.holds_block(),
+            Self::Elementary(_) | Self::Named(_) => false,
+        }
+    }
+
+    /// The type `ty` names (RU-25), of a value no Structured Text function block lies in: a
+    /// parameter's, a result's, a structure's field's.
+    pub(crate) fn of_value(ty: &Type) -> Result<Self, Error> {
+        let data = Self::of(ty)?;
+        if data.holds_block() {
+            return Err(Error::new(
+                ty.span(),
+                "a Structured Text function block is held as a field of a Rust function block or \
+                 program, `hysteresis: st::HYSTERESIS` (specification 48 RU-38)",
+            ));
+        }
+        Ok(data)
     }
 
     /// The type `ty` names (RU-25): a type of RU-25's table, else a name, which the crate's type of
@@ -358,12 +384,35 @@ impl DataType {
         if let Some(array) = array_type(ty) {
             return array;
         }
+        if let Some(name) = held(ty) {
+            return Ok(Self::Held(name));
+        }
         Elementary::of(ty).map(Self::Elementary).or_else(|error| {
             match crate::last_path_segment(ty) {
                 Some(name) if !RUST_ONLY.contains(&name.as_str()) => Ok(Self::Named(name)),
                 _ => Err(error),
             }
         })
+    }
+}
+
+/// The Structured Text function block that `ty` names when it is `st::X` (RU-39): `X`.
+fn held(ty: &Type) -> Option<String> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    let segments: Vec<_> = path.path.segments.iter().collect();
+    match segments.as_slice() {
+        [first, name]
+            if path.qself.is_none()
+                && path.path.leading_colon.is_none()
+                && first.ident == "st"
+                && first.arguments.is_none()
+                && name.arguments.is_none() =>
+        {
+            Some(name.ident.to_string())
+        }
+        _ => None,
     }
 }
 

@@ -1,0 +1,7 @@
+### Added
+
+- A Rust function block or program holds a Structured Text function block of the project as a
+  field, `hysteresis: st::HYSTERESIS`, and calls it: `self.hysteresis.input.IN = level;
+  self.hysteresis.call(cx)?; let q = self.hysteresis.output.Q;` (specification 48 RU-38, RU-39).
+  The held instance lies inside the Rust instance in the area, where Live Values, the debugger and
+  online change see it. Blocks whose inputs and outputs are numbers or BOOL are held so far.

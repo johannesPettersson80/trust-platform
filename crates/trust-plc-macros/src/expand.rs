@@ -390,6 +390,9 @@ fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
         }
         // A reference starts `NULL` (specification 48 RU-29).
         DataType::Ref(_) => quote!(::trust_plc::Ref::NULL),
+        // A held Structured Text function block starts without its place, which the generated
+        // code gives it each call (specification 48 RU-39).
+        DataType::Held(_) => quote!(::trust_plc::declared_default()),
         DataType::Array { element, len, .. } => {
             if let Some(Value::List(items)) = init {
                 let len = usize::try_from(*len).unwrap_or(0);
