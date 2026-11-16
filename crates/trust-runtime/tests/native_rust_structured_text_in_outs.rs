@@ -7,9 +7,10 @@
 
 mod rust_pous_support;
 
-use rust_pous_support::{built, custom_project, manifest};
+use rust_pous_support::{built, built_under, custom_project, manifest};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::native::{load, Build, Device, NoHooks};
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
 /// A crate whose function passes its in-out and an output of its own to Structured Text.
@@ -398,4 +399,83 @@ fn a_held_blocks_in_out_is_a_reference_its_call_gives_it() {
         .scan(Duration::from_millis(10), &mut NoHooks)
         .expect_err("the NULL ends the scan");
     assert_eq!(error, RuntimeError::NullReference);
+}
+
+/// A crate whose function passes its string in-out to a Structured Text function.
+const STRING_IN_OUT: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"SHOUTED\")]
+#[budget(\"1us\")]
+pub fn shouted(cx: &mut Cx, text: InOut<'_, Str<16>>) -> Result<i16, Fault> {
+    st::SHOUT(cx, text)
+}
+";
+
+#[test]
+fn a_string_in_out_passes_through_a_call() {
+    // RU-29, RU-39: a string in-out passes as `InOut<'_, Str<N>>`, the Structured Text function
+    // writing the text it was given back: SHOUT appends '!' to the program's STRING[16] 'hey',
+    // which takes 'hey!', and gives LEN 4; the program's STRING[3] 'abc' becomes 'abc!' in SHOUT,
+    // LEN 4, and takes 'abc', as an assignment to it cuts the text (CODESYS profile, DEV-035), at
+    // the task's first call at 10 ms. Catches a string in-out refused, one the function's write
+    // never reaches, and a write-back past the caller's capacity.
+    let root = custom_project(
+        "rust-pous-structured-text-string-in-out",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", STRING_IN_OUT),
+        ],
+        "FUNCTION SHOUT : INT
+VAR_IN_OUT
+    TEXT : STRING[16];
+END_VAR
+TEXT := CONCAT(TEXT, '!');
+SHOUT := LEN(TEXT);
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    wide : STRING[16] := 'hey';
+    narrow : STRING[3] := 'abc';
+    n_wide : INT;
+    n_narrow : INT;
+END_VAR
+n_wide := SHOUTED(text := wide);
+n_narrow := SHOUTED(text := narrow);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built_under(&root, ConversionProfile::Codesys) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(
+        program.value("MAIN.WIDE"),
+        Some(Value::String("hey!".into()))
+    );
+    assert_eq!(program.value("MAIN.N_WIDE"), Some(Value::Int(4)));
+    assert_eq!(
+        program.value("MAIN.NARROW"),
+        Some(Value::String("abc".into()))
+    );
+    assert_eq!(program.value("MAIN.N_NARROW"), Some(Value::Int(4)));
 }
