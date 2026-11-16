@@ -8,6 +8,7 @@
 
 use trust_plc_abi::{module, FaultCode, Plain, RefValue};
 
+use crate::places::PlaceOf;
 use crate::{Cx, Fault, Place};
 
 /// A function's or a method's in-out of type `T`: the caller's variable itself, for the length of
@@ -142,6 +143,20 @@ pub fn reference<T, A: Plain + Place<T>>(value: RefValue) -> Ref<T> {
     }
 }
 
+/// The reference the generated code's `value` holds, to a variable that lies as `A`, which `P`
+/// reads and writes: a structure of the project's crate (specification 48 RU-29).
+#[must_use]
+#[inline]
+pub fn reference_via<T, A: Plain, P: PlaceOf<A, T>>(value: RefValue) -> Ref<T> {
+    Ref {
+        value,
+        access: Access {
+            load: load_via::<T, A, P>,
+            store: store_via::<T, A, P>,
+        },
+    }
+}
+
 /// The generated code's form of `reference`.
 #[must_use]
 #[inline]
@@ -169,6 +184,28 @@ fn store_at<T, A: Plain + Place<T>>(
         areas
             .deref::<A>(raw, value)
             .map(|place| <A as Place<T>>::store(place, item))
+    })
+}
+
+/// Reads the variable `value` names, which lies as `A`, through `P`, with the dereference's checks.
+fn load_via<T, A: Plain, P: PlaceOf<A, T>>(
+    raw: &mut trust_plc_abi::Cx,
+    value: &RefValue,
+) -> Result<T, Fault> {
+    module::with_areas(raw, |raw, areas| areas.deref::<A>(raw, value).map(P::load))
+}
+
+/// Writes `item` into the variable `value` names, which lies as `A`, through `P`, with the
+/// dereference's checks.
+fn store_via<T, A: Plain, P: PlaceOf<A, T>>(
+    raw: &mut trust_plc_abi::Cx,
+    value: &RefValue,
+    item: &T,
+) -> Result<(), Fault> {
+    module::with_areas(raw, |raw, areas| {
+        areas
+            .deref::<A>(raw, value)
+            .map(|place| P::store(place, item))
     })
 }
 

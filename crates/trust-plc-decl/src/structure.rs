@@ -156,7 +156,7 @@ pub fn structure(args: TokenStream, item: &ItemStruct) -> Result<Structure, Erro
                 ),
             ));
         }
-        let ty = DataType::of(&field.ty)?;
+        let ty = DataType::of_value(&field.ty)?;
         let init = init
             .map(|value| crate::literal::initial_of(&value, &ty))
             .transpose()?;

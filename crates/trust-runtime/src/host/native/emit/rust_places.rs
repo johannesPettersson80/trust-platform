@@ -1,8 +1,10 @@
 //! The places of the project's crate's structures (specification 48 RU-29): the generated code's
-//! type of each structure a Rust POU's value reaches is the place of its Rust struct,
-//! `trust_plc::Place`, which reads and writes it where it lies, field by field. An in-out of the
-//! structure and a reference to it read and write it through that place at once, and a Rust POU's
-//! variable of it is read and written back through it (RU-28).
+//! type `Places` reads and writes each structure a Rust POU's value reaches where it lies, field by
+//! field (`trust_plc::__private::PlaceOf`). An in-out of the structure and a reference to it read
+//! and write it through `Places` at once, and a Rust POU's variable of it is read and written back
+//! through it (RU-28). `Places` is the generated crate's own type, so the impls hold whichever
+//! crate the generated structure lies in: layer 1's, when the project's crate calls Structured
+//! Text (§9.2).
 
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write as _;
@@ -11,8 +13,9 @@ use super::super::types::{Kind, Ty, Types};
 use super::super::NativeError;
 use super::rust_glue::{load, store, structure_path};
 
-/// The `impl trust_plc::Place` of each structure of `wanted` and of each structure their fields
-/// reach; `structures` gives the path of each structure of the crate by its name in capitals.
+/// `Places` with its `impl trust_plc::__private::PlaceOf` of each structure of `wanted` and of each
+/// structure their fields reach; `structures` gives the path of each structure of the crate by its
+/// name in capitals.
 ///
 /// # Errors
 ///
@@ -39,7 +42,7 @@ pub(super) fn places(
         let mut fields = Vec::with_capacity(members.len());
         let mut stores = String::new();
         for member in members {
-            let place = format!("self.{}", member.field());
+            let place = format!("place.{}", member.field());
             let value = load(types, member.ty, &place, structures, &mut reached, 0)?;
             fields.push(format!("{}: {value}", member.name));
             let statement = store(
@@ -56,11 +59,17 @@ pub(super) fn places(
         work.extend(reached);
         let _ = write!(
             source,
-            "impl ::trust_plc::Place<{path}> for {rust} {{\n    \
-             #[inline]\n    fn load(&self) -> {path} {{\n        {path} {{ {fields} }}\n    }}\n    \
-             #[inline]\n    fn store(&self, value: &{path}) {{\n{stores}    }}\n}}\n",
+            "impl ::trust_plc::__private::PlaceOf<{rust}, {path}> for Places {{\n    \
+             #[inline]\n    fn load(place: &{rust}) -> {path} {{\n        {path} {{ {fields} }}\n    }}\n    \
+             #[inline]\n    fn store(place: &{rust}, value: &{path}) {{\n{stores}    }}\n}}\n",
             rust = info.rust,
             fields = fields.join(", "),
+        );
+    }
+    if !source.is_empty() {
+        source.insert_str(
+            0,
+            "/// The places of the crate's structures (specification 48 RU-29).\npub struct Places;\n",
         );
     }
     Ok(source)

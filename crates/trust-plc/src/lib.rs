@@ -49,7 +49,8 @@ pub use types::{
 #[doc(hidden)]
 pub mod __private {
     pub use crate::context::{enter, leave};
-    pub use crate::refs::{reference, reference_value};
+    pub use crate::places::{PlaceOf, PlaceVia};
+    pub use crate::refs::{reference, reference_value, reference_via};
 }
 
 /// A Rust POU's own fault (specification 48 RU-14): the number the POU chooses and two numbers of

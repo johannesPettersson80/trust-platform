@@ -154,14 +154,14 @@ pub fn method(args: TokenStream, item: &ImplItemFn) -> Result<Method, Error> {
 /// `&mut T`, else an input by value.
 fn parameter_section(ty: &Type) -> Result<(Section, DataType), Error> {
     if let Some(target) = types::wrapped(ty, "InOut") {
-        return Ok((Section::InOut, DataType::of(target)?));
+        return Ok((Section::InOut, DataType::of_value(target)?));
     }
     if let Type::Reference(reference) = ty
         && reference.mutability.is_some()
     {
-        return Ok((Section::Output, DataType::of(&reference.elem)?));
+        return Ok((Section::Output, DataType::of_value(&reference.elem)?));
     }
-    Ok((Section::Input, DataType::of(ty)?))
+    Ok((Section::Input, DataType::of_value(ty)?))
 }
 
 /// The access specifier `#[trust_method]`'s arguments `args` give: none, `private`, `protected`

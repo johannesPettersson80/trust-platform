@@ -311,6 +311,11 @@ fn argument(
         }
         let model = &mut *lowerer.model;
         reach(&model.types, ty, structures, &mut model.rust_places)?;
+        if through_places(&model.types, ty) {
+            return Ok(format!(
+                "::trust_plc::InOut::new(&::trust_plc::__private::PlaceVia::<Places, _>::new({argument}))"
+            ));
+        }
         return Ok(format!("::trust_plc::InOut::new({argument})"));
     }
     if lowerer.info(ty).scalar().is_some() {
@@ -458,6 +463,16 @@ fn reach(
     }
 }
 
+/// Whether a value of `ty` reaches a structure of the crate, which the generated code's `Places`
+/// reads and writes (`rust_places`): the structure, or an array of it.
+fn through_places(types: &Types<'_>, ty: Ty) -> bool {
+    match &types.info(ty).kind {
+        Kind::Struct { .. } => true,
+        Kind::Array { elem, .. } => through_places(types, *elem),
+        _ => false,
+    }
+}
+
 /// Whether the SDK carries a value of `ty` in a place of its own type (`trust_plc::Place`): a
 /// scalar of RU-25's table or of a `#[trust_enum]`, or a string.
 fn placed_by_sdk(types: &Types<'_>, ty: Ty) -> bool {
@@ -478,9 +493,14 @@ pub(super) fn load(
 ) -> Result<String, NativeError> {
     if let Some(target) = reference_target(types, ty) {
         reach(types, target, structures, places)?;
+        let rust = &types.info(target).rust;
+        if through_places(types, target) {
+            return Ok(format!(
+                "::trust_plc::__private::reference_via::<_, {rust}, Places>({place}.get())"
+            ));
+        }
         return Ok(format!(
-            "::trust_plc::__private::reference::<_, {}>({place}.get())",
-            types.info(target).rust
+            "::trust_plc::__private::reference::<_, {rust}>({place}.get())"
         ));
     }
     if placed_by_sdk(types, ty) {
@@ -504,10 +524,58 @@ pub(super) fn load(
         }
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;
-            Ok(format!("::trust_plc::Place::load(&{place})"))
+            Ok(format!(
+                "<Places as ::trust_plc::__private::PlaceOf<_, _>>::load(&{place})"
+            ))
+        }
+        // A Structured Text function block the Rust POU holds (specification 48 RU-39): its
+        // binding, with its instance's place and the values of its inputs and outputs.
+        Kind::Fb {
+            is_class: false, ..
+        } => {
+            let (inputs, outputs) = held(types, ty)?;
+            let values = |list: &[super::st_bindings::HeldMember]| {
+                list.iter()
+                    .map(|member| {
+                        format!(
+                            "{}: ::trust_plc::Place::load(&{place}.{})",
+                            member.field, member.cells
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let name = &info.name;
+            Ok(format!(
+                "::st::{name}::__held(w.areas.refer(cx, &{place}, abi::RefValue::INSTANCE)?, \
+                 ::st::{name}_Input {{ {} }}, ::st::{name}_Output {{ {} }})",
+                values(&inputs),
+                values(&outputs)
+            ))
         }
         _ => Err(not_carried(&info.name)),
     }
+}
+
+/// The inputs and the outputs of the Structured Text function block `ty` that a Rust POU holds
+/// (specification 48 RU-39).
+fn held(
+    types: &Types<'_>,
+    ty: Ty,
+) -> Result<
+    (
+        Vec<super::st_bindings::HeldMember>,
+        Vec<super::st_bindings::HeldMember>,
+    ),
+    NativeError,
+> {
+    super::st_bindings::held_members(types, ty).map_err(|what| {
+        NativeError::Compile(format!(
+            "the held block {} {what}, which a held block does not pass yet (specification 48 \
+             RU-39, milestone R3)",
+            types.info(ty).name
+        ))
+    })
 }
 
 /// The statements that write the value `value` of type `ty`, a Rust expression, into the place
@@ -548,7 +616,26 @@ pub(super) fn store(
         }
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;
-            Ok(format!("::trust_plc::Place::store(&{place}, &{value});"))
+            Ok(format!(
+                "<Places as ::trust_plc::__private::PlaceOf<_, _>>::store(&{place}, &{value});"
+            ))
+        }
+        // A held block's inputs, which the Rust POU gives it, go back; its outputs are its own
+        // (specification 48 RU-39).
+        Kind::Fb {
+            is_class: false, ..
+        } => {
+            let (inputs, _) = held(types, ty)?;
+            Ok(inputs
+                .iter()
+                .map(|member| {
+                    format!(
+                        "::trust_plc::Place::store(&{place}.{}, &{value}.input.{});",
+                        member.cells, member.field
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" "))
         }
         _ => Err(not_carried(&info.name)),
     }

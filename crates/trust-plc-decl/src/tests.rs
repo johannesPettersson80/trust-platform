@@ -960,3 +960,43 @@ fn a_structure_that_structured_text_cannot_hold_is_refused() {
         assert!(message.contains(expected), "{item}: {message}");
     }
 }
+
+#[test]
+fn a_block_holds_a_structured_text_block_as_its_own_variable() {
+    // RU-38, RU-39: a field `st::HYSTERESIS` of a function block is the block's own variable of the
+    // Structured Text block HYSTERESIS, declared `HYSTERESIS`; a path of another crate's
+    // (`other::HYSTERESIS`) stays a crate type's name. As an input or an output, in an array or a
+    // reference, with an initial value, and as a function's parameter it is refused. Catches a
+    // held block declared where an instance cannot lie, and another path taken for one.
+    let item: ItemStruct = parse_quote! {
+        #[budget("1us")]
+        pub struct Guard {
+            hysteresis: st::HYSTERESIS,
+            other: other::HYSTERESIS,
+        }
+    };
+    let pou = function_block(args("name = \"GUARD\""), &item).unwrap();
+    assert_eq!(pou.variables[0].ty, DataType::Held("HYSTERESIS".into()));
+    assert_eq!(pou.variables[0].section, crate::Section::Var);
+    assert_eq!(pou.variables[0].ty.iec(), "HYSTERESIS");
+    assert_eq!(pou.variables[1].ty, DataType::Named("HYSTERESIS".into()));
+    for fields in [
+        "#[input] h: st::HYSTERESIS",
+        "#[output] h: st::HYSTERESIS",
+        "h: Array<st::HYSTERESIS, 1, 2>",
+        "h: Ref<st::HYSTERESIS>",
+    ] {
+        let message = fields_refusal(fields);
+        assert!(message.contains("its own variable"), "{fields}: {message}");
+    }
+    let message = fields_refusal("#[init(1)] h: st::HYSTERESIS");
+    assert!(message.contains("takes no `#[init]`"), "{message}");
+    let item: ItemFn = parse_quote! {
+        #[budget("1us")]
+        pub fn f(_cx: &mut Cx, h: st::HYSTERESIS) -> Result<i16, Fault> {
+            Ok(0)
+        }
+    };
+    let message = refusal(function(args("name = \"F\""), &item));
+    assert!(message.contains("held as a field"), "{message}");
+}

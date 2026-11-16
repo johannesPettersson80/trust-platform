@@ -233,9 +233,6 @@ pub(super) fn generate<'a>(
     // the rest is this crate's.
     let layer_one = super::layers::layer_one(&graph, &roots, &bodies)?;
     let layered = !layer_one.is_empty();
-    if layered {
-        places_beside_layer_one(model, front)?;
-    }
     let (layer_one_functions, mut functions) = split(texts, &layer_one);
     // The places of the crate's structures that the Rust POUs' values reach (specification 48
     // RU-29).
@@ -335,25 +332,6 @@ fn split(texts: Vec<(String, String)>, layer_one: &BTreeSet<String>) -> (String,
     functions
 }
 
-/// Refuses the places of the crate's structures (RU-29) in a project whose crate calls Structured
-/// Text: their `trust_plc::Place` is the generated structure's, which lies in layer 1 then, and
-/// layer 3 cannot implement the SDK's trait for it (specification 48 §9.2).
-fn places_beside_layer_one(model: &Model<'_>, front: &Front) -> Result<(), NativeError> {
-    let (Some(structure), Some(call)) = (model.rust_places.first(), front.structured_text.first())
-    else {
-        return Ok(());
-    };
-    Err(NativeError::Compile(format!(
-        "the crate calls Structured Text (st::{} at {}:{}) and passes its structure {} as an \
-         in-out or a reference, which the build does not compile together yet (specification 48 \
-         RU-29, RU-39, milestone R3)",
-        call.name,
-        call.file,
-        call.line,
-        model.types.info(*structure).name
-    )))
-}
-
 /// The library of layer 1 (specification 48 RU-39): the generated module, `shared`'s types and
 /// areas with `functions`, which layer 3 takes them from, and the `bindings` the project's crate
 /// calls.
@@ -387,10 +365,22 @@ fn structured_text_calls<'a>(
         if let Some(def) = model.function(&used.name) {
             queue(model, Need::Function(def.name.clone()), queued, work)?;
             roots.push((format!("f_{}", mangle(&def.name)), used.clone()));
+        } else if let Some(Owner::Fb(def)) = model.types.owner(&used.name) {
+            // A block a Rust POU holds (RU-39), laid out as its field's type: its body, which every
+            // function block type of the program has.
+            if model.types.by_rust(&Owner::Fb(def).rust()).is_none() {
+                return Err(NativeError::Compile(format!(
+                    "{call} names the Structured Text function block {}, which a Rust function \
+                     block or program holds as a field, `name: st::{}`, and no field holds \
+                     (specification 48 RU-38)",
+                    def.name, used.name
+                )));
+            }
+            roots.push((format!("fb_{}", mangle(&def.name)), used.clone()));
         } else if model.types.owner(&used.name).is_some() {
             return Err(NativeError::Compile(format!(
-                "{call} names a Structured Text function block, which the build does not compile \
-                 for Rust yet (specification 48 RU-38, milestone R3)"
+                "{call} names a Structured Text class, which Rust does not hold yet \
+                 (specification 48 RU-38, milestone R3)"
             )));
         } else {
             return Err(NativeError::Compile(format!(

@@ -327,8 +327,8 @@ pub fn function(args: TokenStream, item: &ItemFn) -> Result<Pou, Error> {
         };
         // An in-out is the caller's variable itself, borrowed for the call (RU-29).
         let (section, ty) = match types::wrapped(&typed.ty, "InOut") {
-            Some(target) => (Section::InOut, DataType::of(target)?),
-            None => (Section::Input, DataType::of(&typed.ty)?),
+            Some(target) => (Section::InOut, DataType::of_value(target)?),
+            None => (Section::Input, DataType::of_value(&typed.ty)?),
         };
         let variable = Variable {
             name: variable_name(ident)?,
@@ -544,9 +544,19 @@ fn field_variable(ident: &Ident, ty: &Type, attributes: &[Attribute]) -> Result<
                 "an in-out names the caller's variable: it takes no `#[retain]` and no `#[init]`",
             ));
         }
-        DataType::of(target)?
+        DataType::of_value(target)?
     } else {
-        DataType::of(ty)?
+        let data = DataType::of(ty)?;
+        // A held block is the block's own variable (RU-39), not an array of them or a reference.
+        if data.holds_block() && (section.is_some() || !matches!(data, DataType::Held(_))) {
+            return Err(Error::new(
+                ty.span(),
+                "a Structured Text function block that a Rust function block or program holds is \
+                 its own variable: a field `name: st::X` without `#[input]` or `#[output]`, not an \
+                 array of them or a reference to one (specification 48 RU-39)",
+            ));
+        }
+        data
     };
     let init = init
         .map(|value| literal::initial_of(&value, &ty))
@@ -673,7 +683,7 @@ fn result(output: &ReturnType, item: Span) -> Result<Option<DataType>, Error> {
     }
     match value {
         Type::Tuple(tuple) if tuple.elems.is_empty() => Ok(None),
-        other => DataType::of(other).map(Some),
+        other => DataType::of_value(other).map(Some),
     }
 }
 

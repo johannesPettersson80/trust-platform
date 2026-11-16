@@ -134,3 +134,60 @@ impl<T: Copy, E: Place<T>, const A: i64, const N: usize> Place<Array<T, A, N>> f
         }
     }
 }
+
+/// How the generated code reads and writes a value of `T` that lies as `A`: a structure of the
+/// project's crate lies as a structure of the generated code's, whose code implements this for a
+/// type of its own, which the orphan rule lets it do in the crate that holds the structure's Rust
+/// type, whichever crate the generated structure lies in (specification 48 RU-29, §9.2).
+#[doc(hidden)]
+pub trait PlaceOf<A, T> {
+    /// The value `place` holds.
+    fn load(place: &A) -> T;
+    /// Writes `value` into `place`.
+    fn store(place: &A, value: &T);
+}
+
+/// An array lies as its elements do, element by element.
+impl<P, T: Copy, E, const A: i64, const N: usize> PlaceOf<[E; N], Array<T, A, N>> for P
+where
+    P: PlaceOf<E, T>,
+{
+    fn load(place: &[E; N]) -> Array<T, A, N> {
+        Array::from_items(place.each_ref().map(P::load))
+    }
+
+    fn store(place: &[E; N], value: &Array<T, A, N>) {
+        for (element, item) in place.iter().zip(value.iter()) {
+            P::store(element, item);
+        }
+    }
+}
+
+/// The [`Place`] of a variable that lies as `A`, which `P` reads and writes: an in-out of a
+/// structure of the project's crate (specification 48 RU-29).
+#[doc(hidden)]
+pub struct PlaceVia<'a, P, A> {
+    place: &'a A,
+    via: core::marker::PhantomData<P>,
+}
+
+impl<'a, P, A> PlaceVia<'a, P, A> {
+    /// The place of the variable that lies at `place`.
+    #[must_use]
+    pub const fn new(place: &'a A) -> Self {
+        Self {
+            place,
+            via: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<P: PlaceOf<A, T>, A, T> Place<T> for PlaceVia<'_, P, A> {
+    fn load(&self) -> T {
+        P::load(self.place)
+    }
+
+    fn store(&self, value: &T) {
+        P::store(self.place, value);
+    }
+}
