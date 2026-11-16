@@ -4,6 +4,7 @@ import re
 import stat
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 import yaml
@@ -11,9 +12,120 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFORMANCE_SCRIPT = ROOT / "scripts" / "runtime_comms_conformance_gate.sh"
+MQTT_SCRIPT = ROOT / "scripts" / "mqtt_mosquitto_e2e.sh"
+
+# Stand-ins for the programs the MQTT case runs, so that it runs here without a broker or a build.
+# The runtime reports `ready` for its first FAKE_READY_READS status reads, as a runtime does between
+# opening its control endpoint and opening its scan start gate, then `running`.
+MQTT_STAND_INS = {
+    "cargo": "#!/usr/bin/env bash\nexit 0\n",
+    "mosquitto": textwrap.dedent(
+        """\
+        #!/usr/bin/env python3
+        import socket
+        import sys
+
+        if "-h" in sys.argv:
+            print("mosquitto version 2.0.18", file=sys.stderr)
+            sys.exit(3)
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", int(sys.argv[sys.argv.index("-p") + 1])))
+            listener.listen()
+            while True:
+                listener.accept()[0].close()
+        """
+    ),
+    "mosquitto_sub": textwrap.dedent(
+        """\
+        #!/usr/bin/env bash
+        for light in green yellow red; do
+          for _ in $(seq 1 10); do
+            echo "traffic/north/${light} true"
+            echo "traffic/north/${light} false"
+          done
+        done
+        """
+    ),
+    "target/debug/trust-runtime": textwrap.dedent(
+        """\
+        #!/usr/bin/env python3
+        import os
+        from pathlib import Path
+        import re
+        import socket
+        import sys
+        import time
+
+        args = sys.argv[1:]
+        if args[0] == "build":
+            sys.exit(0)
+        if args[0] == "run":
+            project = Path(args[args.index("--project") + 1])
+            path = re.search(r'unix://([^"]+)', (project / "runtime.toml").read_text()).group(1)
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(path)
+                while not Path(path + ".stop").exists():
+                    time.sleep(0.05)
+            sys.exit(0)
+        path = args[args.index("--endpoint") + 1].removeprefix("unix://")
+        if "shutdown" in args:
+            Path(path + ".stop").touch()
+            sys.exit(0)
+        reads = Path(path + ".reads")
+        count = int(reads.read_text()) if reads.exists() else 0
+        reads.write_text(str(count + 1))
+        state = "ready" if count < int(os.environ["FAKE_READY_READS"]) else "running"
+        print(f"state={state} fault=none rt_profile=disabled rt_active=false")
+        """
+    ),
+}
 
 
 class RuntimeCommsConformanceGateContractTests(unittest.TestCase):
+    def run_mqtt_case(self, ready_reads: int) -> tuple[subprocess.CompletedProcess[str], str]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for name, source in MQTT_STAND_INS.items():
+                program = Path(temp_dir) / name
+                program.parent.mkdir(parents=True, exist_ok=True)
+                program.write_text(source, encoding="utf-8")
+                program.chmod(program.stat().st_mode | stat.S_IXUSR)
+            env = os.environ.copy()
+            env["PATH"] = f"{temp_dir}:{env['PATH']}"
+            env["CARGO_TARGET_DIR"] = str(Path(temp_dir) / "target")
+            env["OUT_DIR"] = str(Path(temp_dir) / "evidence")
+            env["FAKE_READY_READS"] = str(ready_reads)
+            result = subprocess.run(
+                ["bash", str(MQTT_SCRIPT)],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+                timeout=60,
+            )
+            status = (Path(temp_dir) / "evidence" / "status.log").read_text(encoding="utf-8")
+        return result, status
+
+    def test_mqtt_case_waits_while_the_runtime_is_ready(self) -> None:
+        # Wrong behaviour caught: the case read the status once, just after the control socket
+        # appeared, and failed a runtime that was still `ready` because it had not opened its scan
+        # start gate yet (G185: CI run 43716028760 kept `state=ready fault=none` and failed).
+        result, status = self.run_mqtt_case(ready_reads=3)
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("RESULT=PASS", result.stdout)
+        self.assertTrue(status.startswith("state=running fault=none "), status)
+
+    def test_mqtt_case_fails_a_runtime_that_never_runs(self) -> None:
+        # Wrong behaviour caught: a wait without an end, or one that passes a runtime that stays
+        # `ready`; the failure names the state the runtime reported.
+        result, status = self.run_mqtt_case(ready_reads=1000)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("runtime is not running: state=ready fault=none", result.stdout)
+        self.assertTrue(status.startswith("state=ready "), status)
+
     def test_mosquitto_version_capture_accepts_help_exit_after_output(self) -> None:
         script = (ROOT / "scripts" / "mqtt_mosquitto_e2e.sh").read_text(
             encoding="utf-8"

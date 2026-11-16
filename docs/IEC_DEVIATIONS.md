@@ -1262,3 +1262,20 @@ re-check them against this rule when touched.
   specification 48 §5, and its generated declaration lets every Structured Text tool treat it as a
   program. Status: specified (specification 48 0.1, approved by the owner on 15 November 2026) and
   built (milestone R2: `#[trust_program]`, whose declaration a configuration runs as any program's).
+
+## 2026-11-15 - STEP as a variable name
+
+- ID: DEV-049
+- Area: Identifiers in every language profile: a variable named `STEP`.
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.1.3: keywords "shall not be used for any
+  other purpose, for example, variable names or extensions"; `STEP`, `INITIAL_STEP` and `END_STEP`
+  are the keywords of a step in a Sequential Function Chart's textual form (section 6.7.2).
+- truST behavior and conflict: a variable, not a parameter, a member, a POU or a type, may be named
+  `STEP` (specification 01 §3 rule 4). truST's Structured Text has no textual SFC (specification 01,
+  the SFC profile note), so `STEP` stands in no body, and OpenOT's projects name a state machine's
+  step variable `Step` (its reactor telemetry, June 2026). This contradicts section 6.1.3.
+- Impact: a source with such a variable fails on a strictly conforming IEC 61131-3
+  implementation.
+- Mitigation: the exception is one name and one kind of declaration; every other use of `STEP`,
+  and every other keyword, stays refused, and trust-hir's tests pin both
+  (`test_reserved_words_a_name_holds_in_every_profile`).

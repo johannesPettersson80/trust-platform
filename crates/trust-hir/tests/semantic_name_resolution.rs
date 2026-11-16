@@ -378,6 +378,49 @@ END_PROGRAM
 }
 
 #[test]
+fn test_reserved_words_a_name_holds_in_every_profile() {
+    // Specification 01 §3 rule 4: in every profile a parameter may be named EN or ENO, the
+    // execution control input and output IEC §6.6.1.5 (Table 18) declares, and a variable STEP
+    // (DEV-049); STEP as a parameter and EN as a variable stay refused. Catches an exception lost,
+    // and one that spreads to the other declarations.
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK Gate
+VAR_INPUT
+    EN : BOOL := TRUE;
+END_VAR
+VAR_OUTPUT
+    ENO : BOOL;
+END_VAR
+VAR
+    step : INT;
+END_VAR
+END_FUNCTION_BLOCK
+"#,
+    );
+    check_has_error(
+        r#"
+FUNCTION_BLOCK Stepper
+VAR_INPUT
+    step : INT;
+END_VAR
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::InvalidIdentifier,
+    );
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    en : BOOL;
+END_VAR
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidIdentifier,
+    );
+}
+
+#[test]
 fn test_reserved_names_outside_the_contextual_set_stay_rejected() {
     check_has_error(
         r#"
