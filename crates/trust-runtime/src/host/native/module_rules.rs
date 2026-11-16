@@ -112,26 +112,8 @@ fn changing_statics(elf: &[u8]) -> Result<Vec<(String, String)>, NativeError> {
 /// its functions' names in their addresses' order, the cycles in the order of their first
 /// functions.
 fn rust_cycles(graph: &CallGraph) -> Vec<Vec<String>> {
-    let count = graph.functions.len();
-    let mut callees: Vec<Vec<usize>> = vec![Vec::new(); count];
-    for &(caller, callee) in &graph.edges {
-        callees[caller].push(callee);
-    }
-    let (group, groups) = super::stack::cycle_groups(&callees);
-    let mut members: Vec<Vec<usize>> = vec![Vec::new(); groups];
-    for (function, of) in group.iter().enumerate() {
-        members[*of].push(function);
-    }
-    members.sort_by_key(|cycle| cycle.first().copied());
-    members
+    super::call_graph::cycles(graph)
         .into_iter()
-        .filter(|cycle| {
-            // A group of one is a cycle only when its function calls itself.
-            cycle.len() > 1
-                || cycle
-                    .first()
-                    .is_some_and(|function| callees[*function].contains(function))
-        })
         .filter(|cycle| {
             cycle
                 .iter()
