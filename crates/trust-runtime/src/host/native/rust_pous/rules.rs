@@ -7,18 +7,23 @@ use std::path::Path;
 
 use syn::{Attribute, Meta};
 
-use super::{RustPouError, CRATE_FOLDER};
+use super::{Layout, RustPouError};
 
 /// The version of the SDK a project's crate depends on: this release's (RU-08).
 const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Refuses the project's crate in `project` where it breaks RU-08; `root` is its root file.
+/// Refuses the project's crate in `project`, which lies where `layout` says, where it breaks RU-08;
+/// `root` is its root file.
 ///
 /// # Errors
 ///
 /// Every rule the manifest and the root file break, each with the line to write.
-pub(in crate::native) fn check_crate(project: &Path, root: &Path) -> Result<(), Vec<RustPouError>> {
-    let manifest_label = format!("{CRATE_FOLDER}/Cargo.toml");
+pub(in crate::native) fn check_crate(
+    project: &Path,
+    layout: &Layout,
+    root: &Path,
+) -> Result<(), Vec<RustPouError>> {
+    let manifest_label = layout.crate_file("Cargo.toml");
     let mut errors = Vec::new();
     let mut refuse = |file: &str, message: String| {
         errors.push(RustPouError {
@@ -28,7 +33,7 @@ pub(in crate::native) fn check_crate(project: &Path, root: &Path) -> Result<(), 
             message,
         });
     };
-    let manifest = std::fs::read_to_string(project.join(CRATE_FOLDER).join("Cargo.toml"))
+    let manifest = std::fs::read_to_string(project.join(&layout.crate_folder).join("Cargo.toml"))
         .ok()
         .and_then(|text| toml::from_str::<toml::Table>(&text).ok())
         .unwrap_or_default();

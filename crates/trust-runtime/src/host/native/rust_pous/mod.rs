@@ -1,28 +1,26 @@
-//! A project's Rust POUs (specification 48 §4, §6.1): the project's crate in `rust/`, the Rust POUs
-//! its sources declare with the paths the program's generated code names them by, and the
-//! generated declarations, `src/generated/rust_pous.st`, which the rest of the project reads
-//! (RU-23, RU-24).
+//! A project's Rust POUs (specification 48 §4, §6.1): the project's crate in `rust/`, or the
+//! project's own folder in a Rust-first project (§14), the Rust POUs its sources declare with the
+//! paths the program's generated code names them by, and the generated Structured Text the rest of
+//! the project reads: the declarations, `src/generated/rust_pous.st` (RU-23, RU-24), and in a
+//! Rust-first project `src/generated/trust/` with the configuration of its `trust.toml` (RU-67).
 //!
 //! The crate's sources are read, not compiled: each attributed item is read with `trust-plc-decl`,
 //! the reader the attributes check items with, so the declarations and the compiled code agree by
 //! construction (RU-24).
 
+mod configuration;
+mod layout;
 mod rules;
 mod tree;
 mod types;
 
+pub use layout::{layout, Layout, CRATE_FOLDER, DECLARATIONS_FILE};
 pub use types::{RustEnumeration, RustStructure};
 
 pub(super) use rules::check_crate;
 
 use std::fmt;
 use std::path::Path;
-
-/// The generated declarations, relative to a Structured Text project (RU-23).
-pub const DECLARATIONS_FILE: &str = "src/generated/rust_pous.st";
-
-/// The folder of the project's crate in a Structured Text project (RU-06).
-pub const CRATE_FOLDER: &str = "rust";
 
 /// A Rust POU of the project's crate.
 #[derive(Debug, Clone, PartialEq)]
@@ -70,6 +68,8 @@ pub struct RustCrate {
     pub enumerations: Vec<RustEnumeration>,
     /// The structures, in the order the crate's modules declare them (RU-25).
     pub structures: Vec<RustStructure>,
+    /// Where the crate and its generated Structured Text lie in the project.
+    pub layout: Layout,
 }
 
 /// Something of the project's crate that keeps its declarations from being written, where it is.
@@ -107,12 +107,13 @@ impl fmt::Display for RustPouError {
 /// Every [`RustPouError`] of the crate's manifest and sources: a file that does not read or parse,
 /// an item an attribute refuses, a POU that the generated code cannot reach, a name two POUs have.
 pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
-    let folder = project.join(CRATE_FOLDER);
+    let layout = layout(project).map_err(at_trust_toml)?;
+    let folder = project.join(&layout.crate_folder);
     let manifest = folder.join("Cargo.toml");
     if !manifest.is_file() {
         return Ok(None);
     }
-    let manifest_name = format!("{CRATE_FOLDER}/Cargo.toml");
+    let manifest_name = layout.crate_file("Cargo.toml");
     let whole = |message: String| {
         vec![RustPouError {
             file: manifest_name.clone(),
@@ -152,6 +153,7 @@ pub fn read(project: &Path) -> Result<Option<RustCrate>, Vec<RustPouError>> {
             pous: found.pous,
             enumerations: found.enumerations,
             structures: found.structures,
+            layout,
         }))
     } else {
         Err(found.errors)
@@ -213,30 +215,63 @@ pub enum Written {
 }
 
 /// Writes the generated declarations of the project in `project` (RU-24, `trust-dev rust
-/// declarations`): the file holds its crate's POUs, and a project without POUs has no file.
+/// declarations`), and a Rust-first project's configuration with them ([`write_generated`]).
 ///
 /// # Errors
 ///
-/// The crate's [`RustPouError`]s, and a file that cannot be written as one without a line.
+/// As [`write_generated`].
 pub fn write_declarations(project: &Path) -> Result<Written, Vec<RustPouError>> {
-    let file = project.join(DECLARATIONS_FILE);
+    write_generated(project).map(|(declarations, _)| declarations)
+}
+
+/// Writes the generated Structured Text of the project in `project` (RU-24, RU-67): the
+/// declarations, which hold its crate's POUs, a project without POUs having no file, and the
+/// configuration its `trust.toml` declares when it declares one. Gives what was done to each.
+///
+/// # Errors
+///
+/// The crate's and `trust.toml`'s [`RustPouError`]s, and a file that cannot be written as one
+/// without a line.
+pub fn write_generated(project: &Path) -> Result<(Written, Option<Written>), Vec<RustPouError>> {
+    let layout = layout(project).map_err(at_trust_toml)?;
+    let krate = read(project)?.filter(|krate| !krate.pous.is_empty());
+    let declarations = krate
+        .as_ref()
+        .map(|krate| (declarations_text(krate), krate.pous.len()));
+    let written = write_file(project, &layout.declarations, declarations)?;
+    let configuration = match (&layout.configuration, &krate) {
+        (Some(file), Some(krate)) => {
+            let text = configuration::configuration_text(project, krate).map_err(at_trust_toml)?;
+            Some(write_file(project, file, Some((text, 1)))?)
+        }
+        _ => None,
+    };
+    Ok((written, configuration))
+}
+
+/// Writes `text` into the project's file `label` when it is not there already, `count` being what
+/// [`Written::Wrote`] reports; removes the file for no text.
+fn write_file(
+    project: &Path,
+    label: &str,
+    text: Option<(String, usize)>,
+) -> Result<Written, Vec<RustPouError>> {
+    let file = project.join(label);
     let failed = |error: std::io::Error| {
         vec![RustPouError {
-            file: DECLARATIONS_FILE.into(),
+            file: label.into(),
             line: 0,
             column: 0,
             message: error.to_string(),
         }]
     };
-    let krate = read(project)?.filter(|krate| !krate.pous.is_empty());
-    let Some(krate) = krate else {
+    let Some((text, count)) = text else {
         if file.is_file() {
             std::fs::remove_file(&file).map_err(failed)?;
             return Ok(Written::Removed);
         }
         return Ok(Written::Nothing);
     };
-    let text = declarations_text(&krate);
     if std::fs::read_to_string(&file).is_ok_and(|held| held == text) {
         return Ok(Written::UpToDate);
     }
@@ -244,7 +279,17 @@ pub fn write_declarations(project: &Path) -> Result<Written, Vec<RustPouError>> 
         std::fs::create_dir_all(folder).map_err(failed)?;
     }
     std::fs::write(&file, text).map_err(failed)?;
-    Ok(Written::Wrote(krate.pous.len()))
+    Ok(Written::Wrote(count))
+}
+
+/// `message`, an error of `trust.toml`, as the one error of the project's file.
+fn at_trust_toml(message: String) -> Vec<RustPouError> {
+    vec![RustPouError {
+        file: "trust.toml".into(),
+        line: 0,
+        column: 0,
+        message,
+    }]
 }
 
 /// The timing of a project's Rust POUs (specification 48 RU-46, RU-47, Appendix B): each POU's
@@ -442,16 +487,27 @@ pub(super) fn panic_refusal(krate: &RustCrate, calls: &[super::panics::PanicCall
 ///
 /// The refusal's message.
 pub(super) fn check_declarations(project: &Path, krate: &RustCrate) -> Result<(), String> {
-    let held = std::fs::read_to_string(project.join(DECLARATIONS_FILE)).ok();
+    let layout = &krate.layout;
+    let held = |label: &str| std::fs::read_to_string(project.join(label)).ok();
     let wanted = (!krate.pous.is_empty()).then(|| declarations_text(krate));
-    if held == wanted {
-        Ok(())
-    } else {
-        Err(format!(
-            "{DECLARATIONS_FILE} does not hold the declarations of the project's Rust crate: write \
-             them with `trust-dev rust declarations` (specification 48 RU-24)"
-        ))
+    if held(&layout.declarations) != wanted {
+        return Err(format!(
+            "{} does not hold the declarations of the project's Rust crate: write them with \
+             `trust-dev rust declarations` (specification 48 RU-24)",
+            layout.declarations
+        ));
     }
+    if let Some(file) = &layout.configuration {
+        let wanted = configuration::configuration_text(project, krate)
+            .map_err(|message| format!("trust.toml: {message}"))?;
+        if held(file).as_ref() != Some(&wanted) {
+            return Err(format!(
+                "{file} does not hold the configuration of the project's trust.toml: write it \
+                 with `trust-dev rust declarations` (specification 48 RU-67)"
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -10,6 +10,7 @@
 mod rust_pous_support;
 
 use rust_pous_support::{built, custom_project, manifest};
+use trust_runtime::native::rust_pous::Written;
 use trust_runtime::native::{load, NoHooks};
 use trust_runtime::value::{Duration, Value};
 
@@ -151,4 +152,47 @@ END_CONFIGURATION
         ["the task Fast may spend 20 ms per scan in Rust POUs (SLOW_AXIS 1 × 20 ms), more than its \
           interval 10 ms (specification 48 RU-47)"]
     );
+}
+
+#[test]
+fn a_rust_first_project_runs_the_configuration_of_its_trust_toml() {
+    // RU-65 to RU-67: a Rust-first project is its crate, with `trust.toml` and no hand-written
+    // Structured Text: `trust-dev rust declarations` writes its declarations and its configuration
+    // into `src/generated/trust/`, and the build runs the program instance `trust.toml` declares on
+    // its task. Axis runs at 10, 20 and 30 ms toward the target 0 it starts at and counts 3 runs.
+    // Catches a crate in the project's own folder not found or not compiled, and a configuration
+    // the build does not read.
+    let root = trust_test_support::unique_temp_path("rust-first-project");
+    let files = [
+        ("Cargo.toml", manifest("")),
+        ("src/lib.rs", format!("{ROOT}{AXIS_CONTROLLER}")),
+        (
+            "trust.toml",
+            "[rust]\ncrate = \".\"\n\n[resource]\nname = \"Cell\"\n\n[tasks.Fast]\n\
+             interval = \"10ms\"\npriority = 1\n\n[programs.Axis]\ntype = \"AXIS_CONTROLLER\"\n\
+             task = \"Fast\"\n"
+                .to_string(),
+        ),
+    ];
+    for (path, text) in &files {
+        let file = root.join(path);
+        std::fs::create_dir_all(file.parent().expect("a folder")).expect("the folder");
+        std::fs::write(file, text).expect("the file");
+    }
+    let written = trust_runtime::native::rust_pous::write_generated(&root);
+    assert!(
+        matches!(written, Ok((Written::Wrote(1), Some(Written::Wrote(1))))),
+        "{written:?}"
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10, 20, 30] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("AXIS.RUNS"), Some(Value::UDInt(3)));
 }

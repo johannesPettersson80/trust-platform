@@ -7,17 +7,24 @@
 use std::path::{Path, PathBuf};
 
 use trust_runtime::harness::SourceFile;
-use trust_runtime::native::rust_pous::{write_declarations, Written, DECLARATIONS_FILE};
+use trust_runtime::native::rust_pous::{layout, write_declarations, Written};
 use trust_runtime::native::{build_project, Build, Device, Options, Target, Toolchain};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 
-/// The project's Structured Text, as `trust-runtime build` collects it.
+/// The project's Structured Text, as `trust-runtime build` collects it: its program, when it has
+/// one, and the generated declarations and configuration where its layout puts them.
 pub fn sources(root: &Path) -> Vec<SourceFile> {
-    ["src/main.st", DECLARATIONS_FILE]
-        .into_iter()
+    let layout = layout(root).expect("the project's layout");
+    std::iter::once("src/main.st".to_string())
+        .chain(
+            [Some(layout.declarations), layout.configuration]
+                .into_iter()
+                .flatten(),
+        )
+        .filter(|label| root.join(label).is_file())
         .map(|label| {
-            let text = std::fs::read_to_string(root.join(label)).expect("the source");
-            SourceFile::with_path(label, text)
+            let text = std::fs::read_to_string(root.join(&label)).expect("the source");
+            SourceFile::with_path(&label, text)
         })
         .collect()
 }

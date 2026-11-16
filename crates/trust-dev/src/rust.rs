@@ -4,10 +4,11 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context};
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::native::rust_pous::{write_declarations, Written, DECLARATIONS_FILE};
+use trust_runtime::native::rust_pous::{layout, write_generated, Written};
 
 /// `trust-dev rust declarations`: writes the generated declarations of the project's crate
-/// (specification 48 RU-24), and reports every error of the crate's sources where it is.
+/// (specification 48 RU-24), and a Rust-first project's configuration (RU-67), and reports every
+/// error of the crate's sources and of `trust.toml` where it is.
 pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
     let project = match project {
         Some(path) => path,
@@ -16,19 +17,31 @@ pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
             Err(_) => std::env::current_dir().context("failed to resolve current directory")?,
         },
     };
-    match write_declarations(&project) {
-        Ok(Written::Wrote(count)) => println!("Wrote {DECLARATIONS_FILE}: {count} Rust POU(s)."),
-        Ok(Written::UpToDate) => println!("{DECLARATIONS_FILE} is up to date."),
-        Ok(Written::Removed) => {
-            println!("Removed {DECLARATIONS_FILE}: the project declares no Rust POU.");
+    let layout = layout(&project).map_err(|message| anyhow::anyhow!("trust.toml: {message}"))?;
+    let declarations = &layout.declarations;
+    match write_generated(&project) {
+        Ok((written, configuration)) => {
+            match written {
+                Written::Wrote(count) => println!("Wrote {declarations}: {count} Rust POU(s)."),
+                Written::UpToDate => println!("{declarations} is up to date."),
+                Written::Removed => {
+                    println!("Removed {declarations}: the project declares no Rust POU.");
+                }
+                Written::Nothing => println!("The project declares no Rust POU."),
+            }
+            if let (Some(configuration), Some(file)) = (configuration, &layout.configuration) {
+                match configuration {
+                    Written::UpToDate => println!("{file} is up to date."),
+                    _ => println!("Wrote {file} from trust.toml."),
+                }
+            }
         }
-        Ok(Written::Nothing) => println!("The project declares no Rust POU."),
         Err(errors) => {
             for error in &errors {
                 eprintln!("{error}");
             }
             bail!(
-                "the project's crate has {} error(s); {DECLARATIONS_FILE} is not written",
+                "the project has {} error(s); {declarations} is not written",
                 errors.len()
             );
         }
