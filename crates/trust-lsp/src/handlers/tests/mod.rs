@@ -74,6 +74,7 @@ mod hmi_rename_handlers;
 mod library_surface_diagnostics;
 mod lsp_trace_cases;
 mod rename_trace_cases;
+mod rust_sources;
 mod trace_support;
 
 mod mod_part_01;
