@@ -530,9 +530,7 @@ pub(super) fn load(
         }
         // A Structured Text function block the Rust POU holds (specification 48 RU-39): its
         // binding, with its instance's place and the values of its inputs and outputs.
-        Kind::Fb {
-            is_class: false, ..
-        } => {
+        Kind::Fb { .. } => {
             let (inputs, outputs) = held(types, ty)?;
             let values = |list: &[super::st_blocks::HeldMember]| {
                 list.iter()
@@ -629,9 +627,7 @@ pub(super) fn store(
         }
         // A held block's inputs, which the Rust POU gives it, go back; its outputs are its own
         // (specification 48 RU-39).
-        Kind::Fb {
-            is_class: false, ..
-        } => {
+        Kind::Fb { .. } => {
             let (inputs, _) = held(types, ty)?;
             Ok(inputs
                 .iter()

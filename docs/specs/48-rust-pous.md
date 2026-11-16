@@ -644,7 +644,7 @@ body's locals are Rust locals on the task's stack.
 ## 8. Calling Structured Text from Rust
 
 **RU-38.** A Rust POU calls Structured Text functions and function blocks of the project and of its
-libraries, and holds Structured Text function block instances as fields:
+libraries, and holds Structured Text function block and class instances as fields:
 
 ```rust
 #[trust_fb(name = "TANK_GUARD")]
@@ -711,7 +711,9 @@ Text's does. A held block's `PUBLIC` methods (IEC §6.6.5.4; Table 48 features 5
 is `PROTECTED` unless it says otherwise), its own and those it inherits, are methods of its binding,
 `self.meter.ADD(cx, 1.5)?`, whose parameters and result pass as a function's do: such a call gives
 the instance `input`, runs the method on the instance as Structured Text's call of it does (IEC
-§6.6.5.4.4), and takes the instance's outputs into `output`; layer 1 holds each of them. A structure, an enumeration or a
+§6.6.5.4.4), and takes the instance's outputs into `output`; layer 1 holds each of them. A class
+instance (IEC §6.6.5) is held as a block's is, its binding without `call`, as a class has no body:
+its `PUBLIC` methods are what the Rust POU calls. A structure, an enumeration or a
 type with named values of the project's Structured Text has a binding of its own in layer 1 when a
 call or a held block passes it or the crate names it: `st::POINT`, a Rust struct of its fields, each
 `pub`, named as Structured Text declares it and of the type this table gives it; `st::MODE`, a Rust
@@ -733,8 +735,8 @@ block passes has such a binding too, `st::POINT` beside the crate's own `Point`,
 compiled before the crate, cannot name the crate's type: the crate converts its values into the
 binding's and back, a structure field by field and an enumeration value by value.
 
-**RU-40. What can be called.** `st::` names the project's Structured Text functions and function
-blocks and its structures, enumerations and types with named values, those the crate declares
+**RU-40. What can be called.** `st::` names the project's Structured Text functions, function
+blocks and classes and its structures, enumerations and types with named values, those the crate declares
 among them (RU-39): a name of none of them, or of a Rust POU, is refused where the crate writes it. The build puts every
 Structured Text POU that a Rust POU calls or holds, with every POU those call, into layer 1, compiled
 before the project's crate (§9.2); a call through an interface or a reference reaches every method

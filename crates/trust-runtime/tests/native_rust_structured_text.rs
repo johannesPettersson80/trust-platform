@@ -761,3 +761,97 @@ END_CONFIGURATION
         Some(Value::LReal(1.5))
     );
 }
+
+/// A crate whose block holds a counter class and calls its methods.
+const HELD_CLASS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"TALLIER\")]
+#[budget(\"2us\")]
+pub struct Tallier {
+    #[output] pub after: i32,
+    counter: st::COUNTER_C,
+}
+
+impl Body for Tallier {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.counter.RESET(cx)?;
+        self.counter.BUMP(cx, 4)?;
+        self.after = self.counter.BUMP(cx, 3)?;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_rust_block_holds_a_class_and_calls_its_methods() {
+    // RU-38, RU-39, IEC §6.6.5: a field `st::COUNTER_C` holds a class instance, whose binding has
+    // the class's `PUBLIC` methods and no `call`, as a class has no body: RESET sets count to 0,
+    // BUMP(4) to 4 and BUMP(3) to 7, which AFTER takes and the instance keeps, at the task's first
+    // call at 10 ms. Catches a class refused, a binding that calls a body the class has not, and a
+    // method that runs on another instance.
+    let root = custom_project(
+        "rust-pous-structured-text-held-class",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", HELD_CLASS),
+        ],
+        "CLASS COUNTER_C
+VAR
+    count : DINT;
+END_VAR
+
+METHOD PUBLIC BUMP : DINT
+VAR_INPUT
+    AMOUNT : DINT;
+END_VAR
+count := count + AMOUNT;
+BUMP := count;
+END_METHOD
+
+METHOD PUBLIC RESET
+count := 0;
+END_METHOD
+
+END_CLASS
+
+PROGRAM Line
+VAR
+    tallier : TALLIER;
+END_VAR
+tallier();
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let library =
+        std::fs::read_to_string(root.join("build/trust_st/src/lib.rs")).expect("layer 1's library");
+    assert!(library.contains("pub fn BUMP"), "{library}");
+    assert!(!library.contains("pub fn call("), "{library}");
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.TALLIER.AFTER"), Some(Value::DInt(7)));
+    assert_eq!(
+        program.value("MAIN.TALLIER.COUNTER.COUNT"),
+        Some(Value::DInt(7))
+    );
+}

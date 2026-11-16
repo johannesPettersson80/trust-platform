@@ -24,7 +24,7 @@ use super::recursion::{CallGraph, Recursion};
 use super::rust_pous::StructuredTextUse;
 use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
-use crate::program_model::{FunctionBlockBase, FunctionBlockDef, FunctionDef, MethodDef, Param};
+use crate::program_model::{FunctionBlockBase, FunctionDef, MethodDef, Param};
 use bodies::{body, BodyContext};
 pub(super) use bodies::{find_pou, method_body};
 use smol_str::SmolStr;
@@ -382,21 +382,30 @@ fn structured_text_calls<'a>(
         if let Some(def) = model.function(&used.name) {
             queue(model, Need::Function(def.name.clone()), queued, work)?;
             roots.push((format!("f_{}", mangle(&def.name)), used.clone()));
-        } else if let Some(Owner::Fb(def)) = model.types.owner(&used.name) {
-            // A block a Rust POU holds (RU-39), laid out as its field's type: its body, which every
-            // function block type of the program has.
-            if model.types.by_rust(&Owner::Fb(def).rust()).is_none() {
+        } else if let Some(owner) = model.types.owner(&used.name) {
+            // A function block or a class a Rust POU holds (RU-39), laid out as its field's type:
+            // a block's body, which every function block type of the program has; a class has none
+            // (IEC §6.6.5).
+            let what = if owner.is_class() {
+                "class"
+            } else {
+                "function block"
+            };
+            if model.types.by_rust(&owner.rust()).is_none() {
                 return Err(NativeError::Compile(format!(
-                    "{call} names the Structured Text function block {}, which a Rust function \
-                     block or program holds as a field, `name: st::{}`, and no field holds \
-                     (specification 48 RU-38)",
-                    def.name, used.name
+                    "{call} names the Structured Text {what} {}, which a Rust function block or \
+                     program holds as a field, `name: st::{}`, and no field holds (specification \
+                     48 RU-38)",
+                    owner.name(),
+                    used.name
                 )));
             }
-            roots.push((format!("fb_{}", mangle(&def.name)), used.clone()));
+            if !owner.is_class() {
+                roots.push((format!("fb_{}", mangle(owner.name())), used.clone()));
+            }
             // Its `PUBLIC` methods, which its binding calls, lie in layer 1 with it (RU-39).
-            if !methods.contains_key(def.name.as_str()) {
-                let held = held_methods(front, model, def);
+            if !methods.contains_key(owner.name().as_str()) {
+                let held = held_methods(front, model, owner);
                 for method in &held {
                     queue(
                         model,
@@ -411,13 +420,8 @@ fn structured_text_calls<'a>(
                     );
                     roots.push((root, used.clone()));
                 }
-                methods.insert(def.name.to_string(), held);
+                methods.insert(owner.name().to_string(), held);
             }
-        } else if model.types.owner(&used.name).is_some() {
-            return Err(NativeError::Compile(format!(
-                "{call} names a Structured Text class, which Rust does not hold yet \
-                 (specification 48 RU-38, milestone R3)"
-            )));
         } else if let Some(ty) = named_type(model, &used.name)? {
             // A structure, an enumeration or a type with named values of the project, whose
             // binding the crate writes values of (RU-39).
@@ -483,20 +487,20 @@ struct Named {
     methods: HashMap<String, Vec<st_blocks::HeldMethod>>,
 }
 
-/// The `PUBLIC` methods a held block `def` has (RU-39): its own and those it inherits from the
-/// function blocks it extends and does not override (IEC §6.6.5.5), each with the block that
-/// declares it and the path to that block's part of the instance.
+/// The `PUBLIC` methods a held block or class `owner` has (RU-39): its own and those it inherits
+/// from the blocks and classes it extends and does not override (IEC §6.6.5.5), each with the
+/// block or class that declares it and the path to that one's part of the instance.
 fn held_methods<'m>(
     front: &Front,
     model: &Model<'m>,
-    def: &'m FunctionBlockDef,
+    owner: Owner<'m>,
 ) -> Vec<st_blocks::HeldMethod> {
     let mut held = Vec::new();
     let mut seen: Vec<SmolStr> = Vec::new();
     let mut path = String::new();
-    let mut current = Some(def);
+    let mut current = Some(owner);
     while let Some(block) = current {
-        for method in &block.methods {
+        for method in block.methods() {
             if seen
                 .iter()
                 .any(|name| name.eq_ignore_ascii_case(&method.name))
@@ -504,20 +508,23 @@ fn held_methods<'m>(
                 continue;
             }
             seen.push(method.name.clone());
-            if is_public_method(front, &block.name, &method.name) {
+            if is_public_method(front, block.name(), &method.name) {
                 held.push(st_blocks::HeldMethod {
-                    declaring: block.name.clone(),
+                    declaring: block.name().clone(),
                     method: method.name.clone(),
                     path: path.clone(),
                 });
             }
         }
-        current = match &block.base {
-            Some(FunctionBlockBase::FunctionBlock(base)) => match model.types.owner(base) {
-                Some(Owner::Fb(base)) => Some(base),
-                _ => None,
+        // A block extends a block or a class, a class a class (IEC §6.6.5.5).
+        current = match block {
+            Owner::Fb(def) => match &def.base {
+                Some(FunctionBlockBase::FunctionBlock(base) | FunctionBlockBase::Class(base)) => {
+                    model.types.owner(base)
+                }
+                None => None,
             },
-            _ => None,
+            Owner::Class(def) => def.base.as_deref().and_then(|base| model.types.owner(base)),
         };
         path.push_str(".__BASE");
     }

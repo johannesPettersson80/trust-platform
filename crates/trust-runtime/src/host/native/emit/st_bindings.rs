@@ -5,7 +5,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
 
-use super::super::classes::Owner;
 use super::super::model::Model;
 use super::super::rust_pous::StructuredTextUse;
 use super::super::types::{mangle, Elem, Kind, Ty, Types};
@@ -105,20 +104,20 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
         }
         written.push(&used.name);
         if model.function(&used.name).is_none()
-            && let Some(Owner::Fb(def)) = model.types.owner(&used.name)
+            && let Some(owner) = model.types.owner(&used.name)
         {
             // One binding of the block, named as Structured Text declares it, which the generated
             // code names; another spelling the crate writes names it too.
-            if !blocks.contains(&def.name.to_string()) {
-                blocks.push(def.name.to_string());
+            if !blocks.contains(&owner.name().to_string()) {
+                blocks.push(owner.name().to_string());
                 let held = methods
-                    .get(def.name.as_str())
+                    .get(owner.name().as_str())
                     .map_or(&[][..], Vec::as_slice);
-                let binding = super::st_blocks::block(model, used, def, held, &mut data_types)?;
-                let namespace = split_name(&def.name).0.to_string();
+                let binding = super::st_blocks::block(model, used, owner, held, &mut data_types)?;
+                let namespace = split_name(owner.name()).0.to_string();
                 texts.entry(namespace).or_default().push_str(&binding);
             }
-            let (namespace, declared) = split_name(&def.name);
+            let (namespace, declared) = split_name(owner.name());
             let spelled = split_name(&used.name).1;
             if spelled != declared {
                 let alias = format!("pub type {spelled} = {declared};\n\n");

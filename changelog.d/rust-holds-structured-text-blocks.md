@@ -7,4 +7,5 @@
   online change see it. Blocks whose inputs and outputs are elementary types, strings,
   arrays of any dimension, references or the project's structures, enumerations and types with named values are
   held, each as the Rust type of RU-25's table or its binding; a held block's in-outs are `Ref<T>`
-  fields of its `input`, and its `PUBLIC` methods are methods of its binding, `self.meter.ADD(cx, x)`.
+  fields of its `input`, and its `PUBLIC` methods are methods of its binding, `self.meter.ADD(cx, x)`. A class instance is
+  held the same way, its binding with the class's `PUBLIC` methods and no `call`.

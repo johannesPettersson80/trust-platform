@@ -14,7 +14,6 @@ use super::super::NativeError;
 use super::st_bindings::{
     field_name, load, parameters, returned, rust_type, store, Parameters, Returned, Scope,
 };
-use crate::program_model::FunctionBlockDef;
 use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_IN_OUT, SYMBOL_OUTPUT};
 
 /// A `PUBLIC` method of a held block (RU-39): the block that declares it, its name, and the path
@@ -97,20 +96,21 @@ pub(super) fn held_members(
 pub(super) fn block(
     model: &mut Model<'_>,
     used: &StructuredTextUse,
-    def: &FunctionBlockDef,
+    owner: Owner<'_>,
     methods: &[HeldMethod],
     data_types: &mut BTreeSet<Ty>,
 ) -> Result<String, NativeError> {
+    let declared = owner.name();
     let unsupported = |what: String| {
         NativeError::Compile(format!(
             "st::{} at {}:{}: {} {what}, which a held block does not pass yet (specification 48 \
              RU-39, milestone R3)",
-            used.name, used.file, used.line, def.name
+            used.name, used.file, used.line, declared
         ))
     };
     // Declared by its last name in its namespace's module (IEC §6.9).
-    let name = super::st_bindings::split_name(def.name.as_str()).1;
-    let Some(ty) = model.types.by_rust(&Owner::Fb(def).rust()) else {
+    let name = super::st_bindings::split_name(declared.as_str()).1;
+    let Some(ty) = model.types.by_rust(&owner.rust()) else {
         return Err(NativeError::Compile(format!(
             "function block {name} has no layout"
         )));
@@ -172,8 +172,46 @@ pub(super) fn block(
         })
         .collect::<Vec<_>>()
         .join(", ");
+    // A class has no body, so its binding has no `call` (IEC §6.6.5).
+    let what = if owner.is_class() {
+        "class"
+    } else {
+        "function block"
+    };
+    let call = if owner.is_class() {
+        String::new()
+    } else {
+        let body = mangle(declared);
+        format!(
+            "    /// Calls the block as Structured Text calls an instance: gives it `input`, runs its body on its\n\
+    /// own variables, and takes its outputs into `output`. Its instance lies in the program's\n\
+    /// memory, which a unit test does not hold: there the call ends with\n\
+    /// `FaultCode::ModuleInternal` (specification 48 RU-56).\n\
+    ///\n\
+    /// # Errors\n\
+    ///\n\
+    /// The fault of its Structured Text, which ends the scan.\n\
+    pub fn call(&mut self, cx: &mut trust_plc::Cx) -> Result<(), trust_plc::Fault> {{\n\
+        struct Call(trust_plc_abi::RefValue, {name}_Input);\n\
+        impl trust_plc_abi::StructuredTextCall for Call {{\n\
+            type Output = {name}_Output;\n\
+            fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<{name}_Output, trust_plc_abi::Fault> {{\n\
+                trust_plc_abi::module::with_areas(cx, |cx, areas| {{\n\
+                    let w = __generated::World::new(cx, &areas)?;\n\
+                    let me: &__generated::{cells} = areas.deref(cx, &self.0)?;\n\
+{stores}                    __generated::fb_{body}(cx, &w, me)?;\n\
+                    Ok({name}_Output {{ {loads} }})\n\
+                }})\n\
+            }}\n\
+        }}\n\
+        self.output = cx.__call_structured_text(Call(self.place, self.input))?;\n\
+        Ok(())\n\
+    }}\n\
+"
+        )
+    };
     Ok(format!(
-        "/// The Structured Text function block `{name}` of the project, as a Rust function block or
+        "/// The Structured Text {what} `{name}` of the project, as a Rust function block or
 /// program holds it (specification 48 RU-38, RU-39).
 #[derive(Clone, Copy)]
 pub struct {name} {{
@@ -209,38 +247,13 @@ impl {name} {{
         Self {{ input, output, place }}
     }}
 
-    /// Calls the block as Structured Text calls an instance: gives it `input`, runs its body on its
-    /// own variables, and takes its outputs into `output`. Its instance lies in the program's
-    /// memory, which a unit test does not hold: there the call ends with
-    /// `FaultCode::ModuleInternal` (specification 48 RU-56).
-    ///
-    /// # Errors
-    ///
-    /// The fault of its Structured Text, which ends the scan.
-    pub fn call(&mut self, cx: &mut trust_plc::Cx) -> Result<(), trust_plc::Fault> {{
-        struct Call(trust_plc_abi::RefValue, {name}_Input);
-        impl trust_plc_abi::StructuredTextCall for Call {{
-            type Output = {name}_Output;
-            fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<{name}_Output, trust_plc_abi::Fault> {{
-                trust_plc_abi::module::with_areas(cx, |cx, areas| {{
-                    let w = __generated::World::new(cx, &areas)?;
-                    let me: &__generated::{cells} = areas.deref(cx, &self.0)?;
-{stores}                    __generated::fb_{body}(cx, &w, me)?;
-                    Ok({name}_Output {{ {loads} }})
-                }})
-            }}
-        }}
-        self.output = cx.__call_structured_text(Call(self.place, self.input))?;
-        Ok(())
-    }}
-{method_texts}}}
+{call}{method_texts}}}
 
 ",
         input_fields = fields(&inputs),
         output_fields = fields(&outputs),
         input_zeros = zeros(&inputs),
         output_zeros = zeros(&outputs),
-        body = mangle(&def.name),
     ))
 }
 
@@ -269,14 +282,15 @@ fn method(
             used.name, used.file, used.line, held.declaring, held.method
         ))
     };
-    let Some(Owner::Fb(declaring)) = model.types.owner(&held.declaring) else {
+    // The block or the class that declares it (IEC §6.6.5).
+    let Some(declaring) = model.types.owner(&held.declaring) else {
         return Err(NativeError::Compile(format!(
-            "function block {} is not declared",
+            "{} is not declared",
             held.declaring
         )));
     };
     let Some(def) = declaring
-        .methods
+        .methods()
         .iter()
         .find(|method| method.name.eq_ignore_ascii_case(&held.method))
     else {
