@@ -318,11 +318,12 @@ impl Parameters {
         let cells = by_cells(types, ty, data_types);
         if param.direction != ParamDirection::In {
             // An in-out or an output: cells the function reads and writes, whose value goes back
-            // to the caller's variable. A string in-out is a view of the caller's string, which the
-            // bindings do not pass yet.
+            // to the caller's variable. A string in-out goes as a view of a string of the declared
+            // capacity, which takes the caller's text and gives it back as an assignment to the
+            // caller's string does (RU-29).
             let in_out = param.direction == ParamDirection::InOut;
+            let text = matches!(info.kind, Kind::Str(_) | Kind::WStr(_));
             let rust = match &info.kind {
-                Kind::Str(_) | Kind::WStr(_) if in_out => None,
                 Kind::Elem(elem) => Some(passed(*elem).0),
                 Kind::Enum { .. } => rust_type(types, ty, data_types),
                 _ => cells,
@@ -339,9 +340,15 @@ impl Parameters {
                 let _ = write!(self.signature, ", {name}: trust_plc::InOut<'a, {rust}>");
                 self.fields.push(format!("trust_plc::InOut<'a, {rust}>"));
                 let cell = format!("t{index}");
+                // A view's cells are named, as `view()` takes no type from its use.
+                let annotation = if text {
+                    format!(": {}", text_types(&info.kind).1)
+                } else {
+                    String::new()
+                };
                 let _ = writeln!(
                     self.setup,
-                    "                let t{index} = zeroed();\n                {}",
+                    "                let t{index}{annotation} = zeroed();\n                {}",
                     store(
                         types,
                         ty,
@@ -366,7 +373,11 @@ impl Parameters {
                 );
             }
             self.values.push(name);
-            let _ = write!(self.arguments, ", &t{index}");
+            if text && in_out {
+                let _ = write!(self.arguments, ", t{index}.view()");
+            } else {
+                let _ = write!(self.arguments, ", &t{index}");
+            }
             return Ok(());
         }
         match (&info.kind, cells) {
