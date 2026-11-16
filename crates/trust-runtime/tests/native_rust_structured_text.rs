@@ -556,3 +556,124 @@ fn layer_one_is_one_text_for_every_image() {
         assert_eq!(program.value("MAIN.BYTES"), Some(Value::DInt(8)));
     }
 }
+
+/// A crate whose block holds a meter and calls its methods.
+const METHODS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"WEIGHER\")]
+#[budget(\"2us\")]
+pub struct Weigher {
+    #[output] pub total: f64,
+    #[output] pub last: f64,
+    #[output] pub tare: f64,
+    meter: st::METER,
+}
+
+impl Body for Weigher {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.meter.input.SCALE = 2.0;
+        self.meter.ADD(cx, 1.5)?;
+        self.total = self.meter.ADD(cx, 2.0)?;
+        self.last = self.meter.output.LAST;
+        self.tare = self.meter.TARE(cx)?;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_held_blocks_public_methods_are_methods_of_its_binding() {
+    // RU-39, IEC §6.6.5.4: a held block's `PUBLIC` methods, its own and those it inherits, are
+    // methods of its binding: each call gives METER its input SCALE = 2.0 first, so ADD(1.5) makes
+    // the total 1.5 x 2.0 = 3.0 and ADD(2.0) 3.0 + 4.0 = 7.0, and takes the output LAST = 2.0;
+    // TARE, which METER inherits from SCALE_BASE, gives 0.25; the `PROTECTED` HIDDEN, a method's
+    // default access, has no binding, at the task's first call at 10 ms. Catches a method that runs
+    // without the inputs given (total 0.0), an output not taken (LAST 0.0), an inherited method
+    // missed, and a `PROTECTED` method bound.
+    let root = custom_project(
+        "rust-pous-structured-text-methods",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", METHODS),
+        ],
+        "FUNCTION_BLOCK SCALE_BASE
+VAR
+    offset : LREAL := 0.25;
+END_VAR
+
+METHOD PUBLIC TARE : LREAL
+TARE := offset;
+END_METHOD
+
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK METER EXTENDS SCALE_BASE
+VAR_INPUT
+    SCALE : LREAL;
+END_VAR
+VAR_OUTPUT
+    LAST : LREAL;
+END_VAR
+VAR
+    total : LREAL;
+END_VAR
+
+METHOD PUBLIC ADD : LREAL
+VAR_INPUT
+    x : LREAL;
+END_VAR
+total := total + x * SCALE;
+LAST := x;
+ADD := total;
+END_METHOD
+
+METHOD HIDDEN : LREAL
+HIDDEN := total;
+END_METHOD
+
+END_FUNCTION_BLOCK
+
+PROGRAM Line
+VAR
+    weigher : WEIGHER;
+END_VAR
+weigher();
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let library =
+        std::fs::read_to_string(root.join("build/trust_st/src/lib.rs")).expect("layer 1's library");
+    assert!(library.contains("pub fn ADD"), "{library}");
+    assert!(library.contains("pub fn TARE"), "{library}");
+    assert!(!library.contains("pub fn HIDDEN"), "{library}");
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.WEIGHER.TOTAL"), Some(Value::LReal(7.0)));
+    assert_eq!(program.value("MAIN.WEIGHER.LAST"), Some(Value::LReal(2.0)));
+    assert_eq!(program.value("MAIN.WEIGHER.TARE"), Some(Value::LReal(0.25)));
+    assert_eq!(
+        program.value("MAIN.WEIGHER.METER.SCALE"),
+        Some(Value::LReal(2.0))
+    );
+}

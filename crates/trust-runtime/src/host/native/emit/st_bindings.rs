@@ -2,7 +2,7 @@
 //! project's crate calls, a Rust function of the name the crate calls it by, which runs the
 //! generated function on the kernel's context that the SDK's `Cx` keeps (RU-11, RU-38).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write as _;
 
 use super::super::classes::Owner;
@@ -10,10 +10,9 @@ use super::super::model::Model;
 use super::super::rust_pous::StructuredTextUse;
 use super::super::types::{mangle, Elem, Kind, Ty, Types};
 use super::super::NativeError;
-use crate::program_model::{FunctionBlockDef, Param};
+use crate::program_model::Param;
 use trust_hir::symbols::ParamDirection;
 use trust_plc_decl::Elementary;
-use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_IN_OUT, SYMBOL_OUTPUT};
 
 /// RU-25's type of the elementary type `elem`.
 pub(super) fn elementary(elem: Elem) -> Elementary {
@@ -80,6 +79,7 @@ pub(super) fn bindings(
     model: &mut Model<'_>,
     roots: &[(String, StructuredTextUse)],
     named: &[Ty],
+    methods: &HashMap<String, Vec<super::st_blocks::HeldMethod>>,
 ) -> Result<String, NativeError> {
     // The cells a binding writes a value into, empty, whatever the generated code's type of them.
     let mut text = String::from(
@@ -110,7 +110,16 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
             // code names; another spelling the crate writes names it too.
             if !blocks.contains(&def.name.to_string()) {
                 blocks.push(def.name.to_string());
-                text.push_str(&block(model, used, def, &mut data_types)?);
+                let held = methods
+                    .get(def.name.as_str())
+                    .map_or(&[][..], Vec::as_slice);
+                text.push_str(&super::st_blocks::block(
+                    model,
+                    used,
+                    def,
+                    held,
+                    &mut data_types,
+                )?);
             }
             if used.name != def.name.as_str() {
                 let _ = writeln!(text, "pub type {} = {};\n", used.name, def.name);
@@ -153,92 +162,32 @@ fn function(
             used.name, used.file, used.line, def.name
         ))
     };
-    let mut params = Parameters::default();
-    for param in &def.params {
-        // `EN` is TRUE whenever the function runs (specification 10 §7.5).
-        if param.name.eq_ignore_ascii_case("EN") {
-            continue;
-        }
-        let ty = model.ty(param.type_id)?;
-        params
-            .push(&model.types, param, ty, data_types)
-            .map_err(unsupported)?;
-    }
+    let params = parameters(model, &def.params, data_types, unsupported)?;
+    let function = format!("f_{}", mangle(&def.name));
+    let Returned {
+        returns,
+        raw,
+        run,
+        value,
+        load,
+    } = returned(
+        model,
+        Some(def.return_type),
+        &function,
+        "",
+        &params,
+        data_types,
+        unsupported,
+    )?;
     let Parameters {
         signature: parameters,
         fields,
         values,
         setup,
-        arguments,
         in_outs,
         outputs,
+        ..
     } = params;
-    // The binding's result, the generated function's, how `call` gets it, and how the one
-    // becomes the other once the call returns.
-    let function = mangle(&def.name);
-    let (returns, raw, run, load) = match super::return_type(model, Some(def.return_type))? {
-        None => (
-            "()".to_string(),
-            "()".to_string(),
-            format!(
-                "let done = __generated::f_{function}(cx, &w{arguments});\n\
-                 {in_outs}                done?;\n{outputs}                Ok(())"
-            ),
-            "result",
-        ),
-        Some(ty) => match (
-            &model.types.info(ty).kind,
-            by_cells(&model.types, ty, data_types),
-        ) {
-            (Kind::Elem(elem), _) => {
-                let (rust, own) = passed(*elem);
-                let load = if own {
-                    "result"
-                } else {
-                    "trust_plc::Place::load(&core::cell::Cell::new(result))"
-                };
-                let run = format!(
-                    "let result = __generated::f_{function}(cx, &w{arguments});\n\
-                     {in_outs}                let result = result?;\n\
-                     {outputs}                Ok(result)"
-                );
-                (rust, elem.rust().to_string(), run, load)
-            }
-            (Kind::Enum { base, .. }, _) => {
-                let Some(rust) = rust_type(&model.types, ty, data_types) else {
-                    return Err(unsupported(format!(
-                        "returns a {}",
-                        model.types.info(ty).name
-                    )));
-                };
-                let run = format!(
-                    "let result = __generated::f_{function}(cx, &w{arguments});\n\
-                     {in_outs}                let result = result?;\n\
-                     {outputs}                Ok(result)"
-                );
-                let load = "trust_plc::Place::load(&core::cell::Cell::new(result))";
-                (rust, base.rust().to_string(), run, load)
-            }
-            (_, Some(rust)) => {
-                // A string or an array result is written into the cells the function takes
-                // first.
-                let out = load(&model.types, ty, "out", Scope::Bindings);
-                let run = format!(
-                    "let out = zeroed();\n                \
-                     let done = __generated::f_{function}(cx, &w, &out{arguments});\n\
-                     {in_outs}                done?;\n\
-                     {outputs}                Ok({out})"
-                );
-                (rust.clone(), rust, run, "result")
-            }
-            _ => {
-                return Err(unsupported(format!(
-                    "returns a {}",
-                    model.types.info(ty).name
-                )));
-            }
-        },
-    };
     let mut text = String::new();
     let _ = write!(
         text,
@@ -253,7 +202,7 @@ impl{generic} trust_plc_abi::StructuredTextCall for Call{generic} {{
     fn call(mut self, cx: &mut trust_plc_abi::Cx) -> Result<{raw}, trust_plc_abi::Fault> {{
         trust_plc_abi::module::with_areas(cx, |cx, areas| {{
             let w = __generated::World::new(cx, &areas)?;
-{setup}                {run}
+{setup}                {run}                Ok({value})
         }})
     }}
 }}
@@ -275,27 +224,148 @@ Ok({load})
     Ok(text)
 }
 
+/// The [`Parameters`] of a called function's or method's `params`, `EN` left out, which is TRUE
+/// whenever the POU runs (specification 10 §7.5).
+///
+/// # Errors
+///
+/// What the bindings do not pass yet, through `unsupported`.
+pub(super) fn parameters(
+    model: &mut Model<'_>,
+    params: &[Param],
+    data_types: &mut BTreeSet<Ty>,
+    unsupported: impl Fn(String) -> NativeError + Copy,
+) -> Result<Parameters, NativeError> {
+    let mut collected = Parameters::default();
+    for param in params {
+        if param.name.eq_ignore_ascii_case("EN") {
+            continue;
+        }
+        let ty = model.ty(param.type_id)?;
+        collected
+            .push(&model.types, param, ty, data_types)
+            .map_err(unsupported)?;
+    }
+    Ok(collected)
+}
+
+/// How a binding's `call` runs the generated `callee` and gives back its result (RU-39).
+pub(super) struct Returned {
+    /// The binding's result type.
+    pub(super) returns: String,
+    /// The type `call` gives.
+    pub(super) raw: String,
+    /// The statements that run `callee` and write the in-outs and the outputs back.
+    pub(super) run: String,
+    /// The value `call` gives once they ran.
+    pub(super) value: String,
+    /// How the binding takes `result`, what `call` gave.
+    pub(super) load: String,
+}
+
+/// [`Returned`] of the generated `callee`, run with `receiver` (`, me` for a method's instance)
+/// and `params`, whose result is of the type `ret`.
+///
+/// # Errors
+///
+/// A result of a type the bindings do not pass yet, through `unsupported`.
+pub(super) fn returned(
+    model: &mut Model<'_>,
+    ret: Option<trust_hir::TypeId>,
+    callee: &str,
+    receiver: &str,
+    params: &Parameters,
+    data_types: &mut BTreeSet<Ty>,
+    unsupported: impl Fn(String) -> NativeError + Copy,
+) -> Result<Returned, NativeError> {
+    let Parameters {
+        arguments,
+        in_outs,
+        outputs,
+        ..
+    } = params;
+    let call = format!("__generated::{callee}(cx, &w{receiver}{arguments})");
+    let by_value =
+        format!("let result = {call};\n{in_outs}                let result = result?;\n{outputs}");
+    let Some(ty) = super::return_type(model, ret)? else {
+        return Ok(Returned {
+            returns: "()".to_string(),
+            raw: "()".to_string(),
+            run: format!("let done = {call};\n{in_outs}                done?;\n{outputs}"),
+            value: "()".to_string(),
+            load: "result".to_string(),
+        });
+    };
+    let in_cells = "trust_plc::Place::load(&core::cell::Cell::new(result))";
+    match (
+        &model.types.info(ty).kind,
+        by_cells(&model.types, ty, data_types),
+    ) {
+        (Kind::Elem(elem), _) => {
+            let (rust, own) = passed(*elem);
+            Ok(Returned {
+                returns: rust,
+                raw: elem.rust().to_string(),
+                run: by_value,
+                value: "result".to_string(),
+                load: if own { "result" } else { in_cells }.to_string(),
+            })
+        }
+        (Kind::Enum { base, .. }, _) => {
+            let Some(rust) = rust_type(&model.types, ty, data_types) else {
+                return Err(unsupported(format!(
+                    "returns a {}",
+                    model.types.info(ty).name
+                )));
+            };
+            Ok(Returned {
+                returns: rust,
+                raw: base.rust().to_string(),
+                run: by_value,
+                value: "result".to_string(),
+                load: in_cells.to_string(),
+            })
+        }
+        // Another result is written into the cells the generated code takes after the instance.
+        (_, Some(rust)) => Ok(Returned {
+            returns: rust.clone(),
+            raw: rust,
+            run: format!(
+                "let out = zeroed();\n                \
+                 let done = __generated::{callee}(cx, &w{receiver}, &out{arguments});\n\
+                 {in_outs}                done?;\n{outputs}"
+            ),
+            value: load(&model.types, ty, "out", Scope::Bindings),
+            load: "result".to_string(),
+        }),
+        _ => Err(unsupported(format!(
+            "returns a {}",
+            model.types.info(ty).name
+        ))),
+    }
+}
+
 /// What the binding of a called function writes for the function's parameters (RU-39): its own
 /// parameters, the fields of its `Call` and their values, what `call` does before the generated
 /// function runs and what it passes it, and what it writes back once the function ends.
 #[derive(Default)]
-struct Parameters {
+pub(super) struct Parameters {
     /// The binding's parameters after `cx`, each after `, `.
-    signature: String,
+    pub(super) signature: String,
     /// The fields of the binding's `Call`, as the generated code takes them.
-    fields: Vec<String>,
+    pub(super) fields: Vec<String>,
     /// The values the binding gives the fields of its `Call`.
-    values: Vec<String>,
+    pub(super) values: Vec<String>,
     /// What `call` does before the generated function's call: a value the function takes by
     /// reference goes into cells of the generated code's.
-    setup: String,
+    pub(super) setup: String,
     /// What `call` passes the generated function after its context and its world.
-    arguments: String,
+    pub(super) arguments: String,
     /// The in-outs' values, which `call` writes back also when the function faults, as a write
     /// through Structured Text's in-out reaches the caller's variable at once (RU-29).
-    in_outs: String,
+    pub(super) in_outs: String,
     /// The outputs, which `call` writes only when the function returns.
-    outputs: String,
+    pub(super) outputs: String,
 }
 
 impl Parameters {
@@ -634,209 +704,6 @@ pub(super) fn field_name(name: &str) -> String {
     } else {
         name.to_string()
     }
-}
-
-/// A held block's input or output as its binding holds it (RU-39).
-pub(super) struct HeldMember {
-    /// Its name in the binding.
-    pub(super) field: String,
-    /// Its field in the instance's cells.
-    pub(super) cells: String,
-    /// Its Rust type, RU-25's for its elementary type.
-    rust: String,
-    /// Its type.
-    pub(super) ty: Ty,
-}
-
-/// The inputs and the outputs of the Structured Text function block `ty` as its binding holds
-/// them (RU-39).
-///
-/// # Errors
-///
-/// What the binding does not pass yet, described: a name in a namespace, a variable of a type the
-/// bindings have no Rust type for.
-pub(super) fn held_members(
-    types: &Types<'_>,
-    ty: Ty,
-    data_types: &mut BTreeSet<Ty>,
-) -> Result<(Vec<HeldMember>, Vec<HeldMember>), String> {
-    let info = types.info(ty);
-    if syn::parse_str::<syn::Ident>(&info.name).is_err() {
-        return Err("is named in a namespace".to_string());
-    }
-    let Kind::Fb { members, .. } = &info.kind else {
-        return Err("is no function block".to_string());
-    };
-    let mut inputs = Vec::new();
-    let mut outputs = Vec::new();
-    for member in members {
-        // An in-out, which the instance holds as the reference of its last call (specification 44
-        // §7.3), is a field of `input` of type `Ref<T>` (RU-29).
-        let list = if member.flags & (SYMBOL_INPUT | SYMBOL_IN_OUT) != 0 {
-            &mut inputs
-        } else if member.flags & SYMBOL_OUTPUT != 0 {
-            &mut outputs
-        } else {
-            continue;
-        };
-        let member_info = types.info(member.ty);
-        let rust = match rust_type(types, member.ty, data_types) {
-            Some(rust) => rust,
-            None => {
-                return Err(format!(
-                    "has the variable {} of type {}",
-                    member.name, member_info.name
-                ));
-            }
-        };
-        list.push(HeldMember {
-            field: field_name(&member.name),
-            cells: member.field(),
-            rust,
-            ty: member.ty,
-        });
-    }
-    Ok((inputs, outputs))
-}
-
-/// The binding of the Structured Text function block `def`, which a field of the crate holds
-/// (RU-38, RU-39): its inputs, its outputs as its last call left them, and its call, which gives
-/// the instance the inputs, runs its body on its own variables where they lie and takes its
-/// outputs.
-fn block(
-    model: &Model<'_>,
-    used: &StructuredTextUse,
-    def: &FunctionBlockDef,
-    data_types: &mut BTreeSet<Ty>,
-) -> Result<String, NativeError> {
-    let unsupported = |what: String| {
-        NativeError::Compile(format!(
-            "st::{} at {}:{}: {} {what}, which a held block does not pass yet (specification 48 \
-             RU-39, milestone R3)",
-            used.name, used.file, used.line, def.name
-        ))
-    };
-    let name = def.name.as_str();
-    let Some(ty) = model.types.by_rust(&Owner::Fb(def).rust()) else {
-        return Err(NativeError::Compile(format!(
-            "function block {name} has no layout"
-        )));
-    };
-    let info = model.types.info(ty);
-    let (inputs, outputs) = held_members(&model.types, ty, data_types).map_err(unsupported)?;
-    let fields = |list: &[HeldMember]| -> String {
-        list.iter()
-            .map(|member| format!("    pub {}: {},\n", member.field, member.rust))
-            .collect()
-    };
-    let zeros = |list: &[HeldMember]| -> String {
-        list.iter()
-            .map(|member| format!("{}: trust_plc::declared_default()", member.field))
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
-    let stores: String = inputs
-        .iter()
-        .map(|member| {
-            format!(
-                "                    {}\n",
-                store(
-                    &model.types,
-                    member.ty,
-                    &format!("me.{}", member.cells),
-                    &format!("self.1.{}", member.field),
-                    Scope::Bindings
-                )
-            )
-        })
-        .collect();
-    let loads = outputs
-        .iter()
-        .map(|member| {
-            format!(
-                "{}: {}",
-                member.field,
-                load(
-                    &model.types,
-                    member.ty,
-                    &format!("me.{}", member.cells),
-                    Scope::Bindings
-                )
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    Ok(format!(
-        "/// The Structured Text function block `{name}` of the project, as a Rust function block or
-/// program holds it (specification 48 RU-38, RU-39).
-#[derive(Clone, Copy)]
-pub struct {name} {{
-    /// Its inputs, which `call` gives it.
-    pub input: {name}_Input,
-    /// Its outputs, as its last call left them.
-    pub output: {name}_Output,
-    place: trust_plc_abi::RefValue,
-}}
-
-/// The inputs of [`{name}`].
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct {name}_Input {{
-{input_fields}}}
-
-/// The outputs of [`{name}`].
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct {name}_Output {{
-{output_fields}}}
-
-impl trust_plc::Declared for {name} {{
-    const DEFAULT: Self = Self {{
-        input: {name}_Input {{ {input_zeros} }},
-        output: {name}_Output {{ {output_zeros} }},
-        place: trust_plc_abi::RefValue::NULL_REF,
-    }};
-}}
-
-impl {name} {{
-    #[doc(hidden)]
-    #[must_use]
-    pub const fn __held(place: trust_plc_abi::RefValue, input: {name}_Input, output: {name}_Output) -> Self {{
-        Self {{ input, output, place }}
-    }}
-
-    /// Calls the block as Structured Text calls an instance: gives it `input`, runs its body on its
-    /// own variables, and takes its outputs into `output`. Its instance lies in the program's
-    /// memory, which a unit test does not hold: there the call ends with
-    /// `FaultCode::ModuleInternal` (specification 48 RU-56).
-    ///
-    /// # Errors
-    ///
-    /// The fault of its Structured Text, which ends the scan.
-    pub fn call(&mut self, cx: &mut trust_plc::Cx) -> Result<(), trust_plc::Fault> {{
-        struct Call(trust_plc_abi::RefValue, {name}_Input);
-        impl trust_plc_abi::StructuredTextCall for Call {{
-            type Output = {name}_Output;
-            fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<{name}_Output, trust_plc_abi::Fault> {{
-                trust_plc_abi::module::with_areas(cx, |cx, areas| {{
-                    let w = __generated::World::new(cx, &areas)?;
-                    let me: &__generated::{cells} = areas.deref(cx, &self.0)?;
-{stores}                    __generated::fb_{body}(cx, &w, me)?;
-                    Ok({name}_Output {{ {loads} }})
-                }})
-            }}
-        }}
-        self.output = cx.__call_structured_text(Call(self.place, self.input))?;
-        Ok(())
-    }}
-}}
-
-",
-        input_fields = fields(&inputs),
-        output_fields = fields(&outputs),
-        input_zeros = zeros(&inputs),
-        output_zeros = zeros(&outputs),
-        cells = info.rust,
-        body = mangle(&def.name),
-    ))
 }
 
 #[cfg(test)]
