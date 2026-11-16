@@ -9,7 +9,7 @@ mod rust_pous_support;
 
 use rust_pous_support::{built, custom_project, manifest};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::native::{load, NoHooks};
+use trust_runtime::native::{load, Build, Device, NoHooks};
 use trust_runtime::value::{Duration, Value};
 
 /// A crate whose function passes its in-out and an output of its own to Structured Text.
@@ -278,4 +278,124 @@ END_CONFIGURATION
     assert_eq!(program.value("MAIN.BUMPER.PICKED"), Some(Value::DInt(150)));
     assert_eq!(program.value("MAIN.BUMPER.SEEN"), Some(Value::DInt(15)));
     assert_eq!(program.value("MAIN.BUMPER.AGAIN"), Some(Value::DInt(15)));
+}
+
+/// A crate whose blocks hold a Structured Text tally and give its in-out their own in-out, or
+/// nothing.
+const HELD_IN_OUTS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"COUNTER\")]
+#[budget(\"2us\")]
+pub struct Counter {
+    #[in_out] pub sum: Ref<i32>,
+    tally: st::TALLY,
+}
+
+impl Body for Counter {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.tally.input.TOTAL = self.sum;
+        self.tally.input.ADD = 7;
+        self.tally.call(cx)
+    }
+}
+
+#[trust_fb(name = \"UNBOUND\")]
+#[budget(\"2us\")]
+pub struct Unbound {
+    tally: st::TALLY,
+}
+
+impl Body for Unbound {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.tally.input.ADD = 1;
+        self.tally.call(cx)
+    }
+}
+";
+
+/// A project of `HELD_IN_OUTS` whose program runs `body` each cycle.
+fn held_in_outs(name: &str, body: &str) -> Option<(Build, Device)> {
+    let root = custom_project(
+        name,
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", HELD_IN_OUTS),
+        ],
+        &format!(
+            "FUNCTION_BLOCK TALLY
+VAR_IN_OUT
+    TOTAL : DINT;
+END_VAR
+VAR_INPUT
+    ADD : DINT;
+END_VAR
+TOTAL := TOTAL + ADD;
+END_FUNCTION_BLOCK
+
+PROGRAM Line
+VAR
+    n : DINT := 1;
+    counter : COUNTER;
+    unbound : UNBOUND;
+END_VAR
+{body}
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+"
+        ),
+    );
+    built(&root)
+}
+
+#[test]
+fn a_held_blocks_in_out_is_a_reference_its_call_gives_it() {
+    // RU-29, RU-39, specification 44 §7.3: a held block's in-out is a field of `input` of type
+    // `Ref<T>`: COUNTER gives TALLY the reference of its own in-out, the program's n, so TALLY adds
+    // 7 to n itself, 1 + 7 = 8, at the task's first call at 10 ms; a block whose in-out is left
+    // NULL ends the scan with `NullReference` where it reads it. Catches an in-out refused, one
+    // passed as a copy of its value (n stays 1), and a NULL read as zero.
+    let Some((built, device)) = held_in_outs(
+        "rust-pous-structured-text-held-in-out",
+        "counter(sum := n);",
+    ) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.N"), Some(Value::DInt(8)));
+    assert_eq!(
+        program.value("MAIN.COUNTER.TALLY.ADD"),
+        Some(Value::DInt(7))
+    );
+    let Some((built, device)) =
+        held_in_outs("rust-pous-structured-text-held-in-out-null", "unbound();")
+    else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("no task is due at the start");
+    let error = program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect_err("the NULL ends the scan");
+    assert_eq!(error, RuntimeError::NullReference);
 }
