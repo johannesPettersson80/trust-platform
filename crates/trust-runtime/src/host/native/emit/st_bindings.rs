@@ -161,8 +161,11 @@ fn function(
     // goes into a cell of the generated code's, which the function takes by reference.
     let mut setup = String::new();
     let mut arguments = String::new();
-    // What `call` writes back once the function returns: an in-out's value and an output.
-    let mut writebacks = String::new();
+    // What `call` writes back once the function ends: an in-out's value, which reaches the
+    // caller's variable also when the function faults, as a write through Structured Text's in-out
+    // does (RU-29), and an output, which the caller takes only when the function returns.
+    let mut in_outs = String::new();
+    let mut outputs = String::new();
     for param in &def.params {
         // `EN` is TRUE whenever the function runs (specification 10 §7.5).
         if param.name.eq_ignore_ascii_case("EN") {
@@ -175,21 +178,23 @@ fn function(
         let cells = by_cells(&model.types, ty, crate_structures, structures);
         if param.direction != ParamDirection::In {
             // An in-out or an output: cells the function reads and writes, whose value goes
-            // back to the caller's variable once it returns. A string in-out is a view of the
-            // caller's string, which the bindings do not pass yet.
+            // back to the caller's variable. A string in-out is a view of the caller's string,
+            // which the bindings do not pass yet.
+            let in_out = param.direction == ParamDirection::InOut;
             let rust = match kind {
-                Kind::Str(_) | Kind::WStr(_) if param.direction == ParamDirection::InOut => None,
+                Kind::Str(_) | Kind::WStr(_) if in_out => None,
                 Kind::Elem(elem) => Some(passed(*elem).0),
                 _ => cells,
             };
             let Some(rust) = rust else {
                 return Err(unsupported(format!(
-                    "has the in-out {} of type {}",
+                    "has the {} {} of type {}",
+                    if in_out { "in-out" } else { "output" },
                     param.name,
                     model.types.info(ty).name
                 )));
             };
-            if param.direction == ParamDirection::InOut {
+            if in_out {
                 let _ = write!(parameters, ", {name}: trust_plc::InOut<'a, {rust}>");
                 fields.push(format!("trust_plc::InOut<'a, {rust}>"));
                 let _ = writeln!(
@@ -198,7 +203,7 @@ fn function(
                      trust_plc::Place::store(&t{index}, &self.{index}.get());"
                 );
                 let _ = writeln!(
-                    writebacks,
+                    in_outs,
                     "                self.{index}.set(trust_plc::Place::load(&t{index}));"
                 );
             } else {
@@ -206,7 +211,7 @@ fn function(
                 fields.push(format!("&'a mut {rust}"));
                 let _ = writeln!(setup, "                let t{index} = zeroed();");
                 let _ = writeln!(
-                    writebacks,
+                    outputs,
                     "                *self.{index} = trust_plc::Place::load(&t{index});"
                 );
             }
@@ -258,7 +263,8 @@ fn function(
             "()".to_string(),
             "()".to_string(),
             format!(
-                "__generated::f_{function}(cx, &w{arguments})?;\n{writebacks}                Ok(())"
+                "let done = __generated::f_{function}(cx, &w{arguments});\n\
+                 {in_outs}                done?;\n{outputs}                Ok(())"
             ),
             "result",
         ),
@@ -274,8 +280,9 @@ fn function(
                     "trust_plc::Place::load(&core::cell::Cell::new(result))"
                 };
                 let run = format!(
-                    "let result = __generated::f_{function}(cx, &w{arguments})?;\n\
-                     {writebacks}                Ok(result)"
+                    "let result = __generated::f_{function}(cx, &w{arguments});\n\
+                     {in_outs}                let result = result?;\n\
+                     {outputs}                Ok(result)"
                 );
                 (rust, elem.rust().to_string(), run, load)
             }
@@ -284,8 +291,9 @@ fn function(
                 // first.
                 let run = format!(
                     "let out = zeroed();\n                \
-                     __generated::f_{function}(cx, &w, &out{arguments})?;\n\
-                     {writebacks}                Ok(trust_plc::Place::load(&out))"
+                     let done = __generated::f_{function}(cx, &w, &out{arguments});\n\
+                     {in_outs}                done?;\n\
+                     {outputs}                Ok(trust_plc::Place::load(&out))"
                 );
                 (rust.clone(), rust, run, "result")
             }
@@ -322,7 +330,11 @@ Ok({load})
 ",
         declared = def.name,
         name = used.name,
-        generic = if writebacks.is_empty() { "" } else { "<'a>" },
+        generic = if in_outs.is_empty() && outputs.is_empty() {
+            ""
+        } else {
+            "<'a>"
+        },
         fields = fields.join(", "),
         values = values.join(", "),
     );

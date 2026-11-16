@@ -7,6 +7,7 @@
 mod rust_pous_support;
 
 use rust_pous_support::{built, custom_project, manifest};
+use trust_runtime::error::RuntimeError;
 use trust_runtime::native::{load, NoHooks};
 use trust_runtime::value::{Duration, Value};
 
@@ -644,4 +645,78 @@ END_CONFIGURATION
     }
     assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(12.5)));
     assert_eq!(program.value("MAIN.RESULT"), Some(Value::LReal(17.5)));
+}
+
+/// A crate whose function passes its in-out to a Structured Text function that faults after
+/// writing it.
+const FAULTING_IN_OUT: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"BUMPED\")]
+#[budget(\"1us\")]
+pub fn bumped(cx: &mut Cx, count: InOut<'_, i32>, divisor: i32) -> Result<i32, Fault> {
+    st::BUMP(cx, count, divisor)
+}
+";
+
+#[test]
+fn an_in_out_keeps_what_a_faulting_function_wrote() {
+    // RU-29, RU-39: a write through an in-out is the caller's variable's at once, so a fault after
+    // it leaves it written: BUMP adds 1 to the program's n, 5 + 1 = 6, then divides 100 by 0, whose
+    // division by zero ends the scan at the task's first call at 10 ms with n at 6 and r, which
+    // the call never assigns, at its -1. Catches an in-out written back only when the function
+    // returns, which leaves n at 5.
+    let root = custom_project(
+        "rust-pous-structured-text-faulting-in-out",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", FAULTING_IN_OUT),
+        ],
+        "FUNCTION BUMP : DINT
+VAR_IN_OUT
+    count : DINT;
+END_VAR
+VAR_INPUT
+    divisor : DINT;
+END_VAR
+count := count + 1;
+BUMP := 100 / divisor;
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    n : DINT := 5;
+    d : DINT;
+    r : DINT := -1;
+END_VAR
+r := BUMPED(count := n, divisor := d);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("no task is due at the start");
+    let error = program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect_err("the division by zero ends the scan");
+    assert!(matches!(error, RuntimeError::DivisionByZero), "{error:?}");
+    assert_eq!(program.value("MAIN.N"), Some(Value::DInt(6)));
+    assert_eq!(program.value("MAIN.R"), Some(Value::DInt(-1)));
 }
