@@ -58,6 +58,11 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
             ))
         }
         Kind::Array { elem, dims } => array(types, *elem, dims, bytes),
+        // A reference that names no variable, `NULL`; one that names a variable has no constant.
+        Kind::Ref { .. } => bytes
+            .iter()
+            .all(|byte| *byte == 0)
+            .then(|| "trust_plc::Ref::NULL".to_string()),
         Kind::Enum {
             base,
             values,

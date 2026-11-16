@@ -629,3 +629,15 @@ fn a_unit_test_holds_no_program_for_structured_text() {
         .expect_err("a unit test holds no program");
     assert_eq!(fault.raw(), FaultCode::ModuleInternal as u32);
 }
+
+#[test]
+fn a_reference_starts_null() {
+    // RU-29, RU-39: a reference names no variable until one is given it, so its default as
+    // `Declared`, which a block's `new()` and a binding's held block take, and as `Default` is
+    // `NULL`. Catches a default reference that names a variable.
+    assert_eq!(
+        crate::declared_default::<crate::Ref<i32>>(),
+        crate::Ref::NULL
+    );
+    assert_eq!(crate::Ref::<i32>::default(), crate::Ref::NULL);
+}

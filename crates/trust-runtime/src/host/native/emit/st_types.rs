@@ -13,7 +13,7 @@ use smol_str::SmolStr;
 use super::super::model::Model;
 use super::super::types::{Kind, Ty};
 use super::super::NativeError;
-use super::st_bindings::{field_name, passed, rust_type};
+use super::st_bindings::{field_name, load, passed, rust_type, store, Scope};
 use super::st_defaults;
 
 /// The binding of the project's data type `ty`; empty for another type.
@@ -73,14 +73,21 @@ fn structure(
         let field = field_name(&member.name);
         let rust = rust_type(types, member.ty, data_types).unwrap_or_default();
         let _ = writeln!(fields, "    pub {field}: {rust},");
+        let cells = format!("self.{}", member.field());
         loads.push(format!(
-            "{field}: trust_plc::Place::load(&self.{})",
-            member.field()
+            "{field}: {}",
+            load(types, member.ty, &cells, Scope::Bindings)
         ));
         let _ = writeln!(
             stores,
-            "        trust_plc::Place::store(&self.{}, &value.{field});",
-            member.field()
+            "        {}",
+            store(
+                types,
+                member.ty,
+                &cells,
+                &format!("value.{field}"),
+                Scope::Bindings
+            )
         );
     }
     Ok(format!(

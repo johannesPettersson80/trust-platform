@@ -159,13 +159,13 @@ END_FUNCTION
 
 #[test]
 fn a_call_that_passes_what_rust_does_not_pass_yet_is_refused() {
-    // RU-38 as built so far (checklist G186): a function with a reference input is refused at the
-    // call, naming it, until the bindings pass `Ref<T>`. Catches a binding that passes a
-    // reference as the address it holds.
+    // RU-38 as built so far (checklist G186): a function with an input of a reference to a
+    // function block is refused at the call, naming it, until the bindings pass one. Catches a
+    // binding that passes an instance's reference as the address it holds.
     let declarations = "FUNCTION SCALE : LREAL
 VAR_INPUT
     x : LREAL;
-    target : REF_TO LREAL;
+    target : REF_TO TON;
 END_VAR
 SCALE := x;
 END_FUNCTION
@@ -226,7 +226,7 @@ END_FUNCTION_BLOCK
 ";
     let holder = "TYPE HOLDER :
 STRUCT
-    R : REF_TO INT;
+    R : REF_TO TON;
 END_STRUCT
 END_TYPE
 ";
