@@ -384,3 +384,39 @@ fn a_function_is_called_as_it_is_written() {
     assert_eq!(max_limited(&mut cx, 3, 7, 5), Ok(5));
     assert_eq!(max_limited(&mut cx, 3, 4, 5), Ok(4));
 }
+
+/// A program that moves its position half the way to its target and counts its runs.
+#[trust_program(name = "AXIS")]
+#[budget("2us")]
+pub struct Axis {
+    #[input]
+    pub target: f64,
+    #[output]
+    pub command: f64,
+    #[retain]
+    pub runs: u32,
+    position: f64,
+}
+
+impl Body for Axis {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.runs = checked::add(cx, self.runs, 1)?;
+        self.position += (self.target - self.position) * 0.5;
+        self.command = self.position;
+        Ok(())
+    }
+}
+
+#[test]
+fn a_programs_call_runs_its_body_as_a_blocks_does() -> Result<(), Fault> {
+    // RU-35, RU-56: a unit test runs a Rust program's call as it runs a block's: from its starting
+    // values, a target of 8 moves the position to 4 and then 6, and counts 2 runs. Catches a
+    // program whose attribute gives it no call of the kernel's form.
+    let mut cx = trust_plc::test::cx();
+    let mut axis = Axis::new();
+    axis.target = 8.0;
+    axis.call(&mut cx)?;
+    axis.call(&mut cx)?;
+    assert_eq!((axis.command, axis.runs), (6.0, 2));
+    Ok(())
+}

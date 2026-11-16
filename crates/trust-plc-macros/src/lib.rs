@@ -41,6 +41,24 @@ pub fn trust_fb(args: TokenStream, item: TokenStream) -> TokenStream {
     expand::function_block(args.into(), item.into()).into()
 }
 
+/// Declares a struct a Rust program (specification 48 RU-35): `pub struct` with named fields, its
+/// inputs (`#[input]`), outputs (`#[output]`), internal variables and retained ones (`#[retain]`),
+/// no in-outs, `impl Body` and `#[budget("...")]`. A configuration runs it like any program.
+///
+/// ```ignore
+/// #[trust_program(name = "AXIS_CONTROLLER")]
+/// #[budget("20us")]
+/// pub struct AxisController {
+///     #[input] pub target: f64,
+///     #[output] pub command: f64,
+///     #[retain] pub runs: u32,
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn trust_program(args: TokenStream, item: TokenStream) -> TokenStream {
+    expand::program(args.into(), item.into()).into()
+}
+
 /// Declares a function a Rust function (specification 48 §6.1): `pub fn`, its context first, its
 /// inputs after it, and a `Result` of its value and a fault, with `#[budget("...")]`.
 ///

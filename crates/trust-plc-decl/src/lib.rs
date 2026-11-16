@@ -44,6 +44,9 @@ pub enum Kind {
     /// A function block, `#[trust_fb]`: a struct whose instance lies in the program's areas
     /// (RU-27).
     FunctionBlock,
+    /// A program, `#[trust_program]`: a struct, as a function block, that a configuration runs
+    /// (RU-35).
+    Program,
 }
 
 /// The section of a variable (IEC §6.5.2, Table 13).
@@ -150,6 +153,8 @@ pub fn declared_kind(attribute: &Attribute) -> Option<Kind> {
         Some(Kind::FunctionBlock)
     } else if last_segment_is(attribute, "trust_function") {
         Some(Kind::Function)
+    } else if last_segment_is(attribute, "trust_program") {
+        Some(Kind::Program)
     } else {
         None
     }
@@ -203,6 +208,59 @@ pub fn function_block(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error
         result: None,
         methods: Vec::new(),
         implements,
+    })
+}
+
+/// Reads the program `item`, whose `#[trust_program]` has the arguments `args` (specification 48
+/// RU-35): a struct as a function block's, whose variables are its inputs, outputs, internal and
+/// retained variables, without in-outs.
+///
+/// # Errors
+///
+/// An error at the part of the item that breaks a rule of specification 48 §7, naming the rule.
+pub fn program(args: TokenStream, item: &ItemStruct) -> Result<Pou, Error> {
+    let name = pou_name(args, item.ident.span())?;
+    public(&item.vis, &item.ident, "program")?;
+    if !item.generics.params.is_empty() || item.generics.where_clause.is_some() {
+        return Err(Error::new(
+            item.generics.span(),
+            "a Rust program has no generic parameters: its instance lies in the program's areas \
+             with one layout (specification 48 RU-35)",
+        ));
+    }
+    let fields: Vec<&syn::Field> = match &item.fields {
+        Fields::Named(named) => named.named.iter().collect(),
+        Fields::Unit => Vec::new(),
+        Fields::Unnamed(unnamed) => {
+            return Err(Error::new(
+                unnamed.span(),
+                "a Rust program's variables are named fields: `pub struct Name { ... }`",
+            ))
+        }
+    };
+    let mut variables = Vec::with_capacity(fields.len());
+    for field in fields {
+        let Some(ident) = &field.ident else { continue };
+        let variable = field_variable(ident, &field.ty, &field.attrs)?;
+        if variable.section == Section::InOut {
+            return Err(Error::new(
+                ident.span(),
+                "a Rust program's variables are its inputs, outputs, internal and retained \
+                 variables, which its program connections bind: it has no in-out (specification \
+                 48 RU-35)",
+            ));
+        }
+        add(&mut variables, variable, ident.span())?;
+    }
+    Ok(Pou {
+        kind: Kind::Program,
+        name,
+        item: item.ident.unraw().to_string(),
+        budget_ns: budget::of(&item.attrs, item.ident.span())?,
+        variables,
+        result: None,
+        methods: Vec::new(),
+        implements: Vec::new(),
     })
 }
 

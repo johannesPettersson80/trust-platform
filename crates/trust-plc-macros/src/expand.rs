@@ -7,13 +7,37 @@ use trust_plc_decl::{DataType, Elementary, Pou, Section, Value, Variable};
 
 /// `#[trust_fb]`: the struct without the attributes its reader reads, and its calls.
 pub(crate) fn function_block(args: TokenStream, item: TokenStream) -> TokenStream {
+    instance_pou(
+        args,
+        item,
+        "`#[trust_fb]` declares a struct a Rust function block",
+        trust_plc_decl::function_block,
+    )
+}
+
+/// `#[trust_program]`: the struct without the attributes its reader reads, and its calls, as a
+/// function block's (specification 48 RU-35).
+pub(crate) fn program(args: TokenStream, item: TokenStream) -> TokenStream {
+    instance_pou(
+        args,
+        item,
+        "`#[trust_program]` declares a struct a Rust program",
+        trust_plc_decl::program,
+    )
+}
+
+/// A POU whose instance is a struct, read by `read`: the struct without the attributes its reader
+/// reads, and its calls; `misplaced` refuses another item.
+fn instance_pou(
+    args: TokenStream,
+    item: TokenStream,
+    misplaced: &str,
+    read: fn(TokenStream, &ItemStruct) -> syn::Result<Pou>,
+) -> TokenStream {
     let Ok(mut parsed) = syn::parse2::<ItemStruct>(item.clone()) else {
-        return refused(
-            "`#[trust_fb]` declares a struct a Rust function block",
-            item,
-        );
+        return refused(misplaced, item);
     };
-    let pou = trust_plc_decl::function_block(args, &parsed);
+    let pou = read(args, &parsed);
     remove_budget(&mut parsed.attrs);
     if let Fields::Named(fields) = &mut parsed.fields {
         for field in &mut fields.named {
@@ -203,8 +227,8 @@ pub(crate) fn structure(args: TokenStream, item: TokenStream) -> TokenStream {
 /// attribute, which reads it. Without a POU's attribute it is refused.
 pub(crate) fn budget(args: &TokenStream, item: TokenStream) -> TokenStream {
     const ALONE: &str = "`#[budget]` gives a Rust POU or method its budget: write it with \
-                         `#[trust_fb]`, `#[trust_function]` or `#[trust_method]` (specification 48 \
-                         RU-46)";
+                         `#[trust_fb]`, `#[trust_function]`, `#[trust_program]` or \
+                         `#[trust_method]` (specification 48 RU-46)";
     let Ok(mut parsed) = syn::parse2::<Item>(item.clone()) else {
         return refused(ALONE, item);
     };

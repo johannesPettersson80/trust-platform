@@ -100,6 +100,19 @@ fn program_body(
         let owner = if retained { "mr" } else { "me" };
         Some(format!("{owner}.{}", member.field()))
     })?;
+    // A Rust program's body is its Rust item, which the glue calls (specification 48 RU-35); its
+    // declaration holds no statements. The glue stays a function of its own, so that the code of
+    // the item inlined into it carries the POU's name (RU-45).
+    let rust = trust_hir::rust_pous::is_rust_pou(&node);
+    if rust {
+        let link = rust_link(context, &def.name)?;
+        super::rust_glue::program(&mut lowerer, index, &link, &context.front.rust_structures)?;
+    }
+    let signature = if rust {
+        format!("#[inline(never)]\n{signature}")
+    } else {
+        signature
+    };
     if let Some(list) = body_of(&node) {
         lowerer.body(&list)?;
     }

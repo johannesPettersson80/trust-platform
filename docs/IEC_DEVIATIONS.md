@@ -1260,7 +1260,8 @@ re-check them against this rule when touched.
 - Mitigation: the owner's decision of 15 November 2026 makes Rust programs part of truST
   (specification 48, "Owner requirements"); a Rust program keeps every rule of the scan of
   specification 48 §5, and its generated declaration lets every Structured Text tool treat it as a
-  program. Status: specified (specification 48 0.1, approved by the owner on 15 November 2026); not built yet.
+  program. Status: specified (specification 48 0.1, approved by the owner on 15 November 2026) and
+  built (milestone R2: `#[trust_program]`, whose declaration a configuration runs as any program's).
 
 ## 2026-11-15 - STEP as a variable name
 
