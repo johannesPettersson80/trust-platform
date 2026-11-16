@@ -551,7 +551,8 @@ pub(super) fn load(
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            let name = &info.name;
+            // A block in a namespace by its path through the namespaces' modules (IEC §6.9).
+            let name = info.name.replace('.', "::");
             Ok(format!(
                 "::st::{name}::__held(w.areas.refer(cx, &{place}, abi::RefValue::INSTANCE)?, \
                  ::st::{name}_Input {{ {} }}, ::st::{name}_Output {{ {} }})",

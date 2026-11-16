@@ -403,14 +403,18 @@ fn held(ty: &Type) -> Option<String> {
     };
     let segments: Vec<_> = path.path.segments.iter().collect();
     match segments.as_slice() {
-        [first, name]
-            if path.qself.is_none()
+        // A block in a namespace, `st::Motion::METER`, is the Structured Text `Motion.METER`
+        // (IEC §6.9, specification 48 RU-39).
+        [first, names @ ..]
+            if !names.is_empty()
+                && path.qself.is_none()
                 && path.path.leading_colon.is_none()
                 && first.ident == "st"
                 && first.arguments.is_none()
-                && name.arguments.is_none() =>
+                && names.iter().all(|name| name.arguments.is_none()) =>
         {
-            Some(name.ident.to_string())
+            let names: Vec<String> = names.iter().map(|name| name.ident.to_string()).collect();
+            Some(names.join("."))
         }
         _ => None,
     }

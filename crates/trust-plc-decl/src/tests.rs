@@ -973,6 +973,7 @@ fn a_block_holds_a_structured_text_block_as_its_own_variable() {
         pub struct Guard {
             hysteresis: st::HYSTERESIS,
             other: other::HYSTERESIS,
+            meter: st::Motion::METER,
         }
     };
     let pou = function_block(args("name = \"GUARD\""), &item).unwrap();
@@ -980,6 +981,9 @@ fn a_block_holds_a_structured_text_block_as_its_own_variable() {
     assert_eq!(pou.variables[0].section, crate::Section::Var);
     assert_eq!(pou.variables[0].ty.iec(), "HYSTERESIS");
     assert_eq!(pou.variables[1].ty, DataType::Named("HYSTERESIS".into()));
+    // A block in a namespace (IEC §6.9) is declared by its qualified name.
+    assert_eq!(pou.variables[2].ty, DataType::Held("Motion.METER".into()));
+    assert_eq!(pou.variables[2].ty.iec(), "Motion.METER");
     for fields in [
         "#[input] h: st::HYSTERESIS",
         "#[output] h: st::HYSTERESIS",
