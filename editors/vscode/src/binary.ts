@@ -131,3 +131,33 @@ function getDevelopmentBinaryPath(
   }
   return undefined;
 }
+
+function siblingTrustDevBinary(candidate: string | undefined): string | undefined {
+  if (!candidate || (!path.isAbsolute(candidate) && !candidate.includes(path.sep))) {
+    return undefined;
+  }
+  const suffix = process.platform === "win32" ? ".exe" : "";
+  const sibling = path.join(path.dirname(candidate), `trust-dev${suffix}`);
+  return fs.existsSync(sibling) ? sibling : undefined;
+}
+
+/**
+ * The developer CLI `trust-dev`: the test's own (`ST_DEV_TEST_BIN`), the one beside the runtime the
+ * tests or the settings name, else the configured or bundled one.
+ */
+export function trustDevBinary(context: vscode.ExtensionContext): string {
+  const envPath = process.env.ST_DEV_TEST_BIN?.trim();
+  if (envPath && fs.existsSync(envPath)) {
+    return envPath;
+  }
+  const envRuntimeSibling = siblingTrustDevBinary(process.env.ST_RUNTIME_TEST_BIN?.trim());
+  if (envRuntimeSibling) {
+    return envRuntimeSibling;
+  }
+  const configuredRuntime = getBinaryPath(context, "trust-runtime", "runtime.cli.path");
+  const configuredRuntimeSibling = siblingTrustDevBinary(configuredRuntime);
+  if (configuredRuntimeSibling) {
+    return configuredRuntimeSibling;
+  }
+  return getBinaryPath(context, "trust-dev", "dev.cli.path");
+}

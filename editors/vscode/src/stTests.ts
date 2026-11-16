@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawn } from "child_process";
 import * as vscode from "vscode";
-import { getBinaryPath } from "./binary";
+import { trustDevBinary } from "./binary";
 import { projectRequest } from "./projectRequest";
 
 // Native Testing for Structured Text (specification 25 §11.1). The language server finds the tests and the project each
@@ -213,32 +213,6 @@ function extractJsonPayload(stdout: string): string {
   return stdout.slice(start, end + 1);
 }
 
-function siblingTrustDevBinary(candidate: string | undefined): string | undefined {
-  if (!candidate || (!path.isAbsolute(candidate) && !candidate.includes(path.sep))) {
-    return undefined;
-  }
-  const suffix = process.platform === "win32" ? ".exe" : "";
-  const sibling = path.join(path.dirname(candidate), `trust-dev${suffix}`);
-  return fs.existsSync(sibling) ? sibling : undefined;
-}
-
-function resolveTestBinary(context: vscode.ExtensionContext): string {
-  const envPath = process.env.ST_DEV_TEST_BIN?.trim();
-  if (envPath && fs.existsSync(envPath)) {
-    return envPath;
-  }
-  const envRuntimeSibling = siblingTrustDevBinary(process.env.ST_RUNTIME_TEST_BIN?.trim());
-  if (envRuntimeSibling) {
-    return envRuntimeSibling;
-  }
-  const configuredRuntime = getBinaryPath(context, "trust-runtime", "runtime.cli.path");
-  const configuredRuntimeSibling = siblingTrustDevBinary(configuredRuntime);
-  if (configuredRuntimeSibling) {
-    return configuredRuntimeSibling;
-  }
-  return getBinaryPath(context, "trust-dev", "dev.cli.path");
-}
-
 function runRuntimeCommand(
   binary: string,
   args: string[],
@@ -275,7 +249,7 @@ async function executeRuntimeTests(
   projectRoot: string,
   filter?: string
 ): Promise<RuntimePayload> {
-  const binary = resolveTestBinary(context);
+  const binary = trustDevBinary(context);
   const args = ["test", "--project", projectRoot, "--output", "json"];
   if (filter && filter.trim()) {
     args.push("--filter", filter.trim());

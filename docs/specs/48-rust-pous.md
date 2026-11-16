@@ -405,9 +405,10 @@ Structured Text side is refused with the advice to rename it in Rust, where its 
 **RU-24. Writing them.** `trust-dev rust declarations` writes the generated declarations from the
 crate's sources, without compiling them: it reads the attributed items with the reader the
 attributes use (`trust-plc-decl`), so the declarations and the compiled code agree by
-construction. The VS Code extension runs it when a `.rs` file of the crate is saved; the build runs
-it first (§3, step 1) and fails when the committed file differs from what it writes, naming the
-command, so a project whose declarations are out of date never builds.
+construction. The VS Code extension runs it when it opens the project and when a `.rs` file of the
+project is saved, and shows a failure with its report; the build runs it first (§3, step 1) and fails
+when the committed file differs from what it writes, naming the command, so a project whose
+declarations are out of date never builds.
 
 ### 6.2 Data types
 
