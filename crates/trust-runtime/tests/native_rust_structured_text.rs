@@ -243,20 +243,20 @@ END_FUNCTION
 
 #[test]
 fn a_call_that_passes_what_rust_does_not_pass_yet_is_refused() {
-    // RU-38 as built so far (checklist G186): a call passes elementary inputs and an elementary
-    // result; a function with a STRING input is refused at the call, naming it. Catches a binding
-    // that passes a string's cells as a number.
+    // RU-38 as built so far (checklist G186): a call passes elementary and string inputs and
+    // results; a function with an array input is refused at the call, naming it. Catches a binding
+    // that passes an array's cells as a number.
     let declarations = "FUNCTION SCALE : LREAL
 VAR_INPUT
     x : LREAL;
-    unit : STRING;
+    factors : ARRAY[1..3] OF LREAL;
 END_VAR
 SCALE := x;
 END_FUNCTION
 ";
-    let error = refusal("rust-pous-structured-text-string", "SCALE", declarations);
+    let error = refusal("rust-pous-structured-text-array", "SCALE", declarations);
     assert!(
-        error.contains("st::SCALE at rust/src/lib.rs:9: SCALE has the parameter unit of type")
+        error.contains("st::SCALE at rust/src/lib.rs:9: SCALE has the parameter factors of type")
             && error.contains("which a call from Rust does not pass yet"),
         "{error}"
     );
@@ -720,4 +720,110 @@ fn layer_one_is_one_text_for_every_image() {
         assert_eq!(program.value("MAIN.DOUBLED"), Some(Value::LReal(3.0)));
         assert_eq!(program.value("MAIN.BYTES"), Some(Value::DInt(8)));
     }
+}
+
+/// A crate whose function greets through Structured Text and whose block holds a tagger.
+const TEXTS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"WELCOME\")]
+#[budget(\"1us\")]
+pub fn welcome(cx: &mut Cx, who: Str<10>) -> Result<Str<20>, Fault> {
+    st::GREET(cx, who)
+}
+
+#[trust_fb(name = \"LABELLER\")]
+#[budget(\"2us\")]
+pub struct Labeller {
+    #[input] pub label: Str<8>,
+    #[output] pub tagged: Str<12>,
+    tagger: st::TAGGER,
+}
+
+impl Body for Labeller {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.tagger.input.LABEL = self.label;
+        self.tagger.call(cx)?;
+        self.tagged = self.tagger.output.TAGGED;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn strings_pass_through_calls_and_held_blocks() {
+    // RU-25, RU-38, RU-39: a call passes a STRING[10] input and gives a STRING[20] result as the
+    // Rust POU's `Str<10>` and `Str<20>`, and a held block's STRING inputs and outputs are `Str<8>`
+    // and `Str<12>`: GREET('Ann') = 'Hello ' + 'Ann' = 'Hello Ann', and TAGGER('pump') = '#pump',
+    // at the task's first call at 10 ms; the instance keeps its input. Catches a string passed as
+    // its cells' bytes without its length, and a result left in the generated code's cell.
+    let root = custom_project(
+        "rust-pous-structured-text-strings",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", TEXTS),
+        ],
+        "FUNCTION GREET : STRING[20]
+VAR_INPUT
+    who : STRING[10];
+END_VAR
+GREET := CONCAT('Hello ', who);
+END_FUNCTION
+
+FUNCTION_BLOCK TAGGER
+VAR_INPUT
+    LABEL : STRING[8];
+END_VAR
+VAR_OUTPUT
+    TAGGED : STRING[12];
+END_VAR
+TAGGED := CONCAT('#', LABEL);
+END_FUNCTION_BLOCK
+
+PROGRAM Line
+VAR
+    message : STRING[20];
+    labeller : LABELLER;
+    tagged : STRING[12];
+END_VAR
+message := WELCOME(who := 'Ann');
+labeller(label := 'pump');
+tagged := labeller.tagged;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(
+        program.value("MAIN.MESSAGE"),
+        Some(Value::String("Hello Ann".into()))
+    );
+    assert_eq!(
+        program.value("MAIN.TAGGED"),
+        Some(Value::String("#pump".into()))
+    );
+    assert_eq!(
+        program.value("MAIN.LABELLER.TAGGER.LABEL"),
+        Some(Value::String("pump".into()))
+    );
 }

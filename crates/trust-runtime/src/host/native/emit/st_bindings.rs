@@ -117,41 +117,87 @@ pub(super) fn bindings(
         let mut parameters = String::new();
         let mut fields = Vec::new();
         let mut values = Vec::new();
+        // What `call` does before the generated function's call, and what it passes it: a string
+        // goes into a cell of the generated code's, which the function takes by reference.
+        let mut setup = String::new();
+        let mut arguments = String::new();
         for param in &def.params {
             // `EN` is TRUE whenever the function runs (specification 10 §7.5).
             if param.name.eq_ignore_ascii_case("EN") {
                 continue;
             }
             let ty = model.ty(param.type_id)?;
-            let elem = match model.types.info(ty).kind {
-                Kind::Elem(elem) if param.direction == ParamDirection::In => Some(elem),
-                _ => None,
-            };
-            let Some(elem) = elem else {
-                return Err(unsupported(format!(
-                    "has the parameter {} of type {}",
-                    param.name,
-                    model.types.info(ty).name
-                )));
-            };
             let name = parameter_name(&param.name);
-            let (rust, own) = passed(elem);
-            let _ = write!(parameters, ", {name}: {rust}");
-            values.push(if own {
-                name
-            } else {
-                format!(
-                    "{{ let cell = core::cell::Cell::<{}>::default(); \
-                     trust_plc::Place::store(&cell, &{name}); cell.get() }}",
-                    elem.rust()
-                )
-            });
-            fields.push(elem.rust());
+            let index = values.len();
+            let kind = &model.types.info(ty).kind;
+            match (param.direction == ParamDirection::In, kind) {
+                (true, Kind::Elem(elem)) => {
+                    let (rust, own) = passed(*elem);
+                    let _ = write!(parameters, ", {name}: {rust}");
+                    values.push(if own {
+                        name
+                    } else {
+                        format!(
+                            "{{ let cell = core::cell::Cell::<{}>::default(); \
+                             trust_plc::Place::store(&cell, &{name}); cell.get() }}",
+                            elem.rust()
+                        )
+                    });
+                    fields.push(elem.rust().to_string());
+                    let _ = write!(arguments, ", self.{index}");
+                }
+                (true, Kind::Str(_) | Kind::WStr(_)) => {
+                    let (rust, cells) = text_types(kind);
+                    let _ = write!(parameters, ", {name}: {rust}");
+                    values.push(name);
+                    fields.push(rust);
+                    let _ = writeln!(
+                        setup,
+                        "                let t{index} = {cells}::new();\n                \
+                         trust_plc::Place::store(&t{index}, &self.{index});"
+                    );
+                    let _ = write!(arguments, ", &t{index}");
+                }
+                _ => {
+                    return Err(unsupported(format!(
+                        "has the parameter {} of type {}",
+                        param.name,
+                        model.types.info(ty).name
+                    )));
+                }
+            }
         }
-        let result = match super::return_type(model, Some(def.return_type))? {
-            None => None,
-            Some(ty) => match model.types.info(ty).kind {
-                Kind::Elem(elem) => Some(elem),
+        // The binding's result, the generated function's, how `call` gets it, and how the one
+        // becomes the other once the call returns.
+        let function = mangle(&def.name);
+        let (returns, raw, run, load) = match super::return_type(model, Some(def.return_type))? {
+            None => (
+                "()".to_string(),
+                "()".to_string(),
+                format!("__generated::f_{function}(cx, &w{arguments})"),
+                "result",
+            ),
+            Some(ty) => match &model.types.info(ty).kind {
+                Kind::Elem(elem) => {
+                    let (rust, own) = passed(*elem);
+                    let load = if own {
+                        "result"
+                    } else {
+                        "trust_plc::Place::load(&core::cell::Cell::new(result))"
+                    };
+                    let run = format!("__generated::f_{function}(cx, &w{arguments})");
+                    (rust, elem.rust().to_string(), run, load)
+                }
+                kind @ (Kind::Str(_) | Kind::WStr(_)) => {
+                    // A string result is written into the cell the function takes first.
+                    let (rust, cells) = text_types(kind);
+                    let run = format!(
+                        "let out = {cells}::new();\n                \
+                         __generated::f_{function}(cx, &w, &out{arguments})?;\n                \
+                         Ok(trust_plc::Place::load(&out))"
+                    );
+                    (rust.clone(), rust, run, "result")
+                }
                 _ => {
                     return Err(unsupported(format!(
                         "returns a {}",
@@ -160,22 +206,6 @@ pub(super) fn bindings(
                 }
             },
         };
-        // The binding's result, the generated function's, and how the one becomes the other.
-        let (returns, raw, load) = match result {
-            None => ("()".to_string(), "()", "result"),
-            Some(elem) => {
-                let (rust, own) = passed(elem);
-                let load = if own {
-                    "result"
-                } else {
-                    "trust_plc::Place::load(&core::cell::Cell::new(result))"
-                };
-                (rust, elem.rust(), load)
-            }
-        };
-        let arguments: String = (0..values.len())
-            .map(|index| format!(", self.{index}"))
-            .collect();
         let _ = write!(
             text,
             "/// The Structured Text function `{declared}` of the project (specification 48 RU-39). It runs on
@@ -189,7 +219,7 @@ pub fn {name}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc
         fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<{raw}, trust_plc_abi::Fault> {{
             trust_plc_abi::module::with_areas(cx, |cx, areas| {{
                 let w = __generated::World::new(cx, &areas)?;
-                __generated::f_{function}(cx, &w{arguments})
+{setup}                {run}
             }})
         }}
     }}
@@ -201,11 +231,27 @@ pub fn {name}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc
             declared = def.name,
             name = used.name,
             fields = fields.join(", "),
-            function = mangle(&def.name),
             values = values.join(", "),
         );
     }
     Ok(text)
+}
+
+/// The Rust type of RU-25's table of the string type `kind` and the generated code's cell type of
+/// it: `trust_plc::Str<N>` and `trust_plc_abi::Str::<N>` for `STRING[N]`, the wide ones for
+/// `WSTRING[N]`.
+fn text_types(kind: &Kind) -> (String, String) {
+    match kind {
+        Kind::WStr(capacity) => (
+            format!("trust_plc::WStr<{capacity}>"),
+            format!("trust_plc_abi::WStr::<{capacity}>"),
+        ),
+        Kind::Str(capacity) => (
+            format!("trust_plc::Str<{capacity}>"),
+            format!("trust_plc_abi::Str::<{capacity}>"),
+        ),
+        _ => (String::new(), String::new()),
+    }
 }
 
 /// The name of a held block's input or output in its binding: the Structured Text name as declared,
@@ -234,7 +280,7 @@ pub(super) struct HeldMember {
 /// # Errors
 ///
 /// What the binding does not pass yet, described: a name in a namespace, an in-out, a variable of
-/// a type other than RU-25's elementary types.
+/// a type other than RU-25's elementary types and strings.
 pub(super) fn held_members(
     types: &Types<'_>,
     ty: Ty,
@@ -259,16 +305,20 @@ pub(super) fn held_members(
             continue;
         };
         let member_info = types.info(member.ty);
-        let Kind::Elem(elem) = member_info.kind else {
-            return Err(format!(
-                "has the variable {} of type {}",
-                member.name, member_info.name
-            ));
+        let rust = match &member_info.kind {
+            Kind::Elem(elem) => passed(*elem).0,
+            kind @ (Kind::Str(_) | Kind::WStr(_)) => text_types(kind).0,
+            _ => {
+                return Err(format!(
+                    "has the variable {} of type {}",
+                    member.name, member_info.name
+                ));
+            }
         };
         list.push(HeldMember {
             field: field_name(&member.name),
             cells: member.field(),
-            rust: passed(elem).0,
+            rust,
         });
     }
     Ok((inputs, outputs))

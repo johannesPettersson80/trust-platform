@@ -7,4 +7,4 @@
   statements count against the scan's budget. A crate that writes `st::` without the line, a name
   of no Structured Text function, `use st::*`, and Structured Text that Rust calls and that calls
   Rust back are refused with the place and the chain (RU-39, RU-40). Functions whose inputs and
-  result are elementary types are called so far; function blocks, strings and structures follow.
+  result are elementary types or strings are called so far; arrays and structures follow.
