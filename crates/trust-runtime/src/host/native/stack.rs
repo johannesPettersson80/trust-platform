@@ -3,13 +3,15 @@
 //! from the compiler's `prolog-epilog` remarks, the kernel functions a statement may call on the same
 //! stack, and a margin of a quarter; and the bytes of one call level of a recursion, which the call
 //! depth bounds (§6.4). The call graph comes from the call relocations the link keeps
-//! (`--emit-relocs`).
+//! (`--emit-relocs`) and the functions' calls of themselves (`call_graph`); a cycle no call depth
+//! bounds is refused.
 
 use std::collections::HashMap;
 
-use object::{Object, ObjectSection, ObjectSymbol, RelocationFlags, RelocationTarget};
+use object::{Object, ObjectSymbol};
 use trust_runtime_core::native::image::Target;
 
+use super::call_graph::CallGraph;
 use super::NativeError;
 
 /// The stack a kernel function may take on the task's stack when a module calls it: a stop of
@@ -63,72 +65,44 @@ pub(super) fn bound(
     entries: &[String],
 ) -> Result<StackFigure, NativeError> {
     let refuse = |reason: String| NativeError::Module(reason);
-    let file = object::File::parse(elf).map_err(|error| refuse(format!("{error}")))?;
-    let Some(text) = file.section_by_name(".text") else {
+    // The functions and their calls, each function's call of itself among them. Functions the
+    // linker folded into one, such as two entry points of the same code, share one start: the first
+    // name stays in the graph, and every name keeps its start in `starts`.
+    let graph = super::call_graph::read(elf, target)?;
+    if graph.functions.is_empty() {
         return Err(refuse("the module has no code".into()));
-    };
-    // The functions by their start, each with its end and its name. Functions the linker folded
-    // into one, such as two entry points of the same code, share one start: the first name stays
-    // in the list, and every name keeps its start in `starts`.
-    let mut functions: Vec<(u64, u64, String)> = file
-        .symbols()
-        .filter(|symbol| symbol.kind() == object::SymbolKind::Text && symbol.size() > 0)
-        .filter_map(|symbol| {
-            let name = symbol.name().ok()?.to_string();
-            let start = symbol.address() & !1;
-            Some((start, start + symbol.size(), name))
-        })
-        .collect();
+    }
+    let unbounded = unbounded_cycles(&graph);
+    if !unbounded.is_empty() {
+        let cycles: Vec<String> = unbounded
+            .iter()
+            .map(|cycle| match cycle.as_slice() {
+                [one] => format!("{one} calls itself"),
+                many => format!("{} call each other", many.join(", ")),
+            })
+            .collect();
+        return Err(refuse(format!(
+            "{}: no call depth of a Structured Text recursion bounds it, so the stack has no bound \
+             (specification 44 §6.4, §8.5)",
+            cycles.join("; ")
+        )));
+    }
+    let file = object::File::parse(elf).map_err(|error| refuse(format!("{error}")))?;
     let starts: HashMap<String, u64> = file
         .symbols()
         .filter(|symbol| symbol.kind() == object::SymbolKind::Text)
         .filter_map(|symbol| Some((symbol.name().ok()?.to_string(), symbol.address() & !1)))
         .collect();
-    functions.sort_by_key(|(start, _, _)| *start);
-    functions.dedup_by_key(|(start, _, _)| *start);
+    let functions = &graph.functions;
     let containing = |address: u64| {
-        let index = functions.partition_point(|(start, _, _)| *start <= address);
+        let index = functions.partition_point(|function| function.start <= address);
         index
             .checked_sub(1)
-            .filter(|index| address < functions[*index].1)
+            .filter(|index| address < functions[*index].end)
     };
-    let (kinds, displacement) = calls(target);
     let mut callees: Vec<Vec<usize>> = vec![Vec::new(); functions.len()];
-    for (offset, relocation) in text.relocations() {
-        let RelocationFlags::Elf { r_type } = relocation.flags() else {
-            continue;
-        };
-        if !kinds.contains(&r_type) {
-            continue;
-        }
-        let Some(caller) = containing(offset) else {
-            continue;
-        };
-        let called = match relocation.target() {
-            RelocationTarget::Symbol(index) => {
-                let symbol = file
-                    .symbol_by_index(index)
-                    .map_err(|error| refuse(format!("{error}")))?;
-                if symbol.kind() == object::SymbolKind::Section {
-                    // A local call: the section's address and the addend name the place.
-                    let place = i64::try_from(symbol.address()).unwrap_or(i64::MAX)
-                        + relocation.addend()
-                        + displacement;
-                    u64::try_from(place).ok()
-                } else if symbol.is_undefined() {
-                    None
-                } else {
-                    Some(symbol.address() & !1)
-                }
-            }
-            _ => None,
-        };
-        // A function's call of itself is kept: it is a recursion's cycle of one.
-        if let Some(callee) = called.and_then(containing)
-            && !callees[caller].contains(&callee)
-        {
-            callees[caller].push(callee);
-        }
+    for &(caller, callee) in &graph.edges {
+        callees[caller].push(callee);
     }
     // A function's frame by its start, the largest of the names folded there.
     let mut frame_at: HashMap<u64, u64> = HashMap::new();
@@ -143,7 +117,13 @@ pub(super) fn bound(
     let return_address = if target == Target::X86_64 { 8 } else { 0 };
     let frames: Vec<u64> = functions
         .iter()
-        .map(|(start, _, _)| frame_at.get(start).copied().unwrap_or(UNKNOWN_FRAME) + return_address)
+        .map(|function| {
+            frame_at
+                .get(&function.start)
+                .copied()
+                .unwrap_or(UNKNOWN_FRAME)
+                + return_address
+        })
         .collect();
     let (deepest, cycle) = deepest_chains(&callees, &frames);
     let mut worst = 0u64;
@@ -158,6 +138,29 @@ pub(super) fn bound(
         bound: total.saturating_add(total.div_ceil(4)),
         call_level: cycle.saturating_add(cycle.div_ceil(4)),
     })
+}
+
+/// The cycles of `graph` that pass through no `recurse` of the program library's interface
+/// (§6.4), whose turns no call depth counts: each as its functions' names in their addresses'
+/// order. Structured Text's recursion passes through `recurse`; a Rust POU's never does, and
+/// specification 48 RU-18 refuses it first.
+pub(super) fn unbounded_cycles(graph: &CallGraph) -> Vec<Vec<String>> {
+    super::call_graph::cycles(graph)
+        .into_iter()
+        .filter(|cycle| {
+            !cycle.iter().any(|function| {
+                graph.functions[*function]
+                    .name
+                    .starts_with("trust_plc_abi::module::recurse")
+            })
+        })
+        .map(|cycle| {
+            cycle
+                .into_iter()
+                .map(|function| graph.functions[function].name.clone())
+                .collect()
+        })
+        .collect()
 }
 
 /// The deepest chain of frames from each function of the call graph `callees`, each function's
@@ -304,5 +307,37 @@ mod tests {
         let (deepest, cycle) = deepest_chains(&callees, &frames);
         assert_eq!(deepest[0], 64);
         assert_eq!(cycle, 24);
+    }
+
+    #[test]
+    fn a_cycle_without_a_recursive_call_has_no_bound() {
+        // Specification 44 §6.4 and §8.5: Structured Text's recursion passes through `recurse`,
+        // whose call depth bounds it; a function that calls itself, or two that call each other,
+        // without it have no bound and are named, in their addresses' order. Catches such a cycle
+        // taken for a bounded recursion, and Structured Text's refused.
+        use super::super::call_graph::{CallGraph, Function};
+        let function = |index: u64, name: &str| Function {
+            start: index * 16,
+            end: index * 16 + 16,
+            raw: name.to_string(),
+            name: name.to_string(),
+        };
+        let graph = CallGraph {
+            functions: vec![
+                function(0, "trust_module::f_FACT"),
+                function(1, "trust_plc_abi::module::recurse"),
+                function(2, "libm::helper"),
+                function(3, "lib::even"),
+                function(4, "lib::odd"),
+            ],
+            edges: vec![(0, 1), (1, 0), (2, 2), (3, 4), (4, 3)],
+        };
+        assert_eq!(
+            super::unbounded_cycles(&graph),
+            [
+                vec!["libm::helper".to_string()],
+                vec!["lib::even".to_string(), "lib::odd".to_string()]
+            ]
+        );
     }
 }
