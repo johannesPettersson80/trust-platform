@@ -516,3 +516,98 @@ END_CONFIGURATION
         Some(Value::Bool(false))
     );
 }
+
+/// A Rust function block that holds a Structured Text block of a TIME and a BYTE.
+const STRETCHER: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"STRETCHER\")]
+#[budget(\"2us\")]
+pub struct Stretcher {
+    #[input] pub pt: Time,
+    #[output] pub doubled: Time,
+    #[output] pub low: Byte,
+    stretch: st::STRETCH,
+}
+
+impl Body for Stretcher {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.stretch.input.PT = self.pt;
+        self.stretch.input.BITS = Byte(0xA7);
+        self.stretch.call(cx)?;
+        self.doubled = self.stretch.output.DOUBLED;
+        self.low = self.stretch.output.LOW;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_held_block_passes_rust_types_of_structured_text_types() {
+    // RU-25, RU-39: a held block's inputs and outputs are the Rust types a Rust POU writes for
+    // them, `Time` for TIME and `Byte` for BYTE: STRETCH gives PT + PT = T#250ms + T#250ms =
+    // T#500ms and 16#A7 AND 16#0F = 16#07 at the task's first call at 10 ms, and keeps PT, the
+    // input the Rust block gave it. Catches an input or an output passed as its cell's raw form.
+    let root = custom_project(
+        "rust-pous-structured-text-held-types",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", STRETCHER),
+        ],
+        "FUNCTION_BLOCK STRETCH
+VAR_INPUT
+    PT : TIME;
+    BITS : BYTE;
+END_VAR
+VAR_OUTPUT
+    DOUBLED : TIME;
+    LOW : BYTE;
+END_VAR
+DOUBLED := PT + PT;
+LOW := BITS AND 16#0F;
+END_FUNCTION_BLOCK
+
+PROGRAM Line
+VAR
+    s : STRETCHER;
+    doubled : TIME;
+    low : BYTE;
+END_VAR
+s(pt := T#250ms);
+doubled := s.doubled;
+low := s.low;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(
+        program.value("MAIN.DOUBLED"),
+        Some(Value::Time(Duration::from_millis(500)))
+    );
+    assert_eq!(program.value("MAIN.LOW"), Some(Value::Byte(0x07)));
+    assert_eq!(
+        program.value("MAIN.S.STRETCH.PT"),
+        Some(Value::Time(Duration::from_millis(250)))
+    );
+}

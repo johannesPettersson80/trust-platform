@@ -51,9 +51,10 @@ pub trait Placed: Sized {
     fn store(&self, area: &Self::Area);
 }
 
-/// A type the project's crate declares for its Rust POUs' variables, an enumeration
-/// (`#[trust_enum]`) or a structure (`#[trust_struct]`, specification 48 RU-25): its default, which
-/// a variable without an initial value starts at.
+/// A type of a Rust POU's variable that has a default, which a variable without an initial value
+/// starts at (specification 48 RU-25, RU-26): RU-25's elementary types, their IEC defaults (0,
+/// `FALSE`, `T#0s`; the dates' in `dates`), and the types the project's crate declares, an
+/// enumeration (`#[trust_enum]`) or a structure (`#[trust_struct]`).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is no type of specification 48 RU-25",
     label = "mark its `enum` with `#[trust_enum]` or its `struct` with `#[trust_struct]`, or use a \
@@ -70,6 +71,37 @@ pub trait Declared: Copy {
 pub const fn declared_default<T: Declared>() -> T {
     T::DEFAULT
 }
+
+/// The IEC default of each elementary type of RU-25's table but the dates (IEC §6.4.2, Table 10).
+macro_rules! declared_zero {
+    ($($ty:ty = $zero:expr),* $(,)?) => {$(
+        impl Declared for $ty {
+            const DEFAULT: Self = $zero;
+        }
+    )*};
+}
+
+declared_zero!(
+    bool = false,
+    i8 = 0,
+    i16 = 0,
+    i32 = 0,
+    i64 = 0,
+    u8 = 0,
+    u16 = 0,
+    u32 = 0,
+    u64 = 0,
+    f32 = 0.0,
+    f64 = 0.0,
+    Byte = Byte(0),
+    Word = Word(0),
+    Dword = Dword(0),
+    Lword = Lword(0),
+    Char = Char(0),
+    WChar = WChar(0),
+    Time = Time::ZERO,
+    LTime = LTime::ZERO,
+);
 
 /// A `BOOL` lies in a byte, 0 or 1 (specification 44 §6.2).
 impl Placed for bool {
