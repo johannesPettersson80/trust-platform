@@ -10,6 +10,7 @@ use syn::ext::IdentExt as _;
 use syn::{Attribute, Ident, ImplItem, Item, ItemImpl, Type, UseTree, Visibility};
 use trust_plc_decl::{Kind, Method, Pou};
 
+use super::structured_text::{self, Uses};
 use super::types::{RustEnumeration, RustStructure};
 use super::{RustPou, RustPouError};
 
@@ -18,6 +19,8 @@ pub(super) struct Found {
     pub(super) pous: Vec<RustPou>,
     pub(super) enumerations: Vec<RustEnumeration>,
     pub(super) structures: Vec<RustStructure>,
+    /// What the crate writes under `st::` (RU-38).
+    pub(super) structured_text: Uses,
     pub(super) errors: Vec<RustPouError>,
 }
 
@@ -69,6 +72,8 @@ struct Walk<'a> {
     exports: Vec<(Vec<String>, String)>,
     /// The methods (RU-32), each with the name of its `impl` block's type, its file and its place.
     methods: Vec<(String, Method, String, Span)>,
+    /// What the crate writes under `st::` (RU-38).
+    structured_text: Uses,
     errors: Vec<RustPouError>,
 }
 
@@ -81,6 +86,7 @@ pub(super) fn walk(project: &Path, root: &Path) -> Found {
         structures: Vec::new(),
         exports: Vec::new(),
         methods: Vec::new(),
+        structured_text: Uses::default(),
         errors: Vec::new(),
     };
     let children = root.parent().map(Path::to_path_buf).unwrap_or_default();
@@ -137,6 +143,10 @@ impl Walk<'_> {
                     inline: false,
                 };
                 self.items(&parsed.items, &place, module);
+                // What the file writes under `st::`, its inline test modules too (RU-38).
+                if let Ok(tokens) = text.parse::<TokenStream>() {
+                    structured_text::scan(tokens, &label, &mut self.structured_text);
+                }
             }
             Err(error) => self.error(&label, error.span(), error.to_string()),
         }
@@ -531,6 +541,7 @@ impl Walk<'_> {
             pous: pous.into_iter().map(|(pou, _)| pou).collect(),
             enumerations,
             structures,
+            structured_text: self.structured_text,
             errors: self.errors,
         }
     }

@@ -5,7 +5,9 @@
 //! The kernel interface's own context (specification 44 §8.2) holds the statement budget, the call
 //! depth, the breakpoints and the kernel's pointers, which only the generated code and the kernel
 //! may change. The generated code gives each call of a Rust POU a [`Cx`] made from a clone of it and
-//! takes back only the record of the fault the call returns, so no Rust code reaches the rest.
+//! takes back the record of the fault the call returns and the statements the Structured Text it
+//! calls spent, so no Rust code reaches the rest. That Structured Text runs on the clone through
+//! the generated bindings (RU-38), which no Rust code can make.
 
 use trust_plc_abi::module;
 
@@ -80,6 +82,28 @@ impl Cx {
     pub(crate) fn raw(&mut self) -> &mut trust_plc_abi::Cx {
         &mut self.raw
     }
+
+    /// Runs `call`, a call of Structured Text that the generated bindings make (specification 48
+    /// RU-38): on the kernel's context, so its statements count against the activation's statement
+    /// budget and stop at their breakpoints (RU-52), with the context's statement as it was once
+    /// the call returns, with a fault too: the Structured Text's fault keeps its own statement in
+    /// its record, and a fault the POU raises after the call names the POU's calling statement
+    /// (RU-53). Only generated code calls it: `C` is a trait of the interface crate, which a Rust
+    /// POU's crate cannot name (RU-20).
+    ///
+    /// # Errors
+    ///
+    /// The Structured Text's fault, with the statement it ended.
+    #[doc(hidden)]
+    pub fn __call_structured_text<C: trust_plc_abi::StructuredTextCall>(
+        &mut self,
+        call: C,
+    ) -> Result<C::Output, Fault> {
+        let stmt = self.raw.stmt;
+        let output = call.call(&mut self.raw);
+        self.raw.stmt = stmt;
+        output
+    }
 }
 
 /// The context of a Rust POU's call, made from a clone of `raw`, the generated code's.
@@ -89,12 +113,14 @@ pub fn enter(raw: &trust_plc_abi::Cx) -> Cx {
     Cx::of(raw.clone())
 }
 
-/// Ends the call's context `cx`: takes back into `kernel` the record of the fault the call returns,
-/// the only part of the kernel's context a Rust POU writes, and gives the POU's `ENO` (RU-30).
+/// Ends the call's context `cx`: takes back into `kernel` the record of the fault the call returns
+/// and the statement budget the Structured Text it called spent (RU-38), the only parts of the
+/// kernel's context its call changes, and gives the POU's `ENO` (RU-30).
 #[inline]
 #[must_use]
 pub fn leave(cx: Cx, kernel: &mut trust_plc_abi::Cx) -> bool {
     let Cx { raw: called, eno } = cx;
     kernel.fault = called.fault;
+    kernel.budget = kernel.budget.min(called.budget);
     eno
 }

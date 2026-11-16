@@ -467,6 +467,15 @@ pub fn build_project(
         return build_sources(sources, tests, options, conversions, toolchain, work, None);
     };
     rust_pous::check_declarations(project, &krate).map_err(NativeError::Compile)?;
+    // A call of Structured Text from Rust (specification 48 §8) needs the layers of §9.2, which the
+    // build does not make yet (milestone R3).
+    if let Some(first) = krate.structured_text.first() {
+        return Err(NativeError::Compile(format!(
+            "the crate calls Structured Text (st::{} at {}:{}), which the build does not compile \
+             yet (specification 48 §8, milestone R3)",
+            first.name, first.file, first.line
+        )));
+    }
     if krate.pous.is_empty() {
         return build_sources(sources, tests, options, conversions, toolchain, work, None);
     }
