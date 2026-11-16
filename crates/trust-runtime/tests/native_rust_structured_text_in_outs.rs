@@ -1,6 +1,7 @@
-//! A Rust POU passes its in-outs and outputs through a call of Structured Text (specification 48
-//! RU-29, RU-39): an in-out as `InOut<'_, T>`, which the function's writes reach also when it
-//! faults, and an output as `&mut T`, which takes the function's output when it returns.
+//! A Rust POU passes its in-outs, outputs and references through a call of Structured Text and a
+//! held block (specification 48 RU-29, RU-39): an in-out as `InOut<'_, T>`, which the function's
+//! writes reach also when it faults, an output as `&mut T`, which takes the function's output when
+//! it returns, and a reference as `Ref<T>`, which names the variable itself.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -159,4 +160,122 @@ END_CONFIGURATION
     assert!(matches!(error, RuntimeError::DivisionByZero), "{error:?}");
     assert_eq!(program.value("MAIN.N"), Some(Value::DInt(6)));
     assert_eq!(program.value("MAIN.R"), Some(Value::DInt(-1)));
+}
+
+/// A crate whose block passes the reference of its in-out to Structured Text functions and a held
+/// watcher.
+const REFERENCES: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"BUMPER\")]
+#[budget(\"2us\")]
+pub struct Bumper {
+    #[in_out] pub counter: Ref<i32>,
+    #[output] pub after: i32,
+    #[output] pub picked: i32,
+    #[output] pub seen: i32,
+    #[output] pub again: i32,
+    watch: st::WATCH,
+}
+
+impl Body for Bumper {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.after = st::BUMP_AT(cx, self.counter, 5)?;
+        let picked = st::PICK(cx, Ref::NULL, self.counter, true)?;
+        self.picked = picked.get(cx)? * 10;
+        self.watch.input.SOURCE = self.counter;
+        self.watch.call(cx)?;
+        self.seen = self.watch.output.SEEN;
+        self.again = self.watch.output.LAST.get(cx)?;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn references_pass_through_calls_and_held_blocks() {
+    // RU-25, RU-29, RU-39: a `REF_TO DINT` passes as `Ref<i32>`, naming the variable itself:
+    // BUMP_AT adds 5 to the program's n through the block's in-out, 10 + 5 = 15, and gives 15;
+    // PICK gives back its second reference, n's, read as 15 x 10 = 150; the held WATCH reads 15
+    // through its input SOURCE and gives SOURCE back as LAST, read as 15, at the task's first call
+    // at 10 ms. Catches a reference passed as a copy of the value (n stays 10), a result that names
+    // nothing, and a held block's reference left in the generated cells.
+    let root = custom_project(
+        "rust-pous-structured-text-references",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", REFERENCES),
+        ],
+        "FUNCTION BUMP_AT : DINT
+VAR_INPUT
+    TARGET : REF_TO DINT;
+    AMOUNT : DINT;
+END_VAR
+TARGET^ := TARGET^ + AMOUNT;
+BUMP_AT := TARGET^;
+END_FUNCTION
+
+FUNCTION PICK : REF_TO DINT
+VAR_INPUT
+    FIRST : REF_TO DINT;
+    SECOND : REF_TO DINT;
+    TAKE_SECOND : BOOL;
+END_VAR
+IF TAKE_SECOND THEN
+    PICK := SECOND;
+ELSE
+    PICK := FIRST;
+END_IF
+END_FUNCTION
+
+FUNCTION_BLOCK WATCH
+VAR_INPUT
+    SOURCE : REF_TO DINT;
+END_VAR
+VAR_OUTPUT
+    SEEN : DINT;
+    LAST : REF_TO DINT;
+END_VAR
+IF SOURCE <> NULL THEN
+    SEEN := SOURCE^;
+END_IF
+LAST := SOURCE;
+END_FUNCTION_BLOCK
+
+PROGRAM Line
+VAR
+    n : DINT := 10;
+    bumper : BUMPER;
+END_VAR
+bumper(counter := n);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.N"), Some(Value::DInt(15)));
+    assert_eq!(program.value("MAIN.BUMPER.AFTER"), Some(Value::DInt(15)));
+    assert_eq!(program.value("MAIN.BUMPER.PICKED"), Some(Value::DInt(150)));
+    assert_eq!(program.value("MAIN.BUMPER.SEEN"), Some(Value::DInt(15)));
+    assert_eq!(program.value("MAIN.BUMPER.AGAIN"), Some(Value::DInt(15)));
 }

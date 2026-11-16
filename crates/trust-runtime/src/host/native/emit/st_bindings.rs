@@ -222,11 +222,12 @@ fn function(
             (_, Some(rust)) => {
                 // A string or an array result is written into the cells the function takes
                 // first.
+                let out = load(&model.types, ty, "out", Scope::Bindings);
                 let run = format!(
                     "let out = zeroed();\n                \
                      let done = __generated::f_{function}(cx, &w, &out{arguments});\n\
                      {in_outs}                done?;\n\
-                     {outputs}                Ok(trust_plc::Place::load(&out))"
+                     {outputs}                Ok({out})"
                 );
                 (rust.clone(), rust, run, "result")
             }
@@ -337,14 +338,22 @@ impl Parameters {
             if in_out {
                 let _ = write!(self.signature, ", {name}: trust_plc::InOut<'a, {rust}>");
                 self.fields.push(format!("trust_plc::InOut<'a, {rust}>"));
+                let cell = format!("t{index}");
                 let _ = writeln!(
                     self.setup,
-                    "                let t{index} = zeroed();\n                \
-                     trust_plc::Place::store(&t{index}, &self.{index}.get());"
+                    "                let t{index} = zeroed();\n                {}",
+                    store(
+                        types,
+                        ty,
+                        &cell,
+                        &format!("self.{index}.get()"),
+                        Scope::Bindings
+                    )
                 );
                 let _ = writeln!(
                     self.in_outs,
-                    "                self.{index}.set(trust_plc::Place::load(&t{index}));"
+                    "                self.{index}.set({});",
+                    load(types, ty, &cell, Scope::Bindings)
                 );
             } else {
                 let _ = write!(self.signature, ", {name}: &'a mut {rust}");
@@ -352,7 +361,8 @@ impl Parameters {
                 let _ = writeln!(self.setup, "                let t{index} = zeroed();");
                 let _ = writeln!(
                     self.outputs,
-                    "                *self.{index} = trust_plc::Place::load(&t{index});"
+                    "                *self.{index} = {};",
+                    load(types, ty, &format!("t{index}"), Scope::Bindings)
                 );
             }
             self.values.push(name);
@@ -398,8 +408,14 @@ impl Parameters {
                 self.fields.push(rust);
                 let _ = writeln!(
                     self.setup,
-                    "                let t{index} = zeroed();\n                \
-                     trust_plc::Place::store(&t{index}, &self.{index});"
+                    "                let t{index} = zeroed();\n                {}",
+                    store(
+                        types,
+                        ty,
+                        &format!("t{index}"),
+                        &format!("self.{index}"),
+                        Scope::Bindings
+                    )
                 );
                 let _ = write!(self.arguments, ", &t{index}");
             }
@@ -411,6 +427,80 @@ impl Parameters {
             }
         }
         Ok(())
+    }
+}
+
+/// Where generated text names the generated code's types: in layer 1's bindings, by their paths
+/// from there, or inside the generated code, by their own names.
+#[derive(Clone, Copy)]
+pub(super) enum Scope {
+    Bindings,
+    Generated,
+}
+
+/// The generated code's cells of a value of `ty` as the bindings name them: a scalar's
+/// `core::cell::Cell`, a string's, a structure's under `__generated`, an array of them, a
+/// reference's; `None` for another type.
+fn cell_type(types: &Types<'_>, ty: Ty) -> Option<String> {
+    let info = types.info(ty);
+    match &info.kind {
+        Kind::Elem(elem) | Kind::Enum { base: elem, .. } => {
+            Some(format!("core::cell::Cell<{}>", elem.stored()))
+        }
+        Kind::Str(_) | Kind::WStr(_) => Some(text_types(&info.kind).1),
+        Kind::Struct { .. } => Some(format!("__generated::{}", info.rust)),
+        Kind::Array { elem, dims } => {
+            let mut rust = cell_type(types, *elem)?;
+            for (lower, upper) in dims.iter().rev() {
+                let len = upper.checked_sub(*lower)?.checked_add(1)?;
+                rust = format!("[{rust}; {len}]");
+            }
+            Some(rust)
+        }
+        Kind::Ref { pointer: false, .. } => {
+            Some("core::cell::Cell<trust_plc_abi::RefValue>".to_string())
+        }
+        _ => None,
+    }
+}
+
+/// The cells, as `scope` names them, of the variable a reference of type `ty` names, when `ty` is a
+/// reference the SDK holds as `trust_plc::Ref`.
+fn referenced_cells(types: &Types<'_>, ty: Ty, scope: Scope) -> Option<String> {
+    let Kind::Ref {
+        target,
+        pointer: false,
+    } = types.info(ty).kind
+    else {
+        return None;
+    };
+    match scope {
+        Scope::Bindings => cell_type(types, target),
+        Scope::Generated => Some(types.info(target).rust.clone()),
+    }
+}
+
+/// The binding's value of type `ty` that the generated code's cells `cell` hold, read through
+/// `trust_plc::Place`; a reference's through the SDK's reference of the cells it names (RU-29).
+pub(super) fn load(types: &Types<'_>, ty: Ty, cell: &str, scope: Scope) -> String {
+    match referenced_cells(types, ty, scope) {
+        Some(target) => {
+            format!(
+                "::trust_plc::__private::reference::<_, {target}>(::core::cell::Cell::get(&{cell}))"
+            )
+        }
+        None => format!("::trust_plc::Place::load(&{cell})"),
+    }
+}
+
+/// Writes the binding's value `value` of type `ty` into the generated code's cells `cell`.
+pub(super) fn store(types: &Types<'_>, ty: Ty, cell: &str, value: &str, scope: Scope) -> String {
+    if referenced_cells(types, ty, scope).is_some() {
+        format!(
+            "::core::cell::Cell::set(&{cell}, ::trust_plc::__private::reference_value({value}));"
+        )
+    } else {
+        format!("::trust_plc::Place::store(&{cell}, &{value});")
     }
 }
 
@@ -433,8 +523,9 @@ fn text_types(kind: &Kind) -> (String, String) {
 
 /// The Rust type of RU-25's table of a value of `ty` that the generated code holds in cells and
 /// takes by reference: a string, `Str<N>` or `WStr<N>`; a one-dimensional array of a type a binding
-/// passes, `Array<T, A, N>`, one of several dimensions the array of arrays of them; a structure of
-/// the project, its binding `st::NAME`, which joins `data_types`. `None` for another type.
+/// passes, `Array<T, A, N>`, one of several dimensions the array of arrays of them; a reference to
+/// a variable of such a type, `Ref<T>`; a structure of the project, its binding `st::NAME`, which
+/// joins `data_types`. `None` for another type.
 fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<String> {
     let info = types.info(ty);
     match &info.kind {
@@ -448,6 +539,16 @@ fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<
                 rust = format!("trust_plc::Array<{rust}, {lower}, {len}>");
             }
             Some(rust)
+        }
+        // A reference, `REF_TO T` (specification 44 §7.3), as the SDK's `Ref<T>`, to a variable of
+        // a type a binding passes (RU-25, RU-29).
+        Kind::Ref {
+            target,
+            pointer: false,
+        } => {
+            cell_type(types, *target)?;
+            let target = rust_type(types, *target, data_types)?;
+            Some(format!("trust_plc::Ref<{target}>"))
         }
         Kind::Struct { members } => {
             if syn::parse_str::<syn::Ident>(&info.name).is_err() {
@@ -532,6 +633,8 @@ pub(super) struct HeldMember {
     pub(super) cells: String,
     /// Its Rust type, RU-25's for its elementary type.
     rust: String,
+    /// Its type.
+    pub(super) ty: Ty,
 }
 
 /// The inputs and the outputs of the Structured Text function block `ty` as its binding holds
@@ -579,6 +682,7 @@ pub(super) fn held_members(
             field: field_name(&member.name),
             cells: member.field(),
             rust,
+            ty: member.ty,
         });
     }
     Ok((inputs, outputs))
@@ -624,8 +728,14 @@ fn block(
         .iter()
         .map(|member| {
             format!(
-                "                    trust_plc::Place::store(&me.{}, &self.1.{});\n",
-                member.cells, member.field
+                "                    {}\n",
+                store(
+                    &model.types,
+                    member.ty,
+                    &format!("me.{}", member.cells),
+                    &format!("self.1.{}", member.field),
+                    Scope::Bindings
+                )
             )
         })
         .collect();
@@ -633,8 +743,14 @@ fn block(
         .iter()
         .map(|member| {
             format!(
-                "{}: trust_plc::Place::load(&me.{})",
-                member.field, member.cells
+                "{}: {}",
+                member.field,
+                load(
+                    &model.types,
+                    member.ty,
+                    &format!("me.{}", member.cells),
+                    Scope::Bindings
+                )
             )
         })
         .collect::<Vec<_>>()

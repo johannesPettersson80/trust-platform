@@ -75,6 +75,18 @@ impl<T> Clone for Ref<T> {
 
 impl<T> Copy for Ref<T> {}
 
+/// A reference's default names no variable, `NULL` (specification 48 RU-29): a block's `new()`
+/// gives it a variable of a reference type, and a binding's input or output of one (RU-39).
+impl<T> crate::Declared for Ref<T> {
+    const DEFAULT: Self = Self::NULL;
+}
+
+impl<T> Default for Ref<T> {
+    fn default() -> Self {
+        Self::NULL
+    }
+}
+
 impl<T> PartialEq for Ref<T> {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value

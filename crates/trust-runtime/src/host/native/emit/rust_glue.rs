@@ -538,8 +538,14 @@ pub(super) fn load(
                 list.iter()
                     .map(|member| {
                         format!(
-                            "{}: ::trust_plc::Place::load(&{place}.{})",
-                            member.field, member.cells
+                            "{}: {}",
+                            member.field,
+                            super::st_bindings::load(
+                                types,
+                                member.ty,
+                                &format!("{place}.{}", member.cells),
+                                super::st_bindings::Scope::Generated
+                            )
                         )
                     })
                     .collect::<Vec<_>>()
@@ -629,9 +635,12 @@ pub(super) fn store(
             Ok(inputs
                 .iter()
                 .map(|member| {
-                    format!(
-                        "::trust_plc::Place::store(&{place}.{}, &{value}.input.{});",
-                        member.cells, member.field
+                    super::st_bindings::store(
+                        types,
+                        member.ty,
+                        &format!("{place}.{}", member.cells),
+                        &format!("{value}.input.{}", member.field),
+                        super::st_bindings::Scope::Generated,
                     )
                 })
                 .collect::<Vec<_>>()
