@@ -372,6 +372,7 @@ fn structured_text_calls<'a>(
     let mut types = Vec::new();
     let mut methods: HashMap<String, Vec<st_blocks::HeldMethod>> = HashMap::new();
     for used in &front.structured_text {
+        let used = &resolved(front, model, used)?;
         let call = format!("st::{} at {}:{}", used.name, used.file, used.line);
         if front.rust.contains_key(&used.name.to_ascii_uppercase()) {
             return Err(NativeError::Compile(format!(
@@ -445,6 +446,32 @@ fn structured_text_calls<'a>(
         types,
         methods,
     })
+}
+
+/// `used` named by what its path names (specification 48 RU-39, IEC §6.9): the longest prefix of
+/// the path's names, joined with `.`, that names a Rust POU or a Structured Text function, function
+/// block, class or data type (`Motion.MOVE_BY` itself, `MODE.RUN` the enumeration `MODE`); the whole
+/// path when none does, which the call then refuses.
+fn resolved(
+    front: &Front,
+    model: &mut Model<'_>,
+    used: &StructuredTextUse,
+) -> Result<StructuredTextUse, NativeError> {
+    let names: Vec<&str> = used.name.split('.').collect();
+    for end in (1..=names.len()).rev() {
+        let name = names[..end].join(".");
+        let named = front.rust.contains_key(&name.to_ascii_uppercase())
+            || model.function(&name).is_some()
+            || model.types.owner(&name).is_some()
+            || named_type(model, &name)?.is_some();
+        if named {
+            return Ok(StructuredTextUse {
+                name,
+                ..used.clone()
+            });
+        }
+    }
+    Ok(used.clone())
 }
 
 /// The Structured Text that the project's crate names (specification 48 RU-38): the generated

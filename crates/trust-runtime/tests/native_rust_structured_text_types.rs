@@ -831,3 +831,98 @@ END_CONFIGURATION
         Some(Value::Bool(true))
     );
 }
+
+/// A crate whose function moves an axis of the namespace Motion and reads an enumeration's value.
+const NAMESPACES: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+use st::Motion::{MOVE_BY, AXIS};
+
+#[trust_function(name = \"STEPPED_AXIS\")]
+#[budget(\"1us\")]
+pub fn stepped_axis(cx: &mut Cx, d: f64) -> Result<f64, Fault> {
+    let moved = MOVE_BY(cx, AXIS::default(), d)?;
+    let fast = st::Motion::FASTER(cx, moved, st::Motion::GEAR::HIGH)?;
+    Ok(fast.POS * 10.0 + fast.SPEED)
+}
+";
+
+#[test]
+fn a_namespaces_pous_and_types_are_bound_in_its_module() {
+    // RU-39, IEC §6.9: a POU and a data type in the namespace Motion, as a library's are, have their
+    // bindings in the module `st::Motion`: AXIS starts at POS 1.0 and SPEED 0.0, MOVE_BY(.., 2.5)
+    // gives POS 3.5, FASTER(.., GEAR::HIGH = 3) gives SPEED 3.0, so STEPPED_AXIS = 3.5 x 10 + 3.0 =
+    // 38.0, at the task's first call at 10 ms; `st::Motion::GEAR::HIGH` names the enumeration GEAR.
+    // Catches a namespaced POU the build cannot find, a binding outside its module, and a type
+    // path that names the module's own item from another module wrongly.
+    let root = custom_project(
+        "rust-pous-structured-text-namespaces",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", NAMESPACES),
+        ],
+        "NAMESPACE Motion
+TYPE GEAR : (LOW := 1, HIGH := 3);
+END_TYPE
+
+TYPE AXIS :
+STRUCT
+    POS : LREAL := 1.0;
+    SPEED : LREAL;
+END_STRUCT
+END_TYPE
+
+FUNCTION MOVE_BY : AXIS
+VAR_INPUT
+    A : AXIS;
+    D : LREAL;
+END_VAR
+MOVE_BY := A;
+MOVE_BY.POS := A.POS + D;
+END_FUNCTION
+
+FUNCTION FASTER : AXIS
+VAR_INPUT
+    A : AXIS;
+    G : GEAR;
+END_VAR
+FASTER := A;
+IF G = HIGH THEN
+    FASTER.SPEED := 3.0;
+ELSE
+    FASTER.SPEED := 1.0;
+END_IF
+END_FUNCTION
+END_NAMESPACE
+
+PROGRAM Line
+VAR
+    stepped : LREAL;
+END_VAR
+stepped := STEPPED_AXIS(d := 2.5);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.STEPPED"), Some(Value::LReal(38.0)));
+}
