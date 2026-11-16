@@ -4,11 +4,14 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context};
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::native::rust_pous::{layout, write_generated, Written};
+use trust_runtime::bundle_builder::collect_project_sources_labelled;
+use trust_runtime::native::rust_pous::{layout, read, write_generated, Written, BINDINGS_FOLDER};
+use trust_runtime::native::{conversion_profile, write_bindings};
 
 /// `trust-dev rust declarations`: writes the generated declarations of the project's crate
-/// (specification 48 RU-24), and a Rust-first project's configuration (RU-67), and reports every
-/// error of the crate's sources and of `trust.toml` where it is.
+/// (specification 48 RU-24), a Rust-first project's configuration (RU-67) and, for a crate that
+/// calls Structured Text, its bindings (RU-39), and reports every error of the crate's sources,
+/// of `trust.toml` and of the Structured Text where it is.
 pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
     let project = match project {
         Some(path) => path,
@@ -45,6 +48,16 @@ pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
                 errors.len()
             );
         }
+    }
+    // The bindings, generated from the Structured Text with the declarations just written, which
+    // rust-analyzer and the crate's own cargo find before the first build (RU-39, RU-77).
+    if matches!(read(&project), Ok(Some(krate)) if !krate.structured_text.is_empty()) {
+        let sources = collect_project_sources_labelled(&project, &[])?;
+        let conversions = conversion_profile(&project)?;
+        if let Err(error) = write_bindings(&project, &sources, conversions) {
+            bail!("{BINDINGS_FOLDER} is not written: {error}");
+        }
+        println!("Wrote {BINDINGS_FOLDER}: the bindings of the Structured Text the crate calls.");
     }
     Ok(())
 }

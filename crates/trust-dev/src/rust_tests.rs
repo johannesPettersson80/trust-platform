@@ -57,3 +57,63 @@ fn a_crate_with_an_error_fails_and_writes_nothing() {
     assert!(error.to_string().contains("1 error(s)"), "{error}");
     assert!(!root.join("src/generated/rust_pous.st").exists());
 }
+
+#[test]
+fn the_declarations_come_with_the_bindings_of_the_structured_text_the_crate_calls() {
+    // RU-39, RU-77: a crate that calls `st::SCALE` gets its bindings from the command that writes
+    // its declarations, before the project's first build, so that rust-analyzer and its own cargo
+    // find `st`: `build/trust_st` holds the crate `trust_st` with the library `st` and SCALE's
+    // binding, of SCALE's two LREAL inputs and LREAL result. Catches bindings that only a build
+    // writes, which leave a fresh clone's crate without `st`.
+    let root = project(
+        "#[trust_function(name = \"TWICE\")]\n#[budget(\"1us\")]\n\
+         pub fn twice(cx: &mut Cx, x: f64) -> Result<f64, Fault> {\n    st::SCALE(cx, x, 2.0)\n}\n",
+    );
+    std::fs::write(
+        root.join("rust/Cargo.toml"),
+        format!("{MANIFEST}\n[dependencies]\ntrust_st = {{ path = \"../build/trust_st\" }}\n"),
+    )
+    .expect("the manifest");
+    std::fs::create_dir_all(root.join("src")).expect("the sources' folder");
+    std::fs::write(
+        root.join("src/main.st"),
+        "FUNCTION SCALE : LREAL
+VAR_INPUT
+    x : LREAL;
+    factor : LREAL;
+END_VAR
+SCALE := x * factor;
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    doubled : LREAL;
+END_VAR
+doubled := TWICE(x := 1.5);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    )
+    .expect("the program");
+    run_declarations(Some(root.clone())).expect("the declarations and the bindings are written");
+    let manifest =
+        std::fs::read_to_string(root.join("build/trust_st/Cargo.toml")).expect("the manifest");
+    assert!(
+        manifest.contains("name = \"trust_st\"") && manifest.contains("[lib]\nname = \"st\""),
+        "{manifest}"
+    );
+    let library =
+        std::fs::read_to_string(root.join("build/trust_st/src/lib.rs")).expect("the library");
+    assert!(
+        library.contains(
+            "pub fn SCALE(cx: &mut trust_plc::Cx, x: f64, factor: f64) -> Result<f64, trust_plc::Fault>"
+        ),
+        "{library}"
+    );
+}

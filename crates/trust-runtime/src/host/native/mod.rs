@@ -8,6 +8,7 @@
 //! the starting memory (`init`); the toolchain compiles and links the crate (`toolchain`), the
 //! module is checked (`module`) and the image is written (`tables`).
 
+mod bindings;
 pub mod bundle;
 mod call_graph;
 mod cargo_build;
@@ -48,6 +49,7 @@ use std::path::Path;
 
 use crate::harness::SourceFile;
 use crate::stdlib::conversions::ConversionProfile;
+pub use bindings::write_bindings;
 pub use run::{load, load_kept, HostCode};
 pub use settings::{conversion_profile, debug_hooks, signing_key_setting};
 pub use signing::{
@@ -431,10 +433,9 @@ pub fn build_with_conversions(
     build_sources(sources, tests, options, conversions, toolchain, work, None)
 }
 
-/// The Rust crate a build compiles with the program: how the generated code calls its POUs, and
-/// the crate cargo links (specification 48 §9).
+/// The Rust crate a build compiles with the program, and the crate cargo links (specification 48
+/// §9).
 struct CrateBuild {
-    links: std::collections::HashMap<String, rust_pous::RustLink>,
     project: cargo_build::ProjectCrate,
     krate: rust_pous::RustCrate,
     /// The Rust POUs' budgets for the build's target (RU-46) and whether the deployment's profile
@@ -479,7 +480,6 @@ pub fn build_project(
     let timing =
         rust_pous::timing(project, triple(options.target), &krate).map_err(NativeError::Compile)?;
     let crate_build = CrateBuild {
-        links: rust_pous::links(&krate),
         project: cargo_build::ProjectCrate {
             folder: project.join(&krate.layout.crate_folder),
             package: krate.package.clone(),
@@ -500,6 +500,30 @@ pub fn build_project(
     )
 }
 
+/// The checked and lowered `sources` with the project's crate `krate`, when there is one: how the
+/// generated code calls its Rust POUs, builds its structures and which Structured Text it calls
+/// (specification 48 §9).
+fn front_of(
+    sources: &[SourceFile],
+    tests: &[smol_str::SmolStr],
+    conversions: ConversionProfile,
+    krate: Option<&rust_pous::RustCrate>,
+) -> Result<front::Front, NativeError> {
+    // The OpenOT authoring of annotated variables is compiled with the program, and a build whose
+    // authoring does not validate fails (specification 27 §10.3, §10.4); the header's hash is of
+    // the sources as written.
+    let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
+        .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
+    let links = krate.map(rust_pous::links).unwrap_or_default();
+    let mut front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
+    if let Some(krate) = krate {
+        front.rust_structures = rust_pous::structure_paths(krate);
+        front.structured_text.clone_from(&krate.structured_text);
+    }
+    init::check_declared_conversions(&front, conversions)?;
+    Ok(front)
+}
+
 /// Builds the program image of `sources`, with the Rust crate `crate_build` when there is one.
 fn build_sources(
     sources: &[SourceFile],
@@ -510,26 +534,15 @@ fn build_sources(
     work: &Path,
     crate_build: Option<CrateBuild>,
 ) -> Result<Build, NativeError> {
-    // The OpenOT authoring of annotated variables is compiled with the program, and a build whose
-    // authoring does not validate fails (specification 27 §10.3, §10.4); the header's hash is of
-    // the sources as written.
-    let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
-        .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
-    let (links, project, krate, timing) = match crate_build {
+    let (project, krate, timing) = match crate_build {
         Some(CrateBuild {
-            links,
             project,
             krate,
             timing,
-        }) => (links, Some(project), Some(krate), Some(timing)),
-        None => (std::collections::HashMap::new(), None, None, None),
+        }) => (Some(project), Some(krate), Some(timing)),
+        None => (None, None, None),
     };
-    let mut front = front::Front::analyze_with_rust(&instrumented, tests, conversions, links)?;
-    if let Some(krate) = &krate {
-        front.rust_structures = rust_pous::structure_paths(krate);
-        front.structured_text.clone_from(&krate.structured_text);
-    }
-    init::check_declared_conversions(&front, conversions)?;
+    let front = front_of(sources, tests, conversions, krate.as_ref())?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
