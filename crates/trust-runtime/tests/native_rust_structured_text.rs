@@ -159,20 +159,20 @@ END_FUNCTION
 
 #[test]
 fn a_call_that_passes_what_rust_does_not_pass_yet_is_refused() {
-    // RU-38 as built so far (checklist G186): a call passes elementary, string and one-dimensional
-    // array inputs and results; a function with a two-dimensional array input is refused at the
-    // call, naming it. Catches a binding that passes a matrix's cells as a row of rows.
+    // RU-38 as built so far (checklist G186): a function with a reference input is refused at the
+    // call, naming it, until the bindings pass `Ref<T>`. Catches a binding that passes a
+    // reference as the address it holds.
     let declarations = "FUNCTION SCALE : LREAL
 VAR_INPUT
     x : LREAL;
-    factors : ARRAY[1..2, 1..2] OF LREAL;
+    target : REF_TO LREAL;
 END_VAR
 SCALE := x;
 END_FUNCTION
 ";
-    let error = refusal("rust-pous-structured-text-matrix", "SCALE", declarations);
+    let error = refusal("rust-pous-structured-text-reference", "SCALE", declarations);
     assert!(
-        error.contains("st::SCALE at rust/src/lib.rs:9: SCALE has the parameter factors of type")
+        error.contains("st::SCALE at rust/src/lib.rs:9: SCALE has the parameter target of type")
             && error.contains("which a call from Rust does not pass yet"),
         "{error}"
     );
@@ -212,16 +212,23 @@ END_FUNCTION
 
 #[test]
 fn a_call_of_what_is_no_structured_text_function_is_refused() {
-    // RU-38: `st::` names the project's Structured Text functions and function blocks. A name of
-    // none of them, and the name of a Rust POU, are refused at the call; a function block, which
-    // a field holds (RU-39), is refused where no field holds it. Catches a call that reaches the
-    // compiler as an unknown item, a Rust POU called through `st::`, and a block called as a
-    // function.
+    // RU-40: `st::` names the project's Structured Text functions, function blocks and data
+    // types. A name of none of them, and the name of a Rust POU, are refused at the call; a
+    // function block, which a field holds (RU-39), is refused where no field holds it; a structure
+    // with a variable the bindings do not pass yet is refused, naming the variable. Catches a call
+    // that reaches the compiler as an unknown item, a Rust POU called through `st::`, a block
+    // called as a function, and a binding the compiler finds missing.
     let block = "FUNCTION_BLOCK HOLD
 VAR_INPUT
     x : LREAL;
 END_VAR
 END_FUNCTION_BLOCK
+";
+    let holder = "TYPE HOLDER :
+STRUCT
+    R : REF_TO INT;
+END_STRUCT
+END_TYPE
 ";
     for (call, declarations, expected) in [
         (
@@ -243,6 +250,12 @@ END_FUNCTION_BLOCK
             "st::HOLD at rust/src/lib.rs:9 names the Structured Text function block HOLD, which \
              a Rust function block or program holds as a field, `name: st::HOLD`, and no field \
              holds (specification 48 RU-38)",
+        ),
+        (
+            "HOLDER",
+            holder,
+            "st::HOLDER at rust/src/lib.rs:9 names the structure HOLDER, which has the variable R, \
+             of a type the bindings do not pass yet (specification 48 RU-39, milestone R3)",
         ),
     ] {
         let error = refusal("rust-pous-structured-text-names", call, declarations);

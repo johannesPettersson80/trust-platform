@@ -255,3 +255,77 @@ END_CONFIGURATION
     assert_eq!(program.value("MAIN.BELOW"), Some(Value::Int(0)));
     assert_eq!(program.value("MAIN.HIGH"), Some(Value::LReal(10.0)));
 }
+
+/// A crate whose function passes a value of an enumeration that gives two names one value.
+const REPEATED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"PHASE_RANK\")]
+#[budget(\"1us\")]
+pub fn phase_rank(cx: &mut Cx) -> Result<i16, Fault> {
+    let lowest = st::PHASE::LOWEST;
+    let same = lowest == st::PHASE::LOW;
+    Ok(st::RANK(cx, lowest)? * 10 + i16::from(same))
+}
+";
+
+#[test]
+fn an_enumeration_that_repeats_a_value_is_a_struct_of_its_values() {
+    // RU-39: PHASE gives LOW and LOWEST the value 1, which a Rust enum cannot hold, so its binding
+    // is a struct of one value with each name as its constant, as a type with named values': LOWEST
+    // equals LOW, and RANK(LOWEST) = 1, so PHASE_RANK = 1 x 10 + 1 = 11, at the task's first call
+    // at 10 ms. Catches an enumeration refused for a repeated value, and constants of other values.
+    let root = custom_project(
+        "rust-pous-structured-text-repeated-value",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", REPEATED),
+        ],
+        "TYPE PHASE : (LOW := 1, LOWEST := 1, HIGH := 2);
+END_TYPE
+
+FUNCTION RANK : INT
+VAR_INPUT
+    P : PHASE;
+END_VAR
+IF P = LOWEST THEN
+    RANK := 1;
+ELSIF P = HIGH THEN
+    RANK := 2;
+ELSE
+    RANK := 0;
+END_IF
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    rank_code : INT;
+END_VAR
+rank_code := PHASE_RANK();
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.RANK_CODE"), Some(Value::Int(11)));
+}

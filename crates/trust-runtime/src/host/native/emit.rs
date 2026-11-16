@@ -397,6 +397,18 @@ fn structured_text_calls<'a>(
         } else if let Some(ty) = named_type(model, &used.name)? {
             // A structure, an enumeration or a type with named values of the project, whose
             // binding the crate writes values of (RU-39).
+            if let Some(why) = st_bindings::unpassed(&model.types, ty) {
+                let info = model.types.info(ty);
+                let what = match &info.kind {
+                    Kind::Struct { .. } => "structure",
+                    Kind::Enum { named: true, .. } => "type with named values",
+                    _ => "enumeration",
+                };
+                return Err(NativeError::Compile(format!(
+                    "{call} names the {what} {}, which {why} (specification 48 RU-39, milestone R3)",
+                    info.name
+                )));
+            }
             types.push(ty);
         } else {
             return Err(NativeError::Compile(format!(

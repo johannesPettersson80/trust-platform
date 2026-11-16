@@ -694,7 +694,9 @@ instance, as Structured Text's assignment of an instance's input does, and `outp
 block writes, does not.
 
 A binding passes each value as the Rust type of RU-25's table that a Rust POU's variable of its
-type has. A function's parameters follow `cx` in the order the function declares them: its inputs
+type has, an array of several dimensions, `ARRAY[1..2, 1..3] OF INT`, as the array of arrays of
+them, `Array<Array<i16, 1, 3>, 1, 2>`, which lies as specification 44 §6.2 lays it out. A
+function's parameters follow `cx` in the order the function declares them: its inputs
 by value, its in-outs as `InOut<'_, T>` (RU-29), which the function's writes reach as Structured
 Text's do, also when it faults, and its outputs as `&mut T`, which take its outputs when it
 returns; its result is the binding's `Result<T, Fault>`. A held block's inputs and outputs are the
@@ -704,7 +706,9 @@ call or a held block passes it or the crate names it: `st::POINT`, a Rust struct
 `pub`, named as Structured Text declares it and of the type this table gives it; `st::MODE`, a Rust
 enum of the enumeration's values, each with its value; and `st::LIGHT`, a Rust struct of one value of
 the base's type in this table, since a type with named values holds every value of its base
-(IEC §6.4.4.3.1, specification 02 §3.2), with each named value as its constant, `st::LIGHT::RED`.
+(IEC §6.4.4.3.1, specification 02 §3.2), with each named value as its constant, `st::LIGHT::RED`;
+an enumeration that gives two of its names one value, which a Rust enum cannot hold, has this form
+too.
 Each derives `Clone`, `Copy`, `Debug` and `PartialEq`, an enumeration and a type with named values
 also `Eq`, so that a `match` names their values, and its `Default`, which is also its
 `trust_plc::Declared` default, is the value a variable of the type starts at: the declared initial
