@@ -567,8 +567,10 @@ reads it with `cx.eno()`.
 
 ### 6.4 In the symbol table
 
-**RU-31.** The symbol table marks each POU's language, Structured Text or Rust, and names a Rust
-POU's source file (§11.1). A tool that shows a POU's source opens the Rust file for a Rust POU.
+**RU-31.** The symbol table marks each POU's language, Structured Text or Rust, by its
+declaration's `{attribute 'rust'}` (RU-23), and the generated declaration names a Rust POU's source
+file. A tool that shows a POU's source opens the Rust file for a Rust POU, at the item where the
+build's reader of the project's crate finds it (§11.1).
 
 ### 6.5 Methods and interfaces
 
@@ -790,11 +792,12 @@ without ending the scan; the watchdog (NX-11) still ends a scan that overruns th
 
 ### 11.1 VS Code and the language server
 
-**RU-50.** The language server treats `src/generated/rust_pous.st` as part of the project
-(read-only: an edit of it is refused with the advice to change the Rust source), and "Go to
-Definition" of a Rust POU opens the Rust item in its `.rs` file at the attribute. The extension
-recommends rust-analyzer for a project with a crate and writes its settings (§16.3); it never
-needs it.
+**RU-50.** The language server treats `src/generated/rust_pous.st` as part of the project. The
+file is read-only: the extension marks it so for VS Code (`files.readonlyInclude`), which refuses an
+edit of it, and its header names the Rust source to change instead. "Go to Definition" of a Rust POU,
+or of a method of a Rust function block, opens the Rust item in its `.rs` file, from its attribute
+to its name, and "Go to Declaration" its generated declaration. The extension recommends rust-analyzer for a project with a crate and writes
+its settings (§16.3); it never needs it.
 
 **RU-51.** Create Project (specification 25 §3.2) offers three starts: a Structured Text project as
 today, a Structured Text project with a Rust crate (`rust/` with one example function block and its

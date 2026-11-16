@@ -47,6 +47,7 @@ mod completion_requests;
 mod helpers;
 mod hierarchy_requests;
 mod navigation_requests;
+mod rust_sources;
 mod semantic_requests;
 mod symbol_requests;
 
