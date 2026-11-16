@@ -689,8 +689,8 @@ that the SDK's `Cx` keeps, so its statements count against the activation's budg
 their breakpoints (RU-52); no Rust code reaches that context (RU-11, RU-20). A Structured Text function
 block held by a Rust instance lies inside the Rust instance in the area, as a nested instance lies
 in a Structured Text one (specification 44 §6.2), so the symbol table, Live Values and online change
-see it. It is the Rust POU's own variable, a field `name: st::X` of a function block or a program
-without `#[input]`, `#[output]` or `#[init]`, not an array of blocks or a reference to one; a
+see it. It is the Rust POU's own variable, a field `name: st::X` (`st::Motion::X` for a block in a
+namespace) of a function block or a program without `#[input]`, `#[output]` or `#[init]`, not an array of blocks or a reference to one; a
 function, a method and a structure hold none. Each call of the Rust POU reads the block's inputs
 and outputs from its instance into `input` and `output`; `call` gives the instance `input`, runs
 its body and takes its outputs into `output`; when the Rust POU returns, `input` goes back to the

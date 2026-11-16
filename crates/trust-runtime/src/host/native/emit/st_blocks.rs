@@ -52,7 +52,7 @@ pub(super) fn held_members(
     data_types: &mut BTreeSet<Ty>,
 ) -> Result<(Vec<HeldMember>, Vec<HeldMember>), String> {
     let info = types.info(ty);
-    if syn::parse_str::<syn::Ident>(&info.name).is_err() {
+    if super::st_bindings::binding_path(&info.name).is_none() {
         return Err("is named in a namespace".to_string());
     }
     let Kind::Fb { members, .. } = &info.kind else {
@@ -108,7 +108,8 @@ pub(super) fn block(
             used.name, used.file, used.line, def.name
         ))
     };
-    let name = def.name.as_str();
+    // Declared by its last name in its namespace's module (IEC §6.9).
+    let name = super::st_bindings::split_name(def.name.as_str()).1;
     let Some(ty) = model.types.by_rust(&Owner::Fb(def).rust()) else {
         return Err(NativeError::Compile(format!(
             "function block {name} has no layout"

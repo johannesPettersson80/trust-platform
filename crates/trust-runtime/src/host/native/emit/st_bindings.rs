@@ -83,7 +83,7 @@ pub(super) fn bindings(
 ) -> Result<String, NativeError> {
     // The cells a binding writes a value into, empty, whatever the generated code's type of them.
     let mut texts: BTreeMap<String, String> = BTreeMap::new();
-    let mut text = String::from(
+    let text = String::from(
         "/// Empty cells of the generated code's type `T`, its zero value (specification 44 §6.2),
 /// which a binding writes a value into before the generated code reads them.
 fn zeroed<T: trust_plc_abi::Plain>() -> T {
@@ -114,16 +114,18 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
                 let held = methods
                     .get(def.name.as_str())
                     .map_or(&[][..], Vec::as_slice);
-                text.push_str(&super::st_blocks::block(
-                    model,
-                    used,
-                    def,
-                    held,
-                    &mut data_types,
-                )?);
+                let binding = super::st_blocks::block(model, used, def, held, &mut data_types)?;
+                let namespace = split_name(&def.name).0.to_string();
+                texts.entry(namespace).or_default().push_str(&binding);
             }
-            if used.name != def.name.as_str() {
-                let _ = writeln!(text, "pub type {} = {};\n", used.name, def.name);
+            let (namespace, declared) = split_name(&def.name);
+            let spelled = split_name(&used.name).1;
+            if spelled != declared {
+                let alias = format!("pub type {spelled} = {declared};\n\n");
+                texts
+                    .entry(namespace.to_string())
+                    .or_default()
+                    .push_str(&alias);
             }
             continue;
         }

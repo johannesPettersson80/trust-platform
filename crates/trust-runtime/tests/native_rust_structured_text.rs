@@ -677,3 +677,87 @@ END_CONFIGURATION
         Some(Value::LReal(2.0))
     );
 }
+
+/// A crate whose block holds an odometer of the namespace Motion.
+const NAMESPACED_BLOCK: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"TRIP\")]
+#[budget(\"2us\")]
+pub struct Trip {
+    #[input] pub stride: f64,
+    #[output] pub distance: f64,
+    odometer: st::Motion::ODOMETER,
+}
+
+impl Body for Trip {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.odometer.input.DELTA = self.stride;
+        self.odometer.call(cx)?;
+        self.distance = self.odometer.output.TOTAL;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_rust_block_holds_a_block_of_a_namespace() {
+    // RU-39, IEC §6.9: a field `st::Motion::ODOMETER` holds the block ODOMETER of the namespace
+    // Motion, declared `odometer : Motion.ODOMETER;`, whose binding lies in the module
+    // `st::Motion`: TRIP gives it DELTA = 1.5 and takes TOTAL = 0.0 + 1.5 = 1.5, at the task's first
+    // call at 10 ms. Catches a namespaced block's field refused or declared by its last name, and a
+    // binding outside its module.
+    let root = custom_project(
+        "rust-pous-structured-text-namespaced-block",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", NAMESPACED_BLOCK),
+        ],
+        "NAMESPACE Motion
+FUNCTION_BLOCK ODOMETER
+VAR_INPUT
+    DELTA : LREAL;
+END_VAR
+VAR_OUTPUT
+    TOTAL : LREAL;
+END_VAR
+TOTAL := TOTAL + DELTA;
+END_FUNCTION_BLOCK
+END_NAMESPACE
+
+PROGRAM Line
+VAR
+    trip : TRIP;
+END_VAR
+trip(stride := 1.5);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.TRIP.DISTANCE"), Some(Value::LReal(1.5)));
+    assert_eq!(
+        program.value("MAIN.TRIP.ODOMETER.TOTAL"),
+        Some(Value::LReal(1.5))
+    );
+}
