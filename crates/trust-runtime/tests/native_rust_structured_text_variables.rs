@@ -160,7 +160,12 @@ guard();
 END_PROGRAM",
         ),
     );
-    let (error, _) = build_error(&root);
+    let (error, toolchain) = build_error(&root);
+    // A toolchain without cargo and the SDK's sources builds no Rust POU (specification 48 §9.3).
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
     assert!(
         error.contains("is a Structured Text function block or class, which a Rust POU holds as its own variable"),
         "{error}"
