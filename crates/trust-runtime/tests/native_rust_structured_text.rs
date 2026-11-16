@@ -6,9 +6,10 @@ mod rust_pous_support;
 
 use std::path::PathBuf;
 
-use rust_pous_support::{build_error, built, custom_project, manifest};
+use rust_pous_support::{build_error, built, custom_project, manifest, sources};
 use trust_runtime::error::{ExecutionLimitKind, RuntimeError};
-use trust_runtime::native::{load, NoHooks};
+use trust_runtime::native::{build_project, load, NoHooks, Options, Target, Toolchain};
+use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
 /// A crate whose function TWICE calls `st::{call}` at line 9 of its root.
@@ -610,4 +611,113 @@ END_CONFIGURATION
         program.value("MAIN.S.STRETCH.PT"),
         Some(Value::Time(Duration::from_millis(250)))
     );
+}
+
+/// A crate whose functions call SCALE and ADDRESS_BYTES.
+const IMAGES: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"TWICE\")]
+#[budget(\"1us\")]
+pub fn twice(cx: &mut Cx, x: f64) -> Result<f64, Fault> {
+    st::SCALE(cx, x, 2.0)
+}
+
+#[trust_function(name = \"WIDTH\")]
+#[budget(\"1us\")]
+pub fn width(cx: &mut Cx) -> Result<i32, Fault> {
+    st::ADDRESS_BYTES(cx)
+}
+";
+
+/// The program that calls TWICE and WIDTH, after SCALE and ADDRESS_BYTES.
+const IMAGES_PROGRAM: &str = "FUNCTION SCALE : LREAL
+VAR_INPUT
+    x : LREAL;
+    factor : LREAL;
+END_VAR
+SCALE := x * factor;
+END_FUNCTION
+
+FUNCTION ADDRESS_BYTES : DINT
+VAR
+    r : REF_TO INT;
+END_VAR
+ADDRESS_BYTES := SIZEOF(r);
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    doubled : LREAL;
+    bytes : DINT;
+END_VAR
+doubled := TWICE(x := 1.5);
+bytes := WIDTH();
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn layer_one_is_one_text_for_every_image() {
+    // RU-39: layer 1 is the same text for every target and image: a debug image's build and a
+    // release image's build of one project write the same library, which holds both images'
+    // modules, the debug one chosen by the cargo feature `hooks`, and SIZEOF of an address chosen
+    // by the target's pointer width, 8 bytes on this 64-bit computer. Each image runs: TWICE(1.5) =
+    // 3.0 and WIDTH() = 8 at the task's first call at 10 ms. Catches a layer 1 that changes with
+    // the image or the target, which a build of another one or the editor's command would rewrite
+    // under a running build.
+    let root = custom_project(
+        "rust-pous-structured-text-images",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", IMAGES),
+        ],
+        IMAGES_PROGRAM,
+    );
+    let library = || {
+        std::fs::read_to_string(root.join("build/trust_st/src/lib.rs")).expect("layer 1's library")
+    };
+    let Some((debug, device)) = built(&root) else {
+        return;
+    };
+    let after_debug = library();
+    let toolchain = Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain");
+    let release = build_project(
+        &root,
+        &sources(&root),
+        &[],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: false,
+        },
+        ConversionProfile::Iec,
+        &toolchain,
+        &root.join("build/native"),
+    )
+    .expect("the release image builds");
+    assert_eq!(library(), after_debug, "one layer 1 for both images");
+    assert!(after_debug.contains("#[cfg(feature = \"hooks\")]"));
+    assert!(after_debug.contains("#[cfg(not(feature = \"hooks\"))]"));
+    for image in [&debug.image, &release.image] {
+        let mut program = load(image, &device).expect("the image loads");
+        program.cold_start(Duration::ZERO).expect("the cold start");
+        for time in [0, 10] {
+            program
+                .scan(Duration::from_millis(time), &mut NoHooks)
+                .expect("the scan runs");
+        }
+        assert_eq!(program.value("MAIN.DOUBLED"), Some(Value::LReal(3.0)));
+        assert_eq!(program.value("MAIN.BYTES"), Some(Value::DInt(8)));
+    }
 }

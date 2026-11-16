@@ -485,6 +485,7 @@ pub fn build_project(
             package: krate.package.clone(),
             bindings: (!krate.structured_text.is_empty())
                 .then(|| project.join(rust_pous::BINDINGS_FOLDER)),
+            debug: options.hooks,
         },
         krate,
         timing,
@@ -524,6 +525,22 @@ fn front_of(
     Ok(front)
 }
 
+/// The generated crate of the checked `front` for `target`, with the debugger's hooks when `hooks`,
+/// generated on a model of its own, so that what one generation records stays the build's.
+fn generated_as(
+    front: &front::Front,
+    tests: &[smol_str::SmolStr],
+    conversions: ConversionProfile,
+    target: Target,
+    hooks: bool,
+) -> Result<emit::Generated, NativeError> {
+    let ids = front.statement_ids();
+    let registry = front.lowered.builder.registry().clone();
+    let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
+    model.conversions = conversions;
+    recursion::generate(front, &mut model, &ids, target, hooks)
+}
+
 /// Builds the program image of `sources`, with the Rust crate `crate_build` when there is one.
 fn build_sources(
     sources: &[SourceFile],
@@ -548,8 +565,8 @@ fn build_sources(
     let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
     model.conversions = conversions;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
-    // Layer 1, the Structured Text that the crate calls, lies where the crate's manifest names it
-    // (specification 48 RU-39).
+    // Layer 1, the Structured Text that the crate calls, lies where the crate's manifest names it,
+    // one text for every target and image (specification 48 RU-39): the other image's module too.
     if let (
         Some(layer_one),
         Some(cargo_build::ProjectCrate {
@@ -558,7 +575,18 @@ fn build_sources(
         }),
     ) = (&generated.layer_one, &project)
     {
-        cargo_build::write_layer_one(folder, &layer_one.library)?;
+        let other = generated_as(&front, tests, conversions, options.target, !options.hooks)?;
+        let other = other
+            .layer_one
+            .map(|other| other.module)
+            .unwrap_or_default();
+        let (release, debug) = if options.hooks {
+            (&other, &layer_one.module)
+        } else {
+            (&layer_one.module, &other)
+        };
+        let library = emit::layer_one_library(release, debug, &layer_one.bindings);
+        cargo_build::write_layer_one(folder, &library)?;
     }
     // The Rust work of each task against its interval (specification 48 RU-47): warnings, or errors
     // in a `production` profile.

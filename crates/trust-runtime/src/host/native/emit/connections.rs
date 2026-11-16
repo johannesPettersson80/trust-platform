@@ -30,7 +30,6 @@ pub(super) fn connections(
     front: &Front,
     ids: &StatementIds,
     model: &mut Model<'_>,
-    pointer_bytes: u64,
     source: &mut String,
 ) -> Result<(), NativeError> {
     for index in 0..model.instances.len() {
@@ -82,7 +81,6 @@ pub(super) fn connections(
                 ids,
                 Frame::Function,
                 false,
-                pointer_bytes,
             );
             for connection in made {
                 connect(&mut lowerer, &pou, &instance, program, connection)?;

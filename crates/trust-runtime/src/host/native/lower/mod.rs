@@ -164,9 +164,6 @@ pub(super) struct Lowerer<'m, 'a> {
     /// symbols name (specification 44 §5.7, §13.2); `None` in a release image, whose frame
     /// variables are Rust locals.
     pub(super) frame_vars: Option<Vec<FrameVar>>,
-    /// The bytes of an address on the target, which `SIZEOF` gives a reference or a pointer
-    /// (specification 29 §1).
-    pub(super) pointer_bytes: u64,
 }
 
 /// A variable of a debug image's frame structure: its declared name, its field, its type and
@@ -219,7 +216,6 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         ids: &'m StatementIds,
         frame: Frame,
         hooks: bool,
-        pointer_bytes: u64,
     ) -> Self {
         Self {
             model,
@@ -247,7 +243,6 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             text_bytes: Vec::new(),
             pou: u16::MAX,
             frame_vars: hooks.then(Vec::new),
-            pointer_bytes,
         }
     }
 

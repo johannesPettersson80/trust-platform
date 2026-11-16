@@ -7,11 +7,12 @@ use std::path::Path;
 use crate::harness::SourceFile;
 use crate::stdlib::conversions::ConversionProfile;
 
-use super::{cargo_build, front_of, model, recursion, rust_pous, NativeError, Target};
+use super::emit::layer_one_library;
+use super::{cargo_build, front_of, generated_as, rust_pous, NativeError, Target};
 
 /// Writes the bindings of the project in `project` from its Structured Text `sources`, with the
-/// conversions `conversions`, into its `build/trust_st`, generated for this computer without the
-/// debugger's hooks; a project whose crate calls no Structured Text has none.
+/// conversions `conversions`, into its `build/trust_st`, the text every build writes; a project
+/// whose crate calls no Structured Text has none.
 ///
 /// # Errors
 ///
@@ -30,19 +31,15 @@ pub fn write_bindings(
         return Ok(());
     };
     let front = front_of(sources, &[], conversions, Some(&krate))?;
-    let ids = front.statement_ids();
-    let registry = front.lowered.builder.registry().clone();
-    let mut model = model::Model::new(&front.lowered, registry, &[], &front.direct_addresses()?)?;
-    model.conversions = conversions;
     let target = Target::this_cpu().ok_or_else(|| {
         NativeError::Toolchain("this computer is no target of specification 44".into())
     })?;
-    let generated = recursion::generate(&front, &mut model, &ids, target, false)?;
-    if let Some(layer_one) = &generated.layer_one {
-        cargo_build::write_layer_one(
-            &project.join(rust_pous::BINDINGS_FOLDER),
-            &layer_one.library,
-        )?;
+    // One text for every target and image, as the build writes it (RU-39).
+    let release = generated_as(&front, &[], conversions, target, false)?;
+    let debug = generated_as(&front, &[], conversions, target, true)?;
+    if let (Some(release), Some(debug)) = (release.layer_one, debug.layer_one) {
+        let library = layer_one_library(&release.module, &debug.module, &release.bindings);
+        cargo_build::write_layer_one(&project.join(rust_pous::BINDINGS_FOLDER), &library)?;
     }
     Ok(())
 }

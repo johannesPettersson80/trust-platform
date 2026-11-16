@@ -46,8 +46,10 @@ pub(super) struct Generated {
 /// Layer 1 (specification 48 §9.2, RU-39): the crate `trust_st`, whose library `st` holds the
 /// Structured Text that the project's crate calls, with everything it reaches, and the bindings.
 pub(super) struct LayerOne {
-    /// The library's source.
-    pub(super) library: String,
+    /// The generated module of this generation's image, the text of `__generated`.
+    pub(super) module: String,
+    /// The bindings, the same for every image.
+    pub(super) bindings: String,
 }
 
 /// One POU of a debug image: its name, the type its instance has, and its frame's variables at
@@ -185,7 +187,6 @@ pub(super) fn generate<'a>(
             hooks,
             recursion,
             pou,
-            pointer_bytes: target.pointer_bytes(),
         };
         let of = body_pou(front, model, &item);
         let (text, statements, needs, name, called, frame) = match body(&context, model, &item) {
@@ -241,14 +242,15 @@ pub(super) fn generate<'a>(
         &model.rust_places,
         &front.rust_structures,
     )?);
-    connections::connections(front, ids, model, target.pointer_bytes(), &mut functions)?;
+    connections::connections(front, ids, model, &mut functions)?;
 
     let mut source = head(target, layered);
     let shared = shared(model, &frame_types);
     let layer_one = if layered {
         let bindings = st_bindings::bindings(model, &roots)?;
         Some(LayerOne {
-            library: layer_one_library(&shared, &layer_one_functions, &bindings),
+            module: format!("{PRELUDE_IMPORTS}{PRELUDE_ITEMS}\n{shared}{layer_one_functions}"),
+            bindings,
         })
     } else {
         source.push_str(&shared);
@@ -332,16 +334,20 @@ fn split(texts: Vec<(String, String)>, layer_one: &BTreeSet<String>) -> (String,
     functions
 }
 
-/// The library of layer 1 (specification 48 RU-39): the generated module, `shared`'s types and
-/// areas with `functions`, which layer 3 takes them from, and the `bindings` the project's crate
-/// calls.
-fn layer_one_library(shared: &str, functions: &str, bindings: &str) -> String {
+/// The library of layer 1 (specification 48 RU-39) from the generated module of a release image,
+/// `release`, and of a debug image, `debug`, which its cargo feature `hooks` chooses, and the
+/// `bindings`: one text for every target and every image.
+pub(super) fn layer_one_library(release: &str, debug: &str, bindings: &str) -> String {
     format!(
         "//! The Structured Text that the project's crate calls (specification 48 RU-39). Generated \
          by truST from the project; do not edit.\n\
          #![no_std]\n#![deny(unsafe_code)]\n#![allow(warnings, clippy::all, clippy::pedantic)]\n\n\
-         /// The generated code of the Structured Text, which the bindings and the build call.\n\
-         #[doc(hidden)]\npub mod __generated {{\n{PRELUDE_IMPORTS}{PRELUDE_ITEMS}\n{shared}{functions}}}\n\n\
+         /// The generated code of the Structured Text in a release image, which the bindings and the \
+         build call.\n\
+         #[cfg(not(feature = \"hooks\"))]\n#[doc(hidden)]\npub mod __generated {{\n{release}}}\n\n\
+         /// The generated code of the Structured Text in a debug image, with the debugger's statement \
+         hooks (specification 44 §13).\n\
+         #[cfg(feature = \"hooks\")]\n#[doc(hidden)]\npub mod __generated {{\n{debug}}}\n\n\
          {bindings}"
     )
 }

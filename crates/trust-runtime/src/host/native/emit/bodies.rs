@@ -17,15 +17,13 @@ use super::{method_function, return_type, signature, structure, PouFrame, PouIns
 use crate::program_model::{FunctionDef, MethodDef, Param, VarDef};
 
 /// What the lowering of every body takes besides its POU: the sources, the statement ids, whether
-/// the image is a debug image with statement hooks, the recursive calls, the POU's id and the
-/// target's pointer width.
+/// the image is a debug image with statement hooks, the recursive calls and the POU's id.
 pub(super) struct BodyContext<'c> {
     pub(super) front: &'c Front,
     pub(super) ids: &'c StatementIds,
     pub(super) hooks: bool,
     pub(super) recursion: &'c Recursion,
     pub(super) pou: u16,
-    pub(super) pointer_bytes: u64,
 }
 
 impl BodyContext<'_> {
@@ -44,7 +42,6 @@ impl BodyContext<'_> {
             self.ids,
             frame,
             self.hooks,
-            self.pointer_bytes,
         );
         lowerer.pou = self.pou;
         lowerer.recursive = self.recursion.callees_of(name);
