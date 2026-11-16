@@ -968,7 +968,8 @@ fn a_field_of_st_is_a_type_of_the_projects_structured_text() {
     // structure, an enumeration or a type with named values, which an input, an output, an array's
     // element, a reference or a function's parameter may also have, `st::POINT`; rustc refuses a
     // held block there, as it is no `trust_plc::Value` (the native build's test). A path of another
-    // crate's (`other::HYSTERESIS`) stays a crate type's name; `#[init]` is not carried for it.
+    // crate's (`other::HYSTERESIS`) stays a crate type's name; an enumeration's variable takes
+    // `#[init(st::MODE::RUN)]`, written `RUN`.
     // Catches a type of the project's Structured Text refused where a value may lie, and another
     // path taken for one.
     let item: ItemStruct = parse_quote! {
@@ -999,8 +1000,33 @@ fn a_field_of_st_is_a_type_of_the_projects_structured_text() {
     assert_eq!(pou.variables[3].section, crate::Section::Input);
     assert_eq!(pou.variables[4].ty.iec(), "ARRAY[1..2] OF POINT");
     assert_eq!(pou.variables[4].section, crate::Section::Output);
+    // An enumeration's variable takes one of its values, `st::MODE::RUN`, which trust-hir checks;
+    // another initial value is refused.
+    let item: ItemStruct = parse_quote! {
+        #[budget("1us")]
+        pub struct Moded {
+            #[init(st::MODE::RUN)]
+            mode: st::MODE,
+        }
+    };
+    let pou = function_block(args("name = \"MODED\""), &item).unwrap();
+    assert_eq!(
+        pou.variables[0].init,
+        Some(crate::Value::Variant(vec![
+            "st".into(),
+            "MODE".into(),
+            "RUN".into()
+        ]))
+    );
+    assert_eq!(
+        pou.variables[0]
+            .init
+            .as_ref()
+            .map(crate::Value::structured_text),
+        Some("RUN".to_string())
+    );
     let message = fields_refusal("#[init(1)] h: st::HYSTERESIS");
-    assert!(message.contains("does not carry one"), "{message}");
+    assert!(message.contains("is one of its variants"), "{message}");
     let item: ItemFn = parse_quote! {
         #[budget("1us")]
         pub fn f(_cx: &mut Cx, p: st::POINT) -> Result<i16, Fault> {
