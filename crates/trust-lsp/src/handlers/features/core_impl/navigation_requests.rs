@@ -19,6 +19,10 @@ pub fn goto_definition(
         let target_doc = state.document_for_file_id(result.file_id)?;
         (target_doc.uri, target_doc.content)
     };
+    // A Rust POU's definition is its Rust item (specification 48 RU-50).
+    if let Some(item) = super::rust_sources::rust_item(&target_uri, &target_content, result.range) {
+        return Some(GotoDefinitionResponse::Scalar(item));
+    }
 
     let range = Range {
         start: offset_to_position(&target_content, result.range.start().into()),
