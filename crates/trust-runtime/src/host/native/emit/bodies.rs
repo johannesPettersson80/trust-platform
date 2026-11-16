@@ -145,7 +145,7 @@ fn block_body(
         )));
     };
     let signature = format!(
-        "fn fb_{}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{\n",
+        "pub fn fb_{}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{\n",
         mangle(&def.name),
         info.rust
     );
