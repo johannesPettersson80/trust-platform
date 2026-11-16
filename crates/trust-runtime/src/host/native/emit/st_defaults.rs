@@ -9,7 +9,7 @@ use super::super::lower::{byte_string, unit_string};
 use super::super::model::Model;
 use super::super::types::{Elem, Kind, Ty, Types};
 use super::super::NativeError;
-use super::st_bindings::{elementary, field_name};
+use super::st_bindings::{binding_path, elementary, field_name};
 use trust_plc_decl::Elementary;
 
 /// The binding's default of the Structured Text type `ty`, a constant expression of its binding:
@@ -72,7 +72,7 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
             if super::st_types::is_open(values, *named) {
                 return Some(format!(
                     "{}({})",
-                    info.name,
+                    binding_path(&info.name)?,
                     elementary_constant(*base, bytes)
                 ));
             }
@@ -81,7 +81,11 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
                 .iter()
                 .find(|(_, value)| *value == number)
                 .or_else(|| values.first())?;
-            Some(format!("{}::{}", info.name, field_name(value)))
+            Some(format!(
+                "{}::{}",
+                binding_path(&info.name)?,
+                field_name(value)
+            ))
         }
         Kind::Struct { members } => {
             let fields = members
@@ -93,7 +97,11 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
                     Some(format!("{}: {value}", field_name(&member.name)))
                 })
                 .collect::<Option<Vec<_>>>()?;
-            Some(format!("{} {{ {} }}", info.name, fields.join(", ")))
+            Some(format!(
+                "{} {{ {} }}",
+                binding_path(&info.name)?,
+                fields.join(", ")
+            ))
         }
         _ => None,
     }

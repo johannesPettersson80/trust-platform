@@ -72,33 +72,57 @@ pub(super) fn scan(tokens: TokenStream, file: &str, uses: &mut Uses) {
         if let (Some(first), Some(second)) = (tokens.get(index + 1), tokens.get(index + 2))
             && is_path_separator(first, second)
         {
-            tree(tokens.get(index + 3), file, uses);
+            tree(
+                tokens.get(index + 3..).unwrap_or_default(),
+                ("", None),
+                file,
+                uses,
+            );
         }
     }
 }
 
-/// Adds the name of the tree `token` that follows `st::`: a name, `*`, or a group of trees,
-/// `{SCALE as Scale, LIMIT}`, of which each tree's first name counts.
-fn tree(token: Option<&TokenTree>, file: &str, uses: &mut Uses) {
-    match token {
+/// Adds the names of the tree that `tokens` begin with, which follows `st::` and the path before it,
+/// its names joined with `.` and where its first name lies (IEC §6.9): a path, its names joined with
+/// `.` (`Motion::MOVE_ABS` as `Motion.MOVE_ABS`, `MODE::RUN` as `MODE.RUN`, which the build resolves
+/// to what it names), at its first name, `*`, or a group of trees, `{SCALE as Scale, Motion::AXIS}`,
+/// each a tree of its own after the path.
+fn tree(tokens: &[TokenTree], before: (&str, Option<Span>), file: &str, uses: &mut Uses) {
+    let (prefix, start) = before;
+    match tokens.first() {
         Some(TokenTree::Ident(name)) if name != "self" => {
-            uses.names
-                .push(used(name.unraw().to_string(), file, name.span()));
+            let path = format!("{prefix}{}", name.unraw());
+            let start = start.unwrap_or_else(|| name.span());
+            let further = match (tokens.get(1), tokens.get(2), tokens.get(3)) {
+                (Some(first), Some(second), Some(next)) if is_path_separator(first, second) => {
+                    match next {
+                        TokenTree::Ident(next) => next != "self",
+                        TokenTree::Group(group) => group.delimiter() == Delimiter::Brace,
+                        TokenTree::Punct(star) => star.as_char() == '*',
+                        TokenTree::Literal(_) => false,
+                    }
+                }
+                _ => false,
+            };
+            if further {
+                tree(&tokens[3..], (&format!("{path}."), Some(start)), file, uses);
+            } else {
+                uses.names.push(used(path, file, start));
+            }
         }
         Some(TokenTree::Punct(star)) if star.as_char() == '*' => {
-            uses.globs.push(used("*".to_string(), file, star.span()));
+            uses.globs.push(used(
+                format!("{prefix}*"),
+                file,
+                start.unwrap_or_else(|| star.span()),
+            ));
         }
         Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
-            let mut starts = true;
-            for inner in group.stream() {
-                if let TokenTree::Punct(comma) = &inner
-                    && comma.as_char() == ','
-                {
-                    starts = true;
-                } else if starts {
-                    starts = false;
-                    tree(Some(&inner), file, uses);
-                }
+            let inner: Vec<TokenTree> = group.stream().into_iter().collect();
+            for item in inner
+                .split(|token| matches!(token, TokenTree::Punct(comma) if comma.as_char() == ','))
+            {
+                tree(item, (prefix, start), file, uses);
             }
         }
         _ => {}

@@ -2,7 +2,7 @@
 //! project's crate calls, a Rust function of the name the crate calls it by, which runs the
 //! generated function on the kernel's context that the SDK's `Cx` keeps (RU-11, RU-38).
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
 
 use super::super::classes::Owner;
@@ -82,6 +82,7 @@ pub(super) fn bindings(
     methods: &HashMap<String, Vec<super::st_blocks::HeldMethod>>,
 ) -> Result<String, NativeError> {
     // The cells a binding writes a value into, empty, whatever the generated code's type of them.
+    let mut texts: BTreeMap<String, String> = BTreeMap::new();
     let mut text = String::from(
         "/// Empty cells of the generated code's type `T`, its zero value (specification 44 §6.2),
 /// which a binding writes a value into before the generated code reads them.
@@ -126,7 +127,9 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
             }
             continue;
         }
-        text.push_str(&function(model, used, &mut data_types)?);
+        let namespace = split_name(&used.name).0.to_string();
+        let function = function(model, used, &mut data_types)?;
+        texts.entry(namespace).or_default().push_str(&function);
     }
     // Each data type's binding, those its own reach among them.
     let mut written_types = BTreeSet::new();
@@ -136,9 +139,63 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
         .find(|ty| !written_types.contains(ty))
     {
         written_types.insert(ty);
-        text.push_str(&super::st_types::binding(model, ty, &mut data_types)?);
+        let namespace = split_name(&model.types.info(ty).name).0.to_string();
+        let binding = super::st_types::binding(model, ty, &mut data_types)?;
+        texts.entry(namespace).or_default().push_str(&binding);
     }
-    Ok(text)
+    texts.entry(String::new()).or_default().insert_str(0, &text);
+    Ok(nested(&texts, ""))
+}
+
+/// The bindings of `texts`, each namespace's (IEC §6.9) in a module of its name: the text of
+/// `prefix` (the root's, empty), then a module for each namespace inside it, which sees what its
+/// parent sees (RU-39).
+fn nested(texts: &BTreeMap<String, String>, prefix: &str) -> String {
+    let mut out = texts.get(prefix).cloned().unwrap_or_default();
+    let children: BTreeSet<&str> = texts
+        .keys()
+        .filter_map(|key| {
+            let rest = if prefix.is_empty() {
+                key.as_str()
+            } else {
+                key.strip_prefix(prefix)?.strip_prefix('.')?
+            };
+            rest.split('.').next().filter(|child| !child.is_empty())
+        })
+        .collect();
+    for child in children {
+        let path = if prefix.is_empty() {
+            child.to_string()
+        } else {
+            format!("{prefix}.{child}")
+        };
+        let _ = write!(
+            out,
+            "/// The bindings of the Structured Text namespace `{path}` (IEC §6.9).\npub mod {child} {{\n\
+             #[allow(unused_imports)]\nuse super::*;\n\n{}}}\n\n",
+            nested(texts, &path)
+        );
+    }
+    out
+}
+
+/// The namespace of the name `name` and its last name, `("Motion", "AXIS")` of `Motion.AXIS`, the
+/// namespace empty for a name outside one (IEC §6.9).
+pub(super) fn split_name(name: &str) -> (&str, &str) {
+    name.rsplit_once('.').unwrap_or(("", name))
+}
+
+/// The path of the binding of the project's data type named `name` from any module of the
+/// bindings, `crate::Motion::AXIS` of `Motion.AXIS` (IEC §6.9); `None` for a name Rust cannot write.
+pub(super) fn binding_path(name: &str) -> Option<String> {
+    let names: Vec<&str> = name.split('.').collect();
+    if names
+        .iter()
+        .any(|name| syn::parse_str::<syn::Ident>(name).is_err())
+    {
+        return None;
+    }
+    Some(format!("crate::{}", names.join("::")))
 }
 
 /// The binding of the Structured Text function the crate calls by `used` (RU-39): a Rust function
@@ -212,7 +269,7 @@ Ok({load})
 
 ",
         declared = def.name,
-        name = used.name,
+        name = split_name(&used.name).1,
         generic = if in_outs.is_empty() && outputs.is_empty() {
             ""
         } else {
@@ -632,9 +689,7 @@ fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<
             Some(format!("trust_plc::Ref<{target}>"))
         }
         Kind::Struct { members } => {
-            if syn::parse_str::<syn::Ident>(&info.name).is_err() {
-                return None;
-            }
+            let path = binding_path(&info.name)?;
             if data_types.insert(ty) {
                 let passes = members
                     .iter()
@@ -644,7 +699,7 @@ fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<
                     return None;
                 }
             }
-            Some(info.name.to_string())
+            Some(path)
         }
         _ => None,
     }
@@ -657,8 +712,8 @@ pub(super) fn unpassed(types: &Types<'_>, ty: Ty) -> Option<String> {
         return None;
     }
     let info = types.info(ty);
-    if syn::parse_str::<syn::Ident>(&info.name).is_err() {
-        return Some("is named in a namespace".to_string());
+    if binding_path(&info.name).is_none() {
+        return Some("has a name Rust cannot write".to_string());
     }
     let Kind::Struct { members } = &info.kind else {
         return Some("is of a type the bindings do not pass yet".to_string());
@@ -686,11 +741,9 @@ pub(super) fn rust_type(
     match &info.kind {
         Kind::Elem(elem) => Some(passed(*elem).0),
         Kind::Enum { .. } => {
-            if syn::parse_str::<syn::Ident>(&info.name).is_err() {
-                return None;
-            }
+            let path = binding_path(&info.name)?;
             data_types.insert(ty);
-            Some(info.name.to_string())
+            Some(path)
         }
         _ => by_cells(types, ty, data_types),
     }

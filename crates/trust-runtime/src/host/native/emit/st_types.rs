@@ -13,7 +13,7 @@ use smol_str::SmolStr;
 use super::super::model::Model;
 use super::super::types::{Kind, Ty};
 use super::super::NativeError;
-use super::st_bindings::{field_name, load, passed, rust_type, store, Scope};
+use super::st_bindings::{field_name, load, passed, rust_type, split_name, store, Scope};
 use super::st_defaults;
 
 /// The binding of the project's data type `ty`; empty for another type.
@@ -65,7 +65,7 @@ fn structure(
     let Kind::Struct { members } = &info.kind else {
         return Ok(String::new());
     };
-    let name = &info.name;
+    let name = split_name(&info.name).1;
     let mut fields = String::new();
     let mut loads = Vec::new();
     let mut stores = String::new();
@@ -134,7 +134,7 @@ fn enumeration(model: &mut Model<'_>, ty: Ty) -> Result<String, NativeError> {
     let Kind::Enum { base, values, .. } = &info.kind else {
         return Ok(String::new());
     };
-    let name = &info.name;
+    let name = split_name(&info.name).1;
     let raw = base.stored();
     let mut variants = String::new();
     let mut loads = String::new();
@@ -189,7 +189,7 @@ fn named_values(model: &mut Model<'_>, ty: Ty) -> Result<String, NativeError> {
     let Kind::Enum { base, values, .. } = &info.kind else {
         return Ok(String::new());
     };
-    let name = &info.name;
+    let name = split_name(&info.name).1;
     let raw = base.stored();
     let (rust, own) = passed(*base);
     let mut constants = String::new();

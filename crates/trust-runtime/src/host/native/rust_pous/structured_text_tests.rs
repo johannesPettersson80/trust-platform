@@ -25,9 +25,10 @@ fn scanned(text: &str) -> (Vec<String>, Vec<String>, Option<String>) {
 
 #[test]
 fn the_crate_names_the_structured_text_it_calls() {
-    // RU-38, RU-39: `use st::{..}` names the first name of each of its trees (HYSTERESIS of
-    // `HYSTERESIS as Hysteresis`, `filters` of `filters::LOW`; `self` none), and a path that starts
-    // with `st::` names its next segment: a call inside a body, a field's type. A path through
+    // RU-38, RU-39: `use st::{..}` names the path of each of its trees, its names joined with `.`
+    // at its first name (HYSTERESIS of `HYSTERESIS as Hysteresis`, `filters.LOW` of
+    // `filters::LOW`, a namespace's POU; `self` none), and a path that starts with `st::` names
+    // its path after `st::`: a call inside a body, a field's type. A path through
     // `st` (`crate::st::OTHER`), a field named `st` and another crate (`my_st::NOT`) name none.
     // `use st::*` names nothing and is kept with its place. Catches a call the build would leave
     // out of layer 1, a name taken from another path, and an alias taken for a POU.
@@ -46,7 +47,7 @@ fn the_crate_names_the_structured_text_it_calls() {
         (
             vec![
                 "HYSTERESIS 1:10".to_string(),
-                "filters 1:36".to_string(),
+                "filters.LOW 1:36".to_string(),
                 "LIMIT 1:56".to_string(),
                 "GUARD 2:24".to_string(),
                 "SCALE 4:17".to_string(),

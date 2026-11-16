@@ -679,7 +679,11 @@ calls Structured Text names it in `[dependencies]`, `trust_st = { path = "../bui
 (`build/trust_st` in a Rust-first project), and the build refuses a crate that writes `st::` without
 it, naming the line, as it names RU-08's. The crate names each Structured Text POU it calls,
 `st::SCALE(cx, x)` or `use st::{SCALE, HYSTERESIS};`, which tells the build what layer 1 holds;
-`use st::*`, which hides them, is refused. A crate's own `st`, a `mod st` or an `… as st`, is what
+`use st::*`, which hides them, is refused. A POU or a data type in a namespace (IEC §6.9), as a
+library's are, has its binding in a module of the namespace's name, nested for a namespace in
+another: `st::Motion::MOVE_BY(cx, axis, d)`, `st::Motion::AXIS`, `use st::Motion::{MOVE_BY, AXIS};`.
+A path names the longest of its prefixes that names a POU or a data type, so `st::MODE::RUN` names
+the enumeration `MODE`. A crate's own `st`, a `mod st` or an `… as st`, is what
 its `st::` names, as Rust resolves it, so such a crate calls no Structured Text; one that also names
 the bindings is refused at its own `st`, which Rust could not tell from them. A call runs the Structured Text on the kernel's context
 that the SDK's `Cx` keeps, so its statements count against the activation's budget and stop at
