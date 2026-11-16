@@ -483,6 +483,8 @@ pub fn build_project(
         project: cargo_build::ProjectCrate {
             folder: project.join(&krate.layout.crate_folder),
             package: krate.package.clone(),
+            bindings: (!krate.structured_text.is_empty())
+                .then(|| project.join(rust_pous::BINDINGS_FOLDER)),
         },
         krate,
         timing,
@@ -533,17 +535,17 @@ fn build_sources(
     let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
     model.conversions = conversions;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
-    // Layer 1 of specification 48 §9.2, what the Structured Text that Rust calls reaches, is not
-    // compiled yet (milestone R3).
-    if let (false, Some(first)) = (
-        generated.layer_one.is_empty(),
-        front.structured_text.first(),
-    ) {
-        return Err(NativeError::Compile(format!(
-            "the crate calls Structured Text (st::{} at {}:{}), which the build does not compile \
-             yet (specification 48 §8, milestone R3)",
-            first.name, first.file, first.line
-        )));
+    // Layer 1, the Structured Text that the crate calls, lies where the crate's manifest names it
+    // (specification 48 RU-39).
+    if let (
+        Some(layer_one),
+        Some(cargo_build::ProjectCrate {
+            bindings: Some(folder),
+            ..
+        }),
+    ) = (&generated.layer_one, &project)
+    {
+        cargo_build::write_layer_one(folder, &layer_one.library)?;
     }
     // The Rust work of each task against its interval (specification 48 RU-47): warnings, or errors
     // in a `production` profile.

@@ -1,13 +1,17 @@
 /// The program library's and the interface's Rust names every generated crate uses.
-pub(in crate::native) const PRELUDE: &str = "use core::cell::Cell;
+pub(in crate::native) const PRELUDE_IMPORTS: &str = "use core::cell::Cell;
 use trust_plc_abi::{self as abi, plain_struct, Cx, Fault, Plain, Str, WStr};
 use trust_plc_abi::module::{fault, recurse, run, stmt as st, tick, Areas};
 use trust_plc_lib as lib;
+";
 
-type R<T> = Result<T, Fault>;
+/// The items every generated crate's code uses, public so that layer 3 takes them from layer 1
+/// when the project's crate calls Structured Text (specification 48 §9.2).
+pub(in crate::native) const PRELUDE_ITEMS: &str = "
+pub type R<T> = Result<T, Fault>;
 
 /// A value copied into a place of its type: a scalar, a string, an array, a structure.
-trait Assign {
+pub trait Assign {
     fn assign(&self, source: &Self);
 }
 
@@ -51,7 +55,7 @@ impl<const N: usize> Assign for abi::OpenRef<N> {
 /// The reference `r` to an instance as a reference to its part of a base type, which lies first in
 /// it and spans `extent` bytes, as `REF` takes it (IEC §6.4.4.10.3); `NULL` stays `NULL`.
 #[inline]
-fn as_base(r: abi::RefValue, extent: u32) -> abi::RefValue {
+pub fn as_base(r: abi::RefValue, extent: u32) -> abi::RefValue {
     if r.kind == abi::RefValue::NULL {
         r
     } else {
@@ -62,7 +66,7 @@ fn as_base(r: abi::RefValue, extent: u32) -> abi::RefValue {
 /// Whether two references or interface values name the same variable or instance, whatever type
 /// each was taken as (an instance of a derived type as its base spans less).
 #[inline]
-fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
+pub fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
     a.kind == b.kind
         && a.area == b.area
         && a.char_index == b.char_index
@@ -75,7 +79,7 @@ fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
 /// through it sets the string's length (docs/IEC_DEVIATIONS.md DEV-039, DEV-046); `fresh`, a
 /// reference to the element itself, otherwise.
 #[inline]
-fn text_bytes_or(named: abi::RefValue, fresh: abi::RefValue) -> abi::RefValue {
+pub fn text_bytes_or(named: abi::RefValue, fresh: abi::RefValue) -> abi::RefValue {
     if named.kind == abi::RefValue::TEXT_BYTES || named.kind == abi::RefValue::TEXT_UNITS {
         named
     } else {
@@ -88,7 +92,7 @@ fn text_bytes_or(named: abi::RefValue, fresh: abi::RefValue) -> abi::RefValue {
 /// that the in-out declares, so that it reads and writes at most that many characters and never
 /// more than the caller's string holds (specification 44 §7.3).
 #[inline]
-fn within(view: abi::StrView<'_>, limit: usize) -> abi::StrView<'_> {
+pub fn within(view: abi::StrView<'_>, limit: usize) -> abi::StrView<'_> {
     abi::StrView {
         len: view.len,
         data: &view.data[..limit.min(view.data.len())],
@@ -97,7 +101,7 @@ fn within(view: abi::StrView<'_>, limit: usize) -> abi::StrView<'_> {
 
 /// [`within`] for a `WSTRING`.
 #[inline]
-fn within_wide(view: abi::WStrView<'_>, limit: usize) -> abi::WStrView<'_> {
+pub fn within_wide(view: abi::WStrView<'_>, limit: usize) -> abi::WStrView<'_> {
     abi::WStrView {
         len: view.len,
         data: &view.data[..limit.min(view.data.len())],
@@ -105,7 +109,7 @@ fn within_wide(view: abi::WStrView<'_>, limit: usize) -> abi::WStrView<'_> {
 }
 
 /// The text of a string in-out, which reads and is written as a string's text is (`Str::view`).
-trait AsView {
+pub trait AsView {
     type Text;
     fn view(&self) -> Self::Text;
 }
@@ -131,7 +135,7 @@ impl<'a> AsView for abi::WStrView<'a> {
 /// caller's string when it holds as many characters as `T` (`whole`); a shorter one is no such
 /// variable (`TypeMismatch`).
 #[inline]
-fn refer_text<T: Plain>(
+pub fn refer_text<T: Plain>(
     cx: &mut Cx,
     areas: &Areas<'_>,
     len: &Cell<u16>,
@@ -151,7 +155,7 @@ fn refer_text<T: Plain>(
 /// The members of a `STRUCT OVERLAP` (specification 02 §3.6; specification 44 §6.2): views of the
 /// bytes each takes of the structure's backing, read and written in the target's byte order, so
 /// that a write through one member is read through every member that shares its bits.
-mod ov {
+pub mod ov {
     use core::cell::Cell;
     use core::marker::PhantomData;
 

@@ -15,7 +15,7 @@ mod structured_text;
 mod tree;
 mod types;
 
-pub use layout::{layout, Layout, CRATE_FOLDER, DECLARATIONS_FILE};
+pub use layout::{layout, Layout, BINDINGS_FOLDER, CRATE_FOLDER, DECLARATIONS_FILE};
 pub use structured_text::StructuredTextUse;
 pub use types::{RustEnumeration, RustStructure};
 

@@ -85,7 +85,7 @@ fn program_body(
         )
     };
     let signature = format!(
-        "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}) -> R<()> {{\n",
+        "pub fn {name}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}) -> R<()> {{\n",
     );
     let Some((file, node)) = find_pou(context.front, K::Program, &def.name, None) else {
         return Err(NativeError::Compile(format!(
@@ -145,7 +145,7 @@ fn block_body(
         )));
     };
     let signature = format!(
-        "fn fb_{}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{\n",
+        "pub fn fb_{}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{\n",
         mangle(&def.name),
         info.rust
     );
@@ -273,7 +273,7 @@ fn method_pou_body(
         ""
     };
     let signature = format!(
-        "{inline}fn {name}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
+        "{inline}pub fn {name}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
         info.rust
     );
     let of = PouOf {
@@ -341,7 +341,7 @@ fn program_method_body(
     let exit = lowerer.exit.clone();
     lowerer.line(&exit);
     let signature = format!(
-        "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}{parameters}) -> R<{returns}> {{\n",
+        "pub fn {name}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}{parameters}) -> R<{returns}> {{\n",
     );
     let of = PouOf {
         name: format!("{}.{}", def.name, method.name),
@@ -406,8 +406,9 @@ fn function_body(
     let exit = lowerer.exit.clone();
     lowerer.line(&exit);
     let inline = if rust { "#[inline(never)]\n" } else { "" };
-    let signature =
-        format!("{inline}fn {name}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n");
+    let signature = format!(
+        "{inline}pub fn {name}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n"
+    );
     let of = PouOf {
         name: def.name.to_string(),
         instance: None,

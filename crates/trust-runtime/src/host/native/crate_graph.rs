@@ -32,8 +32,15 @@ struct Package {
 }
 
 /// The rules the graph of the build's `metadata` breaks, each as a message: `sdk` is the folder of
-/// the SDK's crates, `project` the folder of the project's crate.
-pub(super) fn check(metadata: &Value, sdk: &Path, project: &Path) -> Vec<String> {
+/// the SDK's crates, `project` the folder of the project's crate, `bindings` the folder of layer 1
+/// when the project's crate calls Structured Text, a package the build generates as it generates
+/// its own (specification 48 RU-39).
+pub(super) fn check(
+    metadata: &Value,
+    sdk: &Path,
+    project: &Path,
+    bindings: Option<&Path>,
+) -> Vec<String> {
     let packages: HashMap<&str, Package> = metadata["packages"]
         .as_array()
         .into_iter()
@@ -66,6 +73,7 @@ pub(super) fn check(metadata: &Value, sdk: &Path, project: &Path) -> Vec<String>
     let canonical =
         |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let (sdk, project) = (canonical(sdk), canonical(project));
+    let bindings = bindings.map(canonical);
     let under = |package: &Package, folder: &Path| {
         package
             .manifest
@@ -78,14 +86,28 @@ pub(super) fn check(metadata: &Value, sdk: &Path, project: &Path) -> Vec<String>
         .filter(|(_, package)| under(package, &sdk))
         .map(|(id, _)| *id)
         .collect();
-    let exempt = closure(&sdk_crates, &dependencies);
+    let mut exempt = closure(&sdk_crates, &dependencies);
+    // Layer 1 is the generated code's, which the SDK's crates serve, as the build's own package
+    // is; it holds no code of the project's but the Structured Text it generates.
+    let layer_one: Vec<&str> = packages
+        .iter()
+        .filter(|(_, package)| {
+            bindings
+                .as_deref()
+                .is_some_and(|folder| under(package, folder))
+        })
+        .map(|(id, _)| *id)
+        .collect();
+    exempt.extend(layer_one.iter().copied());
     // The project's crate and every crate it is built with. The build's own package, the generated
     // code that `cargo metadata` runs in, lies inside a Rust-first project's crate folder, the
     // project's own (RU-65), and is none of the project's crates.
     let generated = metadata["resolve"]["root"].as_str();
     let roots: Vec<&str> = packages
         .iter()
-        .filter(|(id, package)| Some(**id) != generated && under(package, &project))
+        .filter(|(id, package)| {
+            Some(**id) != generated && !layer_one.contains(id) && under(package, &project)
+        })
         .map(|(id, _)| *id)
         .collect();
     let mut errors = Vec::new();

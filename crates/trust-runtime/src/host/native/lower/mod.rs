@@ -33,7 +33,7 @@ mod text_bytes;
 mod text_selection;
 
 pub(super) use call::{ident as ident_of, parameter, qualified};
-pub(super) use prelude::PRELUDE;
+pub(super) use prelude::{PRELUDE_IMPORTS, PRELUDE_ITEMS};
 pub(super) use text::{byte_string, unit_string};
 
 use std::collections::BTreeSet;
