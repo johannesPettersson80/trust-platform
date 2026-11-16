@@ -533,7 +533,7 @@ pub(super) fn load(
         Kind::Fb {
             is_class: false, ..
         } => {
-            let (inputs, outputs) = held(types, ty, structures)?;
+            let (inputs, outputs) = held(types, ty)?;
             let values = |list: &[super::st_bindings::HeldMember]| {
                 list.iter()
                     .map(|member| {
@@ -562,7 +562,6 @@ pub(super) fn load(
 fn held(
     types: &Types<'_>,
     ty: Ty,
-    structures: &HashMap<String, String>,
 ) -> Result<
     (
         Vec<super::st_bindings::HeldMember>,
@@ -570,7 +569,7 @@ fn held(
     ),
     NativeError,
 > {
-    super::st_bindings::held_members(types, ty, structures, &mut BTreeSet::new()).map_err(|what| {
+    super::st_bindings::held_members(types, ty, &mut BTreeSet::new()).map_err(|what| {
         NativeError::Compile(format!(
             "the held block {} {what}, which a held block does not pass yet (specification 48 \
              RU-39, milestone R3)",
@@ -626,7 +625,7 @@ pub(super) fn store(
         Kind::Fb {
             is_class: false, ..
         } => {
-            let (inputs, _) = held(types, ty, structures)?;
+            let (inputs, _) = held(types, ty)?;
             Ok(inputs
                 .iter()
                 .map(|member| {

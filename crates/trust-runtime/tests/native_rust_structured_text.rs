@@ -227,8 +227,9 @@ END_FUNCTION_BLOCK
         (
             "NOPE",
             SCALE,
-            "st::NOPE at rust/src/lib.rs:9 names no Structured Text function, function block or \
-             structure of the project (specification 48 RU-38)",
+            "st::NOPE at rust/src/lib.rs:9 names no Structured Text function, function block, \
+             structure, enumeration or type with named values of the project (specification 48 \
+             RU-40)",
         ),
         (
             "TWICE",
