@@ -229,13 +229,9 @@ pub(crate) fn initial_of(value: &Expr, ty: &DataType) -> Result<Value, Error> {
             value.span(),
             "a reference starts `NULL` and takes no `#[init]` (specification 48 RU-29)",
         )),
-        DataType::Structured(_) => Err(Error::new(
-            value.span(),
-            "a variable of a type of the project's Structured Text starts at its type's initial \
-             values, and `#[init]` does not carry one for it yet (specification 48 RU-39)",
-        )),
-        // One of the enumeration's variants; the declarations' writer checks it is one.
-        DataType::Named(_) => match value {
+        // One of the enumeration's variants: the declarations' writer checks one of the crate's,
+        // trust-hir one of the project's Structured Text, `st::MODE::RUN` (RU-39).
+        DataType::Named(_) | DataType::Structured(_) => match value {
             Expr::Path(path) if path.qself.is_none() => Ok(Value::Variant(
                 path.path
                     .segments

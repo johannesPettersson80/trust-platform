@@ -22,6 +22,8 @@ pub struct Tracer {
     #[input] pub spot: st::POINT,
     #[output] pub last: st::POINT,
     #[output] pub mode: st::MODE,
+    #[init(st::MODE::IDLE)]
+    #[output] pub first: st::MODE,
     #[output] pub count: i32,
     trail: Array<st::POINT, 1, 2>,
 }
@@ -72,7 +74,9 @@ END_CONFIGURATION
 fn a_rust_pou_holds_values_of_the_projects_structured_text_types() {
     // RU-25, RU-39: a Rust block's input, outputs and own array may be of the project's
     // Structured Text structure POINT and enumeration MODE, as their bindings: TRACER takes
-    // (1.5, 4.0), gives LAST (3.0, 4.0) and MODE RUN, as Y > 3.0, and its TRAIL's two POINTs start
+    // (1.5, 4.0), gives LAST (3.0, 4.0) and MODE RUN, as Y > 3.0, keeps FIRST at its
+    // `#[init(st::MODE::IDLE)]`, which the type's own RUN does not override, and its TRAIL's two
+    // POINTs start
     // at POINT's initial values, Y 2.0 each, so COUNT is 2, at the task's first call at 10 ms.
     // Catches a variable of a Structured Text type refused, a structure carried through the
     // crate's places, and an array's elements not at their type's initial values.
@@ -92,9 +96,11 @@ VAR
     start : POINT := (X := 1.5, Y := 4.0);
     seen_x : LREAL;
     running : BOOL;
+    idle_first : BOOL;
     count : DINT;
 END_VAR
 tracer(spot := start);
+idle_first := tracer.first = IDLE;
 seen_x := tracer.last.X;
 running := tracer.mode = RUN;
 count := tracer.count;
@@ -113,6 +119,7 @@ END_PROGRAM",
     }
     assert_eq!(program.value("MAIN.SEEN_X"), Some(Value::LReal(3.0)));
     assert_eq!(program.value("MAIN.RUNNING"), Some(Value::Bool(true)));
+    assert_eq!(program.value("MAIN.IDLE_FIRST"), Some(Value::Bool(true)));
     assert_eq!(program.value("MAIN.COUNT"), Some(Value::DInt(2)));
     assert_eq!(program.value("MAIN.TRACER.LAST.Y"), Some(Value::LReal(4.0)));
 }

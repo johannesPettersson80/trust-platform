@@ -508,8 +508,10 @@ fn start(variable: &Variable) -> TokenStream {
 fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
     match ty {
         DataType::Elementary(elementary) => elementary_value(*elementary, init),
-        // A type the crate declares: the variant written, else the type's default.
-        DataType::Named(_) => {
+        // A type the crate or the project's Structured Text declares: the variant written, else
+        // the type's default; a held block starts without its place, which the generated code
+        // gives it each call (RU-39).
+        DataType::Named(_) | DataType::Structured(_) => {
             if let Some(Value::Variant(path)) = init {
                 let segments = path.iter().map(|segment| format_ident!("{segment}"));
                 quote!(#(#segments)::*)
@@ -519,9 +521,6 @@ fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
         }
         // A reference starts `NULL` (specification 48 RU-29).
         DataType::Ref(_) => quote!(::trust_plc::Ref::NULL),
-        // A held Structured Text function block starts without its place, which the generated
-        // code gives it each call (specification 48 RU-39).
-        DataType::Structured(_) => quote!(::trust_plc::declared_default()),
         DataType::Array { element, len, .. } => {
             if let Some(Value::List(items)) = init {
                 let len = usize::try_from(*len).unwrap_or(0);
