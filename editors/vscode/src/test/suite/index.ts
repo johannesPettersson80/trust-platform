@@ -341,6 +341,7 @@ export function run(): Promise<void> {
   require("./devices-browse-render.test");
   require("./devices-ads-tag-browser.test");
   require("./devices-discover-render.test");
+  require("./rust-declarations-readonly.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {

@@ -118,6 +118,11 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configurationDefaults": {
+      "files.readonlyInclude": {
+        "**/src/generated/rust_pous.st": true
+      }
+    },
     "languages": [
       {
         "id": "structured-text",
