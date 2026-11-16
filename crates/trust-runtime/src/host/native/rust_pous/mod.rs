@@ -31,9 +31,25 @@ pub struct RustPou {
     pub file: String,
     /// The line of its item in that file, 1-based.
     pub line: usize,
+    /// Where its item lies in that file, from its attribute to its name, which a tool that shows
+    /// the POU's source opens (specification 48 RU-31, RU-50).
+    pub item: ItemSpan,
+    /// Where each of its methods lies, in the order of `pou.methods`: its file, relative to the
+    /// project, and its item from its attribute to its name (RU-32, RU-50).
+    pub method_items: Vec<(String, ItemSpan)>,
     /// The path the program's generated code names the item by from the crate's root:
     /// `["filter", "FilterEma"]` for `crate::filter::FilterEma`.
     pub path: Vec<String>,
+}
+
+/// Where a Rust item lies in its file: the line, from 1, and the column, from 0 and in characters,
+/// of its start and of its end, as the compiler counts them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ItemSpan {
+    /// Where its attribute starts.
+    pub start: (usize, usize),
+    /// Where its name ends.
+    pub end: (usize, usize),
 }
 
 /// The project's crate and its Rust POUs.
