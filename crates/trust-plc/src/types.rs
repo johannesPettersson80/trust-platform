@@ -340,3 +340,62 @@ duration!(
     /// `LTIME`: a duration in nanoseconds.
     LTime
 );
+
+/// A value of RU-25's table that a variable, a parameter, a result, an array's element or a
+/// structure's field holds (specification 48 RU-25): every type of the table but a Structured Text
+/// function block or class that a Rust POU holds, which is the POU's own variable (RU-39). The
+/// bindings of the project's structures, enumerations and types with named values are values; a
+/// held block's and a class's are not.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is a Structured Text function block or class, which a Rust POU holds as its \
+               own variable",
+    label = "hold it as a field `name: st::X` without `#[input]`, `#[output]` or `#[in_out]`, not \
+             in an array, a reference, a parameter, a result or a structure (specification 48 \
+             RU-39)"
+)]
+pub trait Value {}
+
+macro_rules! values {
+    ($($ty:ty),* $(,)?) => {$(
+        impl Value for $ty {}
+    )*};
+}
+
+values!(
+    bool,
+    i8,
+    i16,
+    i32,
+    i64,
+    u8,
+    u16,
+    u32,
+    u64,
+    f32,
+    f64,
+    Byte,
+    Word,
+    Dword,
+    Lword,
+    Char,
+    WChar,
+    Time,
+    LTime,
+    crate::Date,
+    crate::LDate,
+    crate::Tod,
+    crate::LTod,
+    crate::Dt,
+    crate::Ldt,
+);
+
+impl<const N: usize> Value for crate::Str<N> {}
+impl<const N: usize> Value for crate::WStr<N> {}
+impl<T: Value, const A: i64, const N: usize> Value for crate::Array<T, A, N> {}
+impl<T> Value for crate::Ref<T> {}
+
+/// Requires `T` to be a [`Value`]: the macros check with it each type of the project's Structured
+/// Text that a POU's variable, parameter, result or structure's field names, which a held function
+/// block or class cannot be (specification 48 RU-39).
+#[doc(hidden)]
+pub fn assert_value<T: Value>() {}

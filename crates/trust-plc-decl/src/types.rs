@@ -309,9 +309,12 @@ pub enum DataType {
     Named(String),
     /// `REF_TO target`, written `Ref<target>` (specification 48 RU-29).
     Ref(Box<DataType>),
-    /// An instance of the project's Structured Text function block `X`, written `st::X`, which a
-    /// Rust function block or program holds as a field (specification 48 RU-38, RU-39).
-    Held(String),
+    /// A type of the project's Structured Text, written `st::X` (`st::Motion::X` in a namespace): a
+    /// function block or a class that a Rust function block or program holds as its own variable,
+    /// or a structure, an enumeration or a type with named values, which any variable, parameter,
+    /// result or field may have (specification 48 RU-25, RU-38, RU-39). Which it is the macros
+    /// leave to rustc: a held block or class is no `trust_plc::Value`.
+    Structured(String),
 }
 
 impl DataType {
@@ -330,7 +333,7 @@ impl DataType {
                 lower.saturating_add(i64::from(*len)).saturating_sub(1),
                 element.iec()
             )),
-            Self::Named(name) | Self::Held(name) => Cow::Owned(name.clone()),
+            Self::Named(name) | Self::Structured(name) => Cow::Owned(name.clone()),
             Self::Ref(target) => Cow::Owned(format!("REF_TO {}", target.iec())),
         }
     }
@@ -340,31 +343,15 @@ impl DataType {
     pub fn elementary(&self) -> Option<Elementary> {
         match self {
             Self::Elementary(elementary) => Some(*elementary),
-            Self::Array { .. } | Self::Named(_) | Self::Ref(_) | Self::Held(_) => None,
-        }
-    }
-
-    /// Whether the type is or holds a Structured Text function block, `st::X` (RU-39).
-    pub(crate) fn holds_block(&self) -> bool {
-        match self {
-            Self::Held(_) => true,
-            Self::Array { element, .. } | Self::Ref(element) => element.holds_block(),
-            Self::Elementary(_) | Self::Named(_) => false,
+            Self::Array { .. } | Self::Named(_) | Self::Ref(_) | Self::Structured(_) => None,
         }
     }
 
     /// The type `ty` names (RU-25), of a value no Structured Text function block lies in: a
     /// parameter's, a result's, a structure's field's.
     pub(crate) fn of_value(ty: &Type) -> Result<Self, Error> {
-        let data = Self::of(ty)?;
-        if data.holds_block() {
-            return Err(Error::new(
-                ty.span(),
-                "a Structured Text function block is held as a field of a Rust function block or \
-                 program, `hysteresis: st::HYSTERESIS` (specification 48 RU-38)",
-            ));
-        }
-        Ok(data)
+        // A held block or class there is refused by rustc: it is no `trust_plc::Value` (RU-39).
+        Self::of(ty)
     }
 
     /// The type `ty` names (RU-25): a type of RU-25's table, else a name, which the crate's type of
@@ -385,7 +372,7 @@ impl DataType {
             return array;
         }
         if let Some(name) = held(ty) {
-            return Ok(Self::Held(name));
+            return Ok(Self::Structured(name));
         }
         Elementary::of(ty).map(Self::Elementary).or_else(|error| {
             match crate::last_path_segment(ty) {

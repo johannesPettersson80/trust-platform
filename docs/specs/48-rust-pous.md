@@ -427,6 +427,7 @@ Rust as the SDK names them:
 | an enumeration | a Rust `enum` with `#[trust_enum]` and explicit values |
 | `ARRAY[a..b] OF T` | `Array<T, A, N>`: the `N` = b − a + 1 elements, indexed from `A` as Structured Text indexes them |
 | a structure | a Rust `struct` with `#[trust_struct]`, every field of a type of this table |
+| a structure, an enumeration or a type with named values of the project's Structured Text | its binding, `st::POINT`, `st::MODE` (RU-39) |
 | a function block instance | a field of a function block's type, Rust or Structured Text (§8) |
 | `REF_TO T`, an interface | `Ref<T>`, `IfaceRef<I>` |
 | `VAR_IN_OUT` of `T` | a function's or a method's parameter `InOut<T>`; a function block's field `#[in_out]` of type `Ref<T>` (RU-29) |
@@ -691,7 +692,9 @@ block held by a Rust instance lies inside the Rust instance in the area, as a ne
 in a Structured Text one (specification 44 §6.2), so the symbol table, Live Values and online change
 see it. It is the Rust POU's own variable, a field `name: st::X` (`st::Motion::X` for a block in a
 namespace) of a function block or a program without `#[input]`, `#[output]` or `#[init]`, not an array of blocks or a reference to one; a
-function, a method and a structure hold none. Each call of the Rust POU reads the block's inputs
+function, a method and a structure hold none; rustc refuses one elsewhere, as a held block's or
+class's binding is no `trust_plc::Value`, which the binding of a structure, an enumeration or a type
+with named values is. Each call of the Rust POU reads the block's inputs
 and outputs from its instance into `input` and `output`; `call` gives the instance `input`, runs
 its body and takes its outputs into `output`; when the Rust POU returns, `input` goes back to the
 instance, as Structured Text's assignment of an instance's input does, and `output`, which only the

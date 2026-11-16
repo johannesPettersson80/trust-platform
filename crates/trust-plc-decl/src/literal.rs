@@ -229,10 +229,10 @@ pub(crate) fn initial_of(value: &Expr, ty: &DataType) -> Result<Value, Error> {
             value.span(),
             "a reference starts `NULL` and takes no `#[init]` (specification 48 RU-29)",
         )),
-        DataType::Held(_) => Err(Error::new(
+        DataType::Structured(_) => Err(Error::new(
             value.span(),
-            "a Structured Text function block starts at its own variables' initial values and \
-             takes no `#[init]` (specification 48 RU-39)",
+            "a variable of a type of the project's Structured Text starts at its type's initial \
+             values, and `#[init]` does not carry one for it yet (specification 48 RU-39)",
         )),
         // One of the enumeration's variants; the declarations' writer checks it is one.
         DataType::Named(_) => match value {

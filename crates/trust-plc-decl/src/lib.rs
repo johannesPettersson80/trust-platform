@@ -546,17 +546,9 @@ fn field_variable(ident: &Ident, ty: &Type, attributes: &[Attribute]) -> Result<
         }
         DataType::of_value(target)?
     } else {
-        let data = DataType::of(ty)?;
-        // A held block is the block's own variable (RU-39), not an array of them or a reference.
-        if data.holds_block() && (section.is_some() || !matches!(data, DataType::Held(_))) {
-            return Err(Error::new(
-                ty.span(),
-                "a Structured Text function block that a Rust function block or program holds is \
-                 its own variable: a field `name: st::X` without `#[input]` or `#[output]`, not an \
-                 array of them or a reference to one (specification 48 RU-39)",
-            ));
-        }
-        data
+        // A held block or class is the POU's own variable (RU-39): rustc refuses one elsewhere, as
+        // it is no `trust_plc::Value`, which the macros require of each `st::` type there.
+        DataType::of(ty)?
     };
     let init = init
         .map(|value| literal::initial_of(&value, &ty))
