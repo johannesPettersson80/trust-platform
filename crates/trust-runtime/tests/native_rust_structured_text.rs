@@ -331,12 +331,12 @@ END_FUNCTION_BLOCK
 }
 
 #[test]
-fn a_structure_in_place_beside_a_call_of_structured_text_is_refused() {
-    // RU-29 beside RU-39 as built so far (checklist G186): the place of a crate's structure that an
-    // in-out passes is the generated structure's `trust_plc::Place`, which lies in layer 1 once the
-    // crate calls Structured Text, where layer 3 cannot implement it; the build refuses the two
-    // together, naming both, until milestone R3 compiles them. Catches the compiler's orphan error
-    // in place of the reason.
+fn a_crate_that_calls_structured_text_passes_its_structures_in_place() {
+    // RU-29 beside RU-39: the crate calls SCALE and passes its structure S_POINT, which lies in
+    // layer 1 then, to SHIFT as an in-out; layer 3's own `Places` reads and writes it there. SHIFT
+    // moves the point (0, 0) by (1, 2) and returns 1 + 2 = 3, and TWICE(1.5) = 3.0, at the task's
+    // first call at 10 ms. Catches a structure's place that only compiles beside the generated
+    // structure, which the orphan rule refuses once layer 1 holds it.
     let crate_root = format!(
         "{}
 /// A point of the plane.
@@ -390,13 +390,18 @@ END_CONFIGURATION
 "
         ),
     );
-    let error = build_error(&root).0;
-    assert!(
-        error.contains(
-            "the crate calls Structured Text (st::SCALE at rust/src/lib.rs:9) and passes its \
-             structure S_POINT as an in-out or a reference, which the build does not compile \
-             together yet (specification 48 RU-29, RU-39, milestone R3)"
-        ),
-        "{error}"
-    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.DOUBLED"), Some(Value::LReal(3.0)));
+    assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(3.0)));
+    assert_eq!(program.value("MAIN.POINT.X"), Some(Value::LReal(1.0)));
+    assert_eq!(program.value("MAIN.POINT.Y"), Some(Value::LReal(2.0)));
 }

@@ -233,9 +233,6 @@ pub(super) fn generate<'a>(
     // the rest is this crate's.
     let layer_one = super::layers::layer_one(&graph, &roots, &bodies)?;
     let layered = !layer_one.is_empty();
-    if layered {
-        places_beside_layer_one(model, front)?;
-    }
     let (layer_one_functions, mut functions) = split(texts, &layer_one);
     // The places of the crate's structures that the Rust POUs' values reach (specification 48
     // RU-29).
@@ -333,25 +330,6 @@ fn split(texts: Vec<(String, String)>, layer_one: &BTreeSet<String>) -> (String,
         }
     }
     functions
-}
-
-/// Refuses the places of the crate's structures (RU-29) in a project whose crate calls Structured
-/// Text: their `trust_plc::Place` is the generated structure's, which lies in layer 1 then, and
-/// layer 3 cannot implement the SDK's trait for it (specification 48 §9.2).
-fn places_beside_layer_one(model: &Model<'_>, front: &Front) -> Result<(), NativeError> {
-    let (Some(structure), Some(call)) = (model.rust_places.first(), front.structured_text.first())
-    else {
-        return Ok(());
-    };
-    Err(NativeError::Compile(format!(
-        "the crate calls Structured Text (st::{} at {}:{}) and passes its structure {} as an \
-         in-out or a reference, which the build does not compile together yet (specification 48 \
-         RU-29, RU-39, milestone R3)",
-        call.name,
-        call.file,
-        call.line,
-        model.types.info(*structure).name
-    )))
 }
 
 /// The library of layer 1 (specification 48 RU-39): the generated module, `shared`'s types and

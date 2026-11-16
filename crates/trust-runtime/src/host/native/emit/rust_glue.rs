@@ -311,6 +311,11 @@ fn argument(
         }
         let model = &mut *lowerer.model;
         reach(&model.types, ty, structures, &mut model.rust_places)?;
+        if through_places(&model.types, ty) {
+            return Ok(format!(
+                "::trust_plc::InOut::new(&::trust_plc::__private::PlaceVia::<Places, _>::new({argument}))"
+            ));
+        }
         return Ok(format!("::trust_plc::InOut::new({argument})"));
     }
     if lowerer.info(ty).scalar().is_some() {
@@ -458,6 +463,16 @@ fn reach(
     }
 }
 
+/// Whether a value of `ty` reaches a structure of the crate, which the generated code's `Places`
+/// reads and writes (`rust_places`): the structure, or an array of it.
+fn through_places(types: &Types<'_>, ty: Ty) -> bool {
+    match &types.info(ty).kind {
+        Kind::Struct { .. } => true,
+        Kind::Array { elem, .. } => through_places(types, *elem),
+        _ => false,
+    }
+}
+
 /// Whether the SDK carries a value of `ty` in a place of its own type (`trust_plc::Place`): a
 /// scalar of RU-25's table or of a `#[trust_enum]`, or a string.
 fn placed_by_sdk(types: &Types<'_>, ty: Ty) -> bool {
@@ -478,9 +493,14 @@ pub(super) fn load(
 ) -> Result<String, NativeError> {
     if let Some(target) = reference_target(types, ty) {
         reach(types, target, structures, places)?;
+        let rust = &types.info(target).rust;
+        if through_places(types, target) {
+            return Ok(format!(
+                "::trust_plc::__private::reference_via::<_, {rust}, Places>({place}.get())"
+            ));
+        }
         return Ok(format!(
-            "::trust_plc::__private::reference::<_, {}>({place}.get())",
-            types.info(target).rust
+            "::trust_plc::__private::reference::<_, {rust}>({place}.get())"
         ));
     }
     if placed_by_sdk(types, ty) {
@@ -504,7 +524,9 @@ pub(super) fn load(
         }
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;
-            Ok(format!("::trust_plc::Place::load(&{place})"))
+            Ok(format!(
+                "<Places as ::trust_plc::__private::PlaceOf<_, _>>::load(&{place})"
+            ))
         }
         _ => Err(not_carried(&info.name)),
     }
@@ -548,7 +570,9 @@ pub(super) fn store(
         }
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;
-            Ok(format!("::trust_plc::Place::store(&{place}, &{value});"))
+            Ok(format!(
+                "<Places as ::trust_plc::__private::PlaceOf<_, _>>::store(&{place}, &{value});"
+            ))
         }
         _ => Err(not_carried(&info.name)),
     }

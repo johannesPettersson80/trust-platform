@@ -536,3 +536,68 @@ fn a_fault_of_the_structured_text_keeps_its_statement() {
         (FaultCode::RustFault as u32, 12)
     );
 }
+
+/// A structure that lies as two cells, as the generated code lays out a structure of the crate.
+struct PairCells {
+    x: Cell<f64>,
+    y: Cell<f64>,
+}
+
+/// The Rust value of [`PairCells`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Pair {
+    x: f64,
+    y: f64,
+}
+
+/// The generated code's reader and writer of [`PairCells`].
+struct Via;
+
+impl crate::__private::PlaceOf<PairCells, Pair> for Via {
+    fn load(place: &PairCells) -> Pair {
+        Pair {
+            x: place.x.get(),
+            y: place.y.get(),
+        }
+    }
+
+    fn store(place: &PairCells, value: &Pair) {
+        place.x.set(value.x);
+        place.y.set(value.y);
+    }
+}
+
+/// The cells of a pair holding `x` and `y`.
+fn pair_cells(x: f64, y: f64) -> PairCells {
+    PairCells {
+        x: Cell::new(x),
+        y: Cell::new(y),
+    }
+}
+
+#[test]
+fn a_structure_in_place_is_read_and_written_where_it_lies() {
+    // RU-29: an in-out of a crate's structure reads and writes the caller's variable through the
+    // generated code's reader (`PlaceOf`, here `Via`), whose `Place` is `PlaceVia`; an array of
+    // the structure lies element by element, ARRAY[1..2]'s first element in the first cells.
+    // Catches an in-out that writes a copy, and an array whose elements change places.
+    let cells = pair_cells(1.0, 2.0);
+    let place = crate::__private::PlaceVia::<Via, PairCells>::new(&cells);
+    let point = crate::InOut::new(&place);
+    assert_eq!(point.get(), Pair { x: 1.0, y: 2.0 });
+    point.set(Pair { x: 3.0, y: 4.0 });
+    assert_eq!((cells.x.get(), cells.y.get()), (3.0, 4.0));
+
+    let row = [pair_cells(1.0, 2.0), pair_cells(5.0, 6.0)];
+    let place = crate::__private::PlaceVia::<Via, [PairCells; 2]>::new(&row);
+    let points: crate::InOut<'_, Array<Pair, 1, 2>> = crate::InOut::new(&place);
+    assert_eq!(
+        points.get(),
+        Array::from_items([Pair { x: 1.0, y: 2.0 }, Pair { x: 5.0, y: 6.0 }])
+    );
+    points.set(Array::from_items([
+        Pair { x: 7.0, y: 8.0 },
+        Pair { x: 9.0, y: 10.0 },
+    ]));
+    assert_eq!((row[0].x.get(), row[1].y.get()), (7.0, 10.0));
+}
