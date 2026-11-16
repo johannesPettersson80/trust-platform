@@ -848,7 +848,10 @@ interval, as the task's next activation does; `test::cx()` is an activation outs
 logical time 0 with the interval `T#0s`. A function's or a method's in-out takes a variable of the
 test's own, a `Cell` of a value of any of its types, a structure's too:
 `InOut::new(&Cell::new(point))`, which the call reads and writes as it does the caller's variable
-(RU-29).
+(RU-29). A unit test's context holds no program, whose memory the Structured Text a Rust POU calls
+or holds runs on (RU-38, RU-39): such a call ends with the fault `ModuleInternal`, and a test of it
+runs the program, a machine test with `trust-sim` (RU-58), as a PLC's unit tests of Structured Text
+run in the PLC.
 
 **RU-57. Project tests.** Structured Text test POUs (specification 04) call Rust POUs like any POU and
 run with `trust-dev test`, which builds the project with its crate through the bundle and runs the
