@@ -10,7 +10,7 @@ use super::super::model::Model;
 use super::super::rust_pous::StructuredTextUse;
 use super::super::types::{mangle, Elem, Kind, Ty, Types};
 use super::super::NativeError;
-use crate::program_model::FunctionBlockDef;
+use crate::program_model::{FunctionBlockDef, Param};
 use trust_hir::symbols::ParamDirection;
 use trust_plc_decl::Elementary;
 use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_IN_OUT, SYMBOL_OUTPUT};
@@ -149,107 +149,26 @@ fn function(
             used.name, used.file, used.line, def.name
         ))
     };
-    let mut parameters = String::new();
-    let mut fields = Vec::new();
-    let mut values = Vec::new();
-    // What `call` does before the generated function's call, and what it passes it: a string
-    // goes into a cell of the generated code's, which the function takes by reference.
-    let mut setup = String::new();
-    let mut arguments = String::new();
-    // What `call` writes back once the function ends: an in-out's value, which reaches the
-    // caller's variable also when the function faults, as a write through Structured Text's in-out
-    // does (RU-29), and an output, which the caller takes only when the function returns.
-    let mut in_outs = String::new();
-    let mut outputs = String::new();
+    let mut params = Parameters::default();
     for param in &def.params {
         // `EN` is TRUE whenever the function runs (specification 10 §7.5).
         if param.name.eq_ignore_ascii_case("EN") {
             continue;
         }
         let ty = model.ty(param.type_id)?;
-        let name = parameter_name(&param.name);
-        let index = values.len();
-        let kind = &model.types.info(ty).kind;
-        let cells = by_cells(&model.types, ty, crate_structures, structures);
-        if param.direction != ParamDirection::In {
-            // An in-out or an output: cells the function reads and writes, whose value goes
-            // back to the caller's variable. A string in-out is a view of the caller's string,
-            // which the bindings do not pass yet.
-            let in_out = param.direction == ParamDirection::InOut;
-            let rust = match kind {
-                Kind::Str(_) | Kind::WStr(_) if in_out => None,
-                Kind::Elem(elem) => Some(passed(*elem).0),
-                _ => cells,
-            };
-            let Some(rust) = rust else {
-                return Err(unsupported(format!(
-                    "has the {} {} of type {}",
-                    if in_out { "in-out" } else { "output" },
-                    param.name,
-                    model.types.info(ty).name
-                )));
-            };
-            if in_out {
-                let _ = write!(parameters, ", {name}: trust_plc::InOut<'a, {rust}>");
-                fields.push(format!("trust_plc::InOut<'a, {rust}>"));
-                let _ = writeln!(
-                    setup,
-                    "                let t{index} = zeroed();\n                \
-                     trust_plc::Place::store(&t{index}, &self.{index}.get());"
-                );
-                let _ = writeln!(
-                    in_outs,
-                    "                self.{index}.set(trust_plc::Place::load(&t{index}));"
-                );
-            } else {
-                let _ = write!(parameters, ", {name}: &'a mut {rust}");
-                fields.push(format!("&'a mut {rust}"));
-                let _ = writeln!(setup, "                let t{index} = zeroed();");
-                let _ = writeln!(
-                    outputs,
-                    "                *self.{index} = trust_plc::Place::load(&t{index});"
-                );
-            }
-            values.push(name);
-            let _ = write!(arguments, ", &t{index}");
-            continue;
-        }
-        match (param.direction == ParamDirection::In, kind, cells) {
-            (true, Kind::Elem(elem), _) => {
-                let (rust, own) = passed(*elem);
-                let _ = write!(parameters, ", {name}: {rust}");
-                values.push(if own {
-                    name
-                } else {
-                    format!(
-                        "{{ let cell = core::cell::Cell::<{}>::default(); \
-                         trust_plc::Place::store(&cell, &{name}); cell.get() }}",
-                        elem.rust()
-                    )
-                });
-                fields.push(elem.rust().to_string());
-                let _ = write!(arguments, ", self.{index}");
-            }
-            (true, _, Some(rust)) => {
-                let _ = write!(parameters, ", {name}: {rust}");
-                values.push(name);
-                fields.push(rust);
-                let _ = writeln!(
-                    setup,
-                    "                let t{index} = zeroed();\n                \
-                     trust_plc::Place::store(&t{index}, &self.{index});"
-                );
-                let _ = write!(arguments, ", &t{index}");
-            }
-            _ => {
-                return Err(unsupported(format!(
-                    "has the parameter {} of type {}",
-                    param.name,
-                    model.types.info(ty).name
-                )));
-            }
-        }
+        params
+            .push(&model.types, param, ty, crate_structures, structures)
+            .map_err(unsupported)?;
     }
+    let Parameters {
+        signature: parameters,
+        fields,
+        values,
+        setup,
+        arguments,
+        in_outs,
+        outputs,
+    } = params;
     // The binding's result, the generated function's, how `call` gets it, and how the one
     // becomes the other once the call returns.
     let function = mangle(&def.name);
@@ -334,6 +253,129 @@ Ok({load})
         values = values.join(", "),
     );
     Ok(text)
+}
+
+/// What the binding of a called function writes for the function's parameters (RU-39): its own
+/// parameters, the fields of its `Call` and their values, what `call` does before the generated
+/// function runs and what it passes it, and what it writes back once the function ends.
+#[derive(Default)]
+struct Parameters {
+    /// The binding's parameters after `cx`, each after `, `.
+    signature: String,
+    /// The fields of the binding's `Call`, as the generated code takes them.
+    fields: Vec<String>,
+    /// The values the binding gives the fields of its `Call`.
+    values: Vec<String>,
+    /// What `call` does before the generated function's call: a value the function takes by
+    /// reference goes into cells of the generated code's.
+    setup: String,
+    /// What `call` passes the generated function after its context and its world.
+    arguments: String,
+    /// The in-outs' values, which `call` writes back also when the function faults, as a write
+    /// through Structured Text's in-out reaches the caller's variable at once (RU-29).
+    in_outs: String,
+    /// The outputs, which `call` writes only when the function returns.
+    outputs: String,
+}
+
+impl Parameters {
+    /// Adds the parameter `param` of type `ty`.
+    ///
+    /// # Errors
+    ///
+    /// What the bindings do not pass yet, described: a parameter of a type they have no Rust type
+    /// for, a string in-out.
+    fn push(
+        &mut self,
+        types: &Types<'_>,
+        param: &Param,
+        ty: Ty,
+        crate_structures: &HashMap<String, String>,
+        structures: &mut BTreeSet<Ty>,
+    ) -> Result<(), String> {
+        let name = parameter_name(&param.name);
+        let index = self.values.len();
+        let info = types.info(ty);
+        let cells = by_cells(types, ty, crate_structures, structures);
+        if param.direction != ParamDirection::In {
+            // An in-out or an output: cells the function reads and writes, whose value goes back
+            // to the caller's variable. A string in-out is a view of the caller's string, which the
+            // bindings do not pass yet.
+            let in_out = param.direction == ParamDirection::InOut;
+            let rust = match &info.kind {
+                Kind::Str(_) | Kind::WStr(_) if in_out => None,
+                Kind::Elem(elem) => Some(passed(*elem).0),
+                _ => cells,
+            };
+            let Some(rust) = rust else {
+                return Err(format!(
+                    "has the {} {} of type {}",
+                    if in_out { "in-out" } else { "output" },
+                    param.name,
+                    info.name
+                ));
+            };
+            if in_out {
+                let _ = write!(self.signature, ", {name}: trust_plc::InOut<'a, {rust}>");
+                self.fields.push(format!("trust_plc::InOut<'a, {rust}>"));
+                let _ = writeln!(
+                    self.setup,
+                    "                let t{index} = zeroed();\n                \
+                     trust_plc::Place::store(&t{index}, &self.{index}.get());"
+                );
+                let _ = writeln!(
+                    self.in_outs,
+                    "                self.{index}.set(trust_plc::Place::load(&t{index}));"
+                );
+            } else {
+                let _ = write!(self.signature, ", {name}: &'a mut {rust}");
+                self.fields.push(format!("&'a mut {rust}"));
+                let _ = writeln!(self.setup, "                let t{index} = zeroed();");
+                let _ = writeln!(
+                    self.outputs,
+                    "                *self.{index} = trust_plc::Place::load(&t{index});"
+                );
+            }
+            self.values.push(name);
+            let _ = write!(self.arguments, ", &t{index}");
+            return Ok(());
+        }
+        match (&info.kind, cells) {
+            (Kind::Elem(elem), _) => {
+                let (rust, own) = passed(*elem);
+                let _ = write!(self.signature, ", {name}: {rust}");
+                self.values.push(if own {
+                    name
+                } else {
+                    format!(
+                        "{{ let cell = core::cell::Cell::<{}>::default(); \
+                         trust_plc::Place::store(&cell, &{name}); cell.get() }}",
+                        elem.rust()
+                    )
+                });
+                self.fields.push(elem.rust().to_string());
+                let _ = write!(self.arguments, ", self.{index}");
+            }
+            (_, Some(rust)) => {
+                let _ = write!(self.signature, ", {name}: {rust}");
+                self.values.push(name);
+                self.fields.push(rust);
+                let _ = writeln!(
+                    self.setup,
+                    "                let t{index} = zeroed();\n                \
+                     trust_plc::Place::store(&t{index}, &self.{index});"
+                );
+                let _ = write!(self.arguments, ", &t{index}");
+            }
+            _ => {
+                return Err(format!(
+                    "has the parameter {} of type {}",
+                    param.name, info.name
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The Rust type of RU-25's table of the string type `kind` and the generated code's cell type of
