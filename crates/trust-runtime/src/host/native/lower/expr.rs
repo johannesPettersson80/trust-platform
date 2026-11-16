@@ -124,7 +124,10 @@ impl Lowerer<'_, '_> {
     }
 
     /// `SIZEOF(operand)` (specification 29 §1): the byte count of the type trust-hir resolved its
-    /// operand to, a constant of the target the program is built for, as a value of `ty`.
+    /// operand to, a constant of the target the program is built for, as a value of `ty`. An
+    /// address takes 4 bytes on a 32-bit target and 8 on a 64-bit one: where the two counts differ,
+    /// the code chooses by the target it is compiled for, so that one text serves every target
+    /// (specification 48 RU-39).
     fn size_of(&mut self, node: &SyntaxNode, ty: Ty) -> Result<String, NativeError> {
         let Some(operand) = node
             .children()
@@ -136,13 +139,23 @@ impl Lowerer<'_, '_> {
             return Err(self.unsupported(node, "SIZEOF of an operand without a type"));
         };
         let symbols = self.src.analysis.symbols.clone();
-        let bytes = self
-            .model
-            .types
-            .size_of_hir(&symbols, hir, self.pointer_bytes)?;
+        let narrow = self.model.types.size_of_hir(&symbols, hir, 4)?;
+        let wide = self.model.types.size_of_hir(&symbols, hir, 8)?;
         let Some(elem) = self.info(ty).scalar() else {
             return Err(self.unsupported(node, "SIZEOF as a value that is no scalar"));
         };
+        let narrow = self.size_value(node, narrow, elem)?;
+        let wide = self.size_value(node, wide, elem)?;
+        if narrow == wide {
+            return Ok(wide);
+        }
+        Ok(format!(
+            "(if cfg!(target_pointer_width = \"64\") {{ {wide} }} else {{ {narrow} }})"
+        ))
+    }
+
+    /// The literal of `bytes` as a value of the integer type `elem`, which must hold it.
+    fn size_value(&self, node: &SyntaxNode, bytes: u64, elem: Elem) -> Result<String, NativeError> {
         let fits = match elem.rust() {
             "i8" => i8::try_from(bytes).is_ok(),
             "i16" => i16::try_from(bytes).is_ok(),
