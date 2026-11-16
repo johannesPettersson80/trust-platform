@@ -706,20 +706,22 @@ call or a held block passes it or the crate names it: `st::POINT`, a Rust struct
 enum of the enumeration's values, each with its value; and `st::LIGHT`, a Rust struct of one value of
 the base's type in this table, since a type with named values holds every value of its base
 (IEC §6.4.4.3.1, specification 02 §3.2), with each named value as its constant, `st::LIGHT::RED`.
-Each derives `Clone`, `Copy`, `Debug` and `PartialEq`, and its `Default`, which is also its
+Each derives `Clone`, `Copy`, `Debug` and `PartialEq`, an enumeration and a type with named values
+also `Eq`, so that a `match` names their values, and its `Default`, which is also its
 `trust_plc::Declared` default, is the value a variable of the type starts at: the declared initial
 values of a structure's fields and the declared initial value of an enumeration or a type with named
 values, else its first value (IEC §6.4.4.2.2, §6.4.4.3.2, §6.4.4.6.2, Table 11; specification 44
 §6.7). The crate makes and reads their values to pass them, `st::POINT { X: 1.0, Y: 2.0 }`,
 `st::MODE::RUN` or `st::LIGHT::RED`; a value of an enumeration that none of its values has, which
 only a write through a pointer can leave, reads as its default, as one of the crate's enumerations
-does (RU-25). A structure or an enumeration of the crate (RU-25) is the crate's own, which layer 1 is
-compiled before, so no binding can name it: a call or a held block that would pass one is refused,
-naming the variable and its type.
+does (RU-25). A structure or an enumeration that the crate declares (RU-25) and a call or a held
+block passes has such a binding too, `st::POINT` beside the crate's own `Point`, since layer 1,
+compiled before the crate, cannot name the crate's type: the crate converts its values into the
+binding's and back, a structure field by field and an enumeration value by value.
 
 **RU-40. What can be called.** `st::` names the project's Structured Text functions and function
-blocks and its structures, enumerations and types with named values: a name of none of them, or of
-a Rust POU or a type of the crate, is refused where the crate writes it. The build puts every
+blocks and its structures, enumerations and types with named values, those the crate declares
+among them (RU-39): a name of none of them, or of a Rust POU, is refused where the crate writes it. The build puts every
 Structured Text POU that a Rust POU calls or holds, with every POU those call, into layer 1, compiled
 before the project's crate (§9.2); a call through an interface or a reference reaches every method
 that can be there (specification 44 §6.4). A POU of layer 1 that calls a Rust POU, directly or

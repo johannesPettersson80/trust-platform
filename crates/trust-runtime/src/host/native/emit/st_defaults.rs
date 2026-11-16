@@ -1,8 +1,8 @@
-//! The defaults of layer 1's bindings of the project's structures (specification 48 RU-39): the
-//! value a variable of the type starts at, its fields' declared initial values or their types'
-//! defaults (IEC §6.4.4.6.2, Table 11), as the build works it out for the starting memory
-//! (specification 44 §6.7), written as a constant of the Rust types of RU-25's table that the
-//! binding holds its fields as.
+//! The defaults of layer 1's bindings of the project's data types (specification 48 RU-39): the
+//! value a variable of the type starts at, a structure's fields' declared initial values or their
+//! types' defaults and an enumeration's declared initial value or its first value (IEC §6.4.4.2.2,
+//! §6.4.4.3.2, §6.4.4.6.2, Table 11), as the build works it out for the starting memory
+//! (specification 44 §6.7), written as a constant of the binding.
 
 use super::super::frame_init::{scalar, starting_bytes};
 use super::super::lower::{byte_string, unit_string};
@@ -72,6 +72,26 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
                 items.join(", ")
             ))
         }
+        Kind::Enum {
+            base,
+            values,
+            named,
+            ..
+        } => {
+            if *named {
+                return Some(format!(
+                    "{}({})",
+                    info.name,
+                    elementary_constant(*base, bytes)
+                ));
+            }
+            let number = integer(*base, bytes)?;
+            let (value, _) = values
+                .iter()
+                .find(|(_, value)| *value == number)
+                .or_else(|| values.first())?;
+            Some(format!("{}::{}", info.name, field_name(value)))
+        }
         Kind::Struct { members } => {
             let fields = members
                 .iter()
@@ -90,7 +110,7 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
 
 /// The value of the elementary type `elem` in the first bytes of `bytes`, as RU-25's type of it,
 /// whose SDK types hold the value the areas store.
-fn elementary_constant(elem: Elem, bytes: &[u8]) -> String {
+pub(super) fn elementary_constant(elem: Elem, bytes: &[u8]) -> String {
     if matches!(elem, Elem::Bool) {
         return (bytes.first().copied().unwrap_or(0) != 0).to_string();
     }
@@ -110,4 +130,20 @@ fn elementary_constant(elem: Elem, bytes: &[u8]) -> String {
         }
         _ => format!("trust_plc::{rust}({stored})"),
     }
+}
+
+/// The integer of the integer type `elem` in the first bytes of `bytes`, as its cell stores it.
+fn integer(elem: Elem, bytes: &[u8]) -> Option<i64> {
+    let size = elem.size() as usize;
+    let mut wide = [0u8; 8];
+    wide.get_mut(..size)?.copy_from_slice(bytes.get(..size)?);
+    let raw = u64::from_le_bytes(wide);
+    let shift = 64 - 8 * size;
+    #[allow(clippy::cast_possible_wrap)]
+    let value = if elem.stored().starts_with('i') {
+        ((raw << shift) as i64) >> shift
+    } else {
+        raw as i64
+    };
+    Some(value)
 }
