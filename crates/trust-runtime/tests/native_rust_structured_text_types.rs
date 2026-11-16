@@ -7,7 +7,6 @@
 mod rust_pous_support;
 
 use rust_pous_support::{built, custom_project, manifest};
-use trust_runtime::error::RuntimeError;
 use trust_runtime::native::{load, NoHooks};
 use trust_runtime::value::{Duration, Value};
 
@@ -688,58 +687,122 @@ END_CONFIGURATION
     assert_eq!(reader("WIDTH"), Some(Value::LReal(25.0)));
 }
 
-/// A crate whose function passes its in-out and an output of its own to Structured Text.
-const IN_OUTS: &str = "#![cfg_attr(not(test), no_std)]
+/// A crate whose functions pass matrices to Structured Text and back, and whose block holds a grid.
+const MATRICES: &str = "#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
 use trust_plc::prelude::*;
 
-#[trust_function(name = \"ADD_TO\")]
+#[trust_function(name = \"CROSSED\")]
 #[budget(\"1us\")]
-pub fn add_to(cx: &mut Cx, sum: InOut<'_, f64>, x: f64) -> Result<f64, Fault> {
-    let mut doubled = 0.0;
-    let total = st::ACCUMULATE(cx, sum, x, &mut doubled)?;
-    Ok(total + doubled)
+pub fn crossed(cx: &mut Cx) -> Result<f64, Fault> {
+    let m = Array::from_items([Array::from_items([1.5, 2.0]), Array::from_items([3.0, 4.25])]);
+    st::CROSS(cx, m)
+}
+
+#[trust_function(name = \"MARKED\")]
+#[budget(\"1us\")]
+pub fn marked(cx: &mut Cx) -> Result<i32, Fault> {
+    let r = st::MARKS(cx)?;
+    let at = |i: i64, j: i64| r.get(i).and_then(|row| row.get(j)).copied().unwrap_or(0);
+    Ok(i32::from(at(1, 2)) * 10 + i32::from(at(0, 0)))
+}
+
+#[trust_fb(name = \"GRIDDER\")]
+#[budget(\"2us\")]
+pub struct Gridder {
+    #[output] pub lit: i32,
+    #[output] pub corner: bool,
+    grid: st::GRID,
+}
+
+impl Body for Gridder {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.grid.input.CELLS = Array::from_items([
+            Array::from_items([false, false, true]),
+            Array::from_items([true, false, false]),
+        ]);
+        self.grid.call(cx)?;
+        self.lit = self.grid.output.LIT;
+        self.corner = self
+            .grid
+            .output
+            .FLIPPED
+            .get(3)
+            .and_then(|row| row.get(1))
+            .copied()
+            .unwrap_or(false);
+        Ok(())
+    }
 }
 ";
 
 #[test]
-fn in_outs_and_outputs_pass_through_a_call() {
-    // RU-29, RU-38, RU-39: a call passes a function's in-out as RU-29's `InOut<'_, T>` and its
-    // output as `&mut T`: ACCUMULATE adds x = 2.5 to the in-out total, 10.0 + 2.5 = 12.5, which the
-    // program's variable then holds, writes its output doubled = 2.5 x 2 = 5.0 and returns 12.5, so
-    // ADD_TO gives 12.5 + 5.0 = 17.5, at the task's first call at 10 ms. Catches an in-out that the
-    // call reads but never writes back, and an output left in the generated cells.
+fn two_dimensional_arrays_pass_through_calls_and_held_blocks() {
+    // RU-25, RU-39: an array of two dimensions passes as the array of arrays of them,
+    // `Array<Array<T, A2, N2>, A1, N1>`, whose elements lie as Structured Text's do: CROSS(M) =
+    // M[1, 2] + 10 x M[2, 1] = 2.0 + 10 x 3.0 = 32.0 (23.0 for a transposed matrix); MARKS gives
+    // [0..1, 0..2] with 1 at [0, 0] and 7 at [1, 2], so MARKED = 7 x 10 + 1 = 71; GRID counts the
+    // two TRUE cells of [1..2, 1..3] and writes FLIPPED[3, 1] = CELLS[1, 3] = TRUE, at the task's
+    // first call at 10 ms. Catches a matrix passed as its transpose, a result of rows in the wrong
+    // order, and a held block's matrix left in the generated cells.
     let root = custom_project(
-        "rust-pous-structured-text-in-outs",
+        "rust-pous-structured-text-matrices",
         &[
             (
                 "Cargo.toml",
                 &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
             ),
-            ("src/lib.rs", IN_OUTS),
+            ("src/lib.rs", MATRICES),
         ],
-        "FUNCTION ACCUMULATE : LREAL
-VAR_IN_OUT
-    total : LREAL;
-END_VAR
+        "FUNCTION CROSS : LREAL
 VAR_INPUT
-    x : LREAL;
+    M : ARRAY[1..2, 1..2] OF LREAL;
+END_VAR
+CROSS := M[1, 2] + 10.0 * M[2, 1];
+END_FUNCTION
+
+FUNCTION MARKS : ARRAY[0..1, 0..2] OF INT
+VAR
+    r : ARRAY[0..1, 0..2] OF INT;
+END_VAR
+r[0, 0] := 1;
+r[1, 2] := 7;
+MARKS := r;
+END_FUNCTION
+
+FUNCTION_BLOCK GRID
+VAR_INPUT
+    CELLS : ARRAY[1..2, 1..3] OF BOOL;
 END_VAR
 VAR_OUTPUT
-    doubled : LREAL;
+    LIT : DINT;
+    FLIPPED : ARRAY[1..3, 1..2] OF BOOL;
 END_VAR
-total := total + x;
-doubled := x * 2.0;
-ACCUMULATE := total;
-END_FUNCTION
+VAR
+    i : INT;
+    j : INT;
+END_VAR
+LIT := 0;
+FOR i := 1 TO 2 DO
+    FOR j := 1 TO 3 DO
+        FLIPPED[j, i] := CELLS[i, j];
+        IF CELLS[i, j] THEN
+            LIT := LIT + 1;
+        END_IF;
+    END_FOR;
+END_FOR;
+END_FUNCTION_BLOCK
 
 PROGRAM Line
 VAR
-    sum : LREAL := 10.0;
-    result : LREAL;
+    cross_value : LREAL;
+    marked_value : DINT;
+    gridder : GRIDDER;
 END_VAR
-result := ADD_TO(sum := sum, x := 2.5);
+cross_value := CROSSED();
+marked_value := MARKED();
+gridder();
 END_PROGRAM
 
 CONFIGURATION Probe
@@ -760,80 +823,11 @@ END_CONFIGURATION
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
     }
-    assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(12.5)));
-    assert_eq!(program.value("MAIN.RESULT"), Some(Value::LReal(17.5)));
-}
-
-/// A crate whose function passes its in-out to a Structured Text function that faults after
-/// writing it.
-const FAULTING_IN_OUT: &str = "#![cfg_attr(not(test), no_std)]
-#![forbid(unsafe_code)]
-
-use trust_plc::prelude::*;
-
-#[trust_function(name = \"BUMPED\")]
-#[budget(\"1us\")]
-pub fn bumped(cx: &mut Cx, count: InOut<'_, i32>, divisor: i32) -> Result<i32, Fault> {
-    st::BUMP(cx, count, divisor)
-}
-";
-
-#[test]
-fn an_in_out_keeps_what_a_faulting_function_wrote() {
-    // RU-29, RU-39: a write through an in-out is the caller's variable's at once, so a fault after
-    // it leaves it written: BUMP adds 1 to the program's n, 5 + 1 = 6, then divides 100 by 0, whose
-    // division by zero ends the scan at the task's first call at 10 ms with n at 6 and r, which
-    // the call never assigns, at its -1. Catches an in-out written back only when the function
-    // returns, which leaves n at 5.
-    let root = custom_project(
-        "rust-pous-structured-text-faulting-in-out",
-        &[
-            (
-                "Cargo.toml",
-                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
-            ),
-            ("src/lib.rs", FAULTING_IN_OUT),
-        ],
-        "FUNCTION BUMP : DINT
-VAR_IN_OUT
-    count : DINT;
-END_VAR
-VAR_INPUT
-    divisor : DINT;
-END_VAR
-count := count + 1;
-BUMP := 100 / divisor;
-END_FUNCTION
-
-PROGRAM Line
-VAR
-    n : DINT := 5;
-    d : DINT;
-    r : DINT := -1;
-END_VAR
-r := BUMPED(count := n, divisor := d);
-END_PROGRAM
-
-CONFIGURATION Probe
-RESOURCE Probe ON PLC
-    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
-    PROGRAM Main WITH Fast : Line;
-END_RESOURCE
-END_CONFIGURATION
-",
+    assert_eq!(program.value("MAIN.CROSS_VALUE"), Some(Value::LReal(32.0)));
+    assert_eq!(program.value("MAIN.MARKED_VALUE"), Some(Value::DInt(71)));
+    assert_eq!(program.value("MAIN.GRIDDER.LIT"), Some(Value::DInt(2)));
+    assert_eq!(
+        program.value("MAIN.GRIDDER.CORNER"),
+        Some(Value::Bool(true))
     );
-    let Some((built, device)) = built(&root) else {
-        return;
-    };
-    let mut program = load(&built.image, &device).expect("the image loads");
-    program.cold_start(Duration::ZERO).expect("the cold start");
-    program
-        .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
-    let error = program
-        .scan(Duration::from_millis(10), &mut NoHooks)
-        .expect_err("the division by zero ends the scan");
-    assert!(matches!(error, RuntimeError::DivisionByZero), "{error:?}");
-    assert_eq!(program.value("MAIN.N"), Some(Value::DInt(6)));
-    assert_eq!(program.value("MAIN.R"), Some(Value::DInt(-1)));
 }

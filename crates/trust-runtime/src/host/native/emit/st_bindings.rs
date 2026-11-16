@@ -433,17 +433,21 @@ fn text_types(kind: &Kind) -> (String, String) {
 
 /// The Rust type of RU-25's table of a value of `ty` that the generated code holds in cells and
 /// takes by reference: a string, `Str<N>` or `WStr<N>`; a one-dimensional array of a type a binding
-/// passes, `Array<T, A, N>`; a structure of the project, its binding `st::NAME`, which joins
-/// `data_types`. `None` for another type.
+/// passes, `Array<T, A, N>`, one of several dimensions the array of arrays of them; a structure of
+/// the project, its binding `st::NAME`, which joins `data_types`. `None` for another type.
 fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<String> {
     let info = types.info(ty);
     match &info.kind {
         Kind::Str(_) | Kind::WStr(_) => Some(text_types(&info.kind).0),
-        Kind::Array { elem, dims } if dims.len() == 1 => {
-            let (lower, upper) = dims[0];
-            let len = upper.checked_sub(lower)?.checked_add(1)?;
-            let element = rust_type(types, *elem, data_types)?;
-            Some(format!("trust_plc::Array<{element}, {lower}, {len}>"))
+        // An array of several dimensions lies as the array of arrays of them (specification 44
+        // §6.2), which RU-25 writes `Array<Array<T, A2, N2>, A1, N1>`.
+        Kind::Array { elem, dims } if !dims.is_empty() => {
+            let mut rust = rust_type(types, *elem, data_types)?;
+            for (lower, upper) in dims.iter().rev() {
+                let len = upper.checked_sub(*lower)?.checked_add(1)?;
+                rust = format!("trust_plc::Array<{rust}, {lower}, {len}>");
+            }
+            Some(rust)
         }
         Kind::Struct { members } => {
             if syn::parse_str::<syn::Ident>(&info.name).is_err() {
@@ -464,10 +468,33 @@ fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<
     }
 }
 
+/// Why the bindings have no Rust type for the project's data type `ty` that the crate names, `None`
+/// when they have one.
+pub(super) fn unpassed(types: &Types<'_>, ty: Ty) -> Option<String> {
+    if rust_type(types, ty, &mut BTreeSet::new()).is_some() {
+        return None;
+    }
+    let info = types.info(ty);
+    if syn::parse_str::<syn::Ident>(&info.name).is_err() {
+        return Some("is named in a namespace".to_string());
+    }
+    let Kind::Struct { members } = &info.kind else {
+        return Some("is of a type the bindings do not pass yet".to_string());
+    };
+    members
+        .iter()
+        .find(|member| rust_type(types, member.ty, &mut BTreeSet::new()).is_none())
+        .map(|member| {
+            format!(
+                "has the variable {}, of a type the bindings do not pass yet",
+                member.name
+            )
+        })
+}
+
 /// The Rust type of RU-25's table a binding passes a value of `ty` as: an elementary type's; the
 /// binding `st::NAME` of an enumeration or a type with named values of the project, which joins
-/// `data_types`; or one the generated code holds in cells ([`by_cells`]). A Rust enum holds each of
-/// its values once, so an enumeration that gives two names one value has none.
+/// `data_types`; or one the generated code holds in cells ([`by_cells`]).
 pub(super) fn rust_type(
     types: &Types<'_>,
     ty: Ty,
@@ -476,14 +503,8 @@ pub(super) fn rust_type(
     let info = types.info(ty);
     match &info.kind {
         Kind::Elem(elem) => Some(passed(*elem).0),
-        Kind::Enum { values, named, .. } => {
-            let distinct = values
-                .iter()
-                .map(|(_, value)| value)
-                .collect::<BTreeSet<_>>()
-                .len()
-                == values.len();
-            if syn::parse_str::<syn::Ident>(&info.name).is_err() || !(*named || distinct) {
+        Kind::Enum { .. } => {
+            if syn::parse_str::<syn::Ident>(&info.name).is_err() {
                 return None;
             }
             data_types.insert(ty);

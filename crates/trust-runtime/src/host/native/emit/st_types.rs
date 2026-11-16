@@ -8,6 +8,8 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
+use smol_str::SmolStr;
+
 use super::super::model::Model;
 use super::super::types::{Kind, Ty};
 use super::super::NativeError;
@@ -26,10 +28,23 @@ pub(super) fn binding(
 ) -> Result<String, NativeError> {
     match &model.types.info(ty).kind {
         Kind::Struct { .. } => structure(model, ty, data_types),
-        Kind::Enum { named: false, .. } => enumeration(model, ty),
-        Kind::Enum { named: true, .. } => named_values(model, ty),
+        Kind::Enum { values, named, .. } if is_open(values, *named) => named_values(model, ty),
+        Kind::Enum { .. } => enumeration(model, ty),
         _ => Ok(String::new()),
     }
+}
+
+/// Whether the binding of an enumeration of `values` is a Rust struct of one value with its names
+/// as constants: a type with named values, which holds every value of its base, and an
+/// enumeration that gives two of its names one value, which a Rust enum cannot hold (RU-39).
+pub(super) fn is_open(values: &[(SmolStr, i64)], named: bool) -> bool {
+    named
+        || values
+            .iter()
+            .map(|(_, value)| value)
+            .collect::<BTreeSet<_>>()
+            .len()
+            != values.len()
 }
 
 /// The binding of the Structured Text structure `ty`: a Rust struct of its fields, its default,

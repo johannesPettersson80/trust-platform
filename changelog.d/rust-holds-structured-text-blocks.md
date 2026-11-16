@@ -5,5 +5,5 @@
   self.hysteresis.call(cx)?; let q = self.hysteresis.output.Q;` (specification 48 RU-38, RU-39).
   The held instance lies inside the Rust instance in the area, where Live Values, the debugger and
   online change see it. Blocks whose inputs and outputs are elementary types, strings,
-  one-dimensional arrays or the project's structures, enumerations and types with named values are
+  arrays of any dimension or the project's structures, enumerations and types with named values are
   held, each as the Rust type of RU-25's table or its binding.

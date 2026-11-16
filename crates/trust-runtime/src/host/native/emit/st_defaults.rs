@@ -57,28 +57,14 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
                 unit_string(&units)
             ))
         }
-        Kind::Array { elem, dims } if dims.len() == 1 => {
-            let (lower, upper) = dims[0];
-            let length = usize::try_from(upper.checked_sub(lower)?.checked_add(1)?).ok()?;
-            if length == 0 || !bytes.len().is_multiple_of(length) {
-                return None;
-            }
-            let items = bytes
-                .chunks_exact(bytes.len() / length)
-                .map(|item| constant(types, *elem, item))
-                .collect::<Option<Vec<_>>>()?;
-            Some(format!(
-                "trust_plc::Array::from_items([{}])",
-                items.join(", ")
-            ))
-        }
+        Kind::Array { elem, dims } => array(types, *elem, dims, bytes),
         Kind::Enum {
             base,
             values,
             named,
             ..
         } => {
-            if *named {
+            if super::st_types::is_open(values, *named) {
                 return Some(format!(
                     "{}({})",
                     info.name,
@@ -106,6 +92,26 @@ fn constant(types: &Types<'_>, ty: Ty, bytes: &[u8]) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// The array of `dims` over `elem` whose bytes are `bytes`, one dimension at a time, as the array
+/// of arrays a binding passes it as.
+fn array(types: &Types<'_>, elem: Ty, dims: &[(i64, i64)], bytes: &[u8]) -> Option<String> {
+    let Some(((lower, upper), inner)) = dims.split_first() else {
+        return constant(types, elem, bytes);
+    };
+    let length = usize::try_from(upper.checked_sub(*lower)?.checked_add(1)?).ok()?;
+    if length == 0 || !bytes.len().is_multiple_of(length) {
+        return None;
+    }
+    let items = bytes
+        .chunks_exact(bytes.len() / length)
+        .map(|item| array(types, elem, inner, item))
+        .collect::<Option<Vec<_>>>()?;
+    Some(format!(
+        "trust_plc::Array::from_items([{}])",
+        items.join(", ")
+    ))
 }
 
 /// The value of the elementary type `elem` in the first bytes of `bytes`, as RU-25's type of it,
