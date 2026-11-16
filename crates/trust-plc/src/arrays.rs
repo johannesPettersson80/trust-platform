@@ -88,6 +88,17 @@ impl<'a, T, const A: i64, const N: usize> IntoIterator for &'a Array<T, A, N> {
     }
 }
 
+/// An array's default holds its elements' defaults (IEC §6.4.2), which a block's `new()` gives it.
+impl<T: crate::Declared, const A: i64, const N: usize> crate::Declared for Array<T, A, N> {
+    const DEFAULT: Self = Self::from_items([T::DEFAULT; N]);
+}
+
+impl<T: Default + Copy, const A: i64, const N: usize> Default for Array<T, A, N> {
+    fn default() -> Self {
+        Self::from_items([T::default(); N])
+    }
+}
+
 impl<T: fmt::Debug, const A: i64, const N: usize> fmt::Debug for Array<T, A, N> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "Array<{A}..>")?;
