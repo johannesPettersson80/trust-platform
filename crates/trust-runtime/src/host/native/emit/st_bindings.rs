@@ -9,25 +9,49 @@ use super::super::rust_pous::StructuredTextUse;
 use super::super::types::{mangle, Elem, Kind};
 use super::super::NativeError;
 use trust_hir::symbols::ParamDirection;
+use trust_plc_decl::Elementary;
 
-/// The Rust type a binding passes a value of the elementary type `elem` as: the generated code's
-/// own, for the types whose type in RU-25's table it is.
-fn passed(elem: Elem) -> Option<&'static str> {
-    matches!(
-        elem,
-        Elem::Bool
-            | Elem::SInt
-            | Elem::Int
-            | Elem::DInt
-            | Elem::LInt
-            | Elem::USInt
-            | Elem::UInt
-            | Elem::UDInt
-            | Elem::ULInt
-            | Elem::Real
-            | Elem::LReal
-    )
-    .then(|| elem.rust())
+/// RU-25's type of the elementary type `elem`.
+fn elementary(elem: Elem) -> Elementary {
+    match elem {
+        Elem::Bool => Elementary::Bool,
+        Elem::SInt => Elementary::Sint,
+        Elem::Int => Elementary::Int,
+        Elem::DInt => Elementary::Dint,
+        Elem::LInt => Elementary::Lint,
+        Elem::USInt => Elementary::Usint,
+        Elem::UInt => Elementary::Uint,
+        Elem::UDInt => Elementary::Udint,
+        Elem::ULInt => Elementary::Ulint,
+        Elem::Real => Elementary::Real,
+        Elem::LReal => Elementary::Lreal,
+        Elem::Byte => Elementary::Byte,
+        Elem::Word => Elementary::Word,
+        Elem::DWord => Elementary::Dword,
+        Elem::LWord => Elementary::Lword,
+        Elem::Time => Elementary::Time,
+        Elem::LTime => Elementary::LTime,
+        Elem::Date => Elementary::Date,
+        Elem::LDate => Elementary::LDate,
+        Elem::Tod => Elementary::Tod,
+        Elem::LTod => Elementary::LTod,
+        Elem::Dt => Elementary::Dt,
+        Elem::Ldt => Elementary::Ldt,
+        Elem::Char => Elementary::Char,
+        Elem::WChar => Elementary::WChar,
+    }
+}
+
+/// How a binding passes a value of the elementary type `elem` (RU-25): the Rust type a Rust POU
+/// writes for it, and whether that is the generated code's own; one of the SDK's types becomes the
+/// generated code's through `trust_plc::Place` on a cell, as the Rust POUs' glue does.
+fn passed(elem: Elem) -> (String, bool) {
+    let rust = elementary(elem).rust();
+    if rust == elem.rust() {
+        (rust.to_string(), true)
+    } else {
+        (format!("trust_plc::{rust}"), false)
+    }
 }
 
 /// The name of a binding's parameter for the Structured Text parameter `name`: the name in lower
@@ -46,8 +70,8 @@ fn parameter_name(name: &str) -> String {
 ///
 /// # Errors
 ///
-/// [`NativeError::Compile`] for a function whose parameters or result the bindings do not pass
-/// yet, naming the call.
+/// [`NativeError::Compile`] for a function with a parameter that is no elementary input, or with a
+/// result of no elementary type, which the bindings do not pass yet, naming the call.
 pub(super) fn bindings(
     model: &mut Model<'_>,
     roots: &[(String, StructuredTextUse)],
@@ -81,11 +105,11 @@ pub(super) fn bindings(
                 continue;
             }
             let ty = model.ty(param.type_id)?;
-            let rust = match model.types.info(ty).kind {
-                Kind::Elem(elem) if param.direction == ParamDirection::In => passed(elem),
+            let elem = match model.types.info(ty).kind {
+                Kind::Elem(elem) if param.direction == ParamDirection::In => Some(elem),
                 _ => None,
             };
-            let Some(rust) = rust else {
+            let Some(elem) = elem else {
                 return Err(unsupported(format!(
                     "has the parameter {} of type {}",
                     param.name,
@@ -93,17 +117,43 @@ pub(super) fn bindings(
                 )));
             };
             let name = parameter_name(&param.name);
+            let (rust, own) = passed(elem);
             let _ = write!(parameters, ", {name}: {rust}");
-            values.push(name);
-            fields.push(rust);
+            values.push(if own {
+                name
+            } else {
+                format!(
+                    "{{ let cell = core::cell::Cell::<{}>::default(); \
+                     trust_plc::Place::store(&cell, &{name}); cell.get() }}",
+                    elem.rust()
+                )
+            });
+            fields.push(elem.rust());
         }
-        let returns = match super::return_type(model, Some(def.return_type))? {
-            None => "()",
+        let result = match super::return_type(model, Some(def.return_type))? {
+            None => None,
             Some(ty) => match model.types.info(ty).kind {
-                Kind::Elem(elem) => passed(elem),
-                _ => None,
+                Kind::Elem(elem) => Some(elem),
+                _ => {
+                    return Err(unsupported(format!(
+                        "returns a {}",
+                        model.types.info(ty).name
+                    )));
+                }
+            },
+        };
+        // The binding's result, the generated function's, and how the one becomes the other.
+        let (returns, raw, load) = match result {
+            None => ("()".to_string(), "()", "result"),
+            Some(elem) => {
+                let (rust, own) = passed(elem);
+                let load = if own {
+                    "result"
+                } else {
+                    "trust_plc::Place::load(&core::cell::Cell::new(result))"
+                };
+                (rust, elem.rust(), load)
             }
-            .ok_or_else(|| unsupported(format!("returns a {}", model.types.info(ty).name)))?,
         };
         let arguments: String = (0..values.len())
             .map(|index| format!(", self.{index}"))
@@ -115,15 +165,16 @@ pub(super) fn bindings(
 pub fn {name}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc::Fault> {{
     struct Call({fields});
     impl trust_plc_abi::StructuredTextCall for Call {{
-        type Output = {returns};
-        fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<{returns}, trust_plc_abi::Fault> {{
+        type Output = {raw};
+        fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<{raw}, trust_plc_abi::Fault> {{
             trust_plc_abi::module::with_areas(cx, |cx, areas| {{
                 let w = __generated::World::new(cx, &areas)?;
                 __generated::f_{function}(cx, &w{arguments})
             }})
         }}
     }}
-    cx.__call_structured_text(Call({values}))
+    let result = cx.__call_structured_text(Call({values}))?;
+    Ok({load})
 }}
 
 ",
