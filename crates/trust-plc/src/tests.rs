@@ -601,3 +601,31 @@ fn a_structure_in_place_is_read_and_written_where_it_lies() {
     ]));
     assert_eq!((row[0].x.get(), row[1].y.get()), (7.0, 10.0));
 }
+
+/// Structured Text that reads the program's globals, as a binding's call views the areas.
+struct ReadsTheGlobals;
+
+impl trust_plc_abi::StructuredTextCall for ReadsTheGlobals {
+    type Output = ();
+
+    fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<(), Fault> {
+        trust_plc_abi::module::with_areas(cx, |cx, areas| {
+            areas
+                .view::<[Cell<u8>; 4]>(cx, trust_plc_abi::AREA_GLOBALS)
+                .map(|_| ())
+        })
+    }
+}
+
+#[test]
+fn a_unit_test_holds_no_program_for_structured_text() {
+    // RU-56: a unit test's context holds no program, so Structured Text, which runs on the
+    // program's memory, ends with ModuleInternal there, its globals' area named in the fault's
+    // record; a machine test runs it (RU-58). Catches a unit test that runs Structured Text on
+    // memory that is no program's.
+    let mut cx = crate::test::cx();
+    let fault = cx
+        .__call_structured_text(ReadsTheGlobals)
+        .expect_err("a unit test holds no program");
+    assert_eq!(fault.raw(), FaultCode::ModuleInternal as u32);
+}

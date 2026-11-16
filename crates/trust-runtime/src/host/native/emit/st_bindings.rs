@@ -178,7 +178,9 @@ pub(super) fn bindings(
             .collect();
         let _ = write!(
             text,
-            "/// The Structured Text function `{declared}` of the project (specification 48 RU-39).
+            "/// The Structured Text function `{declared}` of the project (specification 48 RU-39). It runs on
+/// the program's memory, which a unit test's context does not hold: there the call ends with
+/// `FaultCode::ModuleInternal`; test it in a machine test with `trust-sim` (RU-56, RU-58).
 #[inline]
 pub fn {name}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc::Fault> {{
     struct Call({fields});
@@ -364,7 +366,9 @@ impl {name} {{
     }}
 
     /// Calls the block as Structured Text calls an instance: gives it `input`, runs its body on its
-    /// own variables, and takes its outputs into `output`.
+    /// own variables, and takes its outputs into `output`. Its instance lies in the program's
+    /// memory, which a unit test does not hold: there the call ends with
+    /// `FaultCode::ModuleInternal` (specification 48 RU-56).
     ///
     /// # Errors
     ///
