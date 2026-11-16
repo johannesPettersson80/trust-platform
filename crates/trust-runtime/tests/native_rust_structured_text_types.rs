@@ -569,3 +569,79 @@ END_CONFIGURATION
         Some(Value::DInt(1))
     );
 }
+
+/// A crate whose function passes its in-out and an output of its own to Structured Text.
+const IN_OUTS: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"ADD_TO\")]
+#[budget(\"1us\")]
+pub fn add_to(cx: &mut Cx, sum: InOut<'_, f64>, x: f64) -> Result<f64, Fault> {
+    let mut doubled = 0.0;
+    let total = st::ACCUMULATE(cx, sum, x, &mut doubled)?;
+    Ok(total + doubled)
+}
+";
+
+#[test]
+fn in_outs_and_outputs_pass_through_a_call() {
+    // RU-29, RU-38, RU-39: a call passes a function's in-out as RU-29's `InOut<'_, T>` and its
+    // output as `&mut T`: ACCUMULATE adds x = 2.5 to the in-out total, 10.0 + 2.5 = 12.5, which the
+    // program's variable then holds, writes its output doubled = 2.5 x 2 = 5.0 and returns 12.5, so
+    // ADD_TO gives 12.5 + 5.0 = 17.5, at the task's first call at 10 ms. Catches an in-out that the
+    // call reads but never writes back, and an output left in the generated cells.
+    let root = custom_project(
+        "rust-pous-structured-text-in-outs",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", IN_OUTS),
+        ],
+        "FUNCTION ACCUMULATE : LREAL
+VAR_IN_OUT
+    total : LREAL;
+END_VAR
+VAR_INPUT
+    x : LREAL;
+END_VAR
+VAR_OUTPUT
+    doubled : LREAL;
+END_VAR
+total := total + x;
+doubled := x * 2.0;
+ACCUMULATE := total;
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    sum : LREAL := 10.0;
+    result : LREAL;
+END_VAR
+result := ADD_TO(sum := sum, x := 2.5);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(12.5)));
+    assert_eq!(program.value("MAIN.RESULT"), Some(Value::LReal(17.5)));
+}

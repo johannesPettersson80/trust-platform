@@ -118,141 +118,7 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
             }
             continue;
         }
-        let Some(def) = model.function(&used.name) else {
-            return Err(NativeError::Compile(format!(
-                "function {} is not declared",
-                used.name
-            )));
-        };
-        let unsupported = |what: String| {
-            NativeError::Compile(format!(
-                "st::{} at {}:{}: {} {what}, which a call from Rust does not pass yet \
-                 (specification 48 RU-38, milestone R3)",
-                used.name, used.file, used.line, def.name
-            ))
-        };
-        let mut parameters = String::new();
-        let mut fields = Vec::new();
-        let mut values = Vec::new();
-        // What `call` does before the generated function's call, and what it passes it: a string
-        // goes into a cell of the generated code's, which the function takes by reference.
-        let mut setup = String::new();
-        let mut arguments = String::new();
-        for param in &def.params {
-            // `EN` is TRUE whenever the function runs (specification 10 §7.5).
-            if param.name.eq_ignore_ascii_case("EN") {
-                continue;
-            }
-            let ty = model.ty(param.type_id)?;
-            let name = parameter_name(&param.name);
-            let index = values.len();
-            let kind = &model.types.info(ty).kind;
-            let cells = by_cells(&model.types, ty, crate_structures, &mut structures);
-            match (param.direction == ParamDirection::In, kind, cells) {
-                (true, Kind::Elem(elem), _) => {
-                    let (rust, own) = passed(*elem);
-                    let _ = write!(parameters, ", {name}: {rust}");
-                    values.push(if own {
-                        name
-                    } else {
-                        format!(
-                            "{{ let cell = core::cell::Cell::<{}>::default(); \
-                             trust_plc::Place::store(&cell, &{name}); cell.get() }}",
-                            elem.rust()
-                        )
-                    });
-                    fields.push(elem.rust().to_string());
-                    let _ = write!(arguments, ", self.{index}");
-                }
-                (true, _, Some(rust)) => {
-                    let _ = write!(parameters, ", {name}: {rust}");
-                    values.push(name);
-                    fields.push(rust);
-                    let _ = writeln!(
-                        setup,
-                        "                let t{index} = zeroed();\n                \
-                         trust_plc::Place::store(&t{index}, &self.{index});"
-                    );
-                    let _ = write!(arguments, ", &t{index}");
-                }
-                _ => {
-                    return Err(unsupported(format!(
-                        "has the parameter {} of type {}",
-                        param.name,
-                        model.types.info(ty).name
-                    )));
-                }
-            }
-        }
-        // The binding's result, the generated function's, how `call` gets it, and how the one
-        // becomes the other once the call returns.
-        let function = mangle(&def.name);
-        let (returns, raw, run, load) = match super::return_type(model, Some(def.return_type))? {
-            None => (
-                "()".to_string(),
-                "()".to_string(),
-                format!("__generated::f_{function}(cx, &w{arguments})"),
-                "result",
-            ),
-            Some(ty) => match (
-                &model.types.info(ty).kind,
-                by_cells(&model.types, ty, crate_structures, &mut structures),
-            ) {
-                (Kind::Elem(elem), _) => {
-                    let (rust, own) = passed(*elem);
-                    let load = if own {
-                        "result"
-                    } else {
-                        "trust_plc::Place::load(&core::cell::Cell::new(result))"
-                    };
-                    let run = format!("__generated::f_{function}(cx, &w{arguments})");
-                    (rust, elem.rust().to_string(), run, load)
-                }
-                (_, Some(rust)) => {
-                    // A string or an array result is written into the cells the function takes
-                    // first.
-                    let run = format!(
-                        "let out = zeroed();\n                \
-                         __generated::f_{function}(cx, &w, &out{arguments})?;\n                \
-                         Ok(trust_plc::Place::load(&out))"
-                    );
-                    (rust.clone(), rust, run, "result")
-                }
-                _ => {
-                    return Err(unsupported(format!(
-                        "returns a {}",
-                        model.types.info(ty).name
-                    )));
-                }
-            },
-        };
-        let _ = write!(
-            text,
-            "/// The Structured Text function `{declared}` of the project (specification 48 RU-39). It runs on
-/// the program's memory, which a unit test's context does not hold: there the call ends with
-/// `FaultCode::ModuleInternal`; test it in a machine test with `trust-sim` (RU-56, RU-58).
-#[inline]
-pub fn {name}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc::Fault> {{
-    struct Call({fields});
-    impl trust_plc_abi::StructuredTextCall for Call {{
-        type Output = {raw};
-        fn call(self, cx: &mut trust_plc_abi::Cx) -> Result<{raw}, trust_plc_abi::Fault> {{
-            trust_plc_abi::module::with_areas(cx, |cx, areas| {{
-                let w = __generated::World::new(cx, &areas)?;
-{setup}                {run}
-            }})
-        }}
-    }}
-    let result = cx.__call_structured_text(Call({values}))?;
-    Ok({load})
-}}
-
-",
-            declared = def.name,
-            name = used.name,
-            fields = fields.join(", "),
-            values = values.join(", "),
-        );
+        text.push_str(&function(model, used, crate_structures, &mut structures)?);
     }
     let all: Vec<Ty> = structures.iter().copied().collect();
     for ty in all {
@@ -263,6 +129,203 @@ pub fn {name}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc
             &mut structures,
         ));
     }
+    Ok(text)
+}
+
+/// The binding of the Structured Text function the crate calls by `used` (RU-39): a Rust function
+/// of its name that runs the generated function on the kernel's context the SDK keeps, passing its
+/// inputs, in-outs, outputs and result as the Rust types of RU-25's table.
+fn function(
+    model: &mut Model<'_>,
+    used: &StructuredTextUse,
+    crate_structures: &HashMap<String, String>,
+    structures: &mut BTreeSet<Ty>,
+) -> Result<String, NativeError> {
+    let Some(def) = model.function(&used.name) else {
+        return Err(NativeError::Compile(format!(
+            "function {} is not declared",
+            used.name
+        )));
+    };
+    let unsupported = |what: String| {
+        NativeError::Compile(format!(
+            "st::{} at {}:{}: {} {what}, which a call from Rust does not pass yet \
+             (specification 48 RU-38, milestone R3)",
+            used.name, used.file, used.line, def.name
+        ))
+    };
+    let mut parameters = String::new();
+    let mut fields = Vec::new();
+    let mut values = Vec::new();
+    // What `call` does before the generated function's call, and what it passes it: a string
+    // goes into a cell of the generated code's, which the function takes by reference.
+    let mut setup = String::new();
+    let mut arguments = String::new();
+    // What `call` writes back once the function returns: an in-out's value and an output.
+    let mut writebacks = String::new();
+    for param in &def.params {
+        // `EN` is TRUE whenever the function runs (specification 10 §7.5).
+        if param.name.eq_ignore_ascii_case("EN") {
+            continue;
+        }
+        let ty = model.ty(param.type_id)?;
+        let name = parameter_name(&param.name);
+        let index = values.len();
+        let kind = &model.types.info(ty).kind;
+        let cells = by_cells(&model.types, ty, crate_structures, structures);
+        if param.direction != ParamDirection::In {
+            // An in-out or an output: cells the function reads and writes, whose value goes
+            // back to the caller's variable once it returns. A string in-out is a view of the
+            // caller's string, which the bindings do not pass yet.
+            let rust = match kind {
+                Kind::Str(_) | Kind::WStr(_) if param.direction == ParamDirection::InOut => None,
+                Kind::Elem(elem) => Some(passed(*elem).0),
+                _ => cells,
+            };
+            let Some(rust) = rust else {
+                return Err(unsupported(format!(
+                    "has the in-out {} of type {}",
+                    param.name,
+                    model.types.info(ty).name
+                )));
+            };
+            if param.direction == ParamDirection::InOut {
+                let _ = write!(parameters, ", {name}: trust_plc::InOut<'a, {rust}>");
+                fields.push(format!("trust_plc::InOut<'a, {rust}>"));
+                let _ = writeln!(
+                    setup,
+                    "                let t{index} = zeroed();\n                \
+                     trust_plc::Place::store(&t{index}, &self.{index}.get());"
+                );
+                let _ = writeln!(
+                    writebacks,
+                    "                self.{index}.set(trust_plc::Place::load(&t{index}));"
+                );
+            } else {
+                let _ = write!(parameters, ", {name}: &'a mut {rust}");
+                fields.push(format!("&'a mut {rust}"));
+                let _ = writeln!(setup, "                let t{index} = zeroed();");
+                let _ = writeln!(
+                    writebacks,
+                    "                *self.{index} = trust_plc::Place::load(&t{index});"
+                );
+            }
+            values.push(name);
+            let _ = write!(arguments, ", &t{index}");
+            continue;
+        }
+        match (param.direction == ParamDirection::In, kind, cells) {
+            (true, Kind::Elem(elem), _) => {
+                let (rust, own) = passed(*elem);
+                let _ = write!(parameters, ", {name}: {rust}");
+                values.push(if own {
+                    name
+                } else {
+                    format!(
+                        "{{ let cell = core::cell::Cell::<{}>::default(); \
+                         trust_plc::Place::store(&cell, &{name}); cell.get() }}",
+                        elem.rust()
+                    )
+                });
+                fields.push(elem.rust().to_string());
+                let _ = write!(arguments, ", self.{index}");
+            }
+            (true, _, Some(rust)) => {
+                let _ = write!(parameters, ", {name}: {rust}");
+                values.push(name);
+                fields.push(rust);
+                let _ = writeln!(
+                    setup,
+                    "                let t{index} = zeroed();\n                \
+                     trust_plc::Place::store(&t{index}, &self.{index});"
+                );
+                let _ = write!(arguments, ", &t{index}");
+            }
+            _ => {
+                return Err(unsupported(format!(
+                    "has the parameter {} of type {}",
+                    param.name,
+                    model.types.info(ty).name
+                )));
+            }
+        }
+    }
+    // The binding's result, the generated function's, how `call` gets it, and how the one
+    // becomes the other once the call returns.
+    let function = mangle(&def.name);
+    let (returns, raw, run, load) = match super::return_type(model, Some(def.return_type))? {
+        None => (
+            "()".to_string(),
+            "()".to_string(),
+            format!(
+                "__generated::f_{function}(cx, &w{arguments})?;\n{writebacks}                Ok(())"
+            ),
+            "result",
+        ),
+        Some(ty) => match (
+            &model.types.info(ty).kind,
+            by_cells(&model.types, ty, crate_structures, structures),
+        ) {
+            (Kind::Elem(elem), _) => {
+                let (rust, own) = passed(*elem);
+                let load = if own {
+                    "result"
+                } else {
+                    "trust_plc::Place::load(&core::cell::Cell::new(result))"
+                };
+                let run = format!(
+                    "let result = __generated::f_{function}(cx, &w{arguments})?;\n\
+                     {writebacks}                Ok(result)"
+                );
+                (rust, elem.rust().to_string(), run, load)
+            }
+            (_, Some(rust)) => {
+                // A string or an array result is written into the cells the function takes
+                // first.
+                let run = format!(
+                    "let out = zeroed();\n                \
+                     __generated::f_{function}(cx, &w, &out{arguments})?;\n\
+                     {writebacks}                Ok(trust_plc::Place::load(&out))"
+                );
+                (rust.clone(), rust, run, "result")
+            }
+            _ => {
+                return Err(unsupported(format!(
+                    "returns a {}",
+                    model.types.info(ty).name
+                )));
+            }
+        },
+    };
+    let mut text = String::new();
+    let _ = write!(
+        text,
+        "/// The Structured Text function `{declared}` of the project (specification 48 RU-39). It runs on
+/// the program's memory, which a unit test's context does not hold: there the call ends with
+/// `FaultCode::ModuleInternal`; test it in a machine test with `trust-sim` (RU-56, RU-58).
+#[inline]
+pub fn {name}{generic}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc::Fault> {{
+struct Call{generic}({fields});
+impl{generic} trust_plc_abi::StructuredTextCall for Call{generic} {{
+    type Output = {raw};
+    fn call(mut self, cx: &mut trust_plc_abi::Cx) -> Result<{raw}, trust_plc_abi::Fault> {{
+        trust_plc_abi::module::with_areas(cx, |cx, areas| {{
+            let w = __generated::World::new(cx, &areas)?;
+{setup}                {run}
+        }})
+    }}
+}}
+let result = cx.__call_structured_text(Call({values}))?;
+Ok({load})
+}}
+
+",
+        declared = def.name,
+        name = used.name,
+        generic = if writebacks.is_empty() { "" } else { "<'a>" },
+        fields = fields.join(", "),
+        values = values.join(", "),
+    );
     Ok(text)
 }
 
