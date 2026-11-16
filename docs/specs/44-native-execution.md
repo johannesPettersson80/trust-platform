@@ -1315,7 +1315,12 @@ relocations, kept by `--emit-relocs`) gives the deepest chain of each task's pro
 functions of a cycle, the calls of a recursion (§6.4), count once, all their frames together; the
 bound is the deepest chain's sum over every entry point, plus 4 KiB for the kernel functions a
 statement may call on the same stack (§8.2), plus 25%. A call is a call relocation of the target
-(`R_X86_64_PLT32`, `R_RISCV_CALL`, `R_ARM_THM_CALL`, `R_AARCH64_CALL26` and their tail-call forms);
+(`R_X86_64_PLT32`, `R_RISCV_CALL`, `R_ARM_THM_CALL`, `R_AARCH64_CALL26` and their tail-call forms),
+or a function's direct call of itself, which the assembler resolves inside the function's own
+section without a relocation and the build reads from the call instruction (specification 48
+RU-18). A cycle of the call graph that passes through no `recurse` (§6.4) is a recursion whose depth
+no call depth bounds, so its stack has no bound: the build refuses the module, naming the cycle's
+functions;
 a function the compiler gives no remark for, one of the target's builtins linked outside the
 link-time optimization, counts 512 bytes. A recursive call adds at most the frames of one cycle
 until the next recursive call, so the bytes of one call level are the largest sum of a cycle's

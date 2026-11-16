@@ -54,6 +54,21 @@ Keywords are unique combinations of characters utilized as individual syntactic 
 1. Keywords shall not contain embedded spaces
 2. Case of characters shall NOT be significant (e.g., `FOR` and `for` are equivalent)
 3. Keywords shall not be used for other purposes (e.g., variable names)
+4. A name may hold a reserved word only where it cannot be taken for the keyword:
+   - `EN` and `ENO` name a POU's execution control parameters, the input and output that IEC
+     §6.6.1.5 (Table 18) declares as `VAR_INPUT EN : BOOL := 1; END_VAR` and
+     `VAR_OUTPUT ENO : BOOL; END_VAR`, in every profile; no other declaration takes them.
+   - `GET` and `SET` name a property's accessors, which the symbol table holds as the property's
+     methods (specification 09 §5.6).
+   - `STEP` names a variable in every profile, not a parameter, a member, a POU or a type: truST's
+     Structured Text has no textual SFC (the SFC profile note below), so `STEP` stands in no body,
+     and OpenOT's projects name a state machine's step variable `Step`
+     (`docs/IEC_DEVIATIONS.md` DEV-049).
+   - Under the CODESYS profile, `ON`, `NULL` and `SET` name variables, members, parameters and
+     enumeration values (below; DEV-034).
+
+   Every other reserved word is refused as a name: `reserved keyword 'X' cannot be used as
+   identifier`.
 
 ### Complete Keyword List
 
@@ -100,7 +115,8 @@ PROPERTY, END_PROPERTY
 NAMESPACE, END_NAMESPACE
 USING
 ```
-Property keywords are defined in IEC 61131-3 Ed.3 §6.6.5 (Table 50).
+`PROPERTY` is a truST extension, as CODESYS has it: IEC 61131-3:2013 has no properties
+(specification 09 §5.6).
 
 #### OOP Keywords
 ```
@@ -114,7 +130,7 @@ PUBLIC, PRIVATE, PROTECTED, INTERNAL
 GET, END_GET
 SET, END_SET
 ```
-Accessor keywords are defined in IEC 61131-3 Ed.3 §6.6.5 (Table 50).
+The accessor keywords belong to that extension (specification 09 §5.6).
 
 #### Control Flow
 ```
