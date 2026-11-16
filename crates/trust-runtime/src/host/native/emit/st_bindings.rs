@@ -16,7 +16,7 @@ use trust_plc_decl::Elementary;
 use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_IN_OUT, SYMBOL_OUTPUT};
 
 /// RU-25's type of the elementary type `elem`.
-fn elementary(elem: Elem) -> Elementary {
+pub(super) fn elementary(elem: Elem) -> Elementary {
     match elem {
         Elem::Bool => Elementary::Bool,
         Elem::SInt => Elementary::Sint,
@@ -122,12 +122,7 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
     }
     let all: Vec<Ty> = structures.iter().copied().collect();
     for ty in all {
-        text.push_str(&structure(
-            &model.types,
-            ty,
-            crate_structures,
-            &mut structures,
-        ));
+        text.push_str(&structure(model, ty, crate_structures, &mut structures)?);
     }
     Ok(text)
 }
@@ -413,28 +408,33 @@ fn rust_type(
     }
 }
 
-/// The binding of the Structured Text structure `ty`: a Rust struct of its fields, its default, and
-/// its place, the generated code's structure, through which a call and a held block pass it (RU-39).
+/// The binding of the Structured Text structure `ty`: a Rust struct of its fields, its default,
+/// the value a variable of it starts at, and its place, the generated code's structure, through
+/// which a call and a held block pass it (RU-39).
+///
+/// # Errors
+///
+/// [`NativeError`] for a default the build cannot work out.
 fn structure(
-    types: &Types<'_>,
+    model: &mut Model<'_>,
     ty: Ty,
     crate_structures: &HashMap<String, String>,
     structures: &mut BTreeSet<Ty>,
-) -> String {
+) -> Result<String, NativeError> {
+    let default = super::st_defaults::default(model, ty)?;
+    let types = &model.types;
     let info = types.info(ty);
     let Kind::Struct { members } = &info.kind else {
-        return String::new();
+        return Ok(String::new());
     };
     let name = &info.name;
     let mut fields = String::new();
-    let mut defaults = Vec::new();
     let mut loads = Vec::new();
     let mut stores = String::new();
     for member in members {
         let field = field_name(&member.name);
         let rust = rust_type(types, member.ty, crate_structures, structures).unwrap_or_default();
         let _ = writeln!(fields, "    pub {field}: {rust},");
-        defaults.push(format!("{field}: trust_plc::declared_default()"));
         loads.push(format!(
             "{field}: trust_plc::Place::load(&self.{})",
             member.field()
@@ -445,14 +445,20 @@ fn structure(
             member.field()
         );
     }
-    format!(
+    Ok(format!(
         "/// The Structured Text structure `{name}` of the project (specification 48 RU-39).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct {name} {{
 {fields}}}
 
 impl trust_plc::Declared for {name} {{
-    const DEFAULT: Self = Self {{ {defaults} }};
+    const DEFAULT: Self = {default};
+}}
+
+impl Default for {name} {{
+    fn default() -> Self {{
+        <Self as trust_plc::Declared>::DEFAULT
+    }}
 }}
 
 impl trust_plc::Place<{name}> for __generated::{cells} {{
@@ -465,15 +471,14 @@ impl trust_plc::Place<{name}> for __generated::{cells} {{
 }}
 
 ",
-        defaults = defaults.join(", "),
         cells = info.rust,
         loads = loads.join(", "),
-    )
+    ))
 }
 
 /// The name of a held block's input or output in its binding: the Structured Text name as declared,
 /// with `_` after one that Rust keeps as a keyword.
-fn field_name(name: &str) -> String {
+pub(super) fn field_name(name: &str) -> String {
     if syn::parse_str::<syn::Ident>(name).is_err() {
         format!("{name}_")
     } else {
