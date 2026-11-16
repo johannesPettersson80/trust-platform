@@ -255,15 +255,16 @@ fn same_signature(
     Ok(())
 }
 
-/// The dispatchers `needs` names, as Rust functions.
+/// The dispatchers `needs` names, as Rust functions, each with its name.
 pub(super) fn emit(
     model: &mut Model<'_>,
     needs: &[Need],
     graph: &mut CallGraph,
-) -> Result<String, NativeError> {
-    let mut out = String::new();
+) -> Result<Vec<(String, String)>, NativeError> {
+    let mut pieces = Vec::new();
     for need in needs {
-        match need {
+        let mut out = String::new();
+        let name = match need {
             Need::Virtual(ty, name) => {
                 let (owner, method, arms) = virtual_arms(model, *ty, name)?;
                 let Signature {
@@ -278,7 +279,7 @@ pub(super) fn emit(
                 }
                 let _ = writeln!(
                     out,
-                    "fn {dispatcher}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{",
+                    "pub fn {dispatcher}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{",
                     model.types.info(*ty).rust
                 );
                 let field = class_field(model, *ty)?;
@@ -295,6 +296,7 @@ pub(super) fn emit(
                 }
                 let call = arm_call(model, "me", *ty, owner, method, &names)?;
                 let _ = writeln!(out, "        _ => {call},\n    }}\n}}\n");
+                dispatcher
             }
             Need::Interface(interface, name) => {
                 let defs = model.types.defs;
@@ -318,7 +320,7 @@ pub(super) fn emit(
                 }
                 let _ = writeln!(
                     out,
-                    "fn {dispatcher}(cx: &mut Cx, w: &World<'_>, r: &abi::RefValue{parameters}) -> R<{returns}> {{\n    match w.areas.class_of(cx, r)? {{"
+                    "pub fn {dispatcher}(cx: &mut Cx, w: &World<'_>, r: &abi::RefValue{parameters}) -> R<{returns}> {{\n    match w.areas.class_of(cx, r)? {{"
                 );
                 for arm in &arms {
                     same_signature(model, (&interface_name, declared), (arm.owner, arm.method))?;
@@ -335,6 +337,7 @@ pub(super) fn emit(
                     out,
                     "        other => Err(fault(cx, abi::FaultCode::TypeMismatch, i64::from(other), 0, 0)),\n    }}\n}}\n"
                 );
+                dispatcher
             }
             Need::Cast(target) => {
                 // The reference `r` when the instance it names is of a class `target` takes: an
@@ -357,7 +360,7 @@ pub(super) fn emit(
                     .collect();
                 let _ = writeln!(
                     out,
-                    "fn {function}(cx: &mut Cx, w: &World<'_>, r: abi::RefValue) -> R<abi::RefValue> {{\n    if r.kind == abi::RefValue::NULL {{\n        return Ok(abi::RefValue::NULL_REF);\n    }}"
+                    "pub fn {function}(cx: &mut Cx, w: &World<'_>, r: abi::RefValue) -> R<abi::RefValue> {{\n    if r.kind == abi::RefValue::NULL {{\n        return Ok(abi::RefValue::NULL_REF);\n    }}"
                 );
                 if classes.is_empty() {
                     let _ = writeln!(
@@ -371,12 +374,13 @@ pub(super) fn emit(
                         classes.join(" | ")
                     );
                 }
+                function
             }
             Need::Body(ty) => {
                 let dispatcher = body_function(model, *ty);
                 let _ = writeln!(
                     out,
-                    "fn {dispatcher}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{",
+                    "pub fn {dispatcher}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{",
                     model.types.info(*ty).rust
                 );
                 let field = class_field(model, *ty)?;
@@ -405,11 +409,13 @@ pub(super) fn emit(
                 let own_body = format!("fb_{}", mangle(&model.types.info(*ty).name));
                 graph.dispatcher(&dispatcher, &own_body);
                 let _ = writeln!(out, "        _ => {own_body}(cx, w, me),\n    }}\n}}\n");
+                dispatcher
             }
-            Need::Function(_) | Need::Method(..) | Need::ProgramMethod(..) => {}
-        }
+            Need::Function(_) | Need::Method(..) | Need::ProgramMethod(..) => continue,
+        };
+        pieces.push((name, out));
     }
-    Ok(out)
+    Ok(pieces)
 }
 
 /// The path from an instance of type `ty` to its class id.

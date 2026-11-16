@@ -12,6 +12,10 @@ pub const DECLARATIONS_FILE: &str = "src/generated/rust_pous.st";
 /// The folder of the project's crate in a Structured Text project (RU-06).
 pub const CRATE_FOLDER: &str = "rust";
 
+/// The folder of the bindings, the crate `trust_st` that the build generates for a crate that calls
+/// Structured Text (RU-39).
+pub const BINDINGS_FOLDER: &str = "build/trust_st";
+
 /// The folder of a Rust-first project's generated Structured Text (RU-65).
 const RUST_FIRST_GENERATED: &str = "src/generated/trust";
 

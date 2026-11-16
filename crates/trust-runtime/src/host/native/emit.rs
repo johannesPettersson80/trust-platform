@@ -6,6 +6,7 @@ mod bodies;
 mod connections;
 mod rust_glue;
 mod rust_places;
+mod st_bindings;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -14,7 +15,7 @@ use super::classes::Owner;
 use super::entries::{entries, reference_initializers, Entry};
 use super::front::{Front, StatementIds};
 use super::layers::BodyPou;
-use super::lower::{FrameVar, Need, PRELUDE};
+use super::lower::{FrameVar, Need, PRELUDE_IMPORTS, PRELUDE_ITEMS};
 use super::model::{AreaLayout, Model};
 use super::recursion::{CallGraph, Recursion};
 use super::rust_pous::StructuredTextUse;
@@ -37,9 +38,16 @@ pub(super) struct Generated {
     /// The methods a tool may call between scans, which the tool symbols name (specification 44
     /// §5.7, §13.3).
     pub(super) tools: Vec<super::tools::Tool>,
-    /// The generated functions of layer 1, what the Structured Text that the project's crate calls
-    /// reaches (specification 48 §9.2); empty for a crate that calls none.
-    pub(super) layer_one: BTreeSet<String>,
+    /// Layer 1 of specification 48 §9.2, for a project whose crate calls Structured Text; this
+    /// crate, layer 3, then takes its types and functions from it.
+    pub(super) layer_one: Option<LayerOne>,
+}
+
+/// Layer 1 (specification 48 §9.2, RU-39): the crate `trust_st`, whose library `st` holds the
+/// Structured Text that the project's crate calls, with everything it reaches, and the bindings.
+pub(super) struct LayerOne {
+    /// The library's source.
+    pub(super) library: String,
 }
 
 /// One POU of a debug image: its name, the type its instance has, and its frame's variables at
@@ -92,7 +100,8 @@ pub(super) fn generate<'a>(
     recursion: &Recursion,
 ) -> Result<(Generated, CallGraph), NativeError> {
     let mut graph = CallGraph::default();
-    let mut functions = String::new();
+    // Each body's function with its text, which goes to layer 1 or to this crate.
+    let mut texts: Vec<(String, String)> = Vec::new();
     let mut pous = 0usize;
     let mut statement_pous = vec![u16::MAX; ids.order.len()];
     let mut queued: Vec<Need> = Vec::new();
@@ -201,7 +210,7 @@ pub(super) fn generate<'a>(
                 *slot = pou;
             }
         }
-        functions.push_str(&text);
+        texts.push((name, text));
         for need in needs {
             match need {
                 Need::Virtual(..) | Need::Interface(..) | Need::Body(_) | Need::Cast(_) => {
@@ -219,8 +228,15 @@ pub(super) fn generate<'a>(
         return Err(refused);
     }
     let tools = super::tools::tools(model)?;
-    functions.push_str(&super::dispatch::emit(model, &dispatchers, &mut graph)?);
+    texts.extend(super::dispatch::emit(model, &dispatchers, &mut graph)?);
+    // Layer 1 is what the Structured Text that the crate calls reaches (specification 48 §9.2);
+    // the rest is this crate's.
     let layer_one = super::layers::layer_one(&graph, &roots, &bodies)?;
+    let layered = !layer_one.is_empty();
+    if layered {
+        places_beside_layer_one(model, front)?;
+    }
+    let (layer_one_functions, mut functions) = split(texts, &layer_one);
     // The places of the crate's structures that the Rust POUs' values reach (specification 48
     // RU-29).
     functions.push_str(&rust_places::places(
@@ -230,25 +246,17 @@ pub(super) fn generate<'a>(
     )?);
     connections::connections(front, ids, model, target.pointer_bytes(), &mut functions)?;
 
-    let mut source = String::new();
-    source.push_str(
-        "//! A truST program compiled for the kernel interface (specification 44). Generated; do not edit.\n\
-         #![no_std]\n#![no_main]\n#![deny(unsafe_code)]\n\
-         #![allow(non_snake_case, non_camel_case_types, unused_parens, unused_variables, unused_mut, \
-         dead_code, unreachable_code, unused_labels, unused_braces, clippy::all)]\n\n",
-    );
-    source.push_str(PRELUDE);
-    if target.is_computer() {
-        // The memory functions a large copy or fill calls, which no C library brings
-        // (specification 44 §4.5).
-        source.push_str("extern crate trust_plc_mem;\n");
-    }
-    source.push('\n');
-    types(&mut source, model);
-    programs(&mut source, model);
-    source.push_str(&frame_types);
-    let images = model.images;
-    areas(&mut source, model, images);
+    let mut source = head(target, layered);
+    let shared = shared(model, &frame_types);
+    let layer_one = if layered {
+        let bindings = st_bindings::bindings(model, &roots)?;
+        Some(LayerOne {
+            library: layer_one_library(&shared, &layer_one_functions, &bindings),
+        })
+    } else {
+        source.push_str(&shared);
+        None
+    };
     source.push_str(&functions);
     let references = reference_initializers(front, model)?;
     let lifecycle = super::entries::Lifecycle {
@@ -276,6 +284,88 @@ pub(super) fn generate<'a>(
         },
         graph,
     ))
+}
+
+/// The head of the generated crate for `target`: its attributes, the prelude, and, in layer 3 of a
+/// project whose crate calls Structured Text (`layered`), the use of layer 1, where the prelude's
+/// items lie (specification 48 §9.2).
+fn head(target: Target, layered: bool) -> String {
+    let mut source = String::from(
+        "//! A truST program compiled for the kernel interface (specification 44). Generated; do not edit.\n\
+         #![no_std]\n#![no_main]\n#![deny(unsafe_code)]\n\
+         #![allow(non_snake_case, non_camel_case_types, unused_parens, unused_variables, unused_mut, \
+         dead_code, unreachable_code, unused_labels, unused_braces, clippy::all)]\n\n",
+    );
+    source.push_str(PRELUDE_IMPORTS);
+    if layered {
+        source.push_str("use ::st::__generated::*;\n");
+    } else {
+        source.push_str(PRELUDE_ITEMS);
+    }
+    if target.is_computer() {
+        // The memory functions a large copy or fill calls, which no C library brings
+        // (specification 44 §4.5).
+        source.push_str("extern crate trust_plc_mem;\n");
+    }
+    source.push('\n');
+    source
+}
+
+/// The types, the program structures, the frames `frame_types` and the areas, which layer 1 holds
+/// when the project's crate calls Structured Text (specification 48 §9.2).
+fn shared(model: &Model<'_>, frame_types: &str) -> String {
+    let mut shared = String::new();
+    types(&mut shared, model);
+    programs(&mut shared, model);
+    shared.push_str(frame_types);
+    areas(&mut shared, model, model.images);
+    shared
+}
+
+/// The functions of `texts` in layer 1, those `layer_one` names, and the others, this crate's.
+fn split(texts: Vec<(String, String)>, layer_one: &BTreeSet<String>) -> (String, String) {
+    let mut functions = (String::new(), String::new());
+    for (name, text) in texts {
+        if layer_one.contains(&name) {
+            functions.0.push_str(&text);
+        } else {
+            functions.1.push_str(&text);
+        }
+    }
+    functions
+}
+
+/// Refuses the places of the crate's structures (RU-29) in a project whose crate calls Structured
+/// Text: their `trust_plc::Place` is the generated structure's, which lies in layer 1 then, and
+/// layer 3 cannot implement the SDK's trait for it (specification 48 §9.2).
+fn places_beside_layer_one(model: &Model<'_>, front: &Front) -> Result<(), NativeError> {
+    let (Some(structure), Some(call)) = (model.rust_places.first(), front.structured_text.first())
+    else {
+        return Ok(());
+    };
+    Err(NativeError::Compile(format!(
+        "the crate calls Structured Text (st::{} at {}:{}) and passes its structure {} as an \
+         in-out or a reference, which the build does not compile together yet (specification 48 \
+         RU-29, RU-39, milestone R3)",
+        call.name,
+        call.file,
+        call.line,
+        model.types.info(*structure).name
+    )))
+}
+
+/// The library of layer 1 (specification 48 RU-39): the generated module, `shared`'s types and
+/// areas with `functions`, which layer 3 takes them from, and the `bindings` the project's crate
+/// calls.
+fn layer_one_library(shared: &str, functions: &str, bindings: &str) -> String {
+    format!(
+        "//! The Structured Text that the project's crate calls (specification 48 RU-39). Generated \
+         by truST from the project; do not edit.\n\
+         #![no_std]\n#![deny(unsafe_code)]\n#![allow(warnings, clippy::all, clippy::pedantic)]\n\n\
+         /// The generated code of the Structured Text, which the bindings and the build call.\n\
+         #[doc(hidden)]\npub mod __generated {{\n{PRELUDE_IMPORTS}{PRELUDE_ITEMS}\n{shared}{functions}}}\n\n\
+         {bindings}"
+    )
 }
 
 /// Queues the Structured Text function of each call that the project's crate makes (specification
@@ -618,28 +708,28 @@ fn area(source: &mut String, name: &str, layout: &AreaLayout) {
 }
 
 fn areas(source: &mut String, model: &Model<'_>, images: [u32; 3]) {
-    let _ = writeln!(source, "type AreaI = [Cell<u8>; {}];", images[0]);
-    let _ = writeln!(source, "type AreaQ = [Cell<u8>; {}];", images[1]);
-    let _ = writeln!(source, "type AreaM = [Cell<u8>; {}];", images[2]);
+    let _ = writeln!(source, "pub type AreaI = [Cell<u8>; {}];", images[0]);
+    let _ = writeln!(source, "pub type AreaQ = [Cell<u8>; {}];", images[1]);
+    let _ = writeln!(source, "pub type AreaM = [Cell<u8>; {}];", images[2]);
     area(source, "AreaG", &model.area_g);
     area(source, "AreaR", &model.area_r);
     area(source, "AreaP", &model.area_p);
     source.push_str(
         "/// The areas of one entry call (specification 44 §7.1).
-struct World<'a> {
-    i: &'a AreaI,
-    q: &'a AreaQ,
-    m: &'a AreaM,
-    g: &'a AreaG,
-    r: &'a AreaR,
-    p: &'a AreaP,
+pub struct World<'a> {
+    pub i: &'a AreaI,
+    pub q: &'a AreaQ,
+    pub m: &'a AreaM,
+    pub g: &'a AreaG,
+    pub r: &'a AreaR,
+    pub p: &'a AreaP,
     /// The areas, for references (specification 44 §7.3). A reference, not a copy: a module has no
     /// `memcpy`.
-    areas: &'a Areas<'a>,
+    pub areas: &'a Areas<'a>,
 }
 
 impl<'a> World<'a> {
-    fn new(cx: &mut Cx, areas: &'a Areas<'a>) -> R<Self> {
+    pub fn new(cx: &mut Cx, areas: &'a Areas<'a>) -> R<Self> {
         Ok(Self {
             i: areas.view(cx, abi::AREA_INPUTS)?,
             q: areas.view(cx, abi::AREA_OUTPUTS)?,

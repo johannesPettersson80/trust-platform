@@ -666,8 +666,8 @@ impl Body for TankGuard {
 `st`, with a Rust function for each Structured Text function the crate calls and a Rust struct for
 each Structured Text function block type it holds, whose fields are the block's inputs and outputs
 and whose `call(&mut self, cx)` is the standard's call, as RU-38's example makes it. It lies in the
-project's `build/trust_st/`, outside version control: `trust-dev rust declarations` and every build
-write it, and the extension writes it when it opens the project and when its sources change, so
+project's `build/trust_st/`, outside version control (the folder's own `.gitignore` says so):
+`trust-dev rust declarations` and every build write it, and the extension writes it when it opens the project and when its sources change, so
 rust-analyzer and `cargo test` find it (§16.3); its code is the same for every target. A crate that
 calls Structured Text names it in `[dependencies]`, `trust_st = { path = "../build/trust_st" }`
 (`build/trust_st` in a Rust-first project), and the build refuses a crate that writes `st::` without

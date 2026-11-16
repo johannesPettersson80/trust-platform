@@ -176,7 +176,7 @@ fn dependency_line(crate_folder: &str) -> String {
         .filter(|component| matches!(component, std::path::Component::Normal(_)))
         .map(|_| "../")
         .collect();
-    format!("trust_st = {{ path = \"{up}build/trust_st\" }}")
+    format!("trust_st = {{ path = \"{up}{}\" }}", super::BINDINGS_FOLDER)
 }
 
 #[cfg(test)]

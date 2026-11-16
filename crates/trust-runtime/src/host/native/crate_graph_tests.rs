@@ -73,7 +73,7 @@ fn the_graph_refuses_build_scripts_procedural_macros_and_unsafe_outside_the_sdk(
             { "id": "trust-plc-macros", "deps": [{ "pkg": "proc-macro2", "dep_kinds": [{ "kind": null }] }] },
         ]},
     });
-    let found = check(&metadata, &sdk, &crate_folder);
+    let found = check(&metadata, &sdk, &crate_folder, None);
     let expected = [
         "derive 1.0.0 is a procedural macro",
         "dirty 1.0.0 holds `unsafe` code at ",
@@ -118,7 +118,12 @@ fn a_project_named_through_a_link_is_checked_all_the_same() {
             { "id": "project", "deps": [{ "pkg": "dirty", "dep_kinds": [{ "kind": null }] }] },
         ]},
     });
-    let found = check(&metadata, &link.join("sdk"), &link.join("project/rust"));
+    let found = check(
+        &metadata,
+        &link.join("sdk"),
+        &link.join("project/rust"),
+        None,
+    );
     assert_eq!(found.len(), 1, "{found:#?}");
     assert!(
         found[0].starts_with("dirty 1.0.0 holds `unsafe` code at "),
@@ -178,7 +183,7 @@ fn a_crate_outside_the_sdk_depends_only_on_the_crates_the_sdk_publishes() {
             { "id": "trust-plc-lib", "deps": [{ "pkg": "libm", "dep_kinds": [{ "kind": null }] }] },
         ]},
     });
-    let found = check(&metadata, &sdk, &crate_folder);
+    let found = check(&metadata, &sdk, &crate_folder, None);
     let expected = [
         "helper 1.0.0 depends on trust-plc-lib 1.0.0, which the SDK is built from",
         "project 1.0.0 depends on trust-plc-abi 1.0.0, which the SDK is built from",
@@ -244,13 +249,76 @@ fn the_generated_package_in_a_rust_first_project_is_the_builds_own() {
         })
     };
     assert_eq!(
-        check(&metadata(false), &sdk, &crate_folder),
+        check(&metadata(false), &sdk, &crate_folder, None),
         Vec::<String>::new()
     );
-    let found = check(&metadata(true), &sdk, &crate_folder);
+    let found = check(&metadata(true), &sdk, &crate_folder, None);
     assert_eq!(found.len(), 1, "{found:#?}");
     assert!(
         found[0].starts_with("project 1.0.0 depends on trust-plc-abi 1.0.0"),
         "{found:#?}"
     );
+}
+
+#[test]
+fn the_bindings_package_is_the_builds_own() {
+    // RU-39, RU-20: the crate `trust_st` that the build generates in the project's `build/trust_st`
+    // for a crate that calls Structured Text depends on the crates the SDK is built from, as the
+    // generated code does; the project's crate depends on it. Named as the bindings' folder, it is
+    // the build's own package, and the graph holds nothing to refuse; not named, it would be one the
+    // project builds with, refused for its dependencies. Catches every project that calls
+    // Structured Text refused for the build's own package.
+    let root = trust_test_support::unique_temp_path("rust-pou-graph-bindings");
+    let sdk = root.join("sdk");
+    let crate_folder = root.join("project/rust");
+    let bindings = root.join("project/build/trust_st");
+    std::fs::create_dir_all(crate_folder.join("src")).expect("the crate's folder");
+    std::fs::write(crate_folder.join("src/lib.rs"), ROOT).expect("the root");
+    std::fs::create_dir_all(bindings.join("src")).expect("the bindings' folder");
+    let manifest = |folder: &PathBuf| folder.join("Cargo.toml").display().to_string();
+    let sources = |folder: &PathBuf| folder.join("src").display().to_string();
+    let sdk_crate = |name: &str| {
+        package(
+            name,
+            &manifest(&sdk.join(name)),
+            &["lib"],
+            &sources(&sdk.join(name)),
+        )
+    };
+    let metadata = json!({
+        "packages": [
+            package("project", &manifest(&crate_folder), &["lib"], &sources(&crate_folder)),
+            package("trust_st", &manifest(&bindings), &["lib"], &sources(&bindings)),
+            sdk_crate("trust-plc"),
+            sdk_crate("trust-plc-abi"),
+            sdk_crate("trust-plc-lib"),
+        ],
+        "resolve": { "nodes": [
+            { "id": "project", "deps": [
+                { "pkg": "trust-plc", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust_st", "dep_kinds": [{ "kind": null }] },
+            ]},
+            { "id": "trust_st", "deps": [
+                { "pkg": "trust-plc", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust-plc-abi", "dep_kinds": [{ "kind": null }] },
+                { "pkg": "trust-plc-lib", "dep_kinds": [{ "kind": null }] },
+            ]},
+            { "id": "trust-plc", "deps": [
+                { "pkg": "trust-plc-abi", "dep_kinds": [{ "kind": null }] },
+            ]},
+        ]},
+    });
+    assert_eq!(
+        check(&metadata, &sdk, &crate_folder, Some(&bindings)),
+        Vec::<String>::new()
+    );
+    let found = check(&metadata, &sdk, &crate_folder, None);
+    let expected = [
+        "trust_st 1.0.0 depends on trust-plc-abi 1.0.0, which the SDK is built from",
+        "trust_st 1.0.0 depends on trust-plc-lib 1.0.0, which the SDK is built from",
+    ];
+    assert_eq!(found.len(), expected.len(), "{found:#?}");
+    for (message, start) in found.iter().zip(expected) {
+        assert!(message.starts_with(start), "{message}\n  expected: {start}");
+    }
 }
