@@ -240,7 +240,9 @@ pub(super) fn generate<'a>(
     // Layer 1 is what the Structured Text that the crate calls reaches (specification 48 §9.2);
     // the rest is this crate's.
     let layer_one = super::layers::layer_one(&graph, &roots, &bodies)?;
-    let layered = !layer_one.is_empty();
+    // A crate that names a type of the project's Structured Text, and calls none of it, still needs
+    // its binding in layer 1 (RU-39, RU-42).
+    let layered = !layer_one.is_empty() || !named_types.is_empty();
     let (layer_one_functions, mut functions) = split(texts, &layer_one);
     // The places of the crate's structures that the Rust POUs' values reach (specification 48
     // RU-29).

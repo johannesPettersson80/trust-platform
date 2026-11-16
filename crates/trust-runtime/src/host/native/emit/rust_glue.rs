@@ -311,7 +311,7 @@ fn argument(
         }
         let model = &mut *lowerer.model;
         reach(&model.types, ty, structures, &mut model.rust_places)?;
-        if through_places(&model.types, ty) {
+        if through_places(&model.types, ty, structures) {
             return Ok(format!(
                 "::trust_plc::InOut::new(&::trust_plc::__private::PlaceVia::<Places, _>::new({argument}))"
             ));
@@ -450,9 +450,12 @@ fn reach(
 ) -> Result<(), NativeError> {
     let info = types.info(ty);
     match &info.kind {
+        // A structure of the crate lies through the generated code's `Places`; one of the
+        // project's Structured Text through its binding's place (RU-39).
         Kind::Struct { .. } => {
-            structure_path(structures, &info.name)?;
-            places.insert(ty);
+            if of_the_crate(structures, &info.name) {
+                places.insert(ty);
+            }
             Ok(())
         }
         Kind::Array { elem, .. } => reach(types, *elem, structures, places),
@@ -465,12 +468,19 @@ fn reach(
 
 /// Whether a value of `ty` reaches a structure of the crate, which the generated code's `Places`
 /// reads and writes (`rust_places`): the structure, or an array of it.
-fn through_places(types: &Types<'_>, ty: Ty) -> bool {
-    match &types.info(ty).kind {
-        Kind::Struct { .. } => true,
-        Kind::Array { elem, .. } => through_places(types, *elem),
+fn through_places(types: &Types<'_>, ty: Ty, structures: &HashMap<String, String>) -> bool {
+    let info = types.info(ty);
+    match &info.kind {
+        Kind::Struct { .. } => of_the_crate(structures, &info.name),
+        Kind::Array { elem, .. } => through_places(types, *elem, structures),
         _ => false,
     }
+}
+
+/// Whether the structure named `name` is one of the crate's, which `structures` gives the paths
+/// of; another is one of the project's Structured Text, which its binding carries (RU-39).
+fn of_the_crate(structures: &HashMap<String, String>, name: &str) -> bool {
+    structure_path(structures, name).is_ok()
 }
 
 /// Whether the SDK carries a value of `ty` in a place of its own type (`trust_plc::Place`): a
@@ -494,7 +504,7 @@ pub(super) fn load(
     if let Some(target) = reference_target(types, ty) {
         reach(types, target, structures, places)?;
         let rust = &types.info(target).rust;
-        if through_places(types, target) {
+        if through_places(types, target, structures) {
             return Ok(format!(
                 "::trust_plc::__private::reference_via::<_, {rust}, Places>({place}.get())"
             ));
@@ -521,6 +531,9 @@ pub(super) fn load(
             Ok(format!(
                 "::trust_plc::Array::from_items({place}.each_ref().map(|{cell}| {item}))"
             ))
+        }
+        Kind::Struct { .. } if !of_the_crate(structures, &info.name) => {
+            Ok(format!("::trust_plc::Place::load(&{place})"))
         }
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;
@@ -618,6 +631,9 @@ pub(super) fn store(
             Ok(format!(
                 "for ({item}, {cell}) in {value}.iter().zip({place}.iter()) {{ {inner} }}"
             ))
+        }
+        Kind::Struct { .. } if !of_the_crate(structures, &info.name) => {
+            Ok(format!("::trust_plc::Place::store(&{place}, &{value});"))
         }
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;

@@ -41,7 +41,8 @@ pub use trust_plc_macros::{
     budget, trust_enum, trust_fb, trust_function, trust_method, trust_program, trust_struct,
 };
 pub use types::{
-    declared_default, Byte, Char, Declared, Dword, LTime, Lword, Placed, Stored, Time, WChar, Word,
+    declared_default, Byte, Char, Declared, Dword, LTime, Lword, Placed, Stored, Time, Value,
+    WChar, Word,
 };
 
 /// What the generated code calls around a Rust POU (specification 48 RU-11, RU-29). A Rust POU has
@@ -51,6 +52,7 @@ pub mod __private {
     pub use crate::context::{enter, leave};
     pub use crate::places::{PlaceOf, PlaceVia};
     pub use crate::refs::{reference, reference_value, reference_via};
+    pub use crate::types::assert_value;
 }
 
 /// A Rust POU's own fault (specification 48 RU-14): the number the POU chooses and two numbers of

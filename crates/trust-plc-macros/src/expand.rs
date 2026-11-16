@@ -1,8 +1,11 @@
 //! What the attributes expand to (specification 48 §6.1, RU-26, RU-28).
 
 use proc_macro2::{Literal, Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
-use syn::{Attribute, Fields, ImplItemFn, Item, ItemEnum, ItemFn, ItemStruct};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
+use syn::spanned::Spanned;
+use syn::{
+    Attribute, Fields, ImplItemFn, Item, ItemEnum, ItemFn, ItemStruct, Signature, Type, TypePath,
+};
 use trust_plc_decl::{DataType, Elementary, Pou, Section, Value, Variable};
 
 /// `#[trust_fb]`: the struct without the attributes its reader reads, and its calls.
@@ -38,6 +41,7 @@ fn instance_pou(
         return refused(misplaced, item);
     };
     let pou = read(args, &parsed);
+    let checked = values(&field_values(&parsed));
     remove_budget(&mut parsed.attrs);
     if let Fields::Named(fields) = &mut parsed.fields {
         for field in &mut fields.named {
@@ -49,7 +53,7 @@ fn instance_pou(
     match pou {
         Ok(pou) => {
             let calls = calls(&parsed, &pou);
-            quote! { #parsed #calls }
+            quote! { #parsed #calls #checked }
         }
         Err(error) => {
             let error = error.to_compile_error();
@@ -67,6 +71,7 @@ pub(crate) fn function(args: TokenStream, item: TokenStream) -> TokenStream {
         );
     };
     let pou = trust_plc_decl::function(args, &parsed);
+    check_in_body(&mut parsed.block, &parsed.sig);
     remove_budget(&mut parsed.attrs);
     match pou {
         Ok(_) => quote! { #parsed },
@@ -87,6 +92,8 @@ pub(crate) fn method(args: TokenStream, item: TokenStream) -> TokenStream {
         );
     };
     let method = trust_plc_decl::method(args, &parsed);
+    let sig = parsed.sig.clone();
+    check_in_body(&mut parsed.block, &sig);
     remove_budget(&mut parsed.attrs);
     match method {
         Ok(_) => quote! { #parsed },
@@ -178,6 +185,8 @@ pub(crate) fn enumeration(args: TokenStream, item: TokenStream) -> TokenStream {
         impl ::trust_plc::Declared for #ident {
             const DEFAULT: Self = Self::#first;
         }
+
+        impl ::trust_plc::Value for #ident {}
     }
 }
 
@@ -214,12 +223,23 @@ pub(crate) fn structure(args: TokenStream, item: TokenStream) -> TokenStream {
         .iter()
         .map(|field| value(&field.ty, field.init.as_ref()))
         .collect();
+    let checked = values(
+        &parsed
+            .fields
+            .iter()
+            .flat_map(|field| structured_text_types(&field.ty))
+            .collect::<Vec<_>>(),
+    );
     quote! {
         #parsed
 
         impl ::trust_plc::Declared for #ident {
             const DEFAULT: Self = Self { #(#fields: #starts),* };
         }
+
+        impl ::trust_plc::Value for #ident {}
+
+        #checked
     }
 }
 
@@ -244,6 +264,115 @@ pub(crate) fn budget(args: &TokenStream, item: TokenStream) -> TokenStream {
     }
     attributes.push(syn::parse_quote!(#[budget(#args)]));
     parsed.into_token_stream()
+}
+
+/// The paths `st::X` that `ty` names (specification 48 RU-39), through generic arguments,
+/// references, arrays and tuples: the types of the project's Structured Text it holds.
+fn structured_text_types(ty: &Type) -> Vec<TypePath> {
+    let mut found = Vec::new();
+    collect_structured_text_types(ty, &mut found);
+    found
+}
+
+fn collect_structured_text_types(ty: &Type, found: &mut Vec<TypePath>) {
+    match ty {
+        Type::Path(path) => {
+            let segments = &path.path.segments;
+            if path.qself.is_none()
+                && path.path.leading_colon.is_none()
+                && segments.len() > 1
+                && segments.first().is_some_and(|first| first.ident == "st")
+            {
+                found.push(path.clone());
+                return;
+            }
+            for segment in segments {
+                if let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments {
+                    for argument in &arguments.args {
+                        if let syn::GenericArgument::Type(inner) = argument {
+                            collect_structured_text_types(inner, found);
+                        }
+                    }
+                }
+            }
+        }
+        Type::Reference(reference) => collect_structured_text_types(&reference.elem, found),
+        Type::Array(array) => collect_structured_text_types(&array.elem, found),
+        Type::Slice(slice) => collect_structured_text_types(&slice.elem, found),
+        Type::Paren(paren) => collect_structured_text_types(&paren.elem, found),
+        Type::Group(group) => collect_structured_text_types(&group.elem, found),
+        Type::Tuple(tuple) => {
+            for element in &tuple.elems {
+                collect_structured_text_types(element, found);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The types of the project's Structured Text that the fields of `item` hold as values: every
+/// `st::X` but a field's whole type when the field is the POU's own variable, without `#[input]`,
+/// `#[output]` or `#[in_out]`, which a held block or class may be (RU-39).
+fn field_values(item: &ItemStruct) -> Vec<TypePath> {
+    let mut values = Vec::new();
+    for field in &item.fields {
+        let passed = field.attrs.iter().any(|attribute| {
+            ["input", "output", "in_out"]
+                .iter()
+                .any(|section| attribute.path().is_ident(section))
+        });
+        let found = structured_text_types(&field.ty);
+        // The field's whole type is the path `st::X` when the path is the type itself.
+        let whole = matches!(&field.ty, Type::Path(path)
+            if path.path.segments.first().is_some_and(|first| first.ident == "st"));
+        let own = !passed && whole;
+        if !own {
+            values.extend(found);
+        }
+    }
+    values
+}
+
+/// Code that requires each type of `paths` to be a `trust_plc::Value`, which a held Structured Text
+/// block or class is not: rustc refuses one at its path (specification 48 RU-39).
+fn values(paths: &[TypePath]) -> TokenStream {
+    if paths.is_empty() {
+        return TokenStream::new();
+    }
+    let checks = paths.iter().map(|path| {
+        quote_spanned! {path.span()=>
+            ::trust_plc::__private::assert_value::<#path>();
+        }
+    });
+    quote! {
+        const _: () = {
+            #[allow(dead_code)]
+            fn __values() {
+                #(#checks)*
+            }
+        };
+    }
+}
+
+/// Puts first in `block` the check that each type of the project's Structured Text that the
+/// parameters and the result of `sig` name is a value (RU-39).
+fn check_in_body(block: &mut syn::Block, sig: &Signature) {
+    let mut paths = Vec::new();
+    for input in &sig.inputs {
+        if let syn::FnArg::Typed(typed) = input {
+            paths.extend(structured_text_types(&typed.ty));
+        }
+    }
+    if let syn::ReturnType::Type(_, ty) = &sig.output {
+        paths.extend(structured_text_types(ty));
+    }
+    let checked = values(&paths);
+    if checked.is_empty() {
+        return;
+    }
+    if let Ok(statement) = syn::parse2::<syn::Stmt>(checked) {
+        block.stmts.insert(0, statement);
+    }
 }
 
 /// The error `message` at the attribute, with the item unchanged.
@@ -392,7 +521,7 @@ fn value(ty: &DataType, init: Option<&Value>) -> TokenStream {
         DataType::Ref(_) => quote!(::trust_plc::Ref::NULL),
         // A held Structured Text function block starts without its place, which the generated
         // code gives it each call (specification 48 RU-39).
-        DataType::Held(_) => quote!(::trust_plc::declared_default()),
+        DataType::Structured(_) => quote!(::trust_plc::declared_default()),
         DataType::Array { element, len, .. } => {
             if let Some(Value::List(items)) = init {
                 let len = usize::try_from(*len).unwrap_or(0);

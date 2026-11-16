@@ -106,6 +106,8 @@ impl Default for {name} {{
     }}
 }}
 
+impl trust_plc::Value for {name} {{}}
+
 impl trust_plc::Place<{name}> for __generated::{cells} {{
     fn load(&self) -> {name} {{
         {name} {{ {loads} }}
@@ -159,6 +161,8 @@ impl Default for {name} {{
         <Self as trust_plc::Declared>::DEFAULT
     }}
 }}
+
+impl trust_plc::Value for {name} {{}}
 
 impl trust_plc::Place<{name}> for core::cell::Cell<{raw}> {{
     fn load(&self) -> {name} {{
@@ -228,6 +232,8 @@ impl Default for {name} {{
         <Self as trust_plc::Declared>::DEFAULT
     }}
 }}
+
+impl trust_plc::Value for {name} {{}}
 
 impl trust_plc::Place<{name}> for core::cell::Cell<{raw}> {{
     fn load(&self) -> {name} {{
