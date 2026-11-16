@@ -16,6 +16,11 @@ pub struct Str<const N: usize = 80> {
     bytes: [u8; N],
 }
 
+/// A string's default is the empty string (IEC §6.4.2, Table 10), which a block's `new()` gives it.
+impl<const N: usize> crate::Declared for Str<N> {
+    const DEFAULT: Self = Self::new();
+}
+
 impl<const N: usize> Str<N> {
     /// The empty string, a `STRING`'s default (IEC §6.4.2, Table 10).
     #[must_use]
@@ -145,6 +150,11 @@ impl<const N: usize> Placed for Str<N> {
 pub struct WStr<const N: usize = 80> {
     len: u16,
     units: [u16; N],
+}
+
+/// A string's default is the empty string (IEC §6.4.2, Table 10), which a block's `new()` gives it.
+impl<const N: usize> crate::Declared for WStr<N> {
+    const DEFAULT: Self = Self::new();
 }
 
 impl<const N: usize> WStr<N> {
