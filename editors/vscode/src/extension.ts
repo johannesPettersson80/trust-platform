@@ -22,6 +22,7 @@ import { registerNewProjectCommand } from "./newProject";
 import { openPendingProjectLanding } from "./projectLandingActivation";
 import { registerExamples } from "./examples";
 import { registerCheckProgram } from "./checkProgram";
+import { registerRustDeclarations } from "./rustDeclarations";
 import { registerToolchainCommands } from "./toolchain";
 import { registerLibraries } from "./libraries";
 import { initSelectedRuntimeStore } from "./selectedRuntime";
@@ -272,6 +273,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNewProjectCommand(context);
   registerExamples(context);
   registerCheckProgram(context);
+  registerRustDeclarations(context);
   registerToolchainCommands(context);
   registerLibraries(context, { getClient: () => client });
   // One destination owner handles starter source or lesson instructions after folder reload.
