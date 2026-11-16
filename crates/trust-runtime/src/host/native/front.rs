@@ -131,6 +131,9 @@ pub(super) struct Front {
     /// The path the generated code builds each structure of the project's crate by, by its name
     /// in capitals (specification 48 RU-25); empty for a project without one.
     pub(super) rust_structures: HashMap<String, String>,
+    /// The Structured Text that the project's crate calls (specification 48 RU-38, RU-39); empty
+    /// for a project without a crate.
+    pub(super) structured_text: Vec<super::rust_pous::StructuredTextUse>,
 }
 
 impl Front {
@@ -206,6 +209,7 @@ impl Front {
             global_owners,
             rust,
             rust_structures: HashMap::new(),
+            structured_text: Vec::new(),
         })
     }
 

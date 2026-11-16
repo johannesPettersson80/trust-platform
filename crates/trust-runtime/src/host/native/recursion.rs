@@ -42,6 +42,15 @@ impl CallGraph {
             .insert(callee.to_string());
     }
 
+    /// The functions that the body or the dispatcher `name` calls.
+    pub(super) fn callees(&self, name: &str) -> impl Iterator<Item = &str> {
+        self.callees
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(String::as_str)
+    }
+
     /// The recursive calls: for each body, the functions of its own cycle that it calls, itself
     /// included.
     pub(super) fn recursion(&self) -> Recursion {
