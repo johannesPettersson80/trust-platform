@@ -216,25 +216,14 @@ fn field_name(name: &str) -> String {
     }
 }
 
-/// The zero of `elem` as a constant, which a held block's `DEFAULT` holds.
-fn zero(elem: Elem) -> &'static str {
-    match elem {
-        Elem::Bool => "false",
-        Elem::Real | Elem::LReal => "0.0",
-        _ => "0",
-    }
-}
-
 /// A held block's input or output as its binding holds it (RU-39).
 pub(super) struct HeldMember {
     /// Its name in the binding.
     pub(super) field: String,
     /// Its field in the instance's cells.
     pub(super) cells: String,
-    /// Its Rust type.
-    rust: &'static str,
-    /// Its type's zero.
-    zero: &'static str,
+    /// Its Rust type, RU-25's for its elementary type.
+    rust: String,
 }
 
 /// The inputs and the outputs of the Structured Text function block `ty` as its binding holds
@@ -243,7 +232,7 @@ pub(super) struct HeldMember {
 /// # Errors
 ///
 /// What the binding does not pass yet, described: a name in a namespace, an in-out, a variable of
-/// a type other than the numbers and BOOL.
+/// a type other than RU-25's elementary types.
 pub(super) fn held_members(
     types: &Types<'_>,
     ty: Ty,
@@ -268,20 +257,16 @@ pub(super) fn held_members(
             continue;
         };
         let member_info = types.info(member.ty);
-        let elem = match member_info.kind {
-            Kind::Elem(elem) if passed(elem).1 => elem,
-            _ => {
-                return Err(format!(
-                    "has the variable {} of type {}",
-                    member.name, member_info.name
-                ));
-            }
+        let Kind::Elem(elem) = member_info.kind else {
+            return Err(format!(
+                "has the variable {} of type {}",
+                member.name, member_info.name
+            ));
         };
         list.push(HeldMember {
             field: field_name(&member.name),
             cells: member.field(),
-            rust: elem.rust(),
-            zero: zero(elem),
+            rust: passed(elem).0,
         });
     }
     Ok((inputs, outputs))
@@ -318,7 +303,7 @@ fn block(
     };
     let zeros = |list: &[HeldMember]| -> String {
         list.iter()
-            .map(|member| format!("{}: {}", member.field, member.zero))
+            .map(|member| format!("{}: trust_plc::declared_default()", member.field))
             .collect::<Vec<_>>()
             .join(", ")
     };

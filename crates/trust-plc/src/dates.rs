@@ -34,6 +34,10 @@ macro_rules! instant {
             }
         }
 
+        impl crate::Declared for $name {
+            const DEFAULT: Self = Self(0);
+        }
+
         impl Stored for $name {
             type Raw = i64;
             #[inline]
