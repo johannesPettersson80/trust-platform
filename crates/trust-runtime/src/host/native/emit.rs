@@ -7,6 +7,7 @@ mod connections;
 mod rust_glue;
 mod rust_places;
 mod st_bindings;
+mod st_defaults;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -132,7 +133,9 @@ pub(super) fn generate<'a>(
     }
     // The Structured Text functions that the crate calls, whether a program calls them or not
     // (specification 48 RU-40).
-    let roots = structured_text_calls(front, model, &mut queued, &mut work)?;
+    let named = structured_text_calls(front, model, &mut queued, &mut work)?;
+    let roots = named.roots;
+    let named_structures = named.structures;
     let mut bodies: BTreeMap<String, BodyPou> = BTreeMap::new();
     let mut index = 0;
     loop {
@@ -247,7 +250,8 @@ pub(super) fn generate<'a>(
     let mut source = head(target, layered);
     let shared = shared(model, &frame_types);
     let layer_one = if layered {
-        let bindings = st_bindings::bindings(model, &roots)?;
+        let bindings =
+            st_bindings::bindings(model, &roots, &named_structures, &front.rust_structures)?;
         Some(LayerOne {
             module: format!("{PRELUDE_IMPORTS}{PRELUDE_ITEMS}\n{shared}{layer_one_functions}"),
             bindings,
@@ -353,14 +357,16 @@ pub(super) fn layer_one_library(release: &str, debug: &str, bindings: &str) -> S
 }
 
 /// Queues the Structured Text function of each call that the project's crate makes (specification
-/// 48 RU-38) and gives the function's name with the call; refuses a call of anything else.
+/// 48 RU-38) and gives the function's name with the call, and the Structured Text structures the
+/// crate names, whose bindings the crate writes values of; refuses a name of anything else.
 fn structured_text_calls<'a>(
     front: &Front,
-    model: &Model<'a>,
+    model: &mut Model<'a>,
     queued: &mut Vec<Need>,
     work: &mut Vec<Work<'a>>,
-) -> Result<Vec<(String, StructuredTextUse)>, NativeError> {
+) -> Result<Named, NativeError> {
     let mut roots = Vec::new();
+    let mut structures = Vec::new();
     for used in &front.structured_text {
         let call = format!("st::{} at {}:{}", used.name, used.file, used.line);
         if front.rust.contains_key(&used.name.to_ascii_uppercase()) {
@@ -388,14 +394,48 @@ fn structured_text_calls<'a>(
                 "{call} names a Structured Text class, which Rust does not hold yet \
                  (specification 48 RU-38, milestone R3)"
             )));
+        } else if let Some(ty) = named_structure(model, &used.name)? {
+            // A structure of the project's Structured Text, whose binding the crate writes values
+            // of (RU-39); one of the crate's own is no `st::` name.
+            if rust_glue::structure_path(&front.rust_structures, &model.types.info(ty).name).is_ok()
+            {
+                return Err(NativeError::Compile(format!(
+                    "{call} names a structure of the crate, which the crate names as Rust \
+                     (specification 48 RU-38)"
+                )));
+            }
+            structures.push(ty);
         } else {
             return Err(NativeError::Compile(format!(
-                "{call} names no Structured Text function or function block of the project \
-                 (specification 48 RU-38)"
+                "{call} names no Structured Text function, function block or structure of the \
+                 project (specification 48 RU-38)"
             )));
         }
     }
-    Ok(roots)
+    Ok(Named { roots, structures })
+}
+
+/// The Structured Text that the project's crate names (specification 48 RU-38): the generated
+/// function of each POU it calls, with the call, and the structures it writes values of.
+struct Named {
+    roots: Vec<(String, StructuredTextUse)>,
+    structures: Vec<Ty>,
+}
+
+/// The structure type named `name`, laid out, when the project declares one.
+fn named_structure(model: &mut Model<'_>, name: &str) -> Result<Option<Ty>, NativeError> {
+    let Some(id) = model.types.registry().lookup(name) else {
+        return Ok(None);
+    };
+    let is_structure = matches!(
+        model.types.registry().get(id),
+        Some(trust_hir::Type::Struct { .. })
+    );
+    if !is_structure {
+        return Ok(None);
+    }
+    let ty = model.ty(id)?;
+    Ok(matches!(model.types.info(ty).kind, Kind::Struct { .. }).then_some(ty))
 }
 
 /// The POU whose body `item` is, and whether it is a Rust POU (specification 48 RU-40).
