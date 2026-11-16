@@ -2,6 +2,7 @@
 //! project's crate calls, a Rust function of the name the crate calls it by, which runs the
 //! generated function on the kernel's context that the SDK's `Cx` keeps (RU-11, RU-38).
 
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write as _;
 
 use super::super::classes::Owner;
@@ -78,10 +79,26 @@ fn parameter_name(name: &str) -> String {
 pub(super) fn bindings(
     model: &mut Model<'_>,
     roots: &[(String, StructuredTextUse)],
+    named: &[Ty],
+    crate_structures: &HashMap<String, String>,
 ) -> Result<String, NativeError> {
-    let mut text = String::new();
+    // The cells a binding writes a value into, empty, whatever the generated code's type of them.
+    let mut text = String::from(
+        "/// Empty cells of the generated code's type `T`, its zero value (specification 44 §6.2),
+/// which a binding writes a value into before the generated code reads them.
+fn zeroed<T: trust_plc_abi::Plain>() -> T {
+    T::ZEROED
+}
+
+",
+    );
     let mut written: Vec<&str> = Vec::new();
     let mut blocks: Vec<String> = Vec::new();
+    // The Structured Text structures the bindings pass, the crate's names among them.
+    let mut structures: BTreeSet<Ty> = BTreeSet::new();
+    for ty in named {
+        let _ = by_cells(&model.types, *ty, crate_structures, &mut structures);
+    }
     for (_, used) in roots {
         if written.contains(&used.name.as_str()) {
             continue;
@@ -94,7 +111,7 @@ pub(super) fn bindings(
             // code names; another spelling the crate writes names it too.
             if !blocks.contains(&def.name.to_string()) {
                 blocks.push(def.name.to_string());
-                text.push_str(&block(model, used, def)?);
+                text.push_str(&block(model, used, def, crate_structures, &mut structures)?);
             }
             if used.name != def.name.as_str() {
                 let _ = writeln!(text, "pub type {} = {};\n", used.name, def.name);
@@ -130,7 +147,7 @@ pub(super) fn bindings(
             let name = parameter_name(&param.name);
             let index = values.len();
             let kind = &model.types.info(ty).kind;
-            let cells = by_cells(&model.types, ty);
+            let cells = by_cells(&model.types, ty, crate_structures, &mut structures);
             match (param.direction == ParamDirection::In, kind, cells) {
                 (true, Kind::Elem(elem), _) => {
                     let (rust, own) = passed(*elem);
@@ -147,13 +164,13 @@ pub(super) fn bindings(
                     fields.push(elem.rust().to_string());
                     let _ = write!(arguments, ", self.{index}");
                 }
-                (true, _, Some((rust, zero))) => {
+                (true, _, Some(rust)) => {
                     let _ = write!(parameters, ", {name}: {rust}");
                     values.push(name);
                     fields.push(rust);
                     let _ = writeln!(
                         setup,
-                        "                let t{index} = {zero};\n                \
+                        "                let t{index} = zeroed();\n                \
                          trust_plc::Place::store(&t{index}, &self.{index});"
                     );
                     let _ = write!(arguments, ", &t{index}");
@@ -177,7 +194,10 @@ pub(super) fn bindings(
                 format!("__generated::f_{function}(cx, &w{arguments})"),
                 "result",
             ),
-            Some(ty) => match (&model.types.info(ty).kind, by_cells(&model.types, ty)) {
+            Some(ty) => match (
+                &model.types.info(ty).kind,
+                by_cells(&model.types, ty, crate_structures, &mut structures),
+            ) {
                 (Kind::Elem(elem), _) => {
                     let (rust, own) = passed(*elem);
                     let load = if own {
@@ -188,11 +208,11 @@ pub(super) fn bindings(
                     let run = format!("__generated::f_{function}(cx, &w{arguments})");
                     (rust, elem.rust().to_string(), run, load)
                 }
-                (_, Some((rust, zero))) => {
+                (_, Some(rust)) => {
                     // A string or an array result is written into the cells the function takes
                     // first.
                     let run = format!(
-                        "let out = {zero};\n                \
+                        "let out = zeroed();\n                \
                          __generated::f_{function}(cx, &w, &out{arguments})?;\n                \
                          Ok(trust_plc::Place::load(&out))"
                     );
@@ -234,6 +254,15 @@ pub fn {name}(cx: &mut trust_plc::Cx{parameters}) -> Result<{returns}, trust_plc
             values = values.join(", "),
         );
     }
+    let all: Vec<Ty> = structures.iter().copied().collect();
+    for ty in all {
+        text.push_str(&structure(
+            &model.types,
+            ty,
+            crate_structures,
+            &mut structures,
+        ));
+    }
     Ok(text)
 }
 
@@ -255,30 +284,116 @@ fn text_types(kind: &Kind) -> (String, String) {
 }
 
 /// The Rust type of RU-25's table of a value of `ty` that the generated code holds in cells and
-/// takes by reference, with the expression of empty cells of it: a string, `Str<N>` or `WStr<N>`, or
-/// a one-dimensional array of an elementary type, a string or such an array, `Array<T, A, N>`;
-/// `None` for another type.
-fn by_cells(types: &Types<'_>, ty: Ty) -> Option<(String, String)> {
+/// takes by reference: a string, `Str<N>` or `WStr<N>`; a one-dimensional array of a type a binding
+/// passes, `Array<T, A, N>`; a structure of the project's Structured Text, its binding `st::NAME`,
+/// which joins `structures`. `None` for another type, among them a structure of the project's crate
+/// (`crate_structures`), which layer 1, compiled before the crate, cannot name (RU-40).
+fn by_cells(
+    types: &Types<'_>,
+    ty: Ty,
+    crate_structures: &HashMap<String, String>,
+    structures: &mut BTreeSet<Ty>,
+) -> Option<String> {
     let info = types.info(ty);
     match &info.kind {
-        Kind::Str(_) | Kind::WStr(_) => {
-            let (rust, cells) = text_types(&info.kind);
-            Some((rust, format!("{cells}::new()")))
-        }
+        Kind::Str(_) | Kind::WStr(_) => Some(text_types(&info.kind).0),
         Kind::Array { elem, dims } if dims.len() == 1 => {
             let (lower, upper) = dims[0];
             let len = upper.checked_sub(lower)?.checked_add(1)?;
-            let (element, zero) = match &types.info(*elem).kind {
-                Kind::Elem(elem) => (passed(*elem).0, "Default::default()".to_string()),
-                _ => by_cells(types, *elem)?,
-            };
-            Some((
-                format!("trust_plc::Array<{element}, {lower}, {len}>"),
-                format!("core::array::from_fn(|_| {zero})"),
-            ))
+            let element = rust_type(types, *elem, crate_structures, structures)?;
+            Some(format!("trust_plc::Array<{element}, {lower}, {len}>"))
+        }
+        Kind::Struct { members } => {
+            let of_the_crate =
+                super::rust_glue::structure_path(crate_structures, &info.name).is_ok();
+            if of_the_crate || syn::parse_str::<syn::Ident>(&info.name).is_err() {
+                return None;
+            }
+            if structures.insert(ty) {
+                let passes = members.iter().all(|member| {
+                    rust_type(types, member.ty, crate_structures, structures).is_some()
+                });
+                if !passes {
+                    structures.remove(&ty);
+                    return None;
+                }
+            }
+            Some(info.name.to_string())
         }
         _ => None,
     }
+}
+
+/// The Rust type of RU-25's table a binding passes a value of `ty` as: an elementary type's, or one
+/// the generated code holds in cells ([`by_cells`]).
+fn rust_type(
+    types: &Types<'_>,
+    ty: Ty,
+    crate_structures: &HashMap<String, String>,
+    structures: &mut BTreeSet<Ty>,
+) -> Option<String> {
+    match &types.info(ty).kind {
+        Kind::Elem(elem) => Some(passed(*elem).0),
+        _ => by_cells(types, ty, crate_structures, structures),
+    }
+}
+
+/// The binding of the Structured Text structure `ty`: a Rust struct of its fields, its default, and
+/// its place, the generated code's structure, through which a call and a held block pass it (RU-39).
+fn structure(
+    types: &Types<'_>,
+    ty: Ty,
+    crate_structures: &HashMap<String, String>,
+    structures: &mut BTreeSet<Ty>,
+) -> String {
+    let info = types.info(ty);
+    let Kind::Struct { members } = &info.kind else {
+        return String::new();
+    };
+    let name = &info.name;
+    let mut fields = String::new();
+    let mut defaults = Vec::new();
+    let mut loads = Vec::new();
+    let mut stores = String::new();
+    for member in members {
+        let field = field_name(&member.name);
+        let rust = rust_type(types, member.ty, crate_structures, structures).unwrap_or_default();
+        let _ = writeln!(fields, "    pub {field}: {rust},");
+        defaults.push(format!("{field}: trust_plc::declared_default()"));
+        loads.push(format!(
+            "{field}: trust_plc::Place::load(&self.{})",
+            member.field()
+        ));
+        let _ = writeln!(
+            stores,
+            "        trust_plc::Place::store(&self.{}, &value.{field});",
+            member.field()
+        );
+    }
+    format!(
+        "/// The Structured Text structure `{name}` of the project (specification 48 RU-39).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct {name} {{
+{fields}}}
+
+impl trust_plc::Declared for {name} {{
+    const DEFAULT: Self = Self {{ {defaults} }};
+}}
+
+impl trust_plc::Place<{name}> for __generated::{cells} {{
+    fn load(&self) -> {name} {{
+        {name} {{ {loads} }}
+    }}
+
+    fn store(&self, value: &{name}) {{
+{stores}    }}
+}}
+
+",
+        defaults = defaults.join(", "),
+        cells = info.rust,
+        loads = loads.join(", "),
+    )
 }
 
 /// The name of a held block's input or output in its binding: the Structured Text name as declared,
@@ -311,6 +426,8 @@ pub(super) struct HeldMember {
 pub(super) fn held_members(
     types: &Types<'_>,
     ty: Ty,
+    crate_structures: &HashMap<String, String>,
+    structures: &mut BTreeSet<Ty>,
 ) -> Result<(Vec<HeldMember>, Vec<HeldMember>), String> {
     let info = types.info(ty);
     if syn::parse_str::<syn::Ident>(&info.name).is_err() {
@@ -332,10 +449,9 @@ pub(super) fn held_members(
             continue;
         };
         let member_info = types.info(member.ty);
-        let rust = match (&member_info.kind, by_cells(types, member.ty)) {
-            (Kind::Elem(elem), _) => passed(*elem).0,
-            (_, Some((rust, _))) => rust,
-            _ => {
+        let rust = match rust_type(types, member.ty, crate_structures, structures) {
+            Some(rust) => rust,
+            None => {
                 return Err(format!(
                     "has the variable {} of type {}",
                     member.name, member_info.name
@@ -359,6 +475,8 @@ fn block(
     model: &Model<'_>,
     used: &StructuredTextUse,
     def: &FunctionBlockDef,
+    crate_structures: &HashMap<String, String>,
+    structures: &mut BTreeSet<Ty>,
 ) -> Result<String, NativeError> {
     let unsupported = |what: String| {
         NativeError::Compile(format!(
@@ -374,7 +492,8 @@ fn block(
         )));
     };
     let info = model.types.info(ty);
-    let (inputs, outputs) = held_members(&model.types, ty).map_err(unsupported)?;
+    let (inputs, outputs) =
+        held_members(&model.types, ty, crate_structures, structures).map_err(unsupported)?;
     let fields = |list: &[HeldMember]| -> String {
         list.iter()
             .map(|member| format!("    pub {}: {},\n", member.field, member.rust))
