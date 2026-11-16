@@ -111,6 +111,90 @@ fn a_rust_function_calls_a_structured_text_function() {
     );
 }
 
+/// A crate whose functions pass a TIME and a BYTE to Structured Text and back.
+const TYPED: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_function(name = \"TICK\")]
+#[budget(\"1us\")]
+pub fn tick(cx: &mut Cx, start: Time) -> Result<Time, Fault> {
+    st::LATER(cx, start, Time::from_nanos(10_000_000))
+}
+
+#[trust_function(name = \"NIBBLE\")]
+#[budget(\"1us\")]
+pub fn nibble(cx: &mut Cx, value: Byte) -> Result<Byte, Fault> {
+    st::LOW_NIBBLE(cx, value)
+}
+";
+
+#[test]
+fn a_call_passes_rust_types_of_structured_text_types() {
+    // RU-25, RU-39: a binding takes and gives the Rust type a Rust POU writes for each
+    // elementary type, `Time` for TIME and `Byte` for BYTE: LATER(T#1s, 10 ms) is T#1s + T#10ms =
+    // T#1010ms, and LOW_NIBBLE(16#A7) is 16#A7 AND 16#0F = 16#07, at the task's first call at 10
+    // ms. Catches a value passed as its cell's raw form in the wrong unit, and a result left in
+    // the generated code's form.
+    let root = custom_project(
+        "rust-pous-structured-text-types",
+        &[
+            (
+                "Cargo.toml",
+                &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
+            ),
+            ("src/lib.rs", TYPED),
+        ],
+        "FUNCTION LATER : TIME
+VAR_INPUT
+    start : TIME;
+    delta : TIME;
+END_VAR
+LATER := start + delta;
+END_FUNCTION
+
+FUNCTION LOW_NIBBLE : BYTE
+VAR_INPUT
+    value : BYTE;
+END_VAR
+LOW_NIBBLE := value AND 16#0F;
+END_FUNCTION
+
+PROGRAM Line
+VAR
+    next : TIME;
+    low : BYTE;
+END_VAR
+next := TICK(start := T#1s);
+low := NIBBLE(value := 16#A7);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
+END_RESOURCE
+END_CONFIGURATION
+",
+    );
+    let Some((built, device)) = built(&root) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(
+        program.value("MAIN.NEXT"),
+        Some(Value::Time(Duration::from_millis(1_010)))
+    );
+    assert_eq!(program.value("MAIN.LOW"), Some(Value::Byte(0x07)));
+}
+
 #[test]
 fn structured_text_that_rust_calls_spends_the_scans_budget() {
     // RU-39, specification 44 §8.4: the statements of the Structured Text that a Rust POU calls
