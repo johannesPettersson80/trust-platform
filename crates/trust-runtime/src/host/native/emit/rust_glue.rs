@@ -534,7 +534,7 @@ pub(super) fn load(
             is_class: false, ..
         } => {
             let (inputs, outputs) = held(types, ty)?;
-            let values = |list: &[super::st_bindings::HeldMember]| {
+            let values = |list: &[super::st_blocks::HeldMember]| {
                 list.iter()
                     .map(|member| {
                         format!(
@@ -570,12 +570,12 @@ fn held(
     ty: Ty,
 ) -> Result<
     (
-        Vec<super::st_bindings::HeldMember>,
-        Vec<super::st_bindings::HeldMember>,
+        Vec<super::st_blocks::HeldMember>,
+        Vec<super::st_blocks::HeldMember>,
     ),
     NativeError,
 > {
-    super::st_bindings::held_members(types, ty, &mut BTreeSet::new()).map_err(|what| {
+    super::st_blocks::held_members(types, ty, &mut BTreeSet::new()).map_err(|what| {
         NativeError::Compile(format!(
             "the held block {} {what}, which a held block does not pass yet (specification 48 \
              RU-39, milestone R3)",

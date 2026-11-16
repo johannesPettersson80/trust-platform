@@ -6,4 +6,5 @@
   The held instance lies inside the Rust instance in the area, where Live Values, the debugger and
   online change see it. Blocks whose inputs and outputs are elementary types, strings,
   arrays of any dimension, references or the project's structures, enumerations and types with named values are
-  held, each as the Rust type of RU-25's table or its binding.
+  held, each as the Rust type of RU-25's table or its binding; a held block's in-outs are `Ref<T>`
+  fields of its `input`, and its `PUBLIC` methods are methods of its binding, `self.meter.ADD(cx, x)`.

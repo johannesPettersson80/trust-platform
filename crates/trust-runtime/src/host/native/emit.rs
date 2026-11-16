@@ -7,10 +7,11 @@ mod connections;
 mod rust_glue;
 mod rust_places;
 mod st_bindings;
+mod st_blocks;
 mod st_defaults;
 mod st_types;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
 
 use super::classes::Owner;
@@ -23,9 +24,10 @@ use super::recursion::{CallGraph, Recursion};
 use super::rust_pous::StructuredTextUse;
 use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
-use crate::program_model::{FunctionDef, MethodDef, Param};
+use crate::program_model::{FunctionBlockBase, FunctionBlockDef, FunctionDef, MethodDef, Param};
 use bodies::{body, BodyContext};
 pub(super) use bodies::{find_pou, method_body};
+use smol_str::SmolStr;
 use trust_runtime_core::native::image::Target;
 
 /// The generated crate and what the image's tables need of it.
@@ -137,6 +139,7 @@ pub(super) fn generate<'a>(
     let named = structured_text_calls(front, model, &mut queued, &mut work)?;
     let roots = named.roots;
     let named_types = named.types;
+    let held_methods = named.methods;
     let mut bodies: BTreeMap<String, BodyPou> = BTreeMap::new();
     let mut index = 0;
     loop {
@@ -251,7 +254,7 @@ pub(super) fn generate<'a>(
     let mut source = head(target, layered);
     let shared = shared(model, &frame_types);
     let layer_one = if layered {
-        let bindings = st_bindings::bindings(model, &roots, &named_types)?;
+        let bindings = st_bindings::bindings(model, &roots, &named_types, &held_methods)?;
         Some(LayerOne {
             module: format!("{PRELUDE_IMPORTS}{PRELUDE_ITEMS}\n{shared}{layer_one_functions}"),
             bindings,
@@ -367,6 +370,7 @@ fn structured_text_calls<'a>(
 ) -> Result<Named, NativeError> {
     let mut roots = Vec::new();
     let mut types = Vec::new();
+    let mut methods: HashMap<String, Vec<st_blocks::HeldMethod>> = HashMap::new();
     for used in &front.structured_text {
         let call = format!("st::{} at {}:{}", used.name, used.file, used.line);
         if front.rust.contains_key(&used.name.to_ascii_uppercase()) {
@@ -389,6 +393,25 @@ fn structured_text_calls<'a>(
                 )));
             }
             roots.push((format!("fb_{}", mangle(&def.name)), used.clone()));
+            // Its `PUBLIC` methods, which its binding calls, lie in layer 1 with it (RU-39).
+            if !methods.contains_key(def.name.as_str()) {
+                let held = held_methods(front, model, def);
+                for method in &held {
+                    queue(
+                        model,
+                        Need::Method(method.declaring.clone(), method.method.clone()),
+                        queued,
+                        work,
+                    )?;
+                    let root = format!(
+                        "m_{}__{}",
+                        mangle(&method.declaring),
+                        mangle(&method.method)
+                    );
+                    roots.push((root, used.clone()));
+                }
+                methods.insert(def.name.to_string(), held);
+            }
         } else if model.types.owner(&used.name).is_some() {
             return Err(NativeError::Compile(format!(
                 "{call} names a Structured Text class, which Rust does not hold yet \
@@ -417,7 +440,11 @@ fn structured_text_calls<'a>(
             )));
         }
     }
-    Ok(Named { roots, types })
+    Ok(Named {
+        roots,
+        types,
+        methods,
+    })
 }
 
 /// The Structured Text that the project's crate names (specification 48 RU-38): the generated
@@ -425,6 +452,67 @@ fn structured_text_calls<'a>(
 struct Named {
     roots: Vec<(String, StructuredTextUse)>,
     types: Vec<Ty>,
+    /// The `PUBLIC` methods of each held block, by the block's name.
+    methods: HashMap<String, Vec<st_blocks::HeldMethod>>,
+}
+
+/// The `PUBLIC` methods a held block `def` has (RU-39): its own and those it inherits from the
+/// function blocks it extends and does not override (IEC §6.6.5.5), each with the block that
+/// declares it and the path to that block's part of the instance.
+fn held_methods<'m>(
+    front: &Front,
+    model: &Model<'m>,
+    def: &'m FunctionBlockDef,
+) -> Vec<st_blocks::HeldMethod> {
+    let mut held = Vec::new();
+    let mut seen: Vec<SmolStr> = Vec::new();
+    let mut path = String::new();
+    let mut current = Some(def);
+    while let Some(block) = current {
+        for method in &block.methods {
+            if seen
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(&method.name))
+            {
+                continue;
+            }
+            seen.push(method.name.clone());
+            if is_public_method(front, &block.name, &method.name) {
+                held.push(st_blocks::HeldMethod {
+                    declaring: block.name.clone(),
+                    method: method.name.clone(),
+                    path: path.clone(),
+                });
+            }
+        }
+        current = match &block.base {
+            Some(FunctionBlockBase::FunctionBlock(base)) => match model.types.owner(base) {
+                Some(Owner::Fb(base)) => Some(base),
+                _ => None,
+            },
+            _ => None,
+        };
+        path.push_str(".__BASE");
+    }
+    held
+}
+
+/// Whether trust-hir declares the method `method` of the function block `block` `PUBLIC`, which
+/// code outside the block may call (IEC §6.6.5.4, Table 48 features 5a to 5d: a method is
+/// `PROTECTED` unless it says otherwise).
+fn is_public_method(front: &Front, block: &str, method: &str) -> bool {
+    front.sources.iter().any(|source| {
+        let symbols = &source.analysis.symbols;
+        symbols.iter().any(|symbol| {
+            matches!(symbol.kind, trust_hir::symbols::SymbolKind::Method { .. })
+                && symbol.name.eq_ignore_ascii_case(method)
+                && symbol.visibility == trust_hir::symbols::Visibility::Public
+                && symbol
+                    .parent
+                    .and_then(|parent| symbols.get(parent))
+                    .is_some_and(|owner| owner.name.eq_ignore_ascii_case(block))
+        })
+    })
 }
 
 /// The structure, enumeration or type with named values named `name`, laid out, when the project

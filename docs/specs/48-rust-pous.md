@@ -704,7 +704,11 @@ returns; its result is the binding's `Result<T, Fault>`. A held block's inputs a
 fields of `input` and `output`, by their Structured Text names, and its in-outs fields of `input` of
 type `Ref<T>` (RU-29), which `call` gives the instance as Structured Text's call binds an in-out
 (specification 44 §7.3); one left `NULL` ends the scan where the block reads it, as Structured
-Text's does. A structure, an enumeration or a
+Text's does. A held block's `PUBLIC` methods (IEC §6.6.5.4; Table 48 features 5a to 5d: a method
+is `PROTECTED` unless it says otherwise), its own and those it inherits, are methods of its binding,
+`self.meter.ADD(cx, 1.5)?`, whose parameters and result pass as a function's do: such a call gives
+the instance `input`, runs the method on the instance as Structured Text's call of it does (IEC
+§6.6.5.4.4), and takes the instance's outputs into `output`; layer 1 holds each of them. A structure, an enumeration or a
 type with named values of the project's Structured Text has a binding of its own in layer 1 when a
 call or a held block passes it or the crate names it: `st::POINT`, a Rust struct of its fields, each
 `pub`, named as Structured Text declares it and of the type this table gives it; `st::MODE`, a Rust
