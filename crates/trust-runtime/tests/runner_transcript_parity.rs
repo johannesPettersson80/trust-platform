@@ -236,11 +236,19 @@ fn live(id: u64, kind: &str, params: Value) -> String {
 ///
 /// The request reaches the host after three scans that the test has not taken yet, as a test
 /// thread that a loaded machine holds back finds them. The device gets the request where the host
-/// did: after replaying the host's scans that started before it, then the scans after it. A
-/// one-shot write is overwritten by the program and a force holds across scans, so three scans
-/// that start after the request make the effect settle in both before the reads. Catches a device
-/// that takes the request before scans that the host ran without it (checklist G62: the device
-/// forced an output in scan 28, which the host ran unforced).
+/// did: after replaying the host's scans that started before the host accepted it, then the scans
+/// after it. The host's time is read once the host has accepted the request, which its reply
+/// follows, so every scan counted after the request applies it from its start, however long a
+/// loaded machine holds the test thread back (checklist G191: read before the request, the time
+/// counted three scans that ran before the host had the request, and the host still reported the
+/// force that `io.unforce` released). A scan counted before the request may still apply it: in
+/// part, when it started before the request and reached an access point after it, or whole, when
+/// it started while the test thread was held back between the reply and the time; the device then
+/// takes the request one or more scans after the host. A one-shot write is overwritten by the
+/// program and a force holds across scans, so three scans that start after the request make the
+/// effect settle in both before the reads. Catches a device that takes the request before scans
+/// that the host ran without it (checklist G62: the device forced an output in scan 28, which the
+/// host ran unforced).
 fn live_request(
     host: &mut HostComposition,
     device: &mut Device,
@@ -248,12 +256,12 @@ fn live_request(
     reads: &[(u64, &str)],
 ) {
     host.wait_for_untaken(3);
-    let requested_at = host.now();
     let host_reply = host.request(line);
+    let accepted_at = host.now();
     let scans =
-        host.settle_until(|scans| scans.iter().filter(|scan| scan.at > requested_at).count() >= 3);
+        host.settle_until(|scans| scans.iter().filter(|scan| scan.at > accepted_at).count() >= 3);
     let (before, after): (Vec<HostScan>, Vec<HostScan>) =
-        scans.into_iter().partition(|scan| scan.at <= requested_at);
+        scans.into_iter().partition(|scan| scan.at <= accepted_at);
     device.replay(&before);
     assert_same_reply(line, &host_reply, &device.request(line));
     device.replay(&after);
