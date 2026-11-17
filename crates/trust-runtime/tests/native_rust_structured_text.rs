@@ -212,10 +212,11 @@ END_FUNCTION
 
 #[test]
 fn a_call_of_what_is_no_structured_text_function_is_refused() {
-    // RU-40: `st::` names the project's Structured Text functions, function blocks and data
-    // types. A name of none of them, and the name of a Rust POU, are refused at the call; a
-    // function block, which a field holds (RU-39), is refused where no field holds it; a structure
-    // with a variable the bindings do not pass yet is refused, naming the variable. Catches a call
+    // RU-40: `st::` names the project's Structured Text functions, function blocks, classes,
+    // interfaces and data types. A name of none of them, and the name of a Rust POU, are refused
+    // at the call, the refusal naming what `st::` names; a function block, which a field holds
+    // (RU-39), is refused where no field holds it; a structure with a variable the bindings do not
+    // pass yet is refused, naming the variable. Catches a call
     // that reaches the compiler as an unknown item, a Rust POU called through `st::`, a block
     // called as a function, and a binding the compiler finds missing.
     let block = "FUNCTION_BLOCK HOLD
@@ -235,8 +236,8 @@ END_TYPE
             "NOPE",
             SCALE,
             "st::NOPE at rust/src/lib.rs:9 names no Structured Text function, function block, \
-             structure, enumeration or type with named values of the project (specification 48 \
-             RU-40)",
+             class, interface, structure, enumeration or type with named values of the project \
+             (specification 48 RU-40)",
         ),
         (
             "TWICE",

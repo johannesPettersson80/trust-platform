@@ -9,6 +9,7 @@ mod rust_places;
 mod st_bindings;
 mod st_blocks;
 mod st_defaults;
+mod st_interfaces;
 mod st_types;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -136,10 +137,11 @@ pub(super) fn generate<'a>(
     }
     // The Structured Text functions that the crate calls, whether a program calls them or not
     // (specification 48 RU-40).
-    let named = structured_text_calls(front, model, &mut queued, &mut work)?;
-    let roots = named.roots;
-    let named_types = named.types;
-    let held_methods = named.methods;
+    let mut named = structured_text_calls(front, model, &mut queued, &mut work)?;
+    // A crate that names a type of the project's Structured Text, and calls none of it, still needs
+    // its binding in layer 1 (RU-39, RU-42).
+    let layered = !named.roots.is_empty() || !named.types.is_empty();
+    let mut bindings = None;
     let mut bodies: BTreeMap<String, BodyPou> = BTreeMap::new();
     let mut index = 0;
     loop {
@@ -169,6 +171,10 @@ pub(super) fn generate<'a>(
             // method goes through its interface's dispatcher (specification 44 §13.3).
             for need in super::tools::needs(model)? {
                 need.add_to(&mut dispatchers);
+            }
+            // Layer 1's bindings, once every body the crate's calls reach is generated (RU-39).
+            if layered && bindings.is_none() {
+                bindings = Some(write_bindings(model, &mut named, &mut dispatchers)?);
             }
             let mut added = false;
             for need in super::dispatch::targets(model, &dispatchers)? {
@@ -239,10 +245,7 @@ pub(super) fn generate<'a>(
     texts.extend(super::dispatch::emit(model, &dispatchers, &mut graph)?);
     // Layer 1 is what the Structured Text that the crate calls reaches (specification 48 §9.2);
     // the rest is this crate's.
-    let layer_one = super::layers::layer_one(&graph, &roots, &bodies)?;
-    // A crate that names a type of the project's Structured Text, and calls none of it, still needs
-    // its binding in layer 1 (RU-39, RU-42).
-    let layered = !layer_one.is_empty() || !named_types.is_empty();
+    let layer_one = super::layers::layer_one(&graph, &named.roots, &bodies)?;
     let (layer_one_functions, mut functions) = split(texts, &layer_one);
     // The places of the crate's structures that the Rust POUs' values reach (specification 48
     // RU-29).
@@ -255,8 +258,7 @@ pub(super) fn generate<'a>(
 
     let mut source = head(target, layered);
     let shared = shared(model, &frame_types);
-    let layer_one = if layered {
-        let bindings = st_bindings::bindings(model, &roots, &named_types, &held_methods)?;
+    let layer_one = if let Some(bindings) = bindings {
         Some(LayerOne {
             module: format!("{PRELUDE_IMPORTS}{PRELUDE_ITEMS}\n{shared}{layer_one_functions}"),
             bindings,
@@ -371,7 +373,7 @@ fn structured_text_calls<'a>(
     work: &mut Vec<Work<'a>>,
 ) -> Result<Named, NativeError> {
     let mut roots = Vec::new();
-    let mut types = Vec::new();
+    let mut types: Vec<(Ty, StructuredTextUse)> = Vec::new();
     let mut methods: HashMap<String, Vec<st_blocks::HeldMethod>> = HashMap::new();
     for used in &front.structured_text {
         let used = &resolved(front, model, used)?;
@@ -425,13 +427,14 @@ fn structured_text_calls<'a>(
                 methods.insert(owner.name().to_string(), held);
             }
         } else if let Some(ty) = named_type(model, &used.name)? {
-            // A structure, an enumeration or a type with named values of the project, whose
-            // binding the crate writes values of (RU-39).
+            // A structure, an enumeration, a type with named values or an interface of the
+            // project, whose binding the crate writes values of (RU-39).
             if let Some(why) = st_bindings::unpassed(&model.types, ty) {
                 let info = model.types.info(ty);
                 let what = match &info.kind {
                     Kind::Struct { .. } => "structure",
                     Kind::Enum { named: true, .. } => "type with named values",
+                    Kind::Interface => "interface",
                     _ => "enumeration",
                 };
                 return Err(NativeError::Compile(format!(
@@ -439,11 +442,12 @@ fn structured_text_calls<'a>(
                     info.name
                 )));
             }
-            types.push(ty);
+            types.push((ty, used.clone()));
         } else {
             return Err(NativeError::Compile(format!(
-                "{call} names no Structured Text function, function block, structure, \
-                 enumeration or type with named values of the project (specification 48 RU-40)"
+                "{call} names no Structured Text function, function block, class, interface, \
+                 structure, enumeration or type with named values of the project (specification \
+                 48 RU-40)"
             )));
         }
     }
@@ -452,6 +456,23 @@ fn structured_text_calls<'a>(
         types,
         methods,
     })
+}
+
+/// Layer 1's bindings (RU-39): an interface's binding calls the dispatchers of its methods, which
+/// join `dispatchers` and, as roots of layer 1 with the crate's use that reached the interface,
+/// bring layer 1 every method they can reach (RU-40).
+fn write_bindings(
+    model: &mut Model<'_>,
+    named: &mut Named,
+    dispatchers: &mut Vec<Need>,
+) -> Result<String, NativeError> {
+    let written = st_bindings::bindings(model, &named.roots, &named.types, &named.methods)?;
+    for (interface, method, used) in written.dispatched {
+        let dispatcher = super::dispatch::interface_function(&interface, &method);
+        named.roots.push((dispatcher, used));
+        Need::Interface(interface, method).add_to(dispatchers);
+    }
+    Ok(written.text)
 }
 
 /// `used` named by what its path names (specification 48 RU-39, IEC §6.9): the longest prefix of
@@ -484,7 +505,8 @@ fn resolved(
 /// function of each POU it calls, with the call, and the data types it writes values of.
 struct Named {
     roots: Vec<(String, StructuredTextUse)>,
-    types: Vec<Ty>,
+    /// The data types and interfaces the crate names, each with its use.
+    types: Vec<(Ty, StructuredTextUse)>,
     /// The `PUBLIC` methods of each held block, by the block's name.
     methods: HashMap<String, Vec<st_blocks::HeldMethod>>,
 }
@@ -551,15 +573,19 @@ fn is_public_method(front: &Front, block: &str, method: &str) -> bool {
     })
 }
 
-/// The structure, enumeration or type with named values named `name`, laid out, when the project
-/// declares one.
+/// The structure, enumeration, type with named values or interface named `name`, laid out, when
+/// the project declares one.
 fn named_type(model: &mut Model<'_>, name: &str) -> Result<Option<Ty>, NativeError> {
     let Some(id) = model.types.registry().lookup(name) else {
         return Ok(None);
     };
     let is_data_type = matches!(
         model.types.registry().get(id),
-        Some(trust_hir::Type::Struct { .. } | trust_hir::Type::Enum { .. })
+        Some(
+            trust_hir::Type::Struct { .. }
+                | trust_hir::Type::Enum { .. }
+                | trust_hir::Type::Interface { .. }
+        )
     );
     if !is_data_type {
         return Ok(None);
@@ -567,7 +593,7 @@ fn named_type(model: &mut Model<'_>, name: &str) -> Result<Option<Ty>, NativeErr
     let ty = model.ty(id)?;
     Ok(matches!(
         model.types.info(ty).kind,
-        Kind::Struct { .. } | Kind::Enum { .. }
+        Kind::Struct { .. } | Kind::Enum { .. } | Kind::Interface
     )
     .then_some(ty))
 }

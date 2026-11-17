@@ -8,7 +8,7 @@
   of no Structured Text function, `use st::*`, and Structured Text that Rust calls and that calls
   Rust back are refused with the place and the chain (RU-39, RU-40). Functions whose inputs and
   result are elementary types, strings, arrays of any dimension, references or the project's
-  structures, enumerations and types with named values are called, with their in-outs as `InOut<'_, T>` and
+  structures, enumerations, types with named values and interfaces are called, with their in-outs as `InOut<'_, T>` and
   their outputs as `&mut T`; a structure, an enumeration or a type with named values passes as its
   binding `st::NAME`, one the crate declares too, whose default is the value a variable of the type
   starts at. A library's POUs and types, in their namespaces, are reached through modules of the

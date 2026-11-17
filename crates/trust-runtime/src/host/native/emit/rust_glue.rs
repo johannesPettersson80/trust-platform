@@ -532,9 +532,12 @@ pub(super) fn load(
                 "::trust_plc::Array::from_items({place}.each_ref().map(|{cell}| {item}))"
             ))
         }
+        // A structure of the project's Structured Text and an interface's value, which lies as a
+        // reference, through their bindings' places (specification 48 RU-39).
         Kind::Struct { .. } if !of_the_crate(structures, &info.name) => {
             Ok(format!("::trust_plc::Place::load(&{place})"))
         }
+        Kind::Interface => Ok(format!("::trust_plc::Place::load(&{place})")),
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;
             Ok(format!(
@@ -635,6 +638,7 @@ pub(super) fn store(
         Kind::Struct { .. } if !of_the_crate(structures, &info.name) => {
             Ok(format!("::trust_plc::Place::store(&{place}, &{value});"))
         }
+        Kind::Interface => Ok(format!("::trust_plc::Place::store(&{place}, &{value});")),
         Kind::Struct { .. } => {
             reach(types, ty, structures, places)?;
             Ok(format!(
