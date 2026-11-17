@@ -26,6 +26,7 @@ fn builtin_lookup_is_case_insensitive_and_includes_documented_aliases() {
         ("tp_time", BuiltinFbKind::Tp),
         ("TON_LTIME", BuiltinFbKind::Ton),
         ("tof", BuiltinFbKind::Tof),
+        ("service_Fresh", BuiltinFbKind::ServiceFresh),
     ];
 
     for (name, expected) in cases {
@@ -46,11 +47,12 @@ fn standard_function_block_definitions_are_unique_and_complete() {
         .map(|definition| definition.name.as_str())
         .collect::<BTreeSet<_>>();
 
-    assert_eq!(definitions.len(), 33);
+    assert_eq!(definitions.len(), 34);
     assert_eq!(names.len(), definitions.len());
     for required in [
         "RS",
         "SR",
+        "SERVICE_FRESH",
         "R_TRIG",
         "F_TRIG",
         "DIFU",

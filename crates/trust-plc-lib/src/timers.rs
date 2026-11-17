@@ -2,7 +2,8 @@
 //! runtime's rules: the call that samples the starting edge returns `ET` = 0, as CODESYS and
 //! `TwinCAT` time, and each later call adds the task time since the previous call, nothing on the
 //! first call; `PT` below zero counts as zero; `ET` stops at `PT`; a running `TP` pulse ignores
-//! edges (`docs/IEC_DECISIONS.md`, 2026-10-30).
+//! edges (`docs/IEC_DECISIONS.md`, 2026-10-30). Beside them `SERVICE_FRESH`, which counts the task
+//! time since a service's heartbeat last changed the same way (specification 08 §5A).
 
 use core::cell::Cell;
 
@@ -69,6 +70,29 @@ plain_struct! {
         pub PREV_IN: Cell<u8>,
         /// Not 0 while the pulse runs.
         pub ACTIVE: Cell<u8>,
+    }
+}
+
+plain_struct! {
+    /// The freshness of a service's heartbeat (specification 08 §5A; specification 48 RU-63).
+    pub struct ServiceFresh {
+        /// Input: the service's heartbeat, which the service counts up.
+        pub HEARTBEAT: Cell<u32>,
+        /// Input: the longest time without a change for which the service is fresh, nanoseconds.
+        pub TIMEOUT: Cell<i64>,
+        /// Output: a change was counted, and `AGE` is at most `TIMEOUT`.
+        pub FRESH: Cell<u8>,
+        /// Output: the task time since the heartbeat last changed, or since the first call while it
+        /// has not changed, nanoseconds.
+        pub AGE: Cell<i64>,
+        /// The task time of the previous call.
+        pub LAST: Cell<i64>,
+        /// Not 0 once the block has been called.
+        pub CALLED: Cell<u8>,
+        /// Not 0 once a change of the heartbeat was counted.
+        pub CHANGED: Cell<u8>,
+        /// The heartbeat the block saw last.
+        pub SEEN: Cell<u32>,
     }
 }
 
@@ -178,4 +202,27 @@ pub fn tp(timer: &Tp, now: i64) {
     }
     timer.Q.set(timer.ACTIVE.get());
     timer.PREV_IN.set(u8::from(input));
+}
+
+/// Runs `SERVICE_FRESH` at task time `now` (specification 08 §5A): the first call keeps the
+/// heartbeat without counting a change; a later call that sees another heartbeat counts a change and
+/// starts `AGE` again at 0, any other adds the task time since the previous call; `FRESH` once a
+/// change was counted and while `AGE` is at most `TIMEOUT`, below zero counting as zero.
+pub fn service_fresh(block: &ServiceFresh, now: i64) {
+    let first = block.CALLED.get() == 0;
+    let delta = elapsed(&block.LAST, &block.CALLED, now);
+    let heartbeat = block.HEARTBEAT.get();
+    if first {
+        block.SEEN.set(heartbeat);
+        block.AGE.set(0);
+    } else if heartbeat != block.SEEN.get() {
+        block.SEEN.set(heartbeat);
+        block.CHANGED.set(1);
+        block.AGE.set(0);
+    } else {
+        block.AGE.set(block.AGE.get().saturating_add(delta));
+    }
+    let timeout = block.TIMEOUT.get().max(0);
+    let fresh = block.CHANGED.get() != 0 && block.AGE.get() <= timeout;
+    block.FRESH.set(u8::from(fresh));
 }
