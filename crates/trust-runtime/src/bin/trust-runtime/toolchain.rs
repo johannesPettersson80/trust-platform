@@ -84,7 +84,7 @@ fn agreed_in_terminal() -> bool {
     );
     eprint!(
         "The truST toolchain {TRUST_VERSION} is not installed. It comes from the bundle beside the \
-         tools, or is downloaded once (about 180 to 210 MB), and takes about 630 MB in {folder}. \
+         tools, or is downloaded once (about 195 to 225 MB), and takes about 680 MB in {folder}. \
          Install it now? [y/N] "
     );
     // A question the person may not see is not asked: decline, as without a terminal.
@@ -197,7 +197,7 @@ impl HumanProgress {
                 if !self.started {
                     self.started = true;
                     eprintln!(
-                        "Downloading the truST toolchain {TRUST_VERSION} (about 180 to 210 MB, once)..."
+                        "Downloading the truST toolchain {TRUST_VERSION} (about 195 to 225 MB, once)..."
                     );
                 }
                 let step = total.map_or(25 << 20, |total| (total / 10).max(1));

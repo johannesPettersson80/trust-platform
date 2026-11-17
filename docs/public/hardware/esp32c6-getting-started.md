@@ -15,9 +15,9 @@ chip's.
 - `trust-runtime` on the computer, on Linux, macOS or Windows: [Install truST](../start/installation.md).
 - The truST firmware folder for the ESP32-C6, of the same truST version as `trust-runtime`:
   `bootloader.bin`, `partitions.bin` and `firmware.bin`.
-- Room for the compiler toolchain, about 630 MB once installed. The VS Code extension carries it
+- Room for the compiler toolchain, about 680 MB once installed. The VS Code extension carries it
   and the first build installs it; `trust-runtime` on its own asks before it downloads it, about
-  180 to 210 MB, once, or installs it with `trust-runtime toolchain install`.
+  195 to 225 MB, once, or installs it with `trust-runtime toolchain install`.
 - For Wi-Fi, a WPA2-Personal network or an open one. The ESP32-C6's radio driver has no WPA3
   station.
 

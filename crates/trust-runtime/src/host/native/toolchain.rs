@@ -134,7 +134,7 @@ impl Toolchain {
             .ok_or_else(|| {
                 NativeError::Toolchain(format!(
                     "the truST toolchain {} is not installed: `trust-runtime toolchain install` \
-                     installs it, from the bundle beside the tools or downloaded (about 180 to 210 \
+                     installs it, from the bundle beside the tools or downloaded (about 195 to 225 \
                      MB, once)",
                     super::bundle::TRUST_VERSION
                 ))
