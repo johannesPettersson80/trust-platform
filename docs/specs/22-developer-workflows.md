@@ -894,7 +894,13 @@ update check (`--disable-update-check`): its notice of a newer release would
 cover the corner of a picture. It runs as the user who runs the captures, as the
 terminal captures' container does, with its home in the container's `/tmp`, so
 that what a capture writes into the repository, such as a new project, belongs
-to that user.
+to that user. A capture acts on code-server's own interface only when it shows
+the state the action needs, never after a fixed wait: it types into
+code-server's folder dialog once the dialog has listed its first folder, whose
+path the dialog writes over its box; it accepts the dialog again, while the
+dialog still shows, until the next step shows, since the dialog may drop an
+accept that comes while it lists a folder; and it checks that the project opened
+in the folder it chose.
 
 The documentation site shows the screenshots of `main` without a commit of the
 images. The workflow runs on pull requests, on pushes to `main`, every night and
