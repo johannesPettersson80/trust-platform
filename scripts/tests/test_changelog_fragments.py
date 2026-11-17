@@ -172,7 +172,11 @@ def write_checkout_at_0_28_0(root: Path) -> None:
     write(
         root,
         {
-            "Cargo.toml": '[workspace]\nmembers = []\n\n[workspace.package]\nversion = "0.28.0"\nedition = "2024"\n\n[workspace.dependencies]\n',
+            "Cargo.toml": (
+                '[workspace]\nmembers = []\n\n[workspace.package]\nversion = "0.28.0"\nedition = "2024"\n\n'
+                '[workspace.dependencies]\ntrust-plc-abi = { path = "crates/trust-plc-abi", version = "=0.28.0" }\n'
+                'ryu = "=0.28.0"\n'
+            ),
             "firmware/trust-esp32c6/Cargo.toml": '[package]\nname = "trust-esp32c6"\nversion = "0.28.0"\n',
             **{name: lock for name in LOCKFILES},
             "editors/vscode/package.json": '{\n  "name": "trust-lsp",\n  "version": "0.28.0"\n}\n',
@@ -229,6 +233,12 @@ class BumpTests(unittest.TestCase):
             report = bump(root, "0.28.0", "0.29.0", "2026-11-09")
             self.assertIn("1 changelog fragments gathered", report[-1])
             self.assertIn('version = "0.29.0"', (root / "Cargo.toml").read_text())
+            # Specification 48 RU-12: the SDK's crates name each other at the release's version, so `cargo package`
+            # writes them as crates.io takes them; a crate of the registry that has the same number keeps its pin.
+            self.assertIn(
+                'trust-plc-abi = { path = "crates/trust-plc-abi", version = "=0.29.0" }', (root / "Cargo.toml").read_text()
+            )
+            self.assertIn('ryu = "=0.28.0"', (root / "Cargo.toml").read_text())
             self.assertIn('version = "0.29.0"', (root / "firmware/trust-esp32c6/Cargo.toml").read_text())
             for name in (
                 "Cargo.lock",
@@ -248,6 +258,21 @@ class BumpTests(unittest.TestCase):
                 (root / "CHANGELOG.md").read_text(),
             )
             self.assertEqual(sorted(path.name for path in (root / "changelog.d").iterdir()), ["README.md"])
+
+    def test_the_bump_refuses_an_sdk_crate_pinned_at_another_version(self) -> None:
+        # Catches a bump that moves the workspace version past an SDK crate's pin, which no build could then resolve,
+        # or that writes some files before it finds the pin: every replacement finds what it expects, or nothing is
+        # written.
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            write_checkout_at_0_28_0(root)
+            cargo = root / "Cargo.toml"
+            before = cargo.read_text().replace('version = "=0.28.0" }', 'version = "=0.27.0" }')
+            cargo.write_text(before)
+            with self.assertRaisesRegex(ValueError, "not all pinned at =0.28.0"):
+                bump(root, "0.28.0", "0.29.0", "2026-11-09")
+            self.assertEqual(cargo.read_text(), before)
+            self.assertIn('"version": "0.28.0"', (root / "editors/vscode/package.json").read_text())
 
 
 if __name__ == "__main__":

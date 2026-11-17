@@ -148,10 +148,10 @@ trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
 verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core", default-features = false }
-trust-plc-abi = { path = "crates/trust-plc-abi" }
-trust-plc-decl = { path = "crates/trust-plc-decl" }
-trust-plc-lib = { path = "crates/trust-plc-lib" }
-trust-plc-macros = { path = "crates/trust-plc-macros" }
+trust-plc-abi = { path = "crates/trust-plc-abi", version = "=0.41.2" }
+trust-plc-decl = { path = "crates/trust-plc-decl", version = "=0.41.2" }
+trust-plc-lib = { path = "crates/trust-plc-lib", version = "=0.41.2" }
+trust-plc-macros = { path = "crates/trust-plc-macros", version = "=0.41.2" }
 trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-platform-memory = { path = "crates/trust-platform-memory" }
 trust-platform-net = { path = "crates/trust-platform-net" }
