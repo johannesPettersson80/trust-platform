@@ -2,7 +2,8 @@
 
 - **Status:** 0.1, approved by the owner on 15 November 2026 ("approved"), with the decisions of §21;
   written from the owner's decisions of that day (below) against the compiled runtime of
-  specification 44.
+  specification 44. 0.2, 17 November 2026: how the bundle provides the SDK's procedural macros
+  (RU-74, §21 decision 1), decided under the owner's delegation of that day.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1129,11 +1130,17 @@ locals across them, and otherwise starts the sequence at its top and says so in 
 ### 16.1 The bundle
 
 **RU-74.** The toolchain bundle (specification 44 §4.6) gains, for every computer platform:
-`cargo` of the pinned release; the standard library of the computer itself, with which `cargo`
-compiles the SDK's procedural macros and build scripts on the computer (never into a module); and
-the sources of the SDK crates and of every crate they are built from, vendored, with their hashes in
-the bundle's manifest. The module targets keep only `core` and `compiler_builtins`: the scan has no
-`std` and no `alloc` (RU-19). The release records the bundle's new size as NX-08 records today's.
+`cargo` of the pinned release; the SDK's procedural macro library (`trust-plc-macros`), which the
+release builds for that platform with the pinned compiler; and the sources of the SDK crates and of
+every crate they are built from, vendored, with their hashes in the bundle's manifest. The build
+gives `rustc` the macro library as an external crate of the bundle's copy of `trust-plc`, which takes
+its macros from it instead of from a dependency, so a build compiles and links nothing for the
+computer itself and needs no linker of the computer's: by RU-09 the SDK's macros are the only
+procedural macros of the scan crate graph, which has no build scripts, so the computer runs only
+the bundle's compiler and the macro library inside it. A user's own `cargo` (RU-56, RU-77) builds
+the same SDK from crates.io, its macros as an ordinary dependency, so both expand the same macro
+code. The module targets keep only `core` and `compiler_builtins`: the scan has no `std` and no
+`alloc` (RU-19). The release records the bundle's new size as NX-08 records today's.
 
 **RU-75.** The project's crate and its dependencies are built with the bundle's `cargo` and
 compiler only; the build never runs a `cargo` or `rustc` of the user's, and never touches the
@@ -1257,8 +1264,14 @@ Each milestone is a set of small pull requests (owner, 31 October 2026), accepte
 The owner's decisions of 15 November 2026 are above. The draft took the decisions below within
 them, and the owner approved them with the draft on 15 November 2026 ("approved"):
 
-1. **The bundle grows** by `cargo` and the computer's own standard library (RU-74), which a build of
-   a Rust crate with dependencies needs.
+1. **The bundle grows** by `cargo` and, for each computer platform, the SDK's procedural macro library
+   that the release builds (RU-74), which a build of a Rust crate with dependencies needs. The draft
+   had the computer's own standard library instead, with which `cargo` would have compiled the
+   macros on the computer; that needs the computer's own linker, which a computer without Rust may
+   lack (macOS without Xcode's command-line tools has none). The owner delegated the choice on 17
+   November 2026 ("do whats most professional and best for the user and us"), and the prebuilt
+   library was chosen over the build expanding the attributes itself, which would have pointed the
+   compiler's messages into rewritten files instead of the user's own lines.
 2. **The SDK goes to crates.io** at every release, beside the bundle's copy (RU-12), so that a user's
    own `cargo` finds it for rust-analyzer and `cargo test`; the release workflow publishes it.
 3. **`unsafe` is forbidden in every crate of the scan**, dependencies included, not only in the
