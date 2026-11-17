@@ -343,15 +343,15 @@ duration!(
 
 /// A value of RU-25's table that a variable, a parameter, a result, an array's element or a
 /// structure's field holds (specification 48 RU-25): every type of the table but a Structured Text
-/// function block or class that a Rust POU holds, which is the POU's own variable (RU-39). The
-/// bindings of the project's structures, enumerations and types with named values are values; a
-/// held block's and a class's are not.
+/// function block or class that a Rust POU holds, which is the POU's own variable or what a
+/// reference names (RU-39). The bindings of the project's structures, enumerations, types with
+/// named values and interfaces are values; a held block's and a class's are not.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is a Structured Text function block or class, which a Rust POU holds as its \
                own variable",
-    label = "hold it as a field `name: st::X` without `#[input]`, `#[output]` or `#[in_out]`, not \
-             in an array, a reference, a parameter, a result or a structure (specification 48 \
-             RU-39)"
+    label = "hold it as a field `name: st::X` without `#[input]`, `#[output]` or `#[in_out]`, or \
+             name it through a reference, `Ref<st::X>`, not in an array, a parameter, a result or \
+             a structure, and assign no instance (specification 48 RU-39)"
 )]
 pub trait Value {}
 

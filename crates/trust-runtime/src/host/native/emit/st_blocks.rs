@@ -1,12 +1,15 @@
-//! The bindings of the Structured Text function blocks a Rust POU holds (specification 48 RU-38,
-//! RU-39): each block's inputs and outputs, its call, which gives the instance the inputs, runs its
-//! body on its own variables where they lie and takes its outputs, and its `PUBLIC` methods.
+//! The bindings of the Structured Text function blocks a Rust POU holds or names through a reference
+//! (specification 48 RU-38, RU-39): each block's inputs and outputs, its call, which gives the
+//! instance the inputs, runs its body on its own variables where they lie and takes its outputs, its
+//! `PUBLIC` methods, and the binding of the instance a reference names.
 
 use std::collections::BTreeSet;
 
 use smol_str::SmolStr;
 
 use super::super::classes::Owner;
+use super::super::dispatch::{body_function, virtual_function};
+use super::super::lower::Need;
 use super::super::model::Model;
 use super::super::rust_pous::StructuredTextUse;
 use super::super::types::{mangle, Kind, Ty, Types};
@@ -36,6 +39,48 @@ pub(super) struct HeldMember {
     rust: String,
     /// Its type.
     pub(super) ty: Ty,
+}
+
+/// The generated function a binding's `call` runs on an instance of the block `owner`, of type `ty`,
+/// with the need that generates it: its body, `fb_X`, which every laid-out block has; or, when a
+/// block derived from it has a body of its own, the body dispatcher `b_X`, since a reference to the
+/// block may name an instance of the derived one (IEC §6.6.8.3, §6.6.8.4; specification 44 §6.4).
+pub(super) fn body_call(model: &Model<'_>, owner: Owner<'_>, ty: Ty) -> (String, Option<Need>) {
+    if model.types.defs.extended_below(owner) {
+        (body_function(model, ty), Some(Need::Body(ty)))
+    } else {
+        (format!("fb_{}", mangle(owner.name())), None)
+    }
+}
+
+/// The generated function a binding's method `held` runs on an instance of the block `owner`, of
+/// type `ty`, the receiver it passes and the need that generates it: the method its declaring block
+/// has, `m_D__M`, on that block's part of the instance; or, when a block derived from `owner`
+/// overrides it, the dispatcher `v_X__M` on the instance, since a reference to the block may name
+/// an instance of the derived one (IEC §6.6.8.5; specification 44 §6.4).
+pub(super) fn method_call(
+    model: &Model<'_>,
+    owner: Owner<'_>,
+    ty: Ty,
+    held: &HeldMethod,
+) -> (String, String, Need) {
+    if model.types.defs.overridden_below(owner, &held.method) {
+        return (
+            virtual_function(model, ty, &held.method),
+            ", me".to_string(),
+            Need::Virtual(ty, held.method.clone()),
+        );
+    }
+    let receiver = if held.path.is_empty() {
+        ", me".to_string()
+    } else {
+        format!(", &me{}", held.path)
+    };
+    (
+        format!("m_{}__{}", mangle(&held.declaring), mangle(&held.method)),
+        receiver,
+        Need::Method(held.declaring.clone(), held.method.clone()),
+    )
 }
 
 /// The inputs and the outputs of the Structured Text function block `ty` as its binding holds
@@ -89,6 +134,34 @@ pub(super) fn held_members(
     Ok((inputs, outputs))
 }
 
+/// The binding's `field: value` of each of `members`, read from the cells of the instance `me`
+/// (RU-39).
+fn member_loads(types: &Types<'_>, members: &[HeldMember]) -> String {
+    members
+        .iter()
+        .map(|member| {
+            let cells = format!("me.{}", member.cells);
+            let value = load(types, member.ty, &cells, Scope::Bindings);
+            format!("{}: {value}", member.field)
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The statements that write each of `members`, the fields of `from`, into the cells of the
+/// instance `me` (RU-39).
+fn member_stores(types: &Types<'_>, members: &[HeldMember], from: &str) -> String {
+    members
+        .iter()
+        .map(|member| {
+            let cells = format!("me.{}", member.cells);
+            let value = format!("{from}.{}", member.field);
+            let statement = store(types, member.ty, &cells, &value, Scope::Bindings);
+            format!("                    {statement}\n")
+        })
+        .collect()
+}
+
 /// The binding of the Structured Text function block `def`, which a field of the crate holds
 /// (RU-38, RU-39): its inputs, its outputs as its last call left them, and its call, which gives
 /// the instance the inputs, runs its body on its own variables where they lie and takes its
@@ -119,11 +192,13 @@ pub(super) fn block(
     let cells = model.types.info(ty).rust.clone();
     let mut method_texts = String::new();
     for held in methods {
+        let (callee, receiver, _) = method_call(model, owner, ty, held);
         let text = method(
             model,
             used,
             name,
             held,
+            (&callee, &receiver),
             &cells,
             (&inputs, &outputs),
             data_types,
@@ -141,37 +216,9 @@ pub(super) fn block(
             .collect::<Vec<_>>()
             .join(", ")
     };
-    let stores: String = inputs
-        .iter()
-        .map(|member| {
-            format!(
-                "                    {}\n",
-                store(
-                    &model.types,
-                    member.ty,
-                    &format!("me.{}", member.cells),
-                    &format!("self.1.{}", member.field),
-                    Scope::Bindings
-                )
-            )
-        })
-        .collect();
-    let loads = outputs
-        .iter()
-        .map(|member| {
-            format!(
-                "{}: {}",
-                member.field,
-                load(
-                    &model.types,
-                    member.ty,
-                    &format!("me.{}", member.cells),
-                    Scope::Bindings
-                )
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
+    let stores = member_stores(&model.types, &inputs, "self.1");
+    let loads = member_loads(&model.types, &outputs);
+    let input_loads = member_loads(&model.types, &inputs);
     // A class has no body, so its binding has no `call` (IEC §6.6.5).
     let what = if owner.is_class() {
         "class"
@@ -181,7 +228,7 @@ pub(super) fn block(
     let call = if owner.is_class() {
         String::new()
     } else {
-        let body = mangle(declared);
+        let (body, _) = body_call(model, owner, ty);
         format!(
             "    /// Calls the block as Structured Text calls an instance: gives it `input`, runs its body on its\n\
     /// own variables, and takes its outputs into `output`. Its instance lies in the program's\n\
@@ -199,7 +246,7 @@ pub(super) fn block(
                 trust_plc_abi::module::with_areas(cx, |cx, areas| {{\n\
                     let w = __generated::World::new(cx, &areas)?;\n\
                     let me: &__generated::{cells} = areas.deref(cx, &self.0)?;\n\
-{stores}                    __generated::fb_{body}(cx, &w, me)?;\n\
+{stores}                    __generated::{body}(cx, &w, me)?;\n\
                     Ok({name}_Output {{ {loads} }})\n\
                 }})\n\
             }}\n\
@@ -247,6 +294,25 @@ impl {name} {{
         Self {{ input, output, place }}
     }}
 
+    /// The binding of the instance `place` names, with its inputs and outputs as they are: what
+    /// `trust_plc::Ref::get` gives of a reference to the {what} (specification 48 RU-39).
+    ///
+    /// # Errors
+    ///
+    /// The faults of Structured Text's dereference: `NULL`, a reference of another generation or
+    /// outside its area, or one that names no `{name}`.
+    #[doc(hidden)]
+    pub fn __at(cx: &mut trust_plc_abi::Cx, place: &trust_plc_abi::RefValue) -> Result<Self, trust_plc_abi::Fault> {{
+        trust_plc_abi::module::with_areas(cx, |cx, areas| {{
+            let me: &__generated::{cells} = areas.deref(cx, place)?;
+            Ok(Self {{
+                input: {name}_Input {{ {input_loads} }},
+                output: {name}_Output {{ {loads} }},
+                place: *place,
+            }})
+        }})
+    }}
+
 {call}{method_texts}}}
 
 ",
@@ -266,11 +332,13 @@ impl {name} {{
 /// # Errors
 ///
 /// A parameter or a result of a type the bindings do not pass yet, naming the call.
+#[allow(clippy::too_many_arguments)]
 fn method(
     model: &mut Model<'_>,
     used: &StructuredTextUse,
     block: &str,
     held: &HeldMethod,
+    (callee, receiver): (&str, &str),
     cells: &str,
     members: (&[HeldMember], &[HeldMember]),
     data_types: &mut BTreeSet<Ty>,
@@ -300,12 +368,6 @@ fn method(
         )));
     };
     let params = parameters(model, &def.params, data_types, unsupported)?;
-    let callee = format!("m_{}__{}", mangle(&held.declaring), mangle(&def.name));
-    let receiver = if held.path.is_empty() {
-        ", me".to_string()
-    } else {
-        format!(", &me{}", held.path)
-    };
     let Returned {
         returns,
         raw,
@@ -315,8 +377,8 @@ fn method(
     } = returned(
         model,
         def.return_type,
-        &callee,
-        &receiver,
+        callee,
+        receiver,
         &params,
         data_types,
         unsupported,
@@ -325,37 +387,8 @@ fn method(
     let place = params.values.len();
     let input = place + 1;
     let (inputs, outputs) = members;
-    let stores: String = inputs
-        .iter()
-        .map(|member| {
-            format!(
-                "                    {}\n",
-                store(
-                    &model.types,
-                    member.ty,
-                    &format!("me.{}", member.cells),
-                    &format!("self.{input}.{}", member.field),
-                    Scope::Bindings
-                )
-            )
-        })
-        .collect();
-    let loads = outputs
-        .iter()
-        .map(|member| {
-            format!(
-                "{}: {}",
-                member.field,
-                load(
-                    &model.types,
-                    member.ty,
-                    &format!("me.{}", member.cells),
-                    Scope::Bindings
-                )
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
+    let stores = member_stores(&model.types, inputs, &format!("self.{input}"));
+    let loads = member_loads(&model.types, outputs);
     let Parameters {
         signature,
         mut fields,

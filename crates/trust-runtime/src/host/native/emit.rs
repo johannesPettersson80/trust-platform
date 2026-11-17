@@ -117,27 +117,10 @@ pub(super) fn generate<'a>(
     let mut frame_types = String::new();
     let mut done_blocks: Vec<Ty> = Vec::new();
     let mut work: Vec<Work<'a>> = (0..model.program_types.len()).map(Work::Program).collect();
-    // CODESYS's implicit `FB_init`: the initializations call the method of every instance whose
-    // type declares it (specification 10 §4.8).
-    let fb_init = super::fb_init::calls(front, model)?;
-    for need in fb_init.needs {
-        queue(model, need, &mut queued, &mut work)?;
-    }
-    // CODESYS's implicit `FB_exit`: the exit before a restart or a download calls the method of
-    // every instance whose type declares it, in the reverse order.
-    let fb_exit = super::fb_exit::calls(front, model)?;
-    for need in fb_exit.needs {
-        queue(model, need, &mut queued, &mut work)?;
-    }
-    // CODESYS's implicit `FB_reinit`: an online change calls the method of every instance it
-    // copied.
-    let fb_reinit = super::fb_reinit::calls(model)?;
-    for need in fb_reinit.needs {
-        queue(model, need, &mut queued, &mut work)?;
-    }
+    let (fb_init, fb_exit, fb_reinit) = lifecycle_calls(front, model, &mut queued, &mut work)?;
     // The Structured Text functions that the crate calls, whether a program calls them or not
     // (specification 48 RU-40).
-    let mut named = structured_text_calls(front, model, &mut queued, &mut work)?;
+    let mut named = structured_text_calls(front, model, &mut queued, &mut work, &mut dispatchers)?;
     // A crate that names a type of the project's Structured Text, and calls none of it, still needs
     // its binding in layer 1 (RU-39, RU-42).
     let layered = !named.roots.is_empty() || !named.types.is_empty();
@@ -174,7 +157,12 @@ pub(super) fn generate<'a>(
             }
             // Layer 1's bindings, once every body the crate's calls reach is generated (RU-39).
             if layered && bindings.is_none() {
-                bindings = Some(write_bindings(model, &mut named, &mut dispatchers)?);
+                let reached = Reached {
+                    queued: &mut queued,
+                    work: &mut work,
+                    dispatchers: &mut dispatchers,
+                };
+                bindings = Some(write_bindings(front, model, &mut named, reached)?);
             }
             let mut added = false;
             for need in super::dispatch::targets(model, &dispatchers)? {
@@ -365,12 +353,15 @@ pub(super) fn layer_one_library(release: &str, debug: &str, bindings: &str) -> S
 
 /// Queues the Structured Text function of each call that the project's crate makes (specification
 /// 48 RU-38) and gives the function's name with the call, and the project's data types the crate
-/// names, whose bindings the crate writes values of; refuses a name of anything else.
+/// names, whose bindings the crate writes values of; refuses a name of anything else. A held
+/// block's binding calls its body and methods, queued, or their dispatchers, added to
+/// `dispatchers` (RU-39).
 fn structured_text_calls<'a>(
     front: &Front,
     model: &mut Model<'a>,
     queued: &mut Vec<Need>,
     work: &mut Vec<Work<'a>>,
+    dispatchers: &mut Vec<Need>,
 ) -> Result<Named, NativeError> {
     let mut roots = Vec::new();
     let mut types: Vec<(Ty, StructuredTextUse)> = Vec::new();
@@ -387,15 +378,15 @@ fn structured_text_calls<'a>(
             queue(model, Need::Function(def.name.clone()), queued, work)?;
             roots.push((format!("f_{}", mangle(&def.name)), used.clone()));
         } else if let Some(owner) = model.types.owner(&used.name) {
-            // A function block or a class a Rust POU holds (RU-39), laid out as its field's type:
-            // a block's body, which every function block type of the program has; a class has none
-            // (IEC §6.6.5).
+            // A function block or a class a Rust POU holds or names through a reference (RU-39),
+            // laid out as its field's type or as an instance a reference may name: a block's body,
+            // which every function block type of the program has; a class has none (IEC §6.6.5).
             let what = if owner.is_class() {
                 "class"
             } else {
                 "function block"
             };
-            if model.types.by_rust(&owner.rust()).is_none() {
+            let Some(ty) = model.types.by_rust(&owner.rust()) else {
                 return Err(NativeError::Compile(format!(
                     "{call} names the Structured Text {what} {}, which a Rust function block or \
                      program holds as a field, `name: st::{}`, and no field holds (specification \
@@ -403,25 +394,24 @@ fn structured_text_calls<'a>(
                     owner.name(),
                     used.name
                 )));
-            }
+            };
             if !owner.is_class() {
-                roots.push((format!("fb_{}", mangle(owner.name())), used.clone()));
+                let (body, need) = st_blocks::body_call(model, owner, ty);
+                roots.push((body, used.clone()));
+                if let Some(need) = need {
+                    need.add_to(dispatchers);
+                }
             }
             // Its `PUBLIC` methods, which its binding calls, lie in layer 1 with it (RU-39).
             if !methods.contains_key(owner.name().as_str()) {
                 let held = held_methods(front, model, owner);
                 for method in &held {
-                    queue(
-                        model,
-                        Need::Method(method.declaring.clone(), method.method.clone()),
-                        queued,
-                        work,
-                    )?;
-                    let root = format!(
-                        "m_{}__{}",
-                        mangle(&method.declaring),
-                        mangle(&method.method)
-                    );
+                    let (root, _, need) = st_blocks::method_call(model, owner, ty, method);
+                    if matches!(need, Need::Virtual(..)) {
+                        need.add_to(dispatchers);
+                    } else {
+                        queue(model, need, queued, work)?;
+                    }
                     roots.push((root, used.clone()));
                 }
                 methods.insert(owner.name().to_string(), held);
@@ -458,19 +448,66 @@ fn structured_text_calls<'a>(
     })
 }
 
-/// Layer 1's bindings (RU-39): an interface's binding calls the dispatchers of its methods, which
-/// join `dispatchers` and, as roots of layer 1 with the crate's use that reached the interface,
-/// bring layer 1 every method they can reach (RU-40).
-fn write_bindings(
-    model: &mut Model<'_>,
+/// CODESYS's implicit calls of the methods `FB_init`, `FB_exit` and `FB_reinit`, with their methods
+/// queued: the initializations call `FB_init` of every instance whose type declares it
+/// (specification 10 §4.8), the exit before a restart or a download `FB_exit`, in the reverse
+/// order, and an online change `FB_reinit` of every instance it copied.
+fn lifecycle_calls<'a>(
+    front: &Front,
+    model: &mut Model<'a>,
+    queued: &mut Vec<Need>,
+    work: &mut Vec<Work<'a>>,
+) -> Result<
+    (
+        super::fb_init::FbInit,
+        super::fb_exit::FbExit,
+        super::fb_reinit::FbReinit,
+    ),
+    NativeError,
+> {
+    let mut fb_init = super::fb_init::calls(front, model)?;
+    let mut fb_exit = super::fb_exit::calls(front, model)?;
+    let mut fb_reinit = super::fb_reinit::calls(model)?;
+    let needs = std::mem::take(&mut fb_init.needs)
+        .into_iter()
+        .chain(std::mem::take(&mut fb_exit.needs))
+        .chain(std::mem::take(&mut fb_reinit.needs));
+    for need in needs {
+        queue(model, need, queued, work)?;
+    }
+    Ok((fb_init, fb_exit, fb_reinit))
+}
+
+/// Where the generated functions that layer 1's bindings call are asked for: the bodies queued,
+/// and the dispatchers.
+struct Reached<'r, 'a> {
+    queued: &'r mut Vec<Need>,
+    work: &'r mut Vec<Work<'a>>,
+    dispatchers: &'r mut Vec<Need>,
+}
+
+/// Layer 1's bindings (RU-39). The bindings of the interfaces and of the blocks reached through a
+/// reference call generated functions, the dispatchers of an interface's methods and a block's
+/// body and methods, which become roots of layer 1 with the crate's use that reached them and
+/// bring layer 1 every function they can reach (RU-40).
+fn write_bindings<'a>(
+    front: &Front,
+    model: &mut Model<'a>,
     named: &mut Named,
-    dispatchers: &mut Vec<Need>,
+    reached: Reached<'_, 'a>,
 ) -> Result<String, NativeError> {
-    let written = st_bindings::bindings(model, &named.roots, &named.types, &named.methods)?;
-    for (interface, method, used) in written.dispatched {
-        let dispatcher = super::dispatch::interface_function(&interface, &method);
-        named.roots.push((dispatcher, used));
-        Need::Interface(interface, method).add_to(dispatchers);
+    let written = st_bindings::bindings(front, model, &named.roots, &named.types, &named.methods)?;
+    for (root, need, used) in written.reached {
+        named.roots.push((root, used));
+        match need {
+            Some(need @ (Need::Interface(..) | Need::Virtual(..) | Need::Body(_))) => {
+                need.add_to(reached.dispatchers);
+            }
+            Some(need) => {
+                queue(model, need, reached.queued, reached.work)?;
+            }
+            None => {}
+        }
     }
     Ok(written.text)
 }

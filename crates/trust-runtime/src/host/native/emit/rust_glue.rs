@@ -501,6 +501,15 @@ pub(super) fn load(
     places: &mut BTreeSet<Ty>,
     depth: usize,
 ) -> Result<String, NativeError> {
+    // A reference to a Structured Text function block or class instance, through the block's
+    // binding (specification 48 RU-39).
+    if let Some(at) =
+        super::st_bindings::block_binding(types, ty, super::st_bindings::Scope::Generated)
+    {
+        return Ok(format!(
+            "::trust_plc::__private::reference_to({place}.get(), {at}::__at)"
+        ));
+    }
     if let Some(target) = reference_target(types, ty) {
         reach(types, target, structures, places)?;
         let rust = &types.info(target).rust;

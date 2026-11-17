@@ -430,7 +430,7 @@ Rust as the SDK names them:
 | a structure | a Rust `struct` with `#[trust_struct]`, every field of a type of this table |
 | a structure, an enumeration, a type with named values or an interface of the project's Structured Text | its binding, `st::POINT`, `st::MODE`, `st::I_RUN` (RU-39) |
 | a function block instance | a field of a function block's type, Rust or Structured Text (§8) |
-| `REF_TO T` | `Ref<T>` |
+| `REF_TO T` | `Ref<T>`; a reference to a function block or class instance of the project's Structured Text, `Ref<st::TON>` (RU-39) |
 | `VAR_IN_OUT` of `T` | a function's or a method's parameter `InOut<T>`; a function block's field `#[in_out]` of type `Ref<T>` (RU-29) |
 
 The SDK's `Date`, `Tod` and `Dt` and their long forms hold what the areas store (milliseconds since
@@ -694,10 +694,10 @@ their breakpoints (RU-52); no Rust code reaches that context (RU-11, RU-20). A S
 block held by a Rust instance lies inside the Rust instance in the area, as a nested instance lies
 in a Structured Text one (specification 44 §6.2), so the symbol table, Live Values and online change
 see it. It is the Rust POU's own variable, a field `name: st::X` (`st::Motion::X` for a block in a
-namespace) of a function block or a program without `#[input]`, `#[output]` or `#[init]`, not an array of blocks or a reference to one; a
+namespace) of a function block or a program without `#[input]`, `#[output]` or `#[init]`, not an array of blocks (a reference to one is a `Ref<st::X>`, below); a
 function, a method and a structure hold none; rustc refuses one elsewhere, as a held block's or
-class's binding is no `trust_plc::Value`, which the binding of a structure, an enumeration or a type
-with named values is. Each call of the Rust POU reads the block's inputs
+class's binding is no `trust_plc::Value`, which the binding of a structure, an enumeration, a type
+with named values or an interface is. Each call of the Rust POU reads the block's inputs
 and outputs from its instance into `input` and `output`; `call` gives the instance `input`, runs
 its body and takes its outputs into `output`; when the Rust POU returns, `input` goes back to the
 instance, as Structured Text's assignment of an instance's input does, and `output`, which only the
@@ -758,6 +758,18 @@ has, as Structured Text's call through the interface does (IEC §6.6.8; specific
 (IEC §6.6.6.5.2; specification 44 §6.5). Layer 1 holds each method that such a call can reach
 (RU-40), so the build refuses the binding of an interface that a Rust function block implements
 (RU-33), naming the chain, since layer 1 is compiled before the crate.
+
+A reference to a function block or class instance of the project's Structured Text, `REF_TO TON`
+(IEC §6.4.4.10.1), is a `Ref<st::TON>` (RU-25) in any variable of a Rust POU and in what a call or a
+held block passes; a Structured Text caller gives it `REF(timer)`. Its `get(cx)` gives the block's
+binding, which names the instance the reference names, with its inputs and outputs as they are;
+that binding's `call` and its `PUBLIC` methods run on the instance as Structured Text's call through
+the reference does, the body or the method of the instance's own class when a block derived from
+the one referenced has its own (IEC §6.6.8; specification 44 §6.4), and what the Rust POU writes
+into `input` reaches the instance when `call` or a method gives it. `get` of `NULL`, or of a
+reference that names no instance, ends the scan with the fault of Structured Text's dereference
+(specification 44 §6.5). Such a reference has no `set`, as an instance is no `trust_plc::Value`.
+Layer 1 holds the block's body, or its body's dispatcher, and the methods its binding calls (RU-40).
 
 **RU-40. What can be called.** `st::` names the project's Structured Text functions, function
 blocks and classes, its interfaces and its structures, enumerations and types with named values, those the crate declares
