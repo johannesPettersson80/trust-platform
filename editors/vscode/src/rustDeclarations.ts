@@ -1,14 +1,16 @@
 import { execFile } from "child_process";
+import * as path from "path";
 import * as vscode from "vscode";
 import { trustDevBinary } from "./binary";
 import { projectRequest } from "./projectRequest";
 
 /**
  * Keeps a project's generated declarations of its Rust POUs and its bindings of the Structured Text
- * its crate calls in step with the crate (specification 48 RU-24, RU-39): `trust-dev rust
- * declarations` runs for each open project once, and for a project again whenever a `.rs` file of
- * it is saved. What the project is and what the command writes are trust-dev's and the language
- * server's: the extension only starts the command and shows what it reports.
+ * its crate calls in step with the crate, and the heartbeats of the services its `trust.toml` declares
+ * in step with `trust.toml` (specification 48 RU-24, RU-39, RU-63): `trust-dev rust declarations`
+ * runs for each open project once, and for a project again whenever a `.rs` file or the
+ * `trust.toml` of it is saved. What the project is and what the command writes are trust-dev's and
+ * the language server's: the extension only starts the command and shows what it reports.
  */
 export function registerRustDeclarations(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("truST Rust declarations");
@@ -57,7 +59,8 @@ export function registerRustDeclarations(context: vscode.ExtensionContext): void
 
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(async (document) => {
-      if (document.uri.scheme !== "file" || !document.fileName.endsWith(".rs")) {
+      const saved = path.basename(document.fileName);
+      if (document.uri.scheme !== "file" || !(saved.endsWith(".rs") || saved === "trust.toml")) {
         return;
       }
       const root = await projectOf(document.uri.fsPath);
