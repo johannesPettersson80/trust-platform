@@ -48,6 +48,9 @@ case $host in
   *-windows-*) ;;
   *)
     ln -sfn "$sysroot/bin/cargo" "$out/bin/cargo"
+    # The crates of the lock, which the steps below read offline: on a fresh computer, as the
+    # release's, this script runs cargo first.
+    cargo fetch --quiet --locked
     rm -rf "${out:?}/sdk" "${out:?}/build-package"
     cargo package --quiet --offline --no-verify --allow-dirty -p trust-plc-abi -p trust-plc-lib \
       -p trust-plc-mem -p trust-plc-decl -p trust-plc-macros -p trust-plc --target-dir "$out/build-package"
