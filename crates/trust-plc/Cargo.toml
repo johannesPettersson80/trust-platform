@@ -10,6 +10,12 @@ rust-version.workspace = true
 [dependencies]
 trust-plc-abi = { workspace = true }
 trust-plc-lib = { workspace = true }
+
+# The attributes' procedural macros (specification 48 RU-74): a user's own cargo builds them as this
+# dependency; the build of a truST program gives rustc the toolchain's prebuilt library instead
+# (`--cfg trust_prebuilt_macros`, `--extern trust_plc_macros=...`), so that it compiles nothing for
+# the computer, and `trust_plc_macros` is the same name in both.
+[target.'cfg(not(trust_prebuilt_macros))'.dependencies]
 trust-plc-macros = { workspace = true }
 
 [lints.rust]

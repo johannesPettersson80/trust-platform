@@ -54,6 +54,16 @@ pub(super) const LINKER_SCRIPT: &str = "SECTIONS
 }
 ";
 
+/// The file of the SDK's prebuilt procedural macro library in a toolchain's `macros` folder, as this
+/// computer names a dynamic library (specification 48 RU-74).
+const MACRO_LIBRARY: &str = if cfg!(windows) {
+    "trust_plc_macros.dll"
+} else if cfg!(target_os = "macos") {
+    "libtrust_plc_macros.dylib"
+} else {
+    "libtrust_plc_macros.so"
+};
+
 /// A toolchain.
 #[derive(Clone, Debug)]
 pub struct Toolchain {
@@ -71,6 +81,18 @@ pub struct Toolchain {
     /// The folder of the SDK's crates' sources, `trust-plc` and the crates it is built from, which
     /// such a build compiles (specification 48 RU-12); `None` in a toolchain without them.
     pub sdk: Option<PathBuf>,
+    /// The SDK's procedural macros, prebuilt for this computer with the toolchain's compiler, which
+    /// such a build gives the compiler as an external crate, so that it compiles no procedural macro
+    /// for the computer (specification 48 RU-74); `None` in a toolchain without them, whose cargo
+    /// then builds the macros itself.
+    pub macros: Option<PathBuf>,
+    /// The folder of the toolchain's copies of the crates.io crates of the SDK's libraries that have
+    /// a build script, each folder named after its crate and its manifest naming the script's output
+    /// by a `links` key, and of `build-scripts.toml`, that output for each module target as cargo's
+    /// build script overrides: such a build takes the crates from the copies and gives cargo the
+    /// overrides, so that it compiles and runs no build script for the computer (specification 48
+    /// RU-74); `None` in a toolchain without them, whose cargo then builds and runs the scripts.
+    pub vendor: Option<PathBuf>,
 }
 
 /// Where the tools found their toolchain (specification 44 §4.6).
@@ -149,6 +171,11 @@ impl Toolchain {
         let sdk = std::fs::canonicalize(root.join("sdk"))
             .ok()
             .filter(|sdk| sdk.is_dir());
+        let macros =
+            Some(root.join("macros").join(MACRO_LIBRARY)).filter(|library| library.is_file());
+        let vendor = std::fs::canonicalize(root.join("vendor"))
+            .ok()
+            .filter(|vendor| vendor.is_dir());
         Ok(Self {
             rustc,
             linker,
@@ -156,6 +183,8 @@ impl Toolchain {
             version,
             cargo,
             sdk,
+            macros,
+            vendor,
         })
     }
 
