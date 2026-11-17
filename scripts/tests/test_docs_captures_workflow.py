@@ -378,6 +378,22 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         server = run[-1].rsplit("exec code-server ", 1)[1].split()
         self.assertIn("--disable-update-check", server)
 
+    def test_the_create_project_capture_acts_on_the_folder_dialog_only_when_it_is_ready(self) -> None:
+        # Catches the race of W46: #586's run typed the parent folder before code-server's folder dialog had listed
+        # its first folder, which wrote the home folder over the box, and clicked its accept while it listed the typed
+        # folder, which dropped the click; both attempts failed (run 44149434259). The capture types only after the
+        # first listing, accepts again while the dialog still shows until the name's prompt shows, and checks that the
+        # project opened in its attempt's folder (specification 22, "Docs Captures").
+        capture = (CAPTURES / "vscode" / "create-project.spec.mjs").read_text()
+        listed = capture.index('dialog.locator(".monaco-list-row").first()).toBeVisible(')
+        typed = capture.index("await input.fill(parent);")
+        self.assertLess(listed, typed, "the path is typed only after the dialog's first listing")
+        retried = capture[capture.index("await expect(async () => {") : capture.index("}).toPass(")]
+        self.assertIn("if (await accept.isVisible()) {", retried)
+        self.assertIn("await accept.click(", retried)
+        self.assertIn("await expect(namePrompt).toBeVisible(", retried)
+        self.assertIn("folder=.*create-project(?:/|%2F)${attempt}(?:/|%2F)${NAME}", capture)
+
     def test_code_server_writes_as_the_user_who_runs_the_captures(self) -> None:
         # Catches a capture that cannot write into the repository: as the image's own user, code-server could not create
         # the project of "Create A New Project" in the runner's checkout, which another user owns, and the window never
