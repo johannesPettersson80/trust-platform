@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The version bump of a release (AGENTS.md "Releases", specification 22, "Change and release
-workflow"): the workspace version, the ESP32-C6 firmware's version, the workspace crates in every
-Cargo lockfile, the VS Code package and its lockfile's root entries, and the changelog: the
+workflow"): the workspace version, the SDK crates' pins on each other, the ESP32-C6 firmware's
+version, the workspace crates in every Cargo lockfile, the VS Code package and its lockfile's root
+entries, and the changelog: the
 fragments under `changelog.d/` are gathered into `## [NEW] - DATE` under an empty `## [Unreleased]`,
 the newest first, and removed. Every replacement must find exactly what it expects, or nothing is
 written.
@@ -30,6 +31,12 @@ LOCKFILES = (
     "fuzz/Cargo.lock",
     "crates/trust-ads-server/fuzz/Cargo.lock",
 )
+
+
+# A workspace crate that the workspace names with its version beside its path: the SDK's crates name each other at
+# the release's exact version, as `cargo package` writes them for crates.io and the toolchain bundle (specification
+# 48 RU-12).
+PINNED = re.compile(r'^([a-z0-9-]+ = \{ path = "[^"]+", version = "=)([^"]+)(" \})$', re.M)
 
 
 def replace_once(files: dict[Path, str], path: Path, before: str, after: str) -> None:
@@ -80,6 +87,11 @@ def bump(root: Path, old: str, new: str, day: str) -> list[str]:
     files[cargo] = workspace.replace(
         section.group(0), section.group(0).replace(f'version = "{old}"', f'version = "{new}"', 1)
     )
+    pinned = list(PINNED.finditer(files[cargo]))
+    if not pinned or any(match.group(2) != old for match in pinned):
+        raise ValueError(f"Cargo.toml: the SDK's crates are not all pinned at ={old}")
+    files[cargo] = PINNED.sub(lambda match: f"{match.group(1)}{new}{match.group(3)}", files[cargo])
+    report.append(f"Cargo.toml: {len(pinned)} SDK crates pinned at ={new}")
     replace_once(files, root / "firmware/trust-esp32c6/Cargo.toml", f'version = "{old}"', f'version = "{new}"')
     for lock in LOCKFILES:
         report.append(f"{lock}: {bump_lock(files, root / lock, old, new)} workspace crates")
