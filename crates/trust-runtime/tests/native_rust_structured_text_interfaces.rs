@@ -364,7 +364,8 @@ impl Hand {{
 fn an_interface_a_rust_block_implements_has_no_binding() {
     // RU-39, RU-40: the binding's call of SCALED can reach HAND's, a Rust method, and layer 1,
     // compiled before the crate, cannot call it, so the build refuses the binding with the chain
-    // from the crate's use. Catches a layer 1 that calls the crate, which cargo could not build.
+    // from the crate's use, on every toolchain. Catches a layer 1 that calls the crate, which cargo
+    // could not build.
     let root = custom_project(
         "rust-pous-structured-text-interface-rust",
         &[
@@ -384,12 +385,9 @@ scaler(speed := hand, x := 1);
 END_PROGRAM",
         ),
     );
-    let (error, toolchain) = build_error(&root);
-    // A toolchain without cargo and the SDK's sources builds no Rust POU (specification 48 §9.3).
-    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
-        assert!(error.contains("no cargo and SDK sources"), "{error}");
-        return;
-    }
+    // The generator refuses it while it writes the layers, before cargo runs (specification 48
+    // §9.1, steps 3 and 4), so a toolchain without cargo refuses it the same.
+    let (error, _) = build_error(&root);
     assert!(
         error.contains("st::I_SPEED at rust/src/lib.rs:"),
         "the refusal names the crate's use: {error}"
