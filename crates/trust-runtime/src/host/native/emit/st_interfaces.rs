@@ -74,6 +74,22 @@ impl {name} {{
     pub fn is_null(&self) -> bool {{
         self.value.kind == trust_plc_abi::RefValue::NULL
     }}
+
+    /// The value that names the instance `place` names, a reference of kind instance
+    /// (specification 44 §6.4); `NULL` for `NULL`.
+    #[doc(hidden)]
+    #[must_use]
+    pub const fn __of(place: trust_plc_abi::RefValue) -> Self {{
+        if place.kind == trust_plc_abi::RefValue::NULL {{
+            return Self::NULL;
+        }}
+        Self {{
+            value: trust_plc_abi::RefValue {{
+                kind: trust_plc_abi::RefValue::INSTANCE,
+                ..place
+            }},
+        }}
+    }}
 {methods}}}
 
 /// Two values are equal when they name the same instance or are both `NULL` (IEC §6.6.6.5.1).
@@ -111,6 +127,25 @@ impl trust_plc::Place<{name}> for core::cell::Cell<trust_plc_abi::RefValue> {{
 "
     );
     Ok((text, dispatched))
+}
+
+/// That an instance of the block or class `block` is a value of the interface `interface`, which it
+/// implements (IEC §6.6.6.5.1; RU-39): `st::I_RUN::from(&self.motor)`, the reference to the
+/// instance its binding names. Both are named by their paths from layer 1's root.
+pub(super) fn conversion(block: &str, interface: &str) -> String {
+    let block_path = format!("crate::{}", block.replace('.', "::"));
+    let interface_path = format!("crate::{}", interface.replace('.', "::"));
+    format!(
+        "/// An instance of `{block}` is a value of the interface `{interface}`, which it implements: the
+/// reference to it (IEC §6.6.6.5.1; specification 48 RU-39).
+impl From<&{block_path}> for {interface_path} {{
+    fn from(block: &{block_path}) -> Self {{
+        Self::__of(block.__place())
+    }}
+}}
+
+"
+    )
 }
 
 /// The binding of the method `def` of the interface `interface` (RU-39): a method of the

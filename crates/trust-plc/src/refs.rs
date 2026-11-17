@@ -46,7 +46,9 @@ impl<'a, T> InOut<'a, T> {
 
 /// A reference to a variable of type `T` (`REF_TO`, specification 44 §7.3), or `NULL`: a function
 /// block's in-out (`#[in_out]`), the reference of its last call, or a `REF_TO` variable or input.
-/// It is copied and compared as Structured Text's references are.
+/// It is copied and compared as Structured Text's references are. A reference to an instance of a
+/// Structured Text function block or class of the project is a `Ref<st::TON>`, whose
+/// [`get`](Ref::get) gives the block's binding, which names the instance (specification 48 RU-39).
 pub struct Ref<T> {
     value: RefValue,
     access: Access<T>,
@@ -117,7 +119,9 @@ impl<T> Ref<T> {
         self.value.kind == RefValue::NULL
     }
 
-    /// The value of the variable it names; a structure's every field.
+    /// The value of the variable it names; a structure's every field. For a reference to a
+    /// Structured Text function block or class instance, the block's binding, which names the
+    /// instance, with its inputs and outputs as they are (specification 48 RU-39).
     ///
     /// # Errors
     ///
@@ -129,14 +133,15 @@ impl<T> Ref<T> {
     }
 
     /// Writes `value` into the variable it names, a structure's every field, at once; a string is
-    /// cut to the variable's capacity (specification 02 §6).
+    /// cut to the variable's capacity (specification 02 §6). A function block or class instance is
+    /// no value, so a reference to one has no `set` (specification 48 RU-39).
     ///
     /// # Errors
     ///
     /// The faults of [`get`](Ref::get); nothing is written then.
     pub fn set(&self, cx: &mut Cx, value: T) -> Result<(), Fault>
     where
-        T: Copy,
+        T: Copy + crate::Value,
     {
         (self.access.store)(cx.raw(), &self.value, &value)
     }
@@ -165,6 +170,24 @@ pub fn reference_via<T, A: Plain, P: PlaceOf<A, T>>(value: RefValue) -> Ref<T> {
         access: Access {
             load: load_via::<T, A, P>,
             store: store_via::<T, A, P>,
+        },
+    }
+}
+
+/// The reference the generated code's `value` holds, to an instance of a Structured Text function
+/// block or class whose binding `at` makes from it (specification 48 RU-39). A block is no value,
+/// so nothing is written through it.
+#[must_use]
+#[inline]
+pub fn reference_to<T>(
+    value: RefValue,
+    at: fn(&mut trust_plc_abi::Cx, &RefValue) -> Result<T, Fault>,
+) -> Ref<T> {
+    Ref {
+        value,
+        access: Access {
+            load: at,
+            store: no_store::<T>,
         },
     }
 }
@@ -219,6 +242,18 @@ fn store_via<T, A: Plain, P: PlaceOf<A, T>>(
             .deref::<A>(raw, value)
             .map(|place| P::store(place, item))
     })
+}
+
+/// The write through a reference to a block, which [`Ref::set`] never makes: a block is no
+/// [`Value`](crate::Value).
+fn no_store<T>(raw: &mut trust_plc_abi::Cx, value: &RefValue, _: &T) -> Result<(), Fault> {
+    Err(module::fault(
+        raw,
+        FaultCode::TypeMismatch,
+        i64::from(value.kind),
+        0,
+        0,
+    ))
 }
 
 /// `NULL`'s read: the fault Structured Text's dereference of `NULL` records.

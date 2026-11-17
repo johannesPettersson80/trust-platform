@@ -1,6 +1,6 @@
 //! A Rust POU's own variables of the project's Structured Text types (specification 48 RU-25,
-//! RU-39): an input, an output and an array of a structure's or an enumeration's binding, and a held
-//! block refused by rustc where a value lies.
+//! RU-39): an input, an output and an array of a structure's or an enumeration's binding, and an
+//! array of held blocks refused by rustc, as a held block is no value.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -124,8 +124,8 @@ END_PROGRAM",
     assert_eq!(program.value("MAIN.TRACER.LAST.Y"), Some(Value::LReal(4.0)));
 }
 
-/// A crate whose block keeps a reference to a held block.
-const HELD_INPUT: &str = "#![cfg_attr(not(test), no_std)]
+/// A crate whose block keeps an array of held blocks.
+const HELD_ARRAY: &str = "#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
 use trust_plc::prelude::*;
@@ -133,7 +133,7 @@ use trust_plc::prelude::*;
 #[trust_fb(name = \"GUARD\")]
 #[budget(\"2us\")]
 pub struct Guard {
-    r: Ref<st::HYSTERESIS>,
+    pair: Array<st::HYSTERESIS, 1, 2>,
 }
 
 impl Body for Guard {
@@ -145,10 +145,10 @@ impl Body for Guard {
 
 #[test]
 fn a_held_block_where_a_value_lies_is_refused_by_rustc() {
-    // RU-39: a Structured Text function block a Rust POU holds is its own variable; a reference to
-    // one is refused by rustc, which finds its binding no `trust_plc::Value`, with the rule (as an
-    // input the native build refuses it first, NX-09). Catches a held block taken where a value
-    // lies, which the bindings cannot read or write.
+    // RU-39: a Structured Text function block a Rust POU holds is its own variable, or what a
+    // reference names; an array of them is refused by rustc, which finds the block's binding no
+    // `trust_plc::Value`, with the rule (as an input the native build refuses it first, NX-09).
+    // Catches a held block taken where a value lies, which the bindings cannot read or write.
     let root = custom_project(
         "rust-pous-structured-text-held-input",
         &[
@@ -156,7 +156,7 @@ fn a_held_block_where_a_value_lies_is_refused_by_rustc() {
                 "Cargo.toml",
                 &manifest("trust_st = { path = \"../build/trust_st\" }\n"),
             ),
-            ("src/lib.rs", HELD_INPUT),
+            ("src/lib.rs", HELD_ARRAY),
         ],
         &types_and(
             "PROGRAM Line

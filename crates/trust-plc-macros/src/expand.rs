@@ -267,7 +267,9 @@ pub(crate) fn budget(args: &TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// The paths `st::X` that `ty` names (specification 48 RU-39), through generic arguments,
-/// references, arrays and tuples: the types of the project's Structured Text it holds.
+/// references, arrays and tuples: the types of the project's Structured Text it holds as values.
+/// The `st::X` that a `Ref<...>` names directly is left out, since a reference may name a function
+/// block or class instance, `Ref<st::TON>` (RU-39).
 fn structured_text_types(ty: &Type) -> Vec<TypePath> {
     let mut found = Vec::new();
     collect_structured_text_types(ty, &mut found);
@@ -276,20 +278,16 @@ fn structured_text_types(ty: &Type) -> Vec<TypePath> {
 
 fn collect_structured_text_types(ty: &Type, found: &mut Vec<TypePath>) {
     match ty {
+        Type::Path(path) if is_structured_text_path(ty) => found.push(path.clone()),
         Type::Path(path) => {
-            let segments = &path.path.segments;
-            if path.qself.is_none()
-                && path.path.leading_colon.is_none()
-                && segments.len() > 1
-                && segments.first().is_some_and(|first| first.ident == "st")
-            {
-                found.push(path.clone());
-                return;
-            }
-            for segment in segments {
+            for segment in &path.path.segments {
                 if let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments {
+                    let reference = segment.ident == "Ref";
                     for argument in &arguments.args {
                         if let syn::GenericArgument::Type(inner) = argument {
+                            if reference && is_structured_text_path(inner) {
+                                continue;
+                            }
                             collect_structured_text_types(inner, found);
                         }
                     }
@@ -308,6 +306,15 @@ fn collect_structured_text_types(ty: &Type, found: &mut Vec<TypePath>) {
         }
         _ => {}
     }
+}
+
+/// Whether `ty` is a path `st::X`, a type of the project's Structured Text (RU-40).
+fn is_structured_text_path(ty: &Type) -> bool {
+    matches!(ty, Type::Path(path)
+        if path.qself.is_none()
+            && path.path.leading_colon.is_none()
+            && path.path.segments.len() > 1
+            && path.path.segments.first().is_some_and(|first| first.ident == "st"))
 }
 
 /// The types of the project's Structured Text that the fields of `item` hold as values: every

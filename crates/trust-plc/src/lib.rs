@@ -51,7 +51,7 @@ pub use types::{
 pub mod __private {
     pub use crate::context::{enter, leave};
     pub use crate::places::{PlaceOf, PlaceVia};
-    pub use crate::refs::{reference, reference_value, reference_via};
+    pub use crate::refs::{reference, reference_to, reference_value, reference_via};
     pub use crate::types::assert_value;
 }
 

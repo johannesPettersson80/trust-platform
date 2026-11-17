@@ -1,7 +1,8 @@
 //! A Rust POU's values of the project's Structured Text interfaces (specification 48 RU-25, RU-33,
 //! RU-39): the interface's binding as a variable, its methods called through it, which reach the
-//! method of the instance's class, `NULL` and equality, an interface reached through a function's
-//! result, and the refusal of an interface that a Rust block implements.
+//! method of the instance's class, `NULL` and equality, an interface reached through a held
+//! block's method result, a held instance as an interface's value, and the refusal of an interface that a Rust
+//! block implements.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -323,6 +324,66 @@ END_PROGRAM",
     assert_eq!(
         program.value("MAIN.PICKER.FACTORY.FAST.CALLS"),
         Some(Value::Int(1))
+    );
+}
+
+/// A crate whose block holds a TRIPLER, calls SCALED through the interface value of it, and gives
+/// that value out.
+const HOLDER: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+#[trust_fb(name = \"HOLDER\")]
+#[budget(\"2us\")]
+pub struct Holder {
+    #[output] pub speed: st::I_SPEED,
+    #[output] pub y: i16,
+    tripler: st::TRIPLER,
+}
+
+impl Body for Holder {
+    fn body(&mut self, cx: &mut Cx) -> Result<(), Fault> {
+        self.speed = st::I_SPEED::from(&self.tripler);
+        self.y = self.speed.SCALED(cx, 2)?;
+        Ok(())
+    }
+}
+";
+
+#[test]
+fn a_held_instance_is_a_value_of_the_interface_it_implements() {
+    // RU-39, IEC §6.6.6.5.1, at the task's first call at 10 ms: HOLDER's own TRIPLER is a value of
+    // I_SPEED, the reference to it, so SCALED through it reaches that TRIPLER, 2 × 3 + 1 = 7; the
+    // program then calls SCALED through HOLDER's output, which names the same instance, 1 × 3 + 2
+    // = 5, its second call. Catches a conversion that names another instance or a copy, and an
+    // interface value that Structured Text cannot call through.
+    let Some((built, device)) = build(
+        "rust-pous-structured-text-interface-of-held",
+        HOLDER,
+        "PROGRAM Line
+VAR
+    holder : HOLDER;
+    again : INT;
+END_VAR
+holder();
+again := holder.speed.SCALED(X := 1);
+END_PROGRAM",
+    ) else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("MAIN.HOLDER.Y"), Some(Value::Int(7)));
+    assert_eq!(program.value("MAIN.AGAIN"), Some(Value::Int(5)));
+    assert_eq!(
+        program.value("MAIN.HOLDER.TRIPLER.CALLS"),
+        Some(Value::Int(2))
     );
 }
 

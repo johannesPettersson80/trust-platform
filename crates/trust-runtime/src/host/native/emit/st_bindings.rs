@@ -5,8 +5,9 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
 
-use smol_str::SmolStr;
-
+use super::super::dispatch::interface_function;
+use super::super::front::Front;
+use super::super::lower::Need;
 use super::super::model::Model;
 use super::super::rust_pous::StructuredTextUse;
 use super::super::types::{mangle, Elem, Kind, Ty, Types};
@@ -69,22 +70,24 @@ fn parameter_name(name: &str) -> String {
     }
 }
 
-/// Layer 1's bindings (RU-39): their text, and each `(interface, method)` whose dispatcher an
-/// interface's binding calls, with the crate's use that reaches the interface.
+/// Layer 1's bindings (RU-39): their text, and each generated function that the bindings of an
+/// interface or of a block reached through a reference call, with the need that generates it, if
+/// any, and the crate's use that reaches it (RU-40).
 pub(super) struct Bindings {
     pub(super) text: String,
-    pub(super) dispatched: Vec<(SmolStr, SmolStr, StructuredTextUse)>,
+    pub(super) reached: Vec<(String, Option<Need>, StructuredTextUse)>,
 }
 
 /// The bindings of the Structured Text functions that `roots` name, each root a generated function
-/// with the crate's call of it, once for each name the crate writes, and of the data types and
-/// interfaces that the crate names (`named`, each with its use) or that those pass.
+/// with the crate's call of it, once for each name the crate writes, and of the data types,
+/// interfaces and blocks that the crate names (`named`, each with its use) or that those pass.
 ///
 /// # Errors
 ///
 /// [`NativeError::Compile`] for a function or a held block with a variable of a type the bindings
 /// have no Rust type for, naming the call.
 pub(super) fn bindings(
+    front: &Front,
     model: &mut Model<'_>,
     roots: &[(String, StructuredTextUse)],
     named: &[(Ty, StructuredTextUse)],
@@ -147,8 +150,9 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
         note_uses(&data_types, &mut reached_by, used);
         texts.entry(namespace).or_default().push_str(&function);
     }
-    // Each data type's and interface's binding, those their own reach among them.
-    let mut dispatched = Vec::new();
+    // Each data type's, interface's and referenced block's binding, those their own reach among
+    // them.
+    let mut reached = Vec::new();
     let mut written_types = BTreeSet::new();
     while let Some(ty) = data_types
         .iter()
@@ -158,28 +162,76 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
         written_types.insert(ty);
         let namespace = split_name(&model.types.info(ty).name).0.to_string();
         let used = reached_by.get(&ty).cloned();
-        let binding = if matches!(model.types.info(ty).kind, Kind::Interface) {
-            let (binding, called) = super::st_interfaces::interface(model, ty, &mut data_types)?;
-            if let Some(used) = &used {
-                dispatched.extend(
-                    called
-                        .into_iter()
-                        .map(|(interface, method)| (interface, method, used.clone())),
-                );
+        let kind = &model.types.info(ty).kind;
+        let (is_interface, is_block) = (
+            matches!(kind, Kind::Interface),
+            matches!(kind, Kind::Fb { .. }),
+        );
+        let binding = match &used {
+            Some(used) if is_interface => {
+                let (binding, called) =
+                    super::st_interfaces::interface(model, ty, &mut data_types)?;
+                reached.extend(called.into_iter().map(|(interface, method)| {
+                    let dispatcher = interface_function(&interface, &method);
+                    let need = Need::Interface(interface, method);
+                    (dispatcher, Some(need), used.clone())
+                }));
+                binding
             }
-            binding
-        } else {
-            super::st_types::binding(model, ty, &mut data_types)?
+            // A block or a class a reference names (RU-39): its binding, once, as a held one's,
+            // with what its `call` and its methods run.
+            Some(used) if is_block => match model.types.owner_of(ty) {
+                Some(owner) if !blocks.contains(&owner.name().to_string()) => {
+                    blocks.push(owner.name().to_string());
+                    let held = super::held_methods(front, model, owner);
+                    let binding =
+                        super::st_blocks::block(model, used, owner, &held, &mut data_types)?;
+                    if !owner.is_class() {
+                        let (body, need) = super::st_blocks::body_call(model, owner, ty);
+                        reached.push((body, need, used.clone()));
+                    }
+                    for method in &held {
+                        let (root, _, need) =
+                            super::st_blocks::method_call(model, owner, ty, method);
+                        reached.push((root, Some(need), used.clone()));
+                    }
+                    binding
+                }
+                _ => String::new(),
+            },
+            _ => super::st_types::binding(model, ty, &mut data_types)?,
         };
         if let Some(used) = &used {
             note_uses(&data_types, &mut reached_by, used);
         }
         texts.entry(namespace).or_default().push_str(&binding);
     }
+    // An instance a block binding names is a value of each bound interface its block implements
+    // (RU-39).
+    let interfaces: Vec<_> = written_types
+        .iter()
+        .filter(|ty| matches!(model.types.info(**ty).kind, Kind::Interface))
+        .map(|ty| model.types.info(*ty).name.clone())
+        .collect();
+    let mut conversions = String::new();
+    for block in &blocks {
+        let Some(owner) = model.types.owner(block) else {
+            continue;
+        };
+        for interface in &interfaces {
+            if model.types.defs.implements(owner, interface) {
+                conversions.push_str(&super::st_interfaces::conversion(block, interface));
+            }
+        }
+    }
+    texts
+        .entry(String::new())
+        .or_default()
+        .push_str(&conversions);
     texts.entry(String::new()).or_default().insert_str(0, &text);
     Ok(Bindings {
         text: nested(&texts, ""),
-        dispatched,
+        reached,
     })
 }
 
@@ -667,8 +719,14 @@ fn referenced_cells(types: &Types<'_>, ty: Ty, scope: Scope) -> Option<String> {
 }
 
 /// The binding's value of type `ty` that the generated code's cells `cell` hold, read through
-/// `trust_plc::Place`; a reference's through the SDK's reference of the cells it names (RU-29).
+/// `trust_plc::Place`; a reference's through the SDK's reference of the cells it names (RU-29), a
+/// reference to a block's through the block's binding (RU-39).
 pub(super) fn load(types: &Types<'_>, ty: Ty, cell: &str, scope: Scope) -> String {
+    if let Some(at) = block_binding(types, ty, scope) {
+        return format!(
+            "::trust_plc::__private::reference_to(::core::cell::Cell::get(&{cell}), {at}::__at)"
+        );
+    }
     match referenced_cells(types, ty, scope) {
         Some(target) => {
             format!(
@@ -679,9 +737,30 @@ pub(super) fn load(types: &Types<'_>, ty: Ty, cell: &str, scope: Scope) -> Strin
     }
 }
 
+/// The path, as `scope` names it, of the binding of the function block or class instance a
+/// reference of type `ty` names; `None` for another type.
+pub(super) fn block_binding(types: &Types<'_>, ty: Ty, scope: Scope) -> Option<String> {
+    let Kind::Ref {
+        target,
+        pointer: false,
+    } = types.info(ty).kind
+    else {
+        return None;
+    };
+    let info = types.info(target);
+    if !matches!(info.kind, Kind::Fb { .. }) {
+        return None;
+    }
+    let path = info.name.replace('.', "::");
+    Some(match scope {
+        Scope::Bindings => format!("crate::{path}"),
+        Scope::Generated => format!("::st::{path}"),
+    })
+}
+
 /// Writes the binding's value `value` of type `ty` into the generated code's cells `cell`.
 pub(super) fn store(types: &Types<'_>, ty: Ty, cell: &str, value: &str, scope: Scope) -> String {
-    if referenced_cells(types, ty, scope).is_some() {
+    if referenced_cells(types, ty, scope).is_some() || block_binding(types, ty, scope).is_some() {
         format!(
             "::core::cell::Cell::set(&{cell}, ::trust_plc::__private::reference_value({value}));"
         )
@@ -728,6 +807,16 @@ fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<
         }
         // A reference, `REF_TO T` (specification 44 §7.3), as the SDK's `Ref<T>`, to a variable of
         // a type a binding passes (RU-25, RU-29).
+        // A reference to a function block or class instance of the project, as `Ref<st::X>`, whose
+        // `get` gives the block's binding naming the instance (RU-39).
+        Kind::Ref {
+            target,
+            pointer: false,
+        } if matches!(types.info(*target).kind, Kind::Fb { .. }) => {
+            let path = binding_path(&types.info(*target).name)?;
+            data_types.insert(*target);
+            Some(format!("trust_plc::Ref<{path}>"))
+        }
         Kind::Ref {
             target,
             pointer: false,
