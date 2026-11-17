@@ -1135,15 +1135,20 @@ locals across them, and otherwise starts the sequence at its top and says so in 
 
 **RU-74.** The toolchain bundle (specification 44 §4.6) gains, for every computer platform:
 `cargo` of the pinned release; the SDK's procedural macro library (`trust-plc-macros`), which the
-release builds for that platform with the pinned compiler; and the sources of the SDK crates and of
-every crate they are built from, vendored, with their hashes in the bundle's manifest. The build
-gives `rustc` the macro library as an external crate of the bundle's copy of `trust-plc`, which takes
-its macros from it instead of from a dependency, so a build compiles and links nothing for the
-computer itself and needs no linker of the computer's: by RU-09 the SDK's macros are the only
-procedural macros of the scan crate graph, which has no build scripts, so the computer runs only
-the bundle's compiler and the macro library inside it. A user's own `cargo` (RU-56, RU-77) builds
-the same SDK from crates.io, its macros as an ordinary dependency, so both expand the same macro
-code. The module targets keep only `core` and `compiler_builtins`: the scan has no `std` and no
+release builds for that platform with the pinned compiler; the sources of the SDK crates and of
+every crate they are built from, vendored, with their hashes in the bundle's manifest; and, for each
+module target, the output of the build scripts of those crates (today `libm`'s only), which the
+release records when it builds the program library for that target. The build gives `rustc` the
+macro library as an external crate of the bundle's copy of `trust-plc`, which takes its macros from
+it instead of from a dependency, and gives `cargo` each recorded output in place of its build
+script, as cargo's build script override (the bundle's copy of such a crate differs from crates.io's
+only by the `links` key in its manifest that names the output). So a build compiles and links
+nothing for the computer itself and needs no linker of the computer's: by RU-09 the SDK's macros
+are the only procedural macros of the scan crate graph and the crates the SDK is built from the
+only ones with build scripts, so the computer runs only the bundle's compiler and the macro library
+inside it. A user's own `cargo` (RU-56, RU-77) builds the same SDK from crates.io, its macros as an
+ordinary dependency and its build scripts run, so both expand the same macro code and configure the
+same library code. The module targets keep only `core` and `compiler_builtins`: the scan has no `std` and no
 `alloc` (RU-19). The release records the bundle's new size as NX-08 records today's.
 
 **RU-75.** The project's crate and its dependencies are built with the bundle's `cargo` and
@@ -1275,7 +1280,9 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
    lack (macOS without Xcode's command-line tools has none). The owner delegated the choice on 17
    November 2026 ("do whats most professional and best for the user and us"), and the prebuilt
    library was chosen over the build expanding the attributes itself, which would have pointed the
-   compiler's messages into rewritten files instead of the user's own lines.
+   compiler's messages into rewritten files instead of the user's own lines. A build script of a
+   crate the SDK is built from (`libm`'s) needs that linker too, so under the same delegation the
+   bundle carries each script's output for every module target, which cargo takes in its place.
 2. **The SDK goes to crates.io** at every release, beside the bundle's copy (RU-12), so that a user's
    own `cargo` finds it for rust-analyzer and `cargo test`; the release workflow publishes it.
 3. **`unsafe` is forbidden in every crate of the scan**, dependencies included, not only in the

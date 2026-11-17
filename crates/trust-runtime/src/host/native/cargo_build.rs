@@ -86,9 +86,38 @@ pub(super) fn write_layer_one(folder: &Path, library: &str) -> Result<(), Native
     Ok(())
 }
 
+/// The crates of the toolchain's folder `vendor`, the copies of the crates.io crates of the SDK's
+/// libraries that have a build script, by name and folder, in the order of their names
+/// (specification 48 RU-74).
+///
+/// # Errors
+///
+/// [`NativeError::Toolchain`] when the folder cannot be read.
+fn vendored_crates(vendor: &Path) -> Result<Vec<(String, PathBuf)>, NativeError> {
+    let failed =
+        |error: std::io::Error| NativeError::Toolchain(format!("{}: {error}", vendor.display()));
+    let mut crates = Vec::new();
+    for entry in std::fs::read_dir(vendor).map_err(failed)? {
+        let folder = entry.map_err(failed)?.path();
+        if let Some(name) = folder.file_name().and_then(|name| name.to_str())
+            && folder.join("Cargo.toml").is_file()
+        {
+            crates.push((name.to_string(), folder.clone()));
+        }
+    }
+    crates.sort();
+    Ok(crates)
+}
+
 /// The manifest of the generated crate's package in `work`, for `target`, depending on `project`
-/// and on the SDK's crates in `sdk`.
-fn manifest(target: Target, sdk: &Path, project: &ProjectCrate) -> String {
+/// and on the SDK's crates in `sdk`, with the crates of `vendored` (`vendored_crates`) in place of
+/// crates.io's.
+fn manifest(
+    target: Target,
+    sdk: &Path,
+    vendored: &[(String, PathBuf)],
+    project: &ProjectCrate,
+) -> String {
     let path = |crate_name: &str| {
         sdk.join(crate_name)
             .display()
@@ -135,6 +164,15 @@ fn manifest(target: Target, sdk: &Path, project: &ProjectCrate) -> String {
     text.push_str("\n[patch.crates-io]\n");
     for crate_name in SDK_CRATES {
         let _ = writeln!(text, "{crate_name} = {{ path = \"{}\" }}", path(crate_name));
+    }
+    // The crates.io crates of the SDK's libraries that have a build script come from the
+    // toolchain's copies, whose scripts' output the build gives cargo instead (RU-74).
+    for (crate_name, folder) in vendored {
+        let _ = writeln!(
+            text,
+            "{crate_name} = {{ path = \"{}\" }}",
+            folder.display().to_string().replace('\\', "/")
+        );
     }
     // The module's code generation of specification 44 §4.5: one unit, link-time optimization,
     // abort on panic, integer overflow without checks.
@@ -185,10 +223,19 @@ pub(super) fn compile(
     let failed =
         |error: std::io::Error| NativeError::Toolchain(format!("{}: {error}", work.display()));
     std::fs::create_dir_all(work).map_err(failed)?;
+    let vendored = match &toolchain.vendor {
+        Some(vendor) => vendored_crates(vendor)?,
+        None => Vec::new(),
+    };
     let script = work.join("module.x");
     std::fs::write(work.join("module.rs"), source)
         .and_then(|()| std::fs::write(&script, LINKER_SCRIPT))
-        .and_then(|()| std::fs::write(work.join("Cargo.toml"), manifest(target, sdk, project)))
+        .and_then(|()| {
+            std::fs::write(
+                work.join("Cargo.toml"),
+                manifest(target, sdk, &vendored, project),
+            )
+        })
         .map_err(failed)?;
     // The versions the project's lock pins are kept: the build starts from it (RU-10).
     let lock = project.folder.join("Cargo.lock");
@@ -218,12 +265,41 @@ pub(super) fn compile(
             registry.display()
         ));
     }
+    if let Some(vendor) = &toolchain.vendor {
+        flags.push(format!("--remap-path-prefix={}=vendor", vendor.display()));
+    }
+    // The SDK's macros from the toolchain's prebuilt library: `trust-plc` then has no dependency on
+    // them, so no procedural macro is compiled for the computer (specification 48 RU-74, RU-09).
+    // The library's folder is a dependency path too: a crate that uses `trust-plc` finds the macros
+    // as its dependency there, which `--extern` names only for the crates that use them directly.
+    if let Some(macros) = &toolchain.macros {
+        flags.extend([
+            "--cfg".to_string(),
+            "trust_prebuilt_macros".into(),
+            "--extern".into(),
+            format!("trust_plc_macros={}", macros.display()),
+        ]);
+        if let Some(folder) = macros.parent() {
+            flags.extend(["-L".to_string(), format!("dependency={}", folder.display())]);
+        }
+    }
     check_graph(cargo, toolchain, sdk, target, work, project)?;
     let mut command = Command::new(cargo);
     command
         .current_dir(work)
         .args(["rustc", "--offline", "--release", "--bin", "trust_module"])
-        .args(["--target", triple(target)])
+        .args(["--target", triple(target)]);
+    // The output of the vendored crates' build scripts, which cargo takes instead of compiling and
+    // running the scripts (RU-74).
+    if let Some(overrides) = toolchain
+        .vendor
+        .as_ref()
+        .map(|vendor| vendor.join("build-scripts.toml"))
+        .filter(|overrides| overrides.is_file())
+    {
+        command.arg("--config").arg(overrides);
+    }
+    command
         .arg("--")
         .args(["--cfg", "trust_module", "-C", "remark=prolog-epilog"])
         .arg("-C")
