@@ -16,6 +16,7 @@ Standard function blocks are predefined FBs with internal state. They require in
 | `R_TRIG`, `F_TRIG` | Edge detection | fixed BOOL inputs/outputs | Table 44 | signature only | full stateful behavior | none |
 | `CTU`, `CTD`, `CTUD` | Counters | fixed or overloaded counter types | Table 45 | signature only | full stateful behavior | CTUD LD profile in `docs/IEC_DEVIATIONS.md` |
 | `TP`, `TON`, `TOF` and explicit `*_TIME`/`*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46, Figure 15 | signature only | scan-step state machines | scan/lifecycle choices in `docs/IEC_DECISIONS.md`; LD diagnostic `ET` key is a product implementation detail |
+| `SERVICE_FRESH` | Service freshness (truST extension) | fixed UDINT/TIME inputs, BOOL/TIME outputs | none (IEC §6.6.3 allows further function blocks) | signature only | scan-step state machine | none |
 
 ### Common Characteristics
 
@@ -610,6 +611,55 @@ accepted public spelling. Parameter order, names, directions, and concrete
 types in those definitions are the call-binding contract; timer `PT` and `ET`
 always use the same duration family, and counter `PV` and `CV` always use the
 same integer family.
+
+## 5A. Service Freshness (truST extension)
+
+### SERVICE_FRESH - Freshness of a Service's Heartbeat
+
+A program's standard way to gate on a value that a Rust service writes (specification 48 RU-63): the
+service counts its heartbeat variable up at the period it states, and the block tells whether the
+heartbeat moved within `TIMEOUT` of the task's logical time. The program decides itself what it does
+when a service is not fresh; the scan never waits for a service.
+
+```
+         +---------------+
+         | SERVICE_FRESH |
+UDINT----|HEARTBEAT FRESH|----BOOL
+ TIME----|TIMEOUT     AGE|----TIME
+         +---------------+
+```
+
+| Input | Description |
+|-------|-------------|
+| HEARTBEAT | The service's heartbeat variable (`<name>_heartbeat`), which the service counts up |
+| TIMEOUT | The longest time without a change for which the service is fresh; below zero counts as zero |
+
+| Output | Description |
+|--------|-------------|
+| FRESH | The heartbeat changed at least once since the block started, and `AGE` is at most `TIMEOUT` |
+| AGE | The task time since the heartbeat last changed, or since the block's first call while it has not changed |
+
+**Behavior** (one call of the block, at the task's logical time):
+
+- The first call keeps `HEARTBEAT` as the value it saw, without counting it as a change, and gives
+  `AGE` = 0 and `FRESH` = FALSE: a heartbeat that a restart left, or that no service counts, is not
+  a sign of a running service.
+- Each later call adds the task time since the previous call to `AGE`, nothing for a time that went
+  back, as the timers count (§5); when `HEARTBEAT` differs from the value the block saw, it keeps the
+  new value, counts a change and sets `AGE` to 0, so any difference is a change, a wrap of the
+  counter's `UDINT` too.
+- `FRESH` is TRUE once a change was counted and while `AGE` is at most `TIMEOUT`.
+- `AGE` stops at the largest `TIME`, so a long silence never wraps.
+- A cold or warm restart starts the block again at its first call, as every function block
+  instance's variables start again (specification 11 §6.7), so a service is fresh again only after
+  its next heartbeat.
+
+**Timing** (heartbeat every 500 ms, `TIMEOUT` = 1 s):
+```
+HEARTBEAT: 0 ... 1 ... 2 ... 3 ......(service stops)..........
+FRESH:     ____/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_________
+           (FALSE until the first change; FALSE 1 s after the last)
+```
 
 ## 6. Usage Examples
 

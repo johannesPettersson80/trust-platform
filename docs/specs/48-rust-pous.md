@@ -995,7 +995,8 @@ symbol table of the deployed image (`trust-dev service bindings`), so a service 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
 the build declares as a global (`<name>_heartbeat : UDINT`) and the SDK increments at the period the
 service states (`heartbeat = "500ms"`). The program library's function block `SERVICE_FRESH` (its
-inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`) is the standard way
+inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
+§5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
 fresh. A value a service writes is never more than the program's input: the scan never waits for a
 service.

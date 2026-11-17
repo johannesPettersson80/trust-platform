@@ -878,3 +878,67 @@ fn texts_are_read_as_the_runtime_reads_them() {
     assert_eq!(code(real(&mut cx, "1e400")), OVERFLOW);
     assert_eq!(code(real(&mut cx, "abc")), mismatch);
 }
+
+/// `SERVICE_FRESH` with `TIMEOUT` T#1s (specification 08 §5A), worked by hand: the first call at 0
+/// keeps heartbeat 5 without counting a change (FRESH FALSE, AGE 0); unchanged at 300 ms AGE is
+/// 300 ms and FRESH still FALSE; heartbeat 6 at 500 ms counts a change, AGE 0 and FRESH; unchanged at
+/// 1500 ms AGE is exactly the timeout, still FRESH; at 1510 ms 1010 ms is past it, FALSE; heartbeat
+/// 7 at 1600 ms is fresh again. Catches a first call counted as a change, which makes a heartbeat a
+/// restart left read fresh, an age counted from the first call instead of the change, and a timeout
+/// bound that is not inclusive.
+#[test]
+fn service_fresh_follows_the_heartbeat() {
+    let block = ServiceFresh::ZEROED;
+    block.TIMEOUT.set(1000 * MS);
+    let step = |now: i64, heartbeat: u32| {
+        block.HEARTBEAT.set(heartbeat);
+        service_fresh(&block, now * MS);
+        (block.FRESH.get(), block.AGE.get() / MS)
+    };
+    assert_eq!(step(0, 5), (0, 0), "the first call counts no change");
+    assert_eq!(
+        step(300, 5),
+        (0, 300),
+        "no change yet: not fresh, aged since the first call"
+    );
+    assert_eq!(step(500, 6), (1, 0), "a change");
+    assert_eq!(step(1500, 6), (1, 1000), "an age at the timeout is fresh");
+    assert_eq!(step(1510, 6), (0, 1010), "past the timeout");
+    assert_eq!(step(1600, 7), (1, 0), "fresh again at the next change");
+}
+
+/// `SERVICE_FRESH`'s edges (specification 08 §5A): a wrap of the `UDINT` counter is a change; a
+/// negative TIMEOUT counts as zero, so the block is fresh only in the call that counts a change; a
+/// time that went back adds nothing; AGE stops at the largest TIME. Catches a change test by
+/// `HEARTBEAT > SEEN`, which a wrap defeats, and an age that wraps or goes negative.
+#[test]
+fn service_fresh_counts_any_change_and_saturates() {
+    let block = ServiceFresh::ZEROED;
+    block.TIMEOUT.set(-5);
+    let step = |now: i64, heartbeat: u32| {
+        block.HEARTBEAT.set(heartbeat);
+        service_fresh(&block, now);
+        (block.FRESH.get(), block.AGE.get())
+    };
+    assert_eq!(step(0, u32::MAX), (0, 0));
+    assert_eq!(
+        step(10 * MS, 0),
+        (1, 0),
+        "a wrap is a change, fresh in its own call"
+    );
+    assert_eq!(
+        step(20 * MS, 0),
+        (0, 10 * MS),
+        "a negative timeout counts as zero"
+    );
+    assert_eq!(
+        step(5 * MS, 0),
+        (0, 10 * MS),
+        "a time that went back adds nothing"
+    );
+    assert_eq!(
+        step(i64::MAX, 0),
+        (0, i64::MAX),
+        "the age stops at the largest time"
+    );
+}
