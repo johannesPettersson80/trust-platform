@@ -5,6 +5,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
 
+use smol_str::SmolStr;
+
 use super::super::model::Model;
 use super::super::rust_pous::StructuredTextUse;
 use super::super::types::{mangle, Elem, Kind, Ty, Types};
@@ -67,8 +69,16 @@ fn parameter_name(name: &str) -> String {
     }
 }
 
+/// Layer 1's bindings (RU-39): their text, and each `(interface, method)` whose dispatcher an
+/// interface's binding calls, with the crate's use that reaches the interface.
+pub(super) struct Bindings {
+    pub(super) text: String,
+    pub(super) dispatched: Vec<(SmolStr, SmolStr, StructuredTextUse)>,
+}
+
 /// The bindings of the Structured Text functions that `roots` name, each root a generated function
-/// with the crate's call of it, once for each name the crate writes.
+/// with the crate's call of it, once for each name the crate writes, and of the data types and
+/// interfaces that the crate names (`named`, each with its use) or that those pass.
 ///
 /// # Errors
 ///
@@ -77,9 +87,9 @@ fn parameter_name(name: &str) -> String {
 pub(super) fn bindings(
     model: &mut Model<'_>,
     roots: &[(String, StructuredTextUse)],
-    named: &[Ty],
+    named: &[(Ty, StructuredTextUse)],
     methods: &HashMap<String, Vec<super::st_blocks::HeldMethod>>,
-) -> Result<String, NativeError> {
+) -> Result<Bindings, NativeError> {
     // The cells a binding writes a value into, empty, whatever the generated code's type of them.
     let mut texts: BTreeMap<String, String> = BTreeMap::new();
     let text = String::from(
@@ -93,10 +103,13 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
     );
     let mut written: Vec<&str> = Vec::new();
     let mut blocks: Vec<String> = Vec::new();
-    // The project's data types the bindings pass and the crate names.
+    // The project's data types the bindings pass and the crate names, each with the use that
+    // reached it first.
     let mut data_types: BTreeSet<Ty> = BTreeSet::new();
-    for ty in named {
+    let mut reached_by: BTreeMap<Ty, StructuredTextUse> = BTreeMap::new();
+    for (ty, used) in named {
         let _ = rust_type(&model.types, *ty, &mut data_types);
+        note_uses(&data_types, &mut reached_by, used);
     }
     for (_, used) in roots {
         if written.contains(&used.name.as_str()) {
@@ -114,6 +127,7 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
                     .get(owner.name().as_str())
                     .map_or(&[][..], Vec::as_slice);
                 let binding = super::st_blocks::block(model, used, owner, held, &mut data_types)?;
+                note_uses(&data_types, &mut reached_by, used);
                 let namespace = split_name(owner.name()).0.to_string();
                 texts.entry(namespace).or_default().push_str(&binding);
             }
@@ -130,9 +144,11 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
         }
         let namespace = split_name(&used.name).0.to_string();
         let function = function(model, used, &mut data_types)?;
+        note_uses(&data_types, &mut reached_by, used);
         texts.entry(namespace).or_default().push_str(&function);
     }
-    // Each data type's binding, those its own reach among them.
+    // Each data type's and interface's binding, those their own reach among them.
+    let mut dispatched = Vec::new();
     let mut written_types = BTreeSet::new();
     while let Some(ty) = data_types
         .iter()
@@ -141,11 +157,41 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
     {
         written_types.insert(ty);
         let namespace = split_name(&model.types.info(ty).name).0.to_string();
-        let binding = super::st_types::binding(model, ty, &mut data_types)?;
+        let used = reached_by.get(&ty).cloned();
+        let binding = if matches!(model.types.info(ty).kind, Kind::Interface) {
+            let (binding, called) = super::st_interfaces::interface(model, ty, &mut data_types)?;
+            if let Some(used) = &used {
+                dispatched.extend(
+                    called
+                        .into_iter()
+                        .map(|(interface, method)| (interface, method, used.clone())),
+                );
+            }
+            binding
+        } else {
+            super::st_types::binding(model, ty, &mut data_types)?
+        };
+        if let Some(used) = &used {
+            note_uses(&data_types, &mut reached_by, used);
+        }
         texts.entry(namespace).or_default().push_str(&binding);
     }
     texts.entry(String::new()).or_default().insert_str(0, &text);
-    Ok(nested(&texts, ""))
+    Ok(Bindings {
+        text: nested(&texts, ""),
+        dispatched,
+    })
+}
+
+/// Records `used` as the use that reaches each of `data_types` that no use reached before.
+fn note_uses(
+    data_types: &BTreeSet<Ty>,
+    reached_by: &mut BTreeMap<Ty, StructuredTextUse>,
+    used: &StructuredTextUse,
+) {
+    for ty in data_types {
+        reached_by.entry(*ty).or_insert_with(|| used.clone());
+    }
 }
 
 /// The bindings of `texts`, each namespace's (IEC §6.9) in a module of its name: the text of
@@ -596,7 +642,8 @@ fn cell_type(types: &Types<'_>, ty: Ty) -> Option<String> {
             }
             Some(rust)
         }
-        Kind::Ref { pointer: false, .. } => {
+        // An interface lies as the reference to the instance it names (specification 44 §6.4).
+        Kind::Ref { pointer: false, .. } | Kind::Interface => {
             Some("core::cell::Cell<trust_plc_abi::RefValue>".to_string())
         }
         _ => None,
@@ -688,6 +735,12 @@ fn by_cells(types: &Types<'_>, ty: Ty, data_types: &mut BTreeSet<Ty>) -> Option<
             cell_type(types, *target)?;
             let target = rust_type(types, *target, data_types)?;
             Some(format!("trust_plc::Ref<{target}>"))
+        }
+        // An interface (IEC §6.6.6) as its binding, the value of a variable of it (RU-39).
+        Kind::Interface => {
+            let path = binding_path(&info.name)?;
+            data_types.insert(ty);
+            Some(path)
         }
         Kind::Struct { members } => {
             let path = binding_path(&info.name)?;

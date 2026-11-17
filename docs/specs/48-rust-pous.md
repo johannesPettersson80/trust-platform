@@ -179,7 +179,7 @@ cargo cache; a build that would need to download and cannot fails, naming the cr
 **RU-11.** `trust-plc` is the only crate a Rust POU needs. It re-exports what specification 44 gives
 a module, behind safe types: `Cx` (the activation's context), `Fault`, the IEC data types of §6.2
 (`Str<N>`, `WStr<N>`, `Time`, `Date`, `Tod`, `Dt` and the rest), `InOut<T>` and `Ref<T>` for
-`VAR_IN_OUT` and `REF_TO`, `IfaceRef<I>` for interfaces, the standard functions and function blocks of the program library (`trust_plc::std`,
+`VAR_IN_OUT` and `REF_TO` (the value of a Structured Text interface is its binding, RU-39), the standard functions and function blocks of the program library (`trust_plc::std`,
 the same code `trust-plc-lib` gives Structured Text), the checked arithmetic of §5.3, and the
 attributes of `trust-plc-macros` (§6). It holds no `unsafe` code of its own; the `unsafe` of a module
 stays in `trust-plc-abi` (specification 44 §6.9). `Cx` is the SDK's own type: it gives a Rust POU the task's
@@ -428,9 +428,9 @@ Rust as the SDK names them:
 | an enumeration | a Rust `enum` with `#[trust_enum]` and explicit values |
 | `ARRAY[a..b] OF T` | `Array<T, A, N>`: the `N` = b − a + 1 elements, indexed from `A` as Structured Text indexes them |
 | a structure | a Rust `struct` with `#[trust_struct]`, every field of a type of this table |
-| a structure, an enumeration or a type with named values of the project's Structured Text | its binding, `st::POINT`, `st::MODE` (RU-39) |
+| a structure, an enumeration, a type with named values or an interface of the project's Structured Text | its binding, `st::POINT`, `st::MODE`, `st::I_RUN` (RU-39) |
 | a function block instance | a field of a function block's type, Rust or Structured Text (§8) |
-| `REF_TO T`, an interface | `Ref<T>`, `IfaceRef<I>` |
+| `REF_TO T` | `Ref<T>` |
 | `VAR_IN_OUT` of `T` | a function's or a method's parameter `InOut<T>`; a function block's field `#[in_out]` of type `Ref<T>` (RU-29) |
 
 The SDK's `Date`, `Tod` and `Dt` and their long forms hold what the areas store (milliseconds since
@@ -598,8 +598,10 @@ of the crate's `impl` blocks and their functions.
 **RU-33. Interfaces.** A Rust function block may implement Structured Text interfaces
 (`#[trust_fb(implements = "I_RUN, I_RESET")]`, IEC §6.6.6): the build checks that it has a method
 of each prototype with its signature, and a call through an interface reaches the Rust method as it
-reaches a Structured Text one (specification 44 §6.4, the dispatch by class id). A Rust POU calls a
-method through an interface it holds with `IfaceRef<I>::call`.
+reaches a Structured Text one (specification 44 §6.4, the dispatch by class id). A Rust POU holds
+a value of an interface as a variable of the interface's binding, `#[input] pub runner: st::I_RUN`,
+and calls its methods through it, `self.runner.START(cx)?`, as a call through the interface does
+(RU-39).
 
 `implements` names the interfaces separated by commas, each a Structured Text name with its
 namespaces (IEC §6.1.2, §6.9) and each once; `#[trust_fb]` alone takes it, as a function implements
@@ -739,8 +741,26 @@ block passes has such a binding too, `st::POINT` beside the crate's own `Point`,
 compiled before the crate, cannot name the crate's type: the crate converts its values into the
 binding's and back, a structure field by field and an enumeration value by value.
 
+An interface of the project's Structured Text (IEC §6.6.6) has a binding of its own in layer 1 when
+the crate names it or a call, a held block or another binding passes it: `st::I_RUN`, the value of
+a variable of the interface, which is a reference to an instance that implements the interface, or
+`NULL` (IEC §6.6.6.5.1), and lies as a reference (specification 44 §6.4, §7.3). It derives `Clone`,
+`Copy` and `Debug`; its `Default`, also its `trust_plc::Declared` default, is `st::I_RUN::NULL`, the
+value such a variable starts at; `is_null()` tells `NULL`; and two of its values are equal when they
+name the same instance or are both `NULL`, as Structured Text compares them (IEC §6.6.6.5.1). It is
+a `trust_plc::Value`, so a Rust POU holds it in any of its variables, `#[input] pub runner:
+st::I_RUN` among them, which a Structured Text caller gives an instance (`runner := PUMP_1`), and
+a call or a held block passes it as any value. Each method of the interface and of the interfaces
+it extends (IEC §6.6.6.6) is a method of the binding, `self.runner.START(cx, 10)?`, whose parameters
+and result pass as a function's: the call reaches the method that the class of the instance it names
+has, as Structured Text's call through the interface does (IEC §6.6.8; specification 44 §6.4), and a
+`NULL` value or one that names no instance ends the scan with the fault Structured Text's call has
+(IEC §6.6.6.5.2; specification 44 §6.5). Layer 1 holds each method that such a call can reach
+(RU-40), so the build refuses the binding of an interface that a Rust function block implements
+(RU-33), naming the chain, since layer 1 is compiled before the crate.
+
 **RU-40. What can be called.** `st::` names the project's Structured Text functions, function
-blocks and classes and its structures, enumerations and types with named values, those the crate declares
+blocks and classes, its interfaces and its structures, enumerations and types with named values, those the crate declares
 among them (RU-39): a name of none of them, or of a Rust POU, is refused where the crate writes it. The build puts every
 Structured Text POU that a Rust POU calls or holds, with every POU those call, into layer 1, compiled
 before the project's crate (§9.2); a call through an interface or a reference reaches every method
