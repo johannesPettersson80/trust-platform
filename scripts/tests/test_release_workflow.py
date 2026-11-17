@@ -370,6 +370,33 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("python3 scripts/check_glibc_baseline.py", script)
         self.assertEqual(set(re.findall(r'"\$\{release\}/([a-z-]+)"', script)), shipped)
 
+    def test_a_linux_bundles_macro_library_is_built_against_the_glibc_baseline_and_checked(self) -> None:
+        # Specification 24, specification 48 RU-74: the bundle's compiler loads the SDK's procedural macro library, so a
+        # Linux bundle's must load on every Linux with glibc 2.28 or newer. Built on the runner's own Ubuntu (glibc 2.43)
+        # it needed glibc 2.39 (pidfd_spawnp, 17 November 2026). Cargo builds a procedural macro for the computer it runs
+        # on, so each Linux platform builds its own on its own runner. Catches a Linux library built on the runner or in
+        # an image that is not pinned, not glibc 2.28 or not of the runner's architecture, an image given to a platform
+        # that is not Linux, and a library that reaches the bundle unchecked.
+        write = steps(self.jobs["toolchain-bundle"])["Write the bundle"]
+        image = field(write, "TRUST_MACROS_IMAGE", 10)
+        architectures = {"linux-x64": "x86_64", "linux-arm64": "aarch64"}
+        for target in release_plan.TARGETS:
+            chosen = evaluate(image, {"matrix.platform": target["platform"]}, {})
+            if target["platform"] in architectures:
+                self.assertRegex(
+                    str(chosen),
+                    rf"^quay\.io/pypa/manylinux_2_28_{architectures[target['platform']]}@sha256:[0-9a-f]{{64}}$",
+                )
+                self.assertEqual(
+                    target["toolchain_os"], {"linux-x64": "ubuntu-latest", "linux-arm64": "ubuntu-24.04-arm"}[target["platform"]]
+                )
+            else:
+                self.assertFalse(chosen, target["platform"])
+        script = run_block(write)
+        check = script.index('python3 scripts/check_glibc_baseline.py "${folder}/macros/libtrust_plc_macros.so"')
+        self.assertLess(script.index("bash scripts/native/build_toolchain_libraries.sh"), check)
+        self.assertLess(check, script.index("toolchain bundle"))
+
     def test_every_script_the_release_runs_is_in_the_release_list(self) -> None:
         # Specification 24: a pull request that changes a script the release runs is rehearsed. Catches a script added to
         # the release, or to its release-files action, whose changes would merge without a rehearsal.
