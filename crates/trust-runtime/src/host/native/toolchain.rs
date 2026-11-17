@@ -170,14 +170,18 @@ impl Toolchain {
             .to_string();
         let cargo =
             Some(root.join("bin").join(format!("cargo{suffix}"))).filter(|cargo| cargo.is_file());
-        // The SDK's folder as the file system names it, as cargo's metadata names its crates.
+        // The SDK's folder as the file system names it, as cargo's metadata names its crates,
+        // without the device prefix Windows' canonical form has (`\\?\C:\...`), which the
+        // generated manifest's paths cannot carry.
         let sdk = std::fs::canonicalize(root.join("sdk"))
             .ok()
+            .map(trust_hir::project::strip_windows_device_prefix)
             .filter(|sdk| sdk.is_dir());
         let macros =
             Some(root.join("macros").join(MACRO_LIBRARY)).filter(|library| library.is_file());
         let vendor = std::fs::canonicalize(root.join("vendor"))
             .ok()
+            .map(trust_hir::project::strip_windows_device_prefix)
             .filter(|vendor| vendor.is_dir());
         Ok(Self {
             rustc,

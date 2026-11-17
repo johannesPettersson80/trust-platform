@@ -116,11 +116,15 @@ fn the_build_runs_cargo_in_a_home_of_its_own() {
         &[("Cargo.toml", &manifest("")), ("src/lib.rs", CRATE)],
         PROGRAM,
     );
-    std::fs::write(
-        root.join("runtime.toml"),
-        render_runtime_toml(&SmolStr::new("probe"), 10),
-    )
-    .expect("runtime.toml");
+    let runtime = render_runtime_toml(&SmolStr::new("probe"), 10);
+    // Windows has no Unix sockets: the control link listens on TCP there, with a token.
+    #[cfg(windows)]
+    let runtime = runtime.replacen(
+        "[runtime.control]\n",
+        "[runtime.control]\nendpoint = \"tcp://127.0.0.1:19095\"\nauth_token = \"own-cargo-home-token\"\n",
+        1,
+    );
+    std::fs::write(root.join("runtime.toml"), runtime).expect("runtime.toml");
     let io = render_io_toml(&build_io_config_auto("loopback").expect("loopback I/O"));
     std::fs::write(root.join("io.toml"), io).expect("io.toml");
     let user = root.join("user");
