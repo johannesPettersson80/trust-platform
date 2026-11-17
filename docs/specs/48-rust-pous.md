@@ -197,7 +197,10 @@ Structured Text it calls spent (RU-38), which only the generated bindings run on
 bundle (§16). The build always compiles the bundle's copy: the project's `Cargo.toml` names the
 version, the build patches the four crates to the bundle's sources, and a project builds without
 crates.io when its other dependencies are vendored. A user's own `cargo` resolves the same version
-from crates.io for rust-analyzer and `cargo test` (§16.3).
+from crates.io for rust-analyzer and `cargo test` (§16.3). The SDK's crates name each other at the
+release's exact version (`=<version>`, beside their paths in the workspace), which the version bump
+moves (`scripts/bump_version.py`), so that `cargo package` writes each crate as crates.io and the
+bundle take it.
 
 ## 5. The rules of Rust in the scan
 
