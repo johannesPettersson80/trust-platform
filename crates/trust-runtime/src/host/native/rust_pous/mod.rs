@@ -2,7 +2,8 @@
 //! project's own folder in a Rust-first project (§14), the Rust POUs its sources declare with the
 //! paths the program's generated code names them by, and the generated Structured Text the rest of
 //! the project reads: the declarations, `src/generated/rust_pous.st` (RU-23, RU-24), and in a
-//! Rust-first project `src/generated/trust/` with the configuration of its `trust.toml` (RU-67).
+//! Rust-first project `src/generated/trust/` with the configuration of its `trust.toml` (RU-67), and
+//! the heartbeats of the services `trust.toml` declares (RU-63).
 //!
 //! The crate's sources are read, not compiled: each attributed item is read with `trust-plc-decl`,
 //! the reader the attributes check items with, so the declarations and the compiled code agree by
@@ -11,11 +12,12 @@
 mod configuration;
 mod layout;
 mod rules;
+mod services;
 mod structured_text;
 mod tree;
 mod types;
 
-pub use layout::{layout, Layout, BINDINGS_FOLDER, CRATE_FOLDER, DECLARATIONS_FILE};
+pub use layout::{layout, Layout, BINDINGS_FOLDER, CRATE_FOLDER, DECLARATIONS_FILE, SERVICES_FILE};
 pub use structured_text::StructuredTextUse;
 pub use types::{RustEnumeration, RustStructure};
 
@@ -231,25 +233,39 @@ pub enum Written {
     Nothing,
 }
 
+/// What [`write_generated`] did to each generated file of a project.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Generated {
+    /// The declarations of the crate's POUs (RU-24).
+    pub declarations: Written,
+    /// A Rust-first project's configuration (RU-67); `None` for a project without one.
+    pub configuration: Option<Written>,
+    /// The heartbeats of the services `trust.toml` declares (RU-63), [`Written::Wrote`] giving
+    /// the number of services.
+    pub services: Written,
+}
+
 /// Writes the generated declarations of the project in `project` (RU-24, `trust-dev rust
-/// declarations`), and a Rust-first project's configuration with them ([`write_generated`]).
+/// declarations`), and its other generated Structured Text with them ([`write_generated`]).
 ///
 /// # Errors
 ///
 /// As [`write_generated`].
 pub fn write_declarations(project: &Path) -> Result<Written, Vec<RustPouError>> {
-    write_generated(project).map(|(declarations, _)| declarations)
+    write_generated(project).map(|generated| generated.declarations)
 }
 
-/// Writes the generated Structured Text of the project in `project` (RU-24, RU-67): the
-/// declarations, which hold its crate's POUs, a project without POUs having no file, and the
-/// configuration its `trust.toml` declares when it declares one. Gives what was done to each.
+/// Writes the generated Structured Text of the project in `project` (RU-24, RU-63, RU-67): the
+/// declarations, which hold its crate's POUs, a project without POUs having no file, the
+/// configuration its `trust.toml` declares when it declares one, and the heartbeats of the services
+/// its `trust.toml` declares, a project without services having no file, whether the project has a
+/// crate or not. Gives what was done to each.
 ///
 /// # Errors
 ///
 /// The crate's and `trust.toml`'s [`RustPouError`]s, and a file that cannot be written as one
 /// without a line.
-pub fn write_generated(project: &Path) -> Result<(Written, Option<Written>), Vec<RustPouError>> {
+pub fn write_generated(project: &Path) -> Result<Generated, Vec<RustPouError>> {
     let layout = layout(project).map_err(at_trust_toml)?;
     let krate = read(project)?.filter(|krate| !krate.pous.is_empty());
     let declarations = krate
@@ -263,7 +279,13 @@ pub fn write_generated(project: &Path) -> Result<(Written, Option<Written>), Vec
         }
         _ => None,
     };
-    Ok((written, configuration))
+    let services = services::services_text(project).map_err(at_trust_toml)?;
+    let services = write_file(project, &layout.services, services)?;
+    Ok(Generated {
+        declarations: written,
+        configuration,
+        services,
+    })
 }
 
 /// Writes `text` into the project's file `label` when it is not there already, `count` being what
@@ -523,6 +545,29 @@ pub(super) fn check_declarations(project: &Path, krate: &RustCrate) -> Result<()
                  with `trust-dev rust declarations` (specification 48 RU-67)"
             ));
         }
+    }
+    Ok(())
+}
+
+/// Whether the project in `project` holds the heartbeats of the services its `trust.toml`
+/// declares (RU-63), whether it has a crate or not: the build refuses a project whose committed
+/// file is not what `trust.toml` declares, or that keeps the file of services `trust.toml` no longer
+/// declares, naming the command that writes it.
+///
+/// # Errors
+///
+/// The refusal's message.
+pub(super) fn check_services(project: &Path, layout: &Layout) -> Result<(), String> {
+    let wanted = services::services_text(project)
+        .map_err(|message| format!("trust.toml: {message}"))?
+        .map(|(text, _)| text);
+    let held = std::fs::read_to_string(project.join(&layout.services)).ok();
+    if held != wanted {
+        return Err(format!(
+            "{} does not hold the heartbeats of the services trust.toml declares: write it with \
+             `trust-dev rust declarations` (specification 48 RU-63)",
+            layout.services
+        ));
     }
     Ok(())
 }

@@ -447,10 +447,12 @@ struct CrateBuild {
 /// Text, as [`build_with_conversions`] does, with the project's Rust crate when it declares Rust
 /// POUs (specification 48 §9.1): the committed declarations must be what the crate's sources
 /// declare (RU-24), and the toolchain's cargo builds the program's module with the crate (§9.3).
+/// Every project's committed heartbeats of its services must be what its `trust.toml` declares
+/// (RU-63), whether it has a crate or not.
 ///
 /// # Errors
 ///
-/// [`NativeError`] naming the step that failed: the crate's errors where they are, declarations
+/// [`NativeError`] naming the step that failed: the crate's errors where they are, generated files
 /// that are out of date, and those of [`build_with_conversions`].
 pub fn build_project(
     project: &Path,
@@ -461,6 +463,9 @@ pub fn build_project(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
+    let layout = rust_pous::layout(project)
+        .map_err(|message| NativeError::Compile(format!("trust.toml: {message}")))?;
+    rust_pous::check_services(project, &layout).map_err(NativeError::Compile)?;
     let krate = rust_pous::read(project).map_err(|errors| {
         let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
         NativeError::Compile(lines.join("\n"))
