@@ -86,13 +86,17 @@ pub struct Toolchain {
     /// for the computer (specification 48 RU-74); `None` in a toolchain without them, whose cargo
     /// then builds the macros itself.
     pub macros: Option<PathBuf>,
-    /// The folder of the toolchain's copies of the crates.io crates of the SDK's libraries that have
-    /// a build script, each folder named after its crate and its manifest naming the script's output
-    /// by a `links` key, and of `build-scripts.toml`, that output for each module target as cargo's
-    /// build script overrides: such a build takes the crates from the copies and gives cargo the
-    /// overrides, so that it compiles and runs no build script for the computer (specification 48
-    /// RU-74); `None` in a toolchain without them, whose cargo then builds and runs the scripts.
+    /// The folder of the toolchain's copies of the crates.io crates the SDK is built from, each
+    /// folder named after its crate, a crate with a build script naming the script's output by a
+    /// `links` key, and of `build-scripts.toml`, that output for each module target as cargo's build
+    /// script overrides: such a build takes the crates from the copies and gives cargo the
+    /// overrides, so that its cargo needs no registry (specification 48 RU-75) and compiles and runs
+    /// no build script for the computer (RU-74); `None` in a toolchain without them.
     pub vendor: Option<PathBuf>,
+    /// The home of such a build's cargo, the toolchain folder's `cargo-home`, which is in truST's
+    /// data folder for an installed bundle: the build never reads or writes the user's own cargo
+    /// home or configuration (specification 48 RU-75).
+    pub cargo_home: PathBuf,
 }
 
 /// Where the tools found their toolchain (specification 44 §4.6).
@@ -166,8 +170,7 @@ impl Toolchain {
             .to_string();
         let cargo =
             Some(root.join("bin").join(format!("cargo{suffix}"))).filter(|cargo| cargo.is_file());
-        // The SDK's folder as the file system names it, so that cargo finds the workspace a crate
-        // of a development checkout inherits its settings from.
+        // The SDK's folder as the file system names it, as cargo's metadata names its crates.
         let sdk = std::fs::canonicalize(root.join("sdk"))
             .ok()
             .filter(|sdk| sdk.is_dir());
@@ -185,6 +188,7 @@ impl Toolchain {
             sdk,
             macros,
             vendor,
+            cargo_home: root.join("cargo-home"),
         })
     }
 

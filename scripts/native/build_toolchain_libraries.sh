@@ -42,12 +42,23 @@ case $host in
     ;;
 esac
 # A program whose project has a Rust crate is built by the compiler's cargo against the SDK's
-# crates (specification 48 §9.3, RU-12): the folder names this checkout's crates.
+# crates (specification 48 §9.3, RU-12): `sdk/` holds this checkout's SDK crates as `cargo package`
+# writes them for crates.io, so that the build takes them outside this workspace (RU-74).
 case $host in
   *-windows-*) ;;
   *)
     ln -sfn "$sysroot/bin/cargo" "$out/bin/cargo"
-    ln -sfn "$root/crates" "$out/sdk"
+    rm -rf "${out:?}/sdk" "${out:?}/build-package"
+    cargo package --quiet --offline --no-verify --allow-dirty -p trust-plc-abi -p trust-plc-lib \
+      -p trust-plc-mem -p trust-plc-decl -p trust-plc-macros -p trust-plc --target-dir "$out/build-package"
+    mkdir -p "$out/sdk"
+    for package in "$out/build-package/package/"*.crate; do
+      tar -xzf "$package" -C "$out/sdk"
+    done
+    # Each crate's folder by its name alone: trust-plc-0.41.2 becomes trust-plc.
+    for folder in "$out/sdk/"*-[0-9]*; do
+      mv "$folder" "${folder%-[0-9]*}"
+    done
     # The SDK's procedural macros, built here with the toolchain's own compiler, which the build
     # gives rustc as an external crate so that it compiles and links nothing for the computer
     # (specification 48 RU-74).
@@ -102,12 +113,14 @@ for triple in "${triples[@]}"; do
   echo "trust-plc-lib $version" > "$libraries/LIBRARY"
   echo "$triple: $(ls "$libraries" | tr '\n' ' ')"
 done
-# The crates.io crates of the libraries above that have a build script, today libm, for the build of
-# a program whose project has a Rust crate (specification 48 RU-74): `vendor/` holds a copy of each,
-# whose manifest gains a `links` key, and `build-scripts.toml`, the output each script printed above
-# for each module target, as cargo's build script overrides of that key. The build takes each crate
-# from its copy and gives cargo the overrides, so it compiles and runs no build script on the
-# computer. Not on Windows, whose folder has no cargo (above).
+# The crates.io crates the SDK's crates are built from, the attributes' own among them, for the
+# build of a program whose project has a Rust crate (specification 48 RU-74): `vendor/` holds a copy
+# of each, which the build takes instead of a registry's, so that its cargo, whose home is its own
+# (RU-75), needs no registry. A crate whose build script ran for the module targets above, today
+# libm, gains a `links` key in its copy's manifest, and `build-scripts.toml` holds the output the
+# script printed for each module target, as cargo's build script overrides of that key: the build
+# gives cargo the overrides, so it compiles and runs no build script on the computer. Not on
+# Windows, whose folder has no cargo (above).
 # The values of the directive $1 in the build script output $2, as TOML strings.
 directive() {
   sed -n "s/^cargo::\{0,1\}$1=//p" "$2" | sed 's/\\/\\\\/g; s/"/\\"/g; s/.*/"&"/' | paste -s -d, -
@@ -124,14 +137,19 @@ case $host in
     mkdir -p "$out/vendor"
     overrides="$out/vendor/build-scripts.toml"
     echo "# The output of the SDK's build scripts for each module target (specification 48 RU-74)." > "$overrides"
-    for crate in libm; do
-      version=$(cargo pkgid -p "$crate" | sed 's/.*[#@]//')
-      source=$(ls -d "${CARGO_HOME:-$HOME/.cargo}/registry/src/"*/"$crate-$version" | head -1)
+    # `name vX.Y.Z` of each crates.io crate of the SDK's crate graph: a path crate names its folder,
+    # and an empty line parts the trees of the two packages.
+    cargo tree --offline -p trust-plc -p trust-plc-mem -e normal,build --prefix none --format '{p}' \
+      | grep -v '(/' | sed 's/ (.*)$//' | awk 'NF == 2' | sort -u > "$out/build/registry-crates.txt"
+    while read -r crate version; do
+      source=$(ls -d "${CARGO_HOME:-$HOME/.cargo}/registry/src/"*/"$crate-${version#v}" | head -1)
+      cp -R "$source" "$out/vendor/$crate"
+      # Only a crate whose build script ran for the module targets has its output among their builds.
+      ls "$out/build/${triples[0]}/release/build/$crate"-*/output > /dev/null 2>&1 || continue
       if grep -q '^links' "$source/Cargo.toml"; then
         echo "$crate names a native library with a links key of its own" >&2
         exit 1
       fi
-      cp -R "$source" "$out/vendor/$crate"
       awk -v links="trust_$crate" '{ print } /^\[package\]$/ { print "links = \"" links "\"" }' \
         "$source/Cargo.toml" > "$out/vendor/$crate/Cargo.toml"
       for triple in "${triples[@]}"; do
@@ -148,6 +166,6 @@ case $host in
           echo "rustc-env = {$(environment "$output")}"
         } >> "$overrides"
       done
-    done
+    done < "$out/build/registry-crates.txt"
     ;;
 esac
