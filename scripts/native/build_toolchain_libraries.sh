@@ -48,6 +48,9 @@ case $host in
   *-windows-*) ;;
   *)
     ln -sfn "$sysroot/bin/cargo" "$out/bin/cargo"
+    # The crates of the lock, which the steps below read offline: on a fresh computer, as the
+    # release's, this script runs cargo first.
+    cargo fetch --quiet --locked
     rm -rf "${out:?}/sdk" "${out:?}/build-package"
     cargo package --quiet --offline --no-verify --allow-dirty -p trust-plc-abi -p trust-plc-lib \
       -p trust-plc-mem -p trust-plc-decl -p trust-plc-macros -p trust-plc --target-dir "$out/build-package"
@@ -59,17 +62,6 @@ case $host in
     for folder in "$out/sdk/"*-[0-9]*; do
       mv "$folder" "${folder%-[0-9]*}"
     done
-    # The SDK's procedural macros, built here with the toolchain's own compiler, which the build
-    # gives rustc as an external crate so that it compiles and links nothing for the computer
-    # (specification 48 RU-74).
-    cargo build --quiet --release -p trust-plc-macros --target-dir "$out/build-macros"
-    case $host in
-      *-apple-darwin) library=libtrust_plc_macros.dylib ;;
-      *) library=libtrust_plc_macros.so ;;
-    esac
-    mkdir -p "$out/macros"
-    rm -f "$out/macros/$library"
-    cp "$out/build-macros/release/$library" "$out/macros/$library"
     ;;
 esac
 for triple in "${triples[@]}"; do
@@ -167,5 +159,44 @@ case $host in
         } >> "$overrides"
       done
     done < "$out/build/registry-crates.txt"
+    # The SDK's procedural macros, built with the toolchain's own compiler from the SDK's crates
+    # and the crates they are built from as the bundle carries them, which the build gives rustc as
+    # an external crate so that it compiles and links nothing for the computer (RU-74): a package
+    # of the folder's own depends on trust-plc-macros, its graph patched to `sdk/` and `vendor/`,
+    # so that no registry is reached. The bundle's compiler loads the library, so a Linux bundle's
+    # must load on every Linux the packages support, glibc 2.28 or newer (specification 24): the
+    # release names in TRUST_MACROS_IMAGE a container image of this computer's architecture with
+    # that glibc and a C compiler, in which the library is built. Cargo builds a procedural macro
+    # for the computer it runs on, so each platform builds its own.
+    case $host in
+      *-apple-darwin) library=libtrust_plc_macros.dylib ;;
+      *) library=libtrust_plc_macros.so ;;
+    esac
+    rm -rf "${out:?}/build-macros"
+    mkdir -p "$out/build-macros/source"
+    : > "$out/build-macros/source/lib.rs"
+    {
+      printf '[package]\nname = "trust-macros-build"\nversion = "0.0.0"\nedition = "2024"\npublish = false\n\n'
+      printf '[lib]\npath = "lib.rs"\n\n[dependencies]\n'
+      printf 'trust-plc-macros = { path = "../../sdk/trust-plc-macros" }\n\n[patch.crates-io]\n'
+      for crate in "$out/sdk/"*/ "$out/vendor/"*/; do
+        crate=${crate%/}
+        printf '%s = { path = "../../%s/%s" }\n' "$(basename "$crate")" \
+          "$(basename "$(dirname "$crate")")" "$(basename "$crate")"
+      done
+      printf '\n[workspace]\n'
+    } > "$out/build-macros/source/Cargo.toml"
+    if [ -n "${TRUST_MACROS_IMAGE:-}" ]; then
+      docker run --rm --user "$(id -u):$(id -g)" --volume "$(cd "$out" && pwd):/toolchain" \
+        --volume "$sysroot:/rust:ro" --workdir /toolchain/build-macros/source \
+        --env RUSTC=/rust/bin/rustc --env HOME=/tmp --env CARGO_HOME=/tmp/cargo "$TRUST_MACROS_IMAGE" \
+        /rust/bin/cargo build --quiet --release --offline -p trust-plc-macros --target-dir ../target
+    else
+      (cd "$out/build-macros/source" && RUSTC="$sysroot/bin/rustc" "$sysroot/bin/cargo" build \
+        --quiet --release --offline -p trust-plc-macros --target-dir ../target)
+    fi
+    mkdir -p "$out/macros"
+    rm -f "$out/macros/$library"
+    cp "$out/build-macros/target/release/$library" "$out/macros/$library"
     ;;
 esac
