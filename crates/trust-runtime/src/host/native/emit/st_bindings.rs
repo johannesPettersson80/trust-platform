@@ -206,6 +206,28 @@ fn zeroed<T: trust_plc_abi::Plain>() -> T {
         }
         texts.entry(namespace).or_default().push_str(&binding);
     }
+    // An instance a block binding names is a value of each bound interface its block implements
+    // (RU-39).
+    let interfaces: Vec<_> = written_types
+        .iter()
+        .filter(|ty| matches!(model.types.info(**ty).kind, Kind::Interface))
+        .map(|ty| model.types.info(*ty).name.clone())
+        .collect();
+    let mut conversions = String::new();
+    for block in &blocks {
+        let Some(owner) = model.types.owner(block) else {
+            continue;
+        };
+        for interface in &interfaces {
+            if model.types.defs.implements(owner, interface) {
+                conversions.push_str(&super::st_interfaces::conversion(block, interface));
+            }
+        }
+    }
+    texts
+        .entry(String::new())
+        .or_default()
+        .push_str(&conversions);
     texts.entry(String::new()).or_default().insert_str(0, &text);
     Ok(Bindings {
         text: nested(&texts, ""),

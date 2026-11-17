@@ -10,7 +10,8 @@
   interface's own and those of the interfaces it extends. A call reaches the method of the class of
   the instance the value names, as Structured Text's call through the interface does, and a call
   through `NULL`, the value an interface starts at, ends the scan. `is_null()` tells `NULL`, and two
-  values are equal when they name the same instance. Calls and held blocks pass interfaces too. An
-  interface that a Rust function block implements has no binding, since Structured Text that Rust
-  calls cannot call Rust; the build refuses it and names the chain (specification 48 RU-33, RU-39,
-  RU-40).
+  values are equal when they name the same instance. Calls and held blocks pass interfaces too, and
+  an instance the POU holds is a value of each interface its block implements,
+  `st::I_RUN::from(&self.pump)`. An interface that a Rust function block implements has no binding,
+  since Structured Text that Rust calls cannot call Rust; the build refuses it and names the chain
+  (specification 48 RU-33, RU-39, RU-40).

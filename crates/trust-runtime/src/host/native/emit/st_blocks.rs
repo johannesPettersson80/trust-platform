@@ -294,6 +294,14 @@ impl {name} {{
         Self {{ input, output, place }}
     }}
 
+    /// The reference to the instance the binding names, which an interface the {what}
+    /// implements takes as its value (specification 48 RU-39).
+    #[doc(hidden)]
+    #[must_use]
+    pub const fn __place(&self) -> trust_plc_abi::RefValue {{
+        self.place
+    }}
+
     /// The binding of the instance `place` names, with its inputs and outputs as they are: what
     /// `trust_plc::Ref::get` gives of a reference to the {what} (specification 48 RU-39).
     ///

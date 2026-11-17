@@ -750,7 +750,9 @@ value such a variable starts at; `is_null()` tells `NULL`; and two of its values
 name the same instance or are both `NULL`, as Structured Text compares them (IEC §6.6.6.5.1). It is
 a `trust_plc::Value`, so a Rust POU holds it in any of its variables, `#[input] pub runner:
 st::I_RUN` among them, which a Structured Text caller gives an instance (`runner := PUMP_1`), and
-a call or a held block passes it as any value. Each method of the interface and of the interfaces
+a call or a held block passes it as any value. A block or class instance that the Rust POU holds or
+names through a reference is a value of each interface its block or class implements:
+`st::I_RUN::from(&self.pump)` is the reference to it (IEC §6.6.6.5.1). Each method of the interface and of the interfaces
 it extends (IEC §6.6.6.6) is a method of the binding, `self.runner.START(cx, 10)?`, whose parameters
 and result pass as a function's: the call reaches the method that the class of the instance it names
 has, as Structured Text's call through the interface does (IEC §6.6.8; specification 44 §6.4), and a
