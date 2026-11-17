@@ -54,8 +54,8 @@ pub(super) const LINKER_SCRIPT: &str = "SECTIONS
 }
 ";
 
-/// The file of the SDK's prebuilt procedural macro library in a toolchain's `macros` folder, as this
-/// computer names a dynamic library (specification 48 RU-74).
+/// The file of the SDK's prebuilt procedural macro library in a toolchain's `macros` folder, as
+/// this computer names a dynamic library (specification 48 RU-74).
 const MACRO_LIBRARY: &str = if cfg!(windows) {
     "trust_plc_macros.dll"
 } else if cfg!(target_os = "macos") {
@@ -81,17 +81,17 @@ pub struct Toolchain {
     /// The folder of the SDK's crates' sources, `trust-plc` and the crates it is built from, which
     /// such a build compiles (specification 48 RU-12); `None` in a toolchain without them.
     pub sdk: Option<PathBuf>,
-    /// The SDK's procedural macros, prebuilt for this computer with the toolchain's compiler, which
-    /// such a build gives the compiler as an external crate, so that it compiles no procedural macro
-    /// for the computer (specification 48 RU-74); `None` in a toolchain without them, whose cargo
-    /// then builds the macros itself.
+    /// The SDK's procedural macros, prebuilt for this computer with the toolchain's compiler,
+    /// which such a build gives the compiler as an external crate, so that it compiles no
+    /// procedural macro for the computer (specification 48 RU-74); `None` in a toolchain without
+    /// them, whose cargo then builds the macros itself.
     pub macros: Option<PathBuf>,
     /// The folder of the toolchain's copies of the crates.io crates the SDK is built from, each
     /// folder named after its crate, a crate with a build script naming the script's output by a
-    /// `links` key, and of `build-scripts.toml`, that output for each module target as cargo's build
-    /// script overrides: such a build takes the crates from the copies and gives cargo the
-    /// overrides, so that its cargo needs no registry (specification 48 RU-75) and compiles and runs
-    /// no build script for the computer (RU-74); `None` in a toolchain without them.
+    /// `links` key, and of `build-scripts.toml`, that output for each module target as cargo's
+    /// build script overrides: such a build takes the crates from the copies and gives cargo the
+    /// overrides, so that its cargo needs no registry (specification 48 RU-75) and compiles and
+    /// runs no build script for the computer (RU-74); `None` in a toolchain without them.
     pub vendor: Option<PathBuf>,
     /// The home of such a build's cargo, the toolchain folder's `cargo-home`, which is in truST's
     /// data folder for an installed bundle: the build never reads or writes the user's own cargo

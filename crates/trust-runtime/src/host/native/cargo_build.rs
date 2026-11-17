@@ -6,9 +6,9 @@
 //!
 //! Every crate of the graph is compiled from source with the module's code generation flags, so
 //! the project's crate and the generated code share one interface crate, and one link with
-//! link-time optimization makes the module. The build runs offline, its cargo in the toolchain's own
-//! home (RU-75): the SDK and the crates.io crates it is built from come from the toolchain's copies,
-//! the project's other dependencies from the project's vendored sources (RU-10, RU-12).
+//! link-time optimization makes the module. The build runs offline, its cargo in the toolchain's
+//! own home (RU-75): the SDK and the crates.io crates it is built from come from the toolchain's
+//! copies, the project's other dependencies from the project's vendored sources (RU-10, RU-12).
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};

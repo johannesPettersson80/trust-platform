@@ -52,11 +52,11 @@ END_CONFIGURATION
 
 #[test]
 fn a_project_with_rust_pous_builds_without_compiling_for_the_computer() {
-    // RU-74, RU-09: the toolchain carries the SDK's procedural macros prebuilt for this computer and
-    // the output of the SDK's build scripts (libm's) for each module target; the build gives the
-    // compiler the macros and cargo the scripts' output, so the build of a project with Rust POUs
-    // compiles and links nothing for the computer itself: cargo's folder of the computer's own
-    // artifacts holds none, neither the SDK's macros with their build scripts nor libm's build
+    // RU-74, RU-09: the toolchain carries the SDK's procedural macros prebuilt for this computer
+    // and the output of the SDK's build scripts (libm's) for each module target; the build gives
+    // the compiler the macros and cargo the scripts' output, so the build of a project with Rust
+    // POUs compiles and links nothing for the computer itself: cargo's folder of the computer's
+    // own artifacts holds none, neither the SDK's macros with their build scripts nor libm's build
     // script. Catches a build that compiles either for the computer, which needs the computer's own
     // linker, which a computer without Rust may lack (macOS without Xcode's command-line tools has
     // none). The module then runs: the task is not due at 0 (specification 10 §4.3), so the scan at
