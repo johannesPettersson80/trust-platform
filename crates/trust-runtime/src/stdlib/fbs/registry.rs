@@ -149,5 +149,16 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
         ));
     }
 
+    // truST's freshness of a service's heartbeat (specification 08 §5A; specification 48 RU-63).
+    defs.push(fb(
+        "SERVICE_FRESH",
+        &[
+            ("HEARTBEAT", TypeId::UDINT, ParamDirection::In),
+            ("TIMEOUT", TypeId::TIME, ParamDirection::In),
+            ("FRESH", TypeId::BOOL, ParamDirection::Out),
+            ("AGE", TypeId::TIME, ParamDirection::Out),
+        ],
+    ));
+
     defs
 }

@@ -52,17 +52,34 @@ test("capture creating a project from the truST view", async ({ page }, testInfo
   // + Create project asks for the parent folder, here in code-server's own folder dialog, and the name.
   await welcome.getByRole("button", { name: "+ Create project" }).click();
   const dialog = page.locator(".quick-input-widget");
-  await expect(dialog).toBeVisible({ timeout: 30_000 });
-  await dialog.locator("input").fill(`${CONTAINER_PARENTS}/${attempt}/`);
-  await expect(dialog.getByRole("button", { name: "Select Parent Folder" })).toBeVisible({ timeout: 30_000 });
-  await dialog.getByRole("button", { name: "Select Parent Folder" }).click();
-  await expect(dialog.locator("input")).toHaveValue("my-st-project", { timeout: 30_000 });
-  await dialog.locator("input").fill(NAME);
+  const input = dialog.locator("input");
+  const accept = dialog.getByRole("button", { name: "Select Parent Folder" });
+  const namePrompt = dialog.getByText("Enter a name for the new Structured Text project");
+  await expect(accept).toBeVisible({ timeout: 30_000 });
+  // The dialog opens by listing the home folder, then writes that folder's path over the box,
+  // so the path is typed once the list shows. It may drop an accept that arrives while it lists
+  // a folder, so the path is typed and accepted again, while the dialog still shows, until the
+  // name's prompt shows (W46). The suggested name is the VS Code suite's to check
+  // (new-project.test.ts).
+  await expect(dialog.locator(".monaco-list-row").first()).toBeVisible({ timeout: 30_000 });
+  const parent = `${CONTAINER_PARENTS}/${attempt}/`;
+  await expect(async () => {
+    if (await accept.isVisible()) {
+      await input.fill(parent);
+      await expect(input).toHaveValue(parent);
+      await accept.click({ timeout: 5_000 });
+    }
+    await expect(namePrompt).toBeVisible({ timeout: 10_000 });
+  }).toPass({ timeout: 90_000 });
+  await input.fill(NAME);
   await page.keyboard.press("Enter");
 
   // `trust-runtime new` writes the project, and code-server opens it in this window at src/Main.st
-  // (specification 25 §3.2). The truST view, which the Explorer replaced, shows the project.
-  await page.waitForURL(new RegExp(`folder=.*${NAME}`), { timeout: 120_000 });
+  // (specification 25 §3.2). The truST view, which the Explorer replaced, shows the project. The
+  // project lies in this attempt's folder: an accept the dialog took late never picked another.
+  await page.waitForURL(new RegExp(`folder=.*create-project(?:/|%2F)${attempt}(?:/|%2F)${NAME}`), {
+    timeout: 120_000,
+  });
   await page.locator(".monaco-workbench").waitFor({ timeout: 120_000 });
   await dismissCodeServerChrome(page);
   await expect(page.locator(".tab.active")).toContainText("Main.st", { timeout: 120_000 });

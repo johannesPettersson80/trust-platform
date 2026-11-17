@@ -389,6 +389,15 @@ branches remain explicit test debt and are not implied by these checked rows.
 SPLIT_DATE/TOD/LTOD/DT/LDT VM output handling retains exact binding and transaction semantics; output slice shapes are checked before writes. The native short-arity case asserts that destinations remain unchanged.
 Ties-to-even parity uses exact integer parity only on representable half-integers; exponent-boundary and randomized native equivalence assertions preserve the original remainder-based result.
 
+## truST Function Blocks (specification 08, section 5A)
+- [x] SERVICE_FRESH
+
+Execution evidence: `service_fresh_follows_the_heartbeat` and
+`service_fresh_counts_any_change_and_saturates` (trust-plc-lib) work the block's
+rules by hand, and `stdlib_service_fresh` runs it compiled through Structured
+Text, a cold restart included. The `iec` stdlib profile does not offer it
+(specification 14).
+
 ## Compiled programs (specification 44 §6.8)
 
 A program compiled into a native module calls the program library (`trust-plc-lib`) instead of the
