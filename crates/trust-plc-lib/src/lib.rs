@@ -74,7 +74,7 @@ pub use text_functions::{
     char_at, delete, find, insert, left, len_int, mid, replace, right, set_char, text_to_char,
     write_char, write_wchar,
 };
-pub use timers::{tof, ton, tp, Tof, Ton, Tp};
+pub use timers::{service_fresh, tof, ton, tp, ServiceFresh, Tof, Ton, Tp};
 pub use wide::{
     assign_units, assign_wchar, assign_wide, char_at_wide, compare_wide, concat_wide, delete_wide,
     find_wide, insert_wide, left_wide, len_wide, len_wide_int, mid_wide, replace_wide, right_wide,

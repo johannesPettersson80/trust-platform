@@ -84,6 +84,8 @@ const DOC_FB_BISTABLE: &str = "Standard bistable function block (IEC 61131-3 Ed.
 const DOC_FB_EDGE: &str = "Standard edge detection function block (IEC 61131-3 Ed.3, Table 44).";
 const DOC_FB_COUNTER: &str = "Standard counter function block (IEC 61131-3 Ed.3, Table 45).";
 const DOC_FB_TIMER: &str = "Standard timer function block (IEC 61131-3 Ed.3, Table 46).";
+const DOC_FB_SERVICE_FRESH: &str = "truST function block: whether a Rust service's heartbeat \
+changed within TIMEOUT; FRESH and AGE (specification 08, section 5A).";
 
 const NUMERIC_SINGLE: &[&str] = &[
     "ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN", "ATAN2",
@@ -341,6 +343,7 @@ const STANDARD_FB_NAMES: &[(&str, &str)] = &[
     ("TP_LTIME", DOC_FB_TIMER),
     ("TON_LTIME", DOC_FB_TIMER),
     ("TOF_LTIME", DOC_FB_TIMER),
+    ("SERVICE_FRESH", DOC_FB_SERVICE_FRESH),
 ];
 
 static STANDARD_FB_SET: Lazy<FxHashSet<SmolStr>> = Lazy::new(|| {
@@ -357,12 +360,13 @@ static STANDARD_FUNCTION_NAMES: Lazy<Vec<String>> = Lazy::new(|| {
         .collect()
 });
 
-// The `iec` profile's blocks: every standard function block but the vendor aliases (specification
-// 14, `stdlib` profiles).
+// The `iec` profile's blocks: every standard function block but the vendor aliases and truST's own
+// blocks (specification 14, `stdlib` profiles).
 static STANDARD_FB_NAME_LIST: Lazy<Vec<String>> = Lazy::new(|| {
     standard_fb_names()
         .iter()
         .filter(|name| !trust_hir::symbols::STANDARD_FUNCTION_BLOCK_ALIASES.contains(name))
+        .filter(|name| !trust_hir::symbols::STANDARD_FUNCTION_BLOCK_EXTENSIONS.contains(name))
         .map(|name| (*name).to_string())
         .collect()
 });
