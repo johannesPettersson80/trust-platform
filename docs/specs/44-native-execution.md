@@ -325,6 +325,13 @@ for each platform the release builds the tools for: `linux-x64`, `linux-arm64`, 
   the compiler finds them beside itself;
 - for each module target, the interface and program library crates and the crates they link, with
   `LIBRARY`, in `lib/<target>/`;
+- what a project with Rust POUs builds with (specification 48 §16, RU-74): `bin/cargo`
+  (`cargo.exe` on Windows) of the pinned release; the SDK's procedural macro library, built for the
+  platform with the pinned compiler, in `macros/`; the SDK's crates as `cargo package` writes them
+  for crates.io, in `sdk/<crate>/`; and the crates.io crates they are built from, in
+  `vendor/<crate>/`, with `vendor/build-scripts.toml`, the output of their build scripts for each
+  module target. The build's `cargo` keeps its home in the installed folder's `cargo-home/`, which
+  is not part of the bundle (specification 48 RU-75);
 - `manifest.json`: `format` (1), `trust` (the truST version, the kernel's), `platform`, `rustc`
   (the pinned version), `program_library` (`trust-plc-lib <version>`), `targets`, and `files`,
   every other file of the bundle with its `path` (with `/`), `bytes`, `sha256` (lowercase

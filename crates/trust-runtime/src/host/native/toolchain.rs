@@ -56,7 +56,7 @@ pub(super) const LINKER_SCRIPT: &str = "SECTIONS
 
 /// The file of the SDK's prebuilt procedural macro library in a toolchain's `macros` folder, as
 /// this computer names a dynamic library (specification 48 RU-74).
-const MACRO_LIBRARY: &str = if cfg!(windows) {
+pub(super) const MACRO_LIBRARY: &str = if cfg!(windows) {
     "trust_plc_macros.dll"
 } else if cfg!(target_os = "macos") {
     "libtrust_plc_macros.dylib"

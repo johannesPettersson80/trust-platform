@@ -9,9 +9,10 @@ use std::process::Command;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 
+use super::super::toolchain::MACRO_LIBRARY;
 use super::{
-    file_sha256, platform, relative, Manifest, ManifestFile, MANIFEST_FILE, MANIFEST_FORMAT,
-    MODULE_TARGETS, TRUST_VERSION,
+    file_sha256, files_below, platform, relative, Manifest, ManifestFile, MANIFEST_FILE,
+    MANIFEST_FORMAT, MODULE_TARGETS, TRUST_VERSION,
 };
 use crate::native::{triple, NativeError};
 
@@ -65,6 +66,11 @@ pub fn write_bundle(folder: &Path, archive: &Path) -> Result<Manifest, NativeErr
         ),
     ];
     parts.extend(compiler_libraries(&sysroot)?);
+    // A folder whose script wrote the SDK gives the bundle what a project with Rust POUs builds
+    // with; one without (a Windows folder, whose script writes none yet) gives a bundle without it.
+    if folder.join("sdk").is_dir() {
+        parts.extend(rust_parts(folder, &sysroot)?);
+    }
     let mut program_library: Option<String> = None;
     for target in MODULE_TARGETS {
         let triple = triple(target);
@@ -128,6 +134,44 @@ pub fn write_bundle(folder: &Path, archive: &Path) -> Result<Manifest, NativeErr
     };
     pack(&manifest, &parts, archive)?;
     Ok(manifest)
+}
+
+/// The parts of the bundle that build a project with Rust POUs with the bundle alone (specification
+/// 48 RU-74, RU-75), from the development toolchain folder `folder` and the compiler's folder
+/// `sysroot`: `cargo` of the pinned release, the SDK's procedural macros prebuilt for this computer
+/// (`macros/`), the SDK's crates as crates.io takes them (`sdk/`), and the crates.io crates they
+/// are built from with their build scripts' output (`vendor/`).
+///
+/// # Errors
+///
+/// [`NativeError::Toolchain`] when `cargo` or the macro library is missing, or a folder cannot be
+/// read.
+pub(super) fn rust_parts(
+    folder: &Path,
+    sysroot: &Path,
+) -> Result<Vec<(String, PathBuf)>, NativeError> {
+    let cargo = sysroot.join("bin").join(executable("cargo"));
+    let macros = folder.join("macros").join(MACRO_LIBRARY);
+    for part in [&cargo, &macros] {
+        if !part.is_file() {
+            return Err(NativeError::Toolchain(format!(
+                "{} is missing: build the toolchain folder with \
+                 scripts/native/build_toolchain_libraries.sh",
+                part.display()
+            )));
+        }
+    }
+    let mut parts = vec![
+        (format!("bin/{}", executable("cargo")), cargo),
+        (format!("macros/{MACRO_LIBRARY}"), macros),
+    ];
+    for below in ["sdk", "vendor"] {
+        let source = folder.join(below);
+        for path in files_below(&source)? {
+            parts.push((format!("{below}/{path}"), source.join(&path)));
+        }
+    }
+    Ok(parts)
 }
 
 /// Packs `manifest` and the files `parts`, each by its path in the bundle and its source, into the
