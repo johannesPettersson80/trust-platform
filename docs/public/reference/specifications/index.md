@@ -13,6 +13,7 @@ instead of sending readers to GitHub.
 | “How does the runtime support STM32 and ESP32?” | [34 Runtime Portability](34-runtime-portability.md) |
 | “How is the runtime platform structured?” | [11 Runtime Engine](11-runtime-engine.md) |
 | “How is a program compiled into an image, and how does the image run?” | [44 Native Execution](44-native-execution.md) |
+| “How do POUs written in Rust work?” | [48 Rust POUs](48-rust-pous.md) |
 | “How does debugging behave?” | [13 Debug Adapter](13-debug-adapter.md) |
 | “How does the editor/LSP layer behave?” | [14 LSP](14-lsp.md) |
 | “How does ladder fit into truST?” | [15 Ladder Diagram](15-ladder-diagram.md) and [16 Ladder Profile truST](16-ladder-profile-trust.md) |
@@ -51,6 +52,7 @@ for task-oriented programming docs.
 - [12 Bytecode](12-bytecode.md) (superseded by 44)
 - [34 Runtime Portability](34-runtime-portability.md)
 - [44 Native Execution](44-native-execution.md)
+- [48 Rust POUs](48-rust-pous.md)
 
 ### Tooling
 
