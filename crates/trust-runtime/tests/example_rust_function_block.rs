@@ -1,0 +1,94 @@
+//! The example `rust_function_block` (specification 48 RU-88): its README's values are the ones its
+//! program computes. The test builds a copy of the example with the toolchain at `TRUST_TOOLCHAIN`,
+//! as **Start** builds the project, and runs it scan by scan; the repository is never written. A
+//! toolchain without cargo and the SDK's sources refuses the build with that reason.
+
+mod rust_pous_support;
+
+use std::path::Path;
+
+use rust_pous_support::{built_from, project_sources};
+use trust_runtime::native::{load, HostCode, NativeProgram, NoHooks};
+use trust_runtime::stdlib::conversions::ConversionProfile;
+use trust_runtime::value::{Duration, Value};
+
+/// The README's task interval, in milliseconds.
+const INTERVAL_MS: i64 = 100;
+
+/// A copy of the files of `folder` in `copy`, without the folders a build writes.
+fn copy_files(folder: &Path, copy: &Path) {
+    std::fs::create_dir_all(copy).expect("the copy's folder");
+    for entry in std::fs::read_dir(folder).expect("the folder reads") {
+        let path = entry.expect("an entry").path();
+        let name = path.file_name().expect("a name");
+        if name == "build" || name == "target" {
+            continue;
+        }
+        if path.is_dir() {
+            copy_files(&path, &copy.join(name));
+        } else {
+            std::fs::copy(&path, copy.join(name)).expect("the file");
+        }
+    }
+}
+
+/// Scans `program` every 100 ms from `*time` up to `until` ms, then gives Speed and AtSpeed.
+fn run_to(program: &mut NativeProgram<'_, HostCode>, time: &mut i64, until: i64) -> (Value, Value) {
+    while *time <= until {
+        program
+            .scan(Duration::from_millis(*time), &mut NoHooks)
+            .expect("the scan runs");
+        *time += INTERVAL_MS;
+    }
+    (
+        program.value("MAININSTANCE.SPEED").expect("Speed"),
+        program.value("MAININSTANCE.ATSPEED").expect("AtSpeed"),
+    )
+}
+
+#[test]
+fn the_examples_ramp_moves_the_speed_as_its_readme_says() {
+    // Specification 48 RU-88, the README's step by step, worked by hand: RAMP moves Speed by rate x
+    // interval = 10 x 0.1 s = 1.0 at each run of the 100 ms task, which first runs at 100 ms
+    // (specification 10 §4.3). So Speed is 10.0 at 1 s, 49.0 with AtSpeed FALSE at 4.9 s, and 50.0
+    // with AtSpeed TRUE at 5 s. With Setpoint 20.0 it falls by 1.0 a run: 21.0 with AtSpeed FALSE at
+    // 7.9 s, and 20.0 with AtSpeed TRUE at 8 s. Every value is exact in binary. Catches an example
+    // that does not build as committed (stale declarations, a crate the build refuses) and a README
+    // whose values the program does not compute.
+    let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/rust_function_block");
+    let root = trust_test_support::unique_temp_path("example-rust-function-block");
+    copy_files(&example, &root);
+    let Some((built, device)) = built_from(&root, &project_sources(&root), ConversionProfile::Iec)
+    else {
+        return;
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let mut time = 0;
+    for (until, speed, at_speed) in [
+        (1_000, 10.0, false),
+        (4_900, 49.0, false),
+        (5_000, 50.0, true),
+    ] {
+        assert_eq!(
+            run_to(&mut program, &mut time, until),
+            (Value::LReal(speed), Value::Bool(at_speed)),
+            "at {until} ms"
+        );
+    }
+    let (setpoint, _) = program
+        .image()
+        .find_symbol("MAININSTANCE.SETPOINT")
+        .expect("Setpoint's symbol");
+    program
+        .write_symbol(setpoint, &Value::LReal(20.0))
+        .expect("Setpoint written");
+    for (until, speed, at_speed) in [(7_900, 21.0, false), (8_000, 20.0, true)] {
+        assert_eq!(
+            run_to(&mut program, &mut time, until),
+            (Value::LReal(speed), Value::Bool(at_speed)),
+            "at {until} ms"
+        );
+    }
+    let _ = std::fs::remove_dir_all(root);
+}

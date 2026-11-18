@@ -51,7 +51,9 @@ TEST_SUFFIXES = (
 )
 # What a version bump changes (specification 22, "Change and release workflow"; `scripts/bump_version.py`): the
 # workspace manifest, the firmware's, every Cargo lockfile (its `LOCKFILES`), the VS Code package and its lockfile,
-# and the changelog. `scripts/tests/test_changelog_fragments.py` runs the bump and gives this contract what it wrote.
+# the examples' crates' manifests and the public docs' pages, whose pins on the SDK move with the release
+# (specification 48 RU-08), and the changelog. `scripts/tests/test_changelog_fragments.py` runs the bump and gives
+# this contract what it wrote.
 VERSION_BUMP_PATHS = {
     "CHANGELOG.md",
     "Cargo.lock",
@@ -111,7 +113,7 @@ def validate_direct_change_contract(
             named.add(specification)
     if not any(_is_production_source(path) for path in paths):
         return sorted(failures)
-    if version_bump and all(_is_version_bump_file(path) for path in paths):
+    if version_bump and all(is_version_bump_file(path) for path in paths):
         return sorted(failures)
 
     if not named and not any(_is_written_specification(path) for path in paths):
@@ -185,8 +187,12 @@ def _is_production_source(path: str) -> bool:
     ) and not _is_native_test(path)
 
 
-def _is_version_bump_file(path: str) -> bool:
-    return path in VERSION_BUMP_PATHS or path.startswith(CHANGELOG_FRAGMENTS)
+def is_version_bump_file(path: str) -> bool:
+    """Whether a version bump changes `path`: see `VERSION_BUMP_PATHS`."""
+    parts = PurePosixPath(path).parts
+    example_crate = len(parts) > 2 and parts[0] == "examples" and parts[-1] == "Cargo.toml"
+    docs_page = parts[:2] == ("docs", "public") and path.endswith(".md")
+    return path in VERSION_BUMP_PATHS or path.startswith(CHANGELOG_FRAGMENTS) or example_crate or docs_page
 
 
 def _is_native_test(path: str) -> bool:

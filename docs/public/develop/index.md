@@ -10,6 +10,7 @@
 | understand project files | [Project Layout](project-layout.md) |
 | name new Structured Text APIs consistently | [Structured Text Naming Standard](st-naming-standard.md) |
 | declare OpenOT event logging on variables | [OpenOT Attribute Authoring](openot-authoring.md) |
+| write functions, function blocks and programs in Rust | [Rust POUs](rust-pous.md) |
 | build, validate, and test | [Build, Validate, Test](../operate/build-validate-test.md) |
 | compile and reload a running runtime | [Compile, Validate, Reload](../operate/compile-validate-reload.md) |
 | debug execution | [Debugging](../operate/debugging-and-runtime-panel.md) |
