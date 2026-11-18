@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-trust-plc = "=0.41.2"
+trust-plc = "=0.42.0"
