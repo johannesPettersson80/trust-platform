@@ -138,8 +138,10 @@ Check it once, before the first push:
      commit `v<version>`, creates the GitHub release with the version's changelog section, publishes
      every target to the Marketplace and verifies the tag, the release, Latest and the Marketplace
      listing of every target, without waiting for `main`'s CI. Its provenance names the rehearsal run
-     that built the packages. The release after `main`'s CI of the same commit then finds the release
-     complete and does nothing.
+     that built the packages. Its job `Publish crates` then publishes the SDK's crates to crates.io in
+     dependency order (`scripts/publish_crates.py`), skipping a version crates.io holds; without the
+     repository secret `CARGO_REGISTRY_TOKEN` it publishes nothing and says so in a notice. The release
+     after `main`'s CI of the same commit then finds the release complete and does nothing.
    - Otherwise (another tree, no passed rehearsal, an expired bundle), the push releases nothing: when
      `main`'s CI passes on the merge commit, the Release workflow builds every package again and
      releases as above.
