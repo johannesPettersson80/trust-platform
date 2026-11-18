@@ -145,7 +145,7 @@ const LAMP_CRATE: &str = r#"//! The project's Rust POUs (specification 48 §14):
 
 use trust_plc::prelude::*;
 
-/// Counts its runs and switches `lamp` every 50 runs: half a second on the 10 ms task that
+/// Switches `lamp` on and off every 50 runs: every half second on the 10 ms task that
 /// `trust.toml` gives it.
 #[trust_program(name = "MAIN")]
 #[budget("1us")]
@@ -157,8 +157,11 @@ pub struct Main {
 
 impl Body for Main {
     fn body(&mut self, _cx: &mut Cx) -> Result<(), Fault> {
-        self.runs = self.runs.wrapping_add(1);
-        self.lamp = (self.runs / 50) % 2 == 1;
+        self.runs += 1;
+        if self.runs == 50 {
+            self.runs = 0;
+            self.lamp = !self.lamp;
+        }
         Ok(())
     }
 }
