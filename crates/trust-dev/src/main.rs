@@ -16,6 +16,7 @@ mod git;
 mod prompt;
 mod run;
 mod rust;
+mod rust_audit;
 mod style;
 mod test;
 mod workflow;
@@ -132,6 +133,17 @@ enum RustAction {
         #[arg(long = "project", alias = "bundle")]
         project: Option<PathBuf>,
     },
+    /// Check the crates the program's module is built from, the scan crate graph, against the
+    /// RustSec advisory database: fails when a vulnerability names one (specification 48 RU-79).
+    Audit {
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// A copy of the advisory database's repository in a folder, checked without downloading
+        /// (for a computer that never reaches GitHub).
+        #[arg(long = "db")]
+        db: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -190,6 +202,7 @@ fn run() -> anyhow::Result<()> {
         } => docs::run_docs(project, out_dir, format),
         Command::Rust { action } => match action {
             RustAction::Declarations { project } => rust::run_declarations(project),
+            RustAction::Audit { project, db } => rust_audit::run_audit(project, db),
         },
         Command::Test {
             project,

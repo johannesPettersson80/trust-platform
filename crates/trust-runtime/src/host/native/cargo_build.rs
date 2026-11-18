@@ -204,6 +204,80 @@ fn manifest(
     text
 }
 
+/// The build's package that [`write_package`] wrote, with every path absolute.
+struct Package {
+    cargo: PathBuf,
+    sdk: PathBuf,
+    work: PathBuf,
+    project: ProjectCrate,
+}
+
+/// Writes the build's package into `work`: the generated crate `source` as `module.rs`, the
+/// linker script, the manifest for `target` (`manifest`) and the project's `Cargo.lock`, whose
+/// versions the build keeps (RU-10).
+///
+/// # Errors
+///
+/// [`NativeError::Toolchain`] when the toolchain has no cargo and SDK sources, or a file cannot be
+/// written.
+fn write_package(
+    toolchain: &Toolchain,
+    source: &str,
+    target: Target,
+    work: &Path,
+    project: &ProjectCrate,
+) -> Result<Package, NativeError> {
+    let (Some(cargo), Some(sdk)) = (&toolchain.cargo, &toolchain.sdk) else {
+        return Err(NativeError::Toolchain(
+            "this toolchain has no cargo and SDK sources, which build a project with Rust POUs \
+             (specification 48 §9.3): build its folder again with \
+             scripts/native/build_toolchain_libraries.sh"
+                .into(),
+        ));
+    };
+    // Cargo runs in the build's folder, so every path it is given is absolute: a project named
+    // `.` would otherwise be looked for below that folder.
+    let absolute = |path: &Path| {
+        std::path::absolute(path)
+            .map_err(|error| NativeError::Toolchain(format!("{}: {error}", path.display())))
+    };
+    let work = absolute(work)?;
+    let project = ProjectCrate {
+        folder: absolute(&project.folder)?,
+        label: project.label.clone(),
+        package: project.package.clone(),
+        bindings: project.bindings.as_deref().map(absolute).transpose()?,
+        debug: project.debug,
+    };
+    let failed =
+        |error: std::io::Error| NativeError::Toolchain(format!("{}: {error}", work.display()));
+    std::fs::create_dir_all(&work).map_err(failed)?;
+    let vendored = match &toolchain.vendor {
+        Some(vendor) => vendored_crates(vendor)?,
+        None => Vec::new(),
+    };
+    std::fs::write(work.join("module.rs"), source)
+        .and_then(|()| std::fs::write(work.join("module.x"), LINKER_SCRIPT))
+        .and_then(|()| {
+            std::fs::write(
+                work.join("Cargo.toml"),
+                manifest(target, sdk, &vendored, &project),
+            )
+        })
+        .map_err(failed)?;
+    // The versions the project's lock pins are kept: the build starts from it (RU-10).
+    let lock = project.folder.join("Cargo.lock");
+    if lock.is_file() {
+        std::fs::copy(&lock, work.join("Cargo.lock")).map_err(failed)?;
+    }
+    Ok(Package {
+        cargo: cargo.clone(),
+        sdk: sdk.clone(),
+        work,
+        project,
+    })
+}
+
 /// What [`compile`] gives: the linked module, an ELF file, the compiler's report of each function's
 /// stack frame, as [`Toolchain::compile`] gives them for a project without a crate, and the
 /// warnings of the project's crate (specification 48 RU-44).
@@ -224,50 +298,14 @@ pub(super) fn compile(
     work: &Path,
     project: &ProjectCrate,
 ) -> Result<Compiled, NativeError> {
-    let (Some(cargo), Some(sdk)) = (&toolchain.cargo, &toolchain.sdk) else {
-        return Err(NativeError::Toolchain(
-            "this toolchain has no cargo and SDK sources, which build a project with Rust POUs \
-             (specification 48 §9.3): build its folder again with \
-             scripts/native/build_toolchain_libraries.sh"
-                .into(),
-        ));
-    };
-    // Cargo runs in the build's folder, so every path it is given is absolute: a project named
-    // `.` would otherwise be looked for below that folder.
-    let absolute = |path: &Path| {
-        std::path::absolute(path)
-            .map_err(|error| NativeError::Toolchain(format!("{}: {error}", path.display())))
-    };
-    let work = &absolute(work)?;
-    let project = &ProjectCrate {
-        folder: absolute(&project.folder)?,
-        label: project.label.clone(),
-        package: project.package.clone(),
-        bindings: project.bindings.as_deref().map(absolute).transpose()?,
-        debug: project.debug,
-    };
-    let failed =
-        |error: std::io::Error| NativeError::Toolchain(format!("{}: {error}", work.display()));
-    std::fs::create_dir_all(work).map_err(failed)?;
-    let vendored = match &toolchain.vendor {
-        Some(vendor) => vendored_crates(vendor)?,
-        None => Vec::new(),
-    };
+    let Package {
+        cargo,
+        sdk,
+        work,
+        project,
+    } = write_package(toolchain, source, target, work, project)?;
+    let (cargo, sdk, work, project) = (&cargo, &sdk, &work, &project);
     let script = work.join("module.x");
-    std::fs::write(work.join("module.rs"), source)
-        .and_then(|()| std::fs::write(&script, LINKER_SCRIPT))
-        .and_then(|()| {
-            std::fs::write(
-                work.join("Cargo.toml"),
-                manifest(target, sdk, &vendored, project),
-            )
-        })
-        .map_err(failed)?;
-    // The versions the project's lock pins are kept: the build starts from it (RU-10).
-    let lock = project.folder.join("Cargo.lock");
-    if lock.is_file() {
-        std::fs::copy(&lock, work.join("Cargo.lock")).map_err(failed)?;
-    }
     let (cpu, features) = cpu(target);
     // The flags of every crate of the graph: position-independent code without RELRO, the module's
     // CPU, and the build's folders kept out of the module, so that the same project builds the same
@@ -417,18 +455,7 @@ fn check_graph(
     work: &Path,
     project: &ProjectCrate,
 ) -> Result<(), NativeError> {
-    let output = cargo_command(cargo, toolchain, work)
-        .args(["metadata", "--offline", "--format-version", "1"])
-        .args(["--filter-platform", triple(target)])
-        .output()
-        .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
-    if !output.status.success() {
-        return Err(NativeError::Toolchain(
-            String::from_utf8_lossy(&output.stderr).to_string(),
-        ));
-    }
-    let metadata: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|error| NativeError::Toolchain(format!("cargo metadata: {error}")))?;
+    let metadata = metadata(cargo, toolchain, target, work)?;
     // The metadata names every manifest by the file system's own path.
     let crate_folder =
         std::fs::canonicalize(&project.folder).unwrap_or_else(|_| project.folder.clone());
@@ -439,4 +466,57 @@ fn check_graph(
     } else {
         Err(NativeError::Compile(errors.join("\n")))
     }
+}
+
+/// The crates of the scan crate graph of `project` for `target` that an advisory of the RustSec
+/// database can name (specification 48 RU-79), each with its name and version: from cargo's
+/// metadata of the build's package, which is written into `work` as the build writes it, with an
+/// empty generated crate.
+///
+/// # Errors
+///
+/// [`NativeError::Toolchain`] when the toolchain has no cargo and SDK sources, a file cannot be
+/// written, or cargo reads no metadata.
+pub(super) fn graph_crates(
+    toolchain: &Toolchain,
+    target: Target,
+    work: &Path,
+    project: &ProjectCrate,
+) -> Result<Vec<(String, String)>, NativeError> {
+    let Package {
+        cargo,
+        work,
+        project,
+        ..
+    } = write_package(toolchain, "", target, work, project)?;
+    let metadata = metadata(&cargo, toolchain, target, &work)?;
+    let crate_folder =
+        std::fs::canonicalize(&project.folder).unwrap_or_else(|_| project.folder.clone());
+    Ok(super::crate_graph::audited(
+        &metadata,
+        &crate_folder,
+        project.bindings.as_deref(),
+    ))
+}
+
+/// Cargo's metadata of the package in `work` for `target`, read offline by the toolchain's cargo
+/// as the build runs it (`cargo_command`).
+fn metadata(
+    cargo: &Path,
+    toolchain: &Toolchain,
+    target: Target,
+    work: &Path,
+) -> Result<serde_json::Value, NativeError> {
+    let output = cargo_command(cargo, toolchain, work)
+        .args(["metadata", "--offline", "--format-version", "1"])
+        .args(["--filter-platform", triple(target)])
+        .output()
+        .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
+    if !output.status.success() {
+        return Err(NativeError::Toolchain(
+            String::from_utf8_lossy(&output.stderr).to_string(),
+        ));
+    }
+    serde_json::from_slice(&output.stdout)
+        .map_err(|error| NativeError::Toolchain(format!("cargo metadata: {error}")))
 }

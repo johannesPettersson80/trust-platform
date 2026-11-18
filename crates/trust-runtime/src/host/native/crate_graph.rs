@@ -41,33 +41,7 @@ pub(super) fn check(
     project: &Path,
     bindings: Option<&Path>,
 ) -> Vec<String> {
-    let packages: HashMap<&str, Package> = metadata["packages"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|package| Some((package["id"].as_str()?, read_package(package)?)))
-        .collect();
-    let dependencies: HashMap<&str, Vec<(&str, bool)>> = metadata["resolve"]["nodes"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|node| {
-            let deps = node["deps"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|dep| {
-                    let kinds = dep["dep_kinds"].as_array()?;
-                    // A development dependency is not built into the module.
-                    let built = kinds
-                        .iter()
-                        .any(|kind| kind["kind"].as_str() != Some("dev"));
-                    Some((dep["pkg"].as_str()?, built))
-                })
-                .collect();
-            Some((node["id"].as_str()?, deps))
-        })
-        .collect();
+    let (packages, dependencies) = graph(metadata);
     // Cargo names each package by its canonical path; the folders may be named through a link
     // (macOS's temporary folder `/var` is `/private/var`), so both sides are compared canonical.
     let canonical =
@@ -163,6 +137,77 @@ pub(super) fn check(
     errors
 }
 
+/// The dependencies of each package by id, every one with whether it is built into the module.
+type Dependencies<'a> = HashMap<&'a str, Vec<(&'a str, bool)>>;
+
+/// The packages of cargo's `metadata` by id, and their [`Dependencies`].
+fn graph(metadata: &Value) -> (HashMap<&str, Package>, Dependencies<'_>) {
+    let packages: HashMap<&str, Package> = metadata["packages"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|package| Some((package["id"].as_str()?, read_package(package)?)))
+        .collect();
+    let dependencies: Dependencies<'_> = metadata["resolve"]["nodes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|node| {
+            let deps = node["deps"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|dep| {
+                    let kinds = dep["dep_kinds"].as_array()?;
+                    // A development dependency is not built into the module.
+                    let built = kinds
+                        .iter()
+                        .any(|kind| kind["kind"].as_str() != Some("dev"));
+                    Some((dep["pkg"].as_str()?, built))
+                })
+                .collect();
+            Some((node["id"].as_str()?, deps))
+        })
+        .collect();
+    (packages, dependencies)
+}
+
+/// The crates of the graph of the build's `metadata` that an advisory of the RustSec database can
+/// name (specification 48 RU-79), each with its name and version, once, in order: every package the
+/// build's package is built with but itself, layer 1 (the packages in `bindings`) and the project's
+/// crate, the package in the folder `project`.
+pub(super) fn audited(
+    metadata: &Value,
+    project: &Path,
+    bindings: Option<&Path>,
+) -> Vec<(String, String)> {
+    let (packages, dependencies) = graph(metadata);
+    let canonical =
+        |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let project = canonical(project);
+    let bindings = bindings.map(canonical);
+    let Some(generated) = metadata["resolve"]["root"].as_str() else {
+        return Vec::new();
+    };
+    let mut crates: Vec<(String, String)> = closure(&[generated], &dependencies)
+        .into_iter()
+        .filter(|id| *id != generated)
+        .filter_map(|id| packages.get(id))
+        .filter(|package| {
+            let folder = package.manifest.parent().map(canonical);
+            let in_layer_one = match (&bindings, &folder) {
+                (Some(bindings), Some(folder)) => folder.starts_with(bindings),
+                _ => false,
+            };
+            folder.as_deref() != Some(project.as_path()) && !in_layer_one
+        })
+        .map(|package| (package.name.clone(), package.version.clone()))
+        .collect();
+    crates.sort();
+    crates.dedup();
+    crates
+}
+
 fn read_package(package: &Value) -> Option<Package> {
     let targets = package["targets"].as_array()?;
     let kinds: Vec<String> = targets
@@ -189,10 +234,7 @@ fn read_package(package: &Value) -> Option<Package> {
 }
 
 /// The packages `roots` reach through the dependencies they are built with, `roots` with them.
-fn closure<'a>(
-    roots: &[&'a str],
-    dependencies: &HashMap<&'a str, Vec<(&'a str, bool)>>,
-) -> HashSet<&'a str> {
+fn closure<'a>(roots: &[&'a str], dependencies: &Dependencies<'a>) -> HashSet<&'a str> {
     let mut reached: HashSet<&str> = roots.iter().copied().collect();
     let mut queue: VecDeque<&str> = roots.iter().copied().collect();
     while let Some(id) = queue.pop_front() {
