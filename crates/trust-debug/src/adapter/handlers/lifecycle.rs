@@ -83,15 +83,30 @@ impl DebugAdapter {
             .clone()
             .and_then(|value| serde_json::from_value::<ReloadArguments>(value).ok())
             .unwrap_or_default();
-        let response = match self.reload_compiled(args) {
+        // The build's diagnostics go before the answer (specification 25 §6.10).
+        let mut events = Vec::new();
+        let response = match self.reload_compiled(args, &mut events) {
             Ok(()) => self.ok_response::<Value>(&request, None),
-            Err(error) => self.error_response(&request, &reload_failure_summary(&error)),
+            Err(failure) if failure.crate_errors > 0 => {
+                self.error_response(&request, &compile_failed(failure.crate_errors))
+            }
+            Err(failure) => {
+                self.error_response(&request, &reload_failure_summary(&failure.message))
+            }
         };
         DispatchOutcome {
             responses: vec![response],
+            events,
             ..DispatchOutcome::default()
         }
     }
+}
+
+/// What a failed reload says of `errors` compiler errors, which Problems shows (specification 25
+/// §6.3).
+fn compile_failed(errors: usize) -> String {
+    let noun = if errors == 1 { "error" } else { "errors" };
+    format!("Compile failed — {errors} {noun}. Open Problems, then try again.")
 }
 
 /// The longest first line a failed reload answers with as it is.
@@ -104,8 +119,7 @@ const SUMMARY_LINE_CHARS: usize = 160;
 fn reload_failure_summary(error: &str) -> String {
     let errors = error.lines().filter(|line| names_source_file(line)).count();
     if errors > 0 {
-        let noun = if errors == 1 { "error" } else { "errors" };
-        return format!("Compile failed — {errors} {noun}. Open Problems, then try again.");
+        return compile_failed(errors);
     }
     let Some(first) = error.lines().map(str::trim).find(|line| !line.is_empty()) else {
         return "Update did not report a reason.".to_owned();

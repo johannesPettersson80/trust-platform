@@ -12,6 +12,7 @@
 //! - util: small shared helpers
 //! - tests: adapter unit tests
 
+mod build_diagnostics;
 mod control_bridge;
 mod core;
 mod handlers;

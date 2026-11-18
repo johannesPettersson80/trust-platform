@@ -22,6 +22,7 @@ import { registerNewProjectCommand } from "./newProject";
 import { openPendingProjectLanding } from "./projectLandingActivation";
 import { registerExamples } from "./examples";
 import { registerCheckProgram } from "./checkProgram";
+import { registerRustBuildDiagnostics } from "./rustBuildDiagnostics";
 import { registerRustDeclarations } from "./rustDeclarations";
 import { registerToolchainCommands } from "./toolchain";
 import { registerLibraries } from "./libraries";
@@ -273,6 +274,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNewProjectCommand(context);
   registerExamples(context);
   registerCheckProgram(context);
+  registerRustBuildDiagnostics(context);
   registerRustDeclarations(context);
   registerToolchainCommands(context);
   registerLibraries(context, { getClient: () => client });
