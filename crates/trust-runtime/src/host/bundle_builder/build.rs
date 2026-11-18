@@ -46,6 +46,7 @@ pub fn build_program_image(
     )?;
     check_configured_resource(bundle_root, built.resource.as_deref())?;
     let warnings = built.warnings.clone();
+    let crate_warnings = built.crate_warnings.clone();
     let key = project_key(bundle_root)?;
     sign(&mut built.image, &key)?;
     let signer = hex::encode(key.verifying_key().as_bytes());
@@ -133,6 +134,7 @@ pub fn build_program_image(
         resolved_dependencies: layout.resolved_dependencies,
         json,
         warnings,
+        crate_warnings,
     })
 }
 

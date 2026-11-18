@@ -14,8 +14,9 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use super::rust_messages::{self, RustDiagnostic, RustSeverity, REMAPPED_CRATE};
 use super::toolchain::{cpu, triple, LINKER_SCRIPT};
-use super::{NativeError, Toolchain};
+use super::{NativeError, RustFailure, Toolchain};
 use trust_runtime_core::native::image::Target;
 
 /// The name the generated code gives the project's crate.
@@ -54,6 +55,9 @@ const SDK_CRATES: [&str; 5] = [
 pub(super) struct ProjectCrate {
     /// Its folder, `rust/` of the project.
     pub(super) folder: PathBuf,
+    /// Its folder as the project names it, with `/` (`rust`): the compiler's diagnostics name the
+    /// crate's files below it (specification 48 RU-44).
+    pub(super) label: String,
     /// Its package's name.
     pub(super) package: String,
     /// The folder of layer 1, the bindings' crate `trust_st`, when the crate calls Structured
@@ -200,14 +204,18 @@ fn manifest(
     text
 }
 
-/// Compiles the crate `source` for `target` in folder `work` with the project's crate `project`,
-/// and returns the linked module, an ELF file, and the compiler's report of each function's stack
-/// frame, as [`Toolchain::compile`] does for a project without a crate.
+/// What [`compile`] gives: the linked module, an ELF file, the compiler's report of each function's
+/// stack frame, as [`Toolchain::compile`] gives them for a project without a crate, and the
+/// warnings of the project's crate (specification 48 RU-44).
+pub(super) type Compiled = (Vec<u8>, String, Vec<RustDiagnostic>);
+
+/// Compiles the crate `source` for `target` in folder `work` with the project's crate `project`.
 ///
 /// # Errors
 ///
-/// [`NativeError::Toolchain`] when the toolchain has no cargo or SDK sources, and with cargo's and
-/// the compiler's diagnostics when the build fails.
+/// [`NativeError::Rust`] when the project's crate does not compile, with the compiler's report and
+/// the crate's diagnostics, and [`NativeError::Toolchain`] when the toolchain has no cargo or SDK
+/// sources or the build fails otherwise, with cargo's and the compiler's report.
 pub(super) fn compile(
     toolchain: &Toolchain,
     source: &str,
@@ -215,7 +223,7 @@ pub(super) fn compile(
     entries: &[String],
     work: &Path,
     project: &ProjectCrate,
-) -> Result<(Vec<u8>, String), NativeError> {
+) -> Result<Compiled, NativeError> {
     let (Some(cargo), Some(sdk)) = (&toolchain.cargo, &toolchain.sdk) else {
         return Err(NativeError::Toolchain(
             "this toolchain has no cargo and SDK sources, which build a project with Rust POUs \
@@ -233,6 +241,7 @@ pub(super) fn compile(
     let work = &absolute(work)?;
     let project = &ProjectCrate {
         folder: absolute(&project.folder)?,
+        label: project.label.clone(),
         package: project.package.clone(),
         bindings: project.bindings.as_deref().map(absolute).transpose()?,
         debug: project.debug,
@@ -273,7 +282,10 @@ pub(super) fn compile(
         "-C".into(),
         format!("target-feature={features}"),
         format!("--remap-path-prefix={}=.", work.display()),
-        format!("--remap-path-prefix={}=project", project.folder.display()),
+        format!(
+            "--remap-path-prefix={}={REMAPPED_CRATE}",
+            project.folder.display()
+        ),
         format!("--remap-path-prefix={}=sdk", sdk.display()),
     ];
     flags.push(format!(
@@ -302,6 +314,8 @@ pub(super) fn compile(
     let mut command = cargo_command(cargo, toolchain, work);
     command
         .args(["rustc", "--offline", "--release", "--bin", "trust_module"])
+        // The compiler's diagnostics as JSON messages, each with its place (RU-44).
+        .args(["--message-format", "json"])
         .args(["--target", triple(target)]);
     // The output of the vendored crates' build scripts, which cargo takes instead of compiling and
     // running the scripts (RU-74).
@@ -332,14 +346,30 @@ pub(super) fn compile(
     let result = command
         .output()
         .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
-    let diagnostics = String::from_utf8_lossy(&result.stderr).to_string();
+    let messages = rust_messages::read(&result.stdout, &project.label);
     if !result.status.success() {
-        let errors: String = diagnostics
+        // The compiler's messages, then cargo's own lines, the stack remarks left out.
+        let cargo_says = String::from_utf8_lossy(&result.stderr);
+        let report: String = messages
+            .text
             .lines()
+            .chain(cargo_says.lines())
             .filter(|line| !line.starts_with("note: <unknown file>:0:0 prolog-epilog"))
             .collect::<Vec<_>>()
             .join("\n");
-        return Err(NativeError::Toolchain(errors));
+        // A failure the crate's own errors do not explain, such as a link that fails, is the
+        // toolchain's.
+        let crate_errors = messages
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity == RustSeverity::Error);
+        if !crate_errors {
+            return Err(NativeError::Toolchain(report));
+        }
+        return Err(NativeError::Rust(RustFailure {
+            report,
+            diagnostics: messages.diagnostics,
+        }));
     }
     let output = work
         .join("target")
@@ -348,7 +378,7 @@ pub(super) fn compile(
         .join("trust_module");
     let module = std::fs::read(&output)
         .map_err(|error| NativeError::Toolchain(format!("{}: {error}", output.display())))?;
-    Ok((module, diagnostics))
+    Ok((module, messages.text, messages.diagnostics))
 }
 
 /// The toolchain's `cargo`, to run in `work` as the build runs it (RU-75): in the
