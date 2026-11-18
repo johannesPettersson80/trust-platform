@@ -3720,6 +3720,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | 0.9 | 9 October 2026 | Folds the periodic scheduling defect into Scope A/A4 as SCHED-05; aligns specifications 10/11, selects nominal deadlines for SCHED-01/CYCLE-03, and adds the 25 ms / 10 ms native and shared-artifact oracle. Implementation, validation, version bump and release remain deferred to the authorized implementation scope. |
 | 0.72 | 26 October 2026 | Identify (specification 11, "Identify") joins the combined line as the shared component SERVICE-07, from the devices-and-connections line of 18 October 2026: the request, its timer, the blink and the `identifying` status member are one implementation in `trust-runtime-services`, a platform supplies only the way to drive one output, it is accepted and blinks in every state of the resource (running, paused, stopped or faulted, the scheduler's waits ticking it while no scan runs), and a chip answers `identify_not_configured` until its firmware drives an output. STATE-08 lists the identify output among the configuration that a restart from Stopped reads again. The gap is reported as ARCH-13 requires; no function is reduced on any target. |
 | 0.73 | 6 November 2026 | A compiled program image imports nothing (specification 44 §6.9 compiles the program library into it), so §5.2.1's table of built-in import contracts, which the bytecode engine checked at preparation, is gone with LOAD-06's contract rules and the stable code `runtime_import_unsupported`. The record keeps its import section for the records of bytecode programs, which admission refuses by their version first; admission refuses a record that lists an import as a record of another program (§5.1.1, step 6). Checklist G5. |
+| 0.74 | 18 November 2026 | Appendix D.2: the C6's RAM code holds the scan path and no more (checklist G217): a pattern of `rwtext_hook.x` matched the C6's GPIO type in the generic arguments of the runner's control path and drew 8.9 KB of it into RAM, which left the main stack 144 bytes above its floor; the two GPIO methods of a scan are in RAM by `#[ram]`, the process image by its own module, and `build-firmware esp32c6` refuses a control path in RAM. |
 
 Version 0.8 divides aggregate Scope A into A1–A4, with one final batch per explicitly
 bounded scope, and adds the implementation checklist/current-checkpoint pointer.
@@ -4137,7 +4138,15 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   (82 KiB), and `build-firmware esp32c6` reads the linked `.stack` region, reports it with its margin
   above the window, and fails below that margin. The linked `.stack` region of the C1-24 build is
   85,980 bytes, which leaves 6,108 bytes above the 78 KiB window. The STM32F407 keeps 16 KiB (D.4). Only the interpreter loop, the
-  per-scan path and the per-call path of a standard call run from RAM (`rwtext_hook.x`); the
+  per-scan path and the per-call path of a standard call run from RAM (`rwtext_hook.x`). A pattern
+  of that list matches a path anywhere in a symbol, a generic argument's too, so it names a module
+  of the scan path whose types no control-path code takes as arguments; the C6's own GPIO type is
+  an argument of every method of the resource loop, so the two GPIO methods a scan calls run from
+  RAM by esp-hal's `#[ram]` instead of a pattern, which had drawn 8.9 KB of the runner's control
+  path into RAM (checklist G217, 18 November 2026). The control path, the runner's stepped scans
+  and debug reads (`runner::stepping`) and its program (`runner::program`), runs from flash, and
+  `build-firmware esp32c6` refuses an image whose control path lies in RAM, judged by each
+  function's own module. The
   standard functions and function blocks, REAL to text, string semantics, value display, date and
   time and sorting run from flash (57,500 bytes moved on 19 October 2026), so that the radio's RAM
   fits (checklist L3). Measured on the C6 with the perf bench program, the move costs 1.5 ms of its
