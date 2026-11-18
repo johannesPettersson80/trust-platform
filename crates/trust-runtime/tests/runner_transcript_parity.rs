@@ -227,6 +227,22 @@ fn compare_reads(host: &HostComposition, device: &mut Device, reads: &[(u64, &st
     }
 }
 
+/// Spec 11 §6.8.1, "Reading variables": both compositions answer `variables.read` of the board
+/// probe's output, its global and its input with the same scan, logical time, state, quality and
+/// values, read between two scans. The device would answer differently if it numbered its scans or
+/// timed them otherwise, read the program inside a scan, or typed a value otherwise.
+fn compare_variables(host: &HostComposition, device: &mut Device, id: u64) {
+    let line = json!({
+        "id": id,
+        "type": "variables.read",
+        "params": { "paths": ["Plant.led", "probe_depth", "Plant.button"] }
+    })
+    .to_string();
+    let host_reply = host.request(&line);
+    assert_eq!(host_reply["ok"], json!(true), "{host_reply}");
+    assert_same_reply(&line, &host_reply, &device.request(&line));
+}
+
 /// A Live Values request line with its parameters.
 fn live(id: u64, kind: &str, params: Value) -> String {
     json!({"id": id, "type": kind, "params": params}).to_string()
@@ -350,6 +366,8 @@ fn pause(host: &mut HostComposition, device: &mut Device) -> StdDuration {
         device,
         &[(7, "status"), (8, "events.tail"), (9, "tasks.stats")],
     );
+    // Paused: the last completed scan's values, `stale`.
+    compare_variables(host, device, 61);
     boundary
 }
 
@@ -516,6 +534,7 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
             (5, "faults"),
         ],
     );
+    compare_variables(&host, &mut device, 60);
 
     live_values(&mut host, &mut device);
 

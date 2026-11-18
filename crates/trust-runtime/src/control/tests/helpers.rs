@@ -173,6 +173,13 @@ fn control_test_state_with_status_reports(
                 ResourceCommand::MeshSnapshot { respond_to, .. } => {
                     let _ = respond_to.send(IndexMap::new());
                 }
+                ResourceCommand::ReadVariables { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::variables::ReadRefusal::Unavailable(
+                            "unsupported in this control fixture".to_string(),
+                        ),
+                    ));
+                }
                 ResourceCommand::MeshCatalogue { respond_to, .. } => {
                     let _ = respond_to.send(Err("unsupported in this control fixture".to_string()));
                 }

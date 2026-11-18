@@ -187,6 +187,9 @@ pub(crate) struct FakeHost {
     pub(crate) steps: RefCell<Vec<StepRequest>>,
     /// What every step answers; `None` for a platform without stepped scans.
     pub(crate) step_answer: Option<Result<StepOutcome, StepRefusal>>,
+    /// What `variables.read` reads, and the paths it was asked for, in order.
+    pub(crate) variables: Result<crate::variables::ReadSet, crate::variables::ReadRefusal>,
+    pub(crate) variable_reads: RefCell<Vec<Vec<String>>>,
 }
 
 impl FakeHost {
@@ -234,6 +237,8 @@ impl FakeHost {
             commit_identity: None,
             steps: RefCell::new(Vec::new()),
             step_answer: None,
+            variables: Err(crate::variables::ReadRefusal::NoCompletedScan),
+            variable_reads: RefCell::new(Vec::new()),
         }
     }
 
@@ -330,6 +335,14 @@ impl WallClock for FakeHost {
 impl ResourcePort for FakeHost {
     fn resource_state(&self) -> ResourceState {
         self.state.get()
+    }
+
+    fn read_variables(
+        &self,
+        paths: &[String],
+    ) -> Result<crate::variables::ReadSet, crate::variables::ReadRefusal> {
+        self.variable_reads.borrow_mut().push(paths.to_vec());
+        self.variables.clone()
     }
 
     fn last_error(&self) -> Option<RuntimeError> {

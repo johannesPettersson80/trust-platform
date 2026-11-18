@@ -265,4 +265,11 @@ pub trait ResourceCycle {
     fn compiled_view(&self) -> Option<CompiledView<'_>> {
         None
     }
+
+    /// The compiled program's memory between scans, which `variables.read` reads whatever the
+    /// debug surface (specification 11 §6.8.1, "Reading variables"); none for a cycle that runs no
+    /// compiled program. The default has none.
+    fn variables_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
+        None
+    }
 }

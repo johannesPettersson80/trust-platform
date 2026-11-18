@@ -50,6 +50,7 @@ use crate::resource::replies::no_installed_program;
 use crate::settings::{RuntimeSettings, TokenChange};
 use crate::status::{IoDriverStatus, StatusSettings};
 use crate::transfer::{StoredUpload, TransferId, TransferSession};
+use crate::variables::{ReadRefusal, ReadSet};
 
 /// What the platform supplies to the resource loop besides the link, the wait, the clock and the
 /// installed program: the access rights, the audit sink, the wall clock, the values the platform
@@ -194,6 +195,17 @@ pub(super) trait ProgramView {
         None
     }
 
+    /// The values of `paths` that the last completed scan left (specification 11 §6.8.1,
+    /// "Reading variables"). The default is the view of a scan a debugger holds, which is inside
+    /// its scan: no completed scan's values are at hand.
+    ///
+    /// # Errors
+    ///
+    /// The [`ReadRefusal`] of a set that is not read.
+    fn read_variables(&self, _paths: &[String]) -> Result<ReadSet, ReadRefusal> {
+        Err(ReadRefusal::Unavailable("a debugger holds the scan".into()))
+    }
+
     /// Writes `value` at `at` into the scan the debugger holds, at once (specification 44 §13.2,
     /// `debug.set`); `None` between scans, where no scan is held and nothing is written.
     fn write_held(
@@ -270,6 +282,10 @@ impl<P: RunnerPlatform, C> WallClock for RunnerHost<'_, P, C> {
 impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
     fn resource_state(&self) -> ResourceState {
         self.resource.state()
+    }
+
+    fn read_variables(&self, paths: &[String]) -> Result<ReadSet, ReadRefusal> {
+        self.program.read_variables(paths)
     }
 
     fn last_error(&self) -> Option<RuntimeError> {

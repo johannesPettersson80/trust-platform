@@ -1086,6 +1086,9 @@ fn apply_resource_command(runtime: &mut CompiledRuntime, command: ResourceComman
             source: _,
             sequence: _,
         } => runtime.apply_mesh_updates(&updates),
+        ResourceCommand::ReadVariables { paths, respond_to } => {
+            let _ = respond_to.send(runtime.read_variables(&paths));
+        }
         // A program's variables are read from its state through its symbol table (specification
         // 44 §8.8, §13.3).
         ResourceCommand::Snapshot { respond_to } => {

@@ -399,6 +399,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 );
             }
         }
+        ControlAction::Read { .. } => print_variables(response)?,
         ControlAction::BreakpointsSet { .. }
         | ControlAction::BreakpointsList
         | ControlAction::Location
@@ -411,6 +412,36 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
             println!("{}", serde_json::to_string(&response)?);
         }
         _ => println!("{}", serde_json::to_string(response)?),
+    }
+    Ok(())
+}
+
+/// Prints a `variables.read` reply: the scan, its logical time, the state and the quality, then one
+/// line per variable with its path, its type and its value as the reply's JSON gives it.
+fn print_variables(response: &JsonValue) -> anyhow::Result<()> {
+    let result = response
+        .get("result")
+        .and_then(JsonValue::as_object)
+        .context("variables.read response missing object 'result'")?;
+    let field = |name: &str| result.get(name).cloned().unwrap_or(JsonValue::Null);
+    println!(
+        "scan={} time_ns={} state={} quality={}",
+        field("scan"),
+        field("time_ns"),
+        field("state").as_str().unwrap_or("?"),
+        field("quality").as_str().unwrap_or("?"),
+    );
+    let values = result
+        .get("values")
+        .and_then(JsonValue::as_array)
+        .context("variables.read result missing array 'values'")?;
+    for value in values {
+        println!(
+            "{} : {} = {}",
+            value.get("path").and_then(JsonValue::as_str).unwrap_or("?"),
+            value.get("type").and_then(JsonValue::as_str).unwrap_or("?"),
+            value.get("value").cloned().unwrap_or(JsonValue::Null)
+        );
     }
     Ok(())
 }
@@ -483,6 +514,12 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "params": { "variables_reference": reference }
         }),
         ControlAction::IoRead => json!({"id": 1, "type": "io.read", "auth": auth}),
+        ControlAction::Read { paths } => json!({
+            "id": 1,
+            "type": "variables.read",
+            "auth": auth,
+            "params": { "paths": paths }
+        }),
         ControlAction::IoWrite { address, value } => json!({
             "id": 1,
             "type": "io.write",
@@ -636,6 +673,17 @@ mod tests {
             (
                 ControlAction::IoRead,
                 json!({"id": 1, "type": "io.read", "auth": "token"}),
+            ),
+            (
+                ControlAction::Read {
+                    paths: vec!["Main.count".into(), "Speed".into()],
+                },
+                json!({
+                    "id": 1,
+                    "type": "variables.read",
+                    "auth": "token",
+                    "params": { "paths": ["Main.count", "Speed"] }
+                }),
             ),
             (
                 ControlAction::IoWrite {
