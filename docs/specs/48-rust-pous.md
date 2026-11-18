@@ -1141,7 +1141,8 @@ locals across them, and otherwise starts the sequence at its top and says so in 
 
 **RU-74.** The toolchain bundle (specification 44 §4.6) gains, for every computer platform:
 `cargo` of the pinned release; the SDK's procedural macro library (`trust-plc-macros`), which the
-release builds for that platform with the pinned compiler; the sources of the SDK crates and of
+release builds for that platform with the pinned compiler, a Linux platform's against glibc 2.28 so
+that it loads on every Linux the packages support (specification 24); the sources of the SDK crates and of
 every crate they are built from, vendored, with their hashes in the bundle's manifest; and, for each
 module target, the output of the build scripts of those crates (today `libm`'s only), which the
 release records when it builds the program library for that target. The build gives `rustc` the
