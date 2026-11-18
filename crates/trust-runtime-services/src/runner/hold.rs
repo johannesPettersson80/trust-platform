@@ -150,7 +150,9 @@ pub trait CompiledHold {
     fn stop_points(&self) -> super::debugger::StopPoints;
 
     /// The decision at the statement start `at` (specification 13, "Runtime Debug-Control
-    /// Execution").
+    /// Execution"). `held` is the scan's memory and frames at `at`: a debugger that other threads
+    /// read while the scan runs on shows them with the stop of a hold it decides, so that no read
+    /// finds the stop without the halted state (specification 11 §6.13.1).
     ///
     /// # Errors
     ///
@@ -159,10 +161,11 @@ pub trait CompiledHold {
         &self,
         at: &StatementStart<'_>,
         names: Option<&dyn Names>,
+        held: &CompiledHeld<'_>,
     ) -> Result<Boundary, RuntimeError>;
 
-    /// Holds the scan before the statement `at` until the debugger releases it, with the held
-    /// scan's memory and frames for the debug reads.
+    /// Holds the scan before the statement `at`, which [`Self::at_statement`] decided to hold,
+    /// until the debugger releases it, with the held scan's memory and frames for the debug reads.
     ///
     /// # Errors
     ///
@@ -187,10 +190,13 @@ impl CompiledHold for HoldHandle {
         self.0.stop_points()
     }
 
+    /// The loop serves its link only while it holds the scan, so no read comes before the hold
+    /// shows the held scan.
     fn at_statement(
         &self,
         at: &StatementStart<'_>,
         names: Option<&dyn Names>,
+        _held: &CompiledHeld<'_>,
     ) -> Result<Boundary, RuntimeError> {
         self.0.at_statement(at, names)
     }

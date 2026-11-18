@@ -224,4 +224,11 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
             Self::Missing(_) => None,
         }
     }
+
+    fn variables_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
+        match self {
+            Self::Installed(cycle) => cycle.variables_memory(),
+            Self::Missing(_) => None,
+        }
+    }
 }

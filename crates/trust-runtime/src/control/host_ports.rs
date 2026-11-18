@@ -34,6 +34,7 @@ use trust_runtime_services::ports::{
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
 use trust_runtime_services::transfer::TransferSession;
+use trust_runtime_services::variables::{ReadRefusal, ReadSet};
 
 use crate::config::ControlMode;
 use crate::error::RuntimeError;
@@ -105,6 +106,17 @@ impl WallClock for ControlState {
 impl ResourcePort for ControlState {
     fn resource_state(&self) -> ResourceState {
         self.resource.state()
+    }
+
+    /// Read on the scan thread between scans; a scan a debugger holds is inside its scan, and the
+    /// scan thread answers no command until it goes on (specification 11 §6.8.1).
+    fn read_variables(&self, paths: &[String]) -> Result<ReadSet, ReadRefusal> {
+        if self.debug.hold_label().is_some() {
+            return Err(ReadRefusal::Unavailable(
+                "a debugger holds the scan".to_string(),
+            ));
+        }
+        self.resource.read_variables(paths)
     }
 
     fn last_error(&self) -> Option<RuntimeError> {

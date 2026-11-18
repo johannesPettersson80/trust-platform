@@ -32,6 +32,17 @@ pub enum ResourceCommand {
     Snapshot {
         respond_to: std::sync::mpsc::Sender<crate::debug::DebugSnapshot>,
     },
+    /// `variables.read` (specification 11 §6.8.1, "Reading variables"): the values of `paths` that
+    /// the last completed scan left, read on the scan thread between two scans.
+    ReadVariables {
+        paths: Vec<String>,
+        respond_to: std::sync::mpsc::Sender<
+            Result<
+                trust_runtime_services::variables::ReadSet,
+                trust_runtime_services::variables::ReadRefusal,
+            >,
+        >,
+    },
     SimulationSnapshot {
         respond_to: std::sync::mpsc::Sender<Option<crate::simulation::SimulationRuntimeSnapshot>>,
     },
@@ -105,6 +116,7 @@ fn command_class(command: &ResourceCommand) -> CommandClass {
         | ResourceCommand::UpdateIoSafeState(_)
         | ResourceCommand::MeshSnapshot { .. }
         | ResourceCommand::Snapshot { .. }
+        | ResourceCommand::ReadVariables { .. }
         | ResourceCommand::AdsStatus { .. }
         | ResourceCommand::OpcUaClientStatus { .. }
         | ResourceCommand::ActiveAdsDevice { .. }

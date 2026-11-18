@@ -11,7 +11,7 @@
 //! loads the program and runs the step after the request's pass, then writes the step's reply
 //! ([`Runner::finish_loading_step`]), as it finishes an install.
 
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cell::{Cell, OnceCell, RefCell};
 
@@ -28,6 +28,7 @@ use super::{span, Runner};
 use crate::cycle_step::{reply, restart_time, StepOutcome, StepRefusal, StepRequest};
 use crate::protocol::ControlResponse;
 use crate::status::IoDriverStatus;
+use crate::variables::{read_set, ReadRefusal, ReadSet};
 
 /// The step the dispatcher deferred to the loop, and the step whose reply the shell holds.
 #[derive(Default)]
@@ -70,14 +71,19 @@ pub(super) struct LentProgram<'p, Y, C> {
     /// The generation and the time of the last step, which the loop keeps.
     last_step: &'p Cell<Option<(Generation, Duration)>>,
     clock: &'p C,
+    /// The number and the logical time of the last completed scan, which `variables.read` answers
+    /// with; none before the program's first.
+    completed: Option<(u64, Duration)>,
 }
 
 impl<'p, Y, C> LentProgram<'p, Y, C> {
-    /// Lends `program` for one request, with the loop's record of its last step and its clock.
+    /// Lends `program` for one request, with the loop's record of its last step, its clock and its
+    /// last completed scan.
     pub(super) fn new(
         program: &'p mut Program<Y>,
         last_step: &'p Cell<Option<(Generation, Duration)>>,
         clock: &'p C,
+        completed: Option<(u64, Duration)>,
     ) -> Self {
         Self {
             missing: program.missing_reason(),
@@ -85,6 +91,7 @@ impl<'p, Y, C> LentProgram<'p, Y, C> {
             shared: OnceCell::new(),
             last_step,
             clock,
+            completed,
         }
     }
 }
@@ -164,6 +171,21 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
     fn compiled_state(&self) -> Option<super::cycle::CompiledView<'_>> {
         self.lend_shared()?.compiled_view()
     }
+
+    fn read_variables(&self, paths: &[String]) -> Result<ReadSet, ReadRefusal> {
+        let (scan, time) = self.completed.ok_or(ReadRefusal::NoCompletedScan)?;
+        self.read(|program| {
+            let memory = program
+                .variables_memory()
+                .ok_or(ReadRefusal::NoCompletedScan)?;
+            Ok(ReadSet {
+                scan,
+                time_ns: time.as_nanos(),
+                values: read_set(memory, paths)?,
+            })
+        })
+        .unwrap_or_else(|| Err(ReadRefusal::Unavailable("a step runs the program".into())))
+    }
 }
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
@@ -174,6 +196,14 @@ where
     P: RunnerPlatform,
     C: MonotonicClock + Clone,
 {
+    /// The number and the logical time of the last scan that completed since the program started,
+    /// as the I/O snapshot numbers its scans; none before the first.
+    pub(super) fn completed_scan(&self) -> Option<(u64, Duration)> {
+        self.cycle_count
+            .checked_sub(1)
+            .map(|scan| (scan, self.program_time))
+    }
+
     /// Finishes the deferred step `request` of request `id`: the newest installed program is loaded
     /// in place and started cold, as `restart` loads it, and the resource stays Stopped; the step's
     /// scan then runs on it, its time counted from the load, and the step's reply is written. A
@@ -188,7 +218,9 @@ where
                     restart: None,
                     ..request
                 };
-                let program = LentProgram::new(&mut self.cycle, &self.last_step, &self.clock);
+                let completed = self.completed_scan();
+                let program =
+                    LentProgram::new(&mut self.cycle, &self.last_step, &self.clock, completed);
                 let response = match program.run(&loaded, Duration::ZERO) {
                     Ok(outcome) => ControlResponse::ok(id, reply(loaded.time, &outcome)),
                     Err(refusal) => refusal.response(id),
@@ -198,7 +230,8 @@ where
             }
             Err(error) => StepRefusal::Restart(error).response(id),
         };
-        let program = LentProgram::new(&mut self.cycle, &self.last_step, &self.clock);
+        let completed = self.completed_scan();
+        let program = LentProgram::new(&mut self.cycle, &self.last_step, &self.clock, completed);
         self.shell.deliver(response, &program);
     }
 }

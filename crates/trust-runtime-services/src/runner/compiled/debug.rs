@@ -125,15 +125,16 @@ impl<H: CompiledHold> CompiledDebug<H> {
         };
         // A condition and a logpoint read the names of the frame that runs the statement.
         let names = FrameNames::new(&*stop, Some(0));
-        if hold.at_statement(&at, Some(&names))? == Boundary::Run {
-            return Ok(false);
-        }
+        // The decision has the held scan at hand, to show it with the stop of a hold.
         let view = CompiledHeld {
             memory: &*stop,
             writes: &*stop,
             sources: self.sources.as_ref(),
             drivers: &self.drivers,
         };
+        if hold.at_statement(&at, Some(&names), &view)? == Boundary::Run {
+            return Ok(false);
+        }
         self.holds.start(clock.now());
         let outcome = hold.hold_compiled(&at, &view);
         self.holds.end(clock.now());
