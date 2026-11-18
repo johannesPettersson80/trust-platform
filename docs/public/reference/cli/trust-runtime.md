@@ -72,7 +72,7 @@ truST project starts from: `src/Main.st`, `src/config.st`, `trust-lsp.toml`,
 `runtime.toml`, `io.toml`, `.vscode/launch.json`, `.vscode/settings.json` and
 `.gitignore`. The `runtime.toml` names no control endpoint, so the runtime uses
 the platform default, and `.gitignore` lists `/.trust-runtime/`, the folder that
-holds the endpoint file.
+holds the endpoint file, and `/build/`, the folder the project's builds write.
 
 Two flags start the project with Rust POUs instead (specification 48 RU-51). The
 command writes each start's generated Structured Text too, so the project builds
@@ -94,7 +94,7 @@ Both name the crate's package after the project, pin `trust-plc` to this
 release's version, and write `rust-toolchain.toml`: the Rust version of the
 toolchain bundle, the devices' targets and `rust-src`, so that your own rustup
 gives rust-analyzer and `cargo test` the same compiler. Their `.gitignore` also
-lists `/build/` and the folder where your own cargo builds the crate.
+lists the folder where your own cargo builds the crate.
 
 The name is trimmed and must be one plain folder name on every platform. It must
 not be empty or `.` or `..`, and must not contain `/`, `\`, a drive prefix or
@@ -103,9 +103,9 @@ It must not end with a dot, and must not be a device name that Windows reserves
 (`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`, `LPT1` to `LPT9`, with or without an
 extension). An existing folder that is not empty is refused unless `--force` is
 given. With `--force`, the scaffold files are overwritten and every other file in
-the folder is kept. An existing `.gitignore` is always kept; it only gains the
-`/.trust-runtime/` line when no line ignores that folder yet, and in a Rust start
-each other line of the start that it lacks.
+the folder is kept. An existing `.gitignore` is always kept; it only gains each
+of the start's lines that it lacks: the `/.trust-runtime/` line when no line
+ignores that folder yet.
 
 With `--json`, success prints
 `{"project":"<absolute folder>","focus":"<absolute folder>/src/Main.st"}`, where

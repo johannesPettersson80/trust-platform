@@ -279,10 +279,49 @@ pub fn create_project_as(
     let gitignore = target.join(".gitignore");
     crate::control::endpoint::ensure_endpoint_dir_ignored(&target, GITIGNORE_SOURCE)
         .map_err(|error| io_error(format!("write {}: {error}", gitignore.display())))?;
-    if start != ProjectStart::StructuredText {
-        rust_start::ignore_build_folders(&target, start)?;
-    }
+    ignore_build_folders(&target, start)?;
     Ok(target)
+}
+
+/// Makes the project's `.gitignore` list the folder its builds write, `/build/`, and in a Rust start
+/// the folder where the user's own cargo builds the crate, appending the lines it lacks
+/// (specification 25 §3.2).
+///
+/// # Errors
+///
+/// A `.gitignore` that cannot be read or written.
+fn ignore_build_folders(target: &Path, start: ProjectStart) -> Result<(), NewProjectError> {
+    let (lines, comment): (&[&str], &str) = match start {
+        ProjectStart::StructuredText => (&["/build/"], "# The folder the builds write.\n"),
+        ProjectStart::StructuredTextWithRust => (
+            &["/build/", "/rust/target/"],
+            "# The folder the builds write, and the one where your own cargo builds the crate.\n",
+        ),
+        ProjectStart::RustFirst => (
+            &["/build/", "/target/"],
+            "# The folder the builds write, and the one where your own cargo builds the crate.\n",
+        ),
+    };
+    let path = target.join(".gitignore");
+    let failed = |error: std::io::Error| io_error(format!("write {}: {error}", path.display()));
+    let mut text = fs::read_to_string(&path).map_err(failed)?;
+    let missing: Vec<&str> = lines
+        .iter()
+        .copied()
+        .filter(|line| !text.lines().any(|held| held.trim() == *line))
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(comment);
+    for line in missing {
+        text.push_str(line);
+        text.push('\n');
+    }
+    fs::write(&path, text).map_err(failed)
 }
 
 /// Writes each of `files`, relative to `target` with `/`, with its text, making its folders.
@@ -485,9 +524,10 @@ params = {}
 }
 "#;
 
-    /// `.gitignore`, which the extension did not write.
+    /// `.gitignore`, which the extension did not write: the endpoint's folder and the builds'.
     const EXPECTED_GITIGNORE: &str =
-        "# The runtime's endpoint file: it can hold a control token.\n/.trust-runtime/\n";
+        "# The runtime's endpoint file: it can hold a control token.\n\
+        /.trust-runtime/\n# The folder the builds write.\n/build/\n";
 
     /// A unique folder under the system temporary folder, removed when the test ends.
     struct Scratch(PathBuf);
@@ -619,7 +659,10 @@ params = {}
     }
 
     #[test]
-    fn force_keeps_an_existing_gitignore_and_adds_the_endpoint_folder() {
+    fn force_keeps_an_existing_gitignore_and_adds_the_endpoint_and_build_folders() {
+        // Specification 25 §3.2: an existing `.gitignore` is kept and gains each line of the start
+        // that it lacks, once. Catches a project creator that replaces the user's `.gitignore`, one
+        // that leaves the build's folder to version control, and one that repeats a line.
         let scratch = Scratch::new("force-gitignore");
         let folder = scratch.path().join("my-plc");
         fs::create_dir_all(&folder).expect("create folder");
@@ -632,6 +675,11 @@ params = {}
         assert!(
             text.lines()
                 .any(|line| line == crate::control::endpoint::ENDPOINT_DIR_GITIGNORE_LINE),
+            "{text}"
+        );
+        assert_eq!(
+            text.lines().filter(|line| *line == "/build/").count(),
+            1,
             "{text}"
         );
 

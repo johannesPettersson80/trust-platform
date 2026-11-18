@@ -5,7 +5,6 @@
 //! `trust-dev rust declarations` writes for them, so that the project builds as it is created, with
 //! no Rust of the user's (RU-76).
 
-use std::fs;
 use std::path::Path;
 
 use toml_edit::DocumentMut;
@@ -251,42 +250,6 @@ pub(super) fn write(target: &Path, name: &str, start: ProjectStart) -> Result<()
         ))
     })?;
     Ok(())
-}
-
-/// Makes the project's `.gitignore` list the build's folder and the folder where the user's own
-/// cargo builds the crate of the Rust start `start`, appending the lines it lacks.
-///
-/// # Errors
-///
-/// A `.gitignore` that cannot be read or written.
-pub(super) fn ignore_build_folders(
-    target: &Path,
-    start: ProjectStart,
-) -> Result<(), NewProjectError> {
-    let cargo_target = if start == ProjectStart::RustFirst {
-        "/target/"
-    } else {
-        "/rust/target/"
-    };
-    let path = target.join(".gitignore");
-    let failed = |error: std::io::Error| io_error(format!("write {}: {error}", path.display()));
-    let mut text = fs::read_to_string(&path).map_err(failed)?;
-    let missing: Vec<&str> = ["/build/", cargo_target]
-        .into_iter()
-        .filter(|line| !text.lines().any(|held| held.trim() == *line))
-        .collect();
-    if missing.is_empty() {
-        return Ok(());
-    }
-    if !text.is_empty() && !text.ends_with('\n') {
-        text.push('\n');
-    }
-    text.push_str("# The build's folder, and the folder where your own cargo builds the crate.\n");
-    for line in missing {
-        text.push_str(line);
-        text.push('\n');
-    }
-    fs::write(&path, text).map_err(failed)
 }
 
 /// The crate's package name for the project `name` (specification 25 §3.2): the name in lower
