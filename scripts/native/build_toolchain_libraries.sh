@@ -19,6 +19,12 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$root"
 sysroot=$(rustc --print sysroot)
 host=$(rustc -vV | sed -n 's/^host: //p')
+# Git Bash's own tools open files by POSIX paths: its tar takes a Windows folder such as the
+# runner's `D:\a\_temp` for another host's (`D:`) and cannot open it (#599's first run). The folder
+# is named the POSIX way once, and Git Bash gives the compiler's tools its Windows name again.
+case $host in
+  *-windows-*) out=$(cygpath -u "$out") ;;
+esac
 mkdir -p "$out/lib"
 # The compiler, linked where the build looks for it. Not on Windows: rustc.exe runs only beside its
 # own libraries, so a Windows computer takes the bundle `trust-runtime toolchain bundle` writes from
@@ -46,8 +52,8 @@ esac
 # writes them for crates.io, so that the build takes them outside this workspace (RU-74). A
 # Windows folder has no `bin/` (above): its bundle takes cargo from the compiler's own folder.
 case $host in
-  *-windows-*) exe=.exe; tar_local=--force-local ;;
-  *) exe=; tar_local=; ln -sfn "$sysroot/bin/cargo" "$out/bin/cargo" ;;
+  *-windows-*) exe=.exe ;;
+  *) exe=; ln -sfn "$sysroot/bin/cargo" "$out/bin/cargo" ;;
 esac
 # The crates of the lock, which the steps below read offline: on a fresh computer, as the
 # release's, this script runs cargo first.
@@ -57,8 +63,7 @@ cargo package --quiet --offline --no-verify --allow-dirty -p trust-plc-abi -p tr
   -p trust-plc-mem -p trust-plc-decl -p trust-plc-macros -p trust-plc --target-dir "$out/build-package"
 mkdir -p "$out/sdk"
 for package in "$out/build-package/package/"*.crate; do
-  # Windows' GNU tar reads `D:\...` as a host's file unless told the file is local.
-  tar $tar_local -xzf "$package" -C "$out/sdk"
+  tar -xzf "$package" -C "$out/sdk"
 done
 # Each crate's folder by its name alone: trust-plc-0.41.2 becomes trust-plc.
 for folder in "$out/sdk/"*-[0-9]*; do
