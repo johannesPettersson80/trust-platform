@@ -116,14 +116,16 @@ async function matchingLegacyLanding(context: vscode.ExtensionContext): Promise<
   return { kind: "one", intent: matching[0].intent, key: matching[0].key };
 }
 
-/** Keep starter activation as the exclusive landing owner. */
+/** Keep starter activation as the exclusive landing owner. The project is the one named, or else the parent of
+ * the starter's `src/`. */
 export async function prepareStarterProjectHandoff(
   context: vscode.ExtensionContext,
-  mainPath: string
+  mainPath: string,
+  projectPath: string = nodePath.dirname(nodePath.dirname(mainPath))
 ): Promise<void> {
   await context.globalState.update(PROJECT_LANDING_KEY, {
     intentId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    projectPath: nodePath.dirname(nodePath.dirname(mainPath)),
+    projectPath,
     kind: "starter",
     filePath: mainPath,
   } satisfies ProjectLandingIntent);
