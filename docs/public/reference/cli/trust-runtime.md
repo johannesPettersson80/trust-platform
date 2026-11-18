@@ -136,7 +136,8 @@ writing a program image. It runs the build's checks and code generation for
 this computer's CPU and needs no compiler toolchain, unless the project has a
 Rust crate with Rust POUs: then it reads the crate as the build does and checks
 it with the toolchain's cargo (`cargo check`), and the crate's errors and
-warnings are issues where they are, with `rustc` as their `source`. A warning
+warnings are issues where they are, with `truST (rustc)` as their `source`, as
+`build` reports them. A warning
 leaves the check passed; without the toolchain such a project fails the check
 with the code `toolchain`. It aggregates independent configuration and compile
 issues in one response instead of stopping at the first failure.

@@ -52,8 +52,8 @@ use std::path::Path;
 use crate::harness::SourceFile;
 use crate::stdlib::conversions::ConversionProfile;
 pub use bindings::write_bindings;
-pub use run::{load, load_kept, HostCode};
 pub use check::check_project;
+pub use run::{load, load_kept, HostCode};
 pub use rust_messages::{RustDiagnostic, RustSeverity};
 pub use settings::{conversion_profile, debug_hooks, signing_key_setting};
 pub use signing::{

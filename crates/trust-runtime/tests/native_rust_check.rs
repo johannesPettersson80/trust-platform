@@ -13,7 +13,9 @@ use std::path::Path;
 use std::process::Command;
 
 use rust_pous_support::{custom_project, manifest, sources};
+use smol_str::SmolStr;
 use trust_runtime::bundle_builder::check_program;
+use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
 use trust_runtime::native::{
     check_project, NativeError, Options, RustDiagnostic, RustSeverity, Target, Toolchain,
 };
@@ -84,7 +86,10 @@ fn a_project_with_rust_pous_checks_with_its_crate() {
     }
     let report = check_program(&root, &[]).unwrap_or_else(|error| panic!("{error:#}"));
     assert_eq!(report.crate_warnings, Vec::<RustDiagnostic>::new());
-    assert!(!root.join("program.tpi").exists(), "the check writes no image");
+    assert!(
+        !root.join("program.tpi").exists(),
+        "the check writes no image"
+    );
 }
 
 #[test]
@@ -92,7 +97,10 @@ fn a_crate_error_fails_the_check_where_it_is() {
     // A text where the function takes a number is the compiler's E0308 on line 10 of the crate's
     // lib.rs, the line of `let wrong`, named as the project names the file. Catches a check that
     // does not compile the crate, and one that reports the error without its place.
-    let root = project("rust-check-error", "    let wrong: i32 = \"text\";\n    let _ = wrong;\n");
+    let root = project(
+        "rust-check-error",
+        "    let wrong: i32 = \"text\";\n    let _ = wrong;\n",
+    );
     if !toolchain_checks_crates() {
         return;
     }
@@ -158,9 +166,27 @@ fn a_crate_without_a_toolchain_is_refused_with_its_reason() {
         panic!("a toolchain failure: {refused}");
     };
     assert!(
-        message.contains("checked with the toolchain's cargo") && message.contains("no toolchain here"),
+        message.contains("checked with the toolchain's cargo")
+            && message.contains("no toolchain here"),
         "{message}"
     );
+}
+
+/// The project's `runtime.toml` for its resource Probe and a loopback `io.toml`, which the command
+/// checks with the program (specification 11 §6.8.1c); a TCP endpoint on Windows, which has no
+/// Unix socket.
+fn write_configuration(root: &Path) {
+    let mut runtime = render_runtime_toml(&SmolStr::new("Probe"), 10);
+    if cfg!(windows) {
+        runtime = runtime.replacen(
+            "[runtime.control]\n",
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"\n",
+            1,
+        );
+    }
+    let io = render_io_toml(&build_io_config_auto("loopback").expect("a loopback I/O template"));
+    std::fs::write(root.join("runtime.toml"), runtime).expect("runtime.toml");
+    std::fs::write(root.join("io.toml"), io).expect("io.toml");
 }
 
 /// `trust-runtime check` of the project in `root` with `args`.
@@ -182,17 +208,24 @@ fn the_command_reports_the_crates_warning_as_an_issue() {
     // crate's file; human output: the warning after the source list. Catches a warning that never
     // reaches the response, and human output that hides it.
     let root = project("rust-check-command", "    let unused = 1;\n");
+    write_configuration(&root);
     if !toolchain_checks_crates() {
         return;
     }
     let output = check_command(&root, &["--json"]);
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     let response: serde_json::Value = serde_json::from_slice(&output.stdout).expect("JSON");
     assert_eq!(response["ok"], serde_json::json!(true), "{response}");
     assert_eq!(response["warnings"], serde_json::json!(1), "{response}");
     let issue = &response["issues"][0];
     assert_eq!(issue["severity"], "warning", "{response}");
-    assert_eq!(issue["source"], "rustc", "{response}");
+    assert_eq!(issue["source"], "truST (rustc)", "{response}");
+    assert_eq!(issue["code"], "unused_variables", "{response}");
     assert_eq!(issue["file"], "rust/src/lib.rs", "{response}");
     assert_eq!(issue["line"], 10, "{response}");
     let human = check_command(&root, &[]);
