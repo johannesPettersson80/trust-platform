@@ -6,7 +6,8 @@ the title a palette step types, `` `Ctrl/Cmd+Shift+P` -> `truST: Compile` ``, an
 its key in backticks, `` `trust.runtime.mode` ``. Every such name in the README, the Marketplace
 page (`editors/vscode/README.md`), the pages of `docs/public` and the examples' READMEs must be a
 command title or a setting key that `editors/vscode/package.json` contributes, so a renamed
-command or setting fails here instead of leaving the page behind. The titles of the **Start from example** gallery
+command or setting fails here instead of leaving the page behind. `trust.toml`, the file of a project with Rust POUs
+(specification 48 RU-07), is a file, not a setting. The titles of the **Start from example** gallery
 (`examples/catalog.json`) are named the same way, `**Control Studio: PID loop**`, and pass as well; a renamed example fails
 like a renamed command. Other text, such as the status bar's `truST: Simulator running` in backticks, is not a command and is
 not checked.
@@ -32,6 +33,8 @@ COMMAND = re.compile(rf"\*\*({CATEGORIES}: [^*]+?)\*\*", re.S)
 # A palette step: the key, an arrow, and the title it types, with or without backticks.
 PALETTE = re.compile(rf"(?:Ctrl|Cmd)(?:/(?:Cmd|Ctrl))?\+Shift\+P`?\s*(?:->|→)\s*`?({CATEGORIES}: [^`\n]+?)`?\.?\s*$", re.M)
 SETTING = re.compile(r"`(trust\.[A-Za-z0-9_.]+)`")
+# Files whose names look like a setting's key: the file of a project with Rust POUs (specification 48 RU-07).
+FILES = {"trust.toml"}
 RETIRED_CATEGORY = re.compile(r"`(Structured Text: [^`\n]*)`")
 RETIRED_SURFACES = re.compile(r"\b(runtime panel|runtime pane)\b", re.I)
 
@@ -99,7 +102,7 @@ def findings(root: Path) -> list[str]:
             )
         for match in SETTING.finditer(text):
             key = match.group(1)
-            if key not in settings:
+            if key not in settings and key not in FILES:
                 line = text.count("\n", 0, match.start()) + 1
                 found.append(f"{shown}:{line}: names the setting '{key}', which the extension does not have")
     return found

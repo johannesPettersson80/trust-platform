@@ -64,7 +64,7 @@ build, test, timeout, and internal failures.
 ### New
 
 ```text
-Usage: trust-runtime new --parent <FOLDER> --name <NAME> [--force] [--json]
+Usage: trust-runtime new --parent <FOLDER> --name <NAME> [--rust | --rust-first] [--force] [--json]
 ```
 
 `new` creates the project folder `<FOLDER>/<NAME>` with the files that a new
@@ -74,6 +74,28 @@ truST project starts from: `src/Main.st`, `src/config.st`, `trust-lsp.toml`,
 the platform default, and `.gitignore` lists `/.trust-runtime/`, the folder that
 holds the endpoint file.
 
+Two flags start the project with Rust POUs instead (specification 48 RU-51). The
+command writes each start's generated Structured Text too, so the project builds
+as it is created, with the toolchain alone:
+
+- `--rust` writes those files and a Rust crate in `rust/`: `rust/Cargo.toml` and
+  `rust/src/lib.rs` with the function block `FILTER_EMA`, an exponential moving
+  average, which `src/Main.st` calls, and its declaration in
+  `src/generated/rust_pous.st`.
+- `--rust-first` writes a Rust-first project, whose crate is the project:
+  `Cargo.toml`, `src/lib.rs` with the program `MAIN`, `trust.toml` with the
+  resource, a 10 ms task and the program instance, the generated
+  `src/generated/trust/rust_pous.st` and `configuration.st`, and the same
+  `runtime.toml`, `io.toml`, `trust-lsp.toml` and `.vscode/` files, with the
+  simulator's launch on the generated configuration. It writes no `src/Main.st`
+  or `src/config.st`.
+
+Both name the crate's package after the project, pin `trust-plc` to this
+release's version, and write `rust-toolchain.toml`: the Rust version of the
+toolchain bundle, the devices' targets and `rust-src`, so that your own rustup
+gives rust-analyzer and `cargo test` the same compiler. Their `.gitignore` also
+lists `/build/` and the folder where your own cargo builds the crate.
+
 The name is trimmed and must be one plain folder name on every platform. It must
 not be empty or `.` or `..`, and must not contain `/`, `\`, a drive prefix or
 another character that Windows refuses (`: * ? " < > |` and control characters).
@@ -82,10 +104,13 @@ It must not end with a dot, and must not be a device name that Windows reserves
 extension). An existing folder that is not empty is refused unless `--force` is
 given. With `--force`, the scaffold files are overwritten and every other file in
 the folder is kept. An existing `.gitignore` is always kept; it only gains the
-`/.trust-runtime/` line when no line ignores that folder yet.
+`/.trust-runtime/` line when no line ignores that folder yet, and in a Rust start
+each other line of the start that it lacks.
 
 With `--json`, success prints
-`{"project":"<absolute folder>","focus":"<absolute folder>/src/Main.st"}`. A
+`{"project":"<absolute folder>","focus":"<absolute folder>/src/Main.st"}`, where
+`focus` is the crate's source for a Rust start (`rust/src/lib.rs` or
+`src/lib.rs`). A
 refused or failed request prints `{"error":{"code":"<code>","message":"<text>"}}`
 and exits 1. The codes are:
 
