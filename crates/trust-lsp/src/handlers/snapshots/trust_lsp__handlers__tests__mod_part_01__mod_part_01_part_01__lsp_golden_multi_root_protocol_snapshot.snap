@@ -8,50 +8,7 @@ expression: output
       "from": {
         "data": {
           "fileId": 0,
-          "symbolId": 250
-        },
-        "kind": 6,
-        "name": "Fetch",
-        "range": {
-          "end": {
-            "character": 19,
-            "line": 30
-          },
-          "start": {
-            "character": 14,
-            "line": 30
-          }
-        },
-        "selectionRange": {
-          "end": {
-            "character": 19,
-            "line": 30
-          },
-          "start": {
-            "character": 14,
-            "line": 30
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "fromRanges": [
-        {
-          "end": {
-            "character": 28,
-            "line": 31
-          },
-          "start": {
-            "character": 12,
-            "line": 31
-          }
-        }
-      ]
-    },
-    {
-      "from": {
-        "data": {
-          "fileId": 0,
-          "symbolId": 251
+          "symbolId": 256
         },
         "kind": 2,
         "name": "Main",
@@ -89,13 +46,56 @@ expression: output
           }
         }
       ]
+    },
+    {
+      "from": {
+        "data": {
+          "fileId": 0,
+          "symbolId": 255
+        },
+        "kind": 6,
+        "name": "Fetch",
+        "range": {
+          "end": {
+            "character": 19,
+            "line": 30
+          },
+          "start": {
+            "character": 14,
+            "line": 30
+          }
+        },
+        "selectionRange": {
+          "end": {
+            "character": 19,
+            "line": 30
+          },
+          "start": {
+            "character": 14,
+            "line": 30
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "fromRanges": [
+        {
+          "end": {
+            "character": 28,
+            "line": 31
+          },
+          "start": {
+            "character": 12,
+            "line": 31
+          }
+        }
+      ]
     }
   ],
   "callHierarchyItems": [
     {
       "data": {
         "fileId": 0,
-        "symbolId": 244
+        "symbolId": 249
       },
       "kind": 12,
       "name": "Foo",

@@ -168,7 +168,13 @@ done < "$out/build/registry-crates.txt"
 # must load on every Linux the packages support, glibc 2.28 or newer (specification 24): the
 # release names in TRUST_MACROS_IMAGE a container image of this computer's architecture with
 # that glibc and a C compiler, in which the library is built. Cargo builds a procedural macro
-# for the computer it runs on, so each platform builds its own.
+# for the computer it runs on, so each platform builds its own. Like the script's other builds,
+# it takes no compiler flags of its caller's, in the container or out of it: another caller's
+# flags would give another library, and a CI job's RUSTFLAGS=-Dwarnings failed it on libm's
+# warnings (17 November 2026), which cargo reports here as a project's own, the crates being
+# path dependencies. CARGO_ENCODED_RUSTFLAGS, which cargo reads before RUSTFLAGS and every
+# configured flag, allows warnings: the workspace's build reports the SDK's own, and cargo caps
+# the lints of crates.io's crates where it takes them from the registry.
 case $host in
   *-windows-*) library=trust_plc_macros.dll ;;
   *-apple-darwin) library=libtrust_plc_macros.dylib ;;
@@ -191,10 +197,12 @@ mkdir -p "$out/build-macros/source"
 if [ -n "${TRUST_MACROS_IMAGE:-}" ]; then
   docker run --rm --user "$(id -u):$(id -g)" --volume "$(cd "$out" && pwd):/toolchain" \
     --volume "$sysroot:/rust:ro" --workdir /toolchain/build-macros/source \
-    --env RUSTC=/rust/bin/rustc --env HOME=/tmp --env CARGO_HOME=/tmp/cargo "$TRUST_MACROS_IMAGE" \
+    --env RUSTC=/rust/bin/rustc --env HOME=/tmp --env CARGO_HOME=/tmp/cargo \
+    --env CARGO_ENCODED_RUSTFLAGS=-Awarnings "$TRUST_MACROS_IMAGE" \
     /rust/bin/cargo build --quiet --release --offline -p trust-plc-macros --target-dir ../target
 else
-  (cd "$out/build-macros/source" && RUSTC="$sysroot/bin/rustc$exe" "$sysroot/bin/cargo$exe" build \
+  (cd "$out/build-macros/source" && CARGO_ENCODED_RUSTFLAGS=-Awarnings \
+    RUSTC="$sysroot/bin/rustc$exe" "$sysroot/bin/cargo$exe" build \
     --quiet --release --offline -p trust-plc-macros --target-dir ../target)
 fi
 mkdir -p "$out/macros"

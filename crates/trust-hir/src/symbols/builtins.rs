@@ -8,10 +8,11 @@ use super::table::SymbolTable;
 
 /// Every name of a standard function block, in the order of specification 08: SR and RS (Table
 /// 43), R_TRIG and F_TRIG with the aliases DIFU and DIFD (section 3), CTU, CTD and CTUD with their
-/// `_INT`, `_DINT`, `_LINT`, `_UDINT` and `_ULINT` variants (section 4), and TP, TON and TOF with
-/// their `_TIME` and `_LTIME` variants (section 5). The builtin table declares exactly these, and
-/// the editor's completion and the runtime's compiler are tested against this list.
-pub const STANDARD_FUNCTION_BLOCKS: [&str; 33] = [
+/// `_INT`, `_DINT`, `_LINT`, `_UDINT` and `_ULINT` variants (section 4), TP, TON and TOF with
+/// their `_TIME` and `_LTIME` variants (section 5), and truST's SERVICE_FRESH (section 5A). The
+/// builtin table declares exactly these, and the editor's completion and the runtime's compiler are
+/// tested against this list.
+pub const STANDARD_FUNCTION_BLOCKS: [&str; 34] = [
     "SR",
     "RS",
     "R_TRIG",
@@ -45,11 +46,16 @@ pub const STANDARD_FUNCTION_BLOCKS: [&str; 33] = [
     "TOF",
     "TOF_TIME",
     "TOF_LTIME",
+    "SERVICE_FRESH",
 ];
 
 /// The names among [`STANDARD_FUNCTION_BLOCKS`] that are not IEC names: Mitsubishi's `DIFU` and
 /// `DIFD` for `R_TRIG` and `F_TRIG` (specification 08, section 3).
 pub const STANDARD_FUNCTION_BLOCK_ALIASES: [&str; 2] = ["DIFU", "DIFD"];
+
+/// The blocks among [`STANDARD_FUNCTION_BLOCKS`] that truST adds to IEC's: `SERVICE_FRESH`
+/// (specification 08, section 5A), which the `iec` profile does not offer.
+pub const STANDARD_FUNCTION_BLOCK_EXTENSIONS: [&str; 1] = ["SERVICE_FRESH"];
 
 impl SymbolTable {
     pub(super) fn register_builtin_types(&mut self) {
@@ -133,6 +139,18 @@ impl SymbolTable {
         self.register_timer_function_block("TP_LTIME", TypeId::LTIME);
         self.register_timer_function_block("TON_LTIME", TypeId::LTIME);
         self.register_timer_function_block("TOF_LTIME", TypeId::LTIME);
+
+        // truST's freshness of a service's heartbeat (specification 08 §5A; specification 48
+        // RU-63).
+        self.register_simple_function_block(
+            "SERVICE_FRESH",
+            &[
+                ("HEARTBEAT", TypeId::UDINT, ParamDirection::In),
+                ("TIMEOUT", TypeId::TIME, ParamDirection::In),
+                ("FRESH", TypeId::BOOL, ParamDirection::Out),
+                ("AGE", TypeId::TIME, ParamDirection::Out),
+            ],
+        );
     }
 
     fn register_bistable_function_blocks(&mut self) {

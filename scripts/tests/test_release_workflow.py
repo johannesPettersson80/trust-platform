@@ -397,6 +397,23 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertLess(script.index("bash scripts/native/build_toolchain_libraries.sh"), check)
         self.assertLess(check, script.index("toolchain bundle"))
 
+    def test_every_build_of_the_toolchain_script_takes_its_own_compiler_flags(self) -> None:
+        # Specification 48 RU-74, specification 44 §4.6: what the toolchain script builds does not depend on who runs it.
+        # CI's Test job runs it with RUSTFLAGS=-Dwarnings ("The toolchain script sets its own RUSTFLAGS", ci.yml), which
+        # failed the build of the SDK's procedural macro library on libm's warnings on Linux and macOS (#593, 17 November
+        # 2026): the crates are path dependencies there, whose warnings cargo does not cap. Catches a `cargo build` of the
+        # script, in the container or out of it, that takes its caller's flags.
+        script = (ROOT / "scripts" / "native" / "build_toolchain_libraries.sh").read_text(encoding="utf-8")
+        commands = re.sub(r"\\\n\s*", " ", script).splitlines()
+        builds = [
+            command
+            for command in commands
+            if re.search(r'cargo\S*"? build\b', command) and not command.lstrip().startswith("#")
+        ]
+        self.assertEqual(len(builds), 3, builds)
+        for build in builds:
+            self.assertRegex(build, r"\b(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS)=", build)
+
     def test_every_script_the_release_runs_is_in_the_release_list(self) -> None:
         # Specification 24: a pull request that changes a script the release runs is rehearsed. Catches a script added to
         # the release, or to its release-files action, whose changes would merge without a rehearsal.
