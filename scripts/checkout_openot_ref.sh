@@ -14,12 +14,30 @@ mkdir -p "$(dirname "${dest}")"
 tmp="${dest}.tmp.$$"
 trap 'rm -rf "${tmp}"' EXIT
 
+# A transient answer of GitHub's fails a clone that passes a moment later: one 403 failed main's
+# Documentation job on 18 November 2026 (specification 22, "CI reliability"). The clone is tried up
+# to three times, after pauses of 15 and 30 seconds, each time into an empty folder.
+clone() {
+  local attempt
+  for attempt in 1 2 3; do
+    rm -rf "${tmp}"
+    if git clone --depth 1 "$@" "${repo}" "${tmp}"; then
+      return 0
+    fi
+    if [[ ${attempt} -lt 3 ]]; then
+      echo "The clone of ${repo} failed; trying again in $((attempt * 15)) seconds" >&2
+      sleep $((attempt * 15))
+    fi
+  done
+  return 1
+}
+
 if [[ "${ref}" =~ ^[0-9a-fA-F]{40}$ ]]; then
-  git clone --depth 1 "${repo}" "${tmp}"
+  clone
   git -C "${tmp}" fetch --depth 1 origin "${ref}" || true
   git -C "${tmp}" checkout --detach "${ref}"
 else
-  git clone --depth 1 --branch "${ref}" "${repo}" "${tmp}"
+  clone --branch "${ref}"
 fi
 
 mv "${tmp}" "${dest}"

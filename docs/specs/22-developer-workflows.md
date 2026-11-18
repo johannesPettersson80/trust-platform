@@ -519,6 +519,12 @@ contract:
   and the whole install is tried three times. On 11 November 2026 the hosted
   runners could not resolve the archives for hours while public resolvers
   answered (`scripts/tests/test_ci_apt_install.py` pins the rule);
+- the OpenOT reference that the workflows clone (`scripts/checkout_openot_ref.sh`)
+  is cloned up to three times, after pauses of 15 and 30 seconds, each time
+  into an empty folder, and the step fails when the third clone fails. On
+  18 November 2026 GitHub answered one clone with 403 and failed `main`'s
+  Documentation job, which had no fault of its own
+  (`scripts/tests/test_workflow_downloads.py` pins the rule);
 - every Python test module under `scripts/tests` runs in CI: a workflow, or a
   script that a workflow runs, names it, because a module that nothing names
   never runs. On 13 November 2026 five of the 34 ran nowhere, and the comms

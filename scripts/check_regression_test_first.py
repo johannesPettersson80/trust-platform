@@ -14,7 +14,7 @@ from pathlib import Path
 # A version bump changes only what `scripts/bump_version.py` changes; the direct-change contract
 # holds that list, so both checks judge a release pull request alike (specification 22).
 sys.path.insert(0, str(Path(__file__).resolve().parent / "verification"))
-from direct_change_contract import CHANGELOG_FRAGMENTS, VERSION_BUMP_PATHS  # noqa: E402
+from direct_change_contract import is_version_bump_file  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -242,10 +242,6 @@ def parse_workspace_version(manifest: str) -> str | None:
 def workspace_version(ref: str) -> str | None:
     result = run_git(["show", f"{ref}:Cargo.toml"], check=False)
     return parse_workspace_version(result.stdout) if result.returncode == 0 else None
-
-
-def is_version_bump_file(path: str) -> bool:
-    return path in VERSION_BUMP_PATHS or path.startswith(CHANGELOG_FRAGMENTS)
 
 
 def findings_for_inputs(
