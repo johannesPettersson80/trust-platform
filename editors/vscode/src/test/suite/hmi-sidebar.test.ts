@@ -77,7 +77,12 @@ suite("HMI in the truST sidebar", () => {
     (vscode.commands as any).executeCommand = async (...args: unknown[]) => {
       // The language server reads the start page from screen.toml (`trust-lsp.hmiFileParse`).
       if (args[0] === "trust-lsp.hmiFileParse") return executeCommand(...(args as [string, ...unknown[]]));
-      calls.push(args);
+      // Only the commands Open HMI issues are recorded: another part of the extension may run its own
+      // command meanwhile, such as the run targets' refresh (`trust-lsp.runTargets`), which took
+      // calls[0] in #610's CI (checklist G214).
+      if (args[0] === "vscode.openWith" || String(args[0]).startsWith("trust-lsp.hmiBuilder")) {
+        calls.push(args);
+      }
     };
     const withScreens = project({ "hmi/screen.toml": SCREEN, "hmi/pages/overview.toml": PAGE });
     const without = project({ "trust-lsp.toml": "[project]\n" });
