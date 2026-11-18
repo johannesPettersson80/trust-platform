@@ -351,10 +351,14 @@ mod tests {
         // Checklist G217: the RAM code holds the scan path; a function of the runner's stepped scans
         // there is refused by name. Catches an image whose RAM list draws the control path in again.
         let mut image = c6_image();
-        image.control_path_in_ram = vec!["_RNvMs0_NtNtCs1_22trust_runtime_services6runner8stepping3run".into()];
+        image.control_path_in_ram =
+            vec!["_RNvMs0_NtNtCs1_22trust_runtime_services6runner8stepping3run".into()];
         let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let error = check_esp32c6(&board, &image).unwrap_err().to_string();
-        assert!(error.contains("the runner's control path runs from RAM"), "{error}");
+        assert!(
+            error.contains("the runner's control path runs from RAM"),
+            "{error}"
+        );
         assert!(error.contains("6runner8stepping3run"), "{error}");
     }
 
