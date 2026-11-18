@@ -181,7 +181,14 @@ fn a_rust_first_project_runs_the_configuration_of_its_trust_toml() {
     }
     let written = trust_runtime::native::rust_pous::write_generated(&root);
     assert!(
-        matches!(written, Ok((Written::Wrote(1), Some(Written::Wrote(1))))),
+        matches!(
+            written,
+            Ok(trust_runtime::native::rust_pous::Generated {
+                declarations: Written::Wrote(1),
+                configuration: Some(Written::Wrote(1)),
+                ..
+            })
+        ),
         "{written:?}"
     );
     let Some((built, device)) = built(&root) else {

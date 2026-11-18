@@ -17,9 +17,13 @@ pub fn sources(root: &Path) -> Vec<SourceFile> {
     let layout = layout(root).expect("the project's layout");
     std::iter::once("src/main.st".to_string())
         .chain(
-            [Some(layout.declarations), layout.configuration]
-                .into_iter()
-                .flatten(),
+            [
+                Some(layout.declarations),
+                layout.configuration,
+                Some(layout.services),
+            ]
+            .into_iter()
+            .flatten(),
         )
         .filter(|label| root.join(label).is_file())
         .map(|label| {
