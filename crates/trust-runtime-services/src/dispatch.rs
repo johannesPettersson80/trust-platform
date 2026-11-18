@@ -272,6 +272,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "faults" => status::faults(id, request.params.as_ref(), host),
         "io.list" => io_requests::io_list(id, host.io_snapshot()),
         "io.read" => io_requests::io_read(id, host.io_snapshot()),
+        "variables.read" => crate::variables::read(id, request.params.as_ref(), host),
         "io.write" => io_requests::io_write(id, request.params.clone(), host),
         "io.force" => io_requests::io_force(id, request.params.clone(), host),
         "io.unforce" => io_requests::io_unforce(id, request.params.clone(), host),

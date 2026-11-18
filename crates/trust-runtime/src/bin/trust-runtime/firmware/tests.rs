@@ -96,3 +96,55 @@ fn the_chip_is_the_one_port_with_its_boot_loaders_identity() {
         "two chips on USB with the boot loader 303a:1001, /dev/ttyACM0 and /dev/ttyACM1; give --port"
     );
 }
+
+/// The workspace lock that this build resolved. Included, so that a changed lock rebuilds the test.
+const WORKSPACE_LOCK: &str = include_str!("../../../../../../Cargo.lock");
+
+/// The version of every package `name` that the lock `lock` holds, as (major, minor, patch).
+fn locked_versions(lock: &str, name: &str) -> Vec<(u64, u64, u64)> {
+    let named = format!("name = \"{name}\"");
+    let mut lines = lock.lines().map(str::trim);
+    let mut versions = Vec::new();
+    while let Some(line) = lines.next() {
+        if line != named {
+            continue;
+        }
+        let version = lines
+            .next()
+            .and_then(|line| line.strip_prefix("version = \""))
+            .and_then(|rest| rest.strip_suffix('"'))
+            .expect("a locked package's version follows its name");
+        let mut parts = version.split('.').map(|part| {
+            part.parse().unwrap_or_else(|_| {
+                panic!("{name} {version} is not a plain major.minor.patch version")
+            })
+        });
+        let mut next = || parts.next().expect("major.minor.patch");
+        versions.push((next(), next(), next()));
+    }
+    versions
+}
+
+// RUSTSEC-2026-0344 has no exception under specification 24, "Dependency Exceptions", so it must stay away: before 0.9.1,
+// ruzstd decompressed a block without bounding its output, so a small crafted input exhausted memory. It came only
+// through espflash 4.6.0 -> object 0.39, with which `firmware install` reads the ESP32 firmware it flashes; espflash
+// 4.7.0's object 0.40 brings no ruzstd. Worked by hand from the advisory (patched: >= 0.9.1): the 0.8.3 that the lock
+// held until 18 November 2026 is affected, and 0.9.1 is the first fixed version. Catches a dependency update or a merged
+// lock file that brings an affected ruzstd back, and a reading of the lock that finds no package at all.
+#[test]
+fn no_locked_ruzstd_is_named_by_its_decompression_bomb_advisory() {
+    let old_lock = "[[package]]\nname = \"ruzstd\"\nversion = \"0.8.3\"\n";
+    assert_eq!(locked_versions(old_lock, "ruzstd"), [(0, 8, 3)]);
+    assert!(
+        !locked_versions(WORKSPACE_LOCK, "espflash").is_empty(),
+        "the workspace lock holds espflash, which firmware install flashes with"
+    );
+    let affected: Vec<(u64, u64, u64)> = locked_versions(WORKSPACE_LOCK, "ruzstd")
+        .into_iter()
+        .filter(|version| *version < (0, 9, 1))
+        .collect();
+    assert!(
+        affected.is_empty(),
+        "ruzstd before 0.9.1 is named by RUSTSEC-2026-0344: {affected:?}"
+    );
+}

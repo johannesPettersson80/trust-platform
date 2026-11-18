@@ -598,7 +598,9 @@ where
                 self.shell.hold_back(received);
                 return true;
             }
-            let program = LentProgram::new(&mut self.cycle, &self.last_step, &self.clock);
+            let completed = self.completed_scan();
+            let program =
+                LentProgram::new(&mut self.cycle, &self.last_step, &self.clock, completed);
             let after_response = self.shell.serve(received, &program);
             if let Some((id, request)) = self.shell.step.take_held() {
                 self.finish_loading_step(id, request);

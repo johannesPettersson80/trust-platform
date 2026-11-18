@@ -4,6 +4,7 @@
 //! the target is simulated.
 
 use trust_runtime_services::runner::ResourceCycle;
+use trust_runtime_services::variables::{read_set, ReadRefusal, ReadSet};
 
 use super::CompiledRuntime;
 use crate::error::RuntimeError;
@@ -21,6 +22,25 @@ impl CompiledRuntime {
     /// Runs `f` with the program as the last scan left it, for reading.
     pub fn with_program_view<R>(&self, f: impl FnOnce(&dyn ProgramRead) -> R) -> R {
         f(&View(self.cycle.program()))
+    }
+
+    /// The values of `paths` that the last completed scan left, with its number and logical time
+    /// (specification 11 §6.8.1, "Reading variables"), read between scans on the scan thread.
+    ///
+    /// # Errors
+    ///
+    /// [`ReadRefusal::NoCompletedScan`] before the first scan since the last restart, and the
+    /// refusal of a path that names no variable or one without a single value.
+    pub fn read_variables(&self, paths: &[String]) -> Result<ReadSet, ReadRefusal> {
+        let scan = self
+            .cycle_counter()
+            .checked_sub(1)
+            .ok_or(ReadRefusal::NoCompletedScan)?;
+        Ok(ReadSet {
+            scan,
+            time_ns: self.current_time().as_nanos(),
+            values: read_set(self.cycle.program(), paths)?,
+        })
     }
 
     /// Writes every value of `writes` at its process-image address, or none of them: each address is

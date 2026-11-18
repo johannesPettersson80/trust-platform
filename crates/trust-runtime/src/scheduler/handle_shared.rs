@@ -37,6 +37,10 @@ fn release_hold_and_wake<C: Clock>(debug: Option<&DebugControl>, clock: &C) {
 /// How long a host without a scan thread of its own may take to answer a simulation request.
 const SIMULATION_ANSWER: std::time::Duration = std::time::Duration::from_millis(250);
 
+/// How long `variables.read` waits for the scan thread, which answers between two scans or in its
+/// wait while the resource does not run.
+const VARIABLES_ANSWER: std::time::Duration = std::time::Duration::from_secs(5);
+
 /// A host without a scan thread of its own that did not answer a simulation request in time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SimulationUnanswered;
@@ -209,6 +213,30 @@ impl<C: Clock + Clone> ResourceControl<C> {
         receiver
             .recv_timeout(SIMULATION_ANSWER)
             .map_err(|_| SimulationUnanswered)
+    }
+
+    /// The values of `paths` that the last completed scan left, read on the scan thread between two
+    /// scans (specification 11 §6.8.1, "Reading variables").
+    ///
+    /// # Errors
+    ///
+    /// The scan thread's refusal, and `ReadRefusal::Unavailable` when it takes no command or does
+    /// not answer in time.
+    pub fn read_variables(
+        &self,
+        paths: &[String],
+    ) -> Result<trust_runtime_services::variables::ReadSet, trust_runtime_services::variables::ReadRefusal>
+    {
+        use trust_runtime_services::variables::ReadRefusal;
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.send_command(ResourceCommand::ReadVariables {
+            paths: paths.to_vec(),
+            respond_to: sender,
+        })
+        .map_err(|error| ReadRefusal::Unavailable(error.to_string()))?;
+        receiver
+            .recv_timeout(VARIABLES_ANSWER)
+            .unwrap_or_else(|_| Err(ReadRefusal::Unavailable("the scan did not answer".to_string())))
     }
 
     /// Attaches the speed of a resource that runs on simulation time.

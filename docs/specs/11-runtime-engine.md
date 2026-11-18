@@ -4490,6 +4490,40 @@ insertion order with canonical targets `global:<name>`, `retain:<name>`, or
 Re-forcing one target replaces its value without duplication. Release removes
 only the exact target and is idempotent.
 
+###### Reading variables (services)
+
+`variables.read` reads a set of the program's variables by their paths, the read of a service
+(specification 48 RU-62), on a computer and on a chip alike. Its parameters are exactly `paths`, an
+array of 1 to 256 strings, each a variable path as `set` names a target: a global, a program
+instance's variable, a member at any depth and an array element with constant indices, compared
+without case. The runtime reads the whole set between two scans, the values one completed scan
+left, never half a scan, and answers:
+
+- `scan`: the number of that scan, as `io.read` numbers its snapshot;
+- `time_ns`: its logical time (`TIME()`, section 5.2.1);
+- `state`: the resource's state when it answers, as `status` names it, and `quality`: `good` while
+  the resource is `running`, otherwise `stale`, the values being those the last completed scan left;
+- `values`: one per path, in the request's order, each with its `path` as the request gave it, its
+  declared `type` and its `value`.
+
+A value is the JSON form of its type: a `BOOL` `true` or `false`; an integer or a bit string a JSON
+integer; a `REAL` or an `LREAL` a JSON number, the shortest that reads back as the same value, or
+the string `NaN`, `Infinity` or `-Infinity` for one that no JSON number holds; a `TIME` or an `LTIME`
+its nanoseconds; a `DATE` or a `DT` its milliseconds since 1970-01-01 and a `TOD` its milliseconds
+since midnight, as specification 10 counts them, and an `LDATE`, an `LDT` or an `LTOD` the same in
+nanoseconds; a string or a character a JSON string; an enumeration's value its enumerator's name. A
+structure, an array, a function block or class instance and a reference hold no single value: a
+path to one refuses the request with `not an elementary variable: <path>`, as a path that names
+nothing refuses it with `unknown variable: <path>`; a refused request reads nothing. Before the
+first completed scan since the program started the request fails with `no completed scan`, and while
+a debugger holds a scan, which is inside its scan, with `variables unavailable: a debugger holds the
+scan`.
+
+`variables.read` needs the Viewer role (section 6.9.5) and is no debug operation: it is answered with
+the debug surface disabled, so a service reads a `production` deployment. A service subscribes by
+reading at the period it chooses (specification 48 RU-62); the runtime pushes nothing.
+`trust-runtime ctl read <path>...` sends it and prints each value with its path and type.
+
 ##### 6.8.1a Offline communication authoring client
 
 `trust-runtime comm` is a scriptable local authoring surface. Each accepted
@@ -6893,7 +6927,7 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
+| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
 | Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |

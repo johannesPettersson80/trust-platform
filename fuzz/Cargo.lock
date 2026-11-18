@@ -1613,11 +1613,11 @@ checksum = "911aadae41ec99104efa865bd0b6e486b4b735999f9b571963748a46d16495ab"
 
 [[package]]
 name = "espflash"
-version = "4.6.0"
+version = "4.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae544a0a61e80cb513ba2a2543f841a06c4bd5fb090a2f05302d5b821bf68668"
+checksum = "470053a0b1671c0d2c47b69000daceb8d79cedf0ad0b13990bf137ef8ddbe5cb"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "bitflags 2.13.2",
  "bytemuck",
  "esp-idf-part",
@@ -1629,7 +1629,7 @@ dependencies = [
  "md-5 0.11.0",
  "miette",
  "nix 0.31.3",
- "object 0.39.1",
+ "object 0.40.0",
  "reed-solomon",
  "regex",
  "serde",
@@ -2105,11 +2105,12 @@ dependencies = [
 
 [[package]]
 name = "gimli"
-version = "0.32.3"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
+checksum = "1033caf0b349c518623b5396bfb2cf0bddf44f0306d543a250e5743297aafd10"
 dependencies = [
- "fallible-iterator 0.3.0",
+ "fnv",
+ "hashbrown 0.17.1",
  "indexmap 2.14.2",
  "stable_deref_trait",
 ]
@@ -3704,13 +3705,11 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.39.1"
+version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
+checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
 dependencies = [
- "flate2",
  "memchr",
- "ruzstd",
 ]
 
 [[package]]
@@ -4960,15 +4959,6 @@ name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
-
-[[package]]
-name = "ruzstd"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7c1c839d570d835527c9a5e4db7cb2198683a988cb9d7293fc8674e6bd58fc8"
-dependencies = [
- "twox-hash",
-]
 
 [[package]]
 name = "ryu"
@@ -6432,7 +6422,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -6441,14 +6431,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-chips"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -6457,7 +6447,7 @@ dependencies = [
 
 [[package]]
 name = "trust-devices"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "base64 0.23.1",
  "serde",
@@ -6485,7 +6475,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "boxcar",
  "parking_lot",
@@ -6500,7 +6490,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "once_cell",
  "rustc-hash 2.1.3",
@@ -6512,7 +6502,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "anyhow",
  "getrandom 0.4.3",
@@ -6548,11 +6538,11 @@ dependencies = [
 
 [[package]]
 name = "trust-modbus"
-version = "0.41.2"
+version = "0.42.0"
 
 [[package]]
 name = "trust-platform-memory"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "crc32fast",
  "critical-section",
@@ -6561,14 +6551,14 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-abi"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "memmap2",
 ]
 
 [[package]]
 name = "trust-plc-decl"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "proc-macro2",
  "syn 3.0.7",
@@ -6577,7 +6567,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-lib"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "libm",
  "ryu",
@@ -6586,7 +6576,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -6598,7 +6588,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "ads",
  "anyhow",
@@ -6696,7 +6686,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-client"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "base64 0.23.1",
  "crc32fast",
@@ -6709,7 +6699,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "crc32fast",
  "ed25519-dalek",
@@ -6727,7 +6717,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-services"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "base64 0.23.1",
  "indexmap 2.14.2",
@@ -6741,7 +6731,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "drop_bomb",
  "logos",
@@ -6751,14 +6741,14 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "libloading 0.9.0",
 ]
 
 [[package]]
 name = "trust-visual"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -6768,7 +6758,7 @@ dependencies = [
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.41.2"
+version = "0.42.0"
 dependencies = [
  "rowan",
  "serde",
