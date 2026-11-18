@@ -28,7 +28,10 @@ fn a_symbols_own_module_is_the_one_it_names_first() {
         own_module(GPIO_READ).as_deref(),
         Some("trust_platform_esp32::process_io::gpio")
     );
-    assert_eq!(own_module("_ZN4core3ptr13drop_in_place17h0123456789abcdefE"), None);
+    assert_eq!(
+        own_module("_ZN4core3ptr13drop_in_place17h0123456789abcdefE"),
+        None
+    );
     assert_eq!(own_module("memcpy"), None);
 }
 
@@ -45,5 +48,8 @@ fn the_control_path_in_ram_is_named_and_the_scan_path_is_not() {
         (GPIO_READ, 0x4081_3000),
         (STEPPED_RUN, 0x4200_0000),
     ];
-    assert_eq!(control_path_in_ram(symbols, &ram), [STEPPED_RUN.to_string()]);
+    assert_eq!(
+        control_path_in_ram(symbols, &ram),
+        [STEPPED_RUN.to_string()]
+    );
 }
