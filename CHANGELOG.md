@@ -6,6 +6,213 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-18
+
+### Added
+
+- The example **Rust function block** (`examples/rust_function_block`): a Structured Text program
+  calls `RAMP`, a function block written in Rust, which moves a speed towards its setpoint at a
+  limited rate; its README shows step by step how Rust and Structured Text meet in one program
+  (specification 48 RU-88).
+- Create Project asks what the new project starts as: Structured Text, Structured Text with Rust, or
+  Rust-first (specification 25 §3.2, specification 48 RU-51). It suggests a name for the start, and
+  opens a Rust start's project on its crate's source.
+- `trust-runtime new --rust` creates a Structured Text project with a Rust crate in `rust/`, whose
+  function block `FILTER_EMA` `src/Main.st` calls, and `trust-runtime new --rust-first` a Rust-first
+  project, whose crate is the project and whose `trust.toml` is its configuration (specification 48
+  RU-51, §14). Each writes its generated Structured Text, so the project builds as it is created,
+  and a `rust-toolchain.toml` with the toolchain bundle's Rust version, so that your own rustup
+  gives rust-analyzer and `cargo test` the same compiler.
+- The VS Code Simulator (Start, F5) runs a project with Rust POUs: it builds the project's crate as
+  `trust-runtime build` does, so the program's Rust function blocks and functions run, and the
+  program around them debugs, as in any project (specification 48 RU-76).
+- Each service that a project's `trust.toml` declares (`[services.<name>]`) now has its heartbeat
+  global, `<name>_heartbeat : UDINT`, for a program to gate on with `SERVICE_FRESH`.
+  `trust-dev rust declarations` writes the globals into the generated `src/generated/services.st`
+  (`src/generated/trust/services.st` in a Rust-first project), whether the project has a Rust crate
+  or not, and the build refuses a project whose committed file is out of date, naming the command
+  (specification 48 RU-63).
+- The program library's function block `SERVICE_FRESH` tells a program whether a service's
+  heartbeat moved within a timeout: `fresh(HEARTBEAT := svc_heartbeat, TIMEOUT := T#1s)` gives
+  `FRESH` and `AGE`, the task time since the heartbeat last changed. Its first call, after a start or
+  a restart, counts no change, so a heartbeat a restart left reads as not fresh until the service's
+  next one (specification 08 §5A; specification 48 RU-63). The `iec` stdlib profile does not offer
+  it, as it is truST's own block.
+- The VS Code extension writes a project's generated declarations of its Rust POUs when a `.rs` file
+  of the project is saved and once when it opens the project, running `trust-dev rust declarations`
+  (specification 48 RU-24), so a crate's changes reach Structured Text without a build; a failure
+  is shown with a notification and the command's report in the output channel
+  "truST Rust declarations".
+- A Rust function block or program holds a Structured Text function block of the project as a
+  field, `hysteresis: st::HYSTERESIS`, and calls it: `self.hysteresis.input.IN = level;
+  self.hysteresis.call(cx)?; let q = self.hysteresis.output.Q;` (specification 48 RU-38, RU-39).
+  The held instance lies inside the Rust instance in the area, where Live Values, the debugger and
+  online change see it. Blocks whose inputs and outputs are elementary types, strings,
+  arrays of any dimension, references or the project's structures, enumerations, types with named values and
+  interfaces are held, each as the Rust type of RU-25's table or its binding; a held block's in-outs are `Ref<T>`
+  fields of its `input`, and its `PUBLIC` methods are methods of its binding, `self.meter.ADD(cx, x)`. A class instance is
+  held the same way, its binding with the class's `PUBLIC` methods and no `call`.
+- A Rust POU names a Structured Text function block or class instance through a reference,
+  `#[input] pub target: Ref<st::COUNTER>`, which a Structured Text caller gives `REF(counter)`:
+  `self.target.get(cx)?` gives the block's binding naming that instance, whose `call` and methods
+  run the body and the methods of the instance's own class, a derived block's included. `get` of
+  `NULL` ends the scan, and such a reference has no `set`, as an instance is no value. Calls and
+  held blocks pass such references too (specification 48 RU-39).
+- `trust-dev rust declarations` also writes the bindings of the Structured Text that the project's
+  crate calls, `build/trust_st/`, as the build writes them (specification 48 RU-39), so that
+  rust-analyzer and the crate's own cargo find `st` before the project's first build.
+- A Rust POU calls the project's Structured Text functions (specification 48 §8): the crate names
+  the bindings in its `[dependencies]`, `trust_st = { path = "../build/trust_st" }`, and calls
+  `st::SCALE(cx, x, 2.0)`. The build compiles the functions the crate calls, with everything they
+  reach, into the crate `trust_st` in the project's `build/trust_st/` before the crate (§9.2); their
+  statements count against the scan's budget. A crate that writes `st::` without the line, a name
+  of no Structured Text function, `use st::*`, and Structured Text that Rust calls and that calls
+  Rust back are refused with the place and the chain (RU-39, RU-40). Functions whose inputs and
+  result are elementary types, strings, arrays of any dimension, references or the project's
+  structures, enumerations, types with named values and interfaces are called, with their in-outs as `InOut<'_, T>` and
+  their outputs as `&mut T`; a structure, an enumeration or a type with named values passes as its
+  binding `st::NAME`, one the crate declares too, whose default is the value a variable of the type
+  starts at. A library's POUs and types, in their namespaces, are reached through modules of the
+  namespaces' names, `st::Motion::MOVE_BY(cx, axis, d)`.
+- Rust-first projects (specification 48 §14): `trust.toml`'s `[rust] crate = "."` makes the
+  project's own folder its Rust crate, and `trust-dev rust declarations` writes the configuration
+  that its `[resource]`, `[tasks]`, `[programs]`, `[globals]` and `[bindings]` declare into
+  `src/generated/trust/configuration.st`, beside the generated declarations; the build runs it and
+  refuses a configuration that is not what `trust.toml` declares (RU-65 to RU-67).
+- Rust programs (specification 48 §7): a struct marked `#[trust_program(name = "...")]` with its
+  inputs, outputs, internal and `#[retain]` variables and `impl Body` is declared as a `PROGRAM`,
+  which a configuration runs like any program: its program connections bind its inputs and outputs,
+  its retained variables lie in the retained area, and its budget counts against its task (RU-35,
+  RU-47). A Rust program has no in-outs, no `EN`/`ENO` and no methods (RU-35, RU-37); its body in
+  Rust goes beyond IEC 61131-3 §4.3 (`docs/IEC_DEVIATIONS.md` DEV-048).
+- In VS Code, Go to Definition of a Rust POU opens its Rust item in the project's crate, from its
+  `#[trust_fb]` or `#[trust_function]` attribute to its name, and of a method of a Rust function
+  block its `fn` from its `#[trust_method]`; Go to Declaration opens the generated Structured Text
+  declaration; VS Code keeps the generated `src/generated/rust_pous.st` read-only,
+  whose header names the Rust source to change (specification 48 RU-31, RU-50).
+- A Rust POU reads its task's interval with `cx.interval()`: the task's `INTERVAL`, or the
+  resource's cycle interval for a program without a task. `trust_plc::test::task(interval)` gives a
+  unit test the context of a task with that interval, and `trust_plc::test::advance` moves it on to
+  the task's next activation (specification 48 RU-16, RU-56).
+- Rust function blocks implement Structured Text interfaces: `#[trust_fb(name = "COUNTER",
+  implements = "I_COUNTER")]` writes `IMPLEMENTS I_COUNTER` into the generated declaration, the build
+  checks the block's methods against each prototype as it checks a Structured Text block, and a call
+  through the interface reaches the Rust method; a task counts its budget for such a call
+  (specification 48 RU-33).
+- A Rust POU holds a value of a Structured Text interface as the interface's binding,
+  `#[input] pub runner: st::I_RUN`, and calls its methods through it, `self.runner.START(cx)?`: the
+  interface's own and those of the interfaces it extends. A call reaches the method of the class of
+  the instance the value names, as Structured Text's call through the interface does, and a call
+  through `NULL`, the value an interface starts at, ends the scan. `is_null()` tells `NULL`, and two
+  values are equal when they name the same instance. Calls and held blocks pass interfaces too, and
+  an instance the POU holds is a value of each interface its block implements,
+  `st::I_RUN::from(&self.pump)`. An interface that a Rust function block implements has no binding,
+  since Structured Text that Rust calls cannot call Rust; the build refuses it and names the chain
+  (specification 48 RU-33, RU-39, RU-40).
+- Rust function blocks have methods: a `pub fn` of the block's `impl` block with `#[trust_method]`
+  and its budget, taking `&mut self` and the context, then its inputs, its in-outs as `InOut<T>` and
+  its outputs as `&mut T`, and returning its result; Structured Text calls it as a method of the
+  block, which runs on the instance as the body does, and a task counts its budget. The generated
+  declaration carries each method with its access specifier (`#[trust_method(private)]`,
+  `(protected)`, `(internal)`; public otherwise) (specification 48 RU-32).
+- Rust POUs have `EN` and `ENO` as every POU does: a call with `EN := FALSE` skips the Rust body, and
+  the body sets `ENO` with `cx.set_eno(false)`, which the caller reads with `ENO =>`; each Rust POU's
+  generated declaration declares the input `EN : BOOL := TRUE` first and the output `ENO : BOOL`
+  last (specification 48 RU-30).
+- Rust POUs take in-outs and references: a function's `VAR_IN_OUT` is an `InOut<T>` parameter, the
+  caller's variable for the call, a function block's is a field `#[in_out]` of type `Ref<T>`, the
+  reference of its last call, and a `REF_TO` variable or input is a `Ref<T>`, read and written with
+  Structured Text's checks (specification 48 RU-29). An in-out of a structure and a reference to one
+  read and write every field where the structure lies, at once, and a function's or a method's
+  string in-out is the caller's string, of any capacity under the CODESYS profile, read and written
+  as an assignment cuts it.
+  An in-out of a reference and a reference to a reference are refused for now, with that reason.
+- The attributes of a Rust POU refuse a name that is a reserved word of Structured Text (`at`,
+  `step`, `time` and the rest), where it stands in the Rust source, instead of writing a declaration
+  that does not parse; `NULL`, `ON` and `SET` too, which only the CODESYS profile takes as names, so
+  that a Rust POU's declarations hold under every profile (specification 48 RU-22).
+- A Rust POU reads the task's logical time and the wall clock from its own context, `cx.now()` and
+  `cx.wall_clock()`, which keeps the statement budget, the call depth, the breakpoints and the
+  kernel's pointers out of its reach; the build refuses a crate that depends on the SDK's internal
+  crates (`trust-plc-abi`, `trust-plc-lib`, `trust-plc-mem`, `trust-plc-decl`) instead of
+  `trust-plc` (specification 48 RU-11, RU-16, RU-20).
+- The build of a project with Rust POUs refuses a `static` that changes, a recursion through Rust
+  code and a call of the target's inexact math functions (`sin`, `exp` and the rest), naming the
+  `static` or the functions (specification 48 RU-13, RU-17, RU-18, RU-45).
+- A Rust POU's variables may be of the crate's own structures (specification 48 RU-25): a Rust
+  `struct` with `pub` fields marked `#[trust_struct(name = "POINT")]` is declared as a structure of
+  Structured Text with the same fields and initial values, and the generated code carries it field by
+  field, inside other structures and arrays too.
+- A Rust POU's variables may be of the crate's own enumerations (specification 48 RU-25): a Rust
+  `enum` marked `#[trust_enum(name = "MODE")]`, each variant with its value, is declared as a closed
+  enumeration of Structured Text with the same names and values, and a variable of it starts at a
+  variant such as `#[init(Mode::Auto)]`.
+- A Rust POU's variables may be arrays (specification 48 RU-25): `Array<T, A, N>` holds the `N`
+  elements of an `ARRAY[A..A + N - 1] OF T`, indexed from `A` as Structured Text indexes them,
+  arrays of arrays and of strings too; `#[init([1, 2, 3])]` gives its leading elements, and an
+  index outside the bounds gives `None`, never a panic.
+- A Rust POU's variables may be strings (specification 48 RU-25): `Str<n>` and `WStr<n>` hold what
+  Structured Text's `STRING[n]` and `WSTRING[n]` hold, start at a text such as
+  `#[init("pump 1")]`, and keep the longest prefix of whole characters their capacity holds, as
+  every write of Structured Text does; a Rust function takes and returns them too.
+- A Rust POU's variables may be dates and times of day (specification 48 RU-25): `Date`, `Tod` and
+  `Dt` and their long forms `LDate`, `LTod` and `Ldt` hold what Structured Text's `DATE`, `TOD` and
+  `DT` hold, start at an IEC literal such as `#[init("DT#2024-02-29-12:30:15")]`, and are built,
+  split and moved by a duration with the code `CONCAT_DATE`, `SPLIT_DT` and `ADD_DT_TIME` run.
+- `trust-runtime build` admits a project's Rust work (specification 48 RU-46, RU-47): it warns of a
+  task whose Rust POUs may take longer than its interval, each POU's `#[budget]` times the most calls
+  a scan can make of it through the Structured Text that calls it, and of a task that calls a Rust
+  POU in a loop without a bound. `trust.toml`'s `[timing] profile = "production"` makes the warnings
+  errors, and `[timing.budgets]` may lower a POU's budget for a target.
+- Rust POUs, the first part of specification 48: a project's crate in `rust/` declares Rust function
+  blocks and functions with the `trust-plc` SDK's attributes, `trust-dev rust declarations` writes
+  their Structured Text declarations into `src/generated/rust_pous.st`, and `trust-runtime build`
+  compiles the crate into the program image, where Structured Text calls them as its own POUs. The
+  installed toolchain bundle builds them for a user without Rust on Linux, macOS and Windows: it
+  carries cargo, the SDK and the SDK's macros prebuilt, and the build compiles nothing for the
+  computer itself (specification 48 §16).
+
+### Changed
+
+- A new project's `.gitignore` also lists `/build/`, the folder its builds write, such as the
+  Simulator's, so that `git add .` no longer takes them; an existing `.gitignore` gains the line
+  when `trust-runtime new --force` writes the project again (specification 25 §3.2).
+- The kernel interface is version 7, which adds the fault of a Rust POU and the interval of the
+  running task (specification 44 §8.2, Appendix A; specification 48 RU-14, RU-16). A program image
+  built by an earlier release is refused with `kernel interface 5 required, this runtime has 7:
+  rebuild the project`; build the project again, and update a board's firmware to this release
+  before deploying to it.
+
+### Fixed
+
+- The stack bound of a compiled program counts a function's call of itself, which the call relocations
+  leave out, and the build refuses a module whose call graph has a cycle that no recursive call of
+  Structured Text bounds, naming its functions, where the bound took it for a recursion the call
+  depth bounds (specification 44 §8.5).
+- Renaming a program renames it in the configuration that runs it (`PROGRAM P1 WITH Cycle : MainProgram;`),
+  where before it left the configuration naming the old program, so the project no longer built. Find
+  references lists the configuration, and the reference count above the program counts it (specification
+  14 §6.3.2).
+- `trust-runtime fleet start`, `stop` and `status` send their control requests through the shared control
+  client, as `trust-runtime ctl` does, and refuse an answer that ends before its line end, where they took
+  it as complete. A stop still asks again when the runtime breaks off the status read while it stops
+  (specification 11 §6.8.3).
+- The debugger's session with a running runtime (attach) sends its requests through the shared control
+  client, as `trust-runtime ctl` does. It waits at most 750 milliseconds for a reply, and 70 seconds for
+  the reply to an online change of the program, where before it could wait without end for a runtime
+  that stopped answering. It refuses an answer that ends before its line end or carries another
+  request's id (specification 11 §6.8.1).
+- The `trust-runtime ui` console sends its requests to a runtime through the shared control client, as
+  `trust-runtime ctl` does. It waits at most 750 milliseconds for a reply, and 70 seconds for the reply
+  to its `reload`, where before it could wait without end for a runtime that stopped answering. It
+  refuses an answer that ends before its line end or carries another request's id (specification 11
+  §6.8.1).
+- The agent methods `runtime.reload` and `runtime.compile_reload` of `trust-dev agent serve` send the
+  program to a runtime through the shared control client, as `trust-runtime ctl` sends its requests.
+  They wait at most 70 seconds for the runtime's answer, where before they could wait without end,
+  and they refuse an answer that ends before its line end or carries another request's id
+  (specification 11 §6.8.1).
+
 ## [0.41.2] - 2026-11-14
 
 ### Changed
