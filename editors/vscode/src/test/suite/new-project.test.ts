@@ -563,27 +563,38 @@ suite("New project command (VS Code)", function () {
 
   test("the name box opens with a selected suggestion and no message", async () => {
     // Acceptance finding F10: the box said "Project name is required." before anything was typed, because VS Code checks
-    // the initial value as soon as the box opens.
+    // the initial value as soon as the box opens. Each start suggests its own name (spec 25 §3.2).
     const originalInput = vscode.window.showInputBox;
     const shown: vscode.InputBoxOptions[] = [];
     vscode.window.showInputBox = async (options?: vscode.InputBoxOptions) => {
       shown.push(options ?? {});
       return undefined;
     };
+    const starts = [
+      ["structured-text", "my-st-project", "Enter a name for the new Structured Text project"],
+      ["rust", "my-rust-project", "Enter a name for the new Structured Text project with Rust"],
+      ["rust-first", "my-rust-cell", "Enter a name for the new Rust-first project"],
+    ] as const;
     try {
-      const created = await vscode.commands.executeCommand<boolean>(NEW_PROJECT_COMMAND, {
-        baseUri: fixturesRoot,
-        openWorkspace: false,
-      });
-      assert.strictEqual(created, false, "a cancelled name box creates nothing");
+      for (const [start] of starts) {
+        const created = await vscode.commands.executeCommand<boolean>(NEW_PROJECT_COMMAND, {
+          start,
+          baseUri: fixturesRoot,
+          openWorkspace: false,
+        });
+        assert.strictEqual(created, false, `a cancelled name box creates nothing (${start})`);
+      }
     } finally {
       vscode.window.showInputBox = originalInput;
     }
-    assert.strictEqual(shown.length, 1, "the command asks for the name once");
-    const [box] = shown;
-    assert.strictEqual(box.value, "my-st-project");
-    assert.deepStrictEqual(box.valueSelection, [0, "my-st-project".length], "the first key replaces the suggestion");
-    assert.strictEqual(await box.validateInput?.(box.value ?? ""), undefined, "the box opens without a message");
+    assert.strictEqual(shown.length, starts.length, "the command asks for the name once for each start");
+    for (const [index, [start, suggestion, prompt]] of starts.entries()) {
+      const box = shown[index];
+      assert.strictEqual(box.prompt, prompt, start);
+      assert.strictEqual(box.value, suggestion, start);
+      assert.deepStrictEqual(box.valueSelection, [0, suggestion.length], `the first key replaces the suggestion (${start})`);
+      assert.strictEqual(await box.validateInput?.(box.value ?? ""), undefined, `the box opens without a message (${start})`);
+    }
 
     // `trust-runtime new` checks the name (spec 25 §3.2), so an emptied name still says why, with the command's
     // message, and creates nothing.
@@ -595,6 +606,7 @@ suite("New project command (VS Code)", function () {
     }) as typeof vscode.window.showErrorMessage;
     try {
       const refused = await vscode.commands.executeCommand<boolean>(NEW_PROJECT_COMMAND, {
+        start: "structured-text",
         baseUri: fixturesRoot,
         projectName: "   ",
         openWorkspace: false,
@@ -606,7 +618,74 @@ suite("New project command (VS Code)", function () {
     assert.deepStrictEqual(errors, ["the project name is required"], "an emptied name still says why");
   });
 
+  test("Create Project asks for the start first and lands on a Rust start's crate", async () => {
+    // Spec 25 §3.2, spec 48 RU-51: the picker offers the three starts in this order before the folder and the name,
+    // and passes a Rust start's flag to `trust-runtime new`, whose files are its; the window lands on the file the
+    // command names, the crate's source, in the project the command names. Catches a picker that drops a start,
+    // passes no flag (a Structured Text project would land on src/Main.st), or a landing that takes rust/ for the
+    // project.
+    const originalPick = vscode.window.showQuickPick;
+    const offered: string[][] = [];
+    vscode.window.showQuickPick = (async (items: readonly vscode.QuickPickItem[] | Thenable<readonly vscode.QuickPickItem[]>) => {
+      const choices = await items;
+      offered.push(choices.map((item) => item.label));
+      return choices.find((item) => item.label === "Structured Text with Rust");
+    }) as unknown as typeof vscode.window.showQuickPick;
+    const withRust = vscode.Uri.joinPath(fixturesRoot, "with-rust");
+    try {
+      const created = await vscode.commands.executeCommand<boolean>(NEW_PROJECT_COMMAND, {
+        baseUri: fixturesRoot,
+        projectName: "with-rust",
+        openWorkspace: false,
+      });
+      assert.strictEqual(created, true, "the picked start creates its project");
+    } finally {
+      vscode.window.showQuickPick = originalPick;
+    }
+    assert.deepStrictEqual(offered, [["Structured Text", "Structured Text with Rust", "Rust-first"]]);
+    for (const file of ["rust/Cargo.toml", "rust/src/lib.rs", "src/Main.st", "src/generated/rust_pous.st"]) {
+      assert.strictEqual(await pathExists(vscode.Uri.joinPath(withRust, ...file.split("/"))), true, file);
+    }
+    assert.strictEqual(
+      vscode.window.activeTextEditor?.document.uri.fsPath,
+      vscode.Uri.joinPath(withRust, "rust", "src", "lib.rs").fsPath,
+      "the window lands on the crate's source"
+    );
+
+    const cell = vscode.Uri.joinPath(fixturesRoot, "rust-cell");
+    const createdCell = await vscode.commands.executeCommand<boolean>(NEW_PROJECT_COMMAND, {
+      start: "rust-first",
+      targetUri: cell,
+      openWorkspace: false,
+    });
+    assert.strictEqual(createdCell, true, "a Rust-first project is created");
+    for (const file of ["Cargo.toml", "src/lib.rs", "trust.toml", "src/generated/trust/configuration.st"]) {
+      assert.strictEqual(await pathExists(vscode.Uri.joinPath(cell, ...file.split("/"))), true, file);
+    }
+    assert.strictEqual(await pathExists(vscode.Uri.joinPath(cell, "src", "Main.st")), false, "no src/Main.st");
+    assert.strictEqual(
+      vscode.window.activeTextEditor?.document.uri.fsPath,
+      vscode.Uri.joinPath(cell, "src", "lib.rs").fsPath,
+      "the window lands on the crate's source"
+    );
+    await deleteTreeIfExists(withRust);
+    await deleteTreeIfExists(cell);
+  });
+
   test("cancel at each prompt stage leaves filesystem unchanged", async () => {
+    const cancelAtStartTarget = vscode.Uri.joinPath(fixturesRoot, "cancel-at-start");
+    const cancelledAtStart = await vscode.commands.executeCommand<boolean>(
+      NEW_PROJECT_COMMAND,
+      {
+        baseUri: fixturesRoot,
+        projectName: "cancel-at-start",
+        simulateCancelAt: "start",
+        openWorkspace: false,
+      }
+    );
+    assert.strictEqual(cancelledAtStart, false);
+    assert.strictEqual(await pathExists(cancelAtStartTarget), false);
+
     const cancelAtFolderTarget = vscode.Uri.joinPath(
       fixturesRoot,
       "cancel-at-folder"
@@ -614,6 +693,7 @@ suite("New project command (VS Code)", function () {
     const cancelledAtFolder = await vscode.commands.executeCommand<boolean>(
       NEW_PROJECT_COMMAND,
       {
+        start: "structured-text",
         baseUri: fixturesRoot,
         projectName: "cancel-at-folder",
         simulateCancelAt: "folder",
@@ -627,6 +707,7 @@ suite("New project command (VS Code)", function () {
     const cancelledAtName = await vscode.commands.executeCommand<boolean>(
       NEW_PROJECT_COMMAND,
       {
+        start: "structured-text",
         baseUri: fixturesRoot,
         projectName: "cancel-at-name",
         simulateCancelAt: "name",

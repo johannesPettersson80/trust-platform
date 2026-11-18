@@ -8,9 +8,13 @@ import { openPendingProjectLanding } from "./projectLandingActivation";
 import { openCreatedProjectFolder } from "./projectOpening";
 export { FOCUS_MAIN_KEY, prepareStarterProjectHandoff } from "./projectLanding";
 
-type SimulatedCancelAt = "folder" | "name" | "overwrite";
+type SimulatedCancelAt = "start" | "folder" | "name" | "overwrite";
+
+// The starts of Create Project (spec 25 §3.2, spec 48 RU-51).
+export type ProjectStart = "structured-text" | "rust" | "rust-first";
 
 type NewProjectArgs = {
+  start?: ProjectStart;
   targetUri?: vscode.Uri | string;
   baseUri?: vscode.Uri | string;
   projectName?: string;
@@ -19,10 +23,51 @@ type NewProjectArgs = {
   simulateCancelAt?: SimulatedCancelAt;
 };
 
-// The parent folder and the name that `trust-runtime new --parent <folder> --name <name>` takes.
+// What the picker shows for each start, the flag of `trust-runtime new` that makes it, and the name the box
+// suggests. Which files a start writes is the command's (spec 25 §3.2).
+type StartChoice = vscode.QuickPickItem & {
+  readonly start: ProjectStart;
+  readonly flags: readonly string[];
+  readonly suggestion: string;
+  readonly kindOfProject: string;
+};
+
+export const START_CHOICES: readonly StartChoice[] = [
+  {
+    start: "structured-text",
+    label: "Structured Text",
+    detail: "A program in src/Main.st and the configuration that runs it.",
+    flags: [],
+    suggestion: "my-st-project",
+    kindOfProject: "Structured Text project",
+  },
+  {
+    start: "rust",
+    label: "Structured Text with Rust",
+    detail: "That project with a Rust crate in rust/: a function block that src/Main.st calls.",
+    flags: ["--rust"],
+    suggestion: "my-rust-project",
+    kindOfProject: "Structured Text project with Rust",
+  },
+  {
+    start: "rust-first",
+    label: "Rust-first",
+    detail: "The crate is the project: its Rust programs, and trust.toml with their tasks.",
+    flags: ["--rust-first"],
+    suggestion: "my-rust-cell",
+    kindOfProject: "Rust-first project",
+  },
+];
+
+function choiceOf(start: ProjectStart): StartChoice {
+  return START_CHOICES.find((choice) => choice.start === start) ?? START_CHOICES[0];
+}
+
+// The parent folder, the name and the start that `trust-runtime new --parent <folder> --name <name>` takes.
 type ProjectTarget = {
   readonly parent: string;
   readonly name: string;
+  readonly start: ProjectStart;
 };
 
 // The answer of `trust-runtime new --json` (spec 25 §3.2): the project folder and the file to focus, or
@@ -64,14 +109,23 @@ async function promptForBaseFolder(): Promise<vscode.Uri | undefined> {
   return selected?.[0];
 }
 
-async function promptForProjectName(): Promise<string | undefined> {
-  // The box opens with a selected suggestion, which the first key replaces (acceptance finding F10). The name
-  // is passed on as typed: `trust-runtime new` checks it and its refusal is shown.
+async function promptForStart(): Promise<ProjectStart | undefined> {
+  const picked = await vscode.window.showQuickPick(START_CHOICES, {
+    title: "Create Project",
+    placeHolder: "What should the new project start as?",
+  });
+  return picked?.start;
+}
+
+async function promptForProjectName(start: ProjectStart): Promise<string | undefined> {
+  // The box opens with the start's selected suggestion, which the first key replaces (acceptance finding F10).
+  // The name is passed on as typed: `trust-runtime new` checks it and its refusal is shown.
+  const choice = choiceOf(start);
   return vscode.window.showInputBox({
-    prompt: "Enter a name for the new Structured Text project",
-    placeHolder: "my-st-project",
-    value: "my-st-project",
-    valueSelection: [0, "my-st-project".length],
+    prompt: `Enter a name for the new ${choice.kindOfProject}`,
+    placeHolder: choice.suggestion,
+    value: choice.suggestion,
+    valueSelection: [0, choice.suggestion.length],
   });
 }
 
@@ -90,6 +144,7 @@ function createArgs(target: ProjectTarget, force: boolean): string[] {
     "new",
     `--parent=${target.parent}`,
     `--name=${target.name}`,
+    ...choiceOf(target.start).flags,
     ...(force ? ["--force"] : []),
     "--json",
   ];
@@ -164,24 +219,35 @@ function stringField(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-// Focus the freshly-created src/Main.st. Called both inline (no reload) and on the next activation (after
-// vscode.openFolder reloads the window). No-op when the pending file isn't in the current workspace.
+// Focus the freshly-created project's file: src/Main.st, or the crate's source of a Rust start. Called both inline
+// (no reload) and on the next activation (after vscode.openFolder reloads the window). No-op when the pending file
+// isn't in the current workspace.
 export async function focusPendingMain(
   context: vscode.ExtensionContext
 ): Promise<void> {
   await openPendingProjectLanding(context);
 }
 
-// A targetUri is split into its parent folder and its name. The name typed at the prompt is passed on as
-// it was typed: the command checks it, so the extension neither trims nor validates it.
+// The start first, since the name's suggestion is the start's; a caller that names the folder and no start
+// makes the Structured Text start. A targetUri is split into its parent folder and its name. The name typed at
+// the prompt is passed on as it was typed: the command checks it, so the extension neither trims nor validates it.
 async function resolveTarget(
   args?: NewProjectArgs
 ): Promise<ProjectTarget | undefined> {
   const directTarget = asUri(args?.targetUri);
+  if (args?.simulateCancelAt === "start") {
+    return undefined;
+  }
+  const start =
+    args?.start ?? (directTarget ? "structured-text" : await promptForStart());
+  if (!start) {
+    return undefined;
+  }
   if (directTarget) {
     return {
       parent: path.dirname(directTarget.fsPath),
       name: path.basename(directTarget.fsPath),
+      start,
     };
   }
 
@@ -196,11 +262,11 @@ async function resolveTarget(
   if (args?.simulateCancelAt === "name") {
     return undefined;
   }
-  const name = args?.projectName ?? (await promptForProjectName());
+  const name = args?.projectName ?? (await promptForProjectName(start));
   if (name === undefined) {
     return undefined;
   }
-  return { parent: baseUri.fsPath, name };
+  return { parent: baseUri.fsPath, name, start };
 }
 
 export function registerNewProjectCommand(
@@ -236,14 +302,15 @@ export function registerNewProjectCommand(
 
         const projectDir = path.resolve(target.parent, answer.project);
         const focusPath = path.resolve(projectDir, answer.focus);
-        await prepareStarterProjectHandoff(context, focusPath);
+        // The command names the project: a Rust start's focus, rust/src/lib.rs, lies deeper in it than src/Main.st.
+        await prepareStarterProjectHandoff(context, focusPath, projectDir);
 
         const openWorkspace = args?.openWorkspace ?? true;
         if (openWorkspace) {
-          // Opening the folder reloads the window; focusPendingMain (next activation) focuses src/Main.st.
+          // Opening the folder reloads the window; focusPendingMain (next activation) focuses the project's file.
           if (!(await openCreatedProjectFolder(vscode.Uri.file(projectDir)))) return false;
         } else {
-          // No reload: focus src/Main.st right now.
+          // No reload: focus the project's file right now.
           await focusPendingMain(context);
         }
 

@@ -13,9 +13,7 @@ use smol_str::SmolStr;
 use trust_runtime::config::{IoConfig, RuntimeConfig};
 use trust_runtime::control::ControlEndpoint;
 use trust_runtime::harness::SourceFile;
-use trust_runtime::native::{
-    build_with_conversions, debug_hooks, triple, Options, Target, Toolchain,
-};
+use trust_runtime::native::{build_project, debug_hooks, triple, Options, Target, Toolchain};
 use trust_runtime::scheduler::{
     ResourceHandle, ResourceRunner, SimulationSpeed, StartGate, StdClock,
 };
@@ -54,11 +52,12 @@ fn labelled(root: &Path, sources: &[(String, String)]) -> Vec<SourceFile> {
 /// unless `[build] debug` says otherwise (specification 44 §13.2), with the conversion rules
 /// `conversions` of the project's `vendor_profile`, which the session resolved with the sources
 /// (docs/specs/07-standard-functions.md 2.10), in the project's build folder, with the toolchain
-/// of §4.6.
+/// of §4.6, and with the project's Rust crate when it has one (specification 48 RU-76, §9.1).
 ///
 /// # Errors
 ///
-/// No toolchain, sources that do not compile, or a build that fails.
+/// No toolchain, sources that do not compile, a project whose generated files are out of date,
+/// or a build that fails.
 pub(super) fn build_image(
     root: &Path,
     sources: &[(String, String)],
@@ -69,7 +68,8 @@ pub(super) fn build_image(
         .ok_or_else(|| String::from("this computer's CPU runs no compiled program"))?;
     let hooks = debug_hooks(root).map_err(|error| error.to_string())?;
     let work = root.join("build").join("simulator").join(triple(target));
-    build_with_conversions(
+    build_project(
+        root,
         &labelled(root, sources),
         &[],
         &Options { target, hooks },

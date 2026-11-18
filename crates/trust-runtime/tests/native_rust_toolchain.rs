@@ -9,7 +9,11 @@
 
 mod rust_pous_support;
 
+use std::process::Command;
+
 use rust_pous_support::{built, custom_project, manifest};
+use smol_str::SmolStr;
+use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
 use trust_runtime::native::{load, NoHooks, Toolchain};
 use trust_runtime::value::{Duration, Value};
 
@@ -48,11 +52,11 @@ END_CONFIGURATION
 
 #[test]
 fn a_project_with_rust_pous_builds_without_compiling_for_the_computer() {
-    // RU-74, RU-09: the toolchain carries the SDK's procedural macros prebuilt for this computer and
-    // the output of the SDK's build scripts (libm's) for each module target; the build gives the
-    // compiler the macros and cargo the scripts' output, so the build of a project with Rust POUs
-    // compiles and links nothing for the computer itself: cargo's folder of the computer's own
-    // artifacts holds none, neither the SDK's macros with their build scripts nor libm's build
+    // RU-74, RU-09: the toolchain carries the SDK's procedural macros prebuilt for this computer
+    // and the output of the SDK's build scripts (libm's) for each module target; the build gives
+    // the compiler the macros and cargo the scripts' output, so the build of a project with Rust
+    // POUs compiles and links nothing for the computer itself: cargo's folder of the computer's
+    // own artifacts holds none, neither the SDK's macros with their build scripts nor libm's build
     // script. Catches a build that compiles either for the computer, which needs the computer's own
     // linker, which a computer without Rust may lack (macOS without Xcode's command-line tools has
     // none). The module then runs: the task is not due at 0 (specification 10 §4.3), so the scan at
@@ -93,4 +97,65 @@ fn a_project_with_rust_pous_builds_without_compiling_for_the_computer() {
     }
     assert_eq!(program.value("MAIN.BUMPED"), Some(Value::DInt(42)));
     assert_eq!(program.value("MAIN.ROOT"), Some(Value::LReal(1.5)));
+}
+
+#[test]
+fn the_build_runs_cargo_in_a_home_of_its_own() {
+    // RU-75: the build gives its cargo the toolchain's own home, so the user's cargo home and its
+    // configuration play no part. `trust-runtime build` runs as a user whose cargo configuration
+    // cargo cannot read, at `CARGO_HOME` and at `~/.cargo`, and builds the project as before; the
+    // user's cargo home gains no registry. Catches a build whose cargo runs in the user's home,
+    // which would take the user's configuration (a mirror for crates.io, a target folder, flags)
+    // and fill the user's cache.
+    let toolchain = Toolchain::find().expect("the toolchain");
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        return;
+    }
+    let root = custom_project(
+        "rust-pous-own-cargo-home",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", CRATE)],
+        PROGRAM,
+    );
+    std::fs::write(
+        root.join("runtime.toml"),
+        render_runtime_toml(&SmolStr::new("probe"), 10),
+    )
+    .expect("runtime.toml");
+    let io = render_io_toml(&build_io_config_auto("loopback").expect("loopback I/O"));
+    std::fs::write(root.join("io.toml"), io).expect("io.toml");
+    let user = root.join("user");
+    let cargo_home = user.join("cargo");
+    let unreadable = "this is not a cargo configuration [\n";
+    for folder in [cargo_home.clone(), user.join("home/.cargo")] {
+        std::fs::create_dir_all(&folder).expect("the user's cargo folder");
+        std::fs::write(folder.join("config.toml"), unreadable).expect("the user's configuration");
+    }
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo provides the trust-runtime binary to integration tests"),
+    )
+    .args(["build", "--project"])
+    .arg(&root)
+    .arg("--ci")
+    .env("CARGO_HOME", &cargo_home)
+    .env("HOME", user.join("home"))
+    .env("XDG_CONFIG_HOME", user.join("config"))
+    .env("XDG_DATA_HOME", user.join("data"))
+    .output()
+    .expect("run trust-runtime");
+    assert!(
+        output.status.success(),
+        "status {:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        root.join("program.tpi").is_file(),
+        "the build wrote no program image"
+    );
+    assert!(
+        !cargo_home.join("registry").exists(),
+        "the build filled the user's cargo cache"
+    );
 }

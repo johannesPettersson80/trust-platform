@@ -411,8 +411,8 @@ crate's sources, without compiling them: it reads the attributed items with the 
 attributes use (`trust-plc-decl`), so the declarations and the compiled code agree by
 construction. It writes the project's other generated Structured Text with them: a Rust-first
 project's configuration (RU-67) and the services' heartbeats (RU-63). The VS Code extension runs it
-when it opens the project and when a `.rs` file of the project is saved, and shows a failure with
-its report; the build runs it first (§3, step 1) and fails when a committed file differs from what
+when it opens the project and when a `.rs` file or the `trust.toml` of the project is saved, and
+shows a failure with its report; the build runs it first (§3, step 1) and fails when a committed file differs from what
 it writes, naming the command, so a project whose generated files are out of date never builds.
 
 ### 6.2 Data types
@@ -1141,7 +1141,8 @@ locals across them, and otherwise starts the sequence at its top and says so in 
 
 **RU-74.** The toolchain bundle (specification 44 §4.6) gains, for every computer platform:
 `cargo` of the pinned release; the SDK's procedural macro library (`trust-plc-macros`), which the
-release builds for that platform with the pinned compiler; the sources of the SDK crates and of
+release builds for that platform with the pinned compiler, a Linux platform's against glibc 2.28 so
+that it loads on every Linux the packages support (specification 24); the sources of the SDK crates and of
 every crate they are built from, vendored, with their hashes in the bundle's manifest; and, for each
 module target, the output of the build scripts of those crates (today `libm`'s only), which the
 release records when it builds the program library for that target. The build gives `rustc` the
@@ -1160,7 +1161,10 @@ same library code. The module targets keep only `core` and `compiler_builtins`: 
 **RU-75.** The project's crate and its dependencies are built with the bundle's `cargo` and
 compiler only; the build never runs a `cargo` or `rustc` of the user's, and never touches the
 user's `rustup`, `CARGO_HOME` or global configuration: it gives its `cargo` a home of its own in
-truST's data folder.
+truST's data folder, the folder `cargo-home` of the installed bundle (of the folder
+`TRUST_TOOLCHAIN` names, for a development toolchain). The bundle's copies of the SDK and of the
+crates.io crates it is built from are all such a build takes from outside the project, so its
+`cargo` needs no registry.
 
 ### 16.2 Without the user's own Rust
 
