@@ -1160,7 +1160,10 @@ same library code. The module targets keep only `core` and `compiler_builtins`: 
 **RU-75.** The project's crate and its dependencies are built with the bundle's `cargo` and
 compiler only; the build never runs a `cargo` or `rustc` of the user's, and never touches the
 user's `rustup`, `CARGO_HOME` or global configuration: it gives its `cargo` a home of its own in
-truST's data folder.
+truST's data folder, the folder `cargo-home` of the installed bundle (of the folder
+`TRUST_TOOLCHAIN` names, for a development toolchain). The bundle's copies of the SDK and of the
+crates.io crates it is built from are all such a build takes from outside the project, so its
+`cargo` needs no registry.
 
 ### 16.2 Without the user's own Rust
 

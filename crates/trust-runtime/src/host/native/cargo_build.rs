@@ -6,8 +6,9 @@
 //!
 //! Every crate of the graph is compiled from source with the module's code generation flags, so
 //! the project's crate and the generated code share one interface crate, and one link with
-//! link-time optimization makes the module. The build runs offline: the crates the project's lock
-//! names come from the vendored sources or the cargo cache (RU-10).
+//! link-time optimization makes the module. The build runs offline, its cargo in the toolchain's
+//! own home (RU-75): the SDK and the crates.io crates it is built from come from the toolchain's
+//! copies, the project's other dependencies from the project's vendored sources (RU-10, RU-12).
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -86,9 +87,8 @@ pub(super) fn write_layer_one(folder: &Path, library: &str) -> Result<(), Native
     Ok(())
 }
 
-/// The crates of the toolchain's folder `vendor`, the copies of the crates.io crates of the SDK's
-/// libraries that have a build script, by name and folder, in the order of their names
-/// (specification 48 RU-74).
+/// The crates of the toolchain's folder `vendor`, the copies of the crates.io crates the SDK is
+/// built from, by name and folder, in the order of their names (specification 48 RU-74).
 ///
 /// # Errors
 ///
@@ -165,8 +165,8 @@ fn manifest(
     for crate_name in SDK_CRATES {
         let _ = writeln!(text, "{crate_name} = {{ path = \"{}\" }}", path(crate_name));
     }
-    // The crates.io crates of the SDK's libraries that have a build script come from the
-    // toolchain's copies, whose scripts' output the build gives cargo instead (RU-74).
+    // The crates.io crates the SDK is built from come from the toolchain's copies, so its cargo
+    // needs no registry (RU-75); the build gives cargo their build scripts' output (RU-74).
     for (crate_name, folder) in vendored {
         let _ = writeln!(
             text,
@@ -259,12 +259,10 @@ pub(super) fn compile(
         format!("--remap-path-prefix={}=project", project.folder.display()),
         format!("--remap-path-prefix={}=sdk", sdk.display()),
     ];
-    if let Some(registry) = cargo_home().map(|home| home.join("registry")) {
-        flags.push(format!(
-            "--remap-path-prefix={}=registry",
-            registry.display()
-        ));
-    }
+    flags.push(format!(
+        "--remap-path-prefix={}=registry",
+        toolchain.cargo_home.join("registry").display()
+    ));
     if let Some(vendor) = &toolchain.vendor {
         flags.push(format!("--remap-path-prefix={}=vendor", vendor.display()));
     }
@@ -318,6 +316,7 @@ pub(super) fn compile(
         .env("RUSTC", &toolchain.rustc)
         .env("CARGO_TARGET_DIR", work.join("target"))
         .env("CARGO_ENCODED_RUSTFLAGS", flags.join("\u{1f}"))
+        .env("CARGO_HOME", &toolchain.cargo_home)
         .env_remove("RUSTFLAGS")
         .env_remove("CARGO_BUILD_RUSTFLAGS")
         .env_remove("RUSTC_WRAPPER")
@@ -360,6 +359,7 @@ fn check_graph(
         .args(["--filter-platform", triple(target)])
         .env("RUSTC", &toolchain.rustc)
         .env("CARGO_TARGET_DIR", work.join("target"))
+        .env("CARGO_HOME", &toolchain.cargo_home)
         .env_remove("RUSTC_WRAPPER")
         .env_remove("RUSTC_WORKSPACE_WRAPPER")
         .output()
@@ -381,14 +381,4 @@ fn check_graph(
     } else {
         Err(NativeError::Compile(errors.join("\n")))
     }
-}
-
-/// Cargo's home folder, whose registry holds the downloaded crates' sources.
-fn cargo_home() -> Option<PathBuf> {
-    std::env::var_os("CARGO_HOME")
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
-                .map(|home| PathBuf::from(home).join(".cargo"))
-        })
 }
