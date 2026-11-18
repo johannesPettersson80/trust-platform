@@ -38,7 +38,7 @@ my-first-plc/
   trust-lsp.toml      # project settings (include_paths = ["src"])
   runtime.toml        # runtime configuration (control endpoint, simulator defaults)
   io.toml             # I/O wiring, set to simulated so it runs with no hardware
-  .gitignore          # keeps the runtime's endpoint folder out of version control
+  .gitignore          # keeps the runtime's endpoint folder and the build folder out of version control
   .vscode/
     launch.json       # the truST Simulator launch configuration
     settings.json

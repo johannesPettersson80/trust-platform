@@ -509,10 +509,11 @@ package, or end-to-end evidence.
   kept in `retain.bin`; watchdog disabled; fault policy `halt`; and
   `[runtime.control]` without an endpoint, specification 11 §6.8.0a), `io.toml`
   (the `simulated` driver), `.vscode/launch.json`,
-  `.vscode/settings.json` and a `.gitignore` that lists `/.trust-runtime/`.
+  `.vscode/settings.json` and a `.gitignore` that lists `/.trust-runtime/` and
+  `/build/`, the folder the project's builds write.
   With `--force` the other files are overwritten, but an existing
-  `.gitignore` is kept and only gains the `/.trust-runtime/` line when no line
-  ignores that folder yet.
+  `.gitignore` is kept and only gains each of these lines that it lacks: the
+  `/.trust-runtime/` line when no line ignores that folder yet.
   It prints `{"project","focus"}`, or `{"error":{"code","message"}}` with a
   non-zero exit, where `code` is `name`, `exists` (an existing non-empty
   folder without `--force`; the extension asks before running again with
@@ -542,9 +543,8 @@ package, or end-to-end evidence.
     (`riscv32imac-unknown-none-elf`, `thumbv8m.main-none-eabihf`) and the
     component `rust-src`, so that a user's own rustup gives rust-analyzer and
     `cargo test` the compiler of the build (specification 48 RU-77).
-  - `.gitignore` lists, besides `/.trust-runtime/`, the build's folder
-    `/build/` and the folder where a user's own cargo builds the crate
-    (`/rust/target/`, or `/target/` in a Rust-first project); an existing
+  - `.gitignore` also lists the folder where a user's own cargo builds the
+    crate (`/rust/target/`, or `/target/` in a Rust-first project); an existing
     `.gitignore` gains each line it lacks.
   - The generated Structured Text is what `trust-dev rust declarations` writes
     for the crate and `trust.toml` (specification 48 RU-24, RU-67).
