@@ -3,7 +3,9 @@
 //! and the control threads under one lock. A scan held at a statement waits on the scan thread, and
 //! the control threads answer the debug operations meanwhile, through the shared operations
 //! (`trust_runtime_services::debug::requests`), from a copy of the held scan's memory and call stack;
-//! between scans they answer from the state of the last scan that ended.
+//! between scans they answer from the state of the last scan that ended. The copy is published
+//! under the same lock as the hold's stop, so a read that finds the stop answers from the halted
+//! state (specification 11 §6.13.1).
 //!
 //! A debugger's write at a hold (`debug.set`) is planned on the copy by the control thread and handed
 //! to the scan thread, which the condition variable it waits on wakes: the scan thread writes it
@@ -56,7 +58,15 @@ struct Shared {
     wake: Condvar,
     /// The debugging switch of `runtime.control.debug_enabled`.
     enabled: Arc<AtomicBool>,
+    /// Called on the scan thread after the debugger decided to hold the scan and let its lock go,
+    /// before the scan waits in the hold: the tests read there what a control thread can read.
+    #[cfg(test)]
+    hold_decided: Mutex<Option<HoldDecided>>,
 }
+
+/// A test's reads between the decision to hold a scan and the hold, with the debugger.
+#[cfg(test)]
+type HoldDecided = Box<dyn Fn(&CompiledDebugger) + Send>;
 
 /// The time the debugger held scans, which no watchdog counts (specification 11 §6.9).
 #[derive(Debug, Default, Clone, Copy)]
@@ -79,6 +89,9 @@ struct State {
     /// The memory and call stack the reads answer from: the held scan's while one is held, and
     /// otherwise the last scan's.
     memory: Option<Arc<CompiledState>>,
+    /// The last scan's state while a hold shows the held scan's, which the reads answer from again
+    /// when the hold ends.
+    last_scan: Option<Arc<CompiledState>>,
     held: HeldTime,
     /// The debugger's writes that control threads handed to the held scan, oldest first.
     held_writes: Vec<HeldWrite>,
@@ -116,6 +129,7 @@ impl CompiledDebugger {
                     sources: None,
                     release: false,
                     memory: None,
+                    last_scan: None,
                     held: HeldTime::default(),
                     held_writes: Vec::new(),
                     applied: Vec::new(),
@@ -123,6 +137,8 @@ impl CompiledDebugger {
                 }),
                 wake: Condvar::new(),
                 enabled,
+                #[cfg(test)]
+                hold_decided: Mutex::new(None),
             }),
         }
     }
@@ -148,6 +164,7 @@ impl CompiledDebugger {
         state.sources = sources;
         state.release = release;
         state.memory = None;
+        state.last_scan = None;
     }
 
     /// The hold the program's cycle takes.
@@ -348,6 +365,21 @@ impl HostHold {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
+
+    /// Runs a test's reads between the decision to hold the scan and the hold.
+    #[cfg(test)]
+    fn hold_decided(&self) {
+        let reads = self
+            .shared
+            .hold_decided
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(reads) = reads.as_ref() {
+            reads(&CompiledDebugger {
+                shared: Arc::clone(&self.shared),
+            });
+        }
+    }
 }
 
 impl CompiledHold for HostHold {
@@ -369,20 +401,43 @@ impl CompiledHold for HostHold {
         self.lock().debug.stop_points()
     }
 
+    /// The debugger decides; for a hold, the copy of the held scan's memory and call stack of
+    /// `held` becomes the state the reads answer from under the same lock as the hold's stop is
+    /// recorded, so a control thread that finds the stop never reads the last scan's state
+    /// instead (specification 11 §6.13.1).
     fn at_statement(
         &self,
         at: &StatementStart<'_>,
         names: Option<&dyn Names>,
+        held: &CompiledHeld<'_>,
     ) -> Result<Boundary, RuntimeError> {
-        self.lock().debug.at_statement(at, names)
+        let mut state = self.lock();
+        let boundary = state.debug.at_statement(at, names)?;
+        if boundary == Boundary::Hold {
+            let image = state
+                .image
+                .clone()
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            state.last_scan = state.memory.take();
+            state.memory = Some(Arc::new(CompiledState::held(
+                image,
+                held.memory,
+                Duration::ZERO,
+            )));
+        }
+        drop(state);
+        #[cfg(test)]
+        if boundary == Boundary::Hold {
+            self.hold_decided();
+        }
+        Ok(boundary)
     }
 
-    /// Copies the held scan's memory and call stack for the reads, and waits until the debugger
-    /// releases the scan; the reads then answer from the state of the last scan again. Each time
-    /// it wakes, the writes the control threads handed over go into the held scan first, through
-    /// the stop the cycle lent, and the copy is taken again before their requests are woken to
-    /// answer (specification 44 §13.2), so a write made before a release reaches the held
-    /// statement.
+    /// Waits until the debugger releases the scan, whose copy [`Self::at_statement`] published
+    /// with the stop; the reads then answer from the state of the last scan again. Each time it
+    /// wakes, the writes the control threads handed over go into the held scan first, through the
+    /// stop the cycle lent, and the copy is taken again before their requests are woken to answer
+    /// (specification 44 §13.2), so a write made before a release reaches the held statement.
     fn hold_compiled(
         &self,
         at: &StatementStart<'_>,
@@ -393,12 +448,6 @@ impl CompiledHold for HostHold {
             .image
             .clone()
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        let before = state.memory.take();
-        state.memory = Some(Arc::new(CompiledState::held(
-            Arc::clone(&image),
-            view.memory,
-            Duration::ZERO,
-        )));
         state.held.since = Some(Instant::now());
         let held = loop {
             if !state.held_writes.is_empty() {
@@ -426,7 +475,7 @@ impl CompiledHold for HostHold {
         if let Some(since) = state.held.since.take() {
             state.held.total = state.held.total.saturating_add(since.elapsed());
         }
-        state.memory = before;
+        state.memory = state.last_scan.take();
         held.map(drop)
     }
 }
@@ -513,3 +562,6 @@ impl Debugger for DebugView<'_> {
         true
     }
 }
+
+#[cfg(test)]
+mod tests;
