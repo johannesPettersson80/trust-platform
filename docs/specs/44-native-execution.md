@@ -399,7 +399,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 4 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks and a global's owner, §5.7, and a member's `hide` mark, §5.8) |
+| 16 | 2 | Image format version, 5 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks and a global's owner, §5.7, and a member's `hide` mark, §5.8; 0.57: the crate table, §5.12) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -419,7 +419,7 @@ a 64-byte boundary of the image, the largest alignment a module's code or data n
 §4.4, and a container keeps the image at such a boundary in its slot.
 
 A table section (`ENTRY`, `AREAS`, `TASKS`, `IOBIND`, `SYMBOLS`, `TYPES`, `STMTS`, `RETAIN`,
-`FILES`) starts with its record count (4) and a reserved word (4), then holds that many records of
+`FILES`, `CRATES`) starts with its record count (4) and a reserved word (4), then holds that many records of
 its fixed size; data its records name follows the records and is named by offsets from the
 section's start: the task table's program list (4-byte entry indexes) and the type table's details.
 `STRINGS` starts with the empty string, at offset 0.
@@ -442,6 +442,7 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 | 14 | `SOURCE` | no | The project's ST sources, concatenated with a file table of their own, when the project sets `build.embed_source = true` (default true on computers, false on chips). |
 | 15 | `MEMFIG` | yes | The memory figure (§10.4): 8-byte fields as `build.json` names them, the ninth the bytes of one call level (§8.5). |
 | 16 | `SIGN` | no | The signature (§5.11). Always the last section. |
+| 17 | `CRATES` | no | The crate table (§5.12), in an image whose module holds the project's Rust crate (specification 48). |
 
 ### 5.4 Entry table
 
@@ -684,6 +685,24 @@ which an online change took from the running scan. Its signature code is built a
 in the firmware's profile (`sha2`, `curve25519-dalek` and `ed25519-dalek`), with the precomputed
 tables of the base point. Signing is for authenticity and integrity; it hides nothing, and the symbol table and the
 optional sources keep the program readable on the device.
+
+### 5.12 Crate table
+
+`CRATES` lists the Rust code the module holds (specification 48 RU-79): every crate of the scan crate
+graph of the image's target as the build reads it, from cargo's metadata of its package, except the
+project's own crate and the packages the build generates, the crates `trust-dev rust audit` checks.
+An image whose project has no Rust crate has no `CRATES`. One 44-byte record per crate: the offset of
+its name in the string pool (4), the offset of its version there (4), its source (4: 1 a registry, 2
+a path, 3 a git repository) and its checksum (32): for a registry crate the SHA-256 of its archive
+that the project's `Cargo.lock` pins (RU-10), for a git crate the 20 bytes of the commit that its
+`Cargo.lock` source names followed by 12 zero bytes, and for a path crate 32 zero bytes, since
+`Cargo.lock` pins no checksum for it. The SDK's crates and the crates.io crates the toolchain
+carries for them (specification 48 RU-74, RU-75) are path crates to the build, which takes them from
+the toolchain's folders; the program library hash of §5.2 names that toolchain's release. The
+records are ordered by the bytes of the name, then of the
+version, then by the source, each crate once. The table lies before `SIGN`, so the signature covers
+it with the module: a signed image says which crates it was built from. The deployment record
+carries the same list (§10.1).
 
 ## 6. Code generation
 
@@ -1500,7 +1519,8 @@ decoder reads and which names a compiled image; a retain-schema identity over th
 variables' canonical names and types in the retain map's order; the image's process image and tasks;
 `cooperative-resource-v1`, numeric contract 1, no timing evidence, and the platform wall clock
 when the header says that the program reads it (§5.2, flags bit 1), else no capability; no
-preparation limit and no import. The build fills its configuration section from `runtime.toml` and `io.toml`
+preparation limit and no import; and the crates of its crate table (§5.12) in their order, none for
+an image without one. The build fills its configuration section from `runtime.toml` and `io.toml`
 as for STBC and writes it as `build/deployment-record.<triple>.bin`. Admission refuses a container
 whose kind and record disagree as a record of another program (`ProgramMismatch`); a device whose
 descriptor does not name 44.1 refuses an image ("the device does not run compiled program images"),
@@ -1512,7 +1532,7 @@ pack-project` packs a program that starts with `TRSTI001` as an image.
 Before an image runs, on every device, in this order, and the first failure names its reason:
 
 1. The container (specification 34 §5.1) and the record (§5.1.1).
-2. The image header: magic, CRC, length inside the slot, format version 3, target id equal to the
+2. The image header: magic, CRC, length inside the slot, format version 5, target id equal to the
    device's, kernel interface version equal to the kernel's (`kernel interface <n> required, this
    runtime has <m>: rebuild the project`), program library hash known to this kernel: the hash of
    the program library of the kernel's own release for the device's CPU, so that a program is
@@ -1525,7 +1545,10 @@ Before an image runs, on every device, in this order, and the first failure name
 5. Every offset in every table inside its section or area; every entry offset inside `CODE`; every
    symbol's offset + size inside its area; every task's programs existing; every I/O binding inside
    its process image, its byte and width inside the input, output or marker area the area table
-   sizes (`I/O binding <n> lies outside its process image`); every retain record inside `R`. The
+   sizes (`I/O binding <n> lies outside its process image`); every retain record inside `R`; every
+   crate's name and version a string of the pool that is not empty, its source 1, 2 or 3, the last
+   12 bytes of a git crate's checksum and the whole checksum of a path crate zero, and the crates in
+   their order, each once (§5.12). The
    process image is the device's to bound: the image's deployment record requests the bytes of its
    three process images as its `max_process_image_bytes`, which step 1 compares with the device's
    maximum.
@@ -2187,6 +2210,7 @@ the runtime error `RustFault`, `Rust fault <number> (<first>, <second>)`, stable
 | 0.54 | 15 November 2026 | The kernel interface version 6 (§8.2): the fault code 20 `RustFault`, a Rust POU's own fault with the number the POU chose and two numbers of detail, reported as the runtime error `RustFault`, stable code `runtime_rust_fault` (Appendix A; specification 48 RU-14, approved by the owner with that specification on 15 November 2026). An image of version 5 is refused with `kernel interface 5 required, this runtime has 6: rebuild the project` (§10.2), as at every change of the version. |
 | 0.55 | 15 November 2026 | The AArch64 module and the libraries it links are built with `-outline-atomics` (§4.4, §4.5): the compiler's outline atomics ask the C library's `getauxval` which instructions the CPU has, so the link of a module whose Rust POU used an `AtomicU32` failed on macOS; its atomic operations are now its own instructions. |
 | 0.56 | 15 November 2026 | The kernel interface version 7 (§8.2): `Cx::interval_ns`, the interval of the task whose activation runs, the resource's cycle interval for the programs without a task and 0 outside a task, which a Rust POU reads as `cx.interval()` (specification 48 RU-16, approved by the owner with that specification on 15 November 2026). An image of version 6 is refused with `kernel interface 6 required, this runtime has 7: rebuild the project` (§10.2), as at every change of the version. |
+| 0.57 | 18 November 2026 | The crate table (§5.12, image format version 5; specification 48 RU-79, checklist G211, decided under the owner's delegation of 17 November 2026, "do whats most professional and best for the user and us"): an image whose module holds the project's Rust crate lists the crates of its scan crate graph, each with its name, version, source and checksum, in a section before `SIGN`, so the signature covers the list. The deployment record takes the list from the image as it takes the image's other tables (§10.1), because every tool that writes a record writes it from the image alone, the program store of a computer and the simulator's stepping container among them, and a list kept only in the record would be missing from theirs. §10.2 step 2 names the format version the reader checks, 5. |
 | 0.42 | 6 November 2026 | A recursive call that finds no depth left is reported as the runtime error `CallDepthExceeded`, `call depth exceeded`, with its stable code `vm_call_stack_overflow` (§6.4, Appendix A). Before, the kernel reported it through the bytecode engine's fault type, which the deletion of the engine (0.22) had left with this one fault and a text for the others, `invalid bytecode '<detail>'`, that nothing produced any more. The error's text and stable code are unchanged (checklist G61). |
 | 0.41 | 6 November 2026 | Round 2 of the CODESYS vendor conversions of specification 07 §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045), which the type checker accepts under the CODESYS rules, compiled (§6.8): an integer (its low-order 32 bits) and a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day, and a text to an integer or a bit string by the vendor's parse. The build refused the first three, and parsed a text by the IEC rules. And a `TIME` or an `LTIME` as text, the vendor's text measured on a PFC200 (`T#1s500ms`), which the build refused (NX-09). |
 | 0.40 | 6 November 2026 | The CODESYS vendor conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036), which the type checker accepted under the CODESYS rules since 31 October 2026, compiled (§6.8): a duration to an integer, a time of day to a `DWORD`, a `BOOL` and an enumerated value as text. The build refused the first three, and spelled an enumerated value as its number. `TO_STRING` of a duration stays refused (NX-09) until the vendor's text is measured. |

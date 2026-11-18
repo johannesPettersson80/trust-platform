@@ -301,6 +301,10 @@ the database's current state each time and keeps a copy in truST's data folder; 
 connection it checks against that copy and says when it was downloaded. On a computer that never
 reaches GitHub, give it a copy of the database's repository with `--db <folder>`.
 
+The program image itself lists the same crates, with their versions, where each comes from and the
+checksum `Cargo.lock` pins for it, so a deployed program says which Rust code it holds. The list is
+signed with the image, travels in its deployment record, and is in `build/build.json` as `crates`.
+
 ## Reference
 
 - [Specification 48: Rust POUs](../reference/specifications/48-rust-pous.md)

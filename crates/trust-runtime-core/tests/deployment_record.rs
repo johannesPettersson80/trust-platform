@@ -1,14 +1,30 @@
-//! The deployment record (spec 34 §5.1.1): its version-2 layout, its identities, and that a reader
+//! The deployment record (spec 34 §5.1.1): its version-3 layout, its identities, and that a reader
 //! refuses every malformed record with the reason.
 
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{
     configuration_identity, sha256, ApplicationIdentity, Capabilities, Configuration, Contracts,
-    DeploymentRecord, DeploymentRecordError, ImportKind, NumericContract, ProcessImageSummary,
-    ProgramVersion, RequestedLimits, RequiredImport, SchedulingProfile, TaskSummary,
-    TimingEvidence, RECORD_MAX_BYTES, RECORD_VERSION,
+    CrateSource, DeploymentRecord, DeploymentRecordError, ImportKind, NumericContract,
+    ProcessImageSummary, ProgramVersion, RequestedLimits, RequiredImport, RustCrate,
+    SchedulingProfile, TaskSummary, TimingEvidence, RECORD_MAX_BYTES, RECORD_VERSION,
 };
 use trust_runtime_core::error::{RuntimeError, StableErrorCode};
+
+fn rust_crate(name: &str, version: &str, source: CrateSource, checksum: [u8; 32]) -> RustCrate {
+    RustCrate {
+        name: name.into(),
+        version: version.into(),
+        source,
+        checksum,
+    }
+}
+
+/// A git crate's checksum: the 20 bytes of its commit, then 12 zero bytes.
+fn commit(byte: u8) -> [u8; 32] {
+    let mut checksum = [0; 32];
+    checksum[..20].fill(byte);
+    checksum
+}
 
 fn import(kind: ImportKind, name: &str, contract_version: u16) -> RequiredImport {
     RequiredImport {
@@ -73,6 +89,12 @@ fn sample() -> DeploymentRecord {
             import(ImportKind::FunctionBlock, "TON", 1),
         ],
         configuration: Configuration::default(),
+        // A path crate, a registry crate and a git crate, in the order of their names.
+        crates: vec![
+            rust_crate("helper", "0.3.1", CrateSource::Path, [0; 32]),
+            rust_crate("libm", "0.2.16", CrateSource::Registry, [0xAB; 32]),
+            rust_crate("trust-ext", "1.0.0", CrateSource::Git, commit(0xCD)),
+        ],
     }
 }
 
@@ -133,20 +155,20 @@ fn refused(bytes: &[u8]) -> DeploymentRecordError {
 }
 
 #[test]
-fn a_record_round_trips_through_the_version_2_layout() {
+fn a_record_round_trips_through_the_version_3_layout() {
     let record = sample();
     let bytes = record.encode().unwrap();
     assert_eq!(bytes.len(), record.encoded_len());
     assert_eq!(&bytes[0..4], b"TRDR");
-    assert_eq!(u16_at(&bytes, 4), 2, "version 2 (specification 34 §5.1.1)");
-    assert_eq!(u16_at(&bytes, 6), 8, "eight sections");
+    assert_eq!(u16_at(&bytes, 4), 3, "version 3 (specification 34 §5.1.1)");
+    assert_eq!(u16_at(&bytes, 6), 9, "nine sections");
     assert_eq!(u32_at(&bytes, 8) as usize, bytes.len());
     let end = bytes.len() - 4;
     assert_eq!(u32_at(&bytes, end), crc32::checksum(&bytes[..end]));
 
     let parts = sections(&bytes);
     let ids: Vec<u16> = parts.iter().map(|part| part.0).collect();
-    assert_eq!(ids, [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert_eq!(ids, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     assert!(
         parts.iter().all(|part| part.1 == 0),
         "reserved fields are 0"
@@ -155,10 +177,12 @@ fn a_record_round_trips_through_the_version_2_layout() {
     let names: usize = record.imports.iter().map(|import| import.name.len()).sum();
     // Section 7 is the empty configuration: its 42 bytes, the resource name's length byte
     // included. Its layout is pinned byte by byte in `deployment_configuration.rs`. Section 8 holds
-    // the parameters of no driver: its two-byte count, 0.
+    // the parameters of no driver: its two-byte count, 0. Section 9 is its count and reserved
+    // field, then for each crate 36 bytes and its name and version: helper 0.3.1 (6 + 5), libm
+    // 0.2.16 (4 + 6) and trust-ext 1.0.0 (9 + 5), 4 + 47 + 46 + 50 = 147.
     assert_eq!(
         lengths,
-        [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42, 2]
+        [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42, 2, 147]
     );
 
     // Section 1: program SHA-256 and length, program version (44.1) and flags, the two
@@ -195,6 +219,22 @@ fn a_record_round_trips_through_the_version_2_layout() {
     assert_eq!(u16_at(imports, 0), 3);
     assert_eq!(&imports[4..8], &[1, 10, 1, 0]);
     assert_eq!(&imports[8..18], b"CURRENT_DT");
+    // Section 9: three crates, then each crate's source (2 path, 1 registry, 3 git), the lengths of
+    // its name and version, a reserved 0, the checksum (none for the path crate, the archive's
+    // SHA-256 for the registry crate, the commit and 12 zeros for the git crate), the name and the
+    // version. Catches a crate list in another order, without its source, or a checksum moved.
+    let mut expected = vec![3, 0, 0, 0];
+    expected.extend_from_slice(&[2, 6, 5, 0]);
+    expected.extend_from_slice(&[0; 32]);
+    expected.extend_from_slice(b"helper0.3.1");
+    expected.extend_from_slice(&[1, 4, 6, 0]);
+    expected.extend_from_slice(&[0xAB; 32]);
+    expected.extend_from_slice(b"libm0.2.16");
+    expected.extend_from_slice(&[3, 9, 5, 0]);
+    expected.extend_from_slice(&[0xCD; 20]);
+    expected.extend_from_slice(&[0; 12]);
+    expected.extend_from_slice(b"trust-ext1.0.0");
+    assert_eq!(parts[8].2, expected);
 
     let decoded = DeploymentRecord::decode(&bytes).unwrap();
     assert_eq!(decoded, record);
@@ -269,11 +309,11 @@ fn the_header_names_what_is_wrong_with_it() {
     magic[0] = b'X';
     assert_eq!(refused(&magic), DeploymentRecordError::Magic);
     let mut version = bytes.clone();
-    version[4] = 3;
-    assert_eq!(refused(&version), DeploymentRecordError::Version(3));
+    version[4] = 4;
+    assert_eq!(refused(&version), DeploymentRecordError::Version(4));
     assert_eq!(
-        DeploymentRecordError::Version(3).to_string(),
-        "record version 3 is unknown; this runtime reads versions 1 and 2"
+        DeploymentRecordError::Version(4).to_string(),
+        "record version 4 is unknown; this runtime reads versions 1 to 3"
     );
     let mut longer = bytes.clone();
     longer.push(0);
@@ -291,10 +331,10 @@ fn the_header_names_what_is_wrong_with_it() {
 }
 
 #[test]
-fn the_sections_of_version_2_are_exactly_1_to_8_in_order() {
+fn the_sections_of_version_3_are_exactly_1_to_9_in_order() {
     assert_eq!(
-        refused(&edited(|parts| parts[7].0 = 9)),
-        DeploymentRecordError::UnknownSection(9)
+        refused(&edited(|parts| parts[8].0 = 10)),
+        DeploymentRecordError::UnknownSection(10)
     );
     assert_eq!(
         refused(&edited(|parts| parts[0].0 = 0)),
@@ -339,8 +379,85 @@ fn the_sections_of_version_2_are_exactly_1_to_8_in_order() {
     );
     // A later version is refused as a whole, whatever its sections.
     assert_eq!(
-        refused(&raw(3, 6, &parts)),
-        DeploymentRecordError::Version(3)
+        refused(&raw(4, 6, &parts)),
+        DeploymentRecordError::Version(4)
+    );
+    // Version 2 has no section 9, and version 3 needs it.
+    assert_eq!(
+        refused(&raw(2, 9, &parts)),
+        DeploymentRecordError::UnknownSection(9)
+    );
+    assert_eq!(
+        refused(&raw(RECORD_VERSION, 8, &parts[..8])),
+        DeploymentRecordError::MissingSection(9)
+    );
+}
+
+/// A record of version 2, written before the crate list, still reads, with no crates; so does one
+/// of version 1 (specification 34 §5.1.1: a runtime reads every version it knows). Catches a reader
+/// that drops the older versions, and one that invents crates for them.
+#[test]
+fn a_version_2_record_reads_without_crates() {
+    let mut record = sample();
+    let parts = sections(&record.encode().unwrap());
+    let version_2 = DeploymentRecord::decode(&raw(2, 8, &parts[..8])).expect("version 2 reads");
+    record.crates.clear();
+    assert_eq!(version_2, record);
+    let version_1 = DeploymentRecord::decode(&raw(1, 7, &parts[..7])).expect("version 1 reads");
+    assert!(version_1.crates.is_empty());
+}
+
+/// Section 9 refuses what specification 34 §5.1.1 refuses: a source other than 1, 2 or 3, a
+/// reserved byte other than 0, an empty or non-UTF-8 name or version, a checksum byte its source
+/// leaves zero that is not 0, crates out of their order, and a count the payload does not hold.
+/// Catches a reader that takes a crate list a writer could never have written.
+#[test]
+fn section_9_refuses_a_malformed_crate_list() {
+    // The second crate, libm, starts after the count (4) and the first crate (36 + 11 bytes).
+    let libm = 4 + 47;
+    let crate_section =
+        |edit: &dyn Fn(&mut Vec<u8>)| refused(&edited(|parts| edit(&mut parts[8].2)));
+    assert_eq!(
+        crate_section(&|payload| payload[libm] = 4),
+        DeploymentRecordError::Field("a crate source")
+    );
+    assert_eq!(
+        crate_section(&|payload| payload[libm + 3] = 1),
+        DeploymentRecordError::Reserved
+    );
+    assert_eq!(
+        crate_section(&|payload| payload[2] = 1),
+        DeploymentRecordError::Reserved
+    );
+    // libm's name, 4 bytes long, becomes 0 bytes long.
+    assert_eq!(
+        crate_section(&|payload| payload[libm + 1] = 0),
+        DeploymentRecordError::Field("a crate name or version")
+    );
+    // libm's name is not UTF-8.
+    assert_eq!(
+        crate_section(&|payload| payload[libm + 36] = 0xFF),
+        DeploymentRecordError::Field("a crate name or version")
+    );
+    // A checksum byte of the path crate helper, and the 21st byte of the git crate's.
+    assert_eq!(
+        crate_section(&|payload| payload[4 + 4] = 1),
+        DeploymentRecordError::Field("a crate checksum")
+    );
+    let git = libm + 46;
+    assert_eq!(
+        crate_section(&|payload| payload[git + 4 + 20] = 1),
+        DeploymentRecordError::Field("a crate checksum")
+    );
+    // libm becomes zibm, after trust-ext.
+    assert_eq!(
+        crate_section(&|payload| payload[libm + 36] = b'z'),
+        DeploymentRecordError::Field("the crate order")
+    );
+    // Four crates counted, three written.
+    assert_eq!(
+        crate_section(&|payload| payload[0] = 4),
+        DeploymentRecordError::SectionLength(9)
     );
 }
 
@@ -441,4 +558,52 @@ fn a_writer_refuses_what_a_reader_would_refuse() {
         })
         .collect();
     assert_eq!(large.encode(), Err(DeploymentRecordError::TooLarge));
+}
+
+/// The writer refuses the crate lists section 9's reader refuses, so a build never writes a record
+/// that no runtime reads. Catches a writer that sorts nothing, takes an empty or long name, or
+/// writes a checksum its source cannot have.
+#[test]
+fn a_writer_refuses_a_crate_list_a_reader_would_refuse() {
+    let with = |edit: &dyn Fn(&mut Vec<RustCrate>)| {
+        let mut record = sample();
+        edit(&mut record.crates);
+        record.encode()
+    };
+    assert_eq!(
+        with(&|crates| crates.swap(0, 1)),
+        Err(DeploymentRecordError::Field("the crate order"))
+    );
+    assert_eq!(
+        with(&|crates| crates.push(crates[2].clone())),
+        Err(DeploymentRecordError::Field("the crate order"))
+    );
+    assert_eq!(
+        with(&|crates| crates[0].name = "".into()),
+        Err(DeploymentRecordError::Field("a crate name or version"))
+    );
+    assert_eq!(
+        with(&|crates| crates[2].version = "1".repeat(256).into()),
+        Err(DeploymentRecordError::Field("a crate name or version"))
+    );
+    assert_eq!(
+        with(&|crates| crates[0].checksum[31] = 1),
+        Err(DeploymentRecordError::Field("a crate checksum"))
+    );
+    assert_eq!(
+        with(&|crates| crates[2].checksum[20] = 1),
+        Err(DeploymentRecordError::Field("a crate checksum"))
+    );
+    // One name, two versions, and one name and version from two sources, are two crates.
+    assert!(with(&|crates| {
+        crates.insert(
+            2,
+            rust_crate("libm", "0.2.17", CrateSource::Registry, [1; 32]),
+        );
+        crates.insert(
+            1,
+            rust_crate("helper", "0.3.1", CrateSource::Git, commit(2)),
+        );
+    })
+    .is_ok());
 }

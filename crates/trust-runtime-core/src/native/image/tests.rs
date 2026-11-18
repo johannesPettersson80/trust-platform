@@ -15,6 +15,8 @@ struct Sample {
     without: Option<SectionId>,
     release: bool,
     codesys: bool,
+    /// With the crate table of [`SAMPLE_CRATES`] and an unsigned `SIGN`.
+    crates: bool,
 }
 
 impl Default for Sample {
@@ -26,8 +28,28 @@ impl Default for Sample {
             without: None,
             release: false,
             codesys: false,
+            crates: false,
         }
     }
+}
+
+/// The crates of a sample with a crate table, in their order: a path crate, a registry crate with
+/// its archive's SHA-256, and a git crate with its commit (specification 44 §5.12).
+const SAMPLE_CRATES: [(&str, &str, CrateSource, [u8; 32]); 3] = [
+    ("helper", "0.3.1", CrateSource::Path, [0; 32]),
+    ("libm", "0.2.16", CrateSource::Registry, [0xAB; 32]),
+    ("trust-ext", "1.0.0", CrateSource::Git, git_commit(0xCD)),
+];
+
+/// A git crate's checksum: 20 bytes of commit, then 12 zero bytes.
+const fn git_commit(byte: u8) -> [u8; 32] {
+    let mut checksum = [0; 32];
+    let mut index = 0;
+    while index < 20 {
+        checksum[index] = byte;
+        index += 1;
+    }
+    checksum
 }
 
 /// A small image of one program `Vat` with a variable `State` in the instance area and a retained
@@ -191,6 +213,20 @@ fn sample(spec: &Sample) -> Vec<u8> {
         .bytes()
         .to_vec(),
     );
+    if spec.crates {
+        let records: Vec<CrateRecord> = SAMPLE_CRATES
+            .iter()
+            .map(|(name, version, source, checksum)| CrateRecord {
+                name: strings.add(name),
+                version: strings.add(version),
+                source: *source as u32,
+                checksum: *checksum,
+            })
+            .collect();
+        writer.table(&records, &[]);
+        // Unsigned: algorithm 0, then a zero key and signature (§5.11).
+        writer.section(SectionId::Sign, vec![0; 100]);
+    }
     writer.section(SectionId::Strings, strings.into_bytes());
     let mut image = writer.finish().unwrap();
     if let Some(missing) = spec.without {
@@ -592,4 +628,126 @@ fn a_globals_owner_is_its_byte_15() {
         assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, 1, owner]);
         assert_eq!(SymbolRecord::read(&bytes), symbol);
     }
+}
+
+/// The crate table (specification 44 §5.12): the writer puts it before `SIGN`, the reader gives each
+/// crate's name, version, source and checksum back in their order, and the image's deployment record
+/// carries them (§10.1); an image without the table has no crate. Format version 5 names it. Catches
+/// a table after the signature, which would leave the list unsigned, a crate read from the wrong
+/// bytes, and a record that loses the list.
+#[test]
+fn the_crate_table_reads_back_before_sign_and_into_the_record() {
+    let bytes = sample(&Sample {
+        crates: true,
+        ..Sample::default()
+    });
+    let image = Image::parse(&bytes).unwrap();
+    image.check_tables().unwrap();
+    assert_eq!(image.header().format_version, 5);
+    let crates = image.section(SectionId::Crates).expect("the crate table");
+    let sign = image.section(SectionId::Sign).expect("the signature");
+    assert!(crates.offset < sign.offset, "CRATES lies before SIGN");
+    assert_eq!(sign.end(), bytes.len() as u64, "SIGN is last");
+    let table = image.table::<CrateRecord>().unwrap();
+    let read: Vec<_> = table
+        .iter()
+        .map(|entry| {
+            (
+                image.string(entry.name).unwrap(),
+                image.string(entry.version).unwrap(),
+                CrateSource::from_raw(entry.source).unwrap(),
+                entry.checksum,
+            )
+        })
+        .collect();
+    assert_eq!(read, SAMPLE_CRATES);
+
+    let record = crate::deployment::DeploymentRecord::for_image(&bytes, [0; 32]).unwrap();
+    let listed: Vec<_> = record
+        .crates
+        .iter()
+        .map(|entry| {
+            (
+                entry.name.as_str(),
+                entry.version.as_str(),
+                entry.source,
+                entry.checksum,
+            )
+        })
+        .collect();
+    assert_eq!(listed, SAMPLE_CRATES);
+    let without = sample(&Sample::default());
+    assert_eq!(
+        Image::parse(&without).unwrap().section(SectionId::Crates),
+        None
+    );
+    assert!(
+        crate::deployment::DeploymentRecord::for_image(&without, [0; 32])
+            .unwrap()
+            .crates
+            .is_empty()
+    );
+}
+
+/// Step 5 of §10.2 refuses a crate table that the build cannot have written: a name or version
+/// outside the string pool or empty, an unknown source, a checksum byte that its source leaves zero,
+/// crates out of order, and a count its section does not hold. Catches a device that signs off a
+/// list it cannot read.
+#[test]
+fn a_malformed_crate_table_is_refused() {
+    let bytes = sample(&Sample {
+        crates: true,
+        ..Sample::default()
+    });
+    let records = Image::parse(&bytes)
+        .unwrap()
+        .section(SectionId::Crates)
+        .unwrap()
+        .offset as usize
+        + TABLE_PREFIX_BYTES;
+    let at = |index: usize, field: usize| records + index * CrateRecord::BYTES + field;
+    let refused = |edit: &dyn Fn(&mut Vec<u8>)| {
+        let mut edited = bytes.clone();
+        edit(&mut edited);
+        Image::parse(&edited)
+            .and_then(|image| image.check_tables())
+            .expect_err("the table is refused")
+    };
+    let crate_record = |index, reason| ImageError::Record {
+        section: SectionId::Crates,
+        index,
+        reason,
+    };
+    assert_eq!(
+        refused(&|image| image[at(1, 8)] = 4),
+        crate_record(1, "unknown source")
+    );
+    assert_eq!(
+        refused(&|image| image[at(0, 12 + 31)] = 1),
+        crate_record(0, "checksum bytes its source leaves zero are not zero")
+    );
+    assert_eq!(
+        refused(&|image| image[at(2, 12 + 20)] = 1),
+        crate_record(2, "checksum bytes its source leaves zero are not zero")
+    );
+    assert_eq!(
+        refused(&|image| image[at(1, 0)..at(1, 4)].copy_from_slice(&u32::MAX.to_le_bytes())),
+        crate_record(1, "name or version not a string of STRINGS")
+    );
+    assert_eq!(
+        refused(&|image| image[at(2, 4)..at(2, 8)].fill(0)),
+        crate_record(2, "name or version not a string of STRINGS")
+    );
+    // libm takes helper's name: two crates named helper, 0.2.16 before 0.3.1.
+    assert_eq!(
+        refused(&|image| {
+            let helper = image[at(0, 0)..at(0, 4)].to_vec();
+            image[at(1, 0)..at(1, 4)].copy_from_slice(&helper);
+        }),
+        crate_record(1, "out of order or repeated")
+    );
+    assert_eq!(
+        refused(&|image| image[records - TABLE_PREFIX_BYTES] = 200),
+        ImageError::Table(SectionId::Crates)
+    );
 }

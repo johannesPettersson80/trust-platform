@@ -736,3 +736,34 @@ fn nothing_to_check_is_not_refused_by_the_identify_check() {
     let _ = fs::remove_dir_all(&broken);
     let _ = fs::remove_dir_all(&empty);
 }
+
+/// `build.json` lists the image's crates (specification 11 §6.8.1d): a path crate with a null
+/// checksum, a registry crate with its archive's SHA-256 and a git crate with its commit, each in
+/// lowercase hexadecimal; a project without a crate lists none. Catches a checksum printed for a
+/// path crate, a git commit printed with its 12 zero bytes, and a source named otherwise.
+#[test]
+fn build_json_lists_each_crate_with_its_source_and_checksum() {
+    use trust_runtime_core::deployment::{CrateSource, RustCrate};
+    let mut commit = [0u8; 32];
+    commit[..20].fill(0xCD);
+    let rust_crate = |name: &str, version: &str, source, checksum| RustCrate {
+        name: name.into(),
+        version: version.into(),
+        source,
+        checksum,
+    };
+    let listed = crates_json(&[
+        rust_crate("helper", "0.3.1", CrateSource::Path, [0; 32]),
+        rust_crate("libm", "0.2.16", CrateSource::Registry, [0xAB; 32]),
+        rust_crate("trust-ext", "1.0.0", CrateSource::Git, commit),
+    ]);
+    assert_eq!(
+        listed,
+        serde_json::json!([
+            { "name": "helper", "version": "0.3.1", "source": "path", "checksum": null },
+            { "name": "libm", "version": "0.2.16", "source": "registry", "checksum": "ab".repeat(32) },
+            { "name": "trust-ext", "version": "1.0.0", "source": "git", "checksum": "cd".repeat(20) },
+        ])
+    );
+    assert_eq!(crates_json(&[]), serde_json::json!([]));
+}

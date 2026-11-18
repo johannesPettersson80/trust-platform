@@ -115,6 +115,7 @@ pub fn build_program_image(
             "rodata": figure.rodata,
             "init": figure.init,
         },
+        "crates": crates_json(&built.crates),
     });
     fs::write(
         build_folder.join("build.json"),
@@ -136,6 +137,24 @@ pub fn build_program_image(
         warnings,
         crate_warnings,
     })
+}
+
+/// The crates of the image's crate table as `build.json` lists them (specification 11 §6.8.1d):
+/// each with its name, version, source and checksum, the registry archive's SHA-256 or the git
+/// commit in lowercase hexadecimal, null for a path crate.
+fn crates_json(crates: &[trust_runtime_core::deployment::RustCrate]) -> serde_json::Value {
+    crates
+        .iter()
+        .map(|entry| {
+            let filled = &entry.checksum[..entry.source.checksum_bytes()];
+            serde_json::json!({
+                "name": entry.name.as_str(),
+                "version": entry.version.as_str(),
+                "source": entry.source.name(),
+                "checksum": (!filled.is_empty()).then(|| hex::encode(filled)),
+            })
+        })
+        .collect()
 }
 
 /// Refuses a project whose `runtime.toml` names another resource than the `RESOURCE` its program

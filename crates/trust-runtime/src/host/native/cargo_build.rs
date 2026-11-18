@@ -17,6 +17,7 @@ use std::process::Command;
 use super::rust_messages::{self, RustDiagnostic, RustSeverity, REMAPPED_CRATE};
 use super::toolchain::{cpu, triple, LINKER_SCRIPT};
 use super::{NativeError, RustFailure, Toolchain};
+use trust_runtime_core::deployment::RustCrate;
 use trust_runtime_core::native::image::Target;
 
 /// The name the generated code gives the project's crate.
@@ -278,10 +279,18 @@ fn write_package(
     })
 }
 
-/// What [`compile`] gives: the linked module, an ELF file, the compiler's report of each function's
-/// stack frame, as [`Toolchain::compile`] gives them for a project without a crate, and the
-/// warnings of the project's crate (specification 48 RU-44).
-pub(super) type Compiled = (Vec<u8>, String, Vec<RustDiagnostic>);
+/// What [`compile`] gives.
+pub(super) struct Compiled {
+    /// The linked module, an ELF file, as [`Toolchain::compile`] gives it for a project without a
+    /// crate.
+    pub(super) elf: Vec<u8>,
+    /// The compiler's report of each function's stack frame.
+    pub(super) remarks: String,
+    /// The warnings of the project's crate (specification 48 RU-44).
+    pub(super) warnings: Vec<RustDiagnostic>,
+    /// The crates of the scan crate graph that the image lists (specification 44 §5.12).
+    pub(super) crates: Vec<RustCrate>,
+}
 
 /// Compiles the crate `source` for `target` in folder `work` with the project's crate `project`.
 ///
@@ -348,7 +357,7 @@ pub(super) fn compile(
             flags.extend(["-L".to_string(), format!("dependency={}", folder.display())]);
         }
     }
-    check_graph(cargo, toolchain, sdk, target, work, project)?;
+    let crates = check_graph(cargo, toolchain, sdk, target, work, project)?;
     let mut command = cargo_command(cargo, toolchain, work);
     command
         .args(["rustc", "--offline", "--release", "--bin", "trust_module"])
@@ -416,7 +425,12 @@ pub(super) fn compile(
         .join("trust_module");
     let module = std::fs::read(&output)
         .map_err(|error| NativeError::Toolchain(format!("{}: {error}", output.display())))?;
-    Ok((module, messages.text, messages.diagnostics))
+    Ok(Compiled {
+        elf: module,
+        remarks: messages.text,
+        warnings: messages.diagnostics,
+        crates,
+    })
 }
 
 /// The toolchain's `cargo`, to run in `work` as the build runs it (RU-75): in the
@@ -446,7 +460,8 @@ fn cargo_command(cargo: &Path, toolchain: &Toolchain, work: &Path) -> Command {
 }
 
 /// Refuses the scan crate graph of the package in `work` where it breaks specification 48's rules
-/// (RU-09, RU-20), from cargo's metadata of it for `target`.
+/// (RU-09, RU-20), from cargo's metadata of it for `target`, and gives the crates of the graph that
+/// the image lists, with the checksums of the package's `Cargo.lock` (RU-79).
 fn check_graph(
     cargo: &Path,
     toolchain: &Toolchain,
@@ -454,18 +469,21 @@ fn check_graph(
     target: Target,
     work: &Path,
     project: &ProjectCrate,
-) -> Result<(), NativeError> {
+) -> Result<Vec<RustCrate>, NativeError> {
     let metadata = metadata(cargo, toolchain, target, work)?;
     // The metadata names every manifest by the file system's own path.
     let crate_folder =
         std::fs::canonicalize(&project.folder).unwrap_or_else(|_| project.folder.clone());
     let errors =
         super::crate_graph::check(&metadata, sdk, &crate_folder, project.bindings.as_deref());
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(NativeError::Compile(errors.join("\n")))
+    if !errors.is_empty() {
+        return Err(NativeError::Compile(errors.join("\n")));
     }
+    let listed = super::crate_graph::audited(&metadata, &crate_folder, project.bindings.as_deref());
+    let lock_path = work.join("Cargo.lock");
+    let lock = std::fs::read_to_string(&lock_path)
+        .map_err(|error| NativeError::Toolchain(format!("{}: {error}", lock_path.display())))?;
+    super::crate_graph::image_crates(&listed, &lock).map_err(NativeError::Compile)
 }
 
 /// The crates of the scan crate graph of `project` for `target` that an advisory of the RustSec
@@ -492,11 +510,14 @@ pub(super) fn graph_crates(
     let metadata = metadata(&cargo, toolchain, target, &work)?;
     let crate_folder =
         std::fs::canonicalize(&project.folder).unwrap_or_else(|_| project.folder.clone());
-    Ok(super::crate_graph::audited(
-        &metadata,
-        &crate_folder,
-        project.bindings.as_deref(),
-    ))
+    let mut crates: Vec<(String, String)> =
+        super::crate_graph::audited(&metadata, &crate_folder, project.bindings.as_deref())
+            .into_iter()
+            .map(|entry| (entry.name, entry.version))
+            .collect();
+    // A name and version from two sources is one crate to the advisories.
+    crates.dedup();
+    Ok(crates)
 }
 
 /// Cargo's metadata of the package in `work` for `target`, read offline by the toolchain's cargo

@@ -342,6 +342,9 @@ pub struct Build {
     /// The compiler's warnings of the project's Rust crate, each where it is (specification 48
     /// RU-44); none for a project without a crate.
     pub crate_warnings: Vec<RustDiagnostic>,
+    /// The crates of the image's crate table (specification 44 §5.12, specification 48 RU-79);
+    /// none for a project without a crate.
+    pub crates: Vec<trust_runtime_core::deployment::RustCrate>,
 }
 
 /// The generated crate of `sources`, without compiling it.
@@ -693,7 +696,12 @@ fn build_sources(
         .iter()
         .map(|entry| entry.symbol.clone())
         .collect();
-    let (elf, remarks, crate_warnings) = match &project {
+    let cargo_build::Compiled {
+        elf,
+        remarks,
+        warnings: crate_warnings,
+        crates,
+    } = match &project {
         Some(project) => cargo_build::compile(
             toolchain,
             &generated.source,
@@ -705,7 +713,12 @@ fn build_sources(
         None => {
             let (elf, remarks) =
                 toolchain.compile(&generated.source, options.target, &symbols, work)?;
-            (elf, remarks, Vec::new())
+            cargo_build::Compiled {
+                elf,
+                remarks,
+                warnings: Vec::new(),
+                crates: Vec::new(),
+            }
         }
     };
     // A Rust POU's panic is named with the POU and the form to use instead, a changing `static`,
@@ -763,6 +776,7 @@ fn build_sources(
             module: &module,
             memory: &memory,
             stack,
+            crates: &crates,
         },
     )?;
     let image = writer
@@ -789,6 +803,7 @@ fn build_sources(
             .and_then(|configuration| configuration.resource_name.clone()),
         warnings,
         crate_warnings,
+        crates,
     })
 }
 

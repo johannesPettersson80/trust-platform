@@ -178,8 +178,15 @@ impl ImageWriter {
         placed.push((SectionId::Code as u32, code_offset, &self.module.code));
         placed.push((SectionId::Rodata as u32, rodata_offset, &self.module.rodata));
         let mut end = rodata_offset + self.module.rodata.len();
-        // The other sections in the order of their ids, which puts SIGN last.
-        for (id, bytes) in &self.sections {
+        // The other sections in the order of their ids, but SIGN last, whose signature covers the
+        // bytes before it (specification 44 §5.11), the crate table's among them (§5.12).
+        let sign = SectionId::Sign as u32;
+        let ordered = self
+            .sections
+            .iter()
+            .filter(|(id, _)| **id != sign)
+            .chain(self.sections.get_key_value(&sign));
+        for (id, bytes) in ordered {
             let offset = align_up(end, SECTION_ALIGNMENT);
             placed.push((*id, offset, bytes));
             end = offset + bytes.len();

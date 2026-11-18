@@ -21,14 +21,15 @@ pub use configuration::{
 pub use identity::{configuration_identity, sha256, sha256_parts, Sha256Stream};
 pub use refusal::{AdmissionRefusal, DeploymentRecordError, LimitKind};
 
+pub use crate::native::image::CrateSource;
 use crate::retain::checkpoint::CheckpointIdentity;
 use alloc::vec::Vec;
 use core::fmt;
 use smol_str::SmolStr;
 
-/// The record version this runtime writes; it reads this version and version 1 (specification 34
-/// §5.1.1).
-pub const RECORD_VERSION: u16 = 2;
+/// The record version this runtime writes; it reads this version and versions 1 and 2
+/// (specification 34 §5.1.1).
+pub const RECORD_VERSION: u16 = 3;
 /// The largest record a runtime reads or writes, in bytes.
 pub const RECORD_MAX_BYTES: usize = 65_536;
 
@@ -51,6 +52,10 @@ pub struct DeploymentRecord {
     /// Section 7: the settings a device without an operating system needs from `runtime.toml`
     /// and `io.toml`.
     pub configuration: Configuration,
+    /// Section 9: the Rust crates the program image holds, in the order of its crate table
+    /// (specification 44 §5.12); none for a program without a Rust crate and in a record of
+    /// version 1 or 2.
+    pub crates: Vec<RustCrate>,
 }
 
 impl DeploymentRecord {
@@ -345,6 +350,21 @@ pub struct RequiredImport {
     pub name: SmolStr,
     /// The contract version the record names.
     pub contract_version: u16,
+}
+
+/// A Rust crate the program image holds (specification 34 §5.1.1, section 9; specification 44
+/// §5.12; specification 48 RU-79).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RustCrate {
+    /// The crate's name.
+    pub name: SmolStr,
+    /// The crate's version.
+    pub version: SmolStr,
+    /// Where the crate comes from.
+    pub source: CrateSource,
+    /// The SHA-256 of a registry crate's archive that `Cargo.lock` pins, a git crate's commit in
+    /// the first 20 bytes; zero where the source gives none.
+    pub checksum: [u8; 32],
 }
 
 /// A target-sized value as the record's 64-bit field. No supported target has a wider `usize`.
