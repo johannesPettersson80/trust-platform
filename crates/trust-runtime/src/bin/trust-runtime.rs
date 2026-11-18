@@ -340,7 +340,16 @@ fn run() -> anyhow::Result<()> {
             }
         },
         Some(Command::Wizard { path, start }) => wizard::run_wizard(path, start),
-        Some(Command::New(args)) => new::run_new(args.parent, args.name, args.force, args.json),
+        Some(Command::New(args)) => {
+            let start = if args.rust_first {
+                trust_runtime::new_project::ProjectStart::RustFirst
+            } else if args.rust {
+                trust_runtime::new_project::ProjectStart::StructuredTextWithRust
+            } else {
+                trust_runtime::new_project::ProjectStart::StructuredText
+            };
+            new::run_new(args.parent, args.name, start, args.force, args.json)
+        }
         Some(Command::Commit {
             project,
             message,

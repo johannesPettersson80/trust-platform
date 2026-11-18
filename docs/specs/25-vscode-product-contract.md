@@ -518,6 +518,56 @@ package, or end-to-end evidence.
   folder without `--force`; the extension asks before running again with
   `--force`), `not-directory` or `io`. The `network_canvas_demo`
   acceptance fixture MUST provide the same native simulator launch target.
+- Create Project offers three starts (specification 48 RU-51): **Structured
+  Text**, the project above; **Structured Text with Rust**, that project with a
+  Rust crate (`trust-runtime new ... --rust`); and **Rust-first**, a Rust-first
+  project (specification 48 §14, `--rust-first`). The extension asks for the
+  start before the folder and the name, offers the name `my-st-project`,
+  `my-rust-project` or `my-rust-cell` for the start chosen, and opens the file
+  that `focus` names, the crate's source in a Rust start. The command writes
+  every file of a start, so that the project builds as it is created, with no
+  Rust of the user's (specification 48 RU-76):
+  - The crate's `Cargo.toml` names the package after the project: its name in
+    lower case, with one `-` for each run of characters other than ASCII
+    letters, digits and `_`, without a `-` or `_` at either end; `plc` for a
+    name that is then empty, `plc-` before one that starts with a digit, and
+    `-plc` after a name
+    that cargo refuses as a package's (a Rust keyword, `std`, `core`, `alloc`,
+    `test`, `proc_macro`, `proc-macro`, `build`, `deps`, `examples` or
+    `incremental`). The package is edition 2024 and depends on `trust-plc` at
+    exactly the release's version (specification 48 RU-08); the crate's root
+    starts with `#![cfg_attr(not(test), no_std)]` and `#![forbid(unsafe_code)]`.
+  - `rust-toolchain.toml` at the project's root names the Rust version that the
+    toolchain bundle's compiler is, the devices' module targets
+    (`riscv32imac-unknown-none-elf`, `thumbv8m.main-none-eabihf`) and the
+    component `rust-src`, so that a user's own rustup gives rust-analyzer and
+    `cargo test` the compiler of the build (specification 48 RU-77).
+  - `.gitignore` lists, besides `/.trust-runtime/`, the build's folder
+    `/build/` and the folder where a user's own cargo builds the crate
+    (`/rust/target/`, or `/target/` in a Rust-first project); an existing
+    `.gitignore` gains each line it lacks.
+  - The generated Structured Text is what `trust-dev rust declarations` writes
+    for the crate and `trust.toml` (specification 48 RU-24, RU-67).
+  - `--rust` writes the files of the Structured Text start, `src/Main.st`
+    calling the crate's function block, and the crate in `rust/`:
+    `rust/Cargo.toml`, `rust/src/lib.rs` with the function block `FILTER_EMA`
+    of specification 48 RU-22 (an exponential moving average: `y` follows `x`
+    by `alpha`, 0.1 unless the call gives another, of the gap at each call, and
+    takes `x` at the first), and `src/generated/rust_pous.st`. `src/Main.st`
+    declares `Raw` and `Smoothed` (`LREAL`) and `Filter : FILTER_EMA`, and runs
+    `Filter(x := Raw, alpha := 0.1); Smoothed := Filter.y;`. `focus` is
+    `rust/src/lib.rs`.
+  - `--rust-first` writes the crate at the project's root: `Cargo.toml`, and
+    `src/lib.rs` with the program `MAIN`, which counts its runs and switches its
+    output `lamp` every 50 runs, half a second on its task; `trust.toml` with
+    `[rust] crate = "."`, the resource `MainRes`, the task `MainTask` every
+    10 ms with priority 1 and the program instance `MainInstance` of `MAIN` on
+    it; the generated `src/generated/trust/rust_pous.st` and
+    `src/generated/trust/configuration.st`; and `runtime.toml`, `io.toml`,
+    `trust-lsp.toml` and `.vscode/settings.json` as the Structured Text start
+    writes them, with `.vscode/launch.json` targeting
+    `${workspaceFolder}/src/generated/trust/configuration.st`. It writes no
+    `src/Main.st` and no `src/config.st`. `focus` is `src/lib.rs`.
 - Each example `runtime.toml` MUST explicitly contain `[runtime.control]`,
   `[runtime.retain]`, `[runtime.watchdog]`, and `[runtime.fault]`.
 - Each example MUST declare a `CONFIGURATION` and bind a program instance to a
