@@ -26,6 +26,10 @@ pub(super) struct Snapshot {
     /// (specification 07 §2.10); empty, from an older caller or a fixture, selects the IEC rules.
     #[serde(default)]
     pub conversion_profile: String,
+    /// The files of the project's Rust crate, with which the worker builds it (protocol annex
+    /// E8.2); none for a project without a crate.
+    #[serde(default)]
+    pub crate_files: Vec<super::crate_files::CrateFile>,
 }
 impl Snapshot {
     /// The conversion rules the snapshot's sources are compiled with.
@@ -65,6 +69,17 @@ pub(super) fn digest(value: impl std::fmt::Debug) -> String {
         hex::encode(Sha256::digest(format!("{value:?}").as_bytes()))
     )
 }
+/// The project's revision (protocol annex E8.2): a hash of the canonical project path, the sources, the
+/// crate's files and the simulation configuration, which the worker computes again from the snapshot.
+pub(super) fn project_revision(
+    identity: &str,
+    sources: &[Source],
+    crate_files: &[super::crate_files::CrateFile],
+    simulation: &str,
+) -> String {
+    digest((identity, sources, crate_files, simulation))
+}
+
 pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
     if !super::limits::available() {
         return Err(crate::memory_budget::NO_LIMIT.into());
@@ -113,7 +128,8 @@ pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
         .map_err(|e| e.to_string())?
         .to_string_lossy()
         .into_owned();
-    let project_revision = digest((&project_identity, &sources, &simulation));
+    let crate_files = super::crate_files::read(root)?;
+    let project_revision = project_revision(&project_identity, &sources, &crate_files, &simulation);
     // A project whose `vendor_profile` names no conversion rules is not run under other rules.
     let conversion_profile = crate::native::conversion_profile(root)
         .map_err(|error| error.to_string())?
@@ -135,5 +151,6 @@ pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
         process_inputs,
         process_inputs_revision,
         conversion_profile,
+        crate_files,
     })
 }
