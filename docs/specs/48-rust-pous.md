@@ -1166,7 +1166,10 @@ same library code. The module targets keep only `core` and `compiler_builtins`: 
 compiler only; the build never runs a `cargo` or `rustc` of the user's, and never touches the
 user's `rustup`, `CARGO_HOME` or global configuration: it gives its `cargo` a home of its own in
 truST's data folder, the folder `cargo-home` of the installed bundle (of the folder
-`TRUST_TOOLCHAIN` names, for a development toolchain). The bundle's copies of the SDK and of the
+`TRUST_TOOLCHAIN` names, for a development toolchain), and an environment without the user's
+cargo settings: without `CARGO` and the `CARGO_` variables, which cargo reads as configuration,
+and without `RUSTFLAGS`, `RUSTDOCFLAGS`, `RUSTC_WRAPPER`, `RUSTC_WORKSPACE_WRAPPER` and
+`RUSTC_BOOTSTRAP`. The bundle's copies of the SDK and of the
 crates.io crates it is built from are all such a build takes from outside the project, so its
 `cargo` needs no registry.
 
