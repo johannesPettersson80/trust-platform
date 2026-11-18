@@ -71,13 +71,19 @@ pub(super) fn digest(value: impl std::fmt::Debug) -> String {
 }
 /// The project's revision (protocol annex E8.2): a hash of the canonical project path, the sources, the
 /// crate's files and the simulation configuration, which the worker computes again from the snapshot.
+/// A project without a crate hashes the others alone, the revision it had before crates were part of
+/// the snapshot, so that a snapshot taken before then still matches.
 pub(super) fn project_revision(
     identity: &str,
     sources: &[Source],
     crate_files: &[super::crate_files::CrateFile],
     simulation: &str,
 ) -> String {
-    digest((identity, sources, crate_files, simulation))
+    if crate_files.is_empty() {
+        digest((identity, sources, simulation))
+    } else {
+        digest((identity, sources, crate_files, simulation))
+    }
 }
 
 pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
