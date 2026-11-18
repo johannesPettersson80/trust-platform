@@ -107,6 +107,7 @@ nav:
           - Structured Text Workflow: start/choose-your-workflow.md
           - Variables And I/O Mapping: connect/devices-and-fieldbus/io-binding.md
           - OpenOT Attribute Authoring: develop/openot-authoring.md
+          - Rust POUs: develop/rust-pous.md
           - Build, Validate, Test: operate/build-validate-test.md
           - Compile, Validate, Reload: operate/compile-validate-reload.md
           - Debugging In VS Code: operate/debugging-in-vscode.md
@@ -116,6 +117,7 @@ nav:
           - Control Studio: operate/control-studio.md
           - Control System Engineering: develop/control-system-engineering.md
           - Test And Debug Examples: examples/test-and-debug.md
+          - Rust Examples: examples/rust.md
       - Operator Screens:
           - HMI Builder: develop/hmi-builder.md
       - Visual Programming:
@@ -286,6 +288,7 @@ nav:
           - 32 MQTT I/O: reference/specifications/32-mqtt-io.md
           - 34 Runtime Portability: reference/specifications/34-runtime-portability.md
           - 44 Native Execution: reference/specifications/44-native-execution.md
+          - 48 Rust POUs: reference/specifications/48-rust-pous.md
           - SFC Profile: reference/specifications/sfc-profile.md
       - Hardware Compatibility: reference/hardware-compatibility.md
       - API Lifecycle And Deprecation: reference/api-lifecycle-and-deprecation.md

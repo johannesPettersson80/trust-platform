@@ -22,6 +22,7 @@ walkthrough.
 | Learning Paths | [Learning Paths](learning-paths.md) | ordered paths for first project, connectivity, migration, CI, and visual-editor work | 20-90 min |
 | Control Engineering | [Control Engineering Path](learning-paths.md#control-engineering-path) | feedback, modelling, industrial PID, digital control, and modern methods | 25-45 min per lesson |
 | Test and Debug | [Test And Debug](test-and-debug.md) | runtime process image, debugger confirmation, verification loops | 20-30 min |
+| Rust | [Rust Examples](rust.md) | a function block written in Rust, called from Structured Text | 10 min |
 | Connectivity | [Connectivity](connectivity.md) | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | 120-220 min |
 | Runtime Cloud | [Runtime Cloud](runtime-cloud.md) | profiles, preflight, dispatch, federation allowlists | 30-60 min |
 | Visual Editors | [Visual Editors](visual-editors.md) | ladder, statechart, and Blockly flows tied to companion ST | 15-45 min |
