@@ -23,8 +23,9 @@ async function waitForText(file: string, expected: string, timeoutMs: number): P
   throw new Error(`${file} does not hold ${expected} after ${timeoutMs} ms`);
 }
 
-// Specification 48 RU-24: the extension runs `trust-dev rust declarations` when a `.rs` file of the
-// project's crate is saved, so the generated declarations follow the crate without a build.
+// Specification 48 RU-24: the extension runs `trust-dev rust declarations` when a `.rs` file or the
+// `trust.toml` of the project is saved, so the generated declarations follow the crate and the
+// services' heartbeats follow trust.toml (RU-63) without a build.
 suite("Rust POU declarations on save (specification 48 RU-24)", function () {
   this.timeout(120000);
   let projectRoot: string;
@@ -68,5 +69,26 @@ suite("Rust POU declarations on save (specification 48 RU-24)", function () {
       90000
     );
     assert.ok(written.includes("FUNCTION MAX_LIMITED : DINT"), written);
+  });
+
+  test("saving trust.toml writes the heartbeats of the services it declares", async () => {
+    // Specification 48 RU-63, RU-24: a service added to trust.toml gets its heartbeat global once
+    // trust.toml is saved. Catches an extension that reruns the command only for `.rs` files, after
+    // which the build refuses the project's out-of-date services.st until the user runs it.
+    const file = path.join(projectRoot, "trust.toml");
+    fs.writeFileSync(file, "");
+    const toml = vscode.Uri.file(file);
+    const document = await vscode.workspace.openTextDocument(toml);
+    await vscode.window.showTextDocument(document);
+    const edit = new vscode.WorkspaceEdit();
+    edit.insert(toml, new vscode.Position(0, 0), '[services.recipe]\nheartbeat = "500ms"\n');
+    assert.ok(await vscode.workspace.applyEdit(edit), "the edit applies");
+    assert.ok(await document.save(), "trust.toml saves");
+    const written = await waitForText(
+      path.join(projectRoot, "src", "generated", "services.st"),
+      "recipe_heartbeat : UDINT;",
+      90000
+    );
+    assert.ok(written.includes("VAR_GLOBAL"), written);
   });
 });

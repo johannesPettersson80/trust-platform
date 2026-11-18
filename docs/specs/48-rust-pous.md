@@ -411,8 +411,8 @@ crate's sources, without compiling them: it reads the attributed items with the 
 attributes use (`trust-plc-decl`), so the declarations and the compiled code agree by
 construction. It writes the project's other generated Structured Text with them: a Rust-first
 project's configuration (RU-67) and the services' heartbeats (RU-63). The VS Code extension runs it
-when it opens the project and when a `.rs` file of the project is saved, and shows a failure with
-its report; the build runs it first (§3, step 1) and fails when a committed file differs from what
+when it opens the project and when a `.rs` file or the `trust.toml` of the project is saved, and
+shows a failure with its report; the build runs it first (§3, step 1) and fails when a committed file differs from what
 it writes, naming the command, so a project whose generated files are out of date never builds.
 
 ### 6.2 Data types
