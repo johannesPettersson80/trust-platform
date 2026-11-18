@@ -300,9 +300,10 @@ and `trust-plc-mem` for the computers' targets, §4.5), for each target a `LIBRA
 program library, `trust-plc-lib <version>` (§5.2), and a manifest with every hash. The bundle
 is installed into truST's own data folder (the user's own Rust installation, if any, is never used
 or touched), verified against its manifest before use, and needs no administrator rights. The
-bundle file is about 180 to 210 MB, which the extension's package carries, and the installed bundle
-about 630 MB (linux-x64: 207 MB and 632 MB, linux-arm64: 180 MB, on 27 October 2026, where 0.1
-estimated 250 MB and 600 MB).
+bundle file is about 195 to 225 MB, which the extension's package carries, and the installed bundle
+about 680 MB (linux-x64: 222 MB and 676 MB with what a project with Rust POUs builds with, 44 MB of
+it unpacked, cargo 35 MB of that, on 17 November 2026; before, 207 MB and 632 MB, and linux-arm64
+180 MB, on 27 October 2026, where 0.1 estimated 250 MB and 600 MB).
 For sites without internet, `trust-runtime` installs the same bundle from a file, as the
 extension's "Install toolchain from file" command does. The
 bundle's version is the kernel's: a kernel update that changes the interface version (§8.2) comes
@@ -325,6 +326,13 @@ for each platform the release builds the tools for: `linux-x64`, `linux-arm64`, 
   the compiler finds them beside itself;
 - for each module target, the interface and program library crates and the crates they link, with
   `LIBRARY`, in `lib/<target>/`;
+- what a project with Rust POUs builds with (specification 48 §16, RU-74): `bin/cargo`
+  (`cargo.exe` on Windows) of the pinned release; the SDK's procedural macro library, built for the
+  platform with the pinned compiler, in `macros/`; the SDK's crates as `cargo package` writes them
+  for crates.io, in `sdk/<crate>/`; and the crates.io crates they are built from, in
+  `vendor/<crate>/`, with `vendor/build-scripts.toml`, the output of their build scripts for each
+  module target. The build's `cargo` keeps its home in the installed folder's `cargo-home/`, which
+  is not part of the bundle (specification 48 RU-75);
 - `manifest.json`: `format` (1), `trust` (the truST version, the kernel's), `platform`, `rustc`
   (the pinned version), `program_library` (`trust-plc-lib <version>`), `targets`, and `files`,
   every other file of the bundle with its `path` (with `/`), `bytes`, `sha256` (lowercase

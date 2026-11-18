@@ -3,7 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-use super::pack::pack;
+use super::super::toolchain::MACRO_LIBRARY;
+use super::pack::{pack, rust_parts};
 use super::*;
 
 /// A new, empty folder of its own, removed when dropped.
@@ -393,4 +394,43 @@ fn a_bundle_beside_the_tools_installs_without_a_download() {
         .expect("tools without a bundle download it");
     server.join().expect("the server");
     assert_eq!(downloaded, folder.0.join("downloaded/9.9.9"));
+}
+
+#[test]
+fn a_folder_with_the_sdk_gives_the_bundle_what_rust_pous_build_with() {
+    // Specification 48 RU-74, RU-75: cargo from the compiler's own folder, the SDK's macro library,
+    // and every file of `sdk/` and `vendor/`, each at its path in the bundle. Catches a part left
+    // out, without which a computer without Rust cannot build a project with Rust POUs, and a file
+    // named by its place on this computer instead of its path in the bundle. Without the macro
+    // library the bundle is refused, naming it.
+    let folder = Folder::new("rust-parts");
+    let sysroot = folder.0.join("sysroot");
+    let toolchain = folder.0.join("toolchain");
+    let cargo = format!("bin/cargo{}", std::env::consts::EXE_SUFFIX);
+    let macros = format!("macros/{MACRO_LIBRARY}");
+    let mut wanted = vec![
+        (cargo.clone(), sysroot.join(&cargo)),
+        (macros.clone(), toolchain.join(&macros)),
+    ];
+    for path in [
+        "sdk/trust-plc/Cargo.toml",
+        "sdk/trust-plc/src/lib.rs",
+        "vendor/build-scripts.toml",
+        "vendor/libm/Cargo.toml",
+    ] {
+        wanted.push((path.to_string(), toolchain.join(path)));
+    }
+    for (path, source) in &wanted {
+        std::fs::create_dir_all(source.parent().expect("a folder")).expect("the folder");
+        std::fs::write(source, path).expect("the file");
+    }
+    let mut parts = rust_parts(&toolchain, &sysroot).expect("the parts");
+    parts.sort();
+    wanted.sort();
+    assert_eq!(parts, wanted);
+    std::fs::remove_file(toolchain.join(&macros)).expect("the macro library removed");
+    let refused = rust_parts(&toolchain, &sysroot)
+        .expect_err("a folder without the macro library is refused")
+        .to_string();
+    assert!(refused.contains(MACRO_LIBRARY), "{refused}");
 }

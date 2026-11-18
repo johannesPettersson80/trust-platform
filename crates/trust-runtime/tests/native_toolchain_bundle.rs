@@ -17,6 +17,7 @@ use std::process::{Command, Output};
 use serde_json::{json, Value as JsonValue};
 use smol_str::SmolStr;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::native::rust_pous::{write_declarations, Written};
 
 /// A counter in a 10 ms task.
 const COUNTER: &str = "
@@ -31,6 +32,37 @@ CONFIGURATION Bundled
 RESOURCE Bundled ON PLC
     TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
     PROGRAM Main WITH Fast : Counter;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// A Rust function, which the SDK's procedural macros declare.
+const RUST_CRATE: &str = "#![cfg_attr(not(test), no_std)]
+#![forbid(unsafe_code)]
+
+use trust_plc::prelude::*;
+
+/// Its input plus one.
+#[trust_function(name = \"PLUS_ONE\")]
+#[budget(\"1us\")]
+pub fn plus_one(_cx: &mut Cx, a: i32) -> Result<i32, Fault> {
+    Ok(a.wrapping_add(1))
+}
+";
+
+/// A program that calls the Rust function.
+const RUST_PROGRAM: &str = "
+PROGRAM Line
+VAR
+    Bumped : DINT;
+END_VAR
+Bumped := PLUS_ONE(41);
+END_PROGRAM
+
+CONFIGURATION Bundled
+RESOURCE Bundled ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Line;
 END_RESOURCE
 END_CONFIGURATION
 ";
@@ -70,6 +102,32 @@ impl Fixture {
 
     fn project(&self) -> PathBuf {
         self.folder.join("project")
+    }
+
+    /// A project beside [`Self::project`] whose program calls a Rust function of its crate, with
+    /// the crate's declarations written (specification 48 §9.1).
+    fn rust_project(&self) -> PathBuf {
+        let root = self.folder.join("rust-project");
+        let manifest = format!(
+            "[package]\nname = \"rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+             [dependencies]\ntrust-plc = \"={}\"\n",
+            env!("CARGO_PKG_VERSION")
+        );
+        for (path, text) in [
+            ("rust/Cargo.toml", manifest.as_str()),
+            ("rust/src/lib.rs", RUST_CRATE),
+            ("src/main.st", RUST_PROGRAM),
+        ] {
+            let file = root.join(path);
+            std::fs::create_dir_all(file.parent().expect("a folder")).expect("the folder");
+            std::fs::write(file, text).expect("the file");
+        }
+        for name in ["runtime.toml", "io.toml"] {
+            std::fs::copy(self.project().join(name), root.join(name)).expect(name);
+        }
+        let written = write_declarations(&root);
+        assert!(matches!(written, Ok(Written::Wrote(_))), "{written:?}");
+        root
     }
 
     /// truST's data folder of the user the commands run as (specification 44 §4.6).
@@ -131,10 +189,11 @@ fn os(text: &str) -> &std::ffi::OsStr {
 /// from its file into `toolchains/<version>/` of truST's data folder, whose path the last JSON line
 /// names; `status` names it as installed with this release's version while `TRUST_TOOLCHAIN` is
 /// unset, and names `TRUST_TOOLCHAIN` while it is set; and with the installed bundle alone, a build
-/// for this computer writes its program image and a build for each module target of §4.4 succeeds.
-/// Catches a bundle that leaves out a part a module links (a target's `core`, a compiler library, a
-/// program library), an install the tools do not find, and a status that names the wrong
-/// toolchain.
+/// for this computer writes its program image, a build for each module target of §4.4 succeeds,
+/// and a project with Rust POUs builds (specification 48 RU-74, RU-75). Catches a bundle that
+/// leaves out a part a module links (a target's `core`, a compiler library, a program library) or
+/// a part a project with Rust POUs builds with (cargo, the SDK, its macros, the crates it is built
+/// from), an install the tools do not find, and a status that names the wrong toolchain.
 #[test]
 fn an_installed_bundle_builds_for_every_module_target() {
     let development = std::env::var_os("TRUST_TOOLCHAIN")
@@ -231,6 +290,28 @@ fn an_installed_bundle_builds_for_every_module_target() {
             "no image for {target}"
         );
     }
+    // Specification 48 RU-74, RU-75: with the installed bundle alone, a project with Rust POUs
+    // builds for this computer, its cargo in a home of its own in the bundle's folder, which takes
+    // the SDK and the crates.io crates it is built from from the bundle: the user's folders hold no
+    // Rust, and no registry is reached.
+    let rust_project = fixture.rust_project();
+    succeeded(&fixture.run(
+        &[
+            os("build"),
+            os("--project"),
+            rust_project.as_os_str(),
+            os("--ci"),
+        ],
+        None,
+    ));
+    assert!(
+        rust_project.join("program.tpi").is_file(),
+        "the build of the project with Rust POUs wrote no program image"
+    );
+    assert!(
+        Path::new(&installed).join("cargo-home").is_dir(),
+        "the build's cargo ran in a home other than the bundle's"
+    );
     assert!(Path::new(&installed).join("manifest.json").is_file());
 }
 
