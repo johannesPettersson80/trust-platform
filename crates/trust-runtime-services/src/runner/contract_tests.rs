@@ -318,7 +318,7 @@ fn restart_from_stopped_starts_with_the_empty_records_of_a_new_process() {
     let tasks = fixture.call(&mut runner, &request(6, "tasks.stats"));
     assert_eq!(
         tasks["result"],
-        json!({"tasks": [], "profiling_enabled": true, "top_contributors": []}),
+        json!({"tasks": [], "rust_pous": [], "profiling_enabled": true, "top_contributors": []}),
         "no task and no program has run since the start"
     );
     let faults = fixture.call(&mut runner, &request(7, "faults"));
