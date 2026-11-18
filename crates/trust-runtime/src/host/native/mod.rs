@@ -450,6 +450,70 @@ pub fn build_with_conversions(
     build_sources(sources, tests, options, conversions, toolchain, work, None)
 }
 
+/// The module targets whose scan crate graphs the audit reads (specification 44 §4.4).
+const AUDITED_TARGETS: [Target; 4] = [
+    Target::Rv32imac,
+    Target::ThumbV8mMainHf,
+    Target::X86_64,
+    Target::Aarch64,
+];
+
+/// The crates of the scan crate graph of the project in folder `project` that an advisory of the
+/// RustSec database can name (specification 48 RU-79), each with its name and version, once, in
+/// order: for every module target, from cargo's metadata of the build's package as the build reads
+/// it, every crate but the project's crate and the packages the build generates. The build's
+/// package for each target is written into `work`, in a folder named after the target's triple.
+/// `None` when the project's build compiles no crate: it has none, or the crate declares no Rust
+/// POU (§9.1).
+///
+/// # Errors
+///
+/// [`NativeError::Compile`] when the crate's sources or `trust.toml` cannot be read, or the crate
+/// calls Structured Text and its bindings are not written (RU-39); [`NativeError::Toolchain`] as
+/// the build's cargo fails.
+pub fn scan_crate_graph(
+    project: &Path,
+    toolchain: &Toolchain,
+    work: &Path,
+) -> Result<Option<Vec<(String, String)>>, NativeError> {
+    let krate = rust_pous::read(project).map_err(|errors| {
+        let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
+        NativeError::Compile(lines.join("\n"))
+    })?;
+    let Some(krate) = krate.filter(|krate| !krate.pous.is_empty()) else {
+        return Ok(None);
+    };
+    let bindings =
+        (!krate.structured_text.is_empty()).then(|| project.join(rust_pous::BINDINGS_FOLDER));
+    if bindings
+        .as_ref()
+        .is_some_and(|folder| !folder.join("Cargo.toml").is_file())
+    {
+        return Err(NativeError::Compile(format!(
+            "the crate calls Structured Text and {} is not written: run `trust-dev rust \
+             declarations` or build the project first (specification 48 RU-39)",
+            rust_pous::BINDINGS_FOLDER
+        )));
+    }
+    let crate_folder = cargo_build::ProjectCrate {
+        folder: project.join(&krate.layout.crate_folder),
+        label: krate.layout.crate_folder.replace('\\', "/"),
+        package: krate.package.clone(),
+        bindings,
+        debug: false,
+    };
+    let mut crates = std::collections::BTreeSet::new();
+    for target in AUDITED_TARGETS {
+        crates.extend(cargo_build::graph_crates(
+            toolchain,
+            target,
+            &work.join(triple(target)),
+            &crate_folder,
+        )?);
+    }
+    Ok(Some(crates.into_iter().collect()))
+}
+
 /// The Rust crate a build compiles with the program, and the crate cargo links (specification 48
 /// §9).
 struct CrateBuild {

@@ -1204,6 +1204,23 @@ service is built apart from the program (RU-61).
 deployed image says which Rust code it holds. `trust-dev rust audit` checks the graph against the
 RustSec advisory database when the computer can reach it, and against a copy of it otherwise.
 
+The audit reads the scan crate graph as the build reads it, from cargo's metadata of the build's
+package (RU-20), for each module target (specification 44 §4.4), and checks every crate of it but the
+project's crate and the packages the build generates, by its name and version, against each
+advisory of the database for a crate of that name. An advisory names a version that matches none of
+its `patched` and none of its `unaffected` requirements, which are semantic versioning's
+requirements as cargo reads them; a withdrawn advisory names none. For each advisory that names a
+crate of the graph, the command prints the advisory's id, the crate's name and version, the
+advisory's title and its patched versions, and, for an informational advisory, its kind
+(`unmaintained`, `unsound` or `notice`). It fails when a vulnerability, an advisory that is not
+informational, names a crate of the graph; an informational one is a warning. A project without a
+crate has nothing to check. The database is the repository `rustsec/advisory-db` on GitHub: the
+command downloads its current state and keeps it in `advisory-db/` of truST's data folder
+(specification 44 §4.6), in place of the copy it kept before. When the download fails, it checks
+against the kept copy and says when that copy was downloaded; without one it fails. `--db <folder>`
+checks against a copy of the repository in a folder, as a computer that never reaches GitHub is
+given it, and downloads nothing.
+
 **RU-80. The image.** A program with Rust POUs is one image, signed as every image is (specification
 44 §5.11); a device installs and runs it only as specification 44 §10.2 allows any image. Nothing of
 the Rust code is loaded apart from the image.

@@ -7666,11 +7666,15 @@ dependencies = [
  "base64 0.23.1",
  "clap",
  "dialoguer",
+ "flate2",
  "owo-colors",
  "schemars 1.2.2",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "smol_str",
+ "tar",
+ "time",
  "toml",
  "trust-lsp",
  "trust-runtime",
@@ -7679,6 +7683,7 @@ dependencies = [
  "trust-syntax",
  "trust-test-support",
  "trust-wasm-analysis",
+ "ureq",
  "verification-cases",
 ]
 

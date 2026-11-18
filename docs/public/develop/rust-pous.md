@@ -285,6 +285,22 @@ Rust POU and the Structured Text statement that called it.
 A Rust POU runs on every device a program runs on: the computers, the ESP32-C6 and the STM32U5A9.
 The build compiles the crate for each target of the deployment.
 
+## Check the crates for security advisories
+
+`trust-dev rust audit` checks every crate the program's module is built from, the SDK's and your
+crate's dependencies, against the [RustSec advisory database](https://rustsec.org):
+
+```bash
+trust-dev rust audit --project .
+```
+
+It prints each advisory that names a crate at the version the project builds, with the versions
+that fix it. A vulnerability fails the command, so it can stop a pipeline before a deployment; an
+advisory that a crate is unmaintained or unsound, or a notice, is a warning. The command downloads
+the database's current state each time and keeps a copy in truST's data folder; without a
+connection it checks against that copy and says when it was downloaded. On a computer that never
+reaches GitHub, give it a copy of the database's repository with `--db <folder>`.
+
 ## Reference
 
 - [Specification 48: Rust POUs](../reference/specifications/48-rust-pous.md)
