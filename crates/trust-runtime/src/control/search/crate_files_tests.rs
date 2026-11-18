@@ -148,3 +148,30 @@ fn the_copied_cargo_configuration_reads_the_vendored_sources_in_place() {
     };
     assert!(write(&[outside], &run, &root).is_err());
 }
+
+#[test]
+fn a_project_without_a_crate_keeps_the_revision_it_had_before_crates() {
+    // Annex E8.2: a project without a crate hashes its path, sources and simulation alone, as
+    // before crates were part of the snapshot, so that a snapshot taken then, such as trust-debug's
+    // worker fixture, still matches; a crate's files change the revision. Catches a revision that
+    // changes for every project without a crate, which makes the worker refuse such a snapshot as
+    // "worker snapshot revision mismatch".
+    use super::super::snapshot::{digest, project_revision, Source};
+    let sources = vec![Source {
+        path: "src/main.st".into(),
+        text: "PROGRAM Main\nEND_PROGRAM\n".into(),
+    }];
+    let before = digest(("/project", &sources, "[plant]"));
+    assert_eq!(
+        project_revision("/project", &sources, &[], "[plant]"),
+        before
+    );
+    let files = [CrateFile {
+        path: "rust/src/lib.rs".into(),
+        bytes: base64::engine::general_purpose::STANDARD.encode(b"// lib"),
+    }];
+    assert_ne!(
+        project_revision("/project", &sources, &files, "[plant]"),
+        before
+    );
+}
