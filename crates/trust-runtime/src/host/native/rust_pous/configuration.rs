@@ -237,7 +237,7 @@ fn time_literal(nanos: u64) -> String {
 }
 
 /// Whether `name` is an identifier (IEC §6.1.2): a letter or `_`, then letters, digits and `_`.
-fn is_name(name: &str) -> bool {
+pub(super) fn is_name(name: &str) -> bool {
     let mut chars = name.chars();
     chars
         .next()

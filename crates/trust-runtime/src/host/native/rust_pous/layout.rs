@@ -2,12 +2,16 @@
 //! RU-23, RU-65, Appendix B): `trust.toml`'s `[rust] crate` names the crate's folder, `rust`
 //! without it. A project whose crate is the project's own folder (`crate = "."`) is a Rust-first
 //! project: its generated Structured Text lies in `src/generated/trust/` beside the crate's sources,
-//! with the configuration that its `trust.toml` declares (RU-66, RU-67).
+//! with the configuration that its `trust.toml` declares (RU-66, RU-67). The heartbeats of the
+//! services a `trust.toml` declares lie beside the declarations (RU-63).
 
 use std::path::{Component, Path};
 
 /// The generated declarations of a Structured Text project (RU-23).
 pub const DECLARATIONS_FILE: &str = "src/generated/rust_pous.st";
+
+/// The generated heartbeats of the services of a Structured Text project's `trust.toml` (RU-63).
+pub const SERVICES_FILE: &str = "src/generated/services.st";
 
 /// The folder of the project's crate in a Structured Text project (RU-06).
 pub const CRATE_FOLDER: &str = "rust";
@@ -29,6 +33,9 @@ pub struct Layout {
     /// The generated configuration, relative to the project with `/`, of a Rust-first project whose
     /// `trust.toml` declares a resource (RU-67).
     pub configuration: Option<String>,
+    /// The generated heartbeats of the services `trust.toml` declares, relative to the project
+    /// with `/` (RU-63), where the file lies whether the project declares a service or not.
+    pub services: String,
 }
 
 impl Layout {
@@ -86,6 +93,11 @@ pub fn layout(project: &Path) -> Result<Layout, String> {
             DECLARATIONS_FILE.to_string()
         },
         configuration: resource.then(|| format!("{RUST_FIRST_GENERATED}/configuration.st")),
+        services: if rust_first {
+            format!("{RUST_FIRST_GENERATED}/services.st")
+        } else {
+            SERVICES_FILE.to_string()
+        },
         crate_folder,
     })
 }

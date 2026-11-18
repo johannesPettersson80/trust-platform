@@ -36,7 +36,13 @@ publishes anything, it refuses a Linux binary that the packages ship
 `trust-dev` and `trust-bundle-gen`) when it needs a glibc version newer than
 2.28, naming each such version and the functions that need it
 (`scripts/check_glibc_baseline.py`); a weak need does not count, since the
-binary starts without it. Until 0.41.1 linux-x64 was built on the runner's own
+binary starts without it. The Linux toolchain bundles' procedural macro library
+(`macros/libtrust_plc_macros.so`, specification 48 RU-74), which the bundle's
+compiler loads, keeps the same baseline: cargo builds a procedural macro for
+the computer it runs on, so each Linux platform's bundle job builds it on its
+own runner in the `manylinux_2_28` image of that architecture (glibc 2.28),
+pinned by digest, and refuses it as the binaries are refused before it writes
+the bundle. Until 0.41.1 linux-x64 was built on the runner's own
 Ubuntu: from 0.35.0 its `trust-runtime` and `trust-dev` needed glibc 2.43
 (`asinf`) and did not start on Ubuntu 24.04 or Debian 13, and its `trust-lsp`
 needed glibc 2.38.

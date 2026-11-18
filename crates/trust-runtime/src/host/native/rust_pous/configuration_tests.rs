@@ -5,7 +5,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::native::rust_pous::{
-    layout, read, write_generated, Layout, Written, CRATE_FOLDER, DECLARATIONS_FILE,
+    layout, read, write_generated, Generated, Layout, Written, CRATE_FOLDER, DECLARATIONS_FILE,
+    SERVICES_FILE,
 };
 
 /// A project folder holding `files`, each a path relative to it and its text.
@@ -91,6 +92,7 @@ fn a_project_names_where_its_crate_and_generated_text_lie() {
             crate_folder: CRATE_FOLDER.to_string(),
             declarations: DECLARATIONS_FILE.to_string(),
             configuration: None,
+            services: SERVICES_FILE.to_string(),
         })
     );
     let first = project(&[("trust.toml", TRUST_TOML)]);
@@ -100,6 +102,7 @@ fn a_project_names_where_its_crate_and_generated_text_lie() {
             crate_folder: ".".to_string(),
             declarations: "src/generated/trust/rust_pous.st".to_string(),
             configuration: Some("src/generated/trust/configuration.st".to_string()),
+            services: "src/generated/trust/services.st".to_string(),
         })
     );
     let outside = project(&[("trust.toml", "[rust]\ncrate = \"../shared\"\n")]);
@@ -122,7 +125,14 @@ fn a_rust_first_projects_configuration_is_its_trust_toml() {
         ("trust.toml", TRUST_TOML),
     ]);
     let written = write_generated(&root).expect("the project writes");
-    assert_eq!(written, (Written::Wrote(1), Some(Written::Wrote(1))));
+    assert_eq!(
+        written,
+        Generated {
+            declarations: Written::Wrote(1),
+            configuration: Some(Written::Wrote(1)),
+            services: Written::Nothing,
+        }
+    );
     let text = std::fs::read_to_string(root.join("src/generated/trust/configuration.st"))
         .expect("the configuration");
     assert_eq!(
@@ -147,7 +157,11 @@ fn a_rust_first_projects_configuration_is_its_trust_toml() {
     assert_eq!(super::super::check_declarations(&root, &krate), Ok(()));
     assert_eq!(
         write_generated(&root),
-        Ok((Written::UpToDate, Some(Written::UpToDate)))
+        Ok(Generated {
+            declarations: Written::UpToDate,
+            configuration: Some(Written::UpToDate),
+            services: Written::Nothing,
+        })
     );
 }
 

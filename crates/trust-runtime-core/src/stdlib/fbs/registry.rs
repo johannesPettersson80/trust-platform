@@ -21,6 +21,8 @@ pub enum BuiltinFbKind {
     Ton,
     /// Off-delay timer state.
     Tof,
+    /// The freshness of a service's heartbeat, truST's own block (specification 08 §5A).
+    ServiceFresh,
 }
 
 /// Recognize a native function-block name case-insensitively.
@@ -66,6 +68,7 @@ pub fn builtin_kind_uppercase(name_upper: &str) -> Option<BuiltinFbKind> {
         "TP" | "TP_TIME" | "TP_LTIME" => Some(BuiltinFbKind::Tp),
         "TON" | "TON_TIME" | "TON_LTIME" => Some(BuiltinFbKind::Ton),
         "TOF" | "TOF_TIME" | "TOF_LTIME" => Some(BuiltinFbKind::Tof),
+        "SERVICE_FRESH" => Some(BuiltinFbKind::ServiceFresh),
         _ => None,
     }
 }

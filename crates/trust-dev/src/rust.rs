@@ -23,8 +23,8 @@ pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
     let layout = layout(&project).map_err(|message| anyhow::anyhow!("trust.toml: {message}"))?;
     let declarations = &layout.declarations;
     match write_generated(&project) {
-        Ok((written, configuration)) => {
-            match written {
+        Ok(generated) => {
+            match generated.declarations {
                 Written::Wrote(count) => println!("Wrote {declarations}: {count} Rust POU(s)."),
                 Written::UpToDate => println!("{declarations} is up to date."),
                 Written::Removed => {
@@ -32,11 +32,23 @@ pub fn run_declarations(project: Option<PathBuf>) -> anyhow::Result<()> {
                 }
                 Written::Nothing => println!("The project declares no Rust POU."),
             }
-            if let (Some(configuration), Some(file)) = (configuration, &layout.configuration) {
+            if let (Some(configuration), Some(file)) =
+                (generated.configuration, &layout.configuration)
+            {
                 match configuration {
                     Written::UpToDate => println!("{file} is up to date."),
                     _ => println!("Wrote {file} from trust.toml."),
                 }
+            }
+            // The heartbeats of the services trust.toml declares (RU-63).
+            let services = &layout.services;
+            match generated.services {
+                Written::Wrote(count) => println!("Wrote {services}: {count} service(s)."),
+                Written::UpToDate => println!("{services} is up to date."),
+                Written::Removed => {
+                    println!("Removed {services}: trust.toml declares no service.");
+                }
+                Written::Nothing => {}
             }
         }
         Err(errors) => {

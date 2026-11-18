@@ -409,10 +409,11 @@ Structured Text side is refused with the advice to rename it in Rust, where its 
 **RU-24. Writing them.** `trust-dev rust declarations` writes the generated declarations from the
 crate's sources, without compiling them: it reads the attributed items with the reader the
 attributes use (`trust-plc-decl`), so the declarations and the compiled code agree by
-construction. The VS Code extension runs it when it opens the project and when a `.rs` file of the
-project is saved, and shows a failure with its report; the build runs it first (§3, step 1) and fails
-when the committed file differs from what it writes, naming the command, so a project whose
-declarations are out of date never builds.
+construction. It writes the project's other generated Structured Text with them: a Rust-first
+project's configuration (RU-67) and the services' heartbeats (RU-63). The VS Code extension runs it
+when it opens the project and when a `.rs` file or the `trust.toml` of the project is saved, and
+shows a failure with its report; the build runs it first (§3, step 1) and fails when a committed file differs from what
+it writes, naming the command, so a project whose generated files are out of date never builds.
 
 ### 6.2 Data types
 
@@ -997,8 +998,14 @@ symbol table of the deployed image (`trust-dev service bindings`), so a service 
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
 the build declares as a global (`<name>_heartbeat : UDINT`) and the SDK increments at the period the
-service states (`heartbeat = "500ms"`). The program library's function block `SERVICE_FRESH` (its
-inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`) is the standard way
+service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
+(`src/generated/services.st`, in a Rust-first project `src/generated/trust/services.st`): one
+`VAR_GLOBAL` with a variable per service, in `trust.toml`'s order. `trust-dev rust declarations`
+writes it, and removes it when `trust.toml` declares no service, and the build refuses a project
+whose committed file is not what `trust.toml` declares, naming the command (RU-24), whether the
+project has a crate or not (RU-07). A service's name is an identifier, so that its global is one. The program library's function block `SERVICE_FRESH` (its
+inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
+§5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
 fresh. A value a service writes is never more than the program's input: the scan never waits for a
 service.
@@ -1027,7 +1034,7 @@ cell/
   trust-lsp.toml      the project for the Structured Text tools
   src/
     lib.rs            the Rust POUs
-    generated/trust/  GENERATED, committed: rust_pous.st, configuration.st
+    generated/trust/  GENERATED, committed: rust_pous.st, configuration.st, services.st
   tests/              machine tests (RU-58)
 ```
 
@@ -1134,7 +1141,8 @@ locals across them, and otherwise starts the sequence at its top and says so in 
 
 **RU-74.** The toolchain bundle (specification 44 §4.6) gains, for every computer platform:
 `cargo` of the pinned release; the SDK's procedural macro library (`trust-plc-macros`), which the
-release builds for that platform with the pinned compiler; the sources of the SDK crates and of
+release builds for that platform with the pinned compiler, a Linux platform's against glibc 2.28 so
+that it loads on every Linux the packages support (specification 24); the sources of the SDK crates and of
 every crate they are built from, vendored, with their hashes in the bundle's manifest; and, for each
 module target, the output of the build scripts of those crates (today `libm`'s only), which the
 release records when it builds the program library for that target. The build gives `rustc` the
@@ -1327,7 +1335,7 @@ profile = "development"         # or "production" (RU-47)
 "FILTER_EMA" = { "riscv32imac-unknown-none-elf" = "40us" }
 [timing.measured]               # written by `trust-dev rust bench` (RU-48)
 
-[services.recipe]               # tier 3 (§13)
+[services.recipe]               # tier 3 (§13): the global recipe_heartbeat (RU-63)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
 timeout = "2s"

@@ -13,9 +13,9 @@ fn every_standard_function_block_has_its_documentation() {
 }
 
 // Specification 14, `stdlib` profiles: `iec` offers the IEC blocks of Tables 43 to 46, the
-// `_TIME` timers included, and not Mitsubishi's DIFU and DIFD; `none` offers no standard block.
-// Catches the aliases offered as IEC names, and a standard block that no profile filters because
-// the editor does not know it as standard.
+// `_TIME` timers included, and not Mitsubishi's DIFU and DIFD nor truST's SERVICE_FRESH; `none`
+// offers no standard block. Catches the aliases or truST's own blocks offered as IEC names, and a
+// standard block that no profile filters because the editor does not know it as standard.
 #[test]
 fn the_iec_profile_offers_the_iec_blocks_and_none_offers_none() {
     let iec = super::StdlibFilter::from_profile("iec");
@@ -23,7 +23,12 @@ fn the_iec_profile_offers_the_iec_blocks_and_none_offers_none() {
     for name in trust_hir::symbols::STANDARD_FUNCTION_BLOCKS {
         assert!(super::is_standard_fb_name(name), "{name}");
         let alias = trust_hir::symbols::STANDARD_FUNCTION_BLOCK_ALIASES.contains(&name);
-        assert_eq!(iec.allows_function_block(name), !alias, "{name}");
+        let extension = trust_hir::symbols::STANDARD_FUNCTION_BLOCK_EXTENSIONS.contains(&name);
+        assert_eq!(
+            iec.allows_function_block(name),
+            !alias && !extension,
+            "{name}"
+        );
         assert!(!none.allows_function_block(name), "{name}");
     }
 }

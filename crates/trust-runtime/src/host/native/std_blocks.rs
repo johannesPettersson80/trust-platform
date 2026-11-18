@@ -16,6 +16,9 @@ pub(super) enum StdFb {
     FTrig,
     Sr,
     Rs,
+    /// `SERVICE_FRESH`, the freshness of a service's heartbeat (specification 08 §5A; specification
+    /// 48 RU-63).
+    ServiceFresh,
     /// `CTU`, `CTD` or `CTUD` counting in a type (IEC §6.6.3.5.4, Table 45).
     Counter(Counting, Count),
 }
@@ -143,6 +146,7 @@ impl StdFb {
             "F_TRIG" | "DIFD" => Some(Self::FTrig),
             "SR" => Some(Self::Sr),
             "RS" => Some(Self::Rs),
+            "SERVICE_FRESH" => Some(Self::ServiceFresh),
             "CTU" | "CTU_INT" => counter(Counting::Up, Count::Int),
             "CTU_DINT" => counter(Counting::Up, Count::Dint),
             "CTU_LINT" => counter(Counting::Up, Count::Lint),
@@ -172,6 +176,7 @@ impl StdFb {
             Self::FTrig => "F_TRIG".into(),
             Self::Sr => "SR".into(),
             Self::Rs => "RS".into(),
+            Self::ServiceFresh => "SERVICE_FRESH".into(),
             Self::Counter(counting, count) => {
                 let block = match counting {
                     Counting::Up => "CTU",
@@ -196,6 +201,7 @@ impl StdFb {
             Self::FTrig => "lib::FTrig".into(),
             Self::Sr => "lib::Sr".into(),
             Self::Rs => "lib::Rs".into(),
+            Self::ServiceFresh => "lib::ServiceFresh".into(),
             Self::Counter(counting, count) => {
                 let block = match counting {
                     Counting::Up => "Ctu",
@@ -217,6 +223,7 @@ impl StdFb {
             Self::FTrig => ("lib::f_trig".into(), false),
             Self::Sr => ("lib::sr".into(), false),
             Self::Rs => ("lib::rs".into(), false),
+            Self::ServiceFresh => ("lib::service_fresh".into(), true),
             Self::Counter(counting, count) => {
                 let block = match counting {
                     Counting::Up => "ctu",
@@ -238,8 +245,8 @@ impl StdFb {
         use core::mem::offset_of;
         use trust_plc_lib::{
             CtdDint, CtdInt, CtdLint, CtdUdint, CtdUlint, CtuDint, CtuInt, CtuLint, CtuUdint,
-            CtuUlint, CtudDint, CtudInt, CtudLint, CtudUdint, CtudUlint, FTrig, RTrig, Rs, Sr, Tof,
-            Ton, Tp,
+            CtuUlint, CtudDint, CtudInt, CtudLint, CtudUdint, CtudUlint, FTrig, RTrig, Rs,
+            ServiceFresh, Sr, Tof, Ton, Tp,
         };
         let input = SYMBOL_INPUT;
         let output = SYMBOL_OUTPUT;
@@ -293,6 +300,31 @@ impl StdFb {
                 ("R1", Elem::Bool, offset_of!(Rs, R1), input),
                 ("Q1", Elem::Bool, offset_of!(Rs, Q1), output),
             ],
+            Self::ServiceFresh => vec![
+                (
+                    "HEARTBEAT",
+                    Elem::UDInt,
+                    offset_of!(ServiceFresh, HEARTBEAT),
+                    input,
+                ),
+                (
+                    "TIMEOUT",
+                    Elem::Time,
+                    offset_of!(ServiceFresh, TIMEOUT),
+                    input,
+                ),
+                ("FRESH", Elem::Bool, offset_of!(ServiceFresh, FRESH), output),
+                ("AGE", Elem::Time, offset_of!(ServiceFresh, AGE), output),
+                ("__LAST", Elem::LTime, offset_of!(ServiceFresh, LAST), 0),
+                ("__CALLED", Elem::Bool, offset_of!(ServiceFresh, CALLED), 0),
+                (
+                    "__CHANGED",
+                    Elem::Bool,
+                    offset_of!(ServiceFresh, CHANGED),
+                    0,
+                ),
+                ("__SEEN", Elem::UDInt, offset_of!(ServiceFresh, SEEN), 0),
+            ],
             Self::Counter(counting, count) => {
                 let elem = count.elem();
                 match count {
@@ -313,8 +345,8 @@ impl StdFb {
     pub(super) fn layout(self) -> (usize, usize) {
         use trust_plc_lib::{
             CtdDint, CtdInt, CtdLint, CtdUdint, CtdUlint, CtuDint, CtuInt, CtuLint, CtuUdint,
-            CtuUlint, CtudDint, CtudInt, CtudLint, CtudUdint, CtudUlint, FTrig, RTrig, Rs, Sr, Tof,
-            Ton, Tp,
+            CtuUlint, CtudDint, CtudInt, CtudLint, CtudUdint, CtudUlint, FTrig, RTrig, Rs,
+            ServiceFresh, Sr, Tof, Ton, Tp,
         };
         match self {
             Self::Ton => (size_of::<Ton>(), align_of::<Ton>()),
@@ -324,6 +356,7 @@ impl StdFb {
             Self::FTrig => (size_of::<FTrig>(), align_of::<FTrig>()),
             Self::Sr => (size_of::<Sr>(), align_of::<Sr>()),
             Self::Rs => (size_of::<Rs>(), align_of::<Rs>()),
+            Self::ServiceFresh => (size_of::<ServiceFresh>(), align_of::<ServiceFresh>()),
             Self::Counter(counting, count) => match count {
                 Count::Int => counter_layout!(counting, CtuInt, CtdInt, CtudInt),
                 Count::Dint => counter_layout!(counting, CtuDint, CtdDint, CtudDint),
