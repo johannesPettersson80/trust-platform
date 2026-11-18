@@ -690,6 +690,12 @@ fn build_sources(
         }
         None => Vec::new(),
     };
+    // A debug image's Rust POUs with their budgets for the build's target, in the order of the
+    // Rust POU table, by which its generated code names their records (specification 44 §5.13).
+    let rust_pous = match (&krate, &timing) {
+        (Some(krate), Some(timing)) if options.hooks => rust_pous::table(krate, timing)?,
+        _ => Vec::new(),
+    };
     let memory = init::starting_memory(&front.lowered, &mut model)?;
     let symbols: Vec<String> = generated
         .entries
@@ -777,6 +783,7 @@ fn build_sources(
             memory: &memory,
             stack,
             crates: &crates,
+            rust_pous: &rust_pous,
         },
     )?;
     let image = writer

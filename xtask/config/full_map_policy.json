@@ -3513,7 +3513,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/clock.rs",
-        "line": 160,
+        "line": 171,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the C6 machine performance-cycle counter CSR 0x7E2 only; no memory is accessed. The counter runs from boot (M0 probe).",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3953,7 +3953,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 101,
+        "line": 103,
         "owner": "native execution (specification 44)",
         "invariant": "A context's raw pointers name memory its owning cycle owns with it (areas, breakpoint bits, function table); the cycle moves them as one and a module reads them only during a call on the cycle's thread.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3961,7 +3961,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 173,
+        "line": 175,
         "owner": "native execution (specification 44)",
         "invariant": "A module calls read_real with its own copy of the text, len bytes at text that it holds for the call (module::read_real), and null is refused before; the kernel only reads them during the call.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3969,7 +3969,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 244,
+        "line": 292,
         "owner": "native execution (specification 44)",
         "invariant": "out is the module's own aligned i64, which it holds for the call (module::wall_clock); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --lib runtime_clock_source (CURRENT_DT on this computer's wall clock).",
@@ -3977,7 +3977,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 177,
+        "line": 179,
         "owner": "native execution (specification 44)",
         "invariant": "out is the module's own aligned f64, which it holds for the call (module::read_real); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3985,7 +3985,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 271,
+        "line": 319,
         "owner": "native execution (specification 44)",
         "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 \u00a710.2) promises it.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -3993,7 +3993,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 286,
+        "line": 334,
         "owner": "native execution (specification 44)",
         "invariant": "The module is executable and unchanged as the caller of InPlace::new promised, and offset is checked inside the module.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -4001,11 +4001,19 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 325,
+        "line": 373,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 247,
+        "owner": "native execution (specification 44)",
+        "invariant": "out is the module's own aligned i64, which it holds for the call (module::clock); null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (a_debug_image_notes_a_rust_pou_call_in_the_record_of_its_number); cargo test -p trust-runtime --test native_rust_budget.",
+        "review_date": "2026-11-18"
       },
       {
         "path": "crates/trust-plc-abi/src/kernel/stops.rs",
@@ -4182,6 +4190,22 @@
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-runtime --lib runtime_clock_source (CURRENT_DT reads the wall clock through the table).",
         "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 688,
+        "owner": "native execution (specification 44)",
+        "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (a_debug_image_notes_a_rust_pou_call_in_the_record_of_its_number); cargo test -p trust-runtime --test native_rust_budget.",
+        "review_date": "2026-11-18"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 717,
+        "owner": "native execution (specification 44)",
+        "invariant": "The kernel keeps rust_pous records at rust_times for the program's life, built once when the program is made and never grown, and touches none during a call; the index is below their count, which is checked before, as null is.",
+        "test_evidence": "cargo test -p trust-plc-abi (a_debug_image_notes_a_rust_pou_call_in_the_record_of_its_number); cargo test -p trust-runtime --test native_rust_budget.",
+        "review_date": "2026-11-18"
       },
       {
         "path": "crates/trust-platform-memory/src/c_heap.rs",

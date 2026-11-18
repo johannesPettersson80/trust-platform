@@ -13,6 +13,7 @@
 
 mod crates;
 mod records;
+mod rust_pous;
 mod writer;
 
 use core::fmt;
@@ -35,12 +36,13 @@ pub use records::{
     SYMBOL_PROGRAM, SYMBOL_RETAINED,
 };
 use records::{u16_at, u32_at, u64_at};
+pub use rust_pous::RustPouRecord;
 pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
 
 /// The image's magic.
 pub const MAGIC: [u8; 8] = *b"TRSTI001";
 /// The format version this reader reads: 5 since an image lists the Rust crates its module holds
-/// (specification 44 §5.12).
+/// (specification 44 §5.12) and a debug image its Rust POUs (§5.13).
 pub const FORMAT_VERSION: u16 = 5;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
@@ -105,6 +107,9 @@ pub enum SectionId {
     Sign = 16,
     /// The Rust crates the module holds, optional, before the signature (specification 44 §5.12).
     Crates = 17,
+    /// The Rust POUs of a debug image with their budgets, optional, before the signature
+    /// (specification 44 §5.13).
+    RustPous = 18,
 }
 
 /// The number of sections an image can have.
@@ -112,7 +117,7 @@ const SECTION_KINDS: usize = SectionId::ALL.len();
 
 impl SectionId {
     /// Every section, in the order of their ids.
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 18] = [
         Self::Code,
         Self::Rodata,
         Self::Entry,
@@ -130,6 +135,7 @@ impl SectionId {
         Self::MemFig,
         Self::Sign,
         Self::Crates,
+        Self::RustPous,
     ];
 
     /// The section numbered `raw`.
@@ -141,7 +147,10 @@ impl SectionId {
     /// Whether an image without the section is refused.
     #[must_use]
     pub fn required(self) -> bool {
-        !matches!(self, Self::Source | Self::Sign | Self::Crates)
+        !matches!(
+            self,
+            Self::Source | Self::Sign | Self::Crates | Self::RustPous
+        )
     }
 
     /// The section's name as the specification writes it.
@@ -165,6 +174,7 @@ impl SectionId {
             Self::MemFig => "MEMFIG",
             Self::Sign => "SIGN",
             Self::Crates => "CRATES",
+            Self::RustPous => "RUSTPOUS",
         }
     }
 
@@ -826,6 +836,7 @@ impl<'a> Image<'a> {
         self.check_files_and_statements()?;
         self.check_retain()?;
         self.check_crates()?;
+        self.check_rust_pous()?;
         if self.section_bytes(SectionId::MemFig).len() < MemoryFigure::BYTES {
             return Err(ImageError::Table(SectionId::MemFig));
         }

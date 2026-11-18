@@ -11,11 +11,11 @@ use core::ptr::{read_volatile, write_volatile};
 use critical_section::{CriticalSection, Mutex};
 use esp_hal::peripherals::{LP_AON, RTC_TIMER};
 use esp_hal::rtc_cntl::Rtc;
-use trust_plc_abi::kernel::{wall_clock, with_wall_clock, WallClock};
+use trust_plc_abi::kernel::{clock, wall_clock, with_clock, with_wall_clock, WallClock};
 use trust_plc_abi::{FaultCode, KernelApi};
 use trust_runtime_core::native::KERNEL_API;
 
-use super::clock::now_us;
+use super::clock::{now_us, KernelTimer};
 use crate::calendar::{ticks_of, Carry, CARRY_WORDS};
 
 /// The Unix time minus SYSTIMER's reading, in microseconds, once a time source set it.
@@ -144,5 +144,9 @@ impl WallClock for CalendarClock {
     }
 }
 
-/// The kernel's functions on the C6: the core's, with the C6's wall clock (specification 44 §8.2).
-pub static KERNEL_FUNCTIONS: KernelApi = with_wall_clock(&KERNEL_API, wall_clock::<CalendarClock>);
+/// The kernel's functions on the C6: the core's, with the C6's wall clock and its SYSTIMER as the
+/// monotonic clock (specification 44 §8.2).
+pub static KERNEL_FUNCTIONS: KernelApi = with_clock(
+    &with_wall_clock(&KERNEL_API, wall_clock::<CalendarClock>),
+    clock::<KernelTimer>,
+);

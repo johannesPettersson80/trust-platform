@@ -3798,6 +3798,20 @@ event within a few scans, and a scan's and a task's timing is in `tasks.stats`
 and the `status` metrics, as an industrial controller keeps its cycle times in
 statistics and its diagnostic buffer for the events that matter (the owner, 22
 October 2026: "I trust you, do what's most professional for a plc runtime").
+
+**Rust POU budgets** (specification 48 RU-49). In a debug image, a call of a
+Rust POU that takes longer than the POU's budget is the event
+`rust_budget_exceeded` with the POU's `name`, the call's time `call_ns`, the
+`budget_ns` and, as every event, the scan's logical time `time_ns`. It is
+recorded for the POU's first call over its budget and after it only for a call
+longer than every call of the POU before it, at most once per POU and scan, so
+that a POU over its budget in every scan does not displace the store's other
+events. `tasks.stats` lists the Rust POUs of a debug
+image in `rust_pous`, in the order of the image's Rust POU table (specification
+44 §5.13), each with its `name`, its `budget_ns`, its `longest_ns` call and its
+`over_budget` calls since the program started; a release image measures no
+call, so its list is empty and it records no such event. A computer and a chip
+record and report them alike.
 Overruns, faults, refused writes, online-change and retained-value events and
 the control events stay in the store. A debug control delivers the four, with
 every other event, to the callers that drain it or listen to it. A debug control with no event sender
