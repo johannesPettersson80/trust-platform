@@ -64,6 +64,7 @@ const VIEWER: &[&str] = &[
     "status",
     "tasks.stats",
     "var.forced",
+    "variables.read",
 ];
 
 const OPERATOR: &[&str] = &[

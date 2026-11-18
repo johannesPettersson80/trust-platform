@@ -50,6 +50,7 @@ pub mod runner;
 pub mod settings;
 pub mod status;
 pub mod transfer;
+pub mod variables;
 
 #[cfg(test)]
 mod tests;

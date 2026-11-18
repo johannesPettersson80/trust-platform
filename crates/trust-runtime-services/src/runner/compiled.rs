@@ -647,6 +647,10 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         }
     }
 
+    fn variables_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
+        Some(&self.program)
+    }
+
     /// The program's memory between scans, with the sources of its statement table, once the loop
     /// attached its debugger.
     fn compiled_view(&self) -> Option<CompiledView<'_>> {

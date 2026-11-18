@@ -49,6 +49,15 @@ pub enum ControlAction {
     /// The variables of a scope or of a structured variable, by the reference that `scopes` or
     /// `variables` prints.
     Variables { reference: u32 },
+    /// Read variables by their paths: the values one completed scan left, each printed with its
+    /// path and declared type (`variables.read`, specification 11 §6.8.1). Answered with the debug
+    /// surface off, by a Viewer.
+    Read {
+        /// The variables' paths: a global, a program's variable (`Main.count`), a member, an array
+        /// element with constant indices.
+        #[arg(required = true)]
+        paths: Vec<String>,
+    },
     IoRead,
     IoWrite {
         address: String,

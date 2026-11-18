@@ -344,6 +344,13 @@ END_PROGRAM
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
                 }
+                ResourceCommand::ReadVariables { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::variables::ReadRefusal::Unavailable(
+                            "unsupported in this fixture".to_string(),
+                        ),
+                    ));
+                }
                 ResourceCommand::AdsStatus { respond_to } => {
                     let _ = respond_to.send(trust_runtime::ads::diagnostics::AdsStatusReport {
                         schema_version:

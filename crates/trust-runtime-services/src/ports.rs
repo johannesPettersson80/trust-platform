@@ -102,6 +102,20 @@ pub trait ResourcePort {
     /// Current resource state.
     fn resource_state(&self) -> ResourceState;
 
+    /// The values of `paths` that the last completed scan left, read between two scans with
+    /// [`crate::variables::read_set`] on the program's memory (specification 11 §6.8.1, "Reading
+    /// variables"). The default is a platform without a program to read.
+    ///
+    /// # Errors
+    ///
+    /// The [`crate::variables::ReadRefusal`] of a set that is not read.
+    fn read_variables(
+        &self,
+        _paths: &[alloc::string::String],
+    ) -> Result<crate::variables::ReadSet, crate::variables::ReadRefusal> {
+        Err(crate::variables::ReadRefusal::NoCompletedScan)
+    }
+
     /// The fault that stopped the resource, if any.
     fn last_error(&self) -> Option<RuntimeError>;
 

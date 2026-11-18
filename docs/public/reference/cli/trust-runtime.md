@@ -470,6 +470,8 @@ Important control subcommands:
 - `stats`
 - `events [--limit N]`
 - `faults [--limit N]`
+- `read <path>...` (variables by their paths, one completed scan's values, each with its type;
+  a Viewer may read, also in production)
 - `io-read`
 - `io-write`
 - `io-force`
