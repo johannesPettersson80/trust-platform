@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The version bump of a release (AGENTS.md "Releases", specification 22, "Change and release
-workflow"): the workspace version, the SDK crates' pins on each other, the ESP32-C6 firmware's
-version, the workspace crates in every Cargo lockfile, the VS Code package and its lockfile's root
+workflow"): the workspace version, the SDK crates' pins on each other, the examples' crates' pins
+on the SDK, the ESP32-C6 firmware's version, the workspace crates in every Cargo lockfile, the VS Code package and its lockfile's root
 entries, and the changelog: the
 fragments under `changelog.d/` are gathered into `## [NEW] - DATE` under an empty `## [Unreleased]`,
 the newest first, and removed. Every replacement must find exactly what it expects, or nothing is
@@ -37,6 +37,19 @@ LOCKFILES = (
 # the release's exact version, as `cargo package` writes them for crates.io and the toolchain bundle (specification
 # 48 RU-12).
 PINNED = re.compile(r'^([a-z0-9-]+ = \{ path = "[^"]+", version = "=)([^"]+)(" \})$', re.M)
+
+# An example's crate names the SDK at exactly the release's version, and the build refuses another (specification 48
+# RU-08), so the bump moves the pin with the release.
+EXAMPLE_PIN = re.compile(r'^(trust-plc = "=)([^"]+)(")$', re.M)
+
+
+def example_manifests(root: Path) -> list[Path]:
+    """The manifests of the examples' crates, without those that their builds write (`build/`, `target/`)."""
+    return sorted(
+        path
+        for path in (root / "examples").glob("**/Cargo.toml")
+        if not {"build", "target"} & set(path.relative_to(root).parts)
+    )
 
 
 def replace_once(files: dict[Path, str], path: Path, before: str, after: str) -> None:
@@ -92,6 +105,15 @@ def bump(root: Path, old: str, new: str, day: str) -> list[str]:
         raise ValueError(f"Cargo.toml: the SDK's crates are not all pinned at ={old}")
     files[cargo] = PINNED.sub(lambda match: f"{match.group(1)}{new}{match.group(3)}", files[cargo])
     report.append(f"Cargo.toml: {len(pinned)} SDK crates pinned at ={new}")
+    for manifest in example_manifests(root):
+        text = manifest.read_text(encoding="utf-8")
+        pins = list(EXAMPLE_PIN.finditer(text))
+        shown = manifest.relative_to(root).as_posix()
+        if any(match.group(2) != old for match in pins):
+            raise ValueError(f"{shown}: trust-plc is not pinned at ={old}")
+        if pins:
+            files[manifest] = EXAMPLE_PIN.sub(lambda match: f"{match.group(1)}{new}{match.group(3)}", text)
+            report.append(f"{shown}: trust-plc pinned at ={new}")
     replace_once(files, root / "firmware/trust-esp32c6/Cargo.toml", f'version = "{old}"', f'version = "{new}"')
     for lock in LOCKFILES:
         report.append(f"{lock}: {bump_lock(files, root / lock, old, new)} workspace crates")

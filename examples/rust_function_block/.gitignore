@@ -1,0 +1,5 @@
+# The runtime's endpoint file: it can hold a control token.
+/.trust-runtime/
+# The build's folder, and the folder where your own cargo builds the crate.
+/build/
+/rust/target/

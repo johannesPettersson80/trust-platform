@@ -116,6 +116,7 @@ nav:
           - Control Studio: operate/control-studio.md
           - Control System Engineering: develop/control-system-engineering.md
           - Test And Debug Examples: examples/test-and-debug.md
+          - Rust Examples: examples/rust.md
       - Operator Screens:
           - HMI Builder: develop/hmi-builder.md
       - Visual Programming:
