@@ -96,6 +96,19 @@ class DocsCommandNamesTests(unittest.TestCase):
                 ["docs/public/b.md:1: names the setting 'trust.runtime.missing', which the extension does not have"],
             )
 
+    def test_trust_toml_is_a_file_and_not_a_setting(self) -> None:
+        # Specification 48 RU-07: `trust.toml` is the file of a project with Rust POUs, which a page names as a file;
+        # a setting key beside it is still checked. Catches a check that refuses every page naming the file, and one
+        # that lets the file's name hide a missing setting.
+        holder, root = root_with(
+            {"docs/public/c.md": "The project's `trust.toml` and the setting `trust.runtime.missing`.\n"}
+        )
+        with holder:
+            self.assertEqual(
+                check.findings(root),
+                ["docs/public/c.md:1: names the setting 'trust.runtime.missing', which the extension does not have"],
+            )
+
     def test_a_palette_step_names_an_existing_command(self) -> None:
         # Catches a palette step typing a title the extension no longer has, in backticks or as plain
         # text in a code block: `Structured Text: Open Runtime Panel` sent readers to nothing

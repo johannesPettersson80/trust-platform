@@ -324,10 +324,18 @@ jobs:
 
       - name: Write the bundle
         shell: bash
+        env:
+          # The Linux bundles' procedural macro library, which the bundle's compiler loads, is built
+          # in the manylinux_2_28 image of the runner's architecture, glibc 2.28, the oldest the
+          # Linux packages support (specification 24; specification 48 RU-74).
+          TRUST_MACROS_IMAGE: ${{ matrix.platform == 'linux-x64' && 'quay.io/pypa/manylinux_2_28_x86_64@sha256:d086f64cddcace250ef0f0073583c51b8298159303290a730c9f59bd91edfd2c' || matrix.platform == 'linux-arm64' && 'quay.io/pypa/manylinux_2_28_aarch64@sha256:34a5e614a4eb26f73f8bf44cbbf2acf8011620453d03ea35a58537bb3cde44de' || '' }}
         run: |
           set -euo pipefail
           folder="${RUNNER_TEMP}/trust-toolchain"
           bash scripts/native/build_toolchain_libraries.sh "${folder}"
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            python3 scripts/check_glibc_baseline.py "${folder}/macros/libtrust_plc_macros.so"
+          fi
           cargo build --locked --release -p trust-runtime --bin trust-runtime
           mkdir -p toolchain-artifacts
           archive="toolchain-artifacts/trust-toolchain-${{ matrix.platform }}.tar.gz"

@@ -49,9 +49,16 @@ test("capture creating a project from the truST view", async ({ page }, testInfo
   await expect(welcome.getByRole("button", { name: "+ Create project" })).toBeVisible();
   await page.screenshot({ path: noProject, ...FINISHED_ANIMATIONS });
 
-  // + Create project asks for the parent folder, here in code-server's own folder dialog, and the name.
+  // + Create project asks first what the project starts as (specification 25 §3.2): the page shows the
+  // Structured Text start, whose row is the one that names src/Main.st. Then it asks for the parent
+  // folder, here in code-server's own folder dialog, and the name.
   await welcome.getByRole("button", { name: "+ Create project" }).click();
   const dialog = page.locator(".quick-input-widget");
+  const structuredText = dialog
+    .locator(".monaco-list-row")
+    .filter({ hasText: "A program in src/Main.st and the configuration that runs it." });
+  await expect(structuredText).toBeVisible({ timeout: 30_000 });
+  await structuredText.click();
   const input = dialog.locator("input");
   const accept = dialog.getByRole("button", { name: "Select Parent Folder" });
   const namePrompt = dialog.getByText("Enter a name for the new Structured Text project");

@@ -33,6 +33,8 @@ mod compiled_evaluate_tests;
 mod remote_attach_tests;
 #[cfg(test)]
 mod remote_value_type_tests;
+#[cfg(test)]
+mod simulator_rust_tests;
 // The simulator's control server listens on a Unix socket in this test.
 #[cfg(all(test, unix))]
 mod simulator_tests;

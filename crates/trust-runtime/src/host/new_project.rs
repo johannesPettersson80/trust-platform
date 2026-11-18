@@ -1,5 +1,6 @@
 //! The files that `trust-runtime new` writes for a new project (specification 25, Create Project,
-//! and specification 11 section 6.8.0a).
+//! and specification 11 section 6.8.0a), for each of its starts (specification 48 RU-51): a
+//! Structured Text project here, and the Rust starts in `new_project_rust.rs`.
 //!
 //! The texts are the ones the VS Code extension wrote before the CLI owned the project template.
 //! Two lines differ: `runtime.toml` names no control endpoint, so the platform default applies, and
@@ -8,6 +9,9 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+
+#[path = "new_project_rust.rs"]
+mod rust_start;
 
 /// `src/Main.st`: the empty program that a new project opens on.
 const MAIN_ST_SOURCE: &str = r#"PROGRAM Main
@@ -193,17 +197,60 @@ impl std::fmt::Display for NewProjectError {
 
 impl std::error::Error for NewProjectError {}
 
-/// Creates the project `name` in the folder `parent` and returns the absolute project folder.
+/// What a new project starts as (specification 25 §3.2, specification 48 RU-51).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ProjectStart {
+    /// A Structured Text project.
+    #[default]
+    StructuredText,
+    /// A Structured Text project with a Rust crate in `rust/`, whose function block `src/Main.st`
+    /// calls (`trust-runtime new --rust`).
+    StructuredTextWithRust,
+    /// A Rust-first project: the crate is the project, and `trust.toml` its configuration
+    /// (specification 48 §14, `trust-runtime new --rust-first`).
+    RustFirst,
+}
+
+impl ProjectStart {
+    /// The file a new project of this start opens on, relative to the project folder with `/`:
+    /// its program, or its crate's source in a Rust start.
+    #[must_use]
+    pub fn focus(self) -> &'static str {
+        match self {
+            Self::StructuredText => "src/Main.st",
+            Self::StructuredTextWithRust => "rust/src/lib.rs",
+            Self::RustFirst => "src/lib.rs",
+        }
+    }
+}
+
+/// Creates the Structured Text project `name` in the folder `parent` and returns the absolute
+/// project folder, as [`create_project_as`] does for [`ProjectStart::StructuredText`].
+///
+/// # Errors
+///
+/// Those of [`create_project_as`].
+pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf, NewProjectError> {
+    create_project_as(parent, name, ProjectStart::StructuredText, force)
+}
+
+/// Creates the project `name` of the start `start` in the folder `parent` and returns the absolute
+/// project folder.
 ///
 /// The name is trimmed first. An existing project folder that is not empty is refused unless
 /// `force` is set. With `force`, the scaffold files are overwritten and every other file is kept.
-/// An existing `.gitignore` is kept too and gains the `/.trust-runtime/` line when it lacks it.
+/// An existing `.gitignore` is kept too and gains each of the start's lines that it lacks.
 ///
 /// # Errors
 ///
 /// Returns the error of the first check that refuses the request, or of the first I/O step that
 /// fails. Nothing is written when a check refuses the request.
-pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf, NewProjectError> {
+pub fn create_project_as(
+    parent: &Path,
+    name: &str,
+    start: ProjectStart,
+    force: bool,
+) -> Result<PathBuf, NewProjectError> {
     let name = checked_name(name)?;
     let parent = std::path::absolute(parent)
         .map_err(|error| io_error(format!("resolve {}: {error}", parent.display())))?;
@@ -223,7 +270,24 @@ pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf,
             ),
         });
     }
-    for (relative, text) in SCAFFOLD_FILES {
+    match start {
+        ProjectStart::StructuredText => write_files(&target, &SCAFFOLD_FILES)?,
+        ProjectStart::StructuredTextWithRust | ProjectStart::RustFirst => {
+            rust_start::write(&target, name, start)?;
+        }
+    }
+    let gitignore = target.join(".gitignore");
+    crate::control::endpoint::ensure_endpoint_dir_ignored(&target, GITIGNORE_SOURCE)
+        .map_err(|error| io_error(format!("write {}: {error}", gitignore.display())))?;
+    if start != ProjectStart::StructuredText {
+        rust_start::ignore_build_folders(&target, start)?;
+    }
+    Ok(target)
+}
+
+/// Writes each of `files`, relative to `target` with `/`, with its text, making its folders.
+fn write_files(target: &Path, files: &[(&str, &str)]) -> Result<(), NewProjectError> {
+    for (relative, text) in files {
         let path = target.join(relative);
         if let Some(folder) = path.parent() {
             fs::create_dir_all(folder)
@@ -232,10 +296,7 @@ pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf,
         fs::write(&path, text)
             .map_err(|error| io_error(format!("write {}: {error}", path.display())))?;
     }
-    let gitignore = target.join(".gitignore");
-    crate::control::endpoint::ensure_endpoint_dir_ignored(&target, GITIGNORE_SOURCE)
-        .map_err(|error| io_error(format!("write {}: {error}", gitignore.display())))?;
-    Ok(target)
+    Ok(())
 }
 
 /// The trimmed name, when it is one plain folder name on every platform, so that the project

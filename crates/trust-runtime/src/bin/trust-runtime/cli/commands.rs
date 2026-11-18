@@ -493,6 +493,14 @@ pub struct NewArgs {
     /// Overwrite the scaffold files of an existing project folder; other files are kept.
     #[arg(long, action = ArgAction::SetTrue)]
     pub force: bool,
+    /// Start a Structured Text project with a Rust crate in `rust/`, whose function block
+    /// `src/Main.st` calls (specification 48 RU-51).
+    #[arg(long, action = ArgAction::SetTrue, conflicts_with = "rust_first")]
+    pub rust: bool,
+    /// Start a Rust-first project: the crate is the project, and `trust.toml` its configuration
+    /// (specification 48 §14).
+    #[arg(long = "rust-first", action = ArgAction::SetTrue)]
+    pub rust_first: bool,
     /// Print the result, or the error, as JSON.
     #[arg(long, action = ArgAction::SetTrue)]
     pub json: bool,

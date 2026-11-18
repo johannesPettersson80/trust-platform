@@ -42,13 +42,50 @@ pub fn built(root: &Path) -> Option<(Build, Device)> {
 /// The project built for this computer under the profile `conversions`, as [`built`] builds it
 /// under the IEC profile.
 pub fn built_under(root: &Path, conversions: ConversionProfile) -> Option<(Build, Device)> {
+    built_from(root, &sources(root), conversions)
+}
+
+/// Every Structured Text file below the project's `src/`, as `trust-runtime build --sources src`
+/// collects them, in byte order.
+pub fn project_sources(root: &Path) -> Vec<SourceFile> {
+    fn walk(root: &Path, folder: &Path, found: &mut Vec<SourceFile>) {
+        let mut entries: Vec<PathBuf> = std::fs::read_dir(folder)
+            .expect("the folder reads")
+            .map(|entry| entry.expect("an entry").path())
+            .collect();
+        entries.sort();
+        for path in entries {
+            if path.is_dir() {
+                walk(root, &path, found);
+            } else if path.extension().is_some_and(|extension| extension == "st") {
+                let label = path.strip_prefix(root).expect("below the root");
+                let text = std::fs::read_to_string(&path).expect("the source");
+                found.push(SourceFile::with_path(
+                    label.to_string_lossy().replace('\\', "/"),
+                    text,
+                ));
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(root, &root.join("src"), &mut found);
+    found
+}
+
+/// The project built for this computer from `sources` under the profile `conversions`; `None`
+/// with a toolchain that has no cargo and SDK sources, whose refusal names them.
+pub fn built_from(
+    root: &Path,
+    sources: &[SourceFile],
+    conversions: ConversionProfile,
+) -> Option<(Build, Device)> {
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
     let work = root.join("build/native");
     let result = build_project(
         root,
-        &sources(root),
+        sources,
         &[],
         &Options {
             target,
