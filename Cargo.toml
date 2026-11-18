@@ -135,7 +135,7 @@ nusb = "0.2.8"
 serialport = { version = "4.10.1", default-features = false }
 # The first install of truST on an ESP32 chip, through its ROM boot loader (specification 34
 # TARGET-04): the library of espflash, without its command line.
-espflash = { version = "4.6.0", default-features = false, features = ["serialport"] }
+espflash = { version = "4.7.0", default-features = false, features = ["serialport"] }
 
 # Internal crates
 trust-syntax = { path = "crates/trust-syntax" }
