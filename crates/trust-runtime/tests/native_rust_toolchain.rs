@@ -11,7 +11,7 @@ mod rust_pous_support;
 
 use std::process::Command;
 
-use rust_pous_support::{built, custom_project, manifest};
+use rust_pous_support::{build_error, built, custom_project, manifest};
 use smol_str::SmolStr;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
 use trust_runtime::native::{load, NoHooks, Toolchain};
@@ -162,4 +162,51 @@ fn the_build_runs_cargo_in_a_home_of_its_own() {
         !cargo_home.join("registry").exists(),
         "the build filled the user's cargo cache"
     );
+}
+
+#[test]
+fn a_failed_build_reports_the_projects_error_without_the_vendored_crates_warnings() {
+    // RU-44 and RU-74: the build reports the diagnostics of the project's crate. The crates.io
+    // crates that the toolchain vendors are path dependencies of the build, whose lints cargo does
+    // not cap as it caps a registry crate's, so each copy's manifest allows the crate's warnings.
+    // A crate with a type error fails the build, whose report names the error, E0308, and holds no
+    // diagnostic of a vendored crate: none located in its folder, none of cargo's counts of its
+    // warnings. Catches the report before the copies allowed them: libm's 18 warnings with the
+    // pinned compiler, about 280 lines before the project's error, with cargo's advice to run
+    // `cargo fix -p libm`, on every failed build.
+    let source = CRATE.replace(
+        "    Ok(a.wrapping_add(1))",
+        "    let wrong: u8 = \"text\";\n    Ok(a.wrapping_add(1))",
+    );
+    let root = custom_project(
+        "rust-pous-report-without-vendored-warnings",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", &source)],
+        PROGRAM,
+    );
+    let (error, toolchain) = build_error(&root);
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
+    assert!(error.contains("error[E0308]: mismatched types"), "{error}");
+    let vendor = toolchain.vendor.expect("the toolchain's vendored crates");
+    let crates: Vec<String> = std::fs::read_dir(&vendor)
+        .expect("the vendored crates' folder")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(crates.iter().any(|name| name == "libm"), "{crates:?}");
+    let vendored: Vec<&str> = error
+        .lines()
+        .filter(|line| {
+            let line = line.trim_start();
+            line.strip_prefix("--> ")
+                .is_some_and(|place| place.starts_with("vendor/") || place.starts_with("vendor\\"))
+                || crates
+                    .iter()
+                    .any(|name| line.starts_with(&format!("warning: `{name}` ")))
+        })
+        .collect();
+    assert!(vendored.is_empty(), "{vendored:#?}\n{error}");
 }

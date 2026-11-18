@@ -835,7 +835,9 @@ compiles only what changed.
 **RU-44. Diagnostics.** A Rust compiler error or warning of the project's crate is reported by the
 build with its `.rs` file, line, column and message (`rustc`'s JSON diagnostics), and the VS Code
 extension shows it in the Problems panel at that place, with the source `truST (rustc)`. A crate
-warning does not fail the build; a `-D warnings` of the crate's own does.
+warning does not fail the build; a `-D warnings` of the crate's own does. The build reports no
+warning of the crates.io crates that the bundle vendors (RU-74), as cargo reports none of a crate it
+takes from crates.io.
 
 ### 9.4 Checks on the linked module
 
@@ -1148,8 +1150,10 @@ module target, the output of the build scripts of those crates (today `libm`'s o
 release records when it builds the program library for that target. The build gives `rustc` the
 macro library as an external crate of the bundle's copy of `trust-plc`, which takes its macros from
 it instead of from a dependency, and gives `cargo` each recorded output in place of its build
-script, as cargo's build script override (the bundle's copy of such a crate differs from crates.io's
-only by the `links` key in its manifest that names the output). So a build compiles and links
+script, as cargo's build script override. The bundle's copies differ from crates.io's only in their
+manifests: such a crate's has the `links` key that names the output, and every copy's allows the
+crate's warnings, which cargo caps for a crate it takes from crates.io but not for a path
+dependency, as the copies are to the build (RU-44). So a build compiles and links
 nothing for the computer itself and needs no linker of the computer's: by RU-09 the SDK's macros
 are the only procedural macros of the scan crate graph and the crates the SDK is built from the
 only ones with build scripts, so the computer runs only the bundle's compiler and the macro library
