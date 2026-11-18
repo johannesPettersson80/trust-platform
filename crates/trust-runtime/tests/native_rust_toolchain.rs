@@ -9,9 +9,10 @@
 
 mod rust_pous_support;
 
+use std::path::Path;
 use std::process::Command;
 
-use rust_pous_support::{built, custom_project, manifest};
+use rust_pous_support::{build_error, built, custom_project, manifest};
 use smol_str::SmolStr;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
 use trust_runtime::native::{load, NoHooks, Toolchain};
@@ -116,17 +117,7 @@ fn the_build_runs_cargo_in_a_home_of_its_own() {
         &[("Cargo.toml", &manifest("")), ("src/lib.rs", CRATE)],
         PROGRAM,
     );
-    let runtime = render_runtime_toml(&SmolStr::new("probe"), 10);
-    // Windows has no Unix sockets: the control link listens on TCP there, with a token.
-    #[cfg(windows)]
-    let runtime = runtime.replacen(
-        "[runtime.control]\n",
-        "[runtime.control]\nendpoint = \"tcp://127.0.0.1:19095\"\nauth_token = \"own-cargo-home-token\"\n",
-        1,
-    );
-    std::fs::write(root.join("runtime.toml"), runtime).expect("runtime.toml");
-    let io = render_io_toml(&build_io_config_auto("loopback").expect("loopback I/O"));
-    std::fs::write(root.join("io.toml"), io).expect("io.toml");
+    write_runtime_configuration(&root);
     let user = root.join("user");
     let cargo_home = user.join("cargo");
     let unreadable = "this is not a cargo configuration [\n";
@@ -162,4 +153,118 @@ fn the_build_runs_cargo_in_a_home_of_its_own() {
         !cargo_home.join("registry").exists(),
         "the build filled the user's cargo cache"
     );
+}
+
+#[test]
+fn a_failed_build_reports_the_projects_error_without_the_vendored_crates_warnings() {
+    // RU-44 and RU-74: the build reports the diagnostics of the project's crate. The crates.io
+    // crates that the toolchain vendors are path dependencies of the build, whose lints cargo does
+    // not cap as it caps a registry crate's, so each copy's manifest allows the crate's warnings.
+    // A crate with a type error fails the build, whose report names the error, E0308, and holds no
+    // diagnostic of a vendored crate: none located in its folder, none of cargo's counts of its
+    // warnings. Catches the report before the copies allowed them: libm's 18 warnings with the
+    // pinned compiler, about 280 lines before the project's error, with cargo's advice to run
+    // `cargo fix -p libm`, on every failed build.
+    let root = custom_project(
+        "rust-pous-report-without-vendored-warnings",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &crate_with_a_type_error()),
+        ],
+        PROGRAM,
+    );
+    let (error, toolchain) = build_error(&root);
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        assert!(error.contains("no cargo and SDK sources"), "{error}");
+        return;
+    }
+    assert!(error.contains("error[E0308]: mismatched types"), "{error}");
+    let vendor = toolchain.vendor.expect("the toolchain's vendored crates");
+    let crates: Vec<String> = std::fs::read_dir(&vendor)
+        .expect("the vendored crates' folder")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(crates.iter().any(|name| name == "libm"), "{crates:?}");
+    let vendored: Vec<&str> = error
+        .lines()
+        .filter(|line| {
+            let line = line.trim_start();
+            line.strip_prefix("--> ")
+                .is_some_and(|place| place.starts_with("vendor/") || place.starts_with("vendor\\"))
+                || crates
+                    .iter()
+                    .any(|name| line.starts_with(&format!("warning: `{name}` ")))
+        })
+        .collect();
+    assert!(vendored.is_empty(), "{vendored:#?}\n{error}");
+}
+
+#[test]
+fn a_failed_builds_report_is_plain_text_whatever_colour_the_users_environment_asks() {
+    // RU-44 and RU-75: the build reads its cargo's report and passes it on as text, to a terminal,
+    // to VS Code or to a program, so its cargo writes the report without colour, whatever the
+    // user's environment asks of cargo. `trust-runtime build` of a crate with a type error runs
+    // where `CARGO_TERM_COLOR=always` asks cargo for colour, as CI's environment does; the report
+    // names the error, E0308, in plain text and holds no escape code. Catches a build whose cargo
+    // takes the colour from the user's environment: on CI the report read
+    // `ESC[1mESC[91merror[E0308]ESC[0mESC[1m: mismatched types` (#604, 18 November 2026), which
+    // neither a person nor the build's own filter of the report reads as the error.
+    let toolchain = Toolchain::find().expect("the toolchain");
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        return;
+    }
+    let root = custom_project(
+        "rust-pous-report-in-plain-text",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &crate_with_a_type_error()),
+        ],
+        PROGRAM,
+    );
+    write_runtime_configuration(&root);
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo provides the trust-runtime binary to integration tests"),
+    )
+    .args(["build", "--project"])
+    .arg(&root)
+    .env("CARGO_TERM_COLOR", "always")
+    .output()
+    .expect("run trust-runtime");
+    let report = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "the build fails:\n{report}");
+    assert!(
+        report.contains("error[E0308]: mismatched types"),
+        "the report names the error in plain text:\n{report}"
+    );
+    assert!(
+        !report.contains('\u{1b}'),
+        "the report holds no escape code: {report:?}"
+    );
+}
+
+/// `CRATE` with a type error in its function: a `&str` given to a `u8` (E0308).
+fn crate_with_a_type_error() -> String {
+    CRATE.replace(
+        "    Ok(a.wrapping_add(1))",
+        "    let wrong: u8 = \"text\";\n    Ok(a.wrapping_add(1))",
+    )
+}
+
+/// Writes the runtime's configuration and the loopback I/O of the project at `root`, which
+/// `trust-runtime build` builds for this computer.
+fn write_runtime_configuration(root: &Path) {
+    let runtime = render_runtime_toml(&SmolStr::new("probe"), 10);
+    // Windows has no Unix sockets: the control link listens on TCP there, with a token.
+    #[cfg(windows)]
+    let runtime = runtime.replacen(
+        "[runtime.control]\n",
+        "[runtime.control]\nendpoint = \"tcp://127.0.0.1:19095\"\nauth_token = \"build-probe-token\"\n",
+        1,
+    );
+    std::fs::write(root.join("runtime.toml"), runtime).expect("runtime.toml");
+    let io = render_io_toml(&build_io_config_auto("loopback").expect("loopback I/O"));
+    std::fs::write(root.join("io.toml"), io).expect("io.toml");
 }

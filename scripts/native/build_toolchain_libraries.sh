@@ -165,6 +165,20 @@ while read -r crate version; do
     } >> "$overrides"
   done
 done < "$out/build/registry-crates.txt"
+# Cargo caps the lints of a crate it takes from a registry, so that a build reports the project's
+# own diagnostics only (specification 48 RU-44), but not those of a path dependency, which the
+# copies are to the build: each copy's manifest allows the crate's warnings. Without it, every
+# failed build of a project with Rust POUs reported libm's 18 warnings with the pinned compiler
+# before the project's own error. A manifest with a `[lints.rust]` table of its own gains the
+# entry there, since TOML defines a table once.
+for manifest in "$out/vendor/"*/Cargo.toml; do
+  if grep -qx '\[lints\.rust\]' "$manifest"; then
+    awk '{ print } $0 == "[lints.rust]" { print "warnings = \"allow\"" }' "$manifest" > "$manifest.new"
+  else
+    { cat "$manifest"; printf '\n[lints.rust]\nwarnings = "allow"\n'; } > "$manifest.new"
+  fi
+  mv "$manifest.new" "$manifest"
+done
 # The SDK's procedural macros, built with the toolchain's own compiler from the SDK's crates
 # and the crates they are built from as the bundle carries them, which the build gives rustc as
 # an external crate so that it compiles and links nothing for the computer (RU-74): a package
