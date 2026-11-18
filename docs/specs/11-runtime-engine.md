@@ -6041,18 +6041,30 @@ names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
 `signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
 `bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
 (`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
-number of reported source paths, and `--ci` and `--json` print the same object.
+number of reported source paths. `--ci` and `--json` print the same object with
+the `warnings` count and the `issues` of the compiler's warnings of the project's
+Rust crate (specification 48 RU-44), one per warning, as below; none for a
+project without a crate.
 A build whose sources have errors, or that meets a construct it does not compile
 yet at a place it knows, writes no image, and with `--json` or `--ci` it prints,
 in place of the error text, version 1, command `build`, `ok` false, status
 `failed`, the `project`, the error and warning counts and the `issues`, one per
 diagnostic or per construct, as `trust-runtime check` reports them (section
 6.8.1c); it
-exits as the failure does without the JSON. Human mode
+exits as the failure does without the JSON. A build whose project's Rust crate
+does not compile prints the same object, with one issue per compiler error or
+warning of the crate that has a place in its files (specification 48 RU-44): the
+`source` `truST (rustc)`, the compiler's `code` (`E0308`, or a lint's name such
+as `unused_variables`; `rustc` for a diagnostic without one), its `severity` and
+`message`, the crate's `file` relative to the project (`rust/src/lib.rs`), and
+`line`, `column`, `end_line` and `end_column`, counted as in section 6.8.1c; its
+error text is the compiler's report, which names the crate's files as the
+project does. Human mode
 reports the written image, whether it is a debug or a release image, its bytes
 with its code, read-only data and starting memory, the memory figure with its
 parts, the public key that signed it, and the source count with at most the
-first five collected paths and the number omitted.
+first five collected paths and the number omitted, and writes each compiler
+warning of the project's Rust crate to stderr as the compiler writes it.
 
 An image runs the one resource it was built from (specification 44 NX-03), so
 a build refuses a project whose `runtime.toml` `[resource] name` is not the

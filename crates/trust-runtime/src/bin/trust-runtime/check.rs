@@ -1,22 +1,26 @@
 //! Project check command (compile sources/config without writing artifacts).
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::bundle_builder::{check_program, inspect_project_layout};
 use trust_runtime::harness::{CompileError, SourceDiagnostic};
-use trust_runtime::native::NativeError;
+use trust_runtime::native::{NativeError, RustDiagnostic};
 
 use crate::{ci, style};
 
 /// One finding of a check or a failed build (specification 11 §6.8.1c): a compile diagnostic
-/// carries the compiler's code and where it is, its 1-based lines and columns.
+/// carries the compiler's code and where it is, its 1-based lines and columns; a diagnostic of the
+/// project's Rust crate also names its source, `truST (rustc)` (specification 48 RU-44).
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct CheckIssue {
     severity: &'static str,
     message: String,
-    code: &'static str,
+    code: Cow<'static, str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     file: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -306,7 +310,8 @@ fn issue(
     CheckIssue {
         severity,
         message,
-        code,
+        code: Cow::Borrowed(code),
+        source: None,
         file: file.map(|path| path.display().to_string()),
         line: None,
         column: None,
@@ -334,9 +339,19 @@ impl CheckIssue {
 
 /// The issues of a compile that failed on its sources' diagnostics, one each, where it is, or on
 /// constructs the build does not compile yet, one each, at the construct's place when the build
-/// knows it (specification 11 §6.8.1c); `None` for a failure that names no place in the sources,
-/// the one construct without a place among them.
+/// knows it (specification 11 §6.8.1c), or on the errors of the project's Rust crate, with its
+/// warnings, each where it is (specification 48 RU-44); `None` for a failure that names no place
+/// in the sources, the one construct without a place among them.
 pub(crate) fn compile_issues(error: &anyhow::Error) -> Option<Vec<CheckIssue>> {
+    let crate_failure = error
+        .chain()
+        .find_map(|cause| match cause.downcast_ref::<NativeError>() {
+            Some(NativeError::Rust(failure)) => Some(failure),
+            _ => None,
+        });
+    if let Some(failure) = crate_failure {
+        return Some(failure.diagnostics.iter().map(rust_issue).collect());
+    }
     let diagnostics = error.chain().find_map(|cause| {
         let compile = match cause.downcast_ref::<NativeError>() {
             Some(NativeError::Sources(compile)) => Some(compile),
@@ -371,7 +386,8 @@ fn refusal_issue(refusal: &NativeError) -> CheckIssue {
     CheckIssue {
         severity: "error",
         message: format!("program compile failed: {refusal}"),
-        code: "compile",
+        code: Cow::Borrowed("compile"),
+        source: None,
         file: place.map(|place| place.file.clone()),
         line: place.map(|place| place.line),
         column: place.map(|place| place.column),
@@ -380,11 +396,34 @@ fn refusal_issue(refusal: &NativeError) -> CheckIssue {
     }
 }
 
+/// The source of a diagnostic of the project's Rust crate (specification 48 RU-44).
+pub(crate) const RUST_SOURCE: &str = "truST (rustc)";
+
+/// The issue of an error or warning of the project's Rust crate, where it is in the crate's files,
+/// with the compiler's code, or `rustc` for a diagnostic without one (specification 48 RU-44).
+pub(crate) fn rust_issue(diagnostic: &RustDiagnostic) -> CheckIssue {
+    CheckIssue {
+        severity: diagnostic.severity.name(),
+        message: diagnostic.message.clone(),
+        code: diagnostic
+            .code
+            .clone()
+            .map_or(Cow::Borrowed("rustc"), Cow::Owned),
+        source: Some(RUST_SOURCE),
+        file: Some(diagnostic.file.clone()),
+        line: Some(diagnostic.line),
+        column: Some(diagnostic.column),
+        end_line: Some(diagnostic.end_line),
+        end_column: Some(diagnostic.end_column),
+    }
+}
+
 fn diagnostic_issue(diagnostic: &SourceDiagnostic) -> CheckIssue {
     CheckIssue {
         severity: diagnostic.severity,
         message: diagnostic.message.clone(),
-        code: diagnostic.code,
+        code: Cow::Borrowed(diagnostic.code),
+        source: None,
         file: diagnostic.file.clone(),
         line: Some(diagnostic.line),
         column: Some(diagnostic.column),

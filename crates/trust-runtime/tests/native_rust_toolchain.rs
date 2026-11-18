@@ -252,6 +252,124 @@ fn a_failed_builds_report_is_plain_text_whatever_colour_the_users_environment_as
     );
 }
 
+#[test]
+fn a_failed_build_names_each_error_of_the_crate_where_it_is() {
+    // RU-44 and specification 11 §6.8.1d: an error of the project's crate is reported with its
+    // `.rs` file, line, column and message. The type error of `crate_with_a_type_error` is line 10
+    // of `rust/src/lib.rs`, `    let wrong: u8 = "text";`, whose `"text"` starts after 20
+    // characters and is 6 long: columns 21 to 27. `trust-runtime build` reports it as the compiler
+    // writes it, at the file as the project names it; with `--json` the failure's issues hold that
+    // one error, from the source `truST (rustc)`, with the compiler's code. Catches a report or an
+    // issue at the compiler's remapped `project/src/lib.rs`, an error with no place, and a build
+    // that gives a Rust error as one text without issues.
+    let toolchain = Toolchain::find().expect("the toolchain");
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        return;
+    }
+    let root = custom_project(
+        "rust-pous-error-where-it-is",
+        &[
+            ("Cargo.toml", &manifest("")),
+            ("src/lib.rs", &crate_with_a_type_error()),
+        ],
+        PROGRAM,
+    );
+    write_runtime_configuration(&root);
+    let human = cli_build(&root, &[]);
+    let report = String::from_utf8_lossy(&human.stderr);
+    assert!(!human.status.success(), "the build fails:\n{report}");
+    assert!(
+        report.contains("error[E0308]: mismatched types\n  --> rust/src/lib.rs:10:21\n"),
+        "{report}"
+    );
+    assert!(!report.contains("project/src/lib.rs"), "{report}");
+    let json = cli_build(&root, &["--json"]);
+    assert!(!json.status.success());
+    let failure: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("the failure as JSON");
+    assert_eq!(failure["status"], "failed", "{failure:#}");
+    assert_eq!(failure["errors"], 1, "{failure:#}");
+    assert_eq!(
+        failure["issues"],
+        serde_json::json!([{
+            "severity": "error",
+            "message": "mismatched types",
+            "code": "E0308",
+            "source": "truST (rustc)",
+            "file": "rust/src/lib.rs",
+            "line": 10,
+            "column": 21,
+            "end_line": 10,
+            "end_column": 27,
+        }])
+    );
+}
+
+#[test]
+fn a_crate_warning_is_reported_where_it_is_and_does_not_fail_the_build() {
+    // RU-44: a warning of the project's crate is reported with its place and does not fail the
+    // build. The crate's line 10, `    let spare = 1;`, leaves `spare` unused: the compiler's
+    // `unused_variables` at columns 9 to 14 of `rust/src/lib.rs`, the 5 characters after `let `.
+    // `trust-runtime build` builds the image and writes the warning as the compiler writes it;
+    // with `--json` the success has one warning issue. Catches a warning that fails the build, one
+    // a successful build keeps to itself, as every build did before, and the generated module's
+    // own warnings (an unused import of `module.rs`) reported as the crate's.
+    let toolchain = Toolchain::find().expect("the toolchain");
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        return;
+    }
+    let source = CRATE.replace(
+        "    Ok(a.wrapping_add(1))",
+        "    let spare = 1;\n    Ok(a.wrapping_add(1))",
+    );
+    let root = custom_project(
+        "rust-pous-warning-where-it-is",
+        &[("Cargo.toml", &manifest("")), ("src/lib.rs", &source)],
+        PROGRAM,
+    );
+    write_runtime_configuration(&root);
+    let human = cli_build(&root, &[]);
+    let report = String::from_utf8_lossy(&human.stderr);
+    assert!(human.status.success(), "the build succeeds:\n{report}");
+    assert!(root.join("program.tpi").is_file());
+    assert!(
+        report.contains("warning: unused variable: `spare`\n  --> rust/src/lib.rs:10:9\n"),
+        "{report}"
+    );
+    assert!(!report.contains("module.rs"), "{report}");
+    let json = cli_build(&root, &["--json"]);
+    assert!(json.status.success());
+    let built: serde_json::Value = serde_json::from_slice(&json.stdout).expect("the build as JSON");
+    assert_eq!(built["status"], "ok", "{built:#}");
+    assert_eq!(built["warnings"], 1, "{built:#}");
+    assert_eq!(built["issues"][0]["severity"], "warning", "{built:#}");
+    assert_eq!(built["issues"][0]["code"], "unused_variables");
+    assert_eq!(built["issues"][0]["source"], "truST (rustc)");
+    assert_eq!(built["issues"][0]["file"], "rust/src/lib.rs");
+    assert_eq!(
+        [
+            &built["issues"][0]["line"],
+            &built["issues"][0]["column"],
+            &built["issues"][0]["end_line"],
+            &built["issues"][0]["end_column"],
+        ],
+        [10, 9, 10, 14]
+    );
+}
+
+/// `trust-runtime build` of the project at `root` with the arguments `args`.
+fn cli_build(root: &Path, args: &[&str]) -> std::process::Output {
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo provides the trust-runtime binary to integration tests"),
+    )
+    .args(["build", "--project"])
+    .arg(root)
+    .args(args)
+    .output()
+    .expect("run trust-runtime")
+}
+
 /// `CRATE` with a type error in its function: a `&str` given to a `u8` (E0308).
 fn crate_with_a_type_error() -> String {
     CRATE.replace(

@@ -7,7 +7,7 @@ use serde::Serialize;
 use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::bundle_builder::{build_program_image, BundleBuildReport};
 
-use crate::check::{compile_issues, CheckIssue};
+use crate::check::{compile_issues, rust_issue, CheckIssue};
 use crate::{ci, style};
 
 /// `trust-runtime build` (specification 44 §8.8, NX-15): this computer's program image, or a
@@ -117,7 +117,13 @@ pub fn run_native_build(
         }
     };
     if output.machine_readable() {
-        println!("{}", serde_json::to_string_pretty(&built.json)?);
+        // The warnings of the project's Rust crate, each an issue where it is (specification 48
+        // RU-44).
+        let issues: Vec<CheckIssue> = built.crate_warnings.iter().map(rust_issue).collect();
+        let mut json = built.json.clone();
+        json["warnings"] = issues.len().into();
+        json["issues"] = serde_json::to_value(&issues)?;
+        println!("{}", serde_json::to_string_pretty(&json)?);
         return Ok(());
     }
     let figure = built.figure;
@@ -150,6 +156,10 @@ pub fn run_native_build(
     // A task whose Rust POUs may outlast its interval (specification 48 RU-47).
     for warning in &built.warnings {
         eprintln!("warning: {warning}");
+    }
+    // The compiler's warnings of the project's Rust crate, as it writes them (RU-44).
+    for warning in &built.crate_warnings {
+        eprintln!("{}", warning.rendered.trim_end());
     }
     println!("Sources: {} file(s)", built.sources.len());
     for path in built.sources.iter().take(5) {

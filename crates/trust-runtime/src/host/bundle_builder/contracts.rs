@@ -33,6 +33,9 @@ pub struct BundleBuildReport {
     pub json: serde_json::Value,
     /// What the build warns of (specification 48 RU-47).
     pub warnings: Vec<String>,
+    /// The compiler's warnings of the project's Rust crate, each where it is (specification 48
+    /// RU-44).
+    pub crate_warnings: Vec<crate::native::RustDiagnostic>,
 }
 
 /// What a check of a project's program found, without building it (specification 44 §4.1).

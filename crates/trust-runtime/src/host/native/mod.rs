@@ -34,6 +34,7 @@ mod recursion;
 mod retain_map;
 mod run;
 mod rust_budget;
+mod rust_messages;
 pub mod rust_pous;
 mod self_calls;
 mod settings;
@@ -51,6 +52,7 @@ use crate::harness::SourceFile;
 use crate::stdlib::conversions::ConversionProfile;
 pub use bindings::write_bindings;
 pub use run::{load, load_kept, HostCode};
+pub use rust_messages::{RustDiagnostic, RustSeverity};
 pub use settings::{conversion_profile, debug_hooks, signing_key_setting};
 pub use signing::{
     computer_trusted_keys, config_folder, create_key, project_key, read_key, sign, trusted_keys_in,
@@ -176,6 +178,15 @@ pub struct SourcePlace {
     pub column: u32,
 }
 
+/// A project's Rust crate that does not compile (specification 48 RU-44).
+#[derive(Debug, Clone)]
+pub struct RustFailure {
+    /// The compiler's report, in cargo's order, then cargo's own lines.
+    pub report: String,
+    /// The errors and warnings of the crate that have a place in its files, at least one error.
+    pub diagnostics: Vec<RustDiagnostic>,
+}
+
 /// Why a project cannot be compiled.
 #[derive(Debug)]
 pub enum NativeError {
@@ -199,6 +210,8 @@ pub enum NativeError {
     AllUnsupported(Vec<NativeError>),
     /// The Rust toolchain is missing or failed.
     Toolchain(String),
+    /// The project's Rust crate does not compile (specification 48 RU-44).
+    Rust(RustFailure),
     /// The linked module has something a module must not have.
     Module(String),
     /// The image could not be written or does not read back.
@@ -241,6 +254,7 @@ impl std::fmt::Display for NativeError {
                 Ok(())
             }
             Self::Toolchain(message) => write!(f, "the Rust toolchain: {message}"),
+            Self::Rust(failure) => write!(f, "the project's Rust crate: {}", failure.report),
             Self::Module(message) => write!(f, "the compiled module: {message}"),
             Self::Image(message) => write!(f, "the program image: {message}"),
             Self::Settings(message) => write!(f, "the project's settings: {message}"),
@@ -325,6 +339,9 @@ pub struct Build {
     /// What the build warns of: a task whose Rust POUs may take longer than its interval, or that
     /// calls one in a loop without a bound (specification 48 RU-47).
     pub warnings: Vec<String>,
+    /// The compiler's warnings of the project's Rust crate, each where it is (specification 48
+    /// RU-44); none for a project without a crate.
+    pub crate_warnings: Vec<RustDiagnostic>,
 }
 
 /// The generated crate of `sources`, without compiling it.
@@ -487,6 +504,7 @@ pub fn build_project(
     let crate_build = CrateBuild {
         project: cargo_build::ProjectCrate {
             folder: project.join(&krate.layout.crate_folder),
+            label: krate.layout.crate_folder.replace('\\', "/"),
             package: krate.package.clone(),
             bindings: (!krate.structured_text.is_empty())
                 .then(|| project.join(rust_pous::BINDINGS_FOLDER)),
@@ -611,7 +629,7 @@ fn build_sources(
         .iter()
         .map(|entry| entry.symbol.clone())
         .collect();
-    let (elf, remarks) = match &project {
+    let (elf, remarks, crate_warnings) = match &project {
         Some(project) => cargo_build::compile(
             toolchain,
             &generated.source,
@@ -620,7 +638,11 @@ fn build_sources(
             work,
             project,
         )?,
-        None => toolchain.compile(&generated.source, options.target, &symbols, work)?,
+        None => {
+            let (elf, remarks) =
+                toolchain.compile(&generated.source, options.target, &symbols, work)?;
+            (elf, remarks, Vec::new())
+        }
     };
     // A Rust POU's panic is named with the POU and the form to use instead, a changing `static`,
     // a recursion through Rust and the target's inexact math with the item (specification 48
@@ -702,6 +724,7 @@ fn build_sources(
             .as_ref()
             .and_then(|configuration| configuration.resource_name.clone()),
         warnings,
+        crate_warnings,
     })
 }
 
