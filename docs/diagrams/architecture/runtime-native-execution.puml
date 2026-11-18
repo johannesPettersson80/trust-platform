@@ -21,9 +21,10 @@ package "Engineering computer: trust-runtime build" as buildPkg #LightYellow {
     component "trust-plc-abi\nCx, areas, faults, references,\nclass ids; module side" as abiModule
     component "trust-plc-mem\nmemcpy, memset, memcmp\nfor computer modules" as memModule
     component "trust-lsp.toml [build] debug\n(host/native/settings.rs; true when absent):\na debug image with statement hooks\nor a release image without them (§13.2)" as buildSetting
-    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure with the call level,\nheader flag release, sources hash,\nprogram library hash, SIGN last" as image
+    component "host/native/cargo_build + crate_graph\nthe project's Rust crate: cargo metadata of\nthe build's package, the crates the audit\nchecks, checksums from its Cargo.lock\n(specification 48 RU-79)" as crateGraph
+    artifact "program.<triple>.tpi (TRSTI001, format 5)\nCODE, RODATA, INIT, tables,\nmemory figure with the call level,\nheader flag release, sources hash,\nprogram library hash, CRATES, SIGN last" as image
     component "host/native/signing (§5.11)\nthe project's [signing] key or the user's\nsigning-key.pem (truST configuration folder);\nfills SIGN in place, before the record" as signing
-    artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record
+    artifact "deployment-record.<triple>.bin (version 3)\nversion 44.1, tasks, process image,\nruntime.toml + io.toml, the image's crates" as record
     component "trust-dev test\ntest programs as instances without a task;\neach test: cold start, run_instance once" as testRunner
     hir --> model
     model --> generator
@@ -36,6 +37,7 @@ package "Engineering computer: trust-runtime build" as buildPkg #LightYellow {
     abiModule --> toolchain
     memModule --> toolchain
     toolchain --> image
+    crateGraph --> image : CRATES
     signing --> image : sign (trust-runtime build,\ntrust-dev test --device)
     image --> record : DeploymentRecord::for_image
     testRunner --> model : build_with_tests
