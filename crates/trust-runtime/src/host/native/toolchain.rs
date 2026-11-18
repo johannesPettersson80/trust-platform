@@ -56,7 +56,7 @@ pub(super) const LINKER_SCRIPT: &str = "SECTIONS
 
 /// The file of the SDK's prebuilt procedural macro library in a toolchain's `macros` folder, as
 /// this computer names a dynamic library (specification 48 RU-74).
-const MACRO_LIBRARY: &str = if cfg!(windows) {
+pub(super) const MACRO_LIBRARY: &str = if cfg!(windows) {
     "trust_plc_macros.dll"
 } else if cfg!(target_os = "macos") {
     "libtrust_plc_macros.dylib"
@@ -134,7 +134,7 @@ impl Toolchain {
             .ok_or_else(|| {
                 NativeError::Toolchain(format!(
                     "the truST toolchain {} is not installed: `trust-runtime toolchain install` \
-                     installs it, from the bundle beside the tools or downloaded (about 180 to 210 \
+                     installs it, from the bundle beside the tools or downloaded (about 195 to 225 \
                      MB, once)",
                     super::bundle::TRUST_VERSION
                 ))
@@ -170,14 +170,18 @@ impl Toolchain {
             .to_string();
         let cargo =
             Some(root.join("bin").join(format!("cargo{suffix}"))).filter(|cargo| cargo.is_file());
-        // The SDK's folder as the file system names it, as cargo's metadata names its crates.
+        // The SDK's folder as the file system names it, as cargo's metadata names its crates,
+        // without the device prefix Windows' canonical form has (`\\?\C:\...`), which the
+        // generated manifest's paths cannot carry.
         let sdk = std::fs::canonicalize(root.join("sdk"))
             .ok()
+            .map(trust_hir::project::strip_windows_device_prefix)
             .filter(|sdk| sdk.is_dir());
         let macros =
             Some(root.join("macros").join(MACRO_LIBRARY)).filter(|library| library.is_file());
         let vendor = std::fs::canonicalize(root.join("vendor"))
             .ok()
+            .map(trust_hir::project::strip_windows_device_prefix)
             .filter(|vendor| vendor.is_dir());
         Ok(Self {
             rustc,
