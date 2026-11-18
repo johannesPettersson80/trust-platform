@@ -558,8 +558,8 @@ package, or end-to-end evidence.
     `Filter(x := Raw, alpha := 0.1); Smoothed := Filter.y;`. `focus` is
     `rust/src/lib.rs`.
   - `--rust-first` writes the crate at the project's root: `Cargo.toml`, and
-    `src/lib.rs` with the program `MAIN`, which counts its runs and switches its
-    output `lamp` every 50 runs, half a second on its task; `trust.toml` with
+    `src/lib.rs` with the program `MAIN`, which switches its output `lamp` on and
+    off every 50 runs, half a second on its task; `trust.toml` with
     `[rust] crate = "."`, the resource `MainRes`, the task `MainTask` every
     10 ms with priority 1 and the program instance `MainInstance` of `MAIN` on
     it; the generated `src/generated/trust/rust_pous.st` and

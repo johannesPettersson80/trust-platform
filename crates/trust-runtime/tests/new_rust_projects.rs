@@ -67,9 +67,9 @@ fn a_new_structured_text_project_with_rust_smooths_its_input_with_the_crates_blo
 #[test]
 fn a_new_rust_first_project_switches_its_lamp_every_fifty_runs() {
     // Specification 48 RU-51 and §14, worked by hand: `trust.toml` runs MAIN every 10 ms from
-    // 10 ms, so it has run 49 times at 490 ms, its lamp still off ((49 / 50) % 2 = 0), and 50 times
-    // at 500 ms, its lamp on ((50 / 50) % 2 = 1). Catches a Rust-first start whose configuration
-    // does not run its program, or whose project does not build as created.
+    // 10 ms, so it has run 49 times at 490 ms, its lamp still off, and its 50th run at 500 ms
+    // switches it on. Catches a Rust-first start whose configuration does not run its program, or
+    // whose project does not build as created.
     let parent = trust_test_support::unique_temp_path("new-rust-project-lamp");
     let root =
         create_project_as(&parent, "cell", ProjectStart::RustFirst, false).expect("the project");
