@@ -922,11 +922,38 @@ jobs:
             --tag "${RELEASE_TAG}" \
             --sha "${RELEASE_SHA}"
 
+  crates:
+    # The SDK's crates on crates.io at the release's version, once the release is verified (specification 48
+    # RU-12; specification 24, "Publishing the SDK's crates"), so that a user's own cargo resolves them. Only this
+    # job gets the crates.io token; without it the job publishes nothing and says so. A version crates.io holds
+    # is skipped, so re-running the job continues.
+    name: Publish crates
+    needs: [plan, release-preflight, publish]
+    if: ${{ !cancelled() && needs.plan.outputs.mode == 'release' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy, rustfmt, rust-src
+
+      - name: Publish the SDK's crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: python3 scripts/publish_crates.py
+
   conclusion:
     # One result for the whole run: it fails when a job failed or was cancelled, and passes when
     # every job passed or the plan skipped it.
     name: Release Conclusion
-    needs: [plan, release-preflight, runtime-vm-validation, openot-real-databases, toolchain-bundle, build, acceptance, rehearse, publish]
+    needs: [plan, release-preflight, runtime-vm-validation, openot-real-databases, toolchain-bundle, build, acceptance, rehearse, publish, crates]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:

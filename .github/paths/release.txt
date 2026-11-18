@@ -19,6 +19,7 @@ scripts/check_version_release_evidence.py
 scripts/extract_changelog_section.py
 scripts/generate_conformance_status.py
 scripts/generate_release_provenance.py
+scripts/publish_crates.py
 scripts/native/build_toolchain_libraries.sh
 scripts/render_conformance_summary.py
 scripts/runtime_vm_bench_gate.sh

@@ -193,8 +193,9 @@ Structured Text it calls spent (RU-38), which only the generated bindings run on
 
 **RU-12.** Each truST release publishes `trust-plc`, `trust-plc-macros`, `trust-service` and
 `trust-sim` to crates.io at the release's version, with the crates they are built from
-(`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`), and carries their sources in its toolchain
-bundle (§16). The build always compiles the bundle's copy: the project's `Cargo.toml` names the
+(`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`), once the release is verified (specification 24,
+"Publishing the SDK's crates"; `trust-service` and `trust-sim` join when they are built), and
+carries their sources in its toolchain bundle (§16). The build always compiles the bundle's copy: the project's `Cargo.toml` names the
 version, the build patches the four crates to the bundle's sources, and a project builds without
 crates.io when its other dependencies are vendored. A user's own `cargo` resolves the same version
 from crates.io for rust-analyzer and `cargo test` (§16.3). The SDK's crates name each other at the
