@@ -315,6 +315,73 @@ pub(super) fn compile(
     } = write_package(toolchain, source, target, work, project)?;
     let (cargo, sdk, work, project) = (&cargo, &sdk, &work, &project);
     let script = work.join("module.x");
+    let flags = rust_flags(toolchain, target, work, sdk, project);
+    let crates = check_graph(cargo, toolchain, sdk, target, work, project)?;
+    let mut command = cargo_command(cargo, toolchain, work);
+    command
+        .args(["rustc", "--offline", "--release", "--bin", "trust_module"])
+        // The compiler's diagnostics as JSON messages, each with its place (RU-44).
+        .args(["--message-format", "json"])
+        .args(["--target", triple(target)]);
+    // The output of the vendored crates' build scripts, which cargo takes instead of compiling and
+    // running the scripts (RU-74).
+    if let Some(overrides) = toolchain
+        .vendor
+        .as_ref()
+        .map(|vendor| vendor.join("build-scripts.toml"))
+        .filter(|overrides| overrides.is_file())
+    {
+        command.arg("--config").arg(overrides);
+    }
+    command
+        .arg("--")
+        .args(["--cfg", "trust_module", "-C", "remark=prolog-epilog"])
+        .arg("-C")
+        .arg(format!("linker={}", toolchain.linker.display()))
+        .args(["-C", "linker-flavor=ld.lld"])
+        .arg("-C")
+        .arg(format!("link-arg=-T{}", script.display()))
+        .args(["-C", "link-arg=--pie", "-C", "link-arg=--no-dynamic-linker"])
+        .args(["-C", "link-arg=-nostdlib", "-C", "link-arg=--emit-relocs"]);
+    for entry in entries {
+        command
+            .arg("-C")
+            .arg(format!("link-arg=--undefined={entry}"));
+    }
+    command.env("CARGO_ENCODED_RUSTFLAGS", flags.join("\u{1f}"));
+    let result = command
+        .output()
+        .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
+    let messages = rust_messages::read(&result.stdout, &project.label);
+    if !result.status.success() {
+        return Err(failure(messages, &result.stderr));
+    }
+    let output = work
+        .join("target")
+        .join(triple(target))
+        .join("release")
+        .join("trust_module");
+    let module = std::fs::read(&output)
+        .map_err(|error| NativeError::Toolchain(format!("{}: {error}", output.display())))?;
+    Ok(Compiled {
+        elf: module,
+        remarks: messages.text,
+        warnings: messages.diagnostics,
+        crates,
+    })
+}
+
+/// The flags of every crate of the graph, which [`compile`] and [`check`] give cargo alike:
+/// position-independent code without RELRO, the module's CPU, the build's folders kept out of the
+/// module, so that the same project builds the same bytes wherever it lies (specification 44
+/// NX-07), and the SDK's prebuilt macros.
+fn rust_flags(
+    toolchain: &Toolchain,
+    target: Target,
+    work: &Path,
+    sdk: &Path,
+    project: &ProjectCrate,
+) -> Vec<String> {
     let (cpu, features) = cpu(target);
     // The flags of every crate of the graph: position-independent code without RELRO, the module's
     // CPU, and the build's folders kept out of the module, so that the same project builds the same
@@ -357,15 +424,64 @@ pub(super) fn compile(
             flags.extend(["-L".to_string(), format!("dependency={}", folder.display())]);
         }
     }
-    let crates = check_graph(cargo, toolchain, sdk, target, work, project)?;
+    flags
+}
+
+/// The error of a cargo run that failed with the compiler's `messages` and cargo's own `stderr`:
+/// the crate's when its errors explain it, the toolchain's otherwise, such as a link that fails.
+/// The report holds the compiler's messages, then cargo's own lines, the stack remarks left out.
+fn failure(messages: rust_messages::Messages, stderr: &[u8]) -> NativeError {
+    let cargo_says = String::from_utf8_lossy(stderr);
+    let report: String = messages
+        .text
+        .lines()
+        .chain(cargo_says.lines())
+        .filter(|line| !line.starts_with("note: <unknown file>:0:0 prolog-epilog"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let crate_errors = messages
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.severity == RustSeverity::Error);
+    if !crate_errors {
+        return NativeError::Toolchain(report);
+    }
+    NativeError::Rust(RustFailure {
+        report,
+        diagnostics: messages.diagnostics,
+    })
+}
+
+/// Checks the crate `source` for `target` in folder `work` with the project's crate `project` as
+/// [`compile`] builds them, without code or a link: the toolchain's `cargo check`, offline, on the
+/// same package with the same flags, after the same checks of the scan crate graph (specification
+/// 11 §6.8.1c). Cargo keeps what it checked in `work`, beside what a build compiled.
+///
+/// # Errors
+///
+/// As [`compile`]: [`NativeError::Rust`] when the project's crate does not compile, with its
+/// diagnostics, and [`NativeError::Toolchain`] otherwise.
+pub(super) fn check(
+    toolchain: &Toolchain,
+    source: &str,
+    target: Target,
+    work: &Path,
+    project: &ProjectCrate,
+) -> Result<Vec<RustDiagnostic>, NativeError> {
+    let Package {
+        cargo,
+        sdk,
+        work,
+        project,
+    } = write_package(toolchain, source, target, work, project)?;
+    let (cargo, sdk, work, project) = (&cargo, &sdk, &work, &project);
+    let flags = rust_flags(toolchain, target, work, sdk, project);
+    check_graph(cargo, toolchain, sdk, target, work, project)?;
     let mut command = cargo_command(cargo, toolchain, work);
     command
-        .args(["rustc", "--offline", "--release", "--bin", "trust_module"])
-        // The compiler's diagnostics as JSON messages, each with its place (RU-44).
+        .args(["check", "--offline", "--release", "--bin", "trust_module"])
         .args(["--message-format", "json"])
         .args(["--target", triple(target)]);
-    // The output of the vendored crates' build scripts, which cargo takes instead of compiling and
-    // running the scripts (RU-74).
     if let Some(overrides) = toolchain
         .vendor
         .as_ref()
@@ -374,63 +490,15 @@ pub(super) fn compile(
     {
         command.arg("--config").arg(overrides);
     }
-    command
-        .arg("--")
-        .args(["--cfg", "trust_module", "-C", "remark=prolog-epilog"])
-        .arg("-C")
-        .arg(format!("linker={}", toolchain.linker.display()))
-        .args(["-C", "linker-flavor=ld.lld"])
-        .arg("-C")
-        .arg(format!("link-arg=-T{}", script.display()))
-        .args(["-C", "link-arg=--pie", "-C", "link-arg=--no-dynamic-linker"])
-        .args(["-C", "link-arg=-nostdlib", "-C", "link-arg=--emit-relocs"]);
-    for entry in entries {
-        command
-            .arg("-C")
-            .arg(format!("link-arg=--undefined={entry}"));
-    }
     command.env("CARGO_ENCODED_RUSTFLAGS", flags.join("\u{1f}"));
     let result = command
         .output()
         .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
     let messages = rust_messages::read(&result.stdout, &project.label);
     if !result.status.success() {
-        // The compiler's messages, then cargo's own lines, the stack remarks left out.
-        let cargo_says = String::from_utf8_lossy(&result.stderr);
-        let report: String = messages
-            .text
-            .lines()
-            .chain(cargo_says.lines())
-            .filter(|line| !line.starts_with("note: <unknown file>:0:0 prolog-epilog"))
-            .collect::<Vec<_>>()
-            .join("\n");
-        // A failure the crate's own errors do not explain, such as a link that fails, is the
-        // toolchain's.
-        let crate_errors = messages
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.severity == RustSeverity::Error);
-        if !crate_errors {
-            return Err(NativeError::Toolchain(report));
-        }
-        return Err(NativeError::Rust(RustFailure {
-            report,
-            diagnostics: messages.diagnostics,
-        }));
+        return Err(failure(messages, &result.stderr));
     }
-    let output = work
-        .join("target")
-        .join(triple(target))
-        .join("release")
-        .join("trust_module");
-    let module = std::fs::read(&output)
-        .map_err(|error| NativeError::Toolchain(format!("{}: {error}", output.display())))?;
-    Ok(Compiled {
-        elf: module,
-        remarks: messages.text,
-        warnings: messages.diagnostics,
-        crates,
-    })
+    Ok(messages.diagnostics)
 }
 
 /// The toolchain's `cargo`, to run in `work` as the build runs it (RU-75): in the
