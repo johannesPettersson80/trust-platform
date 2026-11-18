@@ -13,7 +13,10 @@ use smol_str::SmolStr;
 use trust_runtime::config::{IoConfig, RuntimeConfig};
 use trust_runtime::control::ControlEndpoint;
 use trust_runtime::harness::SourceFile;
-use trust_runtime::native::{build_project, debug_hooks, triple, Options, Target, Toolchain};
+use trust_runtime::native::{
+    build_project, debug_hooks, triple, NativeError, Options, RustDiagnostic, RustSeverity, Target,
+    Toolchain,
+};
 use trust_runtime::scheduler::{
     ResourceHandle, ResourceRunner, SimulationSpeed, StartGate, StdClock,
 };
@@ -28,6 +31,7 @@ use crate::session::{
     attaches_physical_io, load_project_simulation, SimulationFacts, SourceOptionsUpdate,
 };
 
+use super::build_diagnostics::{self, BUILD_DIAGNOSTICS_EVENT};
 use super::control_bridge::{
     default_control_endpoint, DebugControlServer, ServedProgram, SimulatorRun,
 };
@@ -48,27 +52,57 @@ fn labelled(root: &Path, sources: &[(String, String)]) -> Vec<SourceFile> {
         .collect()
 }
 
-/// The project's image built from `sources` as `trust-runtime build` builds it, a debug image
-/// unless `[build] debug` says otherwise (specification 44 §13.2), with the conversion rules
-/// `conversions` of the project's `vendor_profile`, which the session resolved with the sources
-/// (docs/specs/07-standard-functions.md 2.10), in the project's build folder, with the toolchain
-/// of §4.6, and with the project's Rust crate when it has one (specification 48 RU-76, §9.1).
+/// The image of [`build_reporting`] alone, as the tests' simulators start it.
 ///
 /// # Errors
 ///
-/// No toolchain, sources that do not compile, a project whose generated files are out of date,
-/// or a build that fails.
+/// Why the build failed.
+#[cfg(test)]
 pub(super) fn build_image(
     root: &Path,
     sources: &[(String, String)],
     conversions: ConversionProfile,
 ) -> Result<Vec<u8>, String> {
-    let toolchain = Toolchain::find().map_err(|error| error.to_string())?;
+    build_reporting(root, sources, conversions)
+        .map(|(image, _)| image)
+        .map_err(|failure| failure.message)
+}
+
+/// A build of the simulator that failed: why, and the errors and warnings of the project's Rust
+/// crate when its crate does not compile (specification 48 RU-44).
+pub(super) struct BuildFailure {
+    /// Why the build failed.
+    pub(super) message: String,
+    /// The crate's diagnostics, each where it is; none when the crate is not why.
+    pub(super) diagnostics: Vec<RustDiagnostic>,
+}
+
+/// The project's image built from `sources` as `trust-runtime build` builds it, a debug image
+/// unless `[build] debug` says otherwise (specification 44 §13.2), with the conversion rules
+/// `conversions` of the project's `vendor_profile`, which the session resolved with the sources
+/// (docs/specs/07-standard-functions.md 2.10), in the project's build folder, with the toolchain
+/// of §4.6, and with the project's Rust crate when it has one (specification 48 RU-76, §9.1);
+/// with the crate's warnings, which the build's event reports (specification 25 §6.10).
+///
+/// # Errors
+///
+/// No toolchain, sources that do not compile, a project whose generated files are out of date,
+/// or a build that fails, with the crate's diagnostics when its crate does not compile.
+pub(super) fn build_reporting(
+    root: &Path,
+    sources: &[(String, String)],
+    conversions: ConversionProfile,
+) -> Result<(Vec<u8>, Vec<RustDiagnostic>), BuildFailure> {
+    let failed = |message: String| BuildFailure {
+        message,
+        diagnostics: Vec::new(),
+    };
+    let toolchain = Toolchain::find().map_err(|error| failed(error.to_string()))?;
     let target = Target::this_cpu()
-        .ok_or_else(|| String::from("this computer's CPU runs no compiled program"))?;
-    let hooks = debug_hooks(root).map_err(|error| error.to_string())?;
+        .ok_or_else(|| failed(String::from("this computer's CPU runs no compiled program")))?;
+    let hooks = debug_hooks(root).map_err(|error| failed(error.to_string()))?;
     let work = root.join("build").join("simulator").join(triple(target));
-    build_project(
+    match build_project(
         root,
         &labelled(root, sources),
         &[],
@@ -76,9 +110,38 @@ pub(super) fn build_image(
         conversions,
         &toolchain,
         &work,
-    )
-    .map(|built| built.image)
-    .map_err(|error| error.to_string())
+    ) {
+        Ok(built) => Ok((built.image, built.crate_warnings)),
+        Err(error) => {
+            let message = error.to_string();
+            let diagnostics = match error {
+                NativeError::Rust(failure) => failure.diagnostics,
+                _ => Vec::new(),
+            };
+            Err(BuildFailure {
+                message,
+                diagnostics,
+            })
+        }
+    }
+}
+
+/// Why a reload left the running program as it was, with the number of errors of the project's
+/// Rust crate when its crate does not compile, which Problems shows (specification 25 §6.3).
+pub(super) struct ReloadFailure {
+    /// Why.
+    pub(super) message: String,
+    /// The crate's errors; 0 when the crate is not why.
+    pub(super) crate_errors: usize,
+}
+
+impl From<String> for ReloadFailure {
+    fn from(message: String) -> Self {
+        Self {
+            message,
+            crate_errors: 0,
+        }
+    }
 }
 
 /// The compiled program a launch runs: its scheduler, which waits for [`Self::open`], and the
@@ -280,10 +343,17 @@ impl DebugAdapter {
             Ok(sources) => sources,
             Err(error) => return self.launch_failed(request, events, &error.to_string()),
         };
-        let image = match build_image(&root, &sources, self.session.conversion_profile()) {
-            Ok(image) => image,
-            Err(error) => {
-                return self.launch_failed(request, events, &format!("the build: {error}"));
+        // Each build reports the crate's diagnostics, which replace the last build's in Problems
+        // (specification 25 §6.10).
+        let image = match build_reporting(&root, &sources, self.session.conversion_profile()) {
+            Ok((image, diagnostics)) => {
+                events.push(self.build_diagnostics_event(&root, &diagnostics));
+                image
+            }
+            Err(failure) => {
+                events.push(self.build_diagnostics_event(&root, &failure.diagnostics));
+                let message = format!("the build: {}", failure.message);
+                return self.launch_failed(request, events, &message);
             }
         };
         let endpoint = match launch_control_endpoint(args) {
@@ -361,10 +431,16 @@ impl DebugAdapter {
     /// new image (§12), keeping a pause; a build or a change that fails leaves the running program
     /// as it was.
     ///
+    /// The build's diagnostics go into `events` (specification 25 §6.10).
+    ///
     /// # Errors
     ///
     /// Why the program was not changed.
-    pub(super) fn reload_compiled(&mut self, args: ReloadArguments) -> Result<(), String> {
+    pub(super) fn reload_compiled(
+        &mut self,
+        args: ReloadArguments,
+        events: &mut Vec<Value>,
+    ) -> Result<(), ReloadFailure> {
         self.session.update_source_options(SourceOptionsUpdate {
             root: args.runtime_root,
             include_globs: args.runtime_include_globs,
@@ -376,7 +452,7 @@ impl DebugAdapter {
                 args.program.unwrap_or_else(|| simulator.program.clone()),
                 simulator.root.clone(),
             ),
-            None => return Err(String::from("no compiled program runs")),
+            None => return Err(String::from("no compiled program runs").into()),
         };
         let sources = self
             .session
@@ -387,7 +463,24 @@ impl DebugAdapter {
         let time_scale = load_project_simulation(&root)
             .map_err(|error| error.to_string())?
             .map_or(1, |(config, _)| config.time_scale);
-        let image = build_image(&root, &sources, self.session.conversion_profile())?;
+        let image = match build_reporting(&root, &sources, self.session.conversion_profile()) {
+            Ok((image, diagnostics)) => {
+                events.push(self.build_diagnostics_event(&root, &diagnostics));
+                image
+            }
+            Err(failure) => {
+                events.push(self.build_diagnostics_event(&root, &failure.diagnostics));
+                let crate_errors = failure
+                    .diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.severity == RustSeverity::Error)
+                    .count();
+                return Err(ReloadFailure {
+                    message: failure.message,
+                    crate_errors,
+                });
+            }
+        };
         let remote = self
             .remote_session
             .as_mut()
@@ -396,6 +489,14 @@ impl DebugAdapter {
         // The control server reports the program that now runs (specification 35, A2.3).
         self.sync_control_program(time_scale);
         Ok(())
+    }
+
+    /// The event of a build's diagnostics `diagnostics` of the project at `root`.
+    fn build_diagnostics_event(&self, root: &Path, diagnostics: &[RustDiagnostic]) -> Value {
+        self.event(
+            BUILD_DIAGNOSTICS_EVENT,
+            Some(build_diagnostics::body(root, diagnostics)),
+        )
     }
 
     /// Stops a compiled launch's program and closes its control server.

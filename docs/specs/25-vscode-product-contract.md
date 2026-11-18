@@ -1839,7 +1839,8 @@ test checks each family.
 - The debug adapter answers a failed `stReload` with that summary, and the
   extension shows it as it is: `Compile failed — N error(s). Open Problems,
   then try again.` when N lines of the build's error name a source file
-  (`<name>.st:` or `<name>.pou:`); else the error's first line that is not
+  (`<name>.st:` or `<name>.pou:`), or when the project's Rust crate does not
+  compile with N errors, which Problems shows (§6.10); else the error's first line that is not
   blank, a line longer than 160 characters cut to its first 157 and `...`;
   `Update did not report a reason.` for an error without such a line.
 - The language-model reload tool inspects the structured command result and
@@ -2024,6 +2025,21 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   debug session's target name. `connectedDebuggingDisabled` says
   that the runtime keeps debugging disabled, so that the bar reads
   `<runtime> · debugging disabled` (§4.4).
+
+### 6.10 The Rust crate's build diagnostics
+
+The Simulator's build of a project with Rust POUs, at a launch and at Update
+running simulation, puts the compiler's errors and warnings of the project's
+crate in Problems, each at its place, with the source `truST (rustc)`
+(specification 48 RU-44). After each such build, whether it succeeds or fails,
+the debug adapter sends the custom event `trustBuildDiagnostics`: its `source`,
+and its `diagnostics`, each with its file's absolute `path`, its `severity`
+(`error` or `warning`), the compiler's `code` (`null` without one), its
+`message`, and `line`, `column`, `end_line` and `end_column`, 1-based, a column
+in UTF-16 code units and the end after the last character (specification 11
+§6.8.1c). The extension shows them as they are, in place of the last build's: a
+build without diagnostics clears them, and they stay after the session ends until
+the next build. They lie in `.rs` files, so they do not gate (§6.6).
 
 ## 7. Libraries
 

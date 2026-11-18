@@ -50,6 +50,11 @@ struct Project {
 
 impl Project {
     fn new() -> Self {
+        Self::with_crate(CRATE)
+    }
+
+    /// The project with the crate `source` in place of [`CRATE`].
+    fn with_crate(source: &str) -> Self {
         let root = trust_test_support::unique_temp_path("trust-simulator-rust");
         std::fs::create_dir_all(root.join("src")).expect("the sources' folder");
         std::fs::create_dir_all(root.join("rust/src")).expect("the crate's folder");
@@ -63,7 +68,7 @@ impl Project {
             ),
         )
         .expect("the crate's manifest");
-        std::fs::write(root.join("rust/src/lib.rs"), CRATE).expect("the crate");
+        std::fs::write(root.join("rust/src/lib.rs"), source).expect("the crate");
         let written = trust_runtime::native::rust_pous::write_declarations(&root);
         assert!(
             matches!(
@@ -89,6 +94,41 @@ fn request(seq: u32, command: &str, arguments: Value) -> Request<Value> {
         command: command.to_string(),
         arguments: Some(arguments),
     }
+}
+
+/// [`CRATE`] with a type error on its line 10, `    let wrong: u8 = "text";`: `"text"` starts after
+/// 20 characters and is 6 long, the compiler's E0308 at columns 21 to 27.
+fn crate_with_a_type_error() -> String {
+    CRATE.replace(
+        "    Ok(a.wrapping_add(1))",
+        "    let wrong: u8 = \"text\";\n    Ok(a.wrapping_add(1))",
+    )
+}
+
+/// The body of the build's diagnostics event among `events` (specification 25 §6.10).
+fn build_diagnostics(events: &[Value]) -> &Value {
+    &events
+        .iter()
+        .find(|event| event["event"] == "trustBuildDiagnostics")
+        .unwrap_or_else(|| panic!("the build's diagnostics among {events:?}"))["body"]
+}
+
+/// The diagnostics event's body of one E0308 at line 10, columns 21 to 27, of the crate in the
+/// project at `root`.
+fn the_type_error(root: &std::path::Path) -> Value {
+    json!({
+        "source": "truST (rustc)",
+        "diagnostics": [{
+            "path": root.join("rust").join("src").join("lib.rs").display().to_string(),
+            "severity": "error",
+            "code": "E0308",
+            "message": "mismatched types",
+            "line": 10,
+            "column": 21,
+            "end_line": 10,
+            "end_column": 27,
+        }],
+    })
 }
 
 /// The one response of `outcome`, which succeeded.
@@ -160,6 +200,11 @@ fn a_launch_builds_the_projects_rust_crate_and_runs_its_pous() {
         "{:?}",
         configured.responses
     );
+    // A build without diagnostics clears the last build's (specification 25 §6.10).
+    assert_eq!(
+        build_diagnostics(&configured.events),
+        &json!({ "source": "truST (rustc)", "diagnostics": [] })
+    );
     let addr = adapter
         .simulator
         .as_ref()
@@ -184,6 +229,72 @@ fn a_launch_builds_the_projects_rust_crate_and_runs_its_pous() {
     ));
     assert_eq!(succeeded(&answer)["body"]["result"], "42");
     succeeded(&adapter.dispatch_request(request(7, "continue", json!({"threadId": 1}))));
-    succeeded(&adapter.dispatch_request(request(8, "disconnect", json!({}))));
+    // Specification 25 §6.3 and §6.10: an update whose crate does not compile leaves the program
+    // as it was, answers with the crate's one error, which Problems shows, and reports it there.
+    std::fs::write(
+        project.root.join("rust/src/lib.rs"),
+        crate_with_a_type_error(),
+    )
+    .expect("the crate with a type error");
+    let reload = adapter.dispatch_request(request(8, "stReload", json!({})));
+    let refused = reload.responses.last().expect("the reload's answer");
+    assert_eq!(refused["success"], false, "{refused}");
+    assert_eq!(
+        refused["message"], "Compile failed — 1 error. Open Problems, then try again.",
+        "{refused}"
+    );
+    assert_eq!(
+        build_diagnostics(&reload.events),
+        &the_type_error(&project.root)
+    );
+    succeeded(&adapter.dispatch_request(request(9, "disconnect", json!({}))));
+    assert!(adapter.simulator.is_none());
+}
+
+/// Specification 25 §6.10 with specification 48 RU-44, worked by hand: a launch whose crate does
+/// not compile is refused, and the build's event reports the crate's error where it is, at its
+/// file's absolute path: E0308 at line 10, columns 21 to 27 ([`crate_with_a_type_error`]). Catches
+/// a launch that refuses with the compiler's text alone, so that Problems never shows the error,
+/// and one whose event names the file relative to the project.
+#[test]
+fn a_launch_whose_crate_does_not_compile_reports_its_error_where_it_is() {
+    let toolchain = trust_runtime::native::Toolchain::find()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
+        return;
+    }
+    let project = Project::with_crate(&crate_with_a_type_error());
+    let main = project.root.join("src/main.st");
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
+    adapter.dispatch_request(request(1, "initialize", json!({})));
+    let launch = adapter.dispatch_request(request(
+        2,
+        "launch",
+        json!({
+            "program": main.to_string_lossy(),
+            "runtimeRoot": project.root.to_string_lossy(),
+            "runtimeIncludeGlobs": [trust_runtime::runtime_sources::DEFAULT_INCLUDE_GLOB],
+            "controlEndpoint": "tcp://127.0.0.1:0",
+            "controlAuthToken": TOKEN,
+        }),
+    ));
+    assert!(launch.responses.is_empty(), "the launch waits");
+    let configured = adapter.dispatch_request(request(3, "configurationDone", json!({})));
+    let refused = configured
+        .responses
+        .iter()
+        .find(|response| response["command"] == "launch")
+        .expect("the launch's answer");
+    assert_eq!(refused["success"], false, "{refused}");
+    assert!(
+        refused["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("error[E0308]: mismatched types")),
+        "{refused}"
+    );
+    assert_eq!(
+        build_diagnostics(&configured.events),
+        &the_type_error(&project.root)
+    );
     assert!(adapter.simulator.is_none());
 }

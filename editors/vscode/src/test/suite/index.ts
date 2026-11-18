@@ -343,6 +343,7 @@ export function run(): Promise<void> {
   require("./devices-discover-render.test");
   require("./rust-declarations-readonly.test");
   require("./rust-declarations-on-save.test");
+  require("./rust-build-diagnostics.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {
