@@ -27,6 +27,17 @@ pub(super) const PROJECT_CRATE: &str = "trust_project";
 /// (RU-44) and the user's settings play no part (RU-75).
 const NO_COLOUR: &str = "never";
 
+/// The variables of the user's environment, besides `CARGO` and cargo's `CARGO_` configuration,
+/// that give cargo's compiler flags, wrap the compiler or unlock its unstable features, which the
+/// build's cargo runs without (RU-75).
+const USER_COMPILER_SETTINGS: [&str; 5] = [
+    "RUSTFLAGS",
+    "RUSTDOCFLAGS",
+    "RUSTC_WRAPPER",
+    "RUSTC_WORKSPACE_WRAPPER",
+    "RUSTC_BOOTSTRAP",
+];
+
 /// The SDK's crates, which the build takes from the toolchain's sources whatever version a
 /// manifest names (RU-12); of them, a crate outside the SDK may name only those RU-12 publishes for
 /// projects (RU-20, `crate_graph`).
@@ -288,11 +299,9 @@ pub(super) fn compile(
         }
     }
     check_graph(cargo, toolchain, sdk, target, work, project)?;
-    let mut command = Command::new(cargo);
+    let mut command = cargo_command(cargo, toolchain, work);
     command
-        .current_dir(work)
         .args(["rustc", "--offline", "--release", "--bin", "trust_module"])
-        .args(["--color", NO_COLOUR])
         .args(["--target", triple(target)]);
     // The output of the vendored crates' build scripts, which cargo takes instead of compiling and
     // running the scripts (RU-74).
@@ -319,15 +328,7 @@ pub(super) fn compile(
             .arg("-C")
             .arg(format!("link-arg=--undefined={entry}"));
     }
-    command
-        .env("RUSTC", &toolchain.rustc)
-        .env("CARGO_TARGET_DIR", work.join("target"))
-        .env("CARGO_ENCODED_RUSTFLAGS", flags.join("\u{1f}"))
-        .env("CARGO_HOME", &toolchain.cargo_home)
-        .env_remove("RUSTFLAGS")
-        .env_remove("CARGO_BUILD_RUSTFLAGS")
-        .env_remove("RUSTC_WRAPPER")
-        .env_remove("RUSTC_WORKSPACE_WRAPPER");
+    command.env("CARGO_ENCODED_RUSTFLAGS", flags.join("\u{1f}"));
     let result = command
         .output()
         .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
@@ -350,6 +351,32 @@ pub(super) fn compile(
     Ok((module, diagnostics))
 }
 
+/// The toolchain's `cargo`, to run in `work` as the build runs it (RU-75): in the
+/// toolchain's own home, with the toolchain's compiler, its report without colour (RU-44), and with
+/// none of the user's cargo settings from the environment: neither `CARGO` nor a `CARGO_`
+/// variable, which cargo reads as configuration that would change what it builds (a release
+/// profile's `CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS`) or how it reports (`CARGO_TERM_QUIET`), and
+/// none of [`USER_COMPILER_SETTINGS`].
+fn cargo_command(cargo: &Path, toolchain: &Toolchain, work: &Path) -> Command {
+    let mut command = Command::new(cargo);
+    command.current_dir(work).args(["--color", NO_COLOUR]);
+    for (name, _) in std::env::vars_os() {
+        // Windows matches a variable's name in any case.
+        let upper = name.to_string_lossy().to_ascii_uppercase();
+        if upper == "CARGO"
+            || upper.starts_with("CARGO_")
+            || USER_COMPILER_SETTINGS.contains(&upper.as_str())
+        {
+            command.env_remove(&name);
+        }
+    }
+    command
+        .env("RUSTC", &toolchain.rustc)
+        .env("CARGO_TARGET_DIR", work.join("target"))
+        .env("CARGO_HOME", &toolchain.cargo_home);
+    command
+}
+
 /// Refuses the scan crate graph of the package in `work` where it breaks specification 48's rules
 /// (RU-09, RU-20), from cargo's metadata of it for `target`.
 fn check_graph(
@@ -360,16 +387,9 @@ fn check_graph(
     work: &Path,
     project: &ProjectCrate,
 ) -> Result<(), NativeError> {
-    let output = Command::new(cargo)
-        .current_dir(work)
+    let output = cargo_command(cargo, toolchain, work)
         .args(["metadata", "--offline", "--format-version", "1"])
-        .args(["--color", NO_COLOUR])
         .args(["--filter-platform", triple(target)])
-        .env("RUSTC", &toolchain.rustc)
-        .env("CARGO_TARGET_DIR", work.join("target"))
-        .env("CARGO_HOME", &toolchain.cargo_home)
-        .env_remove("RUSTC_WRAPPER")
-        .env_remove("RUSTC_WORKSPACE_WRAPPER")
         .output()
         .map_err(|error| NativeError::Toolchain(format!("{}: {error}", cargo.display())))?;
     if !output.status.success() {

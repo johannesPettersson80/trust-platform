@@ -102,12 +102,16 @@ fn a_project_with_rust_pous_builds_without_compiling_for_the_computer() {
 
 #[test]
 fn the_build_runs_cargo_in_a_home_of_its_own() {
-    // RU-75: the build gives its cargo the toolchain's own home, so the user's cargo home and its
-    // configuration play no part. `trust-runtime build` runs as a user whose cargo configuration
-    // cargo cannot read, at `CARGO_HOME` and at `~/.cargo`, and builds the project as before; the
-    // user's cargo home gains no registry. Catches a build whose cargo runs in the user's home,
-    // which would take the user's configuration (a mirror for crates.io, a target folder, flags)
-    // and fill the user's cache.
+    // RU-75: the build gives its cargo the toolchain's own home and none of the user's cargo
+    // settings from the environment, so the user's cargo home, its configuration and the
+    // environment's play no part. `trust-runtime build` runs as a user whose cargo configuration
+    // cargo cannot read, at `CARGO_HOME` and at `~/.cargo`, and whose environment holds settings
+    // that cargo refuses, `CARGO_BUILD_JOBS=0` and a release profile's `opt-level` of `fast`, and a
+    // compiler wrapper that does not exist; the build builds the project as before, and the user's
+    // cargo home gains no registry. Catches a build whose cargo runs in the user's home, which
+    // would take the user's configuration (a mirror for crates.io, a target folder, flags) and fill
+    // the user's cache, and one whose cargo takes the environment's settings, which change what it
+    // builds (a release profile's overflow checks) and how it reports.
     let toolchain = Toolchain::find().expect("the toolchain");
     if toolchain.cargo.is_none() || toolchain.sdk.is_none() {
         return;
@@ -136,6 +140,9 @@ fn the_build_runs_cargo_in_a_home_of_its_own() {
     .env("HOME", user.join("home"))
     .env("XDG_CONFIG_HOME", user.join("config"))
     .env("XDG_DATA_HOME", user.join("data"))
+    .env("CARGO_BUILD_JOBS", "0")
+    .env("CARGO_PROFILE_RELEASE_OPT_LEVEL", "fast")
+    .env("RUSTC_WRAPPER", user.join("no-such-wrapper"))
     .output()
     .expect("run trust-runtime");
     assert!(
