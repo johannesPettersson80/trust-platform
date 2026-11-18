@@ -180,6 +180,10 @@ def write_checkout_at_0_28_0(root: Path) -> None:
             "firmware/trust-esp32c6/Cargo.toml": '[package]\nname = "trust-esp32c6"\nversion = "0.28.0"\n',
             "examples/rust_demo/rust/Cargo.toml": '[package]\nname = "rust-demo"\nversion = "0.1.0"\n\n[dependencies]\ntrust-plc = "=0.28.0"\n',
             "examples/rust_demo/build/native/Cargo.toml": '[dependencies]\ntrust-plc = "=0.28.0"\n',
+            "docs/public/develop/rust-pous.md": (
+                '# Rust POUs\n\n```toml\n[dependencies]\ntrust-plc = "=0.28.0" # exactly your truST version\n```\n'
+            ),
+            "docs/public/index.md": "# truST\n",
             **{name: lock for name in LOCKFILES},
             "editors/vscode/package.json": '{\n  "name": "trust-lsp",\n  "version": "0.28.0"\n}\n',
             "editors/vscode/package-lock.json": json.dumps(package_lock, indent=2) + "\n",
@@ -212,6 +216,7 @@ class BumpTests(unittest.TestCase):
                         "CHANGELOG.md",
                         "Cargo.toml",
                         "changelog.d/a-fix.md",
+                        "docs/public/develop/rust-pous.md",
                         "editors/vscode/package-lock.json",
                         "editors/vscode/package.json",
                         "examples/rust_demo/rust/Cargo.toml",
@@ -243,9 +248,14 @@ class BumpTests(unittest.TestCase):
             )
             self.assertIn('ryu = "=0.28.0"', (root / "Cargo.toml").read_text())
             # Specification 48 RU-08: an example's crate names the SDK at the release's version, which its build
-            # needs; what the example's build wrote in `build/` is not the example's.
+            # needs; what the example's build wrote in `build/` is not the example's. The docs show the manifest a
+            # user copies, with its comment.
             self.assertIn('trust-plc = "=0.29.0"', (root / "examples/rust_demo/rust/Cargo.toml").read_text())
             self.assertIn('trust-plc = "=0.28.0"', (root / "examples/rust_demo/build/native/Cargo.toml").read_text())
+            self.assertIn(
+                'trust-plc = "=0.29.0" # exactly your truST version\n',
+                (root / "docs/public/develop/rust-pous.md").read_text(),
+            )
             self.assertIn('version = "0.29.0"', (root / "firmware/trust-esp32c6/Cargo.toml").read_text())
             for name in (
                 "Cargo.lock",
@@ -281,18 +291,20 @@ class BumpTests(unittest.TestCase):
             self.assertEqual(cargo.read_text(), before)
             self.assertIn('"version": "0.28.0"', (root / "editors/vscode/package.json").read_text())
 
-    def test_the_bump_refuses_an_example_crate_pinned_at_another_version(self) -> None:
-        # Catches a bump that leaves an example's crate on an SDK version that is not the release's, which the
-        # example's build refuses (specification 48 RU-08), and one that writes some files before it finds the pin.
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            write_checkout_at_0_28_0(root)
-            example = root / "examples/rust_demo/rust/Cargo.toml"
-            example.write_text(example.read_text().replace('"=0.28.0"', '"=0.27.0"'))
-            with self.assertRaisesRegex(ValueError, "examples/rust_demo/rust/Cargo.toml: trust-plc is not pinned at =0.28.0"):
-                bump(root, "0.28.0", "0.29.0", "2026-11-09")
-            self.assertIn('version = "0.28.0"', (root / "Cargo.toml").read_text())
-            self.assertIn('"version": "0.28.0"', (root / "editors/vscode/package.json").read_text())
+    def test_the_bump_refuses_a_pin_on_the_sdk_at_another_version(self) -> None:
+        # Catches a bump that leaves an example's crate or a docs page on an SDK version that is not the release's,
+        # which a project's build refuses (specification 48 RU-08), and one that writes some files before it finds the
+        # pin.
+        for name in ("examples/rust_demo/rust/Cargo.toml", "docs/public/develop/rust-pous.md"):
+            with self.subTest(name), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                write_checkout_at_0_28_0(root)
+                pinned = root / name
+                pinned.write_text(pinned.read_text().replace('"=0.28.0"', '"=0.27.0"'))
+                with self.assertRaisesRegex(ValueError, f"{name}: trust-plc is not pinned at =0.28.0"):
+                    bump(root, "0.28.0", "0.29.0", "2026-11-09")
+                self.assertIn('version = "0.28.0"', (root / "Cargo.toml").read_text())
+                self.assertIn('"version": "0.28.0"', (root / "editors/vscode/package.json").read_text())
 
 
 if __name__ == "__main__":
