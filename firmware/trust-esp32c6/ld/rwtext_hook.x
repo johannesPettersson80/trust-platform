@@ -38,6 +38,8 @@
 *(.text.*18trust_runtime_core5ports*16MonotonicInstant*)
 *(.text.*4core4time*8Duration3new*)
 
-/* The process image a scan reads and drives, over the C6's GPIO lines, whose two scan methods
- * (`Esp32Pins::is_high`, `Esp32Pins::drive`) are in RAM by `#[ram]`. */
-*(.text.*22trust_runtime_services4chip10process_io*)
+/* The process image a scan reads and drives (`ProcessImage`), over the C6's GPIO lines, whose two
+ * scan methods (`Esp32Pins::is_high`, `Esp32Pins::drive`) are in RAM by `#[ram]`. The type is named
+ * with its module: the module alone also names its `ChipDriver` trait, and with it every bus
+ * driver's methods, which run from flash. */
+*(.text.*22trust_runtime_services4chip10process_io*12ProcessImage*)
