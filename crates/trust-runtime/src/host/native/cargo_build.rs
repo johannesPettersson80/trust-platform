@@ -21,6 +21,12 @@ use trust_runtime_core::native::image::Target;
 /// The name the generated code gives the project's crate.
 pub(super) const PROJECT_CRATE: &str = "trust_project";
 
+/// The colour the build asks of its cargo, whose report is text that the build filters and passes
+/// on, never a terminal's: cargo writes it without colour whatever the user's environment asks of
+/// cargo (`CARGO_TERM_COLOR`), so that the report names the project's diagnostics in plain text
+/// (RU-44) and the user's settings play no part (RU-75).
+const NO_COLOUR: &str = "never";
+
 /// The SDK's crates, which the build takes from the toolchain's sources whatever version a
 /// manifest names (RU-12); of them, a crate outside the SDK may name only those RU-12 publishes for
 /// projects (RU-20, `crate_graph`).
@@ -286,6 +292,7 @@ pub(super) fn compile(
     command
         .current_dir(work)
         .args(["rustc", "--offline", "--release", "--bin", "trust_module"])
+        .args(["--color", NO_COLOUR])
         .args(["--target", triple(target)]);
     // The output of the vendored crates' build scripts, which cargo takes instead of compiling and
     // running the scripts (RU-74).
@@ -356,6 +363,7 @@ fn check_graph(
     let output = Command::new(cargo)
         .current_dir(work)
         .args(["metadata", "--offline", "--format-version", "1"])
+        .args(["--color", NO_COLOUR])
         .args(["--filter-platform", triple(target)])
         .env("RUSTC", &toolchain.rustc)
         .env("CARGO_TARGET_DIR", work.join("target"))
