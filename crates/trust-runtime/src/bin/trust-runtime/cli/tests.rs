@@ -123,6 +123,40 @@ mod tests {
     }
 
     #[test]
+    fn parse_new_project_rust_starts() {
+        // Specification 25 §3.2: `--rust` and `--rust-first` choose the Rust starts, and a request
+        // for both is refused. Catches a command that takes both and makes one of them silently.
+        for (flag, rust, rust_first) in [("--rust", true, false), ("--rust-first", false, true)] {
+            let cli = Cli::parse_from([
+                "trust-runtime",
+                "new",
+                "--parent",
+                "projects",
+                "--name",
+                "cell",
+                flag,
+            ]);
+            match cli.command.expect("command") {
+                Command::New(args) => {
+                    assert_eq!((args.rust, args.rust_first), (rust, rust_first), "{flag}");
+                }
+                other => panic!("expected new command, got {other:?}"),
+            }
+        }
+        let both = Cli::try_parse_from([
+            "trust-runtime",
+            "new",
+            "--parent",
+            "projects",
+            "--name",
+            "cell",
+            "--rust",
+            "--rust-first",
+        ]);
+        assert!(both.is_err(), "both starts at once are refused");
+    }
+
+    #[test]
     fn runtime_help_names_trust_dev_workbench_commands_and_removal_window() {
         let mut help = Vec::new();
         Cli::command()

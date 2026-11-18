@@ -1,5 +1,6 @@
 //! The files that `trust-runtime new` writes for a new project (specification 25, Create Project,
-//! and specification 11 section 6.8.0a).
+//! and specification 11 section 6.8.0a), for each of its starts (specification 48 RU-51): a
+//! Structured Text project here, and the Rust starts in `new_project_rust.rs`.
 //!
 //! The texts are the ones the VS Code extension wrote before the CLI owned the project template.
 //! Two lines differ: `runtime.toml` names no control endpoint, so the platform default applies, and
@@ -8,6 +9,9 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+
+#[path = "new_project_rust.rs"]
+mod rust_start;
 
 /// `src/Main.st`: the empty program that a new project opens on.
 const MAIN_ST_SOURCE: &str = r#"PROGRAM Main
@@ -193,17 +197,60 @@ impl std::fmt::Display for NewProjectError {
 
 impl std::error::Error for NewProjectError {}
 
-/// Creates the project `name` in the folder `parent` and returns the absolute project folder.
+/// What a new project starts as (specification 25 §3.2, specification 48 RU-51).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ProjectStart {
+    /// A Structured Text project.
+    #[default]
+    StructuredText,
+    /// A Structured Text project with a Rust crate in `rust/`, whose function block `src/Main.st`
+    /// calls (`trust-runtime new --rust`).
+    StructuredTextWithRust,
+    /// A Rust-first project: the crate is the project, and `trust.toml` its configuration
+    /// (specification 48 §14, `trust-runtime new --rust-first`).
+    RustFirst,
+}
+
+impl ProjectStart {
+    /// The file a new project of this start opens on, relative to the project folder with `/`:
+    /// its program, or its crate's source in a Rust start.
+    #[must_use]
+    pub fn focus(self) -> &'static str {
+        match self {
+            Self::StructuredText => "src/Main.st",
+            Self::StructuredTextWithRust => "rust/src/lib.rs",
+            Self::RustFirst => "src/lib.rs",
+        }
+    }
+}
+
+/// Creates the Structured Text project `name` in the folder `parent` and returns the absolute
+/// project folder, as [`create_project_as`] does for [`ProjectStart::StructuredText`].
+///
+/// # Errors
+///
+/// Those of [`create_project_as`].
+pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf, NewProjectError> {
+    create_project_as(parent, name, ProjectStart::StructuredText, force)
+}
+
+/// Creates the project `name` of the start `start` in the folder `parent` and returns the absolute
+/// project folder.
 ///
 /// The name is trimmed first. An existing project folder that is not empty is refused unless
 /// `force` is set. With `force`, the scaffold files are overwritten and every other file is kept.
-/// An existing `.gitignore` is kept too and gains the `/.trust-runtime/` line when it lacks it.
+/// An existing `.gitignore` is kept too and gains each of the start's lines that it lacks.
 ///
 /// # Errors
 ///
 /// Returns the error of the first check that refuses the request, or of the first I/O step that
 /// fails. Nothing is written when a check refuses the request.
-pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf, NewProjectError> {
+pub fn create_project_as(
+    parent: &Path,
+    name: &str,
+    start: ProjectStart,
+    force: bool,
+) -> Result<PathBuf, NewProjectError> {
     let name = checked_name(name)?;
     let parent = std::path::absolute(parent)
         .map_err(|error| io_error(format!("resolve {}: {error}", parent.display())))?;
@@ -223,7 +270,63 @@ pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf,
             ),
         });
     }
-    for (relative, text) in SCAFFOLD_FILES {
+    match start {
+        ProjectStart::StructuredText => write_files(&target, &SCAFFOLD_FILES)?,
+        ProjectStart::StructuredTextWithRust | ProjectStart::RustFirst => {
+            rust_start::write(&target, name, start)?;
+        }
+    }
+    let gitignore = target.join(".gitignore");
+    crate::control::endpoint::ensure_endpoint_dir_ignored(&target, GITIGNORE_SOURCE)
+        .map_err(|error| io_error(format!("write {}: {error}", gitignore.display())))?;
+    ignore_build_folders(&target, start)?;
+    Ok(target)
+}
+
+/// Makes the project's `.gitignore` list the folder its builds write, `/build/`, and in a Rust start
+/// the folder where the user's own cargo builds the crate, appending the lines it lacks
+/// (specification 25 §3.2).
+///
+/// # Errors
+///
+/// A `.gitignore` that cannot be read or written.
+fn ignore_build_folders(target: &Path, start: ProjectStart) -> Result<(), NewProjectError> {
+    let (lines, comment): (&[&str], &str) = match start {
+        ProjectStart::StructuredText => (&["/build/"], "# The folder the builds write.\n"),
+        ProjectStart::StructuredTextWithRust => (
+            &["/build/", "/rust/target/"],
+            "# The folder the builds write, and the one where your own cargo builds the crate.\n",
+        ),
+        ProjectStart::RustFirst => (
+            &["/build/", "/target/"],
+            "# The folder the builds write, and the one where your own cargo builds the crate.\n",
+        ),
+    };
+    let path = target.join(".gitignore");
+    let failed = |error: std::io::Error| io_error(format!("write {}: {error}", path.display()));
+    let mut text = fs::read_to_string(&path).map_err(failed)?;
+    let missing: Vec<&str> = lines
+        .iter()
+        .copied()
+        .filter(|line| !text.lines().any(|held| held.trim() == *line))
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(comment);
+    for line in missing {
+        text.push_str(line);
+        text.push('\n');
+    }
+    fs::write(&path, text).map_err(failed)
+}
+
+/// Writes each of `files`, relative to `target` with `/`, with its text, making its folders.
+fn write_files(target: &Path, files: &[(&str, &str)]) -> Result<(), NewProjectError> {
+    for (relative, text) in files {
         let path = target.join(relative);
         if let Some(folder) = path.parent() {
             fs::create_dir_all(folder)
@@ -232,10 +335,7 @@ pub fn create_project(parent: &Path, name: &str, force: bool) -> Result<PathBuf,
         fs::write(&path, text)
             .map_err(|error| io_error(format!("write {}: {error}", path.display())))?;
     }
-    let gitignore = target.join(".gitignore");
-    crate::control::endpoint::ensure_endpoint_dir_ignored(&target, GITIGNORE_SOURCE)
-        .map_err(|error| io_error(format!("write {}: {error}", gitignore.display())))?;
-    Ok(target)
+    Ok(())
 }
 
 /// The trimmed name, when it is one plain folder name on every platform, so that the project
@@ -313,352 +413,5 @@ fn io_error(message: String) -> NewProjectError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::{IoConfig, RuntimeConfig};
-
-    /// `src/Main.st` as the extension wrote it at HEAD (`editors/vscode/src/newProject.ts`).
-    const EXTENSION_MAIN_ST: &str = "PROGRAM Main\nEND_PROGRAM\n";
-
-    /// `src/config.st` as the extension wrote it at HEAD.
-    const EXTENSION_CONFIG_ST: &str = r#"CONFIGURATION Config
-RESOURCE MainRes ON PLC
-    TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1);
-    PROGRAM MainInstance WITH MainTask : Main;
-END_RESOURCE
-END_CONFIGURATION
-"#;
-
-    /// `trust-lsp.toml` as the extension wrote it at HEAD.
-    const EXTENSION_PROJECT_TOML: &str = "include_paths = [\"src\"]\n";
-
-    /// `runtime.toml` as the extension wrote it at HEAD, without its `endpoint` line. It names the
-    /// configuration's resource `MainRes`, the web server on this computer and RETAIN values in
-    /// `retain.bin`, and the mesh without a token, which the runtime would refuse when empty.
-    const EXTENSION_RUNTIME_TOML: &str = r#"[bundle]
-version = 1
-
-[resource]
-name = "MainRes"
-cycle_interval_ms = 10
-
-[runtime.control]
-mode = "production"
-debug_enabled = false
-
-[runtime.web]
-enabled = true
-listen = "127.0.0.1:8080"
-auth = "local"
-tls = false
-
-[runtime.tls]
-mode = "disabled"
-require_remote = false
-
-[runtime.discovery]
-enabled = false
-service_name = "truST"
-advertise = false
-interfaces = []
-
-[runtime.mesh]
-enabled = false
-listen = "0.0.0.0:5200"
-tls = false
-publish = []
-
-[runtime.observability]
-enabled = false
-sample_interval_ms = 1000
-mode = "all"
-include = []
-history_path = "history/historian.jsonl"
-max_entries = 20000
-prometheus_enabled = true
-prometheus_path = "/metrics"
-
-[runtime.log]
-level = "info"
-
-[runtime.retain]
-mode = "file"
-path = "retain.bin"
-save_interval_ms = 1000
-
-[runtime.watchdog]
-enabled = false
-timeout_ms = 1000
-action = "halt"
-
-[runtime.fault]
-policy = "halt"
-"#;
-
-    /// `io.toml` as the extension wrote it at HEAD.
-    const EXTENSION_IO_TOML: &str = r#"# Simulated I/O so the project runs with no hardware or brokers, on any machine. Devices & Connections
-# ("Set up runtime…" → add a device) writes real drivers here when you wire one up.
-[io]
-driver = "simulated"
-params = {}
-"#;
-
-    /// `.vscode/launch.json` as the extension wrote it at HEAD.
-    const EXTENSION_LAUNCH_JSON: &str = r#"{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "structured-text",
-      "request": "launch",
-      "name": "truST Simulator",
-      "program": "${workspaceFolder}/src/config.st",
-      "stopOnEntry": false
-    }
-  ]
-}
-"#;
-
-    /// `.vscode/settings.json` as the extension wrote it at HEAD.
-    const EXTENSION_VSCODE_SETTINGS: &str = r#"{
-  "debug.showInStatusBar": "never"
-}
-"#;
-
-    /// `.gitignore`, which the extension did not write.
-    const EXPECTED_GITIGNORE: &str =
-        "# The runtime's endpoint file: it can hold a control token.\n/.trust-runtime/\n";
-
-    /// A unique folder under the system temporary folder, removed when the test ends.
-    struct Scratch(PathBuf);
-
-    impl Scratch {
-        fn new(label: &str) -> Self {
-            let path = trust_test_support::unique_temp_path(&format!("trust-new-project-{label}"));
-            fs::create_dir_all(&path).expect("create scratch folder");
-            Self(path)
-        }
-
-        fn path(&self) -> &Path {
-            &self.0
-        }
-    }
-
-    impl Drop for Scratch {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
-
-    #[test]
-    fn each_scaffold_file_has_the_text_the_extension_wrote() {
-        let scratch = Scratch::new("texts");
-        let project = create_project(scratch.path(), "my-plc", false).expect("create project");
-        let expected = [
-            ("src/Main.st", EXTENSION_MAIN_ST),
-            ("src/config.st", EXTENSION_CONFIG_ST),
-            ("trust-lsp.toml", EXTENSION_PROJECT_TOML),
-            ("runtime.toml", EXTENSION_RUNTIME_TOML),
-            ("io.toml", EXTENSION_IO_TOML),
-            (".vscode/launch.json", EXTENSION_LAUNCH_JSON),
-            (".vscode/settings.json", EXTENSION_VSCODE_SETTINGS),
-            (".gitignore", EXPECTED_GITIGNORE),
-        ];
-        for (relative, text) in expected {
-            assert_eq!(
-                fs::read_to_string(project.join(relative)).expect("read scaffold file"),
-                text,
-                "{relative}"
-            );
-        }
-    }
-
-    #[test]
-    fn runtime_toml_names_no_control_endpoint() {
-        let scratch = Scratch::new("endpoint");
-        let project = create_project(scratch.path(), "my-plc", false).expect("create project");
-        let text = fs::read_to_string(project.join("runtime.toml")).expect("read runtime.toml");
-        assert!(text.contains("[runtime.control]"));
-        assert!(!text.contains("endpoint"));
-    }
-
-    #[test]
-    fn the_project_files_parse_with_the_runtime_config_parser() {
-        let scratch = Scratch::new("parse");
-        let project = create_project(scratch.path(), "my-plc", false).expect("create project");
-        let runtime =
-            RuntimeConfig::load(project.join("runtime.toml")).expect("runtime.toml parses");
-        assert!(runtime.control_endpoint.is_none());
-        IoConfig::load(project.join("io.toml")).expect("io.toml parses");
-    }
-
-    #[test]
-    fn the_project_st_compiles() {
-        let scratch = Scratch::new("compile");
-        let project = create_project(scratch.path(), "my-plc", false).expect("create project");
-        let report = crate::bundle_builder::check_program(&project, &[])
-            .expect("the new project's ST compiles");
-        // The build runs the resource that runtime.toml names, which the configuration declares,
-        // compared without regard to case (specification 11 §6.8.1d). Wrong behaviour caught: a
-        // new project whose build refuses its own runtime.toml.
-        assert!(
-            matches!(report.resources.as_slice(), [name] if name.eq_ignore_ascii_case("MainRes")),
-            "{:?}",
-            report.resources
-        );
-    }
-
-    #[test]
-    fn each_refused_name_has_the_name_code() {
-        let scratch = Scratch::new("names");
-        for name in ["", "   ", "a/b", "a\\b", ".", ".."] {
-            let error = create_project(scratch.path(), name, false).expect_err("name refused");
-            assert_eq!(error.code, NewProjectErrorCode::Name, "name {name:?}");
-        }
-    }
-
-    #[test]
-    fn a_name_that_windows_would_not_take_as_one_folder_is_refused_on_every_platform() {
-        let scratch = Scratch::new("windows-names");
-        for name in [
-            "C:x",
-            "a:b",
-            "CON",
-            "nul",
-            "Com1.txt",
-            "lpt9",
-            "AUX.log",
-            "name.",
-            "a*b",
-            "a?b",
-            "a<b",
-            "a>b",
-            "a|b",
-            "a\"b",
-            "tab\tname",
-        ] {
-            let error = create_project(scratch.path(), name, false).expect_err("name refused");
-            assert_eq!(error.code, NewProjectErrorCode::Name, "name {name:?}");
-        }
-        assert!(
-            fs::read_dir(scratch.path())
-                .expect("read scratch folder")
-                .next()
-                .is_none(),
-            "a refused name writes nothing"
-        );
-    }
-
-    #[test]
-    fn names_that_only_resemble_reserved_device_names_are_accepted() {
-        let scratch = Scratch::new("near-reserved");
-        for name in ["CONSOLE", "com10", "nul-device", "my.plc"] {
-            let project = create_project(scratch.path(), name, false).expect("name accepted");
-            assert_eq!(project, scratch.path().join(name));
-        }
-    }
-
-    #[test]
-    fn force_keeps_an_existing_gitignore_and_adds_the_endpoint_folder() {
-        let scratch = Scratch::new("force-gitignore");
-        let folder = scratch.path().join("my-plc");
-        fs::create_dir_all(&folder).expect("create folder");
-        fs::write(folder.join(".gitignore"), "target/\n*.log\n").expect("write .gitignore");
-
-        create_project(scratch.path(), "my-plc", true).expect("force create");
-
-        let text = fs::read_to_string(folder.join(".gitignore")).expect("read .gitignore");
-        assert!(text.starts_with("target/\n*.log\n"), "{text}");
-        assert!(
-            text.lines()
-                .any(|line| line == crate::control::endpoint::ENDPOINT_DIR_GITIGNORE_LINE),
-            "{text}"
-        );
-
-        create_project(scratch.path(), "my-plc", true).expect("force create again");
-
-        assert_eq!(
-            fs::read_to_string(folder.join(".gitignore")).expect("read .gitignore"),
-            text,
-            "a .gitignore that lists the folder is left as it is"
-        );
-    }
-
-    #[test]
-    fn the_name_is_trimmed_before_it_names_the_folder() {
-        let scratch = Scratch::new("trim");
-        let project = create_project(scratch.path(), "  my-plc \n", false).expect("create project");
-        assert!(project.is_absolute());
-        assert_eq!(project, scratch.path().join("my-plc"));
-    }
-
-    #[test]
-    fn a_non_empty_folder_is_refused_without_force_and_left_as_it_was() {
-        let scratch = Scratch::new("exists");
-        let folder = scratch.path().join("my-plc");
-        fs::create_dir_all(&folder).expect("create folder");
-        fs::write(folder.join("notes.txt"), "keep\n").expect("write note");
-
-        let error = create_project(scratch.path(), "my-plc", false).expect_err("refused");
-
-        assert_eq!(error.code, NewProjectErrorCode::Exists);
-        assert!(!folder.join("runtime.toml").exists());
-        assert_eq!(
-            fs::read_to_string(folder.join("notes.txt")).expect("read note"),
-            "keep\n"
-        );
-    }
-
-    #[test]
-    fn an_empty_existing_folder_takes_the_project() {
-        let scratch = Scratch::new("empty");
-        fs::create_dir_all(scratch.path().join("my-plc")).expect("create folder");
-        let project = create_project(scratch.path(), "my-plc", false).expect("create project");
-        assert!(project.join("runtime.toml").is_file());
-    }
-
-    #[test]
-    fn force_overwrites_the_scaffold_and_keeps_every_other_file() {
-        let scratch = Scratch::new("force");
-        let project = create_project(scratch.path(), "my-plc", false).expect("create project");
-        fs::write(project.join("src/Main.st"), "PROGRAM Edited\nEND_PROGRAM\n").expect("edit");
-        fs::write(project.join("notes.txt"), "keep\n").expect("write note");
-
-        create_project(scratch.path(), "my-plc", true).expect("force create");
-
-        assert_eq!(
-            fs::read_to_string(project.join("src/Main.st")).expect("read Main.st"),
-            EXTENSION_MAIN_ST
-        );
-        assert_eq!(
-            fs::read_to_string(project.join("notes.txt")).expect("read note"),
-            "keep\n"
-        );
-    }
-
-    #[test]
-    fn a_file_where_the_project_folder_goes_is_not_a_folder() {
-        let scratch = Scratch::new("file-target");
-        fs::write(scratch.path().join("my-plc"), "x").expect("write file");
-        let error = create_project(scratch.path(), "my-plc", true).expect_err("refused");
-        assert_eq!(error.code, NewProjectErrorCode::NotDirectory);
-    }
-
-    #[test]
-    fn a_scaffold_folder_that_is_a_file_is_an_io_error() {
-        let scratch = Scratch::new("io");
-        let folder = scratch.path().join("my-plc");
-        fs::create_dir_all(&folder).expect("create folder");
-        fs::write(folder.join("src"), "not a folder\n").expect("write file");
-        let error = create_project(scratch.path(), "my-plc", true).expect_err("refused");
-        assert_eq!(error.code, NewProjectErrorCode::Io);
-    }
-
-    #[test]
-    fn a_file_as_the_parent_is_not_a_folder() {
-        let scratch = Scratch::new("file-parent");
-        let parent = scratch.path().join("parent.txt");
-        fs::write(&parent, "x").expect("write file");
-        let error = create_project(&parent, "my-plc", false).expect_err("refused");
-        assert_eq!(error.code, NewProjectErrorCode::NotDirectory);
-    }
-}
+#[path = "new_project_tests.rs"]
+mod tests;

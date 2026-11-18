@@ -20,10 +20,16 @@ Devices & Connections, HMI, Control Studio, Live Values and Libraries below them
 
 ## 2. Create the project
 
-Click **+ Create project**, choose the folder to create it in, and give it a name (for example
-`my-first-plc`). truST writes a complete, runnable project into a new folder of that name and opens it.
-You never edit a config file to get started — the generated `runtime.toml` and `io.toml` are valid out
-of the box with simulated I/O.
+Click **+ Create project**. truST first asks what the project starts as:
+
+- **Structured Text**: a program in `src/Main.st` and the configuration that runs it.
+- **Structured Text with Rust**: that project with a Rust crate in `rust/`, whose function block
+  `FILTER_EMA` `src/Main.st` calls.
+- **Rust-first**: the crate is the project, with its Rust programs, and `trust.toml` holds their tasks.
+
+Then choose the folder to create it in, and give it a name (for example `my-first-plc`). truST writes a
+complete, runnable project into a new folder of that name and opens it. You never edit a config file to
+get started — the generated `runtime.toml` and `io.toml` are valid out of the box with simulated I/O.
 
 What gets created:
 
@@ -32,7 +38,7 @@ my-first-plc/
   trust-lsp.toml      # project settings (include_paths = ["src"])
   runtime.toml        # runtime configuration (control endpoint, simulator defaults)
   io.toml             # I/O wiring, set to simulated so it runs with no hardware
-  .gitignore          # keeps the runtime's endpoint folder out of version control
+  .gitignore          # keeps the runtime's endpoint folder and the build folder out of version control
   .vscode/
     launch.json       # the truST Simulator launch configuration
     settings.json
@@ -43,6 +49,28 @@ my-first-plc/
 
 The `config.st` configuration is what makes the project actually run, and it opens warning-clean from the
 first second.
+
+A Rust start writes its crate as well, with the Structured Text that declares its Rust POUs, so the
+project builds as it is created, with no Rust of your own. truST opens it on the crate's source:
+
+```text
+my-rust-project/                (Structured Text with Rust)
+  ...                           # the files above
+  rust-toolchain.toml           # the Rust that truST builds with, for your own rustup
+  rust/
+    Cargo.toml                  # the crate, with trust-plc at this release's version
+    src/lib.rs                  # the function block FILTER_EMA
+  src/generated/rust_pous.st    # its declaration, which src/Main.st calls
+
+my-rust-cell/                   (Rust-first)
+  Cargo.toml                    # the crate
+  src/lib.rs                    # the program MAIN
+  trust.toml                    # the resource, a 10 ms task and MAIN on it
+  src/generated/trust/          # the declarations and the configuration from trust.toml
+  runtime.toml, io.toml, trust-lsp.toml, rust-toolchain.toml, .vscode/
+```
+
+When you save a `.rs` file or `trust.toml`, truST writes the generated files again.
 
 ## 3. Recognize the workspace
 
