@@ -11,7 +11,10 @@
 //! [`Image::parse`] checks the header and the section table, [`Image::check_tables`] every record
 //! (specification 44 §10.2, steps 2, 3 and 5); neither copies or allocates.
 
+mod crates;
 mod records;
+mod rust_pous;
+mod services;
 mod writer;
 
 use core::fmt;
@@ -23,6 +26,7 @@ use trust_plc_abi as abi;
 use crate::error::RuntimeError;
 use crate::stdlib::conversions::ConversionProfile;
 
+pub use crates::{CrateRecord, CrateSource};
 pub use records::{
     type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, IoBindRecord, MemberDetail,
     MemoryFigure, Record, RetainRecord, StmtRecord, SymbolRecord, TaskRecord, TypeRecord,
@@ -33,13 +37,16 @@ pub use records::{
     SYMBOL_PROGRAM, SYMBOL_RETAINED,
 };
 use records::{u16_at, u32_at, u64_at};
+pub use rust_pous::RustPouRecord;
+pub use services::{ImageService, ServiceRecord};
 pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
 
 /// The image's magic.
 pub const MAGIC: [u8; 8] = *b"TRSTI001";
-/// The format version this reader reads: 3 since a function block's or class's type record names its
-/// base and its interfaces (specification 44 §5.8).
-pub const FORMAT_VERSION: u16 = 4;
+/// The format version this reader reads: 5 since an image lists the Rust crates its module holds
+/// (specification 44 §5.12), a debug image its Rust POUs (§5.13) and an image the variables its
+/// services may write (§5.14).
+pub const FORMAT_VERSION: u16 = 5;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
 
@@ -101,11 +108,22 @@ pub enum SectionId {
     MemFig = 15,
     /// The signature, optional, always last.
     Sign = 16,
+    /// The Rust crates the module holds, optional, before the signature (specification 44 §5.12).
+    Crates = 17,
+    /// The Rust POUs of a debug image with their budgets, optional, before the signature
+    /// (specification 44 §5.13).
+    RustPous = 18,
+    /// The services that may write variables, with the paths of those variables, optional, before
+    /// the signature (specification 44 §5.14).
+    Services = 19,
 }
+
+/// The number of sections an image can have.
+const SECTION_KINDS: usize = SectionId::ALL.len();
 
 impl SectionId {
     /// Every section, in the order of their ids.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 19] = [
         Self::Code,
         Self::Rodata,
         Self::Entry,
@@ -122,6 +140,9 @@ impl SectionId {
         Self::Source,
         Self::MemFig,
         Self::Sign,
+        Self::Crates,
+        Self::RustPous,
+        Self::Services,
     ];
 
     /// The section numbered `raw`.
@@ -133,7 +154,10 @@ impl SectionId {
     /// Whether an image without the section is refused.
     #[must_use]
     pub fn required(self) -> bool {
-        !matches!(self, Self::Source | Self::Sign)
+        !matches!(
+            self,
+            Self::Source | Self::Sign | Self::Crates | Self::RustPous | Self::Services
+        )
     }
 
     /// The section's name as the specification writes it.
@@ -156,6 +180,9 @@ impl SectionId {
             Self::Source => "SOURCE",
             Self::MemFig => "MEMFIG",
             Self::Sign => "SIGN",
+            Self::Crates => "CRATES",
+            Self::RustPous => "RUSTPOUS",
+            Self::Services => "SERVICES",
         }
     }
 
@@ -517,7 +544,7 @@ impl<'a, R: Record + 'a> Table<'a, R> {
 pub struct Image<'a> {
     bytes: &'a [u8],
     header: Header,
-    sections: [Option<Section>; 16],
+    sections: [Option<Section>; SECTION_KINDS],
 }
 
 /// What reading an image's header and section table found, so that the image is read again over
@@ -525,7 +552,7 @@ pub struct Image<'a> {
 #[derive(Clone, Copy)]
 pub(crate) struct Shape {
     header: Header,
-    sections: [Option<Section>; 16],
+    sections: [Option<Section>; SECTION_KINDS],
 }
 
 impl<'a> Image<'a> {
@@ -590,7 +617,7 @@ impl<'a> Image<'a> {
                 computed,
             });
         }
-        let mut sections = [None; 16];
+        let mut sections = [None; SECTION_KINDS];
         for entry in bytes
             .get(table_start..table_end)
             .unwrap_or(&[])
@@ -628,7 +655,7 @@ impl<'a> Image<'a> {
             }
         }
         // No two sections share a byte: sorted by offset, each ends before the next begins.
-        let mut ordered: [Option<Section>; 16] = sections;
+        let mut ordered: [Option<Section>; SECTION_KINDS] = sections;
         ordered.sort_unstable_by_key(|section| {
             section.map_or(u64::MAX, |section| u64::from(section.offset))
         });
@@ -816,6 +843,9 @@ impl<'a> Image<'a> {
         self.check_bindings(symbols)?;
         self.check_files_and_statements()?;
         self.check_retain()?;
+        self.check_crates()?;
+        self.check_rust_pous()?;
+        self.check_services()?;
         if self.section_bytes(SectionId::MemFig).len() < MemoryFigure::BYTES {
             return Err(ImageError::Table(SectionId::MemFig));
         }

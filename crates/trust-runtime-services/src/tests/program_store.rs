@@ -283,6 +283,7 @@ pub(crate) fn record_bytes(retain_mode: RetainMode) -> Vec<u8> {
             retain_mode,
             ..Configuration::default()
         },
+        crates: Vec::new(),
     }
     .encode()
     .expect("the record encodes")

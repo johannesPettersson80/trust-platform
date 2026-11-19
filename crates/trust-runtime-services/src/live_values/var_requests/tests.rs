@@ -106,6 +106,13 @@ impl VariableQueuePort for FakeQueues {
         self.queues.borrow_mut().try_upsert_var_write(target, value)
     }
 
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        self.queues.borrow_mut().try_upsert_var_writes(writes)
+    }
+
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
         self.queues
             .borrow_mut()

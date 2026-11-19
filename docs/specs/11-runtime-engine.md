@@ -3798,6 +3798,20 @@ event within a few scans, and a scan's and a task's timing is in `tasks.stats`
 and the `status` metrics, as an industrial controller keeps its cycle times in
 statistics and its diagnostic buffer for the events that matter (the owner, 22
 October 2026: "I trust you, do what's most professional for a plc runtime").
+
+**Rust POU budgets** (specification 48 RU-49). In a debug image, a call of a
+Rust POU that takes longer than the POU's budget is the event
+`rust_budget_exceeded` with the POU's `name`, the call's time `call_ns`, the
+`budget_ns` and, as every event, the scan's logical time `time_ns`. It is
+recorded for the POU's first call over its budget and after it only for a call
+longer than every call of the POU before it, at most once per POU and scan, so
+that a POU over its budget in every scan does not displace the store's other
+events. `tasks.stats` lists the Rust POUs of a debug
+image in `rust_pous`, in the order of the image's Rust POU table (specification
+44 §5.13), each with its `name`, its `budget_ns`, its `longest_ns` call and its
+`over_budget` calls since the program started; a release image measures no
+call, so its list is empty and it records no such event. A computer and a chip
+record and report them alike.
 Overruns, faults, refused writes, online-change and retained-value events and
 the control events stay in the store. A debug control delivers the four, with
 every other event, to the callers that drain it or listen to it. A debug control with no event sender
@@ -4523,6 +4537,51 @@ scan`.
 the debug surface disabled, so a service reads a `production` deployment. A service subscribes by
 reading at the period it chooses (specification 48 RU-62); the runtime pushes nothing.
 `trust-runtime ctl read <path>...` sends it and prints each value with its path and type.
+
+###### Service heartbeats
+
+`service.heartbeat` is a service's heartbeat (specification 48 RU-63), on a computer and on a chip
+alike. It takes no parameters, and only a service token (section 6.9.6) sends it: the token's
+service names the global `<name>_heartbeat` that the build declares for the service. The runtime
+adds one to the value the last completed scan left in that global, wrapping from 4,294,967,295 to
+0, and the next cycle's start writes the sum, as the program's input and never as a force, so that
+`SERVICE_FRESH` (specification 08 §5A) sees the heartbeat change; heartbeats that arrive before that
+cycle's start write the same sum. The reply is `{service, value}`: the service's name as its token
+names it and the value the next cycle writes. A request from any other credential is refused with
+`service.heartbeat needs a service token`, a service whose program declares no `UDINT` heartbeat
+for it with `the program declares no heartbeat for service <name>`, and a request while the
+resource does not run with `the program does not run: <state>`, `<state>` as `status` names it;
+before the first completed scan and while a debugger holds a scan it is refused as
+`variables.read` is. `service.heartbeat` needs the Viewer role (section 6.9.5), the role of a
+service that only reads (specification 48 RU-81), and is no debug operation.
+
+###### Writing variables (services)
+
+`variables.write` writes a set of the program's variables by their paths, the write of a service
+(specification 48 RU-62), on a computer and on a chip alike. Its parameters are exactly `writes`,
+an array of 1 to 256 objects, each exactly `path` and `value`: a path as `variables.read` names a
+variable, and a value in the JSON form in which `variables.read` gives a value of the variable's
+declared type, a `REAL`'s or an `LREAL`'s number written with any digits. Only a service token
+(section 6.9.6) sends it, and each path must name a variable that the token's service may write:
+one its `writes` in `trust.toml` names (specification 48 RU-63), which the signed image carries
+(specification 44 §5.14), compared as the variables the paths name, so that `Main.Speed` and
+`main.speed` are one. The runtime checks the whole set before it writes any of it, and a path or a
+value it refuses refuses the request: nothing is written. The next cycle's start writes the set
+together, as the program's input and never as a force, so the program's scan may change the
+values as it changes any input; a value still waiting for that cycle start for the same variable
+is replaced. The reply is `{service, count}`: the service's name and the number of values the next
+cycle writes.
+
+The refusals are `variables.write needs a service token` for any other credential, `the program
+does not run: <state>` while the resource does not run, `service <name> may write no variable`
+for a service without `writes`, `service <name> may not write <path>` for a path its `writes` does
+not name, the path that names nothing among them, `invalid value for <path>: <reason>` for a value
+its variable's type does not take (of another type, outside the type's range, a text longer than
+the type holds, a name that is no value of the enumeration, a date that is no whole day), and
+`request queue full` when the next cycle cannot take the set. `variables.write` needs the Engineer
+role (section 6.9.5), as writing values is the Engineer's, and is no debug operation, so a service
+writes to a `production` deployment. `trust-runtime ctl write <path>=<value>...` sends it, each
+value as JSON, with the service's token from `--token`, and prints the reply.
 
 ##### 6.8.1a Offline communication authoring client
 
@@ -6074,8 +6133,12 @@ dependency sources, the `dependency_roots` and the `resolved_dependencies`
 names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
 `signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
 `bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
-(`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
-number of reported source paths. `--ci` and `--json` print the same object with
+(`code`, `rodata`, `init`) of specification 44 §10.4, and the `crates` of the
+image's crate table (specification 44 §5.12; specification 48 RU-79) in its
+order, each with its `name`, `version`, `source` (`registry`, `path` or `git`)
+and `checksum` (the registry archive's SHA-256 or the git commit in lowercase
+hexadecimal, null for a path crate), an empty list for a project without a
+Rust crate; `source_count` equals the number of reported source paths. `--ci` and `--json` print the same object with
 the `warnings` count and the `issues` of the compiler's warnings of the project's
 Rust crate (specification 48 RU-44), one per warning, as below; none for a
 project without a crate.
@@ -6923,9 +6986,9 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
+| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `service.heartbeat` (section 6.8.1, "Service heartbeats"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
-| Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:

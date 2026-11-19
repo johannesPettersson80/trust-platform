@@ -120,6 +120,7 @@ pub struct ExampleRuntime {
     example: &'static str,
     libraries: Vec<&'static str>,
     source_edits: Vec<(&'static str, &'static str, &'static str)>,
+    added_files: Vec<(&'static str, &'static str)>,
     mode: Option<&'static str>,
     debug_enabled: Option<bool>,
     start_paused: Option<bool>,
@@ -136,6 +137,7 @@ impl ExampleRuntime {
             example,
             libraries: Vec::new(),
             source_edits: Vec::new(),
+            added_files: Vec::new(),
             mode: None,
             debug_enabled: None,
             start_paused: None,
@@ -168,6 +170,13 @@ impl ExampleRuntime {
     /// Replaces `from` with `to` in one file of the copy, before the project is built.
     pub fn edit_source(mut self, file: &'static str, from: &'static str, to: &'static str) -> Self {
         self.source_edits.push((file, from, to));
+        self
+    }
+
+    /// Adds the file `file`, a path relative to the copy, with `text`, after the source edits and
+    /// before the build: a `trust.toml` and its generated files, for example.
+    pub fn add_file(mut self, file: &'static str, text: &'static str) -> Self {
+        self.added_files.push((file, text));
         self
     }
 
@@ -232,6 +241,11 @@ impl ExampleRuntime {
         }
         for &(file, from, to) in &self.source_edits {
             replace_in_file(&project.join(file), from, to);
+        }
+        for &(file, text) in &self.added_files {
+            let path = project.join(file);
+            std::fs::create_dir_all(path.parent().expect("a folder")).expect("the file's folder");
+            std::fs::write(&path, text).expect("the added file");
         }
         runtime.token = format!(
             "{TOKEN_PREFIX}-{}-{}",
@@ -581,6 +595,13 @@ impl Runtime {
             .unwrap_or_else(|error| panic!("{error}\n{}", self.diagnostics()))
     }
 
+    /// `control_request` with `auth` as the request's token in place of the copy's, as a client
+    /// with another credential sends it, a service with its service token among them.
+    pub fn control_request_as(&self, auth: &str, request: Value) -> Value {
+        self.exchange_as(auth, request)
+            .unwrap_or_else(|error| panic!("{error}\n{}", self.diagnostics()))
+    }
+
     /// `control_request` that answers `None` where it would panic.
     fn try_control_request(&self, request: Value) -> Option<Value> {
         self.exchange(request).ok()
@@ -602,9 +623,13 @@ impl Runtime {
         }
     }
 
-    fn exchange(&self, mut request: Value) -> Result<Value, String> {
+    fn exchange(&self, request: Value) -> Result<Value, String> {
+        self.exchange_as(&self.token, request)
+    }
+
+    fn exchange_as(&self, auth: &str, mut request: Value) -> Result<Value, String> {
         use std::io::{BufRead, BufReader, Write};
-        request["auth"] = Value::String(self.token.clone());
+        request["auth"] = Value::String(auth.to_string());
         let mut stream = std::net::TcpStream::connect(self.control_address()?)
             .map_err(|err| format!("connect to the control endpoint: {err}"))?;
         stream

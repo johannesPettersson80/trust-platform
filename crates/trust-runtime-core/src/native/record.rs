@@ -8,12 +8,13 @@ use smol_str::SmolStr;
 use trust_plc_abi as abi;
 
 use super::image::{
-    Image, IoBindRecord, RetainRecord, TaskRecord, TypeRecord, BACKGROUND_PRIORITY, NONE,
+    CrateRecord, CrateSource, Image, IoBindRecord, RetainRecord, SectionId, TaskRecord, TypeRecord,
+    BACKGROUND_PRIORITY, NONE,
 };
 use crate::deployment::{
     sha256, ApplicationIdentity, Capabilities, Configuration, Contracts, DeploymentRecord,
-    NumericContract, ProcessImageSummary, ProgramVersion, RequestedLimits, SchedulingProfile,
-    TaskSummary, TimingEvidence,
+    NumericContract, ProcessImageSummary, ProgramVersion, RequestedLimits, RustCrate,
+    SchedulingProfile, TaskSummary, TimingEvidence,
 };
 use crate::error::RuntimeError;
 
@@ -30,7 +31,9 @@ impl DeploymentRecord {
     /// contract 1, no timing evidence and, for a program that reads the wall clock (the header's
     /// `FLAG_WALL_CLOCK`), the platform wall clock; it requests no preparation limit, since an
     /// image is not prepared; it calls no built-in import, since the program library is linked into
-    /// the module; and its configuration section is empty for the caller to fill.
+    /// the module; its crates are those of the image's crate table, in its order, none for an image
+    /// without one (specification 44 §5.12); and its configuration section is empty for the caller
+    /// to fill.
     ///
     /// # Errors
     ///
@@ -94,8 +97,34 @@ impl DeploymentRecord {
             tasks,
             imports: Vec::new(),
             configuration: Configuration::default(),
+            crates: crates(&parsed).map_err(invalid)?,
         })
     }
+}
+
+/// The crates of `image`'s crate table, which [`Image::check_tables`] checked; none without one.
+fn crates(image: &Image<'_>) -> Result<Vec<RustCrate>, super::image::ImageError> {
+    if image.section(SectionId::Crates).is_none() {
+        return Ok(Vec::new());
+    }
+    (0u32..)
+        .zip(image.table::<CrateRecord>()?.iter())
+        .map(|(index, entry)| {
+            let text = |offset| SmolStr::new(image.string(offset).unwrap_or(""));
+            Ok(RustCrate {
+                name: text(entry.name),
+                version: text(entry.version),
+                source: CrateSource::from_raw(entry.source).ok_or(
+                    super::image::ImageError::Record {
+                        section: SectionId::Crates,
+                        index,
+                        reason: "unknown source",
+                    },
+                )?,
+                checksum: entry.checksum,
+            })
+        })
+        .collect()
 }
 
 /// The retain-schema identity of `image`: SHA-256 over each retained variable in the retain map's

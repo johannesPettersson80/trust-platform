@@ -4,12 +4,15 @@
 //! Since no procedural macro of the graph writes code, every crate's code comes from its source
 //! text, so the build finds `unsafe` in the sources: a crate whose sources name it is refused,
 //! naming the place. The graph is cargo's own, from its metadata of the build's package for the
-//! module's target.
+//! module's target. The crates of the graph are also listed, with their sources and the checksums
+//! `Cargo.lock` pins, in the program image's crate table (specification 44 §5.12, RU-79).
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
+use smol_str::SmolStr;
+use trust_runtime_core::deployment::{CrateSource, RustCrate};
 
 /// The SDK's crates that a crate outside the SDK may depend on, those RU-12 publishes for projects;
 /// the others the SDK is built from serve the generated code (specification 48 RU-20).
@@ -24,6 +27,9 @@ const PUBLISHED: [&str; 4] = [
 struct Package {
     name: String,
     version: String,
+    /// Where the package comes from as cargo names it: `registry+<index>` or `sparse+<index>`, a
+    /// git repository's `git+<url>#<commit>`, and none for a folder.
+    source: Option<String>,
     manifest: PathBuf,
     /// The kinds of its targets: `lib`, `custom-build`, `proc-macro` and the others.
     kinds: Vec<String>,
@@ -172,15 +178,19 @@ fn graph(metadata: &Value) -> (HashMap<&str, Package>, Dependencies<'_>) {
     (packages, dependencies)
 }
 
+/// A crate of the scan crate graph as cargo's metadata names it: its name, version and source.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct Listed {
+    pub(super) name: String,
+    pub(super) version: String,
+    pub(super) source: Option<String>,
+}
+
 /// The crates of the graph of the build's `metadata` that an advisory of the RustSec database can
-/// name (specification 48 RU-79), each with its name and version, once, in order: every package the
-/// build's package is built with but itself, layer 1 (the packages in `bindings`) and the project's
-/// crate, the package in the folder `project`.
-pub(super) fn audited(
-    metadata: &Value,
-    project: &Path,
-    bindings: Option<&Path>,
-) -> Vec<(String, String)> {
+/// name and that the program image lists (specification 48 RU-79), each with its name, version and
+/// source, once, in order: every package the build's package is built with but itself, layer 1
+/// (the packages in `bindings`) and the project's crate, the package in the folder `project`.
+pub(super) fn audited(metadata: &Value, project: &Path, bindings: Option<&Path>) -> Vec<Listed> {
     let (packages, dependencies) = graph(metadata);
     let canonical =
         |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
@@ -189,7 +199,7 @@ pub(super) fn audited(
     let Some(generated) = metadata["resolve"]["root"].as_str() else {
         return Vec::new();
     };
-    let mut crates: Vec<(String, String)> = closure(&[generated], &dependencies)
+    let mut crates: Vec<Listed> = closure(&[generated], &dependencies)
         .into_iter()
         .filter(|id| *id != generated)
         .filter_map(|id| packages.get(id))
@@ -201,11 +211,96 @@ pub(super) fn audited(
             };
             folder.as_deref() != Some(project.as_path()) && !in_layer_one
         })
-        .map(|package| (package.name.clone(), package.version.clone()))
+        .map(|package| Listed {
+            name: package.name.clone(),
+            version: package.version.clone(),
+            source: package.source.clone(),
+        })
         .collect();
     crates.sort();
     crates.dedup();
     crates
+}
+
+/// The program image's crate table of the crates `listed` (specification 44 §5.12), with the
+/// checksums the build's `Cargo.lock`, whose text is `lock`, pins: a registry crate's SHA-256 of
+/// its archive, a git crate's commit from its source, none for a path crate. Ordered by name,
+/// version and source, each once.
+///
+/// # Errors
+///
+/// A message naming the crate when `Cargo.lock` pins no checksum for a registry crate (RU-10), a
+/// git source names no commit, or a source is of a kind the table has no number for.
+pub(super) fn image_crates(listed: &[Listed], lock: &str) -> Result<Vec<RustCrate>, String> {
+    let lock: toml::Table =
+        toml::from_str(lock).map_err(|error| format!("Cargo.lock does not read: {error}"))?;
+    let pinned: HashMap<(&str, &str, &str), &str> = lock
+        .get("package")
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|package| {
+            let field = |name: &str| package.get(name).and_then(toml::Value::as_str);
+            Some((
+                (field("name")?, field("version")?, field("source")?),
+                field("checksum")?,
+            ))
+        })
+        .collect();
+    let mut crates = listed
+        .iter()
+        .map(|entry| {
+            let named = || format!("{} {}", entry.name, entry.version);
+            let mut checksum = [0u8; 32];
+            let source = match entry.source.as_deref() {
+                None => CrateSource::Path,
+                Some(source)
+                    if source.starts_with("registry+") || source.starts_with("sparse+") =>
+                {
+                    let pin = pinned
+                        .get(&(entry.name.as_str(), entry.version.as_str(), source))
+                        .ok_or_else(|| {
+                            format!(
+                                "Cargo.lock pins no checksum for {} (specification 48 RU-10)",
+                                named()
+                            )
+                        })?;
+                    hex::decode_to_slice(pin, &mut checksum).map_err(|_| {
+                        format!("Cargo.lock's checksum of {} is no SHA-256: {pin}", named())
+                    })?;
+                    CrateSource::Registry
+                }
+                Some(source) if source.starts_with("git+") => {
+                    let commit = source.rsplit_once('#').map_or("", |(_, commit)| commit);
+                    hex::decode_to_slice(commit, &mut checksum[..20]).map_err(|_| {
+                        format!("the git source of {} names no commit: {source}", named())
+                    })?;
+                    CrateSource::Git
+                }
+                Some(source) => {
+                    return Err(format!(
+                        "{} comes from an unknown source: {source}",
+                        named()
+                    ));
+                }
+            };
+            Ok(RustCrate {
+                name: SmolStr::new(&entry.name),
+                version: SmolStr::new(&entry.version),
+                source,
+                checksum,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    crates.sort_by(|a, b| {
+        (a.name.as_bytes(), a.version.as_bytes(), a.source).cmp(&(
+            b.name.as_bytes(),
+            b.version.as_bytes(),
+            b.source,
+        ))
+    });
+    crates.dedup();
+    Ok(crates)
 }
 
 fn read_package(package: &Value) -> Option<Package> {
@@ -227,6 +322,7 @@ fn read_package(package: &Value) -> Option<Package> {
     Some(Package {
         name: package["name"].as_str()?.to_string(),
         version: package["version"].as_str()?.to_string(),
+        source: package["source"].as_str().map(str::to_string),
         manifest: PathBuf::from(package["manifest_path"].as_str()?),
         kinds,
         sources,

@@ -15,6 +15,24 @@ struct Sample {
     without: Option<SectionId>,
     release: bool,
     codesys: bool,
+    /// With the crate table of [`SAMPLE_CRATES`] and an unsigned `SIGN`.
+    crates: bool,
+    /// With the Rust POU table of [`SAMPLE_RUST_POUS`] and an unsigned `SIGN`.
+    rust_pous: bool,
+    /// With a service table of these services and the paths each may write, and an unsigned
+    /// `SIGN`; none when empty.
+    services: &'static [(&'static str, &'static [&'static str])],
+}
+
+/// The sample with a service table of `services`, each with the paths it may write, for the service
+/// table's tests (specification 44 §5.14).
+pub(super) fn sample_with_services(
+    services: &'static [(&'static str, &'static [&'static str])],
+) -> Vec<u8> {
+    sample(&Sample {
+        services,
+        ..Sample::default()
+    })
 }
 
 impl Default for Sample {
@@ -26,8 +44,39 @@ impl Default for Sample {
             without: None,
             release: false,
             codesys: false,
+            crates: false,
+            rust_pous: false,
+            services: &[],
         }
     }
+}
+
+/// The crates of a sample with a crate table, in their order: a path crate, a registry crate with
+/// its archive's SHA-256, and a git crate with its commit (specification 44 §5.12).
+const SAMPLE_CRATES: [(&str, &str, CrateSource, [u8; 32]); 3] = [
+    ("helper", "0.3.1", CrateSource::Path, [0; 32]),
+    ("libm", "0.2.16", CrateSource::Registry, [0xAB; 32]),
+    ("trust-ext", "1.0.0", CrateSource::Git, git_commit(0xCD)),
+];
+
+/// The Rust POUs of a sample with a Rust POU table, in the order of their names in capitals, with
+/// their budgets in nanoseconds (specification 44 §5.13): `FILTER` before its method
+/// `FILTER.RESET`, whose name it begins.
+const SAMPLE_RUST_POUS: [(&str, u64); 3] = [
+    ("Clamp", 40_000),
+    ("Filter", 1_500_000),
+    ("Filter.Reset", 2_000),
+];
+
+/// A git crate's checksum: 20 bytes of commit, then 12 zero bytes.
+const fn git_commit(byte: u8) -> [u8; 32] {
+    let mut checksum = [0; 32];
+    let mut index = 0;
+    while index < 20 {
+        checksum[index] = byte;
+        index += 1;
+    }
+    checksum
 }
 
 /// A small image of one program `Vat` with a variable `State` in the instance area and a retained
@@ -191,12 +240,61 @@ fn sample(spec: &Sample) -> Vec<u8> {
         .bytes()
         .to_vec(),
     );
+    if spec.crates {
+        let records: Vec<CrateRecord> = SAMPLE_CRATES
+            .iter()
+            .map(|(name, version, source, checksum)| CrateRecord {
+                name: strings.add(name),
+                version: strings.add(version),
+                source: *source as u32,
+                checksum: *checksum,
+            })
+            .collect();
+        writer.table(&records, &[]);
+        // Unsigned: algorithm 0, then a zero key and signature (§5.11).
+        writer.section(SectionId::Sign, vec![0; 100]);
+    }
+    if spec.rust_pous {
+        let records: Vec<RustPouRecord> = SAMPLE_RUST_POUS
+            .iter()
+            .map(|(name, budget_ns)| RustPouRecord {
+                name: strings.add(name),
+                reserved: 0,
+                budget_ns: *budget_ns,
+            })
+            .collect();
+        writer.table(&records, &[]);
+        writer.section(SectionId::Sign, vec![0; 100]);
+    }
+    if !spec.services.is_empty() {
+        service_table(&mut writer, &mut strings, spec.services);
+    }
     writer.section(SectionId::Strings, strings.into_bytes());
     let mut image = writer.finish().unwrap();
     if let Some(missing) = spec.without {
         remove_section(&mut image, missing);
     }
     image
+}
+
+/// The service table of `services`, each with the paths it may write, and an unsigned `SIGN`
+/// (specification 44 §5.14).
+fn service_table(writer: &mut ImageWriter, strings: &mut StringPool, services: &[(&str, &[&str])]) {
+    let mut records = Vec::new();
+    let mut paths = Vec::new();
+    for (name, writes) in services {
+        records.push(ServiceRecord {
+            name: strings.add(name),
+            path_first: (paths.len() / 4) as u32,
+            path_count: writes.len() as u32,
+            reserved: 0,
+        });
+        for path in *writes {
+            paths.extend_from_slice(&strings.add(path).to_le_bytes());
+        }
+    }
+    writer.table(&records, &paths);
+    writer.section(SectionId::Sign, vec![0; 100]);
 }
 
 /// The sample's symbols, by their canonical and display names' string offsets: the program `Vat`, its
@@ -592,4 +690,229 @@ fn a_globals_owner_is_its_byte_15() {
         assert_eq!(bytes[12..16], [5, SYMBOL_RETAINED, 1, owner]);
         assert_eq!(SymbolRecord::read(&bytes), symbol);
     }
+}
+
+/// The crate table (specification 44 §5.12): the writer puts it before `SIGN`, the reader gives each
+/// crate's name, version, source and checksum back in their order, and the image's deployment record
+/// carries them (§10.1); an image without the table has no crate. Format version 5 names it. Catches
+/// a table after the signature, which would leave the list unsigned, a crate read from the wrong
+/// bytes, and a record that loses the list.
+#[test]
+fn the_crate_table_reads_back_before_sign_and_into_the_record() {
+    let bytes = sample(&Sample {
+        crates: true,
+        ..Sample::default()
+    });
+    let image = Image::parse(&bytes).unwrap();
+    image.check_tables().unwrap();
+    assert_eq!(image.header().format_version, 5);
+    let crates = image.section(SectionId::Crates).expect("the crate table");
+    let sign = image.section(SectionId::Sign).expect("the signature");
+    assert!(crates.offset < sign.offset, "CRATES lies before SIGN");
+    assert_eq!(sign.end(), bytes.len() as u64, "SIGN is last");
+    let table = image.table::<CrateRecord>().unwrap();
+    let read: Vec<_> = table
+        .iter()
+        .map(|entry| {
+            (
+                image.string(entry.name).unwrap(),
+                image.string(entry.version).unwrap(),
+                CrateSource::from_raw(entry.source).unwrap(),
+                entry.checksum,
+            )
+        })
+        .collect();
+    assert_eq!(read, SAMPLE_CRATES);
+
+    let record = crate::deployment::DeploymentRecord::for_image(&bytes, [0; 32]).unwrap();
+    let listed: Vec<_> = record
+        .crates
+        .iter()
+        .map(|entry| {
+            (
+                entry.name.as_str(),
+                entry.version.as_str(),
+                entry.source,
+                entry.checksum,
+            )
+        })
+        .collect();
+    assert_eq!(listed, SAMPLE_CRATES);
+    let without = sample(&Sample::default());
+    assert_eq!(
+        Image::parse(&without).unwrap().section(SectionId::Crates),
+        None
+    );
+    assert!(
+        crate::deployment::DeploymentRecord::for_image(&without, [0; 32])
+            .unwrap()
+            .crates
+            .is_empty()
+    );
+}
+
+/// Step 5 of §10.2 refuses a crate table that the build cannot have written: a name or version
+/// outside the string pool or empty, an unknown source, a checksum byte that its source leaves zero,
+/// crates out of order, and a count its section does not hold. Catches a device that signs off a
+/// list it cannot read.
+#[test]
+fn a_malformed_crate_table_is_refused() {
+    let bytes = sample(&Sample {
+        crates: true,
+        ..Sample::default()
+    });
+    let records = Image::parse(&bytes)
+        .unwrap()
+        .section(SectionId::Crates)
+        .unwrap()
+        .offset as usize
+        + TABLE_PREFIX_BYTES;
+    let at = |index: usize, field: usize| records + index * CrateRecord::BYTES + field;
+    let refused = |edit: &dyn Fn(&mut Vec<u8>)| {
+        let mut edited = bytes.clone();
+        edit(&mut edited);
+        Image::parse(&edited)
+            .and_then(|image| image.check_tables())
+            .expect_err("the table is refused")
+    };
+    let crate_record = |index, reason| ImageError::Record {
+        section: SectionId::Crates,
+        index,
+        reason,
+    };
+    assert_eq!(
+        refused(&|image| image[at(1, 8)] = 4),
+        crate_record(1, "unknown source")
+    );
+    assert_eq!(
+        refused(&|image| image[at(0, 12 + 31)] = 1),
+        crate_record(0, "checksum bytes its source leaves zero are not zero")
+    );
+    assert_eq!(
+        refused(&|image| image[at(2, 12 + 20)] = 1),
+        crate_record(2, "checksum bytes its source leaves zero are not zero")
+    );
+    assert_eq!(
+        refused(&|image| image[at(1, 0)..at(1, 4)].copy_from_slice(&u32::MAX.to_le_bytes())),
+        crate_record(1, "name or version not a string of STRINGS")
+    );
+    assert_eq!(
+        refused(&|image| image[at(2, 4)..at(2, 8)].fill(0)),
+        crate_record(2, "name or version not a string of STRINGS")
+    );
+    // libm takes helper's name: two crates named helper, 0.2.16 before 0.3.1.
+    assert_eq!(
+        refused(&|image| {
+            let helper = image[at(0, 0)..at(0, 4)].to_vec();
+            image[at(1, 0)..at(1, 4)].copy_from_slice(&helper);
+        }),
+        crate_record(1, "out of order or repeated")
+    );
+    assert_eq!(
+        refused(&|image| image[records - TABLE_PREFIX_BYTES] = 200),
+        ImageError::Table(SectionId::Crates)
+    );
+}
+
+/// The Rust POU table (specification 44 §5.13): the writer puts it before `SIGN`, and the reader
+/// gives each POU's name and budget back in their order; an image without the table, a release
+/// image's, has none. Catches a table after the signature, which would leave the budgets unsigned,
+/// and a budget read from the wrong bytes.
+#[test]
+fn the_rust_pou_table_reads_back_before_sign() {
+    let bytes = sample(&Sample {
+        rust_pous: true,
+        ..Sample::default()
+    });
+    let image = Image::parse(&bytes).unwrap();
+    image.check_tables().unwrap();
+    let pous = image
+        .section(SectionId::RustPous)
+        .expect("the Rust POU table");
+    let sign = image.section(SectionId::Sign).expect("the signature");
+    assert!(pous.offset < sign.offset, "RUSTPOUS lies before SIGN");
+    assert_eq!(sign.end(), bytes.len() as u64, "SIGN is last");
+    let read: Vec<_> = image
+        .table::<RustPouRecord>()
+        .unwrap()
+        .iter()
+        .map(|entry| (image.string(entry.name).unwrap(), entry.budget_ns))
+        .collect();
+    assert_eq!(read, SAMPLE_RUST_POUS);
+    let without = sample(&Sample::default());
+    assert_eq!(
+        Image::parse(&without).unwrap().section(SectionId::RustPous),
+        None
+    );
+}
+
+/// Step 5 of §10.2 refuses a Rust POU table that the build cannot have written: a name outside the
+/// string pool or empty, a reserved word that is not 0, a budget of 0 or past `i64::MAX`, POUs out
+/// of the order of their names in capitals or repeated, and a count its section does not hold.
+/// Catches a kernel that numbers the records of a table it cannot read.
+#[test]
+fn a_malformed_rust_pou_table_is_refused() {
+    let bytes = sample(&Sample {
+        rust_pous: true,
+        ..Sample::default()
+    });
+    let records = Image::parse(&bytes)
+        .unwrap()
+        .section(SectionId::RustPous)
+        .unwrap()
+        .offset as usize
+        + TABLE_PREFIX_BYTES;
+    let at = |index: usize, field: usize| records + index * RustPouRecord::BYTES + field;
+    let refused = |edit: &dyn Fn(&mut Vec<u8>)| {
+        let mut edited = bytes.clone();
+        edit(&mut edited);
+        Image::parse(&edited)
+            .and_then(|image| image.check_tables())
+            .expect_err("the table is refused")
+    };
+    let pou_record = |index, reason| ImageError::Record {
+        section: SectionId::RustPous,
+        index,
+        reason,
+    };
+    assert_eq!(
+        refused(&|image| image[at(0, 0)..at(0, 4)].copy_from_slice(&u32::MAX.to_le_bytes())),
+        pou_record(0, "name not a string of STRINGS")
+    );
+    assert_eq!(
+        refused(&|image| image[at(1, 0)..at(1, 4)].fill(0)),
+        pou_record(1, "name not a string of STRINGS")
+    );
+    assert_eq!(
+        refused(&|image| image[at(2, 4)] = 1),
+        pou_record(2, "reserved word not 0")
+    );
+    assert_eq!(
+        refused(&|image| image[at(1, 8)..at(1, 16)].fill(0)),
+        pou_record(1, "budget not from 1 ns to i64::MAX ns")
+    );
+    assert_eq!(
+        refused(&|image| image[at(0, 8)..at(0, 16)].copy_from_slice(&u64::MAX.to_le_bytes())),
+        pou_record(0, "budget not from 1 ns to i64::MAX ns")
+    );
+    // Filter takes Clamp's name: two POUs named Clamp.
+    assert_eq!(
+        refused(&|image| {
+            let clamp = image[at(0, 0)..at(0, 4)].to_vec();
+            image[at(1, 0)..at(1, 4)].copy_from_slice(&clamp);
+        }),
+        pou_record(1, "out of order or repeated")
+    );
+    // Filter.Reset takes Clamp's name, which sorts before Filter's.
+    assert_eq!(
+        refused(&|image| {
+            let clamp = image[at(0, 0)..at(0, 4)].to_vec();
+            image[at(2, 0)..at(2, 4)].copy_from_slice(&clamp);
+        }),
+        pou_record(2, "out of order or repeated")
+    );
+    assert_eq!(
+        refused(&|image| image[records - TABLE_PREFIX_BYTES] = 200),
+        ImageError::Table(SectionId::RustPous)
+    );
 }

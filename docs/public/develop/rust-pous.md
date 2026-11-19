@@ -262,14 +262,37 @@ over the control link. Declare it in `trust.toml`:
 [services.recipe]
 ```
 
-truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`, which the
-service increases while it runs, and a program gates on it with `SERVICE_FRESH`:
+truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`. While the
+service runs it sends its heartbeat, `service.heartbeat`, with its service token (below), at the
+period its `heartbeat` setting states; each heartbeat adds one to the global at the next cycle's
+start. A program gates on it with `SERVICE_FRESH`:
 
 ```iecst
 fresh(HEARTBEAT := recipe_heartbeat, TIMEOUT := T#1s, FRESH => ok);
 ```
 
 A Structured Text project may hold `trust.toml` with `[services]` alone, without a crate.
+
+A service writes only the variables its `writes` lists, by their paths:
+
+```toml
+[services.recipe]
+heartbeat = "500ms"
+writes = ["Recipe.target", "Recipe.speed"]
+```
+
+The build checks each path against the program and refuses one that names no variable, a
+constant, an instance, a structure or an array, or a variable that a second service also lists, so
+that each variable has one service that writes it. The list goes into the signed program image, so
+a board holds the service to it as a computer does. The service writes with the control request
+`variables.write`, which needs a service token with the Engineer role (`--role engineer`, below).
+The next cycle's start writes the whole set together, as the program's input and never as a force,
+and a set with a path outside `writes`, or a value its variable's type does not take, writes
+nothing. To write as the service does, for example while you commission it:
+
+```text
+trust-runtime ctl --project . --token "$(cat secrets/recipe.token)" write Recipe.target=21.5
+```
 
 A service signs in to the runtime with a service token of its own. Create it with the runtime's
 Admin access, and name the file the service reads it from:
@@ -347,6 +370,10 @@ advisory that a crate is unmaintained or unsound, or a notice, is a warning. The
 the database's current state each time and keeps a copy in truST's data folder; without a
 connection it checks against that copy and says when it was downloaded. On a computer that never
 reaches GitHub, give it a copy of the database's repository with `--db <folder>`.
+
+The program image itself lists the same crates, with their versions, where each comes from and the
+checksum `Cargo.lock` pins for it, so a deployed program says which Rust code it holds. The list is
+signed with the image, travels in its deployment record, and is in `build/build.json` as `crates`.
 
 ## Reference
 

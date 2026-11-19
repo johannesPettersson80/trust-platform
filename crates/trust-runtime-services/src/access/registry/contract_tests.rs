@@ -61,6 +61,7 @@ const VIEWER: &[&str] = &[
     "plant.topology",
     "plant.trace.read",
     "program.active",
+    "service.heartbeat",
     "status",
     "tasks.stats",
     "var.forced",
@@ -119,6 +120,7 @@ const ENGINEER: &[&str] = &[
     "step_over",
     "var.force",
     "var.unforce",
+    "variables.write",
 ];
 
 const ADMIN: &[&str] = &[

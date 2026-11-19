@@ -338,6 +338,13 @@ impl VariableQueuePort for FullStore {
         self.live.enqueue_var_write(target, value)
     }
 
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        self.live.enqueue_var_writes(writes)
+    }
+
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
         self.live.force_var(target, value)
     }

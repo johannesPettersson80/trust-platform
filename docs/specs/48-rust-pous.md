@@ -886,7 +886,18 @@ POU on the deployment's device type, and uses the larger of declared and measure
 
 **RU-49. On the device.** The kernel measures each Rust POU's call time in a debug image and reports a call that exceeds its declared budget as the event
 `rust_budget_exceeded` with the POU's name, the time and the budget (specification 11's events),
-without ending the scan; the watchdog (NX-11) still ends a scan that overruns the task.
+without ending the scan; the watchdog (NX-11) still ends a scan that overruns the task. The
+generated code of a debug image reads the kernel's monotonic clock (specification 44 §8.2,
+`clock`) before and after each call of a Rust POU and keeps, in the kernel's record of the POU, its
+longest call and its calls over its budget for the image's target (RU-46, with `trust.toml`'s
+lowering), which the image's Rust POU table gives (specification 44 §5.13). The generated code
+names a POU only by its number in that table, the same in every target's image, so that layer 1
+stays one text (RU-39). A release image measures nothing. A POU that runs over its budget in every
+scan would displace every other event of the store, as the four events of every scan would
+(specification 11, the event store), so the kernel reports a POU's first call over its budget and,
+after it, only a call over its budget that is longer than every call of the POU before it;
+`tasks.stats` gives each Rust POU's budget, longest call and calls over budget (specification
+11).
 
 ## 11. Tools
 
@@ -996,7 +1007,8 @@ client trust-runtime uses (`trust-runtime-client`, the shared client of specific
 the runtime's authentication, and typed access to the program's variables by their paths: read,
 write, subscribe (a read at a period the service chooses, of a set of variables in one cycle's
 snapshot), with every value's cycle, logical time and quality: a read is specification 11 §6.8.1's
-`variables.read`, one completed scan's values of the set. The bindings are generated from the
+`variables.read`, one completed scan's values of the set, and a write its `variables.write`, of the
+variables the service's `writes` names (RU-63), which the next cycle's start writes together. The bindings are generated from the
 symbol table of the deployed image (`trust-dev service bindings`), so a service names
 `plant::P1::level` and gets an `f64`.
 
@@ -1032,13 +1044,21 @@ makes the service's next read of it the runtime's refusal, and running the comma
 compiler name it.
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
-the build declares as a global (`<name>_heartbeat : UDINT`) and the SDK increments at the period the
-service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
+the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the
+service's SDK sends `service.heartbeat` with the service's token (specification 11 §6.8.1), which it
+does at the period the service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
 (`src/generated/services.st`, in a Rust-first project `src/generated/trust/services.st`): one
 `VAR_GLOBAL` with a variable per service, in `trust.toml`'s order. `trust-dev rust declarations`
 writes it, and removes it when `trust.toml` declares no service, and the build refuses a project
 whose committed file is not what `trust.toml` declares, naming the command (RU-24), whether the
-project has a crate or not (RU-07). A service's name is an identifier, so that its global is one. The program library's function block `SERVICE_FRESH` (its
+project has a crate or not (RU-07). A service's name is an identifier, so that its global is one.
+A service's `writes` lists the variables it may write (`writes = ["Recipe.target", "Line.speed"]`),
+by their paths as `variables.read` names them (specification 11 §6.8.1); every other variable is
+the program's own. The build refuses a path that names nothing, a constant, an instance or a value
+that is not elementary, and a variable that a service gives twice or that two services give, as a
+variable has one service that writes it, naming the service and the path, and the signed
+image carries each service's `writes` (specification 44 §5.14), so that a chip holds a service to
+them as a computer does. A service without `writes` writes no variable but its heartbeat. The program library's function block `SERVICE_FRESH` (its
 inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
 §5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
@@ -1230,9 +1250,11 @@ SDK: the scan crate graph has no build scripts and no procedural macros but the 
 the build reads a crate's sources only with the compiler. A service's crates may have both: a
 service is built apart from the program (RU-61).
 
-**RU-79. Supply.** `Cargo.lock` pins every crate with its checksum (RU-10); the deployment record
-(specification 34 §5.1.1) lists the scan crate graph, every crate's name, version and checksum, so a
-deployed image says which Rust code it holds. `trust-dev rust audit` checks the graph against the
+**RU-79. Supply.** `Cargo.lock` pins every crate with its checksum (RU-10); the program image's
+crate table (specification 44 §5.12), which its signature covers, and its deployment record
+(specification 34 §5.1.1, section 9) list the scan crate graph, every crate's name, version, source
+and checksum (none for a path crate, for which `Cargo.lock` pins none), so a deployed image says which
+Rust code it holds. The list holds the crates the audit below checks. `trust-dev rust audit` checks the graph against the
 RustSec advisory database when the computer can reach it, and against a copy of it otherwise.
 
 The audit reads the scan crate graph as the build reads it, from cargo's metadata of the build's
@@ -1399,6 +1421,7 @@ profile = "development"         # or "production" (RU-47)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
 timeout = "2s"
+writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
 endpoint = "tcp://127.0.0.1:47800"
 credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
                                        # service-token recipe --out secrets/recipe.token` (RU-81)

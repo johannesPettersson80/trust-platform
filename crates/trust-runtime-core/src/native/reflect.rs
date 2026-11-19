@@ -48,6 +48,9 @@ pub enum PathError {
     /// The path names an instance of a function block, a class or a program, or an array of
     /// them, which holds no value of its own.
     NoValue(SmolStr),
+    /// The path names a structure, a union, an array, a reference, a pointer or an interface,
+    /// which a service's write cannot give as one value (specification 44 §5.14).
+    NotElementary(SmolStr),
     /// The image's tables do not read.
     Damaged,
 }
@@ -66,6 +69,7 @@ impl fmt::Display for PathError {
             Self::NoValue(path) => {
                 write!(formatter, "{path} is an instance, which holds no value")
             }
+            Self::NotElementary(path) => write!(formatter, "{path} is not an elementary variable"),
             Self::Damaged => formatter.write_str("the program image's tables do not read"),
         }
     }
@@ -150,6 +154,32 @@ pub fn resolve_for_write(
         return Err(PathError::NoValue(SmolStr::new(path)));
     }
     Ok(found.at)
+}
+
+/// The variable, member or element `path` names for a service's write (specification 44 §5.14;
+/// specification 48 RU-63), found as [`resolve_for_write`] finds it without a frame, and holding one
+/// elementary value: its type, through any alias, is elementary, an enumeration, a subrange or a
+/// string.
+///
+/// # Errors
+///
+/// The [`PathError`] of [`resolve_for_write`], and [`PathError::NotElementary`] for a structure, a
+/// union, an array, a reference, a pointer or an interface.
+pub fn resolve_writable(image: &Image<'_>, path: &str) -> Result<Located, PathError> {
+    let at = resolve_for_write(image, path, &|_| None)?;
+    let (_, record) = unaliased(&Types::of(image)?, at.type_index)?;
+    if matches!(
+        record.kind,
+        kind::ARRAY
+            | kind::STRUCT
+            | kind::UNION
+            | kind::REFERENCE
+            | kind::POINTER
+            | kind::INTERFACE
+    ) {
+        return Err(PathError::NotElementary(SmolStr::new(path)));
+    }
+    Ok(at)
 }
 
 /// What a path names, and whether a constant holds it.

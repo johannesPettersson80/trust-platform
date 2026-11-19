@@ -130,8 +130,9 @@ pub(super) struct Lowerer<'m, 'a> {
     /// For each closure of a `__TRY` construct the statement lies in, the flows its statements returned.
     try_flows: Vec<exceptions::TryFlows>,
     labels: u32,
-    /// Whether statements call the statement hook (specification 44 §13.2).
-    hooks: bool,
+    /// Whether statements call the statement hook and calls of Rust POUs are timed: a debug image
+    /// (specification 44 §13.2; specification 48 RU-49).
+    pub(super) hooks: bool,
     /// The ids of the statements of this body.
     pub(super) statements: Vec<u32>,
     /// What a `RETURN` and the end of the body do: copy a function's result and return it.

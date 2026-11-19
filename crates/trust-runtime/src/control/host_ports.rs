@@ -442,6 +442,13 @@ impl VariableQueuePort for ControlState {
         }
     }
 
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        self.debug.try_enqueue_var_writes(writes)
+    }
+
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
         match target {
             ForcedVarTarget::Global(name) => self.debug.try_force_global(name, value),
