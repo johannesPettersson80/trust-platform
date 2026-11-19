@@ -894,3 +894,47 @@ END_PROGRAM
         DiagnosticCode::InvalidArgumentType,
     );
 }
+
+#[test]
+// IEC 61131-3 Ed.3 Table 31 (`A:= AND(B, C, D)`) and Table 29 (`MOD`): the functions by their names.
+fn bitwise_and_modulo_functions_type_check_by_their_names() {
+    // AND, OR and XOR called with their inputs, typed or untyped literals among typed inputs, which
+    // take the common type of the typed ones, or only literals, which take the type where the call
+    // goes; MOD with two integers. Catches the calls refused as no expression, and a literal beside
+    // a WORD refused as "expected bit string type".
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    b: BYTE;
+    w: WORD;
+    ok: BOOL;
+    i: INT;
+END_VAR
+w := AND(w, 16#00FF);
+w := OR(w, 16#F000, 16#000F);
+b := XOR(b, 16#FF);
+ok := AND(ok, TRUE);
+b := AND(16#0F, 16#3C);
+i := MOD(i, 3);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+// Specification 05 §5.2.1: a literal takes the common type of the typed inputs when it fits it.
+fn a_literal_too_wide_for_the_common_bit_string_type_is_refused() {
+    // 16#1_0000 does not fit the WORD of `w`. Catches a literal that widens a typed call.
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    w: WORD;
+END_VAR
+w := AND(w, 16#1_0000);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
