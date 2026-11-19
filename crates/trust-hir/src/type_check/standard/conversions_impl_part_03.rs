@@ -42,8 +42,15 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         &mut self,
         args: &[(CallArg, TypeId)],
     ) -> Option<TypeId> {
+        // An untyped literal takes the common type of the typed inputs (specification 05 §5.2.1;
+        // `AND(w, 16#00FF)`), as it does at an overloaded numeric function's inputs.
+        let mut deferred = Vec::new();
         let mut common: Option<(TypeId, u32)> = None;
         for (arg, ty) in args {
+            if bit_string_literal_value(&arg.expr).is_some() {
+                deferred.push(arg);
+                continue;
+            }
             let base = self.base_type_id(*ty);
             if base == TypeId::UNKNOWN {
                 return None;
@@ -71,7 +78,24 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             });
         }
         let (common, _) = common?;
+        for arg in deferred {
+            if !self
+                .checker
+                .is_contextual_base_int_literal(common, &arg.expr)
+            {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    "integer literal is not representable by the common bit string type",
+                );
+                return None;
+            }
+            self.checker.record_expression_type(&arg.expr, common);
+        }
         for (arg, ty) in args {
+            if bit_string_literal_value(&arg.expr).is_some() {
+                continue;
+            }
             let base = self.base_type_id(*ty);
             if base != common {
                 self.checker
