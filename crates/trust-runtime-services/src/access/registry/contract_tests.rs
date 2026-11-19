@@ -130,6 +130,7 @@ const ADMIN: &[&str] = &[
     "firmware.install",
     "pair.list",
     "pair.revoke",
+    "pair.service",
     "pair.start",
     "program.install",
     "shutdown",

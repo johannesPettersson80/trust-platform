@@ -298,6 +298,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "pair.claim" => pairing::claim(id, request.params.clone(), host),
         "pair.list" => pairing::list(id, host),
         "pair.revoke" => pairing::revoke(id, request.params.clone(), host),
+        "pair.service" => pairing::service(id, request.params.clone(), host),
         // The debug operations are answered from the platform's debugger when it has one
         // (specification 11 §6.13); otherwise the platform answers them itself.
         kind if is_debug_operation(kind) => match host.debugger() {

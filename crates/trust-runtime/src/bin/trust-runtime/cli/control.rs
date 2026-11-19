@@ -150,4 +150,19 @@ pub enum ControlAction {
         #[arg(long)]
         limit: Option<u64>,
     },
+    /// Create the service token of a service, or replace the one it has (`pair.service`,
+    /// specification 11 §6.9.6): a token that does not expire, which the service presents on the
+    /// control link. The token goes into `--out`, never to the terminal; the token the service had
+    /// before stops working. Needs the Admin role.
+    ServiceToken {
+        /// The service's name, as `trust.toml` declares it in `[services.<name>]`.
+        name: String,
+        /// The token's role: `viewer`, the default, `operator` or `engineer`.
+        #[arg(long)]
+        role: Option<String>,
+        /// The file the token is written into, through a new file renamed over it, with mode 0600
+        /// on Unix.
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
