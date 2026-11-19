@@ -1018,7 +1018,14 @@ service states (`heartbeat = "500ms"`). The globals lie in the generated file `s
 `VAR_GLOBAL` with a variable per service, in `trust.toml`'s order. `trust-dev rust declarations`
 writes it, and removes it when `trust.toml` declares no service, and the build refuses a project
 whose committed file is not what `trust.toml` declares, naming the command (RU-24), whether the
-project has a crate or not (RU-07). A service's name is an identifier, so that its global is one. The program library's function block `SERVICE_FRESH` (its
+project has a crate or not (RU-07). A service's name is an identifier, so that its global is one.
+A service's `writes` lists the variables it may write (`writes = ["Recipe.target", "Line.speed"]`),
+by their paths as `variables.read` names them (specification 11 §6.8.1); every other variable is
+the program's own. The build refuses a path that names nothing, a constant, an instance or a value
+that is not elementary, and a variable that a service gives twice or that two services give, as a
+variable has one service that writes it, naming the service and the path, and the signed
+image carries each service's `writes` (specification 44 §5.14), so that a chip holds a service to
+them as a computer does. A service without `writes` writes no variable but its heartbeat. The program library's function block `SERVICE_FRESH` (its
 inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
 §5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
@@ -1378,6 +1385,7 @@ profile = "development"         # or "production" (RU-47)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
 timeout = "2s"
+writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
 endpoint = "tcp://127.0.0.1:47800"
 credentials = "secrets/recipe.token"   # a file with mode 600, never in version control
 

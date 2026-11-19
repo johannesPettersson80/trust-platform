@@ -19,6 +19,20 @@ struct Sample {
     crates: bool,
     /// With the Rust POU table of [`SAMPLE_RUST_POUS`] and an unsigned `SIGN`.
     rust_pous: bool,
+    /// With a service table of these services and the paths each may write, and an unsigned
+    /// `SIGN`; none when empty.
+    services: &'static [(&'static str, &'static [&'static str])],
+}
+
+/// The sample with a service table of `services`, each with the paths it may write, for the service
+/// table's tests (specification 44 §5.14).
+pub(super) fn sample_with_services(
+    services: &'static [(&'static str, &'static [&'static str])],
+) -> Vec<u8> {
+    sample(&Sample {
+        services,
+        ..Sample::default()
+    })
 }
 
 impl Default for Sample {
@@ -32,6 +46,7 @@ impl Default for Sample {
             codesys: false,
             crates: false,
             rust_pous: false,
+            services: &[],
         }
     }
 }
@@ -251,12 +266,35 @@ fn sample(spec: &Sample) -> Vec<u8> {
         writer.table(&records, &[]);
         writer.section(SectionId::Sign, vec![0; 100]);
     }
+    if !spec.services.is_empty() {
+        service_table(&mut writer, &mut strings, spec.services);
+    }
     writer.section(SectionId::Strings, strings.into_bytes());
     let mut image = writer.finish().unwrap();
     if let Some(missing) = spec.without {
         remove_section(&mut image, missing);
     }
     image
+}
+
+/// The service table of `services`, each with the paths it may write, and an unsigned `SIGN`
+/// (specification 44 §5.14).
+fn service_table(writer: &mut ImageWriter, strings: &mut StringPool, services: &[(&str, &[&str])]) {
+    let mut records = Vec::new();
+    let mut paths = Vec::new();
+    for (name, writes) in services {
+        records.push(ServiceRecord {
+            name: strings.add(name),
+            path_first: (paths.len() / 4) as u32,
+            path_count: writes.len() as u32,
+            reserved: 0,
+        });
+        for path in *writes {
+            paths.extend_from_slice(&strings.add(path).to_le_bytes());
+        }
+    }
+    writer.table(&records, &paths);
+    writer.section(SectionId::Sign, vec![0; 100]);
 }
 
 /// The sample's symbols, by their canonical and display names' string offsets: the program `Vat`, its

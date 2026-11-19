@@ -37,6 +37,7 @@ mod rust_budget;
 mod rust_messages;
 pub mod rust_pous;
 mod self_calls;
+mod service_table;
 mod settings;
 mod signing;
 mod stack;
@@ -450,7 +451,15 @@ pub fn build_with_conversions(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
-    build_sources(sources, tests, options, conversions, toolchain, work, None)
+    build_sources(
+        sources,
+        tests,
+        options,
+        conversions,
+        toolchain,
+        work,
+        ProjectParts::default(),
+    )
 }
 
 /// The module targets whose scan crate graphs the audit reads (specification 44 §4.4).
@@ -517,6 +526,14 @@ pub fn scan_crate_graph(
     Ok(Some(crates.into_iter().collect()))
 }
 
+/// What a build takes from the project beyond its Structured Text: its Rust crate, when it declares
+/// Rust POUs, and the variables its services may write (specification 48 §9, RU-63).
+#[derive(Default)]
+struct ProjectParts {
+    crate_build: Option<CrateBuild>,
+    services: Vec<rust_pous::ServiceWrites>,
+}
+
 /// The Rust crate a build compiles with the program, and the crate cargo links (specification 48
 /// §9).
 struct CrateBuild {
@@ -550,16 +567,38 @@ pub fn build_project(
     let layout = rust_pous::layout(project)
         .map_err(|message| NativeError::Compile(format!("trust.toml: {message}")))?;
     rust_pous::check_services(project, &layout).map_err(NativeError::Compile)?;
+    let services = rust_pous::service_writes(project)
+        .map_err(|message| NativeError::Compile(format!("trust.toml: {message}")))?;
     let krate = rust_pous::read(project).map_err(|errors| {
         let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
         NativeError::Compile(lines.join("\n"))
     })?;
+    let without_crate = ProjectParts {
+        crate_build: None,
+        services,
+    };
     let Some(krate) = krate else {
-        return build_sources(sources, tests, options, conversions, toolchain, work, None);
+        return build_sources(
+            sources,
+            tests,
+            options,
+            conversions,
+            toolchain,
+            work,
+            without_crate,
+        );
     };
     rust_pous::check_declarations(project, &krate).map_err(NativeError::Compile)?;
     if krate.pous.is_empty() {
-        return build_sources(sources, tests, options, conversions, toolchain, work, None);
+        return build_sources(
+            sources,
+            tests,
+            options,
+            conversions,
+            toolchain,
+            work,
+            without_crate,
+        );
     }
     // The crate's own rules hold before anything compiles (specification 48 RU-08).
     rust_pous::check_crate(project, &krate.layout, &krate.root).map_err(|errors| {
@@ -587,7 +626,10 @@ pub fn build_project(
         conversions,
         toolchain,
         work,
-        Some(crate_build),
+        ProjectParts {
+            crate_build: Some(crate_build),
+            services: without_crate.services,
+        },
     )
 }
 
@@ -639,8 +681,12 @@ fn build_sources(
     conversions: ConversionProfile,
     toolchain: &Toolchain,
     work: &Path,
-    crate_build: Option<CrateBuild>,
+    parts: ProjectParts,
 ) -> Result<Build, NativeError> {
+    let ProjectParts {
+        crate_build,
+        services,
+    } = parts;
     let (project, krate, timing) = match crate_build {
         Some(CrateBuild {
             project,
@@ -784,12 +830,16 @@ fn build_sources(
             stack,
             crates: &crates,
             rust_pous: &rust_pous,
+            services: &services,
         },
     )?;
     let image = writer
         .finish()
         .map_err(|error| NativeError::Image(format!("{error:?}")))?;
     let parsed = Image::parse(&image).map_err(|error| NativeError::Image(error.to_string()))?;
+    // Each service's paths against the program, naming the service and the path, before the
+    // image's own check refuses them with the table's record (specification 48 RU-63).
+    service_table::check(&parsed, &services)?;
     parsed
         .check_tables()
         .map_err(|error| NativeError::Image(error.to_string()))?;

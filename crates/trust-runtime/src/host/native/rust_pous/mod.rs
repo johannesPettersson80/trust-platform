@@ -18,6 +18,8 @@ mod tree;
 mod types;
 
 pub use layout::{layout, Layout, BINDINGS_FOLDER, CRATE_FOLDER, DECLARATIONS_FILE, SERVICES_FILE};
+pub(crate) use services::service_writes;
+pub use services::ServiceWrites;
 pub use structured_text::StructuredTextUse;
 pub use types::{RustEnumeration, RustStructure};
 
