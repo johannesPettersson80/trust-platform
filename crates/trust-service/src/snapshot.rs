@@ -73,6 +73,15 @@ impl Snapshot {
         })
     }
 
+    /// The value of `variable`, which the read named, as its Rust type.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::get`].
+    pub fn value<T: FromVariable>(&self, variable: crate::Variable<T>) -> Result<T, ServiceError> {
+        self.get(variable.path())
+    }
+
     /// The value of the variable the read named `path`, as a `T`.
     ///
     /// # Errors

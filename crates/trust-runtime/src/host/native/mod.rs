@@ -37,6 +37,7 @@ mod rust_budget;
 mod rust_messages;
 pub mod rust_pous;
 mod self_calls;
+pub mod service_bindings;
 mod service_table;
 mod settings;
 mod signing;

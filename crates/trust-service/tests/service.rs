@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 use trust_runtime_client::ControlError;
-use trust_service::{Quality, Service, ServiceError, ServiceSettings};
+use trust_service::{Quality, Service, ServiceError, ServiceSettings, Variable, Writable};
 
 /// The requests a scripted runtime received, in order.
 type Requests = Arc<Mutex<Vec<Value>>>;
@@ -200,5 +200,32 @@ fn an_endpoint_that_is_none_is_refused_before_connecting() {
         ServiceError::Settings(
             "127.0.0.1:47800 is no control endpoint such as tcp://127.0.0.1:47800".into()
         )
+    );
+}
+
+#[test]
+fn a_typed_handle_reads_and_writes_its_variable_alone() {
+    // The bindings' handles: `get` reads one variable and gives it as its Rust type, `set` writes one
+    // writable variable as its type's JSON form. Catches a typed read of another path and a write
+    // of another form.
+    const LEVEL: Variable<f64> = Variable::new("P1.level");
+    const TARGET: Writable<f32> = Writable::new("P1.target");
+    let (endpoint, requests) = runtime(answers);
+    let service =
+        Service::connect_with(settings(&endpoint, Duration::from_secs(1))).expect("a connection");
+    assert_eq!(service.get(LEVEL), Ok(1.5));
+    assert_eq!(service.set(TARGET, &0.1), Ok(1));
+    let params: Vec<Value> = requests
+        .lock()
+        .expect("the requests")
+        .iter()
+        .map(|request| request["params"].clone())
+        .collect();
+    assert_eq!(
+        params,
+        vec![
+            json!({"paths": ["P1.level"]}),
+            json!({"writes": [{"path": "P1.target", "value": 0.1}]}),
+        ]
     );
 }

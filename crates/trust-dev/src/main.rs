@@ -17,6 +17,7 @@ mod prompt;
 mod run;
 mod rust;
 mod rust_audit;
+mod service;
 mod style;
 mod test;
 mod workflow;
@@ -90,6 +91,11 @@ enum Command {
         #[command(subcommand)]
         action: RustAction,
     },
+    /// The project's services (specification 48 §13).
+    Service {
+        #[command(subcommand)]
+        action: ServiceAction,
+    },
     /// Discover and execute ST tests in a project.
     Test {
         /// Project folder directory (defaults to auto-detect or current directory).
@@ -121,6 +127,22 @@ enum Command {
         /// the project's `runtime.control.auth_token` (specification 11 §6.8.1).
         #[arg(long, requires = "device")]
         token: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ServiceAction {
+    /// Write the bindings of a service, a Rust module naming each variable of the program it can
+    /// read with its Rust type, from the image the project's build wrote (specification 48 RU-62).
+    Bindings {
+        /// The service's name, as trust.toml declares it in [services.<name>].
+        name: String,
+        /// The Rust file to write: src/plant.rs, for `plant::P1::level`.
+        #[arg(long)]
+        out: PathBuf,
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
     },
 }
 
@@ -200,6 +222,11 @@ fn run() -> anyhow::Result<()> {
             out_dir,
             format,
         } => docs::run_docs(project, out_dir, format),
+        Command::Service { action } => match action {
+            ServiceAction::Bindings { name, out, project } => {
+                service::run_bindings(project, &name, &out)
+            }
+        },
         Command::Rust { action } => match action {
             RustAction::Declarations { project } => rust::run_declarations(project),
             RustAction::Audit { project, db } => rust_audit::run_audit(project, db),

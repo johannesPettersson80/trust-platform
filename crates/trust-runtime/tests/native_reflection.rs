@@ -259,8 +259,10 @@ fn the_variable_walk_visits_every_elementary_variable_once() {
     let state = scanned();
     let image = state.image();
     let mut visited = Vec::new();
-    walk_variables(&image, &mut |path, located| visited.push((path.to_string(), located)))
-        .expect("the walk reads the tables");
+    walk_variables(&image, &mut |path, located| {
+        visited.push((path.to_string(), located))
+    })
+    .expect("the walk reads the tables");
     let paths: Vec<&str> = visited.iter().map(|(path, _)| path.as_str()).collect();
     assert_eq!(
         paths,
