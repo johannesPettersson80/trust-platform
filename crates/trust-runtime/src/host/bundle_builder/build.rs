@@ -200,10 +200,12 @@ fn write_openot_definition(
     Ok(Some(path))
 }
 
-/// Checks the project's sources without the toolchain: the build's front and its generator run for
-/// this computer's CPU with the project's conversion rules, as a build for it would (specification
-/// 44 §4.1; specification 07 §2.10), and nothing is written. The report names the resource the
-/// program declares, which `trust-runtime check` compares with the project's `runtime.toml`.
+/// Checks the project as a build for this computer's CPU checks it, without an image: the build's
+/// front and its generator with the project's conversion rules (specification 44 §4.1;
+/// specification 07 §2.10), and for a project whose Rust crate declares Rust POUs the crate as the
+/// build reads it and the toolchain's `cargo check` in the build's work folder, where cargo keeps
+/// what it checked (specification 11 §6.8.1c). The report names the resource the program declares,
+/// which `trust-runtime check` compares with the project's `runtime.toml`, and the crate's warnings.
 pub fn check_program(
     bundle_root: &Path,
     sources: &[PathBuf],
@@ -221,13 +223,22 @@ pub fn check_program(
     // A misspelled `vendor_profile` fails the check, as it fails the build
     // (docs/specs/07-standard-functions.md 2.10).
     let conversions = crate::native::conversion_profile(bundle_root)?;
-    crate::native::generate_source_with_conversions(
+    // The image the build would write, a debug image unless the project says otherwise, in the
+    // build's own work folder (specification 44 §13.2).
+    let work = bundle_root
+        .join("build")
+        .join("native")
+        .join(crate::native::triple(target));
+    let crate_warnings = crate::native::check_project(
+        bundle_root,
         &files,
         &crate::native::Options {
             target,
-            hooks: false,
+            hooks: crate::native::debug_hooks(bundle_root)?,
         },
         conversions,
+        crate::native::Toolchain::find,
+        &work,
     )?;
     // The `RESOURCE` the program's CONFIGURATION declares, as the build reads it from the lowered
     // configuration; none without a CONFIGURATION (specification 11 §6.8.1d).
@@ -244,6 +255,7 @@ pub fn check_program(
         dependency_roots: layout.dependency_roots,
         resolved_dependencies: layout.resolved_dependencies,
         resources,
+        crate_warnings,
     })
 }
 

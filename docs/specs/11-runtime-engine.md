@@ -6007,7 +6007,8 @@ and choices without performing import or export work.
 ##### 6.8.1c Runtime project-check contract
 
 `trust-runtime check` validates a project without writing `program.tpi` or any
-other build output. An explicit `--project` selects the
+other build output, but for what cargo keeps of a Rust crate's check (below).
+An explicit `--project` selects the
 project root; otherwise the command uses bundle auto-detection and falls back
 to the current directory. The default source root is `<project>/src`.
 `--sources` names a source folder in its place and may be given more than once:
@@ -6020,9 +6021,21 @@ from the project root.
 The command validates required `runtime.toml` and `io.toml` files plus optional
 `ads.toml` and `opcua_client.toml` files, inspects the complete source and local
 dependency layout, and checks valid layouts with the build's front end and its
-generator for this computer's CPU, without the toolchain (specification 44
-§4.1). Independent configuration and compile findings are accumulated in one
-response. A configuration failure does not suppress an otherwise possible
+generator for this computer's CPU (specification 44 §4.1), without the toolchain
+for a project without a Rust crate. A project whose Rust crate declares Rust
+POUs (specification 48 §9.1) is checked as the build checks it: the crate's own
+rules, its committed declarations (RU-24) and its scan crate graph; its
+Structured Text generated with the crate; and the crate with the generated
+module by the toolchain's `cargo check`, offline, in the build's work folder
+(`build/native/<triple>/`), where cargo keeps what it checked as the build keeps
+what it compiled. The crate's errors and warnings are issues as the build
+reports them (section 6.8.1d; specification 48 RU-44), and a warning leaves the
+check passed. Without the toolchain, or with one that has no cargo and SDK
+sources, a project with a crate fails the check with one issue that says so,
+with the code `toolchain`, as it fails the build (checklist G208, 18 November
+2026: before, the check generated the program without the crate and refused
+every Rust POU). Independent configuration and compile findings are accumulated
+in one response. A configuration failure does not suppress an otherwise possible
 check, and a compile failure does not discard the source and dependency
 identity already obtained from successful layout inspection.
 
@@ -6048,8 +6061,8 @@ of every statement and body it reaches, in the order of their places. A
 compile failure that names no place in the sources, a construct of the
 declarations among them, is one issue with the code `compile`. Human
 output is derived from the same response and reports either the successful
-source list or every accumulated issue, an issue with a position as
-`file:line:column: message`.
+source list with each warning, or every accumulated issue, an issue with a
+position as `file:line:column: message`.
 
 Success exits 0. Any configuration or source-layout error exits with the
 invalid-configuration class 10, including a response that also contains a
