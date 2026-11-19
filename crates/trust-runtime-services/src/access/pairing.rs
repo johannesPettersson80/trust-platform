@@ -413,6 +413,19 @@ impl<P: PairingPort> Pairings<P> {
             .map(|row| row.role)
     }
 
+    /// The service whose enabled service token has exactly the bytes of `token` at `now`, or
+    /// `None` for any other credential (specification 11 §6.9.6): the service a request with the
+    /// token speaks for.
+    #[must_use]
+    pub fn service_of(&mut self, token: &str, now: u64) -> Option<String> {
+        self.prune(now);
+        self.file
+            .tokens
+            .iter()
+            .find(|row| row.enabled && constant_time_eq(&row.token, token))
+            .and_then(|row| row.service.clone())
+    }
+
     /// The tokens at `now` in storage order, each without its secret.
     #[must_use]
     pub fn list(&mut self, now: u64) -> Vec<PairingSummary> {
@@ -566,6 +579,10 @@ pub trait PairingService {
     /// reached.
     fn validate(&self, token: &str, now: u64) -> Option<AccessRole>;
 
+    /// The service a token speaks for, as [`Pairings::service_of`]; `None` when the pairings
+    /// cannot be reached.
+    fn service_of(&self, token: &str, now: u64) -> Option<String>;
+
     /// The tokens without their secrets, as [`Pairings::list`]; none when the pairings cannot be
     /// reached.
     fn list(&self, now: u64) -> Vec<PairingSummary>;
@@ -620,6 +637,10 @@ impl<P: PairingPort> PairingService for RefCell<Pairings<P>> {
 
     fn validate(&self, token: &str, now: u64) -> Option<AccessRole> {
         self.try_borrow_mut().ok()?.validate(token, now)
+    }
+
+    fn service_of(&self, token: &str, now: u64) -> Option<String> {
+        self.try_borrow_mut().ok()?.service_of(token, now)
     }
 
     fn list(&self, now: u64) -> Vec<PairingSummary> {

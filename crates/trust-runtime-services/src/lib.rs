@@ -47,6 +47,7 @@ pub mod ports;
 pub mod protocol;
 pub mod resource;
 pub mod runner;
+pub mod service_heartbeat;
 pub mod settings;
 pub mod status;
 pub mod transfer;

@@ -23,6 +23,8 @@ mod workflow;
 
 #[cfg(test)]
 mod docs_tests;
+#[cfg(test)]
+mod token_tests;
 
 mod cli {
     use clap::ValueEnum;
@@ -119,7 +121,7 @@ enum Command {
         target: Option<String>,
         /// The device's control token, when its settings set one; else `TRUST_CTL_TOKEN`, else
         /// the project's `runtime.control.auth_token` (specification 11 §6.8.1).
-        #[arg(long, requires = "device")]
+        #[arg(long, requires = "device", allow_hyphen_values = true)]
         token: Option<String>,
     },
 }

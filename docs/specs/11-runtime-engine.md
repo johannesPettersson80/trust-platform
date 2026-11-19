@@ -4524,6 +4524,23 @@ the debug surface disabled, so a service reads a `production` deployment. A serv
 reading at the period it chooses (specification 48 RU-62); the runtime pushes nothing.
 `trust-runtime ctl read <path>...` sends it and prints each value with its path and type.
 
+###### Service heartbeats
+
+`service.heartbeat` is a service's heartbeat (specification 48 RU-63), on a computer and on a chip
+alike. It takes no parameters, and only a service token (section 6.9.6) sends it: the token's
+service names the global `<name>_heartbeat` that the build declares for the service. The runtime
+adds one to the value the last completed scan left in that global, wrapping from 4,294,967,295 to
+0, and the next cycle's start writes the sum, as the program's input and never as a force, so that
+`SERVICE_FRESH` (specification 08 §5A) sees the heartbeat change; heartbeats that arrive before that
+cycle's start write the same sum. The reply is `{service, value}`: the service's name as its token
+names it and the value the next cycle writes. A request from any other credential is refused with
+`service.heartbeat needs a service token`, a service whose program declares no `UDINT` heartbeat
+for it with `the program declares no heartbeat for service <name>`, and a request while the
+resource does not run with `the program does not run: <state>`, `<state>` as `status` names it;
+before the first completed scan and while a debugger holds a scan it is refused as
+`variables.read` is. `service.heartbeat` needs the Viewer role (section 6.9.5), the role of a
+service that only reads (specification 48 RU-81), and is no debug operation.
+
 ##### 6.8.1a Offline communication authoring client
 
 `trust-runtime comm` is a scriptable local authoring surface. Each accepted
@@ -5990,7 +6007,8 @@ and choices without performing import or export work.
 ##### 6.8.1c Runtime project-check contract
 
 `trust-runtime check` validates a project without writing `program.tpi` or any
-other build output. An explicit `--project` selects the
+other build output, but for what cargo keeps of a Rust crate's check (below).
+An explicit `--project` selects the
 project root; otherwise the command uses bundle auto-detection and falls back
 to the current directory. The default source root is `<project>/src`.
 `--sources` names a source folder in its place and may be given more than once:
@@ -6003,9 +6021,21 @@ from the project root.
 The command validates required `runtime.toml` and `io.toml` files plus optional
 `ads.toml` and `opcua_client.toml` files, inspects the complete source and local
 dependency layout, and checks valid layouts with the build's front end and its
-generator for this computer's CPU, without the toolchain (specification 44
-§4.1). Independent configuration and compile findings are accumulated in one
-response. A configuration failure does not suppress an otherwise possible
+generator for this computer's CPU (specification 44 §4.1), without the toolchain
+for a project without a Rust crate. A project whose Rust crate declares Rust
+POUs (specification 48 §9.1) is checked as the build checks it: the crate's own
+rules, its committed declarations (RU-24) and its scan crate graph; its
+Structured Text generated with the crate; and the crate with the generated
+module by the toolchain's `cargo check`, offline, in the build's work folder
+(`build/native/<triple>/`), where cargo keeps what it checked as the build keeps
+what it compiled. The crate's errors and warnings are issues as the build
+reports them (section 6.8.1d; specification 48 RU-44), and a warning leaves the
+check passed. Without the toolchain, or with one that has no cargo and SDK
+sources, a project with a crate fails the check with one issue that says so,
+with the code `toolchain`, as it fails the build (checklist G208, 18 November
+2026: before, the check generated the program without the crate and refused
+every Rust POU). Independent configuration and compile findings are accumulated
+in one response. A configuration failure does not suppress an otherwise possible
 check, and a compile failure does not discard the source and dependency
 identity already obtained from successful layout inspection.
 
@@ -6031,8 +6061,8 @@ of every statement and body it reaches, in the order of their places. A
 compile failure that names no place in the sources, a construct of the
 declarations among them, is one issue with the code `compile`. Human
 output is derived from the same response and reports either the successful
-source list or every accumulated issue, an issue with a position as
-`file:line:column: message`.
+source list with each warning, or every accumulated issue, an issue with a
+position as `file:line:column: message`.
 
 Success exits 0. Any configuration or source-layout error exits with the
 invalid-configuration class 10, including a response that also contains a
@@ -6074,8 +6104,12 @@ dependency sources, the `dependency_roots` and the `resolved_dependencies`
 names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
 `signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
 `bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
-(`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
-number of reported source paths. `--ci` and `--json` print the same object with
+(`code`, `rodata`, `init`) of specification 44 §10.4, and the `crates` of the
+image's crate table (specification 44 §5.12; specification 48 RU-79) in its
+order, each with its `name`, `version`, `source` (`registry`, `path` or `git`)
+and `checksum` (the registry archive's SHA-256 or the git commit in lowercase
+hexadecimal, null for a path crate), an empty list for a project without a
+Rust crate; `source_count` equals the number of reported source paths. `--ci` and `--json` print the same object with
 the `warnings` count and the `issues` of the compiler's warnings of the project's
 Rust crate (specification 48 RU-44), one per warning, as below; none for a
 project without a crate.
@@ -6923,7 +6957,7 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
+| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `service.heartbeat` (section 6.8.1, "Service heartbeats"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
 | Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |

@@ -187,6 +187,8 @@ fn ci_json_summary_mode_contract_is_stable() {
             .is_some_and(|count| count >= 2),
         "expected at least two source files in build output"
     );
+    // A project without a Rust crate lists no crate (specification 11 §6.8.1d).
+    assert_eq!(build_json["crates"], serde_json::json!([]));
 
     let validate = run_trust_runtime(&project, &["validate", "--ci"]);
     assert_success(&validate, "validate --ci");

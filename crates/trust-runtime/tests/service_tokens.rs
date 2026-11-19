@@ -15,7 +15,7 @@ use std::process::Output;
 
 use serde_json::json;
 
-use runtime_process::{describe, ExampleRuntime, Runtime};
+use runtime_process::{describe, ExampleRuntime, Runtime, CLIMB};
 
 /// `ctl --token <token> <args>` against the copy: the request carries the service's token in place
 /// of the copy's Admin token.
@@ -104,4 +104,56 @@ fn a_service_authenticates_with_its_token_until_the_token_is_replaced() {
     assert_eq!(tokens[0]["service"], json!("RECIPE"), "{listed}");
     assert_eq!(tokens[0]["expires_at"], json!(null), "{listed}");
     assert_eq!(tokens[0]["enabled"], json!(true), "{listed}");
+}
+
+/// The value of `recipe_heartbeat` that `variables.read` gives, `None` before the first completed
+/// scan.
+fn heartbeat_value(runtime: &Runtime) -> Option<u64> {
+    let reply = runtime.control_request(json!({
+        "id": 9,
+        "type": "variables.read",
+        "params": { "paths": ["recipe_heartbeat"] }
+    }));
+    reply["result"]["values"][0]["value"].as_u64()
+}
+
+#[test]
+fn a_service_heartbeat_reaches_the_programs_global_at_the_next_cycle() {
+    // Specification 11 §6.8.1, "Service heartbeats", and specification 48 RU-63: the copy's
+    // program declares `recipe_heartbeat : UDINT`, as the build declares a service's heartbeat.
+    // The service token of recipe, a Viewer's, sends `service.heartbeat`: the reply names recipe
+    // and 1, the global's 0 plus one, and a cycle later `variables.read` gives 1; a second
+    // heartbeat gives 2. The copy's Admin token speaks for no service and is refused. Catches a
+    // heartbeat the scan never applies, one that adds more than one, and one any client could
+    // send.
+    let runtime = ExampleRuntime::new("memory_marker_counter")
+        .edit_source(
+            "src/Configuration.st",
+            "CONFIGURATION MarkerCounter\n",
+            "VAR_GLOBAL\n    recipe_heartbeat : UDINT;\nEND_VAR\n\nCONFIGURATION MarkerCounter\n",
+        )
+        .start();
+    let out = runtime.project().join("secrets").join("recipe.token");
+    let token = create(&runtime, "recipe", None, &out);
+    runtime.wait_until(CLIMB, "a completed scan", || {
+        heartbeat_value(&runtime) == Some(0)
+    });
+    for beat in 1..=2_u64 {
+        let reply =
+            runtime.control_request_as(&token, json!({"id": beat, "type": "service.heartbeat"}));
+        assert_eq!(
+            reply["result"],
+            json!({"service": "recipe", "value": beat}),
+            "{reply}"
+        );
+        runtime.wait_until(CLIMB, "the heartbeat in the global", || {
+            heartbeat_value(&runtime) == Some(beat)
+        });
+    }
+    let admin = runtime.control_request(json!({"id": 3, "type": "service.heartbeat"}));
+    assert_eq!(
+        admin["error"],
+        json!("service.heartbeat needs a service token"),
+        "{admin}"
+    );
 }

@@ -30,7 +30,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-trust-plc = "=0.42.0" # exactly your truST version
+trust-plc = "=0.43.0" # exactly your truST version
 ```
 
 ```rust
@@ -209,7 +209,7 @@ bindings that the build generates in the project's `build/trust_st/`. Name them 
 
 ```toml
 [dependencies]
-trust-plc = "=0.42.0"
+trust-plc = "=0.43.0"
 trust_st = { path = "../build/trust_st" }
 ```
 
@@ -262,8 +262,10 @@ over the control link. Declare it in `trust.toml`:
 [services.recipe]
 ```
 
-truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`, which the
-service increases while it runs, and a program gates on it with `SERVICE_FRESH`:
+truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`. While the
+service runs it sends its heartbeat, `service.heartbeat`, with its service token (below), at the
+period its `heartbeat` setting states; each heartbeat adds one to the global at the next cycle's
+start. A program gates on it with `SERVICE_FRESH`:
 
 ```iecst
 fresh(HEARTBEAT := recipe_heartbeat, TIMEOUT := T#1s, FRESH => ok);
@@ -324,7 +326,8 @@ A project with Rust POUs is worked like any project: **Compile**, **Start** and 
 view, `trust-runtime build`, `trust-dev test` and `trust-runtime deploy`. The build compiles the crate
 with the toolchain's own cargo and compiler, in a cargo home of its own: your own Rust, its settings
 and its caches play no part. The first build of a project compiles the SDK, so it takes longer than
-the next.
+the next. **Compile** (`trust-runtime check`) checks the crate with the same cargo, without building
+the program, and lists the crate's errors and warnings in Problems where they are.
 
 Live Values and the debugger show a Rust function block's variables, and a fault in Rust names the
 Rust POU and the Structured Text statement that called it.
@@ -347,6 +350,10 @@ advisory that a crate is unmaintained or unsound, or a notice, is a warning. The
 the database's current state each time and keeps a copy in truST's data folder; without a
 connection it checks against that copy and says when it was downloaded. On a computer that never
 reaches GitHub, give it a copy of the database's repository with `--db <folder>`.
+
+The program image itself lists the same crates, with their versions, where each comes from and the
+checksum `Cargo.lock` pins for it, so a deployed program says which Rust code it holds. The list is
+signed with the image, travels in its deployment record, and is in `build/build.json` as `crates`.
 
 ## Reference
 

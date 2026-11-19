@@ -1016,8 +1016,9 @@ release, at its version, so that a service built with the user's own Rust or the
 gets them there (RU-61).
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
-the build declares as a global (`<name>_heartbeat : UDINT`) and the SDK increments at the period the
-service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
+the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the
+service's SDK sends `service.heartbeat` with the service's token (specification 11 §6.8.1), which it
+does at the period the service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
 (`src/generated/services.st`, in a Rust-first project `src/generated/trust/services.st`): one
 `VAR_GLOBAL` with a variable per service, in `trust.toml`'s order. `trust-dev rust declarations`
 writes it, and removes it when `trust.toml` declares no service, and the build refuses a project
@@ -1214,9 +1215,11 @@ SDK: the scan crate graph has no build scripts and no procedural macros but the 
 the build reads a crate's sources only with the compiler. A service's crates may have both: a
 service is built apart from the program (RU-61).
 
-**RU-79. Supply.** `Cargo.lock` pins every crate with its checksum (RU-10); the deployment record
-(specification 34 §5.1.1) lists the scan crate graph, every crate's name, version and checksum, so a
-deployed image says which Rust code it holds. `trust-dev rust audit` checks the graph against the
+**RU-79. Supply.** `Cargo.lock` pins every crate with its checksum (RU-10); the program image's
+crate table (specification 44 §5.12), which its signature covers, and its deployment record
+(specification 34 §5.1.1, section 9) list the scan crate graph, every crate's name, version, source
+and checksum (none for a path crate, for which `Cargo.lock` pins none), so a deployed image says which
+Rust code it holds. The list holds the crates the audit below checks. `trust-dev rust audit` checks the graph against the
 RustSec advisory database when the computer can reach it, and against a copy of it otherwise.
 
 The audit reads the scan crate graph as the build reads it, from cargo's metadata of the build's

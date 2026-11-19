@@ -12,6 +12,7 @@ mod bindings;
 pub mod bundle;
 mod call_graph;
 mod cargo_build;
+mod check;
 mod classes;
 mod crate_graph;
 mod dispatch;
@@ -51,6 +52,7 @@ use std::path::Path;
 use crate::harness::SourceFile;
 use crate::stdlib::conversions::ConversionProfile;
 pub use bindings::write_bindings;
+pub use check::check_project;
 pub use run::{load, load_kept, HostCode};
 pub use rust_messages::{RustDiagnostic, RustSeverity};
 pub use settings::{conversion_profile, debug_hooks, signing_key_setting};
@@ -342,6 +344,9 @@ pub struct Build {
     /// The compiler's warnings of the project's Rust crate, each where it is (specification 48
     /// RU-44); none for a project without a crate.
     pub crate_warnings: Vec<RustDiagnostic>,
+    /// The crates of the image's crate table (specification 44 §5.12, specification 48 RU-79);
+    /// none for a project without a crate.
+    pub crates: Vec<trust_runtime_core::deployment::RustCrate>,
 }
 
 /// The generated crate of `sources`, without compiling it.
@@ -544,6 +549,28 @@ pub fn build_project(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
+    let crate_build = crate_build(project, options)?;
+    build_sources(
+        sources,
+        tests,
+        options,
+        conversions,
+        toolchain,
+        work,
+        crate_build,
+    )
+}
+
+/// The project's Rust crate in folder `project` as a build for `options` takes it, when it declares
+/// Rust POUs (specification 48 §9.1): its services' heartbeats are what `trust.toml` declares
+/// (RU-63), its committed declarations what its sources declare (RU-24), its own rules hold
+/// (RU-08), and its POUs' budgets for the target are read (RU-46). None for a project without a
+/// crate or whose crate declares no Rust POU.
+///
+/// # Errors
+///
+/// [`NativeError::Compile`] with each finding.
+fn crate_build(project: &Path, options: &Options) -> Result<Option<CrateBuild>, NativeError> {
     let layout = rust_pous::layout(project)
         .map_err(|message| NativeError::Compile(format!("trust.toml: {message}")))?;
     rust_pous::check_services(project, &layout).map_err(NativeError::Compile)?;
@@ -552,11 +579,11 @@ pub fn build_project(
         NativeError::Compile(lines.join("\n"))
     })?;
     let Some(krate) = krate else {
-        return build_sources(sources, tests, options, conversions, toolchain, work, None);
+        return Ok(None);
     };
     rust_pous::check_declarations(project, &krate).map_err(NativeError::Compile)?;
     if krate.pous.is_empty() {
-        return build_sources(sources, tests, options, conversions, toolchain, work, None);
+        return Ok(None);
     }
     // The crate's own rules hold before anything compiles (specification 48 RU-08).
     rust_pous::check_crate(project, &krate.layout, &krate.root).map_err(|errors| {
@@ -565,7 +592,7 @@ pub fn build_project(
     })?;
     let timing =
         rust_pous::timing(project, triple(options.target), &krate).map_err(NativeError::Compile)?;
-    let crate_build = CrateBuild {
+    Ok(Some(CrateBuild {
         project: cargo_build::ProjectCrate {
             folder: project.join(&krate.layout.crate_folder),
             label: krate.layout.crate_folder.replace('\\', "/"),
@@ -576,16 +603,46 @@ pub fn build_project(
         },
         krate,
         timing,
+    }))
+}
+
+/// Writes layer 1, the Structured Text that the project's crate `project` calls, where the crate's
+/// manifest names it, when `generated` has one: one text for every target and image (specification
+/// 48 RU-39), so the other image's module too.
+///
+/// # Errors
+///
+/// [`NativeError`] of the other image's generation or of the write.
+fn write_layer_one(
+    front: &front::Front,
+    tests: &[smol_str::SmolStr],
+    conversions: ConversionProfile,
+    options: &Options,
+    generated: &emit::Generated,
+    project: Option<&cargo_build::ProjectCrate>,
+) -> Result<(), NativeError> {
+    let (
+        Some(layer_one),
+        Some(cargo_build::ProjectCrate {
+            bindings: Some(folder),
+            ..
+        }),
+    ) = (&generated.layer_one, project)
+    else {
+        return Ok(());
     };
-    build_sources(
-        sources,
-        tests,
-        options,
-        conversions,
-        toolchain,
-        work,
-        Some(crate_build),
-    )
+    let other = generated_as(front, tests, conversions, options.target, !options.hooks)?;
+    let other = other
+        .layer_one
+        .map(|other| other.module)
+        .unwrap_or_default();
+    let (release, debug) = if options.hooks {
+        (&other, &layer_one.module)
+    } else {
+        (&layer_one.module, &other)
+    };
+    let library = emit::layer_one_library(release, debug, &layer_one.bindings);
+    cargo_build::write_layer_one(folder, &library)
 }
 
 /// The checked and lowered `sources` with the project's crate `krate`, when there is one: how the
@@ -652,29 +709,14 @@ fn build_sources(
     let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
     model.conversions = conversions;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
-    // Layer 1, the Structured Text that the crate calls, lies where the crate's manifest names it,
-    // one text for every target and image (specification 48 RU-39): the other image's module too.
-    if let (
-        Some(layer_one),
-        Some(cargo_build::ProjectCrate {
-            bindings: Some(folder),
-            ..
-        }),
-    ) = (&generated.layer_one, &project)
-    {
-        let other = generated_as(&front, tests, conversions, options.target, !options.hooks)?;
-        let other = other
-            .layer_one
-            .map(|other| other.module)
-            .unwrap_or_default();
-        let (release, debug) = if options.hooks {
-            (&other, &layer_one.module)
-        } else {
-            (&layer_one.module, &other)
-        };
-        let library = emit::layer_one_library(release, debug, &layer_one.bindings);
-        cargo_build::write_layer_one(folder, &library)?;
-    }
+    write_layer_one(
+        &front,
+        tests,
+        conversions,
+        options,
+        &generated,
+        project.as_ref(),
+    )?;
     // The Rust work of each task against its interval (specification 48 RU-47): warnings, or errors
     // in a `production` profile.
     let warnings = match &timing {
@@ -693,7 +735,12 @@ fn build_sources(
         .iter()
         .map(|entry| entry.symbol.clone())
         .collect();
-    let (elf, remarks, crate_warnings) = match &project {
+    let cargo_build::Compiled {
+        elf,
+        remarks,
+        warnings: crate_warnings,
+        crates,
+    } = match &project {
         Some(project) => cargo_build::compile(
             toolchain,
             &generated.source,
@@ -705,7 +752,12 @@ fn build_sources(
         None => {
             let (elf, remarks) =
                 toolchain.compile(&generated.source, options.target, &symbols, work)?;
-            (elf, remarks, Vec::new())
+            cargo_build::Compiled {
+                elf,
+                remarks,
+                warnings: Vec::new(),
+                crates: Vec::new(),
+            }
         }
     };
     // A Rust POU's panic is named with the POU and the form to use instead, a changing `static`,
@@ -763,6 +815,7 @@ fn build_sources(
             module: &module,
             memory: &memory,
             stack,
+            crates: &crates,
         },
     )?;
     let image = writer
@@ -789,6 +842,7 @@ fn build_sources(
             .and_then(|configuration| configuration.resource_name.clone()),
         warnings,
         crate_warnings,
+        crates,
     })
 }
 
