@@ -21,4 +21,5 @@ include!("cli/control.rs");
 include!("cli/firmware.rs");
 include!("cli/toolchain.rs");
 include!("cli/tests.rs");
+include!("cli/token_tests.rs");
 include!("cli/docs_tests.rs");
