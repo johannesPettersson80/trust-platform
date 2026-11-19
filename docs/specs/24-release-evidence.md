@@ -315,7 +315,20 @@ nothing. Then one job creates the
 annotated tag `v<version>` on the commit and pushes it, creates the GitHub
 release with every required asset and the version's changelog section as its
 text, publishes every target's VS Code package to the Marketplace, and verifies
-the release. A missing Marketplace token fails the release. Re-running the
+the release. A missing Marketplace token fails the release.
+
+**Publishing the SDK's crates.** Once the release is verified, a job of its own
+publishes the SDK's crates to crates.io at the release's version (specification
+48 RU-12): `trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`,
+`trust-plc-macros` and `trust-plc`, in that order, each after the crates it
+depends on, from the released commit, each verified by cargo's build of its
+package (`scripts/publish_crates.py`). A crate whose version crates.io holds is
+skipped, so re-running the job continues where it stopped. Only this job holds
+the crates.io token, the repository secret `CARGO_REGISTRY_TOKEN`; without it
+the job publishes nothing and says so in a notice, and the release stands, since
+crates.io keeps a published version for good and only the owner of the crates'
+account gives the token. A failure of the job fails the workflow's conclusion;
+the GitHub release and the Marketplace hold the version by then. Re-running the
 failed jobs of a release continues where it stopped: a tag on the same commit,
 an existing release that holds the same packages and a target already
 published are accepted. The

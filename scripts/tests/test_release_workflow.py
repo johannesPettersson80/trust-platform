@@ -305,7 +305,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         # Catches a tag created while a platform's build or a test job still runs or has failed
         # (0.25.0's release jobs failed after its tag, 25 October 2026), and a rehearsal that keeps
         # files before every build and test passed.
-        others = set(self.jobs) - {"rehearse", "publish", "conclusion"}
+        # The SDK's crates follow the release's publication (specification 24, "Publishing the SDK's crates").
+        others = set(self.jobs) - {"rehearse", "publish", "crates", "conclusion"}
         self.assertEqual(needs(self.jobs["publish"]), others)
         self.assertEqual(needs(self.jobs["rehearse"]), others)
 
@@ -607,7 +608,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
         # 2 November 2026 saves), one that never publishes, and one that publishes without the matrix, which no pull
         # request's rehearsal runs (owner, 4 November 2026).
         promoted = results("push", PROMOTED)
-        self.assertEqual(ran(promoted), {"plan", "release-preflight", "openot-real-databases", "publish", "conclusion"})
+        self.assertEqual(
+            ran(promoted), {"plan", "release-preflight", "openot-real-databases", "publish", "crates", "conclusion"}
+        )
         self.assertTrue(concluded(promoted))
         failed_preflight = results("push", PROMOTED, ended={"release-preflight": "failure"})
         self.assertEqual(failed_preflight["publish"], "skipped", "a failed preflight stops a promotion")
@@ -623,7 +626,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         # when all passed. Catches a tag after a failed or cancelled build (0.25.0, 25 October 2026).
         built = {**PROMOTED, "rehearsal_run": "", "rehearsal_artifact": ""}
         after_ci = results("workflow_run", built)
-        self.assertEqual(ran(after_ci), {"plan", "release-preflight", "publish", "conclusion"} | BUILDS)
+        self.assertEqual(ran(after_ci), {"plan", "release-preflight", "publish", "crates", "conclusion"} | BUILDS)
         for job in BUILDS:
             for end in ("failure", "cancelled"):
                 stopped = results("workflow_run", built, ended={job: end})
@@ -741,6 +744,27 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("secrets.VSCE_PAT", steps(self.jobs["release-preflight"])["Require the Marketplace token"])
         self.assertIn("secrets.VSCE_PAT", steps(self.jobs["publish"])["Publish to VS Code Marketplace"])
         self.assertNotIn("secrets.", RELEASE_FILES.read_text(encoding="utf-8"))
+
+    def test_only_the_crates_step_gets_the_crates_token_and_only_after_a_release(self) -> None:
+        # Specification 24, "Publishing the SDK's crates": the crates.io token reaches one step, of a job that runs only
+        # for a release whose Publish passed, so that crates.io never holds a version GitHub and the Marketplace do not.
+        # Catches the token in a job's environment or a rehearsal, crates published before the release or after its
+        # publication failed, and a job that writes to the repository.
+        self.assertEqual(self.text.count("secrets.CARGO_REGISTRY_TOKEN"), 1)
+        crates = self.jobs["crates"]
+        step = steps(crates)["Publish the SDK's crates"]
+        self.assertIn("CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}", step)
+        self.assertEqual(field(step, "run"), "python3 scripts/publish_crates.py")
+        self.assertEqual(needs(crates), {"plan", "release-preflight", "publish"})
+        self.assertIn("    permissions:\n      contents: read\n", crates)
+        released = simulate(self.jobs, event="push", outputs=PROMOTED)
+        self.assertEqual(released["crates"], "success")
+        failed = simulate(self.jobs, event="push", outputs=PROMOTED, ended={"publish": "failure"})
+        self.assertEqual(failed["crates"], "skipped", "no crates after a failed publication")
+        for mode in ("rehearsal", "package", "skip"):
+            for event in ("pull_request", "workflow_dispatch", "push", "workflow_run"):
+                found = simulate(self.jobs, event=event, outputs={"mode": mode, "rehearsal_run": ""})
+                self.assertEqual(found["crates"], "skipped", (mode, event))
 
     def test_the_project_runner_never_runs_pull_request_code(self) -> None:
         # Specification 24: the real-database matrix runs on the project's own runner in a maintainer's manual rehearsal
