@@ -798,39 +798,7 @@ pub fn walk_instances(
     visit: &mut dyn FnMut(&str, Located) -> Walk,
 ) -> Result<(), RuntimeError> {
     let types = Types::of(image)?;
-    let symbols = image
-        .table::<SymbolRecord>()
-        .map_err(|_| super::values::damaged("symbol table"))?;
-    let roots: Vec<(u32, SymbolRecord)> = (0_u32..)
-        .zip(symbols.iter())
-        .filter(|(_, symbol)| symbol.area != 0 && (1..=6).contains(&symbol.area))
-        .filter(|(_, symbol)| {
-            let parent = if symbol.parent == NONE {
-                None
-            } else {
-                symbols.get(symbol.parent)
-            };
-            symbol.flags & SYMBOL_PROGRAM == 0
-                && match parent {
-                    None => symbol.parent == NONE,
-                    Some(parent) => parent.flags & SYMBOL_PROGRAM != 0 && parent.parent == NONE,
-                }
-        })
-        .collect();
-    // Program instances' variables first, each program's in the order of their places, then the
-    // globals in theirs.
-    let mut ordered = roots;
-    ordered.sort_by_key(|(_, symbol)| {
-        (
-            if symbol.parent == NONE {
-                u32::MAX
-            } else {
-                symbol.parent
-            },
-            symbol.area,
-            symbol.offset,
-        )
-    });
+    let ordered = roots(image)?;
     let mut walker = Walker {
         types: &types,
         visit,
@@ -847,6 +815,42 @@ pub fn walk_instances(
         }
     }
     Ok(())
+}
+
+/// The variables a walk starts from: each program instance's own variables, each program's in the
+/// order of their places, then the globals in theirs.
+fn roots(image: &Image<'_>) -> Result<Vec<(u32, SymbolRecord)>, RuntimeError> {
+    let symbols = image
+        .table::<SymbolRecord>()
+        .map_err(|_| super::values::damaged("symbol table"))?;
+    let mut roots: Vec<(u32, SymbolRecord)> = (0_u32..)
+        .zip(symbols.iter())
+        .filter(|(_, symbol)| symbol.area != 0 && (1..=6).contains(&symbol.area))
+        .filter(|(_, symbol)| {
+            let parent = if symbol.parent == NONE {
+                None
+            } else {
+                symbols.get(symbol.parent)
+            };
+            symbol.flags & SYMBOL_PROGRAM == 0
+                && match parent {
+                    None => symbol.parent == NONE,
+                    Some(parent) => parent.flags & SYMBOL_PROGRAM != 0 && parent.parent == NONE,
+                }
+        })
+        .collect();
+    roots.sort_by_key(|(_, symbol)| {
+        (
+            if symbol.parent == NONE {
+                u32::MAX
+            } else {
+                symbol.parent
+            },
+            symbol.area,
+            symbol.offset,
+        )
+    });
+    Ok(roots)
 }
 
 struct Walker<'w, 'i> {
@@ -949,3 +953,6 @@ impl Walker<'_, '_> {
         Ok(())
     }
 }
+
+mod leaves;
+pub use leaves::walk_variables;
