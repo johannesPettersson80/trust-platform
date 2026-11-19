@@ -1012,8 +1012,9 @@ symbol table of the deployed image (`trust-dev service bindings`), so a service 
 `plant::P1::level` and gets an `f64`.
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
-the build declares as a global (`<name>_heartbeat : UDINT`) and the SDK increments at the period the
-service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
+the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the
+service's SDK sends `service.heartbeat` with the service's token (specification 11 §6.8.1), which it
+does at the period the service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
 (`src/generated/services.st`, in a Rust-first project `src/generated/trust/services.st`): one
 `VAR_GLOBAL` with a variable per service, in `trust.toml`'s order. `trust-dev rust declarations`
 writes it, and removes it when `trust.toml` declares no service, and the build refuses a project
@@ -1245,8 +1246,11 @@ given it, and downloads nothing.
 44 §5.11); a device installs and runs it only as specification 44 §10.2 allows any image. Nothing of
 the Rust code is loaded apart from the image.
 
-**RU-81. Services.** A service authenticates on the control link with credentials of its own
-(specification 11 §6.8), with the role it needs: a service that only reads gets a role that reads.
+**RU-81. Services.** A service authenticates on the control link with credentials of its own, a
+service token that an Admin creates for the service's name (`trust-runtime ctl service-token`,
+specification 11 §6.9.6), with the role it needs: a service that only reads gets a role that reads,
+Viewer when none is asked for. A service token does not expire, so that a service that runs
+unattended keeps its connection; creating it again replaces it.
 
 ## 18. Devices
 
@@ -1387,7 +1391,8 @@ heartbeat = "500ms"
 timeout = "2s"
 writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
 endpoint = "tcp://127.0.0.1:47800"
-credentials = "secrets/recipe.token"   # a file with mode 600, never in version control
+credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
+                                       # service-token recipe --out secrets/recipe.token` (RU-81)
 
 # A Rust-first project only (§14.2):
 [resource]

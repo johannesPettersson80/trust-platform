@@ -136,7 +136,7 @@ fn paths(params: Option<&Json>) -> Result<Vec<String>, &'static str> {
 }
 
 /// The stable error text of `refusal`.
-fn refusal_text(refusal: &ReadRefusal) -> String {
+pub(crate) fn refusal_text(refusal: &ReadRefusal) -> String {
     match refusal {
         ReadRefusal::NoCompletedScan => "no completed scan".to_string(),
         ReadRefusal::Unknown(path) => format!("unknown variable: {path}"),

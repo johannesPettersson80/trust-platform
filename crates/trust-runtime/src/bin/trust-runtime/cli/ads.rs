@@ -252,7 +252,7 @@ pub enum AdsServerAction {
         #[arg(long = "endpoint")]
         endpoint: Option<String>,
         /// Runtime control auth token. Defaults to TRUST_CTL_TOKEN or project config.
-        #[arg(long = "token")]
+        #[arg(long = "token", allow_hyphen_values = true)]
         token: Option<String>,
         /// Print machine-readable JSON.
         #[arg(long, action = ArgAction::SetTrue)]
@@ -267,7 +267,7 @@ pub enum AdsServerAction {
         #[arg(long = "endpoint")]
         endpoint: Option<String>,
         /// Runtime control auth token. Defaults to TRUST_CTL_TOKEN or project config.
-        #[arg(long = "token")]
+        #[arg(long = "token", allow_hyphen_values = true)]
         token: Option<String>,
         /// Print machine-readable JSON.
         #[arg(long, action = ArgAction::SetTrue)]
@@ -282,7 +282,7 @@ pub enum AdsServerAction {
         #[arg(long = "endpoint")]
         endpoint: Option<String>,
         /// Runtime control auth token. Defaults to TRUST_CTL_TOKEN or project config.
-        #[arg(long = "token")]
+        #[arg(long = "token", allow_hyphen_values = true)]
         token: Option<String>,
         /// External client kind that has independently verified the server, for example pyads.
         #[arg(long = "external-kind")]

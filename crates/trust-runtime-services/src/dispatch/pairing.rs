@@ -1,16 +1,18 @@
 //! The pairing requests (specification 11 §6.9.6; specification 34 S5): `pair.start` (Admin) starts
-//! a six-digit code, `pair.claim` (Operator) trades it for a role-scoped token, `pair.list` (Admin)
-//! reports the tokens without their secrets, and `pair.revoke` (Admin) disables one token, or every
-//! token with the id `all`. The rules are in [`crate::access::pairing`]; this module reads the
+//! a six-digit code, `pair.claim` (Operator) trades it for a role-scoped token, `pair.service`
+//! (Admin) creates or replaces a service's token, `pair.list` (Admin) reports the tokens without
+//! their secrets, and `pair.revoke` (Admin) disables one token, or every token with the id `all`. The rules are in [`crate::access::pairing`]; this module reads the
 //! parameters and answers through the platform's pairings at its wall clock, in whole Unix seconds.
 
 use alloc::format;
 use alloc::string::{String, ToString};
 
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use trust_runtime_core::ports::WallClock;
 
+use crate::access::pairing::is_service_name;
 use crate::access::AccessRole;
 use crate::ports::AccessPort;
 use crate::protocol::ControlResponse;
@@ -30,6 +32,13 @@ struct PairClaimParams {
     role: Option<String>,
 }
 
+/// The parameters of `pair.service`: the service's name, and the role to grant, Viewer when absent.
+#[derive(Debug, Deserialize)]
+struct PairServiceParams {
+    name: String,
+    role: Option<String>,
+}
+
 /// The parameters of `pair.revoke`: the token's id, or `all`.
 #[derive(Debug, Deserialize)]
 struct PairRevokeParams {
@@ -43,6 +52,23 @@ fn now_secs<H: WallClock>(host: &H) -> Option<u64> {
 
 fn refusal(id: u64, text: &str) -> ControlResponse {
     ControlResponse::error(id, text.to_string())
+}
+
+/// The request's parameters as `T`, or the refusal of parameters that are absent or not `T`.
+fn read_params<T: DeserializeOwned>(id: u64, params: Option<Value>) -> Result<T, ControlResponse> {
+    let value = params.ok_or_else(|| refusal(id, "missing params"))?;
+    serde_json::from_value(value)
+        .map_err(|err| ControlResponse::error(id, format!("invalid params: {err}")))
+}
+
+/// The role a request asks for, `None` when it names none, or the refusal of a role that is none of
+/// the four.
+fn requested_role(id: u64, role: Option<&str>) -> Result<Option<AccessRole>, ControlResponse> {
+    match role.map(AccessRole::parse) {
+        None => Ok(None),
+        Some(Some(role)) => Ok(Some(role)),
+        Some(None) => Err(refusal(id, "invalid role")),
+    }
 }
 
 /// `pair.start`: `{code, expires_at}`, a new code that replaces any pending one.
@@ -69,26 +95,56 @@ pub(super) fn claim<H: AccessPort + WallClock>(
     params: Option<Value>,
     host: &H,
 ) -> ControlResponse {
-    let params: PairClaimParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return refusal(id, "missing params"),
+    let params: PairClaimParams = match read_params(id, params) {
+        Ok(params) => params,
+        Err(refused) => return refused,
     };
     let Some(pairings) = host.pairing() else {
         return refusal(id, UNAVAILABLE);
     };
-    let requested_role = match params.role.as_deref().map(AccessRole::parse) {
-        None => None,
-        Some(Some(role)) => Some(role),
-        Some(None) => return refusal(id, "invalid role"),
+    let role = match requested_role(id, params.role.as_deref()) {
+        Ok(role) => role,
+        Err(refused) => return refused,
     };
     let Some(now) = now_secs(host) else {
         return refusal(id, CLOCK_NOT_SET);
     };
-    match pairings.claim(&params.code, requested_role, now) {
+    match pairings.claim(&params.code, role, now) {
         Ok(token) => ControlResponse::ok(id, json!({ "token": token })),
+        Err(error) => ControlResponse::error(id, error.to_string()),
+    }
+}
+
+/// `pair.service {name, role?}`: `{id, role, token}`, the service token of `name`, created or put
+/// in the place of the one it had. The parameters are read first, then the pairings, the role, the
+/// name and the clock are checked, in that order.
+pub(super) fn service<H: AccessPort + WallClock>(
+    id: u64,
+    params: Option<Value>,
+    host: &H,
+) -> ControlResponse {
+    let params: PairServiceParams = match read_params(id, params) {
+        Ok(params) => params,
+        Err(refused) => return refused,
+    };
+    let Some(pairings) = host.pairing() else {
+        return refusal(id, UNAVAILABLE);
+    };
+    let role = match requested_role(id, params.role.as_deref()) {
+        Ok(role) => role,
+        Err(refused) => return refused,
+    };
+    if !is_service_name(&params.name) {
+        return refusal(id, "invalid service name");
+    }
+    let Some(now) = now_secs(host) else {
+        return refusal(id, CLOCK_NOT_SET);
+    };
+    match pairings.service(&params.name, role, now) {
+        Ok(created) => ControlResponse::ok(
+            id,
+            json!({ "id": created.id, "role": created.role, "token": created.token }),
+        ),
         Err(error) => ControlResponse::error(id, error.to_string()),
     }
 }
@@ -110,12 +166,9 @@ pub(super) fn revoke<H: AccessPort + WallClock>(
     params: Option<Value>,
     host: &H,
 ) -> ControlResponse {
-    let params: PairRevokeParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return refusal(id, "missing params"),
+    let params: PairRevokeParams = match read_params(id, params) {
+        Ok(params) => params,
+        Err(refused) => return refused,
     };
     let Some(pairings) = host.pairing() else {
         return refusal(id, UNAVAILABLE);
@@ -133,6 +186,9 @@ pub(super) fn revoke<H: AccessPort + WallClock>(
         Err(error) => ControlResponse::error(id, error.to_string()),
     }
 }
+
+#[cfg(test)]
+mod service_tests;
 
 #[cfg(test)]
 mod tests {
@@ -153,7 +209,7 @@ mod tests {
 
     /// A port that keeps nothing: an empty file, writes that succeed or fail with `save_error`, and
     /// zero bytes as random numbers, so the code is `000000` and the token 43 `A`.
-    struct MemoryPort {
+    pub(super) struct MemoryPort {
         save_error: Option<&'static str>,
     }
 
@@ -174,20 +230,20 @@ mod tests {
     }
 
     /// An Admin's host with or without pairings and a clock.
-    struct Host {
-        pairings: Option<RefCell<Pairings<MemoryPort>>>,
-        utc_ms: Option<u64>,
+    pub(super) struct Host {
+        pub(super) pairings: Option<RefCell<Pairings<MemoryPort>>>,
+        pub(super) utc_ms: Option<u64>,
     }
 
     impl Host {
-        fn new(save_error: Option<&'static str>) -> Self {
+        pub(super) fn new(save_error: Option<&'static str>) -> Self {
             Self {
                 pairings: Some(RefCell::new(Pairings::open(MemoryPort { save_error }, 0))),
                 utc_ms: Some(UTC_MS),
             }
         }
 
-        fn without_pairings() -> Self {
+        pub(super) fn without_pairings() -> Self {
             Self {
                 pairings: None,
                 utc_ms: Some(UTC_MS),
@@ -314,6 +370,7 @@ mod tests {
                 "created_at": 1_792_108_800_u64,
                 "expires_at": 1_794_700_800_u64,
                 "role": "viewer",
+                "service": null,
                 "tail": "…AAAA",
             }]}))
         );

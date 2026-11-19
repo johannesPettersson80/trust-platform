@@ -21,7 +21,7 @@ pub enum RegistryAction {
         #[arg(long, value_enum, default_value_t = RegistryVisibilityArg::Public)]
         visibility: RegistryVisibilityArg,
         /// Shared access token for private registries.
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         token: Option<String>,
     },
     /// Publish a bundle into the registry.
@@ -39,7 +39,7 @@ pub enum RegistryAction {
         #[arg(long = "version")]
         version: String,
         /// Access token for private registries.
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         token: Option<String>,
     },
     /// Download a bundle from the registry.
@@ -57,7 +57,7 @@ pub enum RegistryAction {
         #[arg(long = "output")]
         output: PathBuf,
         /// Access token for private registries.
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         token: Option<String>,
         /// Verify digest metadata before and after install copy.
         #[arg(long, action = ArgAction::SetTrue)]
@@ -75,7 +75,7 @@ pub enum RegistryAction {
         #[arg(long = "version")]
         version: String,
         /// Access token for private registries.
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         token: Option<String>,
     },
     /// List published packages.
@@ -84,7 +84,7 @@ pub enum RegistryAction {
         #[arg(long = "registry")]
         registry: PathBuf,
         /// Access token for private registries.
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         token: Option<String>,
         /// Print machine-readable JSON.
         #[arg(long, action = ArgAction::SetTrue)]
