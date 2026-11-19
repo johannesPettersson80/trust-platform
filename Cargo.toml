@@ -20,6 +20,7 @@ members = [
     "crates/trust-plc-macros",
     "crates/trust-plc-mem",
     "crates/trust-runtime-services",
+    "crates/trust-service",
     "crates/trust-platform-stm32",
     "crates/trust-platform-stm32u5",
     "crates/trust-platform-esp32",
@@ -161,7 +162,7 @@ trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-control-math = { path = "crates/trust-control-math" }
 trust-control = { path = "crates/trust-control" }
-trust-runtime-client = { path = "crates/trust-runtime-client" }
+trust-runtime-client = { path = "crates/trust-runtime-client", version = "=0.42.0" }
 trust-control-studio = { path = "crates/trust-control-studio" }
 trust-devices = { path = "crates/trust-devices" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }

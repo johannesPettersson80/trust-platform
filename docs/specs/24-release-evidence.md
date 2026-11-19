@@ -320,8 +320,9 @@ the release. A missing Marketplace token fails the release.
 **Publishing the SDK's crates.** Once the release is verified, a job of its own
 publishes the SDK's crates to crates.io at the release's version (specification
 48 RU-12): `trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`,
-`trust-plc-macros` and `trust-plc`, in that order, each after the crates it
-depends on, from the released commit, each verified by cargo's build of its
+`trust-plc-macros` and `trust-plc`, then the SDK of services,
+`trust-runtime-client` and `trust-service` (specification 48 RU-62), in that
+order, each after the crates it depends on, from the released commit, each verified by cargo's build of its
 package (`scripts/publish_crates.py`). A crate whose version crates.io holds is
 skipped, so re-running the job continues where it stopped. Only this job holds
 the crates.io token, the repository secret `CARGO_REGISTRY_TOKEN`; without it
