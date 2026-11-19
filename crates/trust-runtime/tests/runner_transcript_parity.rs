@@ -227,20 +227,39 @@ fn compare_reads(host: &HostComposition, device: &mut Device, reads: &[(u64, &st
     }
 }
 
+/// How often a running read is asked again after the host completed a scan between the two
+/// compositions' reads.
+const READ_ATTEMPTS: usize = 10;
+
 /// Spec 11 §6.8.1, "Reading variables": both compositions answer `variables.read` of the board
 /// probe's output, its global and its input with the same scan, logical time, state, quality and
 /// values, read between two scans. The device would answer differently if it numbered its scans or
 /// timed them otherwise, read the program inside a scan, or typed a value otherwise.
-fn compare_variables(host: &HostComposition, device: &mut Device, id: u64) {
+///
+/// The host goes on scanning while the test asks it, and the device scans only as it replays the
+/// host's scans; a read names the scan it read. So the device first catches up with the scans the
+/// host completed, answers, and the host is read after it: a host reply of a later scan means the
+/// host completed one between the two reads (checklist G220, #623's macOS run), and both are read
+/// again. The replies are compared whole, the scan and its time included. A paused host completes
+/// no scan.
+fn compare_variables(host: &mut HostComposition, device: &mut Device, id: u64) {
     let line = json!({
         "id": id,
         "type": "variables.read",
         "params": { "paths": ["Plant.led", "probe_depth", "Plant.button"] }
     })
     .to_string();
-    let host_reply = host.request(&line);
-    assert_eq!(host_reply["ok"], json!(true), "{host_reply}");
-    assert_same_reply(&line, &host_reply, &device.request(&line));
+    for _ in 0..READ_ATTEMPTS {
+        device.replay(&host.settle());
+        let device_reply = device.request(&line);
+        let host_reply = host.request(&line);
+        assert_eq!(host_reply["ok"], json!(true), "{host_reply}");
+        if host_reply["result"]["scan"] == device_reply["result"]["scan"] {
+            assert_same_reply(&line, &host_reply, &device_reply);
+            return;
+        }
+    }
+    panic!("the host completed a scan between the two reads {READ_ATTEMPTS} times");
 }
 
 /// A Live Values request line with its parameters.
@@ -542,7 +561,7 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
             (5, "faults"),
         ],
     );
-    compare_variables(&host, &mut device, 60);
+    compare_variables(&mut host, &mut device, 60);
 
     live_values(&mut host, &mut device);
 
