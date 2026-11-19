@@ -7,7 +7,7 @@ pub struct DiscoverArgs {
     #[arg(long)]
     pub endpoint: Option<String>,
     /// Control auth token for --endpoint (defaults to TRUST_CTL_TOKEN).
-    #[arg(long)]
+    #[arg(long, allow_hyphen_values = true)]
     pub token: Option<String>,
     /// Search only these sources: trust_runtime, ads, modbus_tcp, mqtt, opcua, ethercat, gpio,
     /// serial, usb, bluetooth.

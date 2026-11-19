@@ -459,3 +459,95 @@ fn ctl_stats_renders_each_rust_pou_after_the_tasks() {
          rust_pou=CLOCKED budget_ns=1000000 longest_ns=4000 over_budget=0"
     );
 }
+
+#[test]
+fn ctl_service_token_writes_the_token_into_its_file_and_never_prints_it() {
+    // Specification 11 §6.9.6: `ctl service-token` sends `pair.service` with the name and the
+    // role, writes the reply's token into `--out`, making the missing folder `secrets`, with mode
+    // 0600 on Unix, and prints the id, the role and the file. Catches a token printed to the
+    // terminal, where logs and shell history keep it, a file other users may read, a missing
+    // folder refused, and a role dropped from the request.
+    let secret = "service-secret-token-value";
+    let (endpoint, request_rx, server) = spawn_control_server(json!({
+        "id": 1,
+        "ok": true,
+        "result": { "id": "service-recipe", "role": "engineer", "token": secret }
+    }));
+    let root = unique_temp_dir("service-token");
+    let out = root.join("secrets").join("recipe.token");
+    let out_text = out.to_string_lossy().into_owned();
+
+    let output = run_ctl(&[
+        "--endpoint",
+        &endpoint,
+        "--token",
+        "admin-token",
+        "service-token",
+        "recipe",
+        "--role",
+        "engineer",
+        "--out",
+        &out_text,
+    ]);
+    let request = request_rx.recv().expect("captured control request");
+    server.join().expect("control test server");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stdout}\n{stderr}");
+    assert_eq!(
+        request,
+        json!({
+            "id": 1,
+            "type": "pair.service",
+            "auth": "admin-token",
+            "params": { "name": "recipe", "role": "engineer" }
+        })
+    );
+    assert_eq!(
+        stdout.trim(),
+        format!("id=service-recipe role=engineer token_file={out_text}")
+    );
+    assert!(!stdout.contains(secret) && !stderr.contains(secret));
+    assert_eq!(std::fs::read_to_string(&out).expect("token file"), secret);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&out)
+            .expect("token file")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "the token file is the owner's alone");
+    }
+}
+
+#[test]
+fn ctl_service_token_writes_nothing_when_the_runtime_refuses() {
+    // A refused `pair.service`, here a name that is no identifier, fails the command with the
+    // runtime's text and leaves no file. Catches a refusal reported as success and an empty token
+    // file that a service would then present.
+    let (endpoint, request_rx, server) = spawn_control_server(json!({
+        "id": 1,
+        "ok": false,
+        "error": "invalid service name"
+    }));
+    let root = unique_temp_dir("service-token-refused");
+    let out = root.join("recipe.token");
+    let output = run_ctl(&[
+        "--endpoint",
+        &endpoint,
+        "service-token",
+        "re-cipe",
+        "--out",
+        &out.to_string_lossy(),
+    ]);
+    let request = request_rx.recv().expect("captured control request");
+    server.join().expect("control test server");
+
+    assert!(!output.status.success(), "a refused token must fail");
+    assert_eq!(request["params"], json!({ "name": "re-cipe" }));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("invalid service name"), "{stderr}");
+    assert!(!out.exists(), "no token file");
+}

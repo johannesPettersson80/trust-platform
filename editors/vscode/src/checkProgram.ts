@@ -81,7 +81,8 @@ function runCheck(
     execFile(
       binary,
       ["check", "--project", root, "--json"],
-      { cwd: root, timeout: 60_000, maxBuffer: 32 * 1024 * 1024 },
+      // A project's first check of its Rust crate checks the SDK with it (specification 11 §6.8.1c).
+      { cwd: root, timeout: 300_000, maxBuffer: 32 * 1024 * 1024 },
       (error, stdout, stderr) => {
         // `check` exits non-zero when the project fails — but still prints the JSON report to stdout,
         // so parse stdout regardless of exit code; only a missing/old binary yields no JSON.

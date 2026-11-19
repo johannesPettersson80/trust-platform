@@ -51,6 +51,9 @@ pub struct BundleCheckReport {
     /// without a `CONFIGURATION`, which runs under the name its project gives it (specification
     /// 11 §6.7.1).
     pub resources: Vec<String>,
+    /// The warnings of the project's Rust crate, which `cargo check` reported (specification 11
+    /// §6.8.1c); none for a project without a crate.
+    pub crate_warnings: Vec<crate::native::RustDiagnostic>,
 }
 
 /// Project layout summary without building the program.

@@ -23,6 +23,8 @@ mod expressions;
 mod firmware;
 #[path = "ctl/install.rs"]
 mod install;
+#[path = "ctl/service_token.rs"]
+mod service_token;
 #[path = "ctl/stats.rs"]
 mod stats;
 
@@ -120,6 +122,9 @@ pub fn run_control(
         }
         ControlAction::DeviceGet | ControlAction::DeviceSet { .. } | ControlAction::DeviceReset => {
             device::run(&target, &action)
+        }
+        ControlAction::ServiceToken { name, role, out } => {
+            service_token::run(&target, &name, role.as_deref(), &out)
         }
         action => send_control_request(&target, &action, project.as_deref()),
     }
@@ -569,7 +574,8 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         | ControlAction::Firmware { .. }
         | ControlAction::DeviceGet
         | ControlAction::DeviceSet { .. }
-        | ControlAction::DeviceReset => {
+        | ControlAction::DeviceReset
+        | ControlAction::ServiceToken { .. } => {
             unreachable!("run_control sends these through their own modules")
         }
         ControlAction::Shutdown { exit } => {
