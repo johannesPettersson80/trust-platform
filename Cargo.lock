@@ -8061,6 +8061,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-service"
+version = "0.43.0"
+dependencies = [
+ "serde_json",
+ "thiserror 2.0.21",
+ "toml",
+ "trust-runtime-client",
+ "trust-test-support",
+]
+
+[[package]]
 name = "trust-syntax"
 version = "0.43.0"
 dependencies = [

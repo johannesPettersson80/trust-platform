@@ -226,7 +226,7 @@ Runtime text-conversion behavior:
 - [x] SUB
 - [x] MUL (extensible)
 - [x] DIV
-- [x] MOD
+- [x] MOD (by name `MOD(A, B)` and as the operator)
 - [x] EXPT
 - [x] MOVE
 
@@ -237,10 +237,10 @@ Runtime text-conversion behavior:
 - [x] ROR
 
 ## Table 31 - Bitwise Boolean Functions
-- [x] AND (extensible)
-- [x] OR (extensible)
-- [x] XOR (extensible)
-- [x] NOT
+- [x] AND (extensible; by name `AND(B, C, D)` and as the operator)
+- [x] OR (extensible; by name and as the operator)
+- [x] XOR (extensible; by name and as the operator)
+- [x] NOT (as the operator, on a parenthesized operand for `NOT(B)`)
 
 ## Table 32 - Selection Functions
 - [x] SEL
