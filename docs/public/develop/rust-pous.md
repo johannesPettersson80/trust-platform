@@ -30,7 +30,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-trust-plc = "=0.42.0" # exactly your truST version
+trust-plc = "=0.43.0" # exactly your truST version
 ```
 
 ```rust
@@ -209,7 +209,7 @@ bindings that the build generates in the project's `build/trust_st/`. Name them 
 
 ```toml
 [dependencies]
-trust-plc = "=0.42.0"
+trust-plc = "=0.43.0"
 trust_st = { path = "../build/trust_st" }
 ```
 
@@ -262,8 +262,10 @@ over the control link. Declare it in `trust.toml`:
 [services.recipe]
 ```
 
-truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`, which the
-service increases while it runs, and a program gates on it with `SERVICE_FRESH`:
+truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`. While the
+service runs it sends its heartbeat, `service.heartbeat`, with its service token (below), at the
+period its `heartbeat` setting states; each heartbeat adds one to the global at the next cycle's
+start. A program gates on it with `SERVICE_FRESH`:
 
 ```iecst
 fresh(HEARTBEAT := recipe_heartbeat, TIMEOUT := T#1s, FRESH => ok);
@@ -271,13 +273,27 @@ fresh(HEARTBEAT := recipe_heartbeat, TIMEOUT := T#1s, FRESH => ok);
 
 A Structured Text project may hold `trust.toml` with `[services]` alone, without a crate.
 
+A service signs in to the runtime with a service token of its own. Create it with the runtime's
+Admin access, and name the file the service reads it from:
+
+```text
+trust-runtime ctl --project . service-token recipe --out secrets/recipe.token
+```
+
+The token is written into the file, which only you can read, and is never printed. It is a Viewer,
+which reads, unless you give it another role with `--role operator` or `--role engineer`. A service
+token does not expire, so a service that runs unattended keeps its connection. To replace it, run the
+command again: the earlier token stops working at once. `pair.list` lists it with the service's name,
+and `pair.revoke` with its id, `service-recipe`, revokes it. Keep the file out of version control.
+
 ## Build, run and debug
 
 A project with Rust POUs is worked like any project: **Compile**, **Start** and **Debug** in the truST
 view, `trust-runtime build`, `trust-dev test` and `trust-runtime deploy`. The build compiles the crate
 with the toolchain's own cargo and compiler, in a cargo home of its own: your own Rust, its settings
 and its caches play no part. The first build of a project compiles the SDK, so it takes longer than
-the next.
+the next. **Compile** (`trust-runtime check`) checks the crate with the same cargo, without building
+the program, and lists the crate's errors and warnings in Problems where they are.
 
 Live Values and the debugger show a Rust function block's variables, and a fault in Rust names the
 Rust POU and the Structured Text statement that called it.

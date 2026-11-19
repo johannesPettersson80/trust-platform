@@ -133,9 +133,14 @@ Usage: trust-runtime check [OPTIONS]
 `check` validates required `runtime.toml` and `io.toml`, optional `ads.toml`
 and `opcua_client.toml`, the source/dependency layout, and compilation without
 writing a program image. It runs the build's checks and code generation for
-this computer's CPU and needs no compiler toolchain. It aggregates independent
-configuration and compile issues in one response instead of stopping at the
-first failure.
+this computer's CPU and needs no compiler toolchain, unless the project has a
+Rust crate with Rust POUs: then it reads the crate as the build does and checks
+it with the toolchain's cargo (`cargo check`), and the crate's errors and
+warnings are issues where they are, with `truST (rustc)` as their `source`, as
+`build` reports them. A warning
+leaves the check passed; without the toolchain such a project fails the check
+with the code `toolchain`. It aggregates independent configuration and compile
+issues in one response instead of stopping at the first failure.
 
 `--json` and `--ci` emit response version 1 with `ok`, `status`, issue counts,
 stable issue codes, and source/dependency lists. Each compiler diagnostic is
@@ -522,6 +527,13 @@ trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-set device.toml
 trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-reset
 trust-runtime ctl --endpoint tcp://192.168.1.50:9901 --token <token> status
 ```
+
+`ctl service-token <name> --out <file>` creates the token a service signs in with
+(`pair.service`), or replaces the one it has, and needs the Admin role. It writes
+the token into `<file>`, with mode 0600 on Unix, making the file's folder when it is
+missing, and prints `id=service-<name> role=<role> token_file=<file>`, never the
+token. The role is `viewer` unless `--role operator` or `--role engineer` asks
+for another. The token does not expire; running the command again replaces it.
 
 `ctl --project <dir> endpoint` prints the endpoint that a client of the project
 uses, and sends nothing to the runtime. With `--json` it prints

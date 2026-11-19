@@ -215,7 +215,7 @@ any step, even at a power loss, leaves the previous program selected (DEPLOY-03)
 | Reclaimed region (`RECLAIMED`) | 64 KiB | the boot loader's RAM, `#[esp_hal::ram(reclaimed)]` in `.dram2_uninit`, the second heap region |
 | LP SRAM region (`LOW_POWER`) | 16,256 B at `0x50000000` | the third heap region, tried last: the LP SRAM less the 128 bytes of the reset record, the boot counter and the wall clock's carried time, `#[esp_hal::ram(unstable(rtc_fast, persistent))]` in `.rtc_fast.persistent`; a load or store there takes 2.0 cycles against 1.25 in HP SRAM |
 | Main-stack window | 78 KiB below the fixed stack top `0x4086E610` | measured, 2 KiB minimum headroom; the linker refuses a stack region under 82 KiB |
-| Scan-time code (`.rwtext`) | about 300 KB | the interpreter and the engine's scan path, executed from RAM |
+| Scan-time code (`.rwtext`) | 39,380 B (18 November 2026) | the kernel's and the resource loop's scan path, executed from RAM; `build-firmware esp32c6` refuses an image whose runner control path (`runner::stepping`, `runner::program`) lies in RAM (checklist G217) |
 
 Scan-time code runs from HP SRAM. From flash, through the 32 KB cache, one task activation took
 about 1.77 M cycles for 188,838 instructions (11.07 ms, over the 10 ms period); from RAM it takes

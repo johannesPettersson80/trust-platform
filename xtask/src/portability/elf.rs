@@ -4,6 +4,7 @@ use object::read::elf::ProgramHeader;
 use object::{Object, ObjectSection, ObjectSymbol};
 use serde_json::{json, Value};
 
+mod ram_code;
 mod reader;
 mod stm32u5a9;
 
@@ -57,6 +58,8 @@ struct Esp32c6Image {
     stack_end: Option<u64>,
     /// Size of the firmware's allocator arena, when the symbol is present.
     heap_arena_bytes: Option<u64>,
+    /// The functions of the runner's control path that lie in the RAM code (checklist G217).
+    control_path_in_ram: Vec<String>,
 }
 
 fn c6_window(start: u64, bytes: u64) -> Option<&'static str> {
@@ -158,6 +161,19 @@ fn inspect_esp32c6(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
             .find(|s| s.name().ok() == Some(name))
             .map(|s| s.address())
     };
+    // The functions of the runner's control path in the RAM code, by their own modules.
+    let control_path_in_ram = sections
+        .iter()
+        .find(|(name, ..)| name == ".rwtext")
+        .map(|&(_, address, size)| {
+            ram_code::control_path_in_ram(
+                file.symbols()
+                    .filter(|s| s.kind() == object::SymbolKind::Text)
+                    .filter_map(|s| Some((s.name().ok()?, s.address()))),
+                &(address..address + size),
+            )
+        })
+        .unwrap_or_default();
     let image = Esp32c6Image {
         riscv32: e_machine == EM_RISCV
             && file.architecture() == object::Architecture::Riscv32
@@ -173,6 +189,7 @@ fn inspect_esp32c6(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
             .symbols()
             .find(|s| s.name().is_ok_and(|name| name.contains("HEAP_MEMORY")))
             .map(|s| s.size()),
+        control_path_in_ram,
     };
     let mut report = check_esp32c6(board, &image)?;
     report["firmware_sha256"] = super::digest(bytes).into();
@@ -195,6 +212,12 @@ fn check_esp32c6(board: &BoardProfile, image: &Esp32c6Image) -> Result<Value> {
     ensure!(
         image.e_flags & EF_RISCV_RVE == 0,
         "firmware is RV32E, not RV32I"
+    );
+    ensure!(
+        image.control_path_in_ram.is_empty(),
+        "the runner's control path runs from RAM, which holds the scan path (firmware/trust-esp32c6/ld/rwtext_hook.x, \
+         checklist G217): {}",
+        image.control_path_in_ram.join(", ")
     );
     let mut hp_sram_static_bytes = 0_u64;
     let mut rtc_fast_bytes = 0_u64;
@@ -319,7 +342,24 @@ mod tests {
             stack_start: Some(0x4086_e610),
             stack_end: Some(0x4080_50d8),
             heap_arena_bytes: None,
+            control_path_in_ram: Vec::new(),
         }
+    }
+
+    #[test]
+    fn c6_refuses_an_image_whose_runner_control_path_runs_from_ram() {
+        // Checklist G217: the RAM code holds the scan path; a function of the runner's stepped scans
+        // there is refused by name. Catches an image whose RAM list draws the control path in again.
+        let mut image = c6_image();
+        image.control_path_in_ram =
+            vec!["_RNvMs0_NtNtCs1_22trust_runtime_services6runner8stepping3run".into()];
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
+        let error = check_esp32c6(&board, &image).unwrap_err().to_string();
+        assert!(
+            error.contains("the runner's control path runs from RAM"),
+            "{error}"
+        );
+        assert!(error.contains("6runner8stepping3run"), "{error}");
     }
 
     #[test]

@@ -135,6 +135,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
     ),
+    operation(
+        "service.heartbeat",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
     operation("hmi.read", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation(
         "program.active",
@@ -410,6 +415,7 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("pair.start", RolePolicy::Fixed(AccessRole::Admin), false),
     operation("pair.list", RolePolicy::Fixed(AccessRole::Admin), false),
     operation("pair.revoke", RolePolicy::Fixed(AccessRole::Admin), false),
+    operation("pair.service", RolePolicy::Fixed(AccessRole::Admin), false),
     operation("ads.doctor", RolePolicy::AdsDoctor, false),
     operation("ads.doctor.start", RolePolicy::AdsDoctor, false),
     operation("ads.import_symbols", RolePolicy::AdsImportSymbols, false),

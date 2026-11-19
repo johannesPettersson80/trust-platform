@@ -20,9 +20,14 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
           20_000
         );
         await pressConfigurePlant(inner);
-        await sleep(500);
-        assert.strictEqual(await inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"),
-          "true", "a runtime-valid saved plant with omitted initial_state must open its editor");
+        // A runtime-valid saved plant with omitted initial_state must open its editor, which shows the
+        // plant once Rust has opened its draft (checklist G215).
+        await pollValue(
+          "the saved plant's editor",
+          async () => inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"),
+          (value) => value === "true",
+          10_000
+        );
         assert.strictEqual(await inner("return d.querySelector('select[name=plant-model]')?.value||'';"), "first_order");
         assert.strictEqual(await inner("return d.querySelector('[data-plant-dynamics-field=time_constant_s]')?.value||'';"), "7");
         assert.strictEqual(await inner("return d.querySelector('[data-plant-starting-state=\"0\"]')?.value||'';"), "0");

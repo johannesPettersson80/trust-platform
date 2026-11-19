@@ -311,6 +311,7 @@ mod gpio {
     use alloc::vec::Vec;
 
     use esp_hal::gpio::{AnyPin, Flex, Input, InputConfig, Level};
+    use esp_hal::ram;
     use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
     use trust_runtime_services::chip::process_io::{safe_value, GpioPins, ProcessImage};
 
@@ -473,14 +474,19 @@ mod gpio {
     /// through the handle its claim returned (specification 34, TARGET-01).
     pub struct Esp32Pins;
 
+    /// The two methods every scan calls run from RAM (`firmware/trust-esp32c6/ld/rwtext_hook.x`):
+    /// a pattern of this module's path would also take every method generic over `Esp32Pins`, the
+    /// runner's control path among them.
     impl GpioPins for Esp32Pins {
         type Input = ClaimedInput;
         type Output = ClaimedOutput;
 
+        #[ram]
         fn is_high(&self, input: &ClaimedInput) -> bool {
             input.pin.is_high()
         }
 
+        #[ram]
         fn drive(&mut self, output: &mut ClaimedOutput, high: bool) {
             output.pin.set_level(level(high));
         }

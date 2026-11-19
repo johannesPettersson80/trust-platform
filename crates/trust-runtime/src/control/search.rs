@@ -1,6 +1,7 @@
 //! Bounded actual-ST search in disposable simulation processes.
 #![allow(missing_docs)]
 mod contracts;
+mod crate_files;
 mod execution_plan;
 mod execution_settings;
 mod feedback_relay;

@@ -387,7 +387,7 @@ pub(super) fn write_endpoint_file(
 
 /// Writes `bytes` to `target` through a temporary file in the same directory that is renamed over
 /// `target`. The temporary file is owner-only on Unix-like systems and is removed on failure.
-pub(super) fn write_atomically(target: &Path, bytes: &[u8]) -> Result<(), RuntimeError> {
+pub fn write_atomically(target: &Path, bytes: &[u8]) -> Result<(), RuntimeError> {
     let dir = target.parent().unwrap_or_else(|| Path::new("."));
     let name = target
         .file_name()
