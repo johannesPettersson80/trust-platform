@@ -143,3 +143,36 @@ fn a_chip_without_a_network_refuses_to_pair() {
         .iter()
         .all(|sector| sector.iter().all(|byte| *byte == 0xFF)));
 }
+
+/// A service token is written into the record with its service's name and no expiry, and a chip
+/// that boots again over the same sectors 31 days later, past a claimed token's 30, grants it its
+/// role; without a network `pair.service` is refused as `pair.start` is. Catches a service row that
+/// the record drops or that expires on the chip, and a token drawn without the radio.
+#[test]
+fn a_service_token_is_kept_in_the_record_and_does_not_expire() {
+    let flash = Sectors::erased();
+    let mut first = pairings(&flash);
+    let created = first.service("recipe", None, NOW).expect("a service token");
+    let sectors = flash.0.borrow();
+    let (_, text) = flash_record::decode(&MAGIC, &sectors[0]).expect("a pairing record");
+    let text = core::str::from_utf8(text).expect("UTF-8");
+    assert!(
+        text.contains(r#""expires_at":0,"service":"recipe"}"#),
+        "{text}"
+    );
+    drop(sectors);
+
+    let later = NOW + 31 * 24 * 60 * 60;
+    let port = ChipPairingPort::open(Box::new(flash.clone()), Some(counting()));
+    let mut again = Pairings::open(port, later);
+    assert_eq!(
+        again.validate(&created.token, later),
+        Some(AccessRole::Viewer)
+    );
+
+    let offline = ChipPairingPort::open(Box::new(Sectors::erased()), None);
+    let refused = Pairings::open(offline, NOW)
+        .service("recipe", None, NOW)
+        .expect_err("no network, no token");
+    assert_eq!(refused.to_string(), NO_NETWORK);
+}

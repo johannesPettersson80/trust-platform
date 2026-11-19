@@ -581,6 +581,13 @@ impl Runtime {
             .unwrap_or_else(|error| panic!("{error}\n{}", self.diagnostics()))
     }
 
+    /// `control_request` with `auth` as the request's token in place of the copy's, as a client
+    /// with another credential sends it, a service with its service token among them.
+    pub fn control_request_as(&self, auth: &str, request: Value) -> Value {
+        self.exchange_as(auth, request)
+            .unwrap_or_else(|error| panic!("{error}\n{}", self.diagnostics()))
+    }
+
     /// `control_request` that answers `None` where it would panic.
     fn try_control_request(&self, request: Value) -> Option<Value> {
         self.exchange(request).ok()
@@ -602,9 +609,13 @@ impl Runtime {
         }
     }
 
-    fn exchange(&self, mut request: Value) -> Result<Value, String> {
+    fn exchange(&self, request: Value) -> Result<Value, String> {
+        self.exchange_as(&self.token, request)
+    }
+
+    fn exchange_as(&self, auth: &str, mut request: Value) -> Result<Value, String> {
         use std::io::{BufRead, BufReader, Write};
-        request["auth"] = Value::String(self.token.clone());
+        request["auth"] = Value::String(auth.to_string());
         let mut stream = std::net::TcpStream::connect(self.control_address()?)
             .map_err(|err| format!("connect to the control endpoint: {err}"))?;
         stream

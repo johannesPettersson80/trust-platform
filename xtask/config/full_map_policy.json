@@ -3553,7 +3553,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/process_io.rs",
-        "line": 355,
+        "line": 356,
         "owner": "runtime portability S4-6b (program loading in place)",
         "invariant": "clone_unchecked copies a pin of the bank only after PinClaims::claim refused every line that holds it. A line keeps its PinClaim next to the driver built from the copy (ClaimedInput and ClaimedOutput own both and drop them together), so a pin is claimed again only after the driver that held it is gone, and at most one driver of a pin exists at a time.",
         "test_evidence": "cargo test -p trust-platform-esp32 --test pin_lines (a_claimed_pin_is_free_again_when_its_line_is_dropped) and --test reload (the_new_program_claims_the_pins_the_old_one_released); the esp-hal driver is exercised only by the chip build and the planned C6 bench run.",

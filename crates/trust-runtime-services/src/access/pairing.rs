@@ -23,6 +23,10 @@
 //!   ([`PairingPort::fits`]), makes room by removing disabled tokens, which grant nothing, the
 //!   oldest first; a change that does not fit even then is refused with
 //!   [`PairingError::NoRoom`].
+//! - A service token (specification 48 RU-81) is a token that carries a service's name, which an
+//!   Admin creates without a code ([`Pairings::service`]): Viewer unless another role is
+//!   requested, with the id `service-<name>`. It never expires, and creating it again for a name
+//!   that has one, compared without case, replaces that token in its place.
 
 use alloc::format;
 use alloc::string::String;
@@ -70,12 +74,37 @@ pub struct PairingSummary {
     pub enabled: bool,
     /// When the token was claimed, in Unix seconds.
     pub created_at: u64,
-    /// The last second, in Unix seconds, at which the token grants its role.
-    pub expires_at: u64,
+    /// The last second, in Unix seconds, at which the token grants its role; `None` for a service
+    /// token, which does not expire.
+    pub expires_at: Option<u64>,
     /// The role the token grants.
     pub role: AccessRole,
+    /// The service a service token is for, `None` for a claimed token.
+    pub service: Option<String>,
     /// `…` and the last four characters of the token, or all of a shorter one.
     pub tail: String,
+}
+
+/// A created service token, as `pair.service` reports it.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ServiceToken {
+    /// The token's id, `service-<name>`, which `pair.revoke` names.
+    pub id: String,
+    /// The role the token grants.
+    pub role: AccessRole,
+    /// The secret the service presents.
+    pub token: String,
+}
+
+impl fmt::Debug for ServiceToken {
+    /// Every field, with the token reduced to its tail, so that a log never holds a secret.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ServiceToken")
+            .field("id", &self.id)
+            .field("role", &self.role)
+            .field("token", &mask_tail(&self.token))
+            .finish()
+    }
 }
 
 /// One stored token: a row of the pairing file. The names and defaults are those of the
@@ -94,9 +123,13 @@ pub struct PairingToken {
     #[serde(default = "default_role")]
     pub role: AccessRole,
     /// The last second, in Unix seconds, at which the token grants its role; 0 in a row written
-    /// before tokens expired, which the pairings read as 30 days after `created_at`.
+    /// before tokens expired, which the pairings read as 30 days after `created_at`. A service
+    /// token does not expire and keeps 0.
     #[serde(default)]
     pub expires_at: u64,
+    /// The service a service token is for; absent in a claimed token's row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service: Option<String>,
 }
 
 impl fmt::Debug for PairingToken {
@@ -109,6 +142,7 @@ impl fmt::Debug for PairingToken {
             .field("enabled", &self.enabled)
             .field("role", &self.role)
             .field("expires_at", &self.expires_at)
+            .field("service", &self.service)
             .finish()
     }
 }
@@ -144,6 +178,8 @@ pub enum PairingError {
     /// The storage cannot hold the changed file even without its disabled tokens: `the device has
     /// no room for another pairing`.
     NoRoom,
+    /// A service token's name is not an identifier: `invalid service name`.
+    InvalidServiceName,
 }
 
 impl fmt::Display for PairingError {
@@ -157,6 +193,7 @@ impl fmt::Display for PairingError {
             Self::Unreadable(text) | Self::Save(text) | Self::Random(text) => f.write_str(text),
             Self::Unavailable => f.write_str("pairing unavailable"),
             Self::NoRoom => f.write_str("the device has no room for another pairing"),
+            Self::InvalidServiceName => f.write_str("invalid service name"),
         }
     }
 }
@@ -210,8 +247,8 @@ pub struct Pairings<P: PairingPort> {
 }
 
 impl<P: PairingPort> Pairings<P> {
-    /// Opens the pairings of `port` at `now`: loads the file, gives each row without an expiry
-    /// (`expires_at` 0) its 30 days from `created_at`, saturating, and removes the rows that
+    /// Opens the pairings of `port` at `now`: loads the file, gives each claimed row without an
+    /// expiry (`expires_at` 0) its 30 days from `created_at`, saturating, and removes the rows that
     /// expired before `now`. A file that cannot be loaded grants no token, and its error refuses
     /// every later write.
     #[must_use]
@@ -227,7 +264,7 @@ impl<P: PairingPort> Pairings<P> {
             unreadable,
         };
         for row in &mut pairings.file.tokens {
-            if row.expires_at == 0 {
+            if row.expires_at == 0 && row.service.is_none() {
                 row.expires_at = row.created_at.saturating_add(TOKEN_TTL_SECS);
             }
         }
@@ -303,9 +340,65 @@ impl<P: PairingPort> Pairings<P> {
             enabled: true,
             role: granted_role(role),
             expires_at: now.saturating_add(TOKEN_TTL_SECS),
+            service: None,
         };
         self.commit(|rows| rows.push(row))?;
         Ok(token)
+    }
+
+    /// Creates the service token of the service `name` at `now` with the requested `role`, Viewer
+    /// when none is requested and Engineer for an Admin request, and returns it once the file holds
+    /// it. A service token that the name, compared without case, has already is replaced in its
+    /// place, so that it no longer validates.
+    ///
+    /// # Errors
+    ///
+    /// [`PairingError::InvalidServiceName`] for a name that is not an identifier;
+    /// [`PairingError::LimitReached`] when the token would enable one token more than the port's
+    /// limit allows; [`PairingError::Random`], [`PairingError::Unreadable`],
+    /// [`PairingError::Save`] or [`PairingError::NoRoom`] when the token cannot be drawn or
+    /// written. No refusal changes a token.
+    pub fn service(
+        &mut self,
+        name: &str,
+        role: Option<AccessRole>,
+        now: u64,
+    ) -> Result<ServiceToken, PairingError> {
+        if !is_service_name(name) {
+            return Err(PairingError::InvalidServiceName);
+        }
+        self.prune(now);
+        let earlier = self.file.tokens.iter().position(|row| {
+            row.service
+                .as_deref()
+                .is_some_and(|service| service.eq_ignore_ascii_case(name))
+        });
+        let enables_one_more = earlier.is_none_or(|index| !self.file.tokens[index].enabled);
+        let max = self.port.max_tokens();
+        if enables_one_more && self.enabled_count() >= max {
+            return Err(PairingError::LimitReached { max });
+        }
+        let mut bytes = [0_u8; TOKEN_BYTES];
+        self.port.random(&mut bytes).map_err(PairingError::Random)?;
+        let created = ServiceToken {
+            id: format!("service-{name}"),
+            role: granted_role(Some(role.unwrap_or(AccessRole::Viewer))),
+            token: URL_SAFE_NO_PAD.encode(bytes),
+        };
+        let row = PairingToken {
+            id: created.id.clone(),
+            token: created.token.clone(),
+            created_at: now,
+            enabled: true,
+            role: created.role,
+            expires_at: 0,
+            service: Some(name.into()),
+        };
+        self.commit(|rows| match earlier {
+            Some(index) => rows[index] = row,
+            None => rows.push(row),
+        })?;
+        Ok(created)
     }
 
     /// The role `token` grants at `now`: the stored role of an enabled, unexpired row whose token
@@ -318,6 +411,19 @@ impl<P: PairingPort> Pairings<P> {
             .iter()
             .find(|row| row.enabled && constant_time_eq(&row.token, token))
             .map(|row| row.role)
+    }
+
+    /// The service whose enabled service token has exactly the bytes of `token` at `now`, or
+    /// `None` for any other credential (specification 11 §6.9.6): the service a request with the
+    /// token speaks for.
+    #[must_use]
+    pub fn service_of(&mut self, token: &str, now: u64) -> Option<String> {
+        self.prune(now);
+        self.file
+            .tokens
+            .iter()
+            .find(|row| row.enabled && constant_time_eq(&row.token, token))
+            .and_then(|row| row.service.clone())
     }
 
     /// The tokens at `now` in storage order, each without its secret.
@@ -379,10 +485,12 @@ impl<P: PairingPort> Pairings<P> {
     }
 
     /// Removes the rows that expired before `now`, and writes the file without them when the
-    /// file was readable.
+    /// file was readable. A service token does not expire.
     fn prune(&mut self, now: u64) {
         let before = self.file.tokens.len();
-        self.file.tokens.retain(|row| row.expires_at >= now);
+        self.file
+            .tokens
+            .retain(|row| row.expiry().is_none_or(|expires_at| expires_at >= now));
         if self.file.tokens.len() != before && self.unreadable.is_none() {
             // An expired row grants nothing, so a write that fails only leaves it in the file
             // until a later write or open removes it.
@@ -415,13 +523,19 @@ impl<P: PairingPort> Pairings<P> {
 }
 
 impl PairingToken {
+    /// The last second at which the token grants its role, `None` for a service token.
+    fn expiry(&self) -> Option<u64> {
+        self.service.is_none().then_some(self.expires_at)
+    }
+
     fn summary(&self) -> PairingSummary {
         PairingSummary {
             id: self.id.clone(),
             enabled: self.enabled,
             created_at: self.created_at,
-            expires_at: self.expires_at,
+            expires_at: self.expiry(),
             role: self.role,
+            service: self.service.clone(),
             tail: mask_tail(&self.token),
         }
     }
@@ -448,9 +562,26 @@ pub trait PairingService {
     fn claim(&self, code: &str, role: Option<AccessRole>, now: u64)
         -> Result<String, PairingError>;
 
+    /// Creates or replaces a service token, as [`Pairings::service`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Pairings::service`], and [`PairingError::Unavailable`] when the pairings cannot be
+    /// reached.
+    fn service(
+        &self,
+        name: &str,
+        role: Option<AccessRole>,
+        now: u64,
+    ) -> Result<ServiceToken, PairingError>;
+
     /// The role `token` grants, as [`Pairings::validate`]; `None` when the pairings cannot be
     /// reached.
     fn validate(&self, token: &str, now: u64) -> Option<AccessRole>;
+
+    /// The service a token speaks for, as [`Pairings::service_of`]; `None` when the pairings
+    /// cannot be reached.
+    fn service_of(&self, token: &str, now: u64) -> Option<String>;
 
     /// The tokens without their secrets, as [`Pairings::list`]; none when the pairings cannot be
     /// reached.
@@ -493,8 +624,23 @@ impl<P: PairingPort> PairingService for RefCell<Pairings<P>> {
             .claim(code, role, now)
     }
 
+    fn service(
+        &self,
+        name: &str,
+        role: Option<AccessRole>,
+        now: u64,
+    ) -> Result<ServiceToken, PairingError> {
+        self.try_borrow_mut()
+            .map_err(|_| PairingError::Unavailable)?
+            .service(name, role, now)
+    }
+
     fn validate(&self, token: &str, now: u64) -> Option<AccessRole> {
         self.try_borrow_mut().ok()?.validate(token, now)
+    }
+
+    fn service_of(&self, token: &str, now: u64) -> Option<String> {
+        self.try_borrow_mut().ok()?.service_of(token, now)
     }
 
     fn list(&self, now: u64) -> Vec<PairingSummary> {
@@ -531,6 +677,16 @@ fn granted_role(requested: Option<AccessRole>) -> AccessRole {
     }
 }
 
+/// Whether `name` is a service's name: an identifier, as `trust.toml` names a service (specification
+/// 48 RU-63), an ASCII letter or underscore and then ASCII letters, digits and underscores.
+pub(crate) fn is_service_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|char| char.is_ascii_alphanumeric() || char == '_')
+}
+
 /// `…` and the last four characters of `token`, or all of a shorter one.
 fn mask_tail(token: &str) -> String {
     let start = token
@@ -544,3 +700,6 @@ fn mask_tail(token: &str) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod service_tests;

@@ -273,6 +273,9 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "io.list" => io_requests::io_list(id, host.io_snapshot()),
         "io.read" => io_requests::io_read(id, host.io_snapshot()),
         "variables.read" => crate::variables::read(id, request.params.as_ref(), host),
+        "service.heartbeat" => {
+            crate::service_heartbeat::heartbeat(id, request.auth.as_deref(), host)
+        }
         "io.write" => io_requests::io_write(id, request.params.clone(), host),
         "io.force" => io_requests::io_force(id, request.params.clone(), host),
         "io.unforce" => io_requests::io_unforce(id, request.params.clone(), host),
@@ -298,6 +301,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "pair.claim" => pairing::claim(id, request.params.clone(), host),
         "pair.list" => pairing::list(id, host),
         "pair.revoke" => pairing::revoke(id, request.params.clone(), host),
+        "pair.service" => pairing::service(id, request.params.clone(), host),
         // The debug operations are answered from the platform's debugger when it has one
         // (specification 11 §6.13); otherwise the platform answers them itself.
         kind if is_debug_operation(kind) => match host.debugger() {

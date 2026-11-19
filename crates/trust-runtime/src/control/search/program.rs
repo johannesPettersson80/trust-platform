@@ -8,11 +8,12 @@ use std::collections::BTreeMap;
 
 use trust_runtime_core::native::image::{SymbolRecord, NONE, SYMBOL_PROGRAM};
 
+use super::snapshot::Snapshot;
 use super::worker::BuildSetting;
 
 use crate::harness::SourceFile;
 use crate::io::IoAddress;
-use crate::native::{build_with_conversions, Options, Target, Toolchain};
+use crate::native::{build_project, build_with_conversions, Options, Target, Toolchain};
 use crate::runtime::program_access::{Located, ProgramRead};
 use crate::stdlib::conversions::ConversionProfile;
 use crate::value::{Duration, Value};
@@ -34,16 +35,19 @@ impl IsolatedProgram {
     /// The program of `sources`, built with the conversion rules `profile` and with what `build`
     /// names: the toolchain in its folder, or without one the toolchain the tools find
     /// (specification 44 §4.6), in a folder of this process in its temporary folder, or without
-    /// one in this process's temporary folder, which the build removes. The image is a debug image
-    /// like the one a project builds by default (§13.2). It starts as trust-runtime starts a
-    /// program it loads: a cold restart gives every variable its starting value, and its tasks
-    /// count their activations from time zero.
+    /// one in this process's temporary folder, which the build removes. A project with a Rust crate,
+    /// whose files `snapshot` holds, is built as a project of its own in that folder, with the
+    /// sources inside the project written where they lie in it (protocol annex E8.2). The image is
+    /// a debug image like the one a project builds by default (§13.2). It starts as trust-runtime
+    /// starts a program it loads: a cold restart gives every variable its starting value, and its
+    /// tasks count their activations from time zero.
     ///
     /// # Errors
     ///
     /// No toolchain, sources that do not compile, or an image this computer refuses.
     pub(super) fn compile(
         sources: &[SourceFile],
+        snapshot: &Snapshot,
         profile: ConversionProfile,
         build: &BuildSetting,
     ) -> Result<Self, String> {
@@ -59,17 +63,25 @@ impl IsolatedProgram {
             .clone()
             .unwrap_or_else(std::env::temp_dir)
             .join(format!("trust-isolated-run-{}", std::process::id()));
-        let built = build_with_conversions(
-            sources,
-            &[],
-            &Options {
-                target,
-                hooks: true,
-            },
-            profile,
-            &toolchain,
-            &work,
-        );
+        let options = Options {
+            target,
+            hooks: true,
+        };
+        let built = if snapshot.crate_files.is_empty() {
+            build_with_conversions(sources, &[], &options, profile, &toolchain, &work)
+        } else {
+            let project = work.join("project");
+            write_project(&project, snapshot)?;
+            build_project(
+                &project,
+                sources,
+                &[],
+                &options,
+                profile,
+                &toolchain,
+                &project.join("build").join("native"),
+            )
+        };
         // A folder that cannot be removed stays in the temporary folder.
         let _ = std::fs::remove_dir_all(&work);
         let built = built.map_err(|error| error.to_string())?;
@@ -294,3 +306,46 @@ fn program_instances(program: &dyn ProgramRead) -> Vec<String> {
         .filter_map(|symbol| image.string(symbol.display).map(str::to_string))
         .collect()
 }
+
+/// Writes the project of a run with a Rust crate into `project`: the crate's files (E8.2), and each
+/// source of `snapshot` that lies inside the project where it lies there, which the build reads
+/// (the generated declarations among them, specification 48 RU-24).
+fn write_project(project: &std::path::Path, snapshot: &Snapshot) -> Result<(), String> {
+    let identity = std::path::Path::new(&snapshot.project_identity);
+    super::crate_files::write(&snapshot.crate_files, project, identity)?;
+    for source in &snapshot.sources {
+        let path = std::path::Path::new(&source.path);
+        // The project's identity is its canonical folder, and a source may name it through a link.
+        let canonical = path.canonicalize().ok();
+        let relative = if path.is_absolute() {
+            match path
+                .strip_prefix(identity)
+                .ok()
+                .or_else(|| canonical.as_deref()?.strip_prefix(identity).ok())
+            {
+                Some(relative) => relative,
+                None => continue,
+            }
+        } else {
+            path
+        };
+        if relative
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)))
+        {
+            continue;
+        }
+        let target = project.join(relative);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("{}: {error}", parent.display()))?;
+        }
+        std::fs::write(&target, &source.text)
+            .map_err(|error| format!("{}: {error}", target.display()))?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "program_crate_tests.rs"]
+mod crate_tests;

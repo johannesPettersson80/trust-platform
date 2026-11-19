@@ -262,14 +262,29 @@ over the control link. Declare it in `trust.toml`:
 [services.recipe]
 ```
 
-truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`, which the
-service increases while it runs, and a program gates on it with `SERVICE_FRESH`:
+truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`. While the
+service runs it sends its heartbeat, `service.heartbeat`, with its service token (below), at the
+period its `heartbeat` setting states; each heartbeat adds one to the global at the next cycle's
+start. A program gates on it with `SERVICE_FRESH`:
 
 ```iecst
 fresh(HEARTBEAT := recipe_heartbeat, TIMEOUT := T#1s, FRESH => ok);
 ```
 
 A Structured Text project may hold `trust.toml` with `[services]` alone, without a crate.
+
+A service signs in to the runtime with a service token of its own. Create it with the runtime's
+Admin access, and name the file the service reads it from:
+
+```text
+trust-runtime ctl --project . service-token recipe --out secrets/recipe.token
+```
+
+The token is written into the file, which only you can read, and is never printed. It is a Viewer,
+which reads, unless you give it another role with `--role operator` or `--role engineer`. A service
+token does not expire, so a service that runs unattended keeps its connection. To replace it, run the
+command again: the earlier token stops working at once. `pair.list` lists it with the service's name,
+and `pair.revoke` with its id, `service-recipe`, revokes it. Keep the file out of version control.
 
 ## Build, run and debug
 
