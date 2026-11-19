@@ -73,6 +73,13 @@ pub fn run_check(
         if response.source_count > 5 {
             println!(" - ... +{}", response.source_count - 5);
         }
+        // A passed check's warnings, such as the Rust crate's (specification 11 §6.8.1c).
+        if !response.issues.is_empty() {
+            println!("Warnings: {}", response.issues.len());
+            for issue in &response.issues {
+                println!(" - {}{}", issue.location(), issue.message);
+            }
+        }
     } else {
         eprintln!("{}", style::error("Project check failed"));
         for issue in &response.issues {
@@ -108,18 +115,24 @@ fn build_check_response(project_root: &Path, source_folders: &[PathBuf]) -> Chec
                             Some(project_root.join("runtime.toml")),
                         ));
                     }
+                    // The Rust crate's warnings, where they are (specification 11 §6.8.1c).
+                    issues.extend(report.crate_warnings.iter().map(rust_issue));
                     sources = paths_to_strings(report.sources);
                     dependency_roots = paths_to_strings(report.dependency_roots);
                     resolved_dependencies = report.resolved_dependencies;
                 }
                 Err(error) => match compile_issues(&error) {
                     Some(found) => issues.extend(found),
-                    None => issues.push(issue(
-                        "error",
-                        format!("program compile failed: {error}"),
-                        "compile",
-                        None,
-                    )),
+                    None => issues.push(match toolchain_failure(&error) {
+                        // A project with a Rust crate is checked with the toolchain's cargo.
+                        Some(message) => issue("error", message.to_string(), "toolchain", None),
+                        None => issue(
+                            "error",
+                            format!("program compile failed: {error}"),
+                            "compile",
+                            None,
+                        ),
+                    }),
                 },
             }
         }
@@ -437,6 +450,18 @@ fn paths_to_strings(paths: Vec<PathBuf>) -> Vec<String> {
         .into_iter()
         .map(|path| path.display().to_string())
         .collect()
+}
+
+/// The toolchain's failure among `error`'s causes: a project with a Rust crate checked without a
+/// toolchain that has cargo and the SDK's sources, or a cargo run that failed without the crate's
+/// errors (specification 11 §6.8.1c).
+fn toolchain_failure(error: &anyhow::Error) -> Option<&str> {
+    error
+        .chain()
+        .find_map(|cause| match cause.downcast_ref::<NativeError>() {
+            Some(NativeError::Toolchain(message)) => Some(message.as_str()),
+            _ => None,
+        })
 }
 
 fn exit_code_for_issues(issues: &[CheckIssue]) -> i32 {

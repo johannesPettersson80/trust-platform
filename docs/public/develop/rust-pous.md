@@ -30,7 +30,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-trust-plc = "=0.42.0" # exactly your truST version
+trust-plc = "=0.43.0" # exactly your truST version
 ```
 
 ```rust
@@ -209,7 +209,7 @@ bindings that the build generates in the project's `build/trust_st/`. Name them 
 
 ```toml
 [dependencies]
-trust-plc = "=0.42.0"
+trust-plc = "=0.43.0"
 trust_st = { path = "../build/trust_st" }
 ```
 
@@ -367,7 +367,8 @@ A project with Rust POUs is worked like any project: **Compile**, **Start** and 
 view, `trust-runtime build`, `trust-dev test` and `trust-runtime deploy`. The build compiles the crate
 with the toolchain's own cargo and compiler, in a cargo home of its own: your own Rust, its settings
 and its caches play no part. The first build of a project compiles the SDK, so it takes longer than
-the next.
+the next. **Compile** (`trust-runtime check`) checks the crate with the same cargo, without building
+the program, and lists the crate's errors and warnings in Problems where they are.
 
 Live Values and the debugger show a Rust function block's variables, and a fault in Rust names the
 Rust POU and the Structured Text statement that called it.

@@ -133,9 +133,14 @@ Usage: trust-runtime check [OPTIONS]
 `check` validates required `runtime.toml` and `io.toml`, optional `ads.toml`
 and `opcua_client.toml`, the source/dependency layout, and compilation without
 writing a program image. It runs the build's checks and code generation for
-this computer's CPU and needs no compiler toolchain. It aggregates independent
-configuration and compile issues in one response instead of stopping at the
-first failure.
+this computer's CPU and needs no compiler toolchain, unless the project has a
+Rust crate with Rust POUs: then it reads the crate as the build does and checks
+it with the toolchain's cargo (`cargo check`), and the crate's errors and
+warnings are issues where they are, with `truST (rustc)` as their `source`, as
+`build` reports them. A warning
+leaves the check passed; without the toolchain such a project fails the check
+with the code `toolchain`. It aggregates independent configuration and compile
+issues in one response instead of stopping at the first failure.
 
 `--json` and `--ci` emit response version 1 with `ok`, `status`, issue counts,
 stable issue codes, and source/dependency lists. Each compiler diagnostic is

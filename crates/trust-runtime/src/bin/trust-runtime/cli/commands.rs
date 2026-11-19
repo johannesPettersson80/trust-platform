@@ -90,7 +90,7 @@ pub enum Command {
         #[arg(long)]
         endpoint: Option<String>,
         /// Control auth token (overrides project value).
-        #[arg(long)]
+        #[arg(long, allow_hyphen_values = true)]
         token: Option<String>,
         /// UI refresh interval in milliseconds.
         #[arg(long, default_value = "250")]
@@ -111,7 +111,7 @@ pub enum Command {
         #[arg(long, global = true)]
         endpoint: Option<String>,
         /// Control auth token (overrides project value).
-        #[arg(long, global = true)]
+        #[arg(long, global = true, allow_hyphen_values = true)]
         token: Option<String>,
         #[command(subcommand)]
         action: ControlAction,
