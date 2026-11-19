@@ -57,6 +57,9 @@ pub(super) struct Script {
     pub(super) streams: bool,
     /// The period a stream announces first, as the runtime's does (`{ period_ms, stale_ms }`).
     pub(super) period: Duration,
+    /// Announces the period this long after the stream opens, after its session and simulation
+    /// state, as a slow stream may; `None` announces it first.
+    pub(super) period_late: Option<Duration>,
     /// Whether the target runs in simulation, which a stream says after its period and session;
     /// nothing when `None`.
     pub(super) simulation: Option<bool>,
@@ -75,6 +78,7 @@ impl Script {
             pages,
             streams: true,
             period: STREAM_PERIOD,
+            period_late: None,
             simulation: Some(true),
             on_open: Vec::new(),
             on_stream: Box::new(|| {}),
@@ -221,14 +225,30 @@ fn stream(request: Request, key: &str, shared: &Shared) {
     let socket = request.upgrade("websocket", response);
     let mut socket = WebSocket::from_raw_socket(socket, Role::Server, None);
     let (sender, frames) = mpsc::channel();
-    let (period, simulation, on_open) = {
+    let (period, period_late, simulation, on_open) = {
         let script = lock(&shared.script);
         (script.on_stream)();
-        (script.period, script.simulation, script.on_open.clone())
+        (
+            script.period,
+            script.period_late,
+            script.simulation,
+            script.on_open.clone(),
+        )
     };
     let millis = period.as_millis();
     let announced = json!({ "period_ms": millis, "stale_ms": millis * 3 });
-    let _ = sender.send(Frame::Text(announced));
+    match period_late {
+        None => {
+            let _ = sender.send(Frame::Text(announced));
+        }
+        Some(late) => {
+            let later = sender.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(late);
+                let _ = later.send(Frame::Text(announced));
+            });
+        }
+    }
     let session = json!({ "session": { "acts_as": ["viewer", "operator", "engineer"],
         "may_change_settings": true, "role": "engineer", "user": "journey" } });
     let _ = sender.send(Frame::Text(session));

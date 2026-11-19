@@ -51,9 +51,14 @@ if (RENDERED_TEST_ENABLED) {
         await bindFirstAddressedSignals(session);
         await setValue("input[name=plant-dynamics-gain]", "2");
         await inner("d.querySelector('button[data-plant-temperature-example]').click();return 'CLICKED';");
-        await sleep(100);
-        const confirmation = JSON.parse(await inner("var dialog=d.querySelector('[data-plant-starting-point-confirmation]');var buttons=dialog?[...dialog.querySelectorAll('button')].map((button)=>(button.textContent||'').trim()):[];return JSON.stringify({exists:Boolean(dialog),text:(dialog&&dialog.textContent||'').replace(/\\s+/g,' ').trim(),buttons});"));
-        assert.strictEqual(confirmation.exists, true, "replacing edited values should use the existing confirmation");
+        // The confirmation comes with Rust's answer, after the port bindings queued before it
+        // (checklist G215: a fixed 100 ms wait missed it in CI, #613).
+        const confirmation = JSON.parse(await pollValue(
+          "the confirmation before edited values are replaced",
+          async () => inner("var dialog=d.querySelector('[data-plant-starting-point-confirmation]');var buttons=dialog?[...dialog.querySelectorAll('button')].map((button)=>(button.textContent||'').trim()):[];return JSON.stringify({exists:Boolean(dialog),text:(dialog&&dialog.textContent||'').replace(/\\s+/g,' ').trim(),buttons});"),
+          (value) => JSON.parse(value).exists === true,
+          10_000
+        ));
         assert.match(confirmation.text, /model values/i);
         assert.match(confirmation.text, /starting state/i);
         assert.match(confirmation.text, /actuator settings/i);
@@ -62,13 +67,21 @@ if (RENDERED_TEST_ENABLED) {
         assert.ok(confirmation.buttons.includes("Replace values"));
 
         await inner("var dialog=d.querySelector('[data-plant-starting-point-confirmation]');var button=dialog&&[...dialog.querySelectorAll('button')].find((candidate)=>(candidate.textContent||'').trim()==='Keep current values');button.click();return 'KEPT';");
-        await sleep(100);
-        const kept = JSON.parse(await inner("var gain=d.querySelector('input[name=plant-dynamics-gain]');return JSON.stringify({gain:gain&&gain.value,exampleFields:d.querySelectorAll('[data-plant-temperature-field]').length,confirmation:Boolean(d.querySelector('[data-plant-starting-point-confirmation]'))});"));
+        const kept = JSON.parse(await pollValue(
+          "the confirmation closed with the values kept",
+          async () => inner("var gain=d.querySelector('input[name=plant-dynamics-gain]');return JSON.stringify({gain:gain&&gain.value,exampleFields:d.querySelectorAll('[data-plant-temperature-field]').length,confirmation:Boolean(d.querySelector('[data-plant-starting-point-confirmation]'))});"),
+          (value) => JSON.parse(value).confirmation === false,
+          10_000
+        ));
         assert.deepStrictEqual(kept, { gain: "2", exampleFields: 0, confirmation: false });
 
         await inner("d.querySelector('button[data-plant-temperature-example]').click();return 'CLICKED';");
-        await sleep(100);
-        await inner("var dialog=d.querySelector('[data-plant-starting-point-confirmation]');var button=dialog&&[...dialog.querySelectorAll('button')].find((candidate)=>(candidate.textContent||'').trim()==='Replace values');button.click();return 'REPLACED';");
+        await pollValue(
+          "the confirmation's Replace values",
+          async () => inner("var dialog=d.querySelector('[data-plant-starting-point-confirmation]');var button=dialog&&[...dialog.querySelectorAll('button')].find((candidate)=>(candidate.textContent||'').trim()==='Replace values');if(!button)return 'WAIT';button.click();return 'REPLACED';"),
+          (value) => value === "REPLACED",
+          10_000
+        );
         await pollValue(
           "temperature example physical fields",
           async () => inner("return String(d.querySelectorAll('[data-plant-temperature-field]').length);"),
@@ -220,13 +233,14 @@ if (RENDERED_TEST_ENABLED) {
           (value) => value === "false",
           8_000
         );
-        await sleep(100);
-        const reapplied = JSON.parse(await inner("var field=d.querySelector('[data-plant-temperature-field=resting_temperature]');var confirmed=d.querySelector('input[name=plant-temperature-units-confirmed]');return JSON.stringify({value:field?.value,invalid:field?.getAttribute('aria-invalid'),confirmed:confirmed?.checked});"));
-        assert.deepStrictEqual(reapplied, {
-          value: "20",
-          invalid: "false",
-          confirmed: false,
-        }, "reapplying the example must discard stale invalid raw text and require unit reconfirmation");
+        // The dialog closes before Rust applies the example: wait for the applied values (G215).
+        // Reapplying the example must discard stale invalid raw text and require unit reconfirmation.
+        await pollValue(
+          "the example's values reapplied",
+          async () => inner("var field=d.querySelector('[data-plant-temperature-field=resting_temperature]');var confirmed=d.querySelector('input[name=plant-temperature-units-confirmed]');return JSON.stringify({value:field?.value,invalid:field?.getAttribute('aria-invalid'),confirmed:confirmed?.checked});"),
+          (value) => value === JSON.stringify({ value: "20", invalid: "false", confirmed: false }),
+          10_000
+        );
         await pollSave(inner, true, "reapplied example units require confirmation");
         await setWebviewChecked(inner, "input[name=plant-temperature-units-confirmed]", true);
         await pollSave(inner, false, "reapplied example units confirmed");

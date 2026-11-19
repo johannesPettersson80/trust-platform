@@ -64,7 +64,7 @@ export async function openRenderedPlantSession(): Promise<RenderedPlantSession> 
     return {
       connection,
       inner,
-      setValue: (selector, value) => setWebviewValue(inner, selector, value),
+      setValue: (selector, value) => setWebviewValueWhenOffered(inner, selector, value),
       pressKey: async (key, code = key) => {
         await connection.send("Input.dispatchKeyEvent", {
           type: "keyDown", key, code,
@@ -318,6 +318,27 @@ export function setWebviewValue(
   value: string
 ): Promise<string> {
   return inner(`var el=d.querySelector(${JSON.stringify(selector)});if(!el)return 'NO_FIELD';var w=el.ownerDocument.defaultView;var proto=el.tagName==='TEXTAREA'?w.HTMLTextAreaElement.prototype:el.tagName==='SELECT'?w.HTMLSelectElement.prototype:w.HTMLInputElement.prototype;var setter=Object.getOwnPropertyDescriptor(proto,'value').set;setter.call(el,${JSON.stringify(value)});el.dispatchEvent(new w.Event('input',{bubbles:true}));el.dispatchEvent(new w.Event('change',{bubbles:true}));return el.value;`);
+}
+
+/**
+ * Sets a field once the editor offers it, as a user can only then: the field must exist and a
+ * select must hold an option with the value. A model's ports and a scenario event's channels appear
+ * only with Rust's answer for the draft, so a select set before that answer kept its old choice and
+ * the journey failed far later, at Save (checklist G215: CPUI-019 in CI, #613).
+ */
+export async function setWebviewValueWhenOffered(
+  inner: (body: string) => Promise<string>,
+  selector: string,
+  value: string,
+  timeoutMs = 10_000
+): Promise<string> {
+  await pollValue(
+    `${selector} offering ${JSON.stringify(value)}`,
+    () => inner(`var el=d.querySelector(${JSON.stringify(selector)});if(!el)return 'NO_FIELD';if(el.tagName==='SELECT'&&![...el.options].some((option)=>option.value===${JSON.stringify(value)}))return 'NO_OPTION';return 'READY';`),
+    (state) => state === "READY",
+    timeoutMs
+  );
+  return setWebviewValue(inner, selector, value);
 }
 
 export function fieldState(

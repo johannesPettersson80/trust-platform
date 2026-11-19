@@ -90,13 +90,15 @@ fn a_followed_pulse_ends_with_the_runtimes_outcome_after_its_end() {
 /// Catches: a journey that keeps its own stream period instead of the one the runtime's stream
 /// announces (`period_ms`), so that a slow stream's later outcome arrives after the wait and the
 /// journey reports a time-out of its own instead of the runtime's. The stream here announces 600 ms
-/// and reports the time-out 1.2 s after the answer: inside the confirmation time and two announced
-/// periods (1.5 s), after the confirmation time and two of the journey's own periods (0.5 s).
+/// and reports the time-out 1 s after the answer: 0.5 s inside the confirmation time and two
+/// announced periods (1.5 s), 0.5 s after the confirmation time and two of the journey's own
+/// periods (0.5 s). With the report at 1.2 s, a slow runner's 0.3 s left over was too little
+/// (checklist G216).
 #[test]
 fn the_streams_announced_period_lengthens_the_wait() {
     let fake = FakeSimulator::start(Script {
         period: Duration::from_millis(600),
-        on_command: reported_after("applied", "timed-out", Duration::from_millis(1200)),
+        on_command: reported_after("applied", "timed-out", Duration::from_millis(1000)),
         ..Script::serving(pages())
     });
     let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), BRIEF);
@@ -105,6 +107,30 @@ fn the_streams_announced_period_lengthens_the_wait() {
         json!({ "page": "settings", "outcome": "timed-out", "commandId": commands(&fake)[0]["id"],
                 "reason": "not confirmed in time", "readback": 9.0 }),
         "the runtime's own outcome"
+    );
+}
+
+/// Catches: a wait whose end is fixed when it begins, so that a period the stream announces only
+/// after its session and simulation state, as a slow stream may, does not lengthen it, and the
+/// journey reports a time-out of its own at the confirmation time and two of its own periods
+/// (0.5 s) instead of the runtime's at 1 s (checklist G216, a flake of macOS CI). The stream
+/// announces 600 ms 50 ms after it opens, after the journey has stopped reading for the simulation
+/// state and begun to wait; the wait then lasts the confirmation time and two announced periods
+/// (1.5 s), and the runtime's time-out with its reason and readback arrives inside it.
+#[test]
+fn a_period_announced_after_the_wait_began_lengthens_it() {
+    let fake = FakeSimulator::start(Script {
+        period: Duration::from_millis(600),
+        period_late: Some(Duration::from_millis(50)),
+        on_command: reported_after("applied", "timed-out", Duration::from_millis(1000)),
+        ..Script::serving(pages())
+    });
+    let answer = journey(&fake, json!([set(10)]), &|| true, &not_cancelled(), BRIEF);
+    assert_eq!(
+        answer["outcomes"][1],
+        json!({ "page": "settings", "outcome": "timed-out", "commandId": commands(&fake)[0]["id"],
+                "reason": "not confirmed in time", "readback": 9.0 }),
+        "the runtime's own outcome: {answer}"
     );
 }
 

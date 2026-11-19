@@ -355,6 +355,23 @@ impl Runner<'_> {
         }
     }
 
+    /// When a step that began to wait at `started` gives up: after the readback wait, and for a
+    /// command followed to a later outcome, when the runtime has decided it and two stream periods
+    /// more, at most the cap, as a control's confirmation time can be any positive number of
+    /// seconds. The period is the stream's own once it has announced one (specification 43).
+    fn deadline(&self, started: Instant, command: Option<&Sent>, seen: &Seen) -> Instant {
+        let mut deadline = started + self.timing.wait;
+        if let Some(command) = command.filter(|command| !command.complete(None)) {
+            let period = seen.period.unwrap_or(self.timing.period);
+            let wait = command
+                .decided
+                .saturating_add(period.saturating_mul(2))
+                .min(self.timing.cap);
+            deadline = deadline.max(started + wait);
+        }
+        deadline
+    }
+
     /// Waits for the command's later outcome and the readback; `true` when the step's outcome ends
     /// the journey.
     ///
@@ -369,20 +386,10 @@ impl Runner<'_> {
         seen: &mut Seen,
     ) -> AgentResult<bool> {
         let started = Instant::now();
-        let mut deadline = started + self.timing.wait;
-        if let Some(command) = command
-            && !command.complete(None)
-        {
-            // Until the runtime decides the later outcome and the stream reports it, at most the
-            // cap: a control's confirmation time can be any positive number of seconds.
-            let period = seen.period.unwrap_or(self.timing.period);
-            let wait = command
-                .decided
-                .saturating_add(period.saturating_mul(2))
-                .min(self.timing.cap);
-            deadline = deadline.max(started + wait);
-        }
+        let mut deadline = self.deadline(started, command, seen);
         loop {
+            // A period the stream announces after the wait began lengthens it.
+            deadline = deadline.max(self.deadline(started, command, seen));
             // The later outcome the stream reported for the command, after its answer.
             let report = command.and_then(|command| seen.commands.get(&command.id));
             let reported = report
