@@ -325,6 +325,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
             match param.direction {
                 ParamDirection::In => {
+                    // An open call takes the parameter's bit string type (specification 05 §5.2.1).
+                    let arg_type = if self
+                        .checker
+                        .contextualize_open_bit(param.type_id, &arg.expr)
+                    {
+                        param.type_id
+                    } else {
+                        arg_type
+                    };
                     let errors_before = self.checker.diagnostics.error_count();
                     let context_literal = self
                         .checker
@@ -481,6 +490,14 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
             match param.direction {
                 ParamDirection::In => {
+                    let arg_type = if self
+                        .checker
+                        .contextualize_open_bit(param.type_id, &arg.expr)
+                    {
+                        param.type_id
+                    } else {
+                        arg_type
+                    };
                     let errors_before = self.checker.diagnostics.error_count();
                     let context_literal = self
                         .checker

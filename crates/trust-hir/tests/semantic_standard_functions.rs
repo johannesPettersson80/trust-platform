@@ -806,3 +806,91 @@ END_PROGRAM
         DiagnosticCode::InvalidArgumentType,
     );
 }
+
+#[test]
+// IEC 61131-3 Ed.3 §6.3.2 (based numbers are bit string literals) and §6.6.1.7.2; specification 05
+// §5.2.1 (a literal takes the bit string type where it goes).
+fn untyped_literals_are_bit_string_literals_where_a_bit_string_goes() {
+    // SHL, SHR, ROL and ROR take an untyped literal input, NOT an untyped literal operand, and AND,
+    // OR and XOR two of them: the expression takes the bit string type of the assignment, the
+    // operand, the comparison or the parameter. Catches the refusals "expected bit string input",
+    // "NOT requires BOOL or bit-string type" and "operands must be BOOL or bit-string types" of a
+    // based literal (the external IEC suite's ops/bit_literals, checklist G224).
+    check_no_errors(
+        r#"
+FUNCTION Mask : WORD
+VAR_INPUT
+    x : WORD;
+END_VAR
+Mask := x;
+END_FUNCTION
+
+PROGRAM Test
+VAR
+    b: BYTE;
+    w: WORD;
+    dw: DWORD;
+    lw: LWORD;
+    n: INT;
+    ok: BOOL;
+END_VAR
+w := SHL(16#0001, n);
+b := SHR(2#1000_0000, n);
+dw := ROL(16#8000_0001, n);
+lw := ROR(1, n);
+w := NOT(16#00FF);
+w := NOT 16#00FF;
+b := 16#0F AND 16#3C;
+w := 16#00F0 OR (16#000F XOR 16#0003);
+w := (SHL(16#0001, n));
+w := w OR SHL(16#0001, n);
+ok := SHL(16#01, n) = 16#8000;
+ok := SHL(16#0001, n) = w;
+w := Mask(SHL(16#0001, n));
+w := Mask(x := ROL(16#0001, n));
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+// Specification 05 §5.2.1: the call takes the target's type, so nothing is converted.
+fn a_bit_string_literal_call_into_its_target_converts_nothing() {
+    // `w := SHL(16#0001, n)` is a WORD shift stored in a WORD: no implicit conversion to warn of.
+    // Catches a call left at the literal's smallest type (a BYTE widened into the WORD).
+    let warnings = check_warnings(
+        r#"
+PROGRAM Test
+VAR
+    w: WORD;
+    n: INT;
+END_VAR
+w := SHL(16#0001, n);
+w := NOT 16#00FF;
+w := 16#0F AND 16#3C;
+END_PROGRAM
+"#,
+    );
+    assert!(
+        !warnings.contains(&DiagnosticCode::ImplicitConversion),
+        "{warnings:?}"
+    );
+}
+
+#[test]
+// IEC 61131-3 Ed.3 §6.3.2: only a based number or a positive one is a bit string literal.
+fn a_negative_literal_is_no_bit_string_input() {
+    // Catches a negative literal taken as a bit string, whose bits no BYTE or WORD holds.
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    w: WORD;
+    n: INT;
+END_VAR
+w := SHL(-1, n);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}

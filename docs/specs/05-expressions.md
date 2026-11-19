@@ -292,6 +292,19 @@ specification 02 §3.1, as CODESYS names an enumeration value.
   real type when its value is representable by that type (`d := 16#FFFF_FFFF` for a
   `DWORD`, `b := 256` stays an error for a `BYTE`). IEC 61131-3 Ed.3 §6.3.2 lets numeric
   literals that represent a positive integer be used as bit string literals.
+- Where a bit string goes without a typed partner, an untyped integer literal is a bit string
+  literal when it is a based number or a decimal one that is not negative (IEC 61131-3 Ed.3
+  §6.3.2): the input of `SHL`, `SHR`, `ROL` and `ROR`, the operand of `NOT`, and both operands of
+  `AND`, `OR`, `XOR` and `&`. The expression then takes the bit-string type where it goes,
+  in the same places as above (an assignment's target, a return, a typed parameter, the other
+  operand), when every literal's value fits that type; elsewhere it takes the smallest of `BYTE`,
+  `WORD`, `DWORD` and `LWORD` that holds its literals, never `BOOL`. Beside a literal operand the
+  expression and the literal take the wider of their two types. `w := SHL(16#0001, n)` for a `WORD`
+  `w` shifts 16 bits, `SHL(16#01, n) = 16#8000` compares two `WORD`s, and `w := NOT 16#00FF` is
+  `16#FF00`. A typed input keeps its own type whatever the result is stored in (IEC 61131-3 Ed.3
+  §6.6.1.7.2): `w := SHL(BYTE#16#01, 8)` shifts a `BYTE` and stores `0`. A negative literal is no
+  bit string literal and stays refused (`SHL(-1, n)`); see `docs/IEC_DECISIONS.md`,
+  2026-11-19.
 - In the same places an untyped real literal takes the expected `REAL` or `LREAL` type, and
   the input of a typed conversion function is a call argument like any other:
   `REAL_TO_INT(2.5)` passes `2.5` as a `REAL`, and `SINT_TO_INT(5)` passes `5` as a `SINT`.
