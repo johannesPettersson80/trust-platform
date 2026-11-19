@@ -320,6 +320,27 @@ runs; `get` reads a value as the Rust type of its declared type (`bool`, the int
 `REAL`, `f64`, `String`, `Duration` from a `TIME`). The heartbeat runs on a connection and a thread
 of its own, so the service's own work never delays it.
 
+## Run a service
+
+Build the service, then put it under the computer's service manager, so that it starts at every
+boot and again 2 s after it ends:
+
+```text
+cargo build --release --manifest-path recipe-service/Cargo.toml
+trust-dev service install recipe
+```
+
+`install` takes root. Run as yourself, it checks the service, changes nothing and prints the `sudo`
+command to run, with the binary's path. The service is called `trust-service-recipe`:
+
+- on Linux, a systemd unit, whose output `journalctl -u trust-service-recipe` shows;
+- on macOS, a launchd daemon, which writes `/Library/Logs/trust-service-recipe.log`.
+
+It runs as the user who owns the project folder, in that folder, so `Service::connect` finds
+`trust.toml` and the token there. After a new build, install it again: that restarts it.
+`trust-dev service uninstall recipe` stops and removes it. The runtime never starts a service
+itself.
+
 ## Build, run and debug
 
 A project with Rust POUs is worked like any project: **Compile**, **Start** and **Debug** in the truST
