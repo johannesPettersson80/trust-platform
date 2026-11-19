@@ -193,8 +193,8 @@ Structured Text it calls spent (RU-38), which only the generated bindings run on
 
 **RU-12.** Each truST release publishes `trust-plc`, `trust-plc-macros`, `trust-service` and
 `trust-sim` to crates.io at the release's version, with the crates they are built from
-(`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`), once the release is verified (specification 24,
-"Publishing the SDK's crates"; `trust-service` and `trust-sim` join when they are built), and
+(`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`, `trust-runtime-client`), once the release is
+verified (specification 24, "Publishing the SDK's crates"; `trust-sim` joins when it is built), and
 carries their sources in its toolchain bundle (§16). The build always compiles the bundle's copy: the project's `Cargo.toml` names the
 version, the build patches the four crates to the bundle's sources, and a project builds without
 crates.io when its other dependencies are vendored. A user's own `cargo` resolves the same version
@@ -999,6 +999,23 @@ snapshot), with every value's cycle, logical time and quality: a read is specifi
 `variables.read`, one completed scan's values of the set. The bindings are generated from the
 symbol table of the deployed image (`trust-dev service bindings`), so a service names
 `plant::P1::level` and gets an `f64`.
+
+A service connects by its name, `Service::connect("recipe")`: the SDK reads `[services.<name>]` of
+the project's `trust.toml`, in the folder `TRUST_PROJECT` names or else the current folder, and takes
+its `endpoint`, the service token in its `credentials` file (a path relative to the project,
+specification 11 §6.9.6) and its `heartbeat`; `Service::connect_with` takes the same settings from
+the service's own code. A connection answers one request at a time. `Service::read` gives one
+completed scan's values with the scan's number, its logical time, the resource's state and the
+quality, each value read as a Rust value of its declared type (`bool`, the integers, `f32` and
+`f64`, `String` and, from a `TIME` or an `LTIME`, `Duration`); `Service::write` writes a set of
+values; `Service::subscribe` reads a set at the period the service chooses, each read one completed
+scan; `Service::start_heartbeat` sends `service.heartbeat` at the service's `heartbeat` period on a
+connection of its own until it is dropped, so that the service's own work never delays its
+heartbeat (RU-63). A heartbeat that came late, as a slow runtime answers it, is followed one period
+later by the next, and the ones it missed are not sent, as a task does not replay missed activations
+(specification 10 §4.3); a period of zero is refused. `trust-service` and `trust-runtime-client` are published on crates.io with every
+release, at its version, so that a service built with the user's own Rust or the bundle's cargo
+gets them there (RU-61).
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
 the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the
