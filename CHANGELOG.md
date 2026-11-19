@@ -73,6 +73,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- Every `--token` takes a token that begins with `-`, as one pairing or service token in 64 does:
+  `trust-runtime ctl`, `ui`, `discover`, `identify`, `ads server` and `registry`, and `trust-dev
+  test`, read such a token as an option and refused the command line (specification 11 §6.9.6).
 - `trust-runtime check`, and with it VS Code's **Compile**, failed on every project with Rust POUs,
   refusing each one as "without its Rust item": it read the project without its Rust crate. It now
   reads the crate as the build does (specification 11 §6.8.1c).
