@@ -330,14 +330,18 @@ cargo build --release --manifest-path recipe-service/Cargo.toml
 trust-dev service install recipe
 ```
 
-`install` takes root. Run as yourself, it checks the service, changes nothing and prints the `sudo`
-command to run, with the binary's path. The service is called `trust-service-recipe`:
+`install` takes root, or an administrator on Windows. Run without those rights, it checks the
+service, changes nothing and prints the command to run, with the binary's path. The service is
+called `trust-service-recipe`:
 
 - on Linux, a systemd unit, whose output `journalctl -u trust-service-recipe` shows;
-- on macOS, a launchd daemon, which writes `/Library/Logs/trust-service-recipe.log`.
+- on macOS, a launchd daemon, which writes `/Library/Logs/trust-service-recipe.log`;
+- on Windows, a Windows service, whose output goes to
+  `%ProgramData%\truST\services\recipe\logs\recipe.log`.
 
-It runs as the user who owns the project folder, in that folder, so `Service::connect` finds
-`trust.toml` and the token there. After a new build, install it again: that restarts it.
+It runs in the project folder, so `Service::connect` finds `trust.toml` and the token there: on
+Linux and macOS as the user who owns the folder, on Windows as its own virtual account,
+`NT SERVICE\trust-service-recipe`. After a new build, install it again: that restarts it.
 `trust-dev service uninstall recipe` stops and removes it. The runtime never starts a service
 itself.
 

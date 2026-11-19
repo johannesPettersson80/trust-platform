@@ -153,6 +153,19 @@ enum ServiceAction {
         /// The service's name.
         name: String,
     },
+    /// The program of a Windows service that `install` writes, which Windows' service manager
+    /// runs: it answers the service manager and runs the service's binary in the project folder
+    /// (specification 48 RU-64).
+    Run {
+        /// The service's name.
+        name: String,
+        /// The project folder, the binary's working folder.
+        #[arg(long)]
+        project: PathBuf,
+        /// The service's binary.
+        #[arg(long)]
+        binary: PathBuf,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -238,6 +251,11 @@ fn run() -> anyhow::Result<()> {
                 binary,
             } => service_manager::run_install(project, &name, binary),
             ServiceAction::Uninstall { name } => service_manager::run_uninstall(&name),
+            ServiceAction::Run {
+                name,
+                project,
+                binary,
+            } => service_manager::run_host(&name, &project, &binary),
         },
         Command::Rust { action } => match action {
             RustAction::Declarations { project } => rust::run_declarations(project),
