@@ -1001,8 +1001,9 @@ symbol table of the deployed image (`trust-dev service bindings`), so a service 
 `plant::P1::level` and gets an `f64`.
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
-the build declares as a global (`<name>_heartbeat : UDINT`) and the SDK increments at the period the
-service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
+the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the
+service's SDK sends `service.heartbeat` with the service's token (specification 11 §6.8.1), which it
+does at the period the service states (`heartbeat = "500ms"`). The globals lie in the generated file `services.st`
 (`src/generated/services.st`, in a Rust-first project `src/generated/trust/services.st`): one
 `VAR_GLOBAL` with a variable per service, in `trust.toml`'s order. `trust-dev rust declarations`
 writes it, and removes it when `trust.toml` declares no service, and the build refuses a project

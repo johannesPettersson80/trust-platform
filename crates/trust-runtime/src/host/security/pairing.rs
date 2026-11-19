@@ -146,6 +146,10 @@ impl PairingService for PairingStore {
         self.locked().ok()?.validate(token, now)
     }
 
+    fn service_of(&self, token: &str, now: u64) -> Option<String> {
+        self.locked().ok()?.service_of(token, now)
+    }
+
     fn list(&self, now: u64) -> Vec<PairingSummary> {
         match self.locked() {
             Ok(mut pairings) => pairings.list(now),
