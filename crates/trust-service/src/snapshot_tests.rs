@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use serde_json::json;
 
-use super::{Quality, Snapshot, Variable};
+use super::{Quality, Reading, Snapshot};
 use crate::ServiceError;
 
 /// The reply of one completed scan, number 7 at 70 ms, of a running resource.
@@ -38,7 +38,7 @@ fn a_reply_reads_as_its_scan_and_its_values() {
     assert_eq!(read.quality, Quality::Good);
     assert_eq!(
         read.values[0],
-        Variable {
+        Reading {
             path: "P1.level".into(),
             type_name: "REAL".into(),
             value: json!(1.5),

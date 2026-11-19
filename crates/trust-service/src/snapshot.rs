@@ -18,9 +18,9 @@ pub enum Quality {
     Stale,
 }
 
-/// One variable of a snapshot.
+/// One variable of a snapshot: its path, its declared type and its value.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Variable {
+pub struct Reading {
     /// Its path, as the read named it.
     pub path: String,
     /// Its declared type, as the program declares it: `REAL`, `STRING[20]`, `Color`.
@@ -41,7 +41,7 @@ pub struct Snapshot {
     /// Whether the values are current.
     pub quality: Quality,
     /// The variables, in the read's order.
-    pub values: Vec<Variable>,
+    pub values: Vec<Reading>,
 }
 
 impl Snapshot {
@@ -57,7 +57,7 @@ impl Snapshot {
             .as_array()?
             .iter()
             .map(|entry| {
-                Some(Variable {
+                Some(Reading {
                     path: entry.get("path")?.as_str()?.to_string(),
                     type_name: entry.get("type")?.as_str()?.to_string(),
                     value: entry.get("value")?.clone(),
