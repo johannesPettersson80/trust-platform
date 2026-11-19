@@ -1074,12 +1074,14 @@ stops it and removes it. On every computer the service is called `trust-service-
   the child ends, so that the service manager restarts it. The copy keeps the service when truST is
   updated, since the extension keeps trust-dev in a folder of each version. The service's folder
   also holds `service.toml` with the project folder and the binary, by which `install` knows the
-  folder it was installed for and `uninstall` the access it gave. `install` gives the virtual account
-  read and execute access to the project folder, the binary's folder and the service's folder, and
-  write access only to the service's `logs` folder (`icacls`), so that the service cannot replace
-  its own program. For a service installed for the same folder it stops the service, replaces the
-  copy and the settings, and starts it again. `uninstall` stops and deletes the service, removes the
-  access, the copy and `service.toml`; the log stays, as on macOS.
+  folder it was installed for and `uninstall` the access it gave. The virtual account exists while
+  its service does: after creating the service, `install` gives it read and execute access to the
+  project folder, the binary's folder and the service's folder, and write access only to the
+  service's `logs` folder (`icacls`), so that the service cannot replace its own program, and then
+  starts it. For a service installed for the same folder it stops the service, replaces the copy and
+  the settings, and starts it again. `uninstall` stops the service, takes the access away while the
+  account still exists, deletes the service, and removes the copy and `service.toml`; the log stays,
+  as on macOS.
 
 Devices & Connections shows a connected service as a client of its runtime, with its name and the
 age of its last heartbeat. A service reaches a chip's runtime over the network as any client does;

@@ -29,12 +29,14 @@ fn plan(project: &str, binary: &str) -> Plan {
 #[test]
 fn a_first_install_copies_trust_dev_records_the_folder_gives_access_and_creates_the_service() {
     // RU-64, in order: the service's folder with its logs folder, the copy of trust-dev, its
-    // service.toml, read and execute access for the virtual account to the project folder and the
-    // service's folder and write access only to its logs, the service started with the computer
-    // under its virtual account and running the copy with the service's name, project and binary,
-    // restarted 2 s after every failure, and started. Catches a service that runs as LocalSystem,
-    // one that cannot read its project, one that can replace its own program, one that a truST
-    // update breaks, and one that stays down after its binary ends.
+    // service.toml, the service started with the computer under its virtual account and running
+    // the copy with the service's name, project and binary, restarted 2 s after every failure; then
+    // read and execute access for the virtual account, which exists from the service's creation on,
+    // to the project folder and the service's folder and write access only to its logs; and the
+    // start. Catches a service that runs as LocalSystem, one that cannot read its project, one that
+    // can replace its own program, one that a truST update breaks, one that stays down after its
+    // binary ends, and access given to an account that does not exist yet (the probe's icacls
+    // failure on Windows, 19 November).
     let services = Path::new(SERVICES);
     let folder = services.join("recipe");
     let program = folder.join("trust-dev.exe");
@@ -56,21 +58,6 @@ fn a_first_install_copies_trust_dev_records_the_folder_gives_access_and_creates_
                 path: folder.join("service.toml"),
                 text: record(&plan),
             },
-            Step::Grant {
-                path: "C:/Users/ada/plant".into(),
-                account: ACCOUNT.into(),
-                access: Access::ReadExecute,
-            },
-            Step::Grant {
-                path: folder.clone(),
-                account: ACCOUNT.into(),
-                access: Access::ReadExecute,
-            },
-            Step::Grant {
-                path: folder.join("logs"),
-                account: ACCOUNT.into(),
-                access: Access::Modify,
-            },
             Step::CreateService(WindowsService {
                 name: "trust-service-recipe".into(),
                 display_name: "truST service recipe".into(),
@@ -91,6 +78,21 @@ fn a_first_install_copies_trust_dev_records_the_folder_gives_access_and_creates_
             Step::RestartOnFailure {
                 name: "trust-service-recipe".into(),
                 after: Duration::from_secs(2),
+            },
+            Step::Grant {
+                path: "C:/Users/ada/plant".into(),
+                account: ACCOUNT.into(),
+                access: Access::ReadExecute,
+            },
+            Step::Grant {
+                path: folder.clone(),
+                account: ACCOUNT.into(),
+                access: Access::ReadExecute,
+            },
+            Step::Grant {
+                path: folder.join("logs"),
+                account: ACCOUNT.into(),
+                access: Access::Modify,
             },
             Step::StartService {
                 name: "trust-service-recipe".into()
@@ -143,10 +145,11 @@ fn an_install_again_stops_and_changes_the_service_and_a_binary_elsewhere_is_read
 
 #[test]
 fn uninstall_deletes_the_service_takes_its_access_away_and_keeps_its_log() {
-    // RU-64: stop and delete the service, take the virtual account's access to every folder it was
-    // given away again (from service.toml: the project folder and the binary's folder), remove the
-    // copy and service.toml, and keep the log. Catches a service left behind, access left to a
-    // deleted account, and a log lost with the service.
+    // RU-64: stop the service, take the virtual account's access to every folder it was given away
+    // again (from service.toml: the project folder and the binary's folder) while the account still
+    // exists, delete the service, remove the copy and service.toml, and keep the log. Catches a
+    // service left behind, access left to a deleted account, which no longer has a name to remove
+    // it by, and a log lost with the service.
     let services = Path::new(SERVICES);
     let folder = services.join("recipe");
     let record = Record {
@@ -157,9 +160,6 @@ fn uninstall_deletes_the_service_takes_its_access_away_and_keeps_its_log() {
         uninstall_steps("recipe", services, &record),
         vec![
             Step::StopService {
-                name: "trust-service-recipe".into()
-            },
-            Step::DeleteService {
                 name: "trust-service-recipe".into()
             },
             Step::Revoke {
@@ -177,6 +177,9 @@ fn uninstall_deletes_the_service_takes_its_access_away_and_keeps_its_log() {
             Step::Revoke {
                 path: folder.join("logs"),
                 account: ACCOUNT.into(),
+            },
+            Step::DeleteService {
+                name: "trust-service-recipe".into()
             },
             Step::Remove {
                 path: folder.join("trust-dev.exe")

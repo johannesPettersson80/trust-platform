@@ -124,6 +124,16 @@ pub(crate) fn install_steps(
         path: record_path(services, &plan.name),
         text: record(plan),
     });
+    steps.push(if installed {
+        Step::UpdateService(service)
+    } else {
+        Step::CreateService(service)
+    });
+    steps.push(Step::RestartOnFailure {
+        name: id.clone(),
+        after: Duration::from_secs(2),
+    });
+    // The virtual account exists from the service's creation on, so its access comes after it.
     for path in read_folders(&plan.project, &plan.binary, &folder) {
         steps.push(Step::Grant {
             path,
@@ -136,30 +146,18 @@ pub(crate) fn install_steps(
         account,
         access: Access::Modify,
     });
-    steps.push(if installed {
-        Step::UpdateService(service)
-    } else {
-        Step::CreateService(service)
-    });
-    steps.push(Step::RestartOnFailure {
-        name: id.clone(),
-        after: Duration::from_secs(2),
-    });
     steps.push(Step::StartService { name: id });
     steps
 }
 
-/// The steps that stop and delete the service `name`, installed as `record` says, take the access
-/// of its virtual account away again, and remove its copy of trust-dev and its `service.toml` from
-/// its folder in `services`; its log stays.
+/// The steps that stop the service `name`, installed as `record` says, take the access of its
+/// virtual account away again while the account exists, delete the service, and remove its copy of
+/// trust-dev and its `service.toml` from its folder in `services`; its log stays.
 pub(crate) fn uninstall_steps(name: &str, services: &Path, record: &Record) -> Vec<Step> {
     let id = service_id(name);
     let account = account(name);
     let folder = service_folder(services, name);
-    let mut steps = vec![
-        Step::StopService { name: id.clone() },
-        Step::DeleteService { name: id },
-    ];
+    let mut steps = vec![Step::StopService { name: id.clone() }];
     for path in read_folders(&record.project, &record.binary, &folder) {
         steps.push(Step::Revoke {
             path,
@@ -170,6 +168,7 @@ pub(crate) fn uninstall_steps(name: &str, services: &Path, record: &Record) -> V
         path: folder.join("logs"),
         account,
     });
+    steps.push(Step::DeleteService { name: id });
     steps.push(Step::Remove {
         path: host_path(services, name),
     });

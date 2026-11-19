@@ -166,9 +166,10 @@ fn icacls(path: &Path, args: &[&str]) -> anyhow::Result<()> {
         .context("run icacls")?;
     if !output.status.success() {
         bail!(
-            "icacls {} {}: {}",
+            "icacls {} {}: {} {}",
             path.display(),
             args.join(" "),
+            String::from_utf8_lossy(&output.stderr).trim(),
             String::from_utf8_lossy(&output.stdout).trim()
         );
     }
