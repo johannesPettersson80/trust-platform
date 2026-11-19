@@ -1,11 +1,12 @@
 //! The bytes of a deployment record (specification 34 §5.1.1): a header, sections in ascending
 //! order of their identifiers, and a CRC-32.
 //!
-//! Version 1 has exactly the sections 1 to 7, and version 2 adds section 8, the drivers'
-//! parameters. A later version adds sections with new identifiers after them and decodes the
-//! sections before them with the functions below.
+//! Version 1 has exactly the sections 1 to 7, version 2 adds section 8, the drivers' parameters,
+//! and version 3 section 9, the Rust crates of the program image. A later version adds sections
+//! with new identifiers after them and decodes the sections before them with the functions below.
 
 mod configuration;
+mod crates;
 
 use super::{
     ApplicationIdentity, Capabilities, Contracts, DeploymentRecord, DeploymentRecordError,
@@ -29,8 +30,10 @@ const CRC_BYTES: usize = 4;
 const SECTION_HEADER_BYTES: usize = 8;
 /// The sections of version 1, in their order.
 const VERSION_1_SECTIONS: u16 = 7;
-/// The sections of version 2, the version this runtime writes: version 1's and section 8.
-const SECTION_COUNT: u16 = 8;
+/// The sections of version 2: version 1's and section 8.
+const VERSION_2_SECTIONS: u16 = 8;
+/// The sections of version 3, the version this runtime writes: version 2's and section 9.
+const SECTION_COUNT: u16 = 9;
 
 const APPLICATION: u16 = 1;
 const CONTRACTS: u16 = 2;
@@ -40,6 +43,7 @@ const TASKS: u16 = 5;
 const IMPORTS: u16 = 6;
 const CONFIGURATION: u16 = 7;
 const DRIVER_PARAMETERS: u16 = 8;
+const CRATES: u16 = 9;
 
 const APPLICATION_BYTES: usize = 32 + 4 + 2 + 2 + 4 + 32 + 32;
 const CONTRACTS_BYTES: usize = 2 + 2 + 1 + 1 + 2;
@@ -56,9 +60,11 @@ impl DeploymentRecord {
     ///
     /// # Errors
     ///
-    /// The record breaks a rule a reader checks: more than 65,535 tasks or imports, an empty or
-    /// too long import name, imports out of order or repeated, a configuration field the section
-    /// cannot hold (specification 34 §5.1.1), or more than `RECORD_MAX_BYTES`.
+    /// The record breaks a rule a reader checks: more than 65,535 tasks, imports or crates, an
+    /// empty or too long import name, crate name or crate version, imports or crates out of order
+    /// or repeated, a crate checksum with a byte its source leaves zero that is not 0, a
+    /// configuration field the section cannot hold (specification 34 §5.1.1), or more than
+    /// `RECORD_MAX_BYTES`.
     pub fn encode(&self) -> Result<Vec<u8>, DeploymentRecordError> {
         let tasks = u16::try_from(self.tasks.len()).map_err(|_| Error::Field("the task count"))?;
         let imports =
@@ -156,6 +162,14 @@ impl DeploymentRecord {
         section(&mut out, DRIVER_PARAMETERS, parameter_bytes.len(), |out| {
             out.extend_from_slice(&parameter_bytes);
         });
+        let mut crate_bytes = Vec::new();
+        crate_bytes
+            .try_reserve_exact(crates::encoded_len(&self.crates))
+            .map_err(|_| Error::Memory)?;
+        crates::encode(&self.crates, &mut crate_bytes)?;
+        section(&mut out, CRATES, crate_bytes.len(), |out| {
+            out.extend_from_slice(&crate_bytes);
+        });
         let crc = crc32::checksum(&out);
         out.extend_from_slice(&crc.to_le_bytes());
         debug_assert_eq!(out.len(), length);
@@ -175,6 +189,7 @@ impl DeploymentRecord {
             + self.imports_bytes()
             + self.configuration.encoded_len()
             + configuration::parameters_len(&self.configuration)
+            + crates::encoded_len(&self.crates)
             + CRC_BYTES
     }
 
@@ -204,6 +219,7 @@ impl DeploymentRecord {
         let version = header.u16()?;
         let section_count = match version {
             1 => VERSION_1_SECTIONS,
+            2 => VERSION_2_SECTIONS,
             RECORD_VERSION => SECTION_COUNT,
             other => return Err(Error::Version(other)),
         };
@@ -256,6 +272,11 @@ impl DeploymentRecord {
                 configuration::read_parameters(reader, &mut configuration.io_drivers)
             })?;
         }
+        let crates = if section_count >= CRATES {
+            read_section(CRATES, payload(CRATES)?, crates::read)?
+        } else {
+            Vec::new()
+        };
         Ok(Self {
             application: read_section(APPLICATION, payload(APPLICATION)?, read_application)?,
             contracts: read_section(CONTRACTS, payload(CONTRACTS)?, read_contracts)?,
@@ -268,6 +289,7 @@ impl DeploymentRecord {
             tasks: read_section(TASKS, payload(TASKS)?, read_tasks)?,
             imports: read_section(IMPORTS, payload(IMPORTS)?, read_imports)?,
             configuration,
+            crates,
         })
     }
 }

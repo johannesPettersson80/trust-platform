@@ -6074,8 +6074,12 @@ dependency sources, the `dependency_roots` and the `resolved_dependencies`
 names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
 `signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
 `bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
-(`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
-number of reported source paths. `--ci` and `--json` print the same object with
+(`code`, `rodata`, `init`) of specification 44 §10.4, and the `crates` of the
+image's crate table (specification 44 §5.12; specification 48 RU-79) in its
+order, each with its `name`, `version`, `source` (`registry`, `path` or `git`)
+and `checksum` (the registry archive's SHA-256 or the git commit in lowercase
+hexadecimal, null for a path crate), an empty list for a project without a
+Rust crate; `source_count` equals the number of reported source paths. `--ci` and `--json` print the same object with
 the `warnings` count and the `issues` of the compiler's warnings of the project's
 Rust crate (specification 48 RU-44), one per warning, as below; none for a
 project without a crate.

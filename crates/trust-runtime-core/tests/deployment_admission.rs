@@ -62,6 +62,7 @@ fn record_of(program: &[u8]) -> DeploymentRecord {
         tasks: Vec::new(),
         imports: Vec::new(),
         configuration: Configuration::default(),
+        crates: Vec::new(),
     }
 }
 

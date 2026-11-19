@@ -102,6 +102,7 @@ mod tests {
             tasks: Vec::new(),
             imports: Vec::new(),
             configuration: Configuration::default(),
+            crates: Vec::new(),
         }
         .encode()
         .expect("a small record encodes")

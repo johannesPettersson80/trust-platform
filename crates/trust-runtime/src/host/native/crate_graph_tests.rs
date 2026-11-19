@@ -5,7 +5,8 @@ use std::path::PathBuf;
 
 use serde_json::json;
 
-use super::check;
+use super::{check, image_crates, Listed};
+use trust_runtime_core::deployment::CrateSource;
 
 const ROOT: &str = "#![cfg_attr(not(test), no_std)]\n#![forbid(unsafe_code)]\n";
 
@@ -321,4 +322,95 @@ fn the_bindings_package_is_the_builds_own() {
     for (message, start) in found.iter().zip(expected) {
         assert!(message.starts_with(start), "{message}\n  expected: {start}");
     }
+}
+
+fn listed(name: &str, version: &str, source: Option<&str>) -> Listed {
+    Listed {
+        name: name.into(),
+        version: version.into(),
+        source: source.map(str::to_string),
+    }
+}
+
+const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
+
+/// A `Cargo.lock` that pins `heapless` 0.8.0 from crates.io with the checksum of 0xab bytes, the
+/// path crate `helper` without one, and a git crate without one, as cargo writes them.
+fn lock() -> String {
+    format!(
+        "version = 4\n\n\
+         [[package]]\nname = \"heapless\"\nversion = \"0.8.0\"\nsource = \"{CRATES_IO}\"\n\
+         checksum = \"{}\"\n\n\
+         [[package]]\nname = \"helper\"\nversion = \"0.3.1\"\n\n\
+         [[package]]\nname = \"trust-ext\"\nversion = \"1.0.0\"\n\
+         source = \"git+https://example.org/trust-ext?rev=1#{}\"\n",
+        "ab".repeat(32),
+        "cd".repeat(20)
+    )
+}
+
+#[test]
+fn the_image_lists_each_crate_with_its_source_and_the_checksum_its_lock_pins() {
+    // Specification 44 §5.12: a registry crate carries the SHA-256 its Cargo.lock pins, a git crate
+    // its commit and 12 zero bytes, a path crate nothing; the list is ordered by name, version and
+    // source. Catches a checksum taken from another crate, a commit read from the wrong part of the
+    // source, a path crate given a checksum, and the metadata's order kept.
+    let git = format!(
+        "git+https://example.org/trust-ext?rev=1#{}",
+        "cd".repeat(20)
+    );
+    let crates = image_crates(
+        &[
+            listed("trust-ext", "1.0.0", Some(&git)),
+            listed("helper", "0.3.1", None),
+            listed("heapless", "0.8.0", Some(CRATES_IO)),
+        ],
+        &lock(),
+    )
+    .expect("the crates are listed");
+    let summary: Vec<(&str, &str, CrateSource)> = crates
+        .iter()
+        .map(|entry| (entry.name.as_str(), entry.version.as_str(), entry.source))
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("heapless", "0.8.0", CrateSource::Registry),
+            ("helper", "0.3.1", CrateSource::Path),
+            ("trust-ext", "1.0.0", CrateSource::Git),
+        ]
+    );
+    assert_eq!(crates[0].checksum, [0xAB; 32]);
+    assert_eq!(crates[1].checksum, [0; 32]);
+    assert_eq!(crates[2].checksum[..20], [0xCD; 20]);
+    assert_eq!(crates[2].checksum[20..], [0; 12]);
+}
+
+#[test]
+fn a_crate_the_image_cannot_list_refuses_the_build_with_its_name() {
+    // RU-10: Cargo.lock pins every registry crate with its checksum, and a git source names its
+    // commit. Catches a list that silently drops a registry crate's checksum or a git commit, and a
+    // source of another kind taken for one of the three.
+    let missing = image_crates(&[listed("serde", "1.0.0", Some(CRATES_IO))], &lock())
+        .expect_err("no checksum is pinned");
+    assert_eq!(
+        missing,
+        "Cargo.lock pins no checksum for serde 1.0.0 (specification 48 RU-10)"
+    );
+    let no_commit = image_crates(
+        &[listed(
+            "trust-ext",
+            "1.0.0",
+            Some("git+https://example.org/trust-ext"),
+        )],
+        &lock(),
+    )
+    .expect_err("no commit");
+    assert!(no_commit.contains("names no commit"), "{no_commit}");
+    let unknown = image_crates(&[listed("odd", "1.0.0", Some("local+/somewhere"))], &lock())
+        .expect_err("an unknown source");
+    assert_eq!(
+        unknown,
+        "odd 1.0.0 comes from an unknown source: local+/somewhere"
+    );
 }

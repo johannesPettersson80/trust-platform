@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.75 — a `pair.service` writes the pairing record between scans as a claim does (Appendix D.2); after 0.74 — the C6's RAM code holds the scan path and no more (Appendix D.2); after 0.73 — a compiled program image imports nothing, so the bytecode engine's built-in import contracts are gone (§5.2.1, LOAD-06); after 0.72 — identify as a shared component, in every state of the resource (SERVICE-07) (0.71: a chip takes its checkpoint buffer at boot and lends it to each program, and a dropped network driver gives its socket back once its connection has ended).
+- **Version:** 0.76 — the deployment record's version 3 lists the Rust crates of the program image (§5.1.1, section 9); after 0.75 — a `pair.service` writes the pairing record between scans as a claim does (Appendix D.2); after 0.74 — the C6's RAM code holds the scan path and no more (Appendix D.2); after 0.73 — a compiled program image imports nothing, so the bytecode engine's built-in import contracts are gone (§5.2.1, LOAD-06); after 0.72 — identify as a shared component, in every state of the resource (SERVICE-07) (0.71: a chip takes its checkpoint buffer at boot and lends it to each program, and a dropped network driver gives its socket back once its connection has ended).
 - **Date:** 25 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -706,14 +706,15 @@ new program, and `trust-runtime deploy` copies it with the program.
 | Offset | Bytes | Field |
 |---|---|---|
 | 0 | 4 | Magic `TRDR` |
-| 4 | 2 | Record version, 1 or 2 |
+| 4 | 2 | Record version, 1, 2 or 3 |
 | 6 | 2 | Section count |
 | 8 | 4 | Record length L in bytes, header and CRC included, at most 65,536 |
 | 12 | L − 16 | The sections, in ascending order of their identifiers |
 | L − 4 | 4 | CRC-32 of bytes 0 to L − 5 |
 
 A section is a 2-byte identifier, 2 reserved bytes (0), a 4-byte payload length and the payload.
-Version 1 has these seven sections, each once; version 2 has them and section 8:
+Version 1 has these seven sections, each once; version 2 has them and section 8; version 3 has them,
+section 8 and section 9:
 
 | Section | Payload |
 |---|---|
@@ -725,6 +726,7 @@ Version 1 has these seven sections, each once; version 2 has them and section 8:
 | 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); a contract version (2); the canonical uppercase name. A compiled program image imports nothing (§5.2.1), so its count is 0 |
 | 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the event-store capacity, the task overrides, the I/O drivers and the safe state |
 | 8 Driver parameters (version 2) | The driver count (2), which is section 7's, then for each I/O driver in section 7's order: the length (4) and the UTF-8 text of the driver's `params` table as JSON (below) |
+| 9 Crates (version 3) | The crate count (2) and 2 reserved bytes, then each crate of the program image's crate table (specification 44 §5.12) in its order: the source (1: 1 a registry, 2 a path, 3 a git repository), the lengths of the name and of the version (1 + 1), a reserved byte (0), the checksum (32) as the crate table holds it, then the name and the version in UTF-8 (below) |
 
 Section 7 carries what a device without an operating system needs from the project's `runtime.toml`
 and `io.toml`: a computer reads those two files themselves at each start, and a chip never parses
@@ -769,11 +771,22 @@ order of their UTF-8, so the same file gives the same bytes; a string, an intege
 array are the same JSON value; a float is a JSON number in its shortest form that reads back as the
 same value; and a TOML date or time is the JSON string of its RFC 3339 text. A float that is not a
 number or is infinite has no JSON form, and the build refuses it with the driver's name and key. A
-driver without parameters has `{}`. `trust-runtime build` writes version 2 (decision of 25 October
-2026: a section added after those of version 1, as the rule below has a later version do). A chip
+driver without parameters has `{}`. Version 2 added this section (decision of 25 October 2026: a
+section added after those of version 1, as the rule below has a later version do). A chip
 runs a driver it carries out from its text, and refuses one it does not carry out by name with the
 reason, and a driver other than `gpio` of a version-1 record with `rebuild the project: its record
 holds no driver parameters`.
+
+Section 9 lists the Rust code the program holds (specification 48 RU-79): the crates of the program
+image's crate table, each with its name, its version, where it comes from and its checksum, the
+SHA-256 that `Cargo.lock` pins for a registry crate and the commit of a git crate (specification 44
+§5.12). The record takes them from the image, as it takes the image's other tables, so every tool
+that writes a record from an image writes the same list, and a program without a Rust crate has
+none (count 0). A name and a version are each 1 to 255 bytes. `trust-runtime build` and every tool
+that writes a record write version 3 (decision of 18 November 2026: a section added after those of
+version 2, as the rule below has a later version do); a runtime that reads only versions 1 and 2
+refuses it as an unknown version, as it refuses an image of this release by its format version
+(specification 44 §10.2).
 
 The identities:
 
@@ -794,10 +807,12 @@ admitted program with exactly the requested limits, so the program meets the sam
 target (ARCH-01).
 
 **Reading a record.** A runtime reads every record version it knows. A version-1 record has
-exactly sections 1 to 7, and a version-2 record exactly sections 1 to 8, in that order, each
-payload exactly as long as its content. Section 8 refuses a driver count other than section 7's and
+exactly sections 1 to 7, a version-2 record exactly sections 1 to 8, and a version-3 record exactly
+sections 1 to 9, in that order, each payload exactly as long as its content. Section 8 refuses a driver count other than section 7's and
 a text that is not UTF-8; the driver that reads a text refuses one that is not a JSON object of its
-keys, as a computer refuses its `params`. A runtime
+keys, as a computer refuses its `params`. Section 9 refuses a source other than 1, 2 or 3, an empty
+or non-UTF-8 name or version, a checksum with a byte that its source leaves zero (all 32 of a path
+crate, the last 12 of a git crate) other than 0, and crates out of their order or repeated. A runtime
 refuses with `RuntimeError::DeploymentRecordInvalid` and the stable code
 `runtime_deployment_record_invalid`, stating the reason, a record that is shorter than its
 lengths; that has another magic, an unknown version, a length other than the file's or above
@@ -3722,6 +3737,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | 0.73 | 6 November 2026 | A compiled program image imports nothing (specification 44 §6.9 compiles the program library into it), so §5.2.1's table of built-in import contracts, which the bytecode engine checked at preparation, is gone with LOAD-06's contract rules and the stable code `runtime_import_unsupported`. The record keeps its import section for the records of bytecode programs, which admission refuses by their version first; admission refuses a record that lists an import as a record of another program (§5.1.1, step 6). Checklist G5. |
 | 0.74 | 18 November 2026 | Appendix D.2: the C6's RAM code holds the scan path and no more (checklist G217): a pattern of `rwtext_hook.x` matched the C6's GPIO type in the generic arguments of the runner's control path and drew 8.9 KB of it into RAM, which left the main stack 144 bytes above its floor; the two GPIO methods of a scan are in RAM by `#[ram]`, the process image by its module and type, and `build-firmware esp32c6` refuses a control path in RAM. |
 | 0.75 | 19 November 2026 | Appendix D.2: a `pair.service`, which creates or replaces a service token (specification 11 §6.9.6; specification 48 RU-81), writes the pairing record between scans as a `pair.claim` does. |
+| 0.76 | 18 November 2026 | The deployment record's version 3 (§5.1.1; specification 48 RU-79; checklist G211, under the owner's delegation of 17 November 2026): section 9 lists the Rust crates of the program image's crate table (specification 44 §5.12), each with its name, version, source and checksum, so that a deployed program says which Rust code it holds. The record takes the list from the image, as every tool that writes a record writes it from the image; the reading rules refuse a malformed list. Every tool writes version 3. |
 
 Version 0.8 divides aggregate Scope A into A1–A4, with one final batch per explicitly
 bounded scope, and adds the implementation checklist/current-checkpoint pointer.
