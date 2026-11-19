@@ -281,7 +281,7 @@ fn generic_parameter_external_value_race_retains_rejection_and_invalidates_rollb
 
 #[test]
 fn generic_parameter_transaction_waits_for_owning_task_and_controller_observes_complete_set() {
-    // Main runs only in MainTask, whose first activation is one interval after the start.
+    // Main runs only in MainTask, at its start and every interval after it (specification 10 §4.3).
     let (state, mut harness) = generic_fixture_for(
         "PROGRAM MainProgram VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; \
          Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM \
@@ -337,8 +337,8 @@ fn generic_parameter_transaction_waits_for_owning_task_and_controller_observes_c
 /// and is then lost to the fault, reported as `runtime interrupted before parameter confirmation`.
 #[test]
 fn generic_parameter_set_confirmed_before_a_later_fault_in_its_scan_stays_applied() {
-    // Main runs in MainTask, first one interval after the start; Late runs in every scan after the tasks and divides by
-    // its divisor.
+    // Main runs in MainTask, at its start and every interval after it; Late runs in every scan after the tasks and divides
+    // by its divisor.
     let (state, mut harness) = generic_fixture_for(
         "PROGRAM MainProgram VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; \
          Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM \

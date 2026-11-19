@@ -58,7 +58,10 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
                 .tasks
                 .iter()
                 .find(|running| running.name.eq_ignore_ascii_case(&task.name))
-                .map_or_else(|| TaskState::new(now), |running| running.state.clone());
+                .map_or_else(
+                    || TaskState::new(now, task.interval),
+                    |running| running.state.clone(),
+                );
         }
         self.live = old.live;
         // The programs without a task run at the resource's cycle interval as before (§8.2).

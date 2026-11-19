@@ -153,7 +153,8 @@ fn a_computer_runs_a_compiled_program_with_its_retain_file_and_changes_it_online
         .expect("the retain file is set");
     first.restart(RestartMode::Cold).expect("the cold start");
     first.reset_task_timing(Duration::ZERO);
-    for at in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three runs, at 0, 10 and 20 ms.
+    for at in [0, 10, 20] {
         first.set_current_time(millis(at));
         first.execute_cycle().expect("the scan runs");
     }
@@ -184,7 +185,8 @@ fn a_computer_runs_a_compiled_program_with_its_retain_file_and_changes_it_online
         .expect("the change applies");
     assert_eq!(value(&second, "P.kept"), Some(Value::DInt(6)));
     assert_eq!(value(&second, "P.added"), Some(Value::Int(7)));
-    second.set_current_time(millis(10));
+    // The task's timing began at 0 ms and the change keeps it: the scan at 0 ms runs the task.
+    second.set_current_time(millis(0));
     second.execute_cycle().expect("the changed program runs");
     assert_eq!(value(&second, "P.count"), Some(Value::DInt(1)));
     assert_eq!(value(&second, "P.kept"), Some(Value::DInt(9)));

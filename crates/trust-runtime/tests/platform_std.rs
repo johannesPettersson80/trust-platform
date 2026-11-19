@@ -79,17 +79,26 @@ END_PROGRAM
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
+    // The task is due at its start, logical time 0 (specification 10 §4.3).
     runner.tick().unwrap();
     assert_eq!(
         runner.program().read_variable("P.counter"),
-        Ok(Value::Int(0)),
-        "a fixed injected clock must not make a periodic task ready"
+        Ok(Value::Int(1))
+    );
+
+    // Wall time passes more than the task's interval while the injected clock stays at 0.
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    runner.tick().unwrap();
+    assert_eq!(
+        runner.program().read_variable("P.counter"),
+        Ok(Value::Int(1)),
+        "a fixed injected clock must not make a periodic task ready again"
     );
 
     clock.advance(Duration::from_millis(1));
     runner.tick().unwrap();
     assert_eq!(
         runner.program().read_variable("P.counter"),
-        Ok(Value::Int(1))
+        Ok(Value::Int(2))
     );
 }

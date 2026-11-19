@@ -59,7 +59,7 @@ fn enumerations_and_named_values_pass_through_calls_and_held_blocks() {
     // which no named value has, comes back as it is, and the default SETTING holds L = AMBER = 2,
     // its field's initial value, and M = RUN = 5, MODE's: GLOW = 12 x 100 + 2 x 10 + 5 = 1225. The
     // held SWITCHER's HAVE starts at RUN and takes STOP = 6 with one change, at the task's first
-    // call at 10 ms. Catches a default at the first value (NEXT_MODE(IDLE) = RUN = 5), a type with
+    // call at 0 ms. Catches a default at the first value (NEXT_MODE(IDLE) = RUN = 5), a type with
     // named values read as its default (GREEN = 3, GLOW 325), and a held block's enumeration
     // left in the generated cells.
     let root = custom_project(
@@ -141,11 +141,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.STEPPED_VALUE"), Some(Value::Int(6)));
     assert_eq!(program.value("MAIN.GLOW_CODE"), Some(Value::Int(1225)));
     assert_eq!(program.value("MAIN.SELECTOR.HAVE"), Some(Value::Int(6)));
@@ -199,7 +198,7 @@ fn the_crates_own_types_have_bindings_of_their_own() {
     // bindings in layer 1 too, `st::SPAN` and `st::LEVEL` beside the crate's `Span` and `Level`:
     // CLASSIFY(6.0, (0.0, 8.0)) is High, 6.0 > (0.0 + 8.0) / 2, = 3; CLASSIFY(2.0, ..) is Low = 0;
     // and `st::SPAN::default()` holds the crate's initial value of high, 10.0, at the task's first
-    // call at 10 ms. Catches a call of a crate's type refused, a binding whose values differ from
+    // call at 0 ms. Catches a call of a crate's type refused, a binding whose values differ from
     // the crate's declaration, and a default without the crate's initial value.
     let root = custom_project(
         "rust-pous-structured-text-crate-types",
@@ -246,11 +245,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.ABOVE"), Some(Value::Int(3)));
     assert_eq!(program.value("MAIN.BELOW"), Some(Value::Int(0)));
     assert_eq!(program.value("MAIN.HIGH"), Some(Value::LReal(10.0)));
@@ -276,7 +274,7 @@ fn an_enumeration_that_repeats_a_value_is_a_struct_of_its_values() {
     // RU-39: PHASE gives LOW and LOWEST the value 1, which a Rust enum cannot hold, so its binding
     // is a struct of one value with each name as its constant, as a type with named values': LOWEST
     // equals LOW, and RANK(LOWEST) = 1, so PHASE_RANK = 1 x 10 + 1 = 11, at the task's first call
-    // at 10 ms. Catches an enumeration refused for a repeated value, and constants of other values.
+    // at 0 ms. Catches an enumeration refused for a repeated value, and constants of other values.
     let root = custom_project(
         "rust-pous-structured-text-repeated-value",
         &[
@@ -322,10 +320,9 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.RANK_CODE"), Some(Value::Int(11)));
 }

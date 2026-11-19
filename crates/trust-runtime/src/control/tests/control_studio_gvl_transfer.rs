@@ -89,7 +89,8 @@ fn a_transfer_binds_a_gvl_loop_whose_task_owns_its_globals() {
     let mut harness = simulated_harness(GVL_LOOP_SOURCE);
     state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    // A task with an interval runs first one interval after the start: at 100 ms both have run once.
+    // A task with an interval runs at its start and every interval after it (specification 10 §4.3):
+    // at 100 ms both have run again.
     harness.advance_time(crate::value::Duration::from_millis(100));
     assert!(harness.cycle().errors.is_empty());
     let owners: Vec<u8> = harness.runtime().with_program_view(|program| {
