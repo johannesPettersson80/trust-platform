@@ -276,6 +276,12 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "service.heartbeat" => {
             crate::service_heartbeat::heartbeat(id, request.auth.as_deref(), host)
         }
+        "variables.write" => crate::variables_write::write(
+            id,
+            request.auth.as_deref(),
+            request.params.as_ref(),
+            host,
+        ),
         "io.write" => io_requests::io_write(id, request.params.clone(), host),
         "io.force" => io_requests::io_force(id, request.params.clone(), host),
         "io.unforce" => io_requests::io_unforce(id, request.params.clone(), host),

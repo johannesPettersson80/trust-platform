@@ -120,6 +120,7 @@ const ENGINEER: &[&str] = &[
     "step_over",
     "var.force",
     "var.unforce",
+    "variables.write",
 ];
 
 const ADMIN: &[&str] = &[
