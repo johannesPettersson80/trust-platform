@@ -89,7 +89,8 @@ fn of_kind(requests: &Requests, kind: &str) -> Vec<Value> {
 #[test]
 fn a_service_reads_writes_and_beats_with_its_token() {
     // Each request as specification 11 §6.8.1 gives it, with the service token as `auth`: a read
-    // of the paths, a write of path and value, a heartbeat without parameters. The read's reply is
+    // of the paths, a write of path and value, a heartbeat naming its period of 1 s as `period_ms`
+    // 1000 (RU-62). The read's reply is
     // a snapshot whose REAL reads as an f64; the write gives the number of values; the heartbeat
     // the value the next cycle writes. Catches a request sent without the token, a write of
     // another shape, and a reply read from the wrong field.
@@ -115,7 +116,8 @@ fn a_service_reads_writes_and_beats_with_its_token() {
             json!({"type": "variables.read", "auth": "service-token", "params": {"paths": ["P1.level"]}}),
             json!({"type": "variables.write", "auth": "service-token",
                    "params": {"writes": [{"path": "P1.target", "value": 21.5}]}}),
-            json!({"type": "service.heartbeat", "auth": "service-token", "params": null}),
+            json!({"type": "service.heartbeat", "auth": "service-token",
+                   "params": {"period_ms": 1000}}),
         ]
     );
 }
@@ -140,6 +142,25 @@ fn a_refusal_is_the_runtimes_text() {
         refused,
         ServiceError::Control(ControlError::Refused { .. })
     ));
+}
+
+#[test]
+fn a_heartbeat_names_its_period() {
+    // RU-62 and specification 11 §6.8.1: each heartbeat names the service's period as `period_ms`,
+    // by which the runtime tells how old its last heartbeat may be (RU-64); a period below a
+    // millisecond names 1 ms, the smallest the runtime takes. Catches a heartbeat whose runtime
+    // must guess its period, and a sub-millisecond period sent as 0, which the runtime refuses.
+    for (period, named) in [
+        (Duration::from_millis(40), 40),
+        (Duration::from_micros(500), 1),
+    ] {
+        let (endpoint, requests) = runtime(answers);
+        let service = Service::connect_with(settings(&endpoint, period)).expect("a connection");
+        assert_eq!(service.heartbeat().expect("the heartbeat"), 42);
+        let beats = of_kind(&requests, "service.heartbeat");
+        assert_eq!(beats.len(), 1);
+        assert_eq!(beats[0]["params"], json!({ "period_ms": named }));
+    }
 }
 
 #[test]

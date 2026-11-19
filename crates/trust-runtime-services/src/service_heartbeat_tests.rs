@@ -55,6 +55,20 @@ fn heartbeat(host: &FakeHost, auth: &str) -> ControlResponse {
     )
 }
 
+/// A heartbeat with the parameters `params`, as the SDK sends it with its period.
+fn heartbeat_with(host: &FakeHost, auth: &str, params: &serde_json::Value) -> ControlResponse {
+    dispatch_value(
+        json!({"id": 1, "type": "service.heartbeat", "auth": auth, "params": params}),
+        host,
+        None,
+    )
+}
+
+/// The heartbeats the runtime noted for the fleet topology: each service with its period.
+fn noted(host: &FakeHost) -> Vec<(String, Option<u64>)> {
+    host.heartbeats.borrow().clone()
+}
+
 /// The writes the next cycle's start applies: each target with its value.
 fn queued(host: &FakeHost) -> Vec<(String, Value)> {
     host.live_values
@@ -178,4 +192,67 @@ fn a_program_without_the_services_heartbeat_refuses_it() {
         assert_eq!(heartbeat(&host, TOKEN).error.as_deref(), Some(refusal));
         assert!(queued(&host).is_empty(), "{refusal}");
     }
+}
+
+#[test]
+fn an_accepted_heartbeat_is_noted_with_the_period_it_names() {
+    // Specification 11 §6.8.1: the runtime keeps each service's last accepted heartbeat with the
+    // period it named, for the fleet topology's service clients (§6.8.1a); a heartbeat without
+    // `period_ms` is noted without one. Catches a topology that never learns of a heartbeat, and
+    // one that guesses a period the service did not name.
+    let host = host(Ok(Value::UDInt(41)));
+    let reply = heartbeat_with(&host, TOKEN, &json!({"period_ms": 500}));
+    assert_eq!(reply.error, None);
+    assert_eq!(
+        reply.result,
+        Some(json!({"service": "recipe", "value": 42}))
+    );
+    assert_eq!(heartbeat(&host, TOKEN).error, None);
+    assert_eq!(
+        noted(&host),
+        vec![
+            ("recipe".to_string(), Some(500)),
+            ("recipe".to_string(), None)
+        ]
+    );
+}
+
+#[test]
+fn a_period_that_is_no_whole_number_of_milliseconds_above_0_is_refused() {
+    // Specification 11 §6.8.1: any `period_ms` but a whole number of milliseconds above 0 is
+    // refused with its own words, after the token and before anything is written or noted; a
+    // request from no service token is refused for that first. Catches a period of 0, which would
+    // make every heartbeat late, and a heartbeat counted although its request was refused.
+    for period in [json!(0), json!(-500), json!(1.5), json!("500"), json!(null)] {
+        let host = host(Ok(Value::UDInt(41)));
+        assert_eq!(
+            heartbeat_with(&host, TOKEN, &json!({"period_ms": period}))
+                .error
+                .as_deref(),
+            Some("period_ms is a whole number of milliseconds above 0"),
+            "{period}"
+        );
+        assert!(queued(&host).is_empty(), "{period}");
+        assert!(noted(&host).is_empty(), "{period}");
+    }
+    let host = host(Ok(Value::UDInt(41)));
+    assert_eq!(
+        heartbeat_with(&host, ADMIN, &json!({"period_ms": 0}))
+            .error
+            .as_deref(),
+        Some("service.heartbeat needs a service token")
+    );
+}
+
+#[test]
+fn a_refused_heartbeat_is_not_noted() {
+    // Specification 11 §6.8.1: only an accepted heartbeat is kept. A heartbeat refused because the
+    // program does not run leaves the service's last heartbeat as it was. Catches a topology that
+    // shows a service connected while its heartbeats are refused.
+    let host = host(Ok(Value::UDInt(41)));
+    host.state.set(ResourceState::Stopped);
+    assert!(heartbeat_with(&host, TOKEN, &json!({"period_ms": 500}))
+        .error
+        .is_some());
+    assert_eq!(noted(&host), Vec::new());
 }

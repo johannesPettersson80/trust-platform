@@ -60,6 +60,12 @@ pub trait AccessPort {
     fn pairing(&self) -> Option<&dyn PairingService> {
         None
     }
+
+    /// Records that the service `service` sent a heartbeat that the runtime accepted, naming the
+    /// period `period_ms` (specification 11 §6.8.1, "Service heartbeats"), for the fleet
+    /// topology's service clients (§6.8.1a, "Service clients"). A runtime without a fleet topology
+    /// keeps none: the default does nothing.
+    fn note_service_heartbeat(&self, _service: &str, _period_ms: Option<u64>) {}
 }
 
 /// The audit record of one control request.
