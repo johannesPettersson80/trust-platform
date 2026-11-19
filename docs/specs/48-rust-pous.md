@@ -5,7 +5,9 @@
   specification 44. 0.2, 17 November 2026: how the bundle provides the SDK's procedural macros
   (RU-74, §21 decision 1), decided under the owner's delegation of that day. 0.3, 19 November 2026:
   how `trust-dev service install` puts a service under the computer's service manager (RU-64, §21
-  decision 14), decided under the owner's delegation of 18 November 2026.
+  decision 14), decided under the owner's delegation of 18 November 2026. 0.4, 19 November 2026:
+  the Windows service's program, a copy of trust-dev in the service's own folder, its log, its
+  `service.toml` and its virtual account's access (RU-64).
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -1025,10 +1027,11 @@ systemd unit restarts the runtime (`docs/deploy/systemd`). `trust-dev service un
 stops it and removes it. On every computer the service is called `trust-service-<name>`.
 
 - **Rights.** Both commands change the computer's services, which takes root (Linux, macOS) or an
-  administrator (Windows). Without these rights they change nothing and print the command to run
-  with them: `sudo` with trust-dev's own path, the project folder and the binary, so that the
-  command needs neither the root account's `PATH` nor cargo; on Windows the same command in a
-  terminal opened as administrator. `install` checks everything below before it asks for rights.
+  administrator (Windows): on Windows, the right to create a service at the service manager. Without
+  these rights they change nothing and print the command to run with them: `sudo` with trust-dev's
+  own path, the project folder and the binary, so that the command needs neither the root account's
+  `PATH` nor cargo; on Windows the same command without `sudo`, to run in a terminal opened as
+  administrator. `install` checks everything below before it asks for rights.
 - **The program.** `install` builds nothing, since under `sudo` a build would leave files of root
   in the project. It runs the binary that cargo's release build of `[services.<name>] package`
   wrote: the project folder holds that package's manifest (`cargo new --bin <package>` in it, or a
@@ -1060,13 +1063,23 @@ stops it and removes it. On every computer the service is called `trust-service-
   which belongs to the owner; `launchctl bootout` of an earlier one, `launchctl enable` and
   `launchctl bootstrap system` load it. `uninstall` boots it out and removes the file; the log
   stays.
-- **Windows:** a service `trust-service-<name>` that starts automatically, under its virtual account
-  `NT SERVICE\trust-service-<name>`, which `install` gives read and execute access to the project
-  folder; the service manager restarts it 2 s after it ends. Its program is `trust-dev service run
-  <name> --project <folder>`, which answers the service manager and runs the binary as its child,
-  in the project folder and with `TRUST_PROJECT`, since an ordinary Rust program does not answer
-  the service manager (RU-61); it stops the child when the service is stopped. `uninstall` stops
-  and deletes the service and removes the access.
+- **Windows:** a service `trust-service-<name>` that starts automatically and that the service
+  manager restarts 2 s after it ends, under its virtual account `NT SERVICE\trust-service-<name>`
+  (never LocalSystem). Its program is a copy of trust-dev in the service's own folder,
+  `%ProgramData%\truST\services\<name>\`, run as `trust-dev service run <name> --project
+  <folder> --binary <binary>`, since an ordinary Rust program does not answer the service manager
+  (RU-61). That copy answers the service manager and runs the binary as its child, in the project
+  folder and with `TRUST_PROJECT`. It appends the child's output and errors to `logs\<name>.log` in
+  the service's folder, stops the child when the service is stopped, and ends with a failure when
+  the child ends, so that the service manager restarts it. The copy keeps the service when truST is
+  updated, since the extension keeps trust-dev in a folder of each version. The service's folder
+  also holds `service.toml` with the project folder and the binary, by which `install` knows the
+  folder it was installed for and `uninstall` the access it gave. `install` gives the virtual account
+  read and execute access to the project folder, the binary's folder and the service's folder, and
+  write access only to the service's `logs` folder (`icacls`), so that the service cannot replace
+  its own program. For a service installed for the same folder it stops the service, replaces the
+  copy and the settings, and starts it again. `uninstall` stops and deletes the service, removes the
+  access, the copy and `service.toml`; the log stays, as on macOS.
 
 Devices & Connections shows a connected service as a client of its runtime, with its name and the
 age of its last heartbeat. A service reaches a chip's runtime over the network as any client does;

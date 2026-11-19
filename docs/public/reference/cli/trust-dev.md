@@ -81,16 +81,19 @@ Primary options of `install`:
 `trust-dev service install recipe` puts the service `[services.recipe]` of the
 project's `trust.toml` under the computer's service manager as
 `trust-service-recipe` and starts it: a systemd unit on Linux, a launchd daemon
-on macOS. From then on it starts at every boot without a login, and again 2 s
-after it ends. It runs the release binary of the service's package, which
-cargo's metadata names, as the user who owns the project folder. It runs in that
-folder, with `TRUST_PROJECT` naming it, so the service reads the project's
+on macOS, a Windows service. From then on it starts at every boot without a
+login, and again 2 s after it ends. It runs the release binary of the service's
+package, which cargo's metadata names, as the user who owns the project folder;
+on Windows as its virtual account, `NT SERVICE\trust-service-recipe`. It runs in
+that folder, with `TRUST_PROJECT` naming it, so the service reads the project's
 `trust.toml` and its token itself. Build the service first with
 `cargo build --release`.
 
-The command takes root. Run as a user, it checks the service, changes nothing
-and prints the command to run. That command carries the binary's path, so
-`sudo` needs neither cargo nor your `PATH`:
+The command takes root, or an administrator on Windows. Run without those
+rights, it checks the service, changes nothing and prints the command to run:
+with `sudo` on Linux and macOS, in PowerShell opened as administrator on
+Windows. That command carries the binary's path, so it needs neither cargo nor
+your `PATH`:
 
 ```text
 sudo /home/ada/.cargo/bin/trust-dev service install recipe --project /home/ada/plant --binary /home/ada/plant/recipe-service/target/release/recipe-service
@@ -104,8 +107,11 @@ It refuses:
 
 Installed again for the same folder, the service is replaced and restarted, as
 after a new build. `trust-dev service uninstall recipe` stops and removes it.
-A Windows service is not installed yet. Specification 48 RU-64 gives the
-details.
+
+On Windows the service's program is a copy of trust-dev in
+`%ProgramData%\truST\services\recipe\`, so that updating truST keeps the
+service. The copy runs the binary and appends its output to
+`logs\recipe.log` there. Specification 48 RU-64 gives the details.
 
 ## Test
 

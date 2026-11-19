@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use super::definition::{launchd_plist, systemd_unit};
 use super::plan::{resolve, Owner, Plan};
-use super::steps::{install_steps, installed_for_another, uninstall_steps, Step, System};
+use super::steps::{install_steps, installed_for_another, uninstall_steps, Step, System, Unix};
 use super::{install_command, uninstall_command};
 
 /// Appendix B's service, with its package.
@@ -175,7 +175,7 @@ fn each_service_manager_gets_the_steps_of_the_specification() {
         may_fail,
     };
     assert_eq!(
-        install_steps(System::Systemd, &plan, &owner),
+        install_steps(Unix::Systemd, &plan, &owner),
         vec![
             Step::Write {
                 path: "/etc/systemd/system/trust-service-recipe.service".into(),
@@ -195,7 +195,7 @@ fn each_service_manager_gets_the_steps_of_the_specification() {
         ]
     );
     assert_eq!(
-        install_steps(System::Launchd, &plan, &owner),
+        install_steps(Unix::Launchd, &plan, &owner),
         vec![
             run(
                 "launchctl",
@@ -227,7 +227,7 @@ fn each_service_manager_gets_the_steps_of_the_specification() {
         ]
     );
     assert_eq!(
-        uninstall_steps(System::Systemd, "recipe"),
+        uninstall_steps(Unix::Systemd, "recipe"),
         vec![
             run(
                 "systemctl",
@@ -241,7 +241,7 @@ fn each_service_manager_gets_the_steps_of_the_specification() {
         ]
     );
     assert_eq!(
-        uninstall_steps(System::Launchd, "recipe"),
+        uninstall_steps(Unix::Launchd, "recipe"),
         vec![
             run(
                 "launchctl",
@@ -262,8 +262,8 @@ fn a_service_installed_for_another_project_folder_is_not_replaced() {
     // project's service, also one whose folder's name only starts alike.
     let plan = plant();
     for (system, existing) in [
-        (System::Systemd, systemd_unit(&plan, "ada")),
-        (System::Launchd, launchd_plist(&plan, "ada")),
+        (System::Unix(Unix::Systemd), systemd_unit(&plan, "ada")),
+        (System::Unix(Unix::Launchd), launchd_plist(&plan, "ada")),
     ] {
         assert!(!installed_for_another(
             system,
@@ -290,7 +290,7 @@ fn without_rights_the_command_that_has_them_is_named() {
     // shell. Catches a command that does not run as printed.
     let trust_dev = Path::new("/home/ada/.cargo/bin/trust-dev");
     assert_eq!(
-        install_command(trust_dev, &plant()),
+        install_command(System::Unix(Unix::Systemd), trust_dev, &plant()),
         "sudo /home/ada/.cargo/bin/trust-dev service install recipe --project /home/ada/plant \
          --binary /home/ada/plant/target/release/recipe-service"
     );
@@ -300,12 +300,16 @@ fn without_rights_the_command_that_has_them_is_named() {
         binary: PathBuf::from("/home/ada/my plant/target/release/recipe-service"),
     };
     assert_eq!(
-        install_command(Path::new("/opt/it's/trust-dev"), &spaced),
+        install_command(
+            System::Unix(Unix::Launchd),
+            Path::new("/opt/it's/trust-dev"),
+            &spaced
+        ),
         "sudo '/opt/it'\\''s/trust-dev' service install recipe --project '/home/ada/my plant' \
          --binary '/home/ada/my plant/target/release/recipe-service'"
     );
     assert_eq!(
-        uninstall_command(trust_dev, "recipe"),
+        uninstall_command(System::Unix(Unix::Systemd), trust_dev, "recipe"),
         "sudo /home/ada/.cargo/bin/trust-dev service uninstall recipe"
     );
 }
