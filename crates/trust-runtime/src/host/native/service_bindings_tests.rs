@@ -1,6 +1,8 @@
 //! A service's bindings (specification 48 RU-62) from the image of a program built by the test
 //! harness: every expected line is worked out from the program and the specification's types.
 
+use trust_runtime_core::native::memory::ProgramMemory;
+
 use super::service_bindings;
 use crate::harness::TestHarness;
 
