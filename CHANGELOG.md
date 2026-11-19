@@ -6,6 +6,87 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-19
+
+### Added
+
+- A service's heartbeat reaches its program: the control request `service.heartbeat`, sent with the
+  service's own service token, adds one to the program's global `<name>_heartbeat` at the next cycle's
+  start, which `SERVICE_FRESH` watches. Only the service's token can send it, so no other client keeps
+  a dead service looking alive, and a service that only reads keeps a Viewer token. Computers and
+  boards alike (specification 11 §6.8.1, "Service heartbeats"; specification 48 RU-63).
+- Services sign in with a service token of their own: `trust-runtime ctl service-token <name> --out
+  <file>` creates it with the runtime's Admin access and writes it into the file, which only its owner
+  reads, never to the terminal. A service token is a Viewer unless `--role` asks for Operator or
+  Engineer, does not expire, so that a service running unattended keeps its connection, and is
+  replaced by running the command again; `pair.list` names its service, and `pair.revoke` revokes it.
+  Computers and boards alike (`pair.service`, specification 11 §6.9.6; specification 48 RU-81).
+- `trust-runtime check` checks a project's Rust crate with the toolchain's cargo, as the build
+  compiles it, without building the program: the crate's errors and warnings are issues where they
+  are, as the build reports them, and a warning leaves the check passed (specification 48 RU-44).
+- Control Studio's isolated simulation runs and searches run a project with Rust POUs: the run's
+  snapshot carries the files of the project's Rust crate, at most 256 files and 4 MiB, and the run
+  builds the crate with the program. Its registry dependencies are read where the project's cargo
+  configuration puts them, vendored sources included. A larger crate, or one with a dependency
+  outside the crate's folder, is reported as not ready, with the reason (Control Studio protocol
+  annex E8.2).
+- Each release publishes the SDK's crates (`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`,
+  `trust-plc-macros` and `trust-plc`) to crates.io at its version, after the release is verified, so
+  that your own cargo and rust-analyzer resolve the version a project's `Cargo.toml` names. The
+  publication starts once the repository holds the crates.io token; until then a release says that
+  it published no crate (specification 24, "Publishing the SDK's crates"; specification 48 RU-12).
+- The control request `variables.read` reads a set of the program's variables by their paths: the
+  values one completed scan left, never half a scan, with the scan's number, its logical time, the
+  resource's state and whether the values are current (`good`) or the last scan's while the
+  resource does not run (`stale`). A Viewer may send it and it works with the debug surface off,
+  so a service can read a production deployment; computers and chips answer it alike.
+  `trust-runtime ctl read <path>...` prints the values with their types (specification 11 §6.8.1,
+  specification 48 RU-62).
+- A program image built from a project with a Rust crate lists the crates its module holds, each
+  with its version, where it comes from and the checksum `Cargo.lock` pins for it, in a table that
+  the image's signature covers, so a deployed program says which Rust code it holds. Its deployment
+  record carries the same list, and `build/build.json` gives it as `crates` (specification 44 §5.12,
+  specification 48 RU-79).
+- `trust-dev rust audit` checks the crates a project's Rust POUs are built from, the scan crate
+  graph the build reads, against the RustSec advisory database: each advisory that names a crate at
+  the version the project builds is printed with the versions that fix it, a vulnerability fails the
+  command and an informational advisory (unmaintained, unsound, a notice) is a warning. The
+  database is downloaded each time and a copy kept in truST's data folder for when the computer
+  cannot reach it; `--db <folder>` checks against a copy of its repository instead (specification
+  48 RU-79).
+- The VS Code Simulator shows each error and warning of a project's Rust crate in Problems after
+  each build, at its place in the crate's files and with the source `truST (rustc)`. The next build
+  replaces them. A failed Update running simulation whose crate does not compile says how many
+  errors Problems shows (specification 25 §6.10, specification 48 RU-44).
+- `trust-runtime build` reports each error and warning of a project's Rust crate where it is. The
+  report names the crate's files as the project does (`rust/src/lib.rs`, not the compiler's
+  `project/src/lib.rs`). With `--json` or `--ci`, a failed build gives each error as an issue with
+  its file, line and column, the compiler's code and the source `truST (rustc)`. A successful build
+  writes the crate's warnings and lists them as issues of its JSON; a warning still does not fail the
+  build (specification 48 RU-44, specification 11 §6.8.1d).
+
+### Changed
+
+- Program images are format version 5 and deployment records version 3. A runtime or board firmware
+  of an earlier release refuses them with its reason: install this release's firmware on a board
+  with `trust-runtime firmware install`.
+
+### Fixed
+
+- `trust-runtime check`, and with it VS Code's **Compile**, failed on every project with Rust POUs,
+  refusing each one as "without its Rust item": it read the project without its Rust crate. It now
+  reads the crate as the build does (specification 11 §6.8.1c).
+- On a computer, the debugger reported a breakpoint's, a pause's or a step's stop a moment before
+  it published the halted scan's values, so a client that read them as soon as it found the stop
+  could show the last completed scan's values at the stop until the next one. The stop and the
+  halted state are now published together (specification 11 §6.13.1).
+
+### Security
+
+- The ruzstd advisory (RUSTSEC-2026-0344, a decompression bomb in zstd-compressed input) no longer
+  concerns `trust-runtime firmware install`: it reads the ESP32 firmware it flashes with espflash
+  4.7.0, whose release of `object` does not bring ruzstd at all.
+
 ## [0.42.0] - 2026-11-18
 
 ### Added
