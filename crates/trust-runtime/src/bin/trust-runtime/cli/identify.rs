@@ -10,7 +10,7 @@ pub struct IdentifyArgs {
     #[arg(long = "project", alias = "bundle")]
     pub project: Option<std::path::PathBuf>,
     /// Control auth token (defaults to TRUST_CTL_TOKEN, then the project's token).
-    #[arg(long)]
+    #[arg(long, allow_hyphen_values = true)]
     pub token: Option<String>,
     /// How long the runtime blinks, in seconds: 1 to 60.
     #[arg(long = "duration-s")]
