@@ -179,33 +179,47 @@ fn the_heartbeat_thread_beats_at_its_period_until_it_is_dropped() {
 #[test]
 fn a_late_heartbeat_is_not_followed_by_the_ones_it_missed() {
     // The runtime answers the first heartbeat 200 ms late, five periods of 40 ms. The next
-    // heartbeat comes a period after the late one, and one per period after it, so the late one
-    // and at most one per period of the time after it: at most 2 + (elapsed - 200 ms) / 40 ms.
-    // Sending the missed ones would add the five periods at once. Catches a heartbeat that bursts
-    // after a stall, which a task does not do either (specification 10 §4.3).
+    // heartbeat comes a period after that answer, so the runtime receives it at least 40 ms after
+    // it sent the late answer, however busy the computer is: the heartbeat thread reads the answer
+    // after it is sent and then waits a period. Sending the missed ones would send the next four
+    // as soon as the answer came. A third heartbeat follows, so the heartbeat goes on. The test
+    // waits for the heartbeats instead of counting them in a fixed time, which a busy computer
+    // stretches (macOS CI, #628: one heartbeat in 417 ms). Catches a heartbeat that bursts after a
+    // stall, which a task does not do either (specification 10 §4.3), and one that stops after it.
     let first = Arc::new(AtomicBool::new(true));
-    let (endpoint, requests) = runtime({
+    let beats: Arc<Mutex<Vec<Instant>>> = Arc::new(Mutex::new(Vec::new()));
+    let (endpoint, _requests) = runtime({
         let first = Arc::clone(&first);
+        let beats = Arc::clone(&beats);
         move |request| {
-            if request["type"] == "service.heartbeat" && first.swap(false, Ordering::SeqCst) {
-                std::thread::sleep(Duration::from_millis(200));
+            if request["type"] == "service.heartbeat" {
+                if first.swap(false, Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(200));
+                }
+                // When the runtime answers it: at once, but the first after its 200 ms.
+                beats.lock().expect("the heartbeats").push(Instant::now());
             }
             answers(request)
         }
     });
     let service = Service::connect_with(settings(&endpoint, Duration::from_millis(40)))
         .expect("a connection");
-    let started = Instant::now();
     let heartbeat = service.start_heartbeat().expect("the heartbeat");
-    std::thread::sleep(Duration::from_millis(300));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while beats.lock().expect("the heartbeats").len() < 3 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
     drop(heartbeat);
-    let elapsed = started.elapsed();
-    let beats = of_kind(&requests, "service.heartbeat").len();
-    let after = elapsed.saturating_sub(Duration::from_millis(200));
-    let most = usize::try_from(after.as_millis() / 40).unwrap_or(usize::MAX) + 2;
+    let beats = beats.lock().expect("the heartbeats").clone();
     assert!(
-        (2..=most).contains(&beats),
-        "{beats} heartbeats in {elapsed:?} after a late first, at most {most}"
+        beats.len() >= 3,
+        "{} heartbeats in 10 s: the heartbeat stopped after the late one",
+        beats.len()
+    );
+    let gap = beats[1] - beats[0];
+    assert!(
+        gap >= Duration::from_millis(40),
+        "the heartbeat after the late one came {gap:?} after its answer, within the period of 40 ms"
     );
 }
 
