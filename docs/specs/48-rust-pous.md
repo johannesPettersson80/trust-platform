@@ -1011,7 +1011,9 @@ quality, each value read as a Rust value of its declared type (`bool`, the integ
 values; `Service::subscribe` reads a set at the period the service chooses, each read one completed
 scan; `Service::start_heartbeat` sends `service.heartbeat` at the service's `heartbeat` period on a
 connection of its own until it is dropped, so that the service's own work never delays its
-heartbeat (RU-63). `trust-service` and `trust-runtime-client` are published on crates.io with every
+heartbeat (RU-63). A heartbeat that came late, as a slow runtime answers it, is followed one period
+later by the next, and the ones it missed are not sent, as a task does not replay missed activations
+(specification 10 §4.3); a period of zero is refused. `trust-service` and `trust-runtime-client` are published on crates.io with every
 release, at its version, so that a service built with the user's own Rust or the bundle's cargo
 gets them there (RU-61).
 

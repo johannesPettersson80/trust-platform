@@ -4,6 +4,7 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -143,14 +144,16 @@ fn a_refusal_is_the_runtimes_text() {
 
 #[test]
 fn the_heartbeat_thread_beats_at_its_period_until_it_is_dropped() {
-    // A heartbeat every 40 ms for 300 ms: the first at once and then one per period, so 8 at most
-    // and, on a busy computer, at least 2; none after the heartbeat is dropped, over the next five
-    // periods. The heartbeats come on a connection of their own: the service's read between them
-    // is answered too. Catches a heartbeat that never starts, one that floods the runtime, and one
-    // that outlives its service.
+    // A heartbeat every 40 ms over at least 300 ms: the first at once and then one per period, so
+    // at least 2 and at most one more than the periods in the time that passed, which a slow read
+    // on a busy computer lengthens (macOS CI, #628: 11 beats); none after the heartbeat is
+    // dropped, over the next five periods. The heartbeats come on a connection of their own: the
+    // service's read between them is answered too. Catches a heartbeat that never starts, one that
+    // floods the runtime, and one that outlives its service.
     let (endpoint, requests) = runtime(answers);
     let service = Service::connect_with(settings(&endpoint, Duration::from_millis(40)))
         .expect("a connection");
+    let started = Instant::now();
     let heartbeat = service.start_heartbeat().expect("the heartbeat");
     std::thread::sleep(Duration::from_millis(150));
     service
@@ -158,14 +161,68 @@ fn the_heartbeat_thread_beats_at_its_period_until_it_is_dropped() {
         .expect("a read beside the heartbeat");
     std::thread::sleep(Duration::from_millis(150));
     drop(heartbeat);
+    let elapsed = started.elapsed();
     let beats = of_kind(&requests, "service.heartbeat").len();
-    assert!((2..=8).contains(&beats), "{beats} heartbeats in 300 ms");
+    let most = usize::try_from(elapsed.as_millis() / 40).unwrap_or(usize::MAX) + 1;
+    assert!(
+        (2..=most).contains(&beats),
+        "{beats} heartbeats in {elapsed:?}, at most {most}"
+    );
     std::thread::sleep(Duration::from_millis(200));
     assert_eq!(
         of_kind(&requests, "service.heartbeat").len(),
         beats,
         "no heartbeat after the drop"
     );
+}
+
+#[test]
+fn a_late_heartbeat_is_not_followed_by_the_ones_it_missed() {
+    // The runtime answers the first heartbeat 200 ms late, five periods of 40 ms. The next
+    // heartbeat comes a period after the late one, and one per period after it, so the late one
+    // and at most one per period of the time after it: at most 2 + (elapsed - 200 ms) / 40 ms.
+    // Sending the missed ones would add the five periods at once. Catches a heartbeat that bursts
+    // after a stall, which a task does not do either (specification 10 §4.3).
+    let first = Arc::new(AtomicBool::new(true));
+    let (endpoint, requests) = runtime({
+        let first = Arc::clone(&first);
+        move |request| {
+            if request["type"] == "service.heartbeat" && first.swap(false, Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(200));
+            }
+            answers(request)
+        }
+    });
+    let service = Service::connect_with(settings(&endpoint, Duration::from_millis(40)))
+        .expect("a connection");
+    let started = Instant::now();
+    let heartbeat = service.start_heartbeat().expect("the heartbeat");
+    std::thread::sleep(Duration::from_millis(300));
+    drop(heartbeat);
+    let elapsed = started.elapsed();
+    let beats = of_kind(&requests, "service.heartbeat").len();
+    let after = elapsed.saturating_sub(Duration::from_millis(200));
+    let most = usize::try_from(after.as_millis() / 40).unwrap_or(usize::MAX) + 2;
+    assert!(
+        (2..=most).contains(&beats),
+        "{beats} heartbeats in {elapsed:?} after a late first, at most {most}"
+    );
+}
+
+#[test]
+fn a_heartbeat_of_no_period_is_refused() {
+    // A period of zero, which settings built in code can carry, would send heartbeats without
+    // pause. Catches a heartbeat thread that floods the runtime.
+    let (endpoint, requests) = runtime(answers);
+    let service = Service::connect_with(settings(&endpoint, Duration::ZERO)).expect("a connection");
+    let refused = service
+        .start_heartbeat()
+        .expect_err("no heartbeat of no period");
+    assert!(
+        refused.to_string().contains("heartbeat is zero"),
+        "{refused}"
+    );
+    assert_eq!(of_kind(&requests, "service.heartbeat"), Vec::<Value>::new());
 }
 
 #[test]
