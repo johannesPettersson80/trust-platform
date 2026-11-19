@@ -552,7 +552,10 @@ Z := ROL(X, 2);    // Z = 2#0000_0011 (bits rotated)
 ```
 
 `IN` must be a bit-string value (`ANY_BIT`); an integer, real or other `IN`
-raises `RuntimeError::TypeMismatch`.
+raises `RuntimeError::TypeMismatch`. An untyped based literal, or a decimal one
+that is not negative, is a bit-string value there: the call takes the bit-string
+type where it goes, else the smallest that holds the literal (specification 05
+§5.2.1), so `w := SHL(16#0001, n)` for a `WORD` `w` shifts 16 bits.
 
 ## 5. Bitwise Boolean Functions (Table 31)
 
