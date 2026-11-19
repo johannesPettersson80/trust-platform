@@ -44,6 +44,10 @@ pub use defaults::{generate_control_token, platform_default_endpoint};
 pub(crate) use defaults::{
     canonical_runtime_files_folder, project_path_hash, runtime_files_folder,
 };
+/// Writes a secret, such as a service token (specification 11 §6.9.6), into a file through a new
+/// file in the same folder that is renamed over it, owner-only on Unix, so that no reader sees half
+/// of it and no other user reads it.
+pub use file::write_atomically as write_private_file;
 pub use file::{
     remove_endpoint_file_of, withdraw_auth_token, PublishedEndpoint, WithdrawnToken, ENDPOINT_DIR,
     ENDPOINT_FILE,

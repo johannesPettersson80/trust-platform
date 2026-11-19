@@ -19,45 +19,45 @@ use serde_json::json;
 use super::*;
 
 /// The clock at which the tests start, in Unix seconds.
-const T0: u64 = 1_000;
+pub(super) const T0: u64 = 1_000;
 
 /// When a token claimed at [`T0`] expires: 1,000 + 30 × 86,400 = 2,593,000.
-const T0_TOKEN_EXPIRY: u64 = 2_593_000;
+pub(super) const T0_TOKEN_EXPIRY: u64 = 2_593_000;
 
 /// The token of 32 bytes 0x00.
-fn zeros() -> String {
+pub(super) fn zeros() -> String {
     "A".repeat(43)
 }
 
 /// The token of 32 bytes 0xFF.
-fn ones() -> String {
+pub(super) fn ones() -> String {
     format!("{}8", "_".repeat(42))
 }
 
 /// What the fake port holds. The test keeps a handle on it after the port moved into the
 /// pairings.
-struct Store {
+pub(super) struct Store {
     /// The file as stored: `load` reads it, a successful `save` replaces it.
-    file: PairingFile,
+    pub(super) file: PairingFile,
     /// The error `load` gives instead of the file.
-    load_error: Option<&'static str>,
+    pub(super) load_error: Option<&'static str>,
     /// The error every `save` gives while it is set.
-    save_error: Option<&'static str>,
+    pub(super) save_error: Option<&'static str>,
     /// How many saves succeeded.
-    saves: usize,
+    pub(super) saves: usize,
     /// The random bytes still to give, in order; a request for more than are left fails.
-    random: VecDeque<u8>,
+    pub(super) random: VecDeque<u8>,
     /// The port's limit of enabled tokens.
-    max_tokens: usize,
+    pub(super) max_tokens: usize,
     /// The most rows the storage holds, as a chip's record of one sector holds a bounded number.
-    room: usize,
+    pub(super) room: usize,
 }
 
 #[derive(Clone)]
-struct FakePort(Rc<RefCell<Store>>);
+pub(super) struct FakePort(Rc<RefCell<Store>>);
 
 impl FakePort {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self(Rc::new(RefCell::new(Store {
             file: PairingFile::default(),
             load_error: None,
@@ -69,21 +69,21 @@ impl FakePort {
         })))
     }
 
-    fn store(&self) -> RefMut<'_, Store> {
+    pub(super) fn store(&self) -> RefMut<'_, Store> {
         self.0.borrow_mut()
     }
 
     /// Queues the four bytes of the code drawn as `value` (little-endian).
-    fn code(&self, value: u32) {
+    pub(super) fn code(&self, value: u32) {
         self.store().random.extend(value.to_le_bytes());
     }
 
     /// Queues the 32 bytes of one token, each `byte`.
-    fn token(&self, byte: u8) {
+    pub(super) fn token(&self, byte: u8) {
         self.store().random.extend([byte; TOKEN_BYTES]);
     }
 
-    fn open(&self, now: u64) -> Pairings<FakePort> {
+    pub(super) fn open(&self, now: u64) -> Pairings<FakePort> {
         Pairings::open(self.clone(), now)
     }
 }
@@ -129,7 +129,7 @@ impl PairingPort for FakePort {
 
 /// Starts a pairing at `now` and claims it at once for `role`, with the token of 32 bytes `byte`;
 /// returns the token.
-fn pair(
+pub(super) fn pair(
     fake: &FakePort,
     pairings: &mut Pairings<FakePort>,
     role: Option<AccessRole>,
@@ -153,6 +153,7 @@ fn row(id: &str, token: &str, enabled: bool) -> PairingToken {
         enabled,
         role: AccessRole::Operator,
         expires_at: 5_000,
+        service: None,
     }
 }
 
@@ -384,16 +385,18 @@ fn the_list_keeps_the_storage_order_and_shows_only_each_tokens_tail() {
                 id: "pair-1000-AAAAAAAA".into(),
                 enabled: true,
                 created_at: 1_000,
-                expires_at: T0_TOKEN_EXPIRY,
+                expires_at: Some(T0_TOKEN_EXPIRY),
                 role: AccessRole::Viewer,
+                service: None,
                 tail: "…AAAA".into(),
             },
             PairingSummary {
                 id: "pair-1000-________".into(),
                 enabled: true,
                 created_at: 1_000,
-                expires_at: T0_TOKEN_EXPIRY,
+                expires_at: Some(T0_TOKEN_EXPIRY),
                 role: AccessRole::Engineer,
+                service: None,
                 tail: "…___8".into(),
             },
         ]
@@ -406,6 +409,7 @@ fn the_list_keeps_the_storage_order_and_shows_only_each_tokens_tail() {
             "created_at": 1_000,
             "expires_at": 2_593_000,
             "role": "viewer",
+            "service": null,
             "tail": "…AAAA",
         })
     );
@@ -480,6 +484,7 @@ fn a_row_without_an_expiry_expires_thirty_days_after_its_creation() {
         enabled: true,
         role: AccessRole::Operator,
         expires_at: 0,
+        service: None,
     };
     let fake = FakePort::new();
     fake.store().file.tokens = vec![
@@ -495,14 +500,17 @@ fn a_row_without_an_expiry_expires_thirty_days_after_its_creation() {
         pairings.validate("token-live", now),
         Some(AccessRole::Operator)
     );
-    let expiries: Vec<(String, u64)> = pairings
+    let expiries: Vec<(String, Option<u64>)> = pairings
         .list(now)
         .into_iter()
         .map(|summary| (summary.id, summary.expires_at))
         .collect();
     assert_eq!(
         expiries,
-        vec![("live".into(), 2_592_100), ("far".into(), u64::MAX)]
+        vec![
+            ("live".into(), Some(2_592_100)),
+            ("far".into(), Some(u64::MAX))
+        ]
     );
     let written: Vec<u64> = fake
         .store()
@@ -542,6 +550,7 @@ fn the_file_reads_and_writes_the_computers_format() {
                 enabled: true,
                 role: AccessRole::Operator,
                 expires_at: 0,
+                service: None,
             },
             PairingToken {
                 id: "pair-900-abcdefgh".into(),
@@ -550,6 +559,7 @@ fn the_file_reads_and_writes_the_computers_format() {
                 enabled: false,
                 role: AccessRole::Viewer,
                 expires_at: 5_000,
+                service: None,
             },
         ]
     );
