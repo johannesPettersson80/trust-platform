@@ -272,6 +272,79 @@ fn ads_server_client_count_and_verification_survive() {
 }
 
 #[test]
+fn a_rust_service_is_a_client_connection_with_the_age_of_its_heartbeat() {
+    // Specification 25 §5.13 with specification 11 §6.8.1a: a service that holds a service token of
+    // the runtime is a client connection named after the service, of the type `Rust service`, with
+    // the role word CLIENT; its hover card shows its state and, as its detail, the age of its last
+    // heartbeat. Before its first heartbeat it is Configured and no draft, since a service is no
+    // advanced integration. Catches a service shown under the raw word `service`, as a draft, or
+    // without its heartbeat's age.
+    let service = |name: &str, health: &str, detail: &str| {
+        let mut endpoint = endpoint_of(
+            &format!("endpoint:runtime-a:service:{name}"),
+            "service",
+            name,
+            health,
+            detail,
+        );
+        endpoint["kind"] = json!("client");
+        endpoint["role"] = json!("client");
+        endpoint["owned"] = json!(false);
+        endpoint
+    };
+    let topology = topology_of(
+        vec![
+            service(
+                "recipe",
+                "connected",
+                "last heartbeat 0.4 s ago, every 0.5 s",
+            ),
+            service(
+                "alarm",
+                "configured_policy",
+                "no heartbeat since the runtime started",
+            ),
+        ],
+        Vec::new(),
+        Vec::new(),
+    );
+    let view = peer_view(topology, None, plain());
+    assert_eq!(protocol_name("service"), "Rust service");
+    let recipe = connection(&view, "recipe");
+    assert_eq!(
+        (recipe.protocol_name.as_str(), recipe.role_word.as_str()),
+        ("Rust service", "CLIENT")
+    );
+    let hover: Vec<(&str, &str)> = recipe
+        .hover
+        .rows
+        .iter()
+        .map(|row| (row.label.as_str(), row.value.as_str()))
+        .collect();
+    assert_eq!(
+        hover,
+        [
+            ("Protocol", "Rust service"),
+            ("Role", "CLIENT"),
+            ("State", "Connected"),
+            ("Detail", "last heartbeat 0.4 s ago, every 0.5 s"),
+        ]
+    );
+    assert_eq!(recipe.marks, Vec::new());
+    let alarm = connection(&view, "alarm");
+    assert_eq!(
+        alarm.marks,
+        Vec::new(),
+        "a service before its first heartbeat is no draft"
+    );
+    assert!(alarm
+        .hover
+        .rows
+        .iter()
+        .any(|row| row.label == "State" && row.value == "Configured"));
+}
+
+#[test]
 fn local_io_titles_are_simulated_and_loopback() {
     assert_eq!(protocol_name("simulated"), "Simulated I/O");
     assert_eq!(protocol_name("loopback"), "Loopback I/O");
