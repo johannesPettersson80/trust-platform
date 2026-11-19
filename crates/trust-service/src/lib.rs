@@ -32,7 +32,7 @@ use trust_runtime_client::{ControlClient, ControlEndpoint, ControlError};
 
 pub use heartbeat::Heartbeat;
 pub use settings::ServiceSettings;
-pub use snapshot::{FromVariable, Quality, Snapshot, Variable};
+pub use snapshot::{FromVariable, Quality, Reading, Snapshot};
 
 /// How long a connection waits for each read and write.
 const TIMEOUT: Duration = Duration::from_secs(5);
