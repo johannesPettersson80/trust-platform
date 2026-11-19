@@ -776,7 +776,9 @@ feedback or by the value read back, and a pulse to a remote runtime's point, and
 outcome on the value stream (specification 39 §12.8 item 5). The runtime's own plan of the command
 decides this for the journey too (`Plan::is_followed` in trust-runtime). A followed `applied`
 command waits for its later outcome, its confirmation or, for a remote pulse without one, the report
-of its end, until the runtime decides it, plus two stream periods. The runtime decides it within the
+of its end, until the runtime decides it, plus two stream periods: the stream's own period once it
+has announced one, which it does first as it opens; one that a slow stream announces after the wait
+began lengthens the wait. The runtime decides it within the
 control's confirmation time, and for a pulse within the longer of the pulse and the confirmation
 time plus the 2 seconds it allows to write the pulse's end (`Plan::decided_within`, specification 39
 §12.8 item 5): 5.5 seconds for the default confirmation time of 5 seconds and stream period of 250
