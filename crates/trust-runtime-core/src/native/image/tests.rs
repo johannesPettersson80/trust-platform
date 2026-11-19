@@ -475,6 +475,16 @@ fn a_damaged_image_is_refused_with_its_reason() {
         Image::parse(&version).err(),
         Some(ImageError::FormatVersion(1))
     );
+    // An image of format 5, which release 0.43.0 builds, before the Rust POU table (0.58), is
+    // refused with both versions, never as an image of version 1: catches a reader that takes
+    // the older format and a refusal that names another version than the one it reads.
+    version[16] = 5;
+    let refusal = Image::parse(&version).err();
+    assert_eq!(refusal, Some(ImageError::FormatVersion(5)));
+    assert_eq!(
+        refusal.map(|error| error.to_string()).as_deref(),
+        Some("image format version 5, this runtime reads 6: rebuild the project")
+    );
     let mut table = bytes.clone();
     table[HEADER_BYTES + 12] ^= 1;
     assert!(matches!(Image::parse(&table), Err(ImageError::Crc { .. })));
@@ -656,9 +666,9 @@ fn a_globals_owner_is_its_byte_15() {
 
 /// The crate table (specification 44 §5.12): the writer puts it before `SIGN`, the reader gives each
 /// crate's name, version, source and checksum back in their order, and the image's deployment record
-/// carries them (§10.1); an image without the table has no crate. Format version 5 names it. Catches
-/// a table after the signature, which would leave the list unsigned, a crate read from the wrong
-/// bytes, and a record that loses the list.
+/// carries them (§10.1); an image without the table has no crate. Format version 5 named it first,
+/// and version 6 keeps it. Catches a table after the signature, which would leave the list
+/// unsigned, a crate read from the wrong bytes, and a record that loses the list.
 #[test]
 fn the_crate_table_reads_back_before_sign_and_into_the_record() {
     let bytes = sample(&Sample {
@@ -667,7 +677,7 @@ fn the_crate_table_reads_back_before_sign_and_into_the_record() {
     });
     let image = Image::parse(&bytes).unwrap();
     image.check_tables().unwrap();
-    assert_eq!(image.header().format_version, 5);
+    assert_eq!(image.header().format_version, 6);
     let crates = image.section(SectionId::Crates).expect("the crate table");
     let sign = image.section(SectionId::Sign).expect("the signature");
     assert!(crates.offset < sign.offset, "CRATES lies before SIGN");

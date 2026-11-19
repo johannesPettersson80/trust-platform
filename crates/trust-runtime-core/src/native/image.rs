@@ -41,9 +41,9 @@ pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
 
 /// The image's magic.
 pub const MAGIC: [u8; 8] = *b"TRSTI001";
-/// The format version this reader reads: 5 since an image lists the Rust crates its module holds
-/// (specification 44 §5.12) and a debug image its Rust POUs (§5.13).
-pub const FORMAT_VERSION: u16 = 5;
+/// The format version this reader reads: 6 since a debug image lists its Rust POUs (specification
+/// 44 §5.13); 5, which release 0.43.0 reads, added the Rust crates the module holds (§5.12).
+pub const FORMAT_VERSION: u16 = 6;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
 
@@ -468,7 +468,7 @@ impl fmt::Display for ImageError {
             Self::FormatVersion(version) => {
                 write!(
                     f,
-                    "image format version {version} is not 1: rebuild the project"
+                    "image format version {version}, this runtime reads {FORMAT_VERSION}: rebuild the project"
                 )
             }
             Self::SectionTable => f.write_str("image section table lies outside the image"),
