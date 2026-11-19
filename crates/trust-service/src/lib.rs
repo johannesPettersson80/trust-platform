@@ -164,15 +164,20 @@ impl Service {
             })
     }
 
-    /// Sends one heartbeat (`service.heartbeat`), and returns the value the next cycle's start
-    /// writes into the service's heartbeat.
+    /// Sends one heartbeat (`service.heartbeat`) naming the service's `heartbeat` period, by which
+    /// its runtime tells how old its last heartbeat may be (RU-64), and returns the value the next
+    /// cycle's start writes into the service's heartbeat.
     ///
     /// # Errors
     ///
     /// [`ServiceError::Control`] with the runtime's refusal: a resource that does not run, a
     /// program without the service's heartbeat.
     pub fn heartbeat(&self) -> Result<u32, ServiceError> {
-        let reply = self.request("service.heartbeat", Value::Null)?;
+        // A period below a millisecond names 1 ms, the smallest the runtime takes.
+        let period_ms = u64::try_from(self.settings.heartbeat.as_millis())
+            .unwrap_or(u64::MAX)
+            .max(1);
+        let reply = self.request("service.heartbeat", json!({ "period_ms": period_ms }))?;
         reply
             .get("value")
             .and_then(Value::as_u64)
