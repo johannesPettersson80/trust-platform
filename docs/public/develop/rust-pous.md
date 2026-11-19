@@ -262,8 +262,10 @@ over the control link. Declare it in `trust.toml`:
 [services.recipe]
 ```
 
-truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`, which the
-service increases while it runs, and a program gates on it with `SERVICE_FRESH`:
+truST then declares the global `recipe_heartbeat : UDINT` in `src/generated/services.st`. While the
+service runs it sends its heartbeat, `service.heartbeat`, with its service token (below), at the
+period its `heartbeat` setting states; each heartbeat adds one to the global at the next cycle's
+start. A program gates on it with `SERVICE_FRESH`:
 
 ```iecst
 fresh(HEARTBEAT := recipe_heartbeat, TIMEOUT := T#1s, FRESH => ok);

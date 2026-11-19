@@ -19,6 +19,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
+use crate::access::pairing::{PairingFile, PairingPort, PairingService, Pairings};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
@@ -190,6 +191,28 @@ pub(crate) struct FakeHost {
     /// What `variables.read` reads, and the paths it was asked for, in order.
     pub(crate) variables: Result<crate::variables::ReadSet, crate::variables::ReadRefusal>,
     pub(crate) variable_reads: RefCell<Vec<Vec<String>>>,
+    /// The runtime's pairings, which the service requests read their service tokens from; none
+    /// unless a test gives them.
+    pub(crate) pairings: Option<RefCell<Pairings<MemoryPairings>>>,
+}
+
+/// Pairings kept in memory: an empty file, writes that succeed, and zero bytes as random numbers,
+/// so that every token is 43 `A`.
+pub(crate) struct MemoryPairings;
+
+impl PairingPort for MemoryPairings {
+    fn load(&mut self) -> Result<PairingFile, String> {
+        Ok(PairingFile::default())
+    }
+
+    fn save(&mut self, _file: &PairingFile) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn random(&mut self, bytes: &mut [u8]) -> Result<(), String> {
+        bytes.fill(0);
+        Ok(())
+    }
 }
 
 impl FakeHost {
@@ -239,6 +262,7 @@ impl FakeHost {
             step_answer: None,
             variables: Err(crate::variables::ReadRefusal::NoCompletedScan),
             variable_reads: RefCell::new(Vec::new()),
+            pairings: None,
         }
     }
 
@@ -300,6 +324,12 @@ impl AccessPort for FakeHost {
 
     fn debug_enabled(&self) -> bool {
         self.debug_enabled
+    }
+
+    fn pairing(&self) -> Option<&dyn PairingService> {
+        self.pairings
+            .as_ref()
+            .map(|pairings| pairings as &dyn PairingService)
     }
 }
 

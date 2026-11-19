@@ -61,6 +61,7 @@ const VIEWER: &[&str] = &[
     "plant.topology",
     "plant.trace.read",
     "program.active",
+    "service.heartbeat",
     "status",
     "tasks.stats",
     "var.forced",

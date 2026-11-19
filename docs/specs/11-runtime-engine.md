@@ -4524,6 +4524,23 @@ the debug surface disabled, so a service reads a `production` deployment. A serv
 reading at the period it chooses (specification 48 RU-62); the runtime pushes nothing.
 `trust-runtime ctl read <path>...` sends it and prints each value with its path and type.
 
+###### Service heartbeats
+
+`service.heartbeat` is a service's heartbeat (specification 48 RU-63), on a computer and on a chip
+alike. It takes no parameters, and only a service token (section 6.9.6) sends it: the token's
+service names the global `<name>_heartbeat` that the build declares for the service. The runtime
+adds one to the value the last completed scan left in that global, wrapping from 4,294,967,295 to
+0, and the next cycle's start writes the sum, as the program's input and never as a force, so that
+`SERVICE_FRESH` (specification 08 §5A) sees the heartbeat change; heartbeats that arrive before that
+cycle's start write the same sum. The reply is `{service, value}`: the service's name as its token
+names it and the value the next cycle writes. A request from any other credential is refused with
+`service.heartbeat needs a service token`, a service whose program declares no `UDINT` heartbeat
+for it with `the program declares no heartbeat for service <name>`, and a request while the
+resource does not run with `the program does not run: <state>`, `<state>` as `status` names it;
+before the first completed scan and while a debugger holds a scan it is refused as
+`variables.read` is. `service.heartbeat` needs the Viewer role (section 6.9.5), the role of a
+service that only reads (specification 48 RU-81), and is no debug operation.
+
 ##### 6.8.1a Offline communication authoring client
 
 `trust-runtime comm` is a scriptable local authoring surface. Each accepted
@@ -6927,7 +6944,7 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
+| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `service.heartbeat` (section 6.8.1, "Service heartbeats"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
 | Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |
