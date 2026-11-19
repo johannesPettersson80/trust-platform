@@ -1227,8 +1227,11 @@ given it, and downloads nothing.
 44 §5.11); a device installs and runs it only as specification 44 §10.2 allows any image. Nothing of
 the Rust code is loaded apart from the image.
 
-**RU-81. Services.** A service authenticates on the control link with credentials of its own
-(specification 11 §6.8), with the role it needs: a service that only reads gets a role that reads.
+**RU-81. Services.** A service authenticates on the control link with credentials of its own, a
+service token that an Admin creates for the service's name (`trust-runtime ctl service-token`,
+specification 11 §6.9.6), with the role it needs: a service that only reads gets a role that reads,
+Viewer when none is asked for. A service token does not expire, so that a service that runs
+unattended keeps its connection; creating it again replaces it.
 
 ## 18. Devices
 
@@ -1368,7 +1371,8 @@ package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
 timeout = "2s"
 endpoint = "tcp://127.0.0.1:47800"
-credentials = "secrets/recipe.token"   # a file with mode 600, never in version control
+credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
+                                       # service-token recipe --out secrets/recipe.token` (RU-81)
 
 # A Rust-first project only (§14.2):
 [resource]

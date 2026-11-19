@@ -528,6 +528,13 @@ trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-reset
 trust-runtime ctl --endpoint tcp://192.168.1.50:9901 --token <token> status
 ```
 
+`ctl service-token <name> --out <file>` creates the token a service signs in with
+(`pair.service`), or replaces the one it has, and needs the Admin role. It writes
+the token into `<file>`, with mode 0600 on Unix, making the file's folder when it is
+missing, and prints `id=service-<name> role=<role> token_file=<file>`, never the
+token. The role is `viewer` unless `--role operator` or `--role engineer` asks
+for another. The token does not expire; running the command again replaces it.
+
 `ctl --project <dir> endpoint` prints the endpoint that a client of the project
 uses, and sends nothing to the runtime. With `--json` it prints
 `{"endpoint","auth_token","source","endpoint_file_skipped"}`, where `source` is

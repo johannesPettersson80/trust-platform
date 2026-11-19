@@ -228,15 +228,17 @@ fn execute(
             > 1_048_576
         || input.snapshot.simulation.len() > 262_144
         || input.simulation.len() > 262_144
+        || input.snapshot.crate_files.len() > super::crate_files::MAX_FILES
     {
         return Err("worker source bounds exceeded".into());
     }
     if input.snapshot.project_revision
-        != digest((
+        != super::snapshot::project_revision(
             &input.snapshot.project_identity,
             &input.snapshot.sources,
+            &input.snapshot.crate_files,
             &input.snapshot.simulation,
-        ))
+        )
     {
         return Err("worker snapshot revision mismatch".into());
     }
@@ -256,8 +258,12 @@ fn execute(
         .collect();
     // Compiling installs the admitted executable before any PLC scan deadline is armed. The
     // parent still bounds all preparation by the job budget.
-    let mut program =
-        IsolatedProgram::compile(&sources, input.snapshot.conversion_rules()?, build)?;
+    let mut program = IsolatedProgram::compile(
+        &sources,
+        &input.snapshot,
+        input.snapshot.conversion_rules()?,
+        build,
+    )?;
     // The first scan sees every bound input as the live plant had it; the run's plant then
     // writes only its own feedback targets.
     super::process_inputs::apply(program.runtime_mut(), &input.snapshot.process_inputs)?;
@@ -287,7 +293,7 @@ fn execute(
     let sample_times: Vec<f64> = (0..period_count(n + 1, record_every))
         .map(|period| period_time_seconds(period, record_every, n, input.settings.step_ms))
         .collect();
-    let mut conditions = json!({"initialState":input.settings.initial_values,"events":input.settings.events.iter().map(|event|json!({"atSeconds":event.at_ms as f64/1000.0,"channel":event.symbol,"value":event.value})).collect::<Vec<_>>(),"durationSeconds":input.settings.duration_ms as f64/1000.0,"sampleTimesSeconds":sample_times,"seed":input.settings.seed,"modelRevision":input.model_revision,"programRevision":digest(&input.snapshot.sources),"parameterSchemaRevision":input.parameter_schema_revision});
+    let mut conditions = json!({"initialState":input.settings.initial_values,"events":input.settings.events.iter().map(|event|json!({"atSeconds":event.at_ms as f64/1000.0,"channel":event.symbol,"value":event.value})).collect::<Vec<_>>(),"durationSeconds":input.settings.duration_ms as f64/1000.0,"sampleTimesSeconds":sample_times,"seed":input.settings.seed,"modelRevision":input.model_revision,"programRevision":program_revision(&input.snapshot),"parameterSchemaRevision":input.parameter_schema_revision});
     if record_every > 1 {
         conditions["recordEvery"] = json!(record_every);
     }
@@ -452,4 +458,14 @@ fn execute(
     } else {
         json!({"status":"executed","io_provenance":"isolated-simulation-no-physical-drivers","run":run})
     })
+}
+
+/// The revision of the program a run executes: its sources, with the files of the project's Rust crate
+/// when it has one (protocol annex E8.2).
+fn program_revision(snapshot: &Snapshot) -> String {
+    if snapshot.crate_files.is_empty() {
+        digest(&snapshot.sources)
+    } else {
+        digest((&snapshot.sources, &snapshot.crate_files))
+    }
 }

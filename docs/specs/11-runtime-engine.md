@@ -6943,7 +6943,7 @@ The explicit operation matrix is:
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
 | Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
-| Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
+| Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
 
@@ -7036,6 +7036,35 @@ Revoke-all returns the number that changed from enabled to disabled. Disabled
 tokens remain visible until expiry but never validate and are not counted
 toward the enabled-token limit.
 
+A service (specification 48 RU-81) authenticates with a service token, a
+pairing token that carries the service's name, which an Admin creates with
+`pair.service {name, role?}` and no code. `name` is the service's name as
+`trust.toml` declares it (`[services.<name>]`, specification 48 RU-63): an
+ASCII letter or underscore, then ASCII letters, digits and underscores; any
+other name is refused with `invalid service name`. `role` is read as a
+claim's and refused as one with `invalid role`; a service token is Viewer
+when no role is requested, since a service that only reads needs no more,
+and an Admin request is reduced to Engineer. The reply is `{id, role,
+token}`: the id `service-<name>`, with the name as the request spells it,
+the stored role, and a token drawn as a claim draws one. A service token
+validates, is listed, is revoked and counts toward the enabled-token limit
+as a claimed token does, and lies in the same file or record. It does not
+expire, so that a service that runs unattended keeps its connection beyond
+30 days; it ends when it is revoked or replaced. A `pair.service` for a name
+that a service token holds already, compared without case, replaces that
+token in its place in the storage order: once the file holds the new token,
+the earlier one no longer validates. A service's token is thus rotated by
+creating it again, and a revoked service token stays listed, disabled, until
+then. `pair.list` gives each token's `service`, `null` for a claimed token,
+and gives a service token's `expires_at` as `null`. A `pair.service` that
+would enable one token more than the limit allows, that gets no random
+numbers or whose file cannot be written is refused as a claim is, and so is
+one on a chip whose clock is not set. `trust-runtime ctl service-token
+<name> [--role <role>] --out <file>` sends it and writes the token into
+`<file>` through a new file renamed over it, with mode `0600` on Unix, and
+makes the file's folder when it is missing; it prints the id and the role,
+never the token.
+
 A computer keeps its pairings in `pairings.json` in the folder of its runtime
 files (section 6.8.0a): the project folder, or the store folder for a runtime
 started on a program store's `current` link, so an install keeps them. The
@@ -7057,7 +7086,7 @@ that holds no pairings answers the `pair.*` requests with `pairing
 unavailable`.
 
 A chip pairs by the same rules and the same requests, `pair.start`,
-`pair.claim`, `pair.list` and `pair.revoke`, with the same replies
+`pair.claim`, `pair.service`, `pair.list` and `pair.revoke`, with the same replies
 (specification 34 S5; the shared rules are one implementation that both
 runtimes call). It keeps the same JSON object, without spaces, in a record of
 two flash sectors, its chip file's `pairing_a` and `pairing_b`, written as its
