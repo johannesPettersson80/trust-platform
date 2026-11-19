@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rand::TryRng;
 pub use trust_runtime_services::access::pairing::{PairingCode, PairingSummary};
 use trust_runtime_services::access::pairing::{
-    PairingError, PairingFile, PairingPort, PairingService, Pairings,
+    PairingError, PairingFile, PairingPort, PairingService, Pairings, ServiceToken,
 };
 
 use crate::deployment::program_store::publish_atomic;
@@ -131,6 +131,15 @@ impl PairingService for PairingStore {
         now: u64,
     ) -> Result<String, PairingError> {
         self.locked()?.claim(code, role, now)
+    }
+
+    fn service(
+        &self,
+        name: &str,
+        role: Option<AccessRole>,
+        now: u64,
+    ) -> Result<ServiceToken, PairingError> {
+        self.locked()?.service(name, role, now)
     }
 
     fn validate(&self, token: &str, now: u64) -> Option<AccessRole> {
