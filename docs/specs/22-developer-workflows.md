@@ -513,6 +513,15 @@ folder, so it runs after such a session, as in the list's order:
   setpoint of 1.5 m, following a setpoint of 1.8 m, draining the tank in Manual
   at 0 % until LT-101's Low alarm comes in, and refilling it in Auto without a
   bump;
+- `plcopen-motion`: the walkthrough of `plcopen-motion-single-axis` on the
+  unmodified example: the axis powered and at 25 after its first move, a Write
+  of TRUE to the move request moving it to 0, a second Write of TRUE starting no
+  move (a command starts on a rising edge), and FALSE then TRUE moving it back
+  to 25;
+- `first-program`: the walkthrough of `empty-simulator`: a counter written into
+  the copy's `src/Main.st` at `%MD0` and saved, Start, the counter growing by
+  about 100 a second in Live Values, Stop, and a step of 10 started again,
+  growing by about 1000 a second from 0;
 - `rust-service`: the walkthrough of `rust_service`, its runtime started in the
   same way on the example's own TCP endpoint and token, without a web server:
   the service's token created with `trust-runtime ctl service-token`, Connect

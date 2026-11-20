@@ -25,6 +25,8 @@ const TANK_EXAMPLE = "hmi_tank_level";
 const CONVEYOR_EXAMPLE = "conveyor";
 const MEMORY_EXAMPLE = "memory_marker_counter";
 const EQUIPMENT_EXAMPLE = "hmi_equipment";
+const MOTION_EXAMPLE = "plcopen-motion-single-axis";
+const EMPTY_EXAMPLE = "empty-simulator";
 const SERVICE_EXAMPLE = "rust_service";
 
 /** One window of the run: its journey, the example its project copies, an edit of the copy that the journey needs, and for
@@ -52,6 +54,8 @@ const SESSIONS: Session[] = [
   { name: "memory-marker-counter", journey: "memory-marker-counter", example: MEMORY_EXAMPLE },
   { name: "hmi-tank-level", journey: "hmi-tank-level", example: TANK_EXAMPLE, runtime: "default endpoint" },
   { name: "hmi-equipment", journey: "hmi-equipment", example: EQUIPMENT_EXAMPLE, runtime: "default endpoint" },
+  { name: "plcopen-motion", journey: "plcopen-motion", example: MOTION_EXAMPLE },
+  { name: "first-program", journey: "first-program", example: EMPTY_EXAMPLE },
   { name: "rust-service", journey: "rust-service", example: SERVICE_EXAMPLE, runtime: "TCP endpoint with a token", noWeb: true, service: true },
 ];
 
