@@ -34,13 +34,18 @@ impl BuiltinCall {
         self.arg_count
     }
 
+    /// Refuses a formal call that does not give the function `expected` arguments. It counts the
+    /// arguments bound to the function's parameters: a name the function does not have (`EN`
+    /// among them, specification 04) or one given twice is refused on its own, and counting it
+    /// again gave a second, wrong count.
     pub(in crate::type_check) fn check_formal_arg_count(
         &self,
         checker: &mut StandardChecker<'_, '_>,
         node: &SyntaxNode,
         expected: usize,
     ) {
-        checker.check_formal_arg_count(&self.bound, node, self.arg_count, expected);
+        let bound = self.bound.assigned.iter().flatten().count();
+        checker.check_formal_arg_count(&self.bound, node, bound, expected);
     }
 
     pub(in crate::type_check) fn arg(&self, index: usize) -> Option<(CallArg, TypeId)> {

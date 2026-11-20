@@ -639,3 +639,50 @@ fn call_binding_contract_names_the_declaration_an_enable_needs() {
         );
     }
 }
+
+/// The error messages of `call` in a program with `a`, `b` (INT), `ok` (BOOL) and `delay` (TON).
+fn standard_call_errors(call: &str) -> Vec<String> {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        format!("PROGRAM Main\nVAR a : INT; b : INT; ok : BOOL; delay : TON; END_VAR\n{call}\nEND_PROGRAM"),
+    );
+    db.diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect()
+}
+
+const EN_REFUSED: &str =
+    "unknown parameter 'EN': only a POU that declares `EN : BOOL` among its inputs takes an enable \
+     input";
+const ENO_REFUSED: &str =
+    "unknown parameter 'ENO': only a POU that declares `ENO : BOOL` among its outputs gives an \
+     enable output";
+
+#[test]
+fn call_binding_contract_refuses_en_and_eno_on_standard_calls() {
+    // Specification 04, "EN/ENO Mechanism", and docs/IEC_DECISIONS.md 2026-11-19: a POU has EN and
+    // ENO only when it declares them, and the standard functions and function blocks declare
+    // neither (IEC 61131-3 Ed.3 Table 18, note b, lets an implementation leave them out). So LIMIT, a
+    // standard function, and TON, a standard function block, refuse both, each with that one
+    // error. Catches a standard call that takes EN and ignores it, which would run LIMIT whatever
+    // EN says, and LIMIT's former second error "expected 3 arguments, found 4", which counted the
+    // refused EN.
+    for (call, expected) in [
+        (
+            "a := LIMIT(EN := ok, MN := 0, IN := b, MX := 5);",
+            EN_REFUSED,
+        ),
+        (
+            "a := LIMIT(MN := 0, IN := b, MX := 5, ENO => ok);",
+            ENO_REFUSED,
+        ),
+        ("delay(EN := ok, IN := ok, PT := T#1s);", EN_REFUSED),
+        ("delay(IN := ok, PT := T#1s, ENO => ok);", ENO_REFUSED),
+    ] {
+        assert_eq!(standard_call_errors(call), [expected], "{call}");
+    }
+}
