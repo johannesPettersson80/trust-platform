@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use serde_json::{json, Value};
 
-use super::{answer, live_values, rows, target_facts, LiveArgs, Runtimes};
+use super::{answer, live_values, rows, speed, target_facts, LiveArgs, Runtimes, SpeedArgs};
 
 /// A runtime that answers as it is told, recording who was asked.
 #[derive(Default)]
@@ -412,29 +412,48 @@ fn the_simulation_facts_of_a_status() {
     assert_eq!(unusable.cycle_interval_ms, None);
 }
 
-/// The speed read of a runtime that does not answer is `null`. Catches a speed shown for a
-/// runtime that cannot be read.
+/// The speed read of a runtime that does not answer is `null`, on the network: nothing accepts
+/// the connection. Catches a speed shown for a runtime that cannot be read.
 #[test]
 fn the_speed_of_a_runtime_that_does_not_answer() {
     let (_held, endpoint) = super::super::fake_runtime::closed_endpoint();
     let unread = answer("speed", json!({ "endpoint": endpoint })).expect("an answer");
     assert_eq!(unread, json!({ "ok": true, "read": null }));
-    let runtime = super::super::fake_runtime::FakeRuntime::answering(json!({
-        "simulated": true,
-        "simulation_enabled": true,
-        "simulation_time_scale": 5,
-        "state": "paused",
-    }));
-    let read = answer("speed", json!({ "endpoint": runtime.endpoint })).expect("an answer");
-    assert_eq!(
-        read["read"],
-        json!({
+}
+
+/// The speed is read from the runtime's `status`, asked at the endpoint with the token: its
+/// simulation facts (specification 35 B9.2) and whether its scan is paused, `null` while it gives
+/// no `status`. Catches the speed asked at another endpoint or without the token, a read that stays
+/// `null` for a runtime that answers, and a paused scan shown as running.
+#[test]
+fn the_speed_of_a_runtime_that_answers() {
+    let args: SpeedArgs =
+        serde_json::from_value(json!({ "endpoint": "tcp://10.0.0.2:9901", "authToken": "t0k" }))
+            .expect("the arguments");
+    let told = Told {
+        status: Some(json!({
             "simulated": true,
-            "configured": 5.0,
-            "achieved": null,
-            "speedText": "",
-            "speedBehind": false,
-            "paused": true,
+            "simulation_enabled": true,
+            "simulation_time_scale": 5,
+            "state": "paused",
+        })),
+        ..Told::default()
+    };
+    assert_eq!(
+        speed(&args, &told),
+        json!({
+            "ok": true,
+            "read": {
+                "simulated": true,
+                "configured": 5.0,
+                "achieved": null,
+                "speedText": "",
+                "speedBehind": false,
+                "paused": true,
+            },
         })
     );
+    assert_eq!(*told.asked.borrow(), ["status tcp://10.0.0.2:9901 t0k"]);
+    let silent = Told::default();
+    assert_eq!(speed(&args, &silent), json!({ "ok": true, "read": null }));
 }

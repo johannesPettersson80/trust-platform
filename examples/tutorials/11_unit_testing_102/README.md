@@ -21,6 +21,9 @@ This gives fast tests, deterministic behavior, and easier debugging.
 - `src/main.st`: production code (I/O mapping + logic FB)
 - `src/tests.st`: unit tests
 - `trust-lsp.toml`: project config
+- `runtime.toml` and `io.toml`: the runtime's settings and its I/O driver (`simulated`, which keeps
+  each input as you set it), so that `trust-runtime validate` accepts the project and
+  `trust-runtime run` can run it (tutorial 21 validates it in its CI pipeline)
 
 ## Step 1: Understand the architecture
 

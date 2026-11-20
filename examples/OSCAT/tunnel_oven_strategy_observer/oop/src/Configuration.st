@@ -4,11 +4,11 @@ RESOURCE TunnelOvenStrategyObserverOop ON PLC
     PROGRAM Oven WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    Oven.ProductId AT %IW0 : INT;
-    Oven.ZoneTempRaw AT %IW2 : INT;
+    Oven.ProductId AT %IW2 : INT;
+    Oven.ZoneTempRaw AT %IW4 : INT;
     Oven.OvertempInput AT %IX0.0 : BOOL;
-    Oven.HeatCommandRaw AT %QW0 : INT;
-    Oven.ConveyorSpeedRaw AT %QW2 : INT;
+    Oven.HeatCommandRaw AT %QW2 : INT;
+    Oven.ConveyorSpeedRaw AT %QW4 : INT;
     Oven.AlarmOut AT %QX0.0 : BOOL;
 END_VAR
 END_CONFIGURATION

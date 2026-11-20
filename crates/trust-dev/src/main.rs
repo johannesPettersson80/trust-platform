@@ -17,6 +17,7 @@ mod prompt;
 mod run;
 mod rust;
 mod rust_audit;
+mod service;
 mod service_manager;
 mod style;
 mod test;
@@ -134,6 +135,18 @@ enum Command {
 
 #[derive(Debug, Subcommand)]
 enum ServiceAction {
+    /// Write the bindings of a service, a Rust module naming each variable of the program it can
+    /// read with its Rust type, from the image the project's build wrote (specification 48 RU-62).
+    Bindings {
+        /// The service's name, as trust.toml declares it in `[services.<name>]`.
+        name: String,
+        /// The Rust file to write: src/plant.rs, for `plant::P1::level`.
+        #[arg(long)]
+        out: PathBuf,
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+    },
     /// Put the service `[services.<name>]` under the computer's service manager and start it, so
     /// that it starts at every boot and again 2 s after it ends (specification 48 RU-64). It takes
     /// root or an administrator; without them it changes nothing and names the command to run.
@@ -245,6 +258,9 @@ fn run() -> anyhow::Result<()> {
             format,
         } => docs::run_docs(project, out_dir, format),
         Command::Service { action } => match action {
+            ServiceAction::Bindings { name, out, project } => {
+                service::run_bindings(project, &name, &out)
+            }
             ServiceAction::Install {
                 name,
                 project,

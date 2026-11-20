@@ -52,8 +52,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # GitHub runners do not guarantee sccache availability; disable wrapper in CI/release.
-  RUSTC_WRAPPER: ""
 
 jobs:
   plan:

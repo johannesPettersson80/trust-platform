@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CI runners may not have sccache even when workspace config sets rustc-wrapper=sccache.
-if ! command -v sccache >/dev/null 2>&1; then
-  export RUSTC_WRAPPER=""
-  export CARGO_BUILD_RUSTC_WRAPPER=""
-  echo "[salsa-fuzz] info: sccache not found; running without rustc-wrapper"
-fi
-
 MODE="${1:-smoke}"
 FUZZ_DIR="${SALSA_FUZZ_DIR:-fuzz}"
 SMOKE_SECONDS="${SALSA_FUZZ_SMOKE_SECONDS:-30}"

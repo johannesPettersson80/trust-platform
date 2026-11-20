@@ -788,3 +788,13 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Prototypes of one name with different signatures make the derived interface an error (E208).
 - Reason:
   - No method can match two different signatures, so every implementation of such an interface would fail, and a call through a value of one base would pass arguments that the method does not take. Reporting it at the interface names the cause once, where it is written.
+
+## 2026-11-20 - Direct variables that share storage
+
+- Area: located variables (`AT`) and `VAR_CONFIG`
+- IEC context: IEC 61131-3 Ed.3 §6.5.5 (Table 16) defines direct variables by area, size and address, and does not say whether two of them may take storage that overlaps, as `%IX0.0` inside `%IW0` does.
+- Decision:
+  - Overlapping located declarations stay legal. truST warns about them (W017, specification 28 §11), on each declaration, unless the two are the same item (the same area, offset and size).
+  - A flat address is a byte offset of its area (specification 11 §6.4), so `%IW0` and `%IW1` share byte 1.
+- Reason:
+  - Writing one changes the other, which examples did by mistake (checklist G235), while a status word read whole and by its bits can be meant. CODESYS Static Analysis reports the same case as "Overlapping memory areas" (rule SA0028) and does not refuse it.

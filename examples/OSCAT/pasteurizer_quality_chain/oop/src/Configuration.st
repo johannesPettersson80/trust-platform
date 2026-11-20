@@ -4,9 +4,9 @@ RESOURCE PasteurizerQualityChainOop ON PLC
     PROGRAM Pasteurizer WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    Pasteurizer.RecipeId AT %IW0 : INT;
-    Pasteurizer.ProductTempRaw AT %IW2 : INT;
-    Pasteurizer.FlowRateRaw AT %IW4 : INT;
+    Pasteurizer.RecipeId AT %IW2 : INT;
+    Pasteurizer.ProductTempRaw AT %IW4 : INT;
+    Pasteurizer.FlowRateRaw AT %IW6 : INT;
     Pasteurizer.OperatorAck AT %IX0.0 : BOOL;
     Pasteurizer.SupervisorOnline AT %IX0.1 : BOOL;
     Pasteurizer.ForwardValveOut AT %QX0.0 : BOOL;

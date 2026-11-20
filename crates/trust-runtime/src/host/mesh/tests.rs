@@ -426,3 +426,59 @@ END_PROGRAM
         "no missing paths or unrequested instance members are published"
     );
 }
+
+#[test]
+fn mesh_endpoints_take_the_url_form_and_zenoh_locators() {
+    // Specification 11, "Runtime-to-runtime mesh": a `listen` or `connect` entry is `host:port`, the
+    // URL form `tcp://host:port` or `tls://host:port` that a control endpoint also takes, or a Zenoh
+    // locator `tcp/host:port`; with TLS a `tcp` endpoint becomes `tls`. Catches a URL-form entry
+    // handed to Zenoh as it is, which Zenoh refuses, so that the mesh did not start.
+    use super::startup_publish::normalize_endpoint;
+    for (endpoint, tls, locator) in [
+        ("127.0.0.1:5212", false, "tcp/127.0.0.1:5212"),
+        ("tcp://127.0.0.1:5212", false, "tcp/127.0.0.1:5212"),
+        ("tcp/127.0.0.1:5212", false, "tcp/127.0.0.1:5212"),
+        ("plc-b:5212", true, "tls/plc-b:5212"),
+        ("tcp://plc-b:5212", true, "tls/plc-b:5212"),
+        ("tls://plc-b:5212", true, "tls/plc-b:5212"),
+    ] {
+        assert_eq!(
+            normalize_endpoint(endpoint, tls).as_deref(),
+            Ok(locator),
+            "{endpoint} with tls {tls}"
+        );
+    }
+}
+
+#[test]
+fn a_mesh_connects_through_a_url_form_endpoint() {
+    // A peer whose `connect` names another runtime's mesh as `tcp://host:port` opens its session
+    // (specification 11, "Runtime-to-runtime mesh"). Catches the URL form handed to Zenoh as it is:
+    // the session did not open ("zenoh session unavailable"), and the runtime ran on without a mesh.
+    use super::security_tests::{config, mesh_on_a_free_port, STABLE_ID};
+    let (resource, _commands) = ResourceControl::stub(StdClock::new());
+    let (_owner, address) = mesh_on_a_free_port(|address| {
+        super::start_mesh(
+            &config(address.to_string(), Vec::new(), None),
+            format!("connect-owner-{}", std::process::id()).into(),
+            STABLE_ID.into(),
+            resource.clone(),
+        )
+        .expect("the owner's mesh")
+        .expect("a mesh")
+    });
+    let (resource, _commands) = ResourceControl::stub(StdClock::new());
+    let peer = super::start_mesh(
+        &config("127.0.0.1:0".into(), vec![format!("tcp://{address}")], None),
+        format!("connect-peer-{}", std::process::id()).into(),
+        STABLE_ID.into(),
+        resource,
+    )
+    .expect("the peer's mesh")
+    .expect("a mesh");
+    assert!(
+        peer.session.is_some(),
+        "the peer's session: {:?}",
+        peer.degraded_reason()
+    );
+}

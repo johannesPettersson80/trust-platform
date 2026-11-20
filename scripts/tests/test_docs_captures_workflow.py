@@ -279,7 +279,7 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             result, runs, cross = run_terminal_captures(Path(temp), {})
         self.assertEqual(result.returncode, 0, result.stderr)
-        # The container's cargo runs without the repository's sccache wrapper, which its image lacks.
+        # The container's cargo runs without a compiler wrapper, which its image lacks.
         self.assertEqual(cross, [["CROSS_CONTAINER_OPTS=--env RUSTC_WRAPPER=", *CROSS_BUILD]])
         starts = [run for run in runs if "--version" in run]
         self.assertEqual(
