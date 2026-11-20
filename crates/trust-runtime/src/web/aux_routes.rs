@@ -135,6 +135,7 @@ pub(super) fn handle_aux_route(
                     "addresses": entry.addresses,
                     "web_port": entry.web_port,
                     "web_tls": entry.web_tls,
+                    "web_url": entry.web_url(),
                     "mesh_port": entry.mesh_port,
                     "control": entry.control.as_ref().map(|v| v.as_str()),
                     "host_group": entry.host_group.as_ref().map(|v| v.as_str()),
