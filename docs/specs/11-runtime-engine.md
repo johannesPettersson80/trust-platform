@@ -4484,7 +4484,9 @@ failed candidate must not replace the installed controller or its published stat
 
 
 Variable mutation targets use exact lowercase prefixes. `set` admits
-`global:<path>` and `retain:<name>` only. Force and release additionally admit
+`global:<path>` and `retain:<name>` only, and refuses a target of any other
+form before it reads the value, as force does: `unsupported target (use
+global:<name> or retain:<name>)`. Force and release additionally admit
 `instance:<id>:<name>`, where `id` consists only of ASCII decimal digits in
 the inclusive `u32` range. A `global:` target is a variable path: a global or a
 qualified variable by its name (`Main.Speed`), and also a member of an instance
@@ -6573,7 +6575,8 @@ aborts summary construction and the deployment; it is not converted into an
 empty source set.
 
 `deployments/<label>.txt` and `deployments/last.txt` contain the last successful
-deploy command's change summary. They are not deployment pointers and rollback
+deploy command's change summary, as text whose every line, the last one too, ends
+with a newline. They are not deployment pointers and rollback
 does not rewrite them. The `current` symlink is the authoritative active-bundle
 identifier before and after rollback.
 
@@ -7562,6 +7565,13 @@ Rules:
   identifies that runtime. It removes only the matching entry.
 - **Remote access** supports manual add and invite/QR pairing only.
 - **Data sharing** is explicit (publish/subscribe mapping only).
+- **Mesh endpoints.** A `[runtime.mesh]` `listen` or `connect` entry is `host:port`, the URL form
+  `tcp://host:port` or `tls://host:port` that a control endpoint also takes, or a Zenoh locator
+  `tcp/host:port` or `tls/host:port`; with `tls = true` a `tcp` endpoint becomes `tls`. A
+  subscription `"<peer>:<path>"` names the publishing runtime by its resource name.
+- **A mesh that does not start says so.** When its session does not open, the runtime runs on
+  without the mesh, logs the warning event `mesh_unavailable` with the reason and reports the
+  mesh as degraded with it in its fleet topology.
 
 ##### Realtime T0 transport and cycle contract
 

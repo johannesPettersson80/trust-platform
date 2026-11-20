@@ -54,8 +54,6 @@ time_scale = 8
 source = "%QX0.0"
 target = "%IX0.0"
 delay_ms = 100
-on_true = "TRUE"
-on_false = "FALSE"
 
 [[disturbances]]
 at_ms = 250
@@ -78,7 +76,9 @@ TOML
 
 What each section does:
 - `[simulation]`: enables mode + deterministic seed/time scaling
-- `[[couplings]]`: automatic output-to-input behavior across cycles
+- `[[couplings]]`: automatic output-to-input behavior across cycles: here `%QX0.0`
+  reaches `%IX0.0` 100 ms later, as it is; with a `threshold`, `on_true` and
+  `on_false` turn a numeric output into the values they name
 - `[[disturbances]]`: timed forced inputs and fault injection events
 
 ## Step 4: Run in explicit simulation mode

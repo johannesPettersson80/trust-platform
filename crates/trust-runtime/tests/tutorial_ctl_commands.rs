@@ -15,6 +15,141 @@ use runtime_process::{
     repo_root, stderr_text, trust_runtime_command, ExampleRuntime, Runtime, WAIT,
 };
 
+/// `address=value` pairs, in their order.
+type AddressValues = Vec<(String, String)>;
+
+/// The backticked `address=value` pairs of a README table cell, such as `` `%IW2=500` ``.
+fn address_values(cell: &str) -> AddressValues {
+    cell.split('`')
+        .skip(1)
+        .step_by(2)
+        .filter_map(|item| item.split_once('='))
+        .map(|(address, value)| (address.trim().to_string(), value.trim().to_string()))
+        .collect()
+}
+
+/// How `io-read` prints a README value: `TRUE` and `FALSE` as BOOLs, a number as an INT.
+fn printed_value(value: &str) -> String {
+    match value {
+        "TRUE" => "Bool(true)".to_string(),
+        "FALSE" => "Bool(false)".to_string(),
+        number => format!("Int({number})"),
+    }
+}
+
+#[test]
+fn filling_line_readme_scenario_table_holds() {
+    // examples/filling_line/README.md, step 4: each row of the table writes its inputs and expects
+    // its outputs, in the table's order; the simulated driver keeps each input as written. The
+    // controller fills below 65 %, drains above 75 % and stops on StopCmd (src/LevelController.st).
+    // Catches located variables that share bytes, as the example's did: its words lay on the bytes
+    // of its command bits, so writing %IW0 = 500 cleared StartCmd and the fill never started.
+    let readme = fs::read_to_string(repo_root().join("examples/filling_line/README.md"))
+        .expect("the README");
+    let rows: Vec<(AddressValues, AddressValues)> = readme
+        .lines()
+        .filter(|line| line.starts_with("| `%"))
+        .map(|line| {
+            let cells: Vec<&str> = line.split('|').collect();
+            (address_values(cells[1]), address_values(cells[2]))
+        })
+        .collect();
+    assert_eq!(rows.len(), 4, "the table's four scenarios");
+    let runtime = ExampleRuntime::new("filling_line").start();
+    for (writes, expected) in &rows {
+        for (address, value) in writes {
+            runtime.ctl_ok(&["io-write", address, &value.to_lowercase()]);
+        }
+        runtime.wait_until(WAIT, &format!("{expected:?} after {writes:?}"), || {
+            runtime.snapshot().is_some_and(|snapshot| {
+                expected
+                    .iter()
+                    .all(|(address, value)| snapshot.text(address) == printed_value(value))
+            })
+        });
+    }
+}
+
+/// The addresses `VAR_CONFIG` gives the program `P1`'s variables in `source`, by variable name.
+fn p1_addresses(source: &str) -> HashMap<String, String> {
+    source
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("P1."))
+        .filter_map(|line| line.split_once(" AT "))
+        .filter_map(|(name, rest)| {
+            let address = rest.split_whitespace().next()?;
+            Some((name.to_string(), address.to_string()))
+        })
+        .collect()
+}
+
+#[test]
+fn tutorial_11_level_word_keeps_the_command_bits() {
+    // examples/tutorials/11_unit_testing_102 runs on the runtime with the addresses its
+    // TankControlConfig gives. TankControl fills below a level of 300 (fill valve, pump 800),
+    // drains above 700 (drain valve, pump 600), and StopCmd turns everything off, as tests.st
+    // asserts. Catches located variables that share bytes, as the tutorial's did: LevelRaw lay on
+    // %IW0, whose bytes 0 and 1 hold StartCmd and StopCmd (%IX0.0, %IX0.1), so writing the level
+    // 200 (0x00C8) cleared StartCmd and the tank never filled; PumpSpeedOut on %QW0 shared the
+    // valves' byte the same way.
+    let source =
+        fs::read_to_string(repo_root().join("examples/tutorials/11_unit_testing_102/src/main.st"))
+            .expect("the tutorial's source");
+    let at = p1_addresses(&source);
+    let address = |name: &str| {
+        at.get(name)
+            .unwrap_or_else(|| panic!("{name} in VAR_CONFIG"))
+    };
+    let runtime = ExampleRuntime::new("tutorials/11_unit_testing_102").start();
+    // Each step: what it is, the variable it writes, the value, and the values it expects.
+    let steps = [
+        (
+            "start with a low level",
+            "LevelRaw",
+            "200",
+            [
+                ("StartCmd", "Bool(true)"),
+                ("FillValveOut", "Bool(true)"),
+                ("DrainValveOut", "Bool(false)"),
+                ("PumpSpeedOut", "Int(800)"),
+            ],
+        ),
+        (
+            "a high level",
+            "LevelRaw",
+            "850",
+            [
+                ("StartCmd", "Bool(true)"),
+                ("FillValveOut", "Bool(false)"),
+                ("DrainValveOut", "Bool(true)"),
+                ("PumpSpeedOut", "Int(600)"),
+            ],
+        ),
+        (
+            "stop",
+            "StopCmd",
+            "true",
+            [
+                ("LevelRaw", "Int(850)"),
+                ("FillValveOut", "Bool(false)"),
+                ("DrainValveOut", "Bool(false)"),
+                ("PumpSpeedOut", "Int(0)"),
+            ],
+        ),
+    ];
+    runtime.ctl_ok(&["io-write", address("StartCmd"), "true"]);
+    for (what, name, value, expected) in &steps {
+        runtime.ctl_ok(&["io-write", address(name), value]);
+        runtime.wait_until(WAIT, &format!("{what}: {expected:?}"), || {
+            runtime.snapshot().is_some_and(|snapshot| {
+                expected
+                    .iter()
+                    .all(|(name, printed)| snapshot.text(address(name)) == *printed)
+            })
+        });
+    }
+}
+
 #[test]
 fn memory_marker_counter_readme_steps_one_to_three_hold() {
     // README step 3: `trust-runtime ctl --project examples/memory_marker_counter io-write %MW0 41`,
@@ -195,6 +330,38 @@ fn plc_operator_guide_status_io_read_restart_and_shutdown() {
         runtime.is_running(),
         "the runtime stays up after the PLC stopped\n{}",
         runtime.diagnostics()
+    );
+}
+
+#[test]
+fn ads_server_basic_keeps_the_setpoint_a_client_writes() {
+    // examples/communication/ads_server_basic/README.md: an ADS client writes the guarded symbol
+    // global.Setpoint and reads it back, 0.2 s later in the pyads smoke of step 3 (two of the
+    // example's 100 ms scans) and after its write command in the TwinCAT program, and expects the
+    // value it wrote: 12.5 written, 12.5 read. Catches the example's program changing Setpoint
+    // itself: it ramped it by 0.25 a scan, so the smoke read 13.0 back and every write proof the
+    // README teaches failed. The value is written through the control endpoint; the ADS server is
+    // switched off in the copy, because its TCP and UDP ports are fixed.
+    let runtime = ExampleRuntime::new("communication/ads_server_basic")
+        .edit_source(
+            "runtime.toml",
+            "[runtime.ads_server]\nenabled = true",
+            "[runtime.ads_server]\nenabled = false",
+        )
+        .start();
+    runtime.wait_for_snapshot(WAIT, "the first I/O snapshot", |_| true);
+
+    let queued = runtime.ctl_ok(&["set", "global:Setpoint", "12.5"]);
+    assert!(queued.contains("queued"), "{queued}");
+    let written = runtime.scan();
+    runtime.wait_for_snapshot(WAIT, "five scans after the write", |snapshot| {
+        snapshot.scan() >= written + 5
+    });
+    let read = runtime.ctl_ok(&["read", "Setpoint"]);
+    assert!(
+        read.lines()
+            .any(|line| line.trim() == "Setpoint : REAL = 12.5"),
+        "the Setpoint a client wrote must stay as written:\n{read}"
     );
 }
 

@@ -185,8 +185,8 @@ ST mechanics used:
 | --- | --- | --- |
 | `Cabinet.EnableCommand` | `%IX0.0` | IN |
 | `Cabinet.FireInputHealthy` | `%IX0.1` | IN |
-| `Cabinet.SocRaw` | `%IW0` | IN |
-| `Cabinet.GridCommandRaw` | `%IW2` | IN |
+| `Cabinet.SocRaw` | `%IW2` | IN |
+| `Cabinet.GridCommandRaw` | `%IW4` | IN |
 | `Cabinet.InverterEnableOut` | `%QX0.0` | OUT |
 | `Cabinet.FireIsolateOut` | `%QX0.1` | OUT |
 

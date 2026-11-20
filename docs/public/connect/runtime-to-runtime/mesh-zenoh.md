@@ -30,16 +30,26 @@ Example:
 [runtime.mesh]
 enabled = true
 role = "peer"
-listen = "127.0.0.1:5212"
-connect = []
+listen = "127.0.0.1:5211"
+connect = ["127.0.0.1:5212"]
 tls = false
-auth_token = ""
 zenohd_version = "1.7.2"
-publish = ["Status.PLCState"]
+publish = ["P1.LampOut"]
 
 [runtime.mesh.subscribe]
-"LineB:Status.PLCState" = "Local.Status.RemoteState"
+"PlcB:P1.LampOut" = "P1.RemoteLamp"
 ```
+
+This runtime publishes its program's `P1.LampOut`, connects to the peer at
+`127.0.0.1:5212` and writes that peer's `P1.LampOut` into its own `P1.RemoteLamp`:
+a subscription names the publisher by its `[resource] name` (here `PlcB`) and a
+path it publishes. An endpoint is `host:port` or a Zenoh locator such as
+`tcp/host:port`.
+
+Besides its `connect` entries, a mesh finds other meshes on the network by
+Zenoh's multicast scouting and connects to them, and a peer that listens on a
+network address accepts connections from them. Without `auth_token` any of them
+can join and exchange data.
 
 When `auth_token` is configured, peers authenticate with that shared mesh token. Peers with
 missing or different tokens cannot join the authenticated link. `tls = true` uses the

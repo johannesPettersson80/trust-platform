@@ -158,7 +158,7 @@ ST mechanics used:
   permissive only. There is no schedule strategy or holiday handling
   inside the AHU controller.
 - **Cooling and damper outputs.** Only one analog output (`HeatingValveRaw`
-  on `%QW0`) is bound. A complete AHU exposes cooling valve, mixing
+  on `%QW2`) is bound. A complete AHU exposes cooling valve, mixing
   damper, and supply/exhaust VFD references.
 - **Multiple alarm classes.** `AhuController.RaiseAlarm` pushes one alarm
   code into `AlarmQueue` and sets one `AlarmActive` flag. There is no
@@ -180,13 +180,13 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Ahu.ModeRequest` | `%IW0` | IN |
-| `Ahu.OutdoorTempRaw` | `%IW2` | IN |
-| `Ahu.SupplyTempRaw` | `%IW4` | IN |
+| `Ahu.ModeRequest` | `%IW2` | IN |
+| `Ahu.OutdoorTempRaw` | `%IW4` | IN |
+| `Ahu.SupplyTempRaw` | `%IW6` | IN |
 | `Ahu.SmokeClear` | `%IX0.0` | IN |
 | `Ahu.FreezeStatClear` | `%IX0.1` | IN |
 | `Ahu.SupplyFanHealthy` | `%IX0.2` | IN |
-| `Ahu.HeatingValveRaw` | `%QW0` | OUT |
+| `Ahu.HeatingValveRaw` | `%QW2` | OUT |
 | `Ahu.SupplyFanEnable` | `%QX0.0` | OUT |
 | `Ahu.FireAlarmRelay` | `%QX0.1` | OUT |
 

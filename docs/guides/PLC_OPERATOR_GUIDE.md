@@ -135,9 +135,9 @@ Cause: control endpoint uses token auth.
 
 Fix:
 
-1. In the Web UI, open **Network → Access PLC** to generate/claim a code.
-2. Or in the console: `/access start` then `/access claim <code>`.
-3. Or provide token: `trust-runtime ui --token <token>`.
+1. In the console (`trust-runtime ui`): `/access start` then `/access claim <code>`.
+2. Or provide token: `trust-runtime ui --token <token>`.
+3. Over the web interface, pair as Tutorial 16, step 9, shows.
 
 ### “Control endpoint unreachable”
 

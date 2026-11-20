@@ -174,7 +174,7 @@ ST mechanics used:
 | Tag | Address | Direction |
 | --- | --- | --- |
 | `Farm.AreaStopCommand` | `%IX0.0` | IN |
-| `Farm.AreaIndex` | `%IW0` | IN |
+| `Farm.AreaIndex` | `%IW2` | IN |
 | `Farm.AreaStoppedOut` | `%QX0.0` | OUT |
 
 Comms (from `oop/io.toml`): `mqtt` (broker `127.0.0.1:1883`,

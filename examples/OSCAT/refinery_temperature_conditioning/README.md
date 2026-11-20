@@ -201,7 +201,7 @@ ST mechanics used:
 | `Conditioning.Tc1Raw` | `%IW0` | IN |
 | `Conditioning.Tc2Raw` | `%IW2` | IN |
 | `Conditioning.Tc3Raw` | `%IW4` | IN |
-| `Conditioning.ConditionedRaw` | `%QW0` | OUT |
+| `Conditioning.ConditionedRaw` | `%QW2` | OUT |
 | `Conditioning.GoodQualityOut` | `%QX0.0` | OUT |
 
 Comms (from `oop/io.toml`): `modbus-rtu` (slave 11 on

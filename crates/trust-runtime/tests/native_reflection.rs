@@ -6,7 +6,7 @@ use trust_runtime::harness::TestHarness;
 use trust_runtime::runtime_core::native::memory::{read_place, ProgramMemory};
 use trust_runtime::runtime_core::native::reflect::{
     element_of, member_of, resolve_path, type_base, type_implements, type_interfaces, type_is_a,
-    walk_instances, PathError, Walk,
+    walk_instances, walk_variables, PathError, Walk,
 };
 use trust_runtime::runtime_core::native::variables::CompiledVariables;
 use trust_runtime::value::Value;
@@ -245,4 +245,35 @@ fn a_found_instance_reaches_its_members_and_elements_and_the_published_copy_take
     let mut copy = state.clone();
     assert!(copy.write_located(&third, &Value::Int(9)).is_err());
     assert_eq!(copy.read_located(&third).unwrap(), Value::Int(7));
+}
+
+#[test]
+fn the_variable_walk_visits_every_elementary_variable_once() {
+    // Specification 48 RU-62, a service's bindings: every variable that holds one elementary
+    // value, in declaration order. Main's array of pumps and Station's array of levels hold no
+    // single value and are left out with their elements; the station's pump is descended into, its
+    // inherited `Running` and `Starts` before its own `Speed`, as a derived block declares them
+    // after its base's; then Main's count. Each visit resolves to the place the path names.
+    // Catches an array element visited as a variable, an instance visited as one, an inherited
+    // member that is missed, and a place that disagrees with the path's.
+    let state = scanned();
+    let image = state.image();
+    let mut visited = Vec::new();
+    walk_variables(&image, &mut |path, located| {
+        visited.push((path.to_string(), located))
+    })
+    .expect("the walk reads the tables");
+    let paths: Vec<&str> = visited.iter().map(|(path, _)| path.as_str()).collect();
+    assert_eq!(
+        paths,
+        [
+            "Main.Line.Feed.Running",
+            "Main.Line.Feed.Starts",
+            "Main.Line.Feed.Speed",
+            "Main.Count",
+        ]
+    );
+    for (path, located) in &visited {
+        assert_eq!(resolve_path(&image, path).as_ref(), Ok(located), "{path}");
+    }
 }

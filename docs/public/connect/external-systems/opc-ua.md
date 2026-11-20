@@ -1,10 +1,5 @@
 # OPC UA
 
-## Important feature gate
-
-The shipped runtime config supports `[runtime.opcua]`, but wire-level server
-support depends on building `trust-runtime` with the `opcua-wire` feature.
-
 ## First things to decide
 
 - which symbols should be exposed?
@@ -13,8 +8,7 @@ support depends on building `trust-runtime` with the `opcua-wire` feature.
 - is anonymous access ever acceptable for this deployment?
 
 Success means you can decide whether OPC UA belongs in this deployment, which
-symbols are exposed, and whether the runtime has been built with the required
-wire feature before a client expects to connect.
+symbols are exposed, and how clients connect and authenticate.
 
 Use MQTT or Modbus instead when the integration is clearly pub/sub telemetry or
 register-oriented device exchange.
