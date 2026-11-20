@@ -63,7 +63,13 @@ trust-runtime validate --project .
 
 Why: isolate mapping/timeout behavior before connecting to plant hardware.
 
-1. Start a Modbus test endpoint on `127.0.0.1:1502`.
+1. Start a Modbus TCP server simulator on `127.0.0.1:1502`, for example diagslave from
+   modbusdriver.com: `diagslave -m tcp -p 1502`. The runtime reads its inputs from the server's
+   input registers (function 4) and writes its outputs to its holding registers (function 16),
+   from register offset 0 (`input_start`, `output_start`).
+   Registers carry the image high byte first (specification 11), so image byte 0 is register
+   0's high byte: input register 0 = 256 (`0x0100`) sets `%IX0.0` (`DI0`), and the runtime then
+   writes 256 to holding register 0 for `%QX0.0` (`DO0`).
 2. Start runtime:
 
 ```bash

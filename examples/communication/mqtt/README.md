@@ -40,6 +40,7 @@ topic_out = "trust/examples/mqtt/out"
 reconnect_ms = 500
 keep_alive_s = 5
 allow_insecure_remote = false
+on_error = "warn"
 ```
 
 Field intent:
@@ -50,6 +51,10 @@ Field intent:
 - `reconnect_ms`: backoff cadence for broken sessions.
 - `keep_alive_s`: session liveness interval.
 - `allow_insecure_remote`: blocks unsafe remote configuration.
+- `on_error = "warn"`: a scan that finds no new message on `topic_in` keeps the last input and
+  reports the driver degraded. A publisher sends when a value changes, not every scan, so this
+  example takes `warn`. Under the default `fault`, such a scan faults the runtime, which suits
+  only a publisher that sends a new image before every scan (specification 32 §8).
 
 By default, MQTT payloads are raw process-image bytes. If the broker uses typed
 scalar topics instead, add explicit point maps:
@@ -126,18 +131,24 @@ trust-runtime validate --project .
 
 Why: topic contract validation must happen with a real broker path.
 
-1. Start broker on `127.0.0.1:1883`.
+1. Start a broker on `127.0.0.1:1883`, for example Mosquitto: `mosquitto -p 1883`.
 2. Run runtime:
 
 ```bash
 trust-runtime run --project .
 ```
 
-3. In another terminal, inspect I/O:
+3. In another terminal, watch `topic_out`, publish one input image byte to `topic_in` (bit 0 is
+   `DI0`) and inspect the I/O:
 
 ```bash
+mosquitto_sub -h 127.0.0.1 -t trust/examples/mqtt/out -F '%x' &
+printf '\001' | mosquitto_pub -h 127.0.0.1 -t trust/examples/mqtt/in -s
 trust-runtime ctl --project . io-read
 ```
+
+Expected result: `%IX0.0` and `%QX0.0` read `Bool(true)`, `topic_out` carries `01`, and the runtime
+keeps running while no new message comes.
 
 ## Step 5: Production hardening checklist
 
