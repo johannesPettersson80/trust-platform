@@ -246,30 +246,31 @@ This repo also carries a runnable multi-PROGRAM project:
 - `examples/openot_multi_program/runtime.toml`
 - `examples/openot_multi_program/trust-lsp.toml`
 
-It demonstrates two generated producers drained into one ring:
+It demonstrates six generated producers, one per program, drained into one ring:
 
 ```toml
 [runtime.openot]
 enabled = true
 source = "st-fb"
-producer_instances = ["Filler.OotProducer", "Quality.OotProducer"]
-```
-
-Build it with:
-
-```sh
-trust-runtime build --project examples/openot_multi_program --sources src
+producer_instances = ["Filler.OotProducer", "BatchControl.OotProducer", "OperatorAudit.OotProducer", "SignatureAudit.OotProducer", "TypedValues.OotProducer", "ConditionLifecycle.OotProducer"]
 ```
 
 The example's `trust-lsp.toml` declares the sibling
 `open-ot-ref/st/iec61131` package as a local dependency so the build includes the
-`OPENOT_Producer` ST function block definitions.
-
-The trust-platform gate that compiles and runs that example is:
+`OPENOT_Producer` ST function block definitions. Fetch that checkout once, then
+build the example, from the repository root:
 
 ```sh
-cargo test -p trust-runtime --test openot_telemetry openot_telemetry_authoring_showcase_renders_typed_audit_log -- --nocapture
+bash scripts/checkout_openot_ref.sh
+trust-runtime build --project examples/openot_multi_program --sources src
 ```
 
-On small ARM development hosts, run this gate on the remote builder rather than
+The trust-platform gates that compile and run the example's `Main.st`, with the
+same library vendored under `crates/trust-runtime/tests/fixtures/openot`, are:
+
+```sh
+cargo test -p trust-runtime --test openot_telemetry openot_database_example_ -- --nocapture
+```
+
+On small ARM development hosts, run these gates on the remote builder rather than
 locally.
