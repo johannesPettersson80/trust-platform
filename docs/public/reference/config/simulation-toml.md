@@ -52,16 +52,14 @@ generator = "normal_approx_white"
 standard_deviation = 0.01
 
 [[couplings]]
-source = "%QX0.0"
-target = "%IX0.0"
+source = "%QX8.0"
+target = "%IX8.0"
 delay_ms = 100
-on_true = "TRUE"
-on_false = "FALSE"
 
 [[disturbances]]
 at_ms = 250
 kind = "set"
-target = "%IX0.0"
+target = "%IX8.0"
 value = "TRUE"
 
 [[disturbances]]
@@ -78,8 +76,8 @@ encoder_counts_per_radian = 1000.0
 [[physics.joints]]
 id = "axis-1"
 kind = "revolute"
-enable_source = "%QX0.0"
-feedback_target = "%IW0"
+enable_source = "%QX8.1"
+feedback_target = "%IW10"
 velocity_rad_per_s = 1.0
 lower_rad = 0.0
 upper_rad = 1.570796
@@ -132,10 +130,10 @@ Couplings copy or transform one I/O point into another after a delay.
 | --- | --- | --- | --- |
 | `source` | IEC address | yes | Source I/O address. |
 | `target` | IEC address | yes | Target I/O address. |
-| `threshold` | float | no | Optional finite decision threshold; NaN and infinities are rejected. |
+| `threshold` | float | no | Optional finite decision threshold; NaN and infinities are rejected. With it, `source >= threshold` writes `on_true`, a lower value `on_false`. |
 | `delay_ms` | integer | no | Delay before the effect is applied. |
-| `on_true` | string | no | Value written when the condition evaluates true. |
-| `on_false` | string | no | Value written when the condition evaluates false. |
+| `on_true` | string | no | Value written when `source >= threshold`; needs `threshold`. |
+| `on_false` | string | no | Value written when `source < threshold`; needs `threshold`. Without a threshold, the source's value is copied to the target, a bit by zero or nonzero. |
 
 ### `[[disturbances]]`
 
