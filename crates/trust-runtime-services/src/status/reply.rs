@@ -269,8 +269,21 @@ pub(super) struct Health<'a> {
 #[derive(Serialize)]
 pub(super) struct TaskStats<'a> {
     profiling_enabled: bool,
+    /// The Rust POUs of a debug image, in the order of its Rust POU table (specification 11,
+    /// "Rust POU budgets").
+    rust_pous: Vec<RustPou<'a>>,
     tasks: Vec<Task<'a>>,
     top_contributors: Vec<Contributor<'a>>,
+}
+
+/// A Rust POU of `tasks.stats`; its fields, as every reply's, in the order of their names
+/// (specification 34 PORT-02).
+#[derive(Serialize)]
+struct RustPou<'a> {
+    budget_ns: i64,
+    longest_ns: i64,
+    name: &'a str,
+    over_budget: u64,
 }
 
 #[derive(Serialize)]
@@ -301,6 +314,16 @@ impl<'a> TaskStats<'a> {
         tasks.sort_by(|left, right| left.name.cmp(right.name));
         Self {
             profiling_enabled: metrics.profiling.enabled,
+            rust_pous: metrics
+                .rust_pous
+                .iter()
+                .map(|pou| RustPou {
+                    budget_ns: pou.budget_ns,
+                    longest_ns: pou.longest_ns,
+                    name: pou.name.as_str(),
+                    over_budget: pou.over_budget,
+                })
+                .collect(),
             tasks,
             top_contributors: contributors(metrics),
         }

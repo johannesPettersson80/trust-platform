@@ -25,6 +25,8 @@ mod firmware;
 mod install;
 #[path = "ctl/service_token.rs"]
 mod service_token;
+#[path = "ctl/stats.rs"]
+mod stats;
 
 /// The waits and the response limit of a runtime's socket on this computer, which every client of
 /// one shares (specification 11, 6.8.1).
@@ -372,7 +374,6 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 .context("stats result missing array 'tasks'")?;
             if tasks.is_empty() {
                 println!("tasks=0");
-                return Ok(());
             }
             for task in tasks {
                 let name = task
@@ -403,6 +404,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                     "task={name} min_ms={min:.3} avg_ms={avg:.3} max_ms={max:.3} last_ms={last:.3} overruns={overruns}"
                 );
             }
+            stats::print_rust_pous(response)?;
         }
         ControlAction::Read { .. } => print_variables(response)?,
         ControlAction::BreakpointsSet { .. }

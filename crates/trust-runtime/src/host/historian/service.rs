@@ -31,16 +31,35 @@ impl HistorianService {
         &self.config
     }
 
-    pub fn start_sampler(self: Arc<Self>, debug: crate::debug::DebugControl) {
+    /// Samples the program from `snapshot`, the scan's published copy of it, which the HMI and the
+    /// OPC UA server read too (specification 44 NX-14), so that the historian records whether or not
+    /// debugging is enabled. It polls every half sample interval (10 ms to 1 s) and asks for a copy
+    /// only when a sample is due.
+    pub fn start_sampler(
+        self: Arc<Self>,
+        snapshot: impl Fn() -> Option<DebugSnapshot> + Send + 'static,
+    ) {
         let interval = self.config.sample_interval_ms.max(1);
         let poll_ms = (interval / 2).clamp(10, 1_000);
         thread::spawn(move || loop {
-            if let Some(snapshot) = debug.snapshot() {
-                let now_ms = unix_ms();
-                let _ = self.capture_snapshot_at(&snapshot, now_ms);
+            if self.capture_due(unix_ms())
+                && let Some(snapshot) = snapshot()
+            {
+                let _ = self.capture_snapshot_at(&snapshot, unix_ms());
             }
             thread::sleep(Duration::from_millis(poll_ms));
         });
+    }
+
+    /// Whether a capture at `timestamp_ms` would record: no capture yet, or a whole sample interval
+    /// since the last one, as `capture_snapshot_at` decides.
+    fn capture_due(&self, timestamp_ms: u128) -> bool {
+        let interval_ms = u128::from(self.config.sample_interval_ms.max(1));
+        self.inner.lock().is_ok_and(|inner| {
+            inner
+                .last_capture_ms
+                .is_none_or(|last| timestamp_ms.saturating_sub(last) >= interval_ms)
+        })
     }
 
     pub fn capture_snapshot_at(

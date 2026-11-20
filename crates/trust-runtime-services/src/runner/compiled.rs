@@ -436,6 +436,9 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
             .error
             .map_or(result, Err)
             .and_then(|()| self.commit(now, deadline, held_before, observer));
+        // What the scan's calls changed in a debug image's Rust POU records, a faulted scan's too
+        // (specification 48 RU-49).
+        self.program.report_rust_times(now, observer);
         match outcome {
             Ok(()) => {
                 self.committed.clone_from(&self.program.outputs);

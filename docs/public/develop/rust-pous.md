@@ -201,6 +201,16 @@ interval, or when a loop calls a Rust POU with no bound. In `trust.toml`, `[timi
 "production"` makes these errors. Structured Text's statement budget does not count Rust code; the
 watchdog still ends a scan that overruns its task.
 
+A debug image also times each call of a Rust POU while it runs, on a computer and on a board. A
+call longer than the POU's budget is the event `rust_budget_exceeded`, with the POU's `name`, the
+call's time `call_ns` and its `budget_ns`. The event is recorded for the POU's first call over its
+budget and then only for a call longer than every call before it, so a POU that is over its budget
+in every scan does not fill the event list. `trust-runtime ctl events` shows the events, and
+`trust-runtime ctl stats` prints a line for each Rust POU after the tasks, such as
+`rust_pou=SPIN budget_ns=1000 longest_ns=52000 over_budget=7`: its budget, its longest call and its
+calls over the budget since the program started (`rust_pous` in the `tasks.stats` reply). A release image (`[build] debug = false`) times
+nothing.
+
 ## Call Structured Text from Rust
 
 A Rust POU can call the project's Structured Text functions and function blocks through the
