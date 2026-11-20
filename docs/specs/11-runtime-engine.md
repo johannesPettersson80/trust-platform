@@ -4479,7 +4479,9 @@ failed candidate must not replace the installed controller or its published stat
 
 
 Variable mutation targets use exact lowercase prefixes. `set` admits
-`global:<path>` and `retain:<name>` only. Force and release additionally admit
+`global:<path>` and `retain:<name>` only, and refuses a target of any other
+form before it reads the value, as force does: `unsupported target (use
+global:<name> or retain:<name>)`. Force and release additionally admit
 `instance:<id>:<name>`, where `id` consists only of ASCII decimal digits in
 the inclusive `u32` range. A `global:` target is a variable path: a global or a
 qualified variable by its name (`Main.Speed`), and also a member of an instance
