@@ -21,7 +21,7 @@ fn project(text: &str, token: Option<&str>) -> PathBuf {
 
 /// Appendix B's service, with an endpoint, a credentials file and a heartbeat.
 const RECIPE: &str = "[services.recipe]\npackage = \"recipe-service\"\nheartbeat = \"500ms\"\n\
-timeout = \"2s\"\nendpoint = \"tcp://127.0.0.1:47800\"\ncredentials = \"secrets/recipe.token\"\n";
+endpoint = \"tcp://127.0.0.1:47800\"\ncredentials = \"secrets/recipe.token\"\n";
 
 fn refusal(root: &Path, name: &str) -> String {
     match ServiceSettings::from_project(root, name) {
