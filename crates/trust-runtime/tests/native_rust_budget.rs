@@ -101,10 +101,10 @@ fn project(name: &str) -> PathBuf {
     root
 }
 
-/// Four scans at 0, 100, 200 and 300 ms: three activations of the task, which is not due at 0
-/// (specification 10 §4.3). Each Rust POU's record after them, as its budget, its longest call and
+/// Four scans at 0, 100, 200 and 300 ms: four activations of the task, which is due at its start
+/// and then every 100 ms (specification 10 §4.3). Each Rust POU's record after them, as its budget, its longest call and
 /// its calls over the budget, in the order of the Rust POU table.
-fn three_activations(image: &[u8], device: &trust_runtime::native::Device) -> Vec<(i64, i64, u64)> {
+fn four_activations(image: &[u8], device: &trust_runtime::native::Device) -> Vec<(i64, i64, u64)> {
     let mut program = load(image, device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
     for time in [0, 100, 200, 300] {
@@ -127,8 +127,8 @@ fn three_activations(image: &[u8], device: &trust_runtime::native::Device) -> Ve
 
 #[test]
 fn a_debug_image_times_each_rust_pou_call_against_its_budget() {
-    // RU-49, three activations: SPIN adds up 200,000 numbers, far longer than its 1 µs, so all
-    // three calls are over its budget and its longest is above it; Quick's three calls stay within
+    // RU-49, four activations: SPIN adds up 200,000 numbers, far longer than its 1 µs, so all
+    // four calls are over its budget and its longest is above it; Quick's four calls stay within
     // its budget, which trust.toml lowers from 100 ms to 50 ms for this target; Counter and its
     // method, which no Structured Text calls, keep records of no call. The records follow the names
     // in capitals: COUNTER, COUNTER.RESET, QUICK, SPIN. Catches a call noted in another POU's
@@ -138,7 +138,7 @@ fn a_debug_image_times_each_rust_pou_call_against_its_budget() {
     let Some((built, device)) = built(&root) else {
         return;
     };
-    let times = three_activations(&built.image, &device);
+    let times = four_activations(&built.image, &device);
     let budgets: Vec<_> = times.iter().map(|(budget, _, _)| *budget).collect();
     assert_eq!(budgets, [2_000, 3_000, 50_000_000, 1_000]);
     assert_eq!(times[0], (2_000, 0, 0), "Counter is never called");
@@ -147,7 +147,7 @@ fn a_debug_image_times_each_rust_pou_call_against_its_budget() {
     assert_eq!(quick_over, 0, "Quick: {:?}", times[2]);
     assert!(quick_longest < 50_000_000, "Quick: {:?}", times[2]);
     let (_, spin_longest, spin_over) = times[3];
-    assert_eq!(spin_over, 3, "SPIN: {:?}", times[3]);
+    assert_eq!(spin_over, 4, "SPIN: {:?}", times[3]);
     assert!(spin_longest > 1_000, "SPIN: {:?}", times[3]);
 }
 
@@ -161,7 +161,7 @@ fn a_release_image_measures_no_rust_pou_call() {
     };
     let image = Image::parse(&built.image).expect("the image parses");
     assert_eq!(image.section(SectionId::RustPous), None);
-    assert_eq!(three_activations(&built.image, &device), []);
+    assert_eq!(four_activations(&built.image, &device), []);
 }
 
 /// The project built for this computer as a release image; `None` with a toolchain that has no
