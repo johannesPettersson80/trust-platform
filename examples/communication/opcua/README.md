@@ -2,7 +2,7 @@
 
 This example shows how to expose runtime variables over OPC UA.
 
-## The OPC UA server is part of trust-runtime
+## OPC UA comes with every release
 
 The released `trust-runtime` serves OPC UA: its build feature `opcua-wire` is on by default. Only a
 build from source with `--no-default-features` leaves it out, and then a `runtime.toml` with

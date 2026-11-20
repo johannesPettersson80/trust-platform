@@ -1,11 +1,5 @@
 # OPC UA
 
-## The server is part of trust-runtime
-
-The released `trust-runtime` serves OPC UA: its build feature `opcua-wire` is on
-by default. Only a build from source with `--no-default-features` leaves the
-server out, and then `[runtime.opcua] enabled = true` refuses to start.
-
 ## First things to decide
 
 - which symbols should be exposed?
@@ -14,8 +8,7 @@ server out, and then `[runtime.opcua] enabled = true` refuses to start.
 - is anonymous access ever acceptable for this deployment?
 
 Success means you can decide whether OPC UA belongs in this deployment, which
-symbols are exposed, and whether the runtime has been built with the required
-wire feature before a client expects to connect.
+symbols are exposed, and how clients connect and authenticate.
 
 Use MQTT or Modbus instead when the integration is clearly pub/sub telemetry or
 register-oriented device exchange.
