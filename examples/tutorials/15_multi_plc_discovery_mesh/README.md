@@ -226,11 +226,12 @@ to `false`.
 
 Why: on a plant network you find runtimes instead of typing their addresses.
 
-Ask PLC-A to search, through its control endpoint:
+Ask PLC-A to search, through its control endpoint. The first command prints that endpoint; put it in place of
+`<endpoint>` in the second:
 
 ```bash
 trust-runtime ctl --project /tmp/trust-plc-a endpoint
-trust-runtime discover --only trust_runtime --endpoint <the endpoint printed above>
+trust-runtime discover --only trust_runtime --endpoint <endpoint>
 ```
 
 Expected result:
