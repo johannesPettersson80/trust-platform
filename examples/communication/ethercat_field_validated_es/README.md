@@ -22,7 +22,7 @@ then adapt only adapter name, module order, and output mapping.
 
 Real EtherCAT adapter mode is available only when:
 
-- runtime is built with feature `ethercat-wire`
+- the runtime has the `ethercat-wire` feature, as every released `trust-runtime` does
 - runtime runs on a unix target
 
 Without that, use `adapter = "mock"` for validation only.
