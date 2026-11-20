@@ -11,7 +11,7 @@ use trust_runtime_core::value::Duration as EventTime;
 
 use super::*;
 use crate::events::RuntimeEvent;
-use crate::metrics::{BudgetContributorSnapshot, TaskStatsSnapshot};
+use crate::metrics::{BudgetContributorSnapshot, RustPouStats, TaskStatsSnapshot};
 use crate::tests::fake_host::FakeHost;
 use crate::tests::runner_ports::Fixture;
 
@@ -394,6 +394,37 @@ fn task_stats_sort_tasks_by_name_and_share_the_top_contributors() {
 
     host.unreadable = vec!["metrics"];
     assert_eq!(error(&task_stats(3, &host)), "runtime metrics unavailable");
+}
+
+/// `tasks.stats` lists a debug image's Rust POUs in the order of its Rust POU table, by their
+/// names in capitals, with their budgets, longest calls and calls over budget (specification 11,
+/// "Rust POU budgets"): `alpha` before `Beta`, which a sort by the names as written would swap.
+/// Catches a reply that sorts them as it sorts the tasks or leaves a field out.
+#[test]
+fn task_stats_lists_the_rust_pous_in_their_table_order() {
+    let mut host = FakeHost::running();
+    host.metrics.rust_pous = vec![
+        RustPouStats {
+            name: SmolStr::new("alpha"),
+            budget_ns: 1_000,
+            longest_ns: 52_000,
+            over_budget: 7,
+        },
+        RustPouStats {
+            name: SmolStr::new("Beta"),
+            budget_ns: 2_000_000,
+            longest_ns: 0,
+            over_budget: 0,
+        },
+    ];
+    let value = result(task_stats(1, &host));
+    assert_eq!(
+        value["rust_pous"],
+        json!([
+            {"name": "alpha", "budget_ns": 1_000, "longest_ns": 52_000, "over_budget": 7},
+            {"name": "Beta", "budget_ns": 2_000_000, "longest_ns": 0, "over_budget": 0},
+        ])
+    );
 }
 
 #[test]

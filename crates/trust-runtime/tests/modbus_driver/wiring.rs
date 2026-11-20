@@ -49,9 +49,16 @@ fn faulted(error: &str) -> IoDriverHealth {
     }
 }
 
-/// Waits up to two seconds for `condition`, looking every 5 ms; `what` says what a timeout means.
+/// How long a test waits for what must happen in the end: a released write reaching the server, a
+/// server closing its connection. Specification 11 ("Modbus default-fault and deadline integrity")
+/// gives such an outcome no time bound ("a later worker result governs its eventual transport
+/// outcome"), so this is no budget of the driver's: it only ends a test that would wait forever.
+/// Two seconds once ran out on a Windows runner under the suite's parallel load (checklist W48).
+const EVENTUALLY: StdDuration = StdDuration::from_secs(20);
+
+/// Waits up to [`EVENTUALLY`] for `condition`, looking every 5 ms; `what` says what a timeout means.
 fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
-    let deadline = Instant::now() + StdDuration::from_secs(2);
+    let deadline = Instant::now() + EVENTUALLY;
     while !condition() {
         assert!(Instant::now() < deadline, "{what}");
         thread::sleep(StdDuration::from_millis(5));
@@ -203,7 +210,7 @@ fn the_driver_reconnects_after_the_server_closes_the_connection() {
     assert_eq!(driver.health(), IoDriverHealth::Ok);
     state.lock().expect("modbus state lock").input_registers[0] = 0x3344;
     closes
-        .recv_timeout(StdDuration::from_secs(2))
+        .recv_timeout(EVENTUALLY)
         .expect("the server closes the first connection");
 
     let mut inputs = [0; 2];
