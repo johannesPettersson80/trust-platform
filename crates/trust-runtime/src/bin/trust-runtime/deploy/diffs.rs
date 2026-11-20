@@ -76,7 +76,8 @@ fn write_summary(dir: &Path, name: &str, summary: &BundleChangeSummary) -> anyho
     let previous_labelled = read_optional_summary(&labelled)?;
     let labelled_staged = scratch_path(&labelled, "new");
     let last_staged = scratch_path(&last, "new");
-    let rendered = summary.render();
+    // A text file: every line ends with a newline, the last one too (spec 11 §6.8.2).
+    let rendered = format!("{}\n", summary.render());
     fs::write(&labelled_staged, &rendered)
         .with_context(|| format!("stage deployment summary '{}'", labelled_staged.display()))?;
     if let Err(error) = fs::write(&last_staged, rendered) {
