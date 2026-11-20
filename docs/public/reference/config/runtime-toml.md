@@ -357,7 +357,7 @@ Validation constraints:
 | Condition | Requirement | Example |
 | --- | --- | --- |
 | `enabled = true` | `config_path` must point at a readable ADS config | `config_path = "ads.toml"` |
-| `enabled = true` at startup | runtime binary must be built with `ads-wire` | feature-enabled runtime package |
+| `enabled = true` at startup | the runtime has the ADS client, feature `ads-wire` | every released `trust-runtime` (on by default) |
 | always | `worker_tick_interval_ms >= 1` | `worker_tick_interval_ms = 20` |
 
 ### `[runtime.ads_server]`
@@ -416,7 +416,7 @@ Accepted keys:
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `enabled` | bool | `false` | Starts the ADS server listener when the runtime binary is built with feature `ads-server`. |
+| `enabled` | bool | `false` | Starts the ADS server listener (feature `ads-server`, which every released `trust-runtime` has). |
 | `listen` | IP string | none | Required when enabled. Must be one concrete local IP address; `0.0.0.0` and `::` are rejected. |
 | `ams_net_id` | string | derived from IPv4 `listen` | Six-byte AMS Net ID exposed by truST. Required when `listen` is not IPv4. |
 | `ads_port` | integer | `851` | Logical AMS target port served by truST. The TCP listener still uses ADS router port `48898`. |
@@ -466,7 +466,7 @@ Validation constraints:
 | --- | --- | --- |
 | `enabled = true` | `listen` must be set and must not be unspecified | `listen = "192.168.77.10"` |
 | `enabled = true` | `insecure_transport = true` is required for v1 plain ADS | explicit acknowledgement |
-| `enabled = true` at startup | runtime binary must be built with `ads-server` | feature-enabled runtime package |
+| `enabled = true` at startup | the runtime has the ADS server, feature `ads-server` | every released `trust-runtime` (on by default) |
 | `listen` is public or NAT-suspect | rejected unless `unsafe_allow_public_bind = true` | avoid exposing plain ADS on public networks |
 | production client entries | each `[[runtime.ads_server.clients]]` needs `ams_net_id` plus `source_ip` or `source_cidr` | source-pinned allowlist |
 | `source_ip` and `source_cidr` | only one may be set per client | no ambiguous source pin |

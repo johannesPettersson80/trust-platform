@@ -74,7 +74,8 @@ Optional helper scripts from the original field submission:
 
 ## Common mistakes
 
-- running hardware adapter mode without `ethercat-wire`
+- running hardware adapter mode in a `trust-runtime` built from source without
+  `ethercat-wire` (every release has it)
 - expecting `enp111s0` to exist on all hosts
 - mismatched module chain vs physical order
 - removing safe-state outputs before commissioning is stable
