@@ -4,10 +4,10 @@ RESOURCE ColdStoragePlantOop ON PLC
     PROGRAM Plant WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    Plant.Freezer1TempRaw AT %IW0 : INT;
-    Plant.Freezer2TempRaw AT %IW2 : INT;
-    Plant.Chiller1TempRaw AT %IW4 : INT;
-    Plant.Chiller2TempRaw AT %IW6 : INT;
+    Plant.Freezer1TempRaw AT %IW2 : INT;
+    Plant.Freezer2TempRaw AT %IW4 : INT;
+    Plant.Chiller1TempRaw AT %IW6 : INT;
+    Plant.Chiller2TempRaw AT %IW8 : INT;
     Plant.Freezer1Door AT %IX0.0 : BOOL;
     Plant.Freezer2Door AT %IX0.1 : BOOL;
     Plant.Chiller1Door AT %IX0.2 : BOOL;

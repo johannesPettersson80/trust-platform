@@ -4,8 +4,8 @@ RESOURCE TunnelWasherChainOop ON PLC
     PROGRAM Washer WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    Washer.SoilLevelRaw AT %IW0 : INT;
-    Washer.ConductivityRaw AT %IW2 : INT;
+    Washer.SoilLevelRaw AT %IW2 : INT;
+    Washer.ConductivityRaw AT %IW4 : INT;
     Washer.OperatorAvailable AT %IX0.0 : BOOL;
     Washer.DosePumpOut AT %QX0.0 : BOOL;
     Washer.RejectOut AT %QX0.1 : BOOL;

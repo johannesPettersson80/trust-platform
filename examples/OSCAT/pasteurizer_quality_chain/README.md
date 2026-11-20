@@ -200,9 +200,9 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Pasteurizer.RecipeId` | `%IW0` | IN |
-| `Pasteurizer.ProductTempRaw` | `%IW2` | IN |
-| `Pasteurizer.FlowRateRaw` | `%IW4` | IN |
+| `Pasteurizer.RecipeId` | `%IW2` | IN |
+| `Pasteurizer.ProductTempRaw` | `%IW4` | IN |
+| `Pasteurizer.FlowRateRaw` | `%IW6` | IN |
 | `Pasteurizer.OperatorAck` | `%IX0.0` | IN |
 | `Pasteurizer.SupervisorOnline` | `%IX0.1` | IN |
 | `Pasteurizer.ForwardValveOut` | `%QX0.0` | OUT |

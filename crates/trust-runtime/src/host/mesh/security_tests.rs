@@ -8,9 +8,9 @@ use zenoh::Wait;
 
 /// The stable runtime ID the started meshes announce: sixteen random bytes in lowercase hex, as
 /// `runtime_id` generates them.
-const STABLE_ID: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+pub(super) const STABLE_ID: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
 
-fn config(listen: String, connect: Vec<String>, token: Option<&str>) -> MeshConfig {
+pub(super) fn config(listen: String, connect: Vec<String>, token: Option<&str>) -> MeshConfig {
     MeshConfig {
         enabled: true,
         role: MeshRole::Peer,

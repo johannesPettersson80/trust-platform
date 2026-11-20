@@ -356,6 +356,26 @@ runs; `get` reads a value as the Rust type of its declared type (`bool`, the int
 `REAL`, `f64`, `String`, `Duration` from a `TIME`). The heartbeat runs on a connection and a thread
 of its own, so the service's own work never delays it.
 
+With bindings, the compiler checks the service's paths and types against the program. Build the
+project, then write the bindings into the service's crate:
+
+```text
+trust-dev service bindings recipe --out ../recipe-service/src/plant.rs
+```
+
+They name each variable of the program that holds one value, with its Rust type, and only the
+variables `writes` lists can be written:
+
+```rust
+mod plant;
+
+let level: f64 = service.get(plant::P1::level)?;
+service.set(plant::P1::target, &(level * 0.9))?; // P1.target is in writes
+```
+
+Run the command again when the program changes; a variable it no longer has is then a compiler
+error instead of a refusal at run time.
+
 ## Run a service
 
 Build the service, then put it under the computer's service manager, so that it starts at every
