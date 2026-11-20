@@ -224,6 +224,16 @@ impl Parser<'_, '_> {
                 self.bump();
                 marker.complete(self, SyntaxKind::NameRef)
             }
+            // The bitwise and modulo functions by their names, `AND(B, C, D)` and `MOD(A, B)` (IEC
+            // 61131-3 Ed.3 Table 31 and Table 29 give these usage examples in ST): in operand position
+            // the keyword is not its infix operator, so followed by `(` it names the function.
+            TokenKind::KwAnd | TokenKind::KwOr | TokenKind::KwXor | TokenKind::KwMod
+                if self.peek_kind_n(1) == TokenKind::LParen =>
+            {
+                let marker = self.start();
+                self.bump();
+                marker.complete(self, SyntaxKind::NameRef)
+            }
             TokenKind::Hash => {
                 let marker = self.start();
                 self.bump();

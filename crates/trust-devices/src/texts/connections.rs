@@ -25,6 +25,7 @@ pub fn protocol_name(protocol: &str) -> String {
         "simulated" => "Simulated I/O",
         "loopback" => "Loopback I/O",
         "web" => "Web",
+        "service" => "Rust service",
         _ => return protocol.replace('_', " "),
     };
     name.to_owned()

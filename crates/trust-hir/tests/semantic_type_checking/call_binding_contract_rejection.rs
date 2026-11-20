@@ -604,3 +604,38 @@ END_FUNCTION_BLOCK
         DiagnosticCode::InvalidOperation,
     );
 }
+
+#[test]
+fn call_binding_contract_names_the_declaration_an_enable_needs() {
+    // Specification 04, "EN/ENO Mechanism": EN and ENO are a POU's own declarations. Transfer
+    // declares neither, so `EN :=` and `ENO =>` are refused, each naming the declaration that
+    // gives a POU one. Catches the bare "unknown parameter 'EN'", which leaves a user who expects
+    // an implicit enable input without the reason.
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        format!(
+            "{FUNCTION_INTERFACE}\nPROGRAM Main\nVAR x : DINT; y : DINT; z : DINT; ok : BOOL; END_VAR\n\
+             z := Transfer(EN := ok, first := x, second := y, target := z);\n\
+             z := Transfer(first := x, second := y, target := z, ENO => ok);\nEND_PROGRAM"
+        ),
+    );
+    let messages: Vec<String> = db
+        .diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+    for expected in [
+        "unknown parameter 'EN': only a POU that declares `EN : BOOL` among its inputs takes an \
+         enable input",
+        "unknown parameter 'ENO': only a POU that declares `ENO : BOOL` among its outputs gives an \
+         enable output",
+    ] {
+        assert!(
+            messages.iter().any(|message| message == expected),
+            "{messages:?}"
+        );
+    }
+}

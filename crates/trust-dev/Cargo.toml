@@ -30,6 +30,11 @@ trust-runtime.workspace = true
 trust-syntax.workspace = true
 trust-wasm-analysis.workspace = true
 
+# `trust-dev service run`, the program of a Windows service, answers Windows' service manager, and
+# `trust-dev service install` creates the service (specification 48 RU-64).
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8.1"
+
 [dev-dependencies]
 trust-test-support.workspace = true
 trust-runtime-core = { workspace = true, default-features = false }

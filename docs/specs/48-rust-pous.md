@@ -3,7 +3,11 @@
 - **Status:** 0.1, approved by the owner on 15 November 2026 ("approved"), with the decisions of §21;
   written from the owner's decisions of that day (below) against the compiled runtime of
   specification 44. 0.2, 17 November 2026: how the bundle provides the SDK's procedural macros
-  (RU-74, §21 decision 1), decided under the owner's delegation of that day.
+  (RU-74, §21 decision 1), decided under the owner's delegation of that day. 0.3, 19 November 2026:
+  how `trust-dev service install` puts a service under the computer's service manager (RU-64, §21
+  decision 14), decided under the owner's delegation of 18 November 2026. 0.4, 19 November 2026:
+  the Windows service's program, a copy of trust-dev in the service's own folder, its log, its
+  `service.toml` and its virtual account's access (RU-64).
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -193,8 +197,8 @@ Structured Text it calls spent (RU-38), which only the generated bindings run on
 
 **RU-12.** Each truST release publishes `trust-plc`, `trust-plc-macros`, `trust-service` and
 `trust-sim` to crates.io at the release's version, with the crates they are built from
-(`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`), once the release is verified (specification 24,
-"Publishing the SDK's crates"; `trust-service` and `trust-sim` join when they are built), and
+(`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`, `trust-runtime-client`), once the release is
+verified (specification 24, "Publishing the SDK's crates"; `trust-sim` joins when it is built), and
 carries their sources in its toolchain bundle (§16). The build always compiles the bundle's copy: the project's `Cargo.toml` names the
 version, the build patches the four crates to the bundle's sources, and a project builds without
 crates.io when its other dependencies are vendored. A user's own `cargo` resolves the same version
@@ -1000,6 +1004,24 @@ snapshot), with every value's cycle, logical time and quality: a read is specifi
 symbol table of the deployed image (`trust-dev service bindings`), so a service names
 `plant::P1::level` and gets an `f64`.
 
+A service connects by its name, `Service::connect("recipe")`: the SDK reads `[services.<name>]` of
+the project's `trust.toml`, in the folder `TRUST_PROJECT` names or else the current folder, and takes
+its `endpoint`, the service token in its `credentials` file (a path relative to the project,
+specification 11 §6.9.6) and its `heartbeat`; `Service::connect_with` takes the same settings from
+the service's own code. A connection answers one request at a time. `Service::read` gives one
+completed scan's values with the scan's number, its logical time, the resource's state and the
+quality, each value read as a Rust value of its declared type (`bool`, the integers, `f32` and
+`f64`, `String` and, from a `TIME` or an `LTIME`, `Duration`); `Service::write` writes a set of
+values; `Service::subscribe` reads a set at the period the service chooses, each read one completed
+scan; `Service::start_heartbeat` sends `service.heartbeat` at the service's `heartbeat` period, naming
+that period (`period_ms`), on a connection of its own until it is dropped, so that the service's
+own work never delays its heartbeat (RU-63), and its runtime can tell how old its last heartbeat
+may be (RU-64; specification 11 §6.8.1a, "Service clients"). A heartbeat that came late, as a slow runtime answers it, is followed one period
+later by the next, and the ones it missed are not sent, as a task does not replay missed activations
+(specification 10 §4.3); a period of zero is refused. `trust-service` and `trust-runtime-client` are published on crates.io with every
+release, at its version, so that a service built with the user's own Rust or the bundle's cargo
+gets them there (RU-61).
+
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
 the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the
 service's SDK sends `service.heartbeat` with the service's token (specification 11 §6.8.1), which it
@@ -1015,12 +1037,73 @@ a program gates on a service's values; a program decides itself what it does whe
 fresh. A value a service writes is never more than the program's input: the scan never waits for a
 service.
 
-**RU-64. Running.** A service runs as its own process under the computer's service manager:
-`trust-dev service install <name>` writes a systemd unit on Linux, a launchd job on macOS and a
-Windows service, from `trust.toml` (the binary, the runtime's endpoint, the credentials' file), and
-the runtime never starts a service itself. Devices & Connections shows a connected service as a
-client of its runtime, with its name and the age of its last heartbeat. A service reaches a chip's
-runtime over the network as any client does; a service does not run on a chip.
+**RU-64. Running.** A service runs as its own process under the computer's service manager, and the
+runtime never starts a service itself. `trust-dev service install <name>` puts the service of
+`trust.toml` `[services.<name>]` under the system's service manager and starts it: from then on it
+starts at every boot, without anyone logging in, and again 2 s after it ends, as the runtime's own
+systemd unit restarts the runtime (`docs/deploy/systemd`). `trust-dev service uninstall <name>`
+stops it and removes it. On every computer the service is called `trust-service-<name>`.
+
+- **Rights.** Both commands change the computer's services, which takes root (Linux, macOS) or an
+  administrator (Windows): on Windows, the right to create a service at the service manager. Without
+  these rights they change nothing and print the command to run with them: `sudo` with trust-dev's
+  own path, the project folder and the binary, so that the command needs neither the root account's
+  `PATH` nor cargo; on Windows the same command without `sudo`, to run in a terminal opened as
+  administrator. `install` checks everything below before it asks for rights.
+- **The program.** `install` builds nothing, since under `sudo` a build would leave files of root
+  in the project. It runs the binary that cargo's release build of `[services.<name>] package`
+  wrote: the project folder holds that package's manifest (`cargo new --bin <package>` in it, or a
+  member of the project's own Cargo workspace), and cargo's metadata names the package's one binary
+  and its target folder, `<target>/release/<binary>`. It refuses a package the project does not
+  hold or holds twice, a package without exactly one binary, and a binary that does not exist,
+  naming the build: `cargo build --release --manifest-path <manifest>`.
+- **Its settings.** `install` refuses a service without an `endpoint`, or whose `credentials` file
+  does not exist, naming `trust-runtime ctl service-token <name> --out <file>` (RU-81): it could
+  not connect. The service reads them itself when it starts: its working folder is the project
+  folder, and its environment's `TRUST_PROJECT` names that folder, so that `Service::connect`
+  reads the project's `trust.toml` and token (RU-62), and a new token needs no new install.
+- **Its account.** A service never runs as root or as Windows' LocalSystem. On Linux and macOS it
+  runs as the user who owns the project folder, and `install` refuses a project folder of root; on
+  Windows it runs as its own virtual account (below).
+- **One service of a name.** A computer has one `trust-service-<name>`. `install` refuses it while
+  it is installed for another project folder, naming `trust-dev service uninstall <name>`;
+  installed for the same folder, it is replaced and restarted, as after a new build.
+- **Linux:** a systemd unit, `/etc/systemd/system/trust-service-<name>.service`: `User=` the owner,
+  `WorkingDirectory=` and `Environment=TRUST_PROJECT=` the project folder, `ExecStart=` the binary,
+  `Restart=always` and `RestartSec=2`, after and wanting `network-online.target`, wanted by
+  `multi-user.target`; then `systemctl daemon-reload`, `systemctl enable` and `systemctl restart` of
+  the unit. Its output goes to the journal, `journalctl -u trust-service-<name>`. `uninstall` runs
+  `systemctl disable --now`, removes the file and reloads.
+- **macOS:** a launchd daemon, `/Library/LaunchDaemons/trust-service-<name>.plist`: `Label` the
+  service's name, `ProgramArguments` the binary, `UserName` the owner, `WorkingDirectory` and
+  `EnvironmentVariables` `TRUST_PROJECT` the project folder, `RunAtLoad`, `KeepAlive`,
+  `ThrottleInterval` 2 s, its output and errors appended to `/Library/Logs/trust-service-<name>.log`,
+  which belongs to the owner; `launchctl bootout` of an earlier one, `launchctl enable` and
+  `launchctl bootstrap system` load it. `uninstall` boots it out and removes the file; the log
+  stays.
+- **Windows:** a service `trust-service-<name>` that starts automatically and that the service
+  manager restarts 2 s after it ends, under its virtual account `NT SERVICE\trust-service-<name>`
+  (never LocalSystem). Its program is a copy of trust-dev in the service's own folder,
+  `%ProgramData%\truST\services\<name>\`, run as `trust-dev service run <name> --project
+  <folder> --binary <binary>`, since an ordinary Rust program does not answer the service manager
+  (RU-61). That copy answers the service manager and runs the binary as its child, in the project
+  folder and with `TRUST_PROJECT`. It appends the child's output and errors to `logs\<name>.log` in
+  the service's folder, stops the child when the service is stopped, and ends with a failure when
+  the child ends, so that the service manager restarts it. The copy keeps the service when truST is
+  updated, since the extension keeps trust-dev in a folder of each version. The service's folder
+  also holds `service.toml` with the project folder and the binary, by which `install` knows the
+  folder it was installed for and `uninstall` the access it gave. The virtual account exists while
+  its service does: after creating the service, `install` gives it read and execute access to the
+  project folder, the binary's folder and the service's folder, and write access only to the
+  service's `logs` folder (`icacls`), so that the service cannot replace its own program, and then
+  starts it. For a service installed for the same folder it stops the service, replaces the copy and
+  the settings, and starts it again. `uninstall` stops the service, takes the access away while the
+  account still exists, deletes the service, and removes the copy and `service.toml`; the log stays,
+  as on macOS.
+
+Devices & Connections shows a connected service as a client of its runtime, with its name and the
+age of its last heartbeat. A service reaches a chip's runtime over the network as any client does;
+a service does not run on a chip.
 
 ## 14. Rust-first projects
 
@@ -1346,7 +1429,15 @@ them, and the owner approved them with the draft on 15 November 2026 ("approved"
     project, not only those with Rust (§12).
 13. **Rust programs are a recorded IEC deviation**, DEV-048 (§7).
 14. **Services run under the computer's service manager**, never started by the runtime, and never on
-    a chip (RU-64).
+    a chip (RU-64). How `trust-dev service install` does it was delegated on 18 November 2026 ("do
+    whats most professional and best"), compared with the runtime's own systemd unit, which an
+    operator installs by hand, and with tools that put a program of the user's under the service
+    manager (cloudflared's and ngrok's `service install`, the GitHub Actions runner's `svc.sh
+    install` with its Windows service host): the command installs and starts the service at system
+    level, so that it runs after a boot without a login, rather than only writing the files and
+    printing the commands; it needs root or an administrator and otherwise names the command that
+    has them; it builds nothing and takes the release binary; and the service runs as the project
+    folder's owner, or a virtual account on Windows, never as root or LocalSystem.
 
 ## Appendix A — Fault and event
 

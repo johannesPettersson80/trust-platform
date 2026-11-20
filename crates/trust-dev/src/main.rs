@@ -17,6 +17,7 @@ mod prompt;
 mod run;
 mod rust;
 mod rust_audit;
+mod service_manager;
 mod style;
 mod test;
 mod workflow;
@@ -92,6 +93,11 @@ enum Command {
         #[command(subcommand)]
         action: RustAction,
     },
+    /// The project's services (specification 48 §13).
+    Service {
+        #[command(subcommand)]
+        action: ServiceAction,
+    },
     /// Discover and execute ST tests in a project.
     Test {
         /// Project folder directory (defaults to auto-detect or current directory).
@@ -123,6 +129,42 @@ enum Command {
         /// the project's `runtime.control.auth_token` (specification 11 §6.8.1).
         #[arg(long, requires = "device", allow_hyphen_values = true)]
         token: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ServiceAction {
+    /// Put the service `[services.<name>]` under the computer's service manager and start it, so
+    /// that it starts at every boot and again 2 s after it ends (specification 48 RU-64). It takes
+    /// root or an administrator; without them it changes nothing and names the command to run.
+    Install {
+        /// The service's name, as trust.toml declares it in `[services.<name>]`.
+        name: String,
+        /// Project folder directory (defaults to auto-detect or current directory).
+        #[arg(long = "project", alias = "bundle")]
+        project: Option<PathBuf>,
+        /// The service's program, as the command without rights names it; by default the release
+        /// binary of the service's package, which cargo's metadata names.
+        #[arg(long)]
+        binary: Option<PathBuf>,
+    },
+    /// Stop the service `trust-service-<name>` and remove it from the computer's service manager.
+    Uninstall {
+        /// The service's name.
+        name: String,
+    },
+    /// The program of a Windows service that `install` writes, which Windows' service manager
+    /// runs: it answers the service manager and runs the service's binary in the project folder
+    /// (specification 48 RU-64).
+    Run {
+        /// The service's name.
+        name: String,
+        /// The project folder, the binary's working folder.
+        #[arg(long)]
+        project: PathBuf,
+        /// The service's binary.
+        #[arg(long)]
+        binary: PathBuf,
     },
 }
 
@@ -202,6 +244,19 @@ fn run() -> anyhow::Result<()> {
             out_dir,
             format,
         } => docs::run_docs(project, out_dir, format),
+        Command::Service { action } => match action {
+            ServiceAction::Install {
+                name,
+                project,
+                binary,
+            } => service_manager::run_install(project, &name, binary),
+            ServiceAction::Uninstall { name } => service_manager::run_uninstall(&name),
+            ServiceAction::Run {
+                name,
+                project,
+                binary,
+            } => service_manager::run_host(&name, &project, &binary),
+        },
         Command::Rust { action } => match action {
             RustAction::Declarations { project } => rust::run_declarations(project),
             RustAction::Audit { project, db } => rust_audit::run_audit(project, db),

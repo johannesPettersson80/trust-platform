@@ -91,6 +91,8 @@ pub(crate) use protocols::mesh_peer_matches_target;
 use protocols::*;
 mod runtime;
 use runtime::*;
+mod service_clients;
+use service_clients::*;
 mod topology;
 use topology::*;
 

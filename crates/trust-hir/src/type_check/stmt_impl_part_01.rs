@@ -102,6 +102,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             .checker
             .type_of_assignment_target(target, resolved_target.as_ref());
         let value_type = self.check_expression(value);
+        // A call that untyped bit string literals leave open takes the target's bit string type
+        // (specification 05 §5.2.1).
+        let value_type = if self.checker.contextualize_open_bit(target_type, value) {
+            target_type
+        } else {
+            value_type
+        };
         let errors_before = self.checker.diagnostics.error_count();
 
         let is_context_int = self

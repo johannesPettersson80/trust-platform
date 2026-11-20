@@ -222,6 +222,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Project Commit Workflow\n(trust-dev commit)" as commitWorkflow
     component "Agent JSON-RPC Workflow\n(trust-dev agent serve)" as agentWorkflow
     component "ST Test + Docs Workflows\n(trust-dev test/docs)\ncompile before an unfiltered empty test result" as devTestDocs
+    component "Service Install Workflow\n(trust-dev service install/uninstall)" as serviceInstall
     component "Registry Workflows\n(trust-runtime registry)" as registryCli
     component "BundleLoader" as bundleLoader
     component "IoDriverRegistry" as ioRegistry
@@ -296,6 +297,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     devCli --> agentWorkflow : owns agent command
     agentWorkflow --> projectDiagnostics : lsp.diagnostics,\nruntime.compile_reload
     devCli --> devTestDocs : owns test/docs commands
+    devCli --> serviceInstall : owns service commands
     launcher ..> devCli : deprecated commit/agent/test/docs aliases\nforward during migration
     registryCli --> bundleLoader : validates bundle
     launcher --> ioRegistry
@@ -389,6 +391,8 @@ package "Deployment" as deploy #LightGray {
     component "Beckhoff TwinCAT PLC\n(ADS server)" as twincatPlc
     component "ADS External Clients\n(TwinCAT/pyads/.NET)" as adsExternalClients
     component "CLI Control Client\n(trust-runtime ctl)" as ctlClient
+    component "Rust Service\n(trust-service SDK, own process)" as rustService
+    component "OS Service Manager\n(systemd unit / launchd daemon\ntrust-service-<name>)" as osServiceManager
     component "Browser UI\n(Local/Remote)" as browserUi
     component "Peer Runtime\n(Other PLC)" as peerRuntime
     component "OPC UA Clients\n(SCADA/MES/Historian)" as opcuaClients
@@ -444,6 +448,9 @@ adsClient --> twincatPlc : ADS/AMS\nplain now, secure reserved
 adsOnboarding --> twincatPlc : ADS UDP identify/discover\nroute planning/add-route
 adsExternalClients --> adsServerCrate : ADS/AMS browse/read/write/notify\nplain now, secure reserved
 ctlClient --> controlServer : JSON IPC\nshutdown acknowledgement precedes stop signal
+rustService --> controlServer : service token\nvariables.read / variables.write /\nservice.heartbeat (trust-runtime-client)
+serviceInstall --> osServiceManager : installs + starts (root)\nrelease binary as the project folder's owner
+osServiceManager --> rustService : starts at boot,\nagain 2 s after it ends
 launcher --> controlServer : trust-runtime discover --endpoint\n(comm.search.* through trust-runtime-client)
 browserUi --> webServer : HTTP/HTTPS (/ide, /api/*)\nshutdown response write precedes stop signal
 discovery --> browserUi : mDNS advertise

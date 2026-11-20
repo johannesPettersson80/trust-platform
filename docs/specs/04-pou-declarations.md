@@ -200,7 +200,10 @@ portable source should use one IEC call form throughout.
 
 `EN` and `ENO` are execution-control parameters, not ordinary positional
 parameters. They may be connected only by name. `EN` uses `:=`; `ENO` uses
-`=>`. `EN` is evaluated before every other actual even if written later in the
+`=>`. A POU has them only when it declares them, `EN : BOOL` among its inputs
+and `ENO : BOOL` among its outputs, as `SafeDiv` below (IEC 61131-3 Ed.3
+§6.6.1.5 lets the user provide them). A call that connects one its POU does not
+declare is refused, and the refusal names that declaration. `EN` is evaluated before every other actual even if written later in the
 formal list. A false value short-circuits evaluation and binding of every other
 actual. The only caller write made by the skipped call is `FALSE` to a
 connected `ENO` target. A skipped function or value-returning method produces

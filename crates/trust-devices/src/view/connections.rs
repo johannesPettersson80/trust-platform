@@ -161,7 +161,7 @@ pub(crate) fn role_word(protocol: &str, role: &str) -> String {
                 texts::ROLE_CLIENT
             }
         }
-        "modbus_tcp" | "modbus" => texts::ROLE_CLIENT,
+        "modbus_tcp" | "modbus" | "service" => texts::ROLE_CLIENT,
         "ads_server" | "web" => texts::ROLE_SERVER,
         "mqtt" => texts::ROLE_PUB_SUB,
         "mesh" => texts::ROLE_PEER,
