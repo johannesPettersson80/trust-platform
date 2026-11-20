@@ -6,7 +6,7 @@ This example shows safe bring-up for `io.driver = "ethercat"`.
 
 Hardware EtherCAT transport (non-`mock` adapter) is gated by build and platform:
 
-- requires feature `ethercat-wire`
+- needs the `ethercat-wire` feature, which every released `trust-runtime` has
 - supported only on unix targets in this build
 
 `adapter = "mock"` remains valid for deterministic local/CI validation.
@@ -65,7 +65,7 @@ Then set `adapter` to your EtherCAT NIC name.
 
 Why: prevents ambiguous startup failures during handoff.
 
-- build runtime with `ethercat-wire` enabled
+- use a `trust-runtime` with `ethercat-wire`, as every release is built
 - run on unix target for hardware adapter mode
 - ensure raw socket access permissions are in place
 
