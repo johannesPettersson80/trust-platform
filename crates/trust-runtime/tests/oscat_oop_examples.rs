@@ -613,3 +613,120 @@ fn oscat_oop_examples_contain_claimed_pattern_structures() {
         assert_pattern_structure(name, needles);
     }
 }
+
+/// The located I/O of the configuration `source`: each `<name> AT %I…` or `AT %Q…` declaration as
+/// `(name, address, direction)`, `IN` for `%I` and `OUT` for `%Q`, in the source's order.
+fn located_io(source: &str) -> Vec<(String, String, String)> {
+    source
+        .lines()
+        .filter_map(|line| {
+            let tokens: Vec<&str> = line.split_whitespace().collect();
+            let (name, at, address) = (tokens.first()?, tokens.get(1)?, tokens.get(2)?);
+            let direction = match address.get(..2)? {
+                "%I" => "IN",
+                "%Q" => "OUT",
+                _ => return None,
+            };
+            (*at == "AT").then(|| (name.to_string(), address.to_string(), direction.to_string()))
+        })
+        .collect()
+}
+
+/// The rows of the "Integration map" table of `readme` whose address is a located address, as
+/// `(tag, address, direction)`; rows of local variables (address `local`) are left out.
+fn integration_map(readme: &str) -> Option<Vec<(String, String, String)>> {
+    let map = readme.split("## Integration map").nth(1)?;
+    Some(
+        map.lines()
+            .take_while(|line| !line.starts_with("## "))
+            .filter(|line| line.starts_with("| `"))
+            .filter_map(|line| {
+                let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+                let address = cells.get(2)?.strip_prefix('`')?.strip_suffix('`')?;
+                address.starts_with('%').then(|| {
+                    (
+                        cells[1].trim_matches('`').to_string(),
+                        address.to_string(),
+                        cells.get(3).copied().unwrap_or_default().to_string(),
+                    )
+                })
+            })
+            .collect(),
+    )
+}
+
+#[test]
+fn every_oscat_integration_map_lists_the_io_its_configuration_binds() {
+    // Each OSCAT README's "Integration map" is the located I/O of its example's configuration:
+    // the name, the address and the direction (IN for %I, OUT for %Q), in the configuration's
+    // order, for each variant that binds any. Catches a map that drifted from the code, as
+    // boiler_room_heating_plant's had: other instance names, other bits, and words on the command
+    // bits' byte (checklist G235).
+    let mut failures = Vec::new();
+    for dir in oscat_example_dirs() {
+        let readme = dir.join("README.md");
+        let Some(rows) = std::fs::read_to_string(&readme)
+            .ok()
+            .and_then(|text| integration_map(&text))
+        else {
+            continue;
+        };
+        for variant in ["oop", "non-oop"] {
+            let configuration = dir.join(variant).join("src").join("Configuration.st");
+            let Ok(source) = std::fs::read_to_string(&configuration) else {
+                continue;
+            };
+            let bound = located_io(&source);
+            if !bound.is_empty() && rows != bound {
+                failures.push(format!(
+                    "{}: the integration map {rows:?} is not the I/O of {}: {bound:?}",
+                    readme.display(),
+                    configuration.display()
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn every_oscat_mqtt_input_keeps_its_last_input_between_messages() {
+    // Specification 32 §8: a read that finds no MQTT message newer than the previous one is stale,
+    // and the default `on_error = "fault"` faults the runtime on it, so an input topic would have
+    // to publish before every scan. The examples' input topics carry commands, published when they
+    // change, so each MQTT driver with an input takes `warn`, which keeps the last input. Catches
+    // an example that faults at its first scan without a new message (checklist G239).
+    let mut failures = Vec::new();
+    for project in oscat_example_projects() {
+        let path = project.join("io.toml");
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let io: toml::Value =
+            toml::from_str(&text).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+        let io = &io["io"];
+        let mut mqtt = Vec::new();
+        if io.get("driver").and_then(toml::Value::as_str) == Some("mqtt") {
+            mqtt.extend(io.get("params"));
+        }
+        for driver in io
+            .get("drivers")
+            .and_then(toml::Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            if driver.get("name").and_then(toml::Value::as_str) == Some("mqtt") {
+                mqtt.extend(driver.get("params"));
+            }
+        }
+        for params in mqtt {
+            let has_input =
+                params.get("topic_in").is_some() || params.get("input_points").is_some();
+            let policy = params.get("on_error").and_then(toml::Value::as_str);
+            if has_input && policy != Some("warn") {
+                failures.push(format!("{}: on_error {policy:?}", path.display()));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

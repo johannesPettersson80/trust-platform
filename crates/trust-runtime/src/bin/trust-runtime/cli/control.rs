@@ -58,6 +58,14 @@ pub enum ControlAction {
         #[arg(required = true)]
         paths: Vec<String>,
     },
+    /// Write variables as a service writes them (`variables.write`, specification 11 §6.8.1): each
+    /// `<path>=<value>`, the value as JSON (`21.5`, `true`, `"pump"`), sent with the service's
+    /// token from `--token`. The next cycle's start writes the set together; prints the reply.
+    Write {
+        /// The writes, each `<path>=<value>`.
+        #[arg(required = true)]
+        assignments: Vec<String>,
+    },
     IoRead,
     IoWrite {
         address: String,
@@ -85,8 +93,13 @@ pub enum ControlAction {
     /// Print the compiled form of a debug expression, as `evaluate` and a breakpoint's condition
     /// send it, without sending anything.
     CompileExpression { expr: String },
+    /// Write a variable once, at the next scan boundary (`set`, specification 11): the program may
+    /// change it again on a later scan, where a force holds it.
     Set {
+        /// The variable: `global:<path>`, a global or a program's variable such as
+        /// `global:Main.Speed`, or `retain:<name>`.
         target: String,
+        /// The value, an IEC 61131-3 literal of the variable's type, such as `12.5` or `TRUE`.
         value: String,
     },
     Restart {

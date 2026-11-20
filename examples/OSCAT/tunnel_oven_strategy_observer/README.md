@@ -174,11 +174,11 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Oven.ProductId` | `%IW0` | IN |
-| `Oven.ZoneTempRaw` | `%IW2` | IN |
+| `Oven.ProductId` | `%IW2` | IN |
+| `Oven.ZoneTempRaw` | `%IW4` | IN |
 | `Oven.OvertempInput` | `%IX0.0` | IN |
-| `Oven.HeatCommandRaw` | `%QW0` | OUT |
-| `Oven.ConveyorSpeedRaw` | `%QW2` | OUT |
+| `Oven.HeatCommandRaw` | `%QW2` | OUT |
+| `Oven.ConveyorSpeedRaw` | `%QW4` | OUT |
 | `Oven.AlarmOut` | `%QX0.0` | OUT |
 
 Comms (from `oop/io.toml`): `modbus-tcp` (unit 100 on `127.0.0.1:1508`),

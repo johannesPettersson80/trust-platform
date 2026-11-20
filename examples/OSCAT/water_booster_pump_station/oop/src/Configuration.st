@@ -9,7 +9,7 @@ VAR_CONFIG
     Station.Pump1Fault AT %IX0.2 : BOOL;
     Station.Pump2Fault AT %IX0.3 : BOOL;
     Station.Pump3Fault AT %IX0.4 : BOOL;
-    Station.HeaderPressureRaw AT %IW0 : INT;
+    Station.HeaderPressureRaw AT %IW2 : INT;
     Station.Pump1Enable AT %QX0.0 : BOOL;
     Station.Pump2Enable AT %QX0.1 : BOOL;
     Station.Pump3Enable AT %QX0.2 : BOOL;

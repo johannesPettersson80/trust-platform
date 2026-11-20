@@ -77,22 +77,22 @@ Why this loop matters:
 - `validate` checks runtime + I/O schema before launch.
 - `io-read` confirms the control plane can read process image state.
 
-## Transport-gating notes (important)
+## Transport notes (important)
 
-- EtherCAT hardware transport (non-`mock` adapter):
-  - requires build feature `ethercat-wire`
-  - is only supported on unix targets in this build
+The released `trust-runtime` includes every transport below: their build features
+(`ethercat-wire`, `opcua-wire`, `ads-wire`, `ads-server`) are on by default. Only a build from
+source with `--no-default-features` leaves them out.
+
+- EtherCAT hardware transport (non-`mock` adapter): only on unix targets.
 - OPC UA wire server:
-  - requires build feature `opcua-wire`
-  - if `runtime.opcua.enabled = true` without that feature, startup fails with a feature-disabled error
+  - `[runtime.opcua] enabled = true` starts it
+  - a build without `opcua-wire` refuses that setting at startup with a feature-disabled error
 - ADS wire client:
-  - live ADS wire access requires build feature `ads-wire`
   - `[runtime.ads] enabled = true` loads `ads.toml` and starts ADS workers at
     runtime startup
   - the offline import/validate workflow works from cached snapshots without a PLC connection
 - ADS server:
-  - serving truST globals to external ADS clients requires build feature
-    `ads-server`
+  - serves truST globals to external ADS clients
   - `[runtime.ads_server] enabled = true` starts the server listener on ADS
     router TCP port `48898` and exposes the configured logical AMS port
   - loopback/pyads proof is useful, but real TwinCAT browse/read/notification

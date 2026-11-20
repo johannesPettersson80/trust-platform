@@ -13,10 +13,6 @@ on:
       - "runtime.toml"
       - "io.toml"
 
-env:
-  # Shared project CI runners may not provide sccache; disable the workspace rustc wrapper by default.
-  RUSTC_WRAPPER: ""
-
 jobs:
   plc-ci:
     runs-on: ubuntu-24.04

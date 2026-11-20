@@ -59,6 +59,19 @@ pub trait VariableQueuePort {
         value: Value,
     ) -> Result<(), RequestQueueFull>;
 
+    /// Queue the pending variable writes `writes` together, to apply at the next cycle boundary,
+    /// or none of them: a service's set is written whole (specification 11 §6.8.1, "Writing
+    /// variables").
+    ///
+    /// # Errors
+    ///
+    /// [`RequestQueueFull`] when the queue cannot take every target that is not queued yet;
+    /// nothing is queued then.
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull>;
+
     /// Set the active force on `target`, replacing an earlier force on the same target.
     ///
     /// # Errors
@@ -115,34 +128,25 @@ pub fn set<Q: VariableQueuePort>(
         Ok(params) => params,
         Err(response) => return response,
     };
-    let parsed = parse_var_target(&params.target);
-    // A target that `set` takes is checked against the installed program first and types the value; any other target's value
-    // is refused before the target, as it always was.
-    let value = match &parsed {
-        Ok(target @ (VarTarget::Global(_) | VarTarget::Retain(_))) => {
-            admitted_value(queues, target, &params.value)
-        }
-        _ => parse_value(&params.value),
+    // The target is refused before its value is read, as `var.force` does (specification 11): a
+    // target of another form has no destination whose type could admit the value.
+    let target = match parse_var_target(&params.target) {
+        Ok(target) => target,
+        Err(error) => return ControlResponse::error(id, error),
     };
-    let value = match value {
+    let pending = match &target {
+        VarTarget::Global(name) => PendingVarTarget::Global(SmolStr::new(name)),
+        VarTarget::Retain(name) => PendingVarTarget::Retain(SmolStr::new(name)),
+        // A queued write cannot name an instance; only a force can.
+        VarTarget::Instance(_, _) => {
+            return ControlResponse::error(id, String::from(SET_TARGET_FORMS));
+        }
+    };
+    let value = match admitted_value(queues, &target, &params.value) {
         Ok(value) => value,
         Err(error) => return ControlResponse::error(id, error),
     };
-    let target = match parsed {
-        Ok(VarTarget::Global(name)) => PendingVarTarget::Global(SmolStr::new(name)),
-        Ok(VarTarget::Retain(name)) => PendingVarTarget::Retain(SmolStr::new(name)),
-        // A queued write cannot name an instance; only a force can.
-        Ok(VarTarget::Instance(_, _)) => {
-            return ControlResponse::error(id, String::from("unsupported target"));
-        }
-        Err(error)
-            if error.starts_with("missing global") || error.starts_with("missing retain") =>
-        {
-            return ControlResponse::error(id, error);
-        }
-        Err(_) => return ControlResponse::error(id, String::from("unsupported target")),
-    };
-    if let Err(error) = queues.enqueue_var_write(target, value) {
+    if let Err(error) = queues.enqueue_var_write(pending, value) {
         return ControlResponse::error(id, error.to_string());
     }
     ControlResponse::ok(id, json!({"status": "queued"}))
@@ -307,6 +311,9 @@ enum VarTarget {
     Instance(u32, String),
 }
 
+/// The refusal of a target that names no variable `set` can write.
+const SET_TARGET_FORMS: &str = "unsupported target (use global:<name> or retain:<name>)";
+
 /// Parse a `global:<name>`, `retain:<name>` or `instance:<id>:<name>` target, trimming the names.
 fn parse_var_target(target: &str) -> Result<VarTarget, String> {
     if let Some(name) = target.strip_prefix("global:") {
@@ -336,7 +343,7 @@ fn parse_var_target(target: &str) -> Result<VarTarget, String> {
         }
         return Ok(VarTarget::Instance(id, name.to_string()));
     }
-    Err("unsupported target (use global:<name> or retain:<name>)".into())
+    Err(SET_TARGET_FORMS.into())
 }
 
 #[cfg(test)]

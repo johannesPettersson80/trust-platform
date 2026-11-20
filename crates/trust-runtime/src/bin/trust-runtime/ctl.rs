@@ -27,6 +27,8 @@ mod install;
 mod service_token;
 #[path = "ctl/stats.rs"]
 mod stats;
+#[path = "ctl/write.rs"]
+mod write;
 
 /// The waits and the response limit of a runtime's socket on this computer, which every client of
 /// one shares (specification 11, 6.8.1).
@@ -126,6 +128,7 @@ pub fn run_control(
         ControlAction::ServiceToken { name, role, out } => {
             service_token::run(&target, &name, role.as_deref(), &out)
         }
+        ControlAction::Write { assignments } => write::run(&target, &assignments),
         action => send_control_request(&target, &action, project.as_deref()),
     }
 }
@@ -575,7 +578,8 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         | ControlAction::DeviceGet
         | ControlAction::DeviceSet { .. }
         | ControlAction::DeviceReset
-        | ControlAction::ServiceToken { .. } => {
+        | ControlAction::ServiceToken { .. }
+        | ControlAction::Write { .. } => {
             unreachable!("run_control sends these through their own modules")
         }
         ControlAction::Shutdown { exit } => {

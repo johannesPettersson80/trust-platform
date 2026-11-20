@@ -94,8 +94,11 @@ Use this to verify discovery and names before selecting filters.
 ## Step 5: Run a subset (filter)
 
 ```bash
-cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --filter START_STOP
+cargo run -p trust-dev --bin trust-dev -- test --project examples/tutorials/10_unit_testing_101 --filter StartStop
 ```
+
+The filter matches part of a test's name, ignoring case: `StartStop` runs
+`TEST_FUNCTION_BLOCK::StartStopSequence` alone.
 
 If a filter matches nothing but tests exist, the runner prints a filtered-out message instead of reporting no discovery.
 
