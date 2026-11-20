@@ -273,7 +273,8 @@ fn restart_from_stopped_starts_the_program_at_once_as_a_new_process_would() {
             events["result"]["events"],
             json!([]),
             "{mode}: the events start empty, as a new process's: the write refused before the \
-             restart is gone, and the first scan, with no activation due, records none"
+             restart is gone, and the first scan, whose activation is due at the start, records \
+             none"
         );
         fixture.pass_at(&mut runner, 37);
         assert_eq!(fixture.take_scan_times(), [10], "{mode}");
@@ -318,8 +319,21 @@ fn restart_from_stopped_starts_with_the_empty_records_of_a_new_process() {
     let tasks = fixture.call(&mut runner, &request(6, "tasks.stats"));
     assert_eq!(
         tasks["result"],
-        json!({"tasks": [], "rust_pous": [], "profiling_enabled": true, "top_contributors": []}),
-        "no task and no program has run since the start"
+        json!({
+            "tasks": [{
+                "name": "Scan", "overruns": 0,
+                "avg_ms": 0.0, "last_ms": 0.0, "max_ms": 0.0, "min_ms": 0.0,
+            }],
+            "profiling_enabled": true,
+            "rust_pous": [],
+            "top_contributors": [{
+                "key": "program:Plant", "kind": "program", "name": "Plant",
+                "avg_cycle_ms": 0.0, "cycle_pct": 0.0, "last_cycle_pct": 0.0, "last_ms": 0.0,
+            }],
+        }),
+        "only the new program's first scan has run since the start: its task, due at its start \
+         (specification 10 §4.3), with no overrun, and its program; the program has no Rust POU \
+         (specification 11, \"Rust POU budgets\")"
     );
     let faults = fixture.call(&mut runner, &request(7, "faults"));
     assert_eq!(

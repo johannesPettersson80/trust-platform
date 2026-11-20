@@ -16,8 +16,8 @@ use trust_runtime::value::{Duration, Value};
 #[test]
 fn a_new_structured_text_project_with_rust_smooths_its_input_with_the_crates_block() {
     // Specification 48 RU-51, worked by hand: `src/Main.st` calls FILTER_EMA with alpha 0.1 on the
-    // 10 ms task, which is not due at 0 (specification 10 §4.3). At 10 ms the block takes Raw = 0
-    // as it is; the test then writes Raw = 100, and the calls at 20 and 30 ms move Smoothed a tenth
+    // 10 ms task, which is due at its start (specification 10 §4.3). At 0 ms the block takes Raw = 0
+    // as it is; the test then writes Raw = 100, and the calls at 10 and 20 ms move Smoothed a tenth
     // of the gap: 0 + 0.1 × 100 = 10, then 10 + 0.1 × 90 = 19, both exact in binary. Catches a
     // start whose project does not build as created (a missing or stale declaration, a crate the
     // build refuses) or whose program does not call the crate's block.
@@ -35,11 +35,10 @@ fn a_new_structured_text_project_with_rust_smooths_its_input_with_the_crates_blo
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(
         program.value("MAININSTANCE.SMOOTHED"),
         Some(Value::LReal(0.0))
@@ -51,7 +50,7 @@ fn a_new_structured_text_project_with_rust_smooths_its_input_with_the_crates_blo
     program
         .write_symbol(raw, &Value::LReal(100.0))
         .expect("Raw written");
-    for (time, smoothed) in [(20, 10.0), (30, 19.0)] {
+    for (time, smoothed) in [(10, 10.0), (20, 19.0)] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -66,9 +65,9 @@ fn a_new_structured_text_project_with_rust_smooths_its_input_with_the_crates_blo
 
 #[test]
 fn a_new_rust_first_project_switches_its_lamp_every_fifty_runs() {
-    // Specification 48 RU-51 and §14, worked by hand: `trust.toml` runs MAIN every 10 ms from
-    // 10 ms, so it has run 49 times at 490 ms, its lamp still off, and its 50th run at 500 ms
-    // switches it on. Catches a Rust-first start whose configuration does not run its program, or
+    // Specification 48 RU-51 and §14, worked by hand: `trust.toml` runs MAIN every 10 ms from its
+    // start (specification 10 §4.3), so it has run 49 times at 480 ms, its lamp still off, and its
+    // 50th run at 490 ms switches it on. Catches a Rust-first start whose configuration does not run its program, or
     // whose project does not build as created.
     let parent = trust_test_support::unique_temp_path("new-rust-project-lamp");
     let root =
@@ -79,14 +78,14 @@ fn a_new_rust_first_project_switches_its_lamp_every_fifty_runs() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in (0..=490).step_by(10) {
+    for time in (0..=480).step_by(10) {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
     }
     assert_eq!(program.value("MAININSTANCE.LAMP"), Some(Value::Bool(false)));
     program
-        .scan(Duration::from_millis(500), &mut NoHooks)
+        .scan(Duration::from_millis(490), &mut NoHooks)
         .expect("the scan runs");
     assert_eq!(program.value("MAININSTANCE.LAMP"), Some(Value::Bool(true)));
     let _ = std::fs::remove_dir_all(parent);

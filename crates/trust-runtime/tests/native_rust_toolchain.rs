@@ -60,9 +60,9 @@ fn a_project_with_rust_pous_builds_without_compiling_for_the_computer() {
     // own artifacts holds none, neither the SDK's macros with their build scripts nor libm's build
     // script. Catches a build that compiles either for the computer, which needs the computer's own
     // linker, which a computer without Rust may lack (macOS without Xcode's command-line tools has
-    // none). The module then runs: the task is not due at 0 (specification 10 §4.3), so the scan at
-    // 10 ms calls PLUS_ONE(41) = 42 and SQRT(2.25) = 1.5, exact in binary, through the libm that
-    // the recorded output configured.
+    // none). The module then runs: the task is due at its start and every 10 ms (specification 10
+    // §4.3), and each scan calls PLUS_ONE(41) = 42 and SQRT(2.25) = 1.5, exact in binary, through
+    // the libm that the recorded output configured.
     let root = custom_project(
         "rust-pous-no-host-build",
         &[("Cargo.toml", &manifest("")), ("src/lib.rs", CRATE)],
@@ -91,11 +91,10 @@ fn a_project_with_rust_pous_builds_without_compiling_for_the_computer() {
     );
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.BUMPED"), Some(Value::DInt(42)));
     assert_eq!(program.value("MAIN.ROOT"), Some(Value::LReal(1.5)));
 }

@@ -9,8 +9,10 @@ mod state_stream_contract;
 
 /// The commissioning example on the real Control.PID library, compiled for this computer, with a
 /// control attached and one scan run at time zero, which publishes the program's state
-/// (specification 44 §8.8): `MainTask`, every 100 ms, is not due yet, so the program keeps its
-/// starting values.
+/// (specification 44 §8.8): `MainTask`, every 100 ms, is due at its start (specification 10 §4.3),
+/// so the program has run once and configured its controller from its parameters: proportional
+/// gain 1.0, integral gain 0.2. The later scans of these tests run at time zero too, where the task
+/// is not due again.
 fn commissioning_runtime() -> (TestHarness, DebugControl) {
     let mut harness = TestHarness::from_session(CompileSession::from_sources(vec![
         SourceFile::with_path(
@@ -89,13 +91,14 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
     );
     assert_eq!(
         program_value(&harness, "P1.Controller.ParametersValue.IntegralGain"),
-        crate::value::Value::LReal(0.0),
+        crate::value::Value::LReal(0.2),
         "the nested sibling the set does not name keeps its value"
     );
     harness
         .runtime_mut()
         .with_program(|program| control.confirm_parameters("MainTask", program));
-    // The next scan publishes the confirmed values; `MainTask` is not due at time zero.
+    // The next scan publishes the confirmed values; `MainTask`, which ran at time zero, is not
+    // due again then.
     assert!(harness.cycle().errors.is_empty());
     let adopted = control
         .parameter_status(json!({"binding": binding}))
@@ -153,8 +156,8 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
 /// Protocol annex E7.2 and E7.4: status reports the values of the last completed scan and never an
 /// outcome those values do not show. A set its task's end confirmed is reported `applied`, with the
 /// value it wrote, once the scan that ran the task is published; between the task's end and that
-/// publication status still reports it `pending`, with the value the published scan holds, 0.0, the
-/// example's initial gain. Catches a record that turns `applied` at the task's end while status
+/// publication status still reports it `pending`, with the value the published scan holds, 1.0, the
+/// gain the program's run at its start configured. Catches a record that turns `applied` at the task's end while status
 /// still reads the scan before the commit, which a client polling for `applied` would take as the
 /// confirmed value.
 #[test]
@@ -177,7 +180,7 @@ fn a_confirmed_parameter_set_is_reported_applied_once_the_scan_that_confirmed_it
     let before = control
         .parameter_status(json!({"binding": binding}))
         .expect("read the parameter status");
-    assert_eq!(before["values"][gain], 0.0, "{before}");
+    assert_eq!(before["values"][gain], 1.0, "{before}");
     control
         .parameter_apply(
             json!({
@@ -211,7 +214,7 @@ fn a_confirmed_parameter_set_is_reported_applied_once_the_scan_that_confirmed_it
         .parameter_status(json!({"binding": binding}))
         .expect("read the status before the scan's end");
     assert_eq!(confirmed_unpublished["status"], "pending");
-    assert_eq!(confirmed_unpublished["values"][gain], 0.0);
+    assert_eq!(confirmed_unpublished["values"][gain], 1.0);
     assert_eq!(
         confirmed_unpublished["active_revision"],
         before["active_revision"]
@@ -223,7 +226,7 @@ fn a_confirmed_parameter_set_is_reported_applied_once_the_scan_that_confirmed_it
         .expect("read the status after the scan's end");
     assert_eq!(published["status"], "applied");
     assert_eq!(published["values"][gain], 2.5);
-    assert_eq!(published["previous_values"][gain], 0.0);
+    assert_eq!(published["previous_values"][gain], 1.0);
 }
 
 /// Specification 35 A6.3: a controller transfer is one transaction at its owning task's boundary:

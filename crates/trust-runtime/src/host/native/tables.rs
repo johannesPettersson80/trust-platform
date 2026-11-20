@@ -399,6 +399,8 @@ pub(super) struct Inputs<'g> {
     /// A debug image's Rust POUs with their budgets for the build's target in nanoseconds, in the
     /// Rust POU table's order; none for a release image (specification 44 §5.13).
     pub(super) rust_pous: &'g [(String, u64)],
+    /// The services that may write variables, with their paths (specification 44 §5.14).
+    pub(super) services: &'g [super::rust_pous::ServiceWrites],
 }
 
 /// The crate table of an image whose module holds the project's crate; none without one
@@ -863,6 +865,7 @@ pub(super) fn write(
     statements(writer, &mut pool, inputs);
     crate_table(writer, &mut pool, inputs.crates);
     rust_pou_table(writer, &mut pool, inputs.rust_pous);
+    super::service_table::write(writer, &mut pool, inputs.services);
     // The `RESOURCE` the program's `CONFIGURATION` declares, which a computer compares with the
     // name its `runtime.toml` gives (§5.2, specification 10 §4.7).
     if let Some(resource) = inputs

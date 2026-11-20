@@ -86,7 +86,7 @@ fn refusal(name: &str, call: &str, declarations: &str) -> String {
 fn a_rust_function_calls_a_structured_text_function() {
     // RU-38, RU-39: the Rust function TWICE returns `st::SCALE(cx, x, 2.0)`, the Structured Text
     // function SCALE := x * factor; the program's call TWICE(x := 1.5) gives 1.5 × 2.0 = 3.0 at the
-    // task's first call at 10 ms (specification 10 §4.3). The build writes layer 1 into the
+    // task's first call at 0 ms, its start (specification 10 §4.3). The build writes layer 1 into the
     // project's build/trust_st, where the crate's manifest names it. Catches a binding that passes
     // the arguments in another order or loses the result, and layer 1 written where the crate does
     // not find it.
@@ -96,11 +96,10 @@ fn a_rust_function_calls_a_structured_text_function() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.DOUBLED"), Some(Value::LReal(3.0)));
     let library =
         std::fs::read_to_string(root.join("build/trust_st/src/lib.rs")).expect("layer 1's library");
@@ -139,11 +138,9 @@ END_FUNCTION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    program
-        .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
+    // The task is due at its start (specification 10 §4.3): the first scan runs it.
     let error = program
-        .scan(Duration::from_millis(10), &mut NoHooks)
+        .scan(Duration::ZERO, &mut NoHooks)
         .expect_err("the loop ends the scan");
     assert!(
         matches!(
@@ -269,7 +266,7 @@ fn a_crate_that_calls_structured_text_passes_its_structures_in_place() {
     // RU-29 beside RU-39: the crate calls SCALE and passes its structure S_POINT, which lies in
     // layer 1 then, to SHIFT as an in-out; layer 3's own `Places` reads and writes it there. SHIFT
     // moves the point (0, 0) by (1, 2) and returns 1 + 2 = 3, and TWICE(1.5) = 3.0, at the task's
-    // first call at 10 ms. Catches a structure's place that only compiles beside the generated
+    // first call at 0 ms. Catches a structure's place that only compiles beside the generated
     // structure, which the orphan rule refuses once layer 1 holds it.
     let crate_root = format!(
         "{}
@@ -329,11 +326,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.DOUBLED"), Some(Value::LReal(3.0)));
     assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(3.0)));
     assert_eq!(program.value("MAIN.POINT.X"), Some(Value::LReal(1.0)));
@@ -371,7 +367,7 @@ impl Body for TankGuard {
 fn a_rust_block_holds_and_calls_a_structured_text_block() {
     // RU-38, RU-39: TANK_GUARD holds the Structured Text block HYSTERESIS as its field, which lies
     // inside TANK_GUARD's instance in the area, and calls it each call with IN := level, HIGH :=
-    // 10, LOW := 8. The levels 5, 12, 9 and 7 at the task's calls at 10, 20, 30 and 40 ms give Q
+    // 10, LOW := 8. The levels 5, 12, 9 and 7 at the task's calls at 0, 10, 20 and 30 ms give Q
     // FALSE (5 < 10), TRUE (12 > 10), TRUE (9 lies between 8 and 10: the block keeps its state)
     // and FALSE (7 < 8). The instance's own variables are the program's, IN the last level and Q
     // the alarm. Catches a held block that keeps no state from call to call, inputs that do not
@@ -426,10 +422,9 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    program
-        .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
-    for (time, expected) in [(10, false), (20, true), (30, true), (40, false)] {
+    // The task is due at its start (specification 10 §4.3): its four activations, at 0, 10, 20 and
+    // 30 ms, read the four levels.
+    for (time, expected) in [(0, false), (10, true), (20, true), (30, false)] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -507,7 +502,7 @@ fn layer_one_is_one_text_for_every_image() {
     // release image's build of one project write the same library, which holds both images'
     // modules, the debug one chosen by the cargo feature `hooks`, and SIZEOF of an address chosen
     // by the target's pointer width, 8 bytes on this 64-bit computer. Each image runs: TWICE(1.5) =
-    // 3.0 and WIDTH() = 8 at the task's first call at 10 ms. Catches a layer 1 that changes with
+    // 3.0 and WIDTH() = 8 at the task's first call at 0 ms. Catches a layer 1 that changes with
     // the image or the target, which a build of another one or the editor's command would rewrite
     // under a running build.
     let root = custom_project(
@@ -548,11 +543,10 @@ fn layer_one_is_one_text_for_every_image() {
     for image in [&debug.image, &release.image] {
         let mut program = load(image, &device).expect("the image loads");
         program.cold_start(Duration::ZERO).expect("the cold start");
-        for time in [0, 10] {
-            program
-                .scan(Duration::from_millis(time), &mut NoHooks)
-                .expect("the scan runs");
-        }
+        // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+        program
+            .scan(Duration::ZERO, &mut NoHooks)
+            .expect("the scan runs");
         assert_eq!(program.value("MAIN.DOUBLED"), Some(Value::LReal(3.0)));
         assert_eq!(program.value("MAIN.BYTES"), Some(Value::DInt(8)));
     }
@@ -591,7 +585,7 @@ fn a_held_blocks_public_methods_are_methods_of_its_binding() {
     // methods of its binding: each call gives METER its input SCALE = 2.0 first, so ADD(1.5) makes
     // the total 1.5 x 2.0 = 3.0 and ADD(2.0) 3.0 + 4.0 = 7.0, and takes the output LAST = 2.0;
     // TARE, which METER inherits from SCALE_BASE, gives 0.25; the `PROTECTED` HIDDEN, a method's
-    // default access, has no binding, at the task's first call at 10 ms. Catches a method that runs
+    // default access, has no binding, at the task's first call at 0 ms. Catches a method that runs
     // without the inputs given (total 0.0), an output not taken (LAST 0.0), an inherited method
     // missed, and a `PROTECTED` method bound.
     let root = custom_project(
@@ -665,11 +659,10 @@ END_CONFIGURATION
     assert!(!library.contains("pub fn HIDDEN"), "{library}");
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.WEIGHER.TOTAL"), Some(Value::LReal(7.0)));
     assert_eq!(program.value("MAIN.WEIGHER.LAST"), Some(Value::LReal(2.0)));
     assert_eq!(program.value("MAIN.WEIGHER.TARE"), Some(Value::LReal(0.25)));
@@ -708,7 +701,7 @@ fn a_rust_block_holds_a_block_of_a_namespace() {
     // RU-39, IEC §6.9: a field `st::Motion::ODOMETER` holds the block ODOMETER of the namespace
     // Motion, declared `odometer : Motion.ODOMETER;`, whose binding lies in the module
     // `st::Motion`: TRIP gives it DELTA = 1.5 and takes TOTAL = 0.0 + 1.5 = 1.5, at the task's first
-    // call at 10 ms. Catches a namespaced block's field refused or declared by its last name, and a
+    // call at 0 ms. Catches a namespaced block's field refused or declared by its last name, and a
     // binding outside its module.
     let root = custom_project(
         "rust-pous-structured-text-namespaced-block",
@@ -751,11 +744,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.TRIP.DISTANCE"), Some(Value::LReal(1.5)));
     assert_eq!(
         program.value("MAIN.TRIP.ODOMETER.TOTAL"),
@@ -791,7 +783,7 @@ fn a_rust_block_holds_a_class_and_calls_its_methods() {
     // RU-38, RU-39, IEC §6.6.5: a field `st::COUNTER_C` holds a class instance, whose binding has
     // the class's `PUBLIC` methods and no `call`, as a class has no body: RESET sets count to 0,
     // BUMP(4) to 4 and BUMP(3) to 7, which AFTER takes and the instance keeps, at the task's first
-    // call at 10 ms. Catches a class refused, a binding that calls a body the class has not, and a
+    // call at 0 ms. Catches a class refused, a binding that calls a body the class has not, and a
     // method that runs on another instance.
     let root = custom_project(
         "rust-pous-structured-text-held-class",
@@ -845,11 +837,10 @@ END_CONFIGURATION
     assert!(!library.contains("pub fn call("), "{library}");
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.TALLIER.AFTER"), Some(Value::DInt(7)));
     assert_eq!(
         program.value("MAIN.TALLIER.COUNTER.COUNT"),

@@ -192,7 +192,9 @@ fn lesson16_resource_schedule_keeps_native_probe_and_abort_in_physical_units() {
                 _ => None,
             })
             .collect();
-        if tick > 0 && tick % 2 == 0 {
+        // The 100 ms task runs at its start, tick 0, and every 100 ms after it, every second 50 ms tick
+        // (specification 10 §4.3).
+        if tick % 2 == 0 {
             assert_eq!(
                 starts,
                 vec![("MainTask", now)],

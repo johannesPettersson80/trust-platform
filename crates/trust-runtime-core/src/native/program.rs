@@ -465,8 +465,9 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         })
     }
 
-    /// Every task counts its next activation from `now` and its missed activations from zero
-    /// (specification 10 §4.3). Before the program's first scan this registers the tasks: an event
+    /// Every task counts its activations from `now`, its first deadline, and its missed activations
+    /// from zero (specification 10 §4.3): a periodic task is due at the first scan at or after
+    /// `now`. Before the program's first scan this registers the tasks: an event
     /// input (`SINGLE`) that is TRUE is taken as the last sample, so that the first scan sees no
     /// rising edge (specification 10 §4.1.1; specification 11 §6.2). Once the program has
     /// scanned, it resets the live task timing and clears the last samples, so that an event input
@@ -477,7 +478,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             let sample = !self.live && self.event_input(index);
             self.tasks[index].state = TaskState {
                 last_single: sample,
-                ..TaskState::new(now)
+                ..TaskState::new(now, self.tasks[index].interval)
             };
         }
     }

@@ -12,7 +12,7 @@
       "globals": {
         "count": {
           "type": "INT",
-          "value": 0
+          "value": 1
         }
       },
       "runtime_time_nanos": 0
@@ -24,7 +24,7 @@
       "globals": {
         "count": {
           "type": "INT",
-          "value": 1
+          "value": 2
         }
       },
       "runtime_time_nanos": 10000000
@@ -36,7 +36,7 @@
       "globals": {
         "count": {
           "type": "INT",
-          "value": 2
+          "value": 3
         }
       },
       "runtime_time_nanos": 20000000
@@ -48,7 +48,7 @@
       "globals": {
         "count": {
           "type": "INT",
-          "value": 3
+          "value": 4
         }
       },
       "runtime_time_nanos": 30000000
