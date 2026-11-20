@@ -10,7 +10,9 @@ Prerequisites:
 - [just](https://github.com/casey/just) (task runner used by the repo)
 
 Optional:
-- [sccache](https://github.com/mozilla/sccache) (for faster local Rust builds)
+- [sccache](https://github.com/mozilla/sccache), for faster local Rust builds: install it and set
+  `RUSTC_WRAPPER=sccache`, or `rustc-wrapper = "sccache"` under `[build]` in your own
+  `~/.cargo/config.toml`
 
 Clone and build:
 
