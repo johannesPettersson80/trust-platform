@@ -1,5 +1,6 @@
 // Screen tests of the HMI (specification 39, §18 phase 3; §19.2 Browser): the operator journey runs
-// against the tank-level example in simulation, the role locks against the equipment example; the
+// against the tank-level example in simulation, tutorial 24's alarm journey against a tank-level
+// runtime of its own, the role locks against the equipment example; the
 // reference page compares the drawing with its approved screenshots. CHROMIUM may name a browser of
 // its own.
 import { defineConfig } from "@playwright/test";
@@ -9,6 +10,8 @@ export const EQUIPMENT_PORT = Number(process.env.HMI_SCREEN_EQUIPMENT_PORT || 18
 const EQUIPMENT_CONTROL_PORT = Number(process.env.HMI_SCREEN_EQUIPMENT_CONTROL_PORT || 19481);
 const RANGES_PORT = Number(process.env.HMI_SCREEN_RANGES_PORT || 18482);
 const RANGES_CONTROL_PORT = Number(process.env.HMI_SCREEN_RANGES_CONTROL_PORT || 19482);
+const TUTORIAL_PORT = Number(process.env.HMI_SCREEN_TUTORIAL_PORT || 18485);
+const TUTORIAL_CONTROL_PORT = Number(process.env.HMI_SCREEN_TUTORIAL_CONTROL_PORT || 19485);
 
 export default defineConfig({
   testDir: "tests",
@@ -55,6 +58,14 @@ export default defineConfig({
     {
       command: `node serve-example.mjs hmi_equipment ${EQUIPMENT_PORT} ${EQUIPMENT_CONTROL_PORT}`,
       url: `http://127.0.0.1:${EQUIPMENT_PORT}/hmi/overview`,
+      timeout: 240_000,
+      reuseExistingServer: false,
+    },
+    {
+      // Tutorial 24's journey trips and resets the tank, so it runs on a runtime the operator journey
+      // does not share.
+      command: `node serve-example.mjs hmi_tank_level ${TUTORIAL_PORT} ${TUTORIAL_CONTROL_PORT}`,
+      url: `http://127.0.0.1:${TUTORIAL_PORT}/hmi/overview`,
       timeout: 240_000,
       reuseExistingServer: false,
     },
