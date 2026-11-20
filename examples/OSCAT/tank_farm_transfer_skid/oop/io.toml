@@ -1,6 +1,6 @@
 [io]
 drivers = [
-  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "tankfarm/cmd", topic_out = "tankfarm/alarm", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "tankfarm/cmd", topic_out = "tankfarm/alarm", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false, on_error = "warn" } }
 ]
 
 [[io.safe_state]]

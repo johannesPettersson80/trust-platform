@@ -392,10 +392,11 @@ For protocol-first commissioning, use:
     - `multi_driver`
   - each subfolder includes a runnable minimal project and step-by-step flow.
 
-Transport gating reminders:
+Transport reminders:
 
-- EtherCAT hardware transport is gated by `ethercat-wire` and unix-only for non-`mock` adapters.
-- OPC UA wire server is gated by `opcua-wire`.
+- The EtherCAT hardware transport (non-`mock` adapters) runs on unix targets only.
+- The released `trust-runtime` includes the EtherCAT and OPC UA transports: their build features
+  (`ethercat-wire`, `opcua-wire`) are on by default.
 
 ---
 

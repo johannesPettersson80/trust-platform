@@ -187,6 +187,16 @@ impl DebugControl {
         self.lock().live_values.try_upsert_var_write(target, value)
     }
 
+    /// Queue the writes `writes` together under one lock, so that no cycle boundary and no other
+    /// request comes between them, or none of them (specification 11 §6.8.1, "Writing
+    /// variables").
+    pub(crate) fn try_enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        self.lock().live_values.try_upsert_var_writes(writes)
+    }
+
     /// Force a global variable from a control or protocol request. A new target past the queue
     /// bound is refused.
     pub fn try_force_global(

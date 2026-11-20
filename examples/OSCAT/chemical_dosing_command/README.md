@@ -170,8 +170,8 @@ ST mechanics used:
 | `Dosing.EnqueueChlorine` | `%IX0.0` | IN |
 | `Dosing.ExecuteCommand` | `%IX0.1` | IN |
 | `Dosing.CalibrationValid` | `%IX0.2` | IN |
-| `Dosing.PHRaw` | `%IW0` | IN |
-| `Dosing.TankLevelRaw` | `%IW2` | IN |
+| `Dosing.PHRaw` | `%IW2` | IN |
+| `Dosing.TankLevelRaw` | `%IW4` | IN |
 | `Dosing.PumpStartOut` | `%QX0.0` | OUT |
 | `Dosing.RejectOut` | `%QX0.1` | OUT |
 

@@ -154,11 +154,11 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Cascade.ModeRequest` | `%IW0` | IN |
-| `Cascade.Room1PressureRaw` | `%IW2` | IN |
-| `Cascade.Room2PressureRaw` | `%IW4` | IN |
+| `Cascade.ModeRequest` | `%IW2` | IN |
+| `Cascade.Room1PressureRaw` | `%IW4` | IN |
+| `Cascade.Room2PressureRaw` | `%IW6` | IN |
 | `Cascade.DoorOpen` | `%IX0.0` | IN |
-| `Cascade.SupplyDamperRaw` | `%QW0` | OUT |
+| `Cascade.SupplyDamperRaw` | `%QW2` | OUT |
 | `Cascade.AlarmOut` | `%QX0.0` | OUT |
 
 Comms (from `oop/io.toml`): `modbus-tcp` (slave 160 on

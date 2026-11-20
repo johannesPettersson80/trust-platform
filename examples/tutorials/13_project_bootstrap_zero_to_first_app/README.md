@@ -112,7 +112,6 @@ interfaces = []
 [runtime.mesh]
 enabled = false
 listen = "127.0.0.1:15283"
-auth_token = ""
 publish = []
 subscribe = {}
 
@@ -140,12 +139,14 @@ Expected result:
 ## Step 5: Add I/O driver config (`io.toml`)
 
 Why: without `io.toml`, `%I/%Q` addresses may not be connected to a useful test
-driver. `loopback` gives safe local behavior for first validation.
+driver. `simulated` needs no hardware and keeps each input at the value you set, so
+`%IX0.0` is yours to change. (The `loopback` driver would copy `%QX0.0` back into
+`%IX0.0` at every cycle, which fights step 9's `NOT`.)
 
 ```bash
 cat > io.toml <<'TOML'
 [io]
-driver = "loopback"
+driver = "simulated"
 params = {}
 
 [[io.safe_state]]

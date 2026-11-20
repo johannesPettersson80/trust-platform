@@ -156,15 +156,15 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Network.LocalDemandRaw` | `%IW0` | IN |
-| `Network.NorthDemandRaw` | `%IW2` | IN |
-| `Network.EastDemandRaw` | `%IW4` | IN |
-| `Network.NorthAgeSeconds` | `%IW6` | IN |
-| `Network.EastAgeSeconds` | `%IW8` | IN |
+| `Network.LocalDemandRaw` | `%IW2` | IN |
+| `Network.NorthDemandRaw` | `%IW4` | IN |
+| `Network.EastDemandRaw` | `%IW6` | IN |
+| `Network.NorthAgeSeconds` | `%IW8` | IN |
+| `Network.EastAgeSeconds` | `%IW10` | IN |
 | `Network.NorthQualityGood` | `%IX0.0` | IN |
 | `Network.EastQualityGood` | `%IX0.1` | IN |
 | `Network.SuctionHealthy` | `%IX0.2` | IN |
-| `Network.PumpSpeedRaw` | `%QW0` | OUT |
+| `Network.PumpSpeedRaw` | `%QW2` | OUT |
 | `Network.StaleAlarmOut` | `%QX0.0` | OUT |
 
 Comms (from `oop/io.toml`): `mqtt` (broker `127.0.0.1:1883`, topics

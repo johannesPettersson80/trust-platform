@@ -9,8 +9,8 @@ VAR_CONFIG
     BoilerRoom.GasPressureOk AT %IX0.2 : BOOL;
     BoilerRoom.LowWaterOk AT %IX0.3 : BOOL;
     BoilerRoom.EStopHealthy AT %IX0.4 : BOOL;
-    BoilerRoom.OutdoorTempRaw AT %IW0 : INT;
-    BoilerRoom.SupplyTempRaw AT %IW2 : INT;
+    BoilerRoom.OutdoorTempRaw AT %IW2 : INT;
+    BoilerRoom.SupplyTempRaw AT %IW4 : INT;
     BoilerRoom.LeadBoilerEnable AT %QX0.0 : BOOL;
     BoilerRoom.LagBoilerEnable AT %QX0.1 : BOOL;
     BoilerRoom.AlarmOut AT %QX0.2 : BOOL;
