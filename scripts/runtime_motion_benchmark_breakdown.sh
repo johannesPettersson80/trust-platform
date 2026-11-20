@@ -53,12 +53,12 @@ run_bench move_absolute_only examples/plcopen_motion_single_axis_benchmarks/move
 run_bench full_demo_constants_once examples/plcopen_motion_single_axis_benchmarks/full_demo_constants_once "${common_watch[@]}"
 run_bench full_demo examples/plcopen_motion_single_axis_demo "${demo_watch[@]}"
 
-BUILD_MODE_ENV="${BUILD_MODE}" python3 - <<'PY'
+BUILD_MODE_ENV="${BUILD_MODE}" OUT_DIR_ENV="${OUT_DIR}" python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
-out_dir = Path('target/gate-artifacts/runtime-motion-benchmark-breakdown')
+out_dir = Path(os.environ['OUT_DIR_ENV'])
 build_mode = os.environ['BUILD_MODE_ENV']
 rows = []
 order = [
@@ -111,100 +111,6 @@ summary = (
     f"- warmup cycles: {runtime_floor['warmup_cycles']}\n\n"
     + header + sep + body
 )
-profile_names = [
-    'status_only',
-    'command_idle',
-    'move_absolute_only',
-    'full_demo',
-]
-profile_lines = ['\n## VM Profile Highlights\n']
-for name in profile_names:
-    report = json.loads((out_dir / f'{name}.json').read_text())['report']
-    vm_profile = report.get('vm_profile') or {}
-    if not vm_profile:
-        continue
-    profile_lines.append(f'\n### {name}\n')
-    profile_lines.append(
-        f"- executed: {vm_profile.get('register_programs_executed', 0)}\n"
-    )
-    profile_lines.append(
-        f"- fallbacks: {vm_profile.get('register_program_fallbacks', 0)}\n"
-    )
-    ref_ops = vm_profile.get('ref_ops', {})
-    if ref_ops:
-        profile_lines.append(
-            '- ref ops: '
-            f"load_ref={ref_ops.get('load_ref', 0)} "
-            f"store_ref={ref_ops.get('store_ref', 0)} "
-            f"load_ref_addr={ref_ops.get('load_ref_addr', 0)} "
-            f"ref_field={ref_ops.get('ref_field', 0)} "
-            f"ref_index={ref_ops.get('ref_index', 0)} "
-            f"load_dynamic={ref_ops.get('load_dynamic', 0)} "
-            f"store_dynamic={ref_ops.get('store_dynamic', 0)} "
-            f"instance_field_lookups={ref_ops.get('instance_field_lookups', 0)}\n"
-        )
-    call_ops = vm_profile.get('call_ops', {})
-    if call_ops:
-        profile_lines.append(
-            '- call ops: '
-            f"frame_pushes={call_ops.get('frame_pushes', 0)} "
-            f"frame_pops={call_ops.get('frame_pops', 0)} "
-            f"function_block_call_entries={call_ops.get('function_block_call_entries', 0)} "
-            f"parameter_bindings={call_ops.get('parameter_bindings', 0)} "
-            f"output_copy_backs={call_ops.get('output_copy_backs', 0)}\n"
-        )
-    value_ops = vm_profile.get('value_ops', {})
-    if value_ops:
-        profile_lines.append(
-            '- value ops: '
-            f"const_load_clones={value_ops.get('const_load_clones', 0)} "
-            f"register_read_clones={value_ops.get('register_read_clones', 0)} "
-            f"register_read_moves={value_ops.get('register_read_moves', 0)} "
-            f"read_value_clones={value_ops.get('read_value_clones', 0)} "
-            f"binding_expr_clones={value_ops.get('binding_expr_clones', 0)} "
-            f"output_value_clones={value_ops.get('output_value_clones', 0)}\n"
-        )
-    lowering_cache = vm_profile.get('register_lowering_cache', {})
-    if lowering_cache:
-        profile_lines.append(
-            '- lowering cache: '
-            f"hits={lowering_cache.get('hits', 0)} "
-            f"misses={lowering_cache.get('misses', 0)} "
-            f"hit_ratio={lowering_cache.get('hit_ratio', 0.0):.4f} "
-            f"cached={lowering_cache.get('cached_entries', 0)}/"
-            f"{lowering_cache.get('cache_capacity', 0)}\n"
-        )
-    tier1 = vm_profile.get('tier1_specialized_executor', {})
-    if tier1:
-        profile_lines.append(
-            '- tier1 specialized executor: '
-            f"compile_attempts={tier1.get('compile_attempts', 0)} "
-            f"compile_successes={tier1.get('compile_successes', 0)} "
-            f"compile_failures={tier1.get('compile_failures', 0)} "
-            f"executions={tier1.get('block_executions', 0)}\n"
-        )
-        compile_failure_reasons = tier1.get('compile_failure_reasons', [])
-        if compile_failure_reasons:
-            profile_lines.append('- tier1 compile failure reasons:\n')
-            for reason in compile_failure_reasons[:8]:
-                profile_lines.append(
-                    f"  - {reason['reason']}: {reason['count']}\n"
-                )
-    hot_blocks = vm_profile.get('hot_blocks', [])
-    if hot_blocks:
-        profile_lines.append('- top hot blocks:\n')
-        for block in hot_blocks[:5]:
-            profile_lines.append(
-                f"  - pou={block['pou_id']} block={block['block_id']} pc={block['start_pc']} hits={block['hits']}\n"
-            )
-    fallback_reasons = vm_profile.get('fallback_reasons', [])
-    if fallback_reasons:
-        profile_lines.append('- fallback reasons:\n')
-        for reason in fallback_reasons[:5]:
-            profile_lines.append(
-                f"  - {reason['reason']}: {reason['count']}\n"
-            )
-summary += ''.join(profile_lines)
 (out_dir / 'summary.md').write_text(summary)
 (out_dir / 'summary.json').write_text(json.dumps({'build_mode': build_mode, 'rows': rows}, indent=2))
 print(summary)
