@@ -4,11 +4,11 @@ use super::diagnostics::{
     check_configuration_semantics, check_cyclomatic_complexity, check_dut_extends_semantics,
     check_empty_named_actuals, check_extends_implements_semantics,
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
-    check_property_accessors, check_rust_pous, check_shared_global_task_hazards,
-    check_test_attributes, check_unreachable_statements, check_using_directives,
-    collect_used_symbols, compute_host_clock_sources, expression_by_id, expression_context,
-    resolve_pending_types_with_table, shared_global_owners, type_check_file, used_external_globals,
-    CallFacts, ExpressionIndex, HostClockSources,
+    check_overlapping_located_storage, check_property_accessors, check_rust_pous,
+    check_shared_global_task_hazards, check_test_attributes, check_unreachable_statements,
+    check_using_directives, collect_used_symbols, compute_host_clock_sources, expression_by_id,
+    expression_context, resolve_pending_types_with_table, shared_global_owners, type_check_file,
+    used_external_globals, CallFacts, ExpressionIndex, HostClockSources,
 };
 use super::project_configuration::project_config_roots;
 use super::project_constants::{project_constant_expressions, project_declared_expressions};
@@ -597,6 +597,14 @@ pub(super) fn analyze_query(
             &call_facts,
             &mut builder,
         );
+    }
+    if !super::located_storage::source_located_storage(db, target_input)
+        .declarations
+        .is_empty()
+    {
+        let (located, several_resources) =
+            super::located_storage::project_located_storage(db, project.files(db));
+        check_overlapping_located_storage(file_id, &located, several_resources, &mut builder);
     }
     add_unused_symbol_warnings(symbols, file_id, project_used.as_ref(), &mut builder);
     diagnostics.extend(builder.finish());

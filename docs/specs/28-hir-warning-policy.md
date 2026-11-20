@@ -310,3 +310,40 @@ must also build in CODESYS. Like every warning but the unused ones it applies to
 library files too (specification 14 §7.6). The IEC profile has no such warning:
 IEC 61131-3 Ed.3 lists no keyword table, and its `Std_Func_Name` production is an
 incomplete list.
+
+## 11. Overlapping located storage
+
+`OverlappingLocatedStorage` (W017) is emitted when two located declarations of
+one project take storage that shares a bit of the same process-image area
+without being the same item. A located declaration is a variable declared `AT`
+a fully specified direct address, in any variable section, or a `VAR_CONFIG`
+entry that gives one. A flat address is a byte offset of its area
+(specification 11 §6.4): `%IX<n>.<b>`, or `%I<n>.<b>`, is bit `b` of byte `n`;
+`%IB<n>` is byte `n`, `%IW<n>` bytes `n` and `n+1`, `%ID<n>` bytes `n` to
+`n+3` and `%IL<n>` bytes `n` to `n+7`; the same holds for `%Q` and `%M`, and
+the letters compare without regard to case. Two declarations with the same
+area, offset and size are one item that two declarations read, as two programs
+read one input, and are not reported. So `%IX0.0` and `%IW0` overlap, and so do
+`%IW0` and `%IW1`, which share byte 1, while `%IW0` and `%IW2` do not.
+
+Writing one of two overlapping declarations changes the other: with
+`StartCmd AT %IX0.0` and `LevelRaw AT %IW0`, writing the level 200 (16#00C8)
+clears `StartCmd` (checklist G235). IEC 61131-3 Ed.3 §6.5.5 (Table 16) does not
+forbid overlapping direct variables, and a status word read whole and by its
+bits can be meant, so this is a warning, as CODESYS Static Analysis reports
+"Overlapping memory areas" (rule SA0028), not an error.
+
+The warning is reported on each overlapping declaration, at its name or its
+`VAR_CONFIG` access path, in its own file. Its message names the address and
+the declarations it overlaps, each with its address, at most three followed by
+the count of the rest; those in the same file are related locations. An address
+gives the storage its size names: a declaration whose type is wider, such as a
+string at a byte address, is compared by that size, so an overlap beyond it is
+not reported. Not checked are a wildcard address (`%I*`, which a `VAR_CONFIG`
+entry locates), a hierarchical address (`%IX1.2.3`, outside the flat bytes),
+the relative address of a `STRUCT OVERLAP` member (`%B0`, which overlaps by
+design) and any declaration inside a type declaration. A project with more than
+one `RESOURCE` is not checked: each resource has a process image of its own
+(specification 11 §6.4), and which resource a declaration belongs to is not
+resolved. Like every warning but the unused ones it applies to library files
+too (specification 14 §7.6).

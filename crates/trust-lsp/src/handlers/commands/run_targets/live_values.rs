@@ -100,12 +100,18 @@ struct SpeedArgs {
 pub(super) fn answer(action: &str, argument: Value) -> Result<Value, String> {
     if action == "speed" {
         let args: SpeedArgs = decode(argument)?;
-        let report = status_report(&args.endpoint, args.auth_token.as_deref());
-        return Ok(json!({ "ok": true, "read": report.as_ref().map(speed_read) }));
+        return Ok(speed(&args, &Network));
     }
     let args: LiveArgs = decode(argument)?;
     let (status, ads) = live_values(&args, &Network);
     Ok(json!({ "ok": true, "status": status, "adsReport": ads }))
+}
+
+/// The `speed` answer for `args`: the speed read of the `status` that `runtimes` gives at the
+/// endpoint, `null` when it gives none.
+fn speed(args: &SpeedArgs, runtimes: &dyn Runtimes) -> Value {
+    let report = runtimes.status(&args.endpoint, args.auth_token.as_deref());
+    json!({ "ok": true, "read": report.as_ref().map(speed_read) })
 }
 
 /// The runtime that answers the requests: the network, or a test's stand-in.
@@ -123,7 +129,10 @@ struct Network;
 
 impl Runtimes for Network {
     fn status(&self, endpoint: &str, token: Option<&str>) -> Option<Value> {
-        status_report(endpoint, token)
+        match send(endpoint, token, "status", None, STATUS_TIMEOUT) {
+            Outcome::Result(result) => Some(result),
+            _ => None,
+        }
     }
 
     fn ads_status(&self, endpoint: &str, token: Option<&str>) -> Option<Value> {
@@ -135,14 +144,6 @@ impl Runtimes for Network {
 
     fn reachable(&self, endpoint: &str) -> bool {
         reachable_reused(endpoint)
-    }
-}
-
-/// The `status` answer at `endpoint`, `None` when the runtime does not answer it.
-fn status_report(endpoint: &str, token: Option<&str>) -> Option<Value> {
-    match send(endpoint, token, "status", None, STATUS_TIMEOUT) {
-        Outcome::Result(result) => Some(result),
-        _ => None,
     }
 }
 
