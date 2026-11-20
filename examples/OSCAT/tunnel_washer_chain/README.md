@@ -188,8 +188,8 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Washer.SoilLevelRaw` | `%IW0` | IN |
-| `Washer.ConductivityRaw` | `%IW2` | IN |
+| `Washer.SoilLevelRaw` | `%IW2` | IN |
+| `Washer.ConductivityRaw` | `%IW4` | IN |
 | `Washer.OperatorAvailable` | `%IX0.0` | IN |
 | `Washer.DosePumpOut` | `%QX0.0` | OUT |
 | `Washer.RejectOut` | `%QX0.1` | OUT |

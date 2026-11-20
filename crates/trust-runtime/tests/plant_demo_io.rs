@@ -38,9 +38,11 @@ fn plant_demo_configuration_binds_io_and_tasks() {
         !runtime.tasks().is_empty(),
         "expected CONFIGURATION TASK entries to be registered"
     );
+    // SpeedRaw's word takes bytes 2 and 3 of its own: byte 0 holds StartCmd, and a word at %IW0 would
+    // rewrite it (specification 11 §6.4; checklist G235).
     for (variable, address) in [
         ("P1.StartCmd", "%IX0.0"),
-        ("P1.SpeedRaw", "%IW0"),
+        ("P1.SpeedRaw", "%IW2"),
         ("P1.HaltReq", "%QX0.0"),
     ] {
         let symbol = runtime

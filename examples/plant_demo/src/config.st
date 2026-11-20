@@ -14,7 +14,7 @@ TASK ScreenTask (INTERVAL := T#250ms, PRIORITY := 10);
 PROGRAM Screens WITH ScreenTask : Screens;
 VAR_CONFIG
     P1.StartCmd AT %IX0.0 : BOOL;
-    P1.SpeedRaw AT %IW0 : INT;
+    P1.SpeedRaw AT %IW2 : INT;
     P1.HaltReq AT %QX0.0 : BOOL;
 END_VAR
 END_CONFIGURATION
