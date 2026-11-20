@@ -473,3 +473,65 @@ fn tutorial_16_configuration_builds_and_validates() {
         );
     }
 }
+
+#[test]
+fn tutorial_15_configurations_build_and_validate() {
+    // examples/tutorials/15_multi_plc_discovery_mesh/README.md: step 1 copies tutorial 13's project
+    // to /tmp/trust-plc-a and /tmp/trust-plc-b, steps 2 and 3 write PLC-A's src/Main.st and both
+    // runtime.toml files with here-documents, and step 4 builds and validates both (`Project ok`).
+    // Catches a configuration the runtime refuses, as the tutorial's `auth_token = ""` in both meshes
+    // was ("runtime.mesh.auth_token must not be empty").
+    let tutorial_13 = here_documents(
+        &std::fs::read_to_string(
+            repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
+        )
+        .expect("tutorial 13's README"),
+    );
+    let tutorial_15 = here_documents(
+        &std::fs::read_to_string(
+            repo_root().join("examples/tutorials/15_multi_plc_discovery_mesh/README.md"),
+        )
+        .expect("tutorial 15's README"),
+    );
+    let mut results = Vec::new();
+    for plc in ["a", "b"] {
+        let copy = format!("/tmp/trust-plc-{plc}/");
+        assert!(
+            tutorial_15
+                .iter()
+                .any(|(file, _)| *file == format!("{copy}runtime.toml")),
+            "step 3 writes PLC-{plc}'s runtime.toml"
+        );
+        let project = trust_test_support::unique_temp_path(&format!("tutorial-15-{plc}"));
+        let written = tutorial_13
+            .iter()
+            .cloned()
+            .chain(tutorial_15.iter().filter_map(|(file, text)| {
+                file.strip_prefix(&copy)
+                    .map(|relative| (relative.to_string(), text.clone()))
+            }));
+        for (file, text) in written {
+            let path = project.join(&file);
+            std::fs::create_dir_all(path.parent().expect("a folder")).expect("the folder");
+            std::fs::write(&path, text).expect("the file");
+        }
+        for args in [
+            vec!["build", "--project", ".", "--sources", "src"],
+            vec!["validate", "--project", "."],
+        ] {
+            let output = trust_runtime_command()
+                .args(&args)
+                .current_dir(&project)
+                .output()
+                .expect("run trust-runtime");
+            results.push((
+                format!("PLC-{plc}: trust-runtime {}", args.join(" ")),
+                output,
+            ));
+        }
+        let _ = std::fs::remove_dir_all(&project);
+    }
+    for (what, output) in results {
+        assert!(output.status.success(), "{what}: {}", describe(&output));
+    }
+}

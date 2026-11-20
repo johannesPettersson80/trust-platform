@@ -783,6 +783,16 @@ components and that no other step installs a toolchain, component or target.
 A job that needs nightly, for Miri or fuzzing, installs it in a setup step of
 its own and names the toolchain in each `cargo` command.
 
+A clone of the repository builds with that toolchain alone: the repository's
+cargo configuration (`.cargo/config.toml`) names no compiler wrapper, and a
+developer who wants sccache sets `RUSTC_WRAPPER=sccache` (`CONTRIBUTING.md`).
+Until 20 November 2026 it named `sccache`, so `cargo build` on a computer
+without sccache failed at its first `rustc` call, every workflow switched the
+wrapper off, and the IEC 61131-3 conformance suite's CI had to do the same to
+build truST. The workflow tests check that the configuration names no wrapper.
+A `cross` build passes an empty `RUSTC_WRAPPER` into its container, which has
+no wrapper, whatever the caller's environment sets.
+
 ### Documentation that follows the product
 
 The documentation is tested against the product, not only for its links,
