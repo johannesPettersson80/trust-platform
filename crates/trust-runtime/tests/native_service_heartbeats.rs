@@ -94,11 +94,11 @@ fn fresh(ok: bool, age_ms: i64) -> (Value, Value) {
 
 #[test]
 fn a_program_gates_on_the_heartbeat_of_a_service_its_trust_toml_declares() {
-    // RU-63 with specification 08 §5A, worked by hand on the task's logical time: the task is not
-    // due at 0 (specification 10 §4.3), so its first call, at 10 ms, keeps heartbeat 0 without a
-    // change: not fresh. The service then writes 1 into the global, as its SDK does: at 20 ms the
-    // block counts the change, fresh with AGE 0; unchanged at 1020 ms, AGE is exactly the 1 s
-    // timeout, still fresh; at 1030 ms it is stale. Catches a project whose services' globals the
+    // RU-63 with specification 08 §5A, worked by hand on the task's logical time: the task is due
+    // at its start (specification 10 §4.3), so its first call, at 0 ms, keeps heartbeat 0 without a
+    // change: not fresh. The service then writes 1 into the global, as its SDK does: at 10 ms the
+    // block counts the change, fresh with AGE 0; unchanged at 1010 ms, AGE is exactly the 1 s
+    // timeout, still fresh; at 1020 ms it is stale. Catches a project whose services' globals the
     // build does not declare (the program would not compile), a heartbeat of another type, and a
     // global the program does not read.
     let root = project("service-heartbeats");
@@ -116,8 +116,7 @@ fn a_program_gates_on_the_heartbeat_of_a_service_its_trust_toml_declares() {
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
     assert_eq!(program.value("RECIPE_HEARTBEAT"), Some(Value::UDInt(0)));
-    assert_eq!(after(&mut program, 0).0, Value::Bool(false));
-    assert_eq!(after(&mut program, 10), fresh(false, 0));
+    assert_eq!(after(&mut program, 0), fresh(false, 0));
     let (heartbeat, _) = program
         .image()
         .find_symbol("RECIPE_HEARTBEAT")
@@ -125,9 +124,9 @@ fn a_program_gates_on_the_heartbeat_of_a_service_its_trust_toml_declares() {
     program
         .write_symbol(heartbeat, &Value::UDInt(1))
         .expect("the service's heartbeat");
-    assert_eq!(after(&mut program, 20), fresh(true, 0));
-    assert_eq!(after(&mut program, 1020), fresh(true, 1000));
-    assert_eq!(after(&mut program, 1030), fresh(false, 1010));
+    assert_eq!(after(&mut program, 10), fresh(true, 0));
+    assert_eq!(after(&mut program, 1010), fresh(true, 1000));
+    assert_eq!(after(&mut program, 1020), fresh(false, 1010));
 }
 
 #[test]

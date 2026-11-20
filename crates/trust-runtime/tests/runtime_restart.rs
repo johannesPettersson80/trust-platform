@@ -159,9 +159,11 @@ END_PROGRAM
             .sum()
     };
 
+    // The deadlines 0, 10, 20 and 30 ms passed before the first tick, at 30 ms: one run, three
+    // missed (specification 10 §4.3: the task's first deadline is its start).
     clock.advance(Duration::from_millis(30));
     runner.tick().expect("pre-restart cycle");
-    assert_eq!(missed(), 2);
+    assert_eq!(missed(), 3);
 
     runner.restart(RestartMode::Warm).expect("warm restart");
     let _ = missed();

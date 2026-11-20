@@ -33,8 +33,8 @@ pub fn nibble(cx: &mut Cx, value: Byte) -> Result<Byte, Fault> {
 fn a_call_passes_rust_types_of_structured_text_types() {
     // RU-25, RU-39: a binding takes and gives the Rust type a Rust POU writes for each
     // elementary type, `Time` for TIME and `Byte` for BYTE: LATER(T#1s, 10 ms) is T#1s + T#10ms =
-    // T#1010ms, and LOW_NIBBLE(16#A7) is 16#A7 AND 16#0F = 16#07, at the task's first call at 10
-    // ms. Catches a value passed as its cell's raw form in the wrong unit, and a result left in
+    // T#1010ms, and LOW_NIBBLE(16#A7) is 16#A7 AND 16#0F = 16#07, at the task's first call at 0
+    // ms, its start. Catches a value passed as its cell's raw form in the wrong unit, and a result left in
     // the generated code's form.
     let root = custom_project(
         "rust-pous-structured-text-types",
@@ -82,11 +82,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(
         program.value("MAIN.NEXT"),
         Some(Value::Time(Duration::from_millis(1_010)))
@@ -125,7 +124,7 @@ impl Body for Stretcher {
 fn a_held_block_passes_rust_types_of_structured_text_types() {
     // RU-25, RU-39: a held block's inputs and outputs are the Rust types a Rust POU writes for
     // them, `Time` for TIME and `Byte` for BYTE: STRETCH gives PT + PT = T#250ms + T#250ms =
-    // T#500ms and 16#A7 AND 16#0F = 16#07 at the task's first call at 10 ms, and keeps PT, the
+    // T#500ms and 16#A7 AND 16#0F = 16#07 at the task's first call at 0 ms, and keeps PT, the
     // input the Rust block gave it. Catches an input or an output passed as its cell's raw form.
     let root = custom_project(
         "rust-pous-structured-text-held-types",
@@ -173,11 +172,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(
         program.value("MAIN.DOUBLED"),
         Some(Value::Time(Duration::from_millis(500)))
@@ -224,7 +222,7 @@ fn strings_pass_through_calls_and_held_blocks() {
     // RU-25, RU-38, RU-39: a call passes a STRING[10] input and gives a STRING[20] result as the
     // Rust POU's `Str<10>` and `Str<20>`, and a held block's STRING inputs and outputs are `Str<8>`
     // and `Str<12>`: GREET('Ann') = 'Hello ' + 'Ann' = 'Hello Ann', and TAGGER('pump') = '#pump',
-    // at the task's first call at 10 ms; the instance keeps its input. Catches a string passed as
+    // at the task's first call at 0 ms; the instance keeps its input. Catches a string passed as
     // its cells' bytes without its length, and a result left in the generated code's cell.
     let root = custom_project(
         "rust-pous-structured-text-strings",
@@ -276,11 +274,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(
         program.value("MAIN.MESSAGE"),
         Some(Value::String("Hello Ann".into()))
@@ -346,7 +343,7 @@ fn arrays_pass_through_calls_and_held_blocks() {
     // ARRAY[0..2] OF INT result as the Rust POU's `Array<f64, 1, 3>` and `Array<i16, 0, 3>`, and a
     // held block's ARRAY[1..2] OF DINT input is `Array<i32, 1, 2>`: SUM3([1.0, 2.0, 3.5]) = 6.5,
     // RAMP(10) = [0, 10, 20], and ACCUM's total after one call with 4 and 5 is 0 + 4 + 5 = 9, at the
-    // task's first call at 10 ms; the instance keeps its samples. Catches elements that change
+    // task's first call at 0 ms; the instance keeps its samples. Catches elements that change
     // places, a lower bound taken for the first index, and a result left in the generated cells.
     let root = custom_project(
         "rust-pous-structured-text-arrays",
@@ -414,11 +411,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(6.5)));
     assert_eq!(
         items(program.value("MAIN.RAMP")),
@@ -552,11 +548,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.NORM"), Some(Value::LReal(7.0)));
     assert_eq!(program.value("MAIN.SWAP"), Some(Value::LReal(21.0)));
     assert_eq!(program.value("MAIN.LAST_Y"), Some(Value::LReal(3.0)));
@@ -611,7 +606,7 @@ fn a_structure_binding_starts_at_its_declared_initial_values() {
     // default, the value a variable of the type starts at: LOW -5.0, TAG 'ok', STEPS [3, 4],
     // WAIT T#250ms and MASK 16#0F as LIMITS declares them, AT_CORNER.Y -1.0 as CORNER declares it
     // (IEC §6.4.4.6.2), and WIDTH(LIMITS) = HIGH - LOW = 20.0 - (-5.0) = 25.0, at the task's first
-    // call at 10 ms. Catches a default at the field types' zeros (0.0, '', 0, T#0s, 16#00) and a
+    // call at 0 ms. Catches a default at the field types' zeros (0.0, '', 0, T#0s, 16#00) and a
     // `Default` other than the `Declared` default.
     let root = custom_project(
         "rust-pous-structured-text-defaults",
@@ -668,11 +663,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     let reader = |name: &str| program.value(&format!("MAIN.READER.{name}"));
     assert_eq!(reader("LOW"), Some(Value::LReal(-5.0)));
     assert_eq!(reader("TAG"), Some(Value::String("ok".into())));
@@ -744,7 +738,7 @@ fn two_dimensional_arrays_pass_through_calls_and_held_blocks() {
     // M[1, 2] + 10 x M[2, 1] = 2.0 + 10 x 3.0 = 32.0 (23.0 for a transposed matrix); MARKS gives
     // [0..1, 0..2] with 1 at [0, 0] and 7 at [1, 2], so MARKED = 7 x 10 + 1 = 71; GRID counts the
     // two TRUE cells of [1..2, 1..3] and writes FLIPPED[3, 1] = CELLS[1, 3] = TRUE, at the task's
-    // first call at 10 ms. Catches a matrix passed as its transpose, a result of rows in the wrong
+    // first call at 0 ms. Catches a matrix passed as its transpose, a result of rows in the wrong
     // order, and a held block's matrix left in the generated cells.
     let root = custom_project(
         "rust-pous-structured-text-matrices",
@@ -818,11 +812,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.CROSS_VALUE"), Some(Value::LReal(32.0)));
     assert_eq!(program.value("MAIN.MARKED_VALUE"), Some(Value::DInt(71)));
     assert_eq!(program.value("MAIN.GRIDDER.LIT"), Some(Value::DInt(2)));
@@ -853,7 +846,7 @@ fn a_namespaces_pous_and_types_are_bound_in_its_module() {
     // RU-39, IEC §6.9: a POU and a data type in the namespace Motion, as a library's are, have their
     // bindings in the module `st::Motion`: AXIS starts at POS 1.0 and SPEED 0.0, MOVE_BY(.., 2.5)
     // gives POS 3.5, FASTER(.., GEAR::HIGH = 3) gives SPEED 3.0, so STEPPED_AXIS = 3.5 x 10 + 3.0 =
-    // 38.0, at the task's first call at 10 ms; `st::Motion::GEAR::HIGH` names the enumeration GEAR.
+    // 38.0, at the task's first call at 0 ms; `st::Motion::GEAR::HIGH` names the enumeration GEAR.
     // Catches a namespaced POU the build cannot find, a binding outside its module, and a type
     // path that names the module's own item from another module wrongly.
     let root = custom_project(
@@ -919,10 +912,9 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.STEPPED"), Some(Value::LReal(38.0)));
 }

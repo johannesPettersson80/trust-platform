@@ -77,10 +77,12 @@ END_PROGRAM
     let periodic = "P1";
     let event = "P2";
 
+    // Specification 10 §4.3: the 10 ms task is due at its start, 0 ms, then at 10 and 20 ms; the
+    // event task runs at the rising edge of its input.
     runner.tick().unwrap();
     assert_counter(
         runner.program().read_variable(&format!("{periodic}.count")),
-        0,
+        1,
     );
     assert_counter(runner.program().read_variable(&format!("{event}.count")), 0);
 
@@ -93,7 +95,7 @@ END_PROGRAM
 
     assert_counter(
         runner.program().read_variable(&format!("{periodic}.count")),
-        1,
+        2,
     );
     assert_counter(runner.program().read_variable(&format!("{event}.count")), 1);
 
@@ -106,7 +108,7 @@ END_PROGRAM
 
     assert_counter(
         runner.program().read_variable(&format!("{periodic}.count")),
-        2,
+        3,
     );
     assert_counter(runner.program().read_variable(&format!("{event}.count")), 1);
 }
@@ -143,9 +145,11 @@ END_PROGRAM
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
+    // The deadlines 0, 5, 10 and 15 ms passed before the first tick, at 15 ms: one run, three
+    // missed (specification 10 §4.3: the task's first deadline is its start).
     clock.advance(Duration::from_millis(15));
     runner.tick().unwrap();
-    assert_eq!(overruns(&metrics, "Fast"), Some(2));
+    assert_eq!(overruns(&metrics, "Fast"), Some(3));
 
     runner
         .program_mut()
@@ -179,18 +183,21 @@ END_PROGRAM
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
     let program = "P";
 
+    // Specification 10 §4.3: the task runs at its start, 0 ms, and at 10 ms; the step back to 2 ms
+    // runs nothing and counts nothing, and 20 ms is its next deadline.
+    runner.tick().unwrap();
     clock.set_time(Duration::from_millis(10));
     runner.tick().unwrap();
     assert_counter(
         runner.program().read_variable(&format!("{program}.count")),
-        1,
+        2,
     );
 
     clock.set_time(Duration::from_millis(2));
     runner.tick().unwrap();
     assert_counter(
         runner.program().read_variable(&format!("{program}.count")),
-        1,
+        2,
     );
     assert_eq!(overruns(&metrics, "Fast"), Some(0));
 
@@ -198,7 +205,7 @@ END_PROGRAM
     runner.tick().unwrap();
     assert_counter(
         runner.program().read_variable(&format!("{program}.count")),
-        2,
+        3,
     );
     assert_eq!(overruns(&metrics, "Fast"), Some(0));
 }
@@ -223,6 +230,8 @@ END_PROGRAM
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
     let program = "P";
 
+    // The deadlines 0, 10, ..., 50 ms passed before the first tick, at 55 ms: one run, due at the
+    // start, and five missed (specification 10 §4.3).
     clock.set_time(Duration::from_millis(55));
     runner.tick().unwrap();
 
@@ -230,7 +239,7 @@ END_PROGRAM
         runner.program().read_variable(&format!("{program}.count")),
         1,
     );
-    assert_eq!(overruns(&metrics, "Fast"), Some(4));
+    assert_eq!(overruns(&metrics, "Fast"), Some(5));
 }
 
 #[test]
