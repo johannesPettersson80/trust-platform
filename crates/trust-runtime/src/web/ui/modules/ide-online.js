@@ -289,13 +289,12 @@ async function onlineScanOnce() {
       timeoutMs: 3000,
     });
     const items = Array.isArray(result.items) ? result.items : [];
+    // The runtime gives each entry's web URL (scheme, address and port), or none when the
+    // announcement has no web port (specification 11, runtime discovery).
     onlineState.discoveredRuntimes = items.map((item) => ({
       id: item.id,
       name: item.name || item.id,
-      address: Array.isArray(item.addresses) && item.addresses.length > 0
-        ? `${item.addresses[0]}:${item.web_port || 18080}`
-        : null,
-      webPort: item.web_port || 18080,
+      url: typeof item.web_url === "string" ? item.web_url : null,
       state: item.last_seen_ns > 0 ? "online" : "offline",
       lastSeen: item.last_seen_ns,
     }));
@@ -333,10 +332,12 @@ function onlineRenderDiscovered() {
         <span class="online-rt-icon">${stateIcon}</span>
         <div>
           <strong>${escapeHtml(rt.name)}</strong>
-          <span class="muted" style="font-size:11px">${escapeHtml(rt.address || "unknown")}</span>
+          <span class="muted" style="font-size:11px">${escapeHtml(rt.url ? onlineTargetDisplay(rt.url) : "no web address announced")}</span>
         </div>
       </div>
-      <button type="button" class="btn ghost" data-connect-addr="${escapeAttr(rt.address || "")}" data-connect-name="${escapeAttr(rt.name)}">Connect</button>
+      ${rt.url
+        ? `<button type="button" class="btn ghost" data-connect-addr="${escapeAttr(rt.url)}" data-connect-name="${escapeAttr(rt.name)}">Connect</button>`
+        : ""}
     </div>`;
   }
   container.innerHTML = html;

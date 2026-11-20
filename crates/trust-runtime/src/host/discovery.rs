@@ -49,6 +49,31 @@ impl DiscoveryEntry {
             last_seen_ns: self.last_seen_ns,
         }
     }
+
+    /// The host and port of this runtime's web server, `host:port` with an IPv6 address in
+    /// brackets: its preferred announced address, by the runtime cloud's choice, and its announced
+    /// web port. `None` when it announces no web port or no usable address (specification 11,
+    /// runtime discovery).
+    #[must_use]
+    pub fn web_authority(&self) -> Option<String> {
+        let port = self.web_port?;
+        let host =
+            match crate::runtime_cloud::projection::select_preferred_peer_address(&self.addresses)?
+            {
+                IpAddr::V4(v4) => v4.to_string(),
+                IpAddr::V6(v6) => format!("[{v6}]"),
+            };
+        Some(format!("{host}:{port}"))
+    }
+
+    /// The URL of this runtime's web server: `https` when it announces TLS, `http` otherwise, and
+    /// its [`web_authority`](Self::web_authority).
+    #[must_use]
+    pub fn web_url(&self) -> Option<String> {
+        let scheme = if self.web_tls { "https" } else { "http" };
+        self.web_authority()
+            .map(|authority| format!("{scheme}://{authority}"))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -520,6 +545,51 @@ fn now_ns() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn announced(addresses: Vec<IpAddr>, web_port: Option<u16>, web_tls: bool) -> DiscoveryEntry {
+        DiscoveryEntry {
+            id: SmolStr::new("plc-b"),
+            name: SmolStr::new("PlcB"),
+            addresses,
+            web_port,
+            web_tls,
+            mesh_port: None,
+            control: None,
+            host_group: None,
+            last_seen_ns: 1,
+        }
+    }
+
+    /// The web URL is the announced scheme, the preferred address and the announced web port:
+    /// the IPv4 loopback before another IPv4 address and before IPv6, an IPv6 address in brackets,
+    /// `https` for an announcement of TLS. No web port, or only an unspecified address, gives no
+    /// URL. Catches a URL from the first address listed, an IPv6 host without brackets, a scheme
+    /// that ignores TLS, and a port made up when none was announced (the browser IDE used 18080).
+    #[test]
+    fn the_web_url_is_the_announced_scheme_preferred_address_and_web_port() {
+        use std::net::{Ipv4Addr, Ipv6Addr};
+        let documentation = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 5));
+        let lan = IpAddr::V4(Ipv4Addr::new(192, 168, 77, 11));
+        let loopback = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        assert_eq!(
+            announced(vec![documentation, lan, loopback], Some(8080), false).web_url(),
+            Some("http://127.0.0.1:8080".to_string())
+        );
+        assert_eq!(
+            announced(vec![documentation, lan], Some(8443), true).web_url(),
+            Some("https://192.168.77.11:8443".to_string())
+        );
+        assert_eq!(
+            announced(vec![documentation], Some(8081), false).web_authority(),
+            Some("[2001:db8::5]:8081".to_string())
+        );
+        assert_eq!(announced(vec![lan], None, false).web_url(), None);
+        assert_eq!(
+            announced(vec![IpAddr::V4(Ipv4Addr::UNSPECIFIED)], Some(8080), false).web_url(),
+            None
+        );
+        assert_eq!(announced(Vec::new(), Some(8080), false).web_url(), None);
+    }
 
     #[test]
     fn discovery_entry_maps_properties() {
