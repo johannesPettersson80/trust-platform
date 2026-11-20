@@ -49,7 +49,7 @@ tls = false
 enabled = true
 sample_interval_ms = 1000
 mode = "allowlist"
-include = ["StartCmd", "RunLamp"]
+include = ["P1.StartCmd", "P1.LampOut"]
 history_path = "history/historian.jsonl"
 max_entries = 20000
 prometheus_enabled = true
@@ -59,7 +59,9 @@ prometheus_path = "/metrics"
 Why these defaults:
 
 - `allowlist` avoids recording every symbol by accident.
-- explicit `include` makes retained telemetry intentional.
+- explicit `include` makes retained telemetry intentional. The historian names a program's
+  variable by its full path: tutorial 13's configuration runs the program as `P1`, so its input
+  and output are `P1.StartCmd` and `P1.LampOut`.
 - local bind (`127.0.0.1`) keeps first-run exposure minimal.
 
 ## Step 3: Build and validate
@@ -87,7 +89,7 @@ Leave this terminal running.
 Why: historian and metrics should reflect real signal changes, not idle state.
 
 Use Live Values or the web UI and toggle mapped inputs (for example `%IX0.0`) for at
-least a few cycles so `StartCmd`/`RunLamp` values change.
+least a few cycles so the values of `P1.StartCmd` and `P1.LampOut` change.
 
 ## Step 6: Verify historian file output
 
