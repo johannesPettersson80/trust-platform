@@ -4,7 +4,7 @@
     {
       "type": "structured-text",
       "request": "launch",
-      "name": "Debug Memory Marker Counter",
+      "name": "truST Simulator",
       "program": "${workspaceFolder}/src/Configuration.st",
       "stopOnEntry": false
     }
