@@ -81,7 +81,8 @@ trust-runtime ctl --project . io-read
 
 ## Common mistakes
 
-- expecting non-`mock` adapter to work without `ethercat-wire`
+- expecting a non-`mock` adapter to work in a `trust-runtime` built from source without
+  `ethercat-wire` (every release has it)
 - attempting hardware adapter mode on non-unix target
 - mismatching physical module order vs `[[io.params.modules]]`
 - downgrading `on_error` policy before validating safe-state outputs

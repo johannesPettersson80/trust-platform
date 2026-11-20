@@ -336,14 +336,16 @@ before 2026-10-05; removal requires a separate behavior-change release note.
 Usage: trust-runtime ads <COMMAND>
 ```
 
+Every released `trust-runtime` has the ADS client and the ADS server: their build
+features, `ads-wire` and `ads-server`, are on by default. A `trust-runtime`
+built from source without them refuses the commands that need them, as below.
+
 Current subcommands:
 
-- `discover`: find or identify TwinCAT ADS targets from the current host
-  (`ads-wire` build required).
+- `discover`: find or identify TwinCAT ADS targets from the current host.
 - `browse`: connect to one or all configured ADS client connections in
-  `ads.toml` and print the live symbol table (`ads-wire` build required).
-- `doctor`: run the ADS connectivity Doctor from the current host (`ads-wire`
-  build required).
+  `ads.toml` and print the live symbol table.
+- `doctor`: run the ADS connectivity Doctor from the current host.
   Supplying `--target-net-id` makes a known target a first-class path: the
   Doctor uses that AMS Net ID instead of requiring UDP identify to succeed.
   Supplying `--write-symbol`, `--write-type`, and `--write-value` together runs
@@ -354,15 +356,13 @@ Current subcommands:
 - `add-route`: send UDP AddRoute directly to the PLC. The TwinCAT password is
   accepted only through `--password-stdin`.
 - `import-symbols`: authoring-only live symbol import that can dry-run generated
-  `ads.toml`, snapshot, and ST files for VS Code/web diff review (`ads-wire`
-  build required).
+  `ads.toml`, snapshot, and ST files for VS Code/web diff review.
 - `import`: generate deterministic ST globals from existing `ads.toml` and
   cached ADS symbol snapshots.
 - `validate --offline`: compare generated ST against `ads.toml` and cached
   symbol snapshots without opening a PLC connection.
 - `validate --live`: upload live TwinCAT symbols for each configured
-  connection and compare the checked-in generated ST against the live target
-  (`ads-wire` build required).
+  connection and compare the checked-in generated ST against the live target.
 - `server status`: query `[runtime.ads_server]` status from a running runtime
   control endpoint.
 - `server symbols`: list the runtime globals currently exposed as ADS symbols.
@@ -404,8 +404,7 @@ trust-runtime ads validate --live \
 ```
 
 Live runtime ADS I/O is not started by these CLI commands. It is enabled by
-`[runtime.ads]` in `runtime.toml` and requires a runtime built with feature
-`ads-wire`.
+`[runtime.ads]` in `runtime.toml`.
 
 Offline `ads import` and `ads validate --offline` read `ads.toml` and cached
 symbol snapshots without opening a PLC connection. Snapshot arrays are
@@ -416,13 +415,13 @@ already matches byte-for-byte, and refuses to replace different content unless
 reports generated-source drift with the first differing line.
 
 Live discovery, browse, Doctor, guarded AddRoute, symbol import, and live
-validation fail closed when the binary lacks the `ads-wire` feature; they do
+validation fail closed in a binary built without the `ads-wire` feature; they do
 not synthesize discovery or hardware results and do not write generated files.
 Human output summarizes the same report objects emitted by `--json`; machine
 consumers should use `--json` rather than parse styled terminal text.
 
-ADS server mode is enabled separately by `[runtime.ads_server]` and requires a
-runtime built with feature `ads-server`. Common server workflow:
+ADS server mode is enabled separately by `[runtime.ads_server]`. Common server
+workflow:
 
 ```bash
 trust-runtime ads server route-script \
