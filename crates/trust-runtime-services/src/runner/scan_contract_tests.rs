@@ -86,6 +86,7 @@ fn a_scan_records_the_events_and_metrics_that_trust_runtime_records() {
                 "last_ms": 0.0,
                 "overruns": 0,
             }],
+            "rust_pous": [],
             "profiling_enabled": true,
             "top_contributors": [{
                 "key": "program:Plant",
