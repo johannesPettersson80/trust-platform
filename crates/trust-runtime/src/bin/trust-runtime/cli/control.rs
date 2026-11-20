@@ -58,6 +58,14 @@ pub enum ControlAction {
         #[arg(required = true)]
         paths: Vec<String>,
     },
+    /// Write variables as a service writes them (`variables.write`, specification 11 §6.8.1): each
+    /// `<path>=<value>`, the value as JSON (`21.5`, `true`, `"pump"`), sent with the service's
+    /// token from `--token`. The next cycle's start writes the set together; prints the reply.
+    Write {
+        /// The writes, each `<path>=<value>`.
+        #[arg(required = true)]
+        assignments: Vec<String>,
+    },
     IoRead,
     IoWrite {
         address: String,

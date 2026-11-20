@@ -59,6 +59,19 @@ pub trait VariableQueuePort {
         value: Value,
     ) -> Result<(), RequestQueueFull>;
 
+    /// Queue the pending variable writes `writes` together, to apply at the next cycle boundary,
+    /// or none of them: a service's set is written whole (specification 11 §6.8.1, "Writing
+    /// variables").
+    ///
+    /// # Errors
+    ///
+    /// [`RequestQueueFull`] when the queue cannot take every target that is not queued yet;
+    /// nothing is queued then.
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull>;
+
     /// Set the active force on `target`, replacing an earlier force on the same target.
     ///
     /// # Errors

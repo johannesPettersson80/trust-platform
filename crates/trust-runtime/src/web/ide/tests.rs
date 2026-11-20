@@ -1,6 +1,5 @@
 use super::*;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
 
 fn project_dir(name: &str) -> PathBuf {
     let path = trust_test_support::unique_temp_path(&format!("trust-runtime-web-ide-{name}"));
@@ -210,8 +209,12 @@ fn collaborative_conflict_detected_with_expected_version() {
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// Specification 11, 6.8.1e: "content above the advertised maximum file size returns HTTP 413 or the
+/// equivalent typed `too_large` error before writing". Catches an oversized apply that is accepted,
+/// or refused after the file was written. The apply latency budgets are reference-environment gates
+/// in `web_ide_performance_gate` (crates/trust-runtime/tests).
 #[test]
-fn latency_and_resource_budgets_are_enforced() {
+fn an_oversized_source_is_refused_before_writing() {
     let project = project_dir("budget");
     write_source(&project, "main.st", "PROGRAM Main\nEND_PROGRAM\n");
 
@@ -219,51 +222,20 @@ fn latency_and_resource_budgets_are_enforced() {
     let session = state
         .create_session(IdeRole::Editor)
         .expect("create editor session");
-    let mut snapshot = state
+    let snapshot = state
         .open_source(&session.token, "main.st")
         .expect("open source");
-
-    let runs = 80_u32;
-    let mut total = Duration::ZERO;
-    let mut max = Duration::ZERO;
-
-    for idx in 0..runs {
-        let started = Instant::now();
-        let result = state
-            .apply_source(
-                &session.token,
-                "main.st",
-                snapshot.version,
-                format!(
-                    "PROGRAM Main\\nVAR\\nA : INT := {};\\nEND_VAR\\nEND_PROGRAM\\n",
-                    idx
-                ),
-                true,
-            )
-            .expect("apply edit within budget");
-        let elapsed = started.elapsed();
-        total += elapsed;
-        max = max.max(elapsed);
-        snapshot.version = result.version;
-    }
-
-    let avg = total / runs;
-    assert!(
-        max < Duration::from_millis(250),
-        "max apply latency {:?} exceeded budget",
-        max
-    );
-    assert!(
-        avg < Duration::from_millis(40),
-        "avg apply latency {:?} exceeded budget",
-        avg
-    );
 
     let too_large = "X".repeat(MAX_FILE_BYTES + 1);
     let err = state
         .apply_source(&session.token, "main.st", snapshot.version, too_large, true)
         .expect_err("oversized payload should fail");
     assert_eq!(err.kind(), IdeErrorKind::TooLarge);
+    assert_eq!(
+        std::fs::read_to_string(project.join("main.st")).expect("read the source"),
+        "PROGRAM Main\nEND_PROGRAM\n",
+        "the file is unchanged"
+    );
 
     let _ = std::fs::remove_dir_all(project);
 }

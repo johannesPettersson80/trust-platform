@@ -167,16 +167,16 @@ fn exact_in_float(value: i128, mantissa: u32, max_exponent: u32) -> bool {
 
 /// The type a literal is admitted to: its index, shape and declared name, with the request's text
 /// for the reasons of a refusal.
-struct Target<'i, 't> {
+pub(super) struct Target<'i, 't> {
     image: Image<'i>,
     type_index: u32,
-    shape: TypeShape,
+    pub(super) shape: TypeShape,
     name: SmolStr,
     text: &'t str,
 }
 
 impl<'i, 't> Target<'i, 't> {
-    fn of(image: &Image<'i>, type_index: u32, text: &'t str) -> Result<Self, String> {
+    pub(super) fn of(image: &Image<'i>, type_index: u32, text: &'t str) -> Result<Self, String> {
         let shape = type_shape(image, type_index)
             .map_err(|_| String::from("the program image's type table does not read"))?;
         let declared = type_name(image, type_index);
@@ -207,7 +207,7 @@ impl<'i, 't> Target<'i, 't> {
     }
 
     /// `literal` as a value of the target's type, before the type table's own check.
-    fn admit(&self, literal: &Literal) -> Result<Value, String> {
+    pub(super) fn admit(&self, literal: &Literal) -> Result<Value, String> {
         if let Literal::Typed { type_name, literal } = literal {
             return self.typed(type_name, literal);
         }
@@ -501,7 +501,7 @@ impl<'i, 't> Target<'i, 't> {
     /// table's own conversions on a variable that stands apart from the program: a subrange's
     /// bounds and an enumeration's declared values are checked here, as the write at the boundary
     /// checks them.
-    fn bytes(&self, value: &Value) -> Result<Vec<u8>, String> {
+    pub(super) fn bytes(&self, value: &Value) -> Result<Vec<u8>, String> {
         let size = self
             .image
             .table::<TypeRecord>()
@@ -527,7 +527,7 @@ impl<'i, 't> Target<'i, 't> {
         Ok(scratch.bytes)
     }
 
-    fn mismatch(&self) -> String {
+    pub(super) fn mismatch(&self) -> String {
         format!("'{}' is not a value of type {}", self.text, self.name)
     }
 
@@ -535,7 +535,7 @@ impl<'i, 't> Target<'i, 't> {
         format!("'{}' is outside the range of {}", self.text, self.name)
     }
 
-    fn no_single_value(&self) -> String {
+    pub(super) fn no_single_value(&self) -> String {
         format!(
             "{} holds no single value: write one of its members or elements",
             self.name

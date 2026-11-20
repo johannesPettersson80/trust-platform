@@ -120,6 +120,7 @@ pub struct ExampleRuntime {
     example: &'static str,
     libraries: Vec<&'static str>,
     source_edits: Vec<(&'static str, &'static str, &'static str)>,
+    added_files: Vec<(&'static str, &'static str)>,
     mode: Option<&'static str>,
     debug_enabled: Option<bool>,
     start_paused: Option<bool>,
@@ -136,6 +137,7 @@ impl ExampleRuntime {
             example,
             libraries: Vec::new(),
             source_edits: Vec::new(),
+            added_files: Vec::new(),
             mode: None,
             debug_enabled: None,
             start_paused: None,
@@ -168,6 +170,13 @@ impl ExampleRuntime {
     /// Replaces `from` with `to` in one file of the copy, before the project is built.
     pub fn edit_source(mut self, file: &'static str, from: &'static str, to: &'static str) -> Self {
         self.source_edits.push((file, from, to));
+        self
+    }
+
+    /// Adds the file `file`, a path relative to the copy, with `text`, after the source edits and
+    /// before the build: a `trust.toml` and its generated files, for example.
+    pub fn add_file(mut self, file: &'static str, text: &'static str) -> Self {
+        self.added_files.push((file, text));
         self
     }
 
@@ -232,6 +241,11 @@ impl ExampleRuntime {
         }
         for &(file, from, to) in &self.source_edits {
             replace_in_file(&project.join(file), from, to);
+        }
+        for &(file, text) in &self.added_files {
+            let path = project.join(file);
+            std::fs::create_dir_all(path.parent().expect("a folder")).expect("the file's folder");
+            std::fs::write(&path, text).expect("the added file");
         }
         runtime.token = format!(
             "{TOKEN_PREFIX}-{}-{}",

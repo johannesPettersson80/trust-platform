@@ -4569,6 +4569,34 @@ before the first completed scan and while a debugger holds a scan it is refused 
 `variables.read` is. `service.heartbeat` needs the Viewer role (section 6.9.5), the role of a
 service that only reads (specification 48 RU-81), and is no debug operation.
 
+###### Writing variables (services)
+
+`variables.write` writes a set of the program's variables by their paths, the write of a service
+(specification 48 RU-62), on a computer and on a chip alike. Its parameters are exactly `writes`,
+an array of 1 to 256 objects, each exactly `path` and `value`: a path as `variables.read` names a
+variable, and a value in the JSON form in which `variables.read` gives a value of the variable's
+declared type, a `REAL`'s or an `LREAL`'s number written with any digits. Only a service token
+(section 6.9.6) sends it, and each path must name a variable that the token's service may write:
+one its `writes` in `trust.toml` names (specification 48 RU-63), which the signed image carries
+(specification 44 §5.14), compared as the variables the paths name, so that `Main.Speed` and
+`main.speed` are one. The runtime checks the whole set before it writes any of it, and a path or a
+value it refuses refuses the request: nothing is written. The next cycle's start writes the set
+together, as the program's input and never as a force, so the program's scan may change the
+values as it changes any input; a value still waiting for that cycle start for the same variable
+is replaced. The reply is `{service, count}`: the service's name and the number of values the next
+cycle writes.
+
+The refusals are `variables.write needs a service token` for any other credential, `the program
+does not run: <state>` while the resource does not run, `service <name> may write no variable`
+for a service without `writes`, `service <name> may not write <path>` for a path its `writes` does
+not name, the path that names nothing among them, `invalid value for <path>: <reason>` for a value
+its variable's type does not take (of another type, outside the type's range, a text longer than
+the type holds, a name that is no value of the enumeration, a date that is no whole day), and
+`request queue full` when the next cycle cannot take the set. `variables.write` needs the Engineer
+role (section 6.9.5), as writing values is the Engineer's, and is no debug operation, so a service
+writes to a `production` deployment. `trust-runtime ctl write <path>=<value>...` sends it, each
+value as JSON, with the service's token from `--token`, and prints the reply.
+
 ##### 6.8.1a Offline communication authoring client
 
 `trust-runtime comm` is a scriptable local authoring surface. Each accepted
@@ -6300,9 +6328,9 @@ the shipped authoring path, not universal real-time guarantees for arbitrary
 hardware or projects. The reference environment is CI's Linux x86_64 runner
 with an optimized build of the runtime: the release profile's optimization,
 built without its link-time optimization, which takes most of the build's time.
-There the gate program `web_ide_performance_gate` asserts the HTTP apply, p95
-and typing budgets, alone on the runner, in a workflow of its own (Web IDE
-Performance) that runs on every push to `main` and on each pull request that
+There the gate program `web_ide_performance_gate` asserts the in-process and HTTP
+apply, p95 and typing budgets, alone on the runner, in a workflow of its own
+(Web IDE Performance) that runs on every push to `main` and on each pull request that
 changes the web IDE, the analysis it runs (`trust-syntax`, `trust-hir`,
 `trust-ide`, `trust-wasm-analysis`) or the build settings
 (`.github/paths/web-ide-performance.txt`). Every other run of the same tests, on
@@ -6547,7 +6575,8 @@ aborts summary construction and the deployment; it is not converted into an
 empty source set.
 
 `deployments/<label>.txt` and `deployments/last.txt` contain the last successful
-deploy command's change summary. They are not deployment pointers and rollback
+deploy command's change summary, as text whose every line, the last one too, ends
+with a newline. They are not deployment pointers and rollback
 does not rewrite them. The `current` symlink is the authoritative active-bundle
 identifier before and after rollback.
 
@@ -7003,7 +7032,7 @@ The explicit operation matrix is:
 |---|---|
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `variables.read` (section 6.8.1, "Reading variables"), `service.heartbeat` (section 6.8.1, "Service heartbeats"), `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
-| Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Engineer | `device.get` (specification 34 TARGET-02), `variables.write` (section 6.8.1, "Writing variables"), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, service tokens (`pair.service`), and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
