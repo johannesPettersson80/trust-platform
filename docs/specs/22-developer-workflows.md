@@ -508,7 +508,12 @@ folder, so it runs after such a session, as in the list's order:
   to Manual", specification 39, §8.4), LIC-101 bringing the level back to its
   setpoint of 1.5 m, following a setpoint of 1.8 m, draining the tank in Manual
   at 0 % until LT-101's Low alarm comes in, and refilling it in Auto without a
-  bump.
+  bump;
+- `plcopen-motion`: the walkthrough of `plcopen-motion-single-axis` on the
+  unmodified example: the axis powered and at 25 after its first move, a Write
+  of TRUE to the move request moving it to 0, a second Write of TRUE starting no
+  move (a command starts on a rising edge), and FALSE then TRUE moving it back
+  to 25.
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A

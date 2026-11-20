@@ -5,14 +5,18 @@ VAR
     MoveAbsolute : MC_MoveAbsolute;
     ReadActualPosition : MC_ReadActualPosition;
     ReadStatus : MC_ReadStatus;
+    Request : R_TRIG;
     Initialized : BOOL;
     Step : INT;
     MoveExecute : BOOL;
-    motion_demo_cycles     : INT;   (* %MW0 - completed motion moves *)
-    motion_demo_error      : INT;   (* %MW2 - 0 healthy, 1 faulted *)
-    motion_demo_power_on   : BOOL;  (* %QX0.0 *)
-    motion_demo_target_ok  : BOOL;  (* %QX0.1 *)
-    motion_demo_standstill : BOOL;  (* %QX0.2 *)
+    Target : REAL := 25.0;           (* the position of the next move: 25, then each request the other end *)
+    motion_demo_move       : BOOL;   (* %IX0.0 - write TRUE to move the axis to the other end *)
+    motion_demo_cycles     : INT;    (* %MW0 - completed motion moves *)
+    motion_demo_error      : INT;    (* %MW2 - 0 healthy, 1 faulted *)
+    motion_demo_position   : REAL;   (* %MD4 - the axis position *)
+    motion_demo_power_on   : BOOL;   (* %QX0.0 *)
+    motion_demo_target_ok  : BOOL;   (* %QX0.1 *)
+    motion_demo_standstill : BOOL;   (* %QX0.2 *)
 END_VAR
 
 IF NOT Initialized THEN
@@ -27,14 +31,16 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* Execute is TRUE for the one scan in Step 10: its rising edge starts the move. *)
 MoveExecute := Step = 10;
+Request(CLK := motion_demo_move);
 
 Power(Axis := Axis, Enable := TRUE);
 MoveAbsolute(
     Axis := Axis,
     Execute := MoveExecute,
     ContinuousUpdate := FALSE,
-    Position := REAL#25.0,
+    Position := Target,
     Velocity := REAL#10.0,
     Acceleration := REAL#0.0,
     Deceleration := REAL#0.0,
@@ -47,9 +53,8 @@ ReadStatus(Axis := Axis, Enable := TRUE);
 
 motion_demo_power_on := Power.Status;
 motion_demo_standstill := ReadStatus.Standstill;
-motion_demo_target_ok :=
-    (ReadActualPosition.Position >= REAL#24.9) AND
-    (ReadActualPosition.Position <= REAL#25.1);
+motion_demo_position := ReadActualPosition.Position;
+motion_demo_target_ok := ABS(ReadActualPosition.Position - Target) <= REAL#0.1;
 
 IF Power.Error OR MoveAbsolute.Error OR ReadActualPosition.Error OR ReadStatus.Error THEN
     motion_demo_error := 1;
@@ -69,7 +74,11 @@ CASE Step OF
             Step := 30;
         END_IF;
     30:
-        (* Keep readback visible in Live Values. *)
+        (* At standstill: a request moves the axis to the other end, 0 or 25. *)
+        IF Request.Q THEN
+            Target := REAL#25.0 - Target;
+            Step := 10;
+        END_IF;
     900:
     ELSE
         motion_demo_error := 1;
