@@ -267,7 +267,8 @@ fn start_inner(
             Some(project_root),
         )
         .expect("the historian starts");
-        service.clone().start_sampler(debug.clone());
+        let sampled = debug.clone();
+        service.clone().start_sampler(move || sampled.snapshot());
         service
     });
     let handle = ResourceRunner::new(
