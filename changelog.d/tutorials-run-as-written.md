@@ -11,3 +11,5 @@
 - Tutorial 10's filter example selects its test (`--filter StartStop`).
 - Tutorials 21 and 22 build and validate a runnable project: tutorial 11 has a `runtime.toml` and an
   `io.toml`, and tutorial 22 no longer passes a `--sources` folder that does not exist.
+- The vendor library stubs example no longer tells you to run `trust-runtime check`, which refuses a
+  project without `runtime.toml` and `io.toml`; its build with the stubs is the check.
