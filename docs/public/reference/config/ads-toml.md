@@ -137,9 +137,9 @@ worker_tick_interval_ms = 20
 At startup, the runtime resolves each ADS point to the declared generated
 global, starts one background ADS worker per connection, and applies read
 values plus `_quality` values at the scan input phase. Write/read-write points
-are captured at the output phase and drained by the worker. Live ADS I/O
-requires a runtime built with feature `ads-wire`; without it, enabled ADS fails
-startup explicitly.
+are captured at the output phase and drained by the worker. Every released
+`trust-runtime` has the ADS client (feature `ads-wire`, on by default); one built
+from source without it fails startup explicitly when ADS is enabled.
 
 ## Commands
 
@@ -184,9 +184,9 @@ trust-runtime ads import-symbols \
   --json
 ```
 
-Live discovery, doctor, route-add, and symbol import require a runtime binary
-built with feature `ads-wire`. Runtime live I/O is separate from the CLI and is
-controlled by `[runtime.ads]` plus the same `ads-wire` build feature.
+Live discovery, doctor, route-add, and symbol import use the ADS client that
+every released `trust-runtime` has (`ads-wire`). Runtime live I/O is separate
+from the CLI and is controlled by `[runtime.ads]`.
 
 ## Related
 
