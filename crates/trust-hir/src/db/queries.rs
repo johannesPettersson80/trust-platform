@@ -6,12 +6,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 mod collector;
 mod database;
 mod helpers;
+mod located_storage;
 mod project_configuration;
 mod project_constants;
 mod project_types;
 mod salsa_backend;
 
 pub use salsa_backend::SalsaEventSnapshot;
+
+pub(super) use located_storage::LocatedStorage;
+#[cfg(test)]
+pub(super) use located_storage::{flat_storage, LocatedArea};
 
 pub(super) use helpers::{
     collect_program_instances, first_ident_token, implements_clause_names, name_from_node,

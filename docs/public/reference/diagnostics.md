@@ -87,6 +87,7 @@ language specifications.
 | `W014` | warning | The denominator is provably zero at compile time. | The division or modulo expression is flagged before runtime. | Fix the literal or guard the operation before it is executed. |
 | `W015` | warning | An array's initializer gives fewer or more values than the array has elements, counted after its repetition groups are expanded. | The initializer is flagged with the count: the elements without a value start at their type's default, and the excess values are ignored. | Give one value per element, using a repetition such as `10(0)` for repeated values, or correct the declared bounds. |
 | `W016` | warning | Under the CODESYS profile, a declared name is the name of a CODESYS operator, such as `log`, `Max` or `LIMIT`, which CODESYS takes as a keyword. | The declaration is flagged: truST runs the program, but a CODESYS compiler refuses the name. | Rename it, for example `log` to `logSelect`. Set `W016 = "error"` in `severity_overrides` when the project must also build in CODESYS. |
+| `W017` | warning | Two located variables take storage that overlaps, such as `%IX0.0` inside `%IW0`, or `%IW0` and `%IW1`, which share byte 1: an address is a byte offset. | Each is flagged with the variables it overlaps; writing one changes the other. | Give each its own bytes, such as `%IW2` for a word next to the bits of byte 0. |
 
 `W001`, `W002`, and `W009` are not reported for library files: the files whose
 deepest holding folder is a `[[libraries]]` path, a `library_paths` entry, or a
