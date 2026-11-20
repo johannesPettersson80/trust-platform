@@ -46,7 +46,8 @@ replace them with `trust-runtime hmi-password` before real use.
    their trend. Switch **Mode** to Manual and set **Output**: the heater follows. Switch back to
    Auto: the change is bumpless.
 3. On the **Simulation** page, open the window: the room cools and TIC-102 opens the valve further
-   to hold 22 °C.
+   to hold 22 °C. The page's controls are locked to the Engineer role: log in as `engineer` for
+   this step and the next.
 4. Switch **Low water** on the Simulation page: the heater and pump protections trip, the heater
    and pump stop, the sequence fails with "T-101 water low" and the alarm list shows it. Switch it
    off, acknowledge, and press **Reset**, then **Start**.
