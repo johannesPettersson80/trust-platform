@@ -88,8 +88,8 @@ impl CycleHooks for Quiet {}
 
 #[test]
 fn a_write_at_the_hold_reaches_the_held_statement_and_a_refused_one_changes_nothing() {
-    // Specification 44 §13.2, worked by hand: at 10 ms statement 0 counts 5 to 6 and the scan
-    // holds at statement 1. A BOOL is no USINT and is refused, and the reads at the hold still see
+    // Specification 44 §13.2, worked by hand: at 0 ms, where the task is due at its start
+    // (specification 10 §4.3), statement 0 counts 5 to 6 and the scan holds at statement 1. A BOOL is no USINT and is refused, and the reads at the hold still see
     // 6; 41 is written into the held scan at once and the reads see 41; when the hold ends,
     // statement 1 copies 41's lowest bit, 1, to `MAIN.OUT`. Catches a write that waits for the
     // hold's end (the reads at the hold would see 6), a write into a copy that the scan never sees
@@ -102,11 +102,9 @@ fn a_write_at_the_hold_reaches_the_held_statement_and_a_refused_one_changes_noth
     let (mut cycle, _, _) = cycle_with(&bytes, Vec::new(), &KERNEL_FUNCTIONS);
     let pass: Rc<dyn HoldPass> = Rc::clone(&hold) as Rc<dyn HoldPass>;
     cycle.attach_hold(HoldHandle(pass));
-    for time in [0, 10] {
-        cycle
-            .run_scan(Duration::from_millis(time), None, &mut Quiet)
-            .expect("the scan runs");
-    }
+    cycle
+        .run_scan(Duration::ZERO, None, &mut Quiet)
+        .expect("the scan runs");
     assert_eq!(
         *hold.seen.borrow(),
         [

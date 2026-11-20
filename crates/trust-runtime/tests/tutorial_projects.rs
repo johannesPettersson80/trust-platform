@@ -9,9 +9,8 @@ mod runtime_process;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use runtime_process::{
-    copy_example, describe, repo_root, trust_runtime_command, ExampleRuntime, Runtime,
-};
+use runtime_process::project_copy::copy_example;
+use runtime_process::{describe, repo_root, trust_runtime_command, ExampleRuntime, Runtime};
 
 /// How long a step waits for the runtime to show its expected result: a write is applied at a
 /// cycle's start, and the tutorial's task runs every 100 ms.

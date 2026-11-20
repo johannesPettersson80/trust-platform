@@ -532,17 +532,18 @@ END_PROGRAM
 
 #[test]
 fn hot_reload_new_task_counts_its_first_activation_from_the_last_cycle_before_the_change() {
-    // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-2): a task that the running
-    // program does not have counts its first activation from the program's logical time at the
-    // commit, the time of the last cycle that started before it, since the program's time advances
-    // when a cycle starts. The running program's 10 ms task `Fast` runs at 10, 20 and 30 ms. The
-    // change follows the cycle at 30 ms, as a computer's scan thread takes it before the cycle at
-    // 40 ms, and adds the 25 ms task `Slow` with the program `P2`. `Slow` counts from 30 ms,
-    // so it is due at 55 ms: it has not run after the cycles at 40 and 50 ms, runs at 60 ms, and
-    // runs again at 80 ms, its next activation being due at 80 ms; `Fast` keeps its schedule and
-    // runs in every cycle. Wrong behaviour caught: a new task counted from the program's start (due
-    // at 25 ms, so it runs at 40 ms) or run at the first cycle after the change, and one counted
-    // from that cycle (due at 65 ms, so it has not run at 60 ms).
+    // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-2; specification 10 §4.3): a
+    // task that the running program does not have takes the program's logical time at the commit
+    // as its first deadline, the time of the last cycle that started before it, since the
+    // program's time advances when a cycle starts. The running program's 10 ms task `Fast` runs in
+    // the cycles at 10, 20 and 30 ms. The change follows the cycle at 30 ms, as a computer's scan
+    // thread takes it before the cycle at 40 ms, and adds
+    // the 25 ms task `Slow` with the program `P2`. `Slow`'s deadlines are 30, 55 and 80 ms: it runs
+    // in the first cycle after the change, 40 ms, not at 50 ms, at 60 ms and again at 80 ms; `Fast`
+    // keeps its schedule and runs in every cycle. Wrong behaviour caught: a new task counted from
+    // the program's start (deadlines 0, 25, 50 and 75 ms, so it runs at 40 and 50 ms), and one
+    // counted from the first cycle after the change (deadlines 40 and 65 ms, so it has not run
+    // again at 60 ms).
     let source_v1 = r#"
 CONFIGURATION Conf
 RESOURCE Res ON PLC
@@ -603,6 +604,6 @@ END_PROGRAM
         assert!(cycle.errors.is_empty(), "the scan runs: {cycle:?}");
         slow_runs.push(numeric_output(&harness, "P2.runs").expect("P2.runs"));
     }
-    assert_eq!(slow_runs, [0, 0, 1, 1, 2], "Slow's runs after each cycle");
+    assert_eq!(slow_runs, [1, 1, 2, 2, 3], "Slow's runs after each cycle");
     assert_numeric_output(&harness, "P1.runs", 8);
 }

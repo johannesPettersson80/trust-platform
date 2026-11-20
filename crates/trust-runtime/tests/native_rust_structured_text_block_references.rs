@@ -95,7 +95,7 @@ END_CONFIGURATION
 
 #[test]
 fn a_rust_block_calls_the_block_its_reference_names() {
-    // RU-39, IEC §6.6.8, at the task's first call at 10 ms: BY_PLAIN's reference names PLAIN, a
+    // RU-39, IEC §6.6.8, at the task's first call at 0 ms: BY_PLAIN's reference names PLAIN, a
     // COUNTER, whose body counts 0 + 5 = 5; BY_DOUBLED's names DOUBLED, a DOUBLE_COUNTER taken as a
     // COUNTER, whose own body counts 0 + 2 × 5 = 10. At 20 ms both RESET first: COUNTER's sets 0 and
     // DOUBLE_COUNTER's own sets 100, so PLAIN counts 0 + 5 = 5 and DOUBLED 100 + 10 = 110. The
@@ -122,11 +122,10 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.PLAIN.N"), Some(Value::Int(5)));
     assert_eq!(program.value("MAIN.BY_PLAIN.SEEN"), Some(Value::Int(5)));
     assert_eq!(program.value("MAIN.DOUBLED.N"), Some(Value::Int(10)));
@@ -162,11 +161,9 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    program
-        .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
+    // The task is due at its start (specification 10 §4.3): the first scan runs it.
     let error = program
-        .scan(Duration::from_millis(10), &mut NoHooks)
+        .scan(Duration::ZERO, &mut NoHooks)
         .expect_err("the NULL reference ends the scan");
     assert_eq!(error, RuntimeError::NullReference);
 }
@@ -200,7 +197,7 @@ impl Body for Picker {
 fn a_reference_a_held_blocks_method_returns_has_its_blocks_binding() {
     // RU-39: a reference to a block that a held block's method returns has the block's binding
     // without the crate naming the block: FACTORY's FIRST gives a reference to its own INNER, a
-    // DOUBLE_COUNTER taken as a COUNTER, so PICKER counts it by 2 × 3 = 6 at 10 ms. Catches the
+    // DOUBLE_COUNTER taken as a COUNTER, so PICKER counts it by 2 × 3 = 6 at 0 ms. Catches the
     // binding of a block reached only through a call's result left unwritten, or without the body
     // dispatcher it calls.
     let Some((built, device)) = build(
@@ -226,11 +223,10 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.PICKER.SEEN"), Some(Value::Int(6)));
     assert_eq!(
         program.value("MAIN.PICKER.FACTORY.INNER.N"),

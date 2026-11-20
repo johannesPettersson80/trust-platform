@@ -94,7 +94,8 @@ fn a_parameter_set_writes_the_gvl_parameters_its_task_owns() {
         None,
     );
     assert!(apply.ok, "{:?}", apply.error);
-    // A task with an interval runs first one interval after the start.
+    // The task ran at its start; its next activation, one interval later, takes the set at its
+    // boundary (specification 10 §4.3).
     harness.advance_time(crate::value::Duration::from_millis(10));
     assert!(harness.cycle().errors.is_empty());
     let after = gvl_parameter_status(&state, &binding).result.unwrap();

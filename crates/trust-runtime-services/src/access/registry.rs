@@ -140,6 +140,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
     ),
+    operation(
+        "variables.write",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
     operation("hmi.read", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation(
         "program.active",

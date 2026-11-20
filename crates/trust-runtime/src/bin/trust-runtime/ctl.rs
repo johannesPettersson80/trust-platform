@@ -25,6 +25,10 @@ mod firmware;
 mod install;
 #[path = "ctl/service_token.rs"]
 mod service_token;
+#[path = "ctl/stats.rs"]
+mod stats;
+#[path = "ctl/write.rs"]
+mod write;
 
 /// The waits and the response limit of a runtime's socket on this computer, which every client of
 /// one shares (specification 11, 6.8.1).
@@ -124,6 +128,7 @@ pub fn run_control(
         ControlAction::ServiceToken { name, role, out } => {
             service_token::run(&target, &name, role.as_deref(), &out)
         }
+        ControlAction::Write { assignments } => write::run(&target, &assignments),
         action => send_control_request(&target, &action, project.as_deref()),
     }
 }
@@ -372,7 +377,6 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 .context("stats result missing array 'tasks'")?;
             if tasks.is_empty() {
                 println!("tasks=0");
-                return Ok(());
             }
             for task in tasks {
                 let name = task
@@ -403,6 +407,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                     "task={name} min_ms={min:.3} avg_ms={avg:.3} max_ms={max:.3} last_ms={last:.3} overruns={overruns}"
                 );
             }
+            stats::print_rust_pous(response)?;
         }
         ControlAction::Read { .. } => print_variables(response)?,
         ControlAction::BreakpointsSet { .. }
@@ -573,7 +578,8 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
         | ControlAction::DeviceGet
         | ControlAction::DeviceSet { .. }
         | ControlAction::DeviceReset
-        | ControlAction::ServiceToken { .. } => {
+        | ControlAction::ServiceToken { .. }
+        | ControlAction::Write { .. } => {
             unreachable!("run_control sends these through their own modules")
         }
         ControlAction::Shutdown { exit } => {

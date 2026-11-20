@@ -196,6 +196,9 @@ pub(crate) struct FakeHost {
     /// The runtime's pairings, which the service requests read their service tokens from; none
     /// unless a test gives them.
     pub(crate) pairings: Option<RefCell<Pairings<MemoryPairings>>>,
+    /// The image of the program the variable requests write, which they resolve their paths and
+    /// types against; none unless a test gives one.
+    pub(crate) program_image: Option<Vec<u8>>,
 }
 
 /// Pairings kept in memory: an empty file, writes that succeed, and zero bytes as random numbers,
@@ -266,6 +269,7 @@ impl FakeHost {
             variables: Err(crate::variables::ReadRefusal::NoCompletedScan),
             variable_reads: RefCell::new(Vec::new()),
             pairings: None,
+            program_image: None,
         }
     }
 
@@ -620,6 +624,29 @@ impl VariableQueuePort for FakeHost {
         self.live_values
             .borrow_mut()
             .try_upsert_var_write(target, value)
+    }
+
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        self.live_values.borrow_mut().try_upsert_var_writes(writes)
+    }
+
+    fn with_program_image(
+        &self,
+        read: &mut dyn FnMut(&trust_runtime_core::native::image::Image<'_>),
+    ) -> bool {
+        let Some(bytes) = &self.program_image else {
+            return false;
+        };
+        match trust_runtime_core::native::image::Image::parse(bytes) {
+            Ok(image) => {
+                read(&image);
+                true
+            }
+            Err(_) => false,
+        }
     }
 
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {

@@ -122,7 +122,7 @@ fn build(name: &str, lib: &str, program: &str) -> Option<(Build, Device)> {
 
 #[test]
 fn a_rust_block_calls_methods_through_an_interface_it_holds() {
-    // RU-33, RU-39, IEC §6.6.6.5 and §6.6.8, at the task's first call at 10 ms: BY_TWO is given
+    // RU-33, RU-39, IEC §6.6.6.5 and §6.6.8, at the task's first call at 0 ms: BY_TWO is given
     // DOUBLER and scales 5 to 5 × 2 = 10; BY_THREE is given TRIPLER, whose own SCALED counts the
     // call on the instance it names, so 5 × 3 + 1 = 16 and TRIPLER.CALLS is 1; NONE is given
     // nothing, so its interface is NULL, the value a variable of an interface starts at, and it
@@ -162,11 +162,10 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.TWO"), Some(Value::Int(10)));
     assert_eq!(program.value("MAIN.THREE"), Some(Value::Int(16)));
     assert_eq!(program.value("MAIN.TRIPLER.CALLS"), Some(Value::Int(1)));
@@ -204,7 +203,7 @@ impl Body for Blind {
 #[test]
 fn a_method_of_the_interfaces_base_and_a_call_through_null() {
     // RU-39, IEC §6.6.6.6: the binding holds the method KIND of I_NAMED, which I_SPEED extends,
-    // so given TRIPLER the block reads KIND 3 and SCALED 7 × 3 + 1 = 22 at 10 ms. IEC §6.6.6.5.2,
+    // so given TRIPLER the block reads KIND 3 and SCALED 7 × 3 + 1 = 22 at 0 ms. IEC §6.6.6.5.2,
     // specification 44 §6.5: a call through NULL ends the scan with `NullReference`, as Structured
     // Text's call through the interface does. Catches a base's method left out of the binding and a
     // NULL call that reads zero instead of ending the scan.
@@ -223,11 +222,10 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.BLIND.KIND"), Some(Value::Int(3)));
     assert_eq!(program.value("MAIN.BLIND.Y"), Some(Value::Int(22)));
 
@@ -245,11 +243,9 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    program
-        .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
+    // The task is due at its start (specification 10 §4.3): the first scan runs it.
     let error = program
-        .scan(Duration::from_millis(10), &mut NoHooks)
+        .scan(Duration::ZERO, &mut NoHooks)
         .expect_err("the call through NULL ends the scan");
     assert_eq!(error, RuntimeError::NullReference);
 }
@@ -315,11 +311,10 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.PICKER.Y"), Some(Value::Int(13)));
     assert_eq!(
         program.value("MAIN.PICKER.FACTORY.FAST.CALLS"),
@@ -353,7 +348,7 @@ impl Body for Holder {
 
 #[test]
 fn a_held_instance_is_a_value_of_the_interface_it_implements() {
-    // RU-39, IEC §6.6.6.5.1, at the task's first call at 10 ms: HOLDER's own TRIPLER is a value of
+    // RU-39, IEC §6.6.6.5.1, at the task's first call at 0 ms: HOLDER's own TRIPLER is a value of
     // I_SPEED, the reference to it, so SCALED through it reaches that TRIPLER, 2 × 3 + 1 = 7; the
     // program then calls SCALED through HOLDER's output, which names the same instance, 1 × 3 + 2
     // = 5, its second call. Catches a conversion that names another instance or a copy, and an
@@ -374,11 +369,10 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.HOLDER.Y"), Some(Value::Int(7)));
     assert_eq!(program.value("MAIN.AGAIN"), Some(Value::Int(5)));
     assert_eq!(

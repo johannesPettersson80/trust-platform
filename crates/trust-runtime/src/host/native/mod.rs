@@ -38,6 +38,7 @@ mod rust_budget;
 mod rust_messages;
 pub mod rust_pous;
 mod self_calls;
+mod service_table;
 mod settings;
 mod signing;
 mod stack;
@@ -452,7 +453,15 @@ pub fn build_with_conversions(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
-    build_sources(sources, tests, options, conversions, toolchain, work, None)
+    build_sources(
+        sources,
+        tests,
+        options,
+        conversions,
+        toolchain,
+        work,
+        ProjectParts::default(),
+    )
 }
 
 /// The module targets whose scan crate graphs the audit reads (specification 44 §4.4).
@@ -519,6 +528,14 @@ pub fn scan_crate_graph(
     Ok(Some(crates.into_iter().collect()))
 }
 
+/// What a build takes from the project beyond its Structured Text: its Rust crate, when it declares
+/// Rust POUs, and the variables its services may write (specification 48 §9, RU-63).
+#[derive(Default)]
+struct ProjectParts {
+    crate_build: Option<CrateBuild>,
+    services: Vec<rust_pous::ServiceWrites>,
+}
+
 /// The Rust crate a build compiles with the program, and the crate cargo links (specification 48
 /// §9).
 struct CrateBuild {
@@ -550,6 +567,8 @@ pub fn build_project(
     work: &Path,
 ) -> Result<Build, NativeError> {
     let crate_build = crate_build(project, options)?;
+    let services = rust_pous::service_writes(project)
+        .map_err(|message| NativeError::Compile(format!("trust.toml: {message}")))?;
     build_sources(
         sources,
         tests,
@@ -557,7 +576,10 @@ pub fn build_project(
         conversions,
         toolchain,
         work,
-        crate_build,
+        ProjectParts {
+            crate_build,
+            services,
+        },
     )
 }
 
@@ -693,8 +715,12 @@ fn build_sources(
     conversions: ConversionProfile,
     toolchain: &Toolchain,
     work: &Path,
-    crate_build: Option<CrateBuild>,
+    parts: ProjectParts,
 ) -> Result<Build, NativeError> {
+    let ProjectParts {
+        crate_build,
+        services,
+    } = parts;
     let (project, krate, timing) = match crate_build {
         Some(CrateBuild {
             project,
@@ -728,6 +754,12 @@ fn build_sources(
             findings
         }
         None => Vec::new(),
+    };
+    // A debug image's Rust POUs with their budgets for the build's target, in the order of the
+    // Rust POU table, by which its generated code names their records (specification 44 §5.13).
+    let rust_pous = match (&krate, &timing) {
+        (Some(krate), Some(timing)) if options.hooks => rust_pous::table(krate, timing)?,
+        _ => Vec::new(),
     };
     let memory = init::starting_memory(&front.lowered, &mut model)?;
     let symbols: Vec<String> = generated
@@ -816,12 +848,17 @@ fn build_sources(
             memory: &memory,
             stack,
             crates: &crates,
+            rust_pous: &rust_pous,
+            services: &services,
         },
     )?;
     let image = writer
         .finish()
         .map_err(|error| NativeError::Image(format!("{error:?}")))?;
     let parsed = Image::parse(&image).map_err(|error| NativeError::Image(error.to_string()))?;
+    // Each service's paths against the program, naming the service and the path, before the
+    // image's own check refuses them with the table's record (specification 48 RU-63).
+    service_table::check(&parsed, &services)?;
     parsed
         .check_tables()
         .map_err(|error| NativeError::Image(error.to_string()))?;

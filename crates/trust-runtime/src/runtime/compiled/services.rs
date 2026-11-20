@@ -135,9 +135,10 @@ impl CompiledRuntime {
     }
 
     /// Whether the program instance `program` ran in the last scan: a program of a task ran when its
-    /// task was due in that scan, and a program outside every task runs in every scan. A periodic
-    /// task first runs one interval after the start, so a program's first execution need not be the
-    /// first scan (an isolated run holds its candidate through it, specification 35 A7).
+    /// task was due in that scan, and a program outside every task runs in every scan. A task runs
+    /// only in the scans where it is due, an event task at the rising edge of its input, so a
+    /// program's first execution need not be the first scan (an isolated run holds its candidate
+    /// through it, specification 35 A7).
     #[must_use]
     pub fn program_ran_in_last_cycle(&self, program: &str) -> bool {
         let mut scheduled = false;
