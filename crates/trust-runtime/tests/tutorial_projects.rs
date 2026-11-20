@@ -366,3 +366,111 @@ fn tutorial_22_terminal_build_and_validate_succeed() {
     );
     assert_each_succeeds(&commands);
 }
+
+/// `runtime` with each section of the TOML `block` put in: a section `runtime` has is replaced, from
+/// its header to the next one, and another is added at the end, as a reader edits the file.
+fn with_sections(runtime: &str, block: &str) -> String {
+    let mut text = runtime.to_string();
+    let mut sections: Vec<(String, String)> = Vec::new();
+    for line in block.lines() {
+        if line.starts_with('[') {
+            sections.push((line.to_string(), String::new()));
+        }
+        if let Some((_, body)) = sections.last_mut() {
+            body.push_str(line);
+            body.push('\n');
+        }
+    }
+    for (header, body) in sections {
+        let lines: Vec<&str> = text.lines().collect();
+        match lines.iter().position(|line| *line == header) {
+            Some(start) => {
+                let end = lines[start + 1..]
+                    .iter()
+                    .position(|line| line.starts_with('['))
+                    .map_or(lines.len(), |offset| start + 1 + offset);
+                let mut edited: Vec<String> =
+                    lines[..start].iter().map(|l| l.to_string()).collect();
+                edited.extend(body.lines().map(str::to_string));
+                edited.push(String::new());
+                edited.extend(lines[end..].iter().map(|l| l.to_string()));
+                text = edited.join("\n") + "\n";
+            }
+            None => {
+                text.push('\n');
+                text.push_str(&body);
+            }
+        }
+    }
+    text
+}
+
+#[test]
+fn tutorial_16_configuration_builds_and_validates() {
+    // examples/tutorials/16_secure_remote_access/README.md: on tutorial 13's project, a reader puts
+    // the README's configuration, its first TOML block (step 4), into runtime.toml, with the token
+    // of step 2 in place of the placeholder and the certificate of step 3 in security/ (here the
+    // tests' fixture certificate), then builds and validates (step 6: `Project ok`). Specification 11: a `tcp://` control
+    // endpoint admits only a loopback address, and `runtime.web.auth = "token"` requires
+    // `runtime.control.auth_token`. Catches a tutorial whose configuration the runtime refuses, as
+    // its remote control endpoint `tcp://0.0.0.0:17777` was ("tcp endpoint must be loopback").
+    let readme = std::fs::read_to_string(
+        repo_root().join("examples/tutorials/16_secure_remote_access/README.md"),
+    )
+    .expect("tutorial 16's README");
+    let token = "0123456789abcdef".repeat(3);
+    let files = here_documents(
+        &std::fs::read_to_string(
+            repo_root().join("examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md"),
+        )
+        .expect("tutorial 13's README"),
+    );
+    let project = trust_test_support::unique_temp_path("tutorial-16");
+    for (file, text) in &files {
+        let path = project.join(file);
+        std::fs::create_dir_all(path.parent().expect("a folder")).expect("the folder");
+        std::fs::write(&path, text).expect("the file");
+    }
+    let runtime =
+        std::fs::read_to_string(project.join("runtime.toml")).expect("tutorial 13's runtime.toml");
+    let configuration = readme
+        .split("```toml\n")
+        .nth(1)
+        .and_then(|block| block.split("```").next())
+        .expect("the README's configuration, its first TOML block");
+    let runtime = with_sections(&runtime, configuration);
+    let runtime = runtime
+        .replace("paste-the-token-from-step-2-here", &token)
+        .replace("replace-with-long-random-token", &token);
+    std::fs::write(project.join("runtime.toml"), &runtime).expect("runtime.toml");
+    let fixtures = repo_root().join("crates/trust-runtime/tests/fixtures/tls");
+    std::fs::create_dir_all(project.join("security")).expect("security/");
+    for file in ["server-cert.pem", "server-key.pem"] {
+        std::fs::copy(fixtures.join(file), project.join("security").join(file))
+            .expect("the certificate");
+    }
+    let outputs: Vec<_> = [
+        vec!["build", "--project", ".", "--sources", "src"],
+        vec!["validate", "--project", "."],
+    ]
+    .iter()
+    .map(|args| {
+        (
+            args.join(" "),
+            trust_runtime_command()
+                .args(args)
+                .current_dir(&project)
+                .output()
+                .expect("run trust-runtime"),
+        )
+    })
+    .collect();
+    let _ = std::fs::remove_dir_all(&project);
+    for (args, output) in outputs {
+        assert!(
+            output.status.success(),
+            "`trust-runtime {args}` with\n{runtime}\n{}",
+            describe(&output)
+        );
+    }
+}
