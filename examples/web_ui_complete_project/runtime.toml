@@ -11,7 +11,7 @@ debug_enabled = true
 
 [runtime.web]
 enabled = true
-listen = "0.0.0.0:8080"
+listen = "127.0.0.1:8080"
 auth = "local"
 tls = false
 
@@ -19,41 +19,17 @@ tls = false
 mode = "disabled"
 require_remote = false
 
-cert_path = "security/server-cert.pem"
 [runtime.discovery]
-enabled = true
-service_name = "web-ui-updated"
-advertise = true
-interfaces = ["eth0"]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
 
 [runtime.mesh]
-enabled = true
-role = "peer"
-listen = "0.0.0.0:5200"
-connect = ["tcp://rapid-a:7447", "tcp://rapid-b:7447"]
-tls = false
-zenohd_version = "1.7.2"
-plugin_versions = {}
-publish = ["rapid/topic/status"]
-
-subscribe = { "factory/line2/cmd" = "line2_cmd" }
-[runtime.cloud]
-profile = "dev"
-
-[runtime.cloud.wan]
-allow_write = [{ action = "cfg_apply", target = "live.example.com" }]
-
-[runtime.opcua]
 enabled = false
-listen = "0.0.0.0:4840"
-endpoint_path = "/"
-namespace_uri = "urn:trust:runtime"
-publish_interval_ms = 250
-max_nodes = 128
-expose = []
-security_policy = "basic256sha256"
-security_mode = "sign_and_encrypt"
-allow_anonymous = false
+listen = "0.0.0.0:5200"
+tls = false
+publish = []
 
 [runtime.observability]
 enabled = false
@@ -64,8 +40,9 @@ history_path = "history/historian.jsonl"
 max_entries = 20000
 prometheus_enabled = true
 prometheus_path = "/metrics"
+
 [runtime.log]
-level = "debug"
+level = "info"
 
 [runtime.retain]
 mode = "none"
@@ -78,40 +55,3 @@ action = "halt"
 
 [runtime.fault]
 policy = "halt"
-
-
-
-
-
-
-
-
-
-
-
-
-
-[runtime.cloud.links]
-transports = [{ source = "rapid-a", target = "rapid-b", transport = "realtime" }, { source = "rapid-a", target = "rapid-c", transport = "zenoh" }]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
