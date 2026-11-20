@@ -7,8 +7,8 @@ generated ST companion workflow.
 
 IEC-aligned LD specification references:
 
-- Normative LD language spec: `docs/specs/11-ladder-diagram.md`
-- truST LD implementation profile: `docs/specs/12-ladder-profile-trust.md`
+- Normative LD language spec: `docs/specs/15-ladder-diagram.md`
+- truST LD implementation profile: `docs/specs/16-ladder-profile-trust.md`
 
 ## Files
 
