@@ -253,9 +253,10 @@ fn lesson28_verifies_from_the_state_control_studio_presets() {
         outputs.push(number(&runtime, "%QL0"));
         simulation.apply_post_cycle(now, &runtime).unwrap();
     }
-    assert_eq!(outputs[1], 75.0);
+    // The 100 ms task first runs at its start, sequence 0 (specification 10 §4.3).
+    assert_eq!(outputs[0], 75.0);
     assert!(
-        (outputs[2] - 87.75).abs() < 0.6,
+        (outputs[1] - 87.75).abs() < 0.6,
         "the setpoint kick of the Auto run: {outputs:?}"
     );
 }
@@ -433,9 +434,10 @@ fn lesson29_verifies_from_the_state_control_studio_presets() {
         outputs.push(number(&runtime, "%QL0"));
         simulation.apply_post_cycle(now, &runtime).unwrap();
     }
-    assert_eq!(outputs[1], 75.0);
+    // The 100 ms task first runs at its start, sequence 0 (specification 10 §4.3).
+    assert_eq!(outputs[0], 75.0);
     assert!(
-        (outputs[2] - 87.75).abs() < 0.6,
+        (outputs[1] - 87.75).abs() < 0.6,
         "the candidate's setpoint kick: {outputs:?}"
     );
 }

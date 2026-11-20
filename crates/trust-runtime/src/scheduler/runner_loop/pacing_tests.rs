@@ -142,18 +142,13 @@ fn six_cycle_starts<C: Clock + Clone>(clock: C, during: impl Fn(usize)) -> Vec<i
     recover_mutex_lock(starts.lock()).clone()
 }
 
-/// Whether a 10 ms task, whose timing begins at the first cycle, is due in each later cycle that
-/// starts at `starts` ms (specification 10 §4.3), and the activations it counts as missed.
-fn task_due_in_each_later_cycle(starts: &[i64]) -> (Vec<bool>, u64) {
-    task_due_in_each_cycle(starts[0], &starts[1..])
-}
-
-/// Whether a 10 ms task, whose timing begins at `origin` ms, is due in each cycle that starts at
-/// `starts` ms (specification 10 §4.3), and the activations it counts as missed.
+/// Whether a 10 ms task, whose timing begins at `origin` ms, its first deadline, is due in each
+/// cycle that starts at `starts` ms (specification 10 §4.3), and the activations it counts as
+/// missed.
 fn task_due_in_each_cycle(origin: i64, starts: &[i64]) -> (Vec<bool>, u64) {
     use trust_runtime_core::task::{evaluate_task_readiness, TaskState};
     let interval = Duration::from_millis(10);
-    let mut state = TaskState::new(Duration::from_millis(origin));
+    let mut state = TaskState::new(Duration::from_millis(origin), interval);
     let mut missed = 0;
     let due = starts
         .iter()
@@ -205,14 +200,15 @@ fn the_grid_begins_where_the_tasks_timing_begins() {
     // Specification 10 §4.3: the grid begins where the tasks' timing begins, so its boundaries are
     // the tasks' deadlines. The program's time and its 10 ms task begin at 0 ms, and its first
     // cycle starts at 37 ms, on the boundary of 30 ms; the cycles go on at 40, 54 (a wake 4 ms
-    // late), 60, 70 and 80 ms, and the task is due in every one. Catches a grid that begins at the
+    // late), 60, 70 and 80 ms, and the task is due in every one, counting its deadlines of 0, 10
+    // and 20 ms, which passed before the first cycle, as missed. Catches a grid that begins at the
     // first cycle's start, 37 ms, off the task's deadlines: its wake 4 ms late then comes at
     // 61 ms, past the deadline of 60 ms, and the cycle of 67 ms finds the task not yet due yet
     // counts as a scan (the macOS runs of `tutorial_ctl_commands.rs` and `runtime_ctl_journeys.rs`,
     // 28 October 2026).
     let starts = six_cycle_starts(SlowStartClock::default(), |_| {});
     assert_eq!(starts, [37, 40, 54, 60, 70, 80]);
-    assert_eq!(task_due_in_each_cycle(0, &starts), (vec![true; 6], 2));
+    assert_eq!(task_due_in_each_cycle(0, &starts), (vec![true; 6], 3));
 }
 
 #[test]
@@ -221,13 +217,14 @@ fn a_wake_late_by_more_than_an_interval_skips_the_boundaries_it_missed() {
     // takes the last boundary of the grid at or before its start, so the grid stays on the tasks'
     // deadlines. On a 10 ms grid the cycles start at 0 and 10 ms; the wake for 20 ms comes at
     // 35 ms, a cycle on the boundary of 30 ms, and the wake for 40 ms comes 6 ms late. A 10 ms task
-    // is then due in every cycle after the first, and counts the activation of 20 ms as missed.
+    // whose timing begins at the first cycle is then due in every cycle, the first included, and
+    // counts the activation of 20 ms as missed.
     // Catches a grid that begins again at 35 ms: the 6 ms late wake then comes at 51 ms, past the
     // task's deadline of 50 ms, and the cycle of 55 ms finds the task not yet due yet counts as a
     // scan.
     let starts = six_cycle_starts(LateWakesClock::default(), |_| {});
     assert_eq!(starts, [0, 10, 35, 46, 50, 60]);
-    assert_eq!(task_due_in_each_later_cycle(&starts), (vec![true; 5], 1));
+    assert_eq!(task_due_in_each_cycle(starts[0], &starts), (vec![true; 6], 1));
 }
 
 #[test]
@@ -249,7 +246,7 @@ fn a_cycle_that_overruns_its_interval_keeps_the_grid() {
         }
     });
     assert_eq!(starts, [0, 10, 35, 40, 50, 60]);
-    assert_eq!(task_due_in_each_later_cycle(&starts), (vec![true; 5], 1));
+    assert_eq!(task_due_in_each_cycle(starts[0], &starts), (vec![true; 6], 1));
 }
 
 #[test]
@@ -307,11 +304,12 @@ fn an_automatic_restart_begins_the_tasks_timing_when_its_first_cycle_starts() {
     // program at 21 ms and waits its backoff of one cycle interval (specification 11 §6.6), until
     // 32 ms. The first cycle after the restart starts at 32 ms, where the timing begins, so the
     // next nominal starts are 42 and 52 ms, the late wakes start those cycles at 43 and 53 ms, and
-    // a 10 ms task is not yet due in the first cycle and due in the two after it. Catches a restart
-    // that begins the timing when it ends, at 21 ms, before its backoff: the grid of 21 ms puts
-    // those cycles at 42 and 52 ms, and its task runs in the first cycle, 11 ms after the timing
-    // began (the Windows run of `runner_transcript_parity.rs`, 29 October 2026, where the
-    // operating system held the scan thread between a restart's end and its first cycle).
+    // a 10 ms task is due in the first cycle, its first deadline, and in the two after it, missing
+    // none. Catches a restart that begins the timing when it ends, at 21 ms, before its backoff:
+    // the grid of 21 ms puts those cycles at 42 and 52 ms, and its task counts the deadline of
+    // 21 ms as missed in the first cycle (the Windows run of `runner_transcript_parity.rs`,
+    // 29 October 2026, where the operating system held the scan thread between a restart's end and
+    // its first cycle).
     let mut runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
         .expect("build the runner fixture")
         .into_runtime();
@@ -349,7 +347,7 @@ fn an_automatic_restart_begins_the_tasks_timing_when_its_first_cycle_starts() {
     assert_eq!(starts, [0, 11, 21, 32, 43, 53]);
     assert_eq!(
         task_due_in_each_cycle(32, &starts[3..]),
-        (vec![false, true, true], 0)
+        (vec![true, true, true], 0)
     );
 }
 

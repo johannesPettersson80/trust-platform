@@ -375,7 +375,7 @@ fn lesson24_verifies_from_the_state_control_studio_presets() {
             .unwrap_or_else(|error| panic!("cycle {sequence}: {error:?}"));
         outputs.push(number(&runtime, "%QL0"));
         intervals.push(program_number(&runtime, program, "ElapsedS"));
-        if sequence > 1 {
+        if sequence > 0 {
             assert!(
                 (input_cycle_time(&runtime, program) - 0.1).abs() < 1e-9,
                 "cycle {sequence}: Control.PID integrates over 0.1 s"
@@ -383,23 +383,24 @@ fn lesson24_verifies_from_the_state_control_studio_presets() {
         }
         simulation.apply_post_cycle(now, &runtime).unwrap();
     }
-    // The 100 ms task first runs at 0.1 s. That scan has no previous acquisition, hence no interval.
+    // The 100 ms task first runs at its start, 0 s (specification 10 §4.3). That scan has no previous
+    // acquisition, hence no interval.
     assert_eq!(
-        intervals[1], 0.0,
+        intervals[0], 0.0,
         "the first executed scan measures no interval"
     );
     assert_eq!(
-        outputs[1], 75.0,
+        outputs[0], 75.0,
         "the preset command is held over the unusable first interval"
     );
     assert!(
-        intervals[2..]
+        intervals[1..]
             .iter()
             .all(|elapsed| (elapsed - 0.1).abs() < 1e-9),
         "each later update measures the verification clock's 0.1 s: {intervals:?}"
     );
     assert!(
-        outputs[2] > 75.0,
+        outputs[1] > 75.0,
         "the controller acts on the 3 °C setpoint step from the next scan: {outputs:?}"
     );
 }

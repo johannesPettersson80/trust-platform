@@ -309,9 +309,14 @@ and `pair.revoke` with its id, `service-recipe`, revokes it. Keep the file out o
 
 ## Write a service
 
-A service is an ordinary Rust program, `cargo new --bin recipe-service`, that depends on
-`trust-service` at the version of the truST release its runtime runs (`cargo add
-trust-service@=<version>`). It connects by its name with the settings of its `[services.<name>]`:
+A service is an ordinary Rust program, and you build it with your own Rust: truST's toolchain
+builds programs, not services. Install Rust with [rustup](https://rustup.rs), which also names the
+linker your computer needs (Xcode's command-line tools on macOS, a C compiler on Linux, Visual
+Studio's build tools on Windows).
+
+Create the service with `cargo new --bin recipe-service` and make it depend on `trust-service` at
+the version of the truST release its runtime runs (`cargo add trust-service@=<version>`). It
+connects by its name with the settings of its `[services.<name>]`:
 
 ```toml
 [services.recipe]

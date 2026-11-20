@@ -33,7 +33,7 @@ fn in_outs_and_outputs_pass_through_a_call() {
     // RU-29, RU-38, RU-39: a call passes a function's in-out as RU-29's `InOut<'_, T>` and its
     // output as `&mut T`: ACCUMULATE adds x = 2.5 to the in-out total, 10.0 + 2.5 = 12.5, which the
     // program's variable then holds, writes its output doubled = 2.5 x 2 = 5.0 and returns 12.5, so
-    // ADD_TO gives 12.5 + 5.0 = 17.5, at the task's first call at 10 ms. Catches an in-out that the
+    // ADD_TO gives 12.5 + 5.0 = 17.5, at the task's first call at 0 ms. Catches an in-out that the
     // call reads but never writes back, and an output left in the generated cells.
     let root = custom_project(
         "rust-pous-structured-text-in-outs",
@@ -80,11 +80,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.SUM"), Some(Value::LReal(12.5)));
     assert_eq!(program.value("MAIN.RESULT"), Some(Value::LReal(17.5)));
 }
@@ -107,7 +106,7 @@ pub fn bumped(cx: &mut Cx, count: InOut<'_, i32>, divisor: i32) -> Result<i32, F
 fn an_in_out_keeps_what_a_faulting_function_wrote() {
     // RU-29, RU-39: a write through an in-out is the caller's variable's at once, so a fault after
     // it leaves it written: BUMP adds 1 to the program's n, 5 + 1 = 6, then divides 100 by 0, whose
-    // division by zero ends the scan at the task's first call at 10 ms with n at 6 and r, which
+    // division by zero ends the scan at the task's first call at 0 ms with n at 6 and r, which
     // the call never assigns, at its -1. Catches an in-out written back only when the function
     // returns, which leaves n at 5.
     let root = custom_project(
@@ -152,11 +151,9 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    program
-        .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
+    // The task is due at its start (specification 10 §4.3): the first scan runs it.
     let error = program
-        .scan(Duration::from_millis(10), &mut NoHooks)
+        .scan(Duration::ZERO, &mut NoHooks)
         .expect_err("the division by zero ends the scan");
     assert!(matches!(error, RuntimeError::DivisionByZero), "{error:?}");
     assert_eq!(program.value("MAIN.N"), Some(Value::DInt(6)));
@@ -201,7 +198,7 @@ fn references_pass_through_calls_and_held_blocks() {
     // BUMP_AT adds 5 to the program's n through the block's in-out, 10 + 5 = 15, and gives 15;
     // PICK gives back its second reference, n's, read as 15 x 10 = 150; the held WATCH reads 15
     // through its input SOURCE and gives SOURCE back as LAST, read as 15, at the task's first call
-    // at 10 ms. Catches a reference passed as a copy of the value (n stays 10), a result that names
+    // at 0 ms. Catches a reference passed as a copy of the value (n stays 10), a result that names
     // nothing, and a held block's reference left in the generated cells.
     let root = custom_project(
         "rust-pous-structured-text-references",
@@ -269,11 +266,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.N"), Some(Value::DInt(15)));
     assert_eq!(program.value("MAIN.BUMPER.AFTER"), Some(Value::DInt(15)));
     assert_eq!(program.value("MAIN.BUMPER.PICKED"), Some(Value::DInt(150)));
@@ -364,7 +360,7 @@ END_CONFIGURATION
 fn a_held_blocks_in_out_is_a_reference_its_call_gives_it() {
     // RU-29, RU-39, specification 44 §7.3: a held block's in-out is a field of `input` of type
     // `Ref<T>`: COUNTER gives TALLY the reference of its own in-out, the program's n, so TALLY adds
-    // 7 to n itself, 1 + 7 = 8, at the task's first call at 10 ms; a block whose in-out is left
+    // 7 to n itself, 1 + 7 = 8, at the task's first call at 0 ms; a block whose in-out is left
     // NULL ends the scan with `NullReference` where it reads it. Catches an in-out refused, one
     // passed as a copy of its value (n stays 1), and a NULL read as zero.
     let Some((built, device)) = held_in_outs(
@@ -375,11 +371,10 @@ fn a_held_blocks_in_out_is_a_reference_its_call_gives_it() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.N"), Some(Value::DInt(8)));
     assert_eq!(
         program.value("MAIN.COUNTER.TALLY.ADD"),
@@ -392,11 +387,9 @@ fn a_held_blocks_in_out_is_a_reference_its_call_gives_it() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    program
-        .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
+    // The task is due at its start (specification 10 §4.3): the first scan runs it.
     let error = program
-        .scan(Duration::from_millis(10), &mut NoHooks)
+        .scan(Duration::ZERO, &mut NoHooks)
         .expect_err("the NULL ends the scan");
     assert_eq!(error, RuntimeError::NullReference);
 }
@@ -420,7 +413,7 @@ fn a_string_in_out_passes_through_a_call() {
     // writing the text it was given back: SHOUT appends '!' to the program's STRING[16] 'hey',
     // which takes 'hey!', and gives LEN 4; the program's STRING[3] 'abc' becomes 'abc!' in SHOUT,
     // LEN 4, and takes 'abc', as an assignment to it cuts the text (CODESYS profile, DEV-035), at
-    // the task's first call at 10 ms. Catches a string in-out refused, one the function's write
+    // the task's first call at 0 ms. Catches a string in-out refused, one the function's write
     // never reaches, and a write-back past the caller's capacity.
     let root = custom_project(
         "rust-pous-structured-text-string-in-out",
@@ -463,11 +456,10 @@ END_CONFIGURATION
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(
         program.value("MAIN.WIDE"),
         Some(Value::String("hey!".into()))

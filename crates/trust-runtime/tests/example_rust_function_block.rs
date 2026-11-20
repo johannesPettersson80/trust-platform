@@ -49,10 +49,11 @@ fn run_to(program: &mut NativeProgram<'_, HostCode>, time: &mut i64, until: i64)
 #[test]
 fn the_examples_ramp_moves_the_speed_as_its_readme_says() {
     // Specification 48 RU-88, the README's step by step, worked by hand: RAMP moves Speed by rate x
-    // interval = 10 x 0.1 s = 1.0 at each run of the 100 ms task, which first runs at 100 ms
-    // (specification 10 §4.3). So Speed is 10.0 at 1 s, 49.0 with AtSpeed FALSE at 4.9 s, and 50.0
-    // with AtSpeed TRUE at 5 s. With Setpoint 20.0 it falls by 1.0 a run: 21.0 with AtSpeed FALSE at
-    // 7.9 s, and 20.0 with AtSpeed TRUE at 8 s. Every value is exact in binary. Catches an example
+    // interval = 10 x 0.1 s = 1.0 at each run of the 100 ms task, which runs at its start and then
+    // every 100 ms (specification 10 §4.3). So Speed is 11.0 at 1 s (runs at 0, 0.1, ..., 1 s), 49.0
+    // with AtSpeed FALSE at 4.8 s, and 50.0 with AtSpeed TRUE at 4.9 s, the 50th run. With Setpoint 20.0,
+    // written after that run, it falls by 1.0 a run: 21.0 with AtSpeed FALSE at 7.8 s, the 29th run
+    // after the write, and 20.0 with AtSpeed TRUE at 7.9 s, the 30th. Every value is exact in binary. Catches an example
     // that does not build as committed (stale declarations, a crate the build refuses) and a README
     // whose values the program does not compute.
     let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/rust_function_block");
@@ -66,9 +67,9 @@ fn the_examples_ramp_moves_the_speed_as_its_readme_says() {
     program.cold_start(Duration::ZERO).expect("the cold start");
     let mut time = 0;
     for (until, speed, at_speed) in [
-        (1_000, 10.0, false),
-        (4_900, 49.0, false),
-        (5_000, 50.0, true),
+        (1_000, 11.0, false),
+        (4_800, 49.0, false),
+        (4_900, 50.0, true),
     ] {
         assert_eq!(
             run_to(&mut program, &mut time, until),
@@ -83,7 +84,7 @@ fn the_examples_ramp_moves_the_speed_as_its_readme_says() {
     program
         .write_symbol(setpoint, &Value::LReal(20.0))
         .expect("Setpoint written");
-    for (until, speed, at_speed) in [(7_900, 21.0, false), (8_000, 20.0, true)] {
+    for (until, speed, at_speed) in [(7_800, 21.0, false), (7_900, 20.0, true)] {
         assert_eq!(
             run_to(&mut program, &mut time, until),
             (Value::LReal(speed), Value::Bool(at_speed)),

@@ -64,16 +64,17 @@ fn periodic_interval() {
         "TASK T (INTERVAL := T#10ms, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
     );
 
+    // Specification 10 §4.3: the task is due at its start, 0 ms, not at 5 ms, and again at 10 ms.
     scan(&mut harness);
-    assert_eq!(global(&harness, "count"), Value::Int(0));
-
-    harness.advance_time(Duration::from_millis(5));
-    scan(&mut harness);
-    assert_eq!(global(&harness, "count"), Value::Int(0));
+    assert_eq!(global(&harness, "count"), Value::Int(1));
 
     harness.advance_time(Duration::from_millis(5));
     scan(&mut harness);
     assert_eq!(global(&harness, "count"), Value::Int(1));
+
+    harness.advance_time(Duration::from_millis(5));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(2));
 }
 
 #[test]
@@ -246,11 +247,13 @@ fn task_overrun_drops_missed_intervals() {
     );
     let debug = debugged(&mut harness);
 
+    // The deadlines 0, 10, 20 and 30 ms passed before the first scan, at 35 ms: one run, due at
+    // the task's start, and three missed (specification 10 §4.3).
     harness.advance_time(Duration::from_millis(35));
     scan(&mut harness);
 
     assert_eq!(global(&harness, "count"), Value::Int(1));
-    assert_eq!(missed(&debug, "T"), 2);
+    assert_eq!(missed(&debug, "T"), 3);
 }
 
 /// Injected logical samples exercise IEC 61131-3 Ed.3 section 6.8.2 b.
@@ -274,8 +277,8 @@ fn periodic_task_keeps_its_interval_when_cycles_start_late() {
 
     assert_eq!(
         global(&harness, "count"),
-        Value::Int(100),
-        "one run per 100 ms"
+        Value::Int(101),
+        "one run per 100 ms, and the one due at the task's start, 0 ms, which the first cycle runs"
     );
     assert_eq!(missed(&debug, "T"), 0);
 }
@@ -288,9 +291,11 @@ fn periodic_task_non_multiple_interval_preserves_nominal_deadlines() {
     );
     let debug = debugged(&mut harness);
 
+    // Specification 10 §4.3: registered at 0 ms, the task is due then, its first deadline, and at
+    // the first 10 ms sample at or after each later deadline 25k: 0, 30, 50, 80, 100, ... 1000 ms.
     let mut activations = Vec::new();
     let mut previous = 0;
-    for sample in (10..=1000).step_by(10) {
+    for sample in (0..=1000).step_by(10) {
         harness
             .runtime_mut()
             .set_current_time(Duration::from_millis(sample));
@@ -305,9 +310,9 @@ fn periodic_task_non_multiple_interval_preserves_nominal_deadlines() {
         }
         assert_eq!(missed(&debug, "T"), 0);
     }
-    assert_eq!(&activations[..4], &[30, 50, 80, 100]);
-    assert_eq!(activations.len(), 40);
-    assert_eq!(previous, 40);
+    assert_eq!(&activations[..5], &[0, 30, 50, 80, 100]);
+    assert_eq!(activations.len(), 41);
+    assert_eq!(previous, 41);
     assert_eq!(activations.last(), Some(&1000));
 }
 

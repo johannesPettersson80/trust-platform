@@ -97,23 +97,24 @@ END_PROGRAM
 
 #[test]
 fn ten_and_twenty_five_ms_tasks_release_on_nominal_deadlines_over_300_ms() {
-    // SCHED-05 / COMPAT-06 with a coincident batch: the 25 ms task releases at the first 10 ms
-    // sample at or after each deadline 25k, and both tasks are due at 50, 100, ... 300 ms.
+    // SCHED-05 / COMPAT-06 with a coincident batch: both tasks are registered at 0 ms, their first
+    // deadline (specification 10 §4.3), and the 25 ms task releases at the first 10 ms sample at or
+    // after each deadline 25k, k >= 0, so both tasks are due at 0, 50, 100, ... 300 ms.
     let mut harness = TestHarness::from_source(MIXED_RATE).unwrap();
     let mut overruns = Overruns::attach(&mut harness);
     let mut slow_releases = Vec::new();
     let mut slow_seen = 0;
 
-    for sample in (10_i64..=300).step_by(10) {
+    for sample in (0_i64..=300).step_by(10) {
         cycle_at(&mut harness, sample);
         assert_eq!(
             dint(&harness, "fast_runs"),
-            sample / 10,
+            sample / 10 + 1,
             "10 ms releases at {sample} ms"
         );
 
         let mut expected_slow = 0;
-        while first_sample_at_or_after(25 * (expected_slow + 1), 10) <= sample {
+        while first_sample_at_or_after(25 * expected_slow, 10) <= sample {
             expected_slow += 1;
         }
         let slow = dint(&harness, "slow_runs");
@@ -126,7 +127,7 @@ fn ten_and_twenty_five_ms_tasks_release_on_nominal_deadlines_over_300_ms() {
 
     assert_eq!(
         slow_releases,
-        vec![30, 50, 80, 100, 130, 150, 180, 200, 230, 250, 280, 300]
+        vec![0, 30, 50, 80, 100, 130, 150, 180, 200, 230, 250, 280, 300]
     );
     assert_eq!(overruns.of("Fast"), 0);
     assert_eq!(overruns.of("Slow"), 0);
@@ -244,7 +245,12 @@ fn clock_jumps_count_missed_periods_once_and_keep_the_next_nominal_deadline() {
 
     cycle_at(&mut harness, 55);
     assert_eq!(dint(&harness, "count"), 1);
-    assert_eq!(overruns.of("Fast"), 4, "deadlines 10, 20, 30, 40 missed");
+    assert_eq!(
+        overruns.of("Fast"),
+        5,
+        "the run is due at 0 ms, the task's start (specification 10 §4.3): deadlines 10, 20, 30, \
+         40 and 50 missed"
+    );
 
     cycle_at(&mut harness, 59);
     assert_eq!(
@@ -258,7 +264,7 @@ fn clock_jumps_count_missed_periods_once_and_keep_the_next_nominal_deadline() {
     assert_eq!(dint(&harness, "count"), 2);
     cycle_at(&mut harness, 70);
     assert_eq!(dint(&harness, "count"), 3);
-    assert_eq!(overruns.of("Fast"), 4);
+    assert_eq!(overruns.of("Fast"), 5);
 
     cycle_at(&mut harness, 200);
     assert_eq!(
@@ -266,34 +272,36 @@ fn clock_jumps_count_missed_periods_once_and_keep_the_next_nominal_deadline() {
         4,
         "one activation after a 130 ms gap"
     );
-    assert_eq!(overruns.of("Fast"), 16, "twelve further periods counted");
+    assert_eq!(overruns.of("Fast"), 17, "twelve further periods counted");
     cycle_at(&mut harness, 209);
     assert_eq!(dint(&harness, "count"), 4);
     cycle_at(&mut harness, 210);
     assert_eq!(dint(&harness, "count"), 5, "the next deadline is 210 ms");
-    assert_eq!(overruns.of("Fast"), 16);
+    assert_eq!(overruns.of("Fast"), 17);
 }
 
 #[test]
 fn backward_clock_step_keeps_the_nominal_baseline_and_counts_nothing() {
-    // Spec 10 section 4.3: a backward sample does not move the baseline or create an overrun.
+    // Spec 10 section 4.3: a backward sample does not move the baseline or create an overrun. The
+    // task runs at its start, 0 ms, and at 10 ms before the clock steps back.
     let mut harness = TestHarness::from_source(JUMP_COUNTER).unwrap();
     let mut overruns = Overruns::attach(&mut harness);
+    cycle_at(&mut harness, 0);
     cycle_at(&mut harness, 10);
-    assert_eq!(dint(&harness, "count"), 1);
+    assert_eq!(dint(&harness, "count"), 2);
 
     cycle_at(&mut harness, 2);
-    assert_eq!(dint(&harness, "count"), 1);
+    assert_eq!(dint(&harness, "count"), 2);
     assert_eq!(overruns.of("Fast"), 0);
     cycle_at(&mut harness, 9);
     cycle_at(&mut harness, 19);
     assert_eq!(
         dint(&harness, "count"),
-        1,
+        2,
         "the 20 ms deadline is still ahead"
     );
     cycle_at(&mut harness, 20);
-    assert_eq!(dint(&harness, "count"), 2);
+    assert_eq!(dint(&harness, "count"), 3);
     assert_eq!(overruns.of("Fast"), 0);
 }
 
@@ -323,7 +331,8 @@ fn set_trigger(harness: &mut TestHarness, value: bool) {
 fn held_single_suppresses_periodic_releases_until_a_low_sample_then_rearms() {
     // Spec 10 section 4.3 and spec 11 section 6.2 for one task with SINGLE and INTERVAL: the
     // rising edge at 10 ms runs it once, the high level then suppresses its periodic releases, and
-    // the release at 35 ms accounts for deadlines 10, 20 and 30 (two missed) in one run. A new
+    // the release at 35 ms accounts for deadlines 0, 10, 20 and 30 (three missed) in one run, the
+    // first being the task's start (specification 10 §4.3). A new
     // rising edge at 36 ms runs it again without moving the baseline (30 ms), and the release at
     // 45 ms runs for the 40 ms deadline.
     let mut harness = TestHarness::from_source(HELD_SINGLE).unwrap();
@@ -345,9 +354,9 @@ fn held_single_suppresses_periodic_releases_until_a_low_sample_then_rearms() {
     assert_eq!(
         dint(&harness, "runs"),
         2,
-        "one release for the three pending deadlines"
+        "one release for the four pending deadlines"
     );
-    assert_eq!(overruns.of("Gated"), 2);
+    assert_eq!(overruns.of("Gated"), 3);
 
     set_trigger(&mut harness, true);
     cycle_at(&mut harness, 36);
@@ -360,19 +369,21 @@ fn held_single_suppresses_periodic_releases_until_a_low_sample_then_rearms() {
     assert_eq!(dint(&harness, "runs"), 4, "release for the 40 ms deadline");
     cycle_at(&mut harness, 50);
     assert_eq!(dint(&harness, "runs"), 5, "release for the 50 ms deadline");
-    assert_eq!(overruns.of("Gated"), 2);
+    assert_eq!(overruns.of("Gated"), 3);
 }
 
 #[test]
 fn cold_restart_clears_task_baselines_without_replaying_pre_restart_periods() {
-    // Spec 11 section 6.3 and spec 10 section 4.8: restart keeps the logical clock and reinitializes
-    // task timing at that instant, so the first post-restart samples are not due and nothing from
-    // before the restart is counted again.
+    // Spec 11 section 6.3 and spec 10 sections 4.3 and 4.8: restart keeps the logical clock and
+    // reinitializes task timing at that instant, the tasks' first deadline, so the first
+    // post-restart sample runs them, the next deadline is one interval later, and nothing from
+    // before the restart is counted again. Before it, the cycle at 95 ms passed the deadlines 0 to
+    // 90 ms: one run and nine missed.
     let mut harness = TestHarness::from_source(JUMP_COUNTER).unwrap();
     let mut overruns = Overruns::attach(&mut harness);
     cycle_at(&mut harness, 95);
     assert_eq!(dint(&harness, "count"), 1);
-    assert_eq!(overruns.of("Fast"), 8);
+    assert_eq!(overruns.of("Fast"), 9);
 
     overruns.restart();
     harness.restart(RestartMode::Cold).unwrap();
@@ -385,14 +396,14 @@ fn cold_restart_clears_task_baselines_without_replaying_pre_restart_periods() {
     assert_eq!(overruns.of("Fast"), 0);
 
     cycle_at(&mut harness, 96);
-    assert_eq!(dint(&harness, "count"), 0);
+    assert_eq!(dint(&harness, "count"), 1, "due at the restart, 95 ms");
     cycle_at(&mut harness, 104);
     assert_eq!(
         dint(&harness, "count"),
-        0,
-        "the first deadline after restart is 105 ms"
+        1,
+        "the next deadline after the restart is 105 ms"
     );
     cycle_at(&mut harness, 105);
-    assert_eq!(dint(&harness, "count"), 1);
+    assert_eq!(dint(&harness, "count"), 2);
     assert_eq!(overruns.of("Fast"), 0);
 }

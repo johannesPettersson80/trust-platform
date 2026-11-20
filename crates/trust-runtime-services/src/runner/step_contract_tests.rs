@@ -48,7 +48,7 @@ fn a_stopped_program_steps_with_the_requests_values_and_no_driver() {
     // The first step restarts the probe cold at time zero; the scan at 10 ms runs the due task once,
     // with `button` from the input image the request wrote and `probe_depth` 3. The drivers read and
     // drive nothing, the resource stays Stopped, and the next steps go on from 10 ms. Catches a step
-    // that samples or drives the drivers, a scan at the restart's time (no task is due at 0), a
+    // that samples or drives the drivers, a scan at the restart's time instead of the step's, a
     // first step without a restart, a time that runs backwards, and a resource left running.
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
@@ -154,12 +154,12 @@ fn a_step_needs_the_debug_surface() {
 #[test]
 fn a_step_runs_a_program_instance_outside_the_schedule() {
     // Specification 11 §6.8.1, `run`: the body of the program instance `Plant` runs once in place
-    // of the scheduler's cycle, at time zero, when its task is not due, as a test program runs:
+    // of the scheduler's cycle, at time zero, as a test program runs:
     // the inputs are not sampled, so `button` keeps its cold value FALSE although the request wrote
     // TRUE into the input image, and the outputs are not published, so `%QX0.0` stays FALSE;
     // `probe_depth` 2 gives `ProbeLeaf() + 1` = 2. Catches a run that samples the inputs (`led`
-    // TRUE), a run that publishes the outputs, and a scheduler cycle in its place (no task is due at
-    // zero, so `depth_result` would keep its initial 0).
+    // TRUE), a run that publishes the outputs, and a scheduler cycle in its place, which would sample
+    // the inputs and publish the outputs.
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
     stop(&fixture, &mut runner);

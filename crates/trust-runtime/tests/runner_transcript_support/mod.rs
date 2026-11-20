@@ -101,11 +101,12 @@ const WAIT_LIMIT: StdDuration = StdDuration::from_secs(20);
 /// The device link's frame: large enough that no reply of the transcript is refused.
 const FRAME_LEN: usize = 64 * 1024;
 
-/// One scan the host's scan thread completed: its logical start time and whether a task ran.
+/// One scan the host's scan thread completed: its logical start time and its cycle counter, which
+/// starts again at 0 at the first scan after a restart (specification 11 §6.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HostScan {
     pub at: StdDuration,
-    pub task: bool,
+    pub cycle: u64,
 }
 
 fn runtime_settings() -> RuntimeSettings {
@@ -170,7 +171,6 @@ pub struct HostComposition {
     io_snapshots: Receiver<trust_runtime::io::IoSnapshot>,
     live_metrics: Arc<Mutex<RuntimeMetrics>>,
     scan_events: Vec<RuntimeEvent>,
-    scan_task: bool,
     completed: u64,
     pub watchdog: WatchdogPolicy,
     pub fault_policy: FaultPolicy,
@@ -290,7 +290,6 @@ impl HostComposition {
             io_snapshots,
             live_metrics,
             scan_events: Vec::new(),
-            scan_task: false,
             completed: 0,
             watchdog,
             fault_policy,
@@ -399,10 +398,9 @@ impl HostComposition {
         match &event {
             RuntimeEvent::CycleStart { .. } => {
                 assert!(self.scan_events.is_empty(), "a scan started inside a scan");
-                self.scan_task = false;
             }
-            RuntimeEvent::TaskStart { .. } => self.scan_task = true,
-            RuntimeEvent::TaskEnd { .. }
+            RuntimeEvent::TaskStart { .. }
+            | RuntimeEvent::TaskEnd { .. }
             | RuntimeEvent::TaskOverrun { .. }
             | RuntimeEvent::CycleEnd { .. } => {}
             other => panic!("the transcript's host emitted an unexpected event: {other:?}"),
@@ -412,12 +410,12 @@ impl HostComposition {
         if !end {
             return;
         }
-        let Some(RuntimeEvent::CycleStart { time, .. }) = self.scan_events.first() else {
+        let Some(RuntimeEvent::CycleStart { cycle, time }) = self.scan_events.first() else {
             panic!("a scan ended that never started: {:?}", self.scan_events);
         };
         completed.push(HostScan {
             at: StdDuration::from_nanos(u64::try_from(time.as_nanos()).expect("scan time")),
-            task: self.scan_task,
+            cycle: *cycle,
         });
         let mut store = self.state.events.lock().expect("event store");
         for event in self.scan_events.drain(..) {
