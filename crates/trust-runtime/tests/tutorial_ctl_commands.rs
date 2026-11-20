@@ -71,10 +71,10 @@ fn filling_line_readme_scenario_table_holds() {
 }
 
 #[test]
-fn memory_marker_counter_readme_steps_one_to_three_hold() {
-    // README step 3: `trust-runtime ctl --project examples/memory_marker_counter io-write %MW0 41`,
-    // then one cycle later `%QW0 = Int(41)` (the latched cycle-start value) and `%MW0 = Int(42)`
-    // (the write-back at cycle end). The printed form is the one io-read gives INT bindings. Then
+fn memory_marker_counter_readme_write_latches_then_counts() {
+    // The README's Reference: `trust-runtime ctl --project <folder> io-write %MW0 41`, then the
+    // next scan latches 41 into `%QW0` (the scan-start value) and writes 42 back into `%MW0` (the
+    // write-back at the scan's end), which `io-read` shows in the form it gives INT bindings. Then
     // `%MW0` increments by 1 per cycle.
     let runtime = ExampleRuntime::new("memory_marker_counter").start();
     let write = runtime.prove_counter_write(41, 1);
@@ -113,9 +113,10 @@ fn memory_marker_counter_readme_steps_one_to_three_hold() {
 }
 
 #[test]
-fn memory_marker_counter_readme_step_five_adds_five_per_cycle() {
-    // README step 5 changes `Counter := Counter + 1;` to `+ 5;` in the copy, then repeats step 3.
-    // %MW0 must climb by 5 per cycle, and the same landing arithmetic applies with a step of 5.
+fn memory_marker_counter_readme_plus_five_adds_five_per_cycle() {
+    // The README's first Try-it changes `Counter := Counter + 1;` to `+ 5;` in the copy; this
+    // repeats the Reference's write. %MW0 must climb by 5 per cycle, and the same landing
+    // arithmetic applies with a step of 5.
     let runtime = ExampleRuntime::new("memory_marker_counter")
         .edit_source(
             "src/Main.st",

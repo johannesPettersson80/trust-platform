@@ -22,6 +22,17 @@
     ]
   },
   {
+    "id": "memory-marker-counter",
+    "title": "Memory marker counter",
+    "description": "Watch a counter in Live Values, stop it at a breakpoint and step one statement.",
+    "path": "memory_marker_counter",
+    "hardware": "none",
+    "tags": [
+      "debugging",
+      "simulator"
+    ]
+  },
+  {
     "id": "rust-function-block",
     "title": "Rust function block",
     "description": "A Structured Text program that calls a function block written in Rust. Simulates with no hardware.",

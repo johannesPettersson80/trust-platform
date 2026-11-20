@@ -174,7 +174,6 @@
     "examples/hmi_equipment/README.md",
     "examples/hmi_tank_level/README.md",
     "examples/ladder/README.md",
-    "examples/memory_marker_counter/README.md",
     "examples/mitsubishi_gxworks3_v1/README.md",
     "examples/openot_database/README.md",
     "examples/openot_database/influxdb3/README.md",

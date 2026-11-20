@@ -487,7 +487,13 @@ Each session copies its project from the checkout's `examples/` and runs at
   the line running in Live Values (the speed in steps of 5, about one part a
   second), Force of the stop input TRUE stopping it, Release leaving the input
   TRUE and the line stopped (specification 11, 6.9.2), and Write of FALSE
-  starting it again (specification 25, sections 3.5 and 4).
+  starting it again (specification 25, sections 3.5 and 4);
+- `memory-marker-counter`: the walkthrough of `memory_marker_counter` on the
+  unmodified example: Start, `%MW0` growing by one a scan with `%QW0` one below
+  it in Live Values, a breakpoint holding the scan before
+  `Counter := Counter + 1;` with both variables equal, Step Over making
+  `Counter` one more, Continue, and Force of 41 on `%MW0` holding both words at
+  41 until Release (specification 10, 4.7).
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A
