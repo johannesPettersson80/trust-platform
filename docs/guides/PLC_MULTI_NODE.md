@@ -70,7 +70,9 @@ publish = ["P1.LampOut"]
 "PlcB:P1.LampOut" = "P1.RemoteLamp"
 ```
 
-Restart the runtime after editing `runtime.toml`.
+A mesh also finds the other meshes on its network by multicast and connects to
+them. Give every PLC of one mesh the same `auth_token`, so that no other device
+can join it. Restart the runtime after editing `runtime.toml`.
 
 ## Troubleshooting
 

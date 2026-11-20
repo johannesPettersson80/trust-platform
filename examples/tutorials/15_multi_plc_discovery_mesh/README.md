@@ -170,8 +170,10 @@ What the mesh settings do:
   variable of this runtime.
 - `connect` names the peers to connect to. On one machine PLC-A connects to
   PLC-B's port directly; on a network, a peer is reached at its network address.
-- The mesh here has no `auth_token`: it listens on this computer only. Step 8
-  secures a mesh across a network.
+- The mesh here has no `auth_token`. It listens on this computer only, but a
+  mesh also looks for other meshes on the network by multicast and connects to
+  those it finds, so a mesh without a token exchanges data with any of them.
+  Step 8 secures a mesh across a network.
 
 ## Step 4: Build and validate both projects
 

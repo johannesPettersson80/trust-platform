@@ -46,6 +46,11 @@ a subscription names the publisher by its `[resource] name` (here `PlcB`) and a
 path it publishes. An endpoint is `host:port` or a Zenoh locator such as
 `tcp/host:port`.
 
+Besides its `connect` entries, a mesh finds other meshes on the network by
+Zenoh's multicast scouting and connects to them, and a peer that listens on a
+network address accepts connections from them. Without `auth_token` any of them
+can join and exchange data.
+
 When `auth_token` is configured, peers authenticate with that shared mesh token. Peers with
 missing or different tokens cannot join the authenticated link. `tls = true` uses the
 certificate, key and CA configured under `[runtime.tls]` and negotiates TLS on mesh sockets;
