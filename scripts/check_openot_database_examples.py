@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 import tomllib
 
@@ -43,6 +44,38 @@ def fail(message: str) -> None:
     raise AssertionError(message)
 
 
+# A project copy names the OpenOT ST library by its absolute path: the library's function blocks are the
+# producers truST generates from the workload's `oot` attributes, and a relative path stops at the copy.
+LIBRARY_LINE = (
+    "printf '[dependencies]\\nOpenOT = { path = \"%s\" }\\n' "
+    '"$(cd ../open-ot-ref/st/iec61131 && pwd)" > "$example_root/trust-lsp.toml"'
+)
+
+
+def first_bash_block(text: str) -> str:
+    """The first ```bash block of `text`, or "" when it has none."""
+    if "```bash\n" not in text:
+        return ""
+    return text.split("```bash\n", 1)[1].split("```", 1)[0]
+
+
+def project_copy_problems(block: str, runtime_toml: str) -> list[str]:
+    """The lines a README's project copy lacks to build and run (checklist G253).
+
+    Wrong behaviour caught: a copy without the OpenOT ST library (`trust-runtime build` fails with
+    `'OotProducer' is not callable`), without `io.toml` (`trust-runtime run` refuses: `missing io.toml`),
+    or without the library fetched once by `scripts/checkout_openot_ref.sh`."""
+    lines = (
+        "bash scripts/checkout_openot_ref.sh",
+        'cp examples/openot_database/workload/Main.st "$example_root/src/Main.st"',
+        'cp examples/openot_database/workload/io.toml "$example_root/io.toml"',
+        f'cp {runtime_toml} "$example_root/runtime.toml"',
+        LIBRARY_LINE,
+        'trust-runtime build --project "$example_root" --sources src',
+    )
+    return [line for line in lines if line not in block.splitlines()]
+
+
 def main() -> int:
     persistence_spec = (ROOT / "docs" / "specs" / "33-openot-database-persistence.md").read_text()
     persistence_spec_normalized = " ".join(persistence_spec.split())
@@ -69,6 +102,17 @@ def main() -> int:
         fail("canonical ST workload must not contain database calls")
     if not (EXAMPLES / "workload" / "openot-coverage-manifest.json").is_file():
         fail("canonical OpenOT coverage manifest is missing")
+    io_path = EXAMPLES / "workload" / "io.toml"
+    if not io_path.is_file():
+        fail("workload/io.toml is missing: `trust-runtime run` refuses a project copy without an io.toml")
+    if tomllib.loads(io_path.read_text()).get("io", {}).get("driver") != "simulated":
+        fail("workload/io.toml must select the simulated I/O driver: the workload reads no field device")
+    folder_readme = (EXAMPLES / "README.md").read_text()
+    missing = project_copy_problems(
+        first_bash_block(folder_readme), "examples/openot_database/sqlite/runtime.toml"
+    )
+    if missing:
+        fail(f"openot_database/README.md: its project copy lacks {missing}")
 
     for product, expected_backend in PRODUCTS.items():
         directory = EXAMPLES / product
@@ -105,10 +149,28 @@ def main() -> int:
         for heading in REQUIRED_GUIDANCE:
             if f"## {heading}" not in readme:
                 fail(f"{product}: README is missing '{heading}' guidance")
-        if "../workload/Main.st" not in readme:
-            fail(f"{product}: README does not bind the shared canonical workload")
+        prepare = readme.split("## Prepare and run", 1)[-1]
+        missing = project_copy_problems(
+            first_bash_block(prepare), f"examples/openot_database/{product}/runtime.toml"
+        )
+        if missing:
+            fail(f"{product}: README's Prepare and run copy lacks {missing}")
+        # The database and user every command uses: `openot` and `openot_logger` were older names.
+        if "openot_logger" in readme or "`openot`" in readme:
+            fail(f"{product}: README names the database or user `openot`/`openot_logger`, not `trust_logging`")
         if "runtime.toml" not in readme or "```bash" not in readme:
             fail(f"{product}: README lacks executable configuration/run commands")
+
+    multi_readme = (MULTI_PROGRAM_EXAMPLES / "README.md").read_text()
+    for line in (
+        "bash scripts/checkout_openot_ref.sh",
+        'cp -a examples/openot_multi_program/. "$example_root/"',
+        LIBRARY_LINE,
+    ):
+        if line not in multi_readme.splitlines():
+            fail(f"openot_multi_program/README.md lacks {line!r}")
+    if re.search(r"\bVM\b", multi_readme):
+        fail("openot_multi_program/README.md speaks of a VM: programs run compiled to native code")
 
     multi_program_configs = {
         "sqlite": MULTI_PROGRAM_EXAMPLES / "runtime.toml",

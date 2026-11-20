@@ -11,7 +11,7 @@ connection.
 - how cached symbol snapshots make CI/offline builds deterministic
 - why plain ADS must be explicitly acknowledged before use
 - how `[runtime.ads]` turns the reviewed `ads.toml` bindings into live runtime
-  scan-boundary updates when the runtime is built with `ads-wire`
+  scan-boundary updates
 - why production-ready requires a deployed runtime-host Doctor/status proof,
   not just an offline generated file
 
@@ -72,8 +72,9 @@ into the generated globals and queues write intents back to the worker.
 trust-runtime play --project . --no-console
 ```
 
-Live ADS I/O requires a `trust-runtime` build with feature `ads-wire` and a
-valid TwinCAT route. Without `ads-wire`, startup fails clearly instead of
+Live ADS I/O needs a valid TwinCAT route. Every released `trust-runtime` has the
+ADS client (its build feature `ads-wire` is on by default); a `trust-runtime`
+built from source without it refuses `[runtime.ads]` at startup instead of
 silently ignoring ADS.
 
 Before treating the target as ready, run the Doctor from the same runtime host

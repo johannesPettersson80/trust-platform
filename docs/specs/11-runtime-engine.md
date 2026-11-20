@@ -7555,7 +7555,13 @@ Rules:
   as a running runtime. `trust-runtime ide serve` without a project browses
   only, because it has no runtime to announce.
 - `/api/discovery` and `/api/probe` require the same web authentication as the
-  other routes. `/api/probe` accepts exactly `POST /api/probe`, whose JSON body
+  other routes. Each `/api/discovery` item carries `web_url`, the URL of the
+  runtime's web server: `https` when the runtime announces TLS and `http`
+  otherwise, its preferred announced address (the IPv4 loopback, then another
+  IPv4 address, then an IPv6 address in brackets, as the runtime cloud chooses)
+  and its announced web port. `web_url` is `null` when the runtime announces no
+  web port or no usable address; a client then offers no link and makes none up.
+  `/api/probe` accepts exactly `POST /api/probe`, whose JSON body
   carries `url`, `username` and `password`; credentials never travel in the URL,
   and every other request on that path, a GET or any request that carries a
   query string, is refused with `405`.

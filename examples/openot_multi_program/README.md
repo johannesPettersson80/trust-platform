@@ -51,16 +51,13 @@ OpenOT revision or with an incomplete top-level inventory.
 MySQL and MariaDB intentionally use the same `backend = "mysql"` adapter but
 have separate runnable configurations and real-product verification.
 
-To run a non-default configuration, copy the selected file to a temporary
-project copy as `runtime.toml`; do not paste a password or token into TOML.
-For example:
+The project's `trust-lsp.toml` names the OpenOT ST library, whose function blocks
+are the producers truST generates from the `oot` attributes, beside the
+repository: `../open-ot-ref/st/iec61131`. Fetch the pinned revision once, from
+the repository root:
 
 ```bash
-cp -a examples/openot_multi_program /tmp/trust-openot-postgresql-example
-cp /tmp/trust-openot-postgresql-example/runtime.postgresql.toml \
-  /tmp/trust-openot-postgresql-example/runtime.toml
-trust-runtime build --project /tmp/trust-openot-postgresql-example --sources src
-trust-runtime run --project /tmp/trust-openot-postgresql-example
+bash scripts/checkout_openot_ref.sh
 ```
 
 For SQLite, run the checked-in default directly:
@@ -72,6 +69,20 @@ sqlite3 examples/openot_multi_program/history/trust-logging.sqlite3 \
   'SELECT event_name, COUNT(*) FROM event_log GROUP BY 1 ORDER BY 1;'
 ```
 
+To run a non-default configuration, copy the project to a temporary folder with
+the selected file as `runtime.toml`; do not paste a password or token into TOML.
+The copy's `trust-lsp.toml` names the library by its absolute path, because the
+example's relative path does not reach it from another folder. For example:
+
+```bash
+example_root=$(mktemp -d /tmp/trust-openot-postgresql.XXXXXX)
+cp -a examples/openot_multi_program/. "$example_root/"
+cp examples/openot_multi_program/runtime.postgresql.toml "$example_root/runtime.toml"
+printf '[dependencies]\nOpenOT = { path = "%s" }\n' "$(cd ../open-ot-ref/st/iec61131 && pwd)" > "$example_root/trust-lsp.toml"
+trust-runtime build --project "$example_root" --sources src
+trust-runtime run --project "$example_root"
+```
+
 The build emits `openot-definition.json` beside the program image. Persistence uses
 that exact definition to resolve the ring records into canonical OpenOT event,
 loss, and placeholder documents. The database checkpoint advances in the same
@@ -80,7 +91,6 @@ persistence guide for backend setup, TLS, queries, restart, backup, and outage
 behavior.
 
 This is a deliberately broad conformance workload, not a production scan-time
-template. It instruments many event families in one resource and can take a
-long time per VM scan in an unoptimized development build. Measure the smaller
-set of attributes required by the real machine against its cycle-time budget;
-database commits remain on the separate host persistence thread.
+template. It instruments many event families in one resource. Measure the
+smaller set of attributes required by the real machine against its cycle-time
+budget; database commits remain on the separate host persistence thread.

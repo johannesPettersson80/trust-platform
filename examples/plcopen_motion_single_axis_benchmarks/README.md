@@ -25,14 +25,13 @@ That script writes raw JSON outputs plus a markdown summary under:
 
 - `target/gate-artifacts/runtime-motion-benchmark-breakdown/`
 
-Each JSON report includes a `vm_profile` section for VM-backed projects, and
-the markdown summary highlights the motion-heavy workloads that dominate the
-shipped example path.
+The markdown summary lists each profile's cycle latency, its budget overruns
+and its p50 against the runtime floor, so the motion-heavy workloads stand out.
 
 If you want a quick manual spot check for one variant:
 
 ```bash
-target/release/trust-runtime bench project \
+trust-runtime bench project \
   --project examples/plcopen_motion_single_axis_benchmarks/status_only \
   --samples 128 \
   --warmup-cycles 32 \

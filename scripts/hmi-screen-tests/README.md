@@ -6,6 +6,11 @@ comparison of the drawing, run in CI (`HMI Screen Tests` in `.github/workflows/c
 - `tests/operator-journey.spec.mjs` runs the tank-level example (`examples/hmi_tank_level`) in
   `trust-runtime`: the live level shows, an Operator logs in, changes the setpoint and sees it
   confirmed, and acknowledges the high-level alarm.
+- `tests/tutorial-alarms.spec.mjs` walks tutorial 24's steps 5 to 9 on a tank-level runtime of its
+  own, at 1x (about a minute): the Suppressed tab lists the level-rise alarm in Auto, the
+  high-level alarm is shelved and unshelved, Manual with the valve at 100 % trips the pump on the
+  high-high level, which is the first out, the level card shows the vessel's alarms, Reset trip
+  in Auto runs the pump again, and the Alarms page's event log names the operator.
 - `tests/simulation-badge.spec.mjs` runs the same example in simulation: the top bar's
   SIMULATION badge shows, and shows the speed once the running simulation is set to another speed
   through `/api/control`. The speed is set back to 1 afterwards.

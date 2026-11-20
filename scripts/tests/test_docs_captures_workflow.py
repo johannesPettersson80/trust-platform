@@ -205,7 +205,10 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         for read in (
             "examples/openot_database/sqlite/runtime.toml",
             "examples/openot_database/workload/Main.st",
+            "examples/openot_database/workload/io.toml",
+            "examples/openot_database/README.md",
             "examples/openot_multi_program/runtime.toml",
+            "examples/openot_multi_program/README.md",
             "scripts/openot_database_runner_prepare.sh",
             "scripts/openot_real_database_gate.sh",
             "crates/trust-runtime/src/host/openot_persistence/mod.rs",

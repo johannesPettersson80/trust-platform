@@ -73,19 +73,8 @@ pub(super) fn runtime_cloud_target_web_base_url(
         .snapshot()
         .into_iter()
         .find(|entry| entry.name.as_str() == target || entry.id.as_str() == target)
-        .and_then(|entry| {
-            let port = entry.web_port?;
-            let address = select_preferred_peer_address(&entry.addresses)?;
-            let host = runtime_cloud_url_host(address);
-            Some(format!("{scheme}://{host}:{port}"))
-        })
-}
-
-fn runtime_cloud_url_host(address: std::net::IpAddr) -> String {
-    match address {
-        std::net::IpAddr::V4(v4) => v4.to_string(),
-        std::net::IpAddr::V6(v6) => format!("[{v6}]"),
-    }
+        .and_then(|entry| entry.web_authority())
+        .map(|authority| format!("{scheme}://{authority}"))
 }
 
 pub(super) fn runtime_cloud_denied_results(
@@ -263,13 +252,8 @@ fn runtime_cloud_update_preflight_summary(preflight: &mut RuntimeCloudActionPref
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime_cloud::projection::select_preferred_peer_address;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-
-    #[test]
-    fn runtime_cloud_url_host_wraps_ipv6() {
-        let host = runtime_cloud_url_host(IpAddr::V6(Ipv6Addr::LOCALHOST));
-        assert_eq!(host, "[::1]");
-    }
 
     #[test]
     fn runtime_cloud_select_preferred_peer_address_prefers_ipv4_loopback() {

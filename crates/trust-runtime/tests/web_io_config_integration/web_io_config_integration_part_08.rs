@@ -60,17 +60,30 @@ fn runtime_cloud_state_marks_fresh_mesh_disconnect_as_stale_before_partitioned()
 fn runtime_cloud_discovery_endpoint_exposes_secure_transport_metadata() {
     let project = make_project("runtime-cloud-discovery-web-tls");
     let discovery = Arc::new(DiscoveryState::new());
-    discovery.replace_entries(vec![DiscoveryEntry {
-        id: SmolStr::new("runtime-b"),
-        name: SmolStr::new("runtime-b"),
-        addresses: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
-        web_port: Some(8080),
-        web_tls: true,
-        mesh_port: Some(5200),
-        control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
-        host_group: None,
-        last_seen_ns: now_ns(),
-    }]);
+    discovery.replace_entries(vec![
+        DiscoveryEntry {
+            id: SmolStr::new("runtime-b"),
+            name: SmolStr::new("runtime-b"),
+            addresses: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            web_port: Some(8080),
+            web_tls: true,
+            mesh_port: Some(5200),
+            control: Some(SmolStr::new("tcp://127.0.0.1:5201")),
+            host_group: None,
+            last_seen_ns: now_ns(),
+        },
+        DiscoveryEntry {
+            id: SmolStr::new("runtime-c"),
+            name: SmolStr::new("runtime-c"),
+            addresses: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            web_port: None,
+            web_tls: false,
+            mesh_port: Some(5200),
+            control: None,
+            host_group: None,
+            last_seen_ns: now_ns(),
+        },
+    ]);
 
     let state = control_state_named(source_fixture(), "runtime-a");
     let (pairing, token) = create_pairing_token(project.join("pairings.json"), AccessRole::Viewer);
@@ -109,6 +122,21 @@ fn runtime_cloud_discovery_endpoint_exposes_secure_transport_metadata() {
             .and_then(Value::as_u64)
             .is_some(),
         "discovery endpoint should expose last_seen_ns for stale/partition transitions"
+    );
+    // Each item carries the URL its runtime's web server answers at (specification 11, runtime
+    // discovery): runtime-b announces TLS on 8080 at the loopback; runtime-c announces no web
+    // port, so it has none. Catches a URL the browser has to make up, as the IDE made up port 18080.
+    let web_urls: Vec<Value> = payload
+        .get("items")
+        .and_then(Value::as_array)
+        .expect("items")
+        .iter()
+        .map(|item| item.get("web_url").cloned().unwrap_or(Value::Bool(false)))
+        .collect();
+    assert_eq!(
+        web_urls,
+        vec![json!("https://127.0.0.1:8080"), Value::Null],
+        "web_url of runtime-b and runtime-c"
     );
 
     let _ = std::fs::remove_dir_all(project);
