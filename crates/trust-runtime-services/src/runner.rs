@@ -69,6 +69,7 @@ mod process_io;
 mod program;
 mod reload;
 mod retain;
+mod rust_report;
 mod shell;
 mod stack;
 mod state;

@@ -372,6 +372,20 @@ impl ProgramMemory {
     }
 }
 
+/// A Rust POU's calls in a debug image since its program started, as `tasks.stats` gives them
+/// (specification 48 RU-49; specification 11, "Rust POU budgets").
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RustPouStats {
+    /// The POU's name as Structured Text declares it.
+    pub name: SmolStr,
+    /// The POU's budget for the image's target in nanoseconds.
+    pub budget_ns: i64,
+    /// The POU's longest call in nanoseconds, 0 before its first.
+    pub longest_ns: i64,
+    /// The POU's calls longer than its budget.
+    pub over_budget: u64,
+}
+
 /// Metrics of one runtime, measured with the platform clock `C`.
 #[derive(Debug, Clone)]
 pub struct RuntimeMetrics<C> {
@@ -381,6 +395,8 @@ pub struct RuntimeMetrics<C> {
     cycle_window: CycleLatencyWindow,
     /// Statistics of each task, by task name.
     pub tasks: BTreeMap<SmolStr, TaskStats>,
+    /// The Rust POUs of the debug image the runtime runs, in the order of its Rust POU table.
+    pub rust_pous: Vec<RustPouStats>,
     /// Whether calls are profiled.
     pub profiling_enabled: bool,
     /// The profiled calls, in the order they were first recorded; the snapshot ranks them.
@@ -408,6 +424,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             cycle: Durations::default(),
             cycle_window: CycleLatencyWindow::default(),
             tasks: BTreeMap::new(),
+            rust_pous: Vec::new(),
             profiling_enabled: true,
             profile_calls: Vec::new(),
             faults: 0,
@@ -620,12 +637,44 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             program_memory: self.program_memory,
             simulation_achieved_time_scale: self.simulation_achieved_time_scale(),
             tasks,
+            rust_pous: self.rust_pous.clone(),
             profiling: ProfilingSnapshot {
                 enabled: self.profiling_enabled,
                 calls,
                 top_contributors,
             },
         }
+    }
+
+    /// A newly built program's Rust POUs replace those before (specification 48 RU-49).
+    pub fn clear_rust_pous(&mut self) {
+        self.rust_pous.clear();
+    }
+
+    /// The Rust POU numbered `pou` in the image's Rust POU table, named `name`, with its budget,
+    /// its longest call and its calls over the budget. In a steady scan it allocates nothing: the
+    /// list grows once per program and a name is copied only when it changes.
+    pub fn record_rust_pou(
+        &mut self,
+        pou: u32,
+        name: &str,
+        budget_ns: i64,
+        longest_ns: i64,
+        over_budget: u64,
+    ) {
+        let Ok(index) = usize::try_from(pou) else {
+            return;
+        };
+        if self.rust_pous.len() <= index {
+            self.rust_pous.resize(index + 1, RustPouStats::default());
+        }
+        let entry = &mut self.rust_pous[index];
+        if entry.name != name {
+            entry.name = SmolStr::new(name);
+        }
+        entry.budget_ns = budget_ns;
+        entry.longest_ns = longest_ns;
+        entry.over_budget = over_budget;
     }
 }
 
@@ -682,6 +731,9 @@ pub struct RuntimeMetricsSnapshot {
     pub simulation_achieved_time_scale: Option<f64>,
     /// Statistics of each task, sorted by name.
     pub tasks: Vec<TaskStatsSnapshot>,
+    /// The Rust POUs of the debug image the runtime runs, in the order of its Rust POU table
+    /// (specification 11, "Rust POU budgets").
+    pub rust_pous: Vec<RustPouStats>,
     /// Call profiling.
     pub profiling: ProfilingSnapshot,
 }
