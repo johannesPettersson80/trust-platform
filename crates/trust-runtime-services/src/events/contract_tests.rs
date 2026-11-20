@@ -148,6 +148,17 @@ fn cycle_and_task_events_project_to_their_exact_json() {
             },
             json!({"type": "task_overrun", "name": "Fast", "missed": 4, "time_ns": 3_000_000}),
         ),
+        (
+            // Specification 11, "Rust POU budgets": the call's time is `call_ns`, as `time_ns` is
+            // every event's scan time.
+            RuntimeEvent::RustBudgetExceeded {
+                name: "SPIN".into(),
+                call_ns: 52_000,
+                budget_ns: 1_000,
+                time,
+            },
+            json!({"type": "rust_budget_exceeded", "name": "SPIN", "call_ns": 52_000, "budget_ns": 1_000, "time_ns": 3_000_000}),
+        ),
     ] {
         assert_eq!(runtime_event_to_json(event), expected);
     }

@@ -3,6 +3,7 @@
 
 use crate::error::RuntimeError;
 use crate::io_image::FlatImages;
+use crate::native::program::RustPouReport;
 use crate::native::variables::{CompiledAccessPoint, CompiledVariables};
 use crate::value::Duration;
 
@@ -76,6 +77,15 @@ pub trait CycleHooks {
     ) -> Result<(), RuntimeError> {
         Ok(())
     }
+
+    /// The first report of a newly built program's Rust POU records, before its POUs: they replace
+    /// any that a report gave before (specification 48 RU-49). The default does nothing.
+    fn on_rust_times_fresh(&mut self) {}
+
+    /// A debug image's Rust POU whose record the scans since the last report changed, every one on
+    /// a program's first report, after the scan at its logical time `now` (specification 48
+    /// RU-49; specification 11, "Rust POU budgets"). The default does nothing.
+    fn on_rust_pou(&mut self, _report: &RustPouReport<'_>, _now: Duration) {}
 }
 
 /// Task selected for execution in the current runtime cycle.

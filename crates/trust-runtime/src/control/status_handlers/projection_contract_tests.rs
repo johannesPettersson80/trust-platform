@@ -428,6 +428,9 @@ fn task_stats_fail_closed_when_metrics_are_unavailable() {
     assert_unavailable(handle_task_stats(17, &state));
 }
 
+/// Specification 11, "Rust POU budgets": `tasks.stats` lists the Rust POUs in `rust_pous`, and
+/// with none, as in a release image, the list is empty. Catches a reply whose empty shape drops or
+/// adds a key.
 #[test]
 fn task_stats_empty_shape_is_stable() {
     assert_eq!(
@@ -435,6 +438,7 @@ fn task_stats_empty_shape_is_stable() {
         json!({
             "tasks": [],
             "profiling_enabled": true,
+            "rust_pous": [],
             "top_contributors": [],
         })
     );

@@ -325,13 +325,15 @@ fn restart_from_stopped_starts_with_the_empty_records_of_a_new_process() {
                 "avg_ms": 0.0, "last_ms": 0.0, "max_ms": 0.0, "min_ms": 0.0,
             }],
             "profiling_enabled": true,
+            "rust_pous": [],
             "top_contributors": [{
                 "key": "program:Plant", "kind": "program", "name": "Plant",
                 "avg_cycle_ms": 0.0, "cycle_pct": 0.0, "last_cycle_pct": 0.0, "last_ms": 0.0,
             }],
         }),
         "only the new program's first scan has run since the start: its task, due at its start \
-         (specification 10 §4.3), with no overrun, and its program"
+         (specification 10 §4.3), with no overrun, and its program; the program has no Rust POU \
+         (specification 11, \"Rust POU budgets\")"
     );
     let faults = fixture.call(&mut runner, &request(7, "faults"));
     assert_eq!(
