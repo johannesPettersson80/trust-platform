@@ -26,10 +26,13 @@ fn first_toml_block(page: &str) -> String {
 #[test]
 fn the_simulation_reference_example_loads() {
     // docs/public/reference/config/simulation-toml.md: its example is a whole simulation.toml, the
-    // plant, its coupling and its disturbances. Specification 11 (simulation couplings): "`on_true`
-    // and `on_false` require a threshold". Catches an example the loader refuses, as the page's
-    // coupling with `on_true` and `on_false` and no threshold was ("coupling on_true/on_false
-    // require threshold").
+    // plant, its coupling, its disturbances and its physics joint. Specification 11 (simulation
+    // couplings): "`on_true` and `on_false` require a threshold"; specification 46, section 5.1:
+    // validation resolves "feedback-target ownership conflicts", and the page: "Physics feedback
+    // targets cannot conflict with coupling targets". Catches an example the loader refuses, as the
+    // page's was twice: a coupling with `on_true` and `on_false` and no threshold ("coupling
+    // on_true/on_false require threshold"), and a joint whose feedback %IW0 overlapped the
+    // coupling's target %IX0.0 ("physics feedback target %IW0 conflicts with coupling target").
     let example = first_toml_block("reference/config/simulation-toml.md");
     let folder = trust_test_support::unique_temp_path("documented-simulation");
     std::fs::create_dir_all(&folder).expect("a folder");
