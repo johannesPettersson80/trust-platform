@@ -166,7 +166,6 @@
     "examples/control-onoff-commissioning/README.md",
     "examples/control-state-feedback-commissioning/README.md",
     "examples/control-two-zone-commissioning/README.md",
-    "examples/conveyor/README.md",
     "examples/empty-simulator/README.md",
     "examples/ethercat_ek1100_elx008_v1/README.md",
     "examples/ethercat_ek1100_elx008_v2/README.md",

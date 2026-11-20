@@ -482,7 +482,12 @@ Each session copies its project from the checkout's `examples/` and runs at
   with the installed `trust-runtime` as its README says, on the default
   control endpoint and on a TCP endpoint with a control token generated for
   the run; the Target picker offers it, connects to it, and shows it stopped
-  (specification 25, section 5.1).
+  (specification 25, section 5.1);
+- `conveyor`: the walkthrough of `conveyor` on the unmodified example: Start,
+  the line running in Live Values (the speed in steps of 5, about one part a
+  second), Force of the stop input TRUE stopping it, Release leaving the input
+  TRUE and the line stopped (specification 11, 6.9.2), and Write of FALSE
+  starting it again (specification 25, sections 3.5 and 4).
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A
