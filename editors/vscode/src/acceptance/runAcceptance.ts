@@ -22,6 +22,7 @@ const PID_EXAMPLE = "control-pid-commissioning";
 const TANK_EXAMPLE = "hmi_tank_level";
 const CONVEYOR_EXAMPLE = "conveyor";
 const MEMORY_EXAMPLE = "memory_marker_counter";
+const EQUIPMENT_EXAMPLE = "hmi_equipment";
 
 /** One window of the run: its journey, the example its project copies, an edit of the copy that the journey needs, and for
  * F23 how the project's runtime listens. */
@@ -43,6 +44,7 @@ const SESSIONS: Session[] = [
   { name: "conveyor", journey: "conveyor", example: CONVEYOR_EXAMPLE },
   { name: "memory-marker-counter", journey: "memory-marker-counter", example: MEMORY_EXAMPLE },
   { name: "hmi-tank-level", journey: "hmi-tank-level", example: TANK_EXAMPLE, runtime: "default endpoint" },
+  { name: "hmi-equipment", journey: "hmi-equipment", example: EQUIPMENT_EXAMPLE, runtime: "default endpoint" },
 ];
 
 /** Replaces the one occurrence of `old` in the file, or fails: an example that changed must not let a journey run on the

@@ -502,7 +502,13 @@ folder, so it runs after such a session, as in the list's order:
   Live mode (specification 39, §11), a login as `operator`, the setpoint raised
   to 2.6 m until `T-101 level high` comes in unacknowledged, its
   acknowledgement, and the setpoint lowered to 2.0 m until the alarm leaves the
-  list (specification 40, §3.1).
+  list (specification 40, §3.1);
+- `hmi-equipment`: the walkthrough of `hmi_equipment`, its runtime started in
+  the same way: P-101's panel in Auto with Start and Stop held ("Auto: switch
+  to Manual", specification 39, §8.4), LIC-101 bringing the level back to its
+  setpoint of 1.5 m, following a setpoint of 1.8 m, draining the tank in Manual
+  at 0 % until LT-101's Low alarm comes in, and refilling it in Auto without a
+  bump.
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A
