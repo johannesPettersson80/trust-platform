@@ -42,6 +42,7 @@ const SESSIONS: Session[] = [
   { name: "f23-tcp", journey: "f23-project-runtime", example: TANK_EXAMPLE, setup: tcpEndpointWithToken, runtime: "TCP endpoint with a token" },
   { name: "conveyor", journey: "conveyor", example: CONVEYOR_EXAMPLE },
   { name: "memory-marker-counter", journey: "memory-marker-counter", example: MEMORY_EXAMPLE },
+  { name: "hmi-tank-level", journey: "hmi-tank-level", example: TANK_EXAMPLE, runtime: "default endpoint" },
 ];
 
 /** Replaces the one occurrence of `old` in the file, or fails: an example that changed must not let a journey run on the

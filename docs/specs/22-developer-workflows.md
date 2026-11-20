@@ -467,7 +467,9 @@ window, with its own profile and Control Studio state folder, one truST data
 folder that is empty at the start, and no Rust toolchain: the runner removes
 Cargo and rustup from `PATH` and fails when a Rust compiler is still found.
 Each session copies its project from the checkout's `examples/` and runs at
-1×:
+1×. A session that starts its runtime from the command line builds with the
+toolchain that an earlier session's Start installed in the run's truST data
+folder, so it runs after such a session, as in the list's order:
 
 - `pid-commissioning`: the walkthrough of `control-pid-commissioning` on the
   unmodified example: Start, Identify plant, Tune PI to the README's
@@ -493,7 +495,14 @@ Each session copies its project from the checkout's `examples/` and runs at
   it in Live Values, a breakpoint holding the scan before
   `Counter := Counter + 1;` with both variables equal, Step Over making
   `Counter` one more, Continue, and Force of 41 on `%MW0` holding both words at
-  41 until Release (specification 10, 4.7).
+  41 until Release (specification 10, 4.7);
+- `hmi-tank-level`: the walkthrough of `hmi_tank_level`, its runtime built and
+  started with the installed `trust-runtime` as its README says, on the default
+  endpoint: Connect from the Target picker, the Overview in the HMI Builder's
+  Live mode (specification 39, §11), a login as `operator`, the setpoint raised
+  to 2.6 m until `T-101 level high` comes in unacknowledged, its
+  acknowledgement, and the setpoint lowered to 2.0 m until the alarm leaves the
+  list (specification 40, §3.1).
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A
