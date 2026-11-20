@@ -418,6 +418,8 @@ pub(super) fn timing(project: &Path, triple: &str, krate: &RustCrate) -> Result<
 /// in the build's crate graph and its variables in declaration order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RustLink {
+    /// Its number in a debug image's Rust POU table (specification 44 §5.13).
+    pub(super) number: u32,
     /// The path of the struct or the function: `::trust_project::filter::FilterEma`.
     pub(super) call: String,
     /// The variables' names in declaration order, the order the call takes them.
@@ -429,6 +431,9 @@ pub(super) struct RustLink {
 /// How the generated code calls a method of a Rust function block (specification 48 RU-32).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct MethodLink {
+    /// Its number in a debug image's Rust POU table, its block's name and its own joined by a dot
+    /// (specification 44 §5.13).
+    pub(super) number: u32,
     /// Its Structured Text name.
     pub(super) name: String,
     /// The Rust function's name.
@@ -437,8 +442,65 @@ pub(super) struct MethodLink {
     pub(super) variables: Vec<String>,
 }
 
-/// The calls of `krate`'s POUs, by their Structured Text names in capitals.
+/// The names of `krate`'s Rust POUs as Structured Text declares them, a method's as its block's and
+/// its own joined by a dot, in the order of a debug image's Rust POU table: by their names in
+/// capitals (specification 44 §5.13). A POU's place in it is the number by which the generated code
+/// names its record, the same for every target (specification 48 RU-39, RU-49).
+pub(super) fn table_names(krate: &RustCrate) -> Vec<String> {
+    let mut names: Vec<String> = krate
+        .pous
+        .iter()
+        .flat_map(|pou| {
+            core::iter::once(pou.pou.name.clone()).chain(
+                pou.pou
+                    .methods
+                    .iter()
+                    .map(move |method| format!("{}.{}", pou.pou.name, method.name)),
+            )
+        })
+        .collect();
+    names.sort_by_cached_key(|name| name.to_ascii_uppercase());
+    names
+}
+
+/// The Rust POU table of a debug image of `krate` (specification 44 §5.13): each POU's name, in the
+/// order of [`table_names`], with its budget for the build's target in nanoseconds from `timing`
+/// (RU-46).
+///
+/// # Errors
+///
+/// [`NativeError::Compile`] for a POU without a budget, which the crate's declarations refuse
+/// before.
+pub(super) fn table(
+    krate: &RustCrate,
+    timing: &Timing,
+) -> Result<Vec<(String, u64)>, super::NativeError> {
+    table_names(krate)
+        .into_iter()
+        .map(|name| {
+            let budget = timing
+                .budgets
+                .get(&name.to_ascii_uppercase())
+                .copied()
+                .ok_or_else(|| {
+                    super::NativeError::Compile(format!("the Rust POU {name} has no budget"))
+                })?;
+            Ok((name, budget))
+        })
+        .collect()
+}
+
+/// The calls of `krate`'s POUs, by their Structured Text names in capitals, each with its number
+/// in [`table_names`].
 pub(super) fn links(krate: &RustCrate) -> std::collections::HashMap<String, RustLink> {
+    // Every name is in the table; a miss, which cannot happen, would name no record and end the
+    // scan with `ModuleInternal` (specification 44 §8.2) rather than time another POU.
+    let numbers: std::collections::HashMap<String, u32> = table_names(krate)
+        .iter()
+        .zip(0u32..)
+        .map(|(name, number)| (name.to_ascii_uppercase(), number))
+        .collect();
+    let number = |key: &str| numbers.get(key).copied().unwrap_or(u32::MAX);
     krate
         .pous
         .iter()
@@ -459,6 +521,9 @@ pub(super) fn links(krate: &RustCrate) -> std::collections::HashMap<String, Rust
                 .methods
                 .iter()
                 .map(|method| MethodLink {
+                    number: number(
+                        &format!("{}.{}", pou.pou.name, method.name).to_ascii_uppercase(),
+                    ),
                     name: method.name.clone(),
                     item: method.item.clone(),
                     variables: method
@@ -468,14 +533,14 @@ pub(super) fn links(krate: &RustCrate) -> std::collections::HashMap<String, Rust
                         .collect(),
                 })
                 .collect();
-            (
-                pou.pou.name.to_ascii_uppercase(),
-                RustLink {
-                    call,
-                    variables,
-                    methods,
-                },
-            )
+            let key = pou.pou.name.to_ascii_uppercase();
+            let link = RustLink {
+                number: number(&key),
+                call,
+                variables,
+                methods,
+            };
+            (key, link)
         })
         .collect()
 }

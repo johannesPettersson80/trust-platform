@@ -890,7 +890,18 @@ POU on the deployment's device type, and uses the larger of declared and measure
 
 **RU-49. On the device.** The kernel measures each Rust POU's call time in a debug image and reports a call that exceeds its declared budget as the event
 `rust_budget_exceeded` with the POU's name, the time and the budget (specification 11's events),
-without ending the scan; the watchdog (NX-11) still ends a scan that overruns the task.
+without ending the scan; the watchdog (NX-11) still ends a scan that overruns the task. The
+generated code of a debug image reads the kernel's monotonic clock (specification 44 §8.2,
+`clock`) before and after each call of a Rust POU and keeps, in the kernel's record of the POU, its
+longest call and its calls over its budget for the image's target (RU-46, with `trust.toml`'s
+lowering), which the image's Rust POU table gives (specification 44 §5.13). The generated code
+names a POU only by its number in that table, the same in every target's image, so that layer 1
+stays one text (RU-39). A release image measures nothing. A POU that runs over its budget in every
+scan would displace every other event of the store, as the four events of every scan would
+(specification 11, the event store), so the kernel reports a POU's first call over its budget and,
+after it, only a call over its budget that is longer than every call of the POU before it;
+`tasks.stats` gives each Rust POU's budget, longest call and calls over budget (specification
+11).
 
 ## 11. Tools
 

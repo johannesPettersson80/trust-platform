@@ -38,8 +38,10 @@ pub use strings::{Str, StrView, WStr, WStrView};
 /// The version of this interface. A module carries the version it was built against in its image's
 /// header, and a kernel runs only a module of its own version (specification 44 §8.2, §10.2).
 /// Version 6 has the fault code `RustFault` (specification 48 RU-14); version 7 the running task's
-/// interval, [`Cx::interval_ns`] (specification 48 RU-16).
-pub const INTERFACE_VERSION: u32 = 7;
+/// interval, [`Cx::interval_ns`] (specification 48 RU-16); version 8 the kernel's monotonic clock,
+/// [`KernelApi::clock`], and the records of a debug image's Rust POU calls, [`Cx::rust_times`]
+/// (specification 48 RU-49).
+pub const INTERFACE_VERSION: u32 = 8;
 
 /// The id of the input area, `%I` (specification 44 §7.1).
 pub const AREA_INPUTS: u8 = 1;
@@ -110,6 +112,11 @@ pub type ReadRealFn = abi_fn!(*mut Cx, *const u8, u32, *mut f64 => u32);
 /// whose admission refuses a program that reads it (specification 34 §5.2).
 pub type WallClockFn = abi_fn!(*mut Cx, *mut i64 => u32);
 
+/// The kernel's function that reads its monotonic clock, which a debug image reads around each call
+/// of a Rust POU (specification 44 §8.2; specification 48 RU-49): nanoseconds from an origin the
+/// kernel chooses, which no change of the wall clock moves, go to `out`. It returns 0.
+pub type ClockFn = abi_fn!(*mut Cx, *mut i64 => u32);
+
 /// The functions a scan may call in the kernel (specification 44 §8.2). Everything else a program
 /// needs, its time, inputs, outputs and variables, is memory that the kernel prepared before the
 /// call.
@@ -123,6 +130,8 @@ pub struct KernelApi {
     pub read_real: ReadRealFn,
     /// Reads the platform's wall clock.
     pub wall_clock: WallClockFn,
+    /// Reads the kernel's monotonic clock.
+    pub clock: ClockFn,
 }
 
 /// What the kernel gives an entry point: the areas, the task's logical time and interval, the
@@ -170,6 +179,49 @@ pub struct Cx {
     pub frame: *const Frame,
     /// The fault that ended the call, which the module writes before it returns the fault's code.
     pub fault: FaultRecord,
+    /// A debug image's record of each of its Rust POUs' calls, at the POU's number in the image's
+    /// Rust POU table, which the kernel keeps for the program's life; null in a release image
+    /// (specification 44 §5.13, §8.2; specification 48 RU-49).
+    pub rust_times: *mut RustTime,
+    /// The records at [`Cx::rust_times`].
+    pub rust_pous: u32,
+}
+
+/// The record of one Rust POU's calls in a debug image (specification 44 §8.2; specification 48
+/// RU-49): its budget for the image's target, which the kernel writes from the image's Rust POU
+/// table, and its longest call and its calls over the budget, which the module keeps.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RustTime {
+    /// The POU's budget in nanoseconds.
+    pub budget_ns: i64,
+    /// The POU's longest call in nanoseconds, 0 before its first.
+    pub longest_ns: i64,
+    /// The POU's calls longer than its budget.
+    pub over: u64,
+}
+
+impl RustTime {
+    /// The record of a POU with the budget `budget_ns` that has made no call.
+    #[must_use]
+    pub const fn new(budget_ns: i64) -> Self {
+        Self {
+            budget_ns,
+            longest_ns: 0,
+            over: 0,
+        }
+    }
+
+    /// Notes a call that took `time_ns`: the POU's longest call when it is longer, and a call over
+    /// the budget when it is longer than the budget.
+    pub fn note(&mut self, time_ns: i64) {
+        if time_ns > self.longest_ns {
+            self.longest_ns = time_ns;
+        }
+        if time_ns > self.budget_ns {
+            self.over = self.over.saturating_add(1);
+        }
+    }
 }
 
 /// One call of a POU in a debug image, linked into [`Cx::frame`] for the length of the call

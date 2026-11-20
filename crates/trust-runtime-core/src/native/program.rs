@@ -15,7 +15,7 @@ use core::cell::Cell;
 
 use smol_str::SmolStr;
 use trust_plc_abi::kernel::{call_with_sink, Entry, InPlace};
-use trust_plc_abi::{Cx, FaultCode, FaultRecord};
+use trust_plc_abi::{Cx, FaultCode, FaultRecord, RustTime};
 
 use super::image::{
     EntryKind, EntryRecord, Image, Shape, StmtRecord, SymbolRecord, BACKGROUND_PRIORITY,
@@ -287,6 +287,10 @@ pub struct NativeProgram<'i, C> {
     /// Whether a scan runs: its memory and context are in use, and a tool's call of a method
     /// waits for the scan's end (specification 44 §13.3).
     pub(super) scanning: bool,
+    /// A debug image's record of each of its Rust POUs' calls, in the order of its Rust POU table,
+    /// which the module keeps through [`Cx::rust_times`] for the program's life (specification 44
+    /// §5.13, §8.2; specification 48 RU-49); empty for an image without the table.
+    pub(super) rust_times: Vec<RustTime>,
     /// The input image the drivers fill (`%I`).
     pub inputs: Vec<u8>,
     /// The output image the drivers drive (`%Q`).
@@ -1208,5 +1212,6 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
 
 mod assertions;
 mod online_change;
+mod rust_times;
 #[cfg(test)]
 pub(crate) mod tests;

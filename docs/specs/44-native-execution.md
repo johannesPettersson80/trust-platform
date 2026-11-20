@@ -399,7 +399,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 5 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks and a global's owner, §5.7, and a member's `hide` mark, §5.8; 0.57: the crate table, §5.12) |
+| 16 | 2 | Image format version, 6 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8; 0.35: a symbol's `noinit` and `hide` marks and a global's owner, §5.7, and a member's `hide` mark, §5.8; 0.57: the crate table, §5.12, in version 5, which release 0.43.0 reads; 0.58: the Rust POU table, §5.13, in version 6) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -419,7 +419,7 @@ a 64-byte boundary of the image, the largest alignment a module's code or data n
 §4.4, and a container keeps the image at such a boundary in its slot.
 
 A table section (`ENTRY`, `AREAS`, `TASKS`, `IOBIND`, `SYMBOLS`, `TYPES`, `STMTS`, `RETAIN`,
-`FILES`, `CRATES`) starts with its record count (4) and a reserved word (4), then holds that many records of
+`FILES`, `CRATES`, `RUSTPOUS`) starts with its record count (4) and a reserved word (4), then holds that many records of
 its fixed size; data its records name follows the records and is named by offsets from the
 section's start: the task table's program list (4-byte entry indexes) and the type table's details.
 `STRINGS` starts with the empty string, at offset 0.
@@ -443,6 +443,7 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 | 15 | `MEMFIG` | yes | The memory figure (§10.4): 8-byte fields as `build.json` names them, the ninth the bytes of one call level (§8.5). |
 | 16 | `SIGN` | no | The signature (§5.11). Always the last section. |
 | 17 | `CRATES` | no | The crate table (§5.12), in an image whose module holds the project's Rust crate (specification 48). |
+| 18 | `RUSTPOUS` | no | The Rust POU table (§5.13), in a debug image whose module holds the project's Rust crate. |
 
 ### 5.4 Entry table
 
@@ -704,6 +705,19 @@ version, then by the source, each crate once. The table lies before `SIGN`, so t
 it with the module: a signed image says which crates it was built from. The deployment record
 carries the same list (§10.1).
 
+
+### 5.13 Rust POU table
+
+`RUSTPOUS` lists the Rust POUs of a debug image whose module holds the project's Rust crate
+(specification 48 RU-49) in the order of their names in capitals, a method's as its block's and its
+own joined by a dot. That order gives each POU the number by which the generated code names its
+record in `Cx::rust_times` (§8.2), the same in every target's image, since layer 1 is one text
+(specification 48 RU-39). One 16-byte record per POU: the offset of its name in the string pool as
+Structured Text declares it (4), a reserved word, 0 (4), and its budget for the image's target in
+nanoseconds (8), the declared budget with `trust.toml`'s lowering for that target (RU-46). The kernel
+makes each POU's record of `Cx::rust_times` from it and names the POU by it. Every Rust POU of the
+crate is listed, whether the program calls it or not. A release image measures no call and has no
+`RUSTPOUS`.
 ## 6. Code generation
 
 ### 6.1 Principle
@@ -1249,6 +1263,8 @@ pub struct Cx {
     pub kernel: *mut c_void,     // the kernel's own pointer, which only its functions read
     pub frame: *const Frame,     // the innermost call frame of a debug image, §13.2; null otherwise
     pub fault: FaultRecord,      // the fault that ended the call, written by the module
+    pub rust_times: *mut RustTime, // a debug image's record of each Rust POU's calls (§5.13), or null
+    pub rust_pous: u32,          // the records at rust_times
 }
 #[repr(C)]
 pub struct Frame {
@@ -1265,13 +1281,15 @@ pub struct KernelApi {
     pub debug_write: DebugWriteFn, // applies queued Live Values writes to one variable at a safe point
     pub read_real: ReadRealFn, // reads the real a text spells, as the runtime reads it
     pub wall_clock: WallClockFn, // reads the platform's wall clock, CURRENT_DT
+    pub clock: ClockFn,          // reads the kernel's monotonic clock, for a Rust POU's call time
 }
 #[repr(C)] pub struct FaultRecord { pub code: u32, pub stmt: u32, pub detail: [i64; 3] }
+#[repr(C)] pub struct RustTime { pub budget_ns: i64, pub longest_ns: i64, pub over: u64 }
 ```
 
 `StopFn` is `fn(*mut Cx, u32) -> u32`, `DebugWriteFn` `fn(*mut Cx, u32) -> u32`, `ReadRealFn`
-`fn(*mut Cx, *const u8, u32, *mut f64) -> u32` and `WallClockFn` `fn(*mut Cx, *mut i64) -> u32`, in
-the convention §4.4 names. `read_real` reads the
+`fn(*mut Cx, *const u8, u32, *mut f64) -> u32`, `WallClockFn` `fn(*mut Cx, *mut i64) -> u32` and
+`ClockFn` `fn(*mut Cx, *mut i64) -> u32`, in the convention §4.4 names. `read_real` reads the
 real of `STRING_TO_REAL` and `STRING_TO_LREAL` from the text the program library copied, trimmed and
 took the separators out of (§6.8), with the runtime's own reader, so that a text reads alike in the
 bytecode engine and on every kernel; that reader cannot be compiled into a module, which must not be
@@ -1287,8 +1305,21 @@ capability and admission refuses it (§10.2), so its kernel's function only retu
 (§5.6; 0 for a task that only its `SINGLE` variable starts); for the programs without a task, the
 resource's cycle interval (specification 10 §4: `runtime.toml` on a computer, the device's settings
 on a chip), which the resource gives the kernel; and 0 for a call outside a task, as the start and a
-test's invocation are. A Rust POU reads it as `cx.interval()` (specification 48 RU-16). The
-interface is version 7 since `interval_ns` (15 November 2026, specification 48 RU-16); version 6
+test's invocation are. A Rust POU reads it as `cx.interval()` (specification 48 RU-16).
+`clock` gives a debug image the kernel's monotonic clock in nanoseconds, from an origin the kernel
+chooses, which no change of the wall clock moves: a computer's monotonic clock, the ESP32-C6's and
+the STM32U5A9's system timer; it never fails and returns 0. The generated code of a debug image reads
+it before and after each call of a Rust POU (specification 48 RU-49) and updates the POU's record,
+`rust_times` at the POU's number in the image's Rust POU table (§5.13): the call's time into
+`longest_ns` when it is longer, and a call longer than `budget_ns` counted in `over`; a number at or
+past `rust_pous` ends the scan with the fault `ModuleInternal`. The budget is the record's, not the
+generated code's, so that the code is the same for every target (specification 48 RU-39). The
+kernel makes the records from the table when it loads the image, each with the table's budget and
+the rest 0, keeps them for the program's life, and reads them after an activation, whether it
+returned or faulted, to report them as specification 48 RU-49 and specification 11's events say. A
+release image calls no clock, and its kernel gives it no records. The
+interface is version 8 since `clock` and `rust_times` (18 November 2026, specification 48 RU-49);
+version 7 since `interval_ns` (15 November 2026, specification 48 RU-16); version 6
 since the fault code `RustFault` (15 November 2026, specification 48 RU-14, Appendix A); version 5
 since `wall_clock` (25 October 2026, N11: the bytecode
 engine's `CURRENT_DT` moved into compiled programs); version 4 since `Cx` carries the call frames of
@@ -1300,7 +1331,7 @@ index and the bounds, the value and the bounds) and returns its code; no kernel 
 for it. A statement looks at its breakpoint bit only while `armed` is set, so a statement costs a
 store of its id, a decrement of the budget and two branches when no debugger is armed.
 
-Four functions are the whole interface a scan can call. Everything else a program needs (time,
+Five functions are the whole interface a scan can call. Everything else a program needs (time,
 inputs, outputs, markers, retain) is memory the kernel prepared before the scan. The kernel calls
 the module only through the entry table.
 
@@ -1532,7 +1563,8 @@ pack-project` packs a program that starts with `TRSTI001` as an image.
 Before an image runs, on every device, in this order, and the first failure names its reason:
 
 1. The container (specification 34 §5.1) and the record (§5.1.1).
-2. The image header: magic, CRC, length inside the slot, format version 5, target id equal to the
+2. The image header: magic, CRC, length inside the slot, format version 6 (`image format version
+   <n>, this runtime reads 6: rebuild the project`), target id equal to the
    device's, kernel interface version equal to the kernel's (`kernel interface <n> required, this
    runtime has <m>: rebuild the project`), program library hash known to this kernel: the hash of
    the program library of the kernel's own release for the device's CPU, so that a program is
@@ -1548,7 +1580,8 @@ Before an image runs, on every device, in this order, and the first failure name
    sizes (`I/O binding <n> lies outside its process image`); every retain record inside `R`; every
    crate's name and version a string of the pool that is not empty, its source 1, 2 or 3, the last
    12 bytes of a git crate's checksum and the whole checksum of a path crate zero, and the crates in
-   their order, each once (§5.12). The
+   their order, each once (§5.12); every Rust POU's name a string of the pool that is not empty, its
+   reserved word 0 and its budget above 0 (§5.13). The
    process image is the device's to bound: the image's deployment record requests the bytes of its
    three process images as its `max_process_image_bytes`, which step 1 compares with the device's
    maximum.
@@ -2211,6 +2244,7 @@ the runtime error `RustFault`, `Rust fault <number> (<first>, <second>)`, stable
 | 0.55 | 15 November 2026 | The AArch64 module and the libraries it links are built with `-outline-atomics` (§4.4, §4.5): the compiler's outline atomics ask the C library's `getauxval` which instructions the CPU has, so the link of a module whose Rust POU used an `AtomicU32` failed on macOS; its atomic operations are now its own instructions. |
 | 0.56 | 15 November 2026 | The kernel interface version 7 (§8.2): `Cx::interval_ns`, the interval of the task whose activation runs, the resource's cycle interval for the programs without a task and 0 outside a task, which a Rust POU reads as `cx.interval()` (specification 48 RU-16, approved by the owner with that specification on 15 November 2026). An image of version 6 is refused with `kernel interface 6 required, this runtime has 7: rebuild the project` (§10.2), as at every change of the version. |
 | 0.57 | 18 November 2026 | The crate table (§5.12, image format version 5; specification 48 RU-79, checklist G211, decided under the owner's delegation of 17 November 2026, "do whats most professional and best for the user and us"): an image whose module holds the project's Rust crate lists the crates of its scan crate graph, each with its name, version, source and checksum, in a section before `SIGN`, so the signature covers the list. The deployment record takes the list from the image as it takes the image's other tables (§10.1), because every tool that writes a record writes it from the image alone, the program store of a computer and the simulator's stepping container among them, and a list kept only in the record would be missing from theirs. §10.2 step 2 names the format version the reader checks, 5. |
+| 0.58 | 18 November 2026 | A Rust POU's call time on the device (specification 48 RU-49; checklist G213, under the owner's delegation): kernel interface 8 gives a debug image the kernel's monotonic `clock` and `Cx::rust_times`, a record per Rust POU of its budget, its longest call and its calls over budget, and the Rust POU table `RUSTPOUS` (§5.13) names each POU with its budget for the image's target, under image format version 6: release 0.43.0 reads version 5, with the crate table of 0.57, and would refuse the new section as unknown before any other reason. The refusal of another format version names the version this runtime reads (`image format version <n>, this runtime reads 6`), where it said 1. The generated code names a POU by its number only, so that layer 1 stays one text. A release image measures nothing. |
 | 0.42 | 6 November 2026 | A recursive call that finds no depth left is reported as the runtime error `CallDepthExceeded`, `call depth exceeded`, with its stable code `vm_call_stack_overflow` (§6.4, Appendix A). Before, the kernel reported it through the bytecode engine's fault type, which the deletion of the engine (0.22) had left with this one fault and a text for the others, `invalid bytecode '<detail>'`, that nothing produced any more. The error's text and stable code are unchanged (checklist G61). |
 | 0.41 | 6 November 2026 | Round 2 of the CODESYS vendor conversions of specification 07 §2.10 (`docs/IEC_DEVIATIONS.md` DEV-045), which the type checker accepts under the CODESYS rules, compiled (§6.8): an integer (its low-order 32 bits) and a real to a `TIME` as a count of milliseconds, a `DWORD` to a time of day, and a text to an integer or a bit string by the vendor's parse. The build refused the first three, and parsed a text by the IEC rules. And a `TIME` or an `LTIME` as text, the vendor's text measured on a PFC200 (`T#1s500ms`), which the build refused (NX-09). |
 | 0.40 | 6 November 2026 | The CODESYS vendor conversions of specification 07 §2.4 and §2.7 (`docs/IEC_DEVIATIONS.md` DEV-036), which the type checker accepted under the CODESYS rules since 31 October 2026, compiled (§6.8): a duration to an integer, a time of day to a `DWORD`, a `BOOL` and an enumerated value as text. The build refused the first three, and spelled an enumerated value as its number. `TO_STRING` of a duration stays refused (NX-09) until the vendor's text is measured. |

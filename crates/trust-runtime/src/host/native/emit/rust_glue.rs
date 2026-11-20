@@ -41,6 +41,7 @@ pub(super) fn block(
         .collect();
     let (called, eno) = call_rust(
         lowerer,
+        link.number,
         |cx| format!("{}::__trust_call({cx}{arguments})", link.call),
         true,
     );
@@ -85,6 +86,7 @@ pub(super) fn program(
         .collect();
     let (called, _) = call_rust(
         lowerer,
+        link.number,
         |cx| format!("{}::__trust_call({cx}{arguments})", link.call),
         false,
     );
@@ -107,6 +109,7 @@ pub(super) fn function(
     }
     let (called, eno) = call_rust(
         lowerer,
+        link.number,
         |cx| format!("{}({cx}{arguments})", link.call),
         true,
     );
@@ -161,6 +164,7 @@ pub(super) fn method(
         .collect();
     let (called, _) = call_rust(
         lowerer,
+        method.number,
         |cx| {
             format!(
                 "{}::__trust_with({cx}{fields}, |rme, rcx| rme.{}(rcx{arguments}))",
@@ -355,22 +359,32 @@ fn store_result(
 /// (RU-30), which a method has not.
 fn call_rust(
     lowerer: &mut Lowerer<'_, '_>,
+    number: u32,
     call: impl FnOnce(&str) -> String,
     eno: bool,
 ) -> (String, Option<String>) {
+    // A debug image times the call on the kernel's clock and notes it in the record of the POU's
+    // number, before a fault the call returns ends the scan (specification 48 RU-49; specification
+    // 44 §8.2).
+    let start = lowerer
+        .hooks
+        .then(|| lowerer.bind("abi::module::clock(cx)?"));
     let context = lowerer.temp();
     lowerer.line(&format!(
         "let mut {context} = ::trust_plc::__private::enter(cx);"
     ));
     let called = lowerer.bind(&call(&format!("&mut {context}")));
     let leave = format!("::trust_plc::__private::leave({context}, cx)");
-    if eno {
-        let eno = lowerer.bind(&leave);
-        (called, Some(eno))
+    let eno = if eno {
+        Some(lowerer.bind(&leave))
     } else {
         lowerer.line(&format!("let _ = {leave};"));
-        (called, None)
+        None
+    };
+    if let Some(start) = start {
+        lowerer.line(&format!("abi::module::rust_time(cx, {number}, {start})?;"));
     }
+    (called, eno)
 }
 
 /// Writes the POU's `ENO`, the Rust expression `eno`, into its output `ENO`, the place `place` of
