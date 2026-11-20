@@ -436,17 +436,24 @@ and this contract makes no continuous-time claim.
 Timing starts at the executed call that samples the starting edge (TON and
 TP: IN FALSE to TRUE; TOF: IN TRUE to FALSE): that call returns ET = T#0s, and
 each later executed call while timing adds the task time since the previous
-executed call, so ET is the task time since the starting call, at most PT. `Q`
-changes on the first executed call whose ET reaches PT; with PT zero, on the
-starting call itself. This is how CODESYS and TwinCAT time (owner, 26 October
-2026); IEC 61131-3 does not say which call of a cyclic program is the instant
-of an edge.
+executed call, so ET is the task time since the starting call, at most PT, as
+long as PT does not change. `Q` changes on the first executed call whose ET
+reaches PT; with PT zero, on the starting call itself. This is how CODESYS and
+TwinCAT time (owner, 26 October 2026); IEC 61131-3 does not say which call of a
+cyclic program is the instant of an edge.
 
 The implementation-owned timer boundaries are reviewed in
 `docs/IEC_DECISIONS.md` (2026-07-12 and 2026-10-30). In particular, the current
 `PT` is sampled on each executed call while timing is active, non-positive `PT`
 is treated as zero, and TIME/LTIME variants share the same state transitions.
 Restart, clock-step and conditional-call decisions are specified there.
+
+A change of `PT` applies from the executed call that samples it; IEC 61131-3
+leaves its effect to the implementer (Table 46 NOTE). Each call adds its task
+time to ET but takes ET no further than that call's PT. So a smaller PT that ET
+has reached ends the timing on that call, with ET at the new PT, and a larger
+PT lengthens the timing. TP, TON and TOF below say what a change does once the
+timing has ended.
 
 ### TP - Pulse Timer
 
@@ -468,10 +475,15 @@ TIME---|PT ET|---TIME
   Figure 15(a))
 - The executed call that completes the pulse returns Q FALSE and ET at PT,
   whether it samples IN as TRUE or as FALSE. After expiry, while an executed call
-  still samples IN as TRUE, Q remains FALSE and ET remains at PT. The first later
+  still samples IN as TRUE, Q remains FALSE and ET remains at the PT of the call
+  that completed the pulse, whatever PT later calls sample. The first later
   executed call sampling IN as FALSE resets ET to zero and rearms edge detection.
   A subsequent executed FALSE-to-TRUE call starts a new pulse with Q TRUE and ET
   T#0s.
+- A larger PT lengthens a running pulse, and a PT that ET has reached completes
+  it on that call. With a 10 ms task and PT T#30ms from the edge call at 0 ms,
+  PT T#50ms from the call at 20 ms returns Q TRUE and ET T#20ms there, and the
+  pulse ends at 50 ms with ET T#50ms.
 
 **Timing Diagram**:
 ```
@@ -495,12 +507,19 @@ TIME---|PT ET|---TIME
 
 - Q goes TRUE after IN has been TRUE for duration PT
 - If IN goes FALSE before PT, Q stays FALSE and ET resets
-- ET counts while IN is TRUE and Q is FALSE
+- ET counts while IN is TRUE and ET is below PT
 - The executed call that samples IN FALSE-to-TRUE returns ET T#0s, and Q TRUE
   only when PT is zero; each later executed call with IN TRUE adds the task
   time since the previous call, and the first whose ET reaches PT returns Q
   TRUE and ET PT. With a 10 ms task and PT T#30ms, the edge call returns ET
   T#0s and the third call after it returns Q TRUE.
+- Q is TRUE on each call whose ET has reached that call's PT, so TON times on
+  while IN stays TRUE. A larger PT after Q rose returns Q FALSE again, and ET
+  goes on from the PT it had reached, without the task time it stood there. With
+  a 10 ms task and PT T#30ms from the edge call at 0 ms, Q rises at 30 ms and the
+  call at 40 ms keeps ET at T#30ms. PT T#100ms from the call at 50 ms returns Q
+  FALSE and ET T#40ms there, and Q rises again at 110 ms, not at 100 ms. A
+  smaller PT returns Q TRUE with ET at the new PT.
 
 **Timing Diagram**:
 ```
@@ -531,7 +550,12 @@ TIME---|PT ET|---TIME
   previous call, so ET advances toward PT.
 - The first executed call whose accumulated elapsed time reaches PT sets Q
   FALSE and ET to PT.
-- Later executed calls with IN still FALSE keep Q FALSE and ET at PT.
+- Later executed calls with IN still FALSE keep Q FALSE and ET at the PT of the
+  call that expired, whatever PT they sample.
+- A larger PT lengthens a running off-delay, and a PT that ET has reached ends
+  it on that call. With a 10 ms task and PT T#20ms from the falling-edge call at
+  0 ms, PT T#40ms from the call at 20 ms returns Q TRUE and ET T#20ms there, and
+  Q falls at 40 ms with ET T#40ms.
 - The next executed call with IN TRUE sets Q TRUE, resets ET to zero, and
   rearms the off-delay.
 
