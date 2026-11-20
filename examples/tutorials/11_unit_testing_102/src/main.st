@@ -54,8 +54,10 @@ PumpSpeedOut := Ctrl.PumpSpeedCmd;
 END_PROGRAM
 
 CONFIGURATION TankControlConfig
-TASK Cycle (INTERVAL := T#100ms, PRIORITY := 1);
-PROGRAM P1 WITH Cycle : TankProgram;
+RESOURCE TankControlRes ON PLC
+    TASK Cycle (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH Cycle : TankProgram;
+END_RESOURCE
 VAR_CONFIG
     P1.StartCmd AT %IX0.0 : BOOL;
     P1.StopCmd AT %IX0.1 : BOOL;

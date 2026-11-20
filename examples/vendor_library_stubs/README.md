@@ -68,15 +68,18 @@ END_FUNCTION_BLOCK
 
 ## Optional Runtime Build Check
 
-A runtime build or check compiles `<project>/src`, and `[[libraries]]` entries
-are for the editor's indexing only, so name both the project's sources and the
-stubs. `--sources` may be given more than once, and takes no other `.st` files
-that the project folder may hold:
+A runtime build compiles `<project>/src`, and `[[libraries]]` entries are for
+the editor's indexing only, so name both the project's sources and the stubs.
+`--sources` may be given more than once, and takes no other `.st` files that the
+project folder may hold:
 
 ```bash
 trust-runtime build --project examples/vendor_library_stubs --sources src --sources vendor/siemens
-trust-runtime check --project examples/vendor_library_stubs --sources src --sources vendor/siemens
 ```
+
+This example is for the editor, so it has no `runtime.toml` or `io.toml`. That is
+why `trust-runtime check`, which checks those files too, refuses it, and the
+build is the check here.
 
 ## Limits
 

@@ -81,10 +81,13 @@ For both editors, verify:
 Why: runtime, tests, and CI workflows stay editor-agnostic.
 
 ```bash
-trust-runtime build --project examples/tutorials/10_unit_testing_101 --sources examples/tutorials/10_unit_testing_101/sources
-trust-runtime validate --project examples/tutorials/10_unit_testing_101
-trust-dev test --project examples/tutorials/10_unit_testing_101 --output json
+trust-runtime build --project examples/tutorials/11_unit_testing_102
+trust-runtime validate --project examples/tutorials/11_unit_testing_102
+trust-dev test --project examples/tutorials/11_unit_testing_102 --output json
 ```
+
+Tutorial 11's project has a configuration, a `runtime.toml` and an `io.toml`, so it builds,
+validates and runs as well as tests. Its sources are in `src/`, where `build` looks by default.
 
 Expected result:
 - same build/test confidence as VS Code users

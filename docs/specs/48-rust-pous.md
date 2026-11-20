@@ -1024,7 +1024,8 @@ client trust-runtime uses (`trust-runtime-client`, the shared client of specific
 the runtime's authentication, and typed access to the program's variables by their paths: read,
 write, subscribe (a read at a period the service chooses, of a set of variables in one cycle's
 snapshot), with every value's cycle, logical time and quality: a read is specification 11 §6.8.1's
-`variables.read`, one completed scan's values of the set. The bindings are generated from the
+`variables.read`, one completed scan's values of the set, and a write its `variables.write`, of the
+variables the service's `writes` names (RU-63), which the next cycle's start writes together. The bindings are generated from the
 symbol table of the deployed image (`trust-dev service bindings`), so a service names
 `plant::P1::level` and gets an `f64`.
 

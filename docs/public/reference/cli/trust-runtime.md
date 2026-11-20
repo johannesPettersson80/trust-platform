@@ -528,6 +528,11 @@ trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-reset
 trust-runtime ctl --endpoint tcp://192.168.1.50:9901 --token <token> status
 ```
 
+`ctl write <path>=<value>...` writes variables as a service does (`variables.write`):
+each value as JSON (`21.5`, `true`, `"pump"`), sent with the service's token from
+`--token`, which must be an Engineer service token whose service's `writes` names each
+path. The next cycle's start writes the set together; the command prints the reply.
+
 `ctl service-token <name> --out <file>` creates the token a service signs in with
 (`pair.service`), or replaces the one it has, and needs the Admin role. It writes
 the token into `<file>`, with mode 0600 on Unix, making the file's folder when it is

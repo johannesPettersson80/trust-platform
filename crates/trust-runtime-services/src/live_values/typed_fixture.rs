@@ -22,8 +22,9 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::native::image::{
     type_kind, AreaRecord, CodeImage, EntryRecord, FileRecord, ImageWriter, IoBindRecord,
-    MemberDetail, MemoryFigure, Record, RetainRecord, SectionId, StmtRecord, StringPool,
-    SymbolRecord, Target, TaskRecord, TypeRecord, BIND_TIME_MILLIS, NONE, SYMBOL_CONSTANT,
+    MemberDetail, MemoryFigure, Record, RetainRecord, SectionId, ServiceRecord, StmtRecord,
+    StringPool, SymbolRecord, Target, TaskRecord, TypeRecord, BIND_TIME_MILLIS, NONE,
+    SYMBOL_CONSTANT,
 };
 
 /// The index of each type of the table, by its declaration.
@@ -192,6 +193,12 @@ fn bindings() -> [IoBindRecord; 4] {
 
 /// The image of the declarations above.
 pub(crate) fn image() -> Vec<u8> {
+    image_with(&[])
+}
+
+/// The image of the declarations above with a service table of `services`, each with the paths
+/// it may write (specification 44 §5.14); none when empty.
+pub(crate) fn image_with(services: &[(&str, &[&str])]) -> Vec<u8> {
     let mut strings = StringPool::new();
     let (types, details) = type_table(&mut strings);
     let symbols: Vec<SymbolRecord> = SYMBOLS
@@ -258,6 +265,22 @@ pub(crate) fn image() -> Vec<u8> {
         &[],
     );
     writer.section(SectionId::MemFig, MemoryFigure::default().bytes().to_vec());
+    if !services.is_empty() {
+        let mut records = Vec::new();
+        let mut paths = Vec::new();
+        for (name, writes) in services {
+            records.push(ServiceRecord {
+                name: strings.add(name),
+                path_first: u32::try_from(paths.len() / 4).expect("a path index"),
+                path_count: u32::try_from(writes.len()).expect("a path count"),
+                reserved: 0,
+            });
+            for path in *writes {
+                paths.extend_from_slice(&strings.add(path).to_le_bytes());
+            }
+        }
+        writer.table(&records, &paths);
+    }
     writer.section(SectionId::Strings, strings.into_bytes());
     writer.finish().expect("the image builds")
 }
