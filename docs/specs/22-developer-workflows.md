@@ -513,7 +513,11 @@ folder, so it runs after such a session, as in the list's order:
   unmodified example: the axis powered and at 25 after its first move, a Write
   of TRUE to the move request moving it to 0, a second Write of TRUE starting no
   move (a command starts on a rising edge), and FALSE then TRUE moving it back
-  to 25.
+  to 25;
+- `first-program`: the walkthrough of `empty-simulator`: a counter written into
+  the copy's `src/Main.st` at `%MD0` and saved, Start, the counter growing by
+  about 100 a second in Live Values, Stop, and a step of 10 started again,
+  growing by about 1000 a second from 0.
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A
