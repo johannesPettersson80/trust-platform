@@ -466,7 +466,7 @@ namespace_uri = "urn:trust:line1"
 expose = ["line1_temp", "line1_temp_quality", "line1_ready"]
 ```
 
-Wire-level OPC UA serving still requires a runtime built with `opcua-wire`.
+The released `trust-runtime` serves OPC UA; its build feature `opcua-wire` is on by default.
 
 ## Example
 
