@@ -1,0 +1,47 @@
+[bundle]
+version = 1
+
+[resource]
+name = "TankControlRes"
+cycle_interval_ms = 100
+
+[runtime.control]
+mode = "production"
+debug_enabled = false
+
+[runtime.web]
+enabled = true
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.tls]
+mode = "disabled"
+require_remote = false
+
+[runtime.discovery]
+enabled = false
+service_name = "truST"
+advertise = false
+interfaces = []
+
+[runtime.mesh]
+enabled = false
+listen = "0.0.0.0:5200"
+tls = false
+publish = []
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

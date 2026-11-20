@@ -28,6 +28,12 @@ Marker (`%M`) address variants:
 - `%ML<byte>` (long word), example: `%ML8`
 - `%M*` (wildcard, resolved by `VAR_CONFIG`)
 
+The number of a byte, word, double word or long word address is its first byte, in `%I` and
+`%Q` too: `%MW50` takes bytes 50 and 51, so `%MW51` shares byte 51 with it, and `%IW0` holds
+`%IX0.0` to `%IX1.7`. Give each located variable bytes of its own, such as `%IW2` for a word next
+to bits of byte 0: writing one of two that overlap changes the other, and the compiler warns
+about them (W017).
+
 Runtime cycle semantics for `%M` bindings:
 
 - Cycle start: `%M` process image is read into bound variables.

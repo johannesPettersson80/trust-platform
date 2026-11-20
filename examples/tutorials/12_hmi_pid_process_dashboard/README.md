@@ -3,7 +3,7 @@
 This tutorial is a complete end-to-end workflow around one small process model:
 
 1. build a feed-tank to product-tank transfer process in Structured Text,
-2. run it in `trust-runtime` with loopback I/O,
+2. run it in `trust-runtime` with simulated I/O, which keeps each input at the value you set,
 3. drive start, stop, pressure-spike, and bypass scenarios through `%IX` inputs,
 4. watch setpoints, deviations, and alarms react live.
 
@@ -64,7 +64,7 @@ Inspect these files first:
 
 - `src/main.st` (process model + setpoint/alarm logic)
 - `src/config.st` (task, program instance, and `%IX`/`%QX` mapping)
-- `io.toml` (loopback I/O driver)
+- `io.toml` (the simulated I/O driver: no hardware, and the `%IX` inputs stay as you set them)
 
 ## Step 2: Build the PLC program
 

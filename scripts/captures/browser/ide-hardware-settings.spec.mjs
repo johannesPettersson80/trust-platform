@@ -82,11 +82,12 @@ test("hardware renders configured drivers and routes an exact setting without sa
   await driversToggle.click();
   await expect(driversToggle).toHaveAttribute("aria-expanded", "true");
 
-  const loopbackCard = page.locator("#hwDriverCards .hw-driver-card", {
-    hasText: "Loopback",
+  // Tutorial 12, the project the capture serves, runs on the simulated driver.
+  const simulatedCard = page.locator("#hwDriverCards .hw-driver-card", {
+    hasText: "Simulated I/O",
   });
-  await expect(loopbackCard).toBeVisible();
-  const configureInputs = loopbackCard.locator(
+  await expect(simulatedCard).toBeVisible();
+  const configureInputs = simulatedCard.locator(
     '[data-hw-driver-settings="io.simulated.inputs"]',
   );
   await expect(configureInputs).toBeVisible();

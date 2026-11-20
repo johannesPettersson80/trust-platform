@@ -199,7 +199,7 @@ ST mechanics used:
 | `Filler.StartCommand` | `%IX0.0` | IN |
 | `Filler.VialPresent` | `%IX0.1` | IN |
 | `Filler.FillDone` | `%IX0.2` | IN |
-| `Filler.WeightRaw` | `%IW0` | IN |
+| `Filler.WeightRaw` | `%IW2` | IN |
 | `Filler.PumpRunOut` | `%QX0.0` | OUT |
 | `Filler.RejectOut` | `%QX0.1` | OUT |
 
