@@ -42,15 +42,9 @@ fn here_documents(readme: &str) -> Vec<(String, String)> {
     files
 }
 
-/// Sets `%IX0.0` as the README has the reader set it (`ctl io-write`).
-fn set_start(runtime: &Runtime, value: bool) {
-    runtime.ctl_ok(&["io-write", "%IX0.0", if value { "true" } else { "false" }]);
-}
-
-/// `%IX0.0` and `%QX0.0` of the runtime's latest I/O snapshot (`ctl io-read`), once there is one.
-fn start_and_lamp(runtime: &Runtime) -> Option<(String, String)> {
-    let snapshot = runtime.snapshot()?;
-    Some((snapshot.text("%IX0.0"), snapshot.text("%QX0.0")))
+/// Sets the input `address` as the README has the reader set it (`ctl io-write`).
+fn set(runtime: &Runtime, address: &str, value: bool) {
+    runtime.ctl_ok(&["io-write", address, if value { "true" } else { "false" }]);
 }
 
 /// The printed value of a BOOL in an I/O snapshot.
@@ -58,18 +52,37 @@ fn printed(value: bool) -> String {
     format!("Bool({value})")
 }
 
-/// Waits until `%IX0.0` and `%QX0.0` read `start` and `lamp`, then requires them at every snapshot of
+/// The printed values of `addresses` in the runtime's latest I/O snapshot (`ctl io-read`), once
+/// there is one.
+fn read(runtime: &Runtime, addresses: &[&str]) -> Option<Vec<String>> {
+    let snapshot = runtime.snapshot()?;
+    Some(
+        addresses
+            .iter()
+            .map(|address| snapshot.text(address))
+            .collect(),
+    )
+}
+
+/// Waits until each address of `expected` reads its value, then requires them at every snapshot of
 /// the next five cycles: a driver that writes the inputs itself makes them change from one cycle to
 /// the next, which a single read could miss.
-fn holds(runtime: &Runtime, start: bool, lamp: bool, what: &str) {
-    let expected = Some((printed(start), printed(lamp)));
-    runtime.wait_until(STEP, what, || start_and_lamp(runtime) == expected);
+fn holds(runtime: &Runtime, expected: &[(&str, bool)], what: &str) {
+    let addresses: Vec<&str> = expected.iter().map(|(address, _)| *address).collect();
+    let values: Vec<String> = expected.iter().map(|(_, value)| printed(*value)).collect();
+    runtime.wait_until(STEP, what, || {
+        read(runtime, &addresses).as_ref() == Some(&values)
+    });
     let first = runtime.scan();
     loop {
         let snapshot = runtime.snapshot().expect("a snapshot");
+        let now: Vec<String> = addresses
+            .iter()
+            .map(|address| snapshot.text(address))
+            .collect();
         assert_eq!(
-            Some((snapshot.text("%IX0.0"), snapshot.text("%QX0.0"))),
-            expected,
+            now,
+            values,
             "{what}, at scan {} of the five after {first}",
             snapshot.scan()
         );
@@ -78,6 +91,19 @@ fn holds(runtime: &Runtime, start: bool, lamp: bool, what: &str) {
         }
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+/// The value of the program variable `path` as `ctl read` prints it: the text after ` = `.
+fn variable(runtime: &Runtime, path: &str) -> String {
+    let printed = runtime.ctl_ok(&["read", path]);
+    printed
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix(&format!("{path} : "))
+                .and_then(|rest| rest.split_once(" = "))
+                .map(|(_, value)| value.to_string())
+        })
+        .unwrap_or_else(|| panic!("`ctl read {path}` printed no value: {printed}"))
 }
 
 #[test]
@@ -110,11 +136,10 @@ fn tutorial_13_runs_as_its_readme_writes_it() {
 
     let runtime = ExampleRuntime::written("tutorial-13", files.clone()).start();
     for value in [true, false] {
-        set_start(&runtime, value);
+        set(&runtime, "%IX0.0", value);
         holds(
             &runtime,
-            value,
-            value,
+            &[("%IX0.0", value), ("%QX0.0", value)],
             &format!("step 8: %QX0.0 follows %IX0.0 = {value}"),
         );
     }
@@ -128,12 +153,68 @@ fn tutorial_13_runs_as_its_readme_writes_it() {
         )
         .start();
     for value in [true, false] {
-        set_start(&inverted, value);
+        set(&inverted, "%IX0.0", value);
         holds(
             &inverted,
-            value,
-            !value,
+            &[("%IX0.0", value), ("%QX0.0", !value)],
             &format!("step 9: %QX0.0 is NOT %IX0.0 = {value}"),
         );
     }
+}
+
+#[test]
+fn tutorial_12_scenarios_run_as_its_readme_describes_them() {
+    // examples/tutorials/12_hmi_pid_process_dashboard/README.md, its scenario checks in order, read
+    // through the outputs its step 4 maps (%QX0.0 PumpRunning, %QX0.1 HighPressureAlarm, %QX0.4
+    // BypassOpen) and the texts src/main.st writes: (1) %IX0.0 TRUE starts the transfer: the pump
+    // runs, ModeText 'RUNNING: NORMAL MODE'; (2) %IX0.3 TRUE opens the bypass, ModeText 'RUNNING:
+    // BYPASS MODE'; (3) a pulse of %IX0.2 raises HighPressureAlarm, AlarmMessage 'ALARM: PT-001 HIGH
+    // PRESSURE', which clears when the pulse ends; (4) %IX0.1 TRUE stops: the pump and the bypass are
+    // off, ModeText 'STOPPED'. Each input holds as set. Catches the `loopback` driver the project
+    // had, which copies the outputs over these inputs at every cycle: the bypass command never held,
+    // and BypassOpen never rose.
+    let runtime = ExampleRuntime::new("tutorials/12_hmi_pid_process_dashboard").start();
+    set(&runtime, "%IX0.0", true);
+    holds(
+        &runtime,
+        &[("%IX0.0", true), ("%QX0.0", true)],
+        "scenario 1: the pump runs",
+    );
+    assert_eq!(
+        variable(&runtime, "P1.ModeText"),
+        "\"RUNNING: NORMAL MODE\""
+    );
+    set(&runtime, "%IX0.3", true);
+    holds(
+        &runtime,
+        &[("%IX0.3", true), ("%QX0.4", true)],
+        "scenario 2: the bypass opens",
+    );
+    assert_eq!(
+        variable(&runtime, "P1.ModeText"),
+        "\"RUNNING: BYPASS MODE\""
+    );
+    set(&runtime, "%IX0.2", true);
+    holds(
+        &runtime,
+        &[("%IX0.2", true), ("%QX0.1", true)],
+        "scenario 3: the pressure spike raises the alarm",
+    );
+    assert_eq!(
+        variable(&runtime, "P1.AlarmMessage"),
+        "\"ALARM: PT-001 HIGH PRESSURE\""
+    );
+    set(&runtime, "%IX0.2", false);
+    holds(
+        &runtime,
+        &[("%IX0.2", false), ("%QX0.1", false)],
+        "scenario 3: the alarm clears when the pulse ends",
+    );
+    set(&runtime, "%IX0.1", true);
+    holds(
+        &runtime,
+        &[("%IX0.1", true), ("%QX0.0", false), ("%QX0.4", false)],
+        "scenario 4: the transfer stops",
+    );
+    assert_eq!(variable(&runtime, "P1.ModeText"), "\"STOPPED\"");
 }
