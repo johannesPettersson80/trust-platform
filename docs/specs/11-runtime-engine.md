@@ -6298,9 +6298,9 @@ the shipped authoring path, not universal real-time guarantees for arbitrary
 hardware or projects. The reference environment is CI's Linux x86_64 runner
 with an optimized build of the runtime: the release profile's optimization,
 built without its link-time optimization, which takes most of the build's time.
-There the gate program `web_ide_performance_gate` asserts the HTTP apply, p95
-and typing budgets, alone on the runner, in a workflow of its own (Web IDE
-Performance) that runs on every push to `main` and on each pull request that
+There the gate program `web_ide_performance_gate` asserts the in-process and HTTP
+apply, p95 and typing budgets, alone on the runner, in a workflow of its own
+(Web IDE Performance) that runs on every push to `main` and on each pull request that
 changes the web IDE, the analysis it runs (`trust-syntax`, `trust-hir`,
 `trust-ide`, `trust-wasm-analysis`) or the build settings
 (`.github/paths/web-ide-performance.txt`). Every other run of the same tests, on
