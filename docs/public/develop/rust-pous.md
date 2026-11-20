@@ -286,6 +286,65 @@ token does not expire, so a service that runs unattended keeps its connection. T
 command again: the earlier token stops working at once. `pair.list` lists it with the service's name,
 and `pair.revoke` with its id, `service-recipe`, revokes it. Keep the file out of version control.
 
+## Write a service
+
+A service is an ordinary Rust program, `cargo new --bin recipe-service`, that depends on
+`trust-service` at the version of the truST release its runtime runs (`cargo add
+trust-service@=<version>`). It connects by its name with the settings of its `[services.<name>]`:
+
+```toml
+[services.recipe]
+endpoint = "tcp://127.0.0.1:47800"     # the runtime's control endpoint
+credentials = "secrets/recipe.token"   # its service token, never in version control
+heartbeat = "500ms"
+```
+
+```rust
+use std::time::Duration;
+use trust_service::Service;
+
+fn main() -> Result<(), trust_service::ServiceError> {
+    let service = Service::connect("recipe")?; // [services.recipe] of trust.toml
+    let _heartbeat = service.start_heartbeat()?; // every 500 ms, until dropped
+    for read in service.subscribe(&["P1.level"], Duration::from_secs(1)) {
+        let level: f64 = read?.get("P1.level")?;
+        service.write(&[("Recipe.target", (level * 0.9).into())])?;
+    }
+    Ok(())
+}
+```
+
+`Service::connect` reads `trust.toml` in the current folder, or in the folder `TRUST_PROJECT` names.
+Each read is one completed scan's values, with the scan's number, its time and whether the program
+runs; `get` reads a value as the Rust type of its declared type (`bool`, the integers, `f32` from a
+`REAL`, `f64`, `String`, `Duration` from a `TIME`). The heartbeat runs on a connection and a thread
+of its own, so the service's own work never delays it.
+
+## Run a service
+
+Build the service, then put it under the computer's service manager, so that it starts at every
+boot and again 2 s after it ends:
+
+```text
+cargo build --release --manifest-path recipe-service/Cargo.toml
+trust-dev service install recipe
+```
+
+`install` takes root, or an administrator on Windows. Run without those rights, it checks the
+service, changes nothing and prints the command to run, with the binary's path. The service is
+called `trust-service-recipe`:
+
+- on Linux, a systemd unit, whose output `journalctl -u trust-service-recipe` shows;
+- on macOS, a launchd daemon, which writes `/Library/Logs/trust-service-recipe.log`;
+- on Windows, a Windows service, whose output goes to
+  `%ProgramData%\truST\services\recipe\logs\recipe.log`.
+
+It runs in the project folder, so `Service::connect` finds `trust.toml` and the token there: on
+Linux and macOS as the user who owns the folder, on Windows as its own virtual account,
+`NT SERVICE\trust-service-recipe`. After a new build, install it again: that restarts it.
+`trust-dev service uninstall recipe` stops and removes it. The runtime never starts a service
+itself.
+
 ## Build, run and debug
 
 A project with Rust POUs is worked like any project: **Compile**, **Start** and **Debug** in the truST

@@ -552,7 +552,10 @@ Z := ROL(X, 2);    // Z = 2#0000_0011 (bits rotated)
 ```
 
 `IN` must be a bit-string value (`ANY_BIT`); an integer, real or other `IN`
-raises `RuntimeError::TypeMismatch`.
+raises `RuntimeError::TypeMismatch`. An untyped based literal, or a decimal one
+that is not negative, is a bit-string value there: the call takes the bit-string
+type where it goes, else the smallest that holds the literal (specification 05
+§5.2.1), so `w := SHL(16#0001, n)` for a `WORD` `w` shifts 16 bits.
 
 ## 5. Bitwise Boolean Functions (Table 31)
 
@@ -564,6 +567,14 @@ raises `RuntimeError::TypeMismatch`.
 | `NOT` | Bitwise NOT | `NOT(IN: ANY_BIT) : ANY_BIT` |
 
 **Note**: AND, OR, XOR are extensible.
+
+Each is called by its name as well as written as its operator: `A := AND(B, C, D)` is
+`A := B AND C AND D`, as IEC 61131-3 Ed.3 Table 31's usage examples write it, and `MOD(A, B)` is
+`A MOD B` (Table 29). In operand position the keyword followed by `(` names the function; after an
+operand it is the infix operator. An untyped literal among typed inputs takes their common type
+when it fits it, and inputs that are all untyped literals take the bit string type where the call
+goes (specification 05 §5.2.1). `NOT` with its one input is the operator `NOT` on a parenthesized
+operand.
 
 At runtime, shift and rotate functions preserve the input bit-string type and
 width. Bitwise Boolean functions return the common participating bit-string

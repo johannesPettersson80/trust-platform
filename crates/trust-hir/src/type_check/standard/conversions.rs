@@ -1,3 +1,4 @@
+use super::super::bit_literals::bit_string_literal_value;
 use super::super::calls::{BoundArgs, CallArg};
 use super::super::literals::{is_untyped_int_literal_expr, is_untyped_real_literal_expr};
 use super::super::*;

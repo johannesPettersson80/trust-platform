@@ -15,6 +15,7 @@ use crate::symbols::{
 use crate::types::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
+mod bit_literals;
 mod calls;
 mod compatibility;
 mod const_eval;
@@ -77,6 +78,9 @@ pub struct TypeChecker<'a> {
     expression_types: FxHashMap<(u32, u32), TypeId>,
     resolved_symbols: FxHashMap<(u32, u32), SymbolId>,
     written_arguments: FxHashSet<(u32, u32)>,
+    /// The calls whose bit string type their untyped literal inputs leave open, by range
+    /// (`bit_literals`).
+    open_bit_calls: FxHashMap<(u32, u32), bit_literals::OpenBitCall>,
 }
 
 pub(crate) struct ExprChecker<'a, 'b> {

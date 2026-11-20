@@ -69,6 +69,14 @@ impl AccessPort for ControlState {
             .as_deref()
             .map(|store| store as &dyn PairingService)
     }
+
+    /// Keeps the service's accepted heartbeat beside its service token, for the fleet topology's
+    /// service clients (specification 11 §6.8.1a).
+    fn note_service_heartbeat(&self, service: &str, period_ms: Option<u64>) {
+        if let Some(store) = &self.pairing {
+            store.note_heartbeat(service, period_ms);
+        }
+    }
 }
 
 impl AuditSink for ControlState {
