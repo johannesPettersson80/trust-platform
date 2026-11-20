@@ -118,6 +118,9 @@ pub fn hold_for(window: Duration) {
 /// example's own runtime.toml values.
 pub struct ExampleRuntime {
     example: &'static str,
+    /// The project's files as a tutorial writes them, each a path under the project folder and its
+    /// text, in place of a copy of `examples/<example>` (`written`).
+    written: Vec<(String, String)>,
     libraries: Vec<&'static str>,
     source_edits: Vec<(&'static str, &'static str, &'static str)>,
     mode: Option<&'static str>,
@@ -134,6 +137,7 @@ impl ExampleRuntime {
     pub fn new(example: &'static str) -> Self {
         Self {
             example,
+            written: Vec::new(),
             libraries: Vec::new(),
             source_edits: Vec::new(),
             mode: None,
@@ -144,6 +148,15 @@ impl ExampleRuntime {
             store: false,
             occupy_web_port: false,
         }
+    }
+
+    /// A project made of `files`, each a path under the project folder and its text, as a tutorial's
+    /// README writes them into an empty folder, at `examples/<example>` of the copy's root. Nothing
+    /// of `examples/` is copied.
+    pub fn written(example: &'static str, files: Vec<(String, String)>) -> Self {
+        let mut runtime = Self::new(example);
+        runtime.written = files;
+        runtime
     }
 
     /// `[runtime.control] start_paused` in the copy's runtime.toml (specification 11 §6.8).
@@ -222,8 +235,16 @@ impl ExampleRuntime {
             web_port: None,
             token: String::new(),
         };
-        let source = join_relative(&repo_root(), &format!("examples/{}", self.example));
-        copy_tree(&source, &project);
+        if self.written.is_empty() {
+            let source = join_relative(&repo_root(), &format!("examples/{}", self.example));
+            copy_tree(&source, &project);
+        }
+        for (file, text) in &self.written {
+            let path = join_relative(&project, file);
+            fs::create_dir_all(path.parent().expect("the file's folder"))
+                .expect("create the folder");
+            fs::write(&path, text).expect("write the file");
+        }
         for &dir in &self.libraries {
             copy_tree(
                 &join_relative(&repo_root(), dir),
