@@ -29,51 +29,44 @@ Two former directories were intentionally removed from `examples/`:
 - `browser_analysis_wasm_spike/` (internal prototype moved under `docs/internal/prototypes/`)
 - `openplc_interop_v1/` (OpenPLC notes absorbed into the PLCopen ST-complete tutorial)
 
-## One-Time Setup
+## Run an example
 
-1. Build core binaries:
-
-```bash
-cargo build -p trust-runtime -p trust-lsp -p trust-debug
-```
-
-2. Install extension:
+In VS Code with the truST extension: open the **truST** view, choose **Start from example**, pick a
+project and open the copy, then press **Start**. The simulator runs it; nothing needs to be built,
+because the extension brings `trust-runtime`. The examples that the gallery does not offer run from
+a terminal with the released `trust-runtime`:
 
 ```bash
-code --install-extension trust-platform.trust-lsp
+trust-runtime build --project examples/<folder>
+trust-runtime run --project examples/<folder>
 ```
 
-3. Open repository:
-
-```bash
-code /path/to/trust-platform
-```
+Each example's README names what else it needs, as the table below does per category.
 
 ## Catalog By Docs Category
 
-| Category | Start Here | What You Learn | Typical Time |
-|---|---|---|---|
-| Control engineering | `examples/control/README.md` | feedback, modelling, PID, loop engineering, digital control, and modern control | 25-45 min per lesson |
-| Tutorials | `examples/tutorials/README.md` | language basics, testing, bootstrap, deploy, networking, simulation, safety, CI/CD, observability | 60-360 min |
-| Test and debug | `examples/memory_marker_counter/README.md` | runtime/process-image mental model and debugger confirmation | 20-30 min |
-| HMI | `examples/hmi_tank_level/README.md` | screens built in the HMI Builder: live values, setpoint, trend, alarms, Live mode, deploy and roll back | 30-45 min |
-| HMI | `examples/hmi_equipment/README.md` | the Plant library's pump, control valve, tank and PID loop, each opening its shipped faceplate | 20-30 min |
-| HMI | `examples/room_heating/README.md` | a room heating built in the HMI Builder: tank and room PID loops written by Create PLC code and set up in Control Studio, start/stop sequence, protections, alarms, settings and three languages | 45-60 min |
-| Connectivity | `examples/communication/README.md` | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | 120-220 min |
-| Runtime cloud | `examples/runtime_cloud/README.md` | profiles, preflight/dispatch, federation allowlists | 30-60 min |
-| Visual editors | `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md` | visual authoring surfaces tied to companion ST | 15-45 min |
-| Vendor profiles | `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`, `examples/plcopen_xml_st_complete/README.md`, `examples/vendor_library_stubs/README.md` | vendor-oriented authoring and migration | 20-50 min |
-| Libraries and motion | `examples/plcopen_motion_single_axis_demo/README.md`, `examples/plcopen_motion_single_axis_benchmarks/README.md`, `examples/oscat_smoke/README.md`, `examples/OSCAT/README.md`, `libraries/plant/README.md` | the shipped libraries (OSCAT, PLCopen Motion, Control, Plant, Alarm, HMI and Comm; the HMI, Control and Alarm examples above use theirs) and performance baselines; each library's manual is under `docs/public/develop/libraries/` | 10-40 min |
-| Capstones | `examples/plant_demo/README.md`, `examples/filling_line/README.md`, `examples/hardware_8do/README.md` | larger multi-file or hardware-leaning projects | 25-55 min |
-| OpenOT telemetry | `examples/openot_multi_program/README.md` | attribute-driven OpenOT logging, generated producers, one shared-memory ring | 20-30 min |
-| OpenOT database persistence | `examples/openot_database/README.md` | one canonical alarms/messages/values/audit workload with TOML overlays for seven real database products | 20-30 min per product |
-| Runbooks | `examples/runbooks/site-runbook-template/README.md` | site-specific operator and technician handoff templates | 10-20 min |
+| Category | Start Here | What You Learn | What You Need | Typical Time |
+|---|---|---|---|---|
+| Control engineering | `examples/control/README.md` | feedback, modelling, PID, loop engineering, digital control, and modern control | VS Code with truST (Control Studio); simulated plants, no hardware | 25-45 min per lesson |
+| Tutorials | `examples/tutorials/README.md` | language basics, testing, bootstrap, deploy, networking, simulation, safety, CI/CD, observability | `trust-runtime`; a few name an extra tool (`openssl` and `curl`, an editor, Prometheus) | 60-360 min |
+| Test and debug | `examples/memory_marker_counter/README.md` | runtime/process-image mental model and debugger confirmation | VS Code with truST, or `trust-runtime ctl` | 20-30 min |
+| HMI | `examples/hmi_tank_level/README.md` | screens built in the HMI Builder: live values, setpoint, trend, alarms, Live mode, deploy and roll back | VS Code with truST (HMI Builder) and a browser | 30-45 min |
+| HMI | `examples/hmi_equipment/README.md` | the Plant library's pump, control valve, tank and PID loop, each opening its shipped faceplate | VS Code with truST (HMI Builder) and a browser | 20-30 min |
+| HMI | `examples/room_heating/README.md` | a room heating built in the HMI Builder: tank and room PID loops written by Create PLC code and set up in Control Studio, start/stop sequence, protections, alarms, settings and three languages | VS Code with truST (HMI Builder) and a browser | 45-60 min |
+| Connectivity | `examples/communication/README.md` | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | the peer of each protocol: an MQTT broker, a Modbus/TCP server, an OPC UA client; EtherCAT and GPIO hardware for their device runs (EtherCAT's mock profile runs without) | 120-220 min |
+| Runtime cloud | `examples/runtime_cloud/README.md` | profiles, preflight/dispatch, federation allowlists | two to five `trust-runtime` processes on one computer | 30-60 min |
+| Visual editors | `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md` | visual authoring surfaces tied to companion ST | VS Code with truST | 15-45 min |
+| Vendor profiles | `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`, `examples/plcopen_xml_st_complete/README.md`, `examples/vendor_library_stubs/README.md` | vendor-oriented authoring and migration | `trust-runtime`; the vendor's tool to import the exports | 20-50 min |
+| Libraries and motion | `examples/plcopen_motion_single_axis_demo/README.md`, `examples/plcopen_motion_single_axis_benchmarks/README.md`, `examples/oscat_smoke/README.md`, `examples/OSCAT/README.md`, `libraries/plant/README.md` | the shipped libraries (OSCAT, PLCopen Motion, Control, Plant, Alarm, HMI and Comm; the HMI, Control and Alarm examples above use theirs) and performance baselines; each library's manual is under `docs/public/develop/libraries/` | `trust-runtime`, and `trust-dev` for the OSCAT tests | 10-40 min |
+| Capstones | `examples/plant_demo/README.md`, `examples/filling_line/README.md`, `examples/hardware_8do/README.md` | larger multi-file or hardware-leaning projects | `trust-runtime` in simulation; `hardware_8do` needs its I/O board for the device run | 25-55 min |
+| OpenOT telemetry | `examples/openot_multi_program/README.md` | attribute-driven OpenOT logging, generated producers, one shared-memory ring | `trust-runtime` | 20-30 min |
+| OpenOT database persistence | `examples/openot_database/README.md` | one canonical alarms/messages/values/audit workload with TOML overlays for seven real database products | the database of the chosen overlay (SQLite runs locally) | 20-30 min per product |
+| Runbooks | `examples/runbooks/site-runbook-template/README.md` | site-specific operator and technician handoff templates | nothing to run: a template to fill in | 10-20 min |
 
 ## Archive Policy
 
 - examples that are not strong public defaults belong in `examples/archive/`
 - currently, `examples/simulate_process/` is treated as archive-candidate material until it has a curated public entry README and narrower audience framing
-- see `docs/internal/testing/checklists/example-catalog-audit.md` for the current keep / tweak / merge / archive decisions
 
 ## Recommended Learning Order
 
@@ -105,7 +98,29 @@ goal; keep the two aligned at the category level.
    - Vendor profiles: `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`
    - Fieldbus backend: `examples/ethercat_ek1100_elx008_v1/README.md`, `examples/ethercat_ek1100_elx008_v2/README.md`
 
-## Validation Commands
+## For contributors: build from source
+
+The commands above use released binaries. To run the examples against a build of this repository:
+
+1. Build core binaries:
+
+```bash
+cargo build -p trust-runtime -p trust-lsp -p trust-debug
+```
+
+2. Install extension:
+
+```bash
+code --install-extension trust-platform.trust-lsp
+```
+
+3. Open repository:
+
+```bash
+code /path/to/trust-platform
+```
+
+### Validation commands
 
 ```bash
 trust-runtime build --project examples/filling_line --sources src
