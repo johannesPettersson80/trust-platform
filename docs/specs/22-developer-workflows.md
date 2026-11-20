@@ -466,6 +466,10 @@ then, and a failure prints the error's whole value) and runs each session in its
 window, with its own profile and Control Studio state folder, one truST data
 folder that is empty at the start, and no Rust toolchain: the runner removes
 Cargo and rustup from `PATH` and fails when a Rust compiler is still found.
+Before it removes them, a run that includes `rust-service` builds the price
+service and the stand-in price source of `rust_service` from the checkout's
+workspace with the computer's own Rust, as that README's `cargo run` does with
+the user's own Rust (specification 48, RU-61), and fails when it cannot.
 Each session copies its project from the checkout's `examples/` and runs at
 1×. A session that starts its runtime from the command line builds with the
 toolchain that an earlier session's Start installed in the run's truST data
@@ -508,7 +512,16 @@ folder, so it runs after such a session, as in the list's order:
   to Manual", specification 39, §8.4), LIC-101 bringing the level back to its
   setpoint of 1.5 m, following a setpoint of 1.8 m, draining the tank in Manual
   at 0 % until LT-101's Low alarm comes in, and refilling it in Auto without a
-  bump.
+  bump;
+- `rust-service`: the walkthrough of `rust_service`, its runtime started in the
+  same way on the example's own TCP endpoint and token, without a web server:
+  the service's token created with `trust-runtime ctl service-token`, Connect
+  from the Target picker, which attaches since the runtime allows debugging,
+  60.0 written to the tank's temperature in Live Values and the safe setpoint
+  of 55.0 without the service, the stand-in at 38.2 EUR/MWh and the service
+  giving 65.0 with the heater on, a price of 120 giving 50.0 with it off, and
+  the safe 55.0 again about 2 s after the service stops (specification 48,
+  section 13; specification 08, section 5A).
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A

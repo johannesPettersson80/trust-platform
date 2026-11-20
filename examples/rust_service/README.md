@@ -39,11 +39,13 @@ values only while the service's heartbeat says it runs, and falls back to a safe
 
    It prints `id=service-price role=engineer token_file=secrets/price.token`: the token goes into the
    file, never to the screen. The role Engineer lets the service write.
-3. In the side panel, open **Target**, choose **This project's runtime**, and press **Connect**. **Live
-   Values** lists the heater's values: `Heater.target` (`%MD4`) is 55.0, the safe setpoint, and
-   `Heater.service_ok` (`%MX8.0`) is FALSE, as no service runs. Write 60.0 to `Heater.temperature`
-   (`%ID0`), the tank's temperature: `Heater.heater` (`%QX0.0`) is FALSE, as the tank is warmer than
-   its target.
+3. In the side panel, open **Target**, choose **This project's runtime**, and press **Connect**. The
+   example allows debugging, so Connect attaches: the status bar says `truST: This project's runtime
+   connected`, the debug toolbar appears, and **Live Values** opens. Under **Memory**, `Heater.target`
+   (`%MD4`) is 55.0, the safe setpoint, and `Heater.service_ok` (`%MX8.0`) is FALSE, as no service
+   runs; under **Outputs**, `Heater.heater` (`%QX0.0`) is TRUE, as the simulated tank reads 0.0.
+   Under **Inputs**, type 60.0 in the row of `Heater.temperature` (`%ID0`), the tank's temperature,
+   and press **Write**: the heater turns off, as the tank is now warmer than its target.
 4. In the second terminal, start the stand-in for a price source:
 
    ```text
@@ -60,8 +62,9 @@ values only while the service's heartbeat says it runs, and falls back to a safe
    service prints `120.0 EUR/MWh: setpoint 50.0 °C` at its next fetch, and `Heater.target` is 50.0:
    the heater is off.
 7. Stop the service with Ctrl+C in its terminal. About 2 s later `Heater.service_ok` is FALSE and
-   `Heater.target` is the safe 55.0 again: in the run it still read TRUE 1.6 s after Ctrl+C, and FALSE
-   2.2 s after.
+   `Heater.target` is the safe 55.0 again, while `Heater.price_setpoint` keeps the service's last
+   50.0, which the program no longer takes: in the run Live Values still showed TRUE 1.5 s after
+   Ctrl+C, and FALSE 2.0 s after.
 8. Stop the stand-in and the runtime with Ctrl+C in their terminals.
 
 ## What happened
@@ -93,7 +96,8 @@ the target 65 (60 < 63) and off for 50 and for 55.
 
 Worked with the run: the service sent a heartbeat every 500 ms, so its last one came at most 0.5 s
 before Ctrl+C. The program falls back at its first scan after the age passes 2 s; with the 100 ms
-task that is between 1.5 s and 2.2 s after Ctrl+C. The run read TRUE at 1.6 s and FALSE at 2.2 s.
+task that is between 1.5 s and 2.2 s after Ctrl+C, and Live Values shows it at its next refresh,
+about twice a second. The run showed TRUE at 1.5 s and FALSE at 2.0 s.
 
 **Why the service writes before its heartbeat.** It writes its setpoint first, so the program never
 takes a setpoint the service has not written as fresh. It also stops its heartbeat when it has no

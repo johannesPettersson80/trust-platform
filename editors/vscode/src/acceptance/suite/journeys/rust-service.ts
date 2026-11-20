@@ -11,7 +11,7 @@ import * as vscode from "vscode";
 
 import * as cdp from "../cdp";
 import { connectProjectRuntime, until } from "../hmi";
-import { assertNoFailedStep, expect, open, openScreen, pressHome, Session, step } from "../session";
+import { assertNoFailedStep, expect, open, Session, step } from "../session";
 
 /** The heater's values as Live Values shows them, read by their addresses. */
 type Heater = { setpoint: number; target: number; ok: string; temperature: number; heater: string; names: string[] };
@@ -76,10 +76,12 @@ suite("Rust service: a price service beside the runtime, and the program's heart
           ["ctl", "--project", ".", "service-token", "price", "--out", "secrets/price.token", "--role", "engineer"],
           { cwd: folder, encoding: "utf8" });
         expect(token.status === 0, `the service's token is created: ${token.stdout}${token.stderr}`);
-        const connected = await connectProjectRuntime(s);
-        live = await openScreen(s, "Live Values", () => pressHome(s, "Live Values"));
+        // The runtime allows debugging, so Connect attaches, and the attach opens Live Values.
+        const connected = await connectProjectRuntime(s, true);
+        live = await cdp.attachWebview(s.wb, "Live Values", "d.body&&/Force policy/.test(d.body.innerText)", 60_000);
         const before = await until(() => read(s, live), (shown) => shown !== null, 30_000);
-        expect(before !== null, "Live Values lists the heater's values");
+        expect(before?.target === 55 && /false/i.test(before.ok) && /true/i.test(before.heater),
+          `Live Values lists the heater: the safe 55.0, not fresh, the heater on at the tank's 0.0: ${JSON.stringify(before)}`);
         const wrote = await cdp.evalWebview(s.wb, live, writeTemperature);
         expect(wrote === "CLICKED", `Write 60.0 on the temperature's row: ${wrote}`);
         const after = await until(() => read(s, live), (shown) => shown?.temperature === 60, 10_000);
@@ -121,7 +123,8 @@ suite("Rust service: a price service beside the runtime, and the program's heart
         // The last heartbeat came at most 0.5 s before the stop; the gate falls back 2 s after it, at the next scan, and
         // Live Values refreshes about twice a second: between 1.5 s and 3 s after the stop, read within a margin.
         expect(seconds >= 1 && seconds <= 4, `the program falls back about 2 s after the service stops: ${seconds} s, ${JSON.stringify(readings)}`);
-        expect(shown?.target === 55 && /false/i.test(shown.heater), `the safe 55.0 again: ${JSON.stringify(shown)}`);
+        expect(shown?.target === 55 && shown.setpoint === 50 && /false/i.test(shown.heater),
+          `the safe 55.0 again, while the service's last 50.0 stays unused: ${JSON.stringify(shown)}`);
         return { seconds, readings, shown };
       });
     } finally {

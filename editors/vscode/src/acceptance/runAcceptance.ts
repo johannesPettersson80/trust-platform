@@ -1,7 +1,9 @@
 // The acceptance journeys on the packaged extension (specification 22, "Acceptance journeys on the packaged extension"). It
 // installs a VSIX into a fresh extensions folder of a VS Code that has never run truST, copies each journey's project from
 // the checkout's examples, and runs each journey in its own window at 1×, with an empty truST data folder and no Rust
-// toolchain on PATH. F23 first starts the project's runtime from the command line, as the example's README says.
+// toolchain on PATH. F23 first starts the project's runtime from the command line, as the example's README says. The Rust
+// service's session runs the example's price service, which the computer's own Rust builds before the run, as its README's
+// `cargo run` does (specification 48 RU-61).
 //
 // Usage, under a display (`xvfb-run -a -s "-screen 0 1920x1080x24"` where there is none):
 //   node out/acceptance/runAcceptance.js --vsix <file> --out <folder> [--journey <session>]...
@@ -23,6 +25,7 @@ const TANK_EXAMPLE = "hmi_tank_level";
 const CONVEYOR_EXAMPLE = "conveyor";
 const MEMORY_EXAMPLE = "memory_marker_counter";
 const EQUIPMENT_EXAMPLE = "hmi_equipment";
+const SERVICE_EXAMPLE = "rust_service";
 
 /** One window of the run: its journey, the example its project copies, an edit of the copy that the journey needs, and for
  * F23 how the project's runtime listens. */
@@ -32,6 +35,10 @@ type Session = {
   example: string;
   setup?: (project: string) => void;
   runtime?: "default endpoint" | "TCP endpoint with a token";
+  /** The project's runtime serves no web pages, so its start does not wait for its web server. */
+  noWeb?: true;
+  /** The journey runs the example rust_service's price service and its stand-in price source. */
+  service?: true;
 };
 
 const SESSIONS: Session[] = [
@@ -45,6 +52,7 @@ const SESSIONS: Session[] = [
   { name: "memory-marker-counter", journey: "memory-marker-counter", example: MEMORY_EXAMPLE },
   { name: "hmi-tank-level", journey: "hmi-tank-level", example: TANK_EXAMPLE, runtime: "default endpoint" },
   { name: "hmi-equipment", journey: "hmi-equipment", example: EQUIPMENT_EXAMPLE, runtime: "default endpoint" },
+  { name: "rust-service", journey: "rust-service", example: SERVICE_EXAMPLE, runtime: "TCP endpoint with a token", noWeb: true, service: true },
 ];
 
 /** Replaces the one occurrence of `old` in the file, or fails: an example that changed must not let a journey run on the
@@ -94,6 +102,18 @@ function options(argv: string[]): { vsix: string; out: string; only: string[] } 
   const unknown = only.filter((name) => !SESSIONS.some((session) => session.name === name));
   if (unknown.length) throw new Error(`unknown sessions ${unknown.join(", ")}; the sessions are ${SESSIONS.map((s) => s.name).join(", ")}`);
   return { vsix, out, only };
+}
+
+/** The example rust_service's price service and stand-in price source, built from the checkout's workspace with the
+ * computer's own Rust before the run takes Rust off PATH: a user builds them with `cargo run`, with their own Rust
+ * (specification 48 RU-61). Fails without Cargo, as the service's session cannot run then. */
+function buildServices(): { service: string; standIn: string } {
+  const target = path.join(REPO, "target", "acceptance-services");
+  const built = child.spawnSync("cargo", ["build", "--locked", "-p", "price-service", "--bins", "--examples", "--target-dir", target],
+    { cwd: REPO, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] });
+  if (built.status !== 0) throw new Error(`cargo build of the price service failed (${built.status ?? built.error?.message})`);
+  const exe = process.platform === "win32" ? ".exe" : "";
+  return { service: path.join(target, "debug", `price-service${exe}`), standIn: path.join(target, "debug", "examples", `stand_in_source${exe}`) };
 }
 
 /** The environment of a machine without Rust: no folder on PATH that holds rustc, cargo or rustup (a link to them counts),
@@ -175,8 +195,8 @@ function answers(port: number): Promise<boolean> {
 
 /** Builds the project with the installed extension's trust-runtime and starts it as the README says, with the run's own truST
  * folders in `env`, so that it uses no toolchain or state from outside the run; gives its process once it reports its control
- * endpoint and its web server answers. */
-async function startRuntime(bin: string, project: string, log: string, env: NodeJS.ProcessEnv): Promise<child.ChildProcess> {
+ * endpoint and, when it serves `web` pages, its web server answers. */
+async function startRuntime(bin: string, project: string, log: string, env: NodeJS.ProcessEnv, web: boolean): Promise<child.ChildProcess> {
   const runtime = path.join(bin, process.platform === "win32" ? "trust-runtime.exe" : "trust-runtime");
   const build = child.spawnSync(runtime, ["build", "--project", "."], { cwd: project, encoding: "utf8", env });
   fs.writeFileSync(`${log}.build`, `${build.stdout ?? ""}${build.stderr ?? ""}`);
@@ -184,7 +204,7 @@ async function startRuntime(bin: string, project: string, log: string, env: Node
   const output = fs.openSync(log, "w");
   const process_ = child.spawn(runtime, ["run", "--project", "."], { cwd: project, stdio: ["ignore", output, output], env });
   await until("the runtime's control endpoint", () => fs.existsSync(path.join(project, ".trust-runtime", "control.json")), 60_000);
-  await until("the runtime's web server on port 8080", () => answers(8080), 60_000);
+  if (web) await until("the runtime's web server on port 8080", () => answers(8080), 60_000);
   return process_;
 }
 
@@ -211,6 +231,8 @@ function downloadVSCode(version: string): Promise<string> {
 
 async function main(): Promise<number> {
   const { vsix, out, only } = options(process.argv.slice(2));
+  const sessions = SESSIONS.filter((entry) => !only.length || only.includes(entry.name));
+  const services = sessions.some((session) => session.service) ? buildServices() : undefined;
   withoutRust();
   const vscodeExecutable = process.env.E2E_VSCODE?.trim() || await downloadVSCode(process.env.TRUST_VSCODE_TEST_VERSION?.trim() || "stable");
   // Short paths: a project's default control endpoint and the window's sockets live under them.
@@ -228,7 +250,7 @@ async function main(): Promise<number> {
   console.log(`acceptance: ${path.basename(installed)} in ${vscodeExecutable}; rustc: none`);
 
   const results: Result[] = [];
-  for (const session of SESSIONS.filter((entry) => !only.length || only.includes(entry.name))) {
+  for (const session of sessions) {
     const started = Date.now();
     const project = path.join(scratch, session.name);
     const profile = path.join(scratch, `ud-${session.name}`);
@@ -247,7 +269,7 @@ async function main(): Promise<number> {
       fs.mkdirSync(shots, { recursive: true });
       if (session.runtime) {
         runtime = await startRuntime(bin, project, path.join(out, `${session.name}-runtime.log`),
-          { ...process.env, XDG_DATA_HOME: data, XDG_STATE_HOME: state });
+          { ...process.env, XDG_DATA_HOME: data, XDG_STATE_HOME: state }, !session.noWeb);
         console.log(`   runtime on the ${session.runtime}, process ${runtime.pid}`);
       }
       await runTests({
@@ -272,6 +294,11 @@ async function main(): Promise<number> {
           XDG_STATE_HOME: state,
           XDG_DATA_HOME: data,
           ...(runtime?.pid ? { E2E_RUNTIME_PID: String(runtime.pid) } : {}),
+          ...(session.service && services ? {
+            E2E_TRUST_RUNTIME: path.join(bin, process.platform === "win32" ? "trust-runtime.exe" : "trust-runtime"),
+            E2E_PRICE_SERVICE: services.service,
+            E2E_STAND_IN_SOURCE: services.standIn,
+          } : {}),
         },
       });
       results.push({ session: session.name, passed: true, seconds: Math.round((Date.now() - started) / 1_000) });
