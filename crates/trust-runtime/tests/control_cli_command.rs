@@ -428,6 +428,39 @@ fn ctl_stats_renders_each_task_in_stable_compact_form() {
 }
 
 #[test]
+fn ctl_stats_renders_each_rust_pou_after_the_tasks() {
+    // Specification 11, "Rust POU budgets": a debug image's Rust POUs follow the tasks, one line
+    // each in the reply's order, after `tasks=0` too. Catches a CLI that drops `rust_pous`, sorts
+    // them, or prints nothing after an empty task list.
+    let (endpoint, _request_rx, server) = spawn_control_server(json!({
+        "id": 1,
+        "ok": true,
+        "result": {
+            "tasks": [],
+            "rust_pous": [
+                {"name": "SPIN", "budget_ns": 1000, "longest_ns": 52000, "over_budget": 7},
+                {"name": "CLOCKED", "budget_ns": 1000000, "longest_ns": 4000, "over_budget": 0}
+            ]
+        }
+    }));
+
+    let output = run_ctl(&["--endpoint", &endpoint, "stats"]);
+    server.join().expect("stats control server");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "tasks=0\n\
+         rust_pou=SPIN budget_ns=1000 longest_ns=52000 over_budget=7\n\
+         rust_pou=CLOCKED budget_ns=1000000 longest_ns=4000 over_budget=0"
+    );
+}
+
+#[test]
 fn ctl_service_token_writes_the_token_into_its_file_and_never_prints_it() {
     // Specification 11 §6.9.6: `ctl service-token` sends `pair.service` with the name and the
     // role, writes the reply's token into `--out`, making the missing folder `secrets`, with mode
