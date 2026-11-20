@@ -172,7 +172,7 @@ ST mechanics used:
 | `Tower.WaterTempRaw` | `%IW2` | IN |
 | `Tower.OutdoorTempRaw` | `%IW4` | IN |
 | `Tower.ConductivityRaw` | `%IW6` | IN |
-| `Tower.FanStageRaw` | `%QW0` | OUT |
+| `Tower.FanStageRaw` | `%QW2` | OUT |
 | `Tower.BasinHeaterOut` | `%QX0.0` | OUT |
 | `Tower.BleedValveOut` | `%QX0.1` | OUT |
 

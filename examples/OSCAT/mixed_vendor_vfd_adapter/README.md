@@ -163,7 +163,7 @@ ST mechanics used:
 | --- | --- | --- |
 | `Cell.RunCommand` | `%IX0.0` | IN |
 | `Cell.PullCordOk` | `%IX0.1` | IN |
-| `Cell.SpeedSetpointRaw` | `%IW0` | IN |
+| `Cell.SpeedSetpointRaw` | `%IW2` | IN |
 | `Cell.AnyFaultOut` | `%QX0.0` | OUT |
 
 Comms (from `oop/io.toml`): two `modbus-rtu` segments
