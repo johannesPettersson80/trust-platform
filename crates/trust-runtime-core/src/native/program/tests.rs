@@ -629,3 +629,108 @@ fn fault_codes_map_to_runtime_errors() {
         RuntimeError::ExecutionLimit { limit: 10, .. }
     ));
 }
+
+/// What a runner hears of the Rust POU reports (specification 48 RU-49).
+#[derive(Default)]
+struct RustReports {
+    fresh: u32,
+    pous: Vec<(u32, alloc::string::String, trust_plc_abi::RustTime, bool)>,
+}
+
+impl crate::cycle::CycleHooks for RustReports {
+    fn on_rust_times_fresh(&mut self) {
+        self.fresh += 1;
+    }
+
+    fn on_rust_pou(&mut self, report: &RustPouReport<'_>, _now: Duration) {
+        self.pous.push((
+            report.pou,
+            report.name.into(),
+            report.record,
+            report.exceeded,
+        ));
+    }
+}
+
+/// The image of [`image`] with a Rust POU table: Clamp with a budget of 40 ns, Spin with 1,000 ns.
+fn image_with_rust_pous(target: Target) -> Vec<u8> {
+    let mut writer = writer_with(0, 100, 50, target, output_bit(), 0, 0);
+    // The pool of `writer_with`, the same offsets, with the POUs' names after it.
+    let mut strings = StringPool::new();
+    for text in ["MAIN", "MAIN.COUNT", "MAIN.OUT", "Fast", "main.st"] {
+        strings.add(text);
+    }
+    let records = [("Clamp", 40), ("Spin", 1_000)].map(|(name, budget_ns)| {
+        crate::native::image::RustPouRecord {
+            name: strings.add(name),
+            reserved: 0,
+            budget_ns,
+        }
+    });
+    writer.table(&records, &[]);
+    writer.section(SectionId::Strings, strings.into_bytes());
+    writer.finish().unwrap()
+}
+
+/// After each scan the runner hears what changed in the Rust POU records (specification 48 RU-49;
+/// specification 11, "Rust POU budgets"): the first report is fresh and gives both POUs, a report
+/// without a change gives none. Clamp's first call over its 40 ns, 50 ns, is exceeded; a second
+/// call over it that is not longer changes its record without being exceeded; one of 60 ns is
+/// exceeded again. Spin's 500 ns within its 1,000 ns changes its record without being exceeded.
+/// Catches an event for every scan over the budget, a report of unchanged records and a first
+/// report that leaves out a POU without a call.
+#[test]
+fn a_report_gives_the_rust_pou_records_the_scans_changed() {
+    let device = device();
+    let bytes = image_with_rust_pous(device.target);
+    let image = admit(&bytes, &device).unwrap();
+    let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
+    let report = |program: &mut NativeProgram<'_, StandIn>| {
+        let mut reports = RustReports::default();
+        program.report_rust_times(Duration::ZERO, &mut reports);
+        (reports.fresh, reports.pous)
+    };
+    let clamp = |longest_ns, over| trust_plc_abi::RustTime {
+        budget_ns: 40,
+        longest_ns,
+        over,
+    };
+    let spin = |longest_ns, over| trust_plc_abi::RustTime {
+        budget_ns: 1_000,
+        longest_ns,
+        over,
+    };
+    assert_eq!(
+        report(&mut program),
+        (
+            1,
+            vec![
+                (0, "Clamp".into(), clamp(0, 0), false),
+                (1, "Spin".into(), spin(0, 0), false)
+            ]
+        )
+    );
+    assert_eq!(report(&mut program), (0, vec![]));
+    program.rust_times[0] = clamp(50, 1);
+    assert_eq!(
+        report(&mut program),
+        (0, vec![(0, "Clamp".into(), clamp(50, 1), true)])
+    );
+    program.rust_times[0] = clamp(50, 2);
+    assert_eq!(
+        report(&mut program),
+        (0, vec![(0, "Clamp".into(), clamp(50, 2), false)])
+    );
+    program.rust_times[0] = clamp(60, 3);
+    program.rust_times[1] = spin(500, 0);
+    assert_eq!(
+        report(&mut program),
+        (
+            0,
+            vec![
+                (0, "Clamp".into(), clamp(60, 3), true),
+                (1, "Spin".into(), spin(500, 0), false)
+            ]
+        )
+    );
+}

@@ -203,6 +203,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             armed: false,
             scanning: false,
             rust_times,
+            rust_reported: None,
             inputs,
             outputs,
             hierarchical,

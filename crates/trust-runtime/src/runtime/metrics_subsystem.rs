@@ -5,6 +5,8 @@ use std::time::{Duration as StdDuration, Instant};
 
 use smol_str::SmolStr;
 
+use trust_runtime_core::native::program::RustPouReport;
+
 use crate::metrics::{ProgramMemory, RuntimeMetrics};
 
 pub(super) struct MetricsSubsystem {
@@ -62,6 +64,31 @@ impl MetricsSubsystem {
             && let Ok(mut guard) = metrics.lock()
         {
             guard.record_overrun(name, missed);
+        }
+    }
+
+    /// A newly built program's Rust POUs replace those before (specification 48 RU-49).
+    pub(super) fn clear_rust_pous(&self) {
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.clear_rust_pous();
+        }
+    }
+
+    /// The record of a debug image's Rust POU, for `tasks.stats` (specification 48 RU-49).
+    pub(super) fn record_rust_pou(&self, report: &RustPouReport<'_>) {
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            let record = report.record;
+            guard.record_rust_pou(
+                report.pou,
+                report.name,
+                record.budget_ns,
+                record.longest_ns,
+                record.over,
+            );
         }
     }
 
