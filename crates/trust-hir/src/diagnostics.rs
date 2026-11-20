@@ -126,6 +126,9 @@ pub enum DiagnosticCode {
     /// Under the CODESYS profile, a declared name that is the name of a CODESYS operator, which
     /// CODESYS takes as a keyword and refuses as a name.
     CodesysOperatorName,
+    /// Two located variables of one project whose process-image storage partly overlaps
+    /// (specification 28 §9), such as `%IX0.0` inside `%IW0`.
+    OverlappingLocatedStorage,
 
     // Info/Hints (I001-I099)
     /// Suggested simplification.
@@ -189,6 +192,7 @@ impl DiagnosticCode {
             Self::LiteralDivisionByZero => "W014",
             Self::ArrayInitializerCardinality => "W015",
             Self::CodesysOperatorName => "W016",
+            Self::OverlappingLocatedStorage => "W017",
             // Info
             Self::Simplification => "I001",
             Self::StyleSuggestion => "I002",
@@ -246,7 +250,8 @@ impl DiagnosticCode {
             | Self::FloatingPointEquality
             | Self::LiteralDivisionByZero
             | Self::ArrayInitializerCardinality
-            | Self::CodesysOperatorName => DiagnosticSeverity::Warning,
+            | Self::CodesysOperatorName
+            | Self::OverlappingLocatedStorage => DiagnosticSeverity::Warning,
 
             // Info/Hints
             Self::Simplification | Self::StyleSuggestion => DiagnosticSeverity::Hint,
