@@ -6,11 +6,12 @@
 
 #![allow(missing_docs)]
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use rand::TryRng;
 pub use trust_runtime_services::access::pairing::{PairingCode, PairingSummary};
@@ -33,6 +34,19 @@ pub struct PairingStore {
     path: PathBuf,
     pairings: Mutex<Pairings<FilePort>>,
     now: Arc<dyn Fn() -> u64 + Send + Sync>,
+    /// Each service's last accepted heartbeat, in memory only: never in the pairing file.
+    beats: Mutex<BTreeMap<String, ServiceBeat>>,
+}
+
+/// A service's last heartbeat that the runtime accepted (specification 11 §6.8.1, "Service
+/// heartbeats"), which the fleet topology's service clients report (§6.8.1a).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ServiceBeat {
+    /// When the runtime accepted it, by its monotonic clock, so that a change of the wall clock
+    /// does not change its age.
+    pub at: Instant,
+    /// The period the heartbeat named, in milliseconds.
+    pub period_ms: Option<u64>,
 }
 
 impl std::fmt::Debug for PairingStore {
@@ -59,7 +73,46 @@ impl PairingStore {
             path,
             pairings: Mutex::new(pairings),
             now,
+            beats: Mutex::new(BTreeMap::new()),
         }
+    }
+
+    /// Notes that the service `service` sent a heartbeat that the runtime accepted, naming the
+    /// period `period_ms` (specification 11 §6.8.1), as its last heartbeat from now on.
+    pub fn note_heartbeat(&self, service: &str, period_ms: Option<u64>) {
+        let beat = ServiceBeat {
+            at: Instant::now(),
+            period_ms,
+        };
+        if let Ok(mut beats) = self.beats.lock() {
+            beats.insert(service.to_string(), beat);
+        }
+    }
+
+    /// The services that hold an enabled service token, in the order of their names, each with
+    /// its last heartbeat since the runtime started (specification 11 §6.8.1a, "Service clients").
+    #[must_use]
+    pub fn service_clients(&self) -> Vec<(String, Option<ServiceBeat>)> {
+        let now = (self.now)();
+        let mut services: Vec<String> = PairingService::list(self, now)
+            .into_iter()
+            .filter(|summary| summary.enabled)
+            .filter_map(|summary| summary.service)
+            .collect();
+        services.sort();
+        services.dedup();
+        let beats = self
+            .beats
+            .lock()
+            .map(|beats| beats.clone())
+            .unwrap_or_default();
+        services
+            .into_iter()
+            .map(|service| {
+                let beat = beats.get(&service).copied();
+                (service, beat)
+            })
+            .collect()
     }
 
     /// Starts a pairing: a new six-digit code, valid for 300 seconds. A start that fails, because
@@ -328,6 +381,39 @@ mod tests {
                  "enabled": true, "role": "engineer", "expires_at": 2_593_000},
             ]})
         );
+    }
+
+    /// Specification 11 §6.8.1a: the service clients are the services of the enabled service
+    /// tokens, in the order of their names, each with its last accepted heartbeat and the period it
+    /// named; a user's token is no service, and a revoked service is no longer listed. A heartbeat
+    /// stays in memory and leaves the file as it was. Catches a client list of every token, a
+    /// revoked service still shown, and heartbeats written into the credential file.
+    #[test]
+    fn the_service_clients_are_the_enabled_service_tokens_with_their_last_heartbeats() {
+        let file = TempFile::new("service-clients");
+        let store = store(&file);
+        for name in ["recipe", "alarm"] {
+            let token =
+                PairingService::service(&store, name, None, 1_000).expect("a service token");
+            assert_eq!(token.id, format!("service-{name}"));
+        }
+        let code = store.start_pairing();
+        store.claim(&code.code, None).expect("a user's token");
+        let before = file.read();
+        store.note_heartbeat("recipe", Some(500));
+        assert_eq!(file.read(), before);
+        let clients = store.service_clients();
+        let names: Vec<&str> = clients.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, ["alarm", "recipe"]);
+        assert_eq!(clients[0].1, None);
+        assert_eq!(clients[1].1.map(|beat| beat.period_ms), Some(Some(500)));
+        assert!(PairingService::revoke(&store, "service-alarm", 1_000).expect("revoke"));
+        let names: Vec<String> = store
+            .service_clients()
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        assert_eq!(names, ["recipe"]);
     }
 
     /// An absent file is an empty store, and the first claim creates its folder and the file.

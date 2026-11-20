@@ -393,8 +393,21 @@ jobs:
       - name: Build binaries
         run: |
           if [ "${{ matrix.cross }}" = "true" ]; then
-            CROSS_CONTAINER_OPTS="--env RUSTC_WRAPPER=" \
+            export CROSS_CONTAINER_OPTS="--env RUSTC_WRAPPER="
+            if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+              # The release profile's fat-LTO links (lto = true, codegen-units = 1) take up to 10 GB each, and with the
+              # runner's four build jobs they overlap: the aarch64 build needed 14.1 GB over its baseline with 4 jobs
+              # and 16.8 GB with 3, more than a 16 GB runner holds, which then lost its runner after about 58 minutes,
+              # three times on 19 November 2026 (checklist W22). So its libraries build first with every job, which
+              # compiles each dependency in parallel and links nothing, and then the same command as below builds the
+              # binaries with one job, so that one link runs at a time (at most 9.9 GB). That command unifies the
+              # features as before, so the binaries are the same. The x86-64 build needs 11.0 GB with 4 jobs and keeps
+              # its single command.
+              cross build --release --target ${{ matrix.target }} --lib -p trust-lsp -p trust-debug -p trust-runtime -p trust-control-studio
+              cross build --jobs 1 --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev -p trust-control-studio
+            else
               cross build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev -p trust-control-studio
+            fi
           else
             cargo build --release --target ${{ matrix.target }} -p trust-lsp -p trust-debug -p trust-runtime -p trust-dev -p trust-control-studio
           fi

@@ -22,10 +22,19 @@ use crate::variables::{refusal_text, ReadRefusal};
 /// The refusal of a request that no service token sends.
 const NOT_A_SERVICE: &str = "service.heartbeat needs a service token";
 
+/// The refusal of a `period_ms` that is no period.
+const NOT_A_PERIOD: &str = "period_ms is a whole number of milliseconds above 0";
+
 /// `service.heartbeat`: `{service, value}`, the service the token `auth` speaks for and the value
-/// the next cycle's start writes into its heartbeat. The token is checked first, then the
-/// resource's state, then the program's heartbeat for the service.
-pub fn heartbeat<H>(id: u64, auth: Option<&str>, host: &H) -> ControlResponse
+/// the next cycle's start writes into its heartbeat. The token is checked first, then the period
+/// that `params` may name, then the resource's state, then the program's heartbeat for the
+/// service. An accepted heartbeat is noted with its period for the fleet topology.
+pub fn heartbeat<H>(
+    id: u64,
+    auth: Option<&str>,
+    params: Option<&serde_json::Value>,
+    host: &H,
+) -> ControlResponse
 where
     H: AccessPort + WallClock + ResourcePort + VariableQueuePort,
 {
@@ -33,6 +42,9 @@ where
     let now = host.utc_ms().map_or(0, |utc_ms| utc_ms / 1_000);
     let Some(service) = auth.and_then(|token| host.pairing()?.service_of(token, now)) else {
         return ControlResponse::error(id, NOT_A_SERVICE.to_string());
+    };
+    let Ok(period_ms) = period(params) else {
+        return ControlResponse::error(id, NOT_A_PERIOD.to_string());
     };
     let state = host.resource_state();
     if state != ResourceState::Running {
@@ -56,8 +68,24 @@ where
     };
     let value = beat.wrapping_add(1);
     match host.enqueue_var_write(PendingVarTarget::Global(path.into()), Value::UDInt(value)) {
-        Ok(()) => ControlResponse::ok(id, json!({ "service": service, "value": value })),
+        Ok(()) => {
+            host.note_service_heartbeat(&service, period_ms);
+            ControlResponse::ok(id, json!({ "service": service, "value": value }))
+        }
         Err(full) => ControlResponse::error(id, full.to_string()),
+    }
+}
+
+/// The `period_ms` that `params` names: `None` without one, and an error for one that is no whole
+/// number of milliseconds above 0.
+fn period(params: Option<&serde_json::Value>) -> Result<Option<u64>, ()> {
+    match params.and_then(|params| params.get("period_ms")) {
+        None => Ok(None),
+        Some(period) => period
+            .as_u64()
+            .filter(|period| *period > 0)
+            .map(Some)
+            .ok_or(()),
     }
 }
 

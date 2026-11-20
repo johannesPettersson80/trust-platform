@@ -216,7 +216,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     self.checker.diagnostics.error(
                         DiagnosticCode::CannotResolve,
                         arg.range,
-                        format!("unknown parameter '{}'", name),
+                        unknown_parameter(name),
                     );
                 }
             }
@@ -325,6 +325,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
             match param.direction {
                 ParamDirection::In => {
+                    // An open call takes the parameter's bit string type (specification 05 §5.2.1).
+                    let arg_type = if self
+                        .checker
+                        .contextualize_open_bit(param.type_id, &arg.expr)
+                    {
+                        param.type_id
+                    } else {
+                        arg_type
+                    };
                     let errors_before = self.checker.diagnostics.error_count();
                     let context_literal = self
                         .checker
@@ -481,6 +490,14 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
             match param.direction {
                 ParamDirection::In => {
+                    let arg_type = if self
+                        .checker
+                        .contextualize_open_bit(param.type_id, &arg.expr)
+                    {
+                        param.type_id
+                    } else {
+                        arg_type
+                    };
                     let errors_before = self.checker.diagnostics.error_count();
                     let context_literal = self
                         .checker
@@ -912,4 +929,23 @@ fn call_arg_assign(node: &SyntaxNode) -> CallArgAssign {
         }
     }
     CallArgAssign::Positional
+}
+
+/// The refusal of a formal argument `name` the callee does not declare. `EN` and `ENO` are a POU's
+/// own declarations (specification 04, "EN/ENO Mechanism"; IEC 61131-3 Ed.3 §6.6.1.5 lets the user
+/// provide them), so their refusal names the declaration that gives a POU each.
+fn unknown_parameter(name: &str) -> String {
+    if name.eq_ignore_ascii_case("EN") {
+        format!(
+            "unknown parameter '{name}': only a POU that declares `EN : BOOL` among its inputs \
+             takes an enable input"
+        )
+    } else if name.eq_ignore_ascii_case("ENO") {
+        format!(
+            "unknown parameter '{name}': only a POU that declares `ENO : BOOL` among its outputs \
+             gives an enable output"
+        )
+    } else {
+        format!("unknown parameter '{name}'")
+    }
 }

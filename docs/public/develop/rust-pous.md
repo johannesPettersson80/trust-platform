@@ -361,6 +361,31 @@ service.set(plant::P1::target, &(level * 0.9))?; // P1.target is in writes
 Run the command again when the program changes; a variable it no longer has is then a compiler
 error instead of a refusal at run time.
 
+## Run a service
+
+Build the service, then put it under the computer's service manager, so that it starts at every
+boot and again 2 s after it ends:
+
+```text
+cargo build --release --manifest-path recipe-service/Cargo.toml
+trust-dev service install recipe
+```
+
+`install` takes root, or an administrator on Windows. Run without those rights, it checks the
+service, changes nothing and prints the command to run, with the binary's path. The service is
+called `trust-service-recipe`:
+
+- on Linux, a systemd unit, whose output `journalctl -u trust-service-recipe` shows;
+- on macOS, a launchd daemon, which writes `/Library/Logs/trust-service-recipe.log`;
+- on Windows, a Windows service, whose output goes to
+  `%ProgramData%\truST\services\recipe\logs\recipe.log`.
+
+It runs in the project folder, so `Service::connect` finds `trust.toml` and the token there: on
+Linux and macOS as the user who owns the folder, on Windows as its own virtual account,
+`NT SERVICE\trust-service-recipe`. After a new build, install it again: that restarts it.
+`trust-dev service uninstall recipe` stops and removes it. The runtime never starts a service
+itself.
+
 ## Build, run and debug
 
 A project with Rust POUs is worked like any project: **Compile**, **Start** and **Debug** in the truST

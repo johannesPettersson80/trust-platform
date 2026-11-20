@@ -317,3 +317,45 @@ fn test_siemens_hash_prefixed_locals() {
 END_PROGRAM"#
     ));
 }
+
+#[test]
+// IEC 61131-3 Ed.3 Table 31 (`A:= AND(B, C, D)`) and Table 29 (`MOD`): the functions by their names.
+fn bitwise_and_modulo_functions_are_called_by_their_names() {
+    // In operand position AND, OR, XOR and MOD followed by `(` name their function: a call whose
+    // callee is that keyword, with its arguments. After an operand they stay infix operators, and a
+    // bare keyword in operand position stays an error. Catches `AND(B, C, D)` refused as "expected
+    // expression", and an infix `a AND (b)` read as a call.
+    for (call, name, arguments) in [
+        ("AND(a, b, c)", "AND", 3),
+        ("or(a, b)", "or", 2),
+        ("XOR(a, b)", "XOR", 2),
+        ("MOD(a, 3)", "MOD", 2),
+    ] {
+        let parsed = parse(&format!("PROGRAM Test\n    x := {call};\nEND_PROGRAM"));
+        assert!(parsed.ok(), "{call}: {:?}", parsed.errors());
+        let call_expr = parsed
+            .syntax()
+            .descendants()
+            .find(|node| node.kind() == SyntaxKind::CallExpr)
+            .unwrap_or_else(|| panic!("{call}: no call"));
+        let callee = call_expr.first_child().expect("the callee");
+        assert_eq!(callee.kind(), SyntaxKind::NameRef, "{call}");
+        assert_eq!(callee.text().to_string().trim(), name, "{call}");
+        let argument_count = call_expr
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::Arg)
+            .count();
+        assert_eq!(argument_count, arguments, "{call}");
+    }
+    let infix = parse("PROGRAM Test\n    x := a AND (b);\nEND_PROGRAM");
+    assert!(infix.ok(), "{:?}", infix.errors());
+    assert!(
+        infix
+            .syntax()
+            .descendants()
+            .all(|node| node.kind() != SyntaxKind::CallExpr),
+        "a AND (b) is no call"
+    );
+    let bare = parse("PROGRAM Test\n    x := AND;\nEND_PROGRAM");
+    assert!(!bare.ok(), "a bare AND is no operand");
+}

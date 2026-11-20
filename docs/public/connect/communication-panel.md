@@ -29,7 +29,10 @@ The graph nests **Host → Runtime → Endpoint**:
 - **Endpoints** — each device or service on the runtime, with a role badge (here **Simulated I/O**, role
   **I/O**).
   As you add devices, Modbus, MQTT, OPC UA, and other endpoints appear here, and the external systems they
-  link out to render as connected nodes.
+  link out to render as connected nodes. A Rust service with a service token of a running runtime shows
+  as a **Rust service** endpoint named after the service, role **CLIENT**: **Connected** while its
+  heartbeats arrive, with the age of the last one as its detail (`last heartbeat 0.4 s ago, every 0.5 s`),
+  and **Configured** until its first heartbeat.
 
 Runtime and resource names do not have to be globally unique. If two hosts or
 containers both run a runtime named `RESOURCE`, Devices & Connections keeps

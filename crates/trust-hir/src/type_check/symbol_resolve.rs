@@ -37,6 +37,11 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                     | SyntaxKind::KwQueryInterfaceDunder
                     | SyntaxKind::KwSystemDunder
                     | SyntaxKind::KwTime
+                    // `AND(B, C)`, `MOD(A, B)`: a function named by its operator's keyword.
+                    | SyntaxKind::KwAnd
+                    | SyntaxKind::KwOr
+                    | SyntaxKind::KwXor
+                    | SyntaxKind::KwMod
             ) {
                 return Some(SmolStr::new(token.text()));
             }

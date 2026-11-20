@@ -4541,8 +4541,13 @@ reading at the period it chooses (specification 48 RU-62); the runtime pushes no
 ###### Service heartbeats
 
 `service.heartbeat` is a service's heartbeat (specification 48 RU-63), on a computer and on a chip
-alike. It takes no parameters, and only a service token (section 6.9.6) sends it: the token's
-service names the global `<name>_heartbeat` that the build declares for the service. The runtime
+alike. It takes one optional parameter, `period_ms`, the period at which the service sends it, a
+whole number of milliseconds above 0, which the SDK sends (specification 48 RU-62); any other
+`period_ms` is refused with `period_ms is a whole number of milliseconds above 0`. Only a service
+token (section 6.9.6) sends it: the token's service names the global `<name>_heartbeat` that the
+build declares for the service. A computer's runtime keeps the time of each service's last
+heartbeat that it accepted, by its own clock, with the period the heartbeat named, from its start
+until it stops; the fleet topology reports them (section 6.8.1a, "Service clients"). The runtime
 adds one to the value the last completed scan left in that global, wrapping from 4,294,967,295 to
 0, and the next cycle's start writes the sum, as the program's input and never as a force, so that
 `SERVICE_FRESH` (specification 08 §5A) sees the heartbeat change; heartbeats that arrive before that
@@ -5019,6 +5024,22 @@ configured value. Before the listener is bound, `address` is the configured
 answer is being built. The `Open:` line of the start-up banner that
 `trust-runtime play` prints names the same bound address. A client that
 configured port 0 finds the web interface through the `fleet.topology` request.
+
+###### Service clients
+
+A running computer runtime's topology lists each service that holds a service token (section 6.9.6)
+among its endpoints, so that Devices & Connections shows a connected service as a client of its
+runtime (specification 48 RU-64): kind `client`, protocol `service`, role `client`, named after the
+service, with the ID `endpoint:<runtime>:service:<name>`, in the order of the services' names. Its health is
+`configured_policy` while the runtime has accepted no heartbeat from the service since it started,
+`connected` while the last heartbeat is younger than twice its period, and `degraded` after that;
+a heartbeat that named no period counts as one of 1 s. Its `live` payload holds `age_ms`, the age of
+the last heartbeat by the runtime's clock when it answers, so that a computer whose clock differs
+from the runtime's shows the right age, and the `period_ms` the heartbeat named; it is absent
+before the first heartbeat. Its detail names the age and the period, `last heartbeat 0.4 s ago,
+every 0.5 s` (without the period when the heartbeat named none), or `no heartbeat since the runtime
+started`. A service whose token is revoked is no longer listed. The offline
+topology lists no service clients, since it has no runtime evidence.
 
 Fleet topology schema version 4 contains `hosts`, `links`, `shared`, and
 `external` arrays and omits an empty `discovered` array. IDs are deterministic

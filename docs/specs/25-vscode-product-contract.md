@@ -1527,6 +1527,12 @@ is specific to boards.
   advanced integration (Mesh, OpenOT, Realtime, Runtime cloud) has no evidence
   yet (`pending`, `configured_policy`, `not_configured`, or `unknown`), and
   `Disabled` while its health is `disabled`.
+- A Rust service that holds a service token of a running runtime (specification
+  11 §6.8.1a, "Service clients"; specification 48 RU-64) is a connection of the
+  type `Rust service`, named after the service, with the role word `CLIENT`. Its
+  state is the health of its heartbeat and its detail the age of its last
+  heartbeat (`last heartbeat 0.4 s ago, every 0.5 s`); before its first
+  heartbeat it is `Configured`, and no draft.
 - Devices and systems at the other end (external and shared systems, and
   EtherCAT SubDevices) are cards that show their name, what they present (for
   example `MQTT broker`), their status, and, when the runtime reports them, the

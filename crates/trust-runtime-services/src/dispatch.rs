@@ -273,9 +273,12 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "io.list" => io_requests::io_list(id, host.io_snapshot()),
         "io.read" => io_requests::io_read(id, host.io_snapshot()),
         "variables.read" => crate::variables::read(id, request.params.as_ref(), host),
-        "service.heartbeat" => {
-            crate::service_heartbeat::heartbeat(id, request.auth.as_deref(), host)
-        }
+        "service.heartbeat" => crate::service_heartbeat::heartbeat(
+            id,
+            request.auth.as_deref(),
+            request.params.as_ref(),
+            host,
+        ),
         "variables.write" => crate::variables_write::write(
             id,
             request.auth.as_deref(),
