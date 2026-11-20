@@ -11,6 +11,34 @@ use trust_runtime::native::rust_pous::{layout, write_declarations, Written};
 use trust_runtime::native::{build_project, Build, Device, Options, Target, Toolchain};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 
+/// A private copy of the example `examples/<name>` in a new temporary folder, without the folders a
+/// build writes, so that a test never writes the repository.
+pub fn example_copy(name: &str) -> PathBuf {
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples")
+        .join(name);
+    let root = trust_test_support::unique_temp_path(&format!("example-{}", name.replace('_', "-")));
+    copy_files(&example, &root);
+    root
+}
+
+/// A copy of the files of `folder` in `copy`, without the folders a build writes.
+fn copy_files(folder: &Path, copy: &Path) {
+    std::fs::create_dir_all(copy).expect("the copy's folder");
+    for entry in std::fs::read_dir(folder).expect("the folder reads") {
+        let path = entry.expect("an entry").path();
+        let name = path.file_name().expect("a name");
+        if name == "build" || name == "target" {
+            continue;
+        }
+        if path.is_dir() {
+            copy_files(&path, &copy.join(name));
+        } else {
+            std::fs::copy(&path, copy.join(name)).expect("the file");
+        }
+    }
+}
+
 /// The project's Structured Text, as `trust-runtime build` collects it: its program, when it has
 /// one, and the generated declarations and configuration where its layout puts them.
 pub fn sources(root: &Path) -> Vec<SourceFile> {

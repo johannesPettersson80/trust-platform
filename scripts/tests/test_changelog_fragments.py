@@ -180,6 +180,10 @@ def write_checkout_at_0_28_0(root: Path) -> None:
             "firmware/trust-esp32c6/Cargo.toml": '[package]\nname = "trust-esp32c6"\nversion = "0.28.0"\n',
             "examples/rust_demo/rust/Cargo.toml": '[package]\nname = "rust-demo"\nversion = "0.1.0"\n\n[dependencies]\ntrust-plc = "=0.28.0"\n',
             "examples/rust_demo/build/native/Cargo.toml": '[dependencies]\ntrust-plc = "=0.28.0"\n',
+            "examples/service_demo/demo-service/Cargo.toml": (
+                '[package]\nname = "demo-service"\nversion = "0.1.0"\n\n'
+                '[dependencies]\ntrust-service = "=0.28.0"\nureq = "3.4.2"\n'
+            ),
             "docs/public/develop/rust-pous.md": (
                 '# Rust POUs\n\n```toml\n[dependencies]\ntrust-plc = "=0.28.0" # exactly your truST version\n```\n'
             ),
@@ -220,6 +224,7 @@ class BumpTests(unittest.TestCase):
                         "editors/vscode/package-lock.json",
                         "editors/vscode/package.json",
                         "examples/rust_demo/rust/Cargo.toml",
+                        "examples/service_demo/demo-service/Cargo.toml",
                         "firmware/trust-esp32c6/Cargo.toml",
                         *LOCKFILES,
                     ]
@@ -252,6 +257,11 @@ class BumpTests(unittest.TestCase):
             # user copies, with its comment.
             self.assertIn('trust-plc = "=0.29.0"', (root / "examples/rust_demo/rust/Cargo.toml").read_text())
             self.assertIn('trust-plc = "=0.28.0"', (root / "examples/rust_demo/build/native/Cargo.toml").read_text())
+            # Specification 48 RU-62: a service names trust-service at the version of the release its runtime runs, so an
+            # example's service moves with the release; its other dependencies keep their versions.
+            service = (root / "examples/service_demo/demo-service/Cargo.toml").read_text()
+            self.assertIn('trust-service = "=0.29.0"', service)
+            self.assertIn('ureq = "3.4.2"', service)
             self.assertIn(
                 'trust-plc = "=0.29.0" # exactly your truST version\n',
                 (root / "docs/public/develop/rust-pous.md").read_text(),
@@ -292,16 +302,20 @@ class BumpTests(unittest.TestCase):
             self.assertIn('"version": "0.28.0"', (root / "editors/vscode/package.json").read_text())
 
     def test_the_bump_refuses_a_pin_on_the_sdk_at_another_version(self) -> None:
-        # Catches a bump that leaves an example's crate or a docs page on an SDK version that is not the release's,
-        # which a project's build refuses (specification 48 RU-08), and one that writes some files before it finds the
-        # pin.
-        for name in ("examples/rust_demo/rust/Cargo.toml", "docs/public/develop/rust-pous.md"):
+        # Catches a bump that leaves an example's crate, an example's service or a docs page on an SDK version that is
+        # not the release's, which a project's build refuses (specification 48 RU-08) and a service's runtime may not
+        # answer (RU-62), and one that writes some files before it finds the pin.
+        for name, crate in (
+            ("examples/rust_demo/rust/Cargo.toml", "trust-plc"),
+            ("docs/public/develop/rust-pous.md", "trust-plc"),
+            ("examples/service_demo/demo-service/Cargo.toml", "trust-service"),
+        ):
             with self.subTest(name), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
                 write_checkout_at_0_28_0(root)
                 pinned = root / name
                 pinned.write_text(pinned.read_text().replace('"=0.28.0"', '"=0.27.0"'))
-                with self.assertRaisesRegex(ValueError, f"{name}: trust-plc is not pinned at =0.28.0"):
+                with self.assertRaisesRegex(ValueError, f"{name}: {crate} is not pinned at =0.28.0"):
                     bump(root, "0.28.0", "0.29.0", "2026-11-09")
                 self.assertIn('version = "0.28.0"', (root / "Cargo.toml").read_text())
                 self.assertIn('"version": "0.28.0"', (root / "editors/vscode/package.json").read_text())

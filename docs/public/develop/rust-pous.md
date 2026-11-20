@@ -325,7 +325,8 @@ linker your computer needs (Xcode's command-line tools on macOS, a C compiler on
 Studio's build tools on Windows).
 
 Create the service with `cargo new --bin recipe-service` and make it depend on `trust-service` at
-the version of the truST release its runtime runs (`cargo add trust-service@=<version>`). It
+the version of the truST release its runtime runs (`cargo add trust-service@=<version>`); the
+example [Rust service](../examples/rust.md#rust-service) is a whole service with its program. It
 connects by its name with the settings of its `[services.<name>]`:
 
 ```toml

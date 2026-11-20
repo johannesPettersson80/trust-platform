@@ -33,6 +33,18 @@
     ]
   },
   {
+    "id": "rust-service",
+    "title": "Rust service",
+    "description": "A Rust service beside the runtime writes a heater's setpoint from the electricity price; the program falls back to a safe setpoint when the service stops.",
+    "path": "rust_service",
+    "hardware": "none",
+    "tags": [
+      "rust",
+      "services",
+      "simulator"
+    ]
+  },
+  {
     "id": "twincat-ads",
     "title": "TwinCAT ADS",
     "description": "Beckhoff ADS starter. Simulates now; connect the PLC later.",

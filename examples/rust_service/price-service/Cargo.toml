@@ -1,0 +1,12 @@
+[package]
+name = "price-service"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "The price service of the truST example rust_service: it writes the heater's setpoint from the electricity price"
+
+[dependencies]
+serde_json = "1"
+trust-service = "=0.43.0"
+ureq = "3.4.2"

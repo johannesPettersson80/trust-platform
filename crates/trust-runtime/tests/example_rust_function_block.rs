@@ -5,32 +5,13 @@
 
 mod rust_pous_support;
 
-use std::path::Path;
-
-use rust_pous_support::{built_from, project_sources};
+use rust_pous_support::{built_from, example_copy, project_sources};
 use trust_runtime::native::{load, HostCode, NativeProgram, NoHooks};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::value::{Duration, Value};
 
 /// The README's task interval, in milliseconds.
 const INTERVAL_MS: i64 = 100;
-
-/// A copy of the files of `folder` in `copy`, without the folders a build writes.
-fn copy_files(folder: &Path, copy: &Path) {
-    std::fs::create_dir_all(copy).expect("the copy's folder");
-    for entry in std::fs::read_dir(folder).expect("the folder reads") {
-        let path = entry.expect("an entry").path();
-        let name = path.file_name().expect("a name");
-        if name == "build" || name == "target" {
-            continue;
-        }
-        if path.is_dir() {
-            copy_files(&path, &copy.join(name));
-        } else {
-            std::fs::copy(&path, copy.join(name)).expect("the file");
-        }
-    }
-}
 
 /// Scans `program` every 100 ms from `*time` up to `until` ms, then gives Speed and AtSpeed.
 fn run_to(program: &mut NativeProgram<'_, HostCode>, time: &mut i64, until: i64) -> (Value, Value) {
@@ -56,9 +37,7 @@ fn the_examples_ramp_moves_the_speed_as_its_readme_says() {
     // after the write, and 20.0 with AtSpeed TRUE at 7.9 s, the 30th. Every value is exact in binary. Catches an example
     // that does not build as committed (stale declarations, a crate the build refuses) and a README
     // whose values the program does not compute.
-    let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/rust_function_block");
-    let root = trust_test_support::unique_temp_path("example-rust-function-block");
-    copy_files(&example, &root);
+    let root = example_copy("rust_function_block");
     let Some((built, device)) = built_from(&root, &project_sources(&root), ConversionProfile::Iec)
     else {
         return;

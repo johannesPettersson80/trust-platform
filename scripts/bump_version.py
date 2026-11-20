@@ -39,9 +39,10 @@ LOCKFILES = (
 PINNED = re.compile(r'^([a-z0-9-]+ = \{ path = "[^"]+", version = "=)([^"]+)(" \})$', re.M)
 
 # A project's crate names the SDK at exactly the release's version, and the build refuses another (specification 48
-# RU-08), so the bump moves the pin with the release: in the examples' crates, and in the public docs' pages, whose
-# manifests a user copies. A line may end with a comment.
-SDK_PIN = re.compile(r'^(trust-plc = "=)([^"]+)(")', re.M)
+# RU-08); a service names its SDK, trust-service, at the version of the truST release its runtime runs (RU-62). The
+# bump moves both pins with the release: in the examples' crates, and in the public docs' pages, whose manifests a
+# user copies. A line may end with a comment.
+SDK_PIN = re.compile(r'^((trust-plc|trust-service) = "=)([^"]+)(")', re.M)
 
 
 def sdk_pin_files(root: Path) -> list[Path]:
@@ -112,11 +113,13 @@ def bump(root: Path, old: str, new: str, day: str) -> list[str]:
         text = path.read_text(encoding="utf-8")
         pins = list(SDK_PIN.finditer(text))
         shown = path.relative_to(root).as_posix()
-        if any(match.group(2) != old for match in pins):
-            raise ValueError(f"{shown}: trust-plc is not pinned at ={old}")
+        for match in pins:
+            if match.group(3) != old:
+                raise ValueError(f"{shown}: {match.group(2)} is not pinned at ={old}")
         if pins:
-            files[path] = SDK_PIN.sub(lambda match: f"{match.group(1)}{new}{match.group(3)}", text)
-            report.append(f"{shown}: trust-plc pinned at ={new}")
+            files[path] = SDK_PIN.sub(lambda match: f"{match.group(1)}{new}{match.group(4)}", text)
+            crates = " and ".join(sorted({match.group(2) for match in pins}))
+            report.append(f"{shown}: {crates} pinned at ={new}")
     replace_once(files, root / "firmware/trust-esp32c6/Cargo.toml", f'version = "{old}"', f'version = "{new}"')
     for lock in LOCKFILES:
         report.append(f"{lock}: {bump_lock(files, root / lock, old, new)} workspace crates")
