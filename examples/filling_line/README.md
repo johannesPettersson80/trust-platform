@@ -54,23 +54,23 @@ trust-runtime validate --project examples/filling_line
 
 | Input Writes | Expected Outputs | Troubleshooting |
 |---|---|---|
-| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW0=500` | `%QX0.0=TRUE`, `%QX0.1=FALSE`, `%QW0=800` | If no fill output, verify StartCmd mapping in `src/Configuration.st`. |
-| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW0=700` | `%QX0.0=FALSE`, `%QX0.1=FALSE`, `%QW0=0` | If valves still active, check hysteresis math in `LevelController`. |
-| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW0=900` | `%QX0.0=FALSE`, `%QX0.1=TRUE`, `%QW0=600` | If drain never opens, confirm `LevelPct` scaling from raw input. |
-| `%IX0.1=TRUE` (stop override) | stopped outputs (`FALSE/FALSE/0`) | If not stopping, check stop condition precedence in controller logic. |
+| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW2=500` | `%QX0.0=TRUE`, `%QX0.1=FALSE`, `%QW2=800` | If no fill output, verify StartCmd mapping in `src/Configuration.st`. |
+| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW2=700` | `%QX0.0=FALSE`, `%QX0.1=FALSE`, `%QW2=0` | If valves still active, check hysteresis math in `LevelController`. |
+| `%IX0.0=TRUE`, `%IX0.1=FALSE`, `%IW2=900` | `%QX0.0=FALSE`, `%QX0.1=TRUE`, `%QW2=600` | If drain never opens, confirm `LevelPct` scaling from raw input. |
+| `%IX0.1=TRUE` (stop override) | `%QX0.0=FALSE`, `%QX0.1=FALSE`, `%QW2=0` | If not stopping, check stop condition precedence in controller logic. |
 
 ## Step 5: Online Change Tuning Exercise
 
 1. Open `src/LevelController.st`.
 2. Change `Target : REAL := 70.0;` to `60.0;`.
 3. Run `Ctrl/Cmd+Shift+P` -> `truST: Update Running Simulation`.
-4. Re-run scenario `%IW0=700` and observe neutral band shift.
+4. Re-run scenario `%IW2=700` and observe neutral band shift.
 
 ## Step 6: Deep-Dive Debug
 
 1. Set breakpoint in `src/Main.st` output selection block.
 2. Press `F5`.
-3. Toggle `%IW0` across thresholds while stepping.
+3. Toggle `%IW2` across thresholds while stepping.
 4. Observe `Ctrl.Mode`, `FillValveOut`, `DrainValveOut`, `PumpSpeedOut`.
 
 ## Troubleshooting

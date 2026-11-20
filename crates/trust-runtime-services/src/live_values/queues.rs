@@ -179,6 +179,36 @@ impl LiveValueQueues {
         Ok(())
     }
 
+    /// Queue the pending variable writes `writes` together, each replacing the earlier write to its
+    /// target in place, or none of them (specification 11 §6.8.1, "Writing variables").
+    ///
+    /// # Errors
+    ///
+    /// [`RequestQueueFull`] when the targets that are not queued yet would take the queue past
+    /// [`REQUEST_QUEUE_CAPACITY`] writes; nothing is queued then.
+    pub fn try_upsert_var_writes(
+        &mut self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        let mut new: Vec<&PendingVarTarget> = Vec::new();
+        for (target, _) in &writes {
+            let queued = self
+                .pending_var_writes
+                .iter()
+                .any(|entry| entry.target == *target);
+            if !queued && !new.contains(&target) {
+                new.push(target);
+            }
+        }
+        if self.pending_var_writes.len() + new.len() > REQUEST_QUEUE_CAPACITY {
+            return Err(RequestQueueFull);
+        }
+        for (target, value) in writes {
+            self.upsert_var_write(target, value);
+        }
+        Ok(())
+    }
+
     /// Take the pending variable writes, leaving the queue empty.
     #[must_use]
     pub fn drain_var_writes(&mut self) -> Vec<PendingVarWrite> {

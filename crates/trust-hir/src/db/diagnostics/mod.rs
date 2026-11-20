@@ -3,6 +3,7 @@ mod configuration;
 mod context;
 mod expression;
 mod globals;
+mod located_overlap;
 mod nondeterminism;
 mod oop;
 mod rust_pous;
@@ -25,6 +26,7 @@ pub(super) use globals::{
     check_global_external_links_with_project, resolve_pending_types_with_table,
     used_external_globals,
 };
+pub(super) use located_overlap::check_overlapping_located_storage;
 pub(super) use nondeterminism::{
     check_nondeterminism, compute_host_clock_sources, HostClockSources,
 };

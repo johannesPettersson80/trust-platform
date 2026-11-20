@@ -5,7 +5,7 @@ RESOURCE TankFarmOop ON PLC
 END_RESOURCE
 VAR_CONFIG
     Farm.AreaStopCommand AT %IX0.0 : BOOL;
-    Farm.AreaIndex AT %IW0 : INT;
+    Farm.AreaIndex AT %IW2 : INT;
     Farm.AreaStoppedOut AT %QX0.0 : BOOL;
 END_VAR
 END_CONFIGURATION

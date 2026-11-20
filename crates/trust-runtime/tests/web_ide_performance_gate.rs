@@ -36,6 +36,57 @@ fn check_budget(what: &str, within: bool, measured: Duration, budget: Duration) 
     );
 }
 
+/// Specification 11, 6.8.1e: "one source apply must remain below 250 ms, and the repeated local
+/// in-process average below 40 ms", measured on the IDE's state itself over 80 applies of a small
+/// program. Catches a slower apply path on the reference environment; every other run records it.
+#[test]
+fn web_ide_in_process_apply_budget() {
+    use trust_runtime::web::ide::{IdeRole, WebIdeState};
+
+    let _alone = MEASURING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let project = make_project("in-process-apply");
+    let state = WebIdeState::new(Some(project.clone()));
+    let session = state
+        .create_session(IdeRole::Editor)
+        .expect("create editor session");
+    let mut version = state
+        .open_source(&session.token, "main.st")
+        .expect("open source")
+        .version;
+
+    let runs = 80_u32;
+    let mut total = Duration::ZERO;
+    let mut max = Duration::ZERO;
+    for index in 0..runs {
+        let started = Instant::now();
+        let applied = state
+            .apply_source(
+                &session.token,
+                "main.st",
+                version,
+                format!("PROGRAM Main\nVAR\nA : INT := {index};\nEND_VAR\nEND_PROGRAM\n"),
+                true,
+            )
+            .expect("apply the edit");
+        let elapsed = started.elapsed();
+        total += elapsed;
+        max = max.max(elapsed);
+        version = applied.version;
+    }
+    let average = total / runs;
+    let (max_budget, average_budget) = (Duration::from_millis(250), Duration::from_millis(40));
+    check_budget("in-process apply max", max < max_budget, max, max_budget);
+    check_budget(
+        "in-process apply average",
+        average < average_budget,
+        average,
+        average_budget,
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[path = "web_ide_integration/web_ide_integration_part_03.rs"]
 mod web_ide_integration_part_03;
 #[path = "web_ide_integration/web_ide_integration_part_04.rs"]

@@ -1024,7 +1024,8 @@ client trust-runtime uses (`trust-runtime-client`, the shared client of specific
 the runtime's authentication, and typed access to the program's variables by their paths: read,
 write, subscribe (a read at a period the service chooses, of a set of variables in one cycle's
 snapshot), with every value's cycle, logical time and quality: a read is specification 11 §6.8.1's
-`variables.read`, one completed scan's values of the set. The bindings are generated from the
+`variables.read`, one completed scan's values of the set, and a write its `variables.write`, of the
+variables the service's `writes` names (RU-63), which the next cycle's start writes together. The bindings are generated from the
 symbol table of the deployed image (`trust-dev service bindings`), so a service names
 `plant::P1::level` and gets an `f64`.
 
@@ -1045,6 +1046,23 @@ later by the next, and the ones it missed are not sent, as a task does not repla
 (specification 10 §4.3); a period of zero is refused. `trust-service` and `trust-runtime-client` are published on crates.io with every
 release, at its version, so that a service, which the user's own Rust builds, gets them there
 (RU-61).
+
+`trust-dev service bindings <name> --out <file>` writes the bindings of the service `name`: a Rust
+module, generated from the symbol table of the image the project's build writes (`program.tpi`), that
+names each variable of the program the service can read, so that the compiler checks a service's
+paths and types against the program. A program instance is a module named as the configuration
+names the instance (`P1`), a global a constant of the file's top module, a structure's or a block
+instance's variable a module of its members, at any depth, and each elementary variable a constant
+named as the program declares it (`level`), whose Rust type is its declared type's (`bool`, the
+integers, `f32` for a `REAL`, `f64` for an `LREAL`, `String` for a string, a character and an
+enumeration, `Duration` for a `TIME`, `i64` for a date or a time of day, its count as
+`variables.read` gives it), so that `plant::P1::level` reads an `f64`. An array and a
+reference are left out, as they hold no single value; a service reads an element by its path. A
+variable the service's `writes` names is a `Writable` handle, and only such a handle can be given to
+`Service::set`, so that a service whose code writes another variable does not compile. The file
+begins with the image's source hash; a build whose image no longer has a variable the bindings name
+makes the service's next read of it the runtime's refusal, and running the command again makes the
+compiler name it.
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
 the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the

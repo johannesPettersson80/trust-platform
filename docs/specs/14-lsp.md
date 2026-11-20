@@ -240,6 +240,7 @@ Initial explainer coverage:
 | W011 | Tooling lint; Direct variables per IEC 61131-3 Ed.3 §6.5.5 (Table 16) | `docs/specs/09-semantic-rules.md` |
 | W012 | Tooling lint; shared global access across tasks (IEC 61131-3 Ed.3 §6.5.2.2 Tables 13–16; §6.2/§6.8.2 Table 62) | `docs/specs/28-hir-warning-policy.md` |
 | W013/W014 | Tooling numeric-hazard lints (non-IEC) | `docs/specs/09-semantic-rules.md` |
+| W017 | Tooling lint; direct variables that share storage, per IEC 61131-3 Ed.3 §6.5.5 (Table 16) and specification 11 §6.4 | `docs/specs/28-hir-warning-policy.md` |
 | L001–L003 | Tooling config lint (non-IEC) | `docs/specs/10-runtime-semantics.md` |
 
 For access-specifier violations reported under E202 (e.g., PRIVATE/PROTECTED/INTERNAL access),
@@ -278,6 +279,7 @@ Recommended warning groups:
   7 October 2026, when every entry of a plant's I/O list was warned of).
 - `W012` shared global access across scheduled tasks
 - `W013`/`W014` numeric hazard lints
+- `W017` located declarations whose process-image storage overlaps
 
 Workspace warning policy is configured through `trust-lsp.toml` `[diagnostics]`.
 Profiles may override severities to mirror vendor expectations, but the

@@ -316,6 +316,15 @@ fn deployment_summary_reports_current_bundle_and_any_runtime_file_change() {
         summary.contains("runtime.toml changes:") && !summary.contains("runtime.toml: unchanged"),
         "every runtime.toml content change must be visible:\n{summary}"
     );
+    // Spec 11 §6.8.2: the summary is text whose every line, the last one too, ends with a newline.
+    // Catches a summary written without its last newline, as it was: `cat last.txt` (tutorial 14)
+    // left the shell prompt on the summary's last line.
+    let last = std::fs::read_to_string(deploy_root.join("deployments/last.txt"))
+        .expect("read the last summary");
+    assert!(
+        summary.ends_with('\n') && last.ends_with('\n') && !last.ends_with("\n\n"),
+        "each summary ends with one newline:\n{summary:?}\n{last:?}"
+    );
 
     let _ = std::fs::remove_dir_all(working_dir);
 }

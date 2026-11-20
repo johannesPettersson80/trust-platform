@@ -17,11 +17,15 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, PoisonError};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use trust_runtime::control::endpoint::resolve_control_target;
 use trust_runtime::control::ControlEndpoint;
+
+#[path = "project_copy.rs"]
+pub mod project_copy;
+use project_copy::{copy_tree, join_relative, replace_in_file, unique_root};
 
 #[path = "fleet_topology.rs"]
 mod fleet_topology;
@@ -46,15 +50,6 @@ const ADDRESS_IN_USE: [&str; 3] = ["(os error 98)", "(os error 48)", "(os error 
 /// Interval between polls. It is shorter than the 50 ms example cycle, so consecutive scans are
 /// seen rather than skipped.
 const POLL: Duration = Duration::from_millis(25);
-/// Entries left out of the copy: programs and build folders of earlier builds and dependency caches.
-const SKIPPED: [&str; 6] = [
-    "program.tpi",
-    "deployment-record.bin",
-    "build",
-    "target",
-    ".trust",
-    "node_modules",
-];
 /// Fixed listen addresses in the example projects, by runtime.toml table and key, in the order of
 /// `listen_reserved`. Each one moves to a loopback port in the copy. The examples' io.toml files
 /// need no change: their only `address` keys are process-image addresses such as `%QX0.0`, not
@@ -75,7 +70,6 @@ fn listen_reserved(occupy_web_port: bool) -> [bool; 3] {
     [occupy_web_port, false, true]
 }
 
-static COPY_COUNTER: AtomicU64 = AtomicU64::new(1);
 static TOKEN_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// Ports this test process has handed out. A port is never given to two runtimes, so runtimes
 /// started in parallel cannot race for a port that an earlier reservation released.
@@ -118,8 +112,12 @@ pub fn hold_for(window: Duration) {
 /// example's own runtime.toml values.
 pub struct ExampleRuntime {
     example: &'static str,
+    /// The project's files as a tutorial writes them, each a path under the project folder and its
+    /// text, in place of a copy of `examples/<example>` (`written`).
+    written: Vec<(String, String)>,
     libraries: Vec<&'static str>,
     source_edits: Vec<(&'static str, &'static str, &'static str)>,
+    added_files: Vec<(&'static str, &'static str)>,
     mode: Option<&'static str>,
     debug_enabled: Option<bool>,
     start_paused: Option<bool>,
@@ -134,8 +132,10 @@ impl ExampleRuntime {
     pub fn new(example: &'static str) -> Self {
         Self {
             example,
+            written: Vec::new(),
             libraries: Vec::new(),
             source_edits: Vec::new(),
+            added_files: Vec::new(),
             mode: None,
             debug_enabled: None,
             start_paused: None,
@@ -144,6 +144,15 @@ impl ExampleRuntime {
             store: false,
             occupy_web_port: false,
         }
+    }
+
+    /// A project made of `files`, each a path under the project folder and its text, as a tutorial's
+    /// README writes them into an empty folder, at `examples/<example>` of the copy's root. Nothing
+    /// of `examples/` is copied.
+    pub fn written(example: &'static str, files: Vec<(String, String)>) -> Self {
+        let mut runtime = Self::new(example);
+        runtime.written = files;
+        runtime
     }
 
     /// `[runtime.control] start_paused` in the copy's runtime.toml (specification 11 §6.8).
@@ -168,6 +177,13 @@ impl ExampleRuntime {
     /// Replaces `from` with `to` in one file of the copy, before the project is built.
     pub fn edit_source(mut self, file: &'static str, from: &'static str, to: &'static str) -> Self {
         self.source_edits.push((file, from, to));
+        self
+    }
+
+    /// Adds the file `file`, a path relative to the copy, with `text`, after the source edits and
+    /// before the build: a `trust.toml` and its generated files, for example.
+    pub fn add_file(mut self, file: &'static str, text: &'static str) -> Self {
+        self.added_files.push((file, text));
         self
     }
 
@@ -222,8 +238,16 @@ impl ExampleRuntime {
             web_port: None,
             token: String::new(),
         };
-        let source = join_relative(&repo_root(), &format!("examples/{}", self.example));
-        copy_tree(&source, &project);
+        if self.written.is_empty() {
+            let source = join_relative(&repo_root(), &format!("examples/{}", self.example));
+            copy_tree(&source, &project);
+        }
+        for (file, text) in &self.written {
+            let path = join_relative(&project, file);
+            fs::create_dir_all(path.parent().expect("the file's folder"))
+                .expect("create the folder");
+            fs::write(&path, text).expect("write the file");
+        }
         for &dir in &self.libraries {
             copy_tree(
                 &join_relative(&repo_root(), dir),
@@ -232,6 +256,11 @@ impl ExampleRuntime {
         }
         for &(file, from, to) in &self.source_edits {
             replace_in_file(&project.join(file), from, to);
+        }
+        for &(file, text) in &self.added_files {
+            let path = project.join(file);
+            std::fs::create_dir_all(path.parent().expect("a folder")).expect("the file's folder");
+            std::fs::write(&path, text).expect("the added file");
         }
         runtime.token = format!(
             "{TOKEN_PREFIX}-{}-{}",
@@ -782,27 +811,6 @@ pub fn parse_status_summary(line: &str) -> StatusSummary {
     }
 }
 
-fn unique_root() -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system time before unix epoch")
-        .as_nanos();
-    let sequence = COPY_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let root = trust_test_support::unique_temp_path(&format!(
-        "trust-runtime-ctl-{}-{nanos}-{sequence}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&root).expect("create runtime test directory");
-    root
-}
-
-/// Joins a `/`-separated repository path onto `base`, one component at a time.
-fn join_relative(base: &Path, relative: &str) -> PathBuf {
-    relative
-        .split('/')
-        .fold(base.to_path_buf(), |path, part| path.join(part))
-}
-
 /// Distinct free loopback ports that no earlier reservation in this process handed out. Every
 /// listener, including one whose port was already handed out, is held until the reservation is
 /// complete, so the kernel cannot offer the same port twice; they are released together afterwards.
@@ -822,41 +830,6 @@ fn reserve_local_ports(count: usize) -> Vec<u16> {
         held.push(listener);
     }
     ports
-}
-
-/// Copies a directory tree, leaving out build outputs.
-fn copy_tree(from: &Path, to: &Path) {
-    fs::create_dir_all(to).expect("create copied directory");
-    let entries = fs::read_dir(from).unwrap_or_else(|err| panic!("read {}: {err}", from.display()));
-    for entry in entries {
-        let entry = entry.expect("read directory entry");
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if SKIPPED.contains(&name.as_str()) {
-            continue;
-        }
-        let source = entry.path();
-        let target = to.join(&name);
-        if entry.file_type().expect("file type").is_dir() {
-            copy_tree(&source, &target);
-        } else {
-            fs::copy(&source, &target)
-                .unwrap_or_else(|err| panic!("copy {}: {err}", source.display()));
-        }
-    }
-}
-
-fn replace_in_file(path: &Path, from: &str, to: &str) {
-    let text =
-        fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
-    // A Windows checkout can convert the example sources to CRLF line endings, while the edits are
-    // written with LF; Structured Text accepts either, so the copy is normalized to LF first.
-    let text = text.replace("\r\n", "\n");
-    assert!(
-        text.contains(from),
-        "{} has no `{from}` to edit",
-        path.display()
-    );
-    fs::write(path, text.replace(from, to)).expect("write edited source");
 }
 
 /// Rewrites the copied runtime.toml with the toml crate. The control endpoint becomes

@@ -19,6 +19,7 @@
 //! # }
 //! ```
 
+mod handles;
 mod heartbeat;
 mod settings;
 mod snapshot;
@@ -30,6 +31,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 use trust_runtime_client::{ControlClient, ControlEndpoint, ControlError};
 
+pub use handles::{ToVariable, Variable, Writable};
 pub use heartbeat::Heartbeat;
 pub use settings::ServiceSettings;
 pub use snapshot::{FromVariable, Quality, Reading, Snapshot};
@@ -162,6 +164,29 @@ impl Service {
                 request: "variables.write",
                 reply: reply.to_string(),
             })
+    }
+
+    /// The value of `variable` in the last completed scan, as its Rust type: a read of it alone.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::read`], and [`ServiceError::Type`] for a value that is no `T`.
+    pub fn get<T: FromVariable>(&self, variable: Variable<T>) -> Result<T, ServiceError> {
+        self.read(&[variable.path()])?.value(variable)
+    }
+
+    /// Writes `value` into `variable`, a variable the service's `writes` names, at the next cycle's
+    /// start: a write of it alone.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::write`].
+    pub fn set<T: ToVariable>(
+        &self,
+        variable: Writable<T>,
+        value: &T,
+    ) -> Result<usize, ServiceError> {
+        self.write(&[(variable.path(), value.to_variable())])
     }
 
     /// Sends one heartbeat (`service.heartbeat`) naming the service's `heartbeat` period, by which

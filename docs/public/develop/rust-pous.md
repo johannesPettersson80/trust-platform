@@ -283,6 +283,27 @@ fresh(HEARTBEAT := recipe_heartbeat, TIMEOUT := T#1s, FRESH => ok);
 
 A Structured Text project may hold `trust.toml` with `[services]` alone, without a crate.
 
+A service writes only the variables its `writes` lists, by their paths:
+
+```toml
+[services.recipe]
+heartbeat = "500ms"
+writes = ["Recipe.target", "Recipe.speed"]
+```
+
+The build checks each path against the program and refuses one that names no variable, a
+constant, an instance, a structure or an array, or a variable that a second service also lists, so
+that each variable has one service that writes it. The list goes into the signed program image, so
+a board holds the service to it as a computer does. The service writes with the control request
+`variables.write`, which needs a service token with the Engineer role (`--role engineer`, below).
+The next cycle's start writes the whole set together, as the program's input and never as a force,
+and a set with a path outside `writes`, or a value its variable's type does not take, writes
+nothing. To write as the service does, for example while you commission it:
+
+```text
+trust-runtime ctl --project . --token "$(cat secrets/recipe.token)" write Recipe.target=21.5
+```
+
 A service signs in to the runtime with a service token of its own. Create it with the runtime's
 Admin access, and name the file the service reads it from:
 
@@ -334,6 +355,26 @@ Each read is one completed scan's values, with the scan's number, its time and w
 runs; `get` reads a value as the Rust type of its declared type (`bool`, the integers, `f32` from a
 `REAL`, `f64`, `String`, `Duration` from a `TIME`). The heartbeat runs on a connection and a thread
 of its own, so the service's own work never delays it.
+
+With bindings, the compiler checks the service's paths and types against the program. Build the
+project, then write the bindings into the service's crate:
+
+```text
+trust-dev service bindings recipe --out ../recipe-service/src/plant.rs
+```
+
+They name each variable of the program that holds one value, with its Rust type, and only the
+variables `writes` lists can be written:
+
+```rust
+mod plant;
+
+let level: f64 = service.get(plant::P1::level)?;
+service.set(plant::P1::target, &(level * 0.9))?; // P1.target is in writes
+```
+
+Run the command again when the program changes; a variable it no longer has is then a compiler
+error instead of a refusal at run time.
 
 ## Run a service
 

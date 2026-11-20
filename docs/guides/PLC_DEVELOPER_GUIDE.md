@@ -316,10 +316,13 @@ runtime.discovery.enabled = true
 Enable mesh sharing:
 ```
 runtime.mesh.enabled = true
-runtime.mesh.publish = ["Status.PLCState"]
+runtime.mesh.publish = ["P1.LampOut"]
 [runtime.mesh.subscribe]
-"RemoteA:Status.PLCState" = "Local.Status.RemoteState"
+"PlcB:P1.LampOut" = "P1.RemoteLamp"
 ```
+
+A subscription names the publishing runtime by its `[resource] name` (here `PlcB`) and a path
+it publishes, and writes the value into a variable of this runtime. Tutorial 15 runs it.
 
 ## Testing
 
