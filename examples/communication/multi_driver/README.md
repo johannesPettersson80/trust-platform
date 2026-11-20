@@ -34,9 +34,12 @@ Why: each transport has its own failure modes; composition should be explicit.
 [io]
 drivers = [
   { name = "modbus-tcp", params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "fault" } },
-  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "trust/examples/multi/in", topic_out = "trust/examples/multi/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false } }
+  { name = "mqtt", params = { broker = "127.0.0.1:1883", topic_in = "trust/examples/multi/in", topic_out = "trust/examples/multi/out", reconnect_ms = 500, keep_alive_s = 5, allow_insecure_remote = false, on_error = "warn" } }
 ]
 ```
+
+The MQTT entry takes `on_error = "warn"`: a scan that finds no new message on `topic_in` keeps the
+last input instead of faulting the runtime, as `../mqtt` explains.
 
 Why this pattern:
 

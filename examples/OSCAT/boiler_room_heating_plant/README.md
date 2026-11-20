@@ -170,15 +170,16 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Plant.OutdoorTempRaw` | `%IW0` | IN |
-| `Plant.SupplyTempRaw` | `%IW2` | IN |
-| `Plant.GasPressureOk` | `%IX0.0` | IN |
-| `Plant.LowWaterOk` | `%IX0.1` | IN |
-| `Plant.EStopHealthy` | `%IX0.2` | IN |
-| `Plant.StartCommand` | `%IX0.3` | IN |
-| `Plant.StopCommand` | `%IX0.4` | IN |
-| `Plant.SupplyValveOut` | `%QX0.0` | OUT |
-| `Plant.AlarmRelayOut` | `%QX0.1` | OUT |
+| `BoilerRoom.StartCommand` | `%IX0.0` | IN |
+| `BoilerRoom.StopCommand` | `%IX0.1` | IN |
+| `BoilerRoom.GasPressureOk` | `%IX0.2` | IN |
+| `BoilerRoom.LowWaterOk` | `%IX0.3` | IN |
+| `BoilerRoom.EStopHealthy` | `%IX0.4` | IN |
+| `BoilerRoom.OutdoorTempRaw` | `%IW2` | IN |
+| `BoilerRoom.SupplyTempRaw` | `%IW4` | IN |
+| `BoilerRoom.LeadBoilerEnable` | `%QX0.0` | OUT |
+| `BoilerRoom.LagBoilerEnable` | `%QX0.1` | OUT |
+| `BoilerRoom.AlarmOut` | `%QX0.2` | OUT |
 
 Comms (from `oop/io.toml`): `modbus-tcp` for boiler-controller
 register exchange and `mqtt` for alarm fan-out to the historian/SCADA.

@@ -170,10 +170,10 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Cell.RealPressureRaw` | `%IW0` | IN |
 | `Cell.CommissioningMode` | `%IX0.0` | IN |
 | `Cell.LoopbackOnly` | `%IX0.1` | IN |
-| `Cell.PumpSpeedRaw` | `%QW0` | OUT |
+| `Cell.RealPressureRaw` | `%IW2` | IN |
+| `Cell.PumpSpeedRaw` | `%QW2` | OUT |
 | `Cell.TestLampOut` | `%QX0.0` | OUT |
 
 Comms (from `oop/io.toml`): the showcase configures only the runtime

@@ -57,6 +57,26 @@ pub(super) fn services_text(project: &Path) -> Result<Option<(String, usize)>, S
     Ok(Some((out, services.len())))
 }
 
+/// The names of the services the `trust.toml` of the project in `project` declares, in its order;
+/// none for a project without `trust.toml` or without services.
+///
+/// # Errors
+///
+/// A `trust.toml` that does not read.
+pub fn declared_services(project: &Path) -> Result<Vec<String>, String> {
+    let Ok(text) = std::fs::read_to_string(project.join("trust.toml")) else {
+        return Ok(Vec::new());
+    };
+    let document = text
+        .parse::<DocumentMut>()
+        .map_err(|error| error.to_string())?;
+    Ok(document
+        .get("services")
+        .and_then(toml_edit::Item::as_table_like)
+        .map(|services| services.iter().map(|(name, _)| name.to_string()).collect())
+        .unwrap_or_default())
+}
+
 /// A service that may write variables (specification 48 RU-63): its name and its `writes`, the
 /// variables' paths as `trust.toml` gives them.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -73,7 +93,7 @@ pub struct ServiceWrites {
 /// # Errors
 ///
 /// A `trust.toml` that does not read, and a `writes` that is not an array of paths.
-pub(crate) fn service_writes(project: &Path) -> Result<Vec<ServiceWrites>, String> {
+pub fn service_writes(project: &Path) -> Result<Vec<ServiceWrites>, String> {
     let Ok(text) = std::fs::read_to_string(project.join("trust.toml")) else {
         return Ok(Vec::new());
     };

@@ -223,9 +223,17 @@ fn mesh_role_text(role: MeshRole) -> &'static str {
     }
 }
 
-fn normalize_endpoint(endpoint: &str, tls: bool) -> Result<String, String> {
+/// The Zenoh locator of the mesh endpoint `endpoint`: `host:port`, the URL form `tcp://host:port` or
+/// `tls://host:port` that a control endpoint also takes, or a Zenoh locator `tcp/host:port` or
+/// `tls/host:port` (specification 11, "Runtime-to-runtime mesh"). With `tls`, a `tcp` endpoint
+/// becomes `tls`, and another protocol is refused.
+pub(super) fn normalize_endpoint(endpoint: &str, tls: bool) -> Result<String, String> {
     let endpoint = endpoint.trim();
-    let canonical = if endpoint.contains('/') {
+    let canonical = if let Some(address) = endpoint.strip_prefix("tcp://") {
+        format!("tcp/{address}")
+    } else if let Some(address) = endpoint.strip_prefix("tls://") {
+        format!("tls/{address}")
+    } else if endpoint.contains('/') {
         endpoint.to_string()
     } else {
         format!("{}/{endpoint}", if tls { "tls" } else { "tcp" })
