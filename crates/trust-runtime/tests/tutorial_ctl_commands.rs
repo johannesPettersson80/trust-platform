@@ -70,6 +70,86 @@ fn filling_line_readme_scenario_table_holds() {
     }
 }
 
+/// The addresses `VAR_CONFIG` gives the program `P1`'s variables in `source`, by variable name.
+fn p1_addresses(source: &str) -> HashMap<String, String> {
+    source
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("P1."))
+        .filter_map(|line| line.split_once(" AT "))
+        .filter_map(|(name, rest)| {
+            let address = rest.split_whitespace().next()?;
+            Some((name.to_string(), address.to_string()))
+        })
+        .collect()
+}
+
+#[test]
+fn tutorial_11_level_word_keeps_the_command_bits() {
+    // examples/tutorials/11_unit_testing_102 runs on the runtime with the addresses its
+    // TankControlConfig gives. TankControl fills below a level of 300 (fill valve, pump 800),
+    // drains above 700 (drain valve, pump 600), and StopCmd turns everything off, as tests.st
+    // asserts. Catches located variables that share bytes, as the tutorial's did: LevelRaw lay on
+    // %IW0, whose bytes 0 and 1 hold StartCmd and StopCmd (%IX0.0, %IX0.1), so writing the level
+    // 200 (0x00C8) cleared StartCmd and the tank never filled; PumpSpeedOut on %QW0 shared the
+    // valves' byte the same way.
+    let source =
+        fs::read_to_string(repo_root().join("examples/tutorials/11_unit_testing_102/src/main.st"))
+            .expect("the tutorial's source");
+    let at = p1_addresses(&source);
+    let address = |name: &str| {
+        at.get(name)
+            .unwrap_or_else(|| panic!("{name} in VAR_CONFIG"))
+    };
+    let runtime = ExampleRuntime::new("tutorials/11_unit_testing_102").start();
+    // Each step: what it is, the variable it writes, the value, and the values it expects.
+    let steps = [
+        (
+            "start with a low level",
+            "LevelRaw",
+            "200",
+            [
+                ("StartCmd", "Bool(true)"),
+                ("FillValveOut", "Bool(true)"),
+                ("DrainValveOut", "Bool(false)"),
+                ("PumpSpeedOut", "Int(800)"),
+            ],
+        ),
+        (
+            "a high level",
+            "LevelRaw",
+            "850",
+            [
+                ("StartCmd", "Bool(true)"),
+                ("FillValveOut", "Bool(false)"),
+                ("DrainValveOut", "Bool(true)"),
+                ("PumpSpeedOut", "Int(600)"),
+            ],
+        ),
+        (
+            "stop",
+            "StopCmd",
+            "true",
+            [
+                ("LevelRaw", "Int(850)"),
+                ("FillValveOut", "Bool(false)"),
+                ("DrainValveOut", "Bool(false)"),
+                ("PumpSpeedOut", "Int(0)"),
+            ],
+        ),
+    ];
+    runtime.ctl_ok(&["io-write", address("StartCmd"), "true"]);
+    for (what, name, value, expected) in &steps {
+        runtime.ctl_ok(&["io-write", address(name), value]);
+        runtime.wait_until(WAIT, &format!("{what}: {expected:?}"), || {
+            runtime.snapshot().is_some_and(|snapshot| {
+                expected
+                    .iter()
+                    .all(|(name, printed)| snapshot.text(address(name)) == *printed)
+            })
+        });
+    }
+}
+
 #[test]
 fn memory_marker_counter_readme_steps_one_to_three_hold() {
     // README step 3: `trust-runtime ctl --project examples/memory_marker_counter io-write %MW0 41`,
