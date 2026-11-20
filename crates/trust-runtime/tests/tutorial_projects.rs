@@ -6,9 +6,12 @@
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
 
+use std::path::PathBuf;
 use std::time::Duration;
 
-use runtime_process::{repo_root, ExampleRuntime, Runtime};
+use runtime_process::{
+    copy_example, describe, repo_root, trust_runtime_command, ExampleRuntime, Runtime,
+};
 
 /// How long a step waits for the runtime to show its expected result: a write is applied at a
 /// cycle's start, and the tutorial's task runs every 100 ms.
@@ -259,4 +262,107 @@ fn tutorial_18_runs_its_simulation_as_its_readme_writes_it() {
                 })
             })
     });
+}
+
+/// The `trust-runtime build` and `trust-runtime validate` lines of the README at `readme` (a path
+/// under the repository), each split into its arguments.
+fn gate_commands(readme: &str) -> Vec<Vec<String>> {
+    std::fs::read_to_string(repo_root().join(readme))
+        .unwrap_or_else(|error| panic!("{readme}: {error}"))
+        .lines()
+        .filter_map(|line| line.strip_prefix("trust-runtime "))
+        .filter(|args| args.starts_with("build ") || args.starts_with("validate "))
+        .map(|args| args.split_whitespace().map(str::to_string).collect())
+        .collect()
+}
+
+/// Runs `commands` in order as a reader runs them from the repository root: each from a root holding
+/// a copy of the example its `--project` names, made once, so a `validate` finds what the `build`
+/// before it wrote. Each must succeed (exit code 0).
+fn assert_each_succeeds(commands: &[Vec<String>]) {
+    let mut copies: Vec<(String, PathBuf)> = Vec::new();
+    let mut failures = Vec::new();
+    for args in commands {
+        let project = args
+            .iter()
+            .skip_while(|arg| *arg != "--project")
+            .nth(1)
+            .unwrap_or_else(|| panic!("{args:?} names its project"));
+        let example = project
+            .strip_prefix("examples/")
+            .unwrap_or_else(|| panic!("{project} is an example under examples/"));
+        let root = match copies.iter().find(|(copied, _)| copied == project) {
+            Some((_, root)) => root.clone(),
+            None => {
+                let root = copy_example(example);
+                copies.push((project.clone(), root.clone()));
+                root
+            }
+        };
+        let output = trust_runtime_command()
+            .args(args)
+            .current_dir(&root)
+            .output()
+            .expect("run trust-runtime");
+        if !output.status.success() {
+            failures.push(format!(
+                "`trust-runtime {}`: {}",
+                args.join(" "),
+                describe(&output)
+            ));
+        }
+    }
+    for (_, root) in &copies {
+        let _ = std::fs::remove_dir_all(root);
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn tutorial_21_gates_pass_on_the_project_it_names() {
+    // examples/tutorials/21_ci_cd_project_pipeline/README.md: from the repository root, step 2 runs
+    // `trust-runtime build --project examples/tutorials/11_unit_testing_102 --ci` and step 3
+    // `trust-runtime validate --project examples/tutorials/11_unit_testing_102 --ci`, and each is
+    // expected to succeed (exit code 0 in step 6's table). Catches a project the gates refuse:
+    // tutorial 11 had no runtime.toml or io.toml, and step 3 exited 10 ("missing runtime.toml").
+    let commands = gate_commands("examples/tutorials/21_ci_cd_project_pipeline/README.md");
+    assert_eq!(
+        commands,
+        [
+            [
+                "build",
+                "--project",
+                "examples/tutorials/11_unit_testing_102",
+                "--ci"
+            ],
+            [
+                "validate",
+                "--project",
+                "examples/tutorials/11_unit_testing_102",
+                "--ci"
+            ],
+        ],
+        "the gates of steps 2 and 3"
+    );
+    assert_each_succeeds(&commands);
+}
+
+#[test]
+fn tutorial_22_terminal_build_and_validate_succeed() {
+    // examples/tutorials/22_neovim_zed_workflow/README.md, step 5: from the repository root, `trust-
+    // runtime build` and `trust-runtime validate` of the project the step names give "the same build
+    // confidence as VS Code users". Catches commands that cannot succeed: the step named tutorial 10,
+    // a test-only project without a configuration or runtime.toml, and `--sources
+    // examples/tutorials/10_unit_testing_101/sources`, which `build` resolves inside the project
+    // ("sources directory not found").
+    let commands = gate_commands("examples/tutorials/22_neovim_zed_workflow/README.md");
+    assert_eq!(
+        commands
+            .iter()
+            .map(|args| args[0].as_str())
+            .collect::<Vec<_>>(),
+        ["build", "validate"],
+        "step 5's build and validate"
+    );
+    assert_each_succeeds(&commands);
 }

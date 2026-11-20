@@ -94,6 +94,19 @@ pub fn trust_runtime_command() -> Command {
     )
 }
 
+/// A fresh root holding a private copy of `examples/<example>` at that same relative path, without
+/// its build outputs, for a test that runs `trust-runtime` commands from the root as a reader runs
+/// them from the repository root. The caller removes the root.
+pub fn copy_example(example: &str) -> PathBuf {
+    let root = unique_root();
+    let path = format!("examples/{example}");
+    copy_tree(
+        &join_relative(&repo_root(), &path),
+        &join_relative(&root, &path),
+    );
+    root
+}
+
 /// Status, stdout and stderr of a finished command, for assertion messages.
 pub fn describe(output: &Output) -> String {
     format!(
