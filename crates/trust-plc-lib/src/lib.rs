@@ -86,4 +86,6 @@ mod tests;
 #[cfg(test)]
 mod text_layout_tests;
 #[cfg(test)]
+mod timer_tests;
+#[cfg(test)]
 mod wide_tests;

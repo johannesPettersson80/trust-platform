@@ -9,12 +9,14 @@
 //! (`crates/trust-runtime-core/src/task/readiness.rs:17`) over `TaskState::new`
 //! (`crates/trust-runtime-core/src/task/state.rs:19`).
 //!
-//! Model. A periodic task has a registration baseline `B0`. Its nominal deadlines are `B0 + k * I`
-//! for `k >= 1`. The oracle keeps `consumed`, the number of deadlines already passed (run or counted
-//! as missed), so the production baseline must equal `B0 + consumed * I`. For a SINGLE-FALSE sample
-//! with `I > 0`, the number of deadlines at or before `now` is `passed`: zero before the first
-//! deadline, `(now - B0) div I` otherwise. A periodic run is due when `passed > consumed`. Its
-//! `due_at` is the first unconsumed deadline `B0 + (consumed + 1) * I`, the missed count is
+//! Model. A periodic task is registered at `B0`. Its nominal deadlines are `B0 + k * I` for `k >= 0`:
+//! the first is the registration itself, so the task is due at its start (specification 10 §4.3,
+//! owner decision of 19 November 2026). The oracle keeps `consumed`, the number of deadlines
+//! already passed (run or counted as missed), so the production baseline, the latest deadline
+//! accounted for, must equal `B0 + (consumed - 1) * I`: one interval before `B0` while none is. For
+//! a SINGLE-FALSE sample with `I > 0`, the number of deadlines at or before `now` is `passed`: zero
+//! before `B0`, `(now - B0) div I + 1` otherwise. A periodic run is due when `passed > consumed`.
+//! Its `due_at` is the first unconsumed deadline `B0 + consumed * I`, the missed count is
 //! `passed - consumed - 1`, and `consumed` becomes `passed`. The production reaches the same
 //! numbers through the saturating elapsed time and `last_run`, so the oracle is a separate
 //! computation of the same contract.
@@ -33,9 +35,9 @@
 //! file.
 //!
 //! Invariants checked after every sample, beyond equality with the oracle:
-//! - no drift: `last_run == B0 + (runs + overrun_count) * I`, so each passed deadline is either one
-//!   run or one counted miss, exactly once;
-//! - every periodic `due_at` lies on the nominal grid `B0 + k * I` with `k >= 1`;
+//! - no drift: `last_run == B0 + (runs + overrun_count - 1) * I`, so each passed deadline is either
+//!   one run or one counted miss, exactly once;
+//! - every periodic `due_at` lies on the nominal grid `B0 + k * I` with `k >= 0`;
 //! - every `due_at` is not later than its sample;
 //! - `overrun_count` equals the total of the reported missed intervals.
 
@@ -84,13 +86,13 @@ impl Oracle {
         let mut due_at = (!self.previous_single && single).then_some(now);
         let mut missed = 0;
         if self.interval > 0 && !single {
-            let passed = if now < self.base + self.interval {
+            let passed = if now < self.base {
                 0
             } else {
-                (now - self.base) / self.interval
+                (now - self.base) / self.interval + 1
             };
             if passed > self.consumed {
-                due_at = Some(self.base + (self.consumed + 1) * self.interval);
+                due_at = Some(self.base + self.consumed * self.interval);
                 missed = u64::try_from(passed - self.consumed - 1).expect("missed count fits u64");
                 self.consumed = passed;
                 self.runs += 1;
@@ -102,9 +104,16 @@ impl Oracle {
         (due_at, missed)
     }
 
-    /// The baseline the production must hold: `B0 + consumed * I`.
+    /// The baseline the production must hold: the latest deadline accounted for,
+    /// `B0 + (consumed - 1) * I`, and `B0` itself for a task without a positive interval, which
+    /// never schedules periodic work.
     fn last_run(&self) -> i64 {
-        i64::try_from(self.base + self.consumed * self.interval).expect("baseline fits i64")
+        let last = if self.interval > 0 {
+            self.base + (self.consumed - 1) * self.interval
+        } else {
+            self.base
+        };
+        i64::try_from(last).expect("baseline fits i64")
     }
 }
 
@@ -158,9 +167,7 @@ fn explore(state: &TaskState, oracle: &Oracle, interval: i64, depth: u32, sample
                 if !single {
                     let offset = i128::from(due.as_nanos()) - base;
                     assert!(
-                        interval > 0
-                            && offset >= i128::from(interval)
-                            && offset % i128::from(interval) == 0,
+                        interval > 0 && offset >= 0 && offset % i128::from(interval) == 0,
                         "periodic due_at is off the nominal grid: interval {interval} ns, baseline {base} ns, sample {now} ns"
                     );
                 }
@@ -179,7 +186,7 @@ fn readiness_matches_deadline_counting_on_every_four_sample_sequence() {
     let mut samples = 0;
     for interval in INTERVALS_NS {
         for base in BASELINES_NS {
-            let state = TaskState::new(Duration::from_nanos(base));
+            let state = TaskState::new(Duration::from_nanos(base), Duration::from_nanos(interval));
             explore(
                 &state,
                 &Oracle::new(base, interval),
@@ -236,7 +243,12 @@ fn saturated_elapsed_time_counts_only_the_intervals_its_saturated_value_reaches(
 
 #[test]
 fn the_largest_interval_fires_once_at_its_deadline_without_overflow() {
-    let mut state = TaskState::new(Duration::ZERO);
+    // A task whose latest deadline is 0, with the largest interval: its next deadline is i64::MAX.
+    let mut state = TaskState {
+        last_single: false,
+        last_run: Duration::ZERO,
+        overrun_count: 0,
+    };
     let readiness = evaluate_task_readiness(
         &mut state,
         Duration::from_nanos(i64::MAX),
@@ -251,7 +263,10 @@ fn the_largest_interval_fires_once_at_its_deadline_without_overflow() {
 
 #[test]
 fn the_full_negative_range_to_a_positive_sample_counts_each_deadline_once() {
-    let mut state = TaskState::new(Duration::from_nanos(i64::MIN));
+    // Registered at i64::MIN, the deadline one interval before cannot be represented: the latest
+    // accounted deadline saturates at i64::MIN, so the first deadline is i64::MIN + 1.
+    let mut state = TaskState::new(Duration::from_nanos(i64::MIN), Duration::from_nanos(1));
+    assert_eq!(state.last_run, Duration::from_nanos(i64::MIN));
     let readiness = evaluate_task_readiness(
         &mut state,
         Duration::from_nanos(1),

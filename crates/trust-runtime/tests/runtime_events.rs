@@ -67,6 +67,8 @@ count := count + 1;
 END_PROGRAM
 "#,
     );
+    // Specification 10 §4.3: the timing begins at 0 ms, the task's first deadline, so the cycle at
+    // 35 ms passed the deadlines 0, 10, 20 and 30 ms: one run and three missed.
     runtime.reset_task_timing(Duration::ZERO);
     runtime.set_current_time(Duration::from_millis(35));
     runtime.execute_cycle().unwrap();
@@ -74,7 +76,7 @@ END_PROGRAM
     let events = control.drain_runtime_events();
     assert!(events
         .iter()
-        .any(|event| matches!(event, RuntimeEvent::TaskOverrun { missed: 2, .. })));
+        .any(|event| matches!(event, RuntimeEvent::TaskOverrun { missed: 3, .. })));
 }
 
 #[test]

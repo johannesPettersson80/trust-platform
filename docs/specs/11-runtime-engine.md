@@ -263,11 +263,12 @@ IEC task configuration uses zero for disabled periodic scheduling and a
 positive duration for periodic scheduling; a negative portable metadata value
 is conservatively treated as disabled. (IEC 61131-3 Ed.3 section 6.8.2 a-b.)
 
-Task registration records the current logical time as the initial periodic
-baseline. After a periodic activation, `last_run` denotes the latest nominal
-deadline accounted for, not the sampled execution time. With `SINGLE` FALSE and
-a positive interval, a task is not due until `now` is at least
-`last_run + interval`. A backward logical-clock sample does not move `last_run`,
+Task registration makes the current logical time the task's first nominal
+deadline: `last_run`, which denotes the latest nominal deadline accounted for,
+not the sampled execution time, starts one interval before it, with signed
+saturation, so that a periodic task is due at the first sample at or after its
+registration (specification 10 §4.3). With `SINGLE` FALSE and a positive
+interval, a task is not due until `now` is at least `last_run + interval`. A backward logical-clock sample does not move `last_run`,
 create an overrun, or make the task due; periodic readiness resumes only when a
 later sample reaches the next deadline relative to the unchanged baseline.
 When exactly one interval is due, the returned due time is that nominal
@@ -2834,12 +2835,13 @@ program's schedule (specification 34 §11.3, decision OC-2): a task takes the
 last activation, the level of its event input and the overruns of the running
 program's task of the same name, compared without regard to case, so the first
 scan after the commit runs the tasks that are due; a task that the running
-program does not have counts its first activation from the program's logical
-time at the commit, which is the time of the last cycle that started before it,
-since the program's time advances when a cycle starts: it first runs in the
-first cycle that starts one interval or more after that time (a 1 s task added
-by a change committed 135 ms after the last cycle's start first runs about 0.9 s
-after the commit). The scan counter restarts, and queued writes and forces are
+program does not have takes the program's logical time at the commit as its
+first deadline, as a task registered at the program's start does (specification
+10 §4.3), that time being the time of the last cycle that started before the
+commit, since the program's time advances when a cycle starts: it first runs in
+the first cycle after the commit, and then every interval after that time (a 1 s
+task added by a change committed 135 ms after the last cycle's start first runs
+in the next cycle, and again 1 s after that last cycle's start). The scan counter restarts, and queued writes and forces are
 cleared under section 6.9.2. A request must never report `reloaded` unless this
 complete commit succeeds.
 
@@ -3951,6 +3953,11 @@ This contract does not authorize another production backend, arbitrary source
 semantics, or a general performance claim.
 
 ###### Runtime historian recording and export contract
+
+The historian samples the scan's published copy of the program, the copy that the HMI and the
+OPC UA server read (specification 44 NX-14), so an enabled historian records whether or not
+debugging is enabled (`runtime.control.debug_enabled`). It names a program instance's variable
+by its full path, such as `P1.Counter`, and a global by its declared name.
 
 An enabled historian in `all` mode records the reviewed global BOOL, integer,
 floating-point, and string values with their runtime types. An accepted capture
@@ -6319,9 +6326,9 @@ the shipped authoring path, not universal real-time guarantees for arbitrary
 hardware or projects. The reference environment is CI's Linux x86_64 runner
 with an optimized build of the runtime: the release profile's optimization,
 built without its link-time optimization, which takes most of the build's time.
-There the gate program `web_ide_performance_gate` asserts the HTTP apply, p95
-and typing budgets, alone on the runner, in a workflow of its own (Web IDE
-Performance) that runs on every push to `main` and on each pull request that
+There the gate program `web_ide_performance_gate` asserts the in-process and HTTP
+apply, p95 and typing budgets, alone on the runner, in a workflow of its own
+(Web IDE Performance) that runs on every push to `main` and on each pull request that
 changes the web IDE, the analysis it runs (`trust-syntax`, `trust-hir`,
 `trust-ide`, `trust-wasm-analysis`) or the build settings
 (`.github/paths/web-ide-performance.txt`). Every other run of the same tests, on

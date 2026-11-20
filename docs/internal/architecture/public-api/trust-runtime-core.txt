@@ -1982,7 +1982,7 @@ pub trust_runtime_core::task::TaskState::last_run: trust_runtime_core::value::Du
 pub trust_runtime_core::task::TaskState::last_single: bool
 pub trust_runtime_core::task::TaskState::overrun_count: u64
 impl trust_runtime_core::task::TaskState
-pub fn trust_runtime_core::task::TaskState::new(current_time: trust_runtime_core::value::Duration) -> Self
+pub fn trust_runtime_core::task::TaskState::new(current_time: trust_runtime_core::value::Duration, interval: trust_runtime_core::value::Duration) -> Self
 pub fn trust_runtime_core::task::evaluate_task_readiness(state: &mut trust_runtime_core::task::TaskState, interval: trust_runtime_core::value::Duration, single_now: bool, now: trust_runtime_core::value::Duration) -> trust_runtime_core::task::TaskReadiness
 pub mod trust_runtime_core::value
 pub mod trust_runtime_core::value::datetime

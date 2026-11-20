@@ -153,16 +153,18 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 .then(|| symbols.get(task.single))
                 .flatten()
                 .map(|symbol| (symbol.area, symbol.offset));
+            let interval =
+                Duration::from_nanos(i64::try_from(task.interval_ns).unwrap_or(i64::MAX));
             tasks.push(NativeTask {
                 name: SmolStr::new(image.string(task.name).unwrap_or("")),
-                interval: Duration::from_nanos(i64::try_from(task.interval_ns).unwrap_or(i64::MAX)),
+                interval,
                 priority: task.priority,
                 single,
                 programs: image
                     .task_programs(&task)
                     .filter_map(|entry| usize::try_from(entry).ok())
                     .collect(),
-                state: TaskState::new(Duration::ZERO),
+                state: TaskState::new(Duration::ZERO, interval),
             });
         }
         let inputs = vec![0; lengths[0]];
@@ -201,6 +203,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             armed: false,
             scanning: false,
             rust_times,
+            rust_reported: None,
             inputs,
             outputs,
             hierarchical,

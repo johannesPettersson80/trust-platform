@@ -67,8 +67,9 @@ fn a_program_without_read_only_data_builds_for_the_c6_and_runs_here() {
         };
         let mut program = load(&built.image, &device).expect("the image loads");
         program.cold_start(Duration::ZERO).expect("the cold start");
-        // The task is due at 10, 20 and 30 ms, not at its start (specification 10 §4.3).
-        for time in [0, 10, 20, 30] {
+        // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+        // 20 ms.
+        for time in [0, 10, 20] {
             program
                 .scan(Duration::from_millis(time), &mut NoHooks)
                 .expect("the scan runs");
@@ -138,12 +139,9 @@ fn a_release_image_counts_only_loop_passes_and_still_ends_an_endless_loop() {
             "hooks {hooks}"
         );
         program.cold_start(Duration::ZERO).expect("the cold start");
-        // The task is first due at 10 ms (specification 10 §4.3).
-        program
-            .scan(Duration::ZERO, &mut NoHooks)
-            .expect("no task is due at the start");
+        // The task is due at its start (specification 10 §4.3): the first scan runs it.
         let error = program
-            .scan(Duration::from_millis(10), &mut NoHooks)
+            .scan(Duration::ZERO, &mut NoHooks)
             .expect_err("the endless loop ends the scan");
         assert!(
             matches!(
@@ -225,11 +223,9 @@ fn a_constant_index_inside_the_bounds_is_not_checked() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
+    // The task is due at its start (specification 10 §4.3): the first scan runs it once.
     program
         .scan(Duration::ZERO, &mut NoHooks)
-        .expect("no task is due at the start");
-    program
-        .scan(Duration::from_millis(10), &mut NoHooks)
         .expect("the scan runs");
     for (variable, expected) in [("MAIN.FIRST", 10), ("MAIN.LAST", 40), ("MAIN.COMPUTED", 55)] {
         assert_eq!(

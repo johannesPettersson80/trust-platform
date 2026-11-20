@@ -81,11 +81,12 @@ END_CONFIGURATION
 
 #[test]
 fn a_configuration_runs_a_rust_program_with_its_connections() {
-    // RU-35: the task runs Axis at 10, 20 and 30 ms (not at 0, specification 10 §4.3). Its input
+    // RU-35: the task runs Axis at 0, 10 and 20 ms (its start and every 10 ms, specification 10
+    // §4.3). Its input
     // `target` is connected to the global goal, 8; its position moves half the way at each run, to
     // 4, 6 and 7, and its output `command`, connected to the global drive, follows it; its retained
     // `runs` counts 3. A warm restart keeps `runs`, and starts `position` and drive again at 0, so
-    // the next run, at 10 ms, moves the position to 4 and counts 4. Catches a program whose
+    // the next run, at the restart's start, moves the position to 4 and counts 4. Catches a program whose
     // connections are not made around its Rust body, a retained variable read or written in the
     // instance's area, and a warm restart that keeps or loses the wrong variables.
     let root = custom_project(
@@ -101,7 +102,9 @@ fn a_configuration_runs_a_rust_program_with_its_connections() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -114,11 +117,10 @@ fn a_configuration_runs_a_rust_program_with_its_connections() {
         .expect("the warm restart");
     assert_eq!(program.value("AXIS.RUNS"), Some(Value::UDInt(3)));
     assert_eq!(program.value("DRIVE"), Some(Value::LReal(0.0)));
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("AXIS.COMMAND"), Some(Value::LReal(4.0)));
     assert_eq!(program.value("DRIVE"), Some(Value::LReal(4.0)));
     assert_eq!(program.value("AXIS.RUNS"), Some(Value::UDInt(4)));
@@ -159,7 +161,7 @@ fn a_rust_first_project_runs_the_configuration_of_its_trust_toml() {
     // RU-65 to RU-67: a Rust-first project is its crate, with `trust.toml` and no hand-written
     // Structured Text: `trust-dev rust declarations` writes its declarations and its configuration
     // into `src/generated/trust/`, and the build runs the program instance `trust.toml` declares on
-    // its task. Axis runs at 10, 20 and 30 ms toward the target 0 it starts at and counts 3 runs.
+    // its task. Axis runs at 0, 10 and 20 ms toward the target 0 it starts at and counts 3 runs.
     // Catches a crate in the project's own folder not found or not compiled, and a configuration
     // the build does not read.
     let root = trust_test_support::unique_temp_path("rust-first-project");
@@ -196,7 +198,9 @@ fn a_rust_first_project_runs_the_configuration_of_its_trust_toml() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");

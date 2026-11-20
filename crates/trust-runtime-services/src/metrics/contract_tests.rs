@@ -114,6 +114,41 @@ fn task_stats_duration_and_overrun_accounting_are_independent() {
     assert_eq!(stats.last_ms(), 8.0);
 }
 
+/// A debug image's Rust POUs reach the metrics by their numbers in the Rust POU table
+/// (specification 48 RU-49): a report of POU 1 before POU 0 still lists them in table order, a later
+/// report updates its POU in place, and a fresh program's first report clears the POUs before it.
+/// Catches a list kept in the order of the reports, a report that adds a second entry for its POU
+/// and a replaced program whose POUs linger.
+#[test]
+fn rust_pous_are_kept_by_their_table_number_and_cleared_for_a_new_program() {
+    let mut metrics = metrics();
+    metrics.record_rust_pou(1, "SPIN", 1_000, 52_000, 3);
+    metrics.record_rust_pou(0, "CLOCKED", 1_000_000, 4_000, 0);
+    metrics.record_rust_pou(1, "SPIN", 1_000, 60_000, 4);
+    let listed: Vec<_> = metrics
+        .snapshot()
+        .rust_pous
+        .iter()
+        .map(|pou| {
+            (
+                pou.name.to_string(),
+                pou.budget_ns,
+                pou.longest_ns,
+                pou.over_budget,
+            )
+        })
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("CLOCKED".to_string(), 1_000_000, 4_000, 0),
+            ("SPIN".to_string(), 1_000, 60_000, 4)
+        ]
+    );
+    metrics.clear_rust_pous();
+    assert_eq!(metrics.snapshot().rust_pous, Vec::<RustPouStats>::new());
+}
+
 #[test]
 fn call_stats_tracks_total_mean_count_and_last() {
     let mut stats = CallStats::default();

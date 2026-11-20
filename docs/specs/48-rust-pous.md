@@ -7,7 +7,9 @@
   how `trust-dev service install` puts a service under the computer's service manager (RU-64, §21
   decision 14), decided under the owner's delegation of 18 November 2026. 0.4, 19 November 2026:
   the Windows service's program, a copy of trust-dev in the service's own folder, its log, its
-  `service.toml` and its virtual account's access (RU-64).
+  `service.toml` and its virtual account's access (RU-64). 0.5, 20 November 2026: a service is built
+  with the user's own Rust, and the bundle carries only the SDK a program is built with (RU-12,
+  RU-61, RU-62, RU-76), as the owner decided that day.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -46,6 +48,10 @@ The owner's decisions, which this specification carries out:
 - `unsafe` in Rust that runs in the scan: "Forbidden" (15 November 2026).
 - The user's own Rust installation: "Own Rust optional" (15 November 2026): every build uses truST's
   bundled toolchain; a user's own Rust serves only rust-analyzer and `cargo test`, never a build.
+- A Rust service is built with the user's own Rust ("agree", 20 November 2026, to the recommendation
+  that a service, an ordinary Rust program for the computer, is built like any Rust program): it
+  links the computer's standard library with the computer's linker, which the bundle does not carry
+  and truST cannot ship (RU-61).
 - Earlier decisions that hold: "the user shall not have to install rust by himself" (27 October
   2026, specification 44 NX-08); boards work exactly like trust-runtime (16 October 2026): a Rust POU
   runs on every device a program runs on; "we MUST follow the IEC standard" (22 October 2026):
@@ -198,10 +204,13 @@ Structured Text it calls spent (RU-38), which only the generated bindings run on
 **RU-12.** Each truST release publishes `trust-plc`, `trust-plc-macros`, `trust-service` and
 `trust-sim` to crates.io at the release's version, with the crates they are built from
 (`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`, `trust-runtime-client`), once the release is
-verified (specification 24, "Publishing the SDK's crates"; `trust-sim` joins when it is built), and
-carries their sources in its toolchain bundle (§16). The build always compiles the bundle's copy: the project's `Cargo.toml` names the
-version, the build patches the four crates to the bundle's sources, and a project builds without
-crates.io when its other dependencies are vendored. A user's own `cargo` resolves the same version
+verified (specification 24, "Publishing the SDK's crates"; `trust-sim` joins when it is built). Its
+toolchain bundle (§16) carries the sources of the SDK a program is built with: `trust-plc` and
+`trust-plc-macros` with the crates they are built from. The build always compiles the bundle's copy:
+the project's `Cargo.toml` names the version, the build patches those crates to the bundle's sources,
+and a project builds without crates.io when its other dependencies are vendored. `trust-service`,
+`trust-runtime-client` and `trust-sim` are not in the bundle: a service and a machine test are built
+with the user's own Rust (RU-61, RU-58), which takes them from crates.io. A user's own `cargo` resolves the same version
 from crates.io for rust-analyzer and `cargo test` (§16.3). The SDK's crates name each other at the
 release's exact version (`=<version>`, beside their paths in the workspace), which the version bump
 moves (`scripts/bump_version.py`), so that `cargo package` writes each crate as crates.io and the
@@ -1002,9 +1011,13 @@ the next change.
 ## 13. Rust services (tier 3)
 
 **RU-61.** A service is an ordinary Rust program (`[[bin]]`, the standard library, any crate,
-threads, `async`), built with the user's own Rust or the bundle's `cargo`, which runs on a computer
-beside a runtime and reaches it only over the control link (specification 11 §6.8). None of §5's
-rules applies to it; it can never stop or slow a scan.
+threads, `async`), built with the user's own Rust, which runs on a computer beside a runtime and
+reaches it only over the control link (specification 11 §6.8). None of §5's rules applies to it; it
+can never stop or slow a scan. Building it takes the computer's standard library and the computer's
+linker (Xcode's command-line tools on macOS, a C compiler on Linux, Visual Studio's build tools on
+Windows), as any Rust program does: rustup gives the first and names the linker it needs. The
+toolchain bundle builds programs only; it carries neither (RU-74), and truST cannot ship the
+linkers (owner, 20 November 2026).
 
 **RU-62. The SDK.** `trust-service` gives a service a connection to a runtime through the control
 client trust-runtime uses (`trust-runtime-client`, the shared client of specification 11 §6.8), with
@@ -1031,8 +1044,8 @@ own work never delays its heartbeat (RU-63), and its runtime can tell how old it
 may be (RU-64; specification 11 §6.8.1a, "Service clients"). A heartbeat that came late, as a slow runtime answers it, is followed one period
 later by the next, and the ones it missed are not sent, as a task does not replay missed activations
 (specification 10 §4.3); a period of zero is refused. `trust-service` and `trust-runtime-client` are published on crates.io with every
-release, at its version, so that a service built with the user's own Rust or the bundle's cargo
-gets them there (RU-61).
+release, at its version, so that a service, which the user's own Rust builds, gets them there
+(RU-61).
 
 `trust-dev service bindings <name> --out <file>` writes the bindings of the service `name`: a Rust
 module, generated from the symbol table of the image the project's build writes (`program.tpi`), that
@@ -1300,6 +1313,7 @@ crates.io crates it is built from are all such a build takes from outside the pr
 **RU-76.** A user without Rust builds, runs, tests (`trust-dev test`), debugs and deploys a project
 with Rust POUs as any project. What needs the user's own Rust is said once, when a project with a
 crate is opened: rust-analyzer's help while editing `.rs` files, and `cargo test` (RU-56, RU-58).
+Building a service needs it too (RU-61).
 
 ### 16.3 With the user's own Rust
 

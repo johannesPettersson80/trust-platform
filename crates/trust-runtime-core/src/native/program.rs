@@ -50,6 +50,7 @@ impl ModuleCode for InPlace {
 }
 
 pub use super::admission::{admit, admit_prehashed, Device, Refusal};
+pub use rust_times::RustPouReport;
 
 /// One area's memory: 8-byte words, so that the module's views are aligned.
 pub(super) struct Memory {
@@ -291,6 +292,9 @@ pub struct NativeProgram<'i, C> {
     /// which the module keeps through [`Cx::rust_times`] for the program's life (specification 44
     /// §5.13, §8.2; specification 48 RU-49); empty for an image without the table.
     pub(super) rust_times: Vec<RustTime>,
+    /// The records as the runner's last report gave them; `None` before the program's first report
+    /// (specification 48 RU-49).
+    pub(super) rust_reported: Option<Vec<RustTime>>,
     /// The input image the drivers fill (`%I`).
     pub inputs: Vec<u8>,
     /// The output image the drivers drive (`%Q`).
@@ -461,8 +465,9 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         })
     }
 
-    /// Every task counts its next activation from `now` and its missed activations from zero
-    /// (specification 10 §4.3). Before the program's first scan this registers the tasks: an event
+    /// Every task counts its activations from `now`, its first deadline, and its missed activations
+    /// from zero (specification 10 §4.3): a periodic task is due at the first scan at or after
+    /// `now`. Before the program's first scan this registers the tasks: an event
     /// input (`SINGLE`) that is TRUE is taken as the last sample, so that the first scan sees no
     /// rising edge (specification 10 §4.1.1; specification 11 §6.2). Once the program has
     /// scanned, it resets the live task timing and clears the last samples, so that an event input
@@ -473,7 +478,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             let sample = !self.live && self.event_input(index);
             self.tasks[index].state = TaskState {
                 last_single: sample,
-                ..TaskState::new(now)
+                ..TaskState::new(now, self.tasks[index].interval)
             };
         }
     }

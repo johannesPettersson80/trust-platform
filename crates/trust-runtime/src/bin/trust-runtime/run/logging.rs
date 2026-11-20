@@ -73,6 +73,24 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        trust_runtime::debug::RuntimeEvent::RustBudgetExceeded {
+            name,
+            call_ns,
+            budget_ns,
+            time,
+        } => {
+            logger.log(
+                LogLevel::Warn,
+                "rust_budget_exceeded",
+                json!({
+                    "event_id": "TRUST-RT-RUST-BUDGET-001",
+                    "pou": name.as_str(),
+                    "call_ns": call_ns,
+                    "budget_ns": budget_ns,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         trust_runtime::debug::RuntimeEvent::WriteRejected {
             target,
             error,

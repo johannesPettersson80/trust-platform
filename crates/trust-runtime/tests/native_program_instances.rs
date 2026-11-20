@@ -33,10 +33,11 @@ fn refusal(source: &str) -> String {
 
 /// Two instances of one program type, each in its own task, each with its own variables and
 /// `VAR_CONFIG` values (IEC Figure 28's `STATION_1.P1.COUNT := 1; STATION_2.P1.COUNT := 100`).
-/// At 10, 20, 30 and 40 ms `A` runs four times from 100 by 1: 104; `B` runs at 20 and 40 from 0
-/// by 10: 20. Catches the second instance refused, both instances sharing one storage (both
-/// would read 124), a `VAR_CONFIG` value given to every instance of the type, and an instance run
-/// by the other's task.
+/// Each task is due at its start, 0 ms (specification 10 §4.3), which the first scan, at 10 ms,
+/// runs. At 10, 20, 30 and 40 ms `A` runs four times from 100 by 1: 104; `B` runs at 10, 20 and
+/// 40 ms from 0 by 10: 30. Catches the second instance refused, both instances sharing one storage
+/// (both would read 134), a `VAR_CONFIG` value given to every instance of the type, and an
+/// instance run by the other's task.
 #[test]
 fn two_instances_of_one_program_type_each_keep_their_own_variables() {
     let mut harness = compiled(
@@ -66,7 +67,7 @@ END_CONFIGURATION
     run(&mut harness, 4);
     assert_eq!(harness.get_output("A.count"), Some(Value::Int(104)));
     assert_eq!(harness.get_output("A.increment"), Some(Value::Int(1)));
-    assert_eq!(harness.get_output("B.count"), Some(Value::Int(20)));
+    assert_eq!(harness.get_output("B.count"), Some(Value::Int(30)));
     assert_eq!(harness.get_output("B.increment"), Some(Value::Int(10)));
 }
 

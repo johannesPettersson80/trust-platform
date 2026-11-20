@@ -80,7 +80,7 @@ END_CONFIGURATION
 fn a_rust_pou_computes_with_durations_bit_strings_and_characters() {
     // Catches a TIME, BYTE or CHAR that reaches the Rust POU as another value, or comes back so:
     // RU-25's `Time`, `Byte` and `Char` hold what the areas store (specification 44 §6.2). Three
-    // calls at 10, 20 and 30 ms: half of T#500ms is T#250ms, 16#AB AND 16#0F is 16#0B, 'Y' + 1 is
+    // calls at 0, 10 and 20 ms: half of T#500ms is T#250ms, 16#AB AND 16#0F is 16#0B, 'Y' + 1 is
     // 'Z', and the total starts at its declared T#1s (RU-26) and grows by T#500ms at each call:
     // T#2.5s.
     let root = custom_project(
@@ -93,7 +93,9 @@ fn a_rust_pou_computes_with_durations_bit_strings_and_characters() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -182,8 +184,8 @@ END_CONFIGURATION
 #[test]
 fn a_rust_pou_keeps_dates_and_times_of_day_as_structured_text_does() {
     // RU-25, RU-26: a DT, a DATE, a TOD and an LTOD reach the Rust POU and come back as the areas
-    // store them, and a date's declared value is its starting value. By hand: three calls at 10,
-    // 20 and 30 ms move DT#2024-02-29-22:30:15 by T#1h each, past midnight and the leap day, to
+    // store them, and a date's declared value is its starting value. By hand: three calls at 0,
+    // 10 and 20 ms move DT#2024-02-29-22:30:15 by T#1h each, past midnight and the leap day, to
     // DT#2024-03-01-01:30:15, 1,709,256,615,000 ms; its day 2024-03-01 is 1,709,251,200,000 ms, a
     // Friday (5), and its time of day 5,415,000 ms. The LTOD keeps its declared 12:00:00 and one
     // nanosecond, 43,200,000,000,001 ns, and the DATE its declared 2024-02-29,
@@ -200,7 +202,9 @@ fn a_rust_pou_keeps_dates_and_times_of_day_as_structured_text_does() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -317,7 +321,9 @@ fn a_rust_pou_keeps_strings_as_structured_text_does() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -460,7 +466,9 @@ fn a_rust_pou_keeps_arrays_as_structured_text_does() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -608,7 +616,9 @@ fn a_rust_pou_keeps_enumerations_as_structured_text_does() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -768,7 +778,9 @@ fn a_rust_pou_keeps_structures_as_structured_text_does() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    // The task is due at its start (specification 10 §4.3): three activations, at 0, 10 and
+    // 20 ms.
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");

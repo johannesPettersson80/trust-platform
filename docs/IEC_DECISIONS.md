@@ -6,6 +6,34 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-11-19 - Standard functions and function blocks take no EN and ENO
+
+- Area: calls of the standard functions and function blocks (specification 04, "EN/ENO
+  Mechanism"; specifications 07 and 08)
+- IEC context: IEC 61131-3 Ed.3 §6.6.1.5: an EN input or ENO output "can be provided by the
+  Implementer or the user according to the declarations". Table 18, note b: "The Implementer shall
+  specify in which of the languages the feature is supported; i.e. in an implementation it may be
+  prohibited to use EN and/or ENO." §6.6.1.4.2, EXAMPLE 1, writes the complete formal call
+  `LIMIT(EN:= COND, IN:= B, MN:= 0, MX:= 5, ENO => TEMPL)`.
+- Decision:
+  - truST adds no EN or ENO to a POU: a POU has them only when it declares them (specification 04).
+    The standard functions and function blocks declare neither, so a call that connects one of
+    them is refused.
+  - In Structured Text an `IF` statement guards a standard call:
+    `IF cond THEN a := LIMIT(MN := 0, IN := b, MX := 5); END_IF;`.
+- Reason:
+  - The owner's rule of 25 October 2026 compares with CODESYS and TwinCAT and follows IEC. IEC
+    allows an implementation to leave the feature out. CODESYS documents EN and ENO only in its
+    graphical editors (LD, FBD and CFC: "Command: EN/ENO", "Command: Insert Box with EN/ENO"). Its
+    pages on calling functions and function blocks in ST name neither.
+  - PLCnext Engineer, logi.cals and matiec do give standard functions EN and ENO in ST formal calls.
+    A program from them that connects EN or ENO to a standard call needs the `IF` above. No user has
+    asked for the feature. Adding it later (§6.6.1.5's external implementation, EXAMPLE 2) would
+    change no program that compiles today.
+  - The external conformance suite (github.com/s-celles/iec61131-conformance) tests EN on a user
+    function block that declares none (`pou/fb_en_eno`) and lists it as an optional feature;
+    truST refuses that call for the same reason.
+
 ## 2026-11-19 - An untyped literal where a bit string goes without a typed partner
 
 - Area: ST expression typing; the input of `SHL`, `SHR`, `ROL`, `ROR`, the operand of `NOT`, and
@@ -586,6 +614,7 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Decision:
   - Timer inputs and outputs are observed at executed function-block call boundaries. The first call initializes the elapsed-time baseline and contributes zero elapsed time. No background or continuous-time transition is implied.
   - `PT` is sampled on every executed call while timing is active. Changing it immediately changes the active threshold; elapsed time is compared with the new non-negative value. After TOF expires, its `ET` holds the `PT` value used at expiry until the instance is rearmed.
+  - Spelled out on 19 November 2026 in specification 08 §5, with worked examples and native tests, and unchanged: a call takes `ET` no further than its own `PT`; TP and TOF hold `ET` at the `PT` that ended their timing; TON times on while `IN` stays TRUE, so a larger `PT` after `Q` rose turns `Q` FALSE again until `ET`, which stood at the old `PT`, reaches the new one. Practice differs, as Table 46 NOTE allows: matiec's TON keeps `Q` and `ET` from the call that reached `PT` until `IN` falls, and RuSTy's compares the time since `IN` rose with the current `PT`. CODESYS's Standard library is closed source and its TON page does not describe a change of `PT`, so the owner's rule of 26 October 2026 (time as CODESYS and TwinCAT do) does not decide this case.
   - `PT <= T#0s` is treated as zero for TP, TON, and TOF.
   - A skipped or conditional call performs no state transition. On the next executed call, elapsed time is measured from the preceding executed call, so the skipped interval is included.
   - If the runtime clock does not advance or moves backward, that call contributes zero elapsed time and establishes the new clock baseline for the next call.
