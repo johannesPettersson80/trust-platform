@@ -10,6 +10,11 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         match (self.checker.current_function_return, return_expr) {
             (Some(expected), Some(expr)) if expected != TypeId::VOID => {
                 let actual = self.check_expression(&expr);
+                let actual = if self.checker.contextualize_open_bit(expected, &expr) {
+                    expected
+                } else {
+                    actual
+                };
                 let errors_before = self.checker.diagnostics.error_count();
                 if !self.checker.is_assignable(expected, actual)
                     && !self.checker.is_contextual_int_literal(expected, &expr)

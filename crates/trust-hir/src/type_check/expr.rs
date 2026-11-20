@@ -31,6 +31,7 @@ impl<'a> TypeChecker<'a> {
             expression_types: FxHashMap::default(),
             resolved_symbols: FxHashMap::default(),
             written_arguments: FxHashSet::default(),
+            open_bit_calls: FxHashMap::default(),
         }
     }
 
@@ -340,6 +341,30 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             self.check_comparable(lhs_type, rhs_type, op, node.text_range());
             TypeId::BOOL
         } else if op.is_logical() {
+            // `16#0F AND 16#3C`: two bit string literal (or open) operands leave the operator open;
+            // it takes the type where it goes (specification 05 §5.2.1).
+            if let (Some(lhs_least), Some(rhs_least)) = (
+                self.checker.open_bit_input_type(lhs_node),
+                self.checker.open_bit_input_type(rhs_node),
+            ) {
+                let width = |ty: TypeId| {
+                    self.checker
+                        .resolved_type(ty)
+                        .and_then(Type::bit_size)
+                        .unwrap_or(0)
+                };
+                let least = if width(rhs_least) > width(lhs_least) {
+                    rhs_least
+                } else {
+                    lhs_least
+                };
+                self.checker.record_open_bit_call(
+                    node,
+                    vec![lhs_node.clone(), rhs_node.clone()],
+                    least,
+                );
+                return least;
+            }
             self.common_bit_string_type(
                 lhs_type,
                 lhs_node.text_range(),
@@ -479,6 +504,21 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         rhs_type: TypeId,
         rhs_node: &SyntaxNode,
     ) -> (TypeId, TypeId) {
+        // A call that untyped bit string literals leave open takes the other operand's bit string
+        // type (specification 05 §5.2.1).
+        if self.checker.contextualize_open_bit(rhs_type, lhs_node) {
+            return (rhs_type, rhs_type);
+        }
+        if self.checker.contextualize_open_bit(lhs_type, rhs_node) {
+            return (lhs_type, lhs_type);
+        }
+        if let Some(common) = self
+            .checker
+            .unify_open_bit_with_literal(lhs_node, rhs_node)
+            .or_else(|| self.checker.unify_open_bit_with_literal(rhs_node, lhs_node))
+        {
+            return (common, common);
+        }
         // Comparisons do not enforce a subrange's bounds, so a literal takes the base type.
         if self
             .checker
@@ -578,7 +618,17 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                     "negation requires numeric type",
                 )
             }
-            UnaryOp::Not => self.unary_bit_string_type(operand, node.text_range()),
+            UnaryOp::Not => {
+                // `NOT 16#00FF`: a bit string literal operand leaves the operator open, and it
+                // takes the type where it goes (specification 05 §5.2.1).
+                if let Some(child) = node.children().next()
+                    && let Some(least) = self.checker.open_bit_input_type(&child)
+                {
+                    self.checker.record_open_bit_call(node, vec![child], least);
+                    return least;
+                }
+                self.unary_bit_string_type(operand, node.text_range())
+            }
             UnaryOp::Unknown => self
                 .checker
                 .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range())),

@@ -353,6 +353,36 @@ class ReleaseWorkflowTests(unittest.TestCase):
         for path in copied:
             self.assertTrue(any(ci_changes.pattern_regex(pattern).match(path) for pattern in patterns), path)
 
+    def test_the_linux_arm64_binaries_link_one_at_a_time_with_the_features_of_one_command(self) -> None:
+        # Specification 24: a Linux package's build fits its 16 GB runner. linux-arm64 builds the four packages'
+        # libraries first with every job, then the same five packages as linux-x64 in one command with one job, so
+        # that one fat-LTO link runs at a time and the features unify as in linux-x64's single command. Catches a
+        # build whose overlapping links lose the runner (14.1 GB with four jobs, 16.8 GB with three, checklist W22),
+        # a split into a command per binary, which would unify each binary's features apart, and linux-x64 slowed
+        # down without need.
+        script = run_block(steps(self.jobs["build"])["Build binaries"])
+        commands = [
+            line.strip() for line in script.splitlines() if line.strip().startswith(("cross build", "cargo build"))
+        ]
+        target = "--target ${{ matrix.target }}"
+        five = "-p trust-lsp -p trust-debug -p trust-runtime -p trust-dev -p trust-control-studio"
+        self.assertEqual(
+            commands,
+            [
+                f"cross build --release {target} --lib -p trust-lsp -p trust-debug -p trust-runtime -p trust-control-studio",
+                f"cross build --jobs 1 --release {target} {five}",
+                f"cross build --release {target} {five}",
+                f"cargo build --release {target} {five}",
+            ],
+        )
+        arm64 = script.index('if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then')
+        container = script.index('export CROSS_CONTAINER_OPTS="--env RUSTC_WRAPPER="')
+        first, second, x64 = (script.index(command) for command in commands[:3])
+        self.assertLess(container, arm64)
+        self.assertLess(arm64, first)
+        self.assertLess(first, second)
+        self.assertIn("\n  else\n", script[second:x64], "linux-x64's command is the aarch64 branch's other side")
+
     def test_every_linux_binary_a_package_ships_is_checked_against_the_glibc_baseline(self) -> None:
         # Specification 24: the Linux packages run on every Linux with glibc 2.28 or newer. Catches a Linux binary that
         # reaches a package unchecked, as linux-x64's trust-runtime did from 0.35.0 to 0.41.1 needing glibc 2.43, and a

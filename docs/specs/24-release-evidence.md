@@ -47,6 +47,18 @@ Ubuntu: from 0.35.0 its `trust-runtime` and `trust-dev` needed glibc 2.43
 (`asinf`) and did not start on Ubuntu 24.04 or Debian 13, and its `trust-lsp`
 needed glibc 2.38.
 
+A Linux package's build fits its runner, 16 GB with four cores. The release
+profile links each binary with fat LTO in one codegen unit (`lto = true`,
+`codegen-units = 1`), which takes up to 10 GB, and four build jobs let those
+links overlap: the linux-arm64 build needed 14.1 GB over its start with four
+jobs and 16.8 GB with three, and lost its runner (checklist W22, 19 November
+2026). So linux-arm64 first builds the libraries of `trust-lsp`,
+`trust-debug`, `trust-runtime` and `trust-control-studio` with every job,
+which compiles each dependency in parallel and links no binary, and then the
+binaries with one job, one link at a time (at most 9.9 GB), in one command
+that names the same five packages as linux-x64's, so that their features unify
+alike. linux-x64 needs 11.0 GB with four jobs and builds in its one command.
+
 ## Source Builds
 
 The documented normal source build of shipped Rust binaries must succeed from
@@ -320,8 +332,9 @@ the release. A missing Marketplace token fails the release.
 **Publishing the SDK's crates.** Once the release is verified, a job of its own
 publishes the SDK's crates to crates.io at the release's version (specification
 48 RU-12): `trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`,
-`trust-plc-macros` and `trust-plc`, in that order, each after the crates it
-depends on, from the released commit, each verified by cargo's build of its
+`trust-plc-macros` and `trust-plc`, then the SDK of services,
+`trust-runtime-client` and `trust-service` (specification 48 RU-62), in that
+order, each after the crates it depends on, from the released commit, each verified by cargo's build of its
 package (`scripts/publish_crates.py`). A crate whose version crates.io holds is
 skipped, so re-running the job continues where it stopped. Only this job holds
 the crates.io token, the repository secret `CARGO_REGISTRY_TOKEN`; without it

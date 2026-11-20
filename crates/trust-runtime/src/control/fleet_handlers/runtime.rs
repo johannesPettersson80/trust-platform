@@ -28,6 +28,7 @@ pub(super) fn runtime_node(runtime_id: &str, inputs: &FleetRuntimeInputs<'_>) ->
         inputs.io_snapshot_seen_ms,
     );
     endpoints.extend(service_endpoints(runtime_id, inputs));
+    endpoints.extend(service_client_endpoints(runtime_id, inputs.state));
 
     let metrics = inputs
         .state

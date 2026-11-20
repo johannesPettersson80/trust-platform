@@ -6,6 +6,32 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-11-19 - An untyped literal where a bit string goes without a typed partner
+
+- Area: ST expression typing; the input of `SHL`, `SHR`, `ROL`, `ROR`, the operand of `NOT`, and
+  both operands of `AND`, `OR`, `XOR`, `&`
+- IEC context: IEC 61131-3 Ed.3 §6.3.2: based numbers "are interpreted as bit string literals",
+  and "numeric literals which represent a positive integer may be used as bit string literals";
+  Table 5 gives such a literal no width. §6.6.1.7.2: "the data type of the variable to store the
+  result of the overloaded function does not influence the data type of the result", and the
+  conversion of inputs of the same kind that differ is implementer specific.
+- Decision:
+  - There a based literal, or a decimal one that is not negative, is a bit string literal; a
+    negative literal is not, and stays refused.
+  - The expression takes the bit string type where it goes (an assignment's target, a return, a typed
+    parameter, the other operand), as an untyped literal does there (specification 05 §5.2.1),
+    when every literal's value fits it; otherwise the smallest of `BYTE`, `WORD`, `DWORD`, `LWORD`
+    that holds its literals, never `BOOL`. Beside a literal operand both take the wider type.
+  - A typed input keeps its own type whatever the result is stored in: `SHL(BYTE#16#01, 8)` is a
+    `BYTE` shift, `0`, also when stored in a `WORD`.
+- Reason:
+  - §6.3.2 makes these literals bit strings, so refusing them refused standard code (the external
+    IEC 61131-3 conformance suite, github.com/s-celles/iec61131-conformance, `ops/bit_literals`).
+  - §6.6.1.7.2 forbids a stored-in type widening a TYPED input; an untyped literal has no type of
+    its own, and truST already gives it the type where it goes (specification 05 §5.2.1).
+  - The suite's evidence of 18 November 2026 has matiec, OpenPLC, STruC++, RuSTy and 4diac pass
+    `w := SHL(16#0001, 15)` as `16#8000` in a `WORD`, which this decision gives too.
+
 ## 2026-10-30 - Standard timers start at the edge call; a running TP pulse ignores edges
 
 - Area: TP, TON, TOF and their TIME and LTIME forms (`crates/trust-plc-lib/src/timers.rs`,

@@ -2,8 +2,8 @@
 """Publishes the SDK's crates to crates.io at the release's version (specification 48 RU-12; specification 24,
 "Publishing the SDK's crates").
 
-The crates are `trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`, `trust-plc-macros` and `trust-plc`, each after
-the crates it depends on, published from the released commit and each verified by cargo's build of its package.
+The crates are `trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`, `trust-plc-macros` and `trust-plc`, and the SDK of
+services, `trust-runtime-client` and `trust-service` (specification 48 RU-62), each after the crates it depends on, published from the released commit and each verified by cargo's build of its package.
 A crate whose version crates.io already holds is skipped, so a re-run continues where an earlier run stopped.
 Without the token in `CARGO_REGISTRY_TOKEN` it publishes nothing and says so in a notice: crates.io keeps a
 published version for good, and only the owner of the crates' account gives the token.
@@ -27,6 +27,8 @@ CRATES: tuple[str, ...] = (
     "trust-plc-decl",
     "trust-plc-macros",
     "trust-plc",
+    "trust-runtime-client",
+    "trust-service",
 )
 API = "https://crates.io/api/v1/crates/{name}/{version}"
 # crates.io asks an automated client to name itself.
