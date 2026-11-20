@@ -7529,6 +7529,13 @@ Rules:
   identifies that runtime. It removes only the matching entry.
 - **Remote access** supports manual add and invite/QR pairing only.
 - **Data sharing** is explicit (publish/subscribe mapping only).
+- **Mesh endpoints.** A `[runtime.mesh]` `listen` or `connect` entry is `host:port`, the URL form
+  `tcp://host:port` or `tls://host:port` that a control endpoint also takes, or a Zenoh locator
+  `tcp/host:port` or `tls/host:port`; with `tls = true` a `tcp` endpoint becomes `tls`. A
+  subscription `"<peer>:<path>"` names the publishing runtime by its resource name.
+- **A mesh that does not start says so.** When its session does not open, the runtime runs on
+  without the mesh, logs the warning event `mesh_unavailable` with the reason and reports the
+  mesh as degraded with it in its fleet topology.
 
 ##### Realtime T0 transport and cycle contract
 

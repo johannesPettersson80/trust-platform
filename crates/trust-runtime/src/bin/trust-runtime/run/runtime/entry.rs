@@ -428,6 +428,10 @@ pub fn run_runtime(
     } else {
         None
     };
+    // A mesh that does not start says so; the runtime runs on without it (specification 11).
+    if let Some(reason) = _mesh.as_ref().and_then(|mesh| mesh.degraded_reason()) {
+        logger.log(LogLevel::Warn, "mesh_unavailable", json!({ "reason": reason }));
+    }
     if let Some(bundle) = &bundle
         && bundle.runtime.mesh.enabled
     {
