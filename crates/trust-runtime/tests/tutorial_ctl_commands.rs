@@ -334,6 +334,38 @@ fn plc_operator_guide_status_io_read_restart_and_shutdown() {
 }
 
 #[test]
+fn ads_server_basic_keeps_the_setpoint_a_client_writes() {
+    // examples/communication/ads_server_basic/README.md: an ADS client writes the guarded symbol
+    // global.Setpoint and reads it back, 0.2 s later in the pyads smoke of step 3 (two of the
+    // example's 100 ms scans) and after its write command in the TwinCAT program, and expects the
+    // value it wrote: 12.5 written, 12.5 read. Catches the example's program changing Setpoint
+    // itself: it ramped it by 0.25 a scan, so the smoke read 13.0 back and every write proof the
+    // README teaches failed. The value is written through the control endpoint; the ADS server is
+    // switched off in the copy, because its TCP and UDP ports are fixed.
+    let runtime = ExampleRuntime::new("communication/ads_server_basic")
+        .edit_source(
+            "runtime.toml",
+            "[runtime.ads_server]\nenabled = true",
+            "[runtime.ads_server]\nenabled = false",
+        )
+        .start();
+    runtime.wait_for_snapshot(WAIT, "the first I/O snapshot", |_| true);
+
+    let queued = runtime.ctl_ok(&["set", "global:Setpoint", "12.5"]);
+    assert!(queued.contains("queued"), "{queued}");
+    let written = runtime.scan();
+    runtime.wait_for_snapshot(WAIT, "five scans after the write", |snapshot| {
+        snapshot.scan() >= written + 5
+    });
+    let read = runtime.ctl_ok(&["read", "Setpoint"]);
+    assert!(
+        read.lines()
+            .any(|line| line.trim() == "Setpoint : REAL = 12.5"),
+        "the Setpoint a client wrote must stay as written:\n{read}"
+    );
+}
+
+#[test]
 fn plc_io_binding_guide_io_read_and_output_write_are_accepted() {
     // docs/guides/PLC_IO_BINDING_GUIDE.md section 8: `io-read`, then `io-write %QX0.0 TRUE`. The
     // mitsubishi example binds %QX0.0, but its program assigns that output on every scan, and the
