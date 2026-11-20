@@ -77,7 +77,7 @@ fn a_rust_pou_holds_values_of_the_projects_structured_text_types() {
     // (1.5, 4.0), gives LAST (3.0, 4.0) and MODE RUN, as Y > 3.0, keeps FIRST at its
     // `#[init(st::MODE::IDLE)]`, which the type's own RUN does not override, and its TRAIL's two
     // POINTs start
-    // at POINT's initial values, Y 2.0 each, so COUNT is 2, at the task's first call at 10 ms.
+    // at POINT's initial values, Y 2.0 each, so COUNT is 2, at the task's first call at 0 ms.
     // Catches a variable of a Structured Text type refused, a structure carried through the
     // crate's places, and an array's elements not at their type's initial values.
     let root = custom_project(
@@ -112,11 +112,10 @@ END_PROGRAM",
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.SEEN_X"), Some(Value::LReal(3.0)));
     assert_eq!(program.value("MAIN.RUNNING"), Some(Value::Bool(true)));
     assert_eq!(program.value("MAIN.IDLE_FIRST"), Some(Value::Bool(true)));

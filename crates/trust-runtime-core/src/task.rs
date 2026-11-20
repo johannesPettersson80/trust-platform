@@ -34,19 +34,52 @@ mod tests {
         assert!(task.fb_instances.is_empty());
     }
 
-    #[test]
-    fn task_state_new_preserves_time_and_clears_event_and_overrun_history() {
-        let current_time = Duration::from_nanos(-17);
-        let state = TaskState::new(current_time);
+    /// The state of a task whose latest accounted deadline is `deadline`, as after a periodic run
+    /// due then.
+    fn ran_at(deadline: Duration) -> TaskState {
+        TaskState {
+            last_single: false,
+            last_run: deadline,
+            overrun_count: 0,
+        }
+    }
 
+    #[test]
+    fn a_task_is_due_at_its_registration_and_every_interval_after_it() {
+        // Specification 10 §4.3 (owner, 19 November 2026; IEC 61131-3 Ed.3 §6.8.2, whose Table 63
+        // schedules run the periodic program organization units from t = 0): a 10 ms task
+        // registered at 100 ms is due at 100 ms, its first deadline, not at 109 ms, and at 110 ms;
+        // its latest accounted deadline starts one interval before. Without a positive interval
+        // the registration time is kept. Catches a first activation one interval after the start.
+        let registered = Duration::from_millis(100);
+        let interval = Duration::from_millis(10);
+        let mut state = TaskState::new(registered, interval);
         assert!(!state.last_single);
-        assert_eq!(state.last_run, current_time);
         assert_eq!(state.overrun_count, 0);
+        assert_eq!(state.last_run, Duration::from_millis(90));
+
+        let first = evaluate_task_readiness(&mut state, interval, false, registered);
+        assert_eq!(first.due_at, Some(registered));
+        assert_eq!(first.missed_intervals, 0);
+        assert_eq!(state.last_run, registered);
+        let between =
+            evaluate_task_readiness(&mut state, interval, false, Duration::from_millis(109));
+        assert_eq!(between.due_at, None);
+        let second =
+            evaluate_task_readiness(&mut state, interval, false, Duration::from_millis(110));
+        assert_eq!(second.due_at, Some(Duration::from_millis(110)));
+        assert_eq!(second.missed_intervals, 0);
+        assert_eq!(state.overrun_count, 0);
+
+        for disabled in [Duration::ZERO, Duration::from_nanos(-1)] {
+            let state = TaskState::new(Duration::from_nanos(-17), disabled);
+            assert_eq!(state.last_run, Duration::from_nanos(-17));
+        }
     }
 
     #[test]
     fn task_readiness_tracks_periodic_due_time_and_overrun() {
-        let mut one_period = TaskState::new(Duration::ZERO);
+        let mut one_period = ran_at(Duration::ZERO);
         let exact = evaluate_task_readiness(
             &mut one_period,
             Duration::from_millis(10),
@@ -59,7 +92,7 @@ mod tests {
         assert_eq!(one_period.overrun_count, 0);
         assert_eq!(one_period.last_run, Duration::from_millis(10));
 
-        let mut state = TaskState::new(Duration::ZERO);
+        let mut state = ran_at(Duration::ZERO);
 
         let readiness = evaluate_task_readiness(
             &mut state,
@@ -99,7 +132,7 @@ mod tests {
         // 19.999999 ms, is due once and missed no interval, and its last deadline is 10 ms; at
         // 20 ms it passed two deadlines, missed one, and its last deadline is 20 ms. Catches an
         // interval count that is off by one at twice the interval.
-        let mut before = TaskState::new(Duration::ZERO);
+        let mut before = ran_at(Duration::ZERO);
         let readiness = evaluate_task_readiness(
             &mut before,
             Duration::from_millis(10),
@@ -110,7 +143,7 @@ mod tests {
         assert_eq!(readiness.missed_intervals, 0);
         assert_eq!(before.last_run, Duration::from_millis(10));
 
-        let mut at = TaskState::new(Duration::ZERO);
+        let mut at = ran_at(Duration::ZERO);
         let readiness = evaluate_task_readiness(
             &mut at,
             Duration::from_millis(10),
@@ -125,7 +158,7 @@ mod tests {
 
     #[test]
     fn task_readiness_tracks_event_edges_without_repeating_high_level() {
-        let mut state = TaskState::new(Duration::ZERO);
+        let mut state = TaskState::new(Duration::ZERO, Duration::ZERO);
 
         let first =
             evaluate_task_readiness(&mut state, Duration::ZERO, true, Duration::from_millis(1));
@@ -144,7 +177,7 @@ mod tests {
 
     #[test]
     fn task_readiness_prefers_earlier_due_time_when_event_and_periodic_overlap() {
-        let mut state = TaskState::new(Duration::ZERO);
+        let mut state = ran_at(Duration::ZERO);
 
         let readiness = evaluate_task_readiness(
             &mut state,
@@ -173,7 +206,7 @@ mod tests {
 
     #[test]
     fn task_readiness_ignores_backward_clock_step_until_prior_baseline() {
-        let mut state = TaskState::new(Duration::from_millis(100));
+        let mut state = ran_at(Duration::from_millis(100));
 
         let backward = evaluate_task_readiness(
             &mut state,
@@ -212,7 +245,7 @@ mod tests {
 
     #[test]
     fn task_readiness_coalesces_forward_jump_after_host_pause() {
-        let mut state = TaskState::new(Duration::ZERO);
+        let mut state = ran_at(Duration::ZERO);
 
         let resumed = evaluate_task_readiness(
             &mut state,
@@ -254,7 +287,7 @@ mod tests {
     fn task_readiness_keeps_its_deadlines_when_samples_come_late() {
         let interval = Duration::from_millis(100);
         let at = |ms: i64, us: i64| Duration::from_nanos(ms * 1_000_000 + us * 1_000);
-        let mut state = TaskState::new(Duration::ZERO);
+        let mut state = ran_at(Duration::ZERO);
 
         let first = evaluate_task_readiness(&mut state, interval, false, at(100, 70));
         assert_eq!(first.due_at, Some(Duration::from_millis(100)));
@@ -280,9 +313,12 @@ mod tests {
 
     #[test]
     fn task_readiness_non_multiple_interval_preserves_nominal_deadlines() {
-        let mut state = TaskState::new(Duration::ZERO);
+        // Specification 10 §4.3's example: a 25 ms task registered at 0 ms and sampled every 10 ms
+        // runs at 0, 30, 50, 80 and 100 ms, for its nominal deadlines 0, 25, 50, 75 and 100 ms.
         let interval = Duration::from_millis(25);
+        let mut state = TaskState::new(Duration::ZERO, interval);
         for (sample, due, baseline) in [
+            (0, Some(0), 0),
             (10, None, 0),
             (20, None, 0),
             (30, Some(25), 25),

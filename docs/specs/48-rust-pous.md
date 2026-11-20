@@ -7,7 +7,9 @@
   how `trust-dev service install` puts a service under the computer's service manager (RU-64, §21
   decision 14), decided under the owner's delegation of 18 November 2026. 0.4, 19 November 2026:
   the Windows service's program, a copy of trust-dev in the service's own folder, its log, its
-  `service.toml` and its virtual account's access (RU-64).
+  `service.toml` and its virtual account's access (RU-64). 0.5, 20 November 2026: a service is built
+  with the user's own Rust, and the bundle carries only the SDK a program is built with (RU-12,
+  RU-61, RU-62, RU-76), as the owner decided that day.
 - **Owns:** Rust as a language of truST projects: Rust functions, function blocks and programs that
   run in the scan; projects written in Rust whose Structured Text configuration is generated
   (Rust-first projects); Rust services that run beside a runtime; the SDK crates; how the build
@@ -46,6 +48,10 @@ The owner's decisions, which this specification carries out:
 - `unsafe` in Rust that runs in the scan: "Forbidden" (15 November 2026).
 - The user's own Rust installation: "Own Rust optional" (15 November 2026): every build uses truST's
   bundled toolchain; a user's own Rust serves only rust-analyzer and `cargo test`, never a build.
+- A Rust service is built with the user's own Rust ("agree", 20 November 2026, to the recommendation
+  that a service, an ordinary Rust program for the computer, is built like any Rust program): it
+  links the computer's standard library with the computer's linker, which the bundle does not carry
+  and truST cannot ship (RU-61).
 - Earlier decisions that hold: "the user shall not have to install rust by himself" (27 October
   2026, specification 44 NX-08); boards work exactly like trust-runtime (16 October 2026): a Rust POU
   runs on every device a program runs on; "we MUST follow the IEC standard" (22 October 2026):
@@ -198,10 +204,13 @@ Structured Text it calls spent (RU-38), which only the generated bindings run on
 **RU-12.** Each truST release publishes `trust-plc`, `trust-plc-macros`, `trust-service` and
 `trust-sim` to crates.io at the release's version, with the crates they are built from
 (`trust-plc-abi`, `trust-plc-lib`, `trust-plc-decl`, `trust-runtime-client`), once the release is
-verified (specification 24, "Publishing the SDK's crates"; `trust-sim` joins when it is built), and
-carries their sources in its toolchain bundle (§16). The build always compiles the bundle's copy: the project's `Cargo.toml` names the
-version, the build patches the four crates to the bundle's sources, and a project builds without
-crates.io when its other dependencies are vendored. A user's own `cargo` resolves the same version
+verified (specification 24, "Publishing the SDK's crates"; `trust-sim` joins when it is built). Its
+toolchain bundle (§16) carries the sources of the SDK a program is built with: `trust-plc` and
+`trust-plc-macros` with the crates they are built from. The build always compiles the bundle's copy:
+the project's `Cargo.toml` names the version, the build patches those crates to the bundle's sources,
+and a project builds without crates.io when its other dependencies are vendored. `trust-service`,
+`trust-runtime-client` and `trust-sim` are not in the bundle: a service and a machine test are built
+with the user's own Rust (RU-61, RU-58), which takes them from crates.io. A user's own `cargo` resolves the same version
 from crates.io for rust-analyzer and `cargo test` (§16.3). The SDK's crates name each other at the
 release's exact version (`=<version>`, beside their paths in the workspace), which the version bump
 moves (`scripts/bump_version.py`), so that `cargo package` writes each crate as crates.io and the
@@ -890,7 +899,18 @@ POU on the deployment's device type, and uses the larger of declared and measure
 
 **RU-49. On the device.** The kernel measures each Rust POU's call time in a debug image and reports a call that exceeds its declared budget as the event
 `rust_budget_exceeded` with the POU's name, the time and the budget (specification 11's events),
-without ending the scan; the watchdog (NX-11) still ends a scan that overruns the task.
+without ending the scan; the watchdog (NX-11) still ends a scan that overruns the task. The
+generated code of a debug image reads the kernel's monotonic clock (specification 44 §8.2,
+`clock`) before and after each call of a Rust POU and keeps, in the kernel's record of the POU, its
+longest call and its calls over its budget for the image's target (RU-46, with `trust.toml`'s
+lowering), which the image's Rust POU table gives (specification 44 §5.13). The generated code
+names a POU only by its number in that table, the same in every target's image, so that layer 1
+stays one text (RU-39). A release image measures nothing. A POU that runs over its budget in every
+scan would displace every other event of the store, as the four events of every scan would
+(specification 11, the event store), so the kernel reports a POU's first call over its budget and,
+after it, only a call over its budget that is longer than every call of the POU before it;
+`tasks.stats` gives each Rust POU's budget, longest call and calls over budget (specification
+11).
 
 ## 11. Tools
 
@@ -991,16 +1011,21 @@ the next change.
 ## 13. Rust services (tier 3)
 
 **RU-61.** A service is an ordinary Rust program (`[[bin]]`, the standard library, any crate,
-threads, `async`), built with the user's own Rust or the bundle's `cargo`, which runs on a computer
-beside a runtime and reaches it only over the control link (specification 11 §6.8). None of §5's
-rules applies to it; it can never stop or slow a scan.
+threads, `async`), built with the user's own Rust, which runs on a computer beside a runtime and
+reaches it only over the control link (specification 11 §6.8). None of §5's rules applies to it; it
+can never stop or slow a scan. Building it takes the computer's standard library and the computer's
+linker (Xcode's command-line tools on macOS, a C compiler on Linux, Visual Studio's build tools on
+Windows), as any Rust program does: rustup gives the first and names the linker it needs. The
+toolchain bundle builds programs only; it carries neither (RU-74), and truST cannot ship the
+linkers (owner, 20 November 2026).
 
 **RU-62. The SDK.** `trust-service` gives a service a connection to a runtime through the control
 client trust-runtime uses (`trust-runtime-client`, the shared client of specification 11 §6.8), with
 the runtime's authentication, and typed access to the program's variables by their paths: read,
 write, subscribe (a read at a period the service chooses, of a set of variables in one cycle's
 snapshot), with every value's cycle, logical time and quality: a read is specification 11 §6.8.1's
-`variables.read`, one completed scan's values of the set. The bindings are generated from the
+`variables.read`, one completed scan's values of the set, and a write its `variables.write`, of the
+variables the service's `writes` names (RU-63), which the next cycle's start writes together. The bindings are generated from the
 symbol table of the deployed image (`trust-dev service bindings`), so a service names
 `plant::P1::level` and gets an `f64`.
 
@@ -1019,8 +1044,8 @@ own work never delays its heartbeat (RU-63), and its runtime can tell how old it
 may be (RU-64; specification 11 §6.8.1a, "Service clients"). A heartbeat that came late, as a slow runtime answers it, is followed one period
 later by the next, and the ones it missed are not sent, as a task does not replay missed activations
 (specification 10 §4.3); a period of zero is refused. `trust-service` and `trust-runtime-client` are published on crates.io with every
-release, at its version, so that a service built with the user's own Rust or the bundle's cargo
-gets them there (RU-61).
+release, at its version, so that a service, which the user's own Rust builds, gets them there
+(RU-61).
 
 **RU-63. Freshness.** Every service in `trust.toml` `[services.<name>]` has a heartbeat variable that
 the build declares as a global (`<name>_heartbeat : UDINT`) and the runtime adds one to each time the
@@ -1030,7 +1055,14 @@ does at the period the service states (`heartbeat = "500ms"`). The globals lie i
 `VAR_GLOBAL` with a variable per service, in `trust.toml`'s order. `trust-dev rust declarations`
 writes it, and removes it when `trust.toml` declares no service, and the build refuses a project
 whose committed file is not what `trust.toml` declares, naming the command (RU-24), whether the
-project has a crate or not (RU-07). A service's name is an identifier, so that its global is one. The program library's function block `SERVICE_FRESH` (its
+project has a crate or not (RU-07). A service's name is an identifier, so that its global is one.
+A service's `writes` lists the variables it may write (`writes = ["Recipe.target", "Line.speed"]`),
+by their paths as `variables.read` names them (specification 11 §6.8.1); every other variable is
+the program's own. The build refuses a path that names nothing, a constant, an instance or a value
+that is not elementary, and a variable that a service gives twice or that two services give, as a
+variable has one service that writes it, naming the service and the path, and the signed
+image carries each service's `writes` (specification 44 §5.14), so that a chip holds a service to
+them as a computer does. A service without `writes` writes no variable but its heartbeat. The program library's function block `SERVICE_FRESH` (its
 inputs the heartbeat and a timeout, its outputs `FRESH : BOOL` and `AGE : TIME`; specification 08
 §5A) is the standard way
 a program gates on a service's values; a program decides itself what it does when a service is not
@@ -1264,6 +1296,7 @@ crates.io crates it is built from are all such a build takes from outside the pr
 **RU-76.** A user without Rust builds, runs, tests (`trust-dev test`), debugs and deploys a project
 with Rust POUs as any project. What needs the user's own Rust is said once, when a project with a
 crate is opened: rust-analyzer's help while editing `.rs` files, and `cargo test` (RU-56, RU-58).
+Building a service needs it too (RU-61).
 
 ### 16.3 With the user's own Rust
 
@@ -1462,6 +1495,7 @@ profile = "development"         # or "production" (RU-47)
 package = "recipe-service"      # the Cargo package of the service
 heartbeat = "500ms"
 timeout = "2s"
+writes = ["Recipe.target", "Recipe.speed"]   # the variables the service may write (RU-63)
 endpoint = "tcp://127.0.0.1:47800"
 credentials = "secrets/recipe.token"   # mode 600, never in version control: `trust-runtime ctl
                                        # service-token recipe --out secrets/recipe.token` (RU-81)

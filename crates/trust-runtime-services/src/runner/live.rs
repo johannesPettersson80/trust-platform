@@ -25,6 +25,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::{FlatImages, PreparedIoBinding};
 use trust_runtime_core::memory::{Generation, InstanceId, IoArea};
+use trust_runtime_core::native::program::RustPouReport;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::ports::MonotonicClock;
 use trust_runtime_core::value::{Duration, Value};
@@ -254,6 +255,13 @@ impl VariableQueuePort for DeviceLiveValues {
             .try_upsert_var_write(target, value)
     }
 
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        self.inner.queues.borrow_mut().try_upsert_var_writes(writes)
+    }
+
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
         self.inner
             .queues
@@ -379,6 +387,16 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
             }
         }
         self.observer.on_compiled_access(point, now, variables)
+    }
+
+    /// A debug image's Rust POU reports reach the loop's observer, which records them
+    /// (specification 48 RU-49).
+    fn on_rust_times_fresh(&mut self) {
+        self.observer.on_rust_times_fresh();
+    }
+
+    fn on_rust_pou(&mut self, report: &RustPouReport<'_>, now: Duration) {
+        self.observer.on_rust_pou(report, now);
     }
 }
 

@@ -418,17 +418,18 @@ fn resume(host: &mut HostComposition, device: &mut Device, paused_at: StdDuratio
     );
 }
 
-/// `restart`: the host's scan thread takes it at its next pass, whose scan is the first without
-/// a due task, since the restart starts the task timing again; the device gets it after the last
-/// scan before that pass and takes it at its next boundary, at that scan.
+/// `restart`: the host's scan thread takes it at its next pass, whose scan is the restarted
+/// program's first: its cycle counter starts again at 0 (specification 11 §6.3), and its tasks are
+/// due at once, the restart starting their timing again (specification 10 §4.3). The device gets
+/// it after the last scan before that pass and takes it at its next boundary, at that scan.
 fn restart_in_place(host: &mut HostComposition, device: &mut Device, id: u64, mode: &str) {
     let line = restart(id, mode);
     let host_reply = host.request(&line);
     host.wait_for_restart_taken();
-    let scans = host.settle_until(|scans| scans.iter().any(|scan| !scan.task));
+    let scans = host.settle_until(|scans| scans.iter().any(|scan| scan.cycle == 0));
     let restarted = scans
         .iter()
-        .position(|scan| !scan.task)
+        .position(|scan| scan.cycle == 0)
         .expect("the restart pass scanned");
     device.replay(&scans[..restarted]);
     assert_same_reply(&line, &host_reply, &device.request(&line));
@@ -502,8 +503,15 @@ fn start_again(device: &mut Device) {
         "the new program's records start empty: the overruns of the program before are gone, and \
          its first scan, at the start of its logical time, records no event"
     );
+    // Its task is due at the start (specification 10 §4.3): the records hold that one run alone.
     let tasks = device.request(&request(32, "tasks.stats"));
-    assert_eq!(tasks["result"]["tasks"], json!([]));
+    assert_eq!(
+        tasks["result"]["tasks"],
+        json!([{
+            "name": "Scan", "overruns": 0,
+            "avg_ms": 0.0, "last_ms": 0.0, "max_ms": 0.0, "min_ms": 0.0,
+        }])
+    );
 }
 
 #[test]

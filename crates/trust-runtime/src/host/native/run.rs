@@ -3,7 +3,9 @@
 
 use std::sync::Arc;
 
-use trust_plc_abi::kernel::{wall_clock, with_wall_clock, Entry, Executable, WallClock};
+use trust_plc_abi::kernel::{
+    clock, wall_clock, with_clock, with_wall_clock, Entry, Executable, KernelClock, WallClock,
+};
 use trust_plc_abi::{FaultCode, KernelApi};
 use trust_runtime_core::native::program::{
     admit, AdmittedImage, Device, ModuleCode, NativeProgram,
@@ -26,8 +28,25 @@ impl WallClock for HostClock {
     }
 }
 
-/// The kernel's functions on a computer: the core's, with the computer's wall clock.
-static HOSTED_FUNCTIONS: KernelApi = with_wall_clock(&KERNEL_API, wall_clock::<HostClock>);
+/// The kernel's monotonic clock on a computer (specification 44 §8.2), which a debug image reads
+/// around each call of a Rust POU (specification 48 RU-49): `Instant`, from the first reading of
+/// the process, which no change of the wall clock moves.
+struct HostMonotonic;
+
+impl KernelClock for HostMonotonic {
+    fn nanos() -> i64 {
+        static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        let origin = *ORIGIN.get_or_init(std::time::Instant::now);
+        i64::try_from(origin.elapsed().as_nanos()).unwrap_or(i64::MAX)
+    }
+}
+
+/// The kernel's functions on a computer: the core's, with the computer's wall clock and monotonic
+/// clock.
+static HOSTED_FUNCTIONS: KernelApi = with_clock(
+    &with_wall_clock(&KERNEL_API, wall_clock::<HostClock>),
+    clock::<HostMonotonic>,
+);
 
 /// A module's code in this process's executable memory.
 pub struct HostCode(Executable);

@@ -78,7 +78,11 @@ impl Plant {
         harness
             .runtime_mut()
             .set_hmi_exchange(Arc::clone(&exchange));
-        Self { harness, exchange }
+        let mut plant = Self { harness, exchange };
+        // The program's first cycle, at 0 ms, where every task is due (specification 10 §4.3): the
+        // fast task counts 1 and the slow one makes its first call, before any screen or command.
+        plant.cycle();
+        plant
     }
 
     /// One cycle at the present time.
@@ -122,12 +126,12 @@ fn path(text: &str) -> MemberPath {
 fn the_screens_get_their_values_only_after_the_task_that_calls_hmi_display() {
     let mut plant = Plant::new(PLANT);
     let _screen = plant.exchange.open_screen(vec![path("Main.Counter")]);
-    // A periodic task first runs one interval after the start: the fast one at 10 ms, the slow
-    // one, calling Hmi.Display, at 100 ms.
+    // Both tasks ran at the start, before the screen opened; the fast one then runs every 10 ms,
+    // and the slow one, calling Hmi.Display, next at 100 ms.
     for _ in 0..9 {
         plant.step();
     }
-    assert_eq!(plant.variable("Main.Counter"), Value::DInt(9));
+    assert_eq!(plant.variable("Main.Counter"), Value::DInt(10));
     assert_eq!(
         plant.shown("Main.Counter"),
         None,
@@ -136,7 +140,7 @@ fn the_screens_get_their_values_only_after_the_task_that_calls_hmi_display() {
     plant.step();
     assert_eq!(
         plant.shown("Main.Counter"),
-        Some(json!(10)),
+        Some(json!(11)),
         "copied after the slow task"
     );
     for _ in 0..9 {
@@ -144,13 +148,13 @@ fn the_screens_get_their_values_only_after_the_task_that_calls_hmi_display() {
     }
     assert_eq!(
         plant.shown("Main.Counter"),
-        Some(json!(10)),
+        Some(json!(11)),
         "unchanged until the slow task runs again"
     );
     plant.step();
     assert_eq!(
         plant.shown("Main.Counter"),
-        Some(json!(20)),
+        Some(json!(21)),
         "copied after its next run"
     );
 }
@@ -191,8 +195,9 @@ fn the_alarms_are_read_only_after_the_task_that_calls_hmi_display() {
             .iter()
             .any(|event| event.kind == EventKind::Raised && event.path.ends_with("High"))
     };
-    // The first read, at 100 ms, finds the alarm clear; its condition holds from 120 ms.
-    for _ in 0..12 {
+    // The counter counted the start too, so it is 11 at 100 ms, where the read finds the alarm
+    // clear, and its condition holds from 110 ms.
+    for _ in 0..11 {
         plant.step();
     }
     assert_eq!(
@@ -200,7 +205,7 @@ fn the_alarms_are_read_only_after_the_task_that_calls_hmi_display() {
         Value::DInt(12),
         "the condition holds from here"
     );
-    for _ in 0..7 {
+    for _ in 0..8 {
         assert!(!raised(&plant), "not read before the slow task runs again");
         plant.step();
     }
@@ -253,11 +258,12 @@ fn a_one_off_read_waits_for_the_next_call() {
         .join()
         .expect("the reader")
         .expect("answered by a call");
-    // The runtime numbers its cycles from 0, so the slow task calls in the cycles numbered 9, 19,
-    // ..., and by then the counter has counted every cycle including the call's.
+    // The runtime numbers its cycles from 0, the start, where both tasks are due (specification 10
+    // §4.3), so the slow task calls in the cycles numbered 0, 10, 20, ..., and by then the counter
+    // has counted every cycle including the call's.
     let cycles = read.cycle + 1;
     assert!(
-        cycles % 10 == 0,
+        read.cycle % 10 == 0,
         "answered at a call of the slow task, cycle {}",
         read.cycle
     );
@@ -298,9 +304,7 @@ fn a_command_not_taken_in_time_is_withdrawn_and_never_applied() {
 #[test]
 fn the_time_between_calls_is_measured() {
     let mut plant = Plant::new(PLANT);
-    for _ in 0..10 {
-        plant.step();
-    }
+    // The start's cycle made the first call.
     assert_eq!(plant.exchange.calls(), 1);
     assert_eq!(plant.exchange.period(), None, "one call: no period yet");
     for _ in 0..10 {
@@ -321,7 +325,7 @@ fn a_screen_just_opened_gets_values_only_once_a_call_copied_its_paths() {
     }
     assert_eq!(
         plant.shown("Main.Counter"),
-        Some(json!(10)),
+        Some(json!(11)),
         "the first screen is served"
     );
     let _second = plant.exchange.open_screen(vec![path("Main.Setpoint")]);
@@ -347,7 +351,7 @@ fn a_stream_wakes_at_the_next_call() {
     let exchange = Arc::clone(&plant.exchange);
     let waiter = std::thread::spawn(move || {
         let started = std::time::Instant::now();
-        let calls = exchange.wait_for_call(0, std::time::Duration::from_secs(5));
+        let calls = exchange.wait_for_call(1, std::time::Duration::from_secs(5));
         (calls, started.elapsed())
     });
     std::thread::sleep(std::time::Duration::from_millis(20));
@@ -355,7 +359,7 @@ fn a_stream_wakes_at_the_next_call() {
         plant.step();
     }
     let (calls, waited) = waiter.join().expect("the waiter");
-    assert_eq!(calls, 1, "woken by the first call");
+    assert_eq!(calls, 2, "woken by the call after the start's, at 100 ms");
     assert!(
         waited < std::time::Duration::from_secs(4),
         "not by the timeout: {waited:?}"
@@ -364,8 +368,8 @@ fn a_stream_wakes_at_the_next_call() {
     assert_eq!(
         plant
             .exchange
-            .wait_for_call(1, std::time::Duration::from_millis(30)),
-        1
+            .wait_for_call(2, std::time::Duration::from_millis(30)),
+        2
     );
     assert!(
         started.elapsed() >= std::time::Duration::from_millis(30),
