@@ -1,5 +1,6 @@
 //! What the resource loop records of a scan at its boundaries (specification 44 §8.7): the overrun
-//! events, and the task and overrun metrics, as trust-runtime records them. The events that every
+//! events, the task and overrun metrics, and a debug image's Rust POU calls over their budgets and
+//! their records (specification 48 RU-49), as trust-runtime records them. The events that every
 //! scan makes, its cycle's and its task's start and end, are not recorded: the event store keeps
 //! none of them (specification 11, the event store), and no caller drains them from a chip.
 
@@ -7,6 +8,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::cycle::{CycleHooks, CyclePhase};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_image::FlatImages;
+use trust_runtime_core::native::program::RustPouReport;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::value::Duration;
 
@@ -120,5 +122,13 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
         _images: &FlatImages,
     ) -> Result<(), RuntimeError> {
         self.record(phase, now)
+    }
+
+    fn on_rust_times_fresh(&mut self) {
+        super::rust_report::fresh(self.records);
+    }
+
+    fn on_rust_pou(&mut self, report: &RustPouReport<'_>, now: Duration) {
+        super::rust_report::record(self.records, report, now);
     }
 }

@@ -237,6 +237,7 @@ pub fn run_runtime(
     }
     let control = handle.control();
     let _signal_shutdown = install_runtime_signal_shutdown(control.clone())?;
+    let published_copy = published_copy_reader(control.clone(), debug.clone());
 
     let auth_token_value = control_binding.auth_token.as_ref().map(ToString::to_string);
     // Only a token the runtime generated belongs in the endpoint file; a configured one is read
@@ -271,7 +272,8 @@ pub fn run_runtime(
                 bundle.runtime.observability.clone(),
                 Some(trust_runtime::runtime_files::runtime_files_folder(&bundle.root).as_path()),
             )?;
-            service.clone().start_sampler(debug.clone());
+            let copy = Arc::clone(&published_copy);
+            service.clone().start_sampler(move || copy());
             Some(service)
         } else {
             None
@@ -381,23 +383,10 @@ pub fn run_runtime(
 
     let mut opcua_server: Option<OpcUaWireServer> = None;
     if let Some(bundle) = &bundle {
-        let snapshot_control = control.clone();
-        let snapshot_debug = debug.clone();
-        let snapshot_provider = Arc::new(move || {
-            let (tx, rx) = std::sync::mpsc::channel();
-            if snapshot_control
-                .send_command(ResourceCommand::Snapshot { respond_to: tx })
-                .is_ok()
-                && let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250))
-            {
-                return Some(snapshot);
-            }
-            snapshot_debug.snapshot()
-        });
         opcua_server = start_wire_server(
             bundle.runtime.resource_name.as_str(),
             &bundle.runtime.opcua,
-            snapshot_provider,
+            Arc::clone(&published_copy),
             Some(bundle.root.as_path()),
         )?;
         opcua_server_bound.store(opcua_server.is_some(), std::sync::atomic::Ordering::Relaxed);
@@ -697,6 +686,27 @@ pub fn run_runtime(
         json!({ "status": "stopped" }),
     );
     Ok(())
+}
+
+/// The scan's published copy of the program, which the historian and the OPC UA server read
+/// (specification 44 NX-14): the resource's own, taken between scans whether or not debugging is
+/// enabled, and the debugger's when the resource does not answer within 250 ms, as while the debugger
+/// holds the scan.
+fn published_copy_reader(
+    control: trust_runtime::scheduler::ResourceControl<StdClock>,
+    debug: trust_runtime::debug::DebugControl,
+) -> Arc<dyn Fn() -> Option<trust_runtime::debug::DebugSnapshot> + Send + Sync> {
+    Arc::new(move || {
+        let (tx, rx) = std::sync::mpsc::channel();
+        if control
+            .send_command(ResourceCommand::Snapshot { respond_to: tx })
+            .is_ok()
+            && let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250))
+        {
+            return Some(snapshot);
+        }
+        debug.snapshot()
+    })
 }
 
 fn parse_restart_mode(restart: &str) -> anyhow::Result<RestartMode> {

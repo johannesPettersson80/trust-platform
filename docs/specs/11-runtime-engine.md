@@ -3954,6 +3954,11 @@ semantics, or a general performance claim.
 
 ###### Runtime historian recording and export contract
 
+The historian samples the scan's published copy of the program, the copy that the HMI and the
+OPC UA server read (specification 44 NX-14), so an enabled historian records whether or not
+debugging is enabled (`runtime.control.debug_enabled`). It names a program instance's variable
+by its full path, such as `P1.Counter`, and a global by its declared name.
+
 An enabled historian in `all` mode records the reviewed global BOOL, integer,
 floating-point, and string values with their runtime types. An accepted capture
 at time `t` establishes the sample-interval boundary: a second request before
