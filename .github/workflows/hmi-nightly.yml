@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      RUSTC_WRAPPER: ''
       # A run builds once and keeps no build cache, so incremental state would only cost time and disk.
       CARGO_INCREMENTAL: 0
       TZ: UTC

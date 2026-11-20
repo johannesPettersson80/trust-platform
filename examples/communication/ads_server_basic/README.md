@@ -16,7 +16,9 @@ test variable.
 
 - `src/config.st`: globals exposed as `global.TankLevel`, `global.PumpRunning`,
   `global.Setpoint`, and `global.StatusWord`
-- `src/main.st`: simple logic that keeps values changing through the normal scan
+- `src/main.st`: simple logic that keeps `TankLevel` and `PumpRunning` changing
+  through the normal scan and leaves `global.Setpoint`, the writable symbol, as a
+  client writes it
 - `runtime.toml`: ADS server config for local pyads smoke testing
 - `io.toml`, `trust-lsp.toml`: simulated I/O and project defaults
 
@@ -41,10 +43,10 @@ opposite direction from the ADS client import example.
 
 ## Step 1: Build the project
 
+From the repository root (the ADS server is part of every released `trust-runtime`):
+
 ```bash
-cargo build -p trust-runtime --features ads-server
-cargo run -p trust-runtime --features ads-server --bin trust-runtime -- \
-  build --project examples/communication/ads_server_basic --sources src
+trust-runtime build --project examples/communication/ads_server_basic --sources src
 ```
 
 ## Step 2: Start the runtime
@@ -52,13 +54,13 @@ cargo run -p trust-runtime --features ads-server --bin trust-runtime -- \
 Run in one terminal:
 
 ```bash
-cargo run -p trust-runtime --features ads-server --bin trust-runtime -- \
-  play --project examples/communication/ads_server_basic --no-console
+trust-runtime play --project examples/communication/ads_server_basic --no-console
 ```
 
-The example binds ADS/TCP on `127.0.0.1:48898`, UDP identify on
-`127.0.0.1:48899`, and serves logical ADS port `851` under AMS Net ID
-`127.0.0.1.1.1`.
+The example serves ADS/TCP on `127.0.0.1:48898` and logical ADS port `851` under
+AMS Net ID `127.0.0.1.1.1`. The UDP identify responder listens on port `48899` of
+every network interface, whatever `listen` names, so that a broadcast search
+reaches it; it answers with the AMS Net ID and the runtime's name.
 
 ## Step 3: Run the pyads smoke test
 
@@ -76,8 +78,7 @@ python3 -m venv .venv-pyads
   --read global.StatusWord:WORD \
   --notification global.PumpRunning:BOOL \
   --write global.Setpoint:REAL:12.5 \
-  --doctor-endpoint unix:///tmp/trust-runtime-ads-server-basic.sock \
-  --trust-runtime target/debug/trust-runtime
+  --doctor-endpoint unix:///tmp/trust-runtime-ads-server-basic.sock
 ```
 
 The script performs:
@@ -102,12 +103,11 @@ For a real engineering station, generate the route artifact from the truST ADS
 server identity:
 
 ```bash
-cargo run -p trust-runtime --features ads-server --bin trust-runtime -- \
-  ads server route-script \
-    --route-name trust-runtime-ads-server-basic \
-    --server-ip 192.168.77.10 \
-    --server-net-id 192.168.77.10.1.1 \
-    --format powershell
+trust-runtime ads server route-script \
+  --route-name trust-runtime-ads-server-basic \
+  --server-ip 192.168.77.10 \
+  --server-net-id 192.168.77.10.1.1 \
+  --format powershell
 ```
 
 Run that artifact on the ADS client side, not on the truST runtime host. In
@@ -116,27 +116,27 @@ target.
 
 ## Expected Doctor output
 
-Without an external client proof, the Doctor should pass the loopback self-test
-but remain short of production-ready:
+Without an external client proof, the Doctor's loopback self-test passes and it
+prints `ADS server doctor: fail`: its one blocking step, `external_client_verified`,
+waits for an independent ADS client:
 
 ```bash
-cargo run -p trust-runtime --features ads-server --bin trust-runtime -- \
-  ads server doctor --project examples/communication/ads_server_basic
+trust-runtime ads server doctor --project examples/communication/ads_server_basic
 ```
 
 After the pyads smoke script completes, attach that evidence:
 
 ```bash
-cargo run -p trust-runtime --features ads-server --bin trust-runtime -- \
-  ads server doctor \
-    --project examples/communication/ads_server_basic \
-    --external-kind pyads \
-    --external-name pyads-smoke
+trust-runtime ads server doctor \
+  --project examples/communication/ads_server_basic \
+  --external-kind pyads \
+  --external-name pyads-smoke
 ```
 
-The expected JSON report has `overall = "pass"`,
-`external_client_verified = true`, and `external_client_kind = "pyads"`. That
-still does not complete the real TwinCAT merge gate.
+It prints `ADS server doctor: pass`. With `--json`, the report has
+`overall = "pass"` and, under `evidence`, `external_client_verified = true` and
+`external_client_kind = "pyads"`. That still does not complete the real TwinCAT
+merge gate.
 
 ## TwinCAT validation
 

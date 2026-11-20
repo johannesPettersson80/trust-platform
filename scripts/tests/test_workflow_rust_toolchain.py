@@ -99,5 +99,15 @@ class RustToolchainSetupTests(unittest.TestCase):
                         self.assertIsNone(RUSTUP_DOWNLOAD.search(step))
 
 
+class RepositoryCargoConfigTests(unittest.TestCase):
+    def test_a_clone_builds_without_a_compiler_wrapper(self) -> None:
+        # Specification 22: a clone builds with the toolchain alone, and sccache stays optional (CONTRIBUTING.md).
+        # Catches the repository's cargo configuration naming a compiler wrapper: with `rustc-wrapper = "sccache"`,
+        # every cargo build on a computer without sccache failed at its first rustc call ("could not execute process
+        # `sccache .../rustc -vV`"), as the IEC 61131-3 conformance suite's CI did.
+        build = tomllib.loads((ROOT / ".cargo" / "config.toml").read_text(encoding="utf-8")).get("build", {})
+        self.assertEqual([key for key in ("rustc-wrapper", "rustc-workspace-wrapper") if key in build], [])
+
+
 if __name__ == "__main__":
     unittest.main()

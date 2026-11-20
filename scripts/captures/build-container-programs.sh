@@ -7,8 +7,8 @@
 # terminal capture showed only "version `GLIBC_2.43' not found", and a language server built on the
 # same system stops in the code-server image the same way. So the programs are built in cross for
 # x86_64-unknown-linux-gnu, as the release builds its Linux packages (specification 22, "Docs
-# Captures"). The repository's cargo configuration names sccache as the compiler wrapper, which the
-# cross image does not have, so the build runs without one, as the release's does.
+# Captures"). The cross image has no compiler wrapper, so the build passes an empty RUSTC_WRAPPER
+# into it, whatever the caller's environment sets, as the release's does.
 set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
