@@ -12,6 +12,7 @@
 //! text the same way because they parse it here; a text that fits neither is refused with the
 //! stable `unsupported value '<text>'`.
 
+pub mod json;
 pub mod literal;
 pub mod typed;
 
@@ -20,6 +21,7 @@ use alloc::string::String;
 
 use trust_runtime_core::value::Value;
 
+pub use json::json_value;
 pub use literal::{parse_literal, Literal};
 pub use typed::{address_value, typed_value};
 

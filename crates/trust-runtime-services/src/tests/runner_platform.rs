@@ -385,6 +385,13 @@ impl VariableQueuePort for TestPlatform {
         self.live_values.enqueue_var_write(target, value)
     }
 
+    fn enqueue_var_writes(
+        &self,
+        writes: Vec<(PendingVarTarget, Value)>,
+    ) -> Result<(), RequestQueueFull> {
+        self.live_values.enqueue_var_writes(writes)
+    }
+
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
         self.live_values.force_var(target, value)
     }
