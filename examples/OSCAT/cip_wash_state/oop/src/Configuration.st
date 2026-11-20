@@ -8,8 +8,8 @@ VAR_CONFIG
     Cip.StepComplete AT %IX0.1 : BOOL;
     Cip.EStopHealthy AT %IX0.2 : BOOL;
     Cip.FlowOk AT %IX0.3 : BOOL;
-    Cip.ConductivityRaw AT %IW0 : INT;
-    Cip.CausticTempRaw AT %IW2 : INT;
+    Cip.ConductivityRaw AT %IW2 : INT;
+    Cip.CausticTempRaw AT %IW4 : INT;
     Cip.PumpEnableOut AT %QX0.0 : BOOL;
     Cip.DrainValveOut AT %QX0.1 : BOOL;
     Cip.AlarmOut AT %QX0.2 : BOOL;

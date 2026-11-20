@@ -180,15 +180,18 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Plant.Freezer1TempRaw` | `%IW0` | IN |
+| `Plant.Freezer1TempRaw` | `%IW2` | IN |
+| `Plant.Freezer2TempRaw` | `%IW4` | IN |
+| `Plant.Chiller1TempRaw` | `%IW6` | IN |
+| `Plant.Chiller2TempRaw` | `%IW8` | IN |
 | `Plant.Freezer1Door` | `%IX0.0` | IN |
-| `Plant.Freezer2TempRaw` | `%IW2` | IN |
 | `Plant.Freezer2Door` | `%IX0.1` | IN |
-| `Plant.Chiller1TempRaw` | `%IW4` | IN |
 | `Plant.Chiller1Door` | `%IX0.2` | IN |
-| `Plant.Chiller2TempRaw` | `%IW6` | IN |
 | `Plant.Chiller2Door` | `%IX0.3` | IN |
-| `Plant.CompressorEnableOut` | `%QX0.0` | OUT |
+| `Plant.Compressor1Out` | `%QX0.0` | OUT |
+| `Plant.Compressor2Out` | `%QX0.1` | OUT |
+| `Plant.Compressor3Out` | `%QX0.2` | OUT |
+| `Plant.AlarmOut` | `%QX0.3` | OUT |
 
 Comms (from `oop/io.toml`): `mqtt` to publish door alarms and
 maintenance work-items to the SCADA bus. Safe-state forces compressor

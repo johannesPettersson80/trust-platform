@@ -7,7 +7,7 @@ VAR_CONFIG
     Conditioning.Tc1Raw AT %IW0 : INT;
     Conditioning.Tc2Raw AT %IW2 : INT;
     Conditioning.Tc3Raw AT %IW4 : INT;
-    Conditioning.ConditionedRaw AT %QW0 : INT;
+    Conditioning.ConditionedRaw AT %QW2 : INT;
     Conditioning.GoodQualityOut AT %QX0.0 : BOOL;
 END_VAR
 END_CONFIGURATION
