@@ -3,12 +3,14 @@
 
 use core::cell::Cell;
 use core::mem::{align_of, size_of};
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 
-use crate::kernel::{read_real, without_debugger, RealReader, WITHOUT_DEBUGGER};
+use crate::kernel::{
+    clock, read_real, with_clock, without_debugger, KernelClock, RealReader, WITHOUT_DEBUGGER,
+};
 use crate::module::{recurse, run, stmt, tick};
 use crate::{
-    plain_struct, Cx, Fault, FaultCode, KernelApi, RefValue, Str, WStr, AREA_GLOBALS,
+    plain_struct, Cx, Fault, FaultCode, KernelApi, RefValue, RustTime, Str, WStr, AREA_GLOBALS,
     AREA_INSTANCES, INTERFACE_VERSION,
 };
 
@@ -213,6 +215,7 @@ static COUNTING: KernelApi = KernelApi {
     debug_write: WITHOUT_DEBUGGER.debug_write,
     read_real: WITHOUT_DEBUGGER.read_real,
     wall_clock: WITHOUT_DEBUGGER.wall_clock,
+    clock: WITHOUT_DEBUGGER.clock,
 };
 
 static ABORTING: KernelApi = KernelApi {
@@ -220,6 +223,7 @@ static ABORTING: KernelApi = KernelApi {
     debug_write: WITHOUT_DEBUGGER.debug_write,
     read_real: WITHOUT_DEBUGGER.read_real,
     wall_clock: WITHOUT_DEBUGGER.wall_clock,
+    clock: WITHOUT_DEBUGGER.clock,
 };
 
 /// A reader that reads `2.5` and nothing else.
@@ -250,6 +254,81 @@ fn a_module_reads_reals_through_the_kernel() {
     let mut plain = Cx::new(&WITHOUT_DEBUGGER);
     let refused = crate::module::read_real(&mut plain, b"2.5").expect_err("no reader");
     assert_eq!(refused.raw(), FaultCode::TypeMismatch as u32);
+}
+
+/// A Rust POU's record keeps its longest call and counts the calls longer than its budget (§8.2,
+/// specification 48 RU-49): with a budget of 40 ns, calls of 30, 40, 41 and 35 ns leave 41 as the
+/// longest and one call over, since a call of exactly the budget is within it. Catches `>=` for
+/// `>`, a longest that a shorter call replaces and a call within the budget counted over it.
+#[test]
+fn a_rust_pou_record_keeps_its_longest_call_and_counts_the_calls_over_its_budget() {
+    let mut record = RustTime::new(40);
+    for (time, longest, over) in [(30, 30, 0), (40, 40, 0), (41, 41, 1), (35, 41, 1)] {
+        record.note(time);
+        assert_eq!(
+            (record.longest_ns, record.over),
+            (longest, over),
+            "after {time} ns"
+        );
+    }
+    assert_eq!(record.budget_ns, 40);
+}
+
+/// The time on the test kernel's clock.
+static NOW: AtomicI64 = AtomicI64::new(0);
+
+/// The clock of the test kernel, which reads [`NOW`].
+struct TestClock;
+
+impl KernelClock for TestClock {
+    fn nanos() -> i64 {
+        NOW.load(Ordering::Relaxed)
+    }
+}
+
+static TIMING: KernelApi = with_clock(&WITHOUT_DEBUGGER, clock::<TestClock>);
+
+/// A debug image notes a Rust POU's call in the record of its number, from the kernel's clock
+/// (§8.2): a call from 5 to 105 ns is 100 ns, over the 10 ns budget of record 0 and within the
+/// 1,000 ns of record 1; a number without a record ends the scan with `ModuleInternal` naming the
+/// number, as a context without records does; a kernel without a clock reads 0. Catches the time
+/// taken from the wrong end, a record written past the kernel's and a missing number quietly
+/// dropped.
+#[test]
+fn a_debug_image_notes_a_rust_pou_call_in_the_record_of_its_number() {
+    let mut records = [RustTime::new(10), RustTime::new(1_000)];
+    let mut cx = Cx::new(&TIMING);
+    cx.rust_times = records.as_mut_ptr();
+    cx.rust_pous = 2;
+    NOW.store(5, Ordering::Relaxed);
+    let start = crate::module::clock(&mut cx).expect("the clock");
+    assert_eq!(start, 5);
+    NOW.store(105, Ordering::Relaxed);
+    crate::module::rust_time(&mut cx, 0, start).expect("record 0");
+    crate::module::rust_time(&mut cx, 1, start).expect("record 1");
+    let refused = crate::module::rust_time(&mut cx, 2, start).expect_err("no record 2");
+    assert_eq!(refused.raw(), FaultCode::ModuleInternal as u32);
+    assert_eq!(cx.fault.detail[0], 2);
+    assert_eq!(
+        records,
+        [
+            RustTime {
+                budget_ns: 10,
+                longest_ns: 100,
+                over: 1
+            },
+            RustTime {
+                budget_ns: 1_000,
+                longest_ns: 100,
+                over: 0
+            },
+        ]
+    );
+    let mut release = Cx::new(&TIMING);
+    let refused = crate::module::rust_time(&mut release, 0, 0).expect_err("no records");
+    assert_eq!(refused.raw(), FaultCode::ModuleInternal as u32);
+    let mut plain = Cx::new(&WITHOUT_DEBUGGER);
+    assert_eq!(crate::module::clock(&mut plain), Ok(0));
 }
 
 /// While armed, a statement whose bit is set calls the kernel's stop with its id, and the others do

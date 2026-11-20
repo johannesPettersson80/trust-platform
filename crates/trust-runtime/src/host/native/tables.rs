@@ -17,10 +17,10 @@ use super::NativeError;
 use trust_plc_abi as abi;
 use trust_runtime_core::native::image::{
     type_kind, AreaRecord, CrateRecord, Image, ImageWriter, MemberDetail, MemoryFigure, Record,
-    RetainRecord, SectionId, StringPool, SymbolRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED,
-    MEMBER_ALIAS, MEMBER_HIDDEN, NONE, OWNER_BACKGROUND, OWNER_LAST_TASK, OWNER_UNKNOWN,
-    OWNER_UNWRITTEN, SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED,
-    TABLE_PREFIX_BYTES,
+    RetainRecord, RustPouRecord, SectionId, StringPool, SymbolRecord, TypeRecord, AREA_HAS_INIT,
+    AREA_RETAINED, MEMBER_ALIAS, MEMBER_HIDDEN, NONE, OWNER_BACKGROUND, OWNER_LAST_TASK,
+    OWNER_UNKNOWN, OWNER_UNWRITTEN, SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_PROGRAM,
+    SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
 };
 use trust_runtime_core::native::retain::payload_bound;
 use trust_runtime_core::native::tool::TOOL_SYMBOL_PREFIX;
@@ -396,6 +396,11 @@ pub(super) struct Inputs<'g> {
     pub(super) stack: StackFigure,
     /// The crates of the scan crate graph, in the crate table's order (specification 44 §5.12).
     pub(super) crates: &'g [trust_runtime_core::deployment::RustCrate],
+    /// A debug image's Rust POUs with their budgets for the build's target in nanoseconds, in the
+    /// Rust POU table's order; none for a release image (specification 44 §5.13).
+    pub(super) rust_pous: &'g [(String, u64)],
+    /// The services that may write variables, with their paths (specification 44 §5.14).
+    pub(super) services: &'g [super::rust_pous::ServiceWrites],
 }
 
 /// The crate table of an image whose module holds the project's crate; none without one
@@ -415,6 +420,23 @@ fn crate_table(
             version: pool.add(&entry.version),
             source: entry.source as u32,
             checksum: entry.checksum,
+        })
+        .collect();
+    writer.table(&records, &[]);
+}
+
+/// The Rust POU table of a debug image whose module holds the project's crate; none for a release
+/// image or without a crate (specification 44 §5.13).
+fn rust_pou_table(writer: &mut ImageWriter, pool: &mut StringPool, pous: &[(String, u64)]) {
+    if pous.is_empty() {
+        return;
+    }
+    let records: Vec<RustPouRecord> = pous
+        .iter()
+        .map(|(name, budget_ns)| RustPouRecord {
+            name: pool.add(name),
+            reserved: 0,
+            budget_ns: *budget_ns,
         })
         .collect();
     writer.table(&records, &[]);
@@ -842,6 +864,8 @@ pub(super) fn write(
     types(writer, &mut pool, model);
     statements(writer, &mut pool, inputs);
     crate_table(writer, &mut pool, inputs.crates);
+    rust_pou_table(writer, &mut pool, inputs.rust_pous);
+    super::service_table::write(writer, &mut pool, inputs.services);
     // The `RESOURCE` the program's `CONFIGURATION` declares, which a computer compares with the
     // name its `runtime.toml` gives (§5.2, specification 10 §4.7).
     if let Some(resource) = inputs

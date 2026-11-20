@@ -68,7 +68,7 @@ END_CONFIGURATION
 
 #[test]
 fn in_outs_and_references_reach_the_variables_structured_text_gives() {
-    // RU-29: three calls at 10, 20 and 30 ms (the task is not due at 0, specification 10 §4.3).
+    // RU-29: three calls at 0, 10 and 20 ms (the task is due at its start, specification 10 §4.3).
     // FILL's in-out is the program's tank: 1.0 + 3 × 2.5 = 8.5. BUMP counts the program's counter
     // up to 3 and returns it, and counts TWICE's own local, a frame variable, from 40: the second
     // call sees the first's 41 and returns 42. NEXT_OF reads the counter through REF(counter)
@@ -116,7 +116,7 @@ END_PROGRAM
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -265,7 +265,8 @@ impl Body for Jump {
 
 #[test]
 fn in_outs_and_references_of_structures_reach_the_variables_structured_text_gives() {
-    // RU-29: three calls at 10, 20 and 30 ms. SHIFT moves the program's spot from (1, 2) by
+    // RU-29: three calls at 0, 10 and 20 ms, the first at the task's start (specification 10
+    // §4.3). SHIFT moves the program's spot from (1, 2) by
     // (1.5, -0.5) each time, to (5.5, 0.5), and returns 5.5 + 0.5 = 6; X_OF reads its x through
     // REF(spot) after this scan's SHIFT: 5.5. FOLLOW's in-out is the program's trip: its finish
     // moves by 2 along x to 6, its finish's y is twice its start's 4, so 8, its moves count from 10
@@ -328,7 +329,7 @@ END_PROGRAM
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -419,7 +420,7 @@ pub fn mark(_cx: &mut Cx, text: InOut<'_, Str<6>>) -> Result<i16, Fault> {
 #[test]
 fn a_functions_string_in_out_is_the_callers_string_of_any_capacity() {
     // RU-29 and docs/IEC_DEVIATIONS.md DEV-035, under the CODESYS profile, which binds a string
-    // in-out across capacities: one call at 10 ms. MARK's in-out is a STRING[6]: the caller's
+    // in-out across capacities: one call at 0 ms. MARK's in-out is a STRING[6]: the caller's
     // STRING[20] holding 'abcdefghij' reads as an assignment to STRING[6] does, 'abcdef', 6 bytes,
     // and takes 'XYZ'; the caller's STRING[2] holding 'ab' reads its 2 bytes and takes 'XY', the
     // assignment's cut at its capacity. Catches a string in-out that works on a copy, reads past the
@@ -448,11 +449,10 @@ END_PROGRAM
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10] {
-        program
-            .scan(Duration::from_millis(time), &mut NoHooks)
-            .expect("the scan runs");
-    }
+    // The task is due at its start (specification 10 §4.3): the scan at 0 ms is its activation.
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
     assert_eq!(program.value("MAIN.LONGREAD"), Some(Value::Int(6)));
     assert_eq!(
         program.value("MAIN.LONG"),

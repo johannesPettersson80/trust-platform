@@ -74,6 +74,18 @@ pub enum RuntimeEvent {
         /// Time when the overrun was detected.
         time: Duration,
     },
+    /// A Rust POU of a debug image made a call over its budget that is longer than every call of
+    /// it before (specification 48 RU-49; specification 11, "Rust POU budgets").
+    RustBudgetExceeded {
+        /// The POU's name as Structured Text declares it.
+        name: SmolStr,
+        /// The call's time in nanoseconds.
+        call_ns: i64,
+        /// The POU's budget for the image's target in nanoseconds.
+        budget_ns: i64,
+        /// The logical time of the scan that made the call.
+        time: Duration,
+    },
     /// Resource fault event.
     Fault {
         /// The fixed fault record the engine latched (specification 34 MEM-05); `faults` and
@@ -342,6 +354,18 @@ pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "type": "task_overrun",
             "name": name.as_str(),
             "missed": missed,
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::RustBudgetExceeded {
+            name,
+            call_ns,
+            budget_ns,
+            time,
+        } => json!({
+            "type": "rust_budget_exceeded",
+            "name": name.as_str(),
+            "call_ns": call_ns,
+            "budget_ns": budget_ns,
             "time_ns": time.as_nanos(),
         }),
         RuntimeEvent::WriteRejected {

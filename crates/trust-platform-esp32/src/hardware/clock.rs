@@ -129,6 +129,17 @@ pub(crate) fn now_us() -> u64 {
     BASE.give(base, reading)
 }
 
+/// The kernel's monotonic clock on the C6 (specification 44 §8.2), which a debug image reads around
+/// each call of a Rust POU (specification 48 RU-49): [`now_us`] in nanoseconds. The scan reads it
+/// in the main context, the clock's one reader.
+pub(crate) struct KernelTimer;
+
+impl trust_plc_abi::kernel::KernelClock for KernelTimer {
+    fn nanos() -> i64 {
+        i64::try_from(now_us()).map_or(i64::MAX, |micros| micros.saturating_mul(1_000))
+    }
+}
+
 /// A wait stopped the CPU, whose cycle counter need not count then: the next reading reads
 /// SYSTIMER.
 pub(super) fn cpu_stopped() {

@@ -66,9 +66,10 @@ fn power_on_counts_logical_time_from_the_program_start_not_from_the_chip_reset()
     fixture.pass_at(&mut runner, 350);
     let tasks = fixture.call(&mut runner, &request(3, "tasks.stats"));
     assert_eq!(
-        tasks["result"]["tasks"],
-        json!([]),
-        "the scan at the start runs no task: none is due at logical time zero"
+        tasks["result"]["tasks"][0]["name"],
+        json!("Scan"),
+        "the scan at the start runs the task: it is due at logical time zero, its start \
+         (specification 10 §4.3)"
     );
     fixture.pass_at(&mut runner, 360);
     assert_eq!(
@@ -80,7 +81,7 @@ fn power_on_counts_logical_time_from_the_program_start_not_from_the_chip_reset()
     assert_eq!(
         tasks["result"]["tasks"][0]["name"],
         json!("Scan"),
-        "the task first runs one interval after the start"
+        "the task runs again one interval after the start"
     );
     let events = fixture.call(&mut runner, &request(1, "events.tail"));
     assert_eq!(

@@ -4,8 +4,8 @@
 use core::ptr::NonNull;
 
 use crate::{
-    Area, Cx, EntryFn, FaultCode, FaultRecord, KernelApi, ReadRealFn, WallClockFn, AREA_COUNT,
-    INTERFACE_VERSION,
+    Area, ClockFn, Cx, EntryFn, FaultCode, FaultRecord, KernelApi, ReadRealFn, WallClockFn,
+    AREA_COUNT, INTERFACE_VERSION,
 };
 
 /// An entry point of an admitted module.
@@ -71,6 +71,8 @@ impl Cx {
             kernel: core::ptr::null_mut(),
             frame: core::ptr::null(),
             fault: FaultRecord::default(),
+            rust_times: core::ptr::null_mut(),
+            rust_pous: 0,
         }
     }
 
@@ -190,6 +192,7 @@ pub const fn without_debugger(read_real: ReadRealFn) -> KernelApi {
         debug_write: no_queued_write,
         read_real,
         wall_clock: wall_clock::<NoWallClock>,
+        clock: clock::<NoClock>,
     }
 }
 
@@ -198,6 +201,51 @@ pub const fn without_debugger(read_real: ReadRealFn) -> KernelApi {
 #[must_use]
 pub const fn with_wall_clock(api: &KernelApi, wall_clock: WallClockFn) -> KernelApi {
     KernelApi { wall_clock, ..*api }
+}
+
+/// The functions `api` with the monotonic clock `clock`, the platform's (specification 44 §8.2).
+#[must_use]
+pub const fn with_clock(api: &KernelApi, clock: ClockFn) -> KernelApi {
+    KernelApi { clock, ..*api }
+}
+
+/// How a kernel reads its monotonic clock (specification 44 §8.2; specification 48 RU-49).
+pub trait KernelClock {
+    /// Nanoseconds from an origin the kernel chooses, which no change of the wall clock moves.
+    fn nanos() -> i64;
+}
+
+/// The clock of a kernel that measures no call: it always reads 0, so that no call of a Rust POU
+/// takes longer than its budget, which is never 0 (specification 44 §5.13).
+pub struct NoClock;
+
+impl KernelClock for NoClock {
+    fn nanos() -> i64 {
+        0
+    }
+}
+
+/// The kernel function [`KernelApi::clock`] of clock `C`.
+#[cfg(target_arch = "x86_64")]
+pub extern "sysv64" fn clock<C: KernelClock>(_cx: *mut Cx, out: *mut i64) -> u32 {
+    clock_with::<C>(out)
+}
+
+/// The kernel function [`KernelApi::clock`] of clock `C`.
+#[cfg(not(target_arch = "x86_64"))]
+pub extern "C" fn clock<C: KernelClock>(_cx: *mut Cx, out: *mut i64) -> u32 {
+    clock_with::<C>(out)
+}
+
+#[allow(unsafe_code)]
+fn clock_with<C: KernelClock>(out: *mut i64) -> u32 {
+    if out.is_null() {
+        return FaultCode::ModuleInternal as u32;
+    }
+    // SAFETY: a module calls with its own aligned `i64` at `out` (`module::clock`); null is
+    // refused before.
+    unsafe { out.write(C::nanos()) };
+    0
 }
 
 /// How a kernel reads the platform's wall clock (specification 44 §8.2; specification 34 §5.2).

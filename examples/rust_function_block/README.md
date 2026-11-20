@@ -34,8 +34,9 @@ The values below are those of the program run scan by scan: the test
 5. Press **Start**. truST builds the crate with the program; the first build of a project takes
    longer, as it builds the SDK. The status bar shows `truST: Simulator running` and **Live Values**
    opens.
-6. In Live Values, watch `MainInstance.Speed`: it climbs by 1.0 every 100 ms, 10.0 after one second,
-   and stops at 50.0 after five seconds, when `MainInstance.AtSpeed` turns `TRUE`.
+6. In Live Values, watch `MainInstance.Speed`. The task runs at the start and then every 100 ms, so
+   `Speed` is 1.0 at once and climbs by 1.0 a run: 10.0 at 0.9 s, and 50.0 at 4.9 s, the 50th run,
+   when `MainInstance.AtSpeed` turns `TRUE`.
 7. Write 20.0 to `MainInstance.Setpoint`. `Speed` falls by 1.0 every 100 ms, `AtSpeed` is `FALSE`
    again, and three seconds later `Speed` is 20.0 and `AtSpeed` is `TRUE`.
 
@@ -43,8 +44,8 @@ The values below are those of the program run scan by scan: the test
 
 **The ramp.** At each call, `RAMP` may move `out` by one step: `rate × interval`, the rate in units per
 second times the task's interval in seconds. Here that is 10 × 0.1 s = 1.0. From 0 to the setpoint
-50.0 that takes 50 runs of the 100 ms task, five seconds; from 50.0 down to 20.0 it takes 30 runs,
-three seconds. The last step lands on the setpoint exactly, and `done` turns `TRUE`.
+50.0 that takes 50 runs of the 100 ms task; the first runs at the start, so the 50th is at 4.9 s. From
+50.0 down to 20.0 it takes 30 runs, three seconds. The last step lands on the setpoint exactly, and `done` turns `TRUE`.
 
 **The interval.** The block reads the task's interval from its context, `cx.interval()`, so the same
 block ramps at the same rate on a faster or slower task: on a 10 ms task each step is 0.1.
@@ -55,8 +56,8 @@ any function block's.
 
 ## Try it yourself
 
-- In `src/Main.st`, call the block with `rate := 25.0`, and press **Start** again: `Speed` reaches
-  50.0 in two seconds, 2.5 a run.
+- In `src/Main.st`, call the block with `rate := 25.0`, and press **Start** again: `Speed` moves 2.5 a
+  run and reaches 50.0 at its 20th run, 1.9 s after the start.
 - In `rust/src/lib.rs`, add an output `#[output] pub moving: bool,` and set it in `body` with
   `self.moving = !self.done;`. Save: truST writes the new output into the declaration, and
   `SpeedRamp.moving` is there for `src/Main.st` to read.

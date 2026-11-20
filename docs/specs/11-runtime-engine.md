@@ -263,11 +263,12 @@ IEC task configuration uses zero for disabled periodic scheduling and a
 positive duration for periodic scheduling; a negative portable metadata value
 is conservatively treated as disabled. (IEC 61131-3 Ed.3 section 6.8.2 a-b.)
 
-Task registration records the current logical time as the initial periodic
-baseline. After a periodic activation, `last_run` denotes the latest nominal
-deadline accounted for, not the sampled execution time. With `SINGLE` FALSE and
-a positive interval, a task is not due until `now` is at least
-`last_run + interval`. A backward logical-clock sample does not move `last_run`,
+Task registration makes the current logical time the task's first nominal
+deadline: `last_run`, which denotes the latest nominal deadline accounted for,
+not the sampled execution time, starts one interval before it, with signed
+saturation, so that a periodic task is due at the first sample at or after its
+registration (specification 10 §4.3). With `SINGLE` FALSE and a positive
+interval, a task is not due until `now` is at least `last_run + interval`. A backward logical-clock sample does not move `last_run`,
 create an overrun, or make the task due; periodic readiness resumes only when a
 later sample reaches the next deadline relative to the unchanged baseline.
 When exactly one interval is due, the returned due time is that nominal
@@ -2834,12 +2835,13 @@ program's schedule (specification 34 §11.3, decision OC-2): a task takes the
 last activation, the level of its event input and the overruns of the running
 program's task of the same name, compared without regard to case, so the first
 scan after the commit runs the tasks that are due; a task that the running
-program does not have counts its first activation from the program's logical
-time at the commit, which is the time of the last cycle that started before it,
-since the program's time advances when a cycle starts: it first runs in the
-first cycle that starts one interval or more after that time (a 1 s task added
-by a change committed 135 ms after the last cycle's start first runs about 0.9 s
-after the commit). The scan counter restarts, and queued writes and forces are
+program does not have takes the program's logical time at the commit as its
+first deadline, as a task registered at the program's start does (specification
+10 §4.3), that time being the time of the last cycle that started before the
+commit, since the program's time advances when a cycle starts: it first runs in
+the first cycle after the commit, and then every interval after that time (a 1 s
+task added by a change committed 135 ms after the last cycle's start first runs
+in the next cycle, and again 1 s after that last cycle's start). The scan counter restarts, and queued writes and forces are
 cleared under section 6.9.2. A request must never report `reloaded` unless this
 complete commit succeeds.
 
@@ -3798,6 +3800,20 @@ event within a few scans, and a scan's and a task's timing is in `tasks.stats`
 and the `status` metrics, as an industrial controller keeps its cycle times in
 statistics and its diagnostic buffer for the events that matter (the owner, 22
 October 2026: "I trust you, do what's most professional for a plc runtime").
+
+**Rust POU budgets** (specification 48 RU-49). In a debug image, a call of a
+Rust POU that takes longer than the POU's budget is the event
+`rust_budget_exceeded` with the POU's `name`, the call's time `call_ns`, the
+`budget_ns` and, as every event, the scan's logical time `time_ns`. It is
+recorded for the POU's first call over its budget and after it only for a call
+longer than every call of the POU before it, at most once per POU and scan, so
+that a POU over its budget in every scan does not displace the store's other
+events. `tasks.stats` lists the Rust POUs of a debug
+image in `rust_pous`, in the order of the image's Rust POU table (specification
+44 §5.13), each with its `name`, its `budget_ns`, its `longest_ns` call and its
+`over_budget` calls since the program started; a release image measures no
+call, so its list is empty and it records no such event. A computer and a chip
+record and report them alike.
 Overruns, faults, refused writes, online-change and retained-value events and
 the control events stay in the store. A debug control delivers the four, with
 every other event, to the callers that drain it or listen to it. A debug control with no event sender

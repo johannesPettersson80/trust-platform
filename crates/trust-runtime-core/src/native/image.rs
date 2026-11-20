@@ -13,6 +13,8 @@
 
 mod crates;
 mod records;
+mod rust_pous;
+mod services;
 mod writer;
 
 use core::fmt;
@@ -35,13 +37,16 @@ pub use records::{
     SYMBOL_PROGRAM, SYMBOL_RETAINED,
 };
 use records::{u16_at, u32_at, u64_at};
+pub use rust_pous::RustPouRecord;
+pub use services::{ImageService, ServiceRecord};
 pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
 
 /// The image's magic.
 pub const MAGIC: [u8; 8] = *b"TRSTI001";
-/// The format version this reader reads: 5 since an image lists the Rust crates its module holds
-/// (specification 44 §5.12).
-pub const FORMAT_VERSION: u16 = 5;
+/// The format version this reader reads: 6 since a debug image lists its Rust POUs (specification
+/// 44 §5.13) and an image the variables its services may write (§5.14); 5, which release 0.43.0
+/// reads, added the Rust crates the module holds (§5.12).
+pub const FORMAT_VERSION: u16 = 6;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
 
@@ -105,6 +110,12 @@ pub enum SectionId {
     Sign = 16,
     /// The Rust crates the module holds, optional, before the signature (specification 44 §5.12).
     Crates = 17,
+    /// The Rust POUs of a debug image with their budgets, optional, before the signature
+    /// (specification 44 §5.13).
+    RustPous = 18,
+    /// The services that may write variables, with the paths of those variables, optional, before
+    /// the signature (specification 44 §5.14).
+    Services = 19,
 }
 
 /// The number of sections an image can have.
@@ -112,7 +123,7 @@ const SECTION_KINDS: usize = SectionId::ALL.len();
 
 impl SectionId {
     /// Every section, in the order of their ids.
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 19] = [
         Self::Code,
         Self::Rodata,
         Self::Entry,
@@ -130,6 +141,8 @@ impl SectionId {
         Self::MemFig,
         Self::Sign,
         Self::Crates,
+        Self::RustPous,
+        Self::Services,
     ];
 
     /// The section numbered `raw`.
@@ -141,7 +154,10 @@ impl SectionId {
     /// Whether an image without the section is refused.
     #[must_use]
     pub fn required(self) -> bool {
-        !matches!(self, Self::Source | Self::Sign | Self::Crates)
+        !matches!(
+            self,
+            Self::Source | Self::Sign | Self::Crates | Self::RustPous | Self::Services
+        )
     }
 
     /// The section's name as the specification writes it.
@@ -165,6 +181,8 @@ impl SectionId {
             Self::MemFig => "MEMFIG",
             Self::Sign => "SIGN",
             Self::Crates => "CRATES",
+            Self::RustPous => "RUSTPOUS",
+            Self::Services => "SERVICES",
         }
     }
 
@@ -458,7 +476,7 @@ impl fmt::Display for ImageError {
             Self::FormatVersion(version) => {
                 write!(
                     f,
-                    "image format version {version} is not 1: rebuild the project"
+                    "image format version {version}, this runtime reads {FORMAT_VERSION}: rebuild the project"
                 )
             }
             Self::SectionTable => f.write_str("image section table lies outside the image"),
@@ -826,6 +844,8 @@ impl<'a> Image<'a> {
         self.check_files_and_statements()?;
         self.check_retain()?;
         self.check_crates()?;
+        self.check_rust_pous()?;
+        self.check_services()?;
         if self.section_bytes(SectionId::MemFig).len() < MemoryFigure::BYTES {
             return Err(ImageError::Table(SectionId::MemFig));
         }

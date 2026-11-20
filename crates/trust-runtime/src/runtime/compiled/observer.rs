@@ -11,6 +11,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::cycle::{CycleHooks, CyclePhase};
 use trust_runtime_core::io_image::{FlatImages, PreparedIoBinding};
 use trust_runtime_core::memory::Generation;
+use trust_runtime_core::native::program::RustPouReport;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_services::live_values::io_snapshot::value_type_name;
 use trust_runtime_services::runner::TaskDescriptor;
@@ -337,6 +338,24 @@ impl CycleHooks for HostedCompiledScan<'_> {
                 self.opcua.capture_outputs_compiled(variables, now_ms)
             }
             CompiledAccessPoint::CycleStart | CompiledAccessPoint::HoldEnd => Ok(()),
+        }
+    }
+
+    fn on_rust_times_fresh(&mut self) {
+        self.metrics.clear_rust_pous();
+    }
+
+    fn on_rust_pou(&mut self, report: &RustPouReport<'_>, now: Duration) {
+        self.metrics.record_rust_pou(report);
+        if report.exceeded
+            && let Some(debug) = &self.debug
+        {
+            debug.push_runtime_event(RuntimeEvent::RustBudgetExceeded {
+                name: SmolStr::new(report.name),
+                call_ns: report.record.longest_ns,
+                budget_ns: report.record.budget_ns,
+                time: now,
+            });
         }
     }
 }

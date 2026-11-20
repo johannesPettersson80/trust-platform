@@ -1129,8 +1129,9 @@ Runtime declaration registration preserves these lookup and lifecycle rules:
   statement-location state. Later runtime mutation cannot retroactively alter a
   prior snapshot.
 
-Task registration records the current logical time as its initial scheduling
-baseline. If its `SINGLE` variable already contains `TRUE`, the saved sample is
+Task registration makes the current logical time a periodic task's first nominal
+deadline, so that the task is due at the first cycle at or after its
+registration (§4.3). If its `SINGLE` variable already contains `TRUE`, the saved sample is
 initialized to `TRUE` so registration creates no artificial rising edge. A
 compiled program registers its tasks when its task timing starts before its
 first scan, after its cold or warm initialization, so its starting or retained
@@ -1140,8 +1141,8 @@ distinct task name receives one stable nonzero debugger thread identifier,
 reused if that task name is registered again. When at least one registered
 program is absent from every task's program list, one separate stable
 background thread identifier is allocated on demand; otherwise no background
-identifier is allocated. Resetting live task timing establishes the supplied
-time as every task's new `last_run`, clears sampled `SINGLE` state and overrun
+identifier is allocated. Resetting live task timing makes the supplied
+time every task's new first deadline, clears sampled `SINGLE` state and overrun
 history, and preserves thread identities.
 
 Logical time updates are deterministic. Setting time stores the exact signed
@@ -1283,10 +1284,16 @@ if periodic_due:
     last_run = saturating_add(last_run, saturating_mul(n, interval))
 ```
 
-New task scheduling state records the supplied current logical time as
-`last_run`, clears the saved `SINGLE` sample to `FALSE`, and starts missed
-interval accounting at zero. Registration therefore supplies the initial
-periodic baseline. After each periodic activation, `last_run` is the latest
+New task scheduling state makes the supplied current logical time the task's
+first nominal deadline: for a positive interval it records
+`last_run = saturating_sub(current_time, interval)`, one interval before, so
+that the task is due at its registration. It clears the saved `SINGLE` sample
+to `FALSE` and starts missed interval accounting at zero. A periodic task is
+therefore due at its start and at every interval after it, as the schedules of
+IEC 61131-3 Ed.3 §6.8.2 run it: in the examples of Table 63 the resource starts
+at t = 0 with its periodic program organization units scheduled (owner
+decision, 19 November 2026; until then the first activation came one interval
+after registration). After each periodic activation, `last_run` is the latest
 nominal deadline accounted for, not the sample time. A late sample does not
 move later deadlines. The task is selected in the first cycle sampled at or
 after its deadline and executes in the normal priority order, subject to the
@@ -1305,8 +1312,8 @@ the portability implementation checklist; implementation is not test evidence. T
 periodic scheduling correction under IEC 61131-3 Ed.3 §6.8.2(b), with truST's
 missed-interval accounting defined in
 [specification 11](11-runtime-engine.md#task-readiness-and-overrun-accounting).
-For a baseline of 0 ms, a 25 ms task sampled every 10 ms shall run at 30, 50,
-80 and 100 ms, preserving nominal deadlines 25, 50, 75 and 100 ms. With this
+For a task registered at 0 ms, a 25 ms task sampled every 10 ms shall run at 0,
+30, 50, 80 and 100 ms, preserving nominal deadlines 0, 25, 50, 75 and 100 ms. With this
 fixed sampling grid and no skipped cycles, sampling lateness is less than one
 10 ms cycle; this is not a bound on OS delays or task completion under load.
 
@@ -1336,8 +1343,9 @@ end of the restart or of the program's load: a computer's scan thread can wait
 between the two, for an automatic restart's backoff or while the operating
 system holds the thread, and the tasks count no deadline in that wait. A start
 after a stop also begins the program's time there, at zero (specification 34,
-STATE-08). The next cycle's nominal start is then one interval
-later, when the tasks are due, and no cycle between finds them not yet due. A
+STATE-08). That first cycle runs the periodic tasks, due at their start, and
+the next cycle's nominal start is one interval later, at their next deadline,
+so that no cycle between finds them not yet due. A
 first cycle that starts later than the program's time began, after the start
 gate or a slow start, takes the last nominal start at or before it, so the
 grid's boundaries are still the tasks' deadlines. This holds on every runtime, a

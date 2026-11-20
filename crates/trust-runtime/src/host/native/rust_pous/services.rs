@@ -1,8 +1,8 @@
-//! The heartbeats of the services a project's `trust.toml` declares (specification 48 RU-63):
-//! one `VAR_GLOBAL` with `<name>_heartbeat : UDINT` for each `[services.<name>]`, in `trust.toml`'s
-//! order, the variable a program's `SERVICE_FRESH` gates on (specification 08 §5A). A service's
-//! name is checked before it is written, so the generated file holds no text a `trust.toml` value
-//! could break.
+//! The services a project's `trust.toml` declares (specification 48 RU-63): their heartbeats, one
+//! `VAR_GLOBAL` with `<name>_heartbeat : UDINT` for each `[services.<name>]`, in `trust.toml`'s
+//! order, the variable a program's `SERVICE_FRESH` gates on (specification 08 §5A), and the
+//! variables each service may write, its `writes`. A service's name is checked before it is
+//! written, so the generated file holds no text a `trust.toml` value could break.
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -57,6 +57,73 @@ pub(super) fn services_text(project: &Path) -> Result<Option<(String, usize)>, S
     Ok(Some((out, services.len())))
 }
 
+/// A service that may write variables (specification 48 RU-63): its name and its `writes`, the
+/// variables' paths as `trust.toml` gives them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServiceWrites {
+    /// The service's name.
+    pub name: String,
+    /// The paths of the variables it may write, in the order `writes` gives them.
+    pub writes: Vec<String>,
+}
+
+/// The services of the `trust.toml` of the project in `project` whose `writes` names a variable,
+/// in `trust.toml`'s order; none for a project without `trust.toml` or without such a service.
+///
+/// # Errors
+///
+/// A `trust.toml` that does not read, and a `writes` that is not an array of paths.
+pub(crate) fn service_writes(project: &Path) -> Result<Vec<ServiceWrites>, String> {
+    let Ok(text) = std::fs::read_to_string(project.join("trust.toml")) else {
+        return Ok(Vec::new());
+    };
+    let document = text
+        .parse::<DocumentMut>()
+        .map_err(|error| error.to_string())?;
+    let Some(services) = document
+        .get("services")
+        .and_then(toml_edit::Item::as_table_like)
+    else {
+        return Ok(Vec::new());
+    };
+    let mut out = Vec::new();
+    for (name, service) in services.iter() {
+        let Some(writes) = service
+            .as_table_like()
+            .and_then(|settings| settings.get("writes"))
+        else {
+            continue;
+        };
+        let paths = writes
+            .as_array()
+            .map(|paths| {
+                paths
+                    .iter()
+                    .map(toml_edit::Value::as_str)
+                    .collect::<Option<Vec<_>>>()
+            })
+            .unwrap_or(None)
+            .filter(|paths| paths.iter().all(|path| !path.is_empty()))
+            .ok_or_else(|| {
+                format!(
+                    "[services.{name}] writes is an array of the paths of the variables the \
+                     service may write (specification 48 RU-63)"
+                )
+            })?;
+        if !paths.is_empty() {
+            out.push(ServiceWrites {
+                name: name.to_string(),
+                writes: paths.into_iter().map(str::to_string).collect(),
+            });
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 #[path = "services_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "service_writes_tests.rs"]
+mod writes_tests;
