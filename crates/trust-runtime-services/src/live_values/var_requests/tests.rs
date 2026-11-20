@@ -379,7 +379,28 @@ fn set_rejects_unsupported_target_without_queueing() {
     ] {
         let response = set(13, Some(set_params(target, "1")), &queues);
         assert!(!response.ok, "{target:?} unexpectedly accepted");
-        assert_eq!(response.error.as_deref(), Some("unsupported target"));
+        assert_eq!(
+            response.error.as_deref(),
+            Some("unsupported target (use global:<name> or retain:<name>)")
+        );
+    }
+    assert!(queues.drain_var_writes().is_empty());
+}
+
+#[test]
+fn set_refuses_a_target_without_its_prefix_before_its_value() {
+    // Specification 11: `set` admits `global:<path>` and `retain:<name>` only and refuses a target
+    // of another form before it reads the value, as force does. Catches `ctl set Setpoint 12.5` for
+    // a REAL global answering "unsupported value '12.5'" (checklist G249): the untyped grammar read
+    // the value first and refused the decimal, so the refusal named the value, not the target.
+    let queues = FakeQueues::new();
+    for target in ["Setpoint", "Config.Setpoint", "global.Setpoint"] {
+        let response = set(15, Some(set_params(target, "12.5")), &queues);
+        assert_eq!(
+            response.error.as_deref(),
+            Some("unsupported target (use global:<name> or retain:<name>)"),
+            "{target:?}"
+        );
     }
     assert!(queues.drain_var_writes().is_empty());
 }
