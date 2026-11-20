@@ -6573,7 +6573,8 @@ aborts summary construction and the deployment; it is not converted into an
 empty source set.
 
 `deployments/<label>.txt` and `deployments/last.txt` contain the last successful
-deploy command's change summary. They are not deployment pointers and rollback
+deploy command's change summary, as text whose every line, the last one too, ends
+with a newline. They are not deployment pointers and rollback
 does not rewrite them. The `current` symlink is the authoritative active-bundle
 identifier before and after rollback.
 
