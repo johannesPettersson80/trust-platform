@@ -13,3 +13,6 @@
   `io.toml`, and tutorial 22 no longer passes a `--sources` folder that does not exist.
 - The vendor library stubs example no longer tells you to run `trust-runtime check`, which refuses a
   project without `runtime.toml` and `io.toml`; its build with the stubs is the check.
+- The web UI complete project example listens on this computer only (`127.0.0.1:8080`), with discovery
+  and the mesh off: it shipped a settings session's leftovers, among them a mesh to hosts that do not
+  exist and a cloud write permission for `live.example.com`. Its simulation runs at real time.
