@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CI runners may not have sccache even when workspace config sets rustc-wrapper=sccache.
-if ! command -v sccache >/dev/null 2>&1; then
-  export RUSTC_WRAPPER=""
-  export CARGO_BUILD_RUSTC_WRAPPER=""
-  echo "[salsa-memory] info: sccache not found; running without rustc-wrapper"
-fi
-
 MODE="${1:-run}"
 BASELINE_FILE="${SALSA_MEMORY_BASELINE_FILE:-docs/reports/salsa-memory-baseline.env}"
 AUTO_BASELINE="${SALSA_MEMORY_RECORD_IF_MISSING:-0}"

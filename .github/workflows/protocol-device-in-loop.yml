@@ -15,7 +15,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTC_WRAPPER: ""
   # A run builds once and keeps no build cache, so incremental state would only cost time and disk.
   CARGO_INCREMENTAL: 0
 
