@@ -467,7 +467,9 @@ window, with its own profile and Control Studio state folder, one truST data
 folder that is empty at the start, and no Rust toolchain: the runner removes
 Cargo and rustup from `PATH` and fails when a Rust compiler is still found.
 Each session copies its project from the checkout's `examples/` and runs at
-1×:
+1×. A session that starts its runtime from the command line builds with the
+toolchain that an earlier session's Start installed in the run's truST data
+folder, so it runs after such a session, as in the list's order:
 
 - `pid-commissioning`: the walkthrough of `control-pid-commissioning` on the
   unmodified example: Start, Identify plant, Tune PI to the README's
@@ -482,7 +484,31 @@ Each session copies its project from the checkout's `examples/` and runs at
   with the installed `trust-runtime` as its README says, on the default
   control endpoint and on a TCP endpoint with a control token generated for
   the run; the Target picker offers it, connects to it, and shows it stopped
-  (specification 25, section 5.1).
+  (specification 25, section 5.1);
+- `conveyor`: the walkthrough of `conveyor` on the unmodified example: Start,
+  the line running in Live Values (the speed in steps of 5, about one part a
+  second), Force of the stop input TRUE stopping it, Release leaving the input
+  TRUE and the line stopped (specification 11, 6.9.2), and Write of FALSE
+  starting it again (specification 25, sections 3.5 and 4);
+- `memory-marker-counter`: the walkthrough of `memory_marker_counter` on the
+  unmodified example: Start, `%MW0` growing by one a scan with `%QW0` one below
+  it in Live Values, a breakpoint holding the scan before
+  `Counter := Counter + 1;` with both variables equal, Step Over making
+  `Counter` one more, Continue, and Force of 41 on `%MW0` holding both words at
+  41 until Release (specification 10, 4.7);
+- `hmi-tank-level`: the walkthrough of `hmi_tank_level`, its runtime built and
+  started with the installed `trust-runtime` as its README says, on the default
+  endpoint: Connect from the Target picker, the Overview in the HMI Builder's
+  Live mode (specification 39, §11), a login as `operator`, the setpoint raised
+  to 2.6 m until `T-101 level high` comes in unacknowledged, its
+  acknowledgement, and the setpoint lowered to 2.0 m until the alarm leaves the
+  list (specification 40, §3.1);
+- `hmi-equipment`: the walkthrough of `hmi_equipment`, its runtime started in
+  the same way: P-101's panel in Auto with Start and Stop held ("Auto: switch
+  to Manual", specification 39, §8.4), LIC-101 bringing the level back to its
+  setpoint of 1.5 m, following a setpoint of 1.8 m, draining the tank in Manual
+  at 0 % until LT-101's Low alarm comes in, and refilling it in Auto without a
+  bump.
 
 Each step records its outcome, the question and notifications on screen, the
 truST items of the status bar and a screenshot in `<folder>/<session>/`. A
