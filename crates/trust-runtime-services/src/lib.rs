@@ -52,6 +52,7 @@ pub mod settings;
 pub mod status;
 pub mod transfer;
 pub mod variables;
+pub mod variables_write;
 
 #[cfg(test)]
 mod tests;
