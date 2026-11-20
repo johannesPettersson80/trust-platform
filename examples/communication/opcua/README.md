@@ -2,17 +2,15 @@
 
 This example shows how to expose runtime variables over OPC UA.
 
-## Critical feature gate
+## The OPC UA server is part of trust-runtime
 
-OPC UA wire support is optional in this build.
-
-- required feature: `opcua-wire`
-- if `runtime.opcua.enabled = true` without `opcua-wire`, runtime startup fails with a feature-disabled error
+The released `trust-runtime` serves OPC UA: its build feature `opcua-wire` is on by default. Only a
+build from source with `--no-default-features` leaves it out, and then a `runtime.toml` with
+`[runtime.opcua] enabled = true` refuses to start with a feature-disabled error.
 
 ## What you learn
 
 - how `[runtime.opcua]` controls server endpoint and exposure
-- how to confirm feature-gated behavior intentionally
 - why security defaults should be explicit at commissioning time
 
 ## Files in this folder
@@ -23,13 +21,12 @@ OPC UA wire support is optional in this build.
 - `io.toml`: simulated I/O for protocol-focused bring-up
 - `trust-lsp.toml`: project settings
 
-## Step 1: Build with OPC UA feature enabled
+## Step 1: Build the project
 
-Why: this confirms runtime includes wire server code path.
+Why: prove the ST compile path before the server's.
 
 ```bash
 cd examples/communication/opcua
-cargo build -p trust-runtime --features opcua-wire
 trust-runtime build --project . --sources src
 ```
 
@@ -77,17 +74,9 @@ trust-runtime run --project .
 
 Use your OPC UA client to connect to `opc.tcp://127.0.0.1:4840/` and browse exposed nodes.
 
-## Step 5: Confirm expected failure mode (optional but recommended)
-
-Why: verifies your team recognizes feature-gated startup errors.
-
-1. Build without `opcua-wire`.
-2. Keep `[runtime.opcua].enabled = true`.
-3. Start runtime and confirm it fails with the feature-disabled OPC UA message.
-
 ## Common mistakes
 
-- enabling OPC UA in config without enabling `opcua-wire` in build
+- building trust-runtime from source without its default features, which leaves the OPC UA server out
 - using broad `expose = ["*"]` too early in commissioning
 - allowing anonymous access in production networks
 - skipping startup probe/read validation from a real client

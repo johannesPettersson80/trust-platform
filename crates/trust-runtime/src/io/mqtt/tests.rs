@@ -14,6 +14,7 @@
 //! `TRUST_TOOLCHAIN`.
 
 mod broker;
+mod example_project;
 mod incoming_overflow;
 mod input_output_health;
 mod nonfinite_case;

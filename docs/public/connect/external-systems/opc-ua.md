@@ -1,9 +1,10 @@
 # OPC UA
 
-## Important feature gate
+## The server is part of trust-runtime
 
-The shipped runtime config supports `[runtime.opcua]`, but wire-level server
-support depends on building `trust-runtime` with the `opcua-wire` feature.
+The released `trust-runtime` serves OPC UA: its build feature `opcua-wire` is on
+by default. Only a build from source with `--no-default-features` leaves the
+server out, and then `[runtime.opcua] enabled = true` refuses to start.
 
 ## First things to decide
 
