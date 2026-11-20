@@ -142,7 +142,7 @@ fn project(name: &str, program: &str) -> PathBuf {
 #[test]
 fn structured_text_calls_rust_pous_as_its_own() {
     // Catches a build that leaves the Rust POUs out or calls them with their variables in other
-    // places: three calls at 10, 20 and 30 ms (the task is not due at 0, specification 10 §4.3).
+    // places: three calls at 0, 10 and 20 ms (the task is due at its start, specification 10 §4.3).
     // The level is 2, 4, 6; the filter primes with 2, then moves by half the difference: 2 +
     // 0.5 × (4 − 2) = 3, then 3 + 0.5 × (6 − 3) = 4.5. MAX_LIMITED(3, 7, 5) is min(max(3, 7), 5) = 5.
     // The counter's level 200 is above 100 at each call: high, and a count of 3.
@@ -152,7 +152,7 @@ fn structured_text_calls_rust_pous_as_its_own() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    for time in [0, 10, 20, 30] {
+    for time in [0, 10, 20] {
         program
             .scan(Duration::from_millis(time), &mut NoHooks)
             .expect("the scan runs");
@@ -888,8 +888,8 @@ impl Body for Clocked {
 #[test]
 fn a_rust_pou_reads_the_logical_time_structured_text_reads() {
     // RU-16 and RU-11: a Rust POU reads the task's logical time from its own context, the time
-    // Structured Text's `TIME()` reads in the same activation. Three calls at 10, 20 and 30 ms (the
-    // task is not due at 0, specification 10 §4.3): both read 30 ms at the last. Catches a context
+    // Structured Text's `TIME()` reads in the same activation. Four calls at 0, 10, 20 and 30 ms (the
+    // task is due at its start, specification 10 §4.3): both read 30 ms at the last. Catches a context
     // that loses or stales the activation's time.
     let root = custom_project(
         "rust-pous-logical-time",

@@ -387,9 +387,10 @@ fn a_stop_saves_and_the_next_power_on_restores() {
     let bytes = image();
     let flash = RamFlash::new(slots());
     let mut cycle = power_on(&bytes, &flash, Duration::from_secs(3600));
-    // Activations at 10, 20 and 30 ms count 3 to 6.
+    // The task is due at its start (specification 10 §4.3): activations at 0, 10, 20 and 30 ms
+    // count 3 to 7.
     scans(&mut cycle, &[0, 10, 20, 30]);
-    assert_eq!(batches(&cycle), Some(Value::USInt(6)));
+    assert_eq!(batches(&cycle), Some(Value::USInt(7)));
     cycle.save_retain().expect("the stop saves");
     drop(cycle);
 
@@ -399,7 +400,7 @@ fn a_stop_saves_and_the_next_power_on_restores() {
         .restart(RestartMode::Warm, RetainSource::Checkpoint)
         .expect("the warm start restores");
     assert_eq!(events, []);
-    assert_eq!(batches(&next), Some(Value::USInt(6)));
+    assert_eq!(batches(&next), Some(Value::USInt(7)));
     next.restart(RestartMode::Cold, RetainSource::Checkpoint)
         .expect("the cold restart");
     assert_eq!(batches(&next), Some(Value::USInt(3)));
@@ -414,8 +415,9 @@ fn a_due_save_survives_a_power_cut() {
     let bytes = image();
     let flash = RamFlash::new(slots());
     let mut cycle = power_on(&bytes, &flash, Duration::ZERO);
+    // Activations at 0, 10 and 20 ms, the first at the task's start, count 3 to 6.
     scans(&mut cycle, &[0, 10, 20]);
-    assert_eq!(batches(&cycle), Some(Value::USInt(5)));
+    assert_eq!(batches(&cycle), Some(Value::USInt(6)));
     // The power is cut: nothing is saved at a stop.
     drop(cycle);
 
@@ -423,11 +425,11 @@ fn a_due_save_survives_a_power_cut() {
         .expect("the log reads")
         .expect("a checkpoint was written");
     assert_eq!(snapshot.values().len(), 1);
-    assert_eq!(snapshot.values().get("Batches"), Some(&Value::USInt(5)));
+    assert_eq!(snapshot.values().get("Batches"), Some(&Value::USInt(6)));
     let mut next = power_on(&bytes, &flash, Duration::ZERO);
     next.restart(RestartMode::Warm, RetainSource::Checkpoint)
         .expect("the warm start restores");
-    assert_eq!(batches(&next), Some(Value::USInt(5)));
+    assert_eq!(batches(&next), Some(Value::USInt(6)));
 }
 
 /// A chip lends its one checkpoint buffer, taken at boot, to the program that keeps retained
@@ -476,5 +478,6 @@ fn a_lent_checkpoint_buffer_goes_back_when_its_program_ends() {
     assert!(buffer.is_lent());
     next.restart(RestartMode::Warm, RetainSource::Checkpoint)
         .expect("the warm start restores");
-    assert_eq!(batches(&next), Some(Value::USInt(6)));
+    // Activations at 0, 10, 20 and 30 ms counted 3 to 7 before the stop saved.
+    assert_eq!(batches(&next), Some(Value::USInt(7)));
 }

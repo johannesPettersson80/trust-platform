@@ -20,18 +20,20 @@ fn first_sample_at_or_after(deadline_ms: i64, grid_ms: i64) -> i64 {
 
 #[test]
 fn ten_and_twenty_five_ms_tasks_release_on_their_nominal_deadlines_over_300_ms() {
-    // SCHED-05 / COMPAT-06: a 25 ms task registered at 0 ms and sampled every 10 ms activates at the
-    // first sample at or after each nominal deadline 25k, and reports that deadline as due_at.
-    // The 10 ms task is due on every sample. Both are due together at 50, 100, 150, 200, 250, 300 ms.
-    let mut fast = TaskState::new(Duration::ZERO);
-    let mut slow = TaskState::new(Duration::ZERO);
-    let slow_releases: Vec<(i64, i64)> = (1..=12)
+    // SCHED-05 / COMPAT-06: a 25 ms task registered at 0 ms and sampled every 10 ms from 0 ms
+    // activates at the first sample at or after each nominal deadline 25k, k >= 0, the first being
+    // its registration, and reports that deadline as due_at. The 10 ms task is due on every
+    // sample. Both are due together at 0, 50, 100, 150, 200, 250 and 300 ms.
+    let mut fast = TaskState::new(Duration::ZERO, ms(10));
+    let mut slow = TaskState::new(Duration::ZERO, ms(25));
+    let slow_releases: Vec<(i64, i64)> = (0..=12)
         .map(|k| (first_sample_at_or_after(25 * k, 10), 25 * k))
         .collect();
     let mut slow_samples = Vec::new();
-    let mut latest_slow_deadline = 0;
+    // One interval before the first deadline, until the registration sample runs the task.
+    let mut latest_slow_deadline = -25;
 
-    for sample in (10_i64..=300).step_by(10) {
+    for sample in (0_i64..=300).step_by(10) {
         let fast_readiness = evaluate_task_readiness(&mut fast, ms(10), false, ms(sample));
         assert_eq!(
             fast_readiness,
@@ -74,7 +76,7 @@ fn ten_and_twenty_five_ms_tasks_release_on_their_nominal_deadlines_over_300_ms()
 
     assert_eq!(
         slow_samples,
-        vec![30, 50, 80, 100, 130, 150, 180, 200, 230, 250, 280, 300]
+        vec![0, 30, 50, 80, 100, 130, 150, 180, 200, 230, 250, 280, 300]
     );
     assert_eq!(fast.last_run, ms(300));
     assert_eq!(fast.overrun_count, 0);
@@ -83,18 +85,19 @@ fn ten_and_twenty_five_ms_tasks_release_on_their_nominal_deadlines_over_300_ms()
 
 #[test]
 fn a_clock_jump_keeps_the_following_nominal_deadlines() {
-    // Spec 11 section 6.2: a 10 ms task first sampled at 35 ms reports due 10 ms, one activation
-    // and two missed intervals; the baseline becomes 30 ms and the next deadline is 40 ms.
-    let mut state = TaskState::new(Duration::ZERO);
+    // Spec 11 section 6.2: a 10 ms task registered at 0 ms and first sampled at 35 ms passed its
+    // deadlines 0, 10, 20 and 30 ms: it reports due 0 ms, one activation and three missed
+    // intervals; the baseline becomes 30 ms and the next deadline is 40 ms.
+    let mut state = TaskState::new(Duration::ZERO, ms(10));
     let jump = evaluate_task_readiness(&mut state, ms(10), false, ms(35));
     assert_eq!(
         jump,
         TaskReadiness {
-            due_at: Some(ms(10)),
-            missed_intervals: 2,
+            due_at: Some(ms(0)),
+            missed_intervals: 3,
         }
     );
-    assert_eq!(state.overrun_count, 2);
+    assert_eq!(state.overrun_count, 3);
     assert_eq!(state.last_run, ms(30));
 
     for sample in [36, 39] {
@@ -121,26 +124,27 @@ fn a_clock_jump_keeps_the_following_nominal_deadlines() {
         }
     );
     assert_eq!(
-        state.overrun_count, 2,
+        state.overrun_count, 3,
         "later periods add no replay and no miss"
     );
 }
 
 #[test]
 fn a_jump_over_many_intervals_counts_once_and_never_replays() {
-    // 1 ms interval registered at 0 ms and first sampled at 2000 ms: one activation due at the
-    // first nominal deadline (1 ms), 1999 missed intervals, and the baseline at the last deadline.
+    // 1 ms interval registered at 0 ms and first sampled at 2000 ms: the deadlines 0, 1, ...,
+    // 2000 ms passed, so one activation due at the first nominal deadline (0 ms), 2000 missed
+    // intervals, and the baseline at the last deadline.
     let interval = ms(1);
-    let mut state = TaskState::new(Duration::ZERO);
+    let mut state = TaskState::new(Duration::ZERO, interval);
     let jump = evaluate_task_readiness(&mut state, interval, false, ms(2000));
     assert_eq!(
         jump,
         TaskReadiness {
-            due_at: Some(ms(1)),
-            missed_intervals: 1999,
+            due_at: Some(ms(0)),
+            missed_intervals: 2000,
         }
     );
-    assert_eq!(state.overrun_count, 1999);
+    assert_eq!(state.overrun_count, 2000);
     assert_eq!(state.last_run, ms(2000));
 
     let just_before = Duration::from_nanos(2_000_999_999);
@@ -157,15 +161,16 @@ fn a_jump_over_many_intervals_counts_once_and_never_replays() {
             missed_intervals: 0,
         }
     );
-    assert_eq!(state.overrun_count, 1999);
+    assert_eq!(state.overrun_count, 2000);
 }
 
 #[test]
 fn held_single_suppresses_periodic_work_and_release_reports_the_first_pending_deadline() {
     // Spec 11 section 6.2 and spec 10 section 4.3: a held TRUE SINGLE suppresses periodic readiness;
     // the FALSE sample that releases it reports the first nominal deadline still pending, and a
-    // later rising edge is an event activation that leaves the periodic baseline alone.
-    let mut state = TaskState::new(Duration::ZERO);
+    // later rising edge is an event activation that leaves the periodic baseline alone. The task is
+    // registered at 0 ms with a 10 ms interval, so its first deadline is 0 ms.
+    let mut state = TaskState::new(Duration::ZERO, ms(10));
 
     let rise = evaluate_task_readiness(&mut state, ms(10), true, ms(10));
     assert_eq!(
@@ -187,7 +192,7 @@ fn held_single_suppresses_periodic_work_and_release_reports_the_first_pending_de
     }
     assert_eq!(
         state.last_run,
-        Duration::ZERO,
+        ms(-10),
         "suppressed periods are not yet accounted"
     );
 
@@ -195,12 +200,12 @@ fn held_single_suppresses_periodic_work_and_release_reports_the_first_pending_de
     assert_eq!(
         release,
         TaskReadiness {
-            due_at: Some(ms(10)),
-            missed_intervals: 2,
+            due_at: Some(ms(0)),
+            missed_intervals: 3,
         }
     );
     assert_eq!(state.last_run, ms(30));
-    assert_eq!(state.overrun_count, 2);
+    assert_eq!(state.overrun_count, 3);
 
     let second_rise = evaluate_task_readiness(&mut state, ms(10), true, ms(36));
     assert_eq!(
@@ -216,7 +221,7 @@ fn held_single_suppresses_periodic_work_and_release_reports_the_first_pending_de
         "an event does not move the periodic baseline"
     );
     assert_eq!(
-        state.overrun_count, 2,
+        state.overrun_count, 3,
         "an event does not change the missed count"
     );
     assert_eq!(

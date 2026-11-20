@@ -428,11 +428,11 @@ pub(super) fn cycle_with<'b>(
 
 #[test]
 fn a_scan_runs_the_due_task_and_then_drives_its_outputs() {
-    // Specification 34 CYCLE-01 to CYCLE-06 and specification 10 §4: the task of 10 ms is not due at
-    // its start, 0 ms, and is due at 10 ms; the drivers drive the output image after the program
-    // ran, once per scan. The count starts at 5: the first activation makes 6 (bit 1 clear), the
-    // second 7 (bit 1 set, `%QX0.1` = 0b10). Catches outputs driven before the task, a task run at
-    // its start, and a scan that drives nothing.
+    // Specification 34 CYCLE-01 to CYCLE-06 and specification 10 §4.3: the task of 10 ms is due at
+    // its start, 0 ms, and at 10 and 20 ms; the drivers drive the output image after the program
+    // ran, once per scan. The count starts at 5: the activations make 6 (bit 1 clear), 7 (bit 1 set,
+    // `%QX0.1` = 0b10) and 8 (clear). Catches outputs driven before the task, a task not run at its
+    // start, and a scan that drives nothing.
     let bytes = image(0);
     let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
     assert_eq!(
@@ -448,8 +448,8 @@ fn a_scan_runs_the_due_task_and_then_drives_its_outputs() {
             .run_scan(Duration::from_millis(time), None, &mut phases)
             .expect("the scan runs");
     }
-    assert_eq!(driven.borrow().outputs, [vec![0], vec![0], vec![0b10]]);
-    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(7)));
+    assert_eq!(driven.borrow().outputs, [vec![0], vec![0b10], vec![0]]);
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(8)));
 }
 
 #[test]
@@ -457,11 +457,12 @@ fn the_observer_sees_the_phases_of_an_engine_scan_in_order() {
     // Specification 44 §8.7: a compiled program's scan reports the engine's phases in the engine's
     // order, the due task by its index, with the scan's logical time; the output image the observer
     // sees after the output sample is the one the scan made. Catches a task numbered by the image
-    // instead of the cycle, phases out of order, and a snapshot of the previous scan.
+    // instead of the cycle, phases out of order, and a snapshot of the previous scan. The task is
+    // due at its start, 0 ms, and at 10 ms, whose scan makes the count 7 (`%QX0.1` set).
     let bytes = image(0);
     let (mut cycle, _, _) = cycle(&bytes, Vec::new());
     let mut phases = Phases::default();
-    for time in [10, 20] {
+    for time in [0, 10] {
         cycle
             .run_scan(Duration::from_millis(time), None, &mut phases)
             .expect("the scan runs");
@@ -473,15 +474,15 @@ fn the_observer_sees_the_phases_of_an_engine_scan_in_order() {
     assert_eq!(
         second,
         [
-            (CyclePhase::CycleStart, 20, vec![0]),
-            (CyclePhase::BeforeInputSample, 20, vec![0]),
-            (CyclePhase::TaskStart(0), 20, vec![0]),
-            (CyclePhase::ProgramStart(0), 20, vec![0]),
-            (CyclePhase::ProgramEnd(0), 20, vec![0]),
-            (CyclePhase::TaskEnd(0), 20, vec![0]),
-            (CyclePhase::BeforeOutputSample, 20, vec![0b10]),
-            (CyclePhase::AfterOutputSample, 20, vec![0b10]),
-            (CyclePhase::CycleEnd, 20, vec![0b10]),
+            (CyclePhase::CycleStart, 10, vec![0]),
+            (CyclePhase::BeforeInputSample, 10, vec![0]),
+            (CyclePhase::TaskStart(0), 10, vec![0]),
+            (CyclePhase::ProgramStart(0), 10, vec![0]),
+            (CyclePhase::ProgramEnd(0), 10, vec![0]),
+            (CyclePhase::TaskEnd(0), 10, vec![0]),
+            (CyclePhase::BeforeOutputSample, 10, vec![0b10]),
+            (CyclePhase::AfterOutputSample, 10, vec![0b10]),
+            (CyclePhase::CycleEnd, 10, vec![0b10]),
         ]
     );
 }
@@ -601,10 +602,10 @@ impl CycleHooks for BoundaryWrites {
 #[test]
 fn a_task_boundary_writes_what_the_task_reads_and_what_its_outputs_publish() {
     // Specification 44 §13.3: a computer's services write a program's variables when a task starts,
-    // before its first program runs, and when it ended, before the outputs are written. The task's
-    // first activation is the scan at 10 ms; the scan at 0 ms runs no task and has no task
-    // boundary. The count starts at 5: the write of 41 at the task's start at 10 ms makes it 42
-    // (`%QX0.1` clear), and 43 at 20 ms, where without the write it would end at 7. At 20 ms the
+    // before its first program runs, and when it ended, before the outputs are written. The task is
+    // due at its start (specification 10 §4.3): the scan at 0 ms reports its boundaries and makes
+    // the count 6. The write of 41 at the task's start at 10 ms makes it 42 (`%QX0.1` clear), and
+    // 43 at 20 ms, where without the write it would end at 8. At 20 ms the
     // count of 43 sets `MAIN.OUT`, and the write of 0 at the task's end clears it before the outputs
     // are published, where without it the bit would be driven (0b10). Catches a write at the start
     // that the task does not read, a write at the end that the outputs do not carry, and a boundary
@@ -620,10 +621,12 @@ fn a_task_boundary_writes_what_the_task_reads_and_what_its_outputs_publish() {
     assert_eq!(driven.borrow().outputs, [vec![0], vec![0], vec![0]]);
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(43)));
     assert_eq!(
-        &boundaries.0[..8],
+        &boundaries.0[..10],
         [
             "CycleStart",
             "AfterInputs",
+            "TaskStart(Some(0))",
+            "TaskEnd(Some(0))",
             "BeforeOutputs",
             "CycleStart",
             "AfterInputs",
@@ -636,13 +639,14 @@ fn a_task_boundary_writes_what_the_task_reads_and_what_its_outputs_publish() {
 
 #[test]
 fn a_late_scan_reports_the_missed_activations() {
-    // Specification 10 §4: a scan 25 ms after the last activation at 10 ms passed the deadlines of
-    // 20 and 30 ms; one activation runs and one is missed, reported before the task starts. Catches
-    // an overrun that is not reported or reported with the image's task number.
+    // Specification 10 §4: the task runs at its start and at 10 ms; a scan 25 ms after the
+    // activation at 10 ms passed the deadlines of 20 and 30 ms; one activation runs and one is
+    // missed, reported before the task starts. Catches an overrun that is not reported or reported
+    // with the image's task number.
     let bytes = image(0);
     let (mut cycle, _, _) = cycle(&bytes, Vec::new());
     let mut phases = Phases::default();
-    for time in [10, 35] {
+    for time in [0, 10, 35] {
         cycle
             .run_scan(Duration::from_millis(time), None, &mut phases)
             .expect("the scan runs");
@@ -812,7 +816,7 @@ fn the_observers_operations_are_not_the_programs() {
     let mut cycle = cycle.with_allocator_operations(observed_operations);
     let start = observed_operations();
     cycle
-        .run_scan(Duration::from_millis(10), None, &mut Allocating)
+        .run_scan(Duration::ZERO, None, &mut Allocating)
         .expect("the scan runs");
     assert_eq!(cycle.last_scan_allocations(), Some(0));
     assert_eq!(observed_operations() - start, 9);
@@ -1191,7 +1195,7 @@ fn held_cycle<'b>(bytes: &'b [u8], hold: &Rc<FakeHold>) -> (Cycle<'b>, Rc<RefCel
 #[test]
 fn a_compiled_scan_holds_at_its_breakpoint_with_the_held_memory() {
     // Specification 44 §13.2, worked by hand: the breakpoint on line 2 of `main.st` arms statement
-    // 1 alone. The task is not due at 0 ms; at 10 ms the body counts 5 to 6 at statement 0 and stops
+    // 1 alone. The task is due at its start: at 0 ms the body counts 5 to 6 at statement 0 and stops
     // at statement 1, at call depth 1 (its own frame): the statement decision reads `count` = 6
     // through the names of the held frame, which a breakpoint's condition reads (specification 11
     // §6.13.2), and the hold reads `MAIN.COUNT` = 6 through the held memory. When the hold ends the
@@ -1209,24 +1213,22 @@ fn a_compiled_scan_holds_at_its_breakpoint_with_the_held_memory() {
     );
     let (mut cycle, driven) = held_cycle(&bytes, &hold);
     let mut observer = WriteAtHoldEnd::default();
-    for time in [0, 10] {
-        cycle
-            .run_scan(Duration::from_millis(time), None, &mut observer)
-            .expect("the scan runs");
-    }
+    cycle
+        .run_scan(Duration::ZERO, None, &mut observer)
+        .expect("the scan runs");
     assert_eq!(*hold.stops.borrow(), [(1, (2, 1))]);
     assert_eq!(*hold.named.borrow(), [Some(Value::USInt(6))]);
     assert_eq!(*hold.read.borrow(), [Value::USInt(6)]);
     assert_eq!(observer.0, 1);
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(40)));
-    assert_eq!(driven.borrow().outputs, [vec![0], vec![0]]);
+    assert_eq!(driven.borrow().outputs, [vec![0]]);
 }
 
 #[test]
 fn a_pause_or_a_step_stops_at_every_statement() {
-    // Specification 44 §13.2: while a pause waits or a step runs, every statement stops. At 10 ms
-    // statement 0 stops with the count 5 and statement 1 with 6, both at depth 1 on lines 1 and 2.
-    // Catches a pause that arms only the breakpoints' statements.
+    // Specification 44 §13.2: while a pause waits or a step runs, every statement stops. At 0 ms,
+    // where the task is due at its start, statement 0 stops with the count 5 and statement 1 with 6,
+    // both at depth 1 on lines 1 and 2. Catches a pause that arms only the breakpoints' statements.
     let bytes = image_of(48, true);
     let hold = FakeHold::new(
         true,
@@ -1237,11 +1239,9 @@ fn a_pause_or_a_step_stops_at_every_statement() {
     );
     let (mut cycle, _) = held_cycle(&bytes, &hold);
     let mut phases = Phases::default();
-    for time in [0, 10] {
-        cycle
-            .run_scan(Duration::from_millis(time), None, &mut phases)
-            .expect("the scan runs");
-    }
+    cycle
+        .run_scan(Duration::ZERO, None, &mut phases)
+        .expect("the scan runs");
     assert_eq!(*hold.stops.borrow(), [(1, (1, 1)), (1, (2, 1))]);
     assert_eq!(*hold.read.borrow(), [Value::USInt(5), Value::USInt(6)]);
 }
@@ -1249,7 +1249,8 @@ fn a_pause_or_a_step_stops_at_every_statement() {
 #[test]
 fn a_scan_the_platform_does_not_debug_never_stops() {
     // Specification 11 §6.9: with debugging off no statement stops, whatever the debugger holds
-    // armed, and the body counts 5 to 6. Catches stops while debugging is disabled.
+    // armed, and the body counts 5 to 6 in the scan at the start, where the task is due. Catches
+    // stops while debugging is disabled.
     let bytes = image_of(48, true);
     let hold = FakeHold::new(
         false,
@@ -1260,11 +1261,9 @@ fn a_scan_the_platform_does_not_debug_never_stops() {
     );
     let (mut cycle, _) = held_cycle(&bytes, &hold);
     let mut phases = Phases::default();
-    for time in [0, 10] {
-        cycle
-            .run_scan(Duration::from_millis(time), None, &mut phases)
-            .expect("the scan runs");
-    }
+    cycle
+        .run_scan(Duration::ZERO, None, &mut phases)
+        .expect("the scan runs");
     assert!(hold.stops.borrow().is_empty());
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(6)));
 }

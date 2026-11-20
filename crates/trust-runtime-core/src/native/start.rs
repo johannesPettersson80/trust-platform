@@ -9,12 +9,13 @@ use alloc::vec::Vec;
 use core::cell::Cell;
 
 use smol_str::SmolStr;
-use trust_plc_abi::{Cx, KernelApi};
+use trust_plc_abi::{Cx, KernelApi, RustTime};
 
 use super::admission::{Device, Refusal};
 use super::image::{
-    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure, SectionId,
-    Shape, StmtRecord, SymbolRecord, TaskRecord, AREA_HAS_INIT, BIND_OFFSET_SHIFT, NONE,
+    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure,
+    RustPouRecord, SectionId, Shape, StmtRecord, SymbolRecord, TaskRecord, AREA_HAS_INIT,
+    BIND_OFFSET_SHIFT, NONE,
 };
 use super::program::{
     process_image, slot, AdmittedImage, Binding, ImageBytes, Memory, ModuleCode, NativeProgram,
@@ -152,16 +153,18 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 .then(|| symbols.get(task.single))
                 .flatten()
                 .map(|symbol| (symbol.area, symbol.offset));
+            let interval =
+                Duration::from_nanos(i64::try_from(task.interval_ns).unwrap_or(i64::MAX));
             tasks.push(NativeTask {
                 name: SmolStr::new(image.string(task.name).unwrap_or("")),
-                interval: Duration::from_nanos(i64::try_from(task.interval_ns).unwrap_or(i64::MAX)),
+                interval,
                 priority: task.priority,
                 single,
                 programs: image
                     .task_programs(&task)
                     .filter_map(|entry| usize::try_from(entry).ok())
                     .collect(),
-                state: TaskState::new(Duration::ZERO),
+                state: TaskState::new(Duration::ZERO, interval),
             });
         }
         let inputs = vec![0; lengths[0]];
@@ -169,6 +172,17 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let depth = call_depth(device, &image.memory_figure());
         let statements = image.table::<StmtRecord>().map_err(table_error)?.len();
         let breakpoints = (0..statements.div_ceil(8)).map(|_| Cell::new(0)).collect();
+        // A debug image's Rust POUs, each with its budget and no call yet (specification 44 §5.13).
+        let rust_times = if image.section(SectionId::RustPous).is_some() {
+            image
+                .table::<RustPouRecord>()
+                .map_err(table_error)?
+                .iter()
+                .map(|pou| RustTime::new(i64::try_from(pou.budget_ns).unwrap_or(i64::MAX)))
+                .collect()
+        } else {
+            Vec::new()
+        };
         let mut program = Self {
             bytes,
             shape,
@@ -188,6 +202,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             breakpoints,
             armed: false,
             scanning: false,
+            rust_times,
             inputs,
             outputs,
             hierarchical,
@@ -197,6 +212,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             ran: false,
             cycle_interval: Duration::ZERO,
         };
+        // The module keeps the records through every activation's context; their buffer never
+        // moves, as the records are never added to (specification 44 §8.2).
+        program.cx.rust_times = program.rust_times.as_mut_ptr();
+        program.cx.rust_pous = u32::try_from(program.rust_times.len()).unwrap_or(0);
         // The process images take their starting memory once; a restart carries them over
         // (specification 11 §6.7, "Directly represented variables at restart").
         program

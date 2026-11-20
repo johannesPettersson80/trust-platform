@@ -673,6 +673,52 @@ pub fn wall_clock(cx: &mut Cx) -> Result<i64, Fault> {
     }
 }
 
+/// The kernel's monotonic clock in nanoseconds, which a debug image reads before each call of a
+/// Rust POU (specification 44 §8.2; specification 48 RU-49).
+///
+/// # Errors
+///
+/// `ModuleInternal` for a context without the kernel's functions, or the code the kernel gives.
+#[allow(unsafe_code)]
+pub fn clock(cx: &mut Cx) -> Result<i64, Fault> {
+    if cx.api.is_null() {
+        return Err(fault(cx, FaultCode::ModuleInternal, 0, 0, 0));
+    }
+    // SAFETY: the kernel's function table lives as long as the kernel, which outlives the call.
+    let api = unsafe { &*cx.api };
+    let mut nanos = 0;
+    let code = (api.clock)(cx, &raw mut nanos);
+    match FaultCode::from_raw(code) {
+        None if code == 0 => Ok(nanos),
+        Some(code) => Err(fault(cx, code, 0, 0, 0)),
+        None => Err(fault(cx, FaultCode::ModuleInternal, i64::from(code), 0, 0)),
+    }
+}
+
+/// Notes the call of the Rust POU `pou`, its number in the image's Rust POU table, that started
+/// at `start` on the kernel's clock and ends now, in the POU's record (specification 44 §8.2;
+/// specification 48 RU-49).
+///
+/// # Errors
+///
+/// `ModuleInternal`, with the number, for a POU the kernel gives no record of; the errors of
+/// [`clock`].
+#[allow(unsafe_code)]
+pub fn rust_time(cx: &mut Cx, pou: u32, start: i64) -> Result<(), Fault> {
+    let end = clock(cx)?;
+    if pou >= cx.rust_pous || cx.rust_times.is_null() {
+        return Err(fault(cx, FaultCode::ModuleInternal, i64::from(pou), 0, 0));
+    }
+    let Ok(index) = usize::try_from(pou) else {
+        return Err(fault(cx, FaultCode::ModuleInternal, i64::from(pou), 0, 0));
+    };
+    // SAFETY: the kernel keeps `rust_pous` records at `rust_times` for the program's life and
+    // touches none during a call; `index` is below their count.
+    let record = unsafe { &mut *cx.rust_times.add(index) };
+    record.note(end.saturating_sub(start));
+    Ok(())
+}
+
 /// Records fault `code` with its numbers as the fault of the call, and returns it to be returned
 /// up to the entry point (specification 44 §8.6).
 #[cold]

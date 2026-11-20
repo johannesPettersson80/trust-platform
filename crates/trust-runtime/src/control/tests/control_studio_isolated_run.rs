@@ -1170,8 +1170,9 @@ fn isolated_run_refuses_a_candidate_that_the_program_overwrites_after_its_startu
     );
 }
 
-/// A program of a periodic task first runs one interval after the start, so its startup is the second scan of the run, not the
-/// first: the candidate it overwrites then is written again at the boundary after that scan, and holds from there (E8.3).
+/// A program of a periodic task overwrites the candidate in its first execution, the run's first scan, its task being due at
+/// its start (specification 10 §4.3): the candidate is written again at the boundary after that scan, and holds from there
+/// (E8.3).
 #[test]
 fn isolated_run_adopts_a_candidate_that_a_periodic_task_program_sets_during_its_first_execution() {
     let (state, _root) = search_fixture_with(

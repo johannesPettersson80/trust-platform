@@ -233,12 +233,13 @@ fn lesson25_verifies_from_the_state_control_studio_presets() {
         outputs.push(number(&runtime, "%QL0"));
         simulation.apply_post_cycle(now, &runtime).unwrap();
     }
+    // The 100 ms task first runs at its start, sequence 0 (specification 10 §4.3).
     assert_eq!(
-        outputs[1], 75.0,
+        outputs[0], 75.0,
         "the first executed scan has no interval: the preset command is held"
     );
     assert!(
-        outputs[2] > 75.0,
+        outputs[1] > 75.0,
         "the controller acts on the 3 °C setpoint step from the next scan: {outputs:?}"
     );
 }
@@ -389,13 +390,14 @@ fn lesson26_verifies_from_the_state_control_studio_presets() {
         outputs.push(number(&runtime, "%QL0"));
         simulation.apply_post_cycle(now, &runtime).unwrap();
     }
+    // The 100 ms task first runs at its start, sequence 0 (specification 10 §4.3).
     assert_eq!(
-        outputs[1], 75.0,
+        outputs[0], 75.0,
         "the first executed scan has no interval: the preset command is held"
     );
     // The setpoint step happens in Auto: 75 + 13·0.3·3 + 3.5·3·0.1 = 87.75 %, give or take the noise.
     assert!(
-        (outputs[2] - 87.75).abs() < 0.6,
+        (outputs[1] - 87.75).abs() < 0.6,
         "the setpoint kick is kept, not absorbed by a transfer: {outputs:?}"
     );
 }
@@ -636,9 +638,10 @@ fn lesson27_verifies_from_the_state_control_studio_presets() {
         outputs.push(number(&runtime, "%QL0"));
         simulation.apply_post_cycle(now, &runtime).unwrap();
     }
-    assert_eq!(outputs[1], 75.0);
+    // The 100 ms task first runs at its start, sequence 0 (specification 10 §4.3).
+    assert_eq!(outputs[0], 75.0);
     assert!(
-        (outputs[2] - 87.75).abs() < 0.6,
+        (outputs[1] - 87.75).abs() < 0.6,
         "the setpoint kick of the Auto run: {outputs:?}"
     );
 }
