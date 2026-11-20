@@ -184,7 +184,7 @@ trust-runtime build --project examples/oscat_smoke --sources src
 Validate the shipped OSCAT surface with the conformance fixture:
 
 ```bash
-cargo run -p trust-dev --bin trust-dev -- test --project crates/trust-runtime/tests/fixtures/oscat/core
+trust-dev test --project crates/trust-runtime/tests/fixtures/oscat/core
 ```
 
 The example has no hardware dependency and no custom runtime backend
