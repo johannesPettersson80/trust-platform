@@ -15,6 +15,61 @@ use runtime_process::{
     repo_root, stderr_text, trust_runtime_command, ExampleRuntime, Runtime, WAIT,
 };
 
+/// `address=value` pairs, in their order.
+type AddressValues = Vec<(String, String)>;
+
+/// The backticked `address=value` pairs of a README table cell, such as `` `%IW2=500` ``.
+fn address_values(cell: &str) -> AddressValues {
+    cell.split('`')
+        .skip(1)
+        .step_by(2)
+        .filter_map(|item| item.split_once('='))
+        .map(|(address, value)| (address.trim().to_string(), value.trim().to_string()))
+        .collect()
+}
+
+/// How `io-read` prints a README value: `TRUE` and `FALSE` as BOOLs, a number as an INT.
+fn printed_value(value: &str) -> String {
+    match value {
+        "TRUE" => "Bool(true)".to_string(),
+        "FALSE" => "Bool(false)".to_string(),
+        number => format!("Int({number})"),
+    }
+}
+
+#[test]
+fn filling_line_readme_scenario_table_holds() {
+    // examples/filling_line/README.md, step 4: each row of the table writes its inputs and expects
+    // its outputs, in the table's order; the simulated driver keeps each input as written. The
+    // controller fills below 65 %, drains above 75 % and stops on StopCmd (src/LevelController.st).
+    // Catches located variables that share bytes, as the example's did: its words lay on the bytes
+    // of its command bits, so writing %IW0 = 500 cleared StartCmd and the fill never started.
+    let readme = fs::read_to_string(repo_root().join("examples/filling_line/README.md"))
+        .expect("the README");
+    let rows: Vec<(AddressValues, AddressValues)> = readme
+        .lines()
+        .filter(|line| line.starts_with("| `%"))
+        .map(|line| {
+            let cells: Vec<&str> = line.split('|').collect();
+            (address_values(cells[1]), address_values(cells[2]))
+        })
+        .collect();
+    assert_eq!(rows.len(), 4, "the table's four scenarios");
+    let runtime = ExampleRuntime::new("filling_line").start();
+    for (writes, expected) in &rows {
+        for (address, value) in writes {
+            runtime.ctl_ok(&["io-write", address, &value.to_lowercase()]);
+        }
+        runtime.wait_until(WAIT, &format!("{expected:?} after {writes:?}"), || {
+            runtime.snapshot().is_some_and(|snapshot| {
+                expected
+                    .iter()
+                    .all(|(address, value)| snapshot.text(address) == printed_value(value))
+            })
+        });
+    }
+}
+
 #[test]
 fn memory_marker_counter_readme_steps_one_to_three_hold() {
     // README step 3: `trust-runtime ctl --project examples/memory_marker_counter io-write %MW0 41`,

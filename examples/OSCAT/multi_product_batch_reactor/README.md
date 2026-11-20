@@ -163,18 +163,20 @@ ST mechanics used:
 
 | Tag | Address | Direction |
 | --- | --- | --- |
-| `Reactor.RecipeId` | `%IW0` | IN |
-| `Reactor.ProductTempRaw` | `%IW2` | IN |
-| `Reactor.PHRaw` | `%IW4` | IN |
-| `Reactor.LidClosedA` | `%IX0.0` | IN |
-| `Reactor.LidClosedB` | `%IX0.1` | IN |
-| `Reactor.EStopHealthy` | `%IX0.2` | IN |
-| `Reactor.PressureReliefIntact` | `%IX0.3` | IN |
-| `Reactor.StartCommand` | `%IX0.4` | IN |
-| `Reactor.AbortCommand` | `%IX0.5` | IN |
-| `Reactor.HeaterOut` | `%QX0.0` | OUT |
-| `Reactor.AgitatorOut` | `%QX0.1` | OUT |
-| `Reactor.AlarmRelayOut` | `%QX0.2` | OUT |
+| `Reactor.StartCommand` | `%IX0.0` | IN |
+| `Reactor.AbortCommand` | `%IX0.1` | IN |
+| `Reactor.LidClosedA` | `%IX0.2` | IN |
+| `Reactor.LidClosedB` | `%IX0.3` | IN |
+| `Reactor.EStopHealthy` | `%IX0.4` | IN |
+| `Reactor.PressureReliefIntact` | `%IX0.5` | IN |
+| `Reactor.RecipeIdRaw` | `%IW2` | IN |
+| `Reactor.ProductTempRaw` | `%IW4` | IN |
+| `Reactor.PhRaw` | `%IW6` | IN |
+| `Reactor.SteamValveRaw` | `%QW2` | OUT |
+| `Reactor.CoolingValveRaw` | `%QW4` | OUT |
+| `Reactor.AgitatorSpeedRaw` | `%QW6` | OUT |
+| `Reactor.BatchCompleteOut` | `%QX0.0` | OUT |
+| `Reactor.AlarmOut` | `%QX0.1` | OUT |
 
 Comms (from `oop/io.toml`): `modbus-tcp` for recipe-id and sample-ok
 exchange; `mqtt` for batch-complete events. Safe-state forces all
