@@ -4,7 +4,7 @@
 use alloc::collections::VecDeque;
 use alloc::format;
 use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 
@@ -186,6 +186,8 @@ pub(crate) struct FakeHost {
     pub(crate) commit_identity: Option<ProgramIdentity>,
     /// The steps the platform was asked to run, in order.
     pub(crate) steps: RefCell<Vec<StepRequest>>,
+    /// The services' heartbeats the runtime accepted, each with the period it named, in order.
+    pub(crate) heartbeats: RefCell<Vec<(String, Option<u64>)>>,
     /// What every step answers; `None` for a platform without stepped scans.
     pub(crate) step_answer: Option<Result<StepOutcome, StepRefusal>>,
     /// What `variables.read` reads, and the paths it was asked for, in order.
@@ -259,6 +261,7 @@ impl FakeHost {
             commits: RefCell::new(Vec::new()),
             commit_identity: None,
             steps: RefCell::new(Vec::new()),
+            heartbeats: RefCell::new(Vec::new()),
             step_answer: None,
             variables: Err(crate::variables::ReadRefusal::NoCompletedScan),
             variable_reads: RefCell::new(Vec::new()),
@@ -330,6 +333,12 @@ impl AccessPort for FakeHost {
         self.pairings
             .as_ref()
             .map(|pairings| pairings as &dyn PairingService)
+    }
+
+    fn note_service_heartbeat(&self, service: &str, period_ms: Option<u64>) {
+        self.heartbeats
+            .borrow_mut()
+            .push((service.to_string(), period_ms));
     }
 }
 
