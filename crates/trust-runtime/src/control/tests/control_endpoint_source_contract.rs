@@ -319,6 +319,8 @@ END_PROGRAM
     let server = ControlServer {
         endpoint,
         state: Arc::clone(&state),
+        #[cfg(unix)]
+        _socket_file: None,
     };
 
     assert!(matches!(server.endpoint(), ControlEndpoint::Tcp(address) if address.port() == 0));

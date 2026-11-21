@@ -37,7 +37,7 @@ impl Drop for ScratchDir {
 fn bound_socket_is_owner_only_from_creation() {
     let dir = ScratchDir::new();
 
-    let _listener = bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket");
+    let _bound = bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket");
 
     let mode = std::fs::metadata(dir.socket())
         .expect("socket metadata")
@@ -80,7 +80,7 @@ fn binding_leaves_directories_created_by_other_threads_usable() {
 #[test]
 fn the_owner_can_connect_once_the_socket_listens() {
     let dir = ScratchDir::new();
-    let listener = bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket");
+    let (listener, _file) = bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket");
 
     let _client = std::os::unix::net::UnixStream::connect(dir.socket()).expect("owner connects");
     listener.accept().expect("accept the owner's connection");
@@ -116,8 +116,52 @@ fn regular_file_at_the_socket_path_is_refused_and_kept() {
 #[test]
 fn stale_socket_from_an_earlier_run_is_replaced() {
     let dir = ScratchDir::new();
-    // Dropping the listener leaves the socket file behind, as a crashed run would.
-    drop(bind_owner_only_socket(&dir.socket()).expect("first bind"));
+    // A run that crashes closes its listener and leaves its socket file behind.
+    let (listener, file) = bind_owner_only_socket(&dir.socket()).expect("first bind");
+    drop(listener);
+    std::mem::forget(file);
 
-    let _listener = bind_owner_only_socket(&dir.socket()).expect("stale socket is replaced");
+    let _bound = bind_owner_only_socket(&dir.socket()).expect("stale socket is replaced");
+}
+
+#[test]
+fn a_server_that_stops_removes_its_socket_file() {
+    let dir = ScratchDir::new();
+    let (listener, file) = bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket");
+    assert!(dir.socket().exists(), "the bound socket has its file");
+
+    // The runtime drops the file while its listener still runs, as a clean exit does.
+    drop(file);
+    assert!(
+        !dir.socket().exists(),
+        "a clean stop leaves no socket file behind (spec 11, section 6.8.0a)"
+    );
+    drop(listener);
+}
+
+#[test]
+fn a_socket_that_another_server_bound_since_is_kept() {
+    let dir = ScratchDir::new();
+    let (first_listener, first_file) = bind_owner_only_socket(&dir.socket()).expect("first bind");
+    // A second server on the same path replaces the first one's socket file.
+    let (second_listener, second_file) =
+        bind_owner_only_socket(&dir.socket()).expect("second bind");
+
+    drop(first_file);
+    drop(first_listener);
+    assert!(
+        dir.socket().exists(),
+        "the first server's stop must not remove the second server's socket"
+    );
+    let _client = std::os::unix::net::UnixStream::connect(dir.socket())
+        .expect("the second server still answers at the path");
+    second_listener
+        .accept()
+        .expect("accept on the second server");
+
+    drop(second_file);
+    assert!(
+        !dir.socket().exists(),
+        "the second server's stop removes its own socket"
+    );
 }

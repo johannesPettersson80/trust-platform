@@ -499,19 +499,26 @@ fn canonical_path_eq(left: &Path, right: &Path) -> bool {
 pub struct ControlServer {
     endpoint: ControlEndpoint,
     state: Arc<ControlState>,
+    /// The socket file of a Unix endpoint, removed when the server is dropped.
+    #[cfg(unix)]
+    _socket_file: Option<transport::SocketFile>,
 }
 
 impl ControlServer {
     /// Binds `endpoint` and starts serving it. The server then reports the endpoint that is
-    /// bound, so a TCP port of 0 is replaced by the port the operating system chose.
+    /// bound, so a TCP port of 0 is replaced by the port the operating system chose. Dropping the
+    /// server removes the socket file of a Unix endpoint while its path still holds that socket, so
+    /// a runtime that ends cleanly leaves no socket behind (spec 11, section 6.8.0a).
     pub fn start(
         endpoint: ControlEndpoint,
         state: Arc<ControlState>,
     ) -> Result<Self, RuntimeError> {
-        let bound = transport::spawn_control_server(&endpoint, state.clone())?;
+        let served = transport::spawn_control_server(&endpoint, state.clone())?;
         Ok(Self {
-            endpoint: bound,
+            endpoint: served.endpoint,
             state,
+            #[cfg(unix)]
+            _socket_file: served.socket_file,
         })
     }
 
