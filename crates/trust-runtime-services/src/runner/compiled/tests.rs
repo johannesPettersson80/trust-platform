@@ -851,11 +851,14 @@ fn step(
 #[test]
 fn a_step_restarts_writes_scans_and_reads_without_the_drivers() {
     // Specification 11 §6.8.1: a cold restart at time 0 gives the count its starting 5; the input
-    // then writes 20; the scan at 10 ms runs the due task once, 21, whose lowest bit sets `OUT` and
-    // `%QX0.1`. `OUT` alone names `MAIN.OUT`, as the one program declares it. The drivers neither
-    // read nor drive anything, and the step latches nothing. Catches an input written before the
-    // restart (the count would be 6), a scan at the restart's time (the task is not due at 0), a
-    // step that drives the outputs, and a bare name that resolves to nothing.
+    // then writes 20; the scan at 10 ms runs `Fast`, which runs at its start and every 10 ms
+    // (specification 10 §4.3), once: 21, whose lowest bit sets `OUT` and `%QX0.1`. A step at 15 ms
+    // finds `Fast` not due, its next activation being at 20 ms, so the count stays 21. `OUT` alone
+    // names `MAIN.OUT`, as the one program declares it. The drivers neither read nor drive
+    // anything, and the step latches nothing. Catches an input written before the restart (the
+    // count would be 6), a scan at the restart's time instead of the step's (`Fast` would be due
+    // again at 10 ms, and the step at 15 ms would make the count 22), a step that drives the
+    // outputs, and a bare name that resolves to nothing.
     let bytes = image(0);
     let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
     let outcome = cycle
@@ -893,6 +896,14 @@ fn a_step_restarts_writes_scans_and_reads_without_the_drivers() {
         cycle.generation(),
         Generation::FIRST.next().expect("a next generation")
     );
+    let later = cycle
+        .step(
+            &step(15, None, Vec::new(), &["MAIN.COUNT"]),
+            Duration::from_millis(10),
+            None,
+        )
+        .expect("the step runs");
+    assert_eq!(later.values, vec![("MAIN.COUNT".into(), Value::USInt(21))]);
 }
 
 #[test]
@@ -1065,7 +1076,8 @@ fn a_step_with_io_runs_a_program_instance_as_a_scan_runs_its_programs() {
     // the body, as a scan does. The count goes 6, then 7, and the second run's `OUT`, 7's lowest bit
     // 1, reaches `%QX0.1`, which reads TRUE where the run without `io` leaves it FALSE. Catches `io`
     // ignored (the output stays FALSE) and a run with `io` that runs the scheduler's cycle in its
-    // place (the task `Fast` is not due at 0, so the count would stay 5).
+    // place (`Fast` runs at its start, 6, but is not due again at 0, so the second step would leave
+    // the count at 6).
     let bytes = image(0);
     let (mut cycle, _, _) = cycle(&bytes, Vec::new());
     let mut request = step(
