@@ -1,0 +1,7 @@
+# The project's service (specification 48 §13): the price service, which runs beside the runtime. It
+# names no endpoint, so it connects to the one the project's running runtime publishes.
+[services.price]
+package = "price-service"            # the Cargo package in price-service/
+credentials = "secrets/price.token"  # its service token, never in version control
+heartbeat = "500ms"
+writes = ["Heater.price_setpoint"]   # the one variable the service may write

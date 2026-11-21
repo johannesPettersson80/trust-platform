@@ -77,16 +77,22 @@ fn ada() -> Owner {
 
 #[test]
 fn a_service_is_refused_until_its_settings_let_it_connect() {
-    // RU-64: `install` refuses a service trust.toml does not declare, one without its package or
-    // endpoint, and one whose token file does not exist, naming the command that writes it (RU-81);
-    // and a name that is no identifier (RU-63). Catches a service installed only to fail at every
-    // start, restarted every 2 s for ever.
+    // RU-64: `install` refuses a service trust.toml does not declare, one without its package, and
+    // one whose token file does not exist, naming the command that writes it (RU-81); and a name
+    // that is no identifier (RU-63). A service without endpoint is installed, as it connects to the
+    // endpoint its project's running runtime publishes (RU-62). Catches a service installed only to
+    // fail at every start, restarted every 2 s for ever, and a service on the runtime's default
+    // endpoint refused for a setting it does not need.
     let undeclared = project("");
     assert!(refusal(&undeclared, None).contains("trust.toml declares no [services.recipe]"));
     let no_package = project(&RECIPE.replace("package = \"recipe-service\"\n", ""));
     assert!(refusal(&no_package, None).contains("[services.recipe] has no package"));
     let no_endpoint = project(&RECIPE.replace("endpoint = \"tcp://127.0.0.1:47800\"\n", ""));
-    assert!(refusal(&no_endpoint, None).contains("[services.recipe] has no endpoint"));
+    let binary = built(&no_endpoint.join("target"), "recipe-service");
+    let plan = resolve(&no_endpoint, "recipe", Some(&binary)).expect("a plan");
+    // `built` names the binary as the system does (`\\?\C:\...` on Windows), the plan as given.
+    let planned = std::fs::canonicalize(&plan.binary).expect("the planned binary");
+    assert_eq!((plan.name.as_str(), planned), ("recipe", binary));
     let no_token = project(RECIPE);
     std::fs::remove_file(no_token.join("secrets").join("recipe.token")).expect("no token");
     let message = refusal(&no_token, None);

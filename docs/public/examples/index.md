@@ -29,7 +29,7 @@ built. The examples also run from a terminal with the released `trust-runtime`:
 | Learning Paths | [Learning Paths](learning-paths.md) | ordered paths for first project, connectivity, migration, CI, and visual-editor work | what each path's examples need | 20-90 min |
 | Control Engineering | [Control Engineering Path](learning-paths.md#control-engineering-path) | feedback, modelling, industrial PID, digital control, and modern methods | VS Code with truST; simulated plants | 25-45 min per lesson |
 | Test and Debug | [Test And Debug](test-and-debug.md) | runtime process image, debugger confirmation, verification loops | VS Code with truST, or `trust-runtime ctl` | 20-30 min |
-| Rust | [Rust Examples](rust.md) | a function block written in Rust, called from Structured Text | VS Code with truST; no Rust of your own | 10 min |
+| Rust | [Rust Examples](rust.md) | a function block written in Rust, called from Structured Text; a Rust service beside the runtime, which the program uses only while its heartbeat is fresh | VS Code with truST; Rust of your own for the service | 10-25 min |
 | Connectivity | [Connectivity](connectivity.md) | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | each protocol's peer (MQTT broker, Modbus/TCP server, OPC UA client); hardware for EtherCAT and GPIO device runs | 120-220 min |
 | Runtime Cloud | [Runtime Cloud](runtime-cloud.md) | profiles, preflight, dispatch, federation allowlists | two to five runtimes on one computer | 30-60 min |
 | Visual Editors | [Visual Editors](visual-editors.md) | ladder, statechart, and Blockly flows tied to companion ST | VS Code with truST | 15-45 min |

@@ -785,6 +785,14 @@
       "status": "allowed",
       "owner": "verification",
       "rationale": "tests take each test's own temporary path from the shared test support (specification 22, Native test and docs-capture lifecycle portability)"
+    },
+    {
+      "from": "price-service",
+      "to": "trust-service",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "services",
+      "rationale": "the service of the example rust_service reads and writes its program through the service SDK, as a user's service does (specification 48 RU-62, RU-88)"
     }
   ],
   "forbidden_workspace_edges": [

@@ -5284,6 +5284,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a65843dfefbafd3c879c683306959a6de478443ffe9c9adf02f5976432402d7"
 
 [[package]]
+name = "price-service"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "trust-service",
+ "ureq",
+]
+
+[[package]]
 name = "proc-macro-crate"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

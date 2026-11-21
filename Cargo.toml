@@ -38,6 +38,8 @@ members = [
     "crates/trust-wasm-analysis",
     "crates/trust-visual",
     "crates/trust-test-support",
+    # The service of the example rust_service, so that CI builds and tests it (specification 48 RU-88).
+    "examples/rust_service/price-service",
 ]
 exclude = [
     "third_party/tiny_http",
@@ -205,3 +207,6 @@ opt-level = 3
 # tiny_http 0.12.0 with its TLS on rustls 0.23 (third_party/tiny_http/VENDORED.md).
 tiny_http = { path = "third_party/tiny_http" }
 tiverse-mmap = { path = "third_party/tiverse-mmap" }
+# The example rust_service names the SDK at the release's version, as a user's service does from crates.io
+# (specification 48 RU-62); in this workspace it is the workspace's own crate.
+trust-service = { path = "crates/trust-service" }

@@ -21,8 +21,9 @@ export async function until<T>(read: () => Promise<T>, holds: (value: T) => bool
 }
 
 /** Chooses the project's runtime in the side panel's Target picker and presses Connect. The HMI examples keep debugging
- * disabled, so Connect reaches the runtime without attaching (specification 25, 4.4). */
-export async function connectProjectRuntime(s: Session): Promise<{ picked: string; clicked: string; status: string[] }> {
+ * disabled, so Connect reaches the runtime without attaching and the status bar says so (specification 25, 4.4); a runtime
+ * that allows `debugging` attaches, and the status bar says it is connected. */
+export async function connectProjectRuntime(s: Session, debugging = false): Promise<{ picked: string; clicked: string; status: string[] }> {
   await vscode.commands.executeCommand("workbench.view.extension.trust");
   await cdp.sleep(1_000);
   const opened = await cdp.evalWebview(s.wb, s.home ?? "",
@@ -33,7 +34,8 @@ export async function connectProjectRuntime(s: Session): Promise<{ picked: strin
   expect(picked !== "NO_ITEM", `the picker offers ${PROJECT}`);
   await cdp.sleep(1_500);
   const clicked = await pressHome(s, "^Connect$");
-  const connected = (items: string[]) => items.some((item) => item.includes(`${PROJECT} · debugging disabled`));
+  const connected = (items: string[]) => items.some((item) =>
+    item.includes(debugging ? `${PROJECT} connected` : `${PROJECT} · debugging disabled`));
   const status = await until(() => cdp.statusBar(s.wb), connected, 20_000);
   expect(connected(status), `the status bar says Connect reached ${PROJECT}: ${JSON.stringify(status)}`);
   return { picked, clicked, status };
