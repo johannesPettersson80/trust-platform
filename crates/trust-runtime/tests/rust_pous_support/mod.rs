@@ -184,3 +184,22 @@ pub fn manifest(extra: &str) -> String {
         env!("CARGO_PKG_VERSION")
     )
 }
+
+/// Records each of `measured`, a Rust POU and its longest call in nanoseconds, as a current
+/// measurement on this computer in the project's `trust.toml`, as `trust-dev rust bench` writes one
+/// (specification 48 RU-48), so that a `production` build of the image admits it.
+pub fn measure_here(root: &Path, measured: &[(&str, u64)]) {
+    use trust_runtime::native::rust_pous::measured::{code, write, Measured};
+    let host = trust_runtime::native::triple(Target::this_cpu().expect("a computer target"));
+    let code = code(root, host).expect("the image's code");
+    let records: Vec<Measured> = measured
+        .iter()
+        .map(|(pou, longest_ns)| Measured {
+            pou: (*pou).to_string(),
+            longest_ns: *longest_ns,
+            code: code.clone(),
+            device: "computer".to_string(),
+        })
+        .collect();
+    write(root, host, &records).expect("the measurements are written");
+}

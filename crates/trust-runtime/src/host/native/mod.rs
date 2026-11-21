@@ -543,6 +543,8 @@ struct ProjectParts {
 /// The Rust crate a build compiles with the program, and the crate cargo links (specification 48
 /// §9).
 struct CrateBuild {
+    /// The project's folder, whose `trust.toml` holds the measured times (specification 48 RU-48).
+    root: std::path::PathBuf,
     project: cargo_build::ProjectCrate,
     krate: rust_pous::RustCrate,
     /// The Rust POUs' budgets for the build's target (RU-46) and whether the deployment's profile
@@ -619,6 +621,7 @@ fn crate_build(project: &Path, options: &Options) -> Result<Option<CrateBuild>, 
     let timing =
         rust_pous::timing(project, triple(options.target), &krate).map_err(NativeError::Compile)?;
     Ok(Some(CrateBuild {
+        root: project.to_path_buf(),
         project: cargo_build::ProjectCrate {
             folder: project.join(&krate.layout.crate_folder),
             label: krate.layout.crate_folder.replace('\\', "/"),
@@ -727,10 +730,11 @@ fn build_sources(
     } = parts;
     let (project, krate, timing) = match crate_build {
         Some(CrateBuild {
+            root,
             project,
             krate,
             timing,
-        }) => (Some(project), Some(krate), Some(timing)),
+        }) => (Some(project), Some(krate), Some((timing, root))),
         None => (None, None, None),
     };
     let front = front_of(sources, tests, conversions, krate.as_ref())?;
@@ -748,21 +752,39 @@ fn build_sources(
         project.as_ref(),
     )?;
     // The Rust work of each task against its interval (specification 48 RU-47): warnings, or errors
-    // in a `production` profile.
+    // in a `production` profile, whose image, one without test programs, which `trust-dev test` and
+    // `trust-dev rust bench` build, needs a current measurement of each Rust POU its tasks run and
+    // sums the larger of its budget and its measured time (RU-48).
     let warnings = match &timing {
-        Some(timing) => {
-            let findings = rust_budget::findings(&front, &model, &timing.budgets);
-            if timing.production && !findings.is_empty() {
-                return Err(NativeError::Compile(findings.join("\n")));
+        Some((timing, root)) => {
+            let (budgets, unmeasured) = if timing.production && tests.is_empty() {
+                let reached = rust_budget::reached(&front, &model, &timing.budgets);
+                rust_pous::measured::production_budgets(
+                    root,
+                    triple(options.target),
+                    Target::this_cpu() == Some(options.target),
+                    &reached,
+                    &timing.budgets,
+                )
+                .map_err(NativeError::Compile)?
+            } else {
+                (timing.budgets.clone(), None)
+            };
+            let findings = rust_budget::findings(&front, &model, &budgets);
+            // What refuses a production image is named at once: the measurements it lacks and the
+            // tasks its Rust work overruns.
+            let refused: Vec<String> = unmeasured.into_iter().chain(findings.clone()).collect();
+            if timing.production && !refused.is_empty() {
+                return Err(NativeError::Compile(refused.join("\n")));
             }
             findings
         }
-        None => Vec::new(),
+        _ => Vec::new(),
     };
     // A debug image's Rust POUs with their budgets for the build's target, in the order of the
     // Rust POU table, by which its generated code names their records (specification 44 §5.13).
     let rust_pous = match (&krate, &timing) {
-        (Some(krate), Some(timing)) if options.hooks => rust_pous::table(krate, timing)?,
+        (Some(krate), Some((timing, _))) if options.hooks => rust_pous::table(krate, timing)?,
         _ => Vec::new(),
     };
     let memory = init::starting_memory(&front.lowered, &mut model)?;

@@ -12,3 +12,11 @@
 - A `cycle.step` of a debug image with Rust POUs replies with `rust_pous`, each Rust POU's record as
   `tasks.stats` lists it, so that a bench on a board reads what its steps' calls took
   (specification 11 §6.8.1).
+
+### Changed
+
+- A build in a `production` profile (`trust.toml` `[timing] profile = "production"`) now needs a
+  current measurement of each Rust POU its tasks run, for the build's target: it names the POUs
+  without one and the command that measures them, `trust-dev rust bench`, and counts the larger of
+  each budget and its measured time in the tasks' Rust work. A change to the project's Structured
+  Text or Rust files makes the measurements older than the image (specification 48 RU-48).

@@ -17,7 +17,7 @@ use trust_syntax::syntax::{SyntaxKind as K, SyntaxNode};
 use super::classes::Owner;
 use super::front::Front;
 use super::lower::{is_expression, qualified};
-use super::model::{BlockTask, Model};
+use super::model::{BlockTask, Model, Task};
 use super::types::Kind;
 use crate::program_model::MethodDef;
 use crate::task::ProgramDef;
@@ -149,31 +149,7 @@ pub(super) fn findings(front: &Front, model: &Model<'_>, budgets: &Budgets) -> V
     };
     let mut findings = Vec::new();
     for task in &model.tasks {
-        // The task's programs, then the function block instances it runs on their own (IEC
-        // §6.8.2), each once a scan.
-        let mut work = Work::default();
-        for &instance in &task.programs {
-            let Some(program) = model
-                .instances
-                .get(instance)
-                .and_then(|instance| model.program_types.get(instance.program))
-            else {
-                continue;
-            };
-            let body = admission.pou(K::Program, &program.def.name);
-            work.add_runs(&body, Times::Count(1));
-        }
-        for &block in &task.blocks {
-            let Some(def) = model
-                .block_tasks
-                .get(block)
-                .and_then(|block| block_type(model, block))
-            else {
-                continue;
-            };
-            let body = admission.pou(K::FunctionBlock, &def);
-            work.add_runs(&body, Times::Count(1));
-        }
+        let work = admission.task(task);
         let task_name = if task.name.is_empty() {
             "the programs without a task".to_string()
         } else {
@@ -213,7 +189,60 @@ pub(super) fn findings(front: &Front, model: &Model<'_>, budgets: &Budgets) -> V
     findings
 }
 
+/// The Rust POUs and methods that the scans of the tasks of `model` can call, by their names in
+/// capitals, each once: those whose budgets RU-47's sum counts, of which a `production` build needs
+/// a current measurement (specification 48 RU-48).
+pub(super) fn reached(front: &Front, model: &Model<'_>, budgets: &Budgets) -> Vec<String> {
+    let mut admission = Admission {
+        front,
+        model,
+        budgets,
+        walked: HashMap::new(),
+        walking: Vec::new(),
+    };
+    let mut reached: Vec<String> = model
+        .tasks
+        .iter()
+        .flat_map(|task| admission.task(task).calls)
+        .filter(|(_, times)| *times != Times::Count(0))
+        .map(|(name, _)| name.to_ascii_uppercase())
+        .collect();
+    reached.sort();
+    reached.dedup();
+    reached
+}
+
 impl<'a> Admission<'_, 'a> {
+    /// The Rust work of one scan of `task`: its programs, then the function block instances it runs
+    /// on their own (IEC §6.8.2), each once a scan.
+    fn task(&mut self, task: &Task) -> Work {
+        let model = self.model;
+        let mut work = Work::default();
+        for &instance in &task.programs {
+            let Some(program) = model
+                .instances
+                .get(instance)
+                .and_then(|instance| model.program_types.get(instance.program))
+            else {
+                continue;
+            };
+            let body = self.pou(K::Program, &program.def.name);
+            work.add_runs(&body, Times::Count(1));
+        }
+        for &block in &task.blocks {
+            let Some(def) = model
+                .block_tasks
+                .get(block)
+                .and_then(|block| block_type(model, block))
+            else {
+                continue;
+            };
+            let body = self.pou(K::FunctionBlock, &def);
+            work.add_runs(&body, Times::Count(1));
+        }
+        work
+    }
+
     /// The work of one run of the program, function block or function named `name` (its name in
     /// the program model) of kind `kind`: a call of it for a Rust POU, else its statements' calls.
     fn pou(&mut self, kind: K, name: &str) -> Work {

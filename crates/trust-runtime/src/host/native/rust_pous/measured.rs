@@ -152,3 +152,117 @@ fn implicit() -> Table {
     table.set_implicit(true);
     table
 }
+
+/// A POU's measurement on one target, as `[timing.measured]` holds it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Recorded {
+    /// Its longest call in nanoseconds.
+    pub longest_ns: u64,
+    /// The code of the image it was measured on ([`code`]).
+    pub code: String,
+}
+
+/// `[timing.measured]` of the project's `trust.toml`: each POU's measurements, by its name in
+/// capitals and then by target; none without the file or the table.
+///
+/// # Errors
+///
+/// The text of a `trust.toml` that does not read or parse, and of an entry that is no
+/// measurement.
+pub fn read(
+    project: &Path,
+) -> Result<std::collections::HashMap<String, std::collections::HashMap<String, Recorded>>, String>
+{
+    let file = project.join("trust.toml");
+    let text = match std::fs::read_to_string(&file) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(std::collections::HashMap::new())
+        }
+        Err(error) => return Err(format!("trust.toml: {error}")),
+    };
+    let table: toml::Table =
+        toml::from_str(&text).map_err(|error| format!("trust.toml: {error}"))?;
+    let Some(measured) = table
+        .get("timing")
+        .and_then(|timing| timing.get("measured"))
+        .and_then(toml::Value::as_table)
+    else {
+        return Ok(std::collections::HashMap::new());
+    };
+    let mut all = std::collections::HashMap::new();
+    for (pou, targets) in measured {
+        let refused = |target: &str| {
+            format!(
+                "trust.toml: [timing.measured] {pou} {target} is no measurement: `{{ longest = <ns>, \
+                 code = \"...\", device = \"...\" }}`, as `trust-dev rust bench` writes it \
+                 (specification 48 RU-48)"
+            )
+        };
+        let targets = targets.as_table().ok_or_else(|| refused("(all targets)"))?;
+        let mut by_target = std::collections::HashMap::new();
+        for (target, record) in targets {
+            let longest_ns = record
+                .get("longest")
+                .and_then(toml::Value::as_integer)
+                .and_then(|longest| u64::try_from(longest).ok())
+                .ok_or_else(|| refused(target))?;
+            let code = record
+                .get("code")
+                .and_then(toml::Value::as_str)
+                .ok_or_else(|| refused(target))?
+                .to_string();
+            by_target.insert(target.clone(), Recorded { longest_ns, code });
+        }
+        all.insert(pou.to_ascii_uppercase(), by_target);
+    }
+    Ok(all)
+}
+
+/// The budgets that RU-47's sum takes in a `production` build of the image of the project in
+/// `project` for `triple` (specification 48 RU-48): for each Rust POU or method of `reached`, by
+/// its name in capitals, the larger of its budget in `budgets` and its measured time when it has a
+/// current measurement, one of the image's `code`; with them, the text that names each POU of
+/// `reached` without one and the command that measures it, which refuses the image, when there is
+/// one. `on_this_computer` says whether the target is this computer's, which `trust-dev rust bench`
+/// measures without `--device`.
+///
+/// # Errors
+///
+/// The errors of [`code`] and [`read`].
+pub(crate) fn production_budgets(
+    project: &Path,
+    triple: &str,
+    on_this_computer: bool,
+    reached: &[String],
+    budgets: &std::collections::HashMap<String, u64>,
+) -> Result<(std::collections::HashMap<String, u64>, Option<String>), String> {
+    let current = code(project, triple)?;
+    let measured = read(project)?;
+    let mut summed = budgets.clone();
+    let mut missing = Vec::new();
+    for pou in reached {
+        match measured.get(pou).and_then(|targets| targets.get(triple)) {
+            Some(recorded) if recorded.code == current => {
+                let budget = summed.entry(pou.clone()).or_insert(0);
+                *budget = (*budget).max(recorded.longest_ns);
+            }
+            Some(_) => missing.push(format!("{pou} (measured on an older image)")),
+            None => missing.push(pou.clone()),
+        }
+    }
+    if missing.is_empty() {
+        return Ok((summed, None));
+    }
+    let command = if on_this_computer {
+        "`trust-dev rust bench`".to_string()
+    } else {
+        format!("`trust-dev rust bench --device <port> --target {triple}` on the device")
+    };
+    let unmeasured = format!(
+        "a production build needs a current measurement for {triple} of each Rust POU its tasks \
+         run (specification 48 RU-48): {}; measure them with {command}",
+        missing.join(", ")
+    );
+    Ok((summed, Some(unmeasured)))
+}
