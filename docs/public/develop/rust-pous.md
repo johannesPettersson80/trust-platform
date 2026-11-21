@@ -212,6 +212,47 @@ in every scan does not fill the event list. `trust-runtime ctl events` shows the
 calls over the budget since the program started (`rust_pous` in the `tasks.stats` reply). A release image (`[build] debug = false`) times
 nothing.
 
+### Measure a Rust POU
+
+`trust-dev rust bench` measures how long each Rust function, function block, method and program takes
+on this computer, and writes the longest call of each into `trust.toml`:
+
+```bash
+trust-dev rust bench --project .
+```
+
+The bench builds the program with a test program for each case, and calls each case once a scan for
+1,000 scans (`--scans` sets another count) on one instance, so that a function block keeps its state
+from one call to the next as it does on the PLC. A Rust program runs on its instances, those your
+configuration declares, its case's inputs written into each before every scan. A case gives the
+inputs that make the POU work hardest; inputs it does not name keep their declared initial values,
+and a POU without a case is measured at its initial values:
+
+```rust
+#[trust_fb(name = "FILTER_EMA")]
+#[budget("15us")]
+#[bench_case(x = 1.0e6, alpha = 0.001)]
+#[bench_case(x = -1.0e6)]
+pub struct FilterEma {
+    // ...
+}
+```
+
+The values are written as `#[init(...)]` writes them. The attribute is `bench_case`, not `bench`:
+`bench` is Rust's own benchmark attribute.
+
+Each measured POU gets an entry for the computer's target in `[timing.measured]`: its longest call
+in nanoseconds, `code`, the hash of the files the program is built from, and `device`:
+
+```toml
+[timing.measured]
+"FILTER_EMA" = { "x86_64-unknown-linux-gnu" = { longest = 4180, code = "…", device = "computer" } }
+```
+
+The command names each POU whose longest call is over its budget, and each case that faulted,
+which measures nothing for its POU. A change to any Structured Text or Rust file of the project gives
+the program a new `code`, so measure again after it.
+
 ## Sequences
 
 Sequential logic, which Structured Text writes as an SFC or a `CASE` machine, can be written in Rust
