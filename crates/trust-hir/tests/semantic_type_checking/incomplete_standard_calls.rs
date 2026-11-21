@@ -5,17 +5,19 @@
 
 use crate::common::*;
 
-/// The errors of `statement` in a program with a variable of each type the calls take.
+/// The errors of `statement` in a program with a variable of each type the calls take. The program
+/// must parse, as the database's diagnostics leave out the parser's: a call that does not parse
+/// would otherwise pass as one without errors.
 fn errors(statement: &str) -> Vec<String> {
+    let source = format!(
+        "PROGRAM Main\nVAR a : INT; b : INT; r : REAL; w : WORD; t : TIME; ok : BOOL; \
+         s : STRING; d : DATE; tod1 : TOD; dt1 : DT; END_VAR\n{statement}\nEND_PROGRAM"
+    );
+    let parse = trust_syntax::parser::parse(&source);
+    assert!(parse.ok(), "{statement} parses: {:?}", parse.errors());
     let mut db = Database::new();
     let file = FileId(0);
-    db.set_source_text(
-        file,
-        format!(
-            "PROGRAM Main\nVAR a : INT; b : INT; r : REAL; w : WORD; t : TIME; ok : BOOL; \
-             s : STRING; END_VAR\n{statement}\nEND_PROGRAM"
-        ),
-    );
+    db.set_source_text(file, source);
     db.diagnostics(file)
         .iter()
         .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
@@ -163,5 +165,29 @@ fn a_formal_string_call_without_the_text_that_types_it_is_refused() {
             [untyped(function, inputs)],
             "{statement}"
         );
+    }
+}
+
+#[test]
+fn a_formal_date_and_time_call_may_omit_any_input_and_any_output() {
+    // Specification 07 §1: each input of a date and time function has its own type, so an omitted
+    // one is its default value and nothing is refused; an omitted output of SPLIT_* is not written.
+    // Catches the refusals "expected 2 arguments, found 1" and, for SPLIT_DATE(IN := d, YEAR => a),
+    // "expected 4 arguments, found 2", which made a caller name every output it did not want
+    // (checklist G227).
+    for statement in [
+        "t := ADD_TIME(IN1 := t);",
+        "t := SUB_TIME(IN2 := t);",
+        "tod1 := ADD_TOD_TIME(IN2 := t);",
+        "t := SUB_DATE_DATE(IN1 := d);",
+        "t := MUL_TIME(IN1 := t);",
+        "t := DIV_TIME(IN2 := 2);",
+        "d := CONCAT_DATE(YEAR := 2024, MONTH := 5);",
+        "tod1 := CONCAT_TOD(HOUR := 12);",
+        "dt1 := CONCAT_DT(YEAR := 2024, MONTH := 5, DAY := 1);",
+        "SPLIT_DATE(IN := d, YEAR => a);",
+        "SPLIT_TOD(HOUR => a);",
+    ] {
+        assert_eq!(errors(statement), Vec::<String>::new(), "{statement}");
     }
 }

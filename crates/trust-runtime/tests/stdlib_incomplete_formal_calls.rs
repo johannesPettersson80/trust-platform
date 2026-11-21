@@ -166,3 +166,73 @@ fn an_incomplete_formal_string_call_runs_with_empty_texts_and_zero_counts() {
         assert_eq!(harness.get_output(name), Some(expected), "{name}");
     }
 }
+
+/// A call of date and time functions with inputs and outputs omitted; each temporal result is
+/// compared with its literal, and `SPLIT_*` writes integers whose starting values show what it
+/// wrote.
+const INCOMPLETE_DATE_CALLS: &str = r#"
+PROGRAM Main
+VAR
+    timeSumOk : BOOL;
+    timeNegatedOk : BOOL;
+    afterMidnightOk : BOOL;
+    sinceEpochOk : BOOL;
+    scaledNoneOk : BOOL;
+    noonOk : BOOL;
+    mayDayOk : BOOL;
+    sixLongOk : BOOL;
+    year : INT := 99;
+    month : INT := 9;
+    day : INT := 9;
+    hour : INT := 7;
+END_VAR
+timeSumOk := ADD_TIME(IN1 := T#1500ms) = T#1500ms;
+timeNegatedOk := SUB_TIME(IN2 := T#1s) = T#-1s;
+afterMidnightOk := ADD_TOD_TIME(IN2 := T#1h) = TOD#01:00:00;
+sinceEpochOk := SUB_DATE_DATE(IN1 := D#1970-01-02) = T#24h;
+scaledNoneOk := MUL_TIME(IN1 := T#2s) = T#0s;
+noonOk := CONCAT_TOD(HOUR := 12) = TOD#12:00:00;
+mayDayOk := CONCAT_DT(YEAR := 2024, MONTH := 5, DAY := 1) = DT#2024-05-01-00:00:00;
+sixLongOk := CONCAT_LTOD(HOUR := 6) = LTOD#06:00:00;
+SPLIT_DATE(IN := D#2024-05-17, MONTH => month);
+SPLIT_TOD(HOUR => hour);
+END_PROGRAM
+"#;
+
+// Worked by hand, each omitted input at its default value (specification 07 §1):
+// - ADD_TIME(T#1500ms, T#0s) is T#1500ms, and SUB_TIME(T#0s, T#1s) is T#-1s;
+// - ADD_TOD_TIME(TOD#00:00:00, T#1h) is one in the morning, and
+//   SUB_DATE_DATE(D#1970-01-02, D#1970-01-01) one day, T#24h;
+// - MUL_TIME(T#2s, 0) is T#0s;
+// - CONCAT_TOD(12, 0, 0, 0) is noon, CONCAT_LTOD(6, 0, 0, 0) six in the morning as a long time of
+//   day, and CONCAT_DT(2024, 5, 1, 0, 0, 0, 0) the first of May at midnight;
+// - SPLIT_DATE of 17 May 2024 writes only its month, 5, and leaves the year and the day it does not
+//   name at 99 and 9; SPLIT_TOD of midnight writes the hour 0 over 7.
+// Catches a build that refused each ("ADD_TIME without its IN2"), an omitted date that is no epoch
+// or an omitted time of day that is no midnight, and a SPLIT that wrote an output the call left
+// out.
+#[test]
+fn an_incomplete_formal_date_call_runs_with_defaults_and_writes_only_its_outputs() {
+    let mut harness = TestHarness::from_source(INCOMPLETE_DATE_CALLS).expect("the program builds");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    for name in [
+        "timeSumOk",
+        "timeNegatedOk",
+        "afterMidnightOk",
+        "sinceEpochOk",
+        "scaledNoneOk",
+        "noonOk",
+        "mayDayOk",
+        "sixLongOk",
+    ] {
+        assert_eq!(harness.get_output(name), Some(Value::Bool(true)), "{name}");
+    }
+    for (name, expected) in [("year", 99), ("month", 5), ("day", 9), ("hour", 0)] {
+        assert_eq!(
+            harness.get_output(name),
+            Some(Value::Int(expected)),
+            "{name}"
+        );
+    }
+}

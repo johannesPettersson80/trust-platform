@@ -1068,10 +1068,21 @@ omits the other input, whose type depends on the overload the time picks (IEC Ta
 omitted input of an enumerated or a subrange type, which declares its own default value, is not
 compiled (specification 44 NX-09).
 
+The inputs of the date and time functions (§9) have their own types, so an omitted one is the
+default value of its type: `T#0s` and `LTIME#0s`, the 1970-01-01 epoch of `DATE`, `DT` and `LDT`,
+midnight of `TOD` and `LTOD`, and 0 for a component or a factor. A component 0 is valid in a time
+of day, so `CONCAT_TOD(HOUR := 12)` is `TOD#12:00:00`; a month or a day 0 is no date, so
+`CONCAT_DATE`, `CONCAT_DT` and `CONCAT_LDT` raise `RuntimeError::Overflow` (§9) when a formal call
+omits either, as they do for an explicit 0, and `DIV_TIME` and `DIV_LTIME` raise
+`RuntimeError::DivisionByZero` when it omits the divisor. An output that a formal call of
+`SPLIT_DATE`, `SPLIT_TOD`, `SPLIT_LTOD`, `SPLIT_DT` or `SPLIT_LDT` omits is not written.
+`CONCAT_DATE_TOD` and `CONCAT_DATE_LTOD` name their inputs `DATE`, `TOD` and `LTOD` (IEC Table
+37), keywords that a formal call in Structured Text cannot name, so they take a non-formal call.
+
 The functions of fixed inputs whose formal call may be incomplete are `ATAN2`, `SUB`, `DIV`,
-`MOD`, `EXPT`, `SHL`, `SHR`, `ROL`, `ROR`, `NE`, `SEL`, `LIMIT` and the string functions `LEFT`,
-`RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE` and `FIND`; the date and time functions (§9) take
-every input. An extensible function (`ADD`, `MUX`, ...)
+`MOD`, `EXPT`, `SHL`, `SHR`, `ROL`, `ROR`, `NE`, `SEL`, `LIMIT`, the string functions `LEFT`,
+`RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE` and `FIND`, and the date and time functions of more
+than one input; a function of one input takes it. An extensible function (`ADD`, `MUX`, ...)
 numbers its inputs by their places, so a formal call names `IN1` to `INn` without a gap
 (`docs/IEC_DECISIONS.md`, 2026-11-21).
 

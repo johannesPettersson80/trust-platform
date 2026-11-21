@@ -73,40 +73,32 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
 
         let params = builtin_in_params("IN", 1, 2);
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
-        let Some((arg1, ty1)) = call.arg(0) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        };
-        let Some((arg2, ty2)) = call.arg(1) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        };
-        if ty1 == TypeId::UNKNOWN || ty2 == TypeId::UNKNOWN {
+        // Each input has its own type, so one that a formal call omits is its default value.
+        let inputs = [call.arg(0), call.arg(1)];
+        if inputs
+            .iter()
+            .flatten()
+            .any(|(_, ty)| *ty == TypeId::UNKNOWN)
+        {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::CannotResolve, node.text_range());
         }
-        if !self.checker.is_assignable(lhs, ty1) {
-            return self.checker.legacy_diagnostic_type(
-                DiagnosticCode::InvalidArgumentType,
-                arg1.range,
-                format!("expected '{}'", self.checker.type_name(lhs)),
-            );
-        }
-        if !self.checker.is_assignable(rhs, ty2) {
-            return self.checker.legacy_diagnostic_type(
-                DiagnosticCode::InvalidArgumentType,
-                arg2.range,
-                format!("expected '{}'", self.checker.type_name(rhs)),
-            );
+        for (input, expected) in inputs.into_iter().zip([lhs, rhs]) {
+            if let Some((arg, ty)) = input
+                && !self.checker.is_assignable(expected, ty)
+            {
+                return self.checker.legacy_diagnostic_type(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    format!("expected '{}'", self.checker.type_name(expected)),
+                );
+            }
         }
         result
     }
@@ -128,35 +120,34 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
 
         let params = builtin_in_params("IN", 1, 2);
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, 2);
-        if call.arg_count() != 2 {
+        if !call.gives_inputs(2) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
-        let Some((arg1, ty1)) = call.arg(0) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        };
-        let Some((arg2, ty2)) = call.arg(1) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        };
-        if ty1 == TypeId::UNKNOWN || ty2 == TypeId::UNKNOWN {
+        // A duration or a factor that a formal call omits is 0.
+        let (duration, factor) = (call.arg(0), call.arg(1));
+        if [&duration, &factor]
+            .into_iter()
+            .flatten()
+            .any(|(_, ty)| *ty == TypeId::UNKNOWN)
+        {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::CannotResolve, node.text_range());
         }
-        if !self.checker.is_assignable(time_type, ty1) {
+        if let Some((arg1, ty1)) = duration
+            && !self.checker.is_assignable(time_type, ty1)
+        {
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::InvalidArgumentType,
                 arg1.range,
                 format!("expected '{}'", self.checker.type_name(time_type)),
             );
         }
-        if !self.is_numeric_type(ty2) {
+        if let Some((arg2, ty2)) = factor
+            && !self.is_numeric_type(ty2)
+        {
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::InvalidArgumentType,
                 arg2.range,
@@ -277,17 +268,15 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         };
 
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, expected_types.len());
-        if call.arg_count() != expected_types.len() {
+        if !call.gives_inputs(expected_types.len()) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
+        // A component that a formal call omits is 0, a date or a time of day its default value.
         for (index, expected) in expected_types.iter().enumerate() {
             let Some((arg, ty)) = call.arg(index) else {
-                return self
-                    .checker
-                    .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
+                continue;
             };
             if ty == TypeId::UNKNOWN {
                 return self
@@ -387,28 +376,26 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         };
 
         let call = self.builtin_call(node, params);
-        call.check_formal_arg_count(self, node, outputs + 1);
-        if call.arg_count() != outputs + 1 {
+        if !call.gives_inputs(outputs + 1) {
             return self
                 .checker
                 .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
         }
-        let Some((arg_in, ty_in)) = call.arg(0) else {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::WrongArgumentCount, node.text_range());
-        };
-        if ty_in == TypeId::UNKNOWN {
-            return self
-                .checker
-                .legacy_suppressed_type(DiagnosticCode::CannotResolve, arg_in.range);
-        }
-        if !self.checker.is_assignable(input_type, ty_in) {
-            return self.checker.legacy_diagnostic_type(
-                DiagnosticCode::InvalidArgumentType,
-                arg_in.range,
-                format!("expected '{}'", self.checker.type_name(input_type)),
-            );
+        // An input that a formal call omits is its type's default value, and an output it omits is
+        // not written.
+        if let Some((arg_in, ty_in)) = call.arg(0) {
+            if ty_in == TypeId::UNKNOWN {
+                return self
+                    .checker
+                    .legacy_suppressed_type(DiagnosticCode::CannotResolve, arg_in.range);
+            }
+            if !self.checker.is_assignable(input_type, ty_in) {
+                return self.checker.legacy_diagnostic_type(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg_in.range,
+                    format!("expected '{}'", self.checker.type_name(input_type)),
+                );
+            }
         }
         for (arg, ty) in call.args_from(1) {
             if ty == TypeId::UNKNOWN {
