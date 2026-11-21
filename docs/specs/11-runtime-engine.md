@@ -6102,7 +6102,11 @@ module by the toolchain's `cargo check`, offline, in the build's work folder
 (`build/native/<triple>/`), where cargo keeps what it checked as the build keeps
 what it compiled. The crate's errors and warnings are issues as the build
 reports them (section 6.8.1d; specification 48 RU-44), and a warning leaves the
-check passed. Without the toolchain, or with one that has no cargo and SDK
+check passed. A project whose `trust.toml` gives its services `writes` (specification 48 RU-63) has
+each path checked as the build checks it: the check writes the program's areas, variables and types
+as the image's tables, without a module and without the toolchain, and resolves each path against
+them, so that a path no write may reach fails the check with the build's words (specification 44
+§5.14) instead of the project's start. Without the toolchain, or with one that has no cargo and SDK
 sources, a project with a crate fails the check with one issue that says so,
 with the code `toolchain`, as it fails the build (checklist G208, 18 November
 2026: before, the check generated the program without the crate and refused

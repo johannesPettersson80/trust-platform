@@ -374,7 +374,8 @@ writes = ["Recipe.target", "Recipe.speed"]
 
 The build checks each path against the program and refuses one that names no variable, a
 constant, an instance, a structure or an array, or a variable that a second service also lists, so
-that each variable has one service that writes it. The list goes into the signed program image, so
+that each variable has one service that writes it. **Compile** (`trust-runtime check`) checks the
+paths the same way, so a wrong path shows before you start the project. The list goes into the signed program image, so
 a board holds the service to it as a computer does. The service writes with the control request
 `variables.write`, which needs a service token with the Engineer role (`--role engineer`, below).
 The next cycle's start writes the whole set together, as the program's input and never as a force,
