@@ -55,6 +55,17 @@
     ]
   },
   {
+    "id": "rust-signal",
+    "title": "Rust signal filter and CRC",
+    "description": "Rust function blocks drop a level sensor's spikes with a median filter and check Modbus frames' CRC before the program trusts them. Simulates with no hardware.",
+    "path": "rust_signal",
+    "hardware": "none",
+    "tags": [
+      "rust",
+      "simulator"
+    ]
+  },
+  {
     "id": "rust-service",
     "title": "Rust service",
     "description": "A Rust service beside the runtime writes a heater's setpoint from the electricity price; the program falls back to a safe setpoint when the service stops.",

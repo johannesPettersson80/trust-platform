@@ -533,6 +533,11 @@ folder, so it runs after such a session, as in the list's order:
   at `%IW0` and no verdict, and a Write of each label's number giving its
   verdict: 1 accepted, 2 expired, 3 unreadable with no problem from the reader,
   4 another product;
+- `rust-signal`: the walkthrough of `rust_signal` on the unmodified example:
+  Start, the median staying between 49.9 and 50.2 while the average jumps near
+  56 at the sensor's spike and near 44 at its dip, then a Write of the frame
+  that comes in: 1 trusted with the register value 42, 2 refused and counted
+  with the register kept, and 1 trusted again;
 - `rust-service`: the walkthrough of `rust_service`, its runtime started in the
   same way on the example's own TCP endpoint and token, without a web server:
   the service's token created with `trust-runtime ctl service-token`, Connect

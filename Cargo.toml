@@ -42,6 +42,8 @@ members = [
     "examples/rust_service/price-service",
     # The crate of the example rust_barcode, so that CI runs its tests (specification 48 RU-56).
     "examples/rust_barcode/rust",
+    # The crate of the example rust_signal, so that CI runs its tests (specification 48 RU-56).
+    "examples/rust_signal/rust",
 ]
 exclude = [
     "third_party/tiny_http",
